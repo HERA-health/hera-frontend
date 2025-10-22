@@ -84,6 +84,7 @@ export interface Feature {
 export type RootStackParamList = {
   Welcome: undefined;
   Login: { userType: 'client' | 'professional' };
+  Register: { userType: 'client' | 'professional' };
   MainStack: undefined;
   Home: undefined;
   Specialists: undefined;
@@ -93,6 +94,10 @@ export type RootStackParamList = {
   SpecialistDetail?: { specialistId: string };
   Questionnaire: undefined;
   QuestionnaireResults: { results: any[] };
+  ProfessionalHome: undefined;
+  ProfessionalClients: undefined;
+  ProfessionalSessions: undefined;
+  ProfessionalProfile: undefined;
 };
 
 export type MainTabParamList = {
