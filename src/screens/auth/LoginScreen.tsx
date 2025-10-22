@@ -12,12 +12,11 @@ const { width: screenWidth } = Dimensions.get('window');
 export function LoginScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { login } = useAuth();
+  const { login, loading: authLoading, error, clearError } = useAuth();
 
   const userType = route.params?.userType || 'client';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -25,14 +24,16 @@ export function LoginScreen() {
       return;
     }
 
-    setLoading(true);
+    // Clear any previous errors
+    clearError();
+
     try {
-      await login(email, password, userType);
-      // Navigation handled by App.tsx based on auth state
-    } catch (error) {
-      Alert.alert('Error', 'Credenciales inválidas');
-    } finally {
-      setLoading(false);
+      await login(email, password);
+      // Navigation handled by RootNavigator based on auth state
+    } catch (error: any) {
+      // Show user-friendly error message
+      const errorMessage = error.message || 'Error al iniciar sesión. Intenta de nuevo';
+      Alert.alert('Error de autenticación', errorMessage);
     }
   };
 
@@ -80,7 +81,7 @@ export function LoginScreen() {
             variant="primary"
             size="large"
             onPress={handleLogin}
-            loading={loading}
+            loading={authLoading}
           >
             Iniciar Sesión
           </Button>
@@ -92,15 +93,15 @@ export function LoginScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>¿No tienes cuenta?</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Register', { userType })}>
             <Text style={styles.registerLink}>Regístrate aquí</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Mock credentials hint */}
+        {/* Test account hint */}
         <View style={styles.mockHint}>
           <Text style={styles.mockHintText}>
-            💡 Demo: Cualquier email/contraseña funciona
+            💡 Cuenta de prueba: maria.garcia@example.com / password123
           </Text>
         </View>
       </View>

@@ -9,6 +9,9 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Vercel
+.vercel
+
 # Native
 .kotlin/
 *.orig.*
@@ -30,8 +33,12 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# Environment variables (CRITICAL - NEVER COMMIT)
+.env
+.env.local
 .env*.local
+.env.production
+.env.development
 
 # typescript
 *.tsbuildinfo

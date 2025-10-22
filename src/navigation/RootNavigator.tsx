@@ -4,9 +4,13 @@ import { RootStackParamList } from '../constants/types';
 import { MainLayout } from '../components/navigation/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 
+// Loading screen
+import LoadingScreen from '../screens/LoadingScreen';
+
 // Auth screens
 import { WelcomeScreen } from '../screens/auth/WelcomeScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
+import { RegisterScreen } from '../screens/auth/RegisterScreen';
 
 // Main screens
 import HomeScreen from '../screens/home/HomeScreen';
@@ -28,7 +32,12 @@ import { ProfessionalProfileEditorScreen } from '../screens/professional/Profess
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isInitialized, user } = useAuth();
+
+  // Show loading screen while checking authentication
+  if (!isInitialized) {
+    return <LoadingScreen />;
+  }
 
   if (!isAuthenticated) {
     // Show auth flow
@@ -36,6 +45,7 @@ export function RootNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Register" component={RegisterScreen} />
       </Stack.Navigator>
     );
   }
