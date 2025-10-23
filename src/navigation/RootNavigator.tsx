@@ -51,7 +51,7 @@ export function RootNavigator() {
   }
 
   // Show main app based on user type
-  const isProfessional = user?.type === 'professional';
+  const isProfessional = user?.type === 'professional' || user?.userType === 'PROFESSIONAL';
 
   // Professional experience
   if (isProfessional) {

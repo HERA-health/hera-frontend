@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Dimensions, ActivityIndicator } from 'react-native';
 import { colors, spacing } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
-import { mockClients } from '../../utils/mockProfessionalData';
+import * as professionalService from '../../services/professionalService';
 import { Client } from '../../constants/types';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -10,9 +10,46 @@ const { width: screenWidth } = Dimensions.get('window');
 export function ProfessionalClientsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'inactive' | 'pending'>('all');
+  const [loading, setLoading] = useState(true);
+  const [clients, setClients] = useState([]);
+
+  useEffect(() => {
+    loadClients();
+  }, []);
+
+  const loadClients = async () => {
+    try {
+      const data = await professionalService.getProfessionalClients();
+      // Map API data to match existing UI expectations
+      const mappedClients = data.map(c => ({
+        id: c.id,
+        name: c.user?.name || 'Cliente',
+        email: c.user?.email || '',
+        phone: '',
+        initial: (c.user?.name || 'C')[0].toUpperCase(),
+        status: 'active' as const,
+        lastSession: c.sessions?.[0]?.scheduledDate ? new Date(c.sessions[0].scheduledDate) : undefined,
+        totalSessions: c.sessions?.length || 0,
+        nextSession: undefined
+      }));
+      setClients(mappedClients);
+    } catch (error) {
+      console.error('Error loading clients:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary.main} />
+      </View>
+    );
+  }
 
   // Filter clients based on search and status
-  const filteredClients = mockClients.filter(client => {
+  const filteredClients = clients.filter(client => {
     const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          client.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = selectedStatus === 'all' || client.status === selectedStatus;
@@ -20,10 +57,10 @@ export function ProfessionalClientsScreen() {
   });
 
   const statusFilters = [
-    { id: 'all', label: 'Todos', count: mockClients.length },
-    { id: 'active', label: 'Activos', count: mockClients.filter(c => c.status === 'active').length },
-    { id: 'inactive', label: 'Inactivos', count: mockClients.filter(c => c.status === 'inactive').length },
-    { id: 'pending', label: 'Pendientes', count: mockClients.filter(c => c.status === 'pending').length },
+    { id: 'all', label: 'Todos', count: clients.length },
+    { id: 'active', label: 'Activos', count: clients.filter(c => c.status === 'active').length },
+    { id: 'inactive', label: 'Inactivos', count: clients.filter(c => c.status === 'inactive').length },
+    { id: 'pending', label: 'Pendientes', count: clients.filter(c => c.status === 'pending').length },
   ];
 
   const getStatusColor = (status: Client['status']) => {

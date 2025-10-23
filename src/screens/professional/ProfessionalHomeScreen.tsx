@@ -1,24 +1,75 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
 import { colors, spacing } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { mockProfessionalStats, mockProfessionalSessions } from '../../utils/mockProfessionalData';
+import * as professionalService from '../../services/professionalService';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 export function ProfessionalHomeScreen() {
   const { user } = useAuth();
   const navigation = useNavigation<any>();
-  const stats = mockProfessionalStats;
+
+  const [loading, setLoading] = useState(true);
+  const [sessions, setSessions] = useState([]);
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [sessionsData, profileData] = await Promise.all([
+        professionalService.getProfessionalSessions(),
+        professionalService.getProfessionalProfile()
+      ]);
+      setSessions(sessionsData);
+      setProfile(profileData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary.main} />
+      </View>
+    );
+  }
+
+  // Calculate stats from real data
+  const stats = {
+    totalClients: profile?.sessionsCount || 0,
+    sessionsThisWeek: sessions.filter(s => {
+      const date = new Date(s.scheduledDate);
+      const now = new Date();
+      const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      return date >= now && date <= weekLater;
+    }).length,
+    averageRating: profile?.rating || 0,
+    pendingAppointments: sessions.filter(s => s.status === 'PENDING').length,
+  };
 
   // Get next 3 upcoming sessions
-  const upcomingSessions = mockProfessionalSessions
-    .filter(s => s.status === 'scheduled' && s.date > new Date())
-    .sort((a, b) => a.date.getTime() - b.date.getTime())
-    .slice(0, 3);
+  const upcomingSessions = sessions
+    .filter(s => s.status === 'SCHEDULED' && new Date(s.scheduledDate) > new Date())
+    .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
+    .slice(0, 3)
+    .map(s => ({
+      id: s.id,
+      date: new Date(s.scheduledDate),
+      clientName: s.client?.user?.name || 'Cliente',
+      clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
+      duration: 60,
+      status: s.status.toLowerCase()
+    }));
 
   const statsCards = [
     {

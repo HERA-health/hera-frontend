@@ -13,7 +13,7 @@ export function CustomDrawerContent({ currentRoute = 'Home' }: CustomDrawerConte
   const navigation = useNavigation<any>();
   const { user, logout } = useAuth();
 
-  const isProfessional = user?.type === 'professional';
+  const isProfessional = user?.type === 'professional' || user?.userType === 'PROFESSIONAL';
 
   // Different menu items based on user type
   const menuItems = isProfessional
@@ -108,7 +108,7 @@ export function CustomDrawerContent({ currentRoute = 'Home' }: CustomDrawerConte
         <View style={styles.userInfo}>
           <Text style={styles.userName}>{user?.name || 'Usuario'}</Text>
           <Text style={styles.userSubtitle}>
-            {user?.type === 'professional' ? 'Profesional' : 'Cuidando tu bienestar'}
+            {isProfessional ? 'Profesional' : 'Cuidando tu bienestar'}
           </Text>
         </View>
         <TouchableOpacity onPress={logout} style={styles.logoutButton}>

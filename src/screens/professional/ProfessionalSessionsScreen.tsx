@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
 import { colors, spacing } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
-import { mockProfessionalSessions } from '../../utils/mockProfessionalData';
+import * as professionalService from '../../services/professionalService';
 import { ProfessionalSession, ProfessionalSessionTab } from '../../constants/types';
 import { CalendarView } from '../../components/professional/CalendarView';
 
@@ -13,6 +13,8 @@ type ViewMode = 'list' | 'calendar';
 export function ProfessionalSessionsScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [activeTab, setActiveTab] = useState<ProfessionalSessionTab>('upcoming');
+  const [loading, setLoading] = useState(true);
+  const [sessions, setSessions] = useState([]);
 
   const tabs: { id: ProfessionalSessionTab; label: string; icon: string }[] = [
     { id: 'upcoming', label: 'Próximas', icon: 'calendar' },
@@ -20,8 +22,41 @@ export function ProfessionalSessionsScreen() {
     { id: 'pending', label: 'Pendientes', icon: 'hourglass' },
   ];
 
+  useEffect(() => {
+    loadSessions();
+  }, []);
+
+  const loadSessions = async () => {
+    try {
+      const data = await professionalService.getProfessionalSessions();
+      // Map API data to match existing UI expectations
+      const mappedSessions = data.map(s => ({
+        id: s.id,
+        date: new Date(s.scheduledDate),
+        clientName: s.client?.user?.name || 'Cliente',
+        clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
+        duration: 60,
+        type: 'video' as const,
+        status: s.status === 'SCHEDULED' ? 'scheduled' : s.status === 'COMPLETED' ? 'completed' : 'pending'
+      }));
+      setSessions(mappedSessions);
+    } catch (error) {
+      console.error('Error loading sessions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary.main} />
+      </View>
+    );
+  }
+
   // Filter sessions based on active tab
-  const filteredSessions = mockProfessionalSessions.filter(session => {
+  const filteredSessions = sessions.filter(session => {
     if (activeTab === 'upcoming') {
       return session.status === 'scheduled' && session.date > new Date();
     } else if (activeTab === 'history') {
@@ -131,7 +166,7 @@ export function ProfessionalSessionsScreen() {
         <View style={styles.tabsContainer}>
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
-          const count = mockProfessionalSessions.filter(s => {
+          const count = sessions.filter(s => {
             if (tab.id === 'upcoming') return s.status === 'scheduled' && s.date > new Date();
             if (tab.id === 'history') return s.status === 'completed';
             if (tab.id === 'pending') return s.status === 'pending';
