@@ -15,12 +15,42 @@ export function CalendarView({ sessions }: CalendarViewProps) {
   const today = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState<string>(today);
 
+  // Debug logging
+  console.log('[CalendarView] Rendering with', sessions?.length || 0, 'sessions');
+
   // Create marked dates object for the calendar
   const markedDates = useMemo(() => {
     const marked: any = {};
 
+    // Safety check for sessions array
+    if (!sessions || !Array.isArray(sessions)) {
+      return {
+        [selectedDate]: {
+          selected: true,
+          selectedColor: colors.primary[100],
+          dots: [],
+        },
+      };
+    }
+
     sessions.forEach((session) => {
-      const dateStr = session.date.toISOString().split('T')[0];
+      // Skip if no date
+      if (!session.date) return;
+
+      let dateStr: string;
+
+      // If already in YYYY-MM-DD format, use as is
+      if (typeof session.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(session.date)) {
+        dateStr = session.date;
+      } else {
+        // Try to parse and convert
+        const dateObj = session.date instanceof Date ? session.date : new Date(session.date);
+        if (isNaN(dateObj.getTime())) {
+          console.warn('[CalendarView] Invalid date for session:', session.id, session.date);
+          return; // Skip invalid dates
+        }
+        dateStr = dateObj.toISOString().split('T')[0];
+      }
 
       if (!marked[dateStr]) {
         marked[dateStr] = {
@@ -59,16 +89,42 @@ export function CalendarView({ sessions }: CalendarViewProps) {
 
   // Get sessions for selected date
   const sessionsForSelectedDate = useMemo(() => {
+    if (!sessions || !Array.isArray(sessions)) {
+      return [];
+    }
     return sessions
       .filter((session) => {
-        const sessionDateStr = session.date.toISOString().split('T')[0];
+        if (!session.date) return false;
+
+        let sessionDateStr: string;
+
+        // If already in YYYY-MM-DD format, use as is
+        if (typeof session.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(session.date)) {
+          sessionDateStr = session.date;
+        } else {
+          // Try to parse and convert
+          const dateObj = session.date instanceof Date ? session.date : new Date(session.date);
+          if (isNaN(dateObj.getTime())) {
+            return false; // Skip invalid dates
+          }
+          sessionDateStr = dateObj.toISOString().split('T')[0];
+        }
+
         return sessionDateStr === selectedDate;
       })
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
+      .sort((a, b) => {
+        const dateA = a.date instanceof Date ? a.date : new Date(a.date);
+        const dateB = b.date instanceof Date ? b.date : new Date(b.date);
+        return dateA.getTime() - dateB.getTime();
+      });
   }, [sessions, selectedDate]);
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const formatTime = (date: Date | string) => {
+    const dateObj = date instanceof Date ? date : new Date(date);
+    if (isNaN(dateObj.getTime())) {
+      return '--:--';
+    }
+    return dateObj.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   };
 
   const formatSelectedDate = (dateStr: string) => {

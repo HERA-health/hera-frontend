@@ -14,7 +14,7 @@ export function ProfessionalSessionsScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [activeTab, setActiveTab] = useState<ProfessionalSessionTab>('upcoming');
   const [loading, setLoading] = useState(true);
-  const [sessions, setSessions] = useState([]);
+  const [sessions, setSessions] = useState<ProfessionalSession[]>([]);
 
   const tabs: { id: ProfessionalSessionTab; label: string; icon: string }[] = [
     { id: 'upcoming', label: 'Próximas', icon: 'calendar' },
@@ -30,8 +30,9 @@ export function ProfessionalSessionsScreen() {
     try {
       const data = await professionalService.getProfessionalSessions();
       // Map API data to match existing UI expectations
-      const mappedSessions = data.map(s => ({
+      const mappedSessions: ProfessionalSession[] = data.map(s => ({
         id: s.id,
+        clientId: s.clientId,
         date: new Date(s.scheduledDate),
         clientName: s.client?.user?.name || 'Cliente',
         clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
@@ -372,8 +373,15 @@ export function ProfessionalSessionsScreen() {
         )}
         </ScrollView>
       ) : (
-        /* CALENDAR VIEW - NEW ADDITION */
-        <CalendarView sessions={mockProfessionalSessions} />
+        /* CALENDAR VIEW */
+        sessions && sessions.length >= 0 ? (
+          <CalendarView sessions={sessions} />
+        ) : (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="large" color={colors.primary.main} />
+            <Text style={styles.emptyTitle}>Cargando calendario...</Text>
+          </View>
+        )
       )}
     </View>
   );
