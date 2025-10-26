@@ -13,17 +13,35 @@ interface SpecialistCardProps {
   specialist: Specialist;
   onPress: () => void;
   style?: any;
+  position?: 1 | 2 | 3; // Top 3 position badge
 }
 
-export function SpecialistCard({ specialist, onPress, style }: SpecialistCardProps) {
+export function SpecialistCard({ specialist, onPress, style, position }: SpecialistCardProps) {
+  // Get medal emoji based on position
+  const getMedal = () => {
+    if (position === 1) return '🥇';
+    if (position === 2) return '🥈';
+    if (position === 3) return '🥉';
+    return null;
+  };
+
+  const medal = getMedal();
+
   return (
     <TouchableOpacity
       style={[styles.card, style]}
       onPress={onPress}
       activeOpacity={0.95}
     >
+      {/* Medal badge for top 3 - small and subtle */}
+      {medal && (
+        <View style={styles.medalBadge}>
+          <Text style={styles.medalEmoji}>{medal}</Text>
+        </View>
+      )}
+
       {/* Affinity badge - floating */}
-      <View style={styles.affinityBadge}>
+      <View style={[styles.affinityBadge, medal && styles.affinityBadgeWithMedal]}>
         <Ionicons name="heart" size={14} color={colors.primary.main} />
         <Text style={styles.affinityText}>{specialist.affinityPercentage}% match</Text>
       </View>
@@ -116,6 +134,26 @@ const styles = StyleSheet.create({
     elevation: 4,
     position: 'relative',
   },
+  medalBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.sm,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    zIndex: 2,
+  },
+  medalEmoji: {
+    fontSize: 18,
+  },
   affinityBadge: {
     position: 'absolute',
     top: spacing.md,
@@ -128,6 +166,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 4,
     zIndex: 1,
+  },
+  affinityBadgeWithMedal: {
+    top: spacing.sm,
   },
   affinityText: {
     fontSize: 12,

@@ -158,20 +158,11 @@ const SpecialistsScreen: React.FC = () => {
     );
   });
 
-  // Render header for FlatList (results count)
-  const renderListHeader = () => {
-    if (activeTab !== 'specialists' || filteredSpecialists.length === 0) return null;
-    return (
-      <Text style={styles.resultsText}>
-        {filteredSpecialists.length} especialista{filteredSpecialists.length !== 1 ? 's' : ''} encontrado{filteredSpecialists.length !== 1 ? 's' : ''}
-      </Text>
-    );
-  };
-
-  // Render specialist card item
-  const renderSpecialistItem = ({ item }: { item: Specialist }) => (
+  // Render specialist card item with position for top 3
+  const renderSpecialistItem = ({ item, index }: { item: Specialist; index: number }) => (
     <SpecialistCard
       specialist={item}
+      position={index < 3 ? (index + 1) as 1 | 2 | 3 : undefined}
       onPress={() => handleSpecialistPress(item.id)}
     />
   );
@@ -299,7 +290,7 @@ const SpecialistsScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Content - FlatList for better performance with all specialists */}
+      {/* Content - FlatList with all specialists */}
       {activeTab === 'specialists' ? (
         <FlatList
           data={filteredSpecialists}
@@ -307,7 +298,6 @@ const SpecialistsScreen: React.FC = () => {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={renderListHeader}
           ListEmptyComponent={renderEmptySpecialists}
           removeClippedSubviews={false}
           initialNumToRender={10}
