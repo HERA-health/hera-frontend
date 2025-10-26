@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { colors, spacing } from '../../constants/colors';
 import { questionnaire } from '../../utils/questionnaireData';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { UserAnswers, calculateMatching } from '../../utils/matchingAlgorithm';
 import { mockSpecialists } from '../../utils/mockData';
 import { LinearGradient } from 'expo-linear-gradient';
+import { api } from '../../services/api';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -14,6 +15,7 @@ export function QuestionnaireScreen() {
   const navigation = useNavigation<any>();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<UserAnswers>({});
+  const [loading, setLoading] = useState(false);
 
   const currentQuestion = questionnaire[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / questionnaire.length) * 100;
@@ -62,10 +64,44 @@ export function QuestionnaireScreen() {
     }
   };
 
-  const handleNext = () => {
+  const submitQuestionnaire = async (answersData: UserAnswers) => {
+    console.log('📤 Submitting questionnaire answers:', JSON.stringify(answersData, null, 2));
+
+    try {
+      const response = await api.post('/questionnaire/submit', {
+        answers: answersData
+      });
+      console.log('✅ Questionnaire submitted successfully:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Error submitting questionnaire:', error);
+      console.error('Error response:', error.response?.data);
+      throw error;
+    }
+  };
+
+  const handleNext = async () => {
     if (isLastQuestion) {
-      const results = calculateMatching(answers, mockSpecialists);
-      navigation.navigate('QuestionnaireResults', { results });
+      try {
+        setLoading(true);
+
+        // Submit answers to backend
+        await submitQuestionnaire(answers);
+
+        // Calculate matching results for display
+        const results = calculateMatching(answers, mockSpecialists);
+
+        // Navigate to results screen
+        navigation.navigate('QuestionnaireResults', { results });
+      } catch (error: any) {
+        Alert.alert(
+          'Error',
+          'No se pudieron guardar tus respuestas. Por favor, intenta de nuevo.',
+          [{ text: 'OK' }]
+        );
+      } finally {
+        setLoading(false);
+      }
     } else {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     }
@@ -176,31 +212,53 @@ export function QuestionnaireScreen() {
           <View style={styles.footerContent}>
             {!isFirstQuestion && (
               <TouchableOpacity
-                style={styles.secondaryButton}
+                style={[
+                  styles.secondaryButton,
+                  loading && styles.secondaryButtonDisabled
+                ]}
                 onPress={handlePrevious}
+                disabled={loading}
               >
-                <Ionicons name="arrow-back" size={20} color={colors.neutral.gray700} />
-                <Text style={styles.secondaryButtonText}>Anterior</Text>
+                <Ionicons
+                  name="arrow-back"
+                  size={20}
+                  color={loading ? colors.neutral.gray400 : colors.neutral.gray700}
+                />
+                <Text style={[
+                  styles.secondaryButtonText,
+                  loading && styles.secondaryButtonTextDisabled
+                ]}>
+                  Anterior
+                </Text>
               </TouchableOpacity>
             )}
 
             <TouchableOpacity
               style={[
                 styles.primaryButton,
-                !canGoNext() && styles.primaryButtonDisabled,
+                (!canGoNext() || loading) && styles.primaryButtonDisabled,
                 !isFirstQuestion && { flex: 1 }
               ]}
               onPress={handleNext}
-              disabled={!canGoNext()}
+              disabled={!canGoNext() || loading}
             >
-              <Text style={styles.primaryButtonText}>
-                {isLastQuestion ? 'Ver Resultados' : 'Siguiente'}
-              </Text>
-              <Ionicons
-                name={isLastQuestion ? "checkmark" : "arrow-forward"}
-                size={20}
-                color={colors.neutral.white}
-              />
+              {loading ? (
+                <>
+                  <ActivityIndicator size="small" color={colors.neutral.white} />
+                  <Text style={styles.primaryButtonText}>Guardando...</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.primaryButtonText}>
+                    {isLastQuestion ? 'Ver Resultados' : 'Siguiente'}
+                  </Text>
+                  <Ionicons
+                    name={isLastQuestion ? "checkmark" : "arrow-forward"}
+                    size={20}
+                    color={colors.neutral.white}
+                  />
+                </>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -429,6 +487,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.neutral.gray700,
+  },
+  secondaryButtonDisabled: {
+    opacity: 0.5,
+  },
+  secondaryButtonTextDisabled: {
+    color: colors.neutral.gray400,
   },
   primaryButton: {
     flex: 1,

@@ -58,15 +58,7 @@ export function RootNavigator() {
     return (
       <Stack.Navigator
         screenOptions={{
-          headerShown: true,
-          headerStyle: {
-            backgroundColor: '#FFFFFF',
-          },
-          headerShadowVisible: false,
-          headerTitleStyle: {
-            fontSize: 20,
-            fontWeight: '600',
-          },
+          headerShown: false,
         }}
       >
         <Stack.Screen
@@ -117,15 +109,7 @@ export function RootNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: true,
-        headerStyle: {
-          backgroundColor: '#FFFFFF',
-        },
-        headerShadowVisible: false,
-        headerTitleStyle: {
-          fontSize: 20,
-          fontWeight: '600',
-        },
+        headerShown: false,
       }}
     >
       <Stack.Screen
@@ -173,8 +157,7 @@ export function RootNavigator() {
         component={ProfileCompletionScreen}
         options={{
           presentation: 'modal',
-          headerShown: true,
-          headerTitle: 'Completa tu perfil',
+          headerShown: false,
         }}
       />
       <Stack.Screen
