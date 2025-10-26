@@ -1,277 +1,413 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Dimensions,
+  useWindowDimensions
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing } from '../../constants/colors';
+import { colors, spacing as defaultSpacing, shadows } from '../../constants/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+// Enhanced spacing system for this screen
+const spacing = {
+  xs: 8,
+  sm: 16,
+  md: 24,
+  lg: 32,
+  xl: 48,
+  xxl: 64,
+};
+
+type NavigationProp = NativeStackNavigationProp<any>;
 
 export function WelcomeScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NavigationProp>();
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktop = windowWidth > 768;
+  const isTablet = windowWidth > 600 && windowWidth <= 768;
 
   return (
-    <View style={styles.container}>
-      {/* Background gradient */}
-      <LinearGradient
-        colors={[colors.primary.main, colors.primary.dark, colors.primary.darker]}
-        style={styles.gradient}
-      >
-        {/* Decorative elements */}
-        <View style={[styles.decorCircle, styles.decorCircle1]} />
-        <View style={[styles.decorCircle, styles.decorCircle2]} />
-
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Ionicons name="heart" size={56} color={colors.neutral.white} />
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Hero Section */}
+      <View style={styles.heroSection}>
+        {/* Logo */}
+        <View style={styles.logoContainer}>
+          <View style={styles.logoCircle}>
+            <Ionicons name="heart" size={48} color={colors.primary.main} />
           </View>
-          <Text style={styles.brandName}>MindConnect</Text>
-          <Text style={styles.tagline}>Tu bienestar mental es nuestra prioridad</Text>
         </View>
 
-        {/* User type selection - Side by side vertical cards */}
-        <View style={styles.cardsContainer}>
-          {/* Client Card */}
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => navigation.navigate('Login', { userType: 'client' })}
-            activeOpacity={0.95}
+        {/* Gradient Title */}
+        <View style={styles.titleContainer}>
+          <Text style={styles.titlePrefix}>Bienvenido a</Text>
+          <LinearGradient
+            colors={['#2196F3', '#00897B']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.gradientWrapper}
           >
-            <LinearGradient
-              colors={[colors.neutral.white, colors.primary[50]]}
-              style={styles.cardGradient}
-            >
-              {/* Icon container */}
-              <View style={[styles.iconContainer, styles.iconContainerClient]}>
-                <Ionicons name="person" size={48} color={colors.primary.main} />
-              </View>
-
-              {/* Card content */}
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>Soy Cliente</Text>
-                <Text style={styles.cardDescription}>
-                  Busco apoyo profesional
-                </Text>
-              </View>
-
-              {/* Arrow indicator */}
-              <View style={styles.arrowContainer}>
-                <Ionicons name="arrow-forward" size={24} color={colors.primary.main} />
-              </View>
-
-              {/* Badge */}
-              <View style={styles.cardBadge}>
-                <Text style={styles.cardBadgeText}>Encuentra tu psicólogo</Text>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          {/* Professional Card */}
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => navigation.navigate('Login', { userType: 'professional' })}
-            activeOpacity={0.95}
-          >
-            <LinearGradient
-              colors={[colors.neutral.white, colors.secondary.blue + '15']}
-              style={styles.cardGradient}
-            >
-              {/* Icon container */}
-              <View style={[styles.iconContainer, styles.iconContainerProfessional]}>
-                <Ionicons name="medical" size={48} color={colors.secondary.blue} />
-              </View>
-
-              {/* Card content */}
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>Soy Profesional</Text>
-                <Text style={styles.cardDescription}>
-                  Ofrezco mis servicios
-                </Text>
-              </View>
-
-              {/* Arrow indicator */}
-              <View style={styles.arrowContainer}>
-                <Ionicons name="arrow-forward" size={24} color={colors.secondary.blue} />
-              </View>
-
-              {/* Badge */}
-              <View style={[styles.cardBadge, styles.cardBadgeProfessional]}>
-                <Text style={[styles.cardBadgeText, styles.cardBadgeTextProfessional]}>
-                  Conecta con pacientes
-                </Text>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
+            <Text style={styles.titleGradient}>MindConnect</Text>
+          </LinearGradient>
         </View>
 
-        {/* Footer text */}
-        <Text style={styles.footerText}>
-          Conectamos personas con profesionales de salud mental
+        {/* Subtitle */}
+        <Text style={styles.subtitle}>
+          La plataforma que conecta personas con los mejores profesionales de salud mental mediante inteligencia artificial
         </Text>
-      </LinearGradient>
-    </View>
+      </View>
+
+      {/* Features Section */}
+      <View style={styles.featuresSection}>
+        <View style={[
+          styles.featuresGrid,
+          isDesktop ? styles.featuresGridRow : isTablet ? styles.featuresGrid2x2 : styles.featuresGridColumn
+        ]}>
+          {/* Feature 1: Matching con IA */}
+          <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
+            <View style={[styles.featureIcon, { backgroundColor: colors.secondary.blue + '20' }]}>
+              <Ionicons name="sync" size={32} color={colors.secondary.blue} />
+            </View>
+            <Text style={styles.featureTitle}>Matching con IA</Text>
+            <Text style={styles.featureSubtitle}>Algoritmo de afinidad único</Text>
+          </View>
+
+          {/* Feature 2: Videollamadas seguras */}
+          <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
+            <View style={[styles.featureIcon, { backgroundColor: colors.primary.main + '20' }]}>
+              <Ionicons name="videocam" size={32} color={colors.primary.main} />
+            </View>
+            <Text style={styles.featureTitle}>Videollamadas seguras</Text>
+            <Text style={styles.featureSubtitle}>Sesiones online privadas</Text>
+          </View>
+
+          {/* Feature 3: LIA - Asistente 24/7 */}
+          <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
+            <View style={[styles.featureIcon, { backgroundColor: colors.secondary.purple + '20' }]}>
+              <Ionicons name="sparkles" size={32} color={colors.secondary.purple} />
+            </View>
+            <Text style={styles.featureTitle}>LIA - Asistente 24/7</Text>
+            <Text style={styles.featureSubtitle}>Apoyo emocional inmediato</Text>
+          </View>
+
+          {/* Feature 4: 100% Confidencial */}
+          <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
+            <View style={[styles.featureIcon, { backgroundColor: colors.primary.dark + '20' }]}>
+              <Ionicons name="shield-checkmark" size={32} color={colors.primary.dark} />
+            </View>
+            <Text style={styles.featureTitle}>100% Confidencial</Text>
+            <Text style={styles.featureSubtitle}>Privacidad garantizada</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* CTA Section Header */}
+      <Text style={styles.ctaHeader}>¿Cómo quieres comenzar?</Text>
+
+      {/* CTA Cards */}
+      <View style={[
+        styles.ctaContainer,
+        isDesktop ? styles.ctaContainerRow : styles.ctaContainerColumn
+      ]}>
+        {/* Client Card */}
+        <View style={[styles.ctaCard, isDesktop && styles.ctaCardDesktop]}>
+          <View style={[styles.ctaIconContainer, { backgroundColor: colors.secondary.blue + '15' }]}>
+            <Ionicons name="people" size={40} color={colors.secondary.blue} />
+          </View>
+
+          <Text style={styles.ctaTitle}>Busco Ayuda</Text>
+          <Text style={styles.ctaSubtitle}>Encuentra el especialista perfecto para ti</Text>
+
+          <View style={styles.bulletList}>
+            <View style={styles.bulletItem}>
+              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Text style={styles.bulletText}>
+                Matching inteligente con especialistas mediante IA
+              </Text>
+            </View>
+            <View style={styles.bulletItem}>
+              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Text style={styles.bulletText}>
+                Sesiones seguras por videollamada con resúmenes automáticos
+              </Text>
+            </View>
+            <View style={styles.bulletItem}>
+              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Text style={styles.bulletText}>
+                Chat de crisis 24/7 con LIA, tu asistente de apoyo emocional
+              </Text>
+            </View>
+            <View style={styles.bulletItem}>
+              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Text style={styles.bulletText}>
+                Facturación automática y seguimiento completo
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.ctaButton, { backgroundColor: colors.secondary.blue }]}
+            onPress={() => navigation.navigate('Login', { userType: 'CLIENT' })}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.ctaButtonText}>Registrarme como Cliente</Text>
+            <Ionicons name="arrow-forward" size={20} color={colors.neutral.white} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Professional Card */}
+        <View style={[styles.ctaCard, isDesktop && styles.ctaCardDesktop]}>
+          <View style={[styles.ctaIconContainer, { backgroundColor: colors.primary.main + '15' }]}>
+            <Ionicons name="briefcase" size={40} color={colors.primary.main} />
+          </View>
+
+          <Text style={styles.ctaTitle}>Soy Profesional</Text>
+          <Text style={styles.ctaSubtitle}>Únete a nuestra red de especialistas</Text>
+
+          <View style={styles.bulletList}>
+            <View style={styles.bulletItem}>
+              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Text style={styles.bulletText}>
+                Gestiona tu agenda y pacientes fácilmente
+              </Text>
+            </View>
+            <View style={styles.bulletItem}>
+              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Text style={styles.bulletText}>
+                Resúmenes automáticos con IA de cada sesión
+              </Text>
+            </View>
+            <View style={styles.bulletItem}>
+              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Text style={styles.bulletText}>
+                Facturación automática y pagos seguros
+              </Text>
+            </View>
+            <View style={styles.bulletItem}>
+              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Text style={styles.bulletText}>
+                Publica contenido y construye tu marca personal
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.ctaButton, { backgroundColor: colors.primary.main }]}
+            onPress={() => navigation.navigate('Login', { userType: 'PROFESSIONAL' })}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.ctaButtonText}>Registrarme como Profesional</Text>
+            <Ionicons name="arrow-forward" size={20} color={colors.neutral.white} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Footer spacing */}
+      <View style={styles.footer} />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.neutral.white,
   },
-  gradient: {
-    flex: 1,
-    paddingVertical: screenHeight * 0.06,
-    paddingHorizontal: spacing.xl,
-    justifyContent: 'space-between',
-    position: 'relative',
-    overflow: 'hidden',
+  scrollContent: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
   },
-  decorCircle: {
-    position: 'absolute',
-    borderRadius: 1000,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  decorCircle1: {
-    width: 250,
-    height: 250,
-    top: -50,
-    right: -80,
-  },
-  decorCircle2: {
-    width: 180,
-    height: 180,
-    bottom: -40,
-    left: -60,
-  },
-  header: {
+
+  // Hero Section
+  heroSection: {
     alignItems: 'center',
-    paddingTop: spacing.lg,
+    paddingVertical: spacing.xl,
+    marginBottom: spacing.lg,
   },
   logoContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginBottom: spacing.md,
+  },
+  logoCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primary[50],
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
+    ...shadows.md,
   },
-  brandName: {
-    fontSize: 38,
+  titleContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  titlePrefix: {
+    fontSize: 20,
+    fontWeight: '400',
+    color: colors.neutral.gray700,
+    marginBottom: spacing.xs,
+  },
+  gradientWrapper: {
+    borderRadius: 8,
+    paddingHorizontal: 4,
+  },
+  titleGradient: {
+    fontSize: 40,
     fontWeight: '800',
     color: colors.neutral.white,
-    marginBottom: spacing.xs,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  tagline: {
-    fontSize: 16,
-    color: colors.neutral.white,
-    opacity: 0.95,
     textAlign: 'center',
   },
-  cardsContainer: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-    paddingHorizontal: screenWidth > 768 ? spacing.xxxl * 2 : 0,
-    justifyContent: 'center',
+  subtitle: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.neutral.gray600,
+    textAlign: 'center',
+    maxWidth: 600,
+    paddingHorizontal: spacing.sm,
   },
-  card: {
-    flex: 1,
-    maxWidth: 200,
-    borderRadius: 24,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.3,
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  cardGradient: {
-    paddingTop: spacing.xxxl,
-    paddingBottom: spacing.xl,
-    paddingHorizontal: spacing.lg,
-    minHeight: screenHeight * 0.45,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
+
+  // Features Section
+  featuresSection: {
     marginBottom: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
   },
-  iconContainerClient: {
-    backgroundColor: colors.primary[100],
+  featuresGrid: {
+    gap: spacing.sm,
   },
-  iconContainerProfessional: {
-    backgroundColor: colors.secondary.blue + '25',
-  },
-  cardContent: {
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-    flex: 1,
+  featuresGridRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
   },
-  cardTitle: {
+  featuresGrid2x2: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  featuresGridColumn: {
+    flexDirection: 'column',
+  },
+  featureCard: {
+    backgroundColor: colors.neutral.white,
+    borderRadius: 16,
+    padding: spacing.md,
+    alignItems: 'center',
+    minWidth: 150,
+    ...shadows.md,
+  },
+  featureCardDesktop: {
+    width: '23%',
+    minWidth: 150,
+    maxWidth: 220,
+  },
+  featureIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  featureTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.neutral.gray900,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  featureSubtitle: {
+    fontSize: 13,
+    color: colors.neutral.gray600,
+    textAlign: 'center',
+  },
+
+  // CTA Section
+  ctaHeader: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.neutral.gray900,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  ctaContainer: {
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  ctaContainerRow: {
+    flexDirection: 'row',
+  },
+  ctaContainerColumn: {
+    flexDirection: 'column',
+  },
+  ctaCard: {
+    backgroundColor: colors.neutral.white,
+    borderRadius: 16,
+    padding: spacing.md,
+    ...shadows.lg,
+  },
+  ctaCardDesktop: {
+    flex: 1,
+  },
+  ctaIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    alignSelf: 'center',
+  },
+  ctaTitle: {
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.neutral.gray900,
     marginBottom: spacing.xs,
     textAlign: 'center',
   },
-  cardDescription: {
+  ctaSubtitle: {
     fontSize: 15,
     color: colors.neutral.gray600,
+    marginBottom: spacing.md,
     textAlign: 'center',
-    lineHeight: 20,
   },
-  arrowContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary[100],
-    justifyContent: 'center',
-    alignItems: 'center',
+  bulletList: {
+    gap: spacing.sm,
     marginBottom: spacing.md,
   },
-  cardBadge: {
-    backgroundColor: colors.primary.main,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+  bulletItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  bulletText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.neutral.gray700,
+    lineHeight: 20,
+  },
+  ctaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderRadius: 12,
-    alignSelf: 'stretch',
+    gap: spacing.xs,
+    ...shadows.md,
   },
-  cardBadgeProfessional: {
-    backgroundColor: colors.secondary.blue,
-  },
-  cardBadgeText: {
-    fontSize: 12,
+  ctaButtonText: {
+    fontSize: 16,
     fontWeight: '700',
     color: colors.neutral.white,
-    textAlign: 'center',
   },
-  cardBadgeTextProfessional: {
-    color: colors.neutral.white,
-  },
-  footerText: {
-    fontSize: 13,
-    color: colors.neutral.white,
-    opacity: 0.85,
-    textAlign: 'center',
-    paddingHorizontal: spacing.xl,
+  footer: {
+    height: spacing.lg,
   },
 });

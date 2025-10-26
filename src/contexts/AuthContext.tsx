@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as authService from '../services/authService';
 import { initializeAuth } from '../services/api';
+import type { AuthResponse } from '../services/authService';
 
 export type UserType = 'client' | 'professional';
 
@@ -18,7 +19,7 @@ interface AuthContextType {
   isInitialized: boolean;
   loading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthResponse>;
   register: (email: string, password: string, name: string, userType: UserType) => Promise<void>;
   logout: () => Promise<void>;
   setUserType: (type: UserType) => void;
@@ -81,6 +82,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       setUser(mappedUser);
+
+      // Return response so caller can access user data (e.g., for userType validation)
+      return response;
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message || 'Error al iniciar sesión');

@@ -101,30 +101,40 @@ api.interceptors.response.use(
     if (error.response) {
       // Server responded with error status
       const status = error.response.status;
-      const message = error.response.data?.error || error.message;
+      const url = error.config?.url || '';
 
-      console.error(`API Error ${status}:`, message);
+      console.error(`API Error ${status}:`, error.response.data);
 
-      // Handle 401 Unauthorized (token expired or invalid)
+      // Handle 401 Unauthorized
       if (status === 401) {
-        await removeAuthToken();
-        // You can dispatch a logout action here if needed
-        // For now, just reject with a clear message
-        return Promise.reject(new Error('Session expired. Please login again.'));
+        // Check if this is a login/register request
+        const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register');
+
+        if (isAuthEndpoint) {
+          // For login/register, pass through the original error without modification
+          // This allows specific error messages from backend to be shown
+          return Promise.reject(error);
+        } else {
+          // For other endpoints, it's a session expiration
+          await removeAuthToken();
+          const sessionError = new Error('Tu sesión ha expirado. Inicia sesión de nuevo');
+          (sessionError as any).code = 'SESSION_EXPIRED';
+          return Promise.reject(sessionError);
+        }
       }
 
-      // Return error with message from server
-      return Promise.reject(new Error(message));
+      // For other errors, pass through the original error
+      return Promise.reject(error);
     } else if (error.request) {
       // Request made but no response received (network error)
       console.error('Network error:', error.message);
-      return Promise.reject(
-        new Error('Network error. Please check your internet connection.')
-      );
+      const networkError = new Error('Error de conexión. Verifica tu internet');
+      (networkError as any).code = 'NETWORK_ERROR';
+      return Promise.reject(networkError);
     } else {
       // Something else happened
       console.error('Request setup error:', error.message);
-      return Promise.reject(new Error('An unexpected error occurred.'));
+      return Promise.reject(new Error('Error inesperado. Intenta de nuevo'));
     }
   }
 );
