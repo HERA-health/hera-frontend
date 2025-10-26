@@ -4,8 +4,7 @@ import { colors, spacing } from '../../constants/colors';
 import { questionnaire } from '../../utils/questionnaireData';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { UserAnswers, calculateMatching } from '../../utils/matchingAlgorithm';
-import { mockSpecialists } from '../../utils/mockData';
+import { UserAnswers } from '../../utils/matchingAlgorithm';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../services/api';
 
@@ -85,13 +84,67 @@ export function QuestionnaireScreen() {
       try {
         setLoading(true);
 
-        // Submit answers to backend
-        await submitQuestionnaire(answers);
+        // Submit answers to backend and get matched specialists
+        const response = await submitQuestionnaire(answers);
+        console.log('📊 Backend returned specialists:', response.data);
 
-        // Calculate matching results for display
-        const results = calculateMatching(answers, mockSpecialists);
+        // Map backend data to MatchResult format
+        const backendSpecialists = response.data.specialists;
+        const results = backendSpecialists.map((s: any) => {
+          const name = s.user.name;
+          const initial = name.charAt(0).toUpperCase();
 
-        // Navigate to results screen
+          // Map matched attributes to readable labels
+          const attributeLabels: Record<string, string> = {
+            specialty: 'Especialidad coincidente',
+            approach: 'Enfoque terapéutico compatible',
+            sessionStyle: 'Estilo de sesión adecuado',
+            personality: 'Personalidad compatible',
+            ageGroup: 'Experiencia con tu grupo de edad',
+            availability: 'Disponibilidad compatible',
+            format: 'Formato de sesión compatible',
+            experience: 'Alta experiencia profesional',
+          };
+
+          const matchedAttributes = (s.matchedAttributes || []).map(
+            (attr: string) => attributeLabels[attr] || attr
+          );
+
+          return {
+            specialist: {
+              id: s.id,
+              name,
+              avatar: s.avatar || undefined,
+              initial,
+              specialization: s.specialization,
+              rating: s.rating,
+              reviewCount: s.reviewCount,
+              description: s.description,
+              affinityPercentage: s.affinity ? Math.round((s.affinity / 130) * 100) : 0,
+              tags: matchedAttributes,
+              pricePerSession: s.pricePerSession,
+              firstVisitFree: s.firstVisitFree,
+              verified: true,
+              matchingProfile: {
+                therapeuticApproach: [],
+                specialties: [],
+                sessionStyle: '',
+                personality: [],
+                ageGroups: [],
+                experienceYears: 0,
+                language: [],
+                availability: '',
+                format: [],
+              },
+            },
+            affinityScore: s.affinity || 0,
+            matchedAttributes,
+          };
+        });
+
+        console.log('✅ Mapped results for display:', results);
+
+        // Navigate to results screen with real backend data
         navigation.navigate('QuestionnaireResults', { results });
       } catch (error: any) {
         Alert.alert(

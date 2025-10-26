@@ -11,7 +11,7 @@
  * - Scrollable list of ALL specialist cards
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,19 +20,87 @@ import {
   TouchableOpacity,
   Alert,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SpecialistCard } from '../../components/features/SpecialistCard';
 import { colors, spacing, typography, borderRadius } from '../../constants/colors';
-import { mockSpecialists } from '../../utils/mockData';
 import { SortOption, Specialist } from '../../constants/types';
+import * as specialistsService from '../../services/specialistsService';
 
 const SpecialistsScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('affinity');
   const [activeTab, setActiveTab] = useState<'specialists' | 'posts'>('specialists');
+  const [specialists, setSpecialists] = useState<Specialist[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [hasCompletedQuestionnaire, setHasCompletedQuestionnaire] = useState(false);
+
+  // Fetch specialists on mount
+  useEffect(() => {
+    fetchSpecialists();
+  }, []);
+
+  const fetchSpecialists = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await specialistsService.getMatchedSpecialists();
+
+      // Map backend data to frontend format
+      const mappedSpecialists: Specialist[] = response.specialists.map((s) => {
+        const name = s.user.name;
+        const initial = name.charAt(0).toUpperCase();
+
+        // Convert affinity score (0-130 scale) to percentage (0-100)
+        const affinityPercentage = s.affinity
+          ? Math.round((s.affinity / 130) * 100)
+          : 0;
+
+        // Extract tags from matching profile
+        const tags = s.matchedAttributes || [];
+
+        return {
+          id: s.id,
+          name,
+          avatar: s.avatar || undefined,
+          initial,
+          specialization: s.specialization,
+          rating: s.rating,
+          reviewCount: s.reviewCount,
+          description: s.description,
+          affinityPercentage,
+          tags,
+          pricePerSession: s.pricePerSession,
+          firstVisitFree: s.firstVisitFree,
+          verified: true, // Default to verified for now
+          matchingProfile: {
+            therapeuticApproach: [],
+            specialties: [],
+            sessionStyle: '',
+            personality: [],
+            ageGroups: [],
+            experienceYears: 0,
+            language: [],
+            availability: '',
+            format: [],
+          },
+        };
+      });
+
+      setSpecialists(mappedSpecialists);
+      setHasCompletedQuestionnaire(response.hasCompletedQuestionnaire);
+    } catch (err: any) {
+      console.error('Error fetching specialists:', err);
+      setError(err.message || 'Error al cargar especialistas');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSpecialistPress = (specialistId: string) => {
     Alert.alert(
@@ -80,7 +148,7 @@ const SpecialistsScreen: React.FC = () => {
   };
 
   // Filter specialists based on search query
-  const filteredSpecialists = mockSpecialists.filter((specialist) => {
+  const filteredSpecialists = specialists.filter((specialist) => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -109,19 +177,30 @@ const SpecialistsScreen: React.FC = () => {
   );
 
   // Empty state for no results
-  const renderEmptySpecialists = () => (
-    <View style={styles.emptyState}>
-      <Ionicons
-        name="search"
-        size={64}
-        color={colors.neutral.gray300}
-      />
-      <Text style={styles.emptyTitle}>No se encontraron resultados</Text>
-      <Text style={styles.emptyDescription}>
-        Intenta con otros términos de búsqueda o ajusta tus filtros
-      </Text>
-    </View>
-  );
+  const renderEmptySpecialists = () => {
+    // If user hasn't completed questionnaire and there are no specialists
+    if (!hasCompletedQuestionnaire && specialists.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="help-circle" size={64} color={colors.primary.main} />
+          <Text style={styles.emptyTitle}>Completa el cuestionario</Text>
+          <Text style={styles.emptyDescription}>
+            Para obtener recomendaciones personalizadas, completa el cuestionario de matching desde la pantalla de inicio
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.emptyState}>
+        <Ionicons name="search" size={64} color={colors.neutral.gray300} />
+        <Text style={styles.emptyTitle}>No se encontraron resultados</Text>
+        <Text style={styles.emptyDescription}>
+          Intenta con otros términos de búsqueda o ajusta tus filtros
+        </Text>
+      </View>
+    );
+  };
 
   // Empty state for posts tab
   const renderEmptyPosts = () => (
@@ -133,6 +212,30 @@ const SpecialistsScreen: React.FC = () => {
       </Text>
     </View>
   );
+
+  // Show loading state
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary.main} />
+        <Text style={styles.loadingText}>Cargando especialistas...</Text>
+      </View>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle" size={64} color={colors.error.main} />
+        <Text style={styles.errorTitle}>Error al cargar</Text>
+        <Text style={styles.errorDescription}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchSpecialists}>
+          <Text style={styles.retryButtonText}>Reintentar</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -342,6 +445,50 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: spacing.xl,
     lineHeight: typography.fontSizes.sm * typography.lineHeights.relaxed,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background.secondary,
+    gap: spacing.md,
+  },
+  loadingText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.neutral.gray600,
+    fontWeight: typography.fontWeights.medium,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background.secondary,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.md,
+  },
+  errorTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.neutral.gray900,
+    marginTop: spacing.md,
+  },
+  errorDescription: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.neutral.gray600,
+    textAlign: 'center',
+    lineHeight: typography.fontSizes.sm * typography.lineHeights.relaxed,
+  },
+  retryButton: {
+    backgroundColor: colors.primary.main,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: 12,
+    marginTop: spacing.md,
+  },
+  retryButtonText: {
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.neutral.white,
   },
 });
 

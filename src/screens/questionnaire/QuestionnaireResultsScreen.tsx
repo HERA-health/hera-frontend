@@ -15,7 +15,33 @@ export function QuestionnaireResultsScreen() {
   const route = useRoute<any>();
   const results: MatchResult[] = route.params?.results || [];
 
+  // Log the results for debugging
+  console.log('📊 QuestionnaireResultsScreen received results:', results);
+  console.log('📊 Number of specialists:', results.length);
+
   const topMatch = results[0];
+
+  // Show message if no results
+  if (!results || results.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.emptyContainer}>
+          <Ionicons name="alert-circle" size={64} color={colors.neutral.gray400} />
+          <Text style={styles.emptyTitle}>No se encontraron resultados</Text>
+          <Text style={styles.emptyDescription}>
+            No pudimos encontrar especialistas compatibles. Por favor, intenta de nuevo.
+          </Text>
+          <Button
+            variant="primary"
+            size="large"
+            onPress={() => navigation.navigate('Home')}
+          >
+            Volver al inicio
+          </Button>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -266,5 +292,26 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: spacing.md,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    gap: spacing.md,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.neutral.gray900,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  emptyDescription: {
+    fontSize: 16,
+    color: colors.neutral.gray600,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: spacing.lg,
   },
 });
