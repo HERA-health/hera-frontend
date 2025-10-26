@@ -12,7 +12,9 @@ export function RegisterScreen() {
   const route = useRoute<any>();
   const { register, loading, clearError } = useAuth();
 
-  const userType: UserType = route.params?.userType || 'client';
+  // Convert uppercase backend format to lowercase frontend format
+  const paramUserType = route.params?.userType;
+  const userType: UserType = paramUserType === 'PROFESSIONAL' ? 'professional' : 'client';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

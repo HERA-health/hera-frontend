@@ -124,7 +124,7 @@ export function WelcomeScreen() {
             <Ionicons name="people" size={40} color={colors.secondary.blue} />
           </View>
 
-          <Text style={styles.ctaTitle}>Busco Ayuda</Text>
+          <Text style={styles.ctaTitle}>Busco ayuda</Text>
           <Text style={styles.ctaSubtitle}>Encuentra el especialista perfecto para ti</Text>
 
           <View style={styles.bulletList}>
@@ -159,9 +159,10 @@ export function WelcomeScreen() {
             onPress={() => navigation.navigate('Login', { userType: 'CLIENT' })}
             activeOpacity={0.8}
           >
-            <Text style={styles.ctaButtonText}>Registrarme como Cliente</Text>
+            <Text style={styles.ctaButtonText}>Busco ayuda</Text>
             <Ionicons name="arrow-forward" size={20} color={colors.neutral.white} />
           </TouchableOpacity>
+          <Text style={styles.ctaHint}>Encontrar mi especialista</Text>
         </View>
 
         {/* Professional Card */}
@@ -170,7 +171,7 @@ export function WelcomeScreen() {
             <Ionicons name="briefcase" size={40} color={colors.primary.main} />
           </View>
 
-          <Text style={styles.ctaTitle}>Soy Profesional</Text>
+          <Text style={styles.ctaTitle}>Soy especialista</Text>
           <Text style={styles.ctaSubtitle}>Únete a nuestra red de especialistas</Text>
 
           <View style={styles.bulletList}>
@@ -205,9 +206,10 @@ export function WelcomeScreen() {
             onPress={() => navigation.navigate('Login', { userType: 'PROFESSIONAL' })}
             activeOpacity={0.8}
           >
-            <Text style={styles.ctaButtonText}>Registrarme como Profesional</Text>
+            <Text style={styles.ctaButtonText}>Soy especialista</Text>
             <Ionicons name="arrow-forward" size={20} color={colors.neutral.white} />
           </TouchableOpacity>
+          <Text style={styles.ctaHint}>Unirme a la red</Text>
         </View>
       </View>
 
@@ -406,6 +408,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.neutral.white,
+  },
+  ctaHint: {
+    fontSize: 14,
+    color: colors.neutral.gray600,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
   footer: {
     height: spacing.lg,

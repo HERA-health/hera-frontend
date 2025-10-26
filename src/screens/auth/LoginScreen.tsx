@@ -139,7 +139,7 @@ export function LoginScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>¿No tienes cuenta?</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Register', { userType })}>
+          <TouchableOpacity onPress={() => navigation.navigate('Register', { userType: expectedUserType })}>
             <Text style={styles.registerLink}>Regístrate aquí</Text>
           </TouchableOpacity>
         </View>
