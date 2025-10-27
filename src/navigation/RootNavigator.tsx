@@ -172,12 +172,14 @@ export function RootNavigator() {
       />
       <Stack.Screen
         name="QuestionnaireResults"
-        component={QuestionnaireResultsScreen}
-        options={{
-          headerShown: false,
-          gestureEnabled: false,
-        }}
-      />
+        options={{ headerTitle: 'Tus Resultados' }}
+      >
+        {() => (
+          <MainLayout>
+            <QuestionnaireResultsScreen />
+          </MainLayout>
+        )}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }

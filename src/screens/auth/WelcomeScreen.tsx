@@ -155,12 +155,19 @@ export function WelcomeScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.ctaButton, { backgroundColor: colors.secondary.blue }]}
+            style={styles.ctaButtonWrapper}
             onPress={() => navigation.navigate('Login', { userType: 'CLIENT' })}
             activeOpacity={0.8}
           >
-            <Text style={styles.ctaButtonText}>Busco ayuda</Text>
-            <Ionicons name="arrow-forward" size={20} color={colors.neutral.white} />
+            <LinearGradient
+              colors={['#2196F3', '#00897B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.ctaButton}
+            >
+              <Text style={styles.ctaButtonText}>Busco ayuda</Text>
+              <Ionicons name="arrow-forward" size={20} color={colors.neutral.white} />
+            </LinearGradient>
           </TouchableOpacity>
           <Text style={styles.ctaHint}>Encontrar mi especialista</Text>
         </View>
@@ -202,12 +209,19 @@ export function WelcomeScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.ctaButton, { backgroundColor: colors.primary.main }]}
+            style={styles.ctaButtonWrapper}
             onPress={() => navigation.navigate('Login', { userType: 'PROFESSIONAL' })}
             activeOpacity={0.8}
           >
-            <Text style={styles.ctaButtonText}>Soy especialista</Text>
-            <Ionicons name="arrow-forward" size={20} color={colors.neutral.white} />
+            <LinearGradient
+              colors={['#2196F3', '#00897B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.ctaButton}
+            >
+              <Text style={styles.ctaButtonText}>Soy especialista</Text>
+              <Ionicons name="arrow-forward" size={20} color={colors.neutral.white} />
+            </LinearGradient>
           </TouchableOpacity>
           <Text style={styles.ctaHint}>Unirme a la red</Text>
         </View>
@@ -394,15 +408,22 @@ const styles = StyleSheet.create({
     color: colors.neutral.gray700,
     lineHeight: 20,
   },
+  ctaButtonWrapper: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
   ctaButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: 12,
     gap: spacing.xs,
-    ...shadows.md,
   },
   ctaButtonText: {
     fontSize: 16,

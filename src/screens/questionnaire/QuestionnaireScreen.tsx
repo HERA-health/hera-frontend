@@ -168,17 +168,6 @@ export function QuestionnaireScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Decorative background */}
-      <LinearGradient
-        colors={[colors.primary[50], colors.neutral.white, colors.primary[50]]}
-        style={styles.backgroundGradient}
-      />
-
-      {/* Decorative circles */}
-      <View style={[styles.decorCircle, styles.decorCircle1]} />
-      <View style={[styles.decorCircle, styles.decorCircle2]} />
-      <View style={[styles.decorCircle, styles.decorCircle3]} />
-
       {/* Main content card - floating */}
       <View style={styles.mainCard}>
         {/* Header with progress */}
@@ -190,7 +179,7 @@ export function QuestionnaireScreen() {
           <View style={styles.progressContainer}>
             <View style={styles.progressBar}>
               <LinearGradient
-                colors={[colors.primary.light, colors.primary.main]}
+                colors={['#2196F3', '#00897B']}
                 style={[styles.progressFill, { width: `${progress}%` }]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -288,30 +277,37 @@ export function QuestionnaireScreen() {
 
             <TouchableOpacity
               style={[
-                styles.primaryButton,
-                (!canGoNext() || loading) && styles.primaryButtonDisabled,
+                styles.primaryButtonWrapper,
                 !isFirstQuestion && { flex: 1 }
               ]}
               onPress={handleNext}
               disabled={!canGoNext() || loading}
+              activeOpacity={0.8}
             >
-              {loading ? (
-                <>
-                  <ActivityIndicator size="small" color={colors.neutral.white} />
-                  <Text style={styles.primaryButtonText}>Guardando...</Text>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.primaryButtonText}>
-                    {isLastQuestion ? 'Ver Resultados' : 'Siguiente'}
-                  </Text>
-                  <Ionicons
-                    name={isLastQuestion ? "checkmark" : "arrow-forward"}
-                    size={20}
-                    color={colors.neutral.white}
-                  />
-                </>
-              )}
+              <LinearGradient
+                colors={(!canGoNext() || loading) ? ['#D1D5DB', '#9CA3AF'] : ['#2196F3', '#00897B']}
+                style={styles.primaryButton}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                {loading ? (
+                  <>
+                    <ActivityIndicator size="small" color={colors.neutral.white} />
+                    <Text style={styles.primaryButtonText}>Guardando...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.primaryButtonText}>
+                      {isLastQuestion ? 'Ver Resultados' : 'Siguiente'}
+                    </Text>
+                    <Ionicons
+                      name={isLastQuestion ? "checkmark" : "arrow-forward"}
+                      size={20}
+                      color={colors.neutral.white}
+                    />
+                  </>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
@@ -323,53 +319,23 @@ export function QuestionnaireScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.gray50,
-  },
-  backgroundGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  decorCircle: {
-    position: 'absolute',
-    borderRadius: 1000,
-    opacity: 0.4,
-  },
-  decorCircle1: {
-    width: 300,
-    height: 300,
-    backgroundColor: colors.primary[100],
-    top: -100,
-    right: -100,
-  },
-  decorCircle2: {
-    width: 200,
-    height: 200,
-    backgroundColor: colors.primary.light + '30',
-    bottom: -50,
-    left: -50,
-  },
-  decorCircle3: {
-    width: 150,
-    height: 150,
-    backgroundColor: colors.secondary.purple + '20',
-    top: '40%',
-    right: -75,
+    backgroundColor: '#FFFFFF',
   },
   mainCard: {
     flex: 1,
     backgroundColor: colors.neutral.white,
     marginHorizontal: screenWidth > 768 ? spacing.xxxl * 3 : spacing.lg,
     marginVertical: spacing.xl,
-    borderRadius: 24,
+    borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
     overflow: 'hidden',
+    maxWidth: 1000,
+    alignSelf: 'center',
+    width: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -547,25 +513,23 @@ const styles = StyleSheet.create({
   secondaryButtonTextDisabled: {
     color: colors.neutral.gray400,
   },
-  primaryButton: {
+  primaryButtonWrapper: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary.main,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 14,
-    gap: spacing.xs,
-    shadowColor: colors.primary.main,
-    shadowOffset: { width: 0, height: 4 },
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
-  primaryButtonDisabled: {
-    backgroundColor: colors.neutral.gray300,
-    shadowOpacity: 0,
+  primaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xs,
   },
   primaryButtonText: {
     fontSize: 16,

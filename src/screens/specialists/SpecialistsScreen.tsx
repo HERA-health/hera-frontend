@@ -21,9 +21,11 @@ import {
   Alert,
   TextInput,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { SpecialistCard } from '../../components/features/SpecialistCard';
 import { colors, spacing, typography, borderRadius } from '../../constants/colors';
@@ -38,6 +40,7 @@ const SpecialistsScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasCompletedQuestionnaire, setHasCompletedQuestionnaire] = useState(false);
+  const { width } = useWindowDimensions();
 
   // Fetch specialists on mount
   useEffect(() => {
@@ -296,7 +299,10 @@ const SpecialistsScreen: React.FC = () => {
           data={filteredSpecialists}
           renderItem={renderSpecialistItem}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingHorizontal: width > 768 ? spacing.xxxl : spacing.lg }
+          ]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderEmptySpecialists}
           removeClippedSubviews={false}
@@ -314,7 +320,7 @@ const SpecialistsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.secondary,
+    backgroundColor: '#FFFFFF',
   },
   searchSection: {
     backgroundColor: colors.neutral.white,
@@ -404,7 +410,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeights.semibold,
   },
   listContent: {
-    padding: spacing.lg,
+    paddingVertical: spacing.lg,
     flexGrow: 1,
   },
   postsContainer: {

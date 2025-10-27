@@ -70,7 +70,7 @@ export default function HomeScreen() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Hero Section - Modern gradient with floating elements */}
       <LinearGradient
-        colors={[colors.primary.main, colors.primary.dark, colors.primary.darker]}
+        colors={['#2196F3', '#00897B']}
         style={styles.hero}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -94,18 +94,15 @@ export default function HomeScreen() {
 
         {/* CTA Button - More prominent */}
         <TouchableOpacity
-          style={styles.ctaButton}
+          style={styles.ctaButtonWrapper}
           onPress={() => navigation.navigate('Questionnaire')}
           activeOpacity={0.9}
         >
-          <LinearGradient
-            colors={[colors.neutral.white, colors.neutral.gray50]}
-            style={styles.ctaGradient}
-          >
+          <View style={styles.ctaButton}>
             <Ionicons name="heart" size={24} color={colors.primary.main} />
             <Text style={styles.ctaText}>Comenzar Cuestionario</Text>
             <Ionicons name="arrow-forward" size={20} color={colors.primary.main} />
-          </LinearGradient>
+          </View>
         </TouchableOpacity>
 
         <View style={styles.heroInfo}>
@@ -241,7 +238,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   heroTitleAccent: {
-    color: colors.primary.light,
+    color: '#81D4FA', // Light blue that works well with blue-green gradient
   },
   heroSubtitle: {
     fontSize: 16,
@@ -250,23 +247,24 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: spacing.xl,
   },
-  ctaButton: {
+  ctaButtonWrapper: {
     marginBottom: spacing.md,
     borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 16,
+    shadowRadius: 12,
     elevation: 8,
   },
-  ctaGradient: {
+  ctaButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
     gap: spacing.sm,
+    backgroundColor: colors.neutral.white,
   },
   ctaText: {
     fontSize: 18,
@@ -309,9 +307,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: spacing.lg,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
     elevation: 8,
     gap: spacing.lg,
   },
@@ -358,15 +356,18 @@ const styles = StyleSheet.create({
   },
   featureCard: {
     backgroundColor: colors.neutral.white,
-    borderRadius: 20,
+    borderRadius: 16,
     padding: spacing.xl,
     borderWidth: 1,
     borderColor: colors.neutral.gray200,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
   },
   featureIconContainer: {
     width: 72,

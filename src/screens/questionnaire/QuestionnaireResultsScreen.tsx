@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
 import { colors, spacing } from '../../constants/colors';
 import { Button } from '../../components/common/Button';
 import { SpecialistCard } from '../../components/features/SpecialistCard';
@@ -8,11 +8,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { MatchResult } from '../../utils/matchingAlgorithm';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const { width: screenWidth } = Dimensions.get('window');
-
 export function QuestionnaireResultsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const { width } = useWindowDimensions();
   const results: MatchResult[] = route.params?.results || [];
 
   // Log the results for debugging
@@ -45,23 +44,22 @@ export function QuestionnaireResultsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Decorative background */}
-      <LinearGradient
-        colors={[colors.primary.main, colors.primary.dark]}
-        style={styles.backgroundGradient}
-      />
-
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingHorizontal: width > 768 ? spacing.xxxl : spacing.md }
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Success header - floating card */}
         <View style={styles.headerCard}>
           <View style={styles.successIconContainer}>
             <LinearGradient
-              colors={[colors.primary.light, colors.primary.main]}
-              style={styles.successIconGradient}
+              colors={['#2196F3', '#00897B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.successIconCircle}
             >
               <Ionicons name="heart" size={48} color={colors.neutral.white} />
             </LinearGradient>
@@ -151,14 +149,7 @@ export function QuestionnaireResultsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.gray50,
-  },
-  backgroundGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 300,
+    backgroundColor: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
@@ -168,31 +159,34 @@ const styles = StyleSheet.create({
   },
   headerCard: {
     backgroundColor: colors.neutral.white,
-    marginHorizontal: screenWidth > 768 ? spacing.xxxl * 2 : spacing.lg,
+    marginHorizontal: spacing.md,
     marginTop: spacing.xl,
     marginBottom: spacing.lg,
     padding: spacing.xl,
-    borderRadius: 24,
+    borderRadius: 16,
     alignItems: 'center',
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   successIconContainer: {
     marginBottom: spacing.lg,
   },
-  successIconGradient: {
+  successIconCircle: {
     width: 96,
     height: 96,
     borderRadius: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.primary.main,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
     elevation: 8,
   },
   title: {
@@ -209,20 +203,23 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   contentContainer: {
-    paddingHorizontal: screenWidth > 768 ? spacing.xxxl * 2 : spacing.lg,
+    width: '100%',
+    maxWidth: 1200, // Limit width on tablets
+    alignSelf: 'center', // Center on wide screens
   },
   topMatchSection: {
     backgroundColor: colors.neutral.white,
-    borderRadius: 20,
+    borderRadius: 16,
     padding: spacing.xl,
     marginBottom: spacing.xl,
-    borderWidth: 3,
-    borderColor: colors.primary.main,
-    shadowColor: colors.primary.main,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
+    marginHorizontal: spacing.md,
+    borderWidth: 2,
+    borderColor: '#2196F3',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   topMatchBadge: {
     flexDirection: 'row',
@@ -275,6 +272,7 @@ const styles = StyleSheet.create({
   },
   otherMatchesSection: {
     marginBottom: spacing.xl,
+    marginHorizontal: spacing.md,
   },
   sectionTitle: {
     fontSize: 22,
@@ -292,6 +290,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: spacing.md,
+    marginHorizontal: spacing.md,
   },
   emptyContainer: {
     flex: 1,
@@ -299,6 +298,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
     gap: spacing.md,
+    maxWidth: 600, // Limit width on tablets
+    alignSelf: 'center', // Center on wide screens
+    width: '100%',
   },
   emptyTitle: {
     fontSize: 22,

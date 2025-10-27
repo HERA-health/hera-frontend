@@ -18,6 +18,7 @@ import {
   TextStyle,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, typography } from '../../constants/colors';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
@@ -62,18 +63,22 @@ export const Button: React.FC<ButtonProps> = ({
       baseStyle.width = '100%';
     }
 
+    const shouldUseGradient = (variant === 'primary' || variant === 'secondary') && !isDisabled;
+
     switch (variant) {
       case 'primary':
         return {
           ...baseStyle,
           ...styles.primary,
-          backgroundColor: isDisabled ? colors.neutral.gray300 : colors.primary.main,
+          // Only add backgroundColor if not using gradient
+          ...(!shouldUseGradient && { backgroundColor: isDisabled ? colors.neutral.gray300 : colors.primary.main }),
         };
       case 'secondary':
         return {
           ...baseStyle,
           ...styles.secondary,
-          backgroundColor: isDisabled ? colors.neutral.gray200 : colors.primary.main,
+          // Only add backgroundColor if not using gradient
+          ...(!shouldUseGradient && { backgroundColor: isDisabled ? colors.neutral.gray200 : colors.primary.main }),
         };
       case 'outline':
         return {
@@ -121,6 +126,42 @@ export const Button: React.FC<ButtonProps> = ({
     }
   };
 
+  // For primary and secondary, use gradient wrapper
+  const shouldUseGradient = (variant === 'primary' || variant === 'secondary') && !isDisabled;
+
+  const content = loading ? (
+    <ActivityIndicator
+      color={variant === 'primary' || variant === 'secondary' ? colors.neutral.white : colors.primary.main}
+      size="small"
+    />
+  ) : (
+    <View style={styles.content}>
+      {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
+      <Text style={[getTextStyle(), textStyle]}>{children}</Text>
+      {icon && iconPosition === 'right' && <View style={styles.iconRight}>{icon}</View>}
+    </View>
+  );
+
+  if (shouldUseGradient) {
+    return (
+      <TouchableOpacity
+        onPress={onPress}
+        disabled={isDisabled}
+        activeOpacity={0.7}
+        style={style}
+      >
+        <LinearGradient
+          colors={['#2196F3', '#00897B']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[getButtonStyle()]}
+        >
+          {content}
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <TouchableOpacity
       style={[getButtonStyle(), style]}
@@ -128,18 +169,7 @@ export const Button: React.FC<ButtonProps> = ({
       disabled={isDisabled}
       activeOpacity={0.7}
     >
-      {loading ? (
-        <ActivityIndicator
-          color={variant === 'primary' || variant === 'secondary' ? colors.neutral.white : colors.primary.main}
-          size="small"
-        />
-      ) : (
-        <View style={styles.content}>
-          {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
-          <Text style={[getTextStyle(), textStyle]}>{children}</Text>
-          {icon && iconPosition === 'right' && <View style={styles.iconRight}>{icon}</View>}
-        </View>
-      )}
+      {content}
     </TouchableOpacity>
   );
 };
@@ -152,14 +182,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   primary: {
-    shadowColor: colors.primary.main,
+    shadowColor: '#2196F3',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
   secondary: {
-    shadowColor: colors.primary.main,
+    shadowColor: '#2196F3',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,

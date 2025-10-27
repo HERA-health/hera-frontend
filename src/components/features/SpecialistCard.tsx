@@ -4,8 +4,9 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing } from '../../constants/colors';
 import { Specialist } from '../../constants/types';
 
@@ -17,6 +18,9 @@ interface SpecialistCardProps {
 }
 
 export function SpecialistCard({ specialist, onPress, style, position }: SpecialistCardProps) {
+  const { width } = useWindowDimensions();
+  const isWideScreen = width > 768;
+
   // Get medal emoji based on position
   const getMedal = () => {
     if (position === 1) return '🥇';
@@ -33,46 +37,79 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
       onPress={onPress}
       activeOpacity={0.95}
     >
-      {/* Medal badge for top 3 - small and subtle */}
-      {medal && (
-        <View style={styles.medalBadge}>
+      {/* Medal badge for top 3 - small and subtle with gradient */}
+      {medal && position && (
+        <LinearGradient
+          colors={position === 1 ? ['#FFD700', '#FFA500'] : // Gold gradient
+                 position === 2 ? ['#C0C0C0', '#A8A8A8'] : // Silver gradient
+                 ['#CD7F32', '#8B4513']} // Bronze gradient
+          style={styles.medalBadge}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        >
           <Text style={styles.medalEmoji}>{medal}</Text>
-        </View>
+        </LinearGradient>
       )}
 
-      {/* Affinity badge - floating */}
-      <View style={[styles.affinityBadge, medal && styles.affinityBadgeWithMedal]}>
-        <Ionicons name="heart" size={14} color={colors.primary.main} />
-        <Text style={styles.affinityText}>{specialist.affinityPercentage}% match</Text>
-      </View>
-
-      {/* Header with avatar and info */}
-      <View style={styles.header}>
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{specialist.initial}</Text>
-          </View>
-          {specialist.verified && (
-            <View style={styles.verifiedBadge}>
-              <Ionicons name="shield-checkmark" size={14} color={colors.primary.main} />
+      {/* Main content - responsive layout */}
+      <View style={[styles.mainContent, { flexDirection: isWideScreen ? 'row' : 'column' }]}>
+        {/* Left section: Avatar + Info */}
+        <View style={[styles.leftSection, { flexDirection: isWideScreen ? 'row' : 'column' }]}>
+          {/* Avatar */}
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{specialist.initial}</Text>
             </View>
-          )}
+            {specialist.verified && (
+              <View style={styles.verifiedBadge}>
+                <Ionicons name="shield-checkmark" size={14} color={colors.primary.main} />
+              </View>
+            )}
+          </View>
+
+          {/* Info section */}
+          <View style={[
+            styles.infoSection,
+            {
+              marginLeft: isWideScreen ? spacing.md : 0,
+              marginTop: isWideScreen ? 0 : spacing.md,
+              flex: isWideScreen ? 1 : undefined
+            }
+          ]}>
+            <Text style={styles.name} numberOfLines={1}>{specialist.name}</Text>
+            <Text style={styles.specialization} numberOfLines={1}>
+              {specialist.specialization}
+            </Text>
+
+            {/* Rating with modern design */}
+            <View style={styles.ratingContainer}>
+              <View style={styles.rating}>
+                <Ionicons name="star" size={16} color={colors.secondary.orange} />
+                <Text style={styles.ratingText}>{specialist.rating}</Text>
+              </View>
+              <Text style={styles.reviewCount}>({specialist.reviewCount} reseñas)</Text>
+            </View>
+          </View>
         </View>
 
-        <View style={styles.headerInfo}>
-          <Text style={styles.name} numberOfLines={1}>{specialist.name}</Text>
-          <Text style={styles.specialization} numberOfLines={1}>
-            {specialist.specialization}
-          </Text>
-
-          {/* Rating with modern design */}
-          <View style={styles.ratingContainer}>
-            <View style={styles.rating}>
-              <Ionicons name="star" size={16} color={colors.secondary.orange} />
-              <Text style={styles.ratingText}>{specialist.rating}</Text>
-            </View>
-            <Text style={styles.reviewCount}>({specialist.reviewCount} reseñas)</Text>
-          </View>
+        {/* Right section: Affinity badge */}
+        <View style={[
+          styles.affinitySection,
+          {
+            marginTop: isWideScreen ? 0 : spacing.md,
+            marginLeft: isWideScreen ? spacing.md : 0,
+            alignSelf: isWideScreen ? 'flex-start' : 'flex-start'
+          }
+        ]}>
+          <LinearGradient
+            colors={['#2196F3', '#00897B']}
+            style={styles.affinityBadge}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <Ionicons name="heart" size={14} color={colors.neutral.white} />
+            <Text style={styles.affinityText}>{specialist.affinityPercentage}% match</Text>
+          </LinearGradient>
         </View>
       </View>
 
@@ -110,9 +147,16 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
           <Text style={styles.priceLabel}>por sesión</Text>
         </View>
 
-        <TouchableOpacity style={styles.ctaButton} onPress={onPress}>
-          <Text style={styles.ctaText}>Ver Perfil</Text>
-          <Ionicons name="arrow-forward" size={16} color={colors.neutral.white} />
+        <TouchableOpacity style={styles.ctaButtonWrapper} onPress={onPress} activeOpacity={0.8}>
+          <LinearGradient
+            colors={['#2196F3', '#00897B']}
+            style={styles.ctaButton}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <Text style={styles.ctaText}>Ver Perfil</Text>
+            <Ionicons name="arrow-forward" size={16} color={colors.neutral.white} />
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -122,63 +166,68 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.neutral.white,
-    borderRadius: 20,
+    borderRadius: 16,
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.neutral.gray200,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
     elevation: 4,
     position: 'relative',
+    width: '100%',
+    maxWidth: 1200, // Wider for tablets
+    alignSelf: 'center',
   },
   medalBadge: {
     position: 'absolute',
     top: spacing.sm,
     left: spacing.sm,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
     zIndex: 2,
   },
   medalEmoji: {
-    fontSize: 18,
+    fontSize: 20,
+  },
+  mainContent: {
+    marginBottom: spacing.md,
+    alignItems: 'flex-start',
+  },
+  leftSection: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  affinitySection: {
+    // No position absolute anymore
   },
   affinityBadge: {
-    position: 'absolute',
-    top: spacing.md,
-    right: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary[100],
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: 20,
     gap: 4,
-    zIndex: 1,
-  },
-  affinityBadgeWithMedal: {
-    top: spacing.sm,
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   affinityText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.primary.main,
-  },
-  header: {
-    flexDirection: 'row',
-    marginBottom: spacing.md,
-    gap: spacing.md,
+    color: colors.neutral.white,
   },
   avatarContainer: {
     position: 'relative',
@@ -216,8 +265,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.neutral.white,
   },
-  headerInfo: {
-    flex: 1,
+  infoSection: {
     justifyContent: 'center',
   },
   name: {
@@ -315,19 +363,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.neutral.gray600,
   },
+  ctaButtonWrapper: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
+  },
   ctaButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary.main,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 12,
     gap: spacing.xs,
-    shadowColor: colors.primary.main,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
   ctaText: {
     fontSize: 14,
