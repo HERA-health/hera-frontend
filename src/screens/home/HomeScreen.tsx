@@ -17,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing } from '../../constants/colors';
 import { Button } from '../../components/common/Button';
 import { useNavigation } from '@react-navigation/native';
+import { BrandText } from '../../components/common/BrandText';
+import { BrandIcon } from '../../components/common/BrandIcon';
 
 const { width } = Dimensions.get('window');
 
@@ -84,7 +86,7 @@ export default function HomeScreen() {
         {/* Main heading with emphasis */}
         <Text style={styles.heroTitle}>
           Encuentra el{'\n'}
-          <Text style={styles.heroTitleAccent}>especialista perfecto</Text>
+          <BrandText style={styles.heroTitleAccent}>especialista perfecto</BrandText>
           {'\n'}para ti
         </Text>
 
@@ -99,9 +101,9 @@ export default function HomeScreen() {
           activeOpacity={0.9}
         >
           <View style={styles.ctaButton}>
-            <Ionicons name="heart" size={24} color={colors.primary.main} />
+            <BrandIcon name="heart" size={24} />
             <Text style={styles.ctaText}>Comenzar Cuestionario</Text>
-            <Ionicons name="arrow-forward" size={20} color={colors.primary.main} />
+            <BrandIcon name="arrow-forward" size={20} />
           </View>
         </TouchableOpacity>
 
@@ -120,9 +122,9 @@ export default function HomeScreen() {
         {stats.map((stat, index) => (
           <View key={index} style={styles.statCard}>
             <View style={styles.statIconContainer}>
-              <Ionicons name={stat.icon as any} size={24} color={colors.primary.main} />
+              <BrandIcon name={stat.icon as any} size={24} />
             </View>
-            <Text style={styles.statValue}>{stat.value}</Text>
+            <BrandText style={styles.statValue}>{stat.value}</BrandText>
             <Text style={styles.statLabel}>{stat.label}</Text>
           </View>
         ))}
@@ -130,7 +132,7 @@ export default function HomeScreen() {
 
       {/* Why MindConnect section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>¿Por qué elegir MindConnect?</Text>
+        <BrandText style={styles.sectionTitle}>¿Por qué elegir MindConnect?</BrandText>
         <Text style={styles.sectionSubtitle}>
           Tu bienestar mental es nuestra prioridad
         </Text>
@@ -143,9 +145,9 @@ export default function HomeScreen() {
               activeOpacity={0.95}
             >
               <View style={[styles.featureIconContainer, { backgroundColor: feature.bgColor }]}>
-                <Ionicons name={feature.icon as any} size={32} color={feature.color} />
+                <BrandIcon name={feature.icon as any} size={32} />
               </View>
-              <Text style={styles.featureTitle}>{feature.title}</Text>
+              <BrandText style={styles.featureTitle}>{feature.title}</BrandText>
               <Text style={styles.featureDescription}>{feature.description}</Text>
             </TouchableOpacity>
           ))}
@@ -154,16 +156,21 @@ export default function HomeScreen() {
 
       {/* Testimonials section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Lo que dicen nuestros usuarios</Text>
+        <BrandText style={styles.sectionTitle}>Lo que dicen nuestros usuarios</BrandText>
         <View style={styles.testimonialsContainer}>
           {testimonials.map((testimonial, index) => (
             <View key={index} style={styles.testimonialCard}>
               <View style={styles.testimonialHeader}>
-                <View style={styles.testimonialAvatar}>
+                <LinearGradient
+                  colors={['#2196F3', '#00897B']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.testimonialAvatar}
+                >
                   <Text style={styles.testimonialAvatarText}>
                     {testimonial.name.charAt(0)}
                   </Text>
-                </View>
+                </LinearGradient>
                 <View style={styles.testimonialInfo}>
                   <Text style={styles.testimonialName}>{testimonial.name}</Text>
                   <View style={styles.testimonialRating}>
@@ -181,7 +188,7 @@ export default function HomeScreen() {
 
       {/* Final CTA */}
       <View style={styles.finalCta}>
-        <Text style={styles.finalCtaTitle}>¿Listo para comenzar?</Text>
+        <BrandText style={styles.finalCtaTitle}>¿Listo para comenzar?</BrandText>
         <Text style={styles.finalCtaSubtitle}>
           Da el primer paso hacia tu bienestar mental
         </Text>
@@ -396,7 +403,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: spacing.lg,
     borderLeftWidth: 4,
-    borderLeftColor: colors.primary.main,
+    borderLeftColor: '#2196F3',
   },
   testimonialHeader: {
     flexDirection: 'row',
@@ -408,7 +415,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.primary.main,
     justifyContent: 'center',
     alignItems: 'center',
   },

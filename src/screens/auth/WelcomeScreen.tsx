@@ -13,6 +13,8 @@ import { colors, spacing as defaultSpacing, shadows } from '../../constants/colo
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { BrandText } from '../../components/common/BrandText';
+import { BrandIcon } from '../../components/common/BrandIcon';
 
 // Enhanced spacing system for this screen
 const spacing = {
@@ -43,21 +45,14 @@ export function WelcomeScreen() {
         {/* Logo */}
         <View style={styles.logoContainer}>
           <View style={styles.logoCircle}>
-            <Ionicons name="heart" size={48} color={colors.primary.main} />
+            <BrandIcon name="heart" size={48} withBackground={true} />
           </View>
         </View>
 
-        {/* Gradient Title */}
+        {/* Brand Title */}
         <View style={styles.titleContainer}>
           <Text style={styles.titlePrefix}>Bienvenido a</Text>
-          <LinearGradient
-            colors={['#2196F3', '#00897B']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.gradientWrapper}
-          >
-            <Text style={styles.titleGradient}>MindConnect</Text>
-          </LinearGradient>
+          <BrandText style={styles.titleGradient}>MindConnect</BrandText>
         </View>
 
         {/* Subtitle */}
@@ -74,44 +69,44 @@ export function WelcomeScreen() {
         ]}>
           {/* Feature 1: Matching con IA */}
           <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
-            <View style={[styles.featureIcon, { backgroundColor: colors.secondary.blue + '20' }]}>
-              <Ionicons name="sync" size={32} color={colors.secondary.blue} />
+            <View style={styles.featureIcon}>
+              <BrandIcon name="sync" size={32} />
             </View>
-            <Text style={styles.featureTitle}>Matching con IA</Text>
+            <BrandText style={styles.featureTitle}>Matching con IA</BrandText>
             <Text style={styles.featureSubtitle}>Algoritmo de afinidad único</Text>
           </View>
 
           {/* Feature 2: Videollamadas seguras */}
           <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
-            <View style={[styles.featureIcon, { backgroundColor: colors.primary.main + '20' }]}>
-              <Ionicons name="videocam" size={32} color={colors.primary.main} />
+            <View style={styles.featureIcon}>
+              <BrandIcon name="videocam" size={32} />
             </View>
-            <Text style={styles.featureTitle}>Videollamadas seguras</Text>
+            <BrandText style={styles.featureTitle}>Videollamadas seguras</BrandText>
             <Text style={styles.featureSubtitle}>Sesiones online privadas</Text>
           </View>
 
           {/* Feature 3: LIA - Asistente 24/7 */}
           <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
-            <View style={[styles.featureIcon, { backgroundColor: colors.secondary.purple + '20' }]}>
-              <Ionicons name="sparkles" size={32} color={colors.secondary.purple} />
+            <View style={styles.featureIcon}>
+              <BrandIcon name="sparkles" size={32} />
             </View>
-            <Text style={styles.featureTitle}>LIA - Asistente 24/7</Text>
+            <BrandText style={styles.featureTitle}>LIA - Asistente 24/7</BrandText>
             <Text style={styles.featureSubtitle}>Apoyo emocional inmediato</Text>
           </View>
 
           {/* Feature 4: 100% Confidencial */}
           <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
-            <View style={[styles.featureIcon, { backgroundColor: colors.primary.dark + '20' }]}>
-              <Ionicons name="shield-checkmark" size={32} color={colors.primary.dark} />
+            <View style={styles.featureIcon}>
+              <BrandIcon name="shield-checkmark" size={32} />
             </View>
-            <Text style={styles.featureTitle}>100% Confidencial</Text>
+            <BrandText style={styles.featureTitle}>100% Confidencial</BrandText>
             <Text style={styles.featureSubtitle}>Privacidad garantizada</Text>
           </View>
         </View>
       </View>
 
       {/* CTA Section Header */}
-      <Text style={styles.ctaHeader}>¿Cómo quieres comenzar?</Text>
+      <BrandText style={styles.ctaHeader}>¿Cómo quieres comenzar?</BrandText>
 
       {/* CTA Cards */}
       <View style={[
@@ -120,11 +115,11 @@ export function WelcomeScreen() {
       ]}>
         {/* Client Card */}
         <View style={[styles.ctaCard, isDesktop && styles.ctaCardDesktop]}>
-          <View style={[styles.ctaIconContainer, { backgroundColor: colors.secondary.blue + '15' }]}>
-            <Ionicons name="people" size={40} color={colors.secondary.blue} />
+          <View style={styles.ctaIconContainer}>
+            <BrandIcon name="people" size={40} />
           </View>
 
-          <Text style={styles.ctaTitle}>Busco ayuda</Text>
+          <BrandText style={styles.ctaTitle}>Busco ayuda</BrandText>
           <Text style={styles.ctaSubtitle}>Encuentra el especialista perfecto para ti</Text>
 
           <View style={styles.bulletList}>
@@ -174,11 +169,11 @@ export function WelcomeScreen() {
 
         {/* Professional Card */}
         <View style={[styles.ctaCard, isDesktop && styles.ctaCardDesktop]}>
-          <View style={[styles.ctaIconContainer, { backgroundColor: colors.primary.main + '15' }]}>
-            <Ionicons name="briefcase" size={40} color={colors.primary.main} />
+          <View style={styles.ctaIconContainer}>
+            <BrandIcon name="briefcase" size={40} />
           </View>
 
-          <Text style={styles.ctaTitle}>Soy especialista</Text>
+          <BrandText style={styles.ctaTitle}>Soy especialista</BrandText>
           <Text style={styles.ctaSubtitle}>Únete a nuestra red de especialistas</Text>
 
           <View style={styles.bulletList}>

@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography } from '../../constants/colors';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
+import { BrandText } from '../common/BrandText';
 
 interface CustomDrawerContentProps {
   currentRoute?: string;
@@ -39,10 +41,15 @@ export function CustomDrawerContent({ currentRoute = 'Home' }: CustomDrawerConte
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Header Section */}
         <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Ionicons name="heart" size={32} color={colors.primary.main} />
-          </View>
-          <Text style={styles.brandName}>MindConnect</Text>
+          <LinearGradient
+            colors={['#2196F3', '#00897B']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.logoContainer}
+          >
+            <Ionicons name="heart" size={32} color={colors.neutral.white} />
+          </LinearGradient>
+          <BrandText style={styles.brandName}>MindConnect</BrandText>
           <Text style={styles.tagline}>
             {isProfessional ? 'Panel Profesional' : 'Tu bienestar mental'}
           </Text>
@@ -56,18 +63,38 @@ export function CustomDrawerContent({ currentRoute = 'Home' }: CustomDrawerConte
             return (
               <TouchableOpacity
                 key={item.name}
-                style={[styles.menuItem, isActive && styles.menuItemActive]}
+                style={[styles.menuItem, isActive && styles.menuItemActiveWrapper]}
                 onPress={() => handleNavigation(item.name)}
                 activeOpacity={0.7}
               >
-                <Ionicons
-                  name={item.icon}
-                  size={20}
-                  color={isActive ? colors.neutral.white : colors.neutral.gray600}
-                />
-                <Text style={[styles.menuItemText, isActive && styles.menuItemTextActive]}>
-                  {item.label}
-                </Text>
+                {isActive ? (
+                  <LinearGradient
+                    colors={['#2196F3', '#00897B']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.menuItemActive}
+                  >
+                    <Ionicons
+                      name={item.icon}
+                      size={20}
+                      color={colors.neutral.white}
+                    />
+                    <Text style={styles.menuItemTextActive}>
+                      {item.label}
+                    </Text>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.menuItemInactive}>
+                    <Ionicons
+                      name={item.icon}
+                      size={20}
+                      color={colors.neutral.gray600}
+                    />
+                    <Text style={styles.menuItemText}>
+                      {item.label}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -102,9 +129,14 @@ export function CustomDrawerContent({ currentRoute = 'Home' }: CustomDrawerConte
 
       {/* User Section */}
       <View style={styles.userSection}>
-        <View style={styles.userAvatar}>
+        <LinearGradient
+          colors={['#2196F3', '#00897B']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.userAvatar}
+        >
           <Text style={styles.userAvatarText}>{user?.name?.charAt(0) || 'U'}</Text>
-        </View>
+        </LinearGradient>
         <View style={styles.userInfo}>
           <Text style={styles.userName}>{user?.name || 'Usuario'}</Text>
           <Text style={styles.userSubtitle}>
@@ -140,11 +172,10 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: colors.primary.main,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.md,
-    shadowColor: colors.primary.main,
+    shadowColor: '#2196F3',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -173,16 +204,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   menuItem: {
+    borderRadius: 12,
+    marginBottom: spacing.xs,
+    marginHorizontal: spacing.xs,
+    overflow: 'hidden',
+  },
+  menuItemActiveWrapper: {
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  menuItemActive: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
-    borderRadius: 12,
-    marginBottom: spacing.xs,
-    marginHorizontal: spacing.xs,
   },
-  menuItemActive: {
-    backgroundColor: colors.primary.main,
+  menuItemInactive: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   menuItemText: {
     fontSize: 15,
@@ -229,7 +273,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.primary.main,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.sm,

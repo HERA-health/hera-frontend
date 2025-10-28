@@ -7,6 +7,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { MatchResult } from '../../utils/matchingAlgorithm';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BrandText } from '../../components/common/BrandText';
+import { BrandIcon } from '../../components/common/BrandIcon';
 
 export function QuestionnaireResultsScreen() {
   const navigation = useNavigation<any>();
@@ -65,7 +67,7 @@ export function QuestionnaireResultsScreen() {
             </LinearGradient>
           </View>
 
-          <Text style={styles.title}>¡Encontramos tu match perfecto!</Text>
+          <BrandText style={styles.title}>¡Encontramos tu match perfecto!</BrandText>
           <Text style={styles.subtitle}>
             Basándonos en tus respuestas, estos son los profesionales más compatibles contigo
           </Text>
@@ -77,7 +79,7 @@ export function QuestionnaireResultsScreen() {
           {topMatch && (
             <View style={styles.topMatchSection}>
               <View style={styles.topMatchBadge}>
-                <Ionicons name="trophy" size={20} color={colors.secondary.orange} />
+                <BrandIcon name="trophy" size={20} />
                 <Text style={styles.topMatchBadgeText}>Tu Mejor Match</Text>
               </View>
 
@@ -87,9 +89,9 @@ export function QuestionnaireResultsScreen() {
               />
 
               <View style={styles.matchDetails}>
-                <Text style={styles.matchDetailsTitle}>
+                <BrandText style={styles.matchDetailsTitle}>
                   ¿Por qué es tu mejor match?
-                </Text>
+                </BrandText>
                 <View style={styles.matchAttributesList}>
                   {topMatch.matchedAttributes.slice(0, 5).map((attr, index) => (
                     <View key={index} style={styles.matchAttribute}>
@@ -107,7 +109,7 @@ export function QuestionnaireResultsScreen() {
           {/* Other matches */}
           {results.length > 1 && (
             <View style={styles.otherMatchesSection}>
-              <Text style={styles.sectionTitle}>Otros profesionales compatibles</Text>
+              <BrandText style={styles.sectionTitle}>Otros profesionales compatibles</BrandText>
               <Text style={styles.sectionSubtitle}>
                 También tienen alta afinidad contigo
               </Text>
