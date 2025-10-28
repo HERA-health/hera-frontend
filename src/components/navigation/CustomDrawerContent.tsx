@@ -106,23 +106,38 @@ export function CustomDrawerContent({ currentRoute = 'Home' }: CustomDrawerConte
             <Text style={styles.sectionLabel}>SOPORTE</Text>
 
             <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => console.log('Crisis support')}
+              style={[styles.menuItem, currentRoute === 'OnDutyPsychologist' && styles.menuItemActiveWrapper]}
+              onPress={() => handleNavigation('OnDutyPsychologist')}
               activeOpacity={0.7}
             >
-              <Ionicons name="warning" size={20} color={colors.support.crisis} />
-              <Text style={styles.menuItemText}>Apoyo en Crisis</Text>
+              {currentRoute === 'OnDutyPsychologist' ? (
+                <LinearGradient
+                  colors={['#2196F3', '#00897B']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.menuItemActive}
+                >
+                  <Ionicons name="call" size={20} color={colors.neutral.white} />
+                  <Text style={styles.menuItemTextActive}>Psicólogo de Guardia</Text>
+                  <View style={styles.badge24Active}>
+                    <Text style={styles.badge24Text}>24/7</Text>
+                  </View>
+                </LinearGradient>
+              ) : (
+                <View style={styles.menuItemInactive}>
+                  <Ionicons name="call" size={20} color="#FF6B6B" />
+                  <Text style={styles.menuItemText}>Psicólogo de Guardia</Text>
+                  <LinearGradient
+                    colors={['#FF6B6B', '#FF8E53']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.badge24Gradient}
+                  >
+                    <Text style={styles.badge24Text}>24/7</Text>
+                  </LinearGradient>
+                </View>
+              )}
             </TouchableOpacity>
-
-            <View style={styles.helpCard}>
-              <View style={styles.helpCardHeader}>
-                <Ionicons name="chatbubble-ellipses" size={20} color={colors.support.help} />
-                <Text style={styles.helpCardTitle}>Ayuda 24/7</Text>
-              </View>
-              <Text style={styles.helpCardText}>
-                Estamos aquí para apoyarte en cada paso
-              </Text>
-            </View>
           </View>
         )}
       </ScrollView>
@@ -237,30 +252,26 @@ const styles = StyleSheet.create({
   menuItemTextActive: {
     color: colors.neutral.white,
     fontWeight: '700',
+    marginLeft: spacing.sm,
   },
-  helpCard: {
-    backgroundColor: colors.support.helpBg,
-    padding: spacing.md,
-    borderRadius: 12,
-    marginTop: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.support.help + '30',
+  badge24Active: {
+    marginLeft: 'auto',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  helpCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
+  badge24Gradient: {
+    marginLeft: 'auto',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  helpCardTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.neutral.gray900,
-    marginLeft: spacing.xs,
-  },
-  helpCardText: {
-    fontSize: 12,
-    color: colors.neutral.gray600,
-    lineHeight: 16,
+  badge24Text: {
+    color: colors.neutral.white,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   userSection: {
     flexDirection: 'row',

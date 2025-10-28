@@ -23,6 +23,9 @@ import ProfileCompletionScreen from '../screens/profile/ProfileCompletionScreen'
 import { QuestionnaireScreen } from '../screens/questionnaire/QuestionnaireScreen';
 import { QuestionnaireResultsScreen } from '../screens/questionnaire/QuestionnaireResultsScreen';
 
+// On-Duty screens
+import { OnDutyPsychologistScreen } from '../screens/onduty/OnDutyPsychologistScreen';
+
 // Professional screens
 import { ProfessionalHomeScreen } from '../screens/professional/ProfessionalHomeScreen';
 import { ProfessionalClientsScreen } from '../screens/professional/ProfessionalClientsScreen';
@@ -142,6 +145,16 @@ export function RootNavigator() {
         {() => (
           <MainLayout>
             <SessionsScreen />
+          </MainLayout>
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="OnDutyPsychologist"
+        options={{ headerTitle: 'Psicólogo de Guardia' }}
+      >
+        {() => (
+          <MainLayout>
+            <OnDutyPsychologistScreen />
           </MainLayout>
         )}
       </Stack.Screen>

@@ -89,6 +89,7 @@ export type RootStackParamList = {
   Home: undefined;
   Specialists: undefined;
   Sessions: undefined;
+  OnDutyPsychologist: undefined;
   Profile: undefined;
   ProfileCompletion: undefined;
   SpecialistDetail?: { specialistId: string };
