@@ -5,6 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as professionalService from '../../services/professionalService';
 import { ProfessionalSession, ProfessionalSessionTab } from '../../constants/types';
 import { CalendarView } from '../../components/professional/CalendarView';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BrandText } from '../../components/common/BrandText';
+import { StatusBadge } from '../../components/common/StatusBadge';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -51,7 +54,7 @@ export function ProfessionalSessionsScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.primary.main} />
+        <ActivityIndicator size="large" color="#2196F3" />
       </View>
     );
   }
@@ -125,7 +128,7 @@ export function ProfessionalSessionsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Sesiones</Text>
+        <BrandText style={styles.headerTitle}>Sesiones</BrandText>
         <Text style={styles.headerSubtitle}>
           Gestiona tus citas con pacientes
         </Text>
@@ -134,31 +137,47 @@ export function ProfessionalSessionsScreen() {
       {/* View Mode Toggle */}
       <View style={styles.viewModeContainer}>
         <TouchableOpacity
-          style={[styles.viewModeButton, viewMode === 'list' && styles.viewModeButtonActive]}
+          style={styles.viewModeButtonWrapper}
           onPress={() => setViewMode('list')}
         >
-          <Ionicons
-            name="list"
-            size={20}
-            color={viewMode === 'list' ? colors.neutral.white : colors.neutral.gray600}
-          />
-          <Text style={[styles.viewModeText, viewMode === 'list' && styles.viewModeTextActive]}>
-            Lista
-          </Text>
+          {viewMode === 'list' ? (
+            <LinearGradient
+              colors={['#2196F3', '#00897B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.viewModeButtonActive}
+            >
+              <Ionicons name="list" size={20} color={colors.neutral.white} />
+              <Text style={styles.viewModeTextActive}>Lista</Text>
+            </LinearGradient>
+          ) : (
+            <View style={styles.viewModeButton}>
+              <Ionicons name="list" size={20} color={colors.neutral.gray600} />
+              <Text style={styles.viewModeText}>Lista</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.viewModeButton, viewMode === 'calendar' && styles.viewModeButtonActive]}
+          style={styles.viewModeButtonWrapper}
           onPress={() => setViewMode('calendar')}
         >
-          <Ionicons
-            name="calendar"
-            size={20}
-            color={viewMode === 'calendar' ? colors.neutral.white : colors.neutral.gray600}
-          />
-          <Text style={[styles.viewModeText, viewMode === 'calendar' && styles.viewModeTextActive]}>
-            Calendario
-          </Text>
+          {viewMode === 'calendar' ? (
+            <LinearGradient
+              colors={['#2196F3', '#00897B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.viewModeButtonActive}
+            >
+              <Ionicons name="calendar" size={20} color={colors.neutral.white} />
+              <Text style={styles.viewModeTextActive}>Calendario</Text>
+            </LinearGradient>
+          ) : (
+            <View style={styles.viewModeButton}>
+              <Ionicons name="calendar" size={20} color={colors.neutral.gray600} />
+              <Text style={styles.viewModeText}>Calendario</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -177,22 +196,33 @@ export function ProfessionalSessionsScreen() {
           return (
             <TouchableOpacity
               key={tab.id}
-              style={[styles.tab, isActive && styles.tabActive]}
+              style={styles.tabWrapper}
               onPress={() => setActiveTab(tab.id)}
             >
-              <Ionicons
-                name={tab.icon as any}
-                size={20}
-                color={isActive ? colors.primary.main : colors.neutral.gray500}
-              />
-              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
-                {tab.label}
-              </Text>
-              {count > 0 && (
-                <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
-                  <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
-                    {count}
-                  </Text>
+              {isActive ? (
+                <LinearGradient
+                  colors={['#2196F3', '#00897B']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.tabActive}
+                >
+                  <Ionicons name={tab.icon as any} size={20} color={colors.neutral.white} />
+                  <Text style={styles.tabLabelActive}>{tab.label}</Text>
+                  {count > 0 && (
+                    <View style={styles.tabBadgeActive}>
+                      <Text style={styles.tabBadgeTextActive}>{count}</Text>
+                    </View>
+                  )}
+                </LinearGradient>
+              ) : (
+                <View style={styles.tab}>
+                  <Ionicons name={tab.icon as any} size={20} color={colors.neutral.gray500} />
+                  <Text style={styles.tabLabel}>{tab.label}</Text>
+                  {count > 0 && (
+                    <View style={styles.tabBadge}>
+                      <Text style={styles.tabBadgeText}>{count}</Text>
+                    </View>
+                  )}
                 </View>
               )}
             </TouchableOpacity>
@@ -239,50 +269,44 @@ export function ProfessionalSessionsScreen() {
               {/* Session header */}
               <View style={styles.sessionHeader}>
                 <View style={styles.sessionDate}>
-                  <View style={[
-                    styles.dateBadge,
-                    isToday(session.date) && styles.dateBadgeToday
-                  ]}>
-                    <Text style={[
-                      styles.dateLabel,
-                      isToday(session.date) && styles.dateLabelToday
-                    ]}>
-                      {getDateLabel(session.date)}
-                    </Text>
-                  </View>
+                  {isToday(session.date) ? (
+                    <LinearGradient
+                      colors={['#2196F3', '#00897B']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.dateBadgeToday}
+                    >
+                      <Text style={styles.dateLabelToday}>{getDateLabel(session.date)}</Text>
+                    </LinearGradient>
+                  ) : (
+                    <View style={styles.dateBadge}>
+                      <Text style={styles.dateLabel}>{getDateLabel(session.date)}</Text>
+                    </View>
+                  )}
                   <Text style={styles.sessionTime}>{formatTime(session.date)}</Text>
                 </View>
 
-                <View style={[
-                  styles.statusBadge,
-                  session.status === 'scheduled' && styles.statusBadgeScheduled,
-                  session.status === 'completed' && styles.statusBadgeCompleted,
-                  session.status === 'pending' && styles.statusBadgePending,
-                ]}>
-                  <View style={[
-                    styles.statusDot,
-                    session.status === 'scheduled' && styles.statusDotScheduled,
-                    session.status === 'completed' && styles.statusDotCompleted,
-                    session.status === 'pending' && styles.statusDotPending,
-                  ]} />
-                  <Text style={[
-                    styles.statusText,
-                    session.status === 'scheduled' && styles.statusTextScheduled,
-                    session.status === 'completed' && styles.statusTextCompleted,
-                    session.status === 'pending' && styles.statusTextPending,
-                  ]}>
-                    {session.status === 'scheduled' && 'Confirmada'}
-                    {session.status === 'completed' && 'Completada'}
-                    {session.status === 'pending' && 'Pendiente'}
-                  </Text>
-                </View>
+                <StatusBadge
+                  status={
+                    session.status === 'scheduled' ? 'confirmed' :
+                    session.status === 'completed' ? 'completed' :
+                    'pending'
+                  }
+                />
               </View>
 
               {/* Client info */}
               <View style={styles.clientSection}>
-                <View style={styles.clientAvatar}>
-                  <Text style={styles.clientAvatarText}>{session.clientInitial}</Text>
-                </View>
+                <LinearGradient
+                  colors={['#2196F3', '#00897B']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.clientAvatarBorder}
+                >
+                  <View style={styles.clientAvatar}>
+                    <Text style={styles.clientAvatarText}>{session.clientInitial}</Text>
+                  </View>
+                </LinearGradient>
                 <View style={styles.clientInfo}>
                   <Text style={styles.clientName}>{session.clientName}</Text>
                   <View style={styles.sessionMeta}>
@@ -320,19 +344,24 @@ export function ProfessionalSessionsScreen() {
                 {activeTab === 'upcoming' && (
                   <>
                     {session.meetingLink && (
-                      <TouchableOpacity style={[styles.actionButton, styles.actionButtonPrimary]}>
-                        <Ionicons name="videocam" size={16} color={colors.neutral.white} />
-                        <Text style={[styles.actionButtonText, styles.actionButtonTextPrimary]}>
-                          Iniciar sesión
-                        </Text>
+                      <TouchableOpacity style={styles.actionButtonWrapper}>
+                        <LinearGradient
+                          colors={['#2196F3', '#00897B']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.actionButtonPrimary}
+                        >
+                          <Ionicons name="videocam" size={16} color={colors.neutral.white} />
+                          <Text style={styles.actionButtonTextPrimary}>Iniciar sesión</Text>
+                        </LinearGradient>
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity style={styles.actionButton}>
-                      <Ionicons name="chatbubble-outline" size={16} color={colors.primary.main} />
+                      <Ionicons name="chatbubble-outline" size={16} color="#2196F3" />
                       <Text style={styles.actionButtonText}>Contactar</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.actionButton}>
-                      <Ionicons name="calendar-outline" size={16} color={colors.primary.main} />
+                      <Ionicons name="calendar-outline" size={16} color="#2196F3" />
                       <Text style={styles.actionButtonText}>Reagendar</Text>
                     </TouchableOpacity>
                   </>
@@ -341,11 +370,11 @@ export function ProfessionalSessionsScreen() {
                 {activeTab === 'history' && (
                   <>
                     <TouchableOpacity style={styles.actionButton}>
-                      <Ionicons name="eye-outline" size={16} color={colors.primary.main} />
+                      <Ionicons name="eye-outline" size={16} color="#2196F3" />
                       <Text style={styles.actionButtonText}>Ver detalles</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.actionButton}>
-                      <Ionicons name="document-text-outline" size={16} color={colors.primary.main} />
+                      <Ionicons name="document-text-outline" size={16} color="#2196F3" />
                       <Text style={styles.actionButtonText}>Ver notas</Text>
                     </TouchableOpacity>
                   </>
@@ -353,17 +382,22 @@ export function ProfessionalSessionsScreen() {
 
                 {activeTab === 'pending' && (
                   <>
-                    <TouchableOpacity style={[styles.actionButton, styles.actionButtonPrimary]}>
-                      <Ionicons name="checkmark" size={16} color={colors.neutral.white} />
-                      <Text style={[styles.actionButtonText, styles.actionButtonTextPrimary]}>
-                        Confirmar
-                      </Text>
+                    <TouchableOpacity style={styles.actionButtonWrapper}>
+                      <LinearGradient
+                        colors={['#2196F3', '#00897B']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.actionButtonPrimary}
+                      >
+                        <Ionicons name="checkmark" size={16} color={colors.neutral.white} />
+                        <Text style={styles.actionButtonTextPrimary}>Confirmar</Text>
+                      </LinearGradient>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionButton, styles.actionButtonDanger]}>
-                      <Ionicons name="close" size={16} color={colors.neutral.white} />
-                      <Text style={[styles.actionButtonText, styles.actionButtonTextPrimary]}>
-                        Rechazar
-                      </Text>
+                    <TouchableOpacity style={styles.actionButtonDangerWrapper}>
+                      <View style={styles.actionButtonDanger}>
+                        <Ionicons name="close" size={16} color={colors.neutral.white} />
+                        <Text style={styles.actionButtonTextPrimary}>Rechazar</Text>
+                      </View>
                     </TouchableOpacity>
                   </>
                 )}
@@ -378,7 +412,7 @@ export function ProfessionalSessionsScreen() {
           <CalendarView sessions={sessions} />
         ) : (
           <View style={styles.emptyState}>
-            <ActivityIndicator size="large" color={colors.primary.main} />
+            <ActivityIndicator size="large" color="#2196F3" />
             <Text style={styles.emptyTitle}>Cargando calendario...</Text>
           </View>
         )
@@ -390,7 +424,7 @@ export function ProfessionalSessionsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.gray50,
+    backgroundColor: colors.neutral.white,
   },
   header: {
     backgroundColor: colors.neutral.white,
@@ -403,7 +437,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: colors.neutral.gray900,
     marginBottom: spacing.xs,
   },
   headerSubtitle: {
@@ -419,27 +452,35 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.neutral.gray200,
     gap: spacing.sm,
   },
-  viewModeButton: {
+  viewModeButtonWrapper: {
     flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  viewModeButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: 12,
     backgroundColor: colors.neutral.gray100,
     gap: spacing.xs,
     borderWidth: 2,
     borderColor: colors.neutral.gray200,
+    borderRadius: 12,
   },
   viewModeButtonActive: {
-    backgroundColor: colors.primary.main,
-    borderColor: colors.primary.main,
-    shadowColor: colors.primary.main,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.xs,
+    shadowColor: '#2196F3',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
   viewModeText: {
     fontSize: 15,
@@ -459,19 +500,33 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.neutral.gray200,
     gap: spacing.sm,
   },
-  tab: {
+  tabWrapper: {
     flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  tab: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: 12,
     backgroundColor: colors.neutral.gray50,
     gap: spacing.xs,
+    borderRadius: 12,
   },
   tabActive: {
-    backgroundColor: colors.primary[50],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.xs,
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   tabLabel: {
     fontSize: 14,
@@ -479,7 +534,9 @@ const styles = StyleSheet.create({
     color: colors.neutral.gray600,
   },
   tabLabelActive: {
-    color: colors.primary.main,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.neutral.white,
   },
   tabBadge: {
     backgroundColor: colors.neutral.white,
@@ -490,7 +547,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabBadgeActive: {
-    backgroundColor: colors.primary.main,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: 'center',
   },
   tabBadgeText: {
     fontSize: 11,
@@ -540,7 +602,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   dateBadgeToday: {
-    backgroundColor: colors.primary[100],
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
   },
   dateLabel: {
     fontSize: 13,
@@ -548,77 +612,41 @@ const styles = StyleSheet.create({
     color: colors.neutral.gray700,
   },
   dateLabelToday: {
-    color: colors.primary.main,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.neutral.white,
   },
   sessionTime: {
     fontSize: 18,
     fontWeight: '700',
     color: colors.neutral.gray900,
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
-    gap: spacing.xs,
-  },
-  statusBadgeScheduled: {
-    backgroundColor: colors.primary[100],
-  },
-  statusBadgeCompleted: {
-    backgroundColor: colors.secondary.purple + '20',
-  },
-  statusBadgePending: {
-    backgroundColor: colors.secondary.orange + '20',
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statusDotScheduled: {
-    backgroundColor: colors.primary.main,
-  },
-  statusDotCompleted: {
-    backgroundColor: colors.secondary.purple,
-  },
-  statusDotPending: {
-    backgroundColor: colors.secondary.orange,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  statusTextScheduled: {
-    color: colors.primary.main,
-  },
-  statusTextCompleted: {
-    color: colors.secondary.purple,
-  },
-  statusTextPending: {
-    color: colors.secondary.orange,
-  },
   clientSection: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.md,
   },
+  clientAvatarBorder: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+    padding: 2,
+  },
   clientAvatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.primary[100],
+    backgroundColor: colors.neutral.white,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
-    borderWidth: 2,
-    borderColor: colors.primary.main,
   },
   clientAvatarText: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.primary.main,
+    color: '#2196F3',
   },
   clientInfo: {
     flex: 1,
@@ -668,6 +696,18 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     flexWrap: 'wrap',
   },
+  actionButtonWrapper: {
+    flex: 1,
+    minWidth: 100,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  actionButtonDangerWrapper: {
+    flex: 1,
+    minWidth: 100,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
   actionButton: {
     flex: 1,
     minWidth: 100,
@@ -681,15 +721,27 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   actionButtonPrimary: {
-    backgroundColor: colors.primary.main,
-    shadowColor: colors.primary.main,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.xs,
+    shadowColor: '#2196F3',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
   actionButtonDanger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     backgroundColor: colors.neutral.gray600,
+    borderRadius: 12,
+    gap: spacing.xs,
     shadowColor: colors.neutral.gray600,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
@@ -699,9 +751,11 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.primary.main,
+    color: '#2196F3',
   },
   actionButtonTextPrimary: {
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.neutral.white,
   },
   emptyState: {

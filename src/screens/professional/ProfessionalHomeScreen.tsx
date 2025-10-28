@@ -6,6 +6,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as professionalService from '../../services/professionalService';
+import { BrandText } from '../../components/common/BrandText';
+import { BrandIcon } from '../../components/common/BrandIcon';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -77,32 +79,28 @@ export function ProfessionalHomeScreen() {
       label: 'Clientes totales',
       value: stats.totalClients.toString(),
       icon: 'people',
-      color: colors.primary.main,
-      gradient: [colors.primary.light, colors.primary.main],
+      gradient: ['#2196F3', '#00897B'],
     },
     {
       id: 'sessions',
       label: 'Sesiones esta semana',
       value: stats.sessionsThisWeek.toString(),
       icon: 'calendar',
-      color: colors.secondary.blue,
-      gradient: [colors.secondary.blue + '80', colors.secondary.blue],
+      gradient: ['#2196F3', '#64B5F6'],
     },
     {
       id: 'rating',
       label: 'Valoración media',
       value: stats.averageRating.toFixed(1),
       icon: 'star',
-      color: colors.secondary.orange,
-      gradient: [colors.secondary.orange + '80', colors.secondary.orange],
+      gradient: ['#FFD700', '#FFA500'],
     },
     {
       id: 'pending',
       label: 'Citas pendientes',
       value: stats.pendingAppointments.toString(),
       icon: 'time',
-      color: colors.secondary.purple,
-      gradient: [colors.secondary.purple + '80', colors.secondary.purple],
+      gradient: ['#FF9800', '#FFB74D'],
     },
   ];
 
@@ -145,7 +143,9 @@ export function ProfessionalHomeScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       {/* Welcome header with gradient */}
       <LinearGradient
-        colors={[colors.primary.main, colors.primary.dark]}
+        colors={['#2196F3', '#00897B']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={styles.welcomeHeader}
       >
         <View style={styles.decorCircle1} />
@@ -167,11 +167,13 @@ export function ProfessionalHomeScreen() {
           <View key={stat.id} style={styles.statCard}>
             <LinearGradient
               colors={stat.gradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
               style={styles.statIconContainer}
             >
               <Ionicons name={stat.icon as any} size={24} color={colors.neutral.white} />
             </LinearGradient>
-            <Text style={styles.statValue}>{stat.value}</Text>
+            <BrandText style={styles.statValue}>{stat.value}</BrandText>
             <Text style={styles.statLabel}>{stat.label}</Text>
           </View>
         ))}
@@ -181,7 +183,7 @@ export function ProfessionalHomeScreen() {
       <View style={styles.contentContainer}>
         {/* Quick actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Acciones rápidas</Text>
+          <BrandText style={styles.sectionTitle}>Acciones rápidas</BrandText>
           <View style={styles.quickActionsGrid}>
             {quickActions.map((action) => (
               <TouchableOpacity
@@ -206,7 +208,7 @@ export function ProfessionalHomeScreen() {
         {/* Upcoming sessions */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Próximas sesiones</Text>
+            <BrandText style={styles.sectionTitle}>Próximas sesiones</BrandText>
             <TouchableOpacity onPress={() => navigation.navigate('ProfessionalSessions')}>
               <Text style={styles.sectionLink}>Ver todas</Text>
             </TouchableOpacity>
@@ -264,7 +266,7 @@ export function ProfessionalHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.gray50,
+    backgroundColor: colors.neutral.white,
   },
   scrollContent: {
     paddingBottom: spacing.xxxl,

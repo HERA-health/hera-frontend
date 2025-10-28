@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Dimensions, Alert } from 'react-native';
 import { colors, spacing } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
-import { Button } from '../../components/common/Button';
+import { GradientButton } from '../../components/common/GradientButton';
+import { BrandText } from '../../components/common/BrandText';
 import { useAuth } from '../../contexts/AuthContext';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -146,7 +148,7 @@ export function ProfessionalProfileEditorScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Editar Perfil Profesional</Text>
+        <BrandText style={styles.headerTitle}>Editar Perfil Profesional</BrandText>
         <Text style={styles.headerSubtitle}>
           Actualiza tu información para mejorar el matching con clientes
         </Text>
@@ -160,8 +162,8 @@ export function ProfessionalProfileEditorScreen() {
         {/* Basic Information Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="person" size={20} color={colors.primary.main} />
-            <Text style={styles.sectionTitle}>Información Básica</Text>
+            <Ionicons name="person" size={20} color="#2196F3" />
+            <BrandText style={styles.sectionTitle}>Información Básica</BrandText>
           </View>
 
           <View style={styles.field}>
@@ -212,8 +214,8 @@ export function ProfessionalProfileEditorScreen() {
         {/* Matching Profile Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="heart" size={20} color={colors.primary.main} />
-            <Text style={styles.sectionTitle}>Perfil de Matching</Text>
+            <Ionicons name="heart" size={20} color="#2196F3" />
+            <BrandText style={styles.sectionTitle}>Perfil de Matching</BrandText>
           </View>
           <Text style={styles.sectionDescription}>
             Esta información se usa para conectarte con los clientes más compatibles
@@ -229,13 +231,24 @@ export function ProfessionalProfileEditorScreen() {
                 return (
                   <TouchableOpacity
                     key={option.value}
-                    style={[styles.chip, isSelected && styles.chipSelected]}
+                    style={styles.chipWrapper}
                     onPress={() => toggleMultiSelect(option.value, therapeuticApproach, setTherapeuticApproach)}
                   >
-                    {isSelected && <Ionicons name="checkmark" size={16} color={colors.neutral.white} />}
-                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                      {option.label}
-                    </Text>
+                    {isSelected ? (
+                      <LinearGradient
+                        colors={['#2196F3', '#00897B']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.chipSelected}
+                      >
+                        <Ionicons name="checkmark" size={16} color={colors.neutral.white} />
+                        <Text style={styles.chipTextSelected}>{option.label}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={styles.chip}>
+                        <Text style={styles.chipText}>{option.label}</Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -252,13 +265,24 @@ export function ProfessionalProfileEditorScreen() {
                 return (
                   <TouchableOpacity
                     key={option.value}
-                    style={[styles.chip, isSelected && styles.chipSelected]}
+                    style={styles.chipWrapper}
                     onPress={() => toggleMultiSelect(option.value, specialties, setSpecialties)}
                   >
-                    {isSelected && <Ionicons name="checkmark" size={16} color={colors.neutral.white} />}
-                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                      {option.label}
-                    </Text>
+                    {isSelected ? (
+                      <LinearGradient
+                        colors={['#2196F3', '#00897B']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.chipSelected}
+                      >
+                        <Ionicons name="checkmark" size={16} color={colors.neutral.white} />
+                        <Text style={styles.chipTextSelected}>{option.label}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={styles.chip}>
+                        <Text style={styles.chipText}>{option.label}</Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -275,13 +299,24 @@ export function ProfessionalProfileEditorScreen() {
                 return (
                   <TouchableOpacity
                     key={option.value}
-                    style={[styles.chip, isSelected && styles.chipSelected]}
+                    style={styles.chipWrapper}
                     onPress={() => setSessionStyle(option.value)}
                   >
-                    {isSelected && <Ionicons name="checkmark" size={16} color={colors.neutral.white} />}
-                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                      {option.label}
-                    </Text>
+                    {isSelected ? (
+                      <LinearGradient
+                        colors={['#2196F3', '#00897B']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.chipSelected}
+                      >
+                        <Ionicons name="checkmark" size={16} color={colors.neutral.white} />
+                        <Text style={styles.chipTextSelected}>{option.label}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={styles.chip}>
+                        <Text style={styles.chipText}>{option.label}</Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -298,13 +333,24 @@ export function ProfessionalProfileEditorScreen() {
                 return (
                   <TouchableOpacity
                     key={option.value}
-                    style={[styles.chip, isSelected && styles.chipSelected]}
+                    style={styles.chipWrapper}
                     onPress={() => toggleMultiSelect(option.value, personality, setPersonality)}
                   >
-                    {isSelected && <Ionicons name="checkmark" size={16} color={colors.neutral.white} />}
-                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                      {option.label}
-                    </Text>
+                    {isSelected ? (
+                      <LinearGradient
+                        colors={['#2196F3', '#00897B']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.chipSelected}
+                      >
+                        <Ionicons name="checkmark" size={16} color={colors.neutral.white} />
+                        <Text style={styles.chipTextSelected}>{option.label}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={styles.chip}>
+                        <Text style={styles.chipText}>{option.label}</Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -321,13 +367,24 @@ export function ProfessionalProfileEditorScreen() {
                 return (
                   <TouchableOpacity
                     key={option.value}
-                    style={[styles.chip, isSelected && styles.chipSelected]}
+                    style={styles.chipWrapper}
                     onPress={() => toggleMultiSelect(option.value, ageGroups, setAgeGroups)}
                   >
-                    {isSelected && <Ionicons name="checkmark" size={16} color={colors.neutral.white} />}
-                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                      {option.label}
-                    </Text>
+                    {isSelected ? (
+                      <LinearGradient
+                        colors={['#2196F3', '#00897B']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.chipSelected}
+                      >
+                        <Ionicons name="checkmark" size={16} color={colors.neutral.white} />
+                        <Text style={styles.chipTextSelected}>{option.label}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={styles.chip}>
+                        <Text style={styles.chipText}>{option.label}</Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -356,13 +413,24 @@ export function ProfessionalProfileEditorScreen() {
                 return (
                   <TouchableOpacity
                     key={option.value}
-                    style={[styles.chip, isSelected && styles.chipSelected]}
+                    style={styles.chipWrapper}
                     onPress={() => toggleMultiSelect(option.value, languages, setLanguages)}
                   >
-                    {isSelected && <Ionicons name="checkmark" size={16} color={colors.neutral.white} />}
-                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                      {option.label}
-                    </Text>
+                    {isSelected ? (
+                      <LinearGradient
+                        colors={['#2196F3', '#00897B']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.chipSelected}
+                      >
+                        <Ionicons name="checkmark" size={16} color={colors.neutral.white} />
+                        <Text style={styles.chipTextSelected}>{option.label}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={styles.chip}>
+                        <Text style={styles.chipText}>{option.label}</Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -379,13 +447,24 @@ export function ProfessionalProfileEditorScreen() {
                 return (
                   <TouchableOpacity
                     key={option.value}
-                    style={[styles.chip, isSelected && styles.chipSelected]}
+                    style={styles.chipWrapper}
                     onPress={() => setAvailability(option.value)}
                   >
-                    {isSelected && <Ionicons name="checkmark" size={16} color={colors.neutral.white} />}
-                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                      {option.label}
-                    </Text>
+                    {isSelected ? (
+                      <LinearGradient
+                        colors={['#2196F3', '#00897B']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.chipSelected}
+                      >
+                        <Ionicons name="checkmark" size={16} color={colors.neutral.white} />
+                        <Text style={styles.chipTextSelected}>{option.label}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={styles.chip}>
+                        <Text style={styles.chipText}>{option.label}</Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -402,13 +481,24 @@ export function ProfessionalProfileEditorScreen() {
                 return (
                   <TouchableOpacity
                     key={option.value}
-                    style={[styles.chip, isSelected && styles.chipSelected]}
+                    style={styles.chipWrapper}
                     onPress={() => toggleMultiSelect(option.value, format, setFormat)}
                   >
-                    {isSelected && <Ionicons name="checkmark" size={16} color={colors.neutral.white} />}
-                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                      {option.label}
-                    </Text>
+                    {isSelected ? (
+                      <LinearGradient
+                        colors={['#2196F3', '#00897B']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.chipSelected}
+                      >
+                        <Ionicons name="checkmark" size={16} color={colors.neutral.white} />
+                        <Text style={styles.chipTextSelected}>{option.label}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={styles.chip}>
+                        <Text style={styles.chipText}>{option.label}</Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -418,14 +508,12 @@ export function ProfessionalProfileEditorScreen() {
 
         {/* Save button */}
         <View style={styles.actionsSection}>
-          <Button
-            variant="primary"
-            size="large"
+          <GradientButton
+            title="Guardar cambios"
             onPress={handleSave}
+            size="large"
             loading={loading}
-          >
-            Guardar cambios
-          </Button>
+          />
           <Text style={styles.hint}>
             * Campos obligatorios
           </Text>
@@ -438,7 +526,7 @@ export function ProfessionalProfileEditorScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.gray50,
+    backgroundColor: colors.neutral.white,
   },
   header: {
     backgroundColor: colors.neutral.white,
@@ -451,7 +539,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: colors.neutral.gray900,
     marginBottom: spacing.xs,
   },
   headerSubtitle: {
@@ -487,7 +574,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.neutral.gray900,
   },
   sectionDescription: {
     fontSize: 14,
@@ -505,7 +591,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   required: {
-    color: colors.primary.main,
+    color: '#2196F3',
   },
   fieldHint: {
     fontSize: 13,
@@ -534,6 +620,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
+  chipWrapper: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -546,8 +636,16 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   chipSelected: {
-    backgroundColor: colors.primary.main,
-    borderColor: colors.primary.main,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   chipText: {
     fontSize: 14,
@@ -555,6 +653,8 @@ const styles = StyleSheet.create({
     color: colors.neutral.gray700,
   },
   chipTextSelected: {
+    fontSize: 14,
+    fontWeight: '700',
     color: colors.neutral.white,
   },
   actionsSection: {

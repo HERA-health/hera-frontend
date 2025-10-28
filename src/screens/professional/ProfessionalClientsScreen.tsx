@@ -4,6 +4,8 @@ import { colors, spacing } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import * as professionalService from '../../services/professionalService';
 import { Client } from '../../constants/types';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BrandText } from '../../components/common/BrandText';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -43,7 +45,7 @@ export function ProfessionalClientsScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.primary.main} />
+        <ActivityIndicator size="large" color="#2196F3" />
       </View>
     );
   }
@@ -98,7 +100,7 @@ export function ProfessionalClientsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mis Clientes</Text>
+        <BrandText style={styles.headerTitle}>Mis Clientes</BrandText>
         <Text style={styles.headerSubtitle}>
           Gestiona tu lista de pacientes
         </Text>
@@ -133,29 +135,37 @@ export function ProfessionalClientsScreen() {
           {statusFilters.map((filter) => (
             <TouchableOpacity
               key={filter.id}
-              style={[
-                styles.filterChip,
-                selectedStatus === filter.id && styles.filterChipActive
-              ]}
+              style={styles.filterChipWrapper}
               onPress={() => setSelectedStatus(filter.id as any)}
             >
-              <Text style={[
-                styles.filterChipText,
-                selectedStatus === filter.id && styles.filterChipTextActive
-              ]}>
-                {filter.label}
-              </Text>
-              <View style={[
-                styles.filterChipBadge,
-                selectedStatus === filter.id && styles.filterChipBadgeActive
-              ]}>
-                <Text style={[
-                  styles.filterChipBadgeText,
-                  selectedStatus === filter.id && styles.filterChipBadgeTextActive
-                ]}>
-                  {filter.count}
-                </Text>
-              </View>
+              {selectedStatus === filter.id ? (
+                <LinearGradient
+                  colors={['#2196F3', '#00897B']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.filterChipActive}
+                >
+                  <Text style={styles.filterChipTextActive}>
+                    {filter.label}
+                  </Text>
+                  <View style={styles.filterChipBadgeActive}>
+                    <Text style={styles.filterChipBadgeTextActive}>
+                      {filter.count}
+                    </Text>
+                  </View>
+                </LinearGradient>
+              ) : (
+                <View style={styles.filterChip}>
+                  <Text style={styles.filterChipText}>
+                    {filter.label}
+                  </Text>
+                  <View style={styles.filterChipBadge}>
+                    <Text style={styles.filterChipBadgeText}>
+                      {filter.count}
+                    </Text>
+                  </View>
+                </View>
+              )}
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -195,9 +205,16 @@ export function ProfessionalClientsScreen() {
             >
               {/* Client avatar and info */}
               <View style={styles.clientHeader}>
-                <View style={styles.clientAvatar}>
-                  <Text style={styles.clientAvatarText}>{client.initial}</Text>
-                </View>
+                <LinearGradient
+                  colors={['#2196F3', '#00897B']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.clientAvatarBorder}
+                >
+                  <View style={styles.clientAvatar}>
+                    <Text style={styles.clientAvatarText}>{client.initial}</Text>
+                  </View>
+                </LinearGradient>
 
                 <View style={styles.clientInfo}>
                   <View style={styles.clientTitleRow}>
@@ -228,7 +245,7 @@ export function ProfessionalClientsScreen() {
               <View style={styles.clientStats}>
                 <View style={styles.statItem}>
                   <View style={styles.statIconContainer}>
-                    <Ionicons name="calendar" size={16} color={colors.primary.main} />
+                    <Ionicons name="calendar" size={16} color="#2196F3" />
                   </View>
                   <View style={styles.statInfo}>
                     <Text style={styles.statLabel}>Última sesión</Text>
@@ -240,7 +257,7 @@ export function ProfessionalClientsScreen() {
 
                 <View style={styles.statItem}>
                   <View style={styles.statIconContainer}>
-                    <Ionicons name="time" size={16} color={colors.secondary.blue} />
+                    <Ionicons name="time" size={16} color="#2196F3" />
                   </View>
                   <View style={styles.statInfo}>
                     <Text style={styles.statLabel}>Próxima sesión</Text>
@@ -252,7 +269,7 @@ export function ProfessionalClientsScreen() {
 
                 <View style={styles.statItem}>
                   <View style={styles.statIconContainer}>
-                    <Ionicons name="bar-chart" size={16} color={colors.secondary.orange} />
+                    <Ionicons name="bar-chart" size={16} color="#2196F3" />
                   </View>
                   <View style={styles.statInfo}>
                     <Text style={styles.statLabel}>Sesiones totales</Text>
@@ -277,20 +294,27 @@ export function ProfessionalClientsScreen() {
               {/* Actions */}
               <View style={styles.clientActions}>
                 <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="chatbubble-outline" size={16} color={colors.primary.main} />
+                  <Ionicons name="chatbubble-outline" size={16} color="#2196F3" />
                   <Text style={styles.actionButtonText}>Contactar</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="calendar-outline" size={16} color={colors.primary.main} />
+                  <Ionicons name="calendar-outline" size={16} color="#2196F3" />
                   <Text style={styles.actionButtonText}>Agendar</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={[styles.actionButton, styles.actionButtonPrimary]}>
-                  <Ionicons name="arrow-forward" size={16} color={colors.neutral.white} />
-                  <Text style={[styles.actionButtonText, styles.actionButtonTextPrimary]}>
-                    Ver perfil
-                  </Text>
+                <TouchableOpacity style={styles.actionButtonWrapper}>
+                  <LinearGradient
+                    colors={['#2196F3', '#00897B']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.actionButtonPrimary}
+                  >
+                    <Ionicons name="arrow-forward" size={16} color={colors.neutral.white} />
+                    <Text style={styles.actionButtonTextPrimary}>
+                      Ver perfil
+                    </Text>
+                  </LinearGradient>
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
@@ -304,7 +328,7 @@ export function ProfessionalClientsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.gray50,
+    backgroundColor: colors.neutral.white,
   },
   header: {
     backgroundColor: colors.neutral.white,
@@ -355,6 +379,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: screenWidth > 768 ? spacing.xxxl * 2 : spacing.lg,
     gap: spacing.sm,
   },
+  filterChipWrapper: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -365,7 +393,12 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   filterChipActive: {
-    backgroundColor: colors.primary.main,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 20,
+    gap: spacing.xs,
   },
   filterChipText: {
     fontSize: 14,
@@ -384,7 +417,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   filterChipBadgeActive: {
-    backgroundColor: colors.primary.dark,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   filterChipBadgeText: {
     fontSize: 12,
@@ -417,21 +450,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: spacing.lg,
   },
+  clientAvatarBorder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
   clientAvatar: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.primary[100],
+    backgroundColor: colors.primary[50],
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
-    borderWidth: 2,
-    borderColor: colors.primary.main,
   },
   clientAvatarText: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.primary.main,
+    color: '#2196F3',
   },
   clientInfo: {
     flex: 1,
@@ -557,21 +595,33 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary[50],
     gap: spacing.xs,
   },
-  actionButtonPrimary: {
-    backgroundColor: colors.primary.main,
-    shadowColor: colors.primary.main,
+  actionButtonWrapper: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#2196F3',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 2,
   },
+  actionButtonPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.xs,
+  },
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.primary.main,
+    color: '#2196F3',
   },
   actionButtonTextPrimary: {
     color: colors.neutral.white,
+    fontSize: 14,
+    fontWeight: '600',
   },
   emptyState: {
     flex: 1,
