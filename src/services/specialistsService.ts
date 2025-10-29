@@ -40,3 +40,20 @@ export const getMatchedSpecialists = async (): Promise<MatchedSpecialistsRespons
     throw error;
   }
 };
+
+/**
+ * Gets detailed information about a specific specialist
+ */
+export const getSpecialistDetails = async (specialistId: string): Promise<SpecialistData> => {
+  console.log('📥 Fetching specialist details for ID:', specialistId);
+
+  try {
+    const response = await api.get<{ success: boolean; data: SpecialistData }>(`/specialists/${specialistId}`);
+    console.log('✅ Specialist details fetched successfully:', response.data.data);
+    return response.data.data;
+  } catch (error: any) {
+    console.error('❌ Error fetching specialist details:', error);
+    console.error('Error response:', error.response?.data);
+    throw error;
+  }
+};

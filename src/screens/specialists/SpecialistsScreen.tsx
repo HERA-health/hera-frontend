@@ -26,13 +26,18 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { SpecialistCard } from '../../components/features/SpecialistCard';
 import { colors, spacing, typography, borderRadius } from '../../constants/colors';
-import { SortOption, Specialist } from '../../constants/types';
+import { SortOption, Specialist, RootStackParamList } from '../../constants/types';
 import * as specialistsService from '../../services/specialistsService';
 
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Specialists'>;
+
 const SpecialistsScreen: React.FC = () => {
+  const navigation = useNavigation<NavigationProp>();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('affinity');
   const [activeTab, setActiveTab] = useState<'specialists' | 'posts'>('specialists');
@@ -106,11 +111,14 @@ const SpecialistsScreen: React.FC = () => {
   };
 
   const handleSpecialistPress = (specialistId: string) => {
-    Alert.alert(
-      'Perfil del Especialista',
-      `Ver detalles del especialista ${specialistId}. Esta funcionalidad se implementará próximamente.`,
-      [{ text: 'Entendido' }]
-    );
+    // Find the specialist to get their affinity score
+    const specialist = specialists.find(s => s.id === specialistId);
+    const affinity = specialist ? specialist.affinityPercentage / 100 : undefined;
+
+    navigation.navigate('SpecialistDetail', {
+      specialistId,
+      affinity,
+    });
   };
 
   const handleFilters = () => {
@@ -221,7 +229,7 @@ const SpecialistsScreen: React.FC = () => {
   if (error) {
     return (
       <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle" size={64} color={colors.error.main} />
+        <Ionicons name="alert-circle" size={64} color={colors.feedback.error} />
         <Text style={styles.errorTitle}>Error al cargar</Text>
         <Text style={styles.errorDescription}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={fetchSpecialists}>

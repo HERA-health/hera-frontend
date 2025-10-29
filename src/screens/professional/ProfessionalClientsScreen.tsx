@@ -3,17 +3,22 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Dimens
 import { colors, spacing } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import * as professionalService from '../../services/professionalService';
-import { Client } from '../../constants/types';
+import { Client, RootStackParamList } from '../../constants/types';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BrandText } from '../../components/common/BrandText';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const { width: screenWidth } = Dimensions.get('window');
 
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ProfessionalClients'>;
+
 export function ProfessionalClientsScreen() {
+  const navigation = useNavigation<NavigationProp>();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'inactive' | 'pending'>('all');
   const [loading, setLoading] = useState(true);
-  const [clients, setClients] = useState([]);
+  const [clients, setClients] = useState<Client[]>([]);
 
   useEffect(() => {
     loadClients();
@@ -303,7 +308,10 @@ export function ProfessionalClientsScreen() {
                   <Text style={styles.actionButtonText}>Agendar</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.actionButtonWrapper}>
+                <TouchableOpacity
+                  style={styles.actionButtonWrapper}
+                  onPress={() => navigation.navigate('ClientProfile', { clientId: client.id })}
+                >
                   <LinearGradient
                     colors={['#2196F3', '#00897B']}
                     start={{ x: 0, y: 0 }}

@@ -10,28 +10,28 @@ interface StatusBadgeProps {
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
   const config = {
     pending: {
-      colors: ['#FF9800', '#FFB74D'],
+      gradientColors: ['#FF9800', '#FFB74D'] as const,
       text: 'Pendiente',
     },
     confirmed: {
-      colors: ['#4CAF50', '#66BB6A'],
+      gradientColors: ['#4CAF50', '#66BB6A'] as const,
       text: 'Confirmada',
     },
     scheduled: {
-      colors: ['#2196F3', '#64B5F6'],
+      gradientColors: ['#2196F3', '#64B5F6'] as const,
       text: 'Programada',
     },
     completed: {
-      colors: ['#2196F3', '#64B5F6'],
+      gradientColors: ['#2196F3', '#64B5F6'] as const,
       text: 'Completada',
     },
     cancelled: {
-      colors: ['#9E9E9E', '#BDBDBD'],
+      gradientColors: ['#9E9E9E', '#BDBDBD'] as const,
       text: 'Cancelada',
     },
   };
 
-  const { colors: gradientColors, text } = config[status];
+  const { gradientColors, text } = config[status];
 
   return (
     <LinearGradient

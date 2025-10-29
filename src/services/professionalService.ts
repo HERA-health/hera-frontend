@@ -47,7 +47,7 @@ export interface Client {
   sessions?: Session[];
 }
 
-export const getProfessionalProfile = async (): Promise<ProfessionalProfile> => {
+export const getProfessionalProfile = async (): Promise<ProfessionalProfile | null> => {
   const response = await api.get('/specialists/me');
   return response.data.success ? response.data.data : null;
 };

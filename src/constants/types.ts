@@ -92,13 +92,14 @@ export type RootStackParamList = {
   OnDutyPsychologist: undefined;
   Profile: undefined;
   ProfileCompletion: undefined;
-  SpecialistDetail?: { specialistId: string };
+  SpecialistDetail: { specialistId: string; affinity?: number };
   Questionnaire: undefined;
   QuestionnaireResults: { results: any[] };
   ProfessionalHome: undefined;
   ProfessionalClients: undefined;
   ProfessionalSessions: undefined;
   ProfessionalProfile: undefined;
+  ClientProfile: { clientId: string };
 };
 
 export type MainTabParamList = {

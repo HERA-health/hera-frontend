@@ -16,8 +16,8 @@ export function ProfessionalHomeScreen() {
   const navigation = useNavigation<any>();
 
   const [loading, setLoading] = useState(true);
-  const [sessions, setSessions] = useState([]);
-  const [profile, setProfile] = useState(null);
+  const [sessions, setSessions] = useState<professionalService.Session[]>([]);
+  const [profile, setProfile] = useState<professionalService.ProfessionalProfile | null>(null);
 
   useEffect(() => {
     loadData();
@@ -79,28 +79,28 @@ export function ProfessionalHomeScreen() {
       label: 'Clientes totales',
       value: stats.totalClients.toString(),
       icon: 'people',
-      gradient: ['#2196F3', '#00897B'],
+      gradient: ['#2196F3', '#00897B'] as const,
     },
     {
       id: 'sessions',
       label: 'Sesiones esta semana',
       value: stats.sessionsThisWeek.toString(),
       icon: 'calendar',
-      gradient: ['#2196F3', '#64B5F6'],
+      gradient: ['#2196F3', '#64B5F6'] as const,
     },
     {
       id: 'rating',
       label: 'Valoración media',
       value: stats.averageRating.toFixed(1),
       icon: 'star',
-      gradient: ['#FFD700', '#FFA500'],
+      gradient: ['#FFD700', '#FFA500'] as const,
     },
     {
       id: 'pending',
       label: 'Citas pendientes',
       value: stats.pendingAppointments.toString(),
       icon: 'time',
-      gradient: ['#FF9800', '#FFB74D'],
+      gradient: ['#FF9800', '#FFB74D'] as const,
     },
   ];
 

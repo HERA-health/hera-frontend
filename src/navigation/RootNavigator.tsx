@@ -15,6 +15,7 @@ import { RegisterScreen } from '../screens/auth/RegisterScreen';
 // Main screens
 import HomeScreen from '../screens/home/HomeScreen';
 import SpecialistsScreen from '../screens/specialists/SpecialistsScreen';
+import { SpecialistDetailScreen } from '../screens/specialists/SpecialistDetailScreen';
 import SessionsScreen from '../screens/sessions/SessionsScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import ProfileCompletionScreen from '../screens/profile/ProfileCompletionScreen';
@@ -31,6 +32,7 @@ import { ProfessionalHomeScreen } from '../screens/professional/ProfessionalHome
 import { ProfessionalClientsScreen } from '../screens/professional/ProfessionalClientsScreen';
 import { ProfessionalSessionsScreen } from '../screens/professional/ProfessionalSessionsScreen';
 import { ProfessionalProfileEditorScreen } from '../screens/professional/ProfessionalProfileEditorScreen';
+import { ClientProfileScreen } from '../screens/professional/ClientProfileScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -107,6 +109,19 @@ export function RootNavigator() {
             </MainLayout>
           )}
         </Stack.Screen>
+        <Stack.Screen
+          name="ClientProfile"
+          options={{
+            headerTitle: 'Perfil del Cliente',
+            headerShown: false,
+          }}
+        >
+          {({ route, navigation }) => (
+            <MainLayout>
+              <ClientProfileScreen route={route} navigation={navigation} />
+            </MainLayout>
+          )}
+        </Stack.Screen>
       </Stack.Navigator>
     );
   }
@@ -135,6 +150,19 @@ export function RootNavigator() {
         {() => (
           <MainLayout>
             <SpecialistsScreen />
+          </MainLayout>
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="SpecialistDetail"
+        options={{
+          headerTitle: 'Perfil del Especialista',
+          headerShown: false,
+        }}
+      >
+        {({ route, navigation }) => (
+          <MainLayout>
+            <SpecialistDetailScreen route={route} navigation={navigation} />
           </MainLayout>
         )}
       </Stack.Screen>
