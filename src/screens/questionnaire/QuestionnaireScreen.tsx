@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { colors, spacing } from '../../constants/colors';
 import { questionnaire } from '../../utils/questionnaireData';
@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { UserAnswers } from '../../utils/matchingAlgorithm';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../services/api';
+import { getMatchedSpecialists } from '../../services/specialistsService';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -15,6 +16,97 @@ export function QuestionnaireScreen() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<UserAnswers>({});
   const [loading, setLoading] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(true);
+
+  // Check if user has already completed the questionnaire
+  useEffect(() => {
+    const checkQuestionnaireStatus = async () => {
+      try {
+        const response = await getMatchedSpecialists();
+
+        if (response.hasCompletedQuestionnaire) {
+          // User already completed the questionnaire
+          Alert.alert(
+            'Cuestionario Completado',
+            'Ya has completado el cuestionario anteriormente. ¿Qué te gustaría hacer?',
+            [
+              {
+                text: 'Ver mis resultados',
+                onPress: () => {
+                  // Navigate to results with current matches
+                  const results = response.specialists.map((s) => {
+                    const name = s.user.name;
+                    const initial = name.charAt(0).toUpperCase();
+
+                    const attributeLabels: Record<string, string> = {
+                      specialty: 'Especialidad coincidente',
+                      approach: 'Enfoque terapéutico compatible',
+                      sessionStyle: 'Estilo de sesión adecuado',
+                      personality: 'Personalidad compatible',
+                      ageGroup: 'Experiencia con tu grupo de edad',
+                      availability: 'Disponibilidad compatible',
+                      format: 'Formato de sesión compatible',
+                      experience: 'Alta experiencia profesional',
+                    };
+
+                    const matchedAttributes = (s.matchedAttributes || []).map(
+                      (attr: string) => attributeLabels[attr] || attr
+                    );
+
+                    return {
+                      specialist: {
+                        id: s.id,
+                        name,
+                        avatar: s.avatar || undefined,
+                        initial,
+                        specialization: s.specialization,
+                        rating: s.rating,
+                        reviewCount: s.reviewCount,
+                        description: s.description,
+                        affinityPercentage: s.affinity ? Math.round((s.affinity / 130) * 100) : 0,
+                        tags: matchedAttributes,
+                        pricePerSession: s.pricePerSession,
+                        firstVisitFree: s.firstVisitFree,
+                        verified: true,
+                        matchingProfile: {
+                          therapeuticApproach: [],
+                          specialties: [],
+                          sessionStyle: '',
+                          personality: [],
+                          ageGroups: [],
+                          experienceYears: 0,
+                          language: [],
+                          availability: '',
+                          format: [],
+                        },
+                      },
+                      affinityScore: s.affinity || 0,
+                      matchedAttributes,
+                    };
+                  });
+
+                  navigation.replace('QuestionnaireResults', { results });
+                },
+              },
+              {
+                text: 'Volver',
+                onPress: () => navigation.goBack(),
+                style: 'cancel',
+              },
+            ],
+            { cancelable: false }
+          );
+        }
+      } catch (error) {
+        console.error('Error checking questionnaire status:', error);
+        // If error, allow them to proceed
+      } finally {
+        setCheckingStatus(false);
+      }
+    };
+
+    checkQuestionnaireStatus();
+  }, []);
 
   const currentQuestion = questionnaire[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / questionnaire.length) * 100;
@@ -165,6 +257,16 @@ export function QuestionnaireScreen() {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
     }
   };
+
+  // Show loading while checking questionnaire status
+  if (checkingStatus) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={colors.primary.main} />
+        <Text style={styles.loadingText}>Verificando estado...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -535,5 +637,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.neutral.white,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.neutral.white,
+  },
+  loadingText: {
+    marginTop: spacing.md,
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.neutral.gray700,
   },
 });

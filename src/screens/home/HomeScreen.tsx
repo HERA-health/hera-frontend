@@ -3,7 +3,7 @@
  * Modern hero section with trust indicators, testimonials, and premium design
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,11 +21,46 @@ import { Button } from '../../components/common/Button';
 import { useNavigation } from '@react-navigation/native';
 import { BrandText } from '../../components/common/BrandText';
 import { BrandIcon } from '../../components/common/BrandIcon';
+import { getMatchedSpecialists, SpecialistData } from '../../services/specialistsService';
+import { useAuth } from '../../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
+  const { user } = useAuth();
+  const [hasCompletedQuestionnaire, setHasCompletedQuestionnaire] = useState(false);
+  const [topSpecialists, setTopSpecialists] = useState<SpecialistData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch questionnaire status and matched specialists on mount
+  useEffect(() => {
+    const fetchQuestionnaireStatus = async () => {
+      // Only fetch if user is authenticated
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await getMatchedSpecialists();
+        setHasCompletedQuestionnaire(response.hasCompletedQuestionnaire);
+
+        // Get top 3 specialists
+        if (response.hasCompletedQuestionnaire && response.specialists.length > 0) {
+          setTopSpecialists(response.specialists.slice(0, 3));
+        }
+      } catch (error) {
+        console.error('Error fetching questionnaire status:', error);
+        // If error, assume not completed
+        setHasCompletedQuestionnaire(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuestionnaireStatus();
+  }, [user]);
 
   const stats = [
     { icon: 'people', value: '500+', label: 'Psicólogos' },
@@ -68,49 +105,195 @@ export default function HomeScreen() {
     },
   ];
 
+  // Helper function to calculate affinity percentage
+  const getAffinityPercentage = (affinity?: number): number => {
+    if (!affinity) return 0;
+    return Math.round((affinity / 130) * 100);
+  };
+
+  // Helper function to get specialist initial
+  const getInitial = (name: string): string => {
+    return name.charAt(0).toUpperCase();
+  };
+
+  // Render individual podium card - compact horizontal version
+  const renderPodiumCard = (specialist: SpecialistData, position: number) => {
+    const medals = ['🥇', '🥈', '🥉'];
+    const affinityPercentage = getAffinityPercentage(specialist.affinity);
+
+    return (
+      <TouchableOpacity
+        key={specialist.id}
+        onPress={() => navigation.navigate('SpecialistDetail', { specialistId: specialist.id })}
+        activeOpacity={0.85}
+        style={[styles.podiumCard, position === 0 && styles.podiumCardFirst]}
+      >
+        {/* Medal and Percentage Header */}
+        <View style={styles.podiumHeader}>
+          <Text style={styles.medalIcon}>{medals[position]}</Text>
+          <BrandText style={styles.podiumPercentage}>{affinityPercentage}%</BrandText>
+        </View>
+
+        {/* Avatar */}
+        <View style={styles.podiumAvatarContainer}>
+          {specialist.avatar ? (
+            <Image source={{ uri: specialist.avatar }} style={styles.podiumAvatar} />
+          ) : (
+            <LinearGradient
+              colors={['#2196F3', '#00897B']}
+              style={styles.podiumAvatar}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={styles.podiumAvatarText}>{getInitial(specialist.user.name)}</Text>
+            </LinearGradient>
+          )}
+          {specialist.firstVisitFree && (
+            <View style={styles.freeBadge}>
+              <Text style={styles.freeBadgeText}>Gratis</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Specialist Info */}
+        <View style={styles.podiumInfo}>
+          <Text style={styles.podiumName} numberOfLines={1}>{specialist.user.name}</Text>
+          <Text style={styles.podiumSpecialty} numberOfLines={2}>{specialist.specialization}</Text>
+
+          {/* Stats Row */}
+          <View style={styles.podiumStats}>
+            <View style={styles.podiumStat}>
+              <Ionicons name="star" size={14} color={colors.secondary.orange} />
+              <Text style={styles.podiumStatText}>{specialist.rating}</Text>
+            </View>
+            <View style={styles.podiumStat}>
+              <Ionicons name="cash-outline" size={14} color={colors.primary.main} />
+              <Text style={styles.podiumStatText}>€{specialist.pricePerSession}</Text>
+            </View>
+          </View>
+
+          {/* CTA Button */}
+          <View style={styles.podiumButton}>
+            <LinearGradient
+              colors={['#2196F3', '#00897B']}
+              style={styles.podiumButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.podiumButtonText}>Ver Perfil</Text>
+            </LinearGradient>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Render podium section for users who completed questionnaire
+  const renderPodium = () => {
+    // Safety check: ensure data exists
+    if (!topSpecialists || topSpecialists.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={styles.podiumSection}>
+        <BrandText style={styles.podiumTitle}>Tus Mejores Matches</BrandText>
+        <Text style={styles.podiumSubtitle}>
+          Basado en tu cuestionario, estos son tus especialistas más compatibles
+        </Text>
+
+        {/* Horizontal Row of Compact Cards */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.podiumCardsContainer}
+          style={styles.podiumScrollView}
+        >
+          {topSpecialists.map((specialist, index) => {
+            // Safety check: ensure specialist data exists
+            if (!specialist || !specialist.user) {
+              return null;
+            }
+            return renderPodiumCard(specialist, index);
+          })}
+        </ScrollView>
+
+        {/* View All Button */}
+        <TouchableOpacity
+          style={styles.viewAllButton}
+          onPress={() => navigation.navigate('Specialists')}
+          activeOpacity={0.8}
+        >
+          <LinearGradient
+            colors={['#2196F3', '#00897B']}
+            style={styles.viewAllGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <Text style={styles.viewAllText}>Ver todos mis matches</Text>
+            <Ionicons name="arrow-forward" size={20} color={colors.neutral.white} />
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Hero Section - Modern gradient with floating elements */}
+      {/* Hero Section - Conditional rendering based on questionnaire status */}
       <LinearGradient
         colors={['#2196F3', '#00897B']}
         style={styles.hero}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        {/* Floating badge */}
-        <View style={styles.badge}>
-          <Ionicons name="shield-checkmark" size={14} color={colors.primary.main} />
-          <Text style={styles.badgeText}>Plataforma líder en bienestar mental</Text>
-        </View>
-
-        {/* Main heading with emphasis */}
-        <Text style={styles.heroTitle}>
-          Encuentra el{'\n'}
-          <BrandText style={styles.heroTitleAccent}>especialista perfecto</BrandText>
-          {'\n'}para ti
-        </Text>
-
-        <Text style={styles.heroSubtitle}>
-          Nuestro algoritmo de afinidad conecta a usuarios con psicólogos basándose en personalidad, valores y necesidades específicas.
-        </Text>
-
-        {/* CTA Button - More prominent */}
-        <TouchableOpacity
-          style={styles.ctaButtonWrapper}
-          onPress={() => navigation.navigate('Questionnaire')}
-          activeOpacity={0.9}
-        >
-          <View style={styles.ctaButton}>
-            <BrandIcon name="heart" size={24} />
-            <Text style={styles.ctaText}>Comenzar Cuestionario</Text>
-            <BrandIcon name="arrow-forward" size={20} />
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.neutral.white} />
+            <Text style={styles.loadingText}>Cargando...</Text>
           </View>
-        </TouchableOpacity>
+        ) : hasCompletedQuestionnaire ? (
+          /* Show podium for users who completed questionnaire */
+          renderPodium()
+        ) : (
+          /* Show CTA for users who haven't completed questionnaire */
+          <>
+            {/* Floating badge */}
+            <View style={styles.badge}>
+              <Ionicons name="shield-checkmark" size={14} color={colors.primary.main} />
+              <Text style={styles.badgeText}>Plataforma líder en bienestar mental</Text>
+            </View>
 
-        <View style={styles.heroInfo}>
-          <Ionicons name="time-outline" size={16} color={colors.neutral.white} />
-          <Text style={styles.heroInfoText}>Solo 5 minutos • Totalmente gratuito</Text>
-        </View>
+            {/* Main heading with emphasis */}
+            <Text style={styles.heroTitle}>
+              Encuentra el{'\n'}
+              <BrandText style={styles.heroTitleAccent}>especialista perfecto</BrandText>
+              {'\n'}para ti
+            </Text>
+
+            <Text style={styles.heroSubtitle}>
+              Nuestro algoritmo de afinidad conecta a usuarios con psicólogos basándose en personalidad, valores y necesidades específicas.
+            </Text>
+
+            {/* CTA Button - More prominent */}
+            <TouchableOpacity
+              style={styles.ctaButtonWrapper}
+              onPress={() => navigation.navigate('Questionnaire')}
+              activeOpacity={0.9}
+            >
+              <View style={styles.ctaButton}>
+                <BrandIcon name="heart" size={24} />
+                <Text style={styles.ctaText}>Comenzar Cuestionario</Text>
+                <BrandIcon name="arrow-forward" size={20} />
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.heroInfo}>
+              <Ionicons name="time-outline" size={16} color={colors.neutral.white} />
+              <Text style={styles.heroInfoText}>Solo 5 minutos • Totalmente gratuito</Text>
+            </View>
+          </>
+        )}
 
         {/* Decorative circles */}
         <View style={[styles.decorCircle, styles.decorCircle1]} />
@@ -462,5 +645,202 @@ const styles = StyleSheet.create({
     color: colors.neutral.gray600,
     marginBottom: spacing.lg,
     textAlign: 'center',
+  },
+  // Loading state
+  loadingContainer: {
+    paddingVertical: spacing.xxxl * 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: spacing.md,
+    fontSize: 16,
+    color: colors.neutral.white,
+    fontWeight: '600',
+  },
+  // Podium styles - Compact horizontal layout
+  podiumSection: {
+    paddingVertical: spacing.xl,
+    width: '100%',
+    alignItems: 'center',
+  },
+  podiumTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.neutral.white,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.lg,
+  },
+  podiumSubtitle: {
+    fontSize: 15,
+    color: colors.neutral.white,
+    opacity: 0.95,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  podiumCardsContainer: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+    justifyContent: 'center', // Center cards horizontally
+    alignItems: 'center',
+    flexGrow: 1, // Allow container to grow and enable centering
+    minWidth: '100%', // Ensure full width on larger screens
+  },
+  podiumScrollView: {
+    width: '100%',
+  },
+  // Compact podium card
+  podiumCard: {
+    width: 260,
+    backgroundColor: colors.neutral.white,
+    borderRadius: 20,
+    padding: spacing.lg,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  podiumCardFirst: {
+    borderWidth: 2,
+    borderColor: '#FFD700',
+    shadowOpacity: 0.25,
+    elevation: 8,
+  },
+  // Card header
+  podiumHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  medalIcon: {
+    fontSize: 32,
+  },
+  podiumPercentage: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.neutral.gray900,
+  },
+  // Avatar
+  podiumAvatarContainer: {
+    position: 'relative',
+    marginBottom: spacing.md,
+  },
+  podiumAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: colors.primary[100],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  podiumAvatarText: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.neutral.white,
+  },
+  freeBadge: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    backgroundColor: colors.feedback.success,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.neutral.white,
+  },
+  freeBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.neutral.white,
+  },
+  // Specialist info
+  podiumInfo: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  podiumName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.neutral.gray900,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  podiumSpecialty: {
+    fontSize: 13,
+    color: colors.neutral.gray600,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+    minHeight: 32,
+  },
+  // Stats row
+  podiumStats: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+    justifyContent: 'center',
+  },
+  podiumStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  podiumStatText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.neutral.gray700,
+  },
+  // CTA Button
+  podiumButton: {
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  podiumButtonGradient: {
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  podiumButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.neutral.white,
+  },
+  viewAllButton: {
+    marginHorizontal: spacing.lg,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  viewAllGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.xs,
+  },
+  viewAllText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.neutral.white,
   },
 });
