@@ -25,11 +25,18 @@ export function QuestionnaireScreen() {
         const response = await getMatchedSpecialists();
 
         if (response.hasCompletedQuestionnaire) {
-          // User already completed the questionnaire
+          // User already completed the questionnaire - offer options
           Alert.alert(
             'Cuestionario Completado',
             'Ya has completado el cuestionario anteriormente. ¿Qué te gustaría hacer?',
             [
+              {
+                text: 'Actualizar respuestas',
+                onPress: () => {
+                  // Allow user to retake/update the questionnaire
+                  setCheckingStatus(false);
+                },
+              },
               {
                 text: 'Ver mis resultados',
                 onPress: () => {

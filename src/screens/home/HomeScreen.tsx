@@ -234,6 +234,16 @@ export default function HomeScreen() {
             <Ionicons name="arrow-forward" size={20} color={colors.neutral.white} />
           </LinearGradient>
         </TouchableOpacity>
+
+        {/* Discrete Retake Button */}
+        <TouchableOpacity
+          style={styles.retakeButton}
+          onPress={() => navigation.navigate('Questionnaire')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="refresh" size={16} color={colors.neutral.gray600} />
+          <Text style={styles.retakeButtonText}>Actualizar cuestionario</Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -842,5 +852,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.neutral.white,
+  },
+  // Discrete retake button
+  retakeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.md,
+    marginHorizontal: spacing.lg,
+  },
+  retakeButtonText: {
+    fontSize: 14,
+    color: colors.neutral.gray600,
+    textDecorationLine: 'underline',
   },
 });
