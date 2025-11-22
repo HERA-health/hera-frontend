@@ -99,7 +99,7 @@ export function RegisterScreen() {
           </Text>
           <Text style={styles.subtitle}>
             {userType === 'client'
-              ? 'Únete a MindConnect'
+              ? 'Únete a HERA - Health Era'
               : 'Regístrate como profesional de la salud mental'}
           </Text>
         </View>

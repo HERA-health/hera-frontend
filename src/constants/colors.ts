@@ -1,5 +1,5 @@
 /**
- * Color palette and theme constants for MindConnect
+ * Color palette and theme constants for HERA - Health Era
  * PRIMARY COLOR: GREEN (mental health and wellbeing)
  *
  * DESIGN SYSTEM v3.0:

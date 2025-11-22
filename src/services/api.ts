@@ -7,7 +7,7 @@ const { apiUrl } = getEnvVars();
 const API_BASE_URL = apiUrl;
 
 // Storage key for the auth token
-const TOKEN_KEY = '@mindconnect_token';
+const TOKEN_KEY = '@hera_token';
 
 // Create axios instance
 export const api = axios.create({

@@ -135,7 +135,7 @@ export function RootNavigator() {
     >
       <Stack.Screen
         name="Home"
-        options={{ headerTitle: 'MindConnect' }}
+        options={{ headerTitle: 'HERA' }}
       >
         {() => (
           <MainLayout>

@@ -130,9 +130,9 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      {/* Why MindConnect section */}
+      {/* Why HERA section */}
       <View style={styles.section}>
-        <BrandText style={styles.sectionTitle}>¿Por qué elegir MindConnect?</BrandText>
+        <BrandText style={styles.sectionTitle}>¿Por qué elegir HERA?</BrandText>
         <Text style={styles.sectionSubtitle}>
           Tu bienestar mental es nuestra prioridad
         </Text>

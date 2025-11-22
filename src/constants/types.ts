@@ -1,5 +1,5 @@
 /**
- * TypeScript type definitions for MindConnect
+ * TypeScript type definitions for HERA - Health Era
  * Defines all core domain models and interfaces
  */
 

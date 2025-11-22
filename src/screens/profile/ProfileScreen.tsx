@@ -253,7 +253,7 @@ const ProfileScreen: React.FC = () => {
           <Text style={styles.referralTitle}>Invita y gana</Text>
         </View>
         <Text style={styles.referralDescription}>
-          Comparte MindConnect con tus amigos y ambos recibirán 20€ de crédito
+          Comparte HERA con tus amigos y ambos recibirán 20€ de crédito
           cuando completen su primera sesión.
         </Text>
 

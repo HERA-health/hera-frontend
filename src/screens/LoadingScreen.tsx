@@ -4,7 +4,7 @@ import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 const LoadingScreen = () => {
   return (
     <View style={styles.container}>
-      <Text style={styles.logo}>MindConnect</Text>
+      <Text style={styles.logo}>HERA</Text>
       <ActivityIndicator size="large" color="#10b981" style={styles.loader} />
       <Text style={styles.text}>Cargando...</Text>
     </View>

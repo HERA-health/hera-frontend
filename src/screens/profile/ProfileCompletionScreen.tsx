@@ -1,7 +1,7 @@
 /**
  * ProfileCompletionScreen
  * Encourages users to complete the affinity questionnaire
- * Shows the 3-step process and "Why MindConnect" features
+ * Shows the 3-step process and "Why HERA" features
  */
 
 import React from 'react';
@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { colors, spacing, typography, borderRadius } from '../../constants/colors';
-import { whyMindConnectFeatures } from '../../utils/mockData';
+import { whyHERAFeatures } from '../../utils/mockData';
 
 const ProfileCompletionScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -119,12 +119,12 @@ const ProfileCompletionScreen: React.FC = () => {
             Comenzar Cuestionario
           </Button>
 
-          {/* Why MindConnect Section */}
+          {/* Why HERA Section */}
           <View style={styles.whySection}>
-            <Text style={styles.whyTitle}>¿Por qué MindConnect?</Text>
+            <Text style={styles.whyTitle}>¿Por qué HERA?</Text>
 
             <View style={styles.whyGrid}>
-              {whyMindConnectFeatures.map((feature) => (
+              {whyHERAFeatures.map((feature) => (
                 <Card key={feature.id} style={styles.whyCard} padding="medium">
                   <View style={styles.whyIconContainer}>
                     <Ionicons

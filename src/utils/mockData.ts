@@ -214,7 +214,7 @@ export const mockFeatures: Feature[] = [
   },
 ];
 
-export const whyMindConnectFeatures = [
+export const whyHERAFeatures = [
   {
     id: '1',
     icon: 'checkmark-circle',

@@ -121,7 +121,7 @@ export const mockProfessionalSessions: ProfessionalSession[] = [
     duration: 60,
     status: 'scheduled',
     type: 'video',
-    meetingLink: 'https://meet.mindconnect.com/session-1',
+    meetingLink: 'https://meet.hera.app/session-1',
   },
   {
     id: 'session-2',
@@ -132,7 +132,7 @@ export const mockProfessionalSessions: ProfessionalSession[] = [
     duration: 60,
     status: 'scheduled',
     type: 'video',
-    meetingLink: 'https://meet.mindconnect.com/session-2',
+    meetingLink: 'https://meet.hera.app/session-2',
   },
   {
     id: 'session-3',
@@ -143,7 +143,7 @@ export const mockProfessionalSessions: ProfessionalSession[] = [
     duration: 90,
     status: 'scheduled',
     type: 'video',
-    meetingLink: 'https://meet.mindconnect.com/session-3',
+    meetingLink: 'https://meet.hera.app/session-3',
     notes: 'Sesión de pareja',
   },
   {
@@ -155,7 +155,7 @@ export const mockProfessionalSessions: ProfessionalSession[] = [
     duration: 60,
     status: 'scheduled',
     type: 'video',
-    meetingLink: 'https://meet.mindconnect.com/session-4',
+    meetingLink: 'https://meet.hera.app/session-4',
   },
   {
     id: 'session-5',
@@ -166,7 +166,7 @@ export const mockProfessionalSessions: ProfessionalSession[] = [
     duration: 60,
     status: 'scheduled',
     type: 'video',
-    meetingLink: 'https://meet.mindconnect.com/session-5',
+    meetingLink: 'https://meet.hera.app/session-5',
   },
   {
     id: 'session-6',
@@ -177,7 +177,7 @@ export const mockProfessionalSessions: ProfessionalSession[] = [
     duration: 60,
     status: 'scheduled',
     type: 'video',
-    meetingLink: 'https://meet.mindconnect.com/session-6',
+    meetingLink: 'https://meet.hera.app/session-6',
   },
   {
     id: 'session-7',
@@ -188,7 +188,7 @@ export const mockProfessionalSessions: ProfessionalSession[] = [
     duration: 60,
     status: 'scheduled',
     type: 'video',
-    meetingLink: 'https://meet.mindconnect.com/session-7',
+    meetingLink: 'https://meet.hera.app/session-7',
   },
 
   // Pending sessions (awaiting confirmation)

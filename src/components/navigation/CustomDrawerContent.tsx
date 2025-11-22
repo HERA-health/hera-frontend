@@ -49,9 +49,9 @@ export function CustomDrawerContent({ currentRoute = 'Home' }: CustomDrawerConte
           >
             <Ionicons name="heart" size={32} color={colors.neutral.white} />
           </LinearGradient>
-          <BrandText style={styles.brandName}>MindConnect</BrandText>
+          <BrandText style={styles.brandName}>HERA</BrandText>
           <Text style={styles.tagline}>
-            {isProfessional ? 'Panel Profesional' : 'Tu bienestar mental'}
+            {isProfessional ? 'Panel Profesional' : 'Health Era'}
           </Text>
         </View>
 

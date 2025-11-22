@@ -40,26 +40,31 @@ export function WelcomeScreen() {
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
-      {/* Hero Section */}
-      <View style={styles.heroSection}>
+      {/* Hero Section with Gradient Background */}
+      <LinearGradient
+        colors={['#2196F3', '#00897B']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroSection}
+      >
         {/* Logo */}
         <View style={styles.logoContainer}>
           <View style={styles.logoCircle}>
-            <BrandIcon name="heart" size={48} withBackground={true} />
+            <Ionicons name="heart" size={48} color="#fff" />
           </View>
         </View>
 
         {/* Brand Title */}
         <View style={styles.titleContainer}>
-          <Text style={styles.titlePrefix}>Bienvenido a</Text>
-          <BrandText style={styles.titleGradient}>MindConnect</BrandText>
+          <Text style={styles.appName}>HERA</Text>
+          <Text style={styles.appTagline}>Health Era</Text>
         </View>
 
         {/* Subtitle */}
         <Text style={styles.subtitle}>
-          La plataforma que conecta personas con los mejores profesionales de salud mental mediante inteligencia artificial
+          Tu nueva era de bienestar mental
         </Text>
-      </View>
+      </LinearGradient>
 
       {/* Features Section */}
       <View style={styles.featuresSection}>
@@ -234,31 +239,49 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral.white,
   },
   scrollContent: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.lg,
+    paddingBottom: spacing.lg,
   },
 
   // Hero Section
   heroSection: {
     alignItems: 'center',
-    paddingVertical: spacing.xl,
+    paddingTop: 60,
+    paddingBottom: 40,
+    paddingHorizontal: spacing.md,
     marginBottom: spacing.lg,
+    borderRadius: 0,
   },
   logoContainer: {
     marginBottom: spacing.md,
   },
   logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primary[50],
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.md,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   titleContainer: {
     alignItems: 'center',
     marginBottom: spacing.sm,
+  },
+  appName: {
+    fontSize: 56,
+    fontWeight: 'bold',
+    color: '#fff',
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  appTagline: {
+    fontSize: 18,
+    color: 'rgba(255, 255, 255, 0.9)',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    marginBottom: 16,
+    fontWeight: '500',
   },
   titlePrefix: {
     fontSize: 20,
@@ -279,7 +302,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     lineHeight: 24,
-    color: colors.neutral.gray600,
+    color: 'rgba(255, 255, 255, 0.95)',
     textAlign: 'center',
     maxWidth: 600,
     paddingHorizontal: spacing.sm,
