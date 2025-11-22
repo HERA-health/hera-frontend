@@ -16,7 +16,7 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  ScrollView,
   TouchableOpacity,
   Alert,
   TextInput,
@@ -41,7 +41,8 @@ const SpecialistsScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('affinity');
   const [activeTab, setActiveTab] = useState<'specialists' | 'posts'>('specialists');
-  const [specialists, setSpecialists] = useState<Specialist[]>([]);
+  const [matchedSpecialists, setMatchedSpecialists] = useState<Specialist[]>([]);
+  const [allSpecialists, setAllSpecialists] = useState<Specialist[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasCompletedQuestionnaire, setHasCompletedQuestionnaire] = useState(false);
@@ -52,24 +53,88 @@ const SpecialistsScreen: React.FC = () => {
     fetchSpecialists();
   }, []);
 
+  // Translation map for matched attributes
+  const attributeLabels: Record<string, string> = {
+    specialty: 'Especialidad coincidente',
+    approach: 'Enfoque terapéutico',
+    sessionStyle: 'Estilo de sesión',
+    personality: 'Personalidad compatible',
+    ageGroup: 'Experiencia con tu edad',
+    availability: 'Disponibilidad',
+    format: 'Modalidad compatible',
+    experience: 'Alta experiencia',
+  };
+
   const fetchSpecialists = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch all specialists (public endpoint - no auth required)
-      const specialists = await specialistsService.getAllSpecialists();
+      // Try to fetch matched specialists first (requires auth)
+      let matchedData: Specialist[] = [];
+      let hasQuestionnaire = false;
 
-      // Map backend data to frontend format
-      const mappedSpecialists: Specialist[] = specialists.map((s) => {
+      try {
+        const matchedResponse = await specialistsService.getMatchedSpecialists();
+        hasQuestionnaire = matchedResponse.hasCompletedQuestionnaire;
+
+        if (hasQuestionnaire && matchedResponse.specialists.length > 0) {
+          // Map matched specialists with real affinity scores
+          matchedData = matchedResponse.specialists.map((s) => {
+            const name = s.user.name;
+            const initial = name.charAt(0).toUpperCase();
+            const affinityPercentage = s.affinity ? Math.round((s.affinity / 130) * 100) : 0;
+
+            // Translate matched attributes to user-friendly Spanish labels
+            const translatedTags = (s.matchedAttributes || [])
+              .map((attr: string) => attributeLabels[attr] || attr)
+              .filter((tag: string) => tag); // Remove empty tags
+
+            return {
+              id: s.id,
+              name,
+              avatar: s.avatar || undefined,
+              initial,
+              specialization: s.specialization,
+              rating: s.rating,
+              reviewCount: s.reviewCount,
+              description: s.description,
+              affinityPercentage,
+              tags: translatedTags,
+              pricePerSession: s.pricePerSession,
+              firstVisitFree: s.firstVisitFree,
+              verified: true,
+              matchingProfile: {
+                therapeuticApproach: [],
+                specialties: [],
+                sessionStyle: '',
+                personality: [],
+                ageGroups: [],
+                experienceYears: 0,
+                language: [],
+                availability: '',
+                format: [],
+              },
+            };
+          });
+
+          console.log('✅ Fetched matched specialists:', matchedData.length);
+        }
+      } catch (matchErr: any) {
+        // If matched specialists fetch fails (e.g., not authenticated), continue with all specialists
+        console.log('ℹ️ Could not fetch matched specialists (user may not be authenticated):', matchErr.message);
+      }
+
+      // Always fetch all specialists as fallback/supplement
+      const allSpecialistsData = await specialistsService.getAllSpecialists();
+
+      // Map all specialists to frontend format
+      const mappedAllSpecialists: Specialist[] = allSpecialistsData.map((s) => {
         const name = s.user.name;
         const initial = name.charAt(0).toUpperCase();
 
-        // Since we're using the public endpoint, there's no affinity score
-        // We'll use rating as the basis for sorting
+        // Use rating as affinity proxy for non-matched specialists
         const affinityPercentage = Math.round((s.rating / 5) * 100);
-
-        // Extract tags from specialties in matching profile
         const tags = s.matchedAttributes || [];
 
         return {
@@ -85,7 +150,7 @@ const SpecialistsScreen: React.FC = () => {
           tags,
           pricePerSession: s.pricePerSession,
           firstVisitFree: s.firstVisitFree,
-          verified: true, // Default to verified for now
+          verified: true,
           matchingProfile: {
             therapeuticApproach: [],
             specialties: [],
@@ -100,8 +165,11 @@ const SpecialistsScreen: React.FC = () => {
         };
       });
 
-      setSpecialists(mappedSpecialists);
-      setHasCompletedQuestionnaire(false); // Public endpoint doesn't track this
+      setMatchedSpecialists(matchedData);
+      setAllSpecialists(mappedAllSpecialists);
+      setHasCompletedQuestionnaire(hasQuestionnaire);
+
+      console.log(`📊 Loaded ${matchedData.length} matched, ${mappedAllSpecialists.length} total specialists`);
     } catch (err: any) {
       console.error('Error fetching specialists:', err);
       setError(err.message || 'Error al cargar especialistas');
@@ -111,8 +179,9 @@ const SpecialistsScreen: React.FC = () => {
   };
 
   const handleSpecialistPress = (specialistId: string) => {
-    // Find the specialist to get their affinity score
-    const specialist = specialists.find(s => s.id === specialistId);
+    // Find the specialist in matched or all specialists to get their affinity score
+    const specialist = matchedSpecialists.find(s => s.id === specialistId) ||
+                      allSpecialists.find(s => s.id === specialistId);
     const affinity = specialist ? specialist.affinityPercentage / 100 : undefined;
 
     navigation.navigate('SpecialistDetail', {
@@ -158,8 +227,12 @@ const SpecialistsScreen: React.FC = () => {
     }
   };
 
-  // Filter specialists based on search query
-  const filteredSpecialists = specialists
+  // Combine specialists: matched first, then others (excluding duplicates)
+  const matchedIds = matchedSpecialists.map(s => s.id);
+  const otherSpecialists = allSpecialists.filter(s => !matchedIds.includes(s.id));
+
+  // Filter and sort matched specialists
+  const filteredMatchedSpecialists = matchedSpecialists
     .filter((specialist) => {
       if (!searchQuery) return true;
       const query = searchQuery.toLowerCase();
@@ -172,10 +245,8 @@ const SpecialistsScreen: React.FC = () => {
     .sort((a, b) => {
       switch (sortOption) {
         case 'affinity':
-          // Sort by rating (used as affinity proxy)
           return b.affinityPercentage - a.affinityPercentage;
         case 'rating':
-          // Sort by rating first, then review count
           if (b.rating !== a.rating) {
             return b.rating - a.rating;
           }
@@ -189,13 +260,94 @@ const SpecialistsScreen: React.FC = () => {
       }
     });
 
-  // Render specialist card item with position for top 3
-  const renderSpecialistItem = ({ item, index }: { item: Specialist; index: number }) => (
+  // Filter and sort other specialists
+  const filteredOtherSpecialists = otherSpecialists
+    .filter((specialist) => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        specialist.name.toLowerCase().includes(query) ||
+        specialist.specialization.toLowerCase().includes(query) ||
+        specialist.tags.some((tag) => tag.toLowerCase().includes(query))
+      );
+    })
+    .sort((a, b) => {
+      switch (sortOption) {
+        case 'affinity':
+          return b.affinityPercentage - a.affinityPercentage;
+        case 'rating':
+          if (b.rating !== a.rating) {
+            return b.rating - a.rating;
+          }
+          return b.reviewCount - a.reviewCount;
+        case 'price_low':
+          return a.pricePerSession - b.pricePerSession;
+        case 'price_high':
+          return b.pricePerSession - a.pricePerSession;
+        default:
+          return 0;
+      }
+    });
+
+  // Combine for total count
+  const allFilteredSpecialists = [...filteredMatchedSpecialists, ...filteredOtherSpecialists];
+
+  // Render matched specialist card with special styling
+  const renderMatchedSpecialistItem = ({ item, index }: { item: Specialist; index: number }) => (
+    <View style={styles.matchedCardWrapper}>
+      <SpecialistCard
+        specialist={item}
+        position={index < 3 ? (index + 1) as 1 | 2 | 3 : undefined}
+        onPress={() => handleSpecialistPress(item.id)}
+      />
+    </View>
+  );
+
+  // Render regular specialist card
+  const renderSpecialistItem = ({ item }: { item: Specialist }) => (
     <SpecialistCard
       specialist={item}
-      position={index < 3 ? (index + 1) as 1 | 2 | 3 : undefined}
       onPress={() => handleSpecialistPress(item.id)}
     />
+  );
+
+  // Render questionnaire banner for users who haven't completed it
+  const renderQuestionnaireBanner = () => (
+    <TouchableOpacity
+      style={styles.questionnaireBanner}
+      onPress={() => navigation.navigate('Questionnaire')}
+      activeOpacity={0.8}
+    >
+      <LinearGradient
+        colors={['#2196F3', '#00897B']}
+        style={styles.questionnaireBannerGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+      >
+        <View style={styles.questionnaireBannerContent}>
+          <View style={styles.questionnaireBannerIcon}>
+            <Ionicons name="heart" size={32} color={colors.neutral.white} />
+          </View>
+          <View style={styles.questionnaireBannerText}>
+            <Text style={styles.questionnaireBannerTitle}>
+              Descubre tus mejores matches
+            </Text>
+            <Text style={styles.questionnaireBannerSubtitle}>
+              Completa el cuestionario para ver especialistas personalizados para ti
+            </Text>
+          </View>
+          <Ionicons name="arrow-forward" size={24} color={colors.neutral.white} />
+        </View>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+
+  // Render section header
+  const renderSectionHeader = (title: string, count: number) => (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionHeaderTitle}>{title}</Text>
+      <Text style={styles.sectionHeaderCount}>({count})</Text>
+    </View>
   );
 
   // Empty state for no results
@@ -308,21 +460,49 @@ const SpecialistsScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Content - FlatList with all specialists */}
+      {/* Content - Sectioned list with matched specialists first */}
       {activeTab === 'specialists' ? (
-        <FlatList
-          data={filteredSpecialists}
-          renderItem={renderSpecialistItem}
-          keyExtractor={(item) => item.id}
+        <ScrollView
+          style={styles.scrollView}
           contentContainerStyle={[
             styles.listContent,
             { paddingHorizontal: width > 768 ? spacing.xxxl : spacing.lg }
           ]}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={renderEmptySpecialists}
-          removeClippedSubviews={false}
-          initialNumToRender={10}
-        />
+        >
+          {/* Questionnaire Banner (if not completed) */}
+          {!hasCompletedQuestionnaire && renderQuestionnaireBanner()}
+
+          {/* Matched Specialists Section (if questionnaire completed) */}
+          {hasCompletedQuestionnaire && filteredMatchedSpecialists.length > 0 && (
+            <View style={styles.matchedSection}>
+              {renderSectionHeader('⭐ Tus Mejores Matches', filteredMatchedSpecialists.length)}
+              {filteredMatchedSpecialists.slice(0, 5).map((specialist, index) => (
+                <View key={specialist.id}>
+                  {renderMatchedSpecialistItem({ item: specialist, index })}
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Other Specialists Section */}
+          {allFilteredSpecialists.length > 0 && (
+            <View style={styles.otherSection}>
+              {hasCompletedQuestionnaire && filteredMatchedSpecialists.length > 0
+                ? renderSectionHeader('📋 Otros Especialistas', filteredOtherSpecialists.length)
+                : renderSectionHeader('📋 Todos los Especialistas', allFilteredSpecialists.length)
+              }
+              {(hasCompletedQuestionnaire ? filteredOtherSpecialists : allFilteredSpecialists).map((specialist) => (
+                <View key={specialist.id}>
+                  {renderSpecialistItem({ item: specialist })}
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Empty State */}
+          {allFilteredSpecialists.length === 0 && renderEmptySpecialists()}
+        </ScrollView>
       ) : (
         <View style={styles.postsContainer}>
           {renderEmptyPosts()}
@@ -336,6 +516,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  scrollView: {
+    flex: 1,
   },
   searchSection: {
     backgroundColor: colors.neutral.white,
@@ -500,6 +683,84 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.semibold,
     color: colors.neutral.white,
+  },
+  // Questionnaire Banner Styles
+  questionnaireBanner: {
+    marginBottom: spacing.xl,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  questionnaireBannerGradient: {
+    padding: spacing.lg,
+  },
+  questionnaireBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  questionnaireBannerIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  questionnaireBannerText: {
+    flex: 1,
+  },
+  questionnaireBannerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.neutral.white,
+    marginBottom: spacing.xs,
+  },
+  questionnaireBannerSubtitle: {
+    fontSize: 14,
+    color: colors.neutral.white,
+    opacity: 0.95,
+    lineHeight: 20,
+  },
+  // Section Header Styles
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
+  },
+  sectionHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.neutral.gray900,
+  },
+  sectionHeaderCount: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.neutral.gray600,
+    marginLeft: spacing.xs,
+  },
+  // Section Container Styles
+  matchedSection: {
+    marginBottom: spacing.xl,
+  },
+  otherSection: {
+    marginBottom: spacing.lg,
+  },
+  // Matched Card Wrapper with Subtle Visual Differentiation
+  matchedCardWrapper: {
+    marginBottom: spacing.md,
+    borderRadius: 16,
+    // Remove harsh blue border, use subtle shadow glow instead
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
   },
 });
 
