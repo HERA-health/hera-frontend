@@ -57,19 +57,19 @@ const SpecialistsScreen: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const response = await specialistsService.getMatchedSpecialists();
+      // Fetch all specialists (public endpoint - no auth required)
+      const specialists = await specialistsService.getAllSpecialists();
 
       // Map backend data to frontend format
-      const mappedSpecialists: Specialist[] = response.specialists.map((s) => {
+      const mappedSpecialists: Specialist[] = specialists.map((s) => {
         const name = s.user.name;
         const initial = name.charAt(0).toUpperCase();
 
-        // Convert affinity score (0-130 scale) to percentage (0-100)
-        const affinityPercentage = s.affinity
-          ? Math.round((s.affinity / 130) * 100)
-          : 0;
+        // Since we're using the public endpoint, there's no affinity score
+        // We'll use rating as the basis for sorting
+        const affinityPercentage = Math.round((s.rating / 5) * 100);
 
-        // Extract tags from matching profile
+        // Extract tags from specialties in matching profile
         const tags = s.matchedAttributes || [];
 
         return {
@@ -101,7 +101,7 @@ const SpecialistsScreen: React.FC = () => {
       });
 
       setSpecialists(mappedSpecialists);
-      setHasCompletedQuestionnaire(response.hasCompletedQuestionnaire);
+      setHasCompletedQuestionnaire(false); // Public endpoint doesn't track this
     } catch (err: any) {
       console.error('Error fetching specialists:', err);
       setError(err.message || 'Error al cargar especialistas');
@@ -159,15 +159,35 @@ const SpecialistsScreen: React.FC = () => {
   };
 
   // Filter specialists based on search query
-  const filteredSpecialists = specialists.filter((specialist) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      specialist.name.toLowerCase().includes(query) ||
-      specialist.specialization.toLowerCase().includes(query) ||
-      specialist.tags.some((tag) => tag.toLowerCase().includes(query))
-    );
-  });
+  const filteredSpecialists = specialists
+    .filter((specialist) => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        specialist.name.toLowerCase().includes(query) ||
+        specialist.specialization.toLowerCase().includes(query) ||
+        specialist.tags.some((tag) => tag.toLowerCase().includes(query))
+      );
+    })
+    .sort((a, b) => {
+      switch (sortOption) {
+        case 'affinity':
+          // Sort by rating (used as affinity proxy)
+          return b.affinityPercentage - a.affinityPercentage;
+        case 'rating':
+          // Sort by rating first, then review count
+          if (b.rating !== a.rating) {
+            return b.rating - a.rating;
+          }
+          return b.reviewCount - a.reviewCount;
+        case 'price_low':
+          return a.pricePerSession - b.pricePerSession;
+        case 'price_high':
+          return b.pricePerSession - a.pricePerSession;
+        default:
+          return 0;
+      }
+    });
 
   // Render specialist card item with position for top 3
   const renderSpecialistItem = ({ item, index }: { item: Specialist; index: number }) => (
@@ -180,19 +200,6 @@ const SpecialistsScreen: React.FC = () => {
 
   // Empty state for no results
   const renderEmptySpecialists = () => {
-    // If user hasn't completed questionnaire and there are no specialists
-    if (!hasCompletedQuestionnaire && specialists.length === 0) {
-      return (
-        <View style={styles.emptyState}>
-          <Ionicons name="help-circle" size={64} color={colors.primary.main} />
-          <Text style={styles.emptyTitle}>Completa el cuestionario</Text>
-          <Text style={styles.emptyDescription}>
-            Para obtener recomendaciones personalizadas, completa el cuestionario de matching desde la pantalla de inicio
-          </Text>
-        </View>
-      );
-    }
-
     return (
       <View style={styles.emptyState}>
         <Ionicons name="search" size={64} color={colors.neutral.gray300} />

@@ -42,6 +42,38 @@ export const getMatchedSpecialists = async (): Promise<MatchedSpecialistsRespons
 };
 
 /**
+ * Gets all specialists (public endpoint, no auth required)
+ * Supports optional filters: specialization, minRating, maxPrice, firstVisitFree
+ */
+export const getAllSpecialists = async (filters?: {
+  specialization?: string;
+  minRating?: number;
+  maxPrice?: number;
+  firstVisitFree?: boolean;
+}): Promise<SpecialistData[]> => {
+  console.log('📥 Fetching all specialists from backend...', filters);
+
+  try {
+    const params = new URLSearchParams();
+    if (filters?.specialization) params.append('specialization', filters.specialization);
+    if (filters?.minRating) params.append('minRating', filters.minRating.toString());
+    if (filters?.maxPrice) params.append('maxPrice', filters.maxPrice.toString());
+    if (filters?.firstVisitFree !== undefined) params.append('firstVisitFree', filters.firstVisitFree.toString());
+
+    const queryString = params.toString();
+    const url = `/specialists${queryString ? `?${queryString}` : ''}`;
+
+    const response = await api.get<{ success: boolean; data: SpecialistData[] }>(url);
+    console.log('✅ All specialists fetched successfully:', response.data.data.length, 'specialists');
+    return response.data.data;
+  } catch (error: any) {
+    console.error('❌ Error fetching all specialists:', error);
+    console.error('Error response:', error.response?.data);
+    throw error;
+  }
+};
+
+/**
  * Gets detailed information about a specific specialist
  */
 export const getSpecialistDetails = async (specialistId: string): Promise<SpecialistData> => {

@@ -22,6 +22,7 @@ import { GradientButton } from '../../components/common/GradientButton';
 import { BrandText } from '../../components/common/BrandText';
 import { colors, spacing, typography } from '../../constants/colors';
 import { api } from '../../services/api';
+import * as specialistsService from '../../services/specialistsService';
 
 // Types
 interface SpecialistDetailScreenProps {
@@ -96,74 +97,54 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       console.log('🔄 Loading specialist details for ID:', specialistId);
       setLoading(true);
 
-      console.log('✅ Loading mock specialist data...');
+      if (!specialistId) {
+        throw new Error('No specialist ID provided');
+      }
 
-      // Mock data for development
-      const mockSpecialist: SpecialistDetail = {
-        id: specialistId || 'mock-id',
-        name: 'Dra. María González',
-        avatar: undefined,
-        specialization: 'Psicología Clínica · Especialista en Ansiedad y Depresión',
-        rating: 4.9,
-        reviewCount: 127,
-        experienceYears: 12,
-        description: 'Psicóloga clínica con más de 12 años de experiencia especializada en terapia cognitivo-conductual. Mi enfoque es empático, personalizado y basado en la evidencia científica más reciente.',
-        therapeuticApproach: 'Utilizo principalmente la Terapia Cognitivo-Conductual (TCC) combinada con técnicas de mindfulness y terapia de aceptación y compromiso (ACT). Mi objetivo es ayudarte a desarrollar herramientas prácticas para manejar tus dificultades y mejorar tu bienestar emocional.',
-        pricePerSession: 65,
-        firstVisitFree: true,
-        isAvailable: true,
-        languages: ['Español', 'Inglés', 'Catalán'],
-        format: 'hybrid',
-        specialties: ['Ansiedad', 'Depresión', 'Estrés', 'Autoestima', 'Trauma', 'Relaciones'],
-        availability: ['Lunes a Viernes: 9:00-20:00', 'Sábados: 10:00-14:00'],
-        clientsHelped: '250',
-        sessionsCompleted: '580',
-        reviews: [
-          {
-            id: '1',
-            clientName: 'Ana M.',
-            rating: 5,
-            comment: 'Excelente profesional. Me ha ayudado muchísimo con mi ansiedad. Muy recomendable.',
-            date: 'Hace 2 semanas',
-          },
-          {
-            id: '2',
-            clientName: 'Carlos R.',
-            rating: 5,
-            comment: 'Gran empatía y profesionalidad. Las sesiones son muy útiles y prácticas.',
-            date: 'Hace 1 mes',
-          },
-        ],
-        education: [
-          {
-            id: '1',
-            title: 'Licenciatura en Psicología',
-            institution: 'Universidad Complutense de Madrid',
-            year: '2008 - 2013',
-            type: 'degree',
-          },
-          {
-            id: '2',
-            title: 'Máster en Terapia Cognitivo-Conductual',
-            institution: 'UNED',
-            year: '2013 - 2015',
-            type: 'degree',
-          },
-          {
-            id: '3',
-            title: 'Certificación en Mindfulness-Based Cognitive Therapy',
-            institution: 'Instituto Europeo de Mindfulness',
-            year: '2018',
-            type: 'certificate',
-          },
-        ],
+      // Fetch specialist details from backend
+      const data = await specialistsService.getSpecialistDetails(specialistId);
+      console.log('✅ Specialist data fetched:', data);
+
+      // Map backend data to frontend format
+      const mappedSpecialist: SpecialistDetail = {
+        id: data.id,
+        name: data.user.name,
+        avatar: data.avatar || undefined,
+        specialization: data.specialization,
+        rating: data.rating,
+        reviewCount: data.reviewCount,
+        experienceYears: (data.matchingProfile as any)?.experienceYears || 0,
+        description: data.description,
+        therapeuticApproach: Array.isArray((data.matchingProfile as any)?.therapeuticApproach)
+          ? (data.matchingProfile as any).therapeuticApproach.join(', ')
+          : (data.matchingProfile as any)?.therapeuticApproach || 'No especificado',
+        pricePerSession: data.pricePerSession,
+        firstVisitFree: data.firstVisitFree,
+        isAvailable: true, // Default to available
+        languages: (data.matchingProfile as any)?.language || [],
+        format: (() => {
+          const formats = (data.matchingProfile as any)?.format || [];
+          if (formats.includes('online') && formats.includes('in-person')) return 'hybrid';
+          if (formats.includes('hybrid')) return 'hybrid';
+          if (formats.includes('online')) return 'online';
+          if (formats.includes('in-person')) return 'in-person';
+          return 'online';
+        })(),
+        specialties: (data.matchingProfile as any)?.specialties || [],
+        availability: (data.matchingProfile as any)?.availability || [],
+        clientsHelped: data.reviewCount > 0 ? Math.round(data.reviewCount * 2).toString() : 'N/A',
+        sessionsCompleted: data.reviewCount > 0 ? Math.round(data.reviewCount * 4.5).toString() : 'N/A',
+        reviews: [], // No reviews in current backend response
+        education: [], // No education in current backend response
       };
 
-      console.log('✅ Mock specialist loaded:', mockSpecialist.name);
-      setSpecialist(mockSpecialist);
-    } catch (error) {
+      console.log('✅ Specialist loaded:', mappedSpecialist.name);
+      setSpecialist(mappedSpecialist);
+    } catch (error: any) {
       console.error('❌ Error loading specialist:', error);
-      Alert.alert('Error', 'No se pudo cargar el perfil del especialista');
+      const errorMessage = error.message || 'No se pudo cargar el perfil del especialista';
+      Alert.alert('Error', errorMessage);
+      navigation.goBack();
     } finally {
       setLoading(false);
       console.log('⏹️ Loading complete');
@@ -608,18 +589,28 @@ const ReviewsTab: React.FC<{ specialist: SpecialistDetail }> = ({ specialist }) 
 
 const AvailabilityTab: React.FC<{ specialist: SpecialistDetail }> = ({ specialist }) => (
   <View style={styles.availabilityTab}>
-    <View style={styles.contentCard}>
-      <Text style={styles.cardTitle}>Disponibilidad General</Text>
-      {specialist.availability.map((slot, index) => (
-        <View key={index} style={styles.availabilityItem}>
-          <Ionicons name="time" size={20} color="#2196F3" />
-          <Text style={styles.availabilityText}>{slot}</Text>
-        </View>
-      ))}
-      <Text style={styles.availabilityNote}>
-        Los horarios específicos se mostrarán al reservar una sesión
-      </Text>
-    </View>
+    {specialist.availability && specialist.availability.length > 0 ? (
+      <View style={styles.contentCard}>
+        <Text style={styles.cardTitle}>Disponibilidad General</Text>
+        {specialist.availability.map((slot, index) => (
+          <View key={index} style={styles.availabilityItem}>
+            <Ionicons name="time" size={20} color="#2196F3" />
+            <Text style={styles.availabilityText}>{slot}</Text>
+          </View>
+        ))}
+        <Text style={styles.availabilityNote}>
+          Los horarios específicos se mostrarán al reservar una sesión
+        </Text>
+      </View>
+    ) : (
+      <View style={styles.emptyState}>
+        <Ionicons name="calendar-outline" size={48} color="#ccc" />
+        <Text style={styles.emptyText}>Disponibilidad próximamente</Text>
+        <Text style={styles.emptySubtext}>
+          Contacta directamente para consultar horarios disponibles
+        </Text>
+      </View>
+    )}
   </View>
 );
 
@@ -1302,6 +1293,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#999',
     marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 13,
+    color: '#BDBDBD',
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
 });
 
