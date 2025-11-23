@@ -93,6 +93,12 @@ export type RootStackParamList = {
   Profile: undefined;
   ProfileCompletion: undefined;
   SpecialistDetail: { specialistId: string; affinity?: number };
+  Booking: {
+    specialistId: string;
+    specialistName: string;
+    pricePerSession: number;
+    avatar?: string;
+  };
   Questionnaire: undefined;
   QuestionnaireResults: { results: any[] };
   ProfessionalHome: undefined;

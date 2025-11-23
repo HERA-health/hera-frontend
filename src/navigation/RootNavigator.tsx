@@ -19,6 +19,7 @@ import { SpecialistDetailScreen } from '../screens/specialists/SpecialistDetailS
 import SessionsScreen from '../screens/sessions/SessionsScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import ProfileCompletionScreen from '../screens/profile/ProfileCompletionScreen';
+import { BookingScreen } from '../screens/booking/BookingScreen';
 
 // Questionnaire screens
 import { QuestionnaireScreen } from '../screens/questionnaire/QuestionnaireScreen';
@@ -163,6 +164,19 @@ export function RootNavigator() {
         {({ route, navigation }) => (
           <MainLayout>
             <SpecialistDetailScreen route={route} navigation={navigation} />
+          </MainLayout>
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="Booking"
+        options={{
+          headerTitle: 'Reservar Sesión',
+          headerShown: false,
+        }}
+      >
+        {({ route, navigation }) => (
+          <MainLayout>
+            <BookingScreen route={route} navigation={navigation} />
           </MainLayout>
         )}
       </Stack.Screen>

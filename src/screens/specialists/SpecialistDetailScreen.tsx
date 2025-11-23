@@ -153,7 +153,14 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
 
   const handleBookSession = () => {
     console.log('📅 Book session with specialist:', specialistId);
-    Alert.alert('Reservar Sesión', 'Esta funcionalidad estará disponible próximamente');
+    if (!specialist) return;
+
+    navigation.navigate('Booking', {
+      specialistId: specialist.id,
+      specialistName: specialist.name,
+      pricePerSession: specialist.pricePerSession,
+      avatar: specialist.avatar,
+    });
   };
 
   const handleSendMessage = () => {
