@@ -111,7 +111,7 @@ export type RootStackParamList = {
 export type MainTabParamList = {
   Home: undefined;
   Specialists: undefined;
-  Sessions: undefined;
+  Sessions: { refresh?: boolean; showSuccess?: boolean } | undefined;
   Profile: undefined;
 };
 

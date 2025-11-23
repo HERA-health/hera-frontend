@@ -61,3 +61,38 @@ export const getProfessionalClients = async (): Promise<Client[]> => {
   const response = await api.get('/clients');
   return response.data.success ? response.data.data : [];
 };
+
+/**
+ * Update session status (professional only)
+ * @param sessionId - The session ID to update
+ * @param status - The new status ('CONFIRMED' or 'CANCELLED')
+ */
+export const updateSessionStatus = async (
+  sessionId: string,
+  status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
+): Promise<void> => {
+  try {
+    console.log('📝 ========== UPDATE SESSION STATUS ==========');
+    console.log('📋 Session ID:', sessionId);
+    console.log('📊 New status:', status);
+
+    const response = await api.put(`/sessions/${sessionId}/status`, { status });
+
+    console.log('✅ Status updated successfully');
+    console.log('📦 Response:', response.data);
+    console.log('📝 ========== END UPDATE SESSION STATUS ==========');
+
+    return response.data.data;
+  } catch (error: any) {
+    console.error('❌ ========== ERROR UPDATING SESSION STATUS ==========');
+    console.error('❌ Error:', error);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error response:', error.response?.data);
+    console.error('❌ Error status:', error.response?.status);
+    console.error('❌ ========== END ERROR ==========');
+
+    throw new Error(
+      error.response?.data?.error || 'No se pudo actualizar el estado de la sesión'
+    );
+  }
+};

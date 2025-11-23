@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, Alert } from 'react-native';
 import { colors, spacing } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import * as professionalService from '../../services/professionalService';
@@ -48,6 +48,66 @@ export function ProfessionalSessionsScreen() {
       console.error('Error loading sessions:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConfirmSession = async (sessionId: string, clientName: string) => {
+    console.log('🔍 ========== CONFIRM SESSION CLICKED ==========');
+    console.log('📋 Session ID:', sessionId);
+    console.log('👤 Client name:', clientName);
+
+    // TEMPORARY: Bypass dialog to test API call directly
+    console.log('⚠️ BYPASSING DIALOG - DIRECT API CALL FOR TESTING');
+
+    try {
+      console.log('🔄 Calling professionalService.updateSessionStatus...');
+      await professionalService.updateSessionStatus(sessionId, 'CONFIRMED');
+      console.log('✅ Session confirmed successfully!');
+
+      Alert.alert('Éxito', `Sesión con ${clientName} confirmada correctamente`);
+
+      console.log('🔄 Reloading sessions...');
+      await loadSessions();
+      console.log('✅ Sessions reloaded');
+    } catch (error: any) {
+      console.error('❌ ========== ERROR CONFIRMING SESSION ==========');
+      console.error('❌ Error:', error);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
+      console.error('❌ ========== END ERROR ==========');
+
+      Alert.alert('Error', error.message || 'No se pudo confirmar la sesión');
+    }
+  };
+
+  const handleRejectSession = async (sessionId: string, clientName: string) => {
+    console.log('🔍 ========== REJECT SESSION CLICKED ==========');
+    console.log('📋 Session ID:', sessionId);
+    console.log('👤 Client name:', clientName);
+
+    // TEMPORARY: Bypass dialog to test API call directly
+    console.log('⚠️ BYPASSING DIALOG - DIRECT API CALL FOR TESTING');
+
+    try {
+      console.log('🔄 Calling professionalService.updateSessionStatus...');
+      await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
+      console.log('✅ Session rejected successfully!');
+
+      Alert.alert('Sesión rechazada', `Sesión con ${clientName} ha sido rechazada`);
+
+      console.log('🔄 Reloading sessions...');
+      await loadSessions();
+      console.log('✅ Sessions reloaded');
+    } catch (error: any) {
+      console.error('❌ ========== ERROR REJECTING SESSION ==========');
+      console.error('❌ Error:', error);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
+      console.error('❌ ========== END ERROR ==========');
+
+      Alert.alert('Error', error.message || 'No se pudo rechazar la sesión');
     }
   };
 
@@ -382,7 +442,10 @@ export function ProfessionalSessionsScreen() {
 
                 {activeTab === 'pending' && (
                   <>
-                    <TouchableOpacity style={styles.actionButtonWrapper}>
+                    <TouchableOpacity
+                      style={styles.actionButtonWrapper}
+                      onPress={() => handleConfirmSession(session.id, session.clientName)}
+                    >
                       <LinearGradient
                         colors={['#2196F3', '#00897B']}
                         start={{ x: 0, y: 0 }}
@@ -393,7 +456,10 @@ export function ProfessionalSessionsScreen() {
                         <Text style={styles.actionButtonTextPrimary}>Confirmar</Text>
                       </LinearGradient>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionButtonDangerWrapper}>
+                    <TouchableOpacity
+                      style={styles.actionButtonDangerWrapper}
+                      onPress={() => handleRejectSession(session.id, session.clientName)}
+                    >
                       <View style={styles.actionButtonDanger}>
                         <Ionicons name="close" size={16} color={colors.neutral.white} />
                         <Text style={styles.actionButtonTextPrimary}>Rechazar</Text>

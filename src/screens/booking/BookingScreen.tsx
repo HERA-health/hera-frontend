@@ -160,20 +160,25 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
       console.log('📦 Session data:', session);
       console.log('🎯 ========== END CONFIRM BOOKING ==========');
 
-      Alert.alert(
-        '¡Cita solicitada!',
-        'Tu solicitud ha sido enviada al especialista. Te notificaremos cuando sea confirmada.',
-        [
-          {
-            text: 'Ver mis sesiones',
-            onPress: () => navigation.navigate('Sessions'),
-          },
-          {
-            text: 'Volver al inicio',
-            onPress: () => navigation.navigate('Home'),
-          },
-        ]
-      );
+      // Navigate to Sessions screen with refresh parameter
+      navigation.navigate('Sessions', { refresh: true, showSuccess: true });
+
+      // Show success message after navigation
+      setTimeout(() => {
+        const formattedDate = new Date(dateTime).toLocaleDateString('es-ES', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        });
+        const formattedTime = selectedSlot.startTime;
+
+        Alert.alert(
+          '¡Reserva confirmada!',
+          `Tu sesión con ${specialistName} ha sido solicitada.\n\nEstado: Pendiente de confirmación\nFecha: ${formattedDate}\nHora: ${formattedTime}`,
+          [{ text: 'Entendido' }]
+        );
+      }, 500);
     } catch (error: any) {
       console.error('❌ ========== ERROR CREATING BOOKING ==========');
       console.error('❌ Error:', error);
