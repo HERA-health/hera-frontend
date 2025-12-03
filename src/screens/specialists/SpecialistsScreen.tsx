@@ -30,7 +30,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { SpecialistCard } from '../../components/features/SpecialistCard';
-import { colors, spacing, typography, borderRadius } from '../../constants/colors';
+import { colors, spacing, typography, borderRadius, branding, shadows } from '../../constants/colors';
 import { SortOption, Specialist, RootStackParamList } from '../../constants/types';
 import * as specialistsService from '../../services/specialistsService';
 
@@ -319,7 +319,7 @@ const SpecialistsScreen: React.FC = () => {
       activeOpacity={0.8}
     >
       <LinearGradient
-        colors={['#2196F3', '#00897B']}
+        colors={[branding.primary, branding.secondary, branding.accent]}
         style={styles.questionnaireBannerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
@@ -515,13 +515,13 @@ const SpecialistsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: branding.background,
   },
   scrollView: {
     flex: 1,
   },
   searchSection: {
-    backgroundColor: colors.neutral.white,
+    backgroundColor: branding.cardBackground,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
@@ -556,16 +556,16 @@ const styles = StyleSheet.create({
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary[50],
+    backgroundColor: branding.accentLight,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 12,
+    borderRadius: borderRadius.md,
     gap: spacing.xs,
   },
   filterButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.primary.main,
+    color: branding.accent,
   },
   sortButton: {
     flexDirection: 'row',
@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: colors.neutral.white,
+    backgroundColor: branding.cardBackground,
     paddingHorizontal: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral.gray200,
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabActive: {
-    borderBottomColor: colors.primary.main,
+    borderBottomColor: branding.accent,
   },
   tabText: {
     fontSize: typography.fontSizes.md,
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
     color: colors.neutral.gray600,
   },
   tabTextActive: {
-    color: colors.primary.main,
+    color: branding.accent,
     fontWeight: typography.fontWeights.semibold,
   },
   listContent: {

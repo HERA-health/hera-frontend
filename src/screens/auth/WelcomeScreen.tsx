@@ -9,12 +9,14 @@ import {
   useWindowDimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing as defaultSpacing, shadows } from '../../constants/colors';
+import { colors, spacing as defaultSpacing, shadows, branding, borderRadius } from '../../constants/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BrandText } from '../../components/common/BrandText';
 import { BrandIcon } from '../../components/common/BrandIcon';
+import { GradientBackground } from '../../components/common/GradientBackground';
+import { StyledLogo } from '../../components/common/StyledLogo';
 
 // Enhanced spacing system for this screen
 const spacing = {
@@ -35,36 +37,29 @@ export function WelcomeScreen() {
   const isTablet = windowWidth > 600 && windowWidth <= 768;
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Hero Section with Gradient Background */}
-      <LinearGradient
-        colors={['#2196F3', '#00897B']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.heroSection}
+    <GradientBackground>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Logo */}
-        <View style={styles.logoContainer}>
-          <View style={styles.logoCircle}>
-            <Ionicons name="heart" size={48} color="#fff" />
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          {/* Logo */}
+          <View style={styles.logoContainer}>
+            <StyledLogo size={200} />
           </View>
-        </View>
 
-        {/* Brand Title */}
-        <View style={styles.titleContainer}>
-          <Text style={styles.appName}>HERA</Text>
-          <Text style={styles.appTagline}>Health Era</Text>
-        </View>
+          {/* Brand Title */}
+          <View style={styles.titleContainer}>
+            <Text style={styles.appName}>HERA</Text>
+          </View>
 
-        {/* Subtitle */}
-        <Text style={styles.subtitle}>
-          Tu nueva era de bienestar mental
-        </Text>
-      </LinearGradient>
+          {/* Subtitle */}
+          <Text style={styles.subtitle}>
+            Tu bienestar emocional es nuestra prioridad
+          </Text>
+        </View>
 
       {/* Features Section */}
       <View style={styles.featuresSection}>
@@ -129,25 +124,25 @@ export function WelcomeScreen() {
 
           <View style={styles.bulletList}>
             <View style={styles.bulletItem}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Ionicons name="checkmark-circle" size={20} color={branding.primary} />
               <Text style={styles.bulletText}>
                 Matching inteligente con especialistas mediante IA
               </Text>
             </View>
             <View style={styles.bulletItem}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Ionicons name="checkmark-circle" size={20} color={branding.primary} />
               <Text style={styles.bulletText}>
                 Sesiones seguras por videollamada con resúmenes automáticos
               </Text>
             </View>
             <View style={styles.bulletItem}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Ionicons name="checkmark-circle" size={20} color={branding.primary} />
               <Text style={styles.bulletText}>
                 Chat de crisis 24/7 con LIA, tu asistente de apoyo emocional
               </Text>
             </View>
             <View style={styles.bulletItem}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Ionicons name="checkmark-circle" size={20} color={branding.primary} />
               <Text style={styles.bulletText}>
                 Facturación automática y seguimiento completo
               </Text>
@@ -159,15 +154,10 @@ export function WelcomeScreen() {
             onPress={() => navigation.navigate('Login', { userType: 'CLIENT' })}
             activeOpacity={0.8}
           >
-            <LinearGradient
-              colors={['#2196F3', '#00897B']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.ctaButton}
-            >
+            <View style={styles.ctaButton}>
               <Text style={styles.ctaButtonText}>Busco ayuda</Text>
-              <Ionicons name="arrow-forward" size={20} color={colors.neutral.white} />
-            </LinearGradient>
+              <Ionicons name="arrow-forward" size={20} color={branding.cardBackground} />
+            </View>
           </TouchableOpacity>
           <Text style={styles.ctaHint}>Encontrar mi especialista</Text>
         </View>
@@ -183,25 +173,25 @@ export function WelcomeScreen() {
 
           <View style={styles.bulletList}>
             <View style={styles.bulletItem}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Ionicons name="checkmark-circle" size={20} color={branding.primary} />
               <Text style={styles.bulletText}>
                 Gestiona tu agenda y pacientes fácilmente
               </Text>
             </View>
             <View style={styles.bulletItem}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Ionicons name="checkmark-circle" size={20} color={branding.primary} />
               <Text style={styles.bulletText}>
                 Resúmenes automáticos con IA de cada sesión
               </Text>
             </View>
             <View style={styles.bulletItem}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Ionicons name="checkmark-circle" size={20} color={branding.primary} />
               <Text style={styles.bulletText}>
                 Facturación automática y pagos seguros
               </Text>
             </View>
             <View style={styles.bulletItem}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.primary.main} />
+              <Ionicons name="checkmark-circle" size={20} color={branding.primary} />
               <Text style={styles.bulletText}>
                 Publica contenido y construye tu marca personal
               </Text>
@@ -213,30 +203,25 @@ export function WelcomeScreen() {
             onPress={() => navigation.navigate('Login', { userType: 'PROFESSIONAL' })}
             activeOpacity={0.8}
           >
-            <LinearGradient
-              colors={['#2196F3', '#00897B']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.ctaButton}
-            >
+            <View style={styles.ctaButton}>
               <Text style={styles.ctaButtonText}>Soy especialista</Text>
-              <Ionicons name="arrow-forward" size={20} color={colors.neutral.white} />
-            </LinearGradient>
+              <Ionicons name="arrow-forward" size={20} color={branding.cardBackground} />
+            </View>
           </TouchableOpacity>
           <Text style={styles.ctaHint}>Unirme a la red</Text>
         </View>
       </View>
 
-      {/* Footer spacing */}
-      <View style={styles.footer} />
-    </ScrollView>
+        {/* Footer spacing */}
+        <View style={styles.footer} />
+      </ScrollView>
+    </GradientBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
   },
   scrollContent: {
     paddingBottom: spacing.lg,
@@ -249,39 +234,19 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     paddingHorizontal: spacing.md,
     marginBottom: spacing.lg,
-    borderRadius: 0,
   },
   logoContainer: {
     marginBottom: spacing.md,
-  },
-  logoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   titleContainer: {
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
   appName: {
-    fontSize: 56,
+    fontSize: 50,
     fontWeight: 'bold',
-    color: '#fff',
-    letterSpacing: 2,
-    marginBottom: 8,
-  },
-  appTagline: {
-    fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.9)',
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-    marginBottom: 16,
-    fontWeight: '500',
+    color: branding.text,
+    letterSpacing: 0.5,
   },
   titlePrefix: {
     fontSize: 20,
@@ -302,10 +267,11 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     lineHeight: 24,
-    color: 'rgba(255, 255, 255, 0.95)',
+    color: branding.textSecondary,
     textAlign: 'center',
     maxWidth: 600,
     paddingHorizontal: spacing.sm,
+    marginTop: spacing.sm,
   },
 
   // Features Section
@@ -427,26 +393,28 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   ctaButtonWrapper: {
-    borderRadius: 12,
+    borderRadius: borderRadius.md,
     overflow: 'hidden',
-    shadowColor: '#2196F3',
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: branding.accent,
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 6,
   },
   ctaButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: 18,
     paddingHorizontal: spacing.md,
     gap: spacing.xs,
+    backgroundColor: branding.accent,
+    borderRadius: borderRadius.md,
   },
   ctaButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.neutral.white,
+    fontSize: 18,
+    fontWeight: '600',
+    color: branding.cardBackground,
   },
   ctaHint: {
     fontSize: 14,

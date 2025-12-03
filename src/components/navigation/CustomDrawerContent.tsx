@@ -2,10 +2,11 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, typography } from '../../constants/colors';
+import { colors, spacing, typography, branding, borderRadius } from '../../constants/colors';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { BrandText } from '../common/BrandText';
+import { StyledLogo } from '../common/StyledLogo';
 
 interface CustomDrawerContentProps {
   currentRoute?: string;
@@ -41,17 +42,10 @@ export function CustomDrawerContent({ currentRoute = 'Home' }: CustomDrawerConte
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Header Section */}
         <View style={styles.header}>
-          <LinearGradient
-            colors={['#2196F3', '#00897B']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.logoContainer}
-          >
-            <Ionicons name="heart" size={32} color={colors.neutral.white} />
-          </LinearGradient>
-          <BrandText style={styles.brandName}>HERA</BrandText>
+          <StyledLogo size={80} />
+          <BrandText style={styles.brandName}>MindConnect</BrandText>
           <Text style={styles.tagline}>
-            {isProfessional ? 'Panel Profesional' : 'Health Era'}
+            {isProfessional ? 'Panel Profesional' : 'Tu bienestar mental'}
           </Text>
         </View>
 
@@ -68,12 +62,7 @@ export function CustomDrawerContent({ currentRoute = 'Home' }: CustomDrawerConte
                 activeOpacity={0.7}
               >
                 {isActive ? (
-                  <LinearGradient
-                    colors={['#2196F3', '#00897B']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.menuItemActive}
-                  >
+                  <View style={styles.menuItemActive}>
                     <Ionicons
                       name={item.icon}
                       size={20}
@@ -82,7 +71,7 @@ export function CustomDrawerContent({ currentRoute = 'Home' }: CustomDrawerConte
                     <Text style={styles.menuItemTextActive}>
                       {item.label}
                     </Text>
-                  </LinearGradient>
+                  </View>
                 ) : (
                   <View style={styles.menuItemInactive}>
                     <Ionicons
@@ -111,18 +100,13 @@ export function CustomDrawerContent({ currentRoute = 'Home' }: CustomDrawerConte
               activeOpacity={0.7}
             >
               {currentRoute === 'OnDutyPsychologist' ? (
-                <LinearGradient
-                  colors={['#2196F3', '#00897B']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.menuItemActive}
-                >
+                <View style={styles.menuItemActive}>
                   <Ionicons name="call" size={20} color={colors.neutral.white} />
                   <Text style={styles.menuItemTextActive}>Psicólogo de Guardia</Text>
                   <View style={styles.badge24Active}>
                     <Text style={styles.badge24Text}>24/7</Text>
                   </View>
-                </LinearGradient>
+                </View>
               ) : (
                 <View style={styles.menuItemInactive}>
                   <Ionicons name="call" size={20} color="#FF6B6B" />
@@ -144,14 +128,9 @@ export function CustomDrawerContent({ currentRoute = 'Home' }: CustomDrawerConte
 
       {/* User Section */}
       <View style={styles.userSection}>
-        <LinearGradient
-          colors={['#2196F3', '#00897B']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.userAvatar}
-        >
+        <View style={styles.userAvatar}>
           <Text style={styles.userAvatarText}>{user?.name?.charAt(0) || 'U'}</Text>
-        </LinearGradient>
+        </View>
         <View style={styles.userInfo}>
           <Text style={styles.userName}>{user?.name || 'Usuario'}</Text>
           <Text style={styles.userSubtitle}>
@@ -169,7 +148,7 @@ export function CustomDrawerContent({ currentRoute = 'Home' }: CustomDrawerConte
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
+    backgroundColor: branding.background, // Beige
   },
   scrollView: {
     flex: 1,
@@ -181,30 +160,19 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral.gray200,
-    backgroundColor: colors.primary[50],
-  },
-  logoContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
+    backgroundColor: branding.cardBackground,
     alignItems: 'center',
-    marginBottom: spacing.md,
-    shadowColor: '#2196F3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
   },
   brandName: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.neutral.gray900,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: branding.text,
+    marginTop: spacing.md,
     marginBottom: 4,
   },
   tagline: {
     fontSize: 14,
-    color: colors.neutral.gray600,
+    color: branding.textSecondary,
   },
   section: {
     marginTop: spacing.lg,
@@ -225,7 +193,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   menuItemActiveWrapper: {
-    shadowColor: '#2196F3',
+    shadowColor: branding.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -236,6 +204,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
+    backgroundColor: branding.accent, // Lavanda
+    borderRadius: borderRadius.md,
   },
   menuItemInactive: {
     flexDirection: 'row',
@@ -287,11 +257,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.sm,
+    backgroundColor: branding.accent, // Lavanda
   },
   userAvatarText: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.neutral.white,
+    color: branding.cardBackground,
   },
   userInfo: {
     flex: 1,

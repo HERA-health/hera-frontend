@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
-import { colors, spacing } from '../../constants/colors';
+import { colors, spacing, branding, borderRadius, shadows } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
@@ -8,6 +8,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as professionalService from '../../services/professionalService';
 import { BrandText } from '../../components/common/BrandText';
 import { BrandIcon } from '../../components/common/BrandIcon';
+import { GradientBackground } from '../../components/common/GradientBackground';
+import { StyledLogo } from '../../components/common/StyledLogo';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -110,7 +112,7 @@ export function ProfessionalHomeScreen() {
       title: 'Ver mis clientes',
       description: 'Gestiona tu lista de pacientes',
       icon: 'people',
-      color: colors.primary.main,
+      color: branding.accent,
       onPress: () => navigation.navigate('ProfessionalClients'),
     },
     {
@@ -118,7 +120,7 @@ export function ProfessionalHomeScreen() {
       title: 'Gestionar sesiones',
       description: 'Próximas citas y solicitudes',
       icon: 'calendar',
-      color: colors.secondary.blue,
+      color: branding.primary,
       onPress: () => navigation.navigate('ProfessionalSessions'),
     },
     {
@@ -126,7 +128,7 @@ export function ProfessionalHomeScreen() {
       title: 'Editar mi perfil',
       description: 'Actualiza tu información profesional',
       icon: 'create',
-      color: colors.secondary.purple,
+      color: branding.secondary,
       onPress: () => navigation.navigate('ProfessionalProfile'),
     },
   ];
@@ -140,14 +142,20 @@ export function ProfessionalHomeScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      {/* Welcome header with gradient */}
-      <LinearGradient
-        colors={['#2196F3', '#00897B']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.welcomeHeader}
-      >
+    <GradientBackground>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+        {/* Logo Header */}
+        <View style={styles.logoHeader}>
+          <StyledLogo size={100} />
+        </View>
+
+        {/* Welcome header with gradient */}
+        <LinearGradient
+          colors={[branding.primary, branding.secondary, branding.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.welcomeHeader}
+        >
         <View style={styles.decorCircle1} />
         <View style={styles.decorCircle2} />
 
@@ -259,17 +267,22 @@ export function ProfessionalHomeScreen() {
           )}
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </GradientBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
   },
   scrollContent: {
     paddingBottom: spacing.xxxl,
+  },
+  logoHeader: {
+    alignItems: 'center',
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
   },
   welcomeHeader: {
     paddingHorizontal: screenWidth > 768 ? spacing.xxxl * 2 : spacing.lg,
@@ -277,6 +290,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxxl * 2,
     position: 'relative',
     overflow: 'hidden',
+    borderRadius: borderRadius.xl,
+    marginHorizontal: spacing.md,
+    ...shadows.lg,
   },
   decorCircle1: {
     position: 'absolute',

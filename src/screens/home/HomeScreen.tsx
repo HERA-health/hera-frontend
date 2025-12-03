@@ -16,13 +16,15 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing } from '../../constants/colors';
+import { colors, spacing, branding, borderRadius, shadows } from '../../constants/colors';
 import { Button } from '../../components/common/Button';
 import { useNavigation } from '@react-navigation/native';
 import { BrandText } from '../../components/common/BrandText';
 import { BrandIcon } from '../../components/common/BrandIcon';
 import { getMatchedSpecialists, SpecialistData } from '../../services/specialistsService';
 import { useAuth } from '../../contexts/AuthContext';
+import { GradientBackground } from '../../components/common/GradientBackground';
+import { StyledLogo } from '../../components/common/StyledLogo';
 
 const { width } = Dimensions.get('window');
 
@@ -173,16 +175,11 @@ export default function HomeScreen() {
           </View>
 
           {/* CTA Button */}
-          <View style={styles.podiumButton}>
-            <LinearGradient
-              colors={['#2196F3', '#00897B']}
-              style={styles.podiumButtonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
+          <TouchableOpacity style={styles.podiumButton}>
+            <View style={styles.podiumButtonSolid}>
               <Text style={styles.podiumButtonText}>Ver Perfil</Text>
-            </LinearGradient>
-          </View>
+            </View>
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
@@ -224,15 +221,10 @@ export default function HomeScreen() {
           onPress={() => navigation.navigate('Specialists')}
           activeOpacity={0.8}
         >
-          <LinearGradient
-            colors={['#2196F3', '#00897B']}
-            style={styles.viewAllGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          >
+          <View style={styles.viewAllSolid}>
             <Text style={styles.viewAllText}>Ver todos mis matches</Text>
             <Ionicons name="arrow-forward" size={20} color={colors.neutral.white} />
-          </LinearGradient>
+          </View>
         </TouchableOpacity>
 
         {/* Discrete Retake Button */}
@@ -249,14 +241,20 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Hero Section - Conditional rendering based on questionnaire status */}
-      <LinearGradient
-        colors={['#2196F3', '#00897B']}
-        style={styles.hero}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
+    <GradientBackground>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Logo Header */}
+        <View style={styles.logoHeader}>
+          <StyledLogo size={100} />
+        </View>
+
+        {/* Hero Section - Conditional rendering based on questionnaire status */}
+        <LinearGradient
+          colors={[branding.primary, branding.secondary, branding.accent]}
+          style={styles.hero}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.neutral.white} />
@@ -379,35 +377,43 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Final CTA */}
-      <View style={styles.finalCta}>
-        <BrandText style={styles.finalCtaTitle}>¿Listo para comenzar?</BrandText>
-        <Text style={styles.finalCtaSubtitle}>
-          Da el primer paso hacia tu bienestar mental
-        </Text>
-        <Button
-          variant="primary"
-          size="large"
-          onPress={() => navigation.navigate('Questionnaire')}
-        >
-          Iniciar ahora
-        </Button>
-      </View>
-    </ScrollView>
+        {/* Final CTA */}
+        <View style={styles.finalCta}>
+          <BrandText style={styles.finalCtaTitle}>¿Listo para comenzar?</BrandText>
+          <Text style={styles.finalCtaSubtitle}>
+            Da el primer paso hacia tu bienestar mental
+          </Text>
+          <Button
+            variant="primary"
+            size="large"
+            onPress={() => navigation.navigate('Questionnaire')}
+          >
+            Iniciar ahora
+          </Button>
+        </View>
+      </ScrollView>
+    </GradientBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
+  },
+  logoHeader: {
+    alignItems: 'center',
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
   },
   hero: {
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xxxl * 1.5,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.xxxl * 2,
     position: 'relative',
     overflow: 'hidden',
+    borderRadius: borderRadius.xl,
+    marginHorizontal: spacing.md,
+    ...shadows.lg,
   },
   badge: {
     flexDirection: 'row',
@@ -811,19 +817,16 @@ const styles = StyleSheet.create({
   // CTA Button
   podiumButton: {
     width: '100%',
-    borderRadius: 12,
+    borderRadius: borderRadius.md,
     overflow: 'hidden',
-    shadowColor: '#2196F3',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    ...shadows.md,
   },
-  podiumButtonGradient: {
+  podiumButtonSolid: {
     paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: branding.accent,
   },
   podiumButtonText: {
     fontSize: 13,
@@ -832,21 +835,18 @@ const styles = StyleSheet.create({
   },
   viewAllButton: {
     marginHorizontal: spacing.lg,
-    borderRadius: 16,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    ...shadows.lg,
   },
-  viewAllGradient: {
+  viewAllSolid: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     gap: spacing.xs,
+    backgroundColor: branding.accent,
   },
   viewAllText: {
     fontSize: 16,

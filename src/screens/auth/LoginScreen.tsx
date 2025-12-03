@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ScrollView } from 'react-native';
-import { colors, spacing } from '../../constants/colors';
+import { colors, spacing, branding, borderRadius, shadows } from '../../constants/colors';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { GradientBackground } from '../../components/common/GradientBackground';
+import { StyledLogo } from '../../components/common/StyledLogo';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -68,34 +70,41 @@ export function LoginScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Ionicons name="arrow-back" size={24} color={colors.neutral.gray900} />
-      </TouchableOpacity>
+    <GradientBackground>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color={branding.text} />
+        </TouchableOpacity>
 
-      {/* Constrained form container */}
-      <View style={styles.formContainer}>
-        <View style={styles.header}>
-          <Text style={styles.title}>
-            {expectedUserType === 'PROFESSIONAL'
-              ? 'Portal Profesional'
-              : expectedUserType === 'CLIENT'
-              ? 'Portal Cliente'
-              : 'Iniciar Sesión'}
-          </Text>
-          <Text style={styles.subtitle}>
-            {expectedUserType === 'PROFESSIONAL'
-              ? 'Accede a tu panel de profesional'
-              : expectedUserType === 'CLIENT'
-              ? 'Inicia sesión para continuar'
-              : 'Inicia sesión en tu cuenta'}
-          </Text>
+        {/* Logo */}
+        <View style={styles.logoContainer}>
+          <StyledLogo size={150} />
         </View>
 
-        <View style={styles.form}>
+        {/* Constrained form container */}
+        <View style={styles.formContainer}>
+          <View style={styles.formCard}>
+            <View style={styles.header}>
+              <Text style={styles.title}>
+                {expectedUserType === 'PROFESSIONAL'
+                  ? 'Portal Profesional'
+                  : expectedUserType === 'CLIENT'
+                  ? 'Portal Cliente'
+                  : 'Iniciar Sesión'}
+              </Text>
+              <Text style={styles.subtitle}>
+                {expectedUserType === 'PROFESSIONAL'
+                  ? 'Accede a tu panel de profesional'
+                  : expectedUserType === 'CLIENT'
+                  ? 'Inicia sesión para continuar'
+                  : 'Inicia sesión en tu cuenta'}
+              </Text>
+            </View>
+
+            <View style={styles.form}>
           {/* Error Display */}
           {(authError || localError) && (
             <View style={styles.errorContainer}>
@@ -132,26 +141,27 @@ export function LoginScreen() {
             Iniciar Sesión
           </Button>
 
-          <TouchableOpacity style={styles.forgotPassword}>
-            <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
-          </TouchableOpacity>
-        </View>
+              <TouchableOpacity style={styles.forgotPassword}>
+                <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
+              </TouchableOpacity>
+            </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>¿No tienes cuenta?</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Register', { userType: expectedUserType })}>
-            <Text style={styles.registerLink}>Regístrate aquí</Text>
-          </TouchableOpacity>
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>¿No tienes cuenta?</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Register', { userType: expectedUserType })}>
+                <Text style={styles.registerLink}>Regístrate aquí</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </GradientBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
   },
   scrollContent: {
     flexGrow: 1,
@@ -163,23 +173,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.lg,
   },
+  logoContainer: {
+    alignItems: 'center',
+    marginVertical: spacing.xl,
+  },
   formContainer: {
     maxWidth: 500,
     width: '100%',
     alignSelf: 'center',
   },
+  formCard: {
+    backgroundColor: branding.cardBackground,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    ...shadows.lg,
+  },
   header: {
-    marginBottom: spacing.xxxl,
+    marginBottom: spacing.xl,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: colors.neutral.gray900,
+    color: branding.text,
     marginBottom: spacing.xs,
   },
   subtitle: {
     fontSize: 16,
-    color: colors.neutral.gray600,
+    color: branding.textSecondary,
   },
   form: {
     gap: spacing.lg,
@@ -190,7 +210,7 @@ const styles = StyleSheet.create({
   },
   forgotPasswordText: {
     fontSize: 14,
-    color: colors.primary.main,
+    color: branding.accent,
     fontWeight: '500',
   },
   footer: {
@@ -202,11 +222,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: colors.neutral.gray600,
+    color: branding.textSecondary,
   },
   registerLink: {
     fontSize: 14,
-    color: colors.primary.main,
+    color: branding.accent,
     fontWeight: '600',
   },
   errorContainer: {
@@ -214,15 +234,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background.error,
     padding: spacing.md,
-    borderRadius: 8,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: colors.feedback.error,
+    borderColor: branding.error,
     gap: spacing.sm,
   },
   errorText: {
     flex: 1,
     fontSize: 14,
-    color: colors.feedback.error,
+    color: branding.error,
     fontWeight: '500',
   },
 });

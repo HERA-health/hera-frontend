@@ -20,7 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { GradientButton } from '../../components/common/GradientButton';
 import { BrandText } from '../../components/common/BrandText';
-import { colors, spacing, typography } from '../../constants/colors';
+import { colors, spacing, typography, branding, borderRadius } from '../../constants/colors';
 import { api } from '../../services/api';
 import * as specialistsService from '../../services/specialistsService';
 
@@ -224,12 +224,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
             {/* Avatar Section with Glow Effect */}
             <View style={styles.avatarSection}>
               <View style={styles.avatarGlow}>
-                <LinearGradient
-                  colors={['#2196F3', '#00897B']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.avatarBorder}
-                >
+                <View style={styles.avatarBorder}>
                   <View style={styles.avatarInner}>
                     {specialist.avatar ? (
                       <Image source={{ uri: specialist.avatar }} style={styles.avatarImage} />
@@ -237,7 +232,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
                       <Text style={styles.avatarText}>{specialist.name[0]}</Text>
                     )}
                   </View>
-                </LinearGradient>
+                </View>
               </View>
 
               {/* Online Badge with Pulse Animation */}
@@ -311,22 +306,17 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
             onPress={handleBookSession}
             activeOpacity={0.9}
           >
-            <LinearGradient
-              colors={['#2196F3', '#00897B']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.primaryActionGradient}
-            >
+            <View style={styles.primaryActionGradient}>
               <Ionicons name="calendar" size={22} color="#fff" />
               <Text style={styles.primaryActionText}>Reservar Sesión</Text>
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.secondaryActionButton}
             onPress={handleSendMessage}
           >
-            <Ionicons name="chatbubble-outline" size={22} color="#2196F3" />
+            <Ionicons name="chatbubble-outline" size={22} color={branding.primary} />
             <Text style={styles.secondaryActionText}>Mensaje</Text>
           </TouchableOpacity>
         </View>
@@ -660,7 +650,7 @@ const EducationTab: React.FC<{ specialist: SpecialistDetail }> = ({ specialist }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: branding.background, // Beige
   },
   contentContainer: {
     paddingBottom: 40,
@@ -676,18 +666,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: branding.background,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: branding.textSecondary,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: branding.background,
     padding: 20,
   },
   errorText: {
@@ -740,34 +730,38 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   avatarGlow: {
-    shadowColor: '#2196F3',
+    shadowColor: branding.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
   },
   avatarBorder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: branding.primary, // Verde Salvia border
     padding: 4,
+    backgroundColor: branding.cardBackground,
   },
   avatarInner: {
     width: '100%',
     height: '100%',
-    borderRadius: 46,
-    backgroundColor: '#E3F2FD',
+    borderRadius: 52,
+    backgroundColor: branding.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   avatarImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 46,
+    borderRadius: 52,
   },
   avatarText: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: branding.primary,
   },
 
   // Online Badge with Pulse
@@ -835,7 +829,7 @@ const styles = StyleSheet.create({
   experienceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+    backgroundColor: branding.primaryLight,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -889,39 +883,42 @@ const styles = StyleSheet.create({
     flex: 2,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#2196F3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowColor: branding.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
   },
   primaryActionGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 18,
+    paddingHorizontal: spacing.xl,
     gap: 8,
+    backgroundColor: branding.accent, // Lavanda
+    borderRadius: borderRadius.md,
   },
   primaryActionText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    color: branding.cardBackground,
+    fontSize: 18,
+    fontWeight: '700',
   },
   secondaryActionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: branding.cardBackground,
     borderRadius: 16,
     paddingVertical: 16,
     borderWidth: 2,
-    borderColor: '#E0E0E0',
+    borderColor: branding.primary,
     gap: 6,
   },
   secondaryActionText: {
-    color: '#2196F3',
-    fontSize: 15,
+    color: branding.primary,
+    fontSize: 16,
     fontWeight: '600',
   },
 
@@ -1027,7 +1024,7 @@ const styles = StyleSheet.create({
   specialtyPillText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2196F3',
+    color: branding.primary,
   },
 
   // Stats Grid - Modern

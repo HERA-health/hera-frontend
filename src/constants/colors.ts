@@ -2,13 +2,51 @@
  * Color palette and theme constants for HERA - Health Era
  * PRIMARY COLOR: GREEN (mental health and wellbeing)
  *
- * DESIGN SYSTEM v3.0:
- * - Green as primary brand color (was blue)
- * - Blue moved to secondary
- * - Enhanced color palette for mental health theme
- * - Consistent spacing and typography
+ * DESIGN SYSTEM v4.0:
+ * - NEW BRANDING: Soft, cozy, professional theme
+ * - Verde Salvia (Sage Green) as primary
+ * - Lavender accent for CTAs
+ * - Warm beige backgrounds
+ * - Maintained existing color system for backward compatibility
  */
 
+// NEW BRANDING COLORS - Phase 1
+export const branding = {
+  // Primary
+  primary: '#B8C5A9',        // Verde Salvia
+  primaryLight: '#D4DCC9',
+  primaryDark: '#9BAA8A',
+
+  // Secondary
+  secondary: '#AAB7C4',      // Azul Grisáceo
+  secondaryLight: '#C5CFD8',
+
+  // Accent
+  accent: '#C9B6E4',         // Lavanda
+  accentLight: '#E0D4F2',
+
+  // Backgrounds
+  background: '#F4EDE4',     // Beige Cálido
+  cardBackground: '#FFFFFF',
+  surface: '#FDFAF7',
+
+  // Text
+  text: '#2D3748',
+  textSecondary: '#718096',
+  textLight: '#A0AEC0',
+
+  // Status
+  success: '#B8C5A9',
+  error: '#FC8181',
+
+  // Gradient colors
+  gradientStart: '#FFE5E5',
+  gradientMid1: '#FFF5E6',
+  gradientMid2: '#E6F3FF',
+  gradientEnd: '#F0E6FF',
+};
+
+// LEGACY COLORS - Maintained for backward compatibility
 export const colors = {
   primary: {
     main: '#10B981',      // Emerald green - PRIMARY brand color

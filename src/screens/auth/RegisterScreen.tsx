@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { colors, spacing } from '../../constants/colors';
+import { colors, spacing, branding, borderRadius, shadows } from '../../constants/colors';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { useAuth, UserType } from '../../contexts/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { GradientBackground } from '../../components/common/GradientBackground';
+import { StyledLogo } from '../../components/common/StyledLogo';
 
 export function RegisterScreen() {
   const navigation = useNavigation<any>();
@@ -84,27 +86,34 @@ export function RegisterScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Ionicons name="arrow-back" size={24} color={colors.neutral.gray900} />
-      </TouchableOpacity>
+    <GradientBackground>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color={branding.text} />
+        </TouchableOpacity>
 
-      <View style={styles.formContainer}>
-        <View style={styles.header}>
-          <Text style={styles.title}>
-            {userType === 'client' ? 'Crear Cuenta' : 'Registro Profesional'}
-          </Text>
-          <Text style={styles.subtitle}>
-            {userType === 'client'
-              ? 'Únete a HERA - Health Era'
-              : 'Regístrate como profesional de la salud mental'}
-          </Text>
+        {/* Logo */}
+        <View style={styles.logoContainer}>
+          <StyledLogo size={120} />
         </View>
 
-        <View style={styles.form}>
+        <View style={styles.formContainer}>
+          <View style={styles.formCard}>
+            <View style={styles.header}>
+              <Text style={styles.title}>
+                {userType === 'client' ? 'Crear Cuenta' : 'Registro Profesional'}
+              </Text>
+              <Text style={styles.subtitle}>
+                {userType === 'client'
+                  ? 'Únete a HERA - Health Era'
+                  : 'Regístrate como profesional de la salud mental'}
+              </Text>
+            </View>
+
+            <View style={styles.form}>
           <Input
             label="Nombre completo"
             placeholder="Tu nombre"
@@ -138,38 +147,39 @@ export function RegisterScreen() {
             secureTextEntry
           />
 
-          <Button
-            variant="primary"
-            size="large"
-            onPress={handleRegister}
-            loading={loading}
-          >
-            Crear Cuenta
-          </Button>
-        </View>
+              <Button
+                variant="primary"
+                size="large"
+                onPress={handleRegister}
+                loading={loading}
+              >
+                Crear Cuenta
+              </Button>
+            </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>¿Ya tienes cuenta?</Text>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.loginLink}>Inicia sesión aquí</Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>¿Ya tienes cuenta?</Text>
+              <TouchableOpacity onPress={() => navigation.goBack()}>
+                <Text style={styles.loginLink}>Inicia sesión aquí</Text>
+              </TouchableOpacity>
+            </View>
 
-        {/* Terms notice */}
-        <View style={styles.termsContainer}>
-          <Text style={styles.termsText}>
-            Al registrarte, aceptas nuestros Términos de Servicio y Política de Privacidad
-          </Text>
+            {/* Terms notice */}
+            <View style={styles.termsContainer}>
+              <Text style={styles.termsText}>
+                Al registrarte, aceptas nuestros Términos de Servicio y Política de Privacidad
+              </Text>
+            </View>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </GradientBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
   },
   scrollContent: {
     flexGrow: 1,
@@ -181,23 +191,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.lg,
   },
+  logoContainer: {
+    alignItems: 'center',
+    marginVertical: spacing.lg,
+  },
   formContainer: {
     maxWidth: 500,
     width: '100%',
     alignSelf: 'center',
   },
+  formCard: {
+    backgroundColor: branding.cardBackground,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    ...shadows.lg,
+  },
   header: {
-    marginBottom: spacing.xxxl,
+    marginBottom: spacing.xl,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: colors.neutral.gray900,
+    color: branding.text,
     marginBottom: spacing.xs,
   },
   subtitle: {
     fontSize: 16,
-    color: colors.neutral.gray600,
+    color: branding.textSecondary,
   },
   form: {
     gap: spacing.lg,
@@ -211,11 +231,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: colors.neutral.gray600,
+    color: branding.textSecondary,
   },
   loginLink: {
     fontSize: 14,
-    color: colors.primary.main,
+    color: branding.accent,
     fontWeight: '600',
   },
   termsContainer: {
@@ -224,7 +244,7 @@ const styles = StyleSheet.create({
   },
   termsText: {
     fontSize: 12,
-    color: colors.neutral.gray500,
+    color: branding.textLight,
     textAlign: 'center',
     lineHeight: 18,
   },
