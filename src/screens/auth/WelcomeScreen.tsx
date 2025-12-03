@@ -70,7 +70,7 @@ export function WelcomeScreen() {
           {/* Feature 1: Matching con IA */}
           <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
             <View style={styles.featureIcon}>
-              <BrandIcon name="sync" size={32} />
+              <Ionicons name="sync" size={32} color={branding.primary} />
             </View>
             <BrandText style={styles.featureTitle}>Matching con IA</BrandText>
             <Text style={styles.featureSubtitle}>Algoritmo de afinidad único</Text>
@@ -79,7 +79,7 @@ export function WelcomeScreen() {
           {/* Feature 2: Videollamadas seguras */}
           <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
             <View style={styles.featureIcon}>
-              <BrandIcon name="videocam" size={32} />
+              <Ionicons name="videocam" size={32} color={branding.accent} />
             </View>
             <BrandText style={styles.featureTitle}>Videollamadas seguras</BrandText>
             <Text style={styles.featureSubtitle}>Sesiones online privadas</Text>
@@ -88,7 +88,7 @@ export function WelcomeScreen() {
           {/* Feature 3: LIA - Asistente 24/7 */}
           <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
             <View style={styles.featureIcon}>
-              <BrandIcon name="sparkles" size={32} />
+              <Ionicons name="sparkles" size={32} color={branding.secondary} />
             </View>
             <BrandText style={styles.featureTitle}>LIA - Asistente 24/7</BrandText>
             <Text style={styles.featureSubtitle}>Apoyo emocional inmediato</Text>
@@ -97,7 +97,7 @@ export function WelcomeScreen() {
           {/* Feature 4: 100% Confidencial */}
           <View style={[styles.featureCard, isDesktop && styles.featureCardDesktop]}>
             <View style={styles.featureIcon}>
-              <BrandIcon name="shield-checkmark" size={32} />
+              <Ionicons name="shield-checkmark" size={32} color={branding.accentLight} />
             </View>
             <BrandText style={styles.featureTitle}>100% Confidencial</BrandText>
             <Text style={styles.featureSubtitle}>Privacidad garantizada</Text>
@@ -116,7 +116,7 @@ export function WelcomeScreen() {
         {/* Client Card */}
         <View style={[styles.ctaCard, isDesktop && styles.ctaCardDesktop]}>
           <View style={styles.ctaIconContainer}>
-            <BrandIcon name="people" size={40} />
+            <Ionicons name="people" size={40} color={branding.secondary} />
           </View>
 
           <BrandText style={styles.ctaTitle}>Busco ayuda</BrandText>
@@ -165,7 +165,7 @@ export function WelcomeScreen() {
         {/* Professional Card */}
         <View style={[styles.ctaCard, isDesktop && styles.ctaCardDesktop]}>
           <View style={styles.ctaIconContainer}>
-            <BrandIcon name="briefcase" size={40} />
+            <Ionicons name="briefcase" size={40} color={branding.secondary} />
           </View>
 
           <BrandText style={styles.ctaTitle}>Soy especialista</BrandText>
@@ -230,23 +230,24 @@ const styles = StyleSheet.create({
   // Hero Section
   heroSection: {
     alignItems: 'center',
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingTop: 40,
+    paddingBottom: 24,
     paddingHorizontal: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   logoContainer: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
   },
   titleContainer: {
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   appName: {
     fontSize: 50,
     fontWeight: 'bold',
     color: branding.text,
     letterSpacing: 0.5,
+    marginTop: spacing.xs,
   },
   titlePrefix: {
     fontSize: 20,
@@ -271,12 +272,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 600,
     paddingHorizontal: spacing.sm,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
   },
 
   // Features Section
   featuresSection: {
-    marginBottom: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
   },
   featuresGrid: {
     gap: spacing.sm,
@@ -339,6 +342,8 @@ const styles = StyleSheet.create({
   ctaContainer: {
     gap: spacing.md,
     marginBottom: spacing.lg,
+    paddingHorizontal: spacing.lg, // Added: breathing room from edges
+    marginHorizontal: spacing.md,  // Added: extra margin
   },
   ctaContainerRow: {
     flexDirection: 'row',

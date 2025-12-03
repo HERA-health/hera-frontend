@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { BrandText } from '../common/BrandText';
 import { StyledLogo } from '../common/StyledLogo';
+import { GradientBackground } from '../common/GradientBackground';
 
 interface CustomDrawerContentProps {
   currentRoute?: string;
@@ -38,16 +39,17 @@ export function CustomDrawerContent({ currentRoute = 'Home' }: CustomDrawerConte
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Header Section */}
-        <View style={styles.header}>
-          <StyledLogo size={80} />
-          <BrandText style={styles.brandName}>MindConnect</BrandText>
-          <Text style={styles.tagline}>
-            {isProfessional ? 'Panel Profesional' : 'Tu bienestar mental'}
-          </Text>
-        </View>
+    <GradientBackground>
+      <View style={styles.container}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          {/* Header Section */}
+          <View style={styles.header}>
+            <StyledLogo size={80} />
+            <BrandText style={styles.brandName}>HERA</BrandText>
+            <Text style={styles.tagline}>
+              {isProfessional ? 'Panel Profesional' : 'Tu bienestar mental'}
+            </Text>
+          </View>
 
         {/* Navigation Section */}
         <View style={styles.section}>
@@ -141,14 +143,15 @@ export function CustomDrawerContent({ currentRoute = 'Home' }: CustomDrawerConte
           <Ionicons name="log-out-outline" size={20} color={colors.neutral.gray600} />
         </TouchableOpacity>
       </View>
-    </View>
+      </View>
+    </GradientBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: branding.background, // Beige
+    // No backgroundColor - GradientBackground handles it
   },
   scrollView: {
     flex: 1,
@@ -159,16 +162,17 @@ const styles = StyleSheet.create({
   header: {
     padding: spacing.xl,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral.gray200,
-    backgroundColor: branding.cardBackground,
+    borderBottomColor: `${branding.primary}30`, // Subtle border
     alignItems: 'center',
+    marginBottom: spacing.md,
   },
   brandName: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: branding.text,
     marginTop: spacing.md,
     marginBottom: 4,
+    letterSpacing: 0.5,
   },
   tagline: {
     fontSize: 14,

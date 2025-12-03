@@ -186,6 +186,7 @@ const styles = StyleSheet.create({
     backgroundColor: branding.cardBackground,
     borderRadius: borderRadius.lg,
     padding: spacing.xl,
+    marginHorizontal: spacing.sm, // Extra margin inside container
     ...shadows.lg,
   },
   header: {
