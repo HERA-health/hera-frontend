@@ -1,7 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing } from '../../constants/colors';
+import { colors, spacing, branding } from '../../constants/colors';
 
 interface GradientButtonProps {
   title?: string;
@@ -50,7 +50,7 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
       style={styles.touchable}
     >
       <LinearGradient
-        colors={disabled ? ['#9E9E9E', '#757575'] : ['#2196F3', '#00897B']}
+        colors={disabled ? ['#9E9E9E', '#757575'] : [branding.accent, branding.accentLight]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={buttonStyles}
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
   touchable: {
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#2196F3',
+    shadowColor: branding.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

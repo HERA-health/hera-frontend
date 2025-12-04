@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors } from '../../constants/colors';
+import { colors, branding } from '../../constants/colors';
 
 interface StatusBadgeProps {
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'scheduled';
@@ -10,19 +10,19 @@ interface StatusBadgeProps {
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
   const config = {
     pending: {
-      gradientColors: ['#FF9800', '#FFB74D'] as const,
+      gradientColors: [branding.accent, branding.accentLight] as const,
       text: 'Pendiente',
     },
     confirmed: {
-      gradientColors: ['#4CAF50', '#66BB6A'] as const,
+      gradientColors: [branding.primary, branding.primaryLight] as const,
       text: 'Confirmada',
     },
     scheduled: {
-      gradientColors: ['#2196F3', '#64B5F6'] as const,
+      gradientColors: [branding.accent, branding.accentLight] as const,
       text: 'Programada',
     },
     completed: {
-      gradientColors: ['#2196F3', '#64B5F6'] as const,
+      gradientColors: [branding.primary, branding.primaryLight] as const,
       text: 'Completada',
     },
     cancelled: {

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Dimensions, Alert } from 'react-native';
-import { colors, spacing } from '../../constants/colors';
+import { colors, spacing, branding } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { GradientButton } from '../../components/common/GradientButton';
 import { BrandText } from '../../components/common/BrandText';
+import { GradientBackground } from '../../components/common/GradientBackground';
 import { useAuth } from '../../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -145,14 +146,15 @@ export function ProfessionalProfileEditorScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <BrandText style={styles.headerTitle}>Editar Perfil Profesional</BrandText>
-        <Text style={styles.headerSubtitle}>
-          Actualiza tu información para mejorar el matching con clientes
-        </Text>
-      </View>
+    <GradientBackground>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <BrandText style={styles.headerTitle}>Editar Perfil Profesional</BrandText>
+          <Text style={styles.headerSubtitle}>
+            Actualiza tu información para mejorar el matching con clientes
+          </Text>
+        </View>
 
       <ScrollView
         style={styles.scrollView}
@@ -162,7 +164,7 @@ export function ProfessionalProfileEditorScreen() {
         {/* Basic Information Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="person" size={20} color="#2196F3" />
+            <Ionicons name="person" size={20} color={branding.accent} />
             <BrandText style={styles.sectionTitle}>Información Básica</BrandText>
           </View>
 
@@ -214,7 +216,7 @@ export function ProfessionalProfileEditorScreen() {
         {/* Matching Profile Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="heart" size={20} color="#2196F3" />
+            <Ionicons name="heart" size={20} color={branding.accent} />
             <BrandText style={styles.sectionTitle}>Perfil de Matching</BrandText>
           </View>
           <Text style={styles.sectionDescription}>
@@ -236,7 +238,7 @@ export function ProfessionalProfileEditorScreen() {
                   >
                     {isSelected ? (
                       <LinearGradient
-                        colors={['#2196F3', '#00897B']}
+                        colors={[branding.accent, branding.accentLight]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.chipSelected}
@@ -270,7 +272,7 @@ export function ProfessionalProfileEditorScreen() {
                   >
                     {isSelected ? (
                       <LinearGradient
-                        colors={['#2196F3', '#00897B']}
+                        colors={[branding.accent, branding.accentLight]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.chipSelected}
@@ -304,7 +306,7 @@ export function ProfessionalProfileEditorScreen() {
                   >
                     {isSelected ? (
                       <LinearGradient
-                        colors={['#2196F3', '#00897B']}
+                        colors={[branding.accent, branding.accentLight]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.chipSelected}
@@ -338,7 +340,7 @@ export function ProfessionalProfileEditorScreen() {
                   >
                     {isSelected ? (
                       <LinearGradient
-                        colors={['#2196F3', '#00897B']}
+                        colors={[branding.accent, branding.accentLight]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.chipSelected}
@@ -372,7 +374,7 @@ export function ProfessionalProfileEditorScreen() {
                   >
                     {isSelected ? (
                       <LinearGradient
-                        colors={['#2196F3', '#00897B']}
+                        colors={[branding.accent, branding.accentLight]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.chipSelected}
@@ -418,7 +420,7 @@ export function ProfessionalProfileEditorScreen() {
                   >
                     {isSelected ? (
                       <LinearGradient
-                        colors={['#2196F3', '#00897B']}
+                        colors={[branding.accent, branding.accentLight]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.chipSelected}
@@ -452,7 +454,7 @@ export function ProfessionalProfileEditorScreen() {
                   >
                     {isSelected ? (
                       <LinearGradient
-                        colors={['#2196F3', '#00897B']}
+                        colors={[branding.accent, branding.accentLight]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.chipSelected}
@@ -486,7 +488,7 @@ export function ProfessionalProfileEditorScreen() {
                   >
                     {isSelected ? (
                       <LinearGradient
-                        colors={['#2196F3', '#00897B']}
+                        colors={[branding.accent, branding.accentLight]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.chipSelected}
@@ -519,14 +521,15 @@ export function ProfessionalProfileEditorScreen() {
           </Text>
         </View>
       </ScrollView>
-    </View>
+      </View>
+    </GradientBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
+    // GradientBackground handles the background
   },
   header: {
     backgroundColor: colors.neutral.white,
@@ -591,7 +594,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   required: {
-    color: '#2196F3',
+    color: branding.accent,
   },
   fieldHint: {
     fontSize: 13,
@@ -641,7 +644,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.xs,
-    shadowColor: '#2196F3',
+    shadowColor: branding.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,

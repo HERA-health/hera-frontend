@@ -19,7 +19,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, borderRadius, typography } from '../../constants/colors';
+import { colors, spacing, borderRadius, typography, branding } from '../../constants/colors';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
 type ButtonSize = 'small' | 'medium' | 'large';
@@ -151,7 +151,7 @@ export const Button: React.FC<ButtonProps> = ({
         style={style}
       >
         <LinearGradient
-          colors={['#2196F3', '#00897B']}
+          colors={[branding.accent, branding.accentLight]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[getButtonStyle()]}
@@ -182,14 +182,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   primary: {
-    shadowColor: '#2196F3',
+    shadowColor: branding.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
   secondary: {
-    shadowColor: '#2196F3',
+    shadowColor: branding.accent,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,

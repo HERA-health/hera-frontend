@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { branding } from '../../constants/colors';
 
 interface GradientIconCircleProps {
   iconName: keyof typeof Ionicons.glyphMap;
@@ -18,7 +19,7 @@ export const GradientIconCircle: React.FC<GradientIconCircleProps> = ({
 }) => {
   return (
     <LinearGradient
-      colors={['#2196F3', '#00897B']}
+      colors={[branding.accent, branding.accentLight]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[
@@ -36,7 +37,7 @@ const styles = StyleSheet.create({
   circle: {
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#2196F3',
+    shadowColor: branding.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,

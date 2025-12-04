@@ -11,9 +11,9 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Calendar, DateData } from 'react-native-calendars';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing } from '../../constants/colors';
+import { branding, colors, spacing, borderRadius } from '../../constants/colors';
+import { GradientBackground } from '../../components/common/GradientBackground';
 import * as sessionsService from '../../services/sessionsService';
 import { SessionType, TimeSlot } from '../../services/sessionsService';
 
@@ -214,38 +214,34 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header with Specialist Info */}
-      <View style={styles.header}>
+    <GradientBackground>
+      <View style={styles.container}>
+        {/* Header with Specialist Info */}
+        <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#2196F3" />
+          <Ionicons name="arrow-back" size={24} color={branding.accent} />
         </TouchableOpacity>
 
         <View style={styles.specialistInfo}>
           <View style={styles.avatarContainer}>
-            <LinearGradient
-              colors={['#2196F3', '#00897B']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.avatarBorder}
-            >
-              <View style={styles.avatarInner}>
-                {avatar ? (
-                  <Image source={{ uri: avatar }} style={styles.avatarImage} />
-                ) : (
+            <View style={styles.avatarBorder}>
+              {avatar ? (
+                <Image source={{ uri: avatar }} style={styles.avatarImage} />
+              ) : (
+                <View style={styles.avatarInner}>
                   <Text style={styles.avatarText}>{specialistName[0]}</Text>
-                )}
-              </View>
-            </LinearGradient>
+                </View>
+              )}
+            </View>
           </View>
 
           <View style={styles.specialistDetails}>
             <Text style={styles.specialistName}>{specialistName}</Text>
             <View style={styles.priceRow}>
-              <Ionicons name="cash-outline" size={16} color="#666" />
+              <Ionicons name="cash-outline" size={16} color={branding.textSecondary} />
               <Text style={styles.priceText}>€{pricePerSession} / sesión</Text>
             </View>
           </View>
@@ -268,23 +264,23 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
               markedDates={{
                 [selectedDate]: {
                   selected: true,
-                  selectedColor: '#2196F3',
+                  selectedColor: branding.accent,
                 },
               }}
               theme={{
-                backgroundColor: colors.neutral.white,
-                calendarBackground: colors.neutral.white,
-                textSectionTitleColor: colors.neutral.gray600,
-                selectedDayBackgroundColor: colors.primary.main,
-                selectedDayTextColor: colors.neutral.white,
-                todayTextColor: colors.primary.main,
-                dayTextColor: colors.neutral.gray900,
-                textDisabledColor: colors.neutral.gray300,
-                arrowColor: colors.primary.main,
-                monthTextColor: colors.neutral.gray900,
+                backgroundColor: branding.cardBackground,
+                calendarBackground: branding.cardBackground,
+                textSectionTitleColor: branding.textSecondary,
+                selectedDayBackgroundColor: branding.accent,
+                selectedDayTextColor: branding.cardBackground,
+                todayTextColor: branding.accent,
+                dayTextColor: branding.text,
+                textDisabledColor: branding.textLight,
+                arrowColor: branding.accent,
+                monthTextColor: branding.text,
                 textDayFontWeight: '500',
                 textMonthFontWeight: '700',
-                textDayFontSize: 15,
+                textDayFontSize: 16,
                 textMonthFontSize: 18,
               }}
             />
@@ -298,12 +294,12 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
 
             {loadingSlots ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#2196F3" />
+                <ActivityIndicator size="large" color={branding.accent} />
                 <Text style={styles.loadingText}>Cargando horarios...</Text>
               </View>
             ) : availableSlots.length === 0 ? (
               <View style={styles.emptyState}>
-                <Ionicons name="calendar-outline" size={48} color="#ccc" />
+                <Ionicons name="calendar-outline" size={48} color={branding.textLight} />
                 <Text style={styles.emptyText}>No hay horarios disponibles</Text>
                 <Text style={styles.emptySubtext}>
                   Selecciona otra fecha para ver más opciones
@@ -321,22 +317,17 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
                     onPress={() => setSelectedSlot(slot)}
                     activeOpacity={0.7}
                   >
-                    {selectedSlot?.startTime === slot.startTime ? (
-                      <LinearGradient
-                        colors={['#2196F3', '#00897B']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.slotGradient}
-                      >
-                        <Ionicons name="time" size={16} color="#fff" />
-                        <Text style={styles.slotTextSelected}>{slot.startTime}</Text>
-                      </LinearGradient>
-                    ) : (
-                      <>
-                        <Ionicons name="time-outline" size={16} color="#666" />
-                        <Text style={styles.slotText}>{slot.startTime}</Text>
-                      </>
-                    )}
+                    <Ionicons
+                      name="time"
+                      size={16}
+                      color={selectedSlot?.startTime === slot.startTime ? branding.cardBackground : branding.textSecondary}
+                    />
+                    <Text style={[
+                      styles.slotText,
+                      selectedSlot?.startTime === slot.startTime && styles.slotTextSelected
+                    ]}>
+                      {slot.startTime}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -359,34 +350,17 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
                   onPress={() => setSessionType(type)}
                   activeOpacity={0.7}
                 >
-                  {sessionType === type ? (
-                    <LinearGradient
-                      colors={['#2196F3', '#00897B']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.typeGradient}
-                    >
-                      <Ionicons
-                        name={getSessionTypeIcon(type) as any}
-                        size={24}
-                        color="#fff"
-                      />
-                      <Text style={styles.typeTextSelected}>
-                        {getSessionTypeLabel(type)}
-                      </Text>
-                    </LinearGradient>
-                  ) : (
-                    <>
-                      <Ionicons
-                        name={getSessionTypeIcon(type) as any}
-                        size={24}
-                        color="#666"
-                      />
-                      <Text style={styles.typeText}>
-                        {getSessionTypeLabel(type)}
-                      </Text>
-                    </>
-                  )}
+                  <Ionicons
+                    name={getSessionTypeIcon(type) as any}
+                    size={24}
+                    color={sessionType === type ? branding.cardBackground : branding.primary}
+                  />
+                  <Text style={[
+                    styles.typeText,
+                    sessionType === type && styles.typeTextSelected
+                  ]}>
+                    {getSessionTypeLabel(type)}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -399,7 +373,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
             <Text style={styles.summaryTitle}>Resumen de la reserva</Text>
 
             <View style={styles.summaryRow}>
-              <Ionicons name="calendar" size={18} color="#666" />
+              <Ionicons name="calendar" size={18} color={branding.textSecondary} />
               <Text style={styles.summaryLabel}>Fecha:</Text>
               <Text style={styles.summaryValue}>
                 {new Date(selectedDate).toLocaleDateString('es-ES', {
@@ -411,13 +385,13 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
             </View>
 
             <View style={styles.summaryRow}>
-              <Ionicons name="time" size={18} color="#666" />
+              <Ionicons name="time" size={18} color={branding.textSecondary} />
               <Text style={styles.summaryLabel}>Hora:</Text>
               <Text style={styles.summaryValue}>{selectedSlot.startTime}</Text>
             </View>
 
             <View style={styles.summaryRow}>
-              <Ionicons name={getSessionTypeIcon(sessionType) as any} size={18} color="#666" />
+              <Ionicons name={getSessionTypeIcon(sessionType) as any} size={18} color={branding.textSecondary} />
               <Text style={styles.summaryLabel}>Tipo:</Text>
               <Text style={styles.summaryValue}>{getSessionTypeLabel(sessionType)}</Text>
             </View>
@@ -425,7 +399,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
             <View style={styles.summaryDivider} />
 
             <View style={styles.summaryRow}>
-              <Ionicons name="cash" size={18} color="#2196F3" />
+              <Ionicons name="cash" size={18} color={branding.accent} />
               <Text style={styles.summaryLabel}>Total:</Text>
               <Text style={styles.summaryPrice}>€{pricePerSession}</Text>
             </View>
@@ -437,242 +411,226 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
       {selectedDate && selectedSlot && (
         <View style={styles.footer}>
           <TouchableOpacity
-            style={styles.confirmButton}
+            style={[
+              styles.confirmButton,
+              loading && styles.confirmButtonDisabled
+            ]}
             onPress={handleConfirmBooking}
             disabled={loading}
             activeOpacity={0.9}
           >
-            <LinearGradient
-              colors={['#2196F3', '#00897B']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.confirmGradient}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle" size={24} color="#fff" />
-                  <Text style={styles.confirmText}>Confirmar Reserva</Text>
-                </>
-              )}
-            </LinearGradient>
+            {loading ? (
+              <ActivityIndicator color={branding.cardBackground} />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={24} color={branding.cardBackground} />
+                <Text style={styles.confirmText}>Confirmar Reserva</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       )}
-    </View>
+      </View>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    // GradientBackground handles the background
   },
   header: {
-    backgroundColor: '#fff',
-    paddingTop: 12,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
+    backgroundColor: branding.cardBackground,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: colors.neutral.gray200,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
   },
   backButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   specialistInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   avatarContainer: {
-    marginRight: 16,
+    marginRight: spacing.md,
   },
   avatarBorder: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    padding: 3,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: branding.primary,
+    overflow: 'hidden',
+    backgroundColor: branding.cardBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarInner: {
     width: '100%',
     height: '100%',
-    borderRadius: 25,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: `${branding.primary}20`,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
   },
   avatarImage: {
     width: '100%',
     height: '100%',
   },
   avatarText: {
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: branding.primary,
   },
   specialistDetails: {
     flex: 1,
   },
   specialistName: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#212121',
-    marginBottom: 4,
+    fontWeight: '700',
+    color: branding.text,
+    marginBottom: spacing.xs,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xs,
   },
   priceText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 16,
+    color: branding.textSecondary,
     fontWeight: '500',
   },
   content: {
     flex: 1,
   },
   contentContainer: {
-    padding: 16,
+    padding: spacing.lg, // 20px - Generous spacing
     paddingBottom: 100,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: spacing.xl, // 24px - Section spacing
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#212121',
-    marginBottom: 12,
+    fontWeight: '700',
+    color: branding.text,
+    marginBottom: spacing.md,
   },
   calendarCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: branding.cardBackground,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 4,
   },
   loadingContainer: {
     padding: 40,
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: spacing.md,
     fontSize: 14,
-    color: '#666',
+    color: branding.textSecondary,
   },
   emptyState: {
-    padding: 40,
+    padding: spacing.xl * 2, // 48px - Generous empty state padding
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: branding.cardBackground,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.neutral.gray200,
   },
   emptyText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#999',
-    marginTop: 16,
+    color: branding.textSecondary,
+    marginTop: spacing.md,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#BDBDBD',
-    marginTop: 8,
+    color: branding.textLight,
+    marginTop: spacing.sm,
     textAlign: 'center',
   },
   slotsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: spacing.md,
   },
   slotButton: {
     width: '30%',
     minWidth: 100,
     height: 56,
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: branding.cardBackground,
+    borderRadius: borderRadius.md,
     borderWidth: 2,
-    borderColor: '#E0E0E0',
+    borderColor: colors.neutral.gray200,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 6,
+    gap: spacing.xs,
   },
   slotSelected: {
-    borderWidth: 0,
-  },
-  slotGradient: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 10,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
+    backgroundColor: branding.accent, // Lavanda
+    borderColor: branding.accent,
   },
   slotText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#666',
+    color: branding.text,
   },
   slotTextSelected: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: branding.cardBackground,
   },
   typeGrid: {
-    gap: 12,
+    gap: spacing.md,
   },
   typeOption: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: branding.cardBackground,
+    borderRadius: borderRadius.md,
     borderWidth: 2,
-    borderColor: '#E0E0E0',
+    borderColor: colors.neutral.gray200,
     height: 70,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.sm,
   },
   typeSelected: {
-    borderWidth: 0,
-  },
-  typeGradient: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 10,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
+    backgroundColor: branding.primary, // Verde Salvia
+    borderColor: branding.primary,
   },
   typeText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#666',
+    color: branding.text,
   },
   typeTextSelected: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: branding.cardBackground,
   },
   summaryCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: branding.cardBackground,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -681,37 +639,37 @@ const styles = StyleSheet.create({
   },
   summaryTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#212121',
-    marginBottom: 16,
+    fontWeight: '700',
+    color: branding.text,
+    marginBottom: spacing.md,
   },
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
   },
   summaryLabel: {
     fontSize: 14,
-    color: '#666',
-    marginRight: 8,
+    color: branding.textSecondary,
+    marginRight: spacing.sm,
   },
   summaryValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#212121',
+    color: branding.text,
     flex: 1,
     textTransform: 'capitalize',
   },
   summaryDivider: {
     height: 1,
-    backgroundColor: '#E0E0E0',
-    marginVertical: 12,
+    backgroundColor: colors.neutral.gray200,
+    marginVertical: spacing.md,
   },
   summaryPrice: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2196F3',
+    fontWeight: '700',
+    color: branding.accent,
     flex: 1,
   },
   footer: {
@@ -719,10 +677,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
-    padding: 16,
+    backgroundColor: branding.cardBackground,
+    padding: spacing.lg, // Generous padding
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: colors.neutral.gray200,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
@@ -730,25 +688,27 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   confirmButton: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#2196F3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  confirmGradient: {
+    backgroundColor: branding.accent, // Lavanda
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 18,
-    gap: 10,
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
+    shadowColor: branding.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  confirmButtonDisabled: {
+    backgroundColor: branding.textLight,
+    shadowOpacity: 0,
   },
   confirmText: {
-    color: '#fff',
+    color: branding.cardBackground,
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
 });
 

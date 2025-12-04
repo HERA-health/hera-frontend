@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { branding } from '../../constants/colors';
 
 interface BrandIconProps {
   name: keyof typeof Ionicons.glyphMap;
@@ -16,7 +17,7 @@ export const BrandIcon: React.FC<BrandIconProps> = ({
 }) => {
   if (!withBackground) {
     // Just colored icon without background
-    return <Ionicons name={name} size={size} color="#2196F3" />;
+    return <Ionicons name={name} size={size} color={branding.accent} />;
   }
 
   // Icon with gradient background circle
@@ -24,7 +25,7 @@ export const BrandIcon: React.FC<BrandIconProps> = ({
 
   return (
     <LinearGradient
-      colors={['#2196F3', '#00897B']}
+      colors={[branding.accent, branding.accentLight]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[styles.circle, {

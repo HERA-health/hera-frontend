@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, Alert } from 'react-native';
-import { colors, spacing } from '../../constants/colors';
+import { branding, colors, spacing, borderRadius } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
+import { GradientBackground } from '../../components/common/GradientBackground';
 import * as professionalService from '../../services/professionalService';
 import { ProfessionalSession, ProfessionalSessionTab } from '../../constants/types';
 import { CalendarView } from '../../components/professional/CalendarView';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BrandText } from '../../components/common/BrandText';
 import { StatusBadge } from '../../components/common/StatusBadge';
 
@@ -114,7 +114,7 @@ export function ProfessionalSessionsScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#2196F3" />
+        <ActivityIndicator size="large" color={branding.accent} />
       </View>
     );
   }
@@ -185,9 +185,10 @@ export function ProfessionalSessionsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
+    <GradientBackground>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
         <BrandText style={styles.headerTitle}>Sesiones</BrandText>
         <Text style={styles.headerSubtitle}>
           Gestiona tus citas con pacientes
@@ -200,44 +201,32 @@ export function ProfessionalSessionsScreen() {
           style={styles.viewModeButtonWrapper}
           onPress={() => setViewMode('list')}
         >
-          {viewMode === 'list' ? (
-            <LinearGradient
-              colors={['#2196F3', '#00897B']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.viewModeButtonActive}
-            >
-              <Ionicons name="list" size={20} color={colors.neutral.white} />
-              <Text style={styles.viewModeTextActive}>Lista</Text>
-            </LinearGradient>
-          ) : (
-            <View style={styles.viewModeButton}>
-              <Ionicons name="list" size={20} color={colors.neutral.gray600} />
-              <Text style={styles.viewModeText}>Lista</Text>
-            </View>
-          )}
+          <View style={viewMode === 'list' ? styles.viewModeButtonActive : styles.viewModeButton}>
+            <Ionicons
+              name="list"
+              size={20}
+              color={viewMode === 'list' ? colors.neutral.white : colors.neutral.gray600}
+            />
+            <Text style={viewMode === 'list' ? styles.viewModeTextActive : styles.viewModeText}>
+              Lista
+            </Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.viewModeButtonWrapper}
           onPress={() => setViewMode('calendar')}
         >
-          {viewMode === 'calendar' ? (
-            <LinearGradient
-              colors={['#2196F3', '#00897B']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.viewModeButtonActive}
-            >
-              <Ionicons name="calendar" size={20} color={colors.neutral.white} />
-              <Text style={styles.viewModeTextActive}>Calendario</Text>
-            </LinearGradient>
-          ) : (
-            <View style={styles.viewModeButton}>
-              <Ionicons name="calendar" size={20} color={colors.neutral.gray600} />
-              <Text style={styles.viewModeText}>Calendario</Text>
-            </View>
-          )}
+          <View style={viewMode === 'calendar' ? styles.viewModeButtonActive : styles.viewModeButton}>
+            <Ionicons
+              name="calendar"
+              size={20}
+              color={viewMode === 'calendar' ? colors.neutral.white : colors.neutral.gray600}
+            />
+            <Text style={viewMode === 'calendar' ? styles.viewModeTextActive : styles.viewModeText}>
+              Calendario
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -259,32 +248,23 @@ export function ProfessionalSessionsScreen() {
               style={styles.tabWrapper}
               onPress={() => setActiveTab(tab.id)}
             >
-              {isActive ? (
-                <LinearGradient
-                  colors={['#2196F3', '#00897B']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.tabActive}
-                >
-                  <Ionicons name={tab.icon as any} size={20} color={colors.neutral.white} />
-                  <Text style={styles.tabLabelActive}>{tab.label}</Text>
-                  {count > 0 && (
-                    <View style={styles.tabBadgeActive}>
-                      <Text style={styles.tabBadgeTextActive}>{count}</Text>
-                    </View>
-                  )}
-                </LinearGradient>
-              ) : (
-                <View style={styles.tab}>
-                  <Ionicons name={tab.icon as any} size={20} color={colors.neutral.gray500} />
-                  <Text style={styles.tabLabel}>{tab.label}</Text>
-                  {count > 0 && (
-                    <View style={styles.tabBadge}>
-                      <Text style={styles.tabBadgeText}>{count}</Text>
-                    </View>
-                  )}
-                </View>
-              )}
+              <View style={isActive ? styles.tabActive : styles.tab}>
+                <Ionicons
+                  name={tab.icon as any}
+                  size={20}
+                  color={isActive ? colors.neutral.white : colors.neutral.gray500}
+                />
+                <Text style={isActive ? styles.tabLabelActive : styles.tabLabel}>
+                  {tab.label}
+                </Text>
+                {count > 0 && (
+                  <View style={isActive ? styles.tabBadgeActive : styles.tabBadge}>
+                    <Text style={isActive ? styles.tabBadgeTextActive : styles.tabBadgeText}>
+                      {count}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
           );
         })}
@@ -309,7 +289,7 @@ export function ProfessionalSessionsScreen() {
                   'hourglass-outline'
                 }
                 size={56}
-                color={colors.neutral.gray400}
+                color={branding.textLight}
               />
             </View>
             <Text style={styles.emptyTitle}>
@@ -329,20 +309,11 @@ export function ProfessionalSessionsScreen() {
               {/* Session header */}
               <View style={styles.sessionHeader}>
                 <View style={styles.sessionDate}>
-                  {isToday(session.date) ? (
-                    <LinearGradient
-                      colors={['#2196F3', '#00897B']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.dateBadgeToday}
-                    >
-                      <Text style={styles.dateLabelToday}>{getDateLabel(session.date)}</Text>
-                    </LinearGradient>
-                  ) : (
-                    <View style={styles.dateBadge}>
-                      <Text style={styles.dateLabel}>{getDateLabel(session.date)}</Text>
-                    </View>
-                  )}
+                  <View style={isToday(session.date) ? styles.dateBadgeToday : styles.dateBadge}>
+                    <Text style={isToday(session.date) ? styles.dateLabelToday : styles.dateLabel}>
+                      {getDateLabel(session.date)}
+                    </Text>
+                  </View>
                   <Text style={styles.sessionTime}>{formatTime(session.date)}</Text>
                 </View>
 
@@ -357,16 +328,11 @@ export function ProfessionalSessionsScreen() {
 
               {/* Client info */}
               <View style={styles.clientSection}>
-                <LinearGradient
-                  colors={['#2196F3', '#00897B']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.clientAvatarBorder}
-                >
+                <View style={styles.clientAvatarBorder}>
                   <View style={styles.clientAvatar}>
                     <Text style={styles.clientAvatarText}>{session.clientInitial}</Text>
                   </View>
-                </LinearGradient>
+                </View>
                 <View style={styles.clientInfo}>
                   <Text style={styles.clientName}>{session.clientName}</Text>
                   <View style={styles.sessionMeta}>
@@ -374,7 +340,7 @@ export function ProfessionalSessionsScreen() {
                       <Ionicons
                         name={getSessionTypeIcon(session.type)}
                         size={14}
-                        color={colors.neutral.gray500}
+                        color={branding.textSecondary}
                       />
                       <Text style={styles.metaText}>
                         {session.type === 'video' && 'Videollamada'}
@@ -384,7 +350,7 @@ export function ProfessionalSessionsScreen() {
                     </View>
                     <View style={styles.metaDivider} />
                     <View style={styles.metaItem}>
-                      <Ionicons name="time-outline" size={14} color={colors.neutral.gray500} />
+                      <Ionicons name="time-outline" size={14} color={branding.textSecondary} />
                       <Text style={styles.metaText}>{session.duration} min</Text>
                     </View>
                   </View>
@@ -394,7 +360,7 @@ export function ProfessionalSessionsScreen() {
               {/* Notes */}
               {session.notes && (
                 <View style={styles.notesSection}>
-                  <Ionicons name="document-text-outline" size={14} color={colors.neutral.gray600} />
+                  <Ionicons name="document-text-outline" size={14} color={branding.textSecondary} />
                   <Text style={styles.notesText}>{session.notes}</Text>
                 </View>
               )}
@@ -405,23 +371,18 @@ export function ProfessionalSessionsScreen() {
                   <>
                     {session.meetingLink && (
                       <TouchableOpacity style={styles.actionButtonWrapper}>
-                        <LinearGradient
-                          colors={['#2196F3', '#00897B']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={styles.actionButtonPrimary}
-                        >
-                          <Ionicons name="videocam" size={16} color={colors.neutral.white} />
+                        <View style={styles.actionButtonPrimary}>
+                          <Ionicons name="videocam" size={16} color={branding.cardBackground} />
                           <Text style={styles.actionButtonTextPrimary}>Iniciar sesión</Text>
-                        </LinearGradient>
+                        </View>
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity style={styles.actionButton}>
-                      <Ionicons name="chatbubble-outline" size={16} color="#2196F3" />
+                      <Ionicons name="chatbubble-outline" size={16} color={branding.accent} />
                       <Text style={styles.actionButtonText}>Contactar</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.actionButton}>
-                      <Ionicons name="calendar-outline" size={16} color="#2196F3" />
+                      <Ionicons name="calendar-outline" size={16} color={branding.accent} />
                       <Text style={styles.actionButtonText}>Reagendar</Text>
                     </TouchableOpacity>
                   </>
@@ -430,11 +391,11 @@ export function ProfessionalSessionsScreen() {
                 {activeTab === 'history' && (
                   <>
                     <TouchableOpacity style={styles.actionButton}>
-                      <Ionicons name="eye-outline" size={16} color="#2196F3" />
+                      <Ionicons name="eye-outline" size={16} color={branding.accent} />
                       <Text style={styles.actionButtonText}>Ver detalles</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.actionButton}>
-                      <Ionicons name="document-text-outline" size={16} color="#2196F3" />
+                      <Ionicons name="document-text-outline" size={16} color={branding.accent} />
                       <Text style={styles.actionButtonText}>Ver notas</Text>
                     </TouchableOpacity>
                   </>
@@ -446,23 +407,18 @@ export function ProfessionalSessionsScreen() {
                       style={styles.actionButtonWrapper}
                       onPress={() => handleConfirmSession(session.id, session.clientName)}
                     >
-                      <LinearGradient
-                        colors={['#2196F3', '#00897B']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.actionButtonPrimary}
-                      >
-                        <Ionicons name="checkmark" size={16} color={colors.neutral.white} />
+                      <View style={styles.actionButtonPrimary}>
+                        <Ionicons name="checkmark-circle" size={20} color={branding.cardBackground} />
                         <Text style={styles.actionButtonTextPrimary}>Confirmar</Text>
-                      </LinearGradient>
+                      </View>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.actionButtonDangerWrapper}
                       onPress={() => handleRejectSession(session.id, session.clientName)}
                     >
                       <View style={styles.actionButtonDanger}>
-                        <Ionicons name="close" size={16} color={colors.neutral.white} />
-                        <Text style={styles.actionButtonTextPrimary}>Rechazar</Text>
+                        <Ionicons name="close-circle" size={20} color={branding.error} />
+                        <Text style={styles.actionButtonTextDanger}>Rechazar</Text>
                       </View>
                     </TouchableOpacity>
                   </>
@@ -478,22 +434,23 @@ export function ProfessionalSessionsScreen() {
           <CalendarView sessions={sessions} />
         ) : (
           <View style={styles.emptyState}>
-            <ActivityIndicator size="large" color="#2196F3" />
+            <ActivityIndicator size="large" color={branding.accent} />
             <Text style={styles.emptyTitle}>Cargando calendario...</Text>
           </View>
         )
       )}
-    </View>
+      </View>
+    </GradientBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
+    // GradientBackground handles the background
   },
   header: {
-    backgroundColor: colors.neutral.white,
+    backgroundColor: branding.cardBackground,
     paddingHorizontal: screenWidth > 768 ? spacing.xxxl * 2 : spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
@@ -507,11 +464,11 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 15,
-    color: colors.neutral.gray600,
+    color: branding.textSecondary,
   },
   viewModeContainer: {
     flexDirection: 'row',
-    backgroundColor: colors.neutral.white,
+    backgroundColor: branding.cardBackground,
     paddingHorizontal: screenWidth > 768 ? spacing.xxxl * 2 : spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
@@ -541,8 +498,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
+    backgroundColor: branding.accent, // Lavanda
     gap: spacing.xs,
-    shadowColor: '#2196F3',
+    borderRadius: 12,
+    shadowColor: branding.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -559,7 +518,7 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: colors.neutral.white,
+    backgroundColor: branding.cardBackground,
     paddingHorizontal: screenWidth > 768 ? spacing.xxxl * 2 : spacing.lg,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
@@ -587,8 +546,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
+    backgroundColor: branding.accent, // Lavanda
+    borderRadius: 12,
     gap: spacing.xs,
-    shadowColor: '#2196F3',
+    shadowColor: branding.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -636,8 +597,8 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   sessionCard: {
-    backgroundColor: colors.neutral.white,
-    borderRadius: 20,
+    backgroundColor: branding.cardBackground,
+    borderRadius: borderRadius.lg,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.neutral.gray200,
@@ -668,6 +629,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   dateBadgeToday: {
+    backgroundColor: branding.accent, // Lavanda
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: 8,
@@ -675,7 +637,7 @@ const styles = StyleSheet.create({
   dateLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.neutral.gray700,
+    color: branding.textSecondary,
   },
   dateLabelToday: {
     fontSize: 13,
@@ -685,7 +647,7 @@ const styles = StyleSheet.create({
   sessionTime: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.neutral.gray900,
+    color: branding.text,
   },
   clientSection: {
     flexDirection: 'row',
@@ -696,23 +658,25 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
+    borderWidth: 2,
+    borderColor: branding.primary, // Verde Salvia
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
-    padding: 2,
+    backgroundColor: branding.cardBackground,
   },
   clientAvatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.neutral.white,
+    backgroundColor: `${branding.primary}20`,
     justifyContent: 'center',
     alignItems: 'center',
   },
   clientAvatarText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#2196F3',
+    color: branding.primary,
   },
   clientInfo: {
     flex: 1,
@@ -720,7 +684,7 @@ const styles = StyleSheet.create({
   clientName: {
     fontSize: 17,
     fontWeight: '700',
-    color: colors.neutral.gray900,
+    color: branding.text,
     marginBottom: spacing.xs,
   },
   sessionMeta: {
@@ -740,12 +704,12 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 13,
-    color: colors.neutral.gray600,
+    color: branding.textSecondary,
   },
   notesSection: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: colors.primary[50],
+    backgroundColor: `${branding.primary}15`, // Light verde salvia background
     padding: spacing.md,
     borderRadius: 12,
     marginBottom: spacing.md,
@@ -754,7 +718,7 @@ const styles = StyleSheet.create({
   notesText: {
     flex: 1,
     fontSize: 14,
-    color: colors.neutral.gray700,
+    color: branding.text,
     lineHeight: 20,
   },
   sessionActions: {
@@ -783,7 +747,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: 12,
-    backgroundColor: colors.primary[50],
+    backgroundColor: `${branding.accent}15`, // Light lavanda background
     gap: spacing.xs,
   },
   actionButtonPrimary: {
@@ -792,8 +756,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
+    backgroundColor: branding.accent, // Lavanda
+    borderRadius: 12,
     gap: spacing.xs,
-    shadowColor: '#2196F3',
+    shadowColor: branding.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -805,24 +771,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.neutral.gray600,
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: branding.error,
     borderRadius: 12,
     gap: spacing.xs,
-    shadowColor: colors.neutral.gray600,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 2,
   },
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2196F3',
+    color: branding.accent,
   },
   actionButtonTextPrimary: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.neutral.white,
+    color: branding.cardBackground,
+  },
+  actionButtonTextDanger: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: branding.error,
   },
   emptyState: {
     flex: 1,
@@ -834,7 +802,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: colors.neutral.gray100,
+    backgroundColor: branding.surface, // Warm surface color
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.xl,
@@ -842,12 +810,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.neutral.gray900,
+    color: branding.text,
     marginBottom: spacing.xs,
   },
   emptyDescription: {
     fontSize: 15,
-    color: colors.neutral.gray600,
+    color: branding.textSecondary,
     textAlign: 'center',
   },
 });

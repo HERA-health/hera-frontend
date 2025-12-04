@@ -30,6 +30,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { SpecialistCard } from '../../components/features/SpecialistCard';
+import { GradientBackground } from '../../components/common/GradientBackground';
 import { colors, spacing, typography, borderRadius, branding, shadows } from '../../constants/colors';
 import { SortOption, Specialist, RootStackParamList } from '../../constants/types';
 import * as specialistsService from '../../services/specialistsService';
@@ -399,9 +400,10 @@ const SpecialistsScreen: React.FC = () => {
   }
 
   return (
-    <View style={styles.container}>
-      {/* Search Bar - Full Width with Gray Background */}
-      <View style={styles.searchSection}>
+    <GradientBackground>
+      <View style={styles.container}>
+        {/* Search Bar - Full Width with Gray Background */}
+        <View style={styles.searchSection}>
         <View style={styles.searchInputContainer}>
           <Ionicons name="search" size={20} color={colors.neutral.gray600} style={styles.searchIcon} />
           <TextInput
@@ -508,14 +510,15 @@ const SpecialistsScreen: React.FC = () => {
           {renderEmptyPosts()}
         </View>
       )}
-    </View>
+      </View>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: branding.background,
+    // GradientBackground handles the background
   },
   scrollView: {
     flex: 1,

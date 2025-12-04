@@ -26,7 +26,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
-import { colors, spacing, typography, borderRadius } from '../../constants/colors';
+import { GradientBackground } from '../../components/common/GradientBackground';
+import { colors, spacing, typography, borderRadius, branding } from '../../constants/colors';
 import { mockUserProfile } from '../../utils/mockData';
 import { ProfileTab } from '../../constants/types';
 
@@ -229,7 +230,7 @@ const ProfileScreen: React.FC = () => {
     <View style={styles.tabContent}>
       <View style={styles.emptyTabState}>
         <View style={styles.emptyIconContainer}>
-          <Ionicons name="card" size={48} color={colors.primary.main} />
+          <Ionicons name="card" size={48} color={branding.accent} />
         </View>
         <Text style={styles.emptyTabTitle}>Métodos de pago</Text>
         <Text style={styles.emptyTabDescription}>
@@ -248,7 +249,7 @@ const ProfileScreen: React.FC = () => {
       <Card style={styles.referralCard} padding="large">
         <View style={styles.referralHeader}>
           <View style={styles.referralIconContainer}>
-            <Ionicons name="gift" size={32} color={colors.secondary.purple} />
+            <Ionicons name="gift" size={32} color={branding.accent} />
           </View>
           <Text style={styles.referralTitle}>Invita y gana</Text>
         </View>
@@ -262,7 +263,7 @@ const ProfileScreen: React.FC = () => {
           <View style={styles.referralCode}>
             <Text style={styles.referralCodeText}>MIND-{mockUserProfile.id.toUpperCase()}</Text>
             <TouchableOpacity>
-              <Ionicons name="copy" size={20} color={colors.primary.main} />
+              <Ionicons name="copy" size={20} color={branding.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -286,7 +287,7 @@ const ProfileScreen: React.FC = () => {
     <View style={styles.tabContent}>
       <View style={styles.emptyTabState}>
         <View style={styles.emptyIconContainer}>
-          <Ionicons name="book" size={48} color={colors.primary.main} />
+          <Ionicons name="book" size={48} color={branding.accent} />
         </View>
         <Text style={styles.emptyTabTitle}>Diario personal</Text>
         <Text style={styles.emptyTabDescription}>
@@ -300,9 +301,10 @@ const ProfileScreen: React.FC = () => {
   );
 
   return (
-    <View style={styles.container}>
-      {/* Tabs - Horizontal Scrollable */}
-      <ScrollView
+    <GradientBackground>
+      <View style={styles.container}>
+        {/* Tabs - Horizontal Scrollable */}
+        <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.tabsScrollView}
@@ -370,14 +372,15 @@ const ProfileScreen: React.FC = () => {
         {activeTab === 'referrals' && renderReferralsTab()}
         {activeTab === 'diary' && renderDiaryTab()}
       </ScrollView>
-    </View>
+      </View>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.secondary,
+    // GradientBackground handles the background
   },
   tabsScrollView: {
     backgroundColor: colors.neutral.white,
@@ -396,7 +399,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabActive: {
-    borderBottomColor: colors.primary.main,
+    borderBottomColor: branding.accent,
   },
   tabText: {
     fontSize: typography.fontSizes.md,
@@ -404,7 +407,7 @@ const styles = StyleSheet.create({
     color: colors.neutral.gray600,
   },
   tabTextActive: {
-    color: colors.primary.main,
+    color: branding.accent,
     fontWeight: typography.fontWeights.semibold,
   },
   scrollView: {
@@ -428,10 +431,12 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: colors.primary.light,
+    backgroundColor: branding.accent,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
+    borderWidth: 4,
+    borderColor: branding.primary,
   },
   avatarText: {
     fontSize: 48,
@@ -503,7 +508,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: colors.background.tertiary,
+    backgroundColor: branding.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
@@ -538,7 +543,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: `${branding.accent}20`,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
@@ -576,7 +581,7 @@ const styles = StyleSheet.create({
   referralCodeText: {
     fontSize: typography.fontSizes.lg,
     fontWeight: typography.fontWeights.bold,
-    color: colors.primary.main,
+    color: branding.accent,
   },
   sectionTitle: {
     fontSize: typography.fontSizes.lg,

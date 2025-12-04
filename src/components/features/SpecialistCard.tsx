@@ -7,7 +7,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing } from '../../constants/colors';
+import { colors, spacing, branding } from '../../constants/colors';
 import { Specialist } from '../../constants/types';
 
 interface SpecialistCardProps {
@@ -62,7 +62,7 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
             </View>
             {specialist.verified && (
               <View style={styles.verifiedBadge}>
-                <Ionicons name="shield-checkmark" size={14} color={colors.primary.main} />
+                <Ionicons name="shield-checkmark" size={14} color={branding.primary} />
               </View>
             )}
           </View>
@@ -102,7 +102,7 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
           }
         ]}>
           <LinearGradient
-            colors={['#2196F3', '#00897B']}
+            colors={[branding.accent, branding.accentLight]}
             style={styles.affinityBadge}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
@@ -135,7 +135,7 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
       {/* First visit free badge */}
       {specialist.firstVisitFree && (
         <View style={styles.firstVisitBadge}>
-          <Ionicons name="gift-outline" size={14} color={colors.primary.main} />
+          <Ionicons name="gift-outline" size={14} color={branding.accent} />
           <Text style={styles.firstVisitText}>Primera visita gratuita</Text>
         </View>
       )}
@@ -149,7 +149,7 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
 
         <TouchableOpacity style={styles.ctaButtonWrapper} onPress={onPress} activeOpacity={0.8}>
           <LinearGradient
-            colors={['#2196F3', '#00897B']}
+            colors={[branding.accent, branding.accentLight]}
             style={styles.ctaButton}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs + 2,
     borderRadius: 20,
     gap: 4,
-    shadowColor: '#2196F3',
+    shadowColor: branding.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -235,11 +235,11 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: colors.secondary.blue,
+    backgroundColor: branding.accent,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: colors.neutral.white,
+    borderColor: branding.primary,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: colors.primary[100],
+    backgroundColor: `${branding.primary}30`,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   tag: {
-    backgroundColor: colors.secondary.blue + '15',
+    backgroundColor: `${branding.primary}20`,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs - 2,
     borderRadius: 8,
@@ -322,12 +322,12 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.secondary.blue,
+    color: branding.primary,
   },
   firstVisitBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary[50],
+    backgroundColor: `${branding.accent}20`,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: 8,
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   firstVisitText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.primary.main,
+    color: branding.accent,
   },
   footer: {
     flexDirection: 'row',
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   ctaButtonWrapper: {
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#2196F3',
+    shadowColor: branding.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 6,

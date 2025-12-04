@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Dimensions, ActivityIndicator } from 'react-native';
-import { colors, spacing } from '../../constants/colors';
+import { colors, spacing, branding } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import * as professionalService from '../../services/professionalService';
 import { Client, RootStackParamList } from '../../constants/types';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BrandText } from '../../components/common/BrandText';
+import { GradientBackground } from '../../components/common/GradientBackground';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -49,9 +50,11 @@ export function ProfessionalClientsScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#2196F3" />
-      </View>
+      <GradientBackground>
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <ActivityIndicator size="large" color={branding.accent} />
+        </View>
+      </GradientBackground>
     );
   }
 
@@ -102,9 +105,10 @@ export function ProfessionalClientsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
+    <GradientBackground>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
         <BrandText style={styles.headerTitle}>Mis Clientes</BrandText>
         <Text style={styles.headerSubtitle}>
           Gestiona tu lista de pacientes
@@ -145,7 +149,7 @@ export function ProfessionalClientsScreen() {
             >
               {selectedStatus === filter.id ? (
                 <LinearGradient
-                  colors={['#2196F3', '#00897B']}
+                  colors={[branding.accent, branding.accentLight]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.filterChipActive}
@@ -210,16 +214,11 @@ export function ProfessionalClientsScreen() {
             >
               {/* Client avatar and info */}
               <View style={styles.clientHeader}>
-                <LinearGradient
-                  colors={['#2196F3', '#00897B']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.clientAvatarBorder}
-                >
+                <View style={styles.clientAvatarBorder}>
                   <View style={styles.clientAvatar}>
                     <Text style={styles.clientAvatarText}>{client.initial}</Text>
                   </View>
-                </LinearGradient>
+                </View>
 
                 <View style={styles.clientInfo}>
                   <View style={styles.clientTitleRow}>
@@ -250,7 +249,7 @@ export function ProfessionalClientsScreen() {
               <View style={styles.clientStats}>
                 <View style={styles.statItem}>
                   <View style={styles.statIconContainer}>
-                    <Ionicons name="calendar" size={16} color="#2196F3" />
+                    <Ionicons name="calendar" size={16} color="branding.accent" />
                   </View>
                   <View style={styles.statInfo}>
                     <Text style={styles.statLabel}>Última sesión</Text>
@@ -262,7 +261,7 @@ export function ProfessionalClientsScreen() {
 
                 <View style={styles.statItem}>
                   <View style={styles.statIconContainer}>
-                    <Ionicons name="time" size={16} color="#2196F3" />
+                    <Ionicons name="time" size={16} color="branding.accent" />
                   </View>
                   <View style={styles.statInfo}>
                     <Text style={styles.statLabel}>Próxima sesión</Text>
@@ -274,7 +273,7 @@ export function ProfessionalClientsScreen() {
 
                 <View style={styles.statItem}>
                   <View style={styles.statIconContainer}>
-                    <Ionicons name="bar-chart" size={16} color="#2196F3" />
+                    <Ionicons name="bar-chart" size={16} color="branding.accent" />
                   </View>
                   <View style={styles.statInfo}>
                     <Text style={styles.statLabel}>Sesiones totales</Text>
@@ -299,12 +298,12 @@ export function ProfessionalClientsScreen() {
               {/* Actions */}
               <View style={styles.clientActions}>
                 <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="chatbubble-outline" size={16} color="#2196F3" />
+                  <Ionicons name="chatbubble-outline" size={16} color="branding.accent" />
                   <Text style={styles.actionButtonText}>Contactar</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.actionButton}>
-                  <Ionicons name="calendar-outline" size={16} color="#2196F3" />
+                  <Ionicons name="calendar-outline" size={16} color="branding.accent" />
                   <Text style={styles.actionButtonText}>Agendar</Text>
                 </TouchableOpacity>
 
@@ -313,7 +312,7 @@ export function ProfessionalClientsScreen() {
                   onPress={() => navigation.navigate('ClientProfile', { clientId: client.id })}
                 >
                   <LinearGradient
-                    colors={['#2196F3', '#00897B']}
+                    colors={[branding.accent, branding.accentLight]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.actionButtonPrimary}
@@ -329,14 +328,15 @@ export function ProfessionalClientsScreen() {
           ))
         )}
       </ScrollView>
-    </View>
+      </View>
+    </GradientBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
+    // GradientBackground handles the background
   },
   header: {
     backgroundColor: colors.neutral.white,
@@ -465,19 +465,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
+    borderWidth: 3,
+    borderColor: branding.primary,
+    backgroundColor: colors.neutral.white,
   },
   clientAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary[50],
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: branding.accent,
     justifyContent: 'center',
     alignItems: 'center',
   },
   clientAvatarText: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#2196F3',
+    color: colors.neutral.white,
   },
   clientInfo: {
     flex: 1,
@@ -600,14 +603,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: 12,
-    backgroundColor: colors.primary[50],
+    backgroundColor: `${branding.primary}20`,
     gap: spacing.xs,
   },
   actionButtonWrapper: {
     flex: 1,
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#2196F3',
+    shadowColor: branding.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -624,7 +627,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2196F3',
+    color: branding.accent,
   },
   actionButtonTextPrimary: {
     color: colors.neutral.white,
@@ -641,7 +644,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: colors.neutral.gray100,
+    backgroundColor: branding.surface,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.xl,

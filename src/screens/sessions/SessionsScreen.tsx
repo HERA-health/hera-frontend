@@ -23,7 +23,8 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
-import { colors, spacing, typography, borderRadius } from '../../constants/colors';
+import { GradientBackground } from '../../components/common/GradientBackground';
+import { colors, spacing, typography, borderRadius, branding } from '../../constants/colors';
 import { SessionTab } from '../../constants/types';
 import { MainTabParamList } from '../../constants/types';
 import * as sessionsService from '../../services/sessionsService';
@@ -310,7 +311,7 @@ const SessionsScreen: React.FC = () => {
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconContainer}>
-        <Ionicons name="calendar-outline" size={80} color={colors.primary.main} />
+        <Ionicons name="calendar-outline" size={80} color={branding.accent} />
       </View>
       <Text style={styles.emptyTitle}>No tienes sesiones programadas</Text>
       <Text style={styles.emptyDescription}>
@@ -331,7 +332,7 @@ const SessionsScreen: React.FC = () => {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary.main} />
+          <ActivityIndicator size="large" color={branding.accent} />
           <Text style={styles.loadingText}>Cargando tus sesiones...</Text>
         </View>
       </View>
@@ -339,9 +340,10 @@ const SessionsScreen: React.FC = () => {
   }
 
   return (
-    <View style={styles.container}>
-      {/* Tabs */}
-      <View style={styles.tabsContainer}>
+    <GradientBackground>
+      <View style={styles.container}>
+        {/* Tabs */}
+        <View style={styles.tabsContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'upcoming' && styles.tabActive]}
           onPress={() => setActiveTab('upcoming')}
@@ -378,8 +380,8 @@ const SessionsScreen: React.FC = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[colors.primary.main]}
-            tintColor={colors.primary.main}
+            colors={[branding.accent]}
+            tintColor={branding.accent}
           />
         }
         ListEmptyComponent={
@@ -398,14 +400,15 @@ const SessionsScreen: React.FC = () => {
           )
         }
       />
-    </View>
+      </View>
+    </GradientBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.secondary,
+    // GradientBackground handles the background
   },
   loadingContainer: {
     flex: 1,
@@ -431,7 +434,7 @@ const styles = StyleSheet.create({
   },
   tabActive: {
     borderBottomWidth: 2,
-    borderBottomColor: colors.primary.main,
+    borderBottomColor: branding.accent,
   },
   tabText: {
     fontSize: typography.fontSizes.md,
@@ -439,7 +442,7 @@ const styles = StyleSheet.create({
     color: colors.neutral.gray600,
   },
   tabTextActive: {
-    color: colors.primary.main,
+    color: branding.accent,
   },
   listContent: {
     padding: spacing.lg,
@@ -518,7 +521,7 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: colors.primary[50],
+    backgroundColor: branding.surface,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.xl,
