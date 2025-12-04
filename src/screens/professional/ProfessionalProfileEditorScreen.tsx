@@ -82,10 +82,10 @@ export function ProfessionalProfileEditorScreen() {
   const [format, setFormat] = useState<string[]>(['both']);
 
   // Basic profile fields
-  const [name, setName] = useState(user?.name || 'Dr. Juan Pérez');
-  const [specialization, setSpecialization] = useState('Psicólogo Clínico');
-  const [pricePerSession, setPricePerSession] = useState('65');
-  const [description, setDescription] = useState('Especialista en terapia cognitivo-conductual con enfoque en ansiedad y estrés.');
+  const [name, setName] = useState(user?.name || '');
+  const [specialization, setSpecialization] = useState('');
+  const [pricePerSession, setPricePerSession] = useState('');
+  const [description, setDescription] = useState('');
 
   const [loading, setLoading] = useState(false);
 

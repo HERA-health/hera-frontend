@@ -11,7 +11,7 @@
  * - Save button at bottom
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -28,19 +28,37 @@ import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { GradientBackground } from '../../components/common/GradientBackground';
 import { colors, spacing, typography, borderRadius, branding } from '../../constants/colors';
-import { mockUserProfile } from '../../utils/mockData';
 import { ProfileTab } from '../../constants/types';
+import { useAuth } from '../../contexts/AuthContext';
+import * as authService from '../../services/authService';
 
 const ProfileScreen: React.FC = () => {
+  const { user, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState<ProfileTab>('information');
+
+  // Initialize form data with authenticated user data
   const [formData, setFormData] = useState({
-    fullName: mockUserProfile.fullName,
-    email: mockUserProfile.email,
-    phone: mockUserProfile.phone,
-    birthDate: mockUserProfile.birthDate ? mockUserProfile.birthDate.toLocaleDateString('es-ES') : '',
-    gender: mockUserProfile.gender || '',
-    occupation: mockUserProfile.occupation || '',
+    fullName: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    birthDate: user?.birthDate ? user.birthDate.toLocaleDateString('es-ES') : '',
+    gender: user?.gender || '',
+    occupation: user?.occupation || '',
   });
+
+  // Update form data when user data loads
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        fullName: user.name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        birthDate: user.birthDate ? user.birthDate.toLocaleDateString('es-ES') : '',
+        gender: user.gender || '',
+        occupation: user.occupation || '',
+      });
+    }
+  }, [user]);
 
   const handleChangePhoto = () => {
     Alert.alert(
@@ -54,8 +72,36 @@ const ProfileScreen: React.FC = () => {
     );
   };
 
-  const handleSaveProfile = () => {
-    Alert.alert('Perfil actualizado', 'Los cambios se han guardado correctamente');
+  const handleSaveProfile = async () => {
+    try {
+      // Convert birthDate string back to ISO format for API
+      const birthDateISO = formData.birthDate
+        ? new Date(formData.birthDate.split('/').reverse().join('-')).toISOString()
+        : undefined;
+
+      const updatedUser = await authService.updateProfile({
+        name: formData.fullName,
+        phone: formData.phone || undefined,
+        birthDate: birthDateISO,
+        gender: formData.gender || undefined,
+        occupation: formData.occupation || undefined,
+      });
+
+      // Update the user in AuthContext
+      updateUser({
+        name: updatedUser.name,
+        phone: updatedUser.phone,
+        birthDate: updatedUser.birthDate ? new Date(updatedUser.birthDate) : null,
+        gender: updatedUser.gender,
+        occupation: updatedUser.occupation,
+        avatar: updatedUser.avatar,
+      });
+
+      Alert.alert('Perfil actualizado', 'Los cambios se han guardado correctamente');
+    } catch (error: any) {
+      console.error('Error saving profile:', error);
+      Alert.alert('Error', 'No se pudo actualizar el perfil. Intenta de nuevo.');
+    }
   };
 
   const handleDatePicker = () => {
@@ -133,7 +179,9 @@ const ProfileScreen: React.FC = () => {
       {/* Avatar Section */}
       <View style={styles.avatarSection}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{mockUserProfile.initial}</Text>
+          <Text style={styles.avatarText}>
+            {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+          </Text>
         </View>
         <Button
           variant="outline"
@@ -261,7 +309,9 @@ const ProfileScreen: React.FC = () => {
         <View style={styles.referralCodeContainer}>
           <Text style={styles.referralCodeLabel}>Tu código de referido:</Text>
           <View style={styles.referralCode}>
-            <Text style={styles.referralCodeText}>MIND-{mockUserProfile.id.toUpperCase()}</Text>
+            <Text style={styles.referralCodeText}>
+              MIND-{user?.id ? user.id.substring(0, 8).toUpperCase() : 'XXXXXXXX'}
+            </Text>
             <TouchableOpacity>
               <Ionicons name="copy" size={20} color={branding.primary} />
             </TouchableOpacity>

@@ -10,7 +10,11 @@ interface User {
   name: string;
   email: string;
   type: UserType;
-  avatar?: string;
+  phone?: string | null;
+  birthDate?: Date | null;
+  gender?: string | null;
+  occupation?: string | null;
+  avatar?: string | null;
 }
 
 interface AuthContextType {
@@ -23,6 +27,7 @@ interface AuthContextType {
   register: (email: string, password: string, name: string, userType: UserType) => Promise<void>;
   logout: () => Promise<void>;
   setUserType: (type: UserType) => void;
+  updateUser: (updates: Partial<User>) => void;
   clearError: () => void;
 }
 
@@ -50,6 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             name: userData.name,
             email: userData.email,
             type: userData.userType === 'CLIENT' ? 'client' : 'professional',
+            phone: userData.phone,
+            birthDate: userData.birthDate ? new Date(userData.birthDate) : null,
+            gender: userData.gender,
+            occupation: userData.occupation,
+            avatar: userData.avatar,
           };
 
           setUser(mappedUser);
@@ -79,6 +89,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: response.user.name,
         email: response.user.email,
         type: response.user.userType === 'CLIENT' ? 'client' : 'professional',
+        phone: response.user.phone,
+        birthDate: response.user.birthDate ? new Date(response.user.birthDate) : null,
+        gender: response.user.gender,
+        occupation: response.user.occupation,
+        avatar: response.user.avatar,
       };
 
       setUser(mappedUser);
@@ -115,6 +130,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: response.user.name,
         email: response.user.email,
         type: response.user.userType === 'CLIENT' ? 'client' : 'professional',
+        phone: response.user.phone,
+        birthDate: response.user.birthDate ? new Date(response.user.birthDate) : null,
+        gender: response.user.gender,
+        occupation: response.user.occupation,
+        avatar: response.user.avatar,
       };
 
       setUser(mappedUser);
@@ -147,6 +167,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateUser = (updates: Partial<User>) => {
+    if (user) {
+      setUser({ ...user, ...updates });
+    }
+  };
+
   const clearError = () => {
     setError(null);
   };
@@ -163,6 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         setUserType,
+        updateUser,
         clearError,
       }}
     >

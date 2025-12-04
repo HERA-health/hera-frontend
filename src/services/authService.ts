@@ -7,6 +7,11 @@ export interface AuthResponse {
     email: string;
     name: string;
     userType: 'CLIENT' | 'PROFESSIONAL';
+    phone?: string | null;
+    birthDate?: string | null;
+    gender?: string | null;
+    occupation?: string | null;
+    avatar?: string | null;
   };
 }
 
@@ -147,6 +152,11 @@ export const getCurrentUser = async (): Promise<AuthResponse['user']> => {
         email: response.data.data.email,
         name: response.data.data.name,
         userType: response.data.data.userType,
+        phone: response.data.data.phone,
+        birthDate: response.data.data.birthDate,
+        gender: response.data.data.gender,
+        occupation: response.data.data.occupation,
+        avatar: response.data.data.avatar,
       };
     }
 
@@ -166,5 +176,39 @@ export const logout = async (): Promise<void> => {
   } catch (error) {
     console.error('Logout error:', error);
     // Don't throw on logout errors, just log them
+  }
+};
+
+/**
+ * Update user profile
+ */
+export const updateProfile = async (data: {
+  name?: string;
+  phone?: string;
+  birthDate?: string;
+  gender?: string;
+  occupation?: string;
+}): Promise<AuthResponse['user']> => {
+  try {
+    const response = await api.put<{ success: boolean; data: any }>('/auth/profile', data);
+
+    if (response.data.success && response.data.data) {
+      return {
+        id: response.data.data.id,
+        email: response.data.data.email,
+        name: response.data.data.name,
+        userType: response.data.data.userType,
+        phone: response.data.data.phone,
+        birthDate: response.data.data.birthDate,
+        gender: response.data.data.gender,
+        occupation: response.data.data.occupation,
+        avatar: response.data.data.avatar,
+      };
+    }
+
+    throw new Error('Failed to update profile');
+  } catch (error: any) {
+    console.error('Update profile error:', error);
+    throw error;
   }
 };

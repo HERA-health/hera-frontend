@@ -172,15 +172,17 @@ export const mockSessions: Session[] = [
   },
 ];
 
+// DEPRECATED: Do not use mockUserProfile - use authenticated user data from AuthContext instead
+// This mock data is kept only for backwards compatibility with old components
 export const mockUserProfile: UserProfile = {
-  id: '1',
-  fullName: 'Rubén Vallejo',
-  email: 'ruben.vallejo.jara@gmail.com',
-  phone: '+34 123 456 789',
-  birthDate: new Date('1990-05-15'),
-  gender: 'male',
-  occupation: 'Ingeniero de Software',
-  initial: 'R',
+  id: 'mock-user-id',
+  fullName: 'Usuario de Ejemplo',
+  email: 'usuario@ejemplo.com',
+  phone: '',
+  birthDate: undefined,
+  gender: undefined,
+  occupation: '',
+  initial: 'U',
   profileCompleted: false,
 };
 
