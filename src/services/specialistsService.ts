@@ -77,15 +77,33 @@ export const getAllSpecialists = async (filters?: {
  * Gets detailed information about a specific specialist
  */
 export const getSpecialistDetails = async (specialistId: string): Promise<SpecialistData> => {
-  console.log('📥 Fetching specialist details for ID:', specialistId);
+  console.log('📥 ========== getSpecialistDetails ==========');
+  console.log('📥 Specialist ID:', specialistId);
+  console.log('📥 ID type:', typeof specialistId);
+  console.log('📥 Called from:', new Error().stack?.split('\n')[2]?.trim());
+
+  // Validate specialist ID before making API call
+  if (!specialistId || specialistId === 'undefined' || specialistId === 'null' || specialistId.trim() === '') {
+    console.error('❌ Invalid specialist ID provided to getSpecialistDetails');
+    console.error('❌ ID value:', specialistId);
+    console.error('❌ Call stack:', new Error().stack);
+    throw new Error('Invalid specialist ID: Cannot fetch details for undefined or null specialist');
+  }
 
   try {
+    console.log('📥 Making API request to: /specialists/' + specialistId);
     const response = await api.get<{ success: boolean; data: SpecialistData }>(`/specialists/${specialistId}`);
-    console.log('✅ Specialist details fetched successfully:', response.data.data);
+    console.log('✅ Specialist details fetched successfully');
+    console.log('📥 ========== END getSpecialistDetails ==========');
     return response.data.data;
   } catch (error: any) {
-    console.error('❌ Error fetching specialist details:', error);
-    console.error('Error response:', error.response?.data);
+    console.error('❌ ========== ERROR in getSpecialistDetails ==========');
+    console.error('❌ Error:', error);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error response:', error.response?.data);
+    console.error('❌ Error status:', error.response?.status);
+    console.error('❌ Requested specialist ID was:', specialistId);
+    console.error('❌ ========== END ERROR ==========');
     throw error;
   }
 };

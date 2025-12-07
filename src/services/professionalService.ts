@@ -72,24 +72,64 @@ export const updateSessionStatus = async (
   status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
 ): Promise<void> => {
   try {
-    console.log('📝 ========== UPDATE SESSION STATUS ==========');
-    console.log('📋 Session ID:', sessionId);
-    console.log('📊 New status:', status);
+    console.log('🟠 ========== API SERVICE: updateSessionStatus ==========');
+    console.log('🟠 Function called with parameters:');
+    console.log('🟠   - sessionId:', sessionId);
+    console.log('🟠   - sessionId type:', typeof sessionId);
+    console.log('🟠   - status:', status);
+    console.log('🟠   - status type:', typeof status);
 
+    console.log('🟠 API Configuration:');
+    console.log('🟠   - Base URL:', api.defaults.baseURL);
+    console.log('🟠   - Full URL:', `${api.defaults.baseURL}/sessions/${sessionId}/status`);
+    console.log('🟠   - Request body:', JSON.stringify({ status }, null, 2));
+
+    console.log('🟠 Checking authorization header...');
+    const authHeader = api.defaults.headers.common['Authorization'];
+    console.log('🟠   - Auth header present:', !!authHeader);
+    console.log('🟠   - Auth header value:', authHeader ? `${authHeader.substring(0, 20)}...` : 'MISSING');
+
+    console.log('🟠 Making PUT request...');
     const response = await api.put(`/sessions/${sessionId}/status`, { status });
 
-    console.log('✅ Status updated successfully');
-    console.log('📦 Response:', response.data);
-    console.log('📝 ========== END UPDATE SESSION STATUS ==========');
+    console.log('🟠 ========== API RESPONSE RECEIVED ==========');
+    console.log('🟠 Response status:', response.status);
+    console.log('🟠 Response statusText:', response.statusText);
+    console.log('🟠 Response headers:', response.headers);
+    console.log('🟠 Response data:', JSON.stringify(response.data, null, 2));
+    console.log('🟠 Response data.success:', response.data?.success);
+    console.log('🟠 Response data.data:', response.data?.data);
+
+    console.log('✅ Status updated successfully in API');
+    console.log('🟠 ========== END API SERVICE ==========');
 
     return response.data.data;
   } catch (error: any) {
-    console.error('❌ ========== ERROR UPDATING SESSION STATUS ==========');
-    console.error('❌ Error:', error);
-    console.error('❌ Error message:', error.message);
-    console.error('❌ Error response:', error.response?.data);
-    console.error('❌ Error status:', error.response?.status);
-    console.error('❌ ========== END ERROR ==========');
+    console.error('🔴 ========== API SERVICE ERROR ==========');
+    console.error('🔴 Error occurred in updateSessionStatus');
+    console.error('🔴 Error object:', error);
+    console.error('🔴 Error name:', error.name);
+    console.error('🔴 Error message:', error.message);
+    console.error('🔴 Error code:', error.code);
+
+    if (error.response) {
+      console.error('🔴 SERVER RESPONDED WITH ERROR:');
+      console.error('🔴   - Status:', error.response.status);
+      console.error('🔴   - Status text:', error.response.statusText);
+      console.error('🔴   - Headers:', error.response.headers);
+      console.error('🔴   - Data:', JSON.stringify(error.response.data, null, 2));
+      console.error('🔴   - Error message from server:', error.response.data?.error);
+    } else if (error.request) {
+      console.error('🔴 NO RESPONSE FROM SERVER:');
+      console.error('🔴   - Request was made but no response');
+      console.error('🔴   - Request:', error.request);
+    } else {
+      console.error('🔴 ERROR SETTING UP REQUEST:');
+      console.error('🔴   - Message:', error.message);
+    }
+
+    console.error('🔴 Error stack trace:', error.stack);
+    console.error('🔴 ========== END API SERVICE ERROR ==========');
 
     throw new Error(
       error.response?.data?.error || 'No se pudo actualizar el estado de la sesión'
