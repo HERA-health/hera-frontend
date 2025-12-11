@@ -124,6 +124,14 @@ export function ProfessionalHomeScreen() {
       onPress: () => navigation.navigate('ProfessionalSessions'),
     },
     {
+      id: 'availability',
+      title: 'Configurar disponibilidad',
+      description: 'Define tu horario y días no disponibles',
+      icon: 'time',
+      color: branding.accent,
+      onPress: () => navigation.navigate('ProfessionalAvailability'),
+    },
+    {
       id: 'profile',
       title: 'Editar mi perfil',
       description: 'Actualiza tu información profesional',

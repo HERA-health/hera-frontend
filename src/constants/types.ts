@@ -105,6 +105,7 @@ export type RootStackParamList = {
   ProfessionalClients: undefined;
   ProfessionalSessions: undefined;
   ProfessionalProfile: undefined;
+  ProfessionalAvailability: undefined;
   ClientProfile: { clientId: string };
 };
 

@@ -33,6 +33,7 @@ import { ProfessionalHomeScreen } from '../screens/professional/ProfessionalHome
 import { ProfessionalClientsScreen } from '../screens/professional/ProfessionalClientsScreen';
 import { ProfessionalSessionsScreen } from '../screens/professional/ProfessionalSessionsScreen';
 import { ProfessionalProfileEditorScreen } from '../screens/professional/ProfessionalProfileEditorScreen';
+import { ProfessionalAvailabilityScreen } from '../screens/professional/ProfessionalAvailabilityScreen';
 import { ClientProfileScreen } from '../screens/professional/ClientProfileScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -107,6 +108,19 @@ export function RootNavigator() {
           {() => (
             <MainLayout>
               <ProfessionalProfileEditorScreen />
+            </MainLayout>
+          )}
+        </Stack.Screen>
+        <Stack.Screen
+          name="ProfessionalAvailability"
+          options={{
+            headerTitle: 'Mi Disponibilidad',
+            headerShown: false,
+          }}
+        >
+          {({ navigation }) => (
+            <MainLayout>
+              <ProfessionalAvailabilityScreen navigation={navigation} />
             </MainLayout>
           )}
         </Stack.Screen>
