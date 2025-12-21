@@ -130,3 +130,34 @@ export const cancelSession = async (sessionId: string): Promise<void> => {
     );
   }
 };
+
+/**
+ * Meeting link response interface
+ */
+export interface MeetingLinkResponse {
+  meetingLink: string | null;
+  canJoin: boolean;
+  sessionDate: string;
+  sessionDuration: number;
+  status: string;
+  type: string;
+  minutesUntilSession: number;
+  message: string;
+}
+
+/**
+ * Get meeting link for a session with access control
+ */
+export const getMeetingLink = async (sessionId: string): Promise<MeetingLinkResponse> => {
+  try {
+    console.log(`[sessionsService] Getting meeting link for session ${sessionId}`);
+    const response = await api.get(`/sessions/${sessionId}/meeting-link`);
+    console.log('[sessionsService] Meeting link response:', response.data);
+    return response.data.data;
+  } catch (error: any) {
+    console.error('[sessionsService] Error getting meeting link:', error);
+    throw new Error(
+      error.response?.data?.error || 'No se pudo obtener el enlace de la videollamada'
+    );
+  }
+};

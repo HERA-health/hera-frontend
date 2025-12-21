@@ -14,6 +14,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,6 +29,13 @@ import { colors, spacing, typography, borderRadius, branding } from '../../const
 import { SessionTab } from '../../constants/types';
 import { MainTabParamList } from '../../constants/types';
 import * as sessionsService from '../../services/sessionsService';
+import {
+  getVideoCallButtonState,
+  getVideoCallButtonLabel,
+  getVideoCallButtonStyle,
+  isVideoCallButtonClickable,
+  VideoCallButtonState,
+} from '../../utils/videoCallUtils';
 
 type NavigationProp = BottomTabNavigationProp<MainTabParamList>;
 type SessionsRouteProp = RouteProp<MainTabParamList, 'Sessions'>;
@@ -59,6 +67,8 @@ const SessionsScreen: React.FC = () => {
   const [sessions, setSessions] = useState<ApiSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // State for countdown refresh - triggers re-render every minute
+  const [, setCountdownTick] = useState(0);
 
   useEffect(() => {
     loadSessions();
@@ -72,14 +82,21 @@ const SessionsScreen: React.FC = () => {
     }
   }, [route.params]);
 
+  // Auto-refresh countdown every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCountdownTick((tick) => tick + 1);
+    }, 60000); // Update every 60 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
   const loadSessions = async () => {
     try {
       setLoading(true);
       const data = await sessionsService.getMySessions();
-      console.log('📋 My sessions:', data);
       setSessions(data);
     } catch (error) {
-      console.error('Error loading sessions:', error);
       Alert.alert('Error', 'No se pudieron cargar tus sesiones');
     } finally {
       setLoading(false);
@@ -93,49 +110,78 @@ const SessionsScreen: React.FC = () => {
   };
 
   const handleCancelSession = async (sessionId: string) => {
-    console.log('🔍 ========== CANCEL SESSION CLICKED ==========');
-    console.log('📋 Session ID:', sessionId);
-
-    // TEMPORARY: Bypass dialog to test API call directly
-    console.log('⚠️ BYPASSING DIALOG - DIRECT API CALL FOR TESTING');
-
-    try {
-      console.log('🔄 Calling sessionsService.cancelSession...');
-      await sessionsService.cancelSession(sessionId);
-      console.log('✅ Session cancelled successfully!');
-
-      Alert.alert('Sesión cancelada', 'La sesión ha sido cancelada correctamente');
-
-      console.log('🔄 Reloading sessions...');
-      await loadSessions();
-      console.log('✅ Sessions reloaded');
-    } catch (error: any) {
-      console.error('❌ ========== ERROR CANCELLING SESSION ==========');
-      console.error('❌ Error:', error);
-      console.error('❌ Error message:', error.message);
-      console.error('❌ Error response:', error.response?.data);
-      console.error('❌ Error status:', error.response?.status);
-      console.error('❌ ========== END ERROR ==========');
-
-      Alert.alert('Error', error.message || 'No se pudo cancelar la sesión');
-    }
+    Alert.alert(
+      'Cancelar sesión',
+      '¿Estás seguro de que deseas cancelar esta sesión?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await sessionsService.cancelSession(sessionId);
+              Alert.alert('Sesión cancelada', 'La sesión ha sido cancelada correctamente');
+              await loadSessions();
+            } catch (error: unknown) {
+              const errorMessage = error instanceof Error ? error.message : 'No se pudo cancelar la sesión';
+              Alert.alert('Error', errorMessage);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleBrowseSpecialists = () => {
     navigation.navigate('Specialists');
   };
 
+  const handleJoinSession = async (sessionId: string) => {
+    try {
+      const meetingData = await sessionsService.getMeetingLink(sessionId);
+
+      if (!meetingData.canJoin) {
+        Alert.alert('Aún no es el momento', meetingData.message);
+        return;
+      }
+
+      if (!meetingData.meetingLink) {
+        Alert.alert('Error', 'No se pudo obtener el enlace de la videollamada.');
+        return;
+      }
+
+      const supported = await Linking.canOpenURL(meetingData.meetingLink);
+      if (supported) {
+        await Linking.openURL(meetingData.meetingLink);
+      } else {
+        Alert.alert('Error', 'No se pudo abrir el enlace de la videollamada.');
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Hubo un problema al unirse a la sesión.';
+      Alert.alert('Error', errorMessage);
+    }
+  };
+
+
+  // Helper function to check if session is past (with 1-hour grace period after end)
+  const isSessionPast = (session: ApiSession): boolean => {
+    const now = new Date().getTime();
+    const sessionStart = new Date(session.date).getTime();
+    const sessionEnd = sessionStart + (session.duration * 60 * 1000);
+    const gracePeriodEnd = sessionEnd + (60 * 60 * 1000); // 1 hour after session ends
+    return now > gracePeriodEnd;
+  };
+
   // Filter sessions by tab
   const getFilteredSessions = (): ApiSession[] => {
-    const now = new Date();
-
     switch (activeTab) {
       case 'upcoming':
         return sessions
           .filter(
             (s) =>
               (s.status === 'CONFIRMED' || s.status === 'PENDING') &&
-              new Date(s.date) >= now
+              !isSessionPast(s)
           )
           .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
@@ -146,7 +192,7 @@ const SessionsScreen: React.FC = () => {
               s.status === 'COMPLETED' ||
               s.status === 'CANCELLED' ||
               ((s.status === 'CONFIRMED' || s.status === 'PENDING') &&
-                new Date(s.date) < now)
+                isSessionPast(s))
           )
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -158,14 +204,14 @@ const SessionsScreen: React.FC = () => {
   const filteredSessions = getFilteredSessions();
   const upcomingSessions = sessions.filter(
     (s) =>
-      (s.status === 'CONFIRMED' || s.status === 'PENDING') && new Date(s.date) >= new Date()
+      (s.status === 'CONFIRMED' || s.status === 'PENDING') && !isSessionPast(s)
   );
   const historySessions = sessions.filter(
     (s) =>
       s.status === 'COMPLETED' ||
       s.status === 'CANCELLED' ||
       ((s.status === 'CONFIRMED' || s.status === 'PENDING') &&
-        new Date(s.date) < new Date())
+        isSessionPast(s))
   );
 
   const formatDate = (dateString: string) => {
@@ -285,6 +331,54 @@ const SessionsScreen: React.FC = () => {
           </Text>
         )}
 
+        {/* Video Call Button - Shows state-based button for VIDEO_CALL sessions */}
+        {session.type === 'VIDEO_CALL' && !isCompleted && !isCancelled && (
+          <View style={styles.videoCallSection}>
+            {(() => {
+              const buttonState = getVideoCallButtonState(session);
+              const { primary, helper, icon } = getVideoCallButtonLabel(buttonState, session);
+              const buttonStyle = getVideoCallButtonStyle(buttonState);
+              const isClickable = isVideoCallButtonClickable(buttonState);
+
+              return (
+                <>
+                  <TouchableOpacity
+                    style={[
+                      styles.videoCallButton,
+                      {
+                        backgroundColor: buttonStyle.backgroundColor,
+                        borderColor: buttonStyle.borderColor || 'transparent',
+                        borderWidth: buttonStyle.borderColor ? 1 : 0,
+                      },
+                    ]}
+                    onPress={() => isClickable && handleJoinSession(session.id)}
+                    disabled={!isClickable}
+                    activeOpacity={isClickable ? 0.7 : 1}
+                  >
+                    <Ionicons
+                      name={icon as any}
+                      size={18}
+                      color={buttonStyle.textColor}
+                    />
+                    <Text
+                      style={[
+                        styles.videoCallButtonText,
+                        { color: buttonStyle.textColor },
+                      ]}
+                    >
+                      {primary}
+                    </Text>
+                  </TouchableOpacity>
+                  {helper && (
+                    <Text style={styles.videoCallHelperText}>{helper}</Text>
+                  )}
+                </>
+              );
+            })()}
+          </View>
+        )}
+
+        {/* Session Actions */}
         {!isCompleted && !isCancelled && (
           <View style={styles.sessionActions}>
             <Button
@@ -294,14 +388,6 @@ const SessionsScreen: React.FC = () => {
             >
               Cancelar
             </Button>
-            {isConfirmed && session.meetingLink && (
-              <>
-                <View style={{ width: spacing.sm }} />
-                <Button variant="primary" size="small" onPress={() => {}}>
-                  Unirse
-                </Button>
-              </>
-            )}
           </View>
         )}
       </Card>
@@ -509,6 +595,31 @@ const styles = StyleSheet.create({
   sessionActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    marginTop: spacing.sm,
+  },
+  videoCallSection: {
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  videoCallButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    gap: spacing.xs,
+  },
+  videoCallButtonText: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: '600' as const,
+    marginLeft: spacing.xs,
+  },
+  videoCallHelperText: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.neutral.gray500,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
   emptyState: {
     flex: 1,

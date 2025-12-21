@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, Alert, Linking } from 'react-native';
 import { branding, colors, spacing, borderRadius } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { GradientBackground } from '../../components/common/GradientBackground';
@@ -8,6 +8,12 @@ import { ProfessionalSession, ProfessionalSessionTab } from '../../constants/typ
 import { CalendarView } from '../../components/professional/CalendarView';
 import { BrandText } from '../../components/common/BrandText';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import {
+  getVideoCallButtonState,
+  getVideoCallButtonLabel,
+  getVideoCallButtonStyle,
+  isVideoCallButtonClickable,
+} from '../../utils/videoCallUtils';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -19,6 +25,8 @@ export function ProfessionalSessionsScreen() {
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<ProfessionalSession[]>([]);
   const [processingSessionId, setProcessingSessionId] = useState<string | null>(null);
+  // State for countdown refresh - triggers re-render every minute
+  const [, setCountdownTick] = useState(0);
 
   const tabs: { id: ProfessionalSessionTab; label: string; icon: string }[] = [
     { id: 'upcoming', label: 'Próximas', icon: 'calendar' },
@@ -30,193 +38,128 @@ export function ProfessionalSessionsScreen() {
     loadSessions();
   }, []);
 
+  // Auto-refresh countdown every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCountdownTick((tick) => tick + 1);
+    }, 60000); // Update every 60 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
   const loadSessions = async () => {
-    console.log('🟣 ========== LOAD SESSIONS CALLED ==========');
     try {
       setLoading(true);
-      console.log('🟣 Fetching sessions from API...');
-
       const data = await professionalService.getProfessionalSessions();
-      console.log('🟣 ========== RAW API RESPONSE ==========');
-      console.log('🟣 Number of sessions received:', data.length);
-      console.log('🟣 Raw data:', JSON.stringify(data, null, 2));
 
-      // Map API data to match existing UI expectations
-      const mappedSessions: ProfessionalSession[] = data.map((s, index) => {
-        console.log(`🟣 --- Mapping session ${index + 1} ---`);
-        console.log('🟣 Session ID:', s.id);
-        console.log('🟣 Raw status from backend:', s.status);
-        console.log('🟣 Status type:', typeof s.status);
-        console.log('🟣 Client:', s.client?.user?.name);
-        console.log('🟣 Date field (scheduledDate):', s.scheduledDate);
-        console.log('🟣 Date field (date):', (s as any).date);
-
-        // FIX: Correct status mapping to match backend enum values
+      // Map API data to match UI expectations
+      const mappedSessions: ProfessionalSession[] = data.map((s) => {
+        // Map backend status to frontend status
         let mappedStatus: 'pending' | 'scheduled' | 'completed' | 'cancelled';
-        if (s.status === 'PENDING' || s.status === 'pending') {
+        const status = s.status?.toUpperCase() || '';
+
+        if (status === 'PENDING') {
           mappedStatus = 'pending';
-        } else if (s.status === 'CONFIRMED' || s.status === 'confirmed' || s.status === 'SCHEDULED' || s.status === 'scheduled') {
+        } else if (status === 'CONFIRMED' || status === 'SCHEDULED') {
           mappedStatus = 'scheduled';
-        } else if (s.status === 'COMPLETED' || s.status === 'completed') {
+        } else if (status === 'COMPLETED') {
           mappedStatus = 'completed';
-        } else if (s.status === 'CANCELLED' || s.status === 'cancelled') {
+        } else if (status === 'CANCELLED') {
           mappedStatus = 'cancelled';
         } else {
-          console.warn('🟡 Unknown status, defaulting to pending:', s.status);
           mappedStatus = 'pending';
         }
 
-        console.log('🟣 Mapped status:', mappedStatus);
-
-        const mapped = {
+        return {
           id: s.id,
           clientId: s.clientId,
           date: new Date(s.scheduledDate || (s as any).date),
           clientName: s.client?.user?.name || 'Cliente',
           clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
-          duration: 60,
+          duration: (s as any).duration || 60,
           type: 'video' as const,
-          status: mappedStatus
+          status: mappedStatus,
+          meetingLink: (s as any).meetingLink || null,
+          notes: s.notes || undefined,
         };
-
-        console.log('🟣 Mapped session object:', mapped);
-        return mapped;
-      });
-
-      console.log('🟣 ========== ALL SESSIONS MAPPED ==========');
-      console.log('🟣 Total mapped sessions:', mappedSessions.length);
-      console.log('🟣 Sessions by status:', {
-        pending: mappedSessions.filter(s => s.status === 'pending').length,
-        scheduled: mappedSessions.filter(s => s.status === 'scheduled').length,
-        completed: mappedSessions.filter(s => s.status === 'completed').length,
-        cancelled: mappedSessions.filter(s => s.status === 'cancelled').length,
       });
 
       setSessions(mappedSessions);
-      console.log('🟣 State updated with sessions');
-      console.log('🟣 ========== LOAD SESSIONS COMPLETED ==========');
     } catch (error) {
-      console.error('🔴 ========== ERROR LOADING SESSIONS ==========');
-      console.error('🔴 Error:', error);
-      console.error('🔴 Error message:', (error as any).message);
-      console.error('🔴 Error stack:', (error as any).stack);
-      console.error('🔴 ========== END ERROR ==========');
+      Alert.alert('Error', 'No se pudieron cargar las sesiones');
     } finally {
       setLoading(false);
     }
   };
 
   const handleConfirmSession = async (sessionId: string, clientName: string) => {
-    console.log('🔵 ========== CONFIRM BUTTON CLICKED ==========');
-    console.log('🔵 Session ID:', sessionId);
-    console.log('🔵 Client name:', clientName);
-    console.log('🔵 Current sessions in state:', sessions.length);
-    console.log('🔵 Current active tab:', activeTab);
-
-    // Find the session in current state
-    const session = sessions.find(s => s.id === sessionId);
-    console.log('🔵 Session found in state:', session);
-    console.log('🔵 Session current status:', session?.status);
-
-    if (processingSessionId) {
-      console.log('🟡 Already processing a session, ignoring click');
-      return;
-    }
+    if (processingSessionId) return;
 
     try {
       setProcessingSessionId(sessionId);
-      console.log('🔵 Set processing state for session:', sessionId);
-
-      console.log('🔵 ========== CALLING API SERVICE ==========');
-      console.log('🔵 Calling: professionalService.updateSessionStatus');
-      console.log('🔵 Parameters: sessionId =', sessionId, ', status = CONFIRMED');
-
-      const result = await professionalService.updateSessionStatus(sessionId, 'CONFIRMED');
-
-      console.log('🔵 ========== API CALL COMPLETED ==========');
-      console.log('🔵 API Result:', result);
-      console.log('✅ Session confirmed successfully!');
-
-      console.log('🔵 Showing success alert to user...');
+      await professionalService.updateSessionStatus(sessionId, 'CONFIRMED');
       Alert.alert('Éxito', `Sesión con ${clientName} confirmada correctamente`);
-
-      console.log('🔵 ========== RELOADING SESSIONS ==========');
       await loadSessions();
-      console.log('✅ loadSessions completed, state should be updated');
-
-    } catch (error: any) {
-      console.error('🔴 ========== ERROR IN handleConfirmSession ==========');
-      console.error('🔴 Error object:', error);
-      console.error('🔴 Error name:', error.name);
-      console.error('🔴 Error message:', error.message);
-      console.error('🔴 Error response:', error.response);
-      console.error('🔴 Error response data:', error.response?.data);
-      console.error('🔴 Error response status:', error.response?.status);
-      console.error('🔴 Error stack:', error.stack);
-      console.error('🔴 ========== END ERROR ==========');
-
-      Alert.alert('Error', error.message || 'No se pudo confirmar la sesión');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'No se pudo confirmar la sesión';
+      Alert.alert('Error', errorMessage);
     } finally {
       setProcessingSessionId(null);
-      console.log('🔵 Cleared processing state');
-      console.log('🔵 ========== CONFIRM HANDLER FINISHED ==========');
     }
   };
 
   const handleRejectSession = async (sessionId: string, clientName: string) => {
-    console.log('🔴 ========== REJECT BUTTON CLICKED ==========');
-    console.log('🔴 Session ID:', sessionId);
-    console.log('🔴 Client name:', clientName);
-    console.log('🔴 Current sessions in state:', sessions.length);
-    console.log('🔴 Current active tab:', activeTab);
+    if (processingSessionId) return;
 
-    // Find the session in current state
-    const session = sessions.find(s => s.id === sessionId);
-    console.log('🔴 Session found in state:', session);
-    console.log('🔴 Session current status:', session?.status);
+    Alert.alert(
+      'Rechazar sesión',
+      `¿Estás seguro de que deseas rechazar la sesión con ${clientName}?`,
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, rechazar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setProcessingSessionId(sessionId);
+              await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
+              Alert.alert('Sesión rechazada', `Sesión con ${clientName} ha sido rechazada`);
+              await loadSessions();
+            } catch (error: unknown) {
+              const errorMessage = error instanceof Error ? error.message : 'No se pudo rechazar la sesión';
+              Alert.alert('Error', errorMessage);
+            } finally {
+              setProcessingSessionId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
 
-    if (processingSessionId) {
-      console.log('🟡 Already processing a session, ignoring click');
-      return;
-    }
-
+  const handleJoinSession = async (sessionId: string) => {
     try {
-      setProcessingSessionId(sessionId);
-      console.log('🔴 Set processing state for session:', sessionId);
+      const meetingData = await professionalService.getMeetingLink(sessionId);
 
-      console.log('🔴 ========== CALLING API SERVICE ==========');
-      console.log('🔴 Calling: professionalService.updateSessionStatus');
-      console.log('🔴 Parameters: sessionId =', sessionId, ', status = CANCELLED');
+      if (!meetingData.canJoin) {
+        Alert.alert('Aún no es el momento', meetingData.message);
+        return;
+      }
 
-      const result = await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
+      if (!meetingData.meetingLink) {
+        Alert.alert('Error', 'No se pudo obtener el enlace de la videollamada.');
+        return;
+      }
 
-      console.log('🔴 ========== API CALL COMPLETED ==========');
-      console.log('🔴 API Result:', result);
-      console.log('✅ Session rejected successfully!');
-
-      console.log('🔴 Showing rejection alert to user...');
-      Alert.alert('Sesión rechazada', `Sesión con ${clientName} ha sido rechazada`);
-
-      console.log('🔴 ========== RELOADING SESSIONS ==========');
-      await loadSessions();
-      console.log('✅ loadSessions completed, state should be updated');
-
-    } catch (error: any) {
-      console.error('🔴 ========== ERROR IN handleRejectSession ==========');
-      console.error('🔴 Error object:', error);
-      console.error('🔴 Error name:', error.name);
-      console.error('🔴 Error message:', error.message);
-      console.error('🔴 Error response:', error.response);
-      console.error('🔴 Error response data:', error.response?.data);
-      console.error('🔴 Error response status:', error.response?.status);
-      console.error('🔴 Error stack:', error.stack);
-      console.error('🔴 ========== END ERROR ==========');
-
-      Alert.alert('Error', error.message || 'No se pudo rechazar la sesión');
-    } finally {
-      setProcessingSessionId(null);
-      console.log('🔴 Cleared processing state');
-      console.log('🔴 ========== REJECT HANDLER FINISHED ==========');
+      const supported = await Linking.canOpenURL(meetingData.meetingLink);
+      if (supported) {
+        await Linking.openURL(meetingData.meetingLink);
+      } else {
+        Alert.alert('Error', 'No se pudo abrir el enlace de la videollamada.');
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Hubo un problema al unirse a la sesión.';
+      Alert.alert('Error', errorMessage);
     }
   };
 
@@ -228,26 +171,27 @@ export function ProfessionalSessionsScreen() {
     );
   }
 
-  // Filter sessions based on active tab
-  console.log('🟤 ========== FILTERING SESSIONS FOR RENDER ==========');
-  console.log('🟤 Active tab:', activeTab);
-  console.log('🟤 Total sessions in state:', sessions.length);
-  console.log('🟤 Sessions:', sessions.map(s => ({ id: s.id, status: s.status, client: s.clientName })));
+  // Helper function to check if session is past (with 1-hour grace period after end)
+  const isSessionPast = (session: ProfessionalSession): boolean => {
+    const now = new Date().getTime();
+    const sessionStart = session.date.getTime();
+    const sessionEnd = sessionStart + (session.duration * 60 * 1000);
+    const gracePeriodEnd = sessionEnd + (60 * 60 * 1000); // 1 hour after session ends
+    return now > gracePeriodEnd;
+  };
 
+  // Filter sessions based on active tab
   const filteredSessions = sessions.filter(session => {
-    let shouldInclude = false;
     if (activeTab === 'upcoming') {
-      shouldInclude = session.status === 'scheduled' && session.date > new Date();
-      console.log(`🟤 Session ${session.id}: status=${session.status}, date>${new Date()}=${session.date > new Date()}, include=${shouldInclude}`);
+      return session.status === 'scheduled' && !isSessionPast(session);
     } else if (activeTab === 'history') {
-      // FIX: Include both completed AND cancelled sessions in history
-      shouldInclude = session.status === 'completed' || session.status === 'cancelled';
-      console.log(`🟤 Session ${session.id}: status=${session.status}, include=${shouldInclude} (history includes completed and cancelled)`);
+      return session.status === 'completed' ||
+             session.status === 'cancelled' ||
+             (session.status === 'scheduled' && isSessionPast(session));
     } else if (activeTab === 'pending') {
-      shouldInclude = session.status === 'pending';
-      console.log(`🟤 Session ${session.id}: status=${session.status}, include=${shouldInclude}`);
+      return session.status === 'pending';
     }
-    return shouldInclude;
+    return false;
   }).sort((a, b) => {
     // Sort upcoming ascending, history descending
     if (activeTab === 'upcoming') {
@@ -255,10 +199,6 @@ export function ProfessionalSessionsScreen() {
     }
     return b.date.getTime() - a.date.getTime();
   });
-
-  console.log('🟤 Filtered sessions count:', filteredSessions.length);
-  console.log('🟤 Filtered sessions:', filteredSessions.map(s => ({ id: s.id, status: s.status })));
-  console.log('🟤 ========== END FILTERING ==========');
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -359,8 +299,16 @@ export function ProfessionalSessionsScreen() {
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const count = sessions.filter(s => {
-            if (tab.id === 'upcoming') return s.status === 'scheduled' && s.date > new Date();
-            if (tab.id === 'history') return s.status === 'completed' || s.status === 'cancelled';
+            if (tab.id === 'upcoming') {
+              // Show in upcoming if: scheduled AND not past grace period
+              return s.status === 'scheduled' && !isSessionPast(s);
+            }
+            if (tab.id === 'history') {
+              // Show in history if: completed, cancelled, OR scheduled but past grace period
+              return s.status === 'completed' ||
+                     s.status === 'cancelled' ||
+                     (s.status === 'scheduled' && isSessionPast(s));
+            }
             if (tab.id === 'pending') return s.status === 'pending';
             return false;
           }).length;
@@ -489,18 +437,65 @@ export function ProfessionalSessionsScreen() {
                 </View>
               )}
 
+              {/* Video Call Button - Shows state-based button for video sessions */}
+              {activeTab === 'upcoming' && session.type === 'video' && (
+                <View style={styles.videoCallSection}>
+                  {(() => {
+                    // Convert professional session format to video call utils format
+                    const videoSession = {
+                      status: session.status === 'scheduled' ? 'CONFIRMED' : session.status.toUpperCase(),
+                      type: 'VIDEO_CALL',
+                      date: session.date,
+                      duration: session.duration,
+                      meetingLink: session.meetingLink,
+                    };
+                    const buttonState = getVideoCallButtonState(videoSession);
+                    const { primary, helper, icon } = getVideoCallButtonLabel(buttonState, videoSession);
+                    const buttonStyle = getVideoCallButtonStyle(buttonState);
+                    const isClickable = isVideoCallButtonClickable(buttonState);
+
+                    return (
+                      <>
+                        <TouchableOpacity
+                          style={[
+                            styles.videoCallButton,
+                            {
+                              backgroundColor: buttonStyle.backgroundColor,
+                              borderColor: buttonStyle.borderColor || 'transparent',
+                              borderWidth: buttonStyle.borderColor ? 1 : 0,
+                            },
+                          ]}
+                          onPress={() => isClickable && handleJoinSession(session.id)}
+                          disabled={!isClickable}
+                          activeOpacity={isClickable ? 0.7 : 1}
+                        >
+                          <Ionicons
+                            name={icon as any}
+                            size={18}
+                            color={buttonStyle.textColor}
+                          />
+                          <Text
+                            style={[
+                              styles.videoCallButtonText,
+                              { color: buttonStyle.textColor },
+                            ]}
+                          >
+                            {primary}
+                          </Text>
+                        </TouchableOpacity>
+                        {helper && (
+                          <Text style={styles.videoCallHelperText}>{helper}</Text>
+                        )}
+                      </>
+                    );
+                  })()}
+                </View>
+              )}
+
               {/* Actions */}
               <View style={styles.sessionActions}>
                 {activeTab === 'upcoming' && (
                   <>
-                    {session.meetingLink && (
-                      <TouchableOpacity style={styles.actionButtonWrapper}>
-                        <View style={styles.actionButtonPrimary}>
-                          <Ionicons name="videocam" size={16} color={branding.cardBackground} />
-                          <Text style={styles.actionButtonTextPrimary}>Iniciar sesión</Text>
-                        </View>
-                      </TouchableOpacity>
-                    )}
                     <TouchableOpacity style={styles.actionButton}>
                       <Ionicons name="chatbubble-outline" size={16} color={branding.accent} />
                       <Text style={styles.actionButtonText}>Contactar</Text>
@@ -529,12 +524,7 @@ export function ProfessionalSessionsScreen() {
                   <>
                     <TouchableOpacity
                       style={styles.actionButtonWrapper}
-                      onPress={() => {
-                        console.log('🟢 ========== CONFIRM BUTTON PHYSICALLY PRESSED ==========');
-                        console.log('🟢 Session ID being passed:', session.id);
-                        console.log('🟢 Client name being passed:', session.clientName);
-                        handleConfirmSession(session.id, session.clientName);
-                      }}
+                      onPress={() => handleConfirmSession(session.id, session.clientName)}
                       disabled={processingSessionId === session.id}
                     >
                       <View style={[
@@ -553,12 +543,7 @@ export function ProfessionalSessionsScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.actionButtonDangerWrapper}
-                      onPress={() => {
-                        console.log('🔴 ========== REJECT BUTTON PHYSICALLY PRESSED ==========');
-                        console.log('🔴 Session ID being passed:', session.id);
-                        console.log('🔴 Client name being passed:', session.clientName);
-                        handleRejectSession(session.id, session.clientName);
-                      }}
+                      onPress={() => handleRejectSession(session.id, session.clientName)}
                       disabled={processingSessionId === session.id}
                     >
                       <View style={[
@@ -879,6 +864,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     flexWrap: 'wrap',
+  },
+  videoCallSection: {
+    marginBottom: spacing.md,
+  },
+  videoCallButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    gap: spacing.xs,
+  },
+  videoCallButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: spacing.xs,
+  },
+  videoCallHelperText: {
+    fontSize: 12,
+    color: branding.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
   actionButtonWrapper: {
     flex: 1,
