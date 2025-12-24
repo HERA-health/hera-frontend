@@ -160,6 +160,8 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       specialistName: specialist.name,
       pricePerSession: specialist.pricePerSession,
       avatar: specialist.avatar,
+      title: specialist.specialization,
+      specializations: specialist.specialties,
     });
   };
 
