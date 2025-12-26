@@ -7,6 +7,9 @@ import { useAuth } from '../contexts/AuthContext';
 // Loading screen
 import LoadingScreen from '../screens/LoadingScreen';
 
+// Landing page
+import { LandingPage } from '../screens/landing';
+
 // Auth screens
 import { WelcomeScreen } from '../screens/auth/WelcomeScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
@@ -47,12 +50,13 @@ export function RootNavigator() {
   }
 
   if (!isAuthenticated) {
-    // Show auth flow
+    // Show landing/auth flow
     return (
       <Stack.Navigator
-        initialRouteName="Welcome"
+        initialRouteName="Landing"
         screenOptions={{ headerShown: false }}
       >
+        <Stack.Screen name="Landing" component={LandingPage} />
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />

@@ -46,6 +46,53 @@ export const branding = {
   gradientEnd: '#F0E6FF',
 };
 
+// HERA Landing Page Colors - Premium Healthcare SaaS
+export const heraLanding = {
+  // Primary: Sage Green (trust, growth, calm)
+  primary: '#8B9D83',
+  primaryLight: '#A8B8A0',
+  primaryDark: '#6E8066',
+  primaryMuted: '#D4DED0',
+
+  // Secondary: Lavender (empathy, mental health)
+  secondary: '#B8A8D9',
+  secondaryLight: '#D4C9E8',
+  secondaryDark: '#9B87C4',
+  secondaryMuted: '#F0ECFA',
+
+  // Backgrounds
+  background: '#F5F7F5',     // Light Sage
+  backgroundAlt: '#FDFCFB',  // Warm White
+  cardBg: '#FFFFFF',
+  surfaceElevated: '#FFFFFF',
+
+  // Text
+  textPrimary: '#2C3E2C',    // Forest
+  textSecondary: '#6B7B6B',  // Neutral
+  textMuted: '#9BA89B',
+  textOnPrimary: '#FFFFFF',
+  textOnSecondary: '#FFFFFF',
+
+  // Accents
+  success: '#7BA377',        // Mint
+  warning: '#E89D88',        // Coral
+  info: '#8BA8C4',
+
+  // Gradients
+  gradientPrimary: ['#8B9D83', '#A8B8A0'],
+  gradientSecondary: ['#B8A8D9', '#D4C9E8'],
+  gradientCTA: ['#8B9D83', '#7BA377'],
+  gradientHero: ['#F5F7F5', '#FDFCFB', '#F5F7F5'],
+
+  // Shadows
+  shadowColor: 'rgba(44, 62, 44, 0.12)',
+  shadowColorStrong: 'rgba(44, 62, 44, 0.2)',
+
+  // Borders
+  border: '#E2E8E2',
+  borderLight: '#F0F4F0',
+};
+
 // LEGACY COLORS - Maintained for backward compatibility
 export const colors = {
   primary: {

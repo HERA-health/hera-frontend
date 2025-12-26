@@ -82,9 +82,10 @@ export interface Feature {
  * Navigation types for type-safe navigation
  */
 export type RootStackParamList = {
+  Landing: undefined;
   Welcome: undefined;
-  Login: { userType: 'client' | 'professional' };
-  Register: { userType: 'client' | 'professional' };
+  Login: { userType: 'CLIENT' | 'PROFESSIONAL'; specialization?: string };
+  Register: { userType: 'CLIENT' | 'PROFESSIONAL' };
   MainStack: undefined;
   Home: undefined;
   Specialists: undefined;
