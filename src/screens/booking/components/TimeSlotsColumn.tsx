@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { branding, colors, spacing, borderRadius, shadows } from '../../../constants/colors';
+import { branding, heraLanding, colors, spacing, borderRadius, shadows } from '../../../constants/colors';
 import { TimeSlot } from '../../../services/sessionsService';
 
 interface TimeSlotsColumnProps {
@@ -51,7 +51,7 @@ const TimeSlotButton = ({
       {slot.startTime}
     </Text>
     {isSelected && (
-      <Ionicons name="checkmark" size={18} color={branding.cardBackground} />
+      <Ionicons name="checkmark" size={18} color="#FFFFFF" />
     )}
   </TouchableOpacity>
 );
@@ -97,7 +97,7 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
           <Text style={styles.dateSubtitle}>{formatDate(selectedDate)}</Text>
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={branding.primary} />
+          <ActivityIndicator size="large" color={heraLanding.primary} />
           <Text style={styles.loadingText}>Cargando horarios...</Text>
         </View>
       </View>
@@ -164,7 +164,7 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
         <Text style={styles.title}>Horarios disponibles</Text>
         <Text style={styles.dateSubtitle}>{formatDate(selectedDate)}</Text>
         <View style={styles.availabilityBadge}>
-          <Ionicons name="time-outline" size={14} color={branding.primary} />
+          <Ionicons name="time-outline" size={14} color={heraLanding.primary} />
           <Text style={styles.availabilityText}>
             {availableSlots.length} {availableSlots.length === 1 ? 'horario' : 'horarios'}
           </Text>
@@ -189,30 +189,33 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 280,
     maxWidth: 320,
-    maxHeight: '100%', // CRITICAL: Don't exceed parent height
-    backgroundColor: branding.cardBackground,
+    maxHeight: '100%',
+    backgroundColor: heraLanding.cardBg,
     borderRadius: borderRadius.lg,
-    ...shadows.lg,
+    shadowColor: heraLanding.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
     overflow: 'hidden',
-    // CRITICAL: Ensure container respects parent height for internal scroll
     display: 'flex',
     flexDirection: 'column',
   },
   header: {
     padding: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral.gray100,
-    flexShrink: 0, // CRITICAL: Header doesn't shrink
+    borderBottomColor: heraLanding.borderLight,
+    flexShrink: 0,
   },
   title: {
     fontSize: 18,
-    fontWeight: '700',
-    color: branding.text,
+    fontWeight: '600',
+    color: heraLanding.textPrimary,
     marginBottom: spacing.xs,
   },
   dateSubtitle: {
     fontSize: 14,
-    color: branding.textSecondary,
+    color: heraLanding.textSecondary,
     textTransform: 'capitalize',
     marginBottom: spacing.sm,
   },
@@ -220,7 +223,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: `${branding.primary}15`,
+    backgroundColor: `${heraLanding.primary}15`,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
@@ -229,16 +232,15 @@ const styles = StyleSheet.create({
   availabilityText: {
     fontSize: 12,
     fontWeight: '600',
-    color: branding.primary,
+    color: heraLanding.primary,
   },
   scrollView: {
     flex: 1,
-    // CRITICAL: This takes remaining space after header and scrolls internally
   },
   scrollContent: {
     padding: spacing.md,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.lg, // Extra padding at bottom for better UX
+    paddingBottom: spacing.lg,
   },
   slotGroup: {
     marginBottom: spacing.lg,
@@ -253,15 +255,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   slotGroupTitle: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
-    color: branding.textSecondary,
+    color: heraLanding.textMuted,
+    textTransform: 'uppercase',
     flex: 1,
   },
   slotGroupCount: {
     fontSize: 12,
-    color: branding.textLight,
-    backgroundColor: colors.neutral.gray100,
+    color: heraLanding.textMuted,
+    backgroundColor: heraLanding.background,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: borderRadius.full,
@@ -273,7 +276,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.neutral.gray50,
+    backgroundColor: heraLanding.background,
     borderRadius: borderRadius.md,
     paddingVertical: 12,
     paddingHorizontal: spacing.md,
@@ -282,16 +285,17 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   slotButtonSelected: {
-    backgroundColor: branding.primary,
-    borderColor: branding.primaryDark,
+    backgroundColor: heraLanding.primary,
+    borderColor: heraLanding.success,
   },
   slotButtonText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: branding.text,
+    fontWeight: '500',
+    color: heraLanding.textPrimary,
   },
   slotButtonTextSelected: {
-    color: branding.cardBackground,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   // Empty & Loading States
   emptyState: {
@@ -306,15 +310,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   emptyMessage: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: branding.textSecondary,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
   emptySubmessage: {
     fontSize: 14,
-    color: branding.textLight,
+    color: heraLanding.textMuted,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -328,7 +332,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: spacing.md,
     fontSize: 14,
-    color: branding.textSecondary,
+    color: heraLanding.textSecondary,
   },
 });
 

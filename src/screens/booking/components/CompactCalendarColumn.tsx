@@ -11,9 +11,28 @@ import {
   Text,
   StyleSheet,
 } from 'react-native';
-import { Calendar, DateData } from 'react-native-calendars';
+import { Calendar, DateData, LocaleConfig } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
-import { branding, colors, spacing, borderRadius, shadows } from '../../../constants/colors';
+import { branding, heraLanding, colors, spacing, borderRadius, shadows } from '../../../constants/colors';
+
+// Configure Spanish locale for calendar
+LocaleConfig.locales['es'] = {
+  monthNames: [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ],
+  monthNamesShort: [
+    'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+  ],
+  dayNames: [
+    'Domingo', 'Lunes', 'Martes', 'Miércoles',
+    'Jueves', 'Viernes', 'Sábado'
+  ],
+  dayNamesShort: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
+  today: 'Hoy'
+};
+LocaleConfig.defaultLocale = 'es';
 
 interface CompactCalendarColumnProps {
   selectedDate: string | null;
@@ -38,7 +57,7 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
     availableDates.forEach(date => {
       markedDates[date] = {
         marked: true,
-        dotColor: branding.primary,
+        dotColor: heraLanding.primary,
       };
     });
   }
@@ -48,8 +67,8 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
     markedDates[selectedDate] = {
       ...markedDates[selectedDate],
       selected: true,
-      selectedColor: branding.primary,
-      selectedTextColor: branding.cardBackground,
+      selectedColor: heraLanding.primary,
+      selectedTextColor: '#FFFFFF',
     };
   }
 
@@ -74,28 +93,30 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
           markedDates={markedDates}
           hideExtraDays={true}
           enableSwipeMonths={true}
+          firstDay={1}
+          monthFormat={'MMMM yyyy'}
           theme={{
-            backgroundColor: 'transparent',
-            calendarBackground: 'transparent',
-            monthTextColor: branding.text,
+            backgroundColor: '#FFFFFF',
+            calendarBackground: '#FFFFFF',
+            monthTextColor: heraLanding.textPrimary,
             textMonthFontWeight: '700',
-            textMonthFontSize: 16,
-            textSectionTitleColor: branding.textSecondary,
+            textMonthFontSize: 18,
+            textSectionTitleColor: heraLanding.textSecondary,
             textDayHeaderFontWeight: '600',
-            textDayHeaderFontSize: 12,
-            dayTextColor: branding.text,
+            textDayHeaderFontSize: 13,
+            dayTextColor: heraLanding.textPrimary,
             textDayFontWeight: '500',
-            textDayFontSize: 14,
-            todayTextColor: branding.accent,
+            textDayFontSize: 15,
+            todayTextColor: heraLanding.primary,
             todayBackgroundColor: 'transparent',
-            selectedDayBackgroundColor: branding.primary,
-            selectedDayTextColor: branding.cardBackground,
-            textDisabledColor: branding.textLight,
-            arrowColor: branding.primary,
+            selectedDayBackgroundColor: heraLanding.primary,
+            selectedDayTextColor: '#FFFFFF',
+            textDisabledColor: '#D0D5D0',
+            arrowColor: heraLanding.primary,
             arrowHeight: 20,
             arrowWidth: 20,
-            dotColor: branding.primary,
-            selectedDotColor: branding.cardBackground,
+            dotColor: heraLanding.primary,
+            selectedDotColor: '#FFFFFF',
           }}
           style={styles.calendar}
         />
@@ -104,7 +125,7 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
       {/* Selected Date Confirmation */}
       {selectedDate && (
         <View style={styles.selectedDateBanner}>
-          <Ionicons name="checkmark-circle" size={18} color={branding.primary} />
+          <Ionicons name="checkmark-circle" size={18} color={heraLanding.primary} />
           <Text style={styles.selectedDateText}>
             {new Date(selectedDate).toLocaleDateString('es-ES', {
               weekday: 'long',
@@ -124,35 +145,39 @@ const styles = StyleSheet.create({
     minWidth: 320,
     maxWidth: 400,
     maxHeight: '100%',
-    backgroundColor: branding.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: borderRadius.lg,
-    ...shadows.lg,
+    shadowColor: heraLanding.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
   },
   header: {
-    padding: spacing.md,
-    paddingBottom: spacing.sm,
+    padding: spacing.lg,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral.gray100,
+    borderBottomColor: heraLanding.borderLight,
     flexShrink: 0,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: branding.text,
-    marginBottom: 2,
+    fontSize: 18,
+    fontWeight: '600',
+    color: heraLanding.textPrimary,
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 13,
-    color: branding.textSecondary,
+    fontSize: 14,
+    color: heraLanding.textSecondary,
   },
   calendarWrapper: {
     flex: 1,
     padding: spacing.md,
     paddingTop: spacing.sm,
-    justifyContent: 'center', // Center calendar vertically
+    justifyContent: 'center',
   },
   calendar: {
     borderRadius: borderRadius.md,
@@ -162,17 +187,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: `${branding.primary}10`,
-    paddingVertical: spacing.sm,
+    backgroundColor: `${heraLanding.primary}10`,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.neutral.gray100,
+    borderTopColor: heraLanding.borderLight,
     flexShrink: 0,
   },
   selectedDateText: {
     fontSize: 14,
     fontWeight: '600',
-    color: branding.primary,
+    color: heraLanding.textSecondary,
     textTransform: 'capitalize',
   },
 });

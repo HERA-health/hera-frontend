@@ -15,7 +15,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { branding, colors, spacing, borderRadius, shadows } from '../../../constants/colors';
+import { branding, heraLanding, colors, spacing, borderRadius, shadows } from '../../../constants/colors';
 import { SessionType } from '../../../services/sessionsService';
 
 interface SpecialistInfo {
@@ -175,21 +175,21 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
           <Text style={styles.sectionTitle}>Detalles</Text>
           <View style={styles.infoList}>
             <View style={styles.infoItem}>
-              <Ionicons name="globe-outline" size={14} color={branding.textSecondary} />
+              <Ionicons name="globe-outline" size={14} color={heraLanding.textSecondary} />
               <Text style={styles.infoText}>Zona horaria: Madrid (CET)</Text>
             </View>
             <View style={styles.infoItem}>
-              <Ionicons name="refresh-outline" size={14} color={branding.textSecondary} />
+              <Ionicons name="refresh-outline" size={14} color={heraLanding.textSecondary} />
               <Text style={styles.infoText}>Cancelacion gratis 24h antes</Text>
             </View>
             {isVideoCall ? (
               <View style={styles.infoItem}>
-                <Ionicons name="lock-closed-outline" size={14} color={branding.textSecondary} />
+                <Ionicons name="lock-closed-outline" size={14} color={heraLanding.textSecondary} />
                 <Text style={styles.infoText}>Videollamada privada y segura</Text>
               </View>
             ) : (
               <View style={styles.infoItem}>
-                <Ionicons name="location-outline" size={14} color={branding.textSecondary} />
+                <Ionicons name="location-outline" size={14} color={heraLanding.textSecondary} />
                 <Text style={styles.infoText}>En la consulta del profesional</Text>
               </View>
             )}
@@ -206,7 +206,7 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
               <Ionicons
                 name="calendar-outline"
                 size={16}
-                color={booking.selectedDate ? branding.primary : branding.textLight}
+                color={booking.selectedDate ? heraLanding.primary : heraLanding.textMuted}
               />
               <Text
                 style={[styles.summaryValue, !booking.selectedDate && styles.summaryPlaceholder]}
@@ -220,7 +220,7 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
               <Ionicons
                 name="time-outline"
                 size={16}
-                color={booking.selectedTime ? branding.primary : branding.textLight}
+                color={booking.selectedTime ? heraLanding.primary : heraLanding.textMuted}
               />
               <Text
                 style={[styles.summaryValue, !booking.selectedTime && styles.summaryPlaceholder]}
@@ -250,13 +250,13 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
             activeOpacity={0.8}
           >
             {loading ? (
-              <ActivityIndicator color={branding.cardBackground} size="small" />
+              <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <>
                 <Ionicons
                   name="checkmark-circle"
                   size={18}
-                  color={isComplete ? branding.cardBackground : branding.textLight}
+                  color={isComplete ? '#FFFFFF' : '#9BA39B'}
                 />
                 <Text
                   style={[styles.confirmButtonText, !isComplete && styles.confirmButtonTextDisabled]}
@@ -277,9 +277,13 @@ const styles = StyleSheet.create({
     width: 280,
     flex: 1,
     maxHeight: '100%',
-    backgroundColor: branding.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: borderRadius.lg,
-    ...shadows.lg,
+    shadowColor: heraLanding.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
     overflow: 'hidden',
   },
   scrollView: {
@@ -296,44 +300,54 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 2,
-    borderColor: branding.primary,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 3,
+    borderColor: heraLanding.background,
+    shadowColor: heraLanding.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   avatarPlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: `${branding.primary}20`,
-    borderWidth: 2,
-    borderColor: branding.primary,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: `${heraLanding.primary}20`,
+    borderWidth: 3,
+    borderColor: heraLanding.background,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: heraLanding.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   avatarText: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: branding.primary,
+    color: heraLanding.primary,
   },
   name: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '600',
     textAlign: 'center',
-    color: branding.text,
+    color: heraLanding.textPrimary,
     marginBottom: 2,
   },
   title: {
-    fontSize: 12,
-    color: branding.textSecondary,
+    fontSize: 13,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
   },
   // Details Row
   detailsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    backgroundColor: colors.neutral.gray50,
+    backgroundColor: heraLanding.background,
     borderRadius: borderRadius.md,
     paddingVertical: spacing.sm,
     gap: spacing.lg,
@@ -346,15 +360,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   detailValue: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-    color: branding.text,
+    color: heraLanding.textPrimary,
   },
   // Section Title
   sectionTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: branding.textSecondary,
+    color: heraLanding.textMuted,
     marginBottom: spacing.xs,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -372,14 +386,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.neutral.gray50,
+    backgroundColor: heraLanding.background,
     borderWidth: 2,
     borderColor: 'transparent',
     gap: 6,
   },
   typeButtonSelected: {
-    backgroundColor: `${branding.primary}15`,
-    borderColor: branding.primary,
+    backgroundColor: `${heraLanding.primary}15`,
+    borderColor: heraLanding.primary,
   },
   typeButtonIcon: {
     fontSize: 14,
@@ -387,10 +401,10 @@ const styles = StyleSheet.create({
   typeButtonText: {
     fontSize: 12,
     fontWeight: '500',
-    color: branding.textSecondary,
+    color: heraLanding.textSecondary,
   },
   typeButtonTextSelected: {
-    color: branding.text,
+    color: heraLanding.textPrimary,
     fontWeight: '600',
   },
   // Specializations
@@ -400,14 +414,14 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   specializationTag: {
-    backgroundColor: `${branding.primary}15`,
+    backgroundColor: `${heraLanding.primary}15`,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: borderRadius.full,
   },
   specializationText: {
     fontSize: 11,
-    color: branding.primary,
+    color: heraLanding.primary,
     fontWeight: '500',
   },
   // Info List
@@ -421,18 +435,18 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 12,
-    color: branding.textSecondary,
+    color: heraLanding.textSecondary,
   },
   // Summary Section
   summarySection: {
-    backgroundColor: `${branding.primary}10`,
+    backgroundColor: '#F0F4F0',
     borderRadius: borderRadius.md,
-    padding: spacing.sm,
+    padding: spacing.md,
   },
   summaryTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: branding.text,
+    fontSize: 14,
+    fontWeight: '600',
+    color: heraLanding.textPrimary,
     marginBottom: spacing.sm,
   },
   summaryGrid: {
@@ -449,13 +463,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   summaryValue: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    color: branding.text,
+    color: heraLanding.textPrimary,
     textTransform: 'capitalize',
   },
   summaryPlaceholder: {
-    color: branding.textLight,
+    color: heraLanding.textMuted,
     fontWeight: '400',
   },
   totalRow: {
@@ -463,39 +477,41 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: colors.neutral.gray200,
+    borderTopColor: heraLanding.border,
     paddingTop: spacing.sm,
     marginBottom: spacing.sm,
   },
   totalLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: branding.text,
+    color: heraLanding.textPrimary,
   },
   totalPrice: {
     fontSize: 18,
     fontWeight: '700',
-    color: branding.accent,
+    color: heraLanding.textPrimary,
   },
   confirmButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: branding.primary,
+    backgroundColor: heraLanding.primary,
     borderRadius: borderRadius.md,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    height: 48,
     gap: spacing.xs,
   },
   confirmButtonDisabled: {
-    backgroundColor: colors.neutral.gray200,
+    backgroundColor: '#E0E5E0',
+    opacity: 0.6,
   },
   confirmButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: branding.cardBackground,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   confirmButtonTextDisabled: {
-    color: branding.textLight,
+    color: '#9BA39B',
   },
 });
 

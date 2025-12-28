@@ -23,8 +23,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { branding, colors, spacing, borderRadius, shadows, layout } from '../../constants/colors';
-import { GradientBackground } from '../../components/common/GradientBackground';
+import { heraLanding, spacing, borderRadius } from '../../constants/colors';
 import * as sessionsService from '../../services/sessionsService';
 import { SessionType, TimeSlot } from '../../services/sessionsService';
 import { ProfessionalInfoColumn, CompactCalendarColumn, TimeSlotsColumn } from './components';
@@ -188,7 +187,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
         style={styles.backButtonDesktop}
         onPress={() => navigation.goBack()}
       >
-        <Ionicons name="arrow-back" size={20} color={branding.textSecondary} />
+        <Ionicons name="arrow-back" size={20} color={heraLanding.textSecondary} />
         <Text style={styles.backButtonText}>Volver</Text>
       </TouchableOpacity>
 
@@ -229,7 +228,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
         style={styles.backButtonTablet}
         onPress={() => navigation.goBack()}
       >
-        <Ionicons name="arrow-back" size={20} color={branding.textSecondary} />
+        <Ionicons name="arrow-back" size={20} color={heraLanding.textSecondary} />
         <Text style={styles.backButtonText}>Volver</Text>
       </TouchableOpacity>
 
@@ -272,7 +271,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
           style={styles.backButtonMobile}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color={branding.text} />
+          <Ionicons name="arrow-back" size={24} color={heraLanding.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.mobileHeaderTitle}>Reservar cita</Text>
         <View style={{ width: 40 }} />
@@ -368,19 +367,18 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
   );
 
   return (
-    <GradientBackground>
-      <View style={styles.container}>
-        {isDesktop && renderDesktopLayout()}
-        {isTablet && renderTabletLayout()}
-        {isMobile && renderMobileLayout()}
-      </View>
-    </GradientBackground>
+    <View style={styles.container}>
+      {isDesktop && renderDesktopLayout()}
+      {isTablet && renderTabletLayout()}
+      {isMobile && renderMobileLayout()}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F5F7F5', // HERA Light Sage background
   },
 
   // Desktop Layout Styles
@@ -388,7 +386,8 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: spacing.lg,
     paddingTop: spacing.md,
-    overflow: 'hidden', // CRITICAL: Prevent page scroll
+    overflow: 'hidden',
+    backgroundColor: '#F5F7F5',
   },
   backButtonDesktop: {
     flexDirection: 'row',
@@ -398,12 +397,17 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     alignSelf: 'flex-start',
     borderRadius: borderRadius.md,
-    backgroundColor: `${branding.cardBackground}80`,
-    flexShrink: 0, // Don't shrink the back button
+    backgroundColor: heraLanding.cardBg,
+    flexShrink: 0,
+    shadowColor: heraLanding.shadowColor,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   backButtonText: {
     fontSize: 14,
-    color: branding.textSecondary,
+    color: heraLanding.textSecondary,
     fontWeight: '500',
   },
   columnsContainer: {
@@ -419,7 +423,8 @@ const styles = StyleSheet.create({
   tabletContainer: {
     flex: 1,
     padding: spacing.lg,
-    overflow: 'hidden', // CRITICAL: Prevent page scroll
+    overflow: 'hidden',
+    backgroundColor: '#F5F7F5',
   },
   backButtonTablet: {
     flexDirection: 'row',
@@ -429,8 +434,13 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     alignSelf: 'flex-start',
     borderRadius: borderRadius.md,
-    backgroundColor: `${branding.cardBackground}80`,
-    flexShrink: 0, // Don't shrink the back button
+    backgroundColor: heraLanding.cardBg,
+    flexShrink: 0,
+    shadowColor: heraLanding.shadowColor,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   tabletContent: {
     flex: 1,
@@ -451,7 +461,7 @@ const styles = StyleSheet.create({
   // Mobile Layout Styles
   mobileContainer: {
     flex: 1,
-    backgroundColor: branding.background,
+    backgroundColor: heraLanding.background,
   },
   mobileHeader: {
     flexDirection: 'row',
@@ -459,10 +469,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    backgroundColor: branding.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral.gray200,
-    ...shadows.sm,
+    borderBottomColor: heraLanding.border,
+    shadowColor: heraLanding.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   backButtonMobile: {
     width: 40,
@@ -473,7 +487,7 @@ const styles = StyleSheet.create({
   mobileHeaderTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: branding.text,
+    color: heraLanding.textPrimary,
   },
   mobileScroll: {
     flex: 1,
@@ -483,10 +497,14 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   mobileSpecialistCard: {
-    backgroundColor: branding.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
-    ...shadows.sm,
+    shadowColor: heraLanding.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   mobileSpecialistRow: {
     flexDirection: 'row',
@@ -498,16 +516,16 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: `${branding.primary}20`,
+    backgroundColor: `${heraLanding.primary}20`,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: branding.primary,
+    borderColor: heraLanding.primary,
   },
   mobileAvatarText: {
     fontSize: 18,
     fontWeight: '600',
-    color: branding.primary,
+    color: heraLanding.primary,
   },
   mobileSpecialistInfo: {
     flex: 1,
@@ -515,12 +533,12 @@ const styles = StyleSheet.create({
   mobileSpecialistName: {
     fontSize: 16,
     fontWeight: '600',
-    color: branding.text,
+    color: heraLanding.textPrimary,
     marginBottom: 2,
   },
   mobileSpecialistPrice: {
     fontSize: 14,
-    color: branding.textSecondary,
+    color: heraLanding.textSecondary,
   },
   mobileSection: {
     // Container for each section
@@ -530,13 +548,17 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: branding.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderTopWidth: 1,
-    borderTopColor: colors.neutral.gray200,
+    borderTopColor: heraLanding.border,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     paddingBottom: spacing.lg,
-    ...shadows.lg,
+    shadowColor: heraLanding.shadowColorStrong,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 8,
   },
   mobileFooterSummary: {
     flexDirection: 'row',
@@ -549,40 +571,40 @@ const styles = StyleSheet.create({
   mobileFooterDate: {
     fontSize: 14,
     fontWeight: '600',
-    color: branding.text,
+    color: heraLanding.textPrimary,
     textTransform: 'capitalize',
   },
   mobileFooterTime: {
     fontSize: 13,
-    color: branding.textSecondary,
+    color: heraLanding.textSecondary,
   },
   mobileFooterPrice: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    backgroundColor: `${branding.accent}20`,
+    backgroundColor: `${heraLanding.secondary}20`,
     borderRadius: borderRadius.md,
   },
   mobileFooterPriceText: {
     fontSize: 16,
     fontWeight: '700',
-    color: branding.accent,
+    color: heraLanding.secondary,
   },
   mobileConfirmButton: {
-    backgroundColor: branding.primary,
+    backgroundColor: heraLanding.primary,
     paddingHorizontal: spacing.lg,
     paddingVertical: 12,
     borderRadius: borderRadius.md,
   },
   mobileConfirmButtonDisabled: {
-    backgroundColor: colors.neutral.gray200,
+    backgroundColor: '#E0E5E0',
   },
   mobileConfirmButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: branding.cardBackground,
+    color: '#FFFFFF',
   },
   mobileConfirmButtonTextDisabled: {
-    color: branding.textLight,
+    color: '#9BA39B',
   },
 });
 
