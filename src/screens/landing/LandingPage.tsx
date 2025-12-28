@@ -24,6 +24,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Platform,
+  LayoutChangeEvent,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -49,12 +50,26 @@ type NavigationProp = NativeStackNavigationProp<any>;
 const HEADER_SCROLL_THRESHOLD = 50;
 // Threshold to hide scroll indicator
 const SCROLL_INDICATOR_THRESHOLD = 80;
+// Header height offset for scroll positioning
+const HEADER_HEIGHT = 80;
+
+// Section position type
+type SectionPositions = {
+  howItWorks: number;
+  specializations: number;
+  forSpecialists: number;
+};
 
 export const LandingPage: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const scrollViewRef = useRef<ScrollView>(null);
   const [headerScrolled, setHeaderScrolled] = useState(false);
   const [showScrollIndicator, setShowScrollIndicator] = useState(true);
+  const sectionPositions = useRef<SectionPositions>({
+    howItWorks: 0,
+    specializations: 0,
+    forSpecialists: 0,
+  });
 
   // Track scroll position for header state and scroll indicator
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -67,6 +82,25 @@ export const LandingPage: React.FC = () => {
   const handleScrollToContent = useCallback(() => {
     scrollViewRef.current?.scrollTo({ y: 600, animated: true });
   }, []);
+
+  // Handle section layout to track positions
+  const handleSectionLayout = useCallback(
+    (section: keyof SectionPositions) => (event: LayoutChangeEvent) => {
+      sectionPositions.current[section] = event.nativeEvent.layout.y;
+    },
+    []
+  );
+
+  // Scroll to a specific section
+  const handleScrollToSection = useCallback(
+    (section: keyof SectionPositions) => {
+      const yPosition = sectionPositions.current[section];
+      // Subtract header height and add a small offset for visual spacing
+      const adjustedPosition = yPosition - HEADER_HEIGHT + 70; // 70 is the paddingTop offset
+      scrollViewRef.current?.scrollTo({ y: adjustedPosition, animated: true });
+    },
+    []
+  );
 
   // Navigation handlers
   const handleFindSpecialist = useCallback(() => {
@@ -97,6 +131,7 @@ export const LandingPage: React.FC = () => {
         isScrolled={headerScrolled}
         onFindSpecialist={handleFindSpecialist}
         onJoinAsProfessional={handleJoinAsProfessional}
+        onScrollToSection={handleScrollToSection}
       />
 
       <ScrollView
@@ -116,20 +151,26 @@ export const LandingPage: React.FC = () => {
         />
 
         {/* Section 2: How It Works */}
-        <HowItWorksSection />
+        <View onLayout={handleSectionLayout('howItWorks')}>
+          <HowItWorksSection />
+        </View>
 
         {/* Section 3: Trust Indicators */}
         <TrustIndicatorsSection />
 
         {/* Section 4: For Specialists */}
-        <ForSpecialistsSection
-          onLearnMore={handleLearnMoreProfessional}
-        />
+        <View onLayout={handleSectionLayout('forSpecialists')}>
+          <ForSpecialistsSection
+            onLearnMore={handleLearnMoreProfessional}
+          />
+        </View>
 
         {/* Section 5: Specializations */}
-        <SpecializationsSection
-          onSpecializationPress={handleSpecializationPress}
-        />
+        <View onLayout={handleSectionLayout('specializations')}>
+          <SpecializationsSection
+            onSpecializationPress={handleSpecializationPress}
+          />
+        </View>
 
         {/* Section 6: Testimonials */}
         <TestimonialsSection />

@@ -23,12 +23,14 @@ interface LandingHeaderProps {
   isScrolled: boolean;
   onFindSpecialist: () => void;
   onJoinAsProfessional: () => void;
+  onScrollToSection?: (section: 'howItWorks' | 'specializations' | 'forSpecialists') => void;
 }
 
 export const LandingHeader: React.FC<LandingHeaderProps> = ({
   isScrolled,
   onFindSpecialist,
   onJoinAsProfessional,
+  onScrollToSection,
 }) => {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
@@ -102,13 +104,25 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         {/* Navigation Links (desktop only) */}
         {isDesktop && (
           <View style={styles.navLinks}>
-            <TouchableOpacity style={styles.navLink} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.navLink}
+              activeOpacity={0.7}
+              onPress={() => onScrollToSection?.('howItWorks')}
+            >
               <Text style={styles.navLinkText}>Cómo funciona</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.navLink} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.navLink}
+              activeOpacity={0.7}
+              onPress={() => onScrollToSection?.('specializations')}
+            >
               <Text style={styles.navLinkText}>Especialidades</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.navLink} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.navLink}
+              activeOpacity={0.7}
+              onPress={() => onScrollToSection?.('forSpecialists')}
+            >
               <Text style={styles.navLinkText}>Para profesionales</Text>
             </TouchableOpacity>
           </View>
