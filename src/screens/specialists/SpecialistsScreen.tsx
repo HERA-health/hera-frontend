@@ -1,17 +1,22 @@
 /**
- * SpecialistsScreen
- * Browse and search specialists with filters and sorting
- * Displays all specialist cards with affinity percentages
+ * SpecialistsScreen - Redesigned
+ * Modern, clean design matching HERA landing page aesthetics
  *
- * LAYOUT STRUCTURE:
- * - Header with title
- * - Search bar (full width, gray background)
- * - Filters and Sort row (horizontal with space-between)
+ * LAYOUT:
+ * - Header with title + search bar + view toggle
+ * - Horizontal filter chips
  * - Tabs (Especialistas | Publicaciones)
- * - Scrollable list of ALL specialist cards
+ * - Responsive grid/list of specialist cards
+ *
+ * FUNCTIONALITY PRESERVED:
+ * - API calls and data fetching (unchanged)
+ * - Navigation flow (unchanged)
+ * - Filtering/search (unchanged)
+ * - Matching algorithm (unchanged)
+ * - Booking flow trigger (unchanged)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,46 +24,78 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  TextInput,
-  ActivityIndicator,
   useWindowDimensions,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { SpecialistCard } from '../../components/features/SpecialistCard';
-import { GradientBackground } from '../../components/common/GradientBackground';
-import { colors, spacing, typography, borderRadius, branding, shadows } from '../../constants/colors';
+import {
+  SpecialistCardGrid,
+  SpecialistListItem,
+  FilterChips,
+  SearchBar,
+  ViewToggle,
+  SpecialistsLoadingState,
+} from './components';
+import type { ViewMode, FilterOption } from './components';
+import { heraLanding, spacing, shadows, borderRadius, branding, colors } from '../../constants/colors';
 import { SortOption, Specialist, RootStackParamList } from '../../constants/types';
 import * as specialistsService from '../../services/specialistsService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Specialists'>;
 
+// Available filter options
+const FILTER_OPTIONS: FilterOption[] = [
+  { id: 'ansiedad', label: 'Ansiedad', icon: 'pulse-outline' },
+  { id: 'pareja', label: 'Pareja', icon: 'heart-outline' },
+  { id: 'depresion', label: 'Depresion', icon: 'sad-outline' },
+  { id: 'trauma', label: 'Trauma', icon: 'shield-outline' },
+  { id: 'estres', label: 'Estres', icon: 'flash-outline' },
+  { id: 'autoestima', label: 'Autoestima', icon: 'star-outline' },
+];
+
 const SpecialistsScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 1024;
+  const isTablet = width >= 768 && width < 1024;
+  const isMobile = width < 768;
+
+  // State
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('affinity');
   const [activeTab, setActiveTab] = useState<'specialists' | 'posts'>('specialists');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [matchedSpecialists, setMatchedSpecialists] = useState<Specialist[]>([]);
   const [allSpecialists, setAllSpecialists] = useState<Specialist[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasCompletedQuestionnaire, setHasCompletedQuestionnaire] = useState(false);
-  const { width } = useWindowDimensions();
+
+  // Animation values
+  const headerOpacity = React.useRef(new Animated.Value(0)).current;
 
   // Fetch specialists on mount
   useEffect(() => {
     fetchSpecialists();
+
+    // Animate header
+    Animated.timing(headerOpacity, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
   }, []);
 
   // Translation map for matched attributes
   const attributeLabels: Record<string, string> = {
     specialty: 'Especialidad coincidente',
-    approach: 'Enfoque terapéutico',
-    sessionStyle: 'Estilo de sesión',
+    approach: 'Enfoque terapeutico',
+    sessionStyle: 'Estilo de sesion',
     personality: 'Personalidad compatible',
     ageGroup: 'Experiencia con tu edad',
     availability: 'Disponibilidad',
@@ -80,16 +117,14 @@ const SpecialistsScreen: React.FC = () => {
         hasQuestionnaire = matchedResponse.hasCompletedQuestionnaire;
 
         if (hasQuestionnaire && matchedResponse.specialists.length > 0) {
-          // Map matched specialists with real affinity scores
           matchedData = matchedResponse.specialists.map((s) => {
             const name = s.user.name;
             const initial = name.charAt(0).toUpperCase();
             const affinityPercentage = s.affinity ? Math.round((s.affinity / 130) * 100) : 0;
 
-            // Translate matched attributes to user-friendly Spanish labels
             const translatedTags = (s.matchedAttributes || [])
               .map((attr: string) => attributeLabels[attr] || attr)
-              .filter((tag: string) => tag); // Remove empty tags
+              .filter((tag: string) => tag);
 
             return {
               id: s.id,
@@ -118,23 +153,17 @@ const SpecialistsScreen: React.FC = () => {
               },
             };
           });
-
-          console.log('✅ Fetched matched specialists:', matchedData.length);
         }
       } catch (matchErr: any) {
-        // If matched specialists fetch fails (e.g., not authenticated), continue with all specialists
-        console.log('ℹ️ Could not fetch matched specialists (user may not be authenticated):', matchErr.message);
+        console.log('Could not fetch matched specialists:', matchErr.message);
       }
 
       // Always fetch all specialists as fallback/supplement
       const allSpecialistsData = await specialistsService.getAllSpecialists();
 
-      // Map all specialists to frontend format
       const mappedAllSpecialists: Specialist[] = allSpecialistsData.map((s) => {
         const name = s.user.name;
         const initial = name.charAt(0).toUpperCase();
-
-        // Use rating as affinity proxy for non-matched specialists
         const affinityPercentage = Math.round((s.rating / 5) * 100);
         const tags = s.matchedAttributes || [];
 
@@ -169,8 +198,6 @@ const SpecialistsScreen: React.FC = () => {
       setMatchedSpecialists(matchedData);
       setAllSpecialists(mappedAllSpecialists);
       setHasCompletedQuestionnaire(hasQuestionnaire);
-
-      console.log(`📊 Loaded ${matchedData.length} matched, ${mappedAllSpecialists.length} total specialists`);
     } catch (err: any) {
       console.error('Error fetching specialists:', err);
       setError(err.message || 'Error al cargar especialistas');
@@ -179,8 +206,7 @@ const SpecialistsScreen: React.FC = () => {
     }
   };
 
-  const handleSpecialistPress = (specialistId: string) => {
-    // Find the specialist in matched or all specialists to get their affinity score
+  const handleSpecialistPress = useCallback((specialistId: string) => {
     const specialist = matchedSpecialists.find(s => s.id === specialistId) ||
                       allSpecialists.find(s => s.id === specialistId);
     const affinity = specialist ? specialist.affinityPercentage / 100 : undefined;
@@ -189,25 +215,17 @@ const SpecialistsScreen: React.FC = () => {
       specialistId,
       affinity,
     });
-  };
-
-  const handleFilters = () => {
-    Alert.alert(
-      'Filtros',
-      'Filtrar por: especialización, rango de precio, disponibilidad, idiomas, etc.',
-      [{ text: 'Entendido' }]
-    );
-  };
+  }, [matchedSpecialists, allSpecialists, navigation]);
 
   const handleSort = () => {
     Alert.alert(
       'Ordenar por',
-      'Selecciona un criterio de ordenación',
+      'Selecciona un criterio de ordenacion',
       [
         { text: 'Afinidad (Recomendado)', onPress: () => setSortOption('affinity') },
         { text: 'Mejor valorados', onPress: () => setSortOption('rating') },
-        { text: 'Precio más bajo', onPress: () => setSortOption('price_low') },
-        { text: 'Precio más alto', onPress: () => setSortOption('price_high') },
+        { text: 'Precio mas bajo', onPress: () => setSortOption('price_low') },
+        { text: 'Precio mas alto', onPress: () => setSortOption('price_high') },
         { text: 'Cancelar', style: 'cancel' },
       ]
     );
@@ -215,60 +233,51 @@ const SpecialistsScreen: React.FC = () => {
 
   const getSortLabel = () => {
     switch (sortOption) {
-      case 'affinity':
-        return 'Afinidad (Recomendado)';
-      case 'rating':
-        return 'Mejor valorados';
-      case 'price_low':
-        return 'Precio: Menor a Mayor';
-      case 'price_high':
-        return 'Precio: Mayor a Menor';
-      default:
-        return 'Ordenar por';
+      case 'affinity': return 'Afinidad';
+      case 'rating': return 'Valoracion';
+      case 'price_low': return 'Precio: Bajo';
+      case 'price_high': return 'Precio: Alto';
+      default: return 'Ordenar';
     }
   };
 
-  // Combine all specialists into a single unified list
-  // Prioritize matched specialists (with real affinity scores) over all specialists
+  // Combine and filter specialists
   const matchedIds = matchedSpecialists.map(s => s.id);
   const unmatchedSpecialists = allSpecialists.filter(s => !matchedIds.includes(s.id));
   const combinedSpecialists = [...matchedSpecialists, ...unmatchedSpecialists];
 
-  // Defensive check: Ensure no specialists are lost during combination
-  const expectedTotal = matchedSpecialists.length + unmatchedSpecialists.length;
-  if (combinedSpecialists.length !== expectedTotal) {
-    console.warn('⚠️ Specialists lost during combination', {
-      matched: matchedSpecialists.length,
-      unmatched: unmatchedSpecialists.length,
-      combined: combinedSpecialists.length,
-      expected: expectedTotal,
-    });
-  }
-
-  // Filter and sort all specialists in a single unified list
-  const allFilteredSpecialists = combinedSpecialists
+  const filteredSpecialists = combinedSpecialists
     .filter((specialist) => {
-      if (!searchQuery) return true;
-      const query = searchQuery.toLowerCase();
-      return (
-        specialist.name.toLowerCase().includes(query) ||
-        specialist.specialization.toLowerCase().includes(query) ||
-        specialist.tags.some((tag) => tag.toLowerCase().includes(query))
-      );
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          specialist.name.toLowerCase().includes(query) ||
+          specialist.specialization.toLowerCase().includes(query) ||
+          specialist.tags.some((tag) => tag.toLowerCase().includes(query));
+        if (!matchesSearch) return false;
+      }
+
+      // Category filters
+      if (selectedFilters.length > 0) {
+        const matchesFilter = selectedFilters.some(filter =>
+          specialist.specialization.toLowerCase().includes(filter.toLowerCase()) ||
+          specialist.tags.some(tag => tag.toLowerCase().includes(filter.toLowerCase()))
+        );
+        if (!matchesFilter) return false;
+      }
+
+      return true;
     })
     .sort((a, b) => {
       switch (sortOption) {
         case 'affinity':
-          // Primary sort by affinity percentage (descending)
           if (b.affinityPercentage !== a.affinityPercentage) {
             return b.affinityPercentage - a.affinityPercentage;
           }
-          // Secondary sort by name (alphabetically) for stable sort
           return a.name.localeCompare(b.name);
         case 'rating':
-          if (b.rating !== a.rating) {
-            return b.rating - a.rating;
-          }
+          if (b.rating !== a.rating) return b.rating - a.rating;
           return b.reviewCount - a.reviewCount;
         case 'price_low':
           return a.pricePerSession - b.pricePerSession;
@@ -279,23 +288,10 @@ const SpecialistsScreen: React.FC = () => {
       }
     });
 
-  // Render specialist card with position badge for top 3
-  const renderSpecialistItem = ({ item, index }: { item: Specialist; index: number }) => {
-    // Show position badge for top 3 specialists
-    const position = index < 3 ? (index + 1) as 1 | 2 | 3 : undefined;
+  // Calculate grid columns based on screen size
+  const gridColumns = isDesktop ? 3 : isTablet ? 2 : 1;
 
-    return (
-      <View style={styles.specialistCardWrapper}>
-        <SpecialistCard
-          specialist={item}
-          position={position}
-          onPress={() => handleSpecialistPress(item.id)}
-        />
-      </View>
-    );
-  };
-
-  // Render questionnaire banner for users who haven't completed it
+  // Render questionnaire banner
   const renderQuestionnaireBanner = () => (
     <TouchableOpacity
       style={styles.questionnaireBanner}
@@ -303,368 +299,404 @@ const SpecialistsScreen: React.FC = () => {
       activeOpacity={0.8}
     >
       <LinearGradient
-        colors={[branding.primary, branding.secondary, branding.accent]}
+        colors={heraLanding.gradientPrimary as [string, string]}
         style={styles.questionnaireBannerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
       >
         <View style={styles.questionnaireBannerContent}>
           <View style={styles.questionnaireBannerIcon}>
-            <Ionicons name="heart" size={32} color={colors.neutral.white} />
+            <Ionicons name="heart" size={28} color="#FFFFFF" />
           </View>
           <View style={styles.questionnaireBannerText}>
             <Text style={styles.questionnaireBannerTitle}>
               Descubre tus mejores matches
             </Text>
             <Text style={styles.questionnaireBannerSubtitle}>
-              Completa el cuestionario para ver especialistas personalizados para ti
+              Completa el cuestionario para ver especialistas personalizados
             </Text>
           </View>
-          <Ionicons name="arrow-forward" size={24} color={colors.neutral.white} />
+          <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
         </View>
       </LinearGradient>
     </TouchableOpacity>
   );
 
-  // Render section header
-  const renderSectionHeader = (title: string, count: number) => (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionHeaderTitle}>{title}</Text>
-      <Text style={styles.sectionHeaderCount}>({count})</Text>
+  // Render empty state
+  const renderEmptyState = () => (
+    <View style={styles.emptyState}>
+      <View style={styles.emptyIconContainer}>
+        <Ionicons name="search-outline" size={48} color={heraLanding.textMuted} />
+      </View>
+      <Text style={styles.emptyTitle}>No encontramos especialistas</Text>
+      <Text style={styles.emptyDescription}>
+        Intenta con otros terminos de busqueda o ajusta tus filtros
+      </Text>
+      {(searchQuery || selectedFilters.length > 0) && (
+        <TouchableOpacity
+          style={styles.clearFiltersButton}
+          onPress={() => {
+            setSearchQuery('');
+            setSelectedFilters([]);
+          }}
+        >
+          <Text style={styles.clearFiltersText}>Limpiar filtros</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
-  // Empty state for no results
-  const renderEmptySpecialists = () => {
-    return (
-      <View style={styles.emptyState}>
-        <Ionicons name="search" size={64} color={colors.neutral.gray300} />
-        <Text style={styles.emptyTitle}>No se encontraron resultados</Text>
-        <Text style={styles.emptyDescription}>
-          Intenta con otros términos de búsqueda o ajusta tus filtros
-        </Text>
+  // Render error state
+  const renderErrorState = () => (
+    <View style={styles.errorContainer}>
+      <View style={styles.errorIconContainer}>
+        <Ionicons name="alert-circle-outline" size={56} color={heraLanding.warning} />
       </View>
-    );
-  };
+      <Text style={styles.errorTitle}>Error al cargar</Text>
+      <Text style={styles.errorDescription}>{error}</Text>
+      <TouchableOpacity style={styles.retryButton} onPress={fetchSpecialists}>
+        <Ionicons name="refresh" size={18} color="#FFFFFF" />
+        <Text style={styles.retryButtonText}>Reintentar</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
-  // Empty state for posts tab
+  // Render posts empty state
   const renderEmptyPosts = () => (
     <View style={styles.emptyState}>
-      <Ionicons name="document-text" size={64} color={colors.neutral.gray300} />
-      <Text style={styles.emptyTitle}>Próximamente</Text>
+      <View style={styles.emptyIconContainer}>
+        <Ionicons name="document-text-outline" size={48} color={heraLanding.textMuted} />
+      </View>
+      <Text style={styles.emptyTitle}>Proximamente</Text>
       <Text style={styles.emptyDescription}>
-        Publicaciones y artículos de especialistas estarán disponibles pronto
+        Publicaciones y articulos de especialistas estaran disponibles pronto
       </Text>
     </View>
   );
 
-  // Show loading state
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary.main} />
-        <Text style={styles.loadingText}>Cargando especialistas...</Text>
-      </View>
-    );
-  }
+  // Render specialist grid
+  const renderSpecialistsGrid = () => {
+    const rows = [];
+    for (let i = 0; i < filteredSpecialists.length; i += gridColumns) {
+      const rowSpecialists = filteredSpecialists.slice(i, i + gridColumns);
+      rows.push(
+        <View key={i} style={styles.gridRow}>
+          {rowSpecialists.map((specialist, index) => {
+            const position = (i + index) < 3 ? ((i + index + 1) as 1 | 2 | 3) : undefined;
+            return (
+              <View key={specialist.id} style={[styles.gridItem, { maxWidth: `${100 / gridColumns}%` }]}>
+                <SpecialistCardGrid
+                  specialist={specialist}
+                  position={position}
+                  onPress={() => handleSpecialistPress(specialist.id)}
+                  animationDelay={(i + index) * 50}
+                />
+              </View>
+            );
+          })}
+          {/* Fill empty slots */}
+          {rowSpecialists.length < gridColumns &&
+            Array.from({ length: gridColumns - rowSpecialists.length }).map((_, idx) => (
+              <View key={`empty-${idx}`} style={[styles.gridItem, { maxWidth: `${100 / gridColumns}%` }]} />
+            ))
+          }
+        </View>
+      );
+    }
+    return rows;
+  };
 
-  // Show error state
+  // Render specialist list
+  const renderSpecialistsList = () => (
+    <View style={styles.listContainer}>
+      {filteredSpecialists.map((specialist, index) => {
+        const position = index < 3 ? ((index + 1) as 1 | 2 | 3) : undefined;
+        return (
+          <SpecialistListItem
+            key={specialist.id}
+            specialist={specialist}
+            position={position}
+            onPress={() => handleSpecialistPress(specialist.id)}
+            animationDelay={index * 50}
+          />
+        );
+      })}
+    </View>
+  );
+
+  // Main render
   if (error) {
     return (
-      <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle" size={64} color={colors.feedback.error} />
-        <Text style={styles.errorTitle}>Error al cargar</Text>
-        <Text style={styles.errorDescription}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchSpecialists}>
-          <Text style={styles.retryButtonText}>Reintentar</Text>
-        </TouchableOpacity>
+      <View style={styles.screenContainer}>
+        <View style={styles.container}>
+          {renderErrorState()}
+        </View>
       </View>
     );
   }
 
   return (
-    <GradientBackground>
+    <View style={styles.screenContainer}>
       <View style={styles.container}>
-        {/* Search Bar - Full Width with Gray Background */}
-        <View style={styles.searchSection}>
-        <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={20} color={colors.neutral.gray600} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar especialistas, temas, síntomas..."
-            placeholderTextColor={colors.neutral.gray600}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={colors.neutral.gray600} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Filters and Sort Row - Horizontal with Space Between */}
-        <View style={styles.filterRow}>
-          <TouchableOpacity style={styles.filterButton} onPress={handleFilters}>
-            <Ionicons name="options" size={18} color={colors.neutral.gray900} />
-            <Text style={styles.filterButtonText}>Filtros</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.sortButton} onPress={handleSort}>
-            <Text style={styles.sortButtonText}>{getSortLabel()}</Text>
-            <Ionicons name="chevron-down" size={16} color={colors.neutral.gray600} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Tabs - Especialistas | Publicaciones */}
-      <View style={styles.tabsContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'specialists' && styles.tabActive]}
-          onPress={() => setActiveTab('specialists')}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'specialists' && styles.tabTextActive,
-            ]}
-          >
-            Especialistas
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'posts' && styles.tabActive]}
-          onPress={() => setActiveTab('posts')}
-        >
-          <Text
-            style={[styles.tabText, activeTab === 'posts' && styles.tabTextActive]}
-          >
-            Publicaciones
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Content - Unified list of all specialists sorted by affinity */}
-      {activeTab === 'specialists' ? (
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingHorizontal: width > 768 ? spacing.xxxl : spacing.lg }
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Questionnaire Banner (if not completed) */}
-          {!hasCompletedQuestionnaire && renderQuestionnaireBanner()}
-
-          {/* Single Unified Specialists Section */}
-          {allFilteredSpecialists.length > 0 ? (
-            <View style={styles.specialistsSection}>
-              {renderSectionHeader('Especialistas disponibles', allFilteredSpecialists.length)}
-              {allFilteredSpecialists.map((specialist, index) => (
-                <View key={specialist.id}>
-                  {renderSpecialistItem({ item: specialist, index })}
-                </View>
-              ))}
+        {/* Header Section */}
+        <Animated.View style={[styles.headerSection, { opacity: headerOpacity }]}>
+          {/* Title Row */}
+          <View style={[styles.headerRow, isDesktop && styles.headerRowDesktop]}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.pageTitle}>Encuentra tu especialista</Text>
+              {!loading && (
+                <Text style={styles.resultsCount}>
+                  {filteredSpecialists.length} especialista{filteredSpecialists.length !== 1 ? 's' : ''} disponible{filteredSpecialists.length !== 1 ? 's' : ''}
+                </Text>
+              )}
             </View>
-          ) : (
-            /* Empty State */
-            renderEmptySpecialists()
+
+            {/* Search + View Toggle (Desktop) */}
+            {isDesktop && (
+              <View style={styles.headerControls}>
+                <View style={styles.searchContainer}>
+                  <SearchBar
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholder="Buscar por nombre o especialidad..."
+                  />
+                </View>
+                <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+              </View>
+            )}
+          </View>
+
+          {/* Search (Mobile/Tablet) */}
+          {!isDesktop && (
+            <View style={styles.mobileSearchRow}>
+              <View style={styles.searchContainerMobile}>
+                <SearchBar
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Buscar especialistas..."
+                />
+              </View>
+              {!isMobile && (
+                <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+              )}
+            </View>
           )}
-        </ScrollView>
-      ) : (
-        <View style={styles.postsContainer}>
-          {renderEmptyPosts()}
+
+          {/* Sort Button */}
+          <View style={styles.sortRow}>
+            <TouchableOpacity style={styles.sortButton} onPress={handleSort}>
+              <Ionicons name="swap-vertical" size={16} color={heraLanding.textSecondary} />
+              <Text style={styles.sortButtonText}>{getSortLabel()}</Text>
+              <Ionicons name="chevron-down" size={14} color={heraLanding.textMuted} />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        {/* Filter Chips */}
+        <FilterChips
+          filters={FILTER_OPTIONS}
+          selectedFilters={selectedFilters}
+          onFilterChange={setSelectedFilters}
+        />
+
+        {/* Tabs */}
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'specialists' && styles.tabActive]}
+            onPress={() => setActiveTab('specialists')}
+          >
+            <Text style={[styles.tabText, activeTab === 'specialists' && styles.tabTextActive]}>
+              Especialistas
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'posts' && styles.tabActive]}
+            onPress={() => setActiveTab('posts')}
+          >
+            <Text style={[styles.tabText, activeTab === 'posts' && styles.tabTextActive]}>
+              Publicaciones
+            </Text>
+          </TouchableOpacity>
         </View>
-      )}
+
+        {/* Content */}
+        {activeTab === 'specialists' ? (
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingHorizontal: isDesktop ? spacing.xxxl : spacing.lg }
+            ]}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Questionnaire Banner */}
+            {!hasCompletedQuestionnaire && !loading && renderQuestionnaireBanner()}
+
+            {/* Loading State */}
+            {loading && (
+              <SpecialistsLoadingState
+                count={6}
+                viewMode={viewMode}
+              />
+            )}
+
+            {/* Specialists */}
+            {!loading && filteredSpecialists.length > 0 && (
+              viewMode === 'grid' ? renderSpecialistsGrid() : renderSpecialistsList()
+            )}
+
+            {/* Empty State */}
+            {!loading && filteredSpecialists.length === 0 && renderEmptyState()}
+
+            {/* Bottom spacing */}
+            <View style={styles.bottomSpacer} />
+          </ScrollView>
+        ) : (
+          <View style={styles.postsContainer}>
+            {renderEmptyPosts()}
+          </View>
+        )}
       </View>
-    </GradientBackground>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screenContainer: {
+    flex: 1,
+    backgroundColor: heraLanding.background, // Light Sage #F5F7F5
+  },
   container: {
     flex: 1,
-    // GradientBackground handles the background
   },
-  scrollView: {
-    flex: 1,
-  },
-  searchSection: {
-    backgroundColor: branding.cardBackground,
-    paddingHorizontal: spacing.lg,
+
+  // Header Section
+  headerSection: {
+    backgroundColor: '#FFFFFF',
     paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral.gray200,
+    borderBottomColor: heraLanding.border,
   },
-  searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.neutral.gray50,
-    borderRadius: 16,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.neutral.gray200,
+  headerRow: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
   },
-  searchIcon: {
-    marginRight: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: colors.neutral.gray900,
-    paddingVertical: 0,
-  },
-  filterRow: {
+  headerRowDesktop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    paddingHorizontal: spacing.xxxl,
   },
-  filterButton: {
+  titleContainer: {
+    marginBottom: spacing.sm,
+  },
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: heraLanding.textPrimary,
+    marginBottom: 4,
+  },
+  resultsCount: {
+    fontSize: 14,
+    color: heraLanding.textSecondary,
+  },
+  headerControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: branding.accentLight,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    gap: spacing.xs,
+    gap: spacing.md,
   },
-  filterButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: branding.accent,
+  searchContainer: {
+    width: 360,
+  },
+  mobileSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  searchContainerMobile: {
+    flex: 1,
+  },
+  sortRow: {
+    paddingHorizontal: spacing.lg,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
   },
   sortButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.neutral.gray100,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
-    gap: spacing.xs,
+    gap: 6,
+    backgroundColor: heraLanding.background,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   sortButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
-    color: colors.neutral.gray700,
+    color: heraLanding.textSecondary,
   },
+
+  // Tabs
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: branding.cardBackground,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral.gray200,
-    gap: spacing.lg,
+    borderBottomColor: heraLanding.border,
+    gap: spacing.xl,
   },
   tab: {
     paddingVertical: spacing.md,
-    paddingHorizontal: 0,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
   tabActive: {
-    borderBottomColor: branding.accent,
+    borderBottomColor: heraLanding.primary,
   },
   tabText: {
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.medium,
-    color: colors.neutral.gray600,
+    fontSize: 15,
+    fontWeight: '500',
+    color: heraLanding.textSecondary,
   },
   tabTextActive: {
-    color: branding.accent,
-    fontWeight: typography.fontWeights.semibold,
+    color: heraLanding.primary,
+    fontWeight: '600',
   },
-  listContent: {
-    paddingVertical: spacing.lg,
-    flexGrow: 1,
-  },
-  postsContainer: {
+
+  // Content
+  scrollView: {
     flex: 1,
-    padding: spacing.lg,
   },
-  resultsText: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral.gray600,
+  scrollContent: {
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl,
+  },
+
+  // Grid Layout
+  gridRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
     marginBottom: spacing.md,
-    fontWeight: typography.fontWeights.medium,
   },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.xxl * 2,
-  },
-  emptyTitle: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral.gray900,
-    marginTop: spacing.lg,
-    marginBottom: spacing.xs,
-  },
-  emptyDescription: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral.gray600,
-    textAlign: 'center',
-    paddingHorizontal: spacing.xl,
-    lineHeight: typography.fontSizes.sm * typography.lineHeights.relaxed,
-  },
-  loadingContainer: {
+  gridItem: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background.secondary,
+    minWidth: 280,
+  },
+
+  // List Layout
+  listContainer: {
     gap: spacing.md,
   },
-  loadingText: {
-    fontSize: typography.fontSizes.md,
-    color: colors.neutral.gray600,
-    fontWeight: typography.fontWeights.medium,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background.secondary,
-    paddingHorizontal: spacing.xl,
-    gap: spacing.md,
-  },
-  errorTitle: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral.gray900,
-    marginTop: spacing.md,
-  },
-  errorDescription: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral.gray600,
-    textAlign: 'center',
-    lineHeight: typography.fontSizes.sm * typography.lineHeights.relaxed,
-  },
-  retryButton: {
-    backgroundColor: colors.primary.main,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: 12,
-    marginTop: spacing.md,
-  },
-  retryButtonText: {
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral.white,
-  },
-  // Questionnaire Banner Styles
+
+  // Questionnaire Banner
   questionnaireBanner: {
     marginBottom: spacing.xl,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#2196F3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    ...shadows.md,
   },
   questionnaireBannerGradient: {
     padding: spacing.lg,
@@ -675,9 +707,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   questionnaireBannerIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -686,42 +718,111 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   questionnaireBannerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
-    color: colors.neutral.white,
-    marginBottom: spacing.xs,
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
   questionnaireBannerSubtitle: {
     fontSize: 14,
-    color: colors.neutral.white,
-    opacity: 0.95,
+    color: 'rgba(255, 255, 255, 0.9)',
     lineHeight: 20,
   },
-  // Section Header Styles
-  sectionHeader: {
-    flexDirection: 'row',
+
+  // Empty State
+  emptyState: {
     alignItems: 'center',
-    marginBottom: spacing.md,
-    marginTop: spacing.sm,
+    justifyContent: 'center',
+    paddingVertical: spacing.xxxl,
+    paddingHorizontal: spacing.xl,
   },
-  sectionHeaderTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.neutral.gray900,
-  },
-  sectionHeaderCount: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.neutral.gray600,
-    marginLeft: spacing.xs,
-  },
-  // Section Container Styles
-  specialistsSection: {
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: heraLanding.background,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: spacing.lg,
   },
-  // Specialist Card Wrapper with consistent spacing
-  specialistCardWrapper: {
-    marginBottom: spacing.md,
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: heraLanding.textPrimary,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  emptyDescription: {
+    fontSize: 15,
+    color: heraLanding.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: spacing.lg,
+  },
+  clearFiltersButton: {
+    backgroundColor: heraLanding.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: 10,
+  },
+  clearFiltersText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+
+  // Error State
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  errorIconContainer: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: `${heraLanding.warning}20`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  errorTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: heraLanding.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  errorDescription: {
+    fontSize: 15,
+    color: heraLanding.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: heraLanding.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: 10,
+  },
+  retryButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+
+  // Posts
+  postsContainer: {
+    flex: 1,
+    padding: spacing.lg,
+  },
+
+  // Spacing
+  bottomSpacer: {
+    height: spacing.xxxl,
   },
 });
 

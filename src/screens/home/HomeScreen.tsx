@@ -1,44 +1,62 @@
 /**
- * HomeScreen - Completely Modernized
- * Modern hero section with trust indicators, testimonials, and premium design
+ * HomeScreen - Client Dashboard
+ * Modern, clean dashboard with quick actions, upcoming sessions, and specialist recommendations
+ * Follows HERA design language with sage green and lavender palette
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
+  useWindowDimensions,
   ActivityIndicator,
   Image,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, branding, borderRadius, shadows } from '../../constants/colors';
-import { Button } from '../../components/common/Button';
+import { heraLanding, colors, spacing, borderRadius, shadows } from '../../constants/colors';
 import { useNavigation } from '@react-navigation/native';
-import { BrandText } from '../../components/common/BrandText';
-import { BrandIcon } from '../../components/common/BrandIcon';
 import { getMatchedSpecialists, SpecialistData } from '../../services/specialistsService';
 import { useAuth } from '../../contexts/AuthContext';
-import { GradientBackground } from '../../components/common/GradientBackground';
-import { StyledLogo } from '../../components/common/StyledLogo';
-
-const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
+  const { width } = useWindowDimensions();
   const { user } = useAuth();
+
+  const isDesktop = width >= 1024;
+  const isTablet = width >= 768 && width < 1024;
+
   const [hasCompletedQuestionnaire, setHasCompletedQuestionnaire] = useState(false);
   const [topSpecialists, setTopSpecialists] = useState<SpecialistData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch questionnaire status and matched specialists on mount
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
   useEffect(() => {
-    const fetchQuestionnaireStatus = async () => {
-      // Only fetch if user is authenticated
+    // Entrance animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  useEffect(() => {
+    const fetchData = async () => {
       if (!user) {
         setLoading(false);
         return;
@@ -47,826 +65,805 @@ export default function HomeScreen() {
       try {
         const response = await getMatchedSpecialists();
         setHasCompletedQuestionnaire(response.hasCompletedQuestionnaire);
-
-        // Get top 3 specialists
         if (response.hasCompletedQuestionnaire && response.specialists.length > 0) {
-          setTopSpecialists(response.specialists.slice(0, 3));
+          setTopSpecialists(response.specialists.slice(0, 4));
         }
       } catch (error) {
-        console.error('Error fetching questionnaire status:', error);
-        // If error, assume not completed
+        console.error('Error fetching data:', error);
         setHasCompletedQuestionnaire(false);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchQuestionnaireStatus();
+    fetchData();
   }, [user]);
 
-  const stats = [
-    { icon: 'people', value: '500+', label: 'Psicólogos' },
-    { icon: 'star', value: '4.8', label: 'Valoración' },
-    { icon: 'checkmark-circle', value: '10k+', label: 'Sesiones' },
-  ];
-
-  const features = [
-    {
-      icon: 'sync',
-      title: 'Matching Inteligente',
-      description: 'Algoritmo avanzado que te conecta con el profesional ideal según tu perfil',
-      color: colors.primary.main,
-      bgColor: colors.primary[100],
-    },
-    {
-      icon: 'shield-checkmark',
-      title: 'Sesiones Seguras',
-      description: 'Videoconferencia encriptada con protección de datos y cancelación flexible',
-      color: colors.secondary.blue,
-      bgColor: colors.background.blue,
-    },
-    {
-      icon: 'ribbon',
-      title: 'Profesionales Verificados',
-      description: 'Todos los especialistas están certificados y cuentan con experiencia comprobada',
-      color: colors.secondary.purple,
-      bgColor: colors.background.purple,
-    },
-  ];
-
-  const testimonials = [
-    {
-      name: 'María S.',
-      text: 'Encontré al psicólogo perfecto en mi primera búsqueda. El algoritmo realmente funciona.',
-      rating: 5,
-    },
-    {
-      name: 'Carlos R.',
-      text: 'La plataforma es intuitiva y los profesionales son excelentes. Muy recomendable.',
-      rating: 5,
-    },
-  ];
-
-  // Helper function to calculate affinity percentage
-  const getAffinityPercentage = (affinity?: number): number => {
-    if (!affinity) return 0;
-    return Math.round((affinity / 130) * 100);
+  // Get time-based greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Buenos días';
+    if (hour < 19) return 'Buenas tardes';
+    return 'Buenas noches';
   };
 
-  // Helper function to get specialist initial
-  const getInitial = (name: string): string => {
-    return name.charAt(0).toUpperCase();
+  const getFirstName = () => {
+    if (!user?.name) return '';
+    return user.name.split(' ')[0];
   };
 
-  // Render individual podium card - compact horizontal version
-  const renderPodiumCard = (specialist: SpecialistData, position: number) => {
-    const medals = ['🥇', '🥈', '🥉'];
-    const affinityPercentage = getAffinityPercentage(specialist.affinity);
+  // Mock upcoming sessions (in real app, this would come from API)
+  const upcomingSessions = [
+    {
+      id: '1',
+      specialistName: 'Dra. Elena Rodríguez',
+      specialization: 'Psicóloga Clínica',
+      date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+      type: 'video',
+      price: 65,
+      avatar: null,
+    },
+  ];
 
-    return (
+  // Quick action cards data
+  const quickActions = [
+    {
+      id: 'next-session',
+      icon: 'calendar',
+      title: 'Próxima sesión',
+      content: upcomingSessions.length > 0
+        ? formatSessionDate(upcomingSessions[0].date)
+        : 'Sin sesiones',
+      actionText: upcomingSessions.length > 0 ? 'Ver detalles' : null,
+      color: heraLanding.primary,
+      bgColor: heraLanding.primaryMuted,
+      onPress: () => navigation.navigate('Sessions'),
+    },
+    {
+      id: 'find-specialist',
+      icon: 'search',
+      title: 'Buscar especialista',
+      content: 'Encuentra tu match perfecto',
+      actionText: hasCompletedQuestionnaire ? 'Ver matches' : 'Hacer cuestionario',
+      color: heraLanding.secondary,
+      bgColor: heraLanding.secondaryMuted,
+      highlight: true,
+      onPress: () => navigation.navigate(hasCompletedQuestionnaire ? 'Specialists' : 'Questionnaire'),
+    },
+    {
+      id: 'history',
+      icon: 'document-text',
+      title: 'Tus sesiones',
+      content: '0 sesiones completadas',
+      actionText: 'Ver historial',
+      color: heraLanding.primary,
+      bgColor: heraLanding.primaryMuted,
+      onPress: () => navigation.navigate('Sessions'),
+    },
+  ];
+
+  function formatSessionDate(date: Date): string {
+    const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]} - ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+  }
+
+  // Render welcome header
+  const renderWelcomeHeader = () => (
+    <Animated.View
+      style={[
+        styles.welcomeHeader,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <View style={styles.welcomeContent}>
+        <Text style={styles.welcomeGreeting}>
+          {getGreeting()}, {getFirstName()}
+        </Text>
+        <Text style={styles.welcomeSubtitle}>
+          ¿Cómo te sientes hoy?
+        </Text>
+      </View>
       <TouchableOpacity
-        key={specialist.id}
-        onPress={() => navigation.navigate('SpecialistDetail', { specialistId: specialist.id })}
-        activeOpacity={0.85}
-        style={[styles.podiumCard, position === 0 && styles.podiumCardFirst]}
+        style={styles.profileButton}
+        onPress={() => navigation.navigate('Profile')}
       >
-        {/* Medal and Percentage Header */}
-        <View style={styles.podiumHeader}>
-          <Text style={styles.medalIcon}>{medals[position]}</Text>
-          <BrandText style={styles.podiumPercentage}>{affinityPercentage}%</BrandText>
-        </View>
-
-        {/* Avatar */}
-        <View style={styles.podiumAvatarContainer}>
-          {specialist.avatar ? (
-            <Image source={{ uri: specialist.avatar }} style={styles.podiumAvatar} />
-          ) : (
-            <LinearGradient
-              colors={['#2196F3', '#00897B']}
-              style={styles.podiumAvatar}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Text style={styles.podiumAvatarText}>{getInitial(specialist.user.name)}</Text>
-            </LinearGradient>
-          )}
-          {specialist.firstVisitFree && (
-            <View style={styles.freeBadge}>
-              <Text style={styles.freeBadgeText}>Gratis</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Specialist Info */}
-        <View style={styles.podiumInfo}>
-          <Text style={styles.podiumName} numberOfLines={1}>{specialist.user.name}</Text>
-          <Text style={styles.podiumSpecialty} numberOfLines={2}>{specialist.specialization}</Text>
-
-          {/* Stats Row */}
-          <View style={styles.podiumStats}>
-            <View style={styles.podiumStat}>
-              <Ionicons name="star" size={14} color={colors.secondary.orange} />
-              <Text style={styles.podiumStatText}>{specialist.rating}</Text>
-            </View>
-            <View style={styles.podiumStat}>
-              <Ionicons name="cash-outline" size={14} color={colors.primary.main} />
-              <Text style={styles.podiumStatText}>€{specialist.pricePerSession}</Text>
-            </View>
-          </View>
-
-          {/* CTA Button */}
-          <TouchableOpacity style={styles.podiumButton}>
-            <View style={styles.podiumButtonSolid}>
-              <Text style={styles.podiumButtonText}>Ver Perfil</Text>
-            </View>
-          </TouchableOpacity>
+        <View style={styles.profileAvatar}>
+          <Ionicons name="person" size={24} color={heraLanding.primary} />
         </View>
       </TouchableOpacity>
-    );
-  };
+    </Animated.View>
+  );
 
-  // Render podium section for users who completed questionnaire
-  const renderPodium = () => {
-    // Safety check: ensure data exists
-    if (!topSpecialists || topSpecialists.length === 0) {
-      return null;
-    }
+  // Render quick action cards
+  const renderQuickActions = () => (
+    <View style={styles.section}>
+      <View style={[
+        styles.quickActionsGrid,
+        isDesktop && styles.quickActionsGridDesktop,
+      ]}>
+        {quickActions.map((action, index) => (
+          <Animated.View
+            key={action.id}
+            style={[
+              {
+                opacity: fadeAnim,
+                transform: [{
+                  translateY: slideAnim,
+                }],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.quickActionCard,
+                action.highlight && styles.quickActionCardHighlight,
+                isDesktop && styles.quickActionCardDesktop,
+              ]}
+              onPress={action.onPress}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: action.bgColor }]}>
+                <Ionicons name={action.icon as any} size={28} color={action.color} />
+              </View>
+              <Text style={styles.quickActionTitle}>{action.title}</Text>
+              <Text style={styles.quickActionContent}>{action.content}</Text>
+              {action.actionText && (
+                <View style={styles.quickActionButton}>
+                  <Text style={[styles.quickActionButtonText, { color: action.color }]}>
+                    {action.actionText}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={16} color={action.color} />
+                </View>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+        ))}
+      </View>
+    </View>
+  );
+
+  // Render upcoming sessions section
+  const renderUpcomingSessions = () => (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Próximas sesiones</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Sessions')}>
+          <Text style={styles.sectionLink}>Ver todas</Text>
+        </TouchableOpacity>
+      </View>
+
+      {upcomingSessions.length > 0 ? (
+        <View style={styles.sessionsList}>
+          {upcomingSessions.map((session) => (
+            <TouchableOpacity
+              key={session.id}
+              style={styles.sessionCard}
+              onPress={() => navigation.navigate('SessionDetail', { sessionId: session.id })}
+              activeOpacity={0.85}
+            >
+              <View style={styles.sessionAvatar}>
+                {session.avatar ? (
+                  <Image source={{ uri: session.avatar }} style={styles.sessionAvatarImage} />
+                ) : (
+                  <LinearGradient
+                    colors={[heraLanding.primary, heraLanding.primaryDark]}
+                    style={styles.sessionAvatarGradient}
+                  >
+                    <Text style={styles.sessionAvatarText}>
+                      {session.specialistName.charAt(0)}
+                    </Text>
+                  </LinearGradient>
+                )}
+              </View>
+              <View style={styles.sessionInfo}>
+                <Text style={styles.sessionSpecialistName}>{session.specialistName}</Text>
+                <Text style={styles.sessionSpecialization}>{session.specialization}</Text>
+                <View style={styles.sessionMeta}>
+                  <Ionicons name="calendar-outline" size={14} color={heraLanding.textSecondary} />
+                  <Text style={styles.sessionMetaText}>
+                    {formatSessionDate(session.date)}
+                  </Text>
+                </View>
+                <View style={styles.sessionMeta}>
+                  <Ionicons name="videocam-outline" size={14} color={heraLanding.textSecondary} />
+                  <Text style={styles.sessionMetaText}>Videollamada</Text>
+                  <Text style={styles.sessionPrice}>€{session.price}</Text>
+                </View>
+              </View>
+              <View style={styles.sessionActions}>
+                <TouchableOpacity style={styles.joinSessionButton}>
+                  <LinearGradient
+                    colors={[heraLanding.primary, heraLanding.primaryDark]}
+                    style={styles.joinSessionGradient}
+                  >
+                    <Text style={styles.joinSessionText}>Unirse</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : (
+        <View style={styles.emptyState}>
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name="calendar-outline" size={48} color={heraLanding.textMuted} />
+          </View>
+          <Text style={styles.emptyTitle}>No tienes sesiones programadas</Text>
+          <Text style={styles.emptyDescription}>
+            Encuentra un especialista y reserva tu primera sesión
+          </Text>
+          <TouchableOpacity
+            style={styles.emptyButton}
+            onPress={() => navigation.navigate(hasCompletedQuestionnaire ? 'Specialists' : 'Questionnaire')}
+          >
+            <Text style={styles.emptyButtonText}>Encontrar especialista</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+
+  // Render recommended specialists
+  const renderRecommendedSpecialists = () => {
+    if (!hasCompletedQuestionnaire || topSpecialists.length === 0) return null;
 
     return (
-      <View style={styles.podiumSection}>
-        <BrandText style={styles.podiumTitle}>Tus Mejores Matches</BrandText>
-        <Text style={styles.podiumSubtitle}>
-          Basado en tu cuestionario, estos son tus especialistas más compatibles
-        </Text>
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Especialistas recomendados</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Specialists')}>
+            <Text style={styles.sectionLink}>Ver todos</Text>
+          </TouchableOpacity>
+        </View>
 
-        {/* Horizontal Row of Compact Cards */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.podiumCardsContainer}
-          style={styles.podiumScrollView}
+          contentContainerStyle={styles.specialistsScroll}
         >
-          {topSpecialists.map((specialist, index) => {
-            // Safety check: ensure specialist data exists
-            if (!specialist || !specialist.user) {
-              return null;
-            }
-            return renderPodiumCard(specialist, index);
-          })}
+          {topSpecialists.map((specialist) => (
+            <TouchableOpacity
+              key={specialist.id}
+              style={styles.specialistCard}
+              onPress={() => navigation.navigate('SpecialistDetail', { specialistId: specialist.id })}
+              activeOpacity={0.85}
+            >
+              <View style={styles.specialistAvatarContainer}>
+                {specialist.avatar ? (
+                  <Image source={{ uri: specialist.avatar }} style={styles.specialistAvatar} />
+                ) : (
+                  <LinearGradient
+                    colors={[heraLanding.secondary, heraLanding.secondaryDark]}
+                    style={styles.specialistAvatar}
+                  >
+                    <Text style={styles.specialistAvatarText}>
+                      {specialist.user.name.charAt(0)}
+                    </Text>
+                  </LinearGradient>
+                )}
+                {specialist.firstVisitFree && (
+                  <View style={styles.freeBadge}>
+                    <Text style={styles.freeBadgeText}>Gratis</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.specialistName} numberOfLines={1}>
+                {specialist.user.name}
+              </Text>
+              <Text style={styles.specialistSpecialization} numberOfLines={2}>
+                {specialist.specialization}
+              </Text>
+              <View style={styles.specialistRating}>
+                <Ionicons name="star" size={14} color="#FFB800" />
+                <Text style={styles.specialistRatingText}>
+                  {specialist.rating} ({specialist.reviewsCount})
+                </Text>
+              </View>
+              <Text style={styles.specialistPrice}>€{specialist.pricePerSession}/sesión</Text>
+              <TouchableOpacity style={styles.viewProfileButton}>
+                <Text style={styles.viewProfileText}>Ver perfil</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          ))}
         </ScrollView>
-
-        {/* View All Button */}
-        <TouchableOpacity
-          style={styles.viewAllButton}
-          onPress={() => navigation.navigate('Specialists')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.viewAllSolid}>
-            <Text style={styles.viewAllText}>Ver todos mis matches</Text>
-            <Ionicons name="arrow-forward" size={20} color={colors.neutral.white} />
-          </View>
-        </TouchableOpacity>
-
-        {/* Discrete Retake Button */}
-        <TouchableOpacity
-          style={styles.retakeButton}
-          onPress={() => navigation.navigate('Questionnaire')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="refresh" size={16} color={colors.neutral.gray600} />
-          <Text style={styles.retakeButtonText}>Actualizar cuestionario</Text>
-        </TouchableOpacity>
       </View>
     );
   };
 
-  return (
-    <GradientBackground>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Logo Header */}
-        <View style={styles.logoHeader}>
-          <StyledLogo size={100} />
-        </View>
+  // Render CTA for users who haven't completed questionnaire
+  const renderQuestionnaireCTA = () => {
+    if (hasCompletedQuestionnaire) return null;
 
-        {/* Hero Section - Conditional rendering based on questionnaire status */}
+    return (
+      <View style={styles.section}>
         <LinearGradient
-          colors={[branding.primary, branding.secondary, branding.accent]}
-          style={styles.hero}
+          colors={[heraLanding.primary, heraLanding.primaryDark]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
+          style={styles.ctaCard}
         >
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.neutral.white} />
-            <Text style={styles.loadingText}>Cargando...</Text>
-          </View>
-        ) : hasCompletedQuestionnaire ? (
-          /* Show podium for users who completed questionnaire */
-          renderPodium()
-        ) : (
-          /* Show CTA for users who haven't completed questionnaire */
-          <>
-            {/* Floating badge */}
-            <View style={styles.badge}>
-              <Ionicons name="shield-checkmark" size={14} color={colors.primary.main} />
-              <Text style={styles.badgeText}>Plataforma líder en bienestar mental</Text>
+          <View style={styles.ctaContent}>
+            <View style={styles.ctaIconContainer}>
+              <Ionicons name="heart" size={32} color="#FFFFFF" />
             </View>
-
-            {/* Main heading with emphasis */}
-            <Text style={styles.heroTitle}>
-              Encuentra el{'\n'}
-              <BrandText style={styles.heroTitleAccent}>especialista perfecto</BrandText>
-              {'\n'}para ti
+            <Text style={styles.ctaTitle}>Encuentra tu match perfecto</Text>
+            <Text style={styles.ctaDescription}>
+              Completa nuestro cuestionario de 5 minutos y te conectaremos con el especialista ideal para ti.
             </Text>
-
-            <Text style={styles.heroSubtitle}>
-              Nuestro algoritmo de afinidad conecta a usuarios con psicólogos basándose en personalidad, valores y necesidades específicas.
-            </Text>
-
-            {/* CTA Button - More prominent */}
             <TouchableOpacity
-              style={styles.ctaButtonWrapper}
+              style={styles.ctaButton}
               onPress={() => navigation.navigate('Questionnaire')}
-              activeOpacity={0.9}
             >
-              <View style={styles.ctaButton}>
-                <BrandIcon name="heart" size={24} />
-                <Text style={styles.ctaText}>Comenzar Cuestionario</Text>
-                <BrandIcon name="arrow-forward" size={20} />
-              </View>
+              <Text style={styles.ctaButtonText}>Comenzar cuestionario</Text>
+              <Ionicons name="arrow-forward" size={20} color={heraLanding.primary} />
             </TouchableOpacity>
-
-            <View style={styles.heroInfo}>
-              <Ionicons name="time-outline" size={16} color={colors.neutral.white} />
-              <Text style={styles.heroInfoText}>Solo 5 minutos • Totalmente gratuito</Text>
+            <View style={styles.ctaInfo}>
+              <Ionicons name="time-outline" size={16} color="rgba(255,255,255,0.9)" />
+              <Text style={styles.ctaInfoText}>Solo 5 minutos • Gratuito</Text>
             </View>
-          </>
-        )}
-
-        {/* Decorative circles */}
-        <View style={[styles.decorCircle, styles.decorCircle1]} />
-        <View style={[styles.decorCircle, styles.decorCircle2]} />
-      </LinearGradient>
-
-      {/* Stats Section - Trust indicators */}
-      <View style={styles.statsContainer}>
-        {stats.map((stat, index) => (
-          <View key={index} style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-              <BrandIcon name={stat.icon as any} size={24} />
-            </View>
-            <BrandText style={styles.statValue}>{stat.value}</BrandText>
-            <Text style={styles.statLabel}>{stat.label}</Text>
           </View>
-        ))}
+          {/* Decorative elements */}
+          <View style={[styles.ctaDecorCircle, styles.ctaDecorCircle1]} />
+          <View style={[styles.ctaDecorCircle, styles.ctaDecorCircle2]} />
+        </LinearGradient>
       </View>
+    );
+  };
 
-      {/* Why HERA section */}
-      <View style={styles.section}>
-        <BrandText style={styles.sectionTitle}>¿Por qué elegir HERA?</BrandText>
-        <Text style={styles.sectionSubtitle}>
-          Tu bienestar mental es nuestra prioridad
-        </Text>
-
-        <View style={styles.featuresGrid}>
-          {features.map((feature, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.featureCard}
-              activeOpacity={0.95}
-            >
-              <View style={[styles.featureIconContainer, { backgroundColor: feature.bgColor }]}>
-                <BrandIcon name={feature.icon as any} size={32} />
-              </View>
-              <BrandText style={styles.featureTitle}>{feature.title}</BrandText>
-              <Text style={styles.featureDescription}>{feature.description}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={heraLanding.primary} />
+        <Text style={styles.loadingText}>Cargando...</Text>
       </View>
+    );
+  }
 
-      {/* Testimonials section */}
-      <View style={styles.section}>
-        <BrandText style={styles.sectionTitle}>Lo que dicen nuestros usuarios</BrandText>
-        <View style={styles.testimonialsContainer}>
-          {testimonials.map((testimonial, index) => (
-            <View key={index} style={styles.testimonialCard}>
-              <View style={styles.testimonialHeader}>
-                <LinearGradient
-                  colors={['#2196F3', '#00897B']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.testimonialAvatar}
-                >
-                  <Text style={styles.testimonialAvatarText}>
-                    {testimonial.name.charAt(0)}
-                  </Text>
-                </LinearGradient>
-                <View style={styles.testimonialInfo}>
-                  <Text style={styles.testimonialName}>{testimonial.name}</Text>
-                  <View style={styles.testimonialRating}>
-                    {Array(testimonial.rating).fill(0).map((_, i) => (
-                      <Ionicons key={i} name="star" size={14} color={colors.secondary.orange} />
-                    ))}
-                  </View>
-                </View>
-              </View>
-              <Text style={styles.testimonialText}>"{testimonial.text}"</Text>
-            </View>
-          ))}
-        </View>
-      </View>
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          isDesktop && styles.scrollContentDesktop,
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {renderWelcomeHeader()}
+        {renderQuickActions()}
+        {renderQuestionnaireCTA()}
+        {renderUpcomingSessions()}
+        {renderRecommendedSpecialists()}
 
-        {/* Final CTA */}
-        <View style={styles.finalCta}>
-          <BrandText style={styles.finalCtaTitle}>¿Listo para comenzar?</BrandText>
-          <Text style={styles.finalCtaSubtitle}>
-            Da el primer paso hacia tu bienestar mental
-          </Text>
-          <Button
-            variant="primary"
-            size="large"
-            onPress={() => navigation.navigate('Questionnaire')}
-          >
-            Iniciar ahora
-          </Button>
-        </View>
+        {/* Bottom spacing */}
+        <View style={{ height: 40 }} />
       </ScrollView>
-    </GradientBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: heraLanding.background,
   },
-  logoHeader: {
-    alignItems: 'center',
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-  },
-  hero: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxxl * 2,
-    position: 'relative',
-    overflow: 'hidden',
-    borderRadius: borderRadius.xl,
-    marginHorizontal: spacing.md,
-    ...shadows.lg,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: colors.neutral.white,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 20,
-    marginBottom: spacing.xl,
-    gap: spacing.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary.main,
-  },
-  heroTitle: {
-    fontSize: 40,
-    fontWeight: '800',
-    color: colors.neutral.white,
-    lineHeight: 48,
-    marginBottom: spacing.md,
-  },
-  heroTitleAccent: {
-    color: '#81D4FA', // Light blue that works well with blue-green gradient
-  },
-  heroSubtitle: {
-    fontSize: 16,
-    color: colors.neutral.white,
-    opacity: 0.95,
-    lineHeight: 24,
-    marginBottom: spacing.xl,
-  },
-  ctaButtonWrapper: {
-    marginBottom: spacing.md,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  ctaButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    gap: spacing.sm,
-    backgroundColor: colors.neutral.white,
-  },
-  ctaText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.primary.main,
-  },
-  heroInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-  },
-  heroInfoText: {
-    fontSize: 14,
-    color: colors.neutral.white,
-    opacity: 0.9,
-  },
-  decorCircle: {
-    position: 'absolute',
-    borderRadius: 1000,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  decorCircle1: {
-    width: 300,
-    height: 300,
-    top: -100,
-    right: -100,
-  },
-  decorCircle2: {
-    width: 200,
-    height: 200,
-    bottom: -50,
-    left: -50,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    marginHorizontal: spacing.lg,
-    marginTop: -spacing.xxxl,
-    backgroundColor: colors.neutral.white,
-    borderRadius: 20,
-    padding: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-    gap: spacing.lg,
-  },
-  statCard: {
+  scrollView: {
     flex: 1,
-    alignItems: 'center',
   },
-  statIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary[100],
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
+  scrollContent: {
+    padding: 20,
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.neutral.gray900,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.neutral.gray600,
-    textAlign: 'center',
-  },
-  section: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xxxl,
-  },
-  sectionTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.neutral.gray900,
-    marginBottom: spacing.xs,
-  },
-  sectionSubtitle: {
-    fontSize: 16,
-    color: colors.neutral.gray600,
-    marginBottom: spacing.xl,
-  },
-  featuresGrid: {
-    gap: spacing.lg,
-  },
-  featureCard: {
-    backgroundColor: colors.neutral.white,
-    borderRadius: 16,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.neutral.gray200,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+  scrollContentDesktop: {
     maxWidth: 1200,
     alignSelf: 'center',
     width: '100%',
+    paddingHorizontal: 40,
   },
-  featureIconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  featureTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.neutral.gray900,
-    marginBottom: spacing.xs,
-  },
-  featureDescription: {
-    fontSize: 15,
-    color: colors.neutral.gray600,
-    lineHeight: 22,
-  },
-  testimonialsContainer: {
-    gap: spacing.md,
-  },
-  testimonialCard: {
-    backgroundColor: colors.neutral.gray50,
-    borderRadius: 16,
-    padding: spacing.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: '#2196F3',
-  },
-  testimonialHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  testimonialAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  testimonialAvatarText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.neutral.white,
-  },
-  testimonialInfo: {
-    flex: 1,
-  },
-  testimonialName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.neutral.gray900,
-    marginBottom: 2,
-  },
-  testimonialRating: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  testimonialText: {
-    fontSize: 14,
-    color: colors.neutral.gray700,
-    fontStyle: 'italic',
-    lineHeight: 20,
-  },
-  finalCta: {
-    marginHorizontal: spacing.xl,
-    marginBottom: spacing.xxxl,
-    backgroundColor: colors.primary[50],
-    borderRadius: 20,
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  finalCtaTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.neutral.gray900,
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  finalCtaSubtitle: {
-    fontSize: 16,
-    color: colors.neutral.gray600,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  // Loading state
   loadingContainer: {
-    paddingVertical: spacing.xxxl * 2,
-    alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: heraLanding.background,
   },
   loadingText: {
-    marginTop: spacing.md,
+    marginTop: 16,
     fontSize: 16,
-    color: colors.neutral.white,
-    fontWeight: '600',
+    color: heraLanding.textSecondary,
   },
-  // Podium styles - Compact horizontal layout
-  podiumSection: {
-    paddingVertical: spacing.xl,
-    width: '100%',
+
+  // Welcome Header
+  welcomeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 24,
   },
-  podiumTitle: {
+  welcomeContent: {
+    flex: 1,
+  },
+  welcomeGreeting: {
     fontSize: 28,
-    fontWeight: '800',
-    color: colors.neutral.white,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-    paddingHorizontal: spacing.lg,
+    fontWeight: '700',
+    color: heraLanding.textPrimary,
+    marginBottom: 4,
   },
-  podiumSubtitle: {
-    fontSize: 15,
-    color: colors.neutral.white,
-    opacity: 0.95,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-    paddingHorizontal: spacing.lg,
+  welcomeSubtitle: {
+    fontSize: 16,
+    color: heraLanding.textSecondary,
   },
-  podiumCardsContainer: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-    justifyContent: 'center', // Center cards horizontally
+  profileButton: {
+    padding: 4,
+  },
+  profileAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: heraLanding.primaryMuted,
+    justifyContent: 'center',
     alignItems: 'center',
-    flexGrow: 1, // Allow container to grow and enable centering
-    minWidth: '100%', // Ensure full width on larger screens
+    ...shadows.sm,
   },
-  podiumScrollView: {
-    width: '100%',
+
+  // Section
+  section: {
+    marginBottom: 32,
   },
-  // Compact podium card
-  podiumCard: {
-    width: 260,
-    backgroundColor: colors.neutral.white,
-    borderRadius: 20,
-    padding: spacing.lg,
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
+    marginBottom: 16,
   },
-  podiumCardFirst: {
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: heraLanding.textPrimary,
+  },
+  sectionLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: heraLanding.primary,
+  },
+
+  // Quick Actions
+  quickActionsGrid: {
+    gap: 16,
+  },
+  quickActionsGridDesktop: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  quickActionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    ...shadows.md,
+  },
+  quickActionCardHighlight: {
     borderWidth: 2,
-    borderColor: '#FFD700',
-    shadowOpacity: 0.25,
-    elevation: 8,
+    borderColor: heraLanding.secondaryLight,
   },
-  // Card header
-  podiumHeader: {
+  quickActionCardDesktop: {
+    flex: 1,
+    minWidth: 280,
+  },
+  quickActionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  quickActionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: heraLanding.textPrimary,
+    marginBottom: 4,
+  },
+  quickActionContent: {
+    fontSize: 14,
+    color: heraLanding.textSecondary,
+    marginBottom: 12,
+  },
+  quickActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+  },
+  quickActionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // Sessions
+  sessionsList: {
+    gap: 16,
+  },
+  sessionCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    ...shadows.md,
+  },
+  sessionAvatar: {
+    marginRight: 16,
+  },
+  sessionAvatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
+  sessionAvatarGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
+    alignItems: 'center',
   },
-  medalIcon: {
-    fontSize: 32,
+  sessionAvatarText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  podiumPercentage: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.neutral.gray900,
+  sessionInfo: {
+    flex: 1,
   },
-  // Avatar
-  podiumAvatarContainer: {
-    position: 'relative',
-    marginBottom: spacing.md,
+  sessionSpecialistName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: heraLanding.textPrimary,
+    marginBottom: 2,
   },
-  podiumAvatar: {
+  sessionSpecialization: {
+    fontSize: 14,
+    color: heraLanding.textSecondary,
+    marginBottom: 8,
+  },
+  sessionMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  sessionMetaText: {
+    fontSize: 13,
+    color: heraLanding.textSecondary,
+  },
+  sessionPrice: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: heraLanding.primary,
+    marginLeft: 'auto',
+  },
+  sessionActions: {
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  joinSessionButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  joinSessionGradient: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  joinSessionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // Empty State
+  emptyState: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    ...shadows.sm,
+  },
+  emptyIconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    borderWidth: 3,
-    borderColor: colors.primary[100],
+    backgroundColor: heraLanding.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: heraLanding.textPrimary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyDescription: {
+    fontSize: 14,
+    color: heraLanding.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+    maxWidth: 280,
+  },
+  emptyButton: {
+    backgroundColor: heraLanding.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+  },
+  emptyButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // Specialists
+  specialistsScroll: {
+    paddingRight: 20,
+    gap: 16,
+  },
+  specialistCard: {
+    width: 200,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    ...shadows.md,
+  },
+  specialistAvatarContainer: {
+    position: 'relative',
+    marginBottom: 12,
+  },
+  specialistAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  podiumAvatarText: {
-    fontSize: 32,
+  specialistAvatarText: {
+    fontSize: 28,
     fontWeight: '700',
-    color: colors.neutral.white,
+    color: '#FFFFFF',
   },
   freeBadge: {
     position: 'absolute',
     bottom: -4,
     right: -4,
-    backgroundColor: colors.feedback.success,
-    paddingHorizontal: spacing.xs,
+    backgroundColor: heraLanding.success,
+    paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: colors.neutral.white,
+    borderColor: '#FFFFFF',
   },
   freeBadgeText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
-    color: colors.neutral.white,
+    color: '#FFFFFF',
   },
-  // Specialist info
-  podiumInfo: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  podiumName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.neutral.gray900,
-    marginBottom: 4,
+  specialistName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: heraLanding.textPrimary,
+    marginBottom: 2,
     textAlign: 'center',
   },
-  podiumSpecialty: {
+  specialistSpecialization: {
     fontSize: 13,
-    color: colors.neutral.gray600,
-    marginBottom: spacing.sm,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
-    minHeight: 32,
+    marginBottom: 8,
+    minHeight: 36,
   },
-  // Stats row
-  podiumStats: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginBottom: spacing.md,
-    justifyContent: 'center',
-  },
-  podiumStat: {
+  specialistRating: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    marginBottom: 4,
   },
-  podiumStatText: {
-    fontSize: 12,
+  specialistRatingText: {
+    fontSize: 13,
+    color: heraLanding.textSecondary,
+  },
+  specialistPrice: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: heraLanding.primary,
+    marginBottom: 12,
+  },
+  viewProfileButton: {
+    borderWidth: 2,
+    borderColor: heraLanding.border,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  viewProfileText: {
+    fontSize: 13,
     fontWeight: '600',
-    color: colors.neutral.gray700,
+    color: heraLanding.textPrimary,
   },
-  // CTA Button
-  podiumButton: {
-    width: '100%',
-    borderRadius: borderRadius.md,
+
+  // CTA Card
+  ctaCard: {
+    borderRadius: 20,
+    padding: 24,
     overflow: 'hidden',
+    position: 'relative',
+  },
+  ctaContent: {
+    zIndex: 1,
+  },
+  ctaIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  ctaTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  ctaDescription: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.9)',
+    lineHeight: 22,
+    marginBottom: 20,
+    maxWidth: 400,
+  },
+  ctaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    gap: 8,
+    alignSelf: 'flex-start',
     ...shadows.md,
   },
-  podiumButtonSolid: {
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: branding.accent,
-  },
-  podiumButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.neutral.white,
-  },
-  viewAllButton: {
-    marginHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-    ...shadows.lg,
-  },
-  viewAllSolid: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    gap: spacing.xs,
-    backgroundColor: branding.accent,
-  },
-  viewAllText: {
+  ctaButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.neutral.white,
+    color: heraLanding.primary,
   },
-  // Discrete retake button
-  retakeButton: {
+  ctaInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.md,
-    marginHorizontal: spacing.lg,
+    gap: 8,
+    marginTop: 16,
   },
-  retakeButtonText: {
+  ctaInfoText: {
     fontSize: 14,
-    color: colors.neutral.gray600,
-    textDecorationLine: 'underline',
+    color: 'rgba(255,255,255,0.9)',
+  },
+  ctaDecorCircle: {
+    position: 'absolute',
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  ctaDecorCircle1: {
+    width: 200,
+    height: 200,
+    top: -60,
+    right: -60,
+  },
+  ctaDecorCircle2: {
+    width: 150,
+    height: 150,
+    bottom: -40,
+    right: 60,
   },
 });

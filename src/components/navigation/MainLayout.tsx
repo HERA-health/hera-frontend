@@ -1,25 +1,37 @@
 /**
  * MainLayout
- * Simple permanent sidebar layout without animations
- * Shows sidebar on large screens, hides on mobile
+ *
+ * Responsive layout wrapper that manages sidebar visibility.
+ * - Large screens (>=768px): Permanent sidebar + content side-by-side
+ * - Mobile (<768px): Content only (drawer can be added)
+ *
+ * Single Responsibility Principle (SRP):
+ * - Only responsible for layout management
+ * - Sidebar content delegated to CustomDrawerContent
  */
 
 import React from 'react';
 import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { CustomDrawerContent } from './CustomDrawerContent';
-import { colors, layout } from '../../constants/colors';
+import { colors, layout, heraLanding } from '../../constants/colors';
 import { useNavigationState } from '@react-navigation/native';
+import { SIDEBAR_THEME } from './sidebar/navConfig';
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
-export function MainLayout({ children }: MainLayoutProps) {
+/**
+ * MainLayout provides a responsive two-column layout for authenticated screens
+ *
+ * @param children - The main content to render
+ */
+export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
   const { width } = useWindowDimensions();
   const isLargeScreen = width >= 768;
 
   // Get current route name from navigation state
-  const currentRoute = useNavigationState(state => {
+  const currentRoute = useNavigationState((state) => {
     if (!state || !state.routes || state.routes.length === 0) return 'Home';
     const route = state.routes[state.index];
     // If it's MainStack, get the nested route
@@ -33,8 +45,8 @@ export function MainLayout({ children }: MainLayoutProps) {
   });
 
   if (!isLargeScreen) {
-    // On mobile, just show content (we can add a simple drawer later)
-    return <View style={styles.container}>{children}</View>;
+    // On mobile, just show content (drawer can be added later)
+    return <View style={styles.mobileContainer}>{children}</View>;
   }
 
   // On desktop/tablet: permanent sidebar + content
@@ -43,9 +55,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       <View style={styles.sidebar}>
         <CustomDrawerContent currentRoute={currentRoute} />
       </View>
-      <View style={styles.content}>
-        {children}
-      </View>
+      <View style={styles.content}>{children}</View>
     </View>
   );
 }
@@ -54,16 +64,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: colors.neutral.gray50,
+    backgroundColor: heraLanding.background, // Light sage background
+  },
+  mobileContainer: {
+    flex: 1,
+    backgroundColor: heraLanding.background,
   },
   sidebar: {
-    width: layout.drawerWidth,
-    backgroundColor: colors.neutral.white,
+    width: SIDEBAR_THEME.width,
+    // Background handled by GradientBackground in CustomDrawerContent
     borderRightWidth: 1,
-    borderRightColor: colors.neutral.gray200,
+    borderRightColor: SIDEBAR_THEME.border,
   },
   content: {
     flex: 1,
     backgroundColor: colors.neutral.white,
   },
 });
+
+export default MainLayout;

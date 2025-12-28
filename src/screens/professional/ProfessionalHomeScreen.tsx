@@ -1,25 +1,59 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
-import { colors, spacing, branding, borderRadius, shadows } from '../../constants/colors';
+/**
+ * ProfessionalHomeScreen - Specialist Dashboard
+ * Modern, clean professional dashboard with stats, sessions, and pending requests
+ * Follows HERA design language with sage green and lavender palette
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  useWindowDimensions,
+  ActivityIndicator,
+  Image,
+  Animated,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { heraLanding, colors, spacing, borderRadius, shadows } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as professionalService from '../../services/professionalService';
-import { BrandText } from '../../components/common/BrandText';
-import { BrandIcon } from '../../components/common/BrandIcon';
-import { GradientBackground } from '../../components/common/GradientBackground';
-import { StyledLogo } from '../../components/common/StyledLogo';
-
-const { width: screenWidth } = Dimensions.get('window');
 
 export function ProfessionalHomeScreen() {
   const { user } = useAuth();
   const navigation = useNavigation<any>();
+  const { width } = useWindowDimensions();
+
+  const isDesktop = width >= 1024;
+  const isTablet = width >= 768 && width < 1024;
 
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<professionalService.Session[]>([]);
   const [profile, setProfile] = useState<professionalService.ProfessionalProfile | null>(null);
+
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    // Entrance animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -40,463 +74,696 @@ export function ProfessionalHomeScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.primary.main} />
-      </View>
-    );
-  }
-
-  // Calculate stats from real data
-  const stats = {
-    totalClients: profile?.sessionsCount || 0,
-    sessionsThisWeek: sessions.filter(s => {
-      const date = new Date(s.scheduledDate);
-      const now = new Date();
-      const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      return date >= now && date <= weekLater;
-    }).length,
-    averageRating: profile?.rating || 0,
-    pendingAppointments: sessions.filter(s => s.status === 'PENDING').length,
+  // Get greeting based on time
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Buenos días';
+    if (hour < 19) return 'Buenas tardes';
+    return 'Buenas noches';
   };
 
-  // Get next 3 upcoming sessions
-  const upcomingSessions = sessions
-    .filter(s => s.status === 'SCHEDULED' && new Date(s.scheduledDate) > new Date())
-    .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
-    .slice(0, 3)
-    .map(s => ({
-      id: s.id,
-      date: new Date(s.scheduledDate),
-      clientName: s.client?.user?.name || 'Cliente',
-      clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
-      duration: 60,
-      status: s.status.toLowerCase()
-    }));
+  // Calculate stats from data
+  const getStats = () => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-  const statsCards = [
-    {
-      id: 'clients',
-      label: 'Clientes totales',
-      value: stats.totalClients.toString(),
-      icon: 'people',
-      gradient: ['#2196F3', '#00897B'] as const,
-    },
-    {
-      id: 'sessions',
-      label: 'Sesiones esta semana',
-      value: stats.sessionsThisWeek.toString(),
-      icon: 'calendar',
-      gradient: ['#2196F3', '#64B5F6'] as const,
-    },
-    {
-      id: 'rating',
-      label: 'Valoración media',
-      value: stats.averageRating.toFixed(1),
-      icon: 'star',
-      gradient: ['#FFD700', '#FFA500'] as const,
-    },
-    {
-      id: 'pending',
-      label: 'Citas pendientes',
-      value: stats.pendingAppointments.toString(),
-      icon: 'time',
-      gradient: ['#FF9800', '#FFB74D'] as const,
-    },
-  ];
+    const sessionsThisMonth = sessions.filter(s => {
+      const date = new Date(s.scheduledDate);
+      return date >= startOfMonth && date <= endOfMonth && s.status === 'COMPLETED';
+    }).length;
 
-  const quickActions = [
-    {
-      id: 'clients',
-      title: 'Ver mis clientes',
-      description: 'Gestiona tu lista de pacientes',
-      icon: 'people',
-      color: branding.accent,
-      onPress: () => navigation.navigate('ProfessionalClients'),
-    },
-    {
-      id: 'sessions',
-      title: 'Gestionar sesiones',
-      description: 'Próximas citas y solicitudes',
-      icon: 'calendar',
-      color: branding.primary,
-      onPress: () => navigation.navigate('ProfessionalSessions'),
-    },
-    {
-      id: 'availability',
-      title: 'Configurar disponibilidad',
-      description: 'Define tu horario y días no disponibles',
-      icon: 'time',
-      color: branding.accent,
-      onPress: () => navigation.navigate('ProfessionalAvailability'),
-    },
-    {
-      id: 'profile',
-      title: 'Editar mi perfil',
-      description: 'Actualiza tu información profesional',
-      icon: 'create',
-      color: branding.secondary,
-      onPress: () => navigation.navigate('ProfessionalProfile'),
-    },
-  ];
+    const todaySessions = sessions.filter(s => {
+      const date = new Date(s.scheduledDate);
+      const today = new Date();
+      return date.toDateString() === today.toDateString();
+    });
 
+    const pendingRequests = sessions.filter(s => s.status === 'PENDING').length;
+
+    // Mock revenue calculation (in real app, this would come from API)
+    const revenueThisMonth = sessionsThisMonth * (profile?.pricePerSession || 60);
+
+    return {
+      sessionsThisMonth,
+      sessionsToday: todaySessions.length,
+      pendingRequests,
+      revenueThisMonth,
+      completedToday: todaySessions.filter(s => s.status === 'COMPLETED').length,
+      averageRating: profile?.rating || 0,
+    };
+  };
+
+  const stats = getStats();
+
+  // Get today's sessions
+  const getTodaySessions = () => {
+    const today = new Date();
+    return sessions
+      .filter(s => {
+        const date = new Date(s.scheduledDate);
+        return date.toDateString() === today.toDateString() && s.status !== 'CANCELLED';
+      })
+      .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
+      .map(s => ({
+        id: s.id,
+        clientName: s.client?.user?.name || 'Cliente',
+        clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
+        date: new Date(s.scheduledDate),
+        duration: 60,
+        status: s.status.toLowerCase(),
+        isFirstSession: false, // Would come from API
+        issue: 'Sesión programada',
+      }));
+  };
+
+  // Get pending confirmations
+  const getPendingRequests = () => {
+    return sessions
+      .filter(s => s.status === 'PENDING')
+      .slice(0, 3)
+      .map(s => ({
+        id: s.id,
+        clientName: s.client?.user?.name || 'Cliente',
+        clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
+        date: new Date(s.scheduledDate),
+        isFirstSession: true, // Would come from API
+        price: profile?.pricePerSession || 60,
+      }));
+  };
+
+  const todaySessions = getTodaySessions();
+  const pendingRequests = getPendingRequests();
+
+  // Format time
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Format date
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+    const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
   };
 
-  return (
-    <GradientBackground>
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-        {/* Logo Header */}
-        <View style={styles.logoHeader}>
-          <StyledLogo size={100} />
+  // Handle session confirmation
+  const handleConfirmSession = async (sessionId: string) => {
+    // TODO: Implement confirmation API call
+    console.log('Confirming session:', sessionId);
+  };
+
+  // Handle session decline
+  const handleDeclineSession = async (sessionId: string) => {
+    // TODO: Implement decline API call
+    console.log('Declining session:', sessionId);
+  };
+
+  // Render welcome header
+  const renderWelcomeHeader = () => (
+    <Animated.View
+      style={[
+        styles.welcomeHeader,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <View style={styles.welcomeContent}>
+        <Text style={styles.welcomeGreeting}>
+          {getGreeting()}, Dr. {user?.name?.split(' ').pop() || 'Especialista'}
+        </Text>
+        <Text style={styles.welcomeSubtitle}>
+          Gestiona tu práctica desde aquí
+        </Text>
+      </View>
+      <TouchableOpacity
+        style={styles.profileButton}
+        onPress={() => navigation.navigate('ProfessionalProfile')}
+      >
+        <View style={styles.profileAvatar}>
+          <Ionicons name="person" size={24} color={heraLanding.secondary} />
         </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 
-        {/* Welcome header with gradient */}
-        <LinearGradient
-          colors={[branding.primary, branding.secondary, branding.accent]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.welcomeHeader}
-        >
-        <View style={styles.decorCircle1} />
-        <View style={styles.decorCircle2} />
+  // Render stats cards
+  const renderStatsCards = () => {
+    const statsData = [
+      {
+        id: 'sessions-month',
+        icon: 'bar-chart',
+        value: stats.sessionsThisMonth.toString(),
+        label: 'Sesiones este mes',
+        color: heraLanding.primary,
+        bgColor: heraLanding.primaryMuted,
+      },
+      {
+        id: 'sessions-today',
+        icon: 'calendar',
+        value: stats.sessionsToday.toString(),
+        label: 'Sesiones hoy',
+        subtext: stats.completedToday > 0 ? `${stats.completedToday} completadas` : null,
+        color: heraLanding.secondary,
+        bgColor: heraLanding.secondaryMuted,
+      },
+      {
+        id: 'revenue',
+        icon: 'wallet',
+        value: `€${stats.revenueThisMonth}`,
+        label: 'Ingresos este mes',
+        subtext: profile?.pricePerSession ? `€${profile.pricePerSession}/sesión` : null,
+        color: heraLanding.success,
+        bgColor: 'rgba(123, 163, 119, 0.15)',
+      },
+    ];
 
-        <View style={styles.welcomeContent}>
-          <Text style={styles.welcomeGreeting}>Hola, {user?.name || 'Doctor/a'}</Text>
-          <Text style={styles.welcomeSubtitle}>Bienvenido a tu panel profesional</Text>
-        </View>
-
-        <View style={styles.welcomeIconContainer}>
-          <Ionicons name="heart" size={32} color={colors.neutral.white} />
-        </View>
-      </LinearGradient>
-
-      {/* Stats cards - floating with negative margin */}
-      <View style={styles.statsContainer}>
-        {statsCards.map((stat) => (
-          <View key={stat.id} style={styles.statCard}>
-            <LinearGradient
-              colors={stat.gradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.statIconContainer}
+    return (
+      <View style={styles.section}>
+        <View style={[
+          styles.statsGrid,
+          isDesktop && styles.statsGridDesktop,
+        ]}>
+          {statsData.map((stat, index) => (
+            <Animated.View
+              key={stat.id}
+              style={[
+                styles.statCard,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideAnim }],
+                },
+              ]}
             >
-              <Ionicons name={stat.icon as any} size={24} color={colors.neutral.white} />
-            </LinearGradient>
-            <BrandText style={styles.statValue}>{stat.value}</BrandText>
-            <Text style={styles.statLabel}>{stat.label}</Text>
-          </View>
-        ))}
+              <View style={[styles.statIconContainer, { backgroundColor: stat.bgColor }]}>
+                <Ionicons name={stat.icon as any} size={24} color={stat.color} />
+              </View>
+              <Text style={[styles.statValue, { color: stat.color }]}>{stat.value}</Text>
+              <Text style={styles.statLabel}>{stat.label}</Text>
+              {stat.subtext && (
+                <Text style={styles.statSubtext}>{stat.subtext}</Text>
+              )}
+            </Animated.View>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  // Render quick actions
+  const renderQuickActions = () => {
+    const actions = [
+      {
+        id: 'clients',
+        icon: 'people',
+        title: 'Ver mis clientes',
+        description: 'Gestiona tu lista de pacientes',
+        onPress: () => navigation.navigate('ProfessionalClients'),
+      },
+      {
+        id: 'sessions',
+        icon: 'calendar',
+        title: 'Gestionar sesiones',
+        description: 'Próximas citas y solicitudes',
+        onPress: () => navigation.navigate('ProfessionalSessions'),
+      },
+      {
+        id: 'availability',
+        icon: 'time',
+        title: 'Configurar disponibilidad',
+        description: 'Define tu horario',
+        onPress: () => navigation.navigate('ProfessionalAvailability'),
+      },
+      {
+        id: 'profile',
+        icon: 'create',
+        title: 'Editar mi perfil',
+        description: 'Actualiza tu información',
+        onPress: () => navigation.navigate('ProfessionalProfile'),
+      },
+    ];
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Acciones rápidas</Text>
+        <View style={[
+          styles.actionsGrid,
+          isDesktop && styles.actionsGridDesktop,
+        ]}>
+          {actions.map((action) => (
+            <TouchableOpacity
+              key={action.id}
+              style={[styles.actionCard, isDesktop && styles.actionCardDesktop]}
+              onPress={action.onPress}
+              activeOpacity={0.85}
+            >
+              <View style={styles.actionIconContainer}>
+                <Ionicons name={action.icon as any} size={24} color={heraLanding.primary} />
+              </View>
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>{action.title}</Text>
+                <Text style={styles.actionDescription}>{action.description}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={heraLanding.textMuted} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  // Render today's sessions
+  const renderTodaySessions = () => (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Sesiones de hoy</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('ProfessionalSessions')}>
+          <Text style={styles.sectionLink}>Ver todas</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Content container */}
-      <View style={styles.contentContainer}>
-        {/* Quick actions */}
-        <View style={styles.section}>
-          <BrandText style={styles.sectionTitle}>Acciones rápidas</BrandText>
-          <View style={styles.quickActionsGrid}>
-            {quickActions.map((action) => (
-              <TouchableOpacity
-                key={action.id}
-                style={styles.quickActionCard}
-                onPress={action.onPress}
-                activeOpacity={0.7}
+      {todaySessions.length > 0 ? (
+        <View style={styles.sessionsList}>
+          {todaySessions.map((session) => {
+            const isUpcoming = session.date > new Date();
+            const isInProgress = !isUpcoming && session.status === 'scheduled';
+
+            return (
+              <View
+                key={session.id}
+                style={[
+                  styles.sessionCard,
+                  isInProgress && styles.sessionCardActive,
+                  session.status === 'completed' && styles.sessionCardCompleted,
+                ]}
               >
-                <View style={[styles.quickActionIcon, { backgroundColor: action.color + '15' }]}>
-                  <Ionicons name={action.icon as any} size={28} color={action.color} />
+                <View style={styles.sessionTimeContainer}>
+                  <Text style={[
+                    styles.sessionTime,
+                    isInProgress && styles.sessionTimeActive,
+                  ]}>
+                    {formatTime(session.date)}
+                  </Text>
+                  <Text style={styles.sessionDuration}>{session.duration} min</Text>
                 </View>
-                <View style={styles.quickActionContent}>
-                  <Text style={styles.quickActionTitle}>{action.title}</Text>
-                  <Text style={styles.quickActionDescription}>{action.description}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.neutral.gray400} />
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
 
-        {/* Upcoming sessions */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <BrandText style={styles.sectionTitle}>Próximas sesiones</BrandText>
-            <TouchableOpacity onPress={() => navigation.navigate('ProfessionalSessions')}>
-              <Text style={styles.sectionLink}>Ver todas</Text>
-            </TouchableOpacity>
-          </View>
+                <View style={styles.sessionDivider} />
 
-          {upcomingSessions.length === 0 ? (
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIconContainer}>
-                <Ionicons name="calendar-outline" size={48} color={colors.neutral.gray400} />
-              </View>
-              <Text style={styles.emptyTitle}>No hay sesiones programadas</Text>
-              <Text style={styles.emptyDescription}>
-                Tus próximas citas aparecerán aquí
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.sessionsList}>
-              {upcomingSessions.map((session) => (
-                <View key={session.id} style={styles.sessionCard}>
-                  <View style={styles.sessionTime}>
-                    <Text style={styles.sessionTimeText}>{formatTime(session.date)}</Text>
-                    <Text style={styles.sessionDateText}>{formatDate(session.date)}</Text>
-                  </View>
-
-                  <View style={styles.sessionDivider} />
-
-                  <View style={styles.sessionInfo}>
-                    <View style={styles.sessionClient}>
-                      <View style={styles.clientAvatar}>
-                        <Text style={styles.clientAvatarText}>{session.clientInitial}</Text>
-                      </View>
-                      <View style={styles.clientInfo}>
-                        <Text style={styles.clientName}>{session.clientName}</Text>
-                        <View style={styles.sessionMeta}>
-                          <Ionicons name="videocam" size={14} color={colors.neutral.gray500} />
-                          <Text style={styles.sessionDuration}>{session.duration} min</Text>
-                        </View>
+                <View style={styles.sessionInfo}>
+                  <View style={styles.sessionClient}>
+                    <View style={[
+                      styles.clientAvatar,
+                      isInProgress && styles.clientAvatarActive,
+                    ]}>
+                      <Text style={[
+                        styles.clientAvatarText,
+                        isInProgress && styles.clientAvatarTextActive,
+                      ]}>
+                        {session.clientInitial}
+                      </Text>
+                    </View>
+                    <View style={styles.clientDetails}>
+                      <Text style={styles.clientName}>{session.clientName}</Text>
+                      <View style={styles.sessionMeta}>
+                        {session.isFirstSession && (
+                          <View style={styles.firstSessionBadge}>
+                            <Text style={styles.firstSessionBadgeText}>Primera sesión</Text>
+                          </View>
+                        )}
+                        <Text style={styles.sessionIssue}>{session.issue}</Text>
                       </View>
                     </View>
+                  </View>
 
-                    <TouchableOpacity style={styles.sessionAction}>
-                      <Ionicons name="arrow-forward" size={20} color={colors.primary.main} />
+                  <View style={styles.sessionActions}>
+                    {isInProgress && (
+                      <TouchableOpacity style={styles.startSessionButton}>
+                        <LinearGradient
+                          colors={[heraLanding.primary, heraLanding.primaryDark]}
+                          style={styles.startSessionGradient}
+                        >
+                          <Ionicons name="videocam" size={16} color="#FFFFFF" />
+                          <Text style={styles.startSessionText}>Iniciar</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    )}
+                    {session.status === 'completed' && (
+                      <View style={styles.completedBadge}>
+                        <Ionicons name="checkmark-circle" size={16} color={heraLanding.success} />
+                        <Text style={styles.completedText}>Completada</Text>
+                      </View>
+                    )}
+                    <TouchableOpacity
+                      style={styles.viewProfileIconButton}
+                      onPress={() => navigation.navigate('ClientDetail', { clientId: session.id })}
+                    >
+                      <Ionicons name="person-circle-outline" size={24} color={heraLanding.textSecondary} />
                     </TouchableOpacity>
                   </View>
                 </View>
-              ))}
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        <View style={styles.emptyState}>
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name="sunny-outline" size={48} color={heraLanding.textMuted} />
+          </View>
+          <Text style={styles.emptyTitle}>No tienes sesiones programadas hoy</Text>
+          <Text style={styles.emptyDescription}>
+            Disfruta tu tiempo libre
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+
+  // Render pending confirmations
+  const renderPendingConfirmations = () => {
+    if (pendingRequests.length === 0) return null;
+
+    return (
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleContainer}>
+            <Text style={styles.sectionTitle}>Solicitudes pendientes</Text>
+            <View style={styles.pendingBadge}>
+              <Text style={styles.pendingBadgeText}>{pendingRequests.length}</Text>
             </View>
-          )}
+          </View>
+          <TouchableOpacity onPress={() => navigation.navigate('ProfessionalSessions')}>
+            <Text style={styles.sectionLink}>Ver todas</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.requestsList}>
+          {pendingRequests.map((request) => (
+            <View key={request.id} style={styles.requestCard}>
+              <View style={styles.requestBadge}>
+                <Text style={styles.requestBadgeText}>Nueva solicitud</Text>
+              </View>
+
+              <View style={styles.requestContent}>
+                <View style={styles.requestClient}>
+                  <View style={styles.requestAvatar}>
+                    <Text style={styles.requestAvatarText}>{request.clientInitial}</Text>
+                  </View>
+                  <View style={styles.requestInfo}>
+                    <Text style={styles.requestClientName}>{request.clientName}</Text>
+                    {request.isFirstSession && (
+                      <Text style={styles.requestType}>Primera sesión</Text>
+                    )}
+                    <View style={styles.requestMeta}>
+                      <Ionicons name="calendar-outline" size={14} color={heraLanding.textSecondary} />
+                      <Text style={styles.requestMetaText}>
+                        {formatDate(request.date)} - {formatTime(request.date)}
+                      </Text>
+                    </View>
+                    <View style={styles.requestMeta}>
+                      <Ionicons name="videocam-outline" size={14} color={heraLanding.textSecondary} />
+                      <Text style={styles.requestMetaText}>Videollamada</Text>
+                      <Text style={styles.requestPrice}>€{request.price}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.requestActions}>
+                  <TouchableOpacity
+                    style={styles.confirmButton}
+                    onPress={() => handleConfirmSession(request.id)}
+                  >
+                    <LinearGradient
+                      colors={[heraLanding.primary, heraLanding.primaryDark]}
+                      style={styles.confirmButtonGradient}
+                    >
+                      <Text style={styles.confirmButtonText}>Confirmar</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.declineButton}
+                    onPress={() => handleDeclineSession(request.id)}
+                  >
+                    <Text style={styles.declineButtonText}>Rechazar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          ))}
         </View>
       </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={heraLanding.primary} />
+        <Text style={styles.loadingText}>Cargando...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          isDesktop && styles.scrollContentDesktop,
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {renderWelcomeHeader()}
+        {renderStatsCards()}
+        {renderPendingConfirmations()}
+        {renderTodaySessions()}
+        {renderQuickActions()}
+
+        {/* Bottom spacing */}
+        <View style={{ height: 40 }} />
       </ScrollView>
-    </GradientBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: heraLanding.background,
+  },
+  scrollView: {
+    flex: 1,
   },
   scrollContent: {
-    paddingBottom: spacing.xxxl,
+    padding: 20,
   },
-  logoHeader: {
+  scrollContentDesktop: {
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
+    paddingHorizontal: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
+    backgroundColor: heraLanding.background,
   },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: heraLanding.textSecondary,
+  },
+
+  // Welcome Header
   welcomeHeader: {
-    paddingHorizontal: screenWidth > 768 ? spacing.xxxl * 2 : spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxxl * 2,
-    position: 'relative',
-    overflow: 'hidden',
-    borderRadius: borderRadius.xl,
-    marginHorizontal: spacing.md,
-    ...shadows.lg,
-  },
-  decorCircle1: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    top: -50,
-    right: -50,
-  },
-  decorCircle2: {
-    position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    bottom: -30,
-    left: -40,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
   },
   welcomeContent: {
     flex: 1,
-    zIndex: 1,
   },
   welcomeGreeting: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: colors.neutral.white,
-    marginBottom: spacing.xs,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    fontSize: 28,
+    fontWeight: '700',
+    color: heraLanding.textPrimary,
+    marginBottom: 4,
   },
   welcomeSubtitle: {
     fontSize: 16,
-    color: colors.neutral.white,
-    opacity: 0.95,
+    color: heraLanding.textSecondary,
   },
-  welcomeIconContainer: {
-    position: 'absolute',
-    top: spacing.xl,
-    right: screenWidth > 768 ? spacing.xxxl * 2 : spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  profileButton: {
+    padding: 4,
+  },
+  profileAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: heraLanding.secondaryMuted,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1,
+    ...shadows.sm,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: screenWidth > 768 ? spacing.xxxl * 2 : spacing.lg,
-    marginTop: -spacing.xxxl,
-    gap: spacing.md,
-  },
-  statCard: {
-    flex: 1,
-    minWidth: screenWidth > 768 ? 150 : '47%',
-    backgroundColor: colors.neutral.white,
-    borderRadius: 20,
-    padding: spacing.lg,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  statIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.neutral.gray900,
-    marginBottom: spacing.xs,
-  },
-  statLabel: {
-    fontSize: 13,
-    color: colors.neutral.gray600,
-    textAlign: 'center',
-  },
-  contentContainer: {
-    paddingHorizontal: screenWidth > 768 ? spacing.xxxl * 2 : spacing.lg,
-    marginTop: spacing.xl,
-  },
+
+  // Section
   section: {
-    marginBottom: spacing.xl,
+    marginBottom: 32,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: 16,
   },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.neutral.gray900,
-  },
-  sectionLink: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.primary.main,
-  },
-  quickActionsGrid: {
-    gap: spacing.md,
-  },
-  quickActionCard: {
+  sectionTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.neutral.white,
-    borderRadius: 16,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.neutral.gray200,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    gap: 8,
   },
-  quickActionIcon: {
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: heraLanding.textPrimary,
+  },
+  sectionLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: heraLanding.primary,
+  },
+
+  // Stats Grid
+  statsGrid: {
+    gap: 16,
+  },
+  statsGridDesktop: {
+    flexDirection: 'row',
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    ...shadows.md,
+  },
+  statIconContainer: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    marginBottom: 12,
   },
-  quickActionContent: {
+  statValue: {
+    fontSize: 32,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: heraLanding.textSecondary,
+    textAlign: 'center',
+  },
+  statSubtext: {
+    fontSize: 12,
+    color: heraLanding.textMuted,
+    marginTop: 4,
+  },
+
+  // Actions Grid
+  actionsGrid: {
+    gap: 12,
+  },
+  actionsGridDesktop: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  actionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    ...shadows.sm,
+  },
+  actionCardDesktop: {
+    flex: 1,
+    minWidth: 280,
+  },
+  actionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: heraLanding.primaryMuted,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  actionContent: {
     flex: 1,
   },
-  quickActionTitle: {
-    fontSize: 16,
+  actionTitle: {
+    fontSize: 15,
     fontWeight: '700',
-    color: colors.neutral.gray900,
-    marginBottom: spacing.xs,
+    color: heraLanding.textPrimary,
+    marginBottom: 2,
   },
-  quickActionDescription: {
-    fontSize: 14,
-    color: colors.neutral.gray600,
+  actionDescription: {
+    fontSize: 13,
+    color: heraLanding.textSecondary,
   },
+
+  // Sessions List
   sessionsList: {
-    gap: spacing.md,
+    gap: 12,
   },
   sessionCard: {
     flexDirection: 'row',
-    backgroundColor: colors.neutral.white,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.neutral.gray200,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    padding: 16,
+    ...shadows.md,
   },
-  sessionTime: {
-    width: 80,
+  sessionCardActive: {
+    borderWidth: 2,
+    borderColor: heraLanding.primary,
+  },
+  sessionCardCompleted: {
+    opacity: 0.7,
+  },
+  sessionTimeContainer: {
+    width: 70,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sessionTimeText: {
+  sessionTime: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.primary.main,
-    marginBottom: spacing.xs,
+    color: heraLanding.textPrimary,
+    marginBottom: 4,
   },
-  sessionDateText: {
+  sessionTimeActive: {
+    color: heraLanding.primary,
+  },
+  sessionDuration: {
     fontSize: 12,
-    color: colors.neutral.gray600,
-    textTransform: 'capitalize',
+    color: heraLanding.textMuted,
   },
   sessionDivider: {
     width: 1,
-    backgroundColor: colors.neutral.gray200,
-    marginHorizontal: spacing.md,
+    backgroundColor: heraLanding.border,
+    marginHorizontal: 16,
   },
   sessionInfo: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   sessionClient: {
     flex: 1,
@@ -504,71 +771,238 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   clientAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary[100],
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: heraLanding.secondaryMuted,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    marginRight: 12,
+  },
+  clientAvatarActive: {
+    backgroundColor: heraLanding.primaryMuted,
   },
   clientAvatarText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
-    color: colors.primary.main,
+    color: heraLanding.secondary,
   },
-  clientInfo: {
+  clientAvatarTextActive: {
+    color: heraLanding.primary,
+  },
+  clientDetails: {
     flex: 1,
   },
   clientName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.neutral.gray900,
-    marginBottom: spacing.xs,
+    fontSize: 15,
+    fontWeight: '700',
+    color: heraLanding.textPrimary,
+    marginBottom: 4,
   },
   sessionMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 8,
   },
-  sessionDuration: {
+  firstSessionBadge: {
+    backgroundColor: heraLanding.secondaryMuted,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  firstSessionBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: heraLanding.secondary,
+  },
+  sessionIssue: {
     fontSize: 13,
-    color: colors.neutral.gray600,
+    color: heraLanding.textSecondary,
   },
-  sessionAction: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primary[50],
-    justifyContent: 'center',
+  sessionActions: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
+  startSessionButton: {
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  startSessionGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    gap: 6,
+  },
+  startSessionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  completedText: {
+    fontSize: 12,
+    color: heraLanding.success,
+    fontWeight: '600',
+  },
+  viewProfileIconButton: {
+    padding: 4,
+  },
+
+  // Empty State
   emptyState: {
-    backgroundColor: colors.neutral.white,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: spacing.xxxl,
+    padding: 32,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.neutral.gray200,
+    ...shadows.sm,
   },
   emptyIconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: colors.neutral.gray100,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: heraLanding.background,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: 16,
   },
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.neutral.gray900,
-    marginBottom: spacing.xs,
+    color: heraLanding.textPrimary,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   emptyDescription: {
-    fontSize: 15,
-    color: colors.neutral.gray600,
+    fontSize: 14,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
+  },
+
+  // Pending Badge
+  pendingBadge: {
+    backgroundColor: heraLanding.warning,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  pendingBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // Requests List
+  requestsList: {
+    gap: 16,
+  },
+  requestCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: heraLanding.primaryLight,
+    ...shadows.md,
+  },
+  requestBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: heraLanding.primaryMuted,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  requestBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: heraLanding.primary,
+  },
+  requestContent: {
+    gap: 16,
+  },
+  requestClient: {
+    flexDirection: 'row',
+  },
+  requestAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: heraLanding.secondaryMuted,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  requestAvatarText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: heraLanding.secondary,
+  },
+  requestInfo: {
+    flex: 1,
+  },
+  requestClientName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: heraLanding.textPrimary,
+    marginBottom: 2,
+  },
+  requestType: {
+    fontSize: 13,
+    color: heraLanding.textSecondary,
+    marginBottom: 8,
+  },
+  requestMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  requestMetaText: {
+    fontSize: 13,
+    color: heraLanding.textSecondary,
+  },
+  requestPrice: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: heraLanding.primary,
+    marginLeft: 'auto',
+  },
+  requestActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  confirmButton: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  confirmButtonGradient: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  confirmButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  declineButton: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: heraLanding.border,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  declineButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: heraLanding.textSecondary,
   },
 });
