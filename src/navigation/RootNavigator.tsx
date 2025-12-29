@@ -238,11 +238,16 @@ export function RootNavigator() {
       />
       <Stack.Screen
         name="Questionnaire"
-        component={QuestionnaireScreen}
         options={{
           headerShown: false,
         }}
-      />
+      >
+        {() => (
+          <MainLayout>
+            <QuestionnaireScreen />
+          </MainLayout>
+        )}
+      </Stack.Screen>
       <Stack.Screen
         name="QuestionnaireResults"
         options={{ headerTitle: 'Tus Resultados' }}

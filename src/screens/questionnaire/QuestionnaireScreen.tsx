@@ -1,22 +1,75 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, ActivityIndicator } from 'react-native';
-import { colors, spacing } from '../../constants/colors';
-import { questionnaire } from '../../utils/questionnaireData';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  useWindowDimensions,
+  Alert,
+  ActivityIndicator,
+  Animated,
+  Platform,
+} from 'react-native';
+import { heraLanding, spacing, borderRadius, typography } from '../../constants/colors';
+import { questionnaire, categoryLabels, Question } from '../../utils/questionnaireData';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { UserAnswers } from '../../utils/matchingAlgorithm';
-import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../services/api';
 import { getMatchedSpecialists } from '../../services/specialistsService';
 
-const { width: screenWidth } = Dimensions.get('window');
+// HERA Design Colors - Used throughout the questionnaire
+const HERA_COLORS = {
+  background: '#F5F7F5',       // Light Sage - CRITICAL
+  cardBg: '#FFFFFF',
+  primary: '#8B9D83',          // Sage Green
+  primaryLight: '#A8B8A0',
+  primaryDark: '#6E8066',
+  selectedBg: '#E8F5E8',       // Light sage tint for selected state
+  textPrimary: '#2C3E2C',      // Forest green
+  textSecondary: '#6B7B6B',
+  textMuted: '#9BA89B',
+  border: '#E8EBE8',
+  borderLight: '#F0F4F0',
+  progressBg: '#E8EBE8',
+  white: '#FFFFFF',
+};
+
+// Step types for the questionnaire flow
+type StepType = 'welcome' | 'question' | 'review';
+
+interface StepConfig {
+  type: StepType;
+  questionIndex?: number;
+}
 
 export function QuestionnaireScreen() {
   const navigation = useNavigation<any>();
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const { width: screenWidth } = useWindowDimensions();
+  const isDesktop = screenWidth >= 1024;
+  const isTablet = screenWidth >= 768 && screenWidth < 1024;
+  const isMobile = screenWidth < 768;
+
+  // Step management - includes welcome (0), questions (1-15), review (16)
+  const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<UserAnswers>({});
   const [loading, setLoading] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
+
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
+
+  // Total steps: welcome + 15 questions + review
+  const totalSteps = questionnaire.length + 2;
+  const isWelcome = currentStep === 0;
+  const isReview = currentStep === totalSteps - 1;
+  const currentQuestionIndex = currentStep - 1; // Adjust for welcome screen
+  const currentQuestion = !isWelcome && !isReview ? questionnaire[currentQuestionIndex] : null;
+
+  // Progress calculation (excluding welcome, including review as 100%)
+  const progress = isWelcome ? 0 : isReview ? 100 : ((currentStep) / (totalSteps - 1)) * 100;
 
   // Check if user has already completed the questionnaire
   useEffect(() => {
@@ -25,22 +78,17 @@ export function QuestionnaireScreen() {
         const response = await getMatchedSpecialists();
 
         if (response.hasCompletedQuestionnaire) {
-          // User already completed the questionnaire - offer options
           Alert.alert(
             'Cuestionario Completado',
             'Ya has completado el cuestionario anteriormente. ¿Qué te gustaría hacer?',
             [
               {
                 text: 'Actualizar respuestas',
-                onPress: () => {
-                  // Allow user to retake/update the questionnaire
-                  setCheckingStatus(false);
-                },
+                onPress: () => setCheckingStatus(false),
               },
               {
                 text: 'Ver mis resultados',
                 onPress: () => {
-                  // Navigate to results with current matches
                   const results = response.specialists.map((s) => {
                     const name = s.user.name;
                     const initial = name.charAt(0).toUpperCase();
@@ -91,7 +139,6 @@ export function QuestionnaireScreen() {
                       matchedAttributes,
                     };
                   });
-
                   navigation.replace('QuestionnaireResults', { results });
                 },
               },
@@ -106,7 +153,6 @@ export function QuestionnaireScreen() {
         }
       } catch (error) {
         console.error('Error checking questionnaire status:', error);
-        // If error, allow them to proceed
       } finally {
         setCheckingStatus(false);
       }
@@ -115,19 +161,50 @@ export function QuestionnaireScreen() {
     checkQuestionnaireStatus();
   }, []);
 
-  const currentQuestion = questionnaire[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / questionnaire.length) * 100;
-  const isLastQuestion = currentQuestionIndex === questionnaire.length - 1;
-  const isFirstQuestion = currentQuestionIndex === 0;
-  const currentAnswer = answers[currentQuestion.id];
+  // Animate transition between steps
+  const animateTransition = useCallback((direction: 'forward' | 'backward', callback: () => void) => {
+    const slideDistance = direction === 'forward' ? -30 : 30;
 
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: slideDistance,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      callback();
+      slideAnim.setValue(direction === 'forward' ? 30 : -30);
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+  }, [fadeAnim, slideAnim]);
+
+  // Option selection handler
   const handleOptionSelect = (optionValue: string) => {
+    if (!currentQuestion) return;
+
     if (currentQuestion.type === 'single') {
       setAnswers(prev => ({
         ...prev,
         [currentQuestion.id]: optionValue,
       }));
     } else {
+      const currentAnswer = answers[currentQuestion.id];
       const currentAnswers = Array.isArray(currentAnswer) ? currentAnswer : [];
       const isSelected = currentAnswers.includes(optionValue);
 
@@ -146,6 +223,8 @@ export function QuestionnaireScreen() {
   };
 
   const isOptionSelected = (optionValue: string): boolean => {
+    if (!currentQuestion) return false;
+    const currentAnswer = answers[currentQuestion.id];
     if (!currentAnswer) return false;
     if (Array.isArray(currentAnswer)) {
       return currentAnswer.includes(optionValue);
@@ -154,6 +233,10 @@ export function QuestionnaireScreen() {
   };
 
   const canGoNext = (): boolean => {
+    if (isWelcome) return true;
+    if (isReview) return true;
+    if (!currentQuestion) return false;
+
     const answer = answers[currentQuestion.id];
     if (currentQuestion.type === 'single') {
       return !!answer;
@@ -162,38 +245,32 @@ export function QuestionnaireScreen() {
     }
   };
 
+  // Submit questionnaire to backend
   const submitQuestionnaire = async (answersData: UserAnswers) => {
-    console.log('📤 Submitting questionnaire answers:', JSON.stringify(answersData, null, 2));
-
     try {
       const response = await api.post('/questionnaire/submit', {
         answers: answersData
       });
-      console.log('✅ Questionnaire submitted successfully:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('❌ Error submitting questionnaire:', error);
-      console.error('Error response:', error.response?.data);
+      console.error('Error submitting questionnaire:', error);
       throw error;
     }
   };
 
+  // Navigation handlers
   const handleNext = async () => {
-    if (isLastQuestion) {
+    if (isReview) {
+      // Submit questionnaire
       try {
         setLoading(true);
-
-        // Submit answers to backend and get matched specialists
         const response = await submitQuestionnaire(answers);
-        console.log('📊 Backend returned specialists:', response.data);
 
-        // Map backend data to MatchResult format
         const backendSpecialists = response.data.specialists;
         const results = backendSpecialists.map((s: any) => {
           const name = s.user.name;
           const initial = name.charAt(0).toUpperCase();
 
-          // Map matched attributes to readable labels
           const attributeLabels: Record<string, string> = {
             specialty: 'Especialidad coincidente',
             approach: 'Enfoque terapéutico compatible',
@@ -241,9 +318,6 @@ export function QuestionnaireScreen() {
           };
         });
 
-        console.log('✅ Mapped results for display:', results);
-
-        // Navigate to results screen with real backend data
         navigation.navigate('QuestionnaireResults', { results });
       } catch (error: any) {
         Alert.alert(
@@ -255,172 +329,265 @@ export function QuestionnaireScreen() {
         setLoading(false);
       }
     } else {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      animateTransition('forward', () => {
+        setCurrentStep(currentStep + 1);
+      });
     }
   };
 
   const handlePrevious = () => {
-    if (!isFirstQuestion) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    if (currentStep > 0) {
+      animateTransition('backward', () => {
+        setCurrentStep(currentStep - 1);
+      });
     }
   };
 
-  // Show loading while checking questionnaire status
+  // Get answer summary for review screen
+  const getAnswerSummary = (questionId: string): string => {
+    const answer = answers[questionId];
+    const question = questionnaire.find(q => q.id === questionId);
+    if (!question || !answer) return '';
+
+    if (Array.isArray(answer)) {
+      return answer.map(val => {
+        const option = question.options.find(o => o.value === val);
+        return option ? `${option.emoji || ''} ${option.text}` : val;
+      }).join(', ');
+    } else {
+      const option = question.options.find(o => o.value === answer);
+      return option ? `${option.emoji || ''} ${option.text}` : answer;
+    }
+  };
+
+  // Loading state while checking questionnaire status
   if (checkingStatus) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={colors.primary.main} />
+        <ActivityIndicator size="large" color={HERA_COLORS.primary} />
         <Text style={styles.loadingText}>Verificando estado...</Text>
       </View>
     );
   }
 
+  // Dynamic styles based on screen size
+  const cardWidth = isMobile ? '100%' : isTablet ? '90%' : 700;
+  const cardPadding = isMobile ? spacing.xl : isTablet ? spacing.xxl : 48;
+  const questionFontSize = isMobile ? 20 : isTablet ? 24 : 28;
+
   return (
     <View style={styles.container}>
-      {/* Main content card - floating */}
-      <View style={styles.mainCard}>
-        {/* Header with progress */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={colors.neutral.gray900} />
-          </TouchableOpacity>
-
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
-              <LinearGradient
-                colors={['#2196F3', '#00897B']}
-                style={[styles.progressFill, { width: `${progress}%` }]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              />
-            </View>
-            <Text style={styles.progressText}>
-              Pregunta {currentQuestionIndex + 1} de {questionnaire.length}
-            </Text>
-          </View>
-        </View>
-
-        {/* Question content */}
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.questionContainer}>
-            <View style={styles.questionBadge}>
-              <Text style={styles.questionBadgeText}>
-                Pregunta {currentQuestionIndex + 1}
-              </Text>
-            </View>
-
-            <Text style={styles.questionText}>{currentQuestion.text}</Text>
-
-            {currentQuestion.type === 'multiple' && (
-              <View style={styles.multipleHintContainer}>
-                <Ionicons name="information-circle" size={16} color={colors.primary.main} />
-                <Text style={styles.multipleHint}>Puedes seleccionar varias opciones</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Options - modern grid layout */}
-          <View style={styles.optionsContainer}>
-            {currentQuestion.options.map((option) => {
-              const selected = isOptionSelected(option.value);
-              return (
-                <TouchableOpacity
-                  key={option.id}
-                  style={[
-                    styles.option,
-                    selected && styles.optionSelected
-                  ]}
-                  onPress={() => handleOptionSelect(option.value)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.optionContent}>
-                    <View style={[styles.radioButton, selected && styles.radioButtonSelected]}>
-                      {selected && (
-                        <View style={styles.radioButtonInner} />
-                      )}
-                    </View>
-                    <Text style={[styles.optionText, selected && styles.optionTextSelected]}>
-                      {option.text}
-                    </Text>
-                  </View>
-                  {selected && (
-                    <View style={styles.selectedIndicator}>
-                      <Ionicons name="checkmark" size={20} color={colors.primary.main} />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </ScrollView>
-
-        {/* Navigation buttons - modern floating style */}
-        <View style={styles.footer}>
-          <View style={styles.footerContent}>
-            {!isFirstQuestion && (
-              <TouchableOpacity
-                style={[
-                  styles.secondaryButton,
-                  loading && styles.secondaryButtonDisabled
-                ]}
-                onPress={handlePrevious}
-                disabled={loading}
-              >
-                <Ionicons
-                  name="arrow-back"
-                  size={20}
-                  color={loading ? colors.neutral.gray400 : colors.neutral.gray700}
-                />
-                <Text style={[
-                  styles.secondaryButtonText,
-                  loading && styles.secondaryButtonTextDisabled
-                ]}>
-                  Anterior
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
+      {/* Progress bar at top */}
+      {!isWelcome && (
+        <View style={[styles.progressWrapper, { paddingHorizontal: isMobile ? spacing.md : spacing.xl }]}>
+          <View style={styles.progressBarContainer}>
+            <Animated.View
               style={[
-                styles.primaryButtonWrapper,
-                !isFirstQuestion && { flex: 1 }
+                styles.progressBar,
+                {
+                  width: `${progress}%`,
+                }
               ]}
-              onPress={handleNext}
-              disabled={!canGoNext() || loading}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={(!canGoNext() || loading) ? ['#D1D5DB', '#9CA3AF'] : ['#2196F3', '#00897B']}
-                style={styles.primaryButton}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                {loading ? (
-                  <>
-                    <ActivityIndicator size="small" color={colors.neutral.white} />
-                    <Text style={styles.primaryButtonText}>Guardando...</Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.primaryButtonText}>
-                      {isLastQuestion ? 'Ver Resultados' : 'Siguiente'}
-                    </Text>
-                    <Ionicons
-                      name={isLastQuestion ? "checkmark" : "arrow-forward"}
-                      size={20}
-                      color={colors.neutral.white}
-                    />
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+            />
           </View>
+          <Text style={styles.progressText}>
+            {isReview ? 'Revisión final' : `Paso ${currentStep} de ${questionnaire.length}`}
+          </Text>
+        </View>
+      )}
+
+      {/* Main content area */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: isWelcome ? (isMobile ? 40 : 80) : (isMobile ? 24 : 40) }
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              width: cardWidth,
+              padding: cardPadding,
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            }
+          ]}
+        >
+          {/* Welcome Screen */}
+          {isWelcome && (
+            <View style={styles.welcomeContent}>
+              <Text style={styles.welcomeEmoji}>👋</Text>
+              <Text style={[styles.welcomeTitle, { fontSize: isMobile ? 28 : 36 }]}>
+                ¡Hola!
+              </Text>
+              <Text style={[styles.welcomeSubtitle, { fontSize: isMobile ? 18 : 22 }]}>
+                Vamos a encontrar el especialista perfecto para ti.
+              </Text>
+              <Text style={[styles.welcomeDescription, { fontSize: isMobile ? 15 : 16 }]}>
+                Este cuestionario toma solo 3-4 minutos. Tus respuestas nos ayudarán a conectarte con profesionales que se ajusten a tus necesidades.
+              </Text>
+
+              <View style={styles.welcomeFeatures}>
+                <View style={styles.welcomeFeature}>
+                  <View style={styles.welcomeFeatureIcon}>
+                    <Ionicons name="shield-checkmark" size={20} color={HERA_COLORS.primary} />
+                  </View>
+                  <Text style={styles.welcomeFeatureText}>100% confidencial</Text>
+                </View>
+                <View style={styles.welcomeFeature}>
+                  <View style={styles.welcomeFeatureIcon}>
+                    <Ionicons name="time" size={20} color={HERA_COLORS.primary} />
+                  </View>
+                  <Text style={styles.welcomeFeatureText}>Solo 3-4 minutos</Text>
+                </View>
+                <View style={styles.welcomeFeature}>
+                  <View style={styles.welcomeFeatureIcon}>
+                    <Ionicons name="heart" size={20} color={HERA_COLORS.primary} />
+                  </View>
+                  <Text style={styles.welcomeFeatureText}>Matching personalizado</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Question Screen */}
+          {currentQuestion && (
+            <View style={styles.questionContent}>
+              <Text style={[styles.questionText, { fontSize: questionFontSize }]}>
+                {currentQuestion.text}
+              </Text>
+
+              {currentQuestion.helpText && (
+                <Text style={styles.helpText}>{currentQuestion.helpText}</Text>
+              )}
+
+              {currentQuestion.type === 'multiple' && !currentQuestion.helpText && (
+                <View style={styles.multipleHint}>
+                  <Ionicons name="information-circle-outline" size={16} color={HERA_COLORS.primary} />
+                  <Text style={styles.multipleHintText}>Puedes seleccionar varias opciones</Text>
+                </View>
+              )}
+
+              <View style={styles.optionsContainer}>
+                {currentQuestion.options.map((option) => {
+                  const selected = isOptionSelected(option.value);
+                  return (
+                    <TouchableOpacity
+                      key={option.id}
+                      style={[
+                        styles.option,
+                        selected && styles.optionSelected,
+                        isMobile && styles.optionMobile,
+                      ]}
+                      onPress={() => handleOptionSelect(option.value)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.optionLeft}>
+                        {option.emoji && (
+                          <Text style={styles.optionEmoji}>{option.emoji}</Text>
+                        )}
+                        <Text style={[styles.optionText, selected && styles.optionTextSelected]}>
+                          {option.text}
+                        </Text>
+                      </View>
+                      <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
+                        {selected && (
+                          <Ionicons name="checkmark" size={16} color={HERA_COLORS.white} />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* Review Screen */}
+          {isReview && (
+            <View style={styles.reviewContent}>
+              <Text style={[styles.reviewTitle, { fontSize: isMobile ? 24 : 28 }]}>
+                Resumen de tus preferencias
+              </Text>
+              <Text style={styles.reviewSubtitle}>
+                Revisa que todo esté correcto antes de buscar especialistas
+              </Text>
+
+              <ScrollView style={styles.reviewList} nestedScrollEnabled>
+                {questionnaire.map((q) => {
+                  const summary = getAnswerSummary(q.id);
+                  if (!summary) return null;
+
+                  return (
+                    <View key={q.id} style={styles.reviewItem}>
+                      <Text style={styles.reviewLabel}>
+                        {categoryLabels[q.category] || q.category}
+                      </Text>
+                      <Text style={styles.reviewValue}>{summary}</Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+        </Animated.View>
+      </ScrollView>
+
+      {/* Navigation buttons */}
+      <View style={[styles.footer, { paddingHorizontal: isMobile ? spacing.md : spacing.xl }]}>
+        <View style={[styles.footerContent, isMobile && styles.footerContentMobile]}>
+          {currentStep > 0 && (
+            <TouchableOpacity
+              style={[styles.backButton, loading && styles.buttonDisabled]}
+              onPress={handlePrevious}
+              disabled={loading}
+            >
+              <Ionicons name="arrow-back" size={20} color={HERA_COLORS.textSecondary} />
+              <Text style={styles.backButtonText}>Atrás</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={[
+              styles.nextButton,
+              !canGoNext() && styles.nextButtonDisabled,
+              loading && styles.buttonDisabled,
+              currentStep === 0 && styles.nextButtonFullWidth,
+            ]}
+            onPress={handleNext}
+            disabled={!canGoNext() || loading}
+            activeOpacity={0.8}
+          >
+            {loading ? (
+              <>
+                <ActivityIndicator size="small" color={HERA_COLORS.white} />
+                <Text style={styles.nextButtonText}>Buscando...</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.nextButtonText}>
+                  {isWelcome ? 'Comenzar' : isReview ? 'Buscar especialistas' : 'Continuar'}
+                </Text>
+                <Ionicons
+                  name={isReview ? "search" : "arrow-forward"}
+                  size={20}
+                  color={HERA_COLORS.white}
+                />
+              </>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
+
+      {/* Close button */}
+      <TouchableOpacity
+        style={[styles.closeButton, { top: isMobile ? 16 : 24, right: isMobile ? 16 : 24 }]}
+        onPress={() => navigation.goBack()}
+      >
+        <Ionicons name="close" size={24} color={HERA_COLORS.textSecondary} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -428,105 +595,162 @@ export function QuestionnaireScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: HERA_COLORS.background, // #F5F7F5 Light Sage - CRITICAL
   },
-  mainCard: {
-    flex: 1,
-    backgroundColor: colors.neutral.white,
-    marginHorizontal: screenWidth > 768 ? spacing.xxxl * 3 : spacing.lg,
-    marginVertical: spacing.xl,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    overflow: 'hidden',
-    maxWidth: 1000,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral.gray200,
-    backgroundColor: colors.neutral.white,
-  },
-  closeButton: {
-    marginRight: spacing.md,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.neutral.gray100,
+  loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  progressContainer: {
-    flex: 1,
+  loadingText: {
+    marginTop: spacing.md,
+    fontSize: 16,
+    fontWeight: '600',
+    color: HERA_COLORS.textSecondary,
   },
-  progressBar: {
+
+  // Progress bar
+  progressWrapper: {
+    paddingTop: Platform.OS === 'ios' ? 60 : 24,
+    paddingBottom: spacing.md,
+    backgroundColor: HERA_COLORS.background,
+  },
+  progressBarContainer: {
     height: 8,
-    backgroundColor: colors.neutral.gray200,
+    backgroundColor: HERA_COLORS.progressBg,
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: spacing.xs,
   },
-  progressFill: {
+  progressBar: {
     height: '100%',
+    backgroundColor: HERA_COLORS.primary,
     borderRadius: 4,
   },
   progressText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: colors.neutral.gray600,
+    color: HERA_COLORS.textSecondary,
   },
-  content: {
+
+  // Scroll content
+  scrollView: {
     flex: 1,
   },
-  contentContainer: {
-    padding: spacing.xl,
-    paddingBottom: spacing.xxxl,
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    paddingBottom: 120,
   },
-  questionContainer: {
-    marginBottom: spacing.xl,
+
+  // Card
+  card: {
+    backgroundColor: HERA_COLORS.cardBg,
+    borderRadius: borderRadius.xl,
+    maxWidth: 700,
+    alignSelf: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 4,
+      },
+      web: {
+        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+      },
+    }),
   },
-  questionBadge: {
-    backgroundColor: colors.primary[100],
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-    marginBottom: spacing.md,
+
+  // Welcome screen
+  welcomeContent: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
   },
-  questionBadgeText: {
-    fontSize: 13,
+  welcomeEmoji: {
+    fontSize: 64,
+    marginBottom: spacing.lg,
+  },
+  welcomeTitle: {
     fontWeight: '700',
-    color: colors.primary.main,
-  },
-  questionText: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: colors.neutral.gray900,
-    lineHeight: 34,
+    color: HERA_COLORS.textPrimary,
     marginBottom: spacing.sm,
+    textAlign: 'center',
   },
-  multipleHintContainer: {
+  welcomeSubtitle: {
+    fontWeight: '600',
+    color: HERA_COLORS.textPrimary,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+    lineHeight: 28,
+  },
+  welcomeDescription: {
+    color: HERA_COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    maxWidth: 480,
+    marginBottom: spacing.xxl,
+  },
+  welcomeFeatures: {
+    width: '100%',
+    maxWidth: 400,
+  },
+  welcomeFeature: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary[50],
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    gap: spacing.xs,
+    marginBottom: spacing.md,
   },
-  multipleHint: {
-    fontSize: 13,
-    color: colors.primary.dark,
+  welcomeFeatureIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: HERA_COLORS.selectedBg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  welcomeFeatureText: {
+    fontSize: 16,
+    color: HERA_COLORS.textPrimary,
     fontWeight: '500',
   },
+
+  // Question screen
+  questionContent: {
+    flex: 1,
+  },
+  questionText: {
+    fontWeight: '600',
+    color: HERA_COLORS.textPrimary,
+    lineHeight: 36,
+    marginBottom: spacing.md,
+  },
+  helpText: {
+    fontSize: 16,
+    color: HERA_COLORS.textSecondary,
+    lineHeight: 24,
+    marginBottom: spacing.xl,
+  },
+  multipleHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: HERA_COLORS.selectedBg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    alignSelf: 'flex-start',
+    marginBottom: spacing.xl,
+    gap: spacing.xs,
+  },
+  multipleHintText: {
+    fontSize: 14,
+    color: HERA_COLORS.primaryDark,
+    fontWeight: '500',
+  },
+
+  // Options
   optionsContainer: {
     gap: spacing.md,
   },
@@ -534,127 +758,194 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.lg,
+    backgroundColor: HERA_COLORS.white,
     borderWidth: 2,
-    borderColor: colors.neutral.gray200,
-    borderRadius: 16,
-    backgroundColor: colors.neutral.white,
-    minHeight: 72,
+    borderColor: HERA_COLORS.border,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    minHeight: 56,
+  },
+  optionMobile: {
+    padding: spacing.md,
   },
   optionSelected: {
-    borderColor: colors.primary.main,
-    backgroundColor: colors.primary[50],
+    borderColor: HERA_COLORS.primary,
+    backgroundColor: HERA_COLORS.selectedBg,
   },
-  optionContent: {
-    flex: 1,
+  optionLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
     gap: spacing.md,
   },
-  radioButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: colors.neutral.gray300,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.neutral.white,
-  },
-  radioButtonSelected: {
-    borderColor: colors.primary.main,
-    backgroundColor: colors.primary.main,
-  },
-  radioButtonInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.neutral.white,
+  optionEmoji: {
+    fontSize: 24,
   },
   optionText: {
-    flex: 1,
     fontSize: 16,
-    color: colors.neutral.gray700,
+    color: HERA_COLORS.textPrimary,
+    flex: 1,
     lineHeight: 22,
   },
   optionTextSelected: {
-    color: colors.primary.dark,
     fontWeight: '600',
+    color: HERA_COLORS.primaryDark,
   },
-  selectedIndicator: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primary[100],
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: HERA_COLORS.border,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: HERA_COLORS.white,
   },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: colors.neutral.gray200,
-    backgroundColor: colors.neutral.white,
-    paddingHorizontal: spacing.lg,
+  checkboxSelected: {
+    backgroundColor: HERA_COLORS.primary,
+    borderColor: HERA_COLORS.primary,
+  },
+
+  // Review screen
+  reviewContent: {
+    flex: 1,
+  },
+  reviewTitle: {
+    fontWeight: '700',
+    color: HERA_COLORS.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  reviewSubtitle: {
+    fontSize: 16,
+    color: HERA_COLORS.textSecondary,
+    marginBottom: spacing.xl,
+    lineHeight: 24,
+  },
+  reviewList: {
+    maxHeight: 400,
+  },
+  reviewItem: {
     paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: HERA_COLORS.borderLight,
+  },
+  reviewLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: HERA_COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
+  },
+  reviewValue: {
+    fontSize: 16,
+    color: HERA_COLORS.textPrimary,
+    lineHeight: 22,
+  },
+
+  // Footer / Navigation
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: HERA_COLORS.background,
+    paddingVertical: spacing.lg,
+    paddingBottom: Platform.OS === 'ios' ? 34 : spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: HERA_COLORS.borderLight,
   },
   footerContent: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    maxWidth: 700,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  footerContentMobile: {
+    flexDirection: 'column-reverse',
     gap: spacing.md,
   },
-  secondaryButton: {
+  backButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.neutral.gray100,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 14,
+    borderRadius: borderRadius.md,
+    borderWidth: 2,
+    borderColor: HERA_COLORS.border,
+    backgroundColor: HERA_COLORS.white,
     gap: spacing.xs,
     minWidth: 120,
   },
-  secondaryButtonText: {
+  backButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.neutral.gray700,
+    color: HERA_COLORS.textSecondary,
   },
-  secondaryButtonDisabled: {
-    opacity: 0.5,
-  },
-  secondaryButtonTextDisabled: {
-    color: colors.neutral.gray400,
-  },
-  primaryButtonWrapper: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#2196F3',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  primaryButton: {
+  nextButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.xs,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.md,
+    backgroundColor: HERA_COLORS.primary,
+    gap: spacing.sm,
+    minWidth: 160,
+    flex: 1,
+    marginLeft: spacing.md,
+    ...Platform.select({
+      ios: {
+        shadowColor: HERA_COLORS.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
-  primaryButtonText: {
+  nextButtonFullWidth: {
+    marginLeft: 0,
+    flex: 1,
+  },
+  nextButtonDisabled: {
+    backgroundColor: HERA_COLORS.border,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  nextButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.neutral.white,
+    color: HERA_COLORS.white,
   },
-  loadingContainer: {
-    flex: 1,
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+
+  // Close button
+  closeButton: {
+    position: 'absolute',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: HERA_COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.neutral.white,
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.neutral.gray700,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
 });

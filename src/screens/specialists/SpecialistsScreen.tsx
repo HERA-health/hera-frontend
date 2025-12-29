@@ -291,7 +291,7 @@ const SpecialistsScreen: React.FC = () => {
   // Calculate grid columns based on screen size
   const gridColumns = isDesktop ? 3 : isTablet ? 2 : 1;
 
-  // Render questionnaire banner
+  // Render questionnaire banner for users who haven't completed
   const renderQuestionnaireBanner = () => (
     <TouchableOpacity
       style={styles.questionnaireBanner}
@@ -319,6 +319,29 @@ const SpecialistsScreen: React.FC = () => {
           <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
         </View>
       </LinearGradient>
+    </TouchableOpacity>
+  );
+
+  // Render refine matches banner for users who completed questionnaire
+  const renderRefineMatchesBanner = () => (
+    <TouchableOpacity
+      style={styles.refineMatchesBanner}
+      onPress={() => navigation.navigate('Questionnaire')}
+      activeOpacity={0.8}
+    >
+      <View style={styles.refineMatchesIcon}>
+        <Ionicons name="options-outline" size={22} color={heraLanding.primary} />
+      </View>
+      <View style={styles.refineMatchesTextContainer}>
+        <Text style={styles.refineMatchesTitle}>¿Cambiaron tus necesidades?</Text>
+        <Text style={styles.refineMatchesSubtitle}>
+          Actualiza tus preferencias para mejorar tus matches
+        </Text>
+      </View>
+      <View style={styles.refineMatchesButton}>
+        <Text style={styles.refineMatchesButtonText}>Refinar</Text>
+        <Ionicons name="refresh" size={14} color={heraLanding.primary} />
+      </View>
     </TouchableOpacity>
   );
 
@@ -529,8 +552,11 @@ const SpecialistsScreen: React.FC = () => {
             ]}
             showsVerticalScrollIndicator={false}
           >
-            {/* Questionnaire Banner */}
+            {/* Questionnaire Banner (for users who haven't completed) */}
             {!hasCompletedQuestionnaire && !loading && renderQuestionnaireBanner()}
+
+            {/* Refine Matches Banner (for users who completed) */}
+            {hasCompletedQuestionnaire && !loading && renderRefineMatchesBanner()}
 
             {/* Loading State */}
             {loading && (
@@ -823,6 +849,56 @@ const styles = StyleSheet.create({
   // Spacing
   bottomSpacer: {
     height: spacing.xxxl,
+  },
+
+  // Refine Matches Banner
+  refineMatchesBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderWidth: 2,
+    borderColor: heraLanding.primaryMuted,
+    gap: spacing.md,
+    ...shadows.sm,
+  },
+  refineMatchesIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: heraLanding.primaryMuted,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refineMatchesTextContainer: {
+    flex: 1,
+  },
+  refineMatchesTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: heraLanding.textPrimary,
+    marginBottom: 2,
+  },
+  refineMatchesSubtitle: {
+    fontSize: 13,
+    color: heraLanding.textSecondary,
+    lineHeight: 18,
+  },
+  refineMatchesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: heraLanding.primaryMuted,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+  },
+  refineMatchesButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: heraLanding.primary,
   },
 });
 

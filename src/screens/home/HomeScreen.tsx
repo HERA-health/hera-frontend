@@ -414,6 +414,37 @@ export default function HomeScreen() {
     );
   };
 
+  // Render "Refine Your Matches" card for users who completed questionnaire
+  const renderRefineMatchesCard = () => {
+    if (!hasCompletedQuestionnaire) return null;
+
+    return (
+      <View style={styles.section}>
+        <TouchableOpacity
+          style={styles.refineMatchesCard}
+          onPress={() => navigation.navigate('Questionnaire')}
+          activeOpacity={0.85}
+        >
+          <View style={styles.refineMatchesContent}>
+            <View style={styles.refineMatchesIconContainer}>
+              <Ionicons name="options-outline" size={28} color={heraLanding.primary} />
+            </View>
+            <View style={styles.refineMatchesText}>
+              <Text style={styles.refineMatchesTitle}>Refina tus matches</Text>
+              <Text style={styles.refineMatchesDescription}>
+                ¿Cambiaron tus necesidades? Actualiza tus preferencias para encontrar especialistas mas adecuados.
+              </Text>
+            </View>
+          </View>
+          <View style={styles.refineMatchesAction}>
+            <Text style={styles.refineMatchesActionText}>Actualizar cuestionario</Text>
+            <Ionicons name="chevron-forward" size={18} color={heraLanding.primary} />
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -436,6 +467,7 @@ export default function HomeScreen() {
         {renderWelcomeHeader()}
         {renderQuickActions()}
         {renderQuestionnaireCTA()}
+        {renderRefineMatchesCard()}
         {renderUpcomingSessions()}
         {renderRecommendedSpecialists()}
 
@@ -865,5 +897,54 @@ const styles = StyleSheet.create({
     height: 150,
     bottom: -40,
     right: 60,
+  },
+
+  // Refine Matches Card
+  refineMatchesCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: heraLanding.primaryMuted,
+    ...shadows.md,
+  },
+  refineMatchesContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
+    marginBottom: 16,
+  },
+  refineMatchesIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: heraLanding.primaryMuted,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refineMatchesText: {
+    flex: 1,
+  },
+  refineMatchesTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: heraLanding.textPrimary,
+    marginBottom: 4,
+  },
+  refineMatchesDescription: {
+    fontSize: 14,
+    color: heraLanding.textSecondary,
+    lineHeight: 20,
+  },
+  refineMatchesAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 6,
+  },
+  refineMatchesActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: heraLanding.primary,
   },
 });
