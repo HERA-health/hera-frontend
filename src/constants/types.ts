@@ -142,12 +142,11 @@ export type SortOption =
 
 /**
  * Tab type for profile screen
+ * Simplified to 2 essential tabs: personal info and payment/billing
  */
 export type ProfileTab =
   | 'information'
-  | 'payment'
-  | 'referrals'
-  | 'diary';
+  | 'payment';
 
 /**
  * Session tab type

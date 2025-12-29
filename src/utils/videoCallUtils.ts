@@ -13,7 +13,7 @@ const TIME_CONSTANTS = {
   HOUR: 60 * 60 * 1000,
   DAY: 24 * 60 * 60 * 1000,
   JOIN_WINDOW_BEFORE: 15 * 60 * 1000, // 15 minutes before session
-  SESSION_EXPIRE_AFTER: 2 * 60 * 60 * 1000, // 2 hours after session end
+  JOIN_WINDOW_AFTER: 15 * 60 * 1000, // 15 minutes after session ends
 } as const;
 
 /**
@@ -133,16 +133,16 @@ export const getVideoCallButtonState = (session: VideoCallSession): VideoCallBut
 
   // Can join 15 minutes before session starts
   const joinWindowStart = new Date(sessionStart.getTime() - TIME_CONSTANTS.JOIN_WINDOW_BEFORE);
-  // Session considered expired 2 hours after end
-  const sessionExpired = new Date(sessionEnd.getTime() + TIME_CONSTANTS.SESSION_EXPIRE_AFTER);
+  // Session considered expired 15 minutes after session end
+  const joinWindowEnd = new Date(sessionEnd.getTime() + TIME_CONSTANTS.JOIN_WINDOW_AFTER);
 
-  // Check if session has expired
-  if (now > sessionExpired) {
+  // Check if session has expired (past join window)
+  if (now > joinWindowEnd) {
     return 'COMPLETED';
   }
 
-  // Check if currently in session (between start and end + buffer)
-  if (now >= sessionStart && now <= sessionExpired) {
+  // Check if currently in session (between start and end of join window)
+  if (now >= sessionStart && now <= joinWindowEnd) {
     return 'IN_PROGRESS';
   }
 

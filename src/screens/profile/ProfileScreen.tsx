@@ -1,17 +1,21 @@
 /**
- * ProfileScreen
- * User profile with tabs for information, payment, referrals, and diary
- * Displays editable form fields in a two-column grid layout
+ * ProfileScreen - Client Profile & Settings
  *
- * LAYOUT STRUCTURE:
- * - Header with title and subtitle
- * - Horizontal scrollable tabs (4 tabs)
- * - Avatar section (centered, 120px)
- * - Two-column form grid with all personal information fields
- * - Save button at bottom
+ * A clean, trustworthy settings interface inspired by Apple Settings, Stripe,
+ * and modern healthcare apps. Designed to feel secure, professional, and effortless.
+ *
+ * Two Essential Tabs:
+ * 1. Información Personal - Personal details and profile management
+ * 2. Pagos y Facturación - Payment methods and transaction history
+ *
+ * Design Principles:
+ * - Trust: Professional enough to enter payment info confidently
+ * - Clarity: Instantly understand what each section does
+ * - Security: Visual cues that data is protected
+ * - Simplicity: No overwhelming options, just essentials
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,61 +24,256 @@ import {
   TouchableOpacity,
   Alert,
   TextInput,
+  Platform,
+  useWindowDimensions,
+  ActivityIndicator,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+
+// Only import DateTimePicker for native platforms
+let DateTimePicker: any = null;
+if (Platform.OS !== 'web') {
+  DateTimePicker = require('@react-native-community/datetimepicker').default;
+}
 
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
-import { GradientBackground } from '../../components/common/GradientBackground';
-import { colors, spacing, typography, borderRadius, branding } from '../../constants/colors';
+import { heraLanding, spacing, typography, borderRadius, shadows } from '../../constants/colors';
 import { ProfileTab } from '../../constants/types';
 import { useAuth } from '../../contexts/AuthContext';
 import * as authService from '../../services/authService';
 
+// ============================================================================
+// DESIGN TOKENS - HERA Profile Theme
+// ============================================================================
+
+const profileTheme = {
+  // Backgrounds
+  background: '#F5F7F5',        // Light Sage - CRITICAL
+  cardBackground: '#FFFFFF',
+  inputBackground: '#FFFFFF',
+  inputBackgroundDisabled: '#F5F7F5',
+
+  // Primary Actions
+  primary: '#8B9D83',           // Sage Green
+  primaryHover: '#7A8B74',
+  primaryMuted: '#E8F5E8',      // Light sage tint for active states
+
+  // Text Hierarchy
+  textDark: '#2C3E2C',          // Forest - headings
+  textMedium: '#6B7B6B',        // Gray - body
+  textLight: '#9BA39B',         // Subtle gray - helpers
+  textOnPrimary: '#FFFFFF',
+
+  // Borders & Dividers
+  border: '#E8EBE8',            // Very light gray
+  borderFocus: '#8B9D83',       // Sage green focus
+
+  // Status Colors
+  success: '#7BA377',           // Green
+  error: '#E89D88',             // Coral
+  warning: '#F5A623',
+
+  // Security Indicator
+  secure: '#7BA377',
+
+  // Scrollbar (for web)
+  scrollbarTrack: '#F0F2F0',
+  scrollbarThumb: '#D0D5D0',
+  scrollbarThumbHover: '#B8BDB8',
+};
+
+// ============================================================================
+// MOCK DATA - Payment & Transactions
+// ============================================================================
+
+interface PaymentMethod {
+  id: string;
+  type: 'visa' | 'mastercard' | 'amex';
+  last4: string;
+  expiryMonth: string;
+  expiryYear: string;
+  isDefault: boolean;
+}
+
+interface Transaction {
+  id: string;
+  date: Date;
+  amount: number;
+  currency: string;
+  description: string;
+  specialistName: string;
+  status: 'paid' | 'pending' | 'refunded';
+}
+
+// Mock data for demonstration
+const mockPaymentMethod: PaymentMethod | null = null; // Set to null to show empty state
+
+const mockTransactions: Transaction[] = [
+  // Uncomment to show transactions:
+  // {
+  //   id: '1',
+  //   date: new Date('2024-12-30'),
+  //   amount: 65.00,
+  //   currency: '€',
+  //   description: 'Sesión de terapia',
+  //   specialistName: 'Dra. Elena Rodríguez',
+  //   status: 'paid',
+  // },
+];
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Format phone number - only allow digits, +, and spaces
+ * Auto-formats as: +34 600 123 456
+ */
+const formatPhoneNumber = (value: string): string => {
+  // Only keep digits, + and spaces
+  let cleaned = value.replace(/[^\d+\s]/g, '');
+
+  // Ensure + is only at the beginning
+  const hasPlus = cleaned.startsWith('+');
+  cleaned = cleaned.replace(/\+/g, '');
+
+  // Remove extra spaces and format
+  const digits = cleaned.replace(/\s/g, '');
+
+  if (digits.length === 0) return hasPlus ? '+' : '';
+
+  // Format: +XX XXX XXX XXX
+  let formatted = '';
+  if (hasPlus) formatted = '+';
+
+  for (let i = 0; i < digits.length; i++) {
+    if (i === 2 || i === 5 || i === 8) {
+      formatted += ' ';
+    }
+    formatted += digits[i];
+  }
+
+  return formatted;
+};
+
+/**
+ * Format date for display
+ */
+const formatDateForDisplay = (date: Date): string => {
+  return date.toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+};
+
+/**
+ * Parse date string (DD/MM/YYYY) to Date object
+ */
+const parseDateString = (dateStr: string): Date | null => {
+  if (!dateStr) return null;
+  const parts = dateStr.split('/');
+  if (parts.length !== 3) return null;
+  const [day, month, year] = parts.map(Number);
+  if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+  return new Date(year, month - 1, day);
+};
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
 const ProfileScreen: React.FC = () => {
   const { user, updateUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<ProfileTab>('information');
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktop = windowWidth >= 1024;
+  const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
-  // Initialize form data with authenticated user data
+  const [activeTab, setActiveTab] = useState<ProfileTab>('information');
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Date picker state
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(
+    user?.birthDate || new Date(1990, 0, 1)
+  );
+
+  // Payment states
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(mockPaymentMethod);
+  const [transactions] = useState<Transaction[]>(mockTransactions);
+  const [isAddingCard, setIsAddingCard] = useState(false);
+
+  // Card form state
+  const [cardForm, setCardForm] = useState({
+    number: '',
+    expiry: '',
+    cvv: '',
+    name: '',
+  });
+
+  // Form data - now includes city and postalCode
   const [formData, setFormData] = useState({
     fullName: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
     birthDate: user?.birthDate ? user.birthDate.toLocaleDateString('es-ES') : '',
-    gender: user?.gender || '',
-    occupation: user?.occupation || '',
+    city: '',
+    postalCode: '',
   });
 
-  // Update form data when user data loads
+  // Track original values for change detection
+  const [originalData, setOriginalData] = useState({ ...formData });
+
   useEffect(() => {
     if (user) {
-      setFormData({
+      const newData = {
         fullName: user.name || '',
         email: user.email || '',
         phone: user.phone || '',
         birthDate: user.birthDate ? user.birthDate.toLocaleDateString('es-ES') : '',
-        gender: user.gender || '',
-        occupation: user.occupation || '',
-      });
+        city: '',
+        postalCode: '',
+      };
+      setFormData(newData);
+      setOriginalData(newData);
+      if (user.birthDate) {
+        setSelectedDate(user.birthDate);
+      }
     }
   }, [user]);
 
-  const handleChangePhoto = () => {
+  // Check for changes
+  useEffect(() => {
+    const changed = JSON.stringify(formData) !== JSON.stringify(originalData);
+    setHasChanges(changed);
+  }, [formData, originalData]);
+
+  // ============================================================================
+  // HANDLERS
+  // ============================================================================
+
+  const handleChangePhoto = useCallback(() => {
     Alert.alert(
       'Cambiar foto de perfil',
       'Selecciona una opción',
       [
-        { text: 'Tomar foto' },
-        { text: 'Elegir de galería' },
+        { text: 'Tomar foto', onPress: () => {} },
+        { text: 'Elegir de galería', onPress: () => {} },
         { text: 'Cancelar', style: 'cancel' },
       ]
     );
-  };
+  }, []);
 
-  const handleSaveProfile = async () => {
+  const handleSaveProfile = useCallback(async () => {
+    if (!hasChanges) return;
+
+    setIsSaving(true);
     try {
-      // Convert birthDate string back to ISO format for API
       const birthDateISO = formData.birthDate
         ? new Date(formData.birthDate.split('/').reverse().join('-')).toISOString()
         : undefined;
@@ -83,51 +282,438 @@ const ProfileScreen: React.FC = () => {
         name: formData.fullName,
         phone: formData.phone || undefined,
         birthDate: birthDateISO,
-        gender: formData.gender || undefined,
-        occupation: formData.occupation || undefined,
       });
 
-      // Update the user in AuthContext
       updateUser({
         name: updatedUser.name,
         phone: updatedUser.phone,
         birthDate: updatedUser.birthDate ? new Date(updatedUser.birthDate) : null,
-        gender: updatedUser.gender,
-        occupation: updatedUser.occupation,
         avatar: updatedUser.avatar,
       });
 
-      Alert.alert('Perfil actualizado', 'Los cambios se han guardado correctamente');
+      setOriginalData({ ...formData });
+
+      // Show success feedback
+      Alert.alert('✓ Cambios guardados', 'Tu perfil ha sido actualizado correctamente');
     } catch (error: any) {
       console.error('Error saving profile:', error);
       Alert.alert('Error', 'No se pudo actualizar el perfil. Intenta de nuevo.');
+    } finally {
+      setIsSaving(false);
     }
-  };
+  }, [formData, hasChanges, updateUser]);
 
-  const handleDatePicker = () => {
-    Alert.alert('Selector de fecha', 'Abre el selector de fecha. Esta funcionalidad se implementará próximamente.');
-  };
+  // Phone number handler - filters input
+  const handlePhoneChange = useCallback((text: string) => {
+    const formatted = formatPhoneNumber(text);
+    // Limit to reasonable phone length
+    if (formatted.replace(/\s/g, '').length <= 15) {
+      setFormData(prev => ({ ...prev, phone: formatted }));
+    }
+  }, []);
 
-  const handleGenderPicker = () => {
+  // Date picker handlers
+  const handleOpenDatePicker = useCallback(() => {
+    setShowDatePicker(true);
+  }, []);
+
+  const handleDateChange = useCallback((event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+
+    if (event.type === 'set' && date) {
+      setSelectedDate(date);
+      const formattedDate = date.toLocaleDateString('es-ES');
+      setFormData(prev => ({ ...prev, birthDate: formattedDate }));
+    }
+  }, []);
+
+  const handleConfirmDate = useCallback(() => {
+    const formattedDate = selectedDate.toLocaleDateString('es-ES');
+    setFormData(prev => ({ ...prev, birthDate: formattedDate }));
+    setShowDatePicker(false);
+  }, [selectedDate]);
+
+  const handleCancelDate = useCallback(() => {
+    // Reset to original date if exists
+    if (formData.birthDate) {
+      const parsed = parseDateString(formData.birthDate);
+      if (parsed) setSelectedDate(parsed);
+    }
+    setShowDatePicker(false);
+  }, [formData.birthDate]);
+
+  const handleAddCard = useCallback(() => {
+    setIsAddingCard(true);
+  }, []);
+
+  const handleCancelAddCard = useCallback(() => {
+    setIsAddingCard(false);
+    setCardForm({ number: '', expiry: '', cvv: '', name: '' });
+  }, []);
+
+  const handleSaveCard = useCallback(() => {
+    // Validate card (simplified)
+    if (cardForm.number.length < 16 || !cardForm.expiry || !cardForm.cvv || !cardForm.name) {
+      Alert.alert('Error', 'Por favor, completa todos los campos de la tarjeta.');
+      return;
+    }
+
+    // Mock saving card
+    const newCard: PaymentMethod = {
+      id: Date.now().toString(),
+      type: cardForm.number.startsWith('4') ? 'visa' : 'mastercard',
+      last4: cardForm.number.slice(-4),
+      expiryMonth: cardForm.expiry.split('/')[0],
+      expiryYear: cardForm.expiry.split('/')[1],
+      isDefault: true,
+    };
+
+    setPaymentMethod(newCard);
+    setIsAddingCard(false);
+    setCardForm({ number: '', expiry: '', cvv: '', name: '' });
+    Alert.alert('✓ Tarjeta añadida', 'Tu método de pago se ha guardado correctamente.');
+  }, [cardForm]);
+
+  const handleRemoveCard = useCallback(() => {
     Alert.alert(
-      'Selecciona tu género',
-      '',
+      'Eliminar tarjeta',
+      '¿Estás seguro de que quieres eliminar este método de pago?',
       [
-        { text: 'Masculino', onPress: () => setFormData({ ...formData, gender: 'Masculino' }) },
-        { text: 'Femenino', onPress: () => setFormData({ ...formData, gender: 'Femenino' }) },
-        { text: 'Otro', onPress: () => setFormData({ ...formData, gender: 'Otro' }) },
-        { text: 'Prefiero no decir', onPress: () => setFormData({ ...formData, gender: 'Prefiero no decir' }) },
         { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            setPaymentMethod(null);
+            Alert.alert('Tarjeta eliminada', 'Tu método de pago ha sido eliminado.');
+          }
+        },
       ]
+    );
+  }, []);
+
+  // Format card number with spaces
+  const formatCardNumber = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    const groups = numbers.match(/.{1,4}/g);
+    return groups ? groups.join(' ').slice(0, 19) : '';
+  };
+
+  // Format expiry date
+  const formatExpiry = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length >= 2) {
+      return numbers.slice(0, 2) + '/' + numbers.slice(2, 4);
+    }
+    return numbers;
+  };
+
+  // Calculate min/max dates for date picker
+  const minDate = new Date(1920, 0, 1);
+  const maxDate = new Date();
+  maxDate.setFullYear(maxDate.getFullYear() - 18); // Must be 18+
+
+  // ============================================================================
+  // WEB DATE PICKER - Custom scrollable picker for web
+  // ============================================================================
+
+  // Generate arrays for day, month, year selection
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+  const months = [
+    { value: 0, label: 'Enero' },
+    { value: 1, label: 'Febrero' },
+    { value: 2, label: 'Marzo' },
+    { value: 3, label: 'Abril' },
+    { value: 4, label: 'Mayo' },
+    { value: 5, label: 'Junio' },
+    { value: 6, label: 'Julio' },
+    { value: 7, label: 'Agosto' },
+    { value: 8, label: 'Septiembre' },
+    { value: 9, label: 'Octubre' },
+    { value: 10, label: 'Noviembre' },
+    { value: 11, label: 'Diciembre' },
+  ];
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: currentYear - 1920 - 17 }, (_, i) => currentYear - 18 - i);
+
+  // Temporary state for web picker
+  const [tempDay, setTempDay] = useState(selectedDate.getDate());
+  const [tempMonth, setTempMonth] = useState(selectedDate.getMonth());
+  const [tempYear, setTempYear] = useState(selectedDate.getFullYear());
+
+  // Reset temp values when picker opens
+  useEffect(() => {
+    if (showDatePicker) {
+      setTempDay(selectedDate.getDate());
+      setTempMonth(selectedDate.getMonth());
+      setTempYear(selectedDate.getFullYear());
+    }
+  }, [showDatePicker, selectedDate]);
+
+  const handleWebDateConfirm = useCallback(() => {
+    // Validate the day for the selected month/year
+    const daysInMonth = new Date(tempYear, tempMonth + 1, 0).getDate();
+    const validDay = Math.min(tempDay, daysInMonth);
+    const newDate = new Date(tempYear, tempMonth, validDay);
+
+    setSelectedDate(newDate);
+    const formattedDate = newDate.toLocaleDateString('es-ES');
+    setFormData(prev => ({ ...prev, birthDate: formattedDate }));
+    setShowDatePicker(false);
+  }, [tempDay, tempMonth, tempYear]);
+
+  // ============================================================================
+  // RENDER: DATE PICKER MODAL (Cross-platform)
+  // ============================================================================
+
+  const renderDatePickerModal = () => {
+    if (!showDatePicker) return null;
+
+    // iOS Native Picker
+    if (Platform.OS === 'ios' && DateTimePicker) {
+      return (
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={handleCancelDate}
+        >
+          <View style={styles.datePickerModalOverlay}>
+            <View style={styles.datePickerModalContent}>
+              <View style={styles.datePickerHeader}>
+                <TouchableOpacity onPress={handleCancelDate} activeOpacity={0.7}>
+                  <Text style={styles.datePickerCancelText}>Cancelar</Text>
+                </TouchableOpacity>
+                <Text style={styles.datePickerTitle}>Fecha de nacimiento</Text>
+                <TouchableOpacity onPress={handleConfirmDate} activeOpacity={0.7}>
+                  <Text style={styles.datePickerConfirmText}>Confirmar</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display="spinner"
+                onChange={handleDateChange}
+                minimumDate={minDate}
+                maximumDate={maxDate}
+                locale="es-ES"
+                textColor={profileTheme.textDark}
+                themeVariant="light"
+                style={styles.datePickerSpinner}
+              />
+            </View>
+          </View>
+        </Modal>
+      );
+    }
+
+    // Web Custom Picker (also fallback for other platforms)
+    return (
+      <Modal
+        visible={showDatePicker}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelDate}
+      >
+        <Pressable
+          style={styles.datePickerModalOverlay}
+          onPress={handleCancelDate}
+        >
+          <Pressable
+            style={styles.webDatePickerContent}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.datePickerHeader}>
+              <TouchableOpacity onPress={handleCancelDate} activeOpacity={0.7}>
+                <Text style={styles.datePickerCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <Text style={styles.datePickerTitle}>Fecha de nacimiento</Text>
+              <TouchableOpacity onPress={handleWebDateConfirm} activeOpacity={0.7}>
+                <Text style={styles.datePickerConfirmText}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Date selectors */}
+            <View style={styles.webDateSelectors}>
+              {/* Day */}
+              <View style={styles.webDateColumn}>
+                <Text style={styles.webDateColumnLabel}>Día</Text>
+                <ScrollView
+                  style={styles.webDateScroll}
+                  showsVerticalScrollIndicator={true}
+                >
+                  {days.map((day) => (
+                    <TouchableOpacity
+                      key={day}
+                      style={[
+                        styles.webDateOption,
+                        tempDay === day && styles.webDateOptionSelected,
+                      ]}
+                      onPress={() => setTempDay(day)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.webDateOptionText,
+                        tempDay === day && styles.webDateOptionTextSelected,
+                      ]}>
+                        {day}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Month */}
+              <View style={[styles.webDateColumn, styles.webDateColumnMonth]}>
+                <Text style={styles.webDateColumnLabel}>Mes</Text>
+                <ScrollView
+                  style={styles.webDateScroll}
+                  showsVerticalScrollIndicator={true}
+                >
+                  {months.map((month) => (
+                    <TouchableOpacity
+                      key={month.value}
+                      style={[
+                        styles.webDateOption,
+                        tempMonth === month.value && styles.webDateOptionSelected,
+                      ]}
+                      onPress={() => setTempMonth(month.value)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.webDateOptionText,
+                        tempMonth === month.value && styles.webDateOptionTextSelected,
+                      ]}>
+                        {month.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Year */}
+              <View style={styles.webDateColumn}>
+                <Text style={styles.webDateColumnLabel}>Año</Text>
+                <ScrollView
+                  style={styles.webDateScroll}
+                  showsVerticalScrollIndicator={true}
+                >
+                  {years.map((year) => (
+                    <TouchableOpacity
+                      key={year}
+                      style={[
+                        styles.webDateOption,
+                        tempYear === year && styles.webDateOptionSelected,
+                      ]}
+                      onPress={() => setTempYear(year)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.webDateOptionText,
+                        tempYear === year && styles.webDateOptionTextSelected,
+                      ]}>
+                        {year}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+
+            {/* Preview */}
+            <View style={styles.webDatePreview}>
+              <Text style={styles.webDatePreviewText}>
+                {tempDay} de {months[tempMonth]?.label} de {tempYear}
+              </Text>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     );
   };
 
-  const getGenderDisplay = () => {
-    if (!formData.gender) return 'Selecciona género';
-    return formData.gender;
+  // ============================================================================
+  // RENDER: TAB NAVIGATION
+  // ============================================================================
+
+  const renderTabNavigation = () => {
+    const tabs = [
+      { id: 'information' as ProfileTab, label: 'Información Personal', icon: 'person-outline' },
+      { id: 'payment' as ProfileTab, label: 'Pagos y Facturación', icon: 'card-outline' },
+    ];
+
+    if (isDesktop) {
+      // Desktop: Sidebar-style tabs
+      return (
+        <View style={styles.sidebarTabs}>
+          {tabs.map((tab) => (
+            <TouchableOpacity
+              key={tab.id}
+              style={[
+                styles.sidebarTab,
+                activeTab === tab.id && styles.sidebarTabActive,
+              ]}
+              onPress={() => setActiveTab(tab.id)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={tab.icon as any}
+                size={20}
+                color={activeTab === tab.id ? profileTheme.textDark : profileTheme.textMedium}
+              />
+              <Text
+                style={[
+                  styles.sidebarTabText,
+                  activeTab === tab.id && styles.sidebarTabTextActive,
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      );
+    }
+
+    // Mobile/Tablet: Horizontal pill tabs
+    return (
+      <View style={styles.pillTabsContainer}>
+        {tabs.map((tab) => (
+          <TouchableOpacity
+            key={tab.id}
+            style={[
+              styles.pillTab,
+              activeTab === tab.id && styles.pillTabActive,
+            ]}
+            onPress={() => setActiveTab(tab.id)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={tab.icon as any}
+              size={16}
+              color={activeTab === tab.id ? profileTheme.textOnPrimary : profileTheme.textMedium}
+              style={styles.pillTabIcon}
+            />
+            <Text
+              style={[
+                styles.pillTabText,
+                activeTab === tab.id && styles.pillTabTextActive,
+              ]}
+            >
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
   };
 
-  // Render form field with label and input
+  // ============================================================================
+  // RENDER: FORM INPUT
+  // ============================================================================
+
   const renderFormField = (
     label: string,
     value: string,
@@ -135,25 +721,57 @@ const ProfileScreen: React.FC = () => {
     onChangeText: (text: string) => void,
     options?: {
       disabled?: boolean;
-      keyboardType?: 'default' | 'email-address' | 'phone-pad';
+      keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'number-pad';
       isPickerField?: boolean;
       onPickerPress?: () => void;
+      helperText?: string;
+      isVerified?: boolean;
+      secureTextEntry?: boolean;
+      maxLength?: number;
+      isOptional?: boolean;
+      pickerIcon?: string;
     }
   ) => {
-    const { disabled = false, keyboardType = 'default', isPickerField = false, onPickerPress } = options || {};
+    const {
+      disabled = false,
+      keyboardType = 'default',
+      isPickerField = false,
+      onPickerPress,
+      helperText,
+      isVerified,
+      secureTextEntry,
+      maxLength,
+      isOptional,
+      pickerIcon = 'chevron-down',
+    } = options || {};
 
     return (
       <View style={styles.formField}>
-        <Text style={styles.fieldLabel}>{label}</Text>
+        <View style={styles.labelRow}>
+          <View style={styles.labelWithOptional}>
+            <Text style={styles.fieldLabel}>{label}</Text>
+            {isOptional && (
+              <Text style={styles.optionalBadge}>(Opcional)</Text>
+            )}
+          </View>
+          {isVerified && (
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="checkmark-circle" size={14} color={profileTheme.success} />
+              <Text style={styles.verifiedText}>Verificado</Text>
+            </View>
+          )}
+        </View>
+
         {isPickerField ? (
           <TouchableOpacity
-            style={[styles.fieldInput, styles.pickerInput]}
+            style={styles.fieldInput}
             onPress={onPickerPress}
+            activeOpacity={0.7}
           >
-            <Text style={[styles.pickerText, !value && styles.placeholderText]}>
+            <Text style={[styles.inputText, !value && styles.placeholderText]}>
               {value || placeholder}
             </Text>
-            <Ionicons name="chevron-down" size={20} color={colors.neutral.gray600} />
+            <Ionicons name={pickerIcon as any} size={20} color={profileTheme.textLight} />
           </TouchableOpacity>
         ) : (
           <TextInput
@@ -163,489 +781,1117 @@ const ProfileScreen: React.FC = () => {
             ]}
             value={value}
             placeholder={placeholder}
-            placeholderTextColor={colors.neutral.gray300}
+            placeholderTextColor={profileTheme.textLight}
             onChangeText={onChangeText}
             editable={!disabled}
             keyboardType={keyboardType}
+            secureTextEntry={secureTextEntry}
+            maxLength={maxLength}
           />
+        )}
+
+        {helperText && (
+          <Text style={styles.helperText}>{helperText}</Text>
         )}
       </View>
     );
   };
 
-  // Information Tab Content
+  // ============================================================================
+  // RENDER: INFORMATION TAB
+  // ============================================================================
+
   const renderInformationTab = () => (
     <View style={styles.tabContent}>
-      {/* Avatar Section */}
-      <View style={styles.avatarSection}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-          </Text>
+      {/* Profile Photo Section */}
+      <View style={styles.section}>
+        <View style={styles.avatarCard}>
+          <View style={styles.avatarContainer}>
+            <LinearGradient
+              colors={[profileTheme.primary, profileTheme.primaryHover]}
+              style={styles.avatar}
+            >
+              <Text style={styles.avatarText}>
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              </Text>
+            </LinearGradient>
+          </View>
+          <TouchableOpacity
+            style={styles.changePhotoLink}
+            onPress={handleChangePhoto}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="camera-outline" size={16} color={profileTheme.primary} />
+            <Text style={styles.changePhotoText}>Cambiar foto</Text>
+          </TouchableOpacity>
         </View>
-        <Button
-          variant="outline"
-          size="small"
-          onPress={handleChangePhoto}
-          style={styles.changePhotoButton}
-        >
-          Cambiar foto
-        </Button>
       </View>
 
-      {/* Two-Column Form Grid */}
-      <View style={styles.formGrid}>
-        {/* Row 1: Nombre completo | Email */}
-        <View style={styles.formRow}>
-          <View style={styles.formColumn}>
-            {renderFormField(
-              'Nombre completo',
-              formData.fullName,
-              'Tu nombre completo',
-              (text) => setFormData({ ...formData, fullName: text })
-            )}
-          </View>
-          <View style={styles.formColumn}>
-            {renderFormField(
-              'Email',
-              formData.email,
-              'tu@email.com',
-              (text) => setFormData({ ...formData, email: text }),
-              { disabled: true, keyboardType: 'email-address' }
-            )}
-          </View>
-        </View>
+      {/* Basic Information Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Datos personales</Text>
+        <View style={styles.formCard}>
+          {renderFormField(
+            'Nombre completo',
+            formData.fullName,
+            'Tu nombre completo',
+            (text) => setFormData({ ...formData, fullName: text })
+          )}
 
-        {/* Row 2: Teléfono | Fecha de nacimiento */}
-        <View style={styles.formRow}>
-          <View style={styles.formColumn}>
-            {renderFormField(
-              'Teléfono',
-              formData.phone,
-              '+34 XXX XXX XXX',
-              (text) => setFormData({ ...formData, phone: text }),
-              { keyboardType: 'phone-pad' }
-            )}
-          </View>
-          <View style={styles.formColumn}>
-            {renderFormField(
-              'Fecha de nacimiento',
-              formData.birthDate,
-              'dd/mm/aaaa',
-              () => {},
-              { isPickerField: true, onPickerPress: handleDatePicker }
-            )}
-          </View>
-        </View>
+          {renderFormField(
+            'Correo electrónico',
+            formData.email,
+            'tu@email.com',
+            () => {},
+            {
+              disabled: true,
+              keyboardType: 'email-address',
+              isVerified: true,
+              helperText: 'El email no se puede modificar por seguridad',
+            }
+          )}
 
-        {/* Row 3: Género | Ocupación */}
-        <View style={styles.formRow}>
-          <View style={styles.formColumn}>
-            {renderFormField(
-              'Género',
-              getGenderDisplay(),
-              'Selecciona género',
-              () => {},
-              { isPickerField: true, onPickerPress: handleGenderPicker }
-            )}
+          {renderFormField(
+            'Teléfono',
+            formData.phone,
+            '+34 600 123 456',
+            handlePhoneChange,
+            { keyboardType: 'phone-pad' }
+          )}
+
+          {/* City and Postal Code Row */}
+          <View style={styles.formRow}>
+            <View style={styles.formRowHalf}>
+              {renderFormField(
+                'Ciudad',
+                formData.city,
+                'Tu ciudad',
+                (text) => setFormData({ ...formData, city: text }),
+                {
+                  isOptional: true,
+                  helperText: 'Para sesiones presenciales',
+                }
+              )}
+            </View>
+            <View style={styles.formRowHalf}>
+              {renderFormField(
+                'Código Postal',
+                formData.postalCode,
+                '28001',
+                (text) => {
+                  // Only allow numbers for postal code
+                  const cleaned = text.replace(/\D/g, '');
+                  if (cleaned.length <= 5) {
+                    setFormData({ ...formData, postalCode: cleaned });
+                  }
+                },
+                {
+                  keyboardType: 'number-pad',
+                  isOptional: true,
+                  maxLength: 5,
+                }
+              )}
+            </View>
           </View>
-          <View style={styles.formColumn}>
-            {renderFormField(
-              'Ocupación',
-              formData.occupation,
-              'Tu profesión',
-              (text) => setFormData({ ...formData, occupation: text })
-            )}
-          </View>
+
+          {renderFormField(
+            'Fecha de nacimiento',
+            formData.birthDate ? formatDateForDisplay(parseDateString(formData.birthDate) || selectedDate) : '',
+            'Selecciona fecha',
+            () => {},
+            {
+              isPickerField: true,
+              onPickerPress: handleOpenDatePicker,
+              helperText: 'Solo visible para tu especialista',
+              pickerIcon: 'calendar-outline',
+            }
+          )}
         </View>
       </View>
 
       {/* Save Button */}
-      <Button
-        variant="primary"
-        size="large"
-        onPress={handleSaveProfile}
-        fullWidth
-        style={styles.saveButton}
-      >
-        Guardar cambios
-      </Button>
+      <View style={styles.saveButtonContainer}>
+        <TouchableOpacity
+          style={[
+            styles.saveButton,
+            !hasChanges && styles.saveButtonDisabled,
+          ]}
+          onPress={handleSaveProfile}
+          disabled={!hasChanges || isSaving}
+          activeOpacity={0.8}
+        >
+          {isSaving ? (
+            <ActivityIndicator size="small" color={profileTheme.textOnPrimary} />
+          ) : (
+            <>
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={20}
+                color={hasChanges ? profileTheme.textOnPrimary : profileTheme.textLight}
+              />
+              <Text style={[
+                styles.saveButtonText,
+                !hasChanges && styles.saveButtonTextDisabled,
+              ]}>
+                Guardar cambios
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Android Date Picker (renders inline) */}
+      {Platform.OS === 'android' && showDatePicker && DateTimePicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+          minimumDate={minDate}
+          maximumDate={maxDate}
+        />
+      )}
     </View>
   );
 
-  // Payment Tab Content
+  // ============================================================================
+  // RENDER: PAYMENT TAB
+  // ============================================================================
+
   const renderPaymentTab = () => (
     <View style={styles.tabContent}>
-      <View style={styles.emptyTabState}>
-        <View style={styles.emptyIconContainer}>
-          <Ionicons name="card" size={48} color={branding.accent} />
+      {/* Security Banner */}
+      <View style={styles.securityBanner}>
+        <View style={styles.securityIcon}>
+          <Ionicons name="lock-closed" size={16} color={profileTheme.secure} />
         </View>
-        <Text style={styles.emptyTabTitle}>Métodos de pago</Text>
-        <Text style={styles.emptyTabDescription}>
-          Administra tus métodos de pago y consulta tu saldo disponible
+        <Text style={styles.securityText}>
+          Conexión segura • Datos encriptados
         </Text>
-        <Button variant="primary" size="medium" onPress={() => {}} style={styles.emptyTabButton}>
-          Agregar método de pago
-        </Button>
       </View>
-    </View>
-  );
 
-  // Referrals Tab Content
-  const renderReferralsTab = () => (
-    <View style={styles.tabContent}>
-      <Card style={styles.referralCard} padding="large">
-        <View style={styles.referralHeader}>
-          <View style={styles.referralIconContainer}>
-            <Ionicons name="gift" size={32} color={branding.accent} />
+      {/* Payment Method Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Método de pago</Text>
+
+        {paymentMethod && !isAddingCard ? (
+          // Show saved card
+          <View style={styles.paymentCard}>
+            <View style={styles.creditCard}>
+              <View style={styles.creditCardHeader}>
+                <Ionicons
+                  name={paymentMethod.type === 'visa' ? 'card' : 'card-outline'}
+                  size={32}
+                  color={profileTheme.textDark}
+                />
+                <Text style={styles.cardBrand}>
+                  {paymentMethod.type.toUpperCase()}
+                </Text>
+              </View>
+              <Text style={styles.cardNumber}>
+                •••• •••• •••• {paymentMethod.last4}
+              </Text>
+              <Text style={styles.cardExpiry}>
+                Válida hasta: {paymentMethod.expiryMonth}/{paymentMethod.expiryYear}
+              </Text>
+            </View>
+
+            <View style={styles.cardActions}>
+              <TouchableOpacity
+                style={styles.cardActionButton}
+                onPress={handleAddCard}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="pencil-outline" size={16} color={profileTheme.primary} />
+                <Text style={styles.cardActionText}>Editar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.cardActionButton, styles.cardActionButtonDanger]}
+                onPress={handleRemoveCard}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="trash-outline" size={16} color={profileTheme.error} />
+                <Text style={[styles.cardActionText, styles.cardActionTextDanger]}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <Text style={styles.referralTitle}>Invita y gana</Text>
-        </View>
-        <Text style={styles.referralDescription}>
-          Comparte HERA con tus amigos y ambos recibirán 20€ de crédito
-          cuando completen su primera sesión.
-        </Text>
+        ) : isAddingCard ? (
+          // Add/Edit card form
+          <View style={styles.formCard}>
+            <View style={styles.cardFormHeader}>
+              <Text style={styles.cardFormTitle}>Añadir tarjeta</Text>
+              <View style={styles.secureInputBadge}>
+                <Ionicons name="shield-checkmark" size={14} color={profileTheme.secure} />
+                <Text style={styles.secureInputText}>Pago seguro</Text>
+              </View>
+            </View>
 
-        <View style={styles.referralCodeContainer}>
-          <Text style={styles.referralCodeLabel}>Tu código de referido:</Text>
-          <View style={styles.referralCode}>
-            <Text style={styles.referralCodeText}>
-              MIND-{user?.id ? user.id.substring(0, 8).toUpperCase() : 'XXXXXXXX'}
+            {renderFormField(
+              'Número de tarjeta',
+              cardForm.number,
+              '1234 5678 9012 3456',
+              (text) => setCardForm({ ...cardForm, number: formatCardNumber(text) }),
+              { keyboardType: 'number-pad', maxLength: 19 }
+            )}
+
+            <View style={styles.formRow}>
+              <View style={styles.formRowHalf}>
+                {renderFormField(
+                  'Fecha de expiración',
+                  cardForm.expiry,
+                  'MM/AA',
+                  (text) => setCardForm({ ...cardForm, expiry: formatExpiry(text) }),
+                  { keyboardType: 'number-pad', maxLength: 5 }
+                )}
+              </View>
+              <View style={styles.formRowHalf}>
+                {renderFormField(
+                  'CVV',
+                  cardForm.cvv,
+                  '123',
+                  (text) => setCardForm({ ...cardForm, cvv: text.replace(/\D/g, '') }),
+                  {
+                    keyboardType: 'number-pad',
+                    secureTextEntry: true,
+                    maxLength: 4,
+                    helperText: 'Código de seguridad',
+                  }
+                )}
+              </View>
+            </View>
+
+            {renderFormField(
+              'Nombre en la tarjeta',
+              cardForm.name,
+              'Como aparece en la tarjeta',
+              (text) => setCardForm({ ...cardForm, name: text })
+            )}
+
+            <View style={styles.cardFormActions}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCancelAddCard}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveCardButton}
+                onPress={handleSaveCard}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="lock-closed" size={16} color={profileTheme.textOnPrimary} />
+                <Text style={styles.saveCardButtonText}>Guardar tarjeta</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          // Empty state - no card
+          <View style={styles.emptyPaymentCard}>
+            <View style={styles.emptyPaymentIcon}>
+              <Ionicons name="card-outline" size={48} color={profileTheme.textLight} />
+            </View>
+            <Text style={styles.emptyPaymentTitle}>No tienes método de pago</Text>
+            <Text style={styles.emptyPaymentDescription}>
+              Añade una tarjeta para reservar sesiones de forma rápida y segura.
             </Text>
-            <TouchableOpacity>
-              <Ionicons name="copy" size={20} color={branding.primary} />
+            <TouchableOpacity
+              style={styles.addCardButton}
+              onPress={handleAddCard}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="add" size={20} color={profileTheme.textOnPrimary} />
+              <Text style={styles.addCardButtonText}>Añadir tarjeta</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        )}
+      </View>
 
-        <Button variant="primary" size="medium" onPress={() => {}} fullWidth>
-          Compartir código
-        </Button>
-      </Card>
+      {/* Transaction History Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Historial de pagos</Text>
 
-      <Text style={styles.sectionTitle}>Referidos activos</Text>
-      <Card style={styles.emptyReferralsCard} padding="large">
-        <Text style={styles.emptyReferralsText}>
-          Aún no has invitado a nadie. ¡Comparte tu código y empieza a ganar!
-        </Text>
-      </Card>
-    </View>
-  );
-
-  // Diary Tab Content
-  const renderDiaryTab = () => (
-    <View style={styles.tabContent}>
-      <View style={styles.emptyTabState}>
-        <View style={styles.emptyIconContainer}>
-          <Ionicons name="book" size={48} color={branding.accent} />
-        </View>
-        <Text style={styles.emptyTabTitle}>Diario personal</Text>
-        <Text style={styles.emptyTabDescription}>
-          Registra tus pensamientos, emociones y progreso en tu viaje de bienestar mental
-        </Text>
-        <Button variant="primary" size="medium" onPress={() => {}} style={styles.emptyTabButton}>
-          Crear primera entrada
-        </Button>
+        {transactions.length > 0 ? (
+          <View style={styles.transactionList}>
+            {transactions.map((transaction) => (
+              <View key={transaction.id} style={styles.transactionItem}>
+                <View style={styles.transactionLeft}>
+                  <View style={styles.transactionIcon}>
+                    <Ionicons
+                      name={transaction.status === 'paid' ? 'checkmark-circle' : 'time'}
+                      size={20}
+                      color={transaction.status === 'paid' ? profileTheme.success : profileTheme.warning}
+                    />
+                  </View>
+                  <View style={styles.transactionDetails}>
+                    <Text style={styles.transactionDate}>
+                      {transaction.date.toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric'
+                      })}
+                    </Text>
+                    <Text style={styles.transactionDescription}>
+                      {transaction.description}
+                    </Text>
+                    <Text style={styles.transactionSpecialist}>
+                      {transaction.specialistName}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.transactionRight}>
+                  <Text style={styles.transactionAmount}>
+                    {transaction.currency}{transaction.amount.toFixed(2)}
+                  </Text>
+                  <TouchableOpacity style={styles.receiptLink} activeOpacity={0.7}>
+                    <Text style={styles.receiptLinkText}>Ver recibo</Text>
+                    <Ionicons name="chevron-forward" size={14} color={profileTheme.primary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyTransactions}>
+            <View style={styles.emptyTransactionsIcon}>
+              <Ionicons name="receipt-outline" size={40} color={profileTheme.textLight} />
+            </View>
+            <Text style={styles.emptyTransactionsTitle}>Sin transacciones</Text>
+            <Text style={styles.emptyTransactionsDescription}>
+              Tus pagos aparecerán aquí después de tu primera sesión.
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
+
+  // ============================================================================
+  // MAIN RENDER
+  // ============================================================================
 
   return (
-    <GradientBackground>
-      <View style={styles.container}>
-        {/* Tabs - Horizontal Scrollable */}
-        <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabsScrollView}
-        contentContainerStyle={styles.tabsContainer}
-      >
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'information' && styles.tabActive]}
-          onPress={() => setActiveTab('information')}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'information' && styles.tabTextActive,
-            ]}
-          >
-            Información
-          </Text>
-        </TouchableOpacity>
+    <View style={styles.container}>
+      {isDesktop ? (
+        // Desktop: Sidebar + Content layout
+        <View style={styles.desktopLayout}>
+          {/* Sidebar */}
+          <View style={styles.sidebar}>
+            <View style={styles.sidebarHeader}>
+              <Text style={styles.sidebarTitle}>Configuración</Text>
+            </View>
+            {renderTabNavigation()}
+          </View>
 
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'payment' && styles.tabActive]}
-          onPress={() => setActiveTab('payment')}
-        >
-          <Text
-            style={[styles.tabText, activeTab === 'payment' && styles.tabTextActive]}
+          {/* Content with visible scrollbar */}
+          <ScrollView
+            style={styles.contentArea}
+            contentContainerStyle={styles.contentAreaInner}
+            showsVerticalScrollIndicator={true}
+            indicatorStyle="black"
           >
-            Pago & Saldo
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'referrals' && styles.tabActive]}
-          onPress={() => setActiveTab('referrals')}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'referrals' && styles.tabTextActive,
-            ]}
+            {activeTab === 'information' && renderInformationTab()}
+            {activeTab === 'payment' && renderPaymentTab()}
+          </ScrollView>
+        </View>
+      ) : (
+        // Mobile/Tablet: Tabs on top + Content
+        <>
+          {renderTabNavigation()}
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={true}
+            indicatorStyle="black"
           >
-            Referidos
-          </Text>
-        </TouchableOpacity>
+            {activeTab === 'information' && renderInformationTab()}
+            {activeTab === 'payment' && renderPaymentTab()}
+          </ScrollView>
+        </>
+      )}
 
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'diary' && styles.tabActive]}
-          onPress={() => setActiveTab('diary')}
-        >
-          <Text
-            style={[styles.tabText, activeTab === 'diary' && styles.tabTextActive]}
-          >
-            Diario
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      {/* Content - Scrollable */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {activeTab === 'information' && renderInformationTab()}
-        {activeTab === 'payment' && renderPaymentTab()}
-        {activeTab === 'referrals' && renderReferralsTab()}
-        {activeTab === 'diary' && renderDiaryTab()}
-      </ScrollView>
-      </View>
-    </GradientBackground>
+      {/* iOS Date Picker Modal */}
+      {renderDatePickerModal()}
+    </View>
   );
 };
+
+// ============================================================================
+// STYLES
+// ============================================================================
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // GradientBackground handles the background
+    backgroundColor: profileTheme.background, // #F5F7F5 - Light Sage
   },
-  tabsScrollView: {
-    backgroundColor: colors.neutral.white,
+
+  // ===== DESKTOP LAYOUT =====
+  desktopLayout: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  sidebar: {
+    width: 280,
+    backgroundColor: profileTheme.cardBackground,
+    borderRightWidth: 1,
+    borderRightColor: profileTheme.border,
+    paddingTop: 32,
+  },
+  sidebarHeader: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral.gray200,
-    flexGrow: 0,
+    borderBottomColor: profileTheme.border,
+    marginBottom: 16,
   },
-  tabsContainer: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.lg,
+  sidebarTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: profileTheme.textDark,
   },
-  tab: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: 0,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+  sidebarTabs: {
+    paddingHorizontal: 16,
   },
-  tabActive: {
-    borderBottomColor: branding.accent,
+  sidebarTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 4,
+    gap: 12,
   },
-  tabText: {
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.medium,
-    color: colors.neutral.gray600,
+  sidebarTabActive: {
+    backgroundColor: profileTheme.primaryMuted,
+    borderLeftWidth: 3,
+    borderLeftColor: profileTheme.primary,
   },
-  tabTextActive: {
-    color: branding.accent,
-    fontWeight: typography.fontWeights.semibold,
+  sidebarTabText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: profileTheme.textMedium,
   },
+  sidebarTabTextActive: {
+    color: profileTheme.textDark,
+    fontWeight: '600',
+  },
+  contentArea: {
+    flex: 1,
+  },
+  contentAreaInner: {
+    padding: 40,
+    maxWidth: 800,
+  },
+
+  // ===== MOBILE TABS =====
+  pillTabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 12,
+    backgroundColor: profileTheme.cardBackground,
+    borderBottomWidth: 1,
+    borderBottomColor: profileTheme.border,
+  },
+  pillTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    backgroundColor: profileTheme.cardBackground,
+    borderWidth: 2,
+    borderColor: profileTheme.border,
+    gap: 6,
+  },
+  pillTabActive: {
+    backgroundColor: profileTheme.primary,
+    borderColor: profileTheme.primary,
+  },
+  pillTabIcon: {
+    marginRight: 2,
+  },
+  pillTabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: profileTheme.textMedium,
+  },
+  pillTabTextActive: {
+    color: profileTheme.textOnPrimary,
+    fontWeight: '600',
+  },
+
+  // ===== SCROLL VIEW =====
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.lg + spacing.sm, // 24px
-    flexGrow: 1,
+    padding: 20,
+    paddingBottom: 40,
   },
+
+  // ===== TAB CONTENT =====
   tabContent: {
     flex: 1,
   },
 
-  // Avatar Section
-  avatarSection: {
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-    marginBottom: spacing.xl, // 32px gap
+  // ===== SECTIONS =====
+  section: {
+    marginBottom: 32,
   },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: branding.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-    borderWidth: 4,
-    borderColor: branding.primary,
-  },
-  avatarText: {
-    fontSize: 48,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.neutral.white,
-  },
-  changePhotoButton: {
-    minWidth: 150,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: profileTheme.textDark,
+    marginBottom: 16,
   },
 
-  // Form Grid
-  formGrid: {
-    marginBottom: spacing.lg,
+  // ===== AVATAR =====
+  avatarCard: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  avatarContainer: {
+    marginBottom: 16,
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.lg,
+  },
+  avatarText: {
+    fontSize: 40,
+    fontWeight: '700',
+    color: profileTheme.textOnPrimary,
+  },
+  changePhotoLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  changePhotoText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: profileTheme.primary,
+  },
+
+  // ===== FORM CARD =====
+  formCard: {
+    backgroundColor: profileTheme.cardBackground,
+    borderRadius: 12,
+    padding: 24,
+    ...shadows.md,
+  },
+
+  // ===== FORM FIELDS =====
+  formField: {
+    marginBottom: 20,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  labelWithOptional: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: profileTheme.textMedium,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  optionalBadge: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: profileTheme.textLight,
+    fontStyle: 'italic',
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  verifiedText: {
+    fontSize: 12,
+    color: profileTheme.success,
+    fontWeight: '500',
+  },
+  fieldInput: {
+    backgroundColor: profileTheme.inputBackground,
+    borderWidth: 2,
+    borderColor: profileTheme.border,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: profileTheme.textDark,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 48,
+  },
+  fieldInputDisabled: {
+    backgroundColor: profileTheme.inputBackgroundDisabled,
+    color: profileTheme.textMedium,
+  },
+  inputText: {
+    fontSize: 16,
+    color: profileTheme.textDark,
+  },
+  placeholderText: {
+    color: profileTheme.textLight,
+  },
+  helperText: {
+    fontSize: 12,
+    color: profileTheme.textLight,
+    marginTop: 6,
+    fontStyle: 'italic',
   },
   formRow: {
     flexDirection: 'row',
-    gap: spacing.md, // 16px gap between columns
-    marginBottom: spacing.md + spacing.xs, // 20px margin bottom
+    gap: 16,
   },
-  formColumn: {
+  formRowHalf: {
     flex: 1,
   },
-  formField: {
-    // Individual field styling
+
+  // ===== SAVE BUTTON =====
+  saveButtonContainer: {
+    marginTop: 8,
   },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: typography.fontWeights.medium,
-    color: colors.neutral.gray600,
-    marginBottom: spacing.xs, // 16px gap is achieved with additional spacing
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: profileTheme.primary,
+    paddingVertical: 16,
+    borderRadius: 8,
+    gap: 8,
+    ...shadows.md,
   },
-  fieldInput: {
-    backgroundColor: colors.neutral.white,
-    borderWidth: 1,
-    borderColor: colors.neutral.gray200,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: colors.neutral.gray900,
+  saveButtonDisabled: {
+    backgroundColor: profileTheme.border,
+    ...shadows.none,
   },
-  fieldInputDisabled: {
-    backgroundColor: colors.neutral.gray100,
-    color: colors.neutral.gray600,
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: profileTheme.textOnPrimary,
   },
-  pickerInput: {
+  saveButtonTextDisabled: {
+    color: profileTheme.textLight,
+  },
+
+  // ===== DATE PICKER MODAL (iOS) =====
+  datePickerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  datePickerModalContent: {
+    backgroundColor: profileTheme.cardBackground,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 34, // Safe area
+  },
+  datePickerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: profileTheme.border,
   },
-  pickerText: {
-    fontSize: 14,
-    color: colors.neutral.gray900,
+  datePickerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: profileTheme.textDark,
   },
-  placeholderText: {
-    color: colors.neutral.gray300,
+  datePickerCancelText: {
+    fontSize: 16,
+    color: profileTheme.textMedium,
   },
-  saveButton: {
-    marginTop: spacing.lg,
+  datePickerConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: profileTheme.primary,
+  },
+  datePickerSpinner: {
+    height: 216,
   },
 
-  // Empty States
-  emptyTabState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.xxl * 2,
+  // ===== WEB DATE PICKER =====
+  webDatePickerContent: {
+    backgroundColor: profileTheme.cardBackground,
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    alignSelf: 'center',
+    marginTop: 'auto',
+    marginBottom: 'auto',
+    ...shadows.lg,
   },
-  emptyIconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: branding.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
+  webDateSelectors: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
   },
-  emptyTabTitle: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.neutral.gray900,
-    marginBottom: spacing.xs,
+  webDateColumn: {
+    flex: 1,
   },
-  emptyTabDescription: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral.gray600,
+  webDateColumnMonth: {
+    flex: 1.5,
+  },
+  webDateColumnLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: profileTheme.textMedium,
     textAlign: 'center',
-    paddingHorizontal: spacing.xl,
-    marginBottom: spacing.lg,
-    lineHeight: typography.fontSizes.sm * typography.lineHeights.relaxed,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  emptyTabButton: {
-    minWidth: 200,
+  webDateScroll: {
+    height: 200,
+    backgroundColor: profileTheme.background,
+    borderRadius: 8,
+  },
+  webDateOption: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+    marginHorizontal: 4,
+    marginVertical: 2,
+  },
+  webDateOptionSelected: {
+    backgroundColor: profileTheme.primary,
+  },
+  webDateOptionText: {
+    fontSize: 15,
+    color: profileTheme.textDark,
+  },
+  webDateOptionTextSelected: {
+    color: profileTheme.textOnPrimary,
+    fontWeight: '600',
+  },
+  webDatePreview: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: profileTheme.border,
+    alignItems: 'center',
+  },
+  webDatePreviewText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: profileTheme.primary,
   },
 
-  // Referrals Tab
-  referralCard: {
-    marginBottom: spacing.lg,
-  },
-  referralHeader: {
+  // ===== SECURITY BANNER =====
+  securityBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(123, 163, 119, 0.1)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 24,
+    gap: 8,
   },
-  referralIconContainer: {
+  securityIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(123, 163, 119, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  securityText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: profileTheme.secure,
+  },
+
+  // ===== PAYMENT CARD =====
+  paymentCard: {
+    backgroundColor: profileTheme.cardBackground,
+    borderRadius: 12,
+    padding: 24,
+    ...shadows.md,
+  },
+  creditCard: {
+    backgroundColor: profileTheme.background,
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+  },
+  creditCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  cardBrand: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: profileTheme.textMedium,
+    letterSpacing: 1,
+  },
+  cardNumber: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: profileTheme.textDark,
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  cardExpiry: {
+    fontSize: 14,
+    color: profileTheme.textMedium,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cardActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: profileTheme.border,
+    gap: 6,
+  },
+  cardActionButtonDanger: {
+    borderColor: profileTheme.error,
+  },
+  cardActionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: profileTheme.primary,
+  },
+  cardActionTextDanger: {
+    color: profileTheme.error,
+  },
+
+  // ===== EMPTY PAYMENT STATE =====
+  emptyPaymentCard: {
+    backgroundColor: profileTheme.cardBackground,
+    borderRadius: 12,
+    padding: 40,
+    alignItems: 'center',
+    ...shadows.md,
+  },
+  emptyPaymentIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: profileTheme.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  emptyPaymentTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: profileTheme.textDark,
+    marginBottom: 8,
+  },
+  emptyPaymentDescription: {
+    fontSize: 14,
+    color: profileTheme.textMedium,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+    maxWidth: 280,
+  },
+  addCardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: profileTheme.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    gap: 8,
+    ...shadows.md,
+  },
+  addCardButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: profileTheme.textOnPrimary,
+  },
+
+  // ===== CARD FORM =====
+  cardFormHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  cardFormTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: profileTheme.textDark,
+  },
+  secureInputBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(123, 163, 119, 0.1)',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+  },
+  secureInputText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: profileTheme.secure,
+  },
+  cardFormActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 8,
+  },
+  cancelButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: profileTheme.border,
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: profileTheme.textMedium,
+  },
+  saveCardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: profileTheme.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    gap: 8,
+    ...shadows.md,
+  },
+  saveCardButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: profileTheme.textOnPrimary,
+  },
+
+  // ===== TRANSACTIONS =====
+  transactionList: {
+    backgroundColor: profileTheme.cardBackground,
+    borderRadius: 12,
+    overflow: 'hidden',
+    ...shadows.md,
+  },
+  transactionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: profileTheme.border,
+  },
+  transactionLeft: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+    gap: 12,
+  },
+  transactionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: profileTheme.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  transactionDetails: {
+    flex: 1,
+  },
+  transactionDate: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: profileTheme.textDark,
+    marginBottom: 2,
+  },
+  transactionDescription: {
+    fontSize: 14,
+    color: profileTheme.textMedium,
+    marginBottom: 2,
+  },
+  transactionSpecialist: {
+    fontSize: 13,
+    color: profileTheme.textLight,
+  },
+  transactionRight: {
+    alignItems: 'flex-end',
+  },
+  transactionAmount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: profileTheme.textDark,
+    marginBottom: 4,
+  },
+  receiptLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  receiptLinkText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: profileTheme.primary,
+  },
+
+  // ===== EMPTY TRANSACTIONS =====
+  emptyTransactions: {
+    backgroundColor: profileTheme.cardBackground,
+    borderRadius: 12,
+    padding: 40,
+    alignItems: 'center',
+    ...shadows.md,
+  },
+  emptyTransactionsIcon: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: `${branding.accent}20`,
+    backgroundColor: profileTheme.background,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: 16,
   },
-  referralTitle: {
-    fontSize: typography.fontSizes.xl,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.neutral.gray900,
+  emptyTransactionsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: profileTheme.textDark,
+    marginBottom: 6,
   },
-  referralDescription: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral.gray600,
+  emptyTransactionsDescription: {
+    fontSize: 14,
+    color: profileTheme.textMedium,
     textAlign: 'center',
-    lineHeight: typography.fontSizes.sm * typography.lineHeights.relaxed,
-    marginBottom: spacing.lg,
-  },
-  referralCodeContainer: {
-    marginBottom: spacing.lg,
-  },
-  referralCodeLabel: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.medium,
-    color: colors.neutral.gray900,
-    marginBottom: spacing.xs,
-  },
-  referralCode: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.background.tertiary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-  },
-  referralCodeText: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.bold,
-    color: branding.accent,
-  },
-  sectionTitle: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.neutral.gray900,
-    marginBottom: spacing.md,
-  },
-  emptyReferralsCard: {
-    alignItems: 'center',
-  },
-  emptyReferralsText: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral.gray600,
-    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 
