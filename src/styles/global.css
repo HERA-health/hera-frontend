@@ -1,0 +1,72 @@
+/**
+ * Global CSS styles for MindConnect Web
+ * Custom scrollbar styling for HERA design system
+ */
+
+/* ============================================
+   CUSTOM SCROLLBAR STYLES (Web Only)
+   ============================================ */
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F5F7F5; /* Light sage - matches page background */
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #C5CFC5; /* Medium gray-sage */
+  border-radius: 4px;
+  border: 1px solid #F5F7F5;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8B9D83; /* Sage green on hover */
+}
+
+::-webkit-scrollbar-corner {
+  background: #F5F7F5;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #C5CFC5 #F5F7F5;
+}
+
+/* Smooth scrolling globally */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Ensure scrollable containers have visible scrollbars */
+[data-testid="scrollview"],
+.r-overflow-y-auto,
+.r-overflow-x-auto {
+  scrollbar-width: thin !important;
+  scrollbar-color: #C5CFC5 #F5F7F5 !important;
+}
+
+/* React Native Web ScrollView specific */
+[data-testid="scrollview"]::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+[data-testid="scrollview"]::-webkit-scrollbar-track {
+  background: #F5F7F5;
+  border-radius: 4px;
+}
+
+[data-testid="scrollview"]::-webkit-scrollbar-thumb {
+  background: #C5CFC5;
+  border-radius: 4px;
+}
+
+[data-testid="scrollview"]::-webkit-scrollbar-thumb:hover {
+  background: #8B9D83;
+}

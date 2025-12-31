@@ -36,6 +36,7 @@ import { ProfessionalHomeScreen } from '../screens/professional/ProfessionalHome
 import { ProfessionalClientsScreen } from '../screens/professional/ProfessionalClientsScreen';
 import { ProfessionalSessionsScreen } from '../screens/professional/ProfessionalSessionsScreen';
 import { ProfessionalProfileEditorScreen } from '../screens/professional/ProfessionalProfileEditorScreen';
+import { SpecialistProfileScreen } from '../screens/professional/SpecialistProfileScreen';
 import { ProfessionalAvailabilityScreen } from '../screens/professional/ProfessionalAvailabilityScreen';
 import { ClientProfileScreen } from '../screens/professional/ClientProfileScreen';
 
@@ -107,11 +108,11 @@ export function RootNavigator() {
         </Stack.Screen>
         <Stack.Screen
           name="ProfessionalProfile"
-          options={{ headerTitle: 'Editar Perfil' }}
+          options={{ headerTitle: 'Mi Perfil Profesional' }}
         >
           {() => (
             <MainLayout>
-              <ProfessionalProfileEditorScreen />
+              <SpecialistProfileScreen />
             </MainLayout>
           )}
         </Stack.Screen>
