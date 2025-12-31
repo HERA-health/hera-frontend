@@ -13,13 +13,110 @@
  * - No special cases breaking expectations
  */
 
-import React, { useCallback } from 'react';
-import { TouchableOpacity, View, Text } from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { TouchableOpacity, View, Text, Animated, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NavItemProps } from './types';
 import { navItemStyles as styles } from './styles';
 import { SIDEBAR_THEME } from './navConfig';
+
+/**
+ * PulsingBadge - Animated badge wrapper for urgent items
+ * Creates a subtle pulse effect to draw attention without being annoying
+ */
+const PulsingBadge: React.FC<{
+  colors: [string, string];
+  text: string;
+  isUrgent: boolean;
+}> = ({ colors, text, isUrgent }) => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const glowAnim = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    if (!isUrgent) return;
+
+    // Subtle pulse animation - 2 second cycle, not distracting
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(pulseAnim, {
+            toValue: 1.08,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowAnim, {
+            toValue: 0.6,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowAnim, {
+            toValue: 0.3,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    );
+
+    pulse.start();
+    return () => pulse.stop();
+  }, [isUrgent, pulseAnim, glowAnim]);
+
+  return (
+    <Animated.View
+      style={[
+        pulsingBadgeStyles.container,
+        isUrgent && {
+          transform: [{ scale: pulseAnim }],
+        },
+      ]}
+    >
+      {/* Glow effect for urgent badges */}
+      {isUrgent && (
+        <Animated.View
+          style={[
+            pulsingBadgeStyles.glow,
+            {
+              opacity: glowAnim,
+              backgroundColor: colors[0],
+            },
+          ]}
+        />
+      )}
+      <LinearGradient
+        colors={colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.badge}
+      >
+        <Text style={styles.badgeText}>{text}</Text>
+      </LinearGradient>
+    </Animated.View>
+  );
+};
+
+const pulsingBadgeStyles = StyleSheet.create({
+  container: {
+    marginLeft: 'auto',
+    position: 'relative',
+  },
+  glow: {
+    position: 'absolute',
+    top: -3,
+    left: -3,
+    right: -3,
+    bottom: -3,
+    borderRadius: 9,
+  },
+});
 
 /**
  * NavItem renders a single navigation item in the sidebar
@@ -101,16 +198,13 @@ export function NavItem({ item, isActive, onPress }: NavItemProps): React.ReactE
           {item.label}
         </Text>
 
-        {/* Optional Badge */}
+        {/* Optional Badge - with pulse animation for urgent items */}
         {item.badge && (
-          <LinearGradient
+          <PulsingBadge
             colors={getBadgeColors()}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.badge}
-          >
-            <Text style={styles.badgeText}>{item.badge}</Text>
-          </LinearGradient>
+            text={item.badge}
+            isUrgent={item.badgeVariant === 'urgent'}
+          />
         )}
       </View>
     </TouchableOpacity>

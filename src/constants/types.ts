@@ -159,6 +159,16 @@ export type SessionTab = 'upcoming' | 'history';
 export type ProfessionalSessionTab = 'upcoming' | 'history' | 'pending';
 
 /**
+ * Professional session view mode
+ */
+export type SessionViewMode = 'day' | 'week' | 'list';
+
+/**
+ * Session status with display info
+ */
+export type SessionDisplayStatus = 'confirmed' | 'pending' | 'in_progress' | 'completed' | 'cancelled';
+
+/**
  * Client/Patient information for professionals
  */
 export interface Client {

@@ -67,14 +67,15 @@ export const CLIENT_SECTIONS: NavigationSection[] = [
     items: [
       {
         id: 'on-duty',
-        label: 'Psicologo de Guardia',
-        icon: 'call-outline',
-        iconActive: 'call',
+        label: 'Psicólogo de Guardia',
+        icon: 'heart-outline',
+        iconActive: 'heart',
         route: 'OnDutyPsychologist',
         roles: ['CLIENT'],
         badge: '24/7',
         badgeVariant: 'urgent',
-        badgeColors: ['#FF6B6B', '#FF8E53'],
+        // Coral/amber colors - warm urgency without panic
+        badgeColors: ['#E89D88', '#D4826E'],
       },
     ],
   },
@@ -168,7 +169,8 @@ export const SIDEBAR_THEME: SidebarTheme = {
   border: '#E8EBE8',
   badge: {
     default: [heraLanding.primary, heraLanding.primaryLight],
-    urgent: ['#FF6B6B', '#FF8E53'],
+    // Coral/amber - warm urgency without panic
+    urgent: ['#E89D88', '#D4826E'],
     info: [heraLanding.secondary, heraLanding.secondaryLight],
   },
 };
