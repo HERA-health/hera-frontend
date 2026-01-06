@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { Calendar, DateData } from 'react-native-calendars';
-import { colors, spacing } from '../../constants/colors';
+import { heraLanding, colors, spacing, shadows } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { ProfessionalSession } from '../../constants/types';
 
@@ -27,7 +27,7 @@ export function CalendarView({ sessions }: CalendarViewProps) {
       return {
         [selectedDate]: {
           selected: true,
-          selectedColor: colors.primary[100],
+          selectedColor: heraLanding.primaryMuted,
           dots: [],
         },
       };
@@ -63,10 +63,10 @@ export function CalendarView({ sessions }: CalendarViewProps) {
         key: session.id,
         color:
           session.status === 'scheduled'
-            ? colors.primary.main
+            ? heraLanding.primary
             : session.status === 'pending'
-            ? colors.secondary.orange
-            : colors.neutral.gray400,
+            ? heraLanding.warningAmber
+            : heraLanding.textMuted,
       };
 
       marked[dateStr].dots.push(dot);
@@ -75,11 +75,11 @@ export function CalendarView({ sessions }: CalendarViewProps) {
     // Add selected date styling
     if (marked[selectedDate]) {
       marked[selectedDate].selected = true;
-      marked[selectedDate].selectedColor = colors.primary[100];
+      marked[selectedDate].selectedColor = heraLanding.primaryMuted;
     } else {
       marked[selectedDate] = {
         selected: true,
-        selectedColor: colors.primary[100],
+        selectedColor: heraLanding.primaryMuted,
         dots: [],
       };
     }
@@ -161,19 +161,19 @@ export function CalendarView({ sessions }: CalendarViewProps) {
             markedDates={markedDates}
             markingType="multi-dot"
             theme={{
-              backgroundColor: colors.neutral.white,
-              calendarBackground: colors.neutral.white,
-              textSectionTitleColor: colors.neutral.gray600,
-              selectedDayBackgroundColor: colors.primary.main,
-              selectedDayTextColor: colors.neutral.white,
-              todayTextColor: colors.primary.main,
-              dayTextColor: colors.neutral.gray900,
-              textDisabledColor: colors.neutral.gray300,
-              dotColor: colors.primary.main,
-              selectedDotColor: colors.neutral.white,
-              arrowColor: colors.primary.main,
-              monthTextColor: colors.neutral.gray900,
-              indicatorColor: colors.primary.main,
+              backgroundColor: heraLanding.cardBg,
+              calendarBackground: heraLanding.cardBg,
+              textSectionTitleColor: heraLanding.textSecondary,
+              selectedDayBackgroundColor: heraLanding.primary,
+              selectedDayTextColor: heraLanding.cardBg,
+              todayTextColor: heraLanding.primary,
+              dayTextColor: heraLanding.textPrimary,
+              textDisabledColor: heraLanding.border,
+              dotColor: heraLanding.primary,
+              selectedDotColor: heraLanding.cardBg,
+              arrowColor: heraLanding.primary,
+              monthTextColor: heraLanding.textPrimary,
+              indicatorColor: heraLanding.primary,
               textDayFontFamily: 'System',
               textMonthFontFamily: 'System',
               textDayHeaderFontFamily: 'System',
@@ -190,15 +190,15 @@ export function CalendarView({ sessions }: CalendarViewProps) {
           {/* Legend */}
           <View style={styles.legend}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colors.primary.main }]} />
+              <View style={[styles.legendDot, { backgroundColor: heraLanding.primary }]} />
               <Text style={styles.legendText}>Confirmada</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colors.secondary.orange }]} />
+              <View style={[styles.legendDot, { backgroundColor: heraLanding.warningAmber }]} />
               <Text style={styles.legendText}>Pendiente</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colors.neutral.gray400 }]} />
+              <View style={[styles.legendDot, { backgroundColor: heraLanding.textMuted }]} />
               <Text style={styles.legendText}>Completada</Text>
             </View>
           </View>
@@ -220,7 +220,7 @@ export function CalendarView({ sessions }: CalendarViewProps) {
           {sessionsForSelectedDate.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIconContainer}>
-                <Ionicons name="calendar-outline" size={48} color={colors.neutral.gray400} />
+                <Ionicons name="calendar-outline" size={48} color={heraLanding.textMuted} />
               </View>
               <Text style={styles.emptyTitle}>No hay sesiones programadas</Text>
               <Text style={styles.emptyDescription}>
@@ -260,7 +260,7 @@ export function CalendarView({ sessions }: CalendarViewProps) {
                             <Ionicons
                               name={getSessionTypeIcon(session.type)}
                               size={14}
-                              color={colors.neutral.gray500}
+                              color={heraLanding.backgroundLight0}
                             />
                             <Text style={styles.metaText}>{session.duration} min</Text>
                           </View>
@@ -269,7 +269,7 @@ export function CalendarView({ sessions }: CalendarViewProps) {
 
                       {/* Action button */}
                       <TouchableOpacity style={styles.actionButton}>
-                        <Ionicons name="arrow-forward" size={20} color={colors.primary.main} />
+                        <Ionicons name="arrow-forward" size={20} color={heraLanding.primary} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -280,7 +280,7 @@ export function CalendarView({ sessions }: CalendarViewProps) {
                       <Ionicons
                         name="document-text-outline"
                         size={14}
-                        color={colors.neutral.gray600}
+                        color={heraLanding.textSecondary}
                       />
                       <Text style={styles.notesText} numberOfLines={2}>
                         {session.notes}
@@ -302,14 +302,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   calendarContainer: {
-    backgroundColor: colors.neutral.white,
+    backgroundColor: heraLanding.cardBg,
     marginHorizontal: screenWidth > 768 ? spacing.xxxl * 2 : spacing.lg,
     marginTop: spacing.md,
     marginBottom: spacing.lg,
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.neutral.gray200,
+    borderColor: heraLanding.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -326,8 +326,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: colors.neutral.gray200,
-    backgroundColor: colors.neutral.gray50,
+    borderTopColor: heraLanding.border,
+    backgroundColor: heraLanding.backgroundLight,
   },
   legendItem: {
     flexDirection: 'row',
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 13,
-    color: colors.neutral.gray600,
+    color: heraLanding.textSecondary,
     fontWeight: '500',
   },
   sessionsSection: {
@@ -357,12 +357,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.neutral.gray900,
+    color: heraLanding.textPrimary,
     textTransform: 'capitalize',
     flex: 1,
   },
   countBadge: {
-    backgroundColor: colors.primary.main,
+    backgroundColor: heraLanding.primary,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: 12,
@@ -372,21 +372,21 @@ const styles = StyleSheet.create({
   countBadgeText: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.neutral.white,
+    color: heraLanding.cardBg,
   },
   emptyState: {
     alignItems: 'center',
     paddingVertical: spacing.xxxl,
-    backgroundColor: colors.neutral.white,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.neutral.gray200,
+    borderColor: heraLanding.border,
   },
   emptyIconContainer: {
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: colors.neutral.gray100,
+    backgroundColor: heraLanding.borderLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.lg,
@@ -394,23 +394,23 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.neutral.gray900,
+    color: heraLanding.textPrimary,
     marginBottom: spacing.xs,
   },
   emptyDescription: {
     fontSize: 14,
-    color: colors.neutral.gray600,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
   },
   sessionsList: {
     gap: spacing.md,
   },
   sessionCard: {
-    backgroundColor: colors.neutral.white,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: 16,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.neutral.gray200,
+    borderColor: heraLanding.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
   sessionTimeText: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.neutral.gray900,
+    color: heraLanding.textPrimary,
     marginBottom: spacing.xs,
   },
   sessionStatusDot: {
@@ -438,18 +438,18 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   sessionStatusDotScheduled: {
-    backgroundColor: colors.primary.main,
+    backgroundColor: heraLanding.primary,
   },
   sessionStatusDotPending: {
-    backgroundColor: colors.secondary.orange,
+    backgroundColor: heraLanding.warningAmber,
   },
   sessionStatusDotCompleted: {
-    backgroundColor: colors.neutral.gray400,
+    backgroundColor: heraLanding.textMuted,
   },
   sessionDivider: {
     width: 1,
     height: '100%',
-    backgroundColor: colors.neutral.gray200,
+    backgroundColor: heraLanding.border,
     marginHorizontal: spacing.md,
   },
   sessionInfo: {
@@ -467,17 +467,17 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.primary[100],
+    backgroundColor: heraLanding.primaryMuted,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
     borderWidth: 2,
-    borderColor: colors.primary.main,
+    borderColor: heraLanding.primary,
   },
   clientAvatarText: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.primary.main,
+    color: heraLanding.primary,
   },
   clientInfo: {
     flex: 1,
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
   clientName: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.neutral.gray900,
+    color: heraLanding.textPrimary,
     marginBottom: spacing.xs,
   },
   sessionMeta: {
@@ -495,20 +495,20 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 13,
-    color: colors.neutral.gray600,
+    color: heraLanding.textSecondary,
   },
   actionButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.primary[50],
+    backgroundColor: heraLanding.successBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   notesSection: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: colors.primary[50],
+    backgroundColor: heraLanding.successBg,
     padding: spacing.sm,
     borderRadius: 8,
     marginTop: spacing.md,
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
   notesText: {
     flex: 1,
     fontSize: 13,
-    color: colors.neutral.gray700,
+    color: heraLanding.textPrimary,
     lineHeight: 18,
   },
 });

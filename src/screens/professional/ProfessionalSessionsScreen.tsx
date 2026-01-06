@@ -27,31 +27,14 @@ const isDesktop = screenWidth >= 1024;
 const isTablet = screenWidth >= 768 && screenWidth < 1024;
 const isMobile = screenWidth < 768;
 
-// HERA Design System Colors
-const HERA = {
-  background: '#F5F7F5',      // Light Sage - THE LAW
-  cardBg: '#FFFFFF',
-  primary: '#8B9D83',          // Sage Green
-  primaryDark: '#6E8066',
-  secondary: '#B8A8D9',        // Lavender
-  textPrimary: '#2C3E2C',      // Forest
-  textSecondary: '#6B7B6B',    // Neutral
-  textMuted: '#9BA89B',
-  success: '#7BA377',          // Mint
-  warning: '#D9A84F',          // Amber
-  coral: '#E89D88',            // Coral
-  border: '#E2E8E2',
-  borderLight: '#F0F4F0',
-};
-
-// Session status colors
+// Status colors derived from centralized heraLanding theme
 const STATUS_COLORS = {
-  confirmed: HERA.primary,
-  pending: HERA.warning,
-  in_progress: HERA.success,
-  completed: '#B8C8B8',
-  cancelled: HERA.coral,
-};
+  confirmed: heraLanding.primary,      // #8B9D83
+  pending: heraLanding.warningAmber,   // #D9A84F
+  in_progress: heraLanding.success,    // #7BA377
+  completed: heraLanding.statusCompleted, // #B8C8B8
+  cancelled: heraLanding.warning,      // #E89D88
+} as const;
 
 // Time slots for day view (7am to 9pm)
 const TIME_SLOTS = Array.from({ length: 15 }, (_, i) => i + 7); // 7, 8, 9, ... 21
@@ -314,7 +297,7 @@ export function ProfessionalSessionsScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={HERA.primary} />
+        <ActivityIndicator size="large" color={heraLanding.primary} />
         <Text style={styles.loadingText}>Cargando sesiones...</Text>
       </View>
     );
@@ -342,7 +325,7 @@ export function ProfessionalSessionsScreen() {
           <>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: HERA.warning }]}>{pendingSessions.length}</Text>
+              <Text style={[styles.statValue, { color: heraLanding.warningAmber }]}>{pendingSessions.length}</Text>
               <Text style={styles.statLabel}>pendientes</Text>
             </View>
           </>
@@ -362,7 +345,7 @@ export function ProfessionalSessionsScreen() {
           <Ionicons
             name="calendar"
             size={18}
-            color={viewMode === 'day' ? '#FFFFFF' : HERA.textSecondary}
+            color={viewMode === 'day' ? heraLanding.textOnPrimary : heraLanding.textSecondary}
           />
           <Text style={[styles.viewToggleText, viewMode === 'day' && styles.viewToggleTextActive]}>
             Día
@@ -376,7 +359,7 @@ export function ProfessionalSessionsScreen() {
           <Ionicons
             name="calendar-outline"
             size={18}
-            color={viewMode === 'week' ? '#FFFFFF' : HERA.textSecondary}
+            color={viewMode === 'week' ? heraLanding.textOnPrimary : heraLanding.textSecondary}
           />
           <Text style={[styles.viewToggleText, viewMode === 'week' && styles.viewToggleTextActive]}>
             Semana
@@ -390,7 +373,7 @@ export function ProfessionalSessionsScreen() {
           <Ionicons
             name="list"
             size={18}
-            color={viewMode === 'list' ? '#FFFFFF' : HERA.textSecondary}
+            color={viewMode === 'list' ? heraLanding.textOnPrimary : heraLanding.textSecondary}
           />
           <Text style={[styles.viewToggleText, viewMode === 'list' && styles.viewToggleTextActive]}>
             Lista
@@ -407,7 +390,7 @@ export function ProfessionalSessionsScreen() {
         style={styles.dateNavButton}
         onPress={() => navigateDate(-1)}
       >
-        <Ionicons name="chevron-back" size={24} color={HERA.textPrimary} />
+        <Ionicons name="chevron-back" size={24} color={heraLanding.textPrimary} />
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.dateDisplay} onPress={goToToday}>
@@ -421,7 +404,7 @@ export function ProfessionalSessionsScreen() {
         style={styles.dateNavButton}
         onPress={() => navigateDate(1)}
       >
-        <Ionicons name="chevron-forward" size={24} color={HERA.textPrimary} />
+        <Ionicons name="chevron-forward" size={24} color={heraLanding.textPrimary} />
       </TouchableOpacity>
     </View>
   );
@@ -535,7 +518,7 @@ export function ProfessionalSessionsScreen() {
                 <Ionicons
                   name={session.type === 'video' ? 'videocam' : 'call'}
                   size={14}
-                  color={HERA.textSecondary}
+                  color={heraLanding.textSecondary}
                 />
                 <Text style={styles.sessionBlockMetaText}>{session.duration} min</Text>
                 {session.notes && (
@@ -566,10 +549,10 @@ export function ProfessionalSessionsScreen() {
                 disabled={processingSessionId === session.id}
               >
                 {processingSessionId === session.id ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={heraLanding.textOnPrimary} />
                 ) : (
                   <>
-                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                    <Ionicons name="checkmark" size={16} color={heraLanding.textOnPrimary} />
                     <Text style={styles.sessionActionConfirmText}>Confirmar</Text>
                   </>
                 )}
@@ -579,7 +562,7 @@ export function ProfessionalSessionsScreen() {
                 onPress={() => handleRejectSession(session.id, session.clientName)}
                 disabled={processingSessionId === session.id}
               >
-                <Ionicons name="close" size={16} color={HERA.coral} />
+                <Ionicons name="close" size={16} color={heraLanding.warning} />
                 <Text style={styles.sessionActionRejectText}>Rechazar</Text>
               </TouchableOpacity>
             </>
@@ -590,12 +573,12 @@ export function ProfessionalSessionsScreen() {
                   style={styles.sessionActionJoin}
                   onPress={() => handleJoinSession(session.id)}
                 >
-                  <Ionicons name="videocam" size={16} color="#FFFFFF" />
+                  <Ionicons name="videocam" size={16} color={heraLanding.textOnPrimary} />
                   <Text style={styles.sessionActionJoinText}>Unirse ahora</Text>
                 </TouchableOpacity>
               ) : (
                 <View style={styles.sessionActionWaiting}>
-                  <Ionicons name="time-outline" size={16} color={HERA.textSecondary} />
+                  <Ionicons name="time-outline" size={16} color={heraLanding.textSecondary} />
                   <Text style={styles.sessionActionWaitingText}>
                     {session.date > currentTime
                       ? `Comienza ${formatTime(session.date)}`
@@ -604,13 +587,13 @@ export function ProfessionalSessionsScreen() {
                 </View>
               )}
               <TouchableOpacity style={styles.sessionActionSecondary}>
-                <Ionicons name="person-outline" size={16} color={HERA.primary} />
+                <Ionicons name="person-outline" size={16} color={heraLanding.primary} />
                 <Text style={styles.sessionActionSecondaryText}>Ver ficha</Text>
               </TouchableOpacity>
             </>
           ) : (
             <TouchableOpacity style={styles.sessionActionSecondary}>
-              <Ionicons name="document-text-outline" size={16} color={HERA.primary} />
+              <Ionicons name="document-text-outline" size={16} color={heraLanding.primary} />
               <Text style={styles.sessionActionSecondaryText}>Ver notas</Text>
             </TouchableOpacity>
           )}
@@ -693,7 +676,7 @@ export function ProfessionalSessionsScreen() {
         {daySessions.length === 0 && (
           <View style={styles.emptyDayState}>
             <View style={styles.emptyIcon}>
-              <Ionicons name="calendar-outline" size={48} color={HERA.textMuted} />
+              <Ionicons name="calendar-outline" size={48} color={heraLanding.textMuted} />
             </View>
             <Text style={styles.emptyTitle}>No tienes sesiones programadas</Text>
             <Text style={styles.emptySubtitle}>
@@ -844,7 +827,7 @@ export function ProfessionalSessionsScreen() {
         {futureDates.length === 0 ? (
           <View style={styles.emptyListState}>
             <View style={styles.emptyIcon}>
-              <Ionicons name="checkmark-done-outline" size={48} color={HERA.textMuted} />
+              <Ionicons name="checkmark-done-outline" size={48} color={heraLanding.textMuted} />
             </View>
             <Text style={styles.emptyTitle}>Estás al día con tus sesiones</Text>
             <Text style={styles.emptySubtitle}>
@@ -889,10 +872,10 @@ export function ProfessionalSessionsScreen() {
         {pendingSessions.length > 0 && (
           <View style={styles.listDateGroup}>
             <View style={styles.listDateHeader}>
-              <Text style={[styles.listDateText, { color: HERA.warning }]}>
+              <Text style={[styles.listDateText, { color: heraLanding.warningAmber }]}>
                 Pendientes de confirmación
               </Text>
-              <View style={[styles.listDateBadge, { backgroundColor: HERA.warning }]}>
+              <View style={[styles.listDateBadge, { backgroundColor: heraLanding.warningAmber }]}>
                 <Text style={styles.listDateBadgeText}>{pendingSessions.length}</Text>
               </View>
             </View>
@@ -958,28 +941,28 @@ export function ProfessionalSessionsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: HERA.background, // #F5F7F5 - THE LAW
+    backgroundColor: heraLanding.background, // #F5F7F5 - THE LAW
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: HERA.background,
+    backgroundColor: heraLanding.background,
   },
   loadingText: {
     marginTop: spacing.md,
     fontSize: 16,
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
   },
 
   // Header
   header: {
-    backgroundColor: HERA.cardBg,
+    backgroundColor: heraLanding.cardBg,
     paddingHorizontal: isDesktop ? spacing.xxxl : spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: HERA.border,
+    borderBottomColor: heraLanding.border,
   },
   headerTop: {
     flexDirection: 'row',
@@ -990,7 +973,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
   },
   statsRow: {
     flexDirection: 'row',
@@ -1004,16 +987,16 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
   },
   statLabel: {
     fontSize: 14,
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
   },
   statDivider: {
     width: 1,
     height: 16,
-    backgroundColor: HERA.border,
+    backgroundColor: heraLanding.border,
     marginHorizontal: spacing.md,
   },
 
@@ -1026,9 +1009,9 @@ const styles = StyleSheet.create({
   // Sidebar
   sidebar: {
     width: 280,
-    backgroundColor: HERA.cardBg,
+    backgroundColor: heraLanding.cardBg,
     borderRightWidth: 1,
-    borderRightColor: HERA.border,
+    borderRightColor: heraLanding.border,
     padding: spacing.lg,
   },
 
@@ -1039,7 +1022,7 @@ const styles = StyleSheet.create({
   miniCalendarTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
     textTransform: 'capitalize',
     marginBottom: spacing.md,
     textAlign: 'center',
@@ -1052,7 +1035,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '600',
-    color: HERA.textMuted,
+    color: heraLanding.textMuted,
     textAlign: 'center',
   },
   miniCalendarDays: {
@@ -1067,43 +1050,43 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   miniCalendarDayToday: {
-    backgroundColor: `${HERA.primary}20`,
+    backgroundColor: heraLanding.primaryAlpha20,
     borderRadius: 20,
   },
   miniCalendarDaySelected: {
-    backgroundColor: HERA.primary,
+    backgroundColor: heraLanding.primary,
     borderRadius: 20,
   },
   miniCalendarDayText: {
     fontSize: 13,
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
   },
   miniCalendarDayTextToday: {
     fontWeight: '700',
-    color: HERA.primary,
+    color: heraLanding.primary,
   },
   miniCalendarDayTextSelected: {
-    color: '#FFFFFF',
+    color: heraLanding.textOnPrimary,
     fontWeight: '600',
   },
   miniCalendarDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: HERA.primary,
+    backgroundColor: heraLanding.primary,
     marginTop: 2,
   },
 
   // Legend
   legend: {
     padding: spacing.md,
-    backgroundColor: HERA.background,
+    backgroundColor: heraLanding.background,
     borderRadius: borderRadius.lg,
   },
   legendTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
     marginBottom: spacing.sm,
   },
   legendItem: {
@@ -1119,7 +1102,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 13,
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
   },
 
   // Main content
@@ -1129,15 +1112,15 @@ const styles = StyleSheet.create({
 
   // View Toggle
   viewToggleContainer: {
-    backgroundColor: HERA.cardBg,
+    backgroundColor: heraLanding.cardBg,
     paddingHorizontal: isDesktop ? spacing.xl : spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: HERA.border,
+    borderBottomColor: heraLanding.border,
   },
   viewToggle: {
     flexDirection: 'row',
-    backgroundColor: HERA.background,
+    backgroundColor: heraLanding.background,
     borderRadius: borderRadius.lg,
     padding: 4,
     alignSelf: isMobile ? 'stretch' : 'flex-start',
@@ -1153,15 +1136,15 @@ const styles = StyleSheet.create({
     flex: isMobile ? 1 : undefined,
   },
   viewToggleButtonActive: {
-    backgroundColor: HERA.primary,
+    backgroundColor: heraLanding.primary,
   },
   viewToggleText: {
     fontSize: 14,
     fontWeight: '600',
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
   },
   viewToggleTextActive: {
-    color: '#FFFFFF',
+    color: heraLanding.textOnPrimary,
   },
 
   // Date Navigation
@@ -1171,15 +1154,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: spacing.md,
     paddingHorizontal: isDesktop ? spacing.xl : spacing.lg,
-    backgroundColor: HERA.cardBg,
+    backgroundColor: heraLanding.cardBg,
     borderBottomWidth: 1,
-    borderBottomColor: HERA.border,
+    borderBottomColor: heraLanding.border,
   },
   dateNavButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: HERA.background,
+    backgroundColor: heraLanding.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1191,12 +1174,12 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 16,
     fontWeight: '600',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
     textTransform: 'capitalize',
   },
   todayLink: {
     fontSize: 13,
-    color: HERA.primary,
+    color: heraLanding.primary,
     marginTop: 4,
   },
 
@@ -1226,12 +1209,12 @@ const styles = StyleSheet.create({
   timeLabelText: {
     fontSize: 13,
     fontWeight: '500',
-    color: HERA.textMuted,
+    color: heraLanding.textMuted,
   },
   timeSlotLine: {
     flex: 1,
     height: 1,
-    backgroundColor: HERA.borderLight,
+    backgroundColor: heraLanding.borderLight,
     marginTop: 8,
   },
   currentTimeIndicator: {
@@ -1246,20 +1229,20 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: HERA.coral,
+    backgroundColor: heraLanding.warning,
     marginLeft: -5,
   },
   currentTimeLine: {
     flex: 1,
     height: 2,
-    backgroundColor: HERA.coral,
+    backgroundColor: heraLanding.warning,
   },
   currentTimeLabel: {
     marginLeft: spacing.sm,
     fontSize: 12,
     fontWeight: '600',
-    color: HERA.coral,
-    backgroundColor: HERA.cardBg,
+    color: heraLanding.warning,
+    backgroundColor: heraLanding.cardBg,
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: 4,
@@ -1278,7 +1261,7 @@ const styles = StyleSheet.create({
 
   // Session Block
   sessionBlock: {
-    backgroundColor: HERA.cardBg,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: borderRadius.lg,
     borderLeftWidth: 4,
     padding: spacing.md,
@@ -1289,7 +1272,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sessionBlockInProgress: {
-    shadowColor: HERA.success,
+    shadowColor: heraLanding.success,
     shadowOpacity: 0.2,
   },
   sessionBlockHeader: {
@@ -1307,17 +1290,17 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: `${HERA.primary}20`,
+    backgroundColor: heraLanding.primaryAlpha20,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.sm,
     borderWidth: 2,
-    borderColor: HERA.primary,
+    borderColor: heraLanding.primary,
   },
   sessionBlockAvatarText: {
     fontSize: 14,
     fontWeight: '700',
-    color: HERA.primary,
+    color: heraLanding.primary,
   },
   sessionBlockInfo: {
     flex: 1,
@@ -1325,7 +1308,7 @@ const styles = StyleSheet.create({
   sessionBlockName: {
     fontSize: 15,
     fontWeight: '600',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
     marginBottom: 2,
   },
   sessionBlockMeta: {
@@ -1335,11 +1318,11 @@ const styles = StyleSheet.create({
   },
   sessionBlockMetaText: {
     fontSize: 13,
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
     flex: 1,
   },
   sessionBlockMetaDot: {
-    color: HERA.textMuted,
+    color: heraLanding.textMuted,
   },
   sessionBlockStatus: {
     alignItems: 'flex-end',
@@ -1353,14 +1336,14 @@ const styles = StyleSheet.create({
   sessionBlockTime: {
     fontSize: 14,
     fontWeight: '600',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
   },
   sessionBlockActions: {
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: HERA.borderLight,
+    borderTopColor: heraLanding.borderLight,
     paddingTop: spacing.sm,
   },
 
@@ -1370,7 +1353,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HERA.primary,
+    backgroundColor: heraLanding.primary,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
@@ -1379,7 +1362,7 @@ const styles = StyleSheet.create({
   sessionActionConfirmText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: heraLanding.textOnPrimary,
   },
   sessionActionReject: {
     flex: 1,
@@ -1391,20 +1374,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 2,
-    borderColor: HERA.coral,
+    borderColor: heraLanding.warning,
     gap: spacing.xs,
   },
   sessionActionRejectText: {
     fontSize: 14,
     fontWeight: '600',
-    color: HERA.coral,
+    color: heraLanding.warning,
   },
   sessionActionJoin: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HERA.success,
+    backgroundColor: heraLanding.success,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
@@ -1413,14 +1396,14 @@ const styles = StyleSheet.create({
   sessionActionJoinText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: heraLanding.textOnPrimary,
   },
   sessionActionWaiting: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HERA.background,
+    backgroundColor: heraLanding.background,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
@@ -1428,13 +1411,13 @@ const styles = StyleSheet.create({
   },
   sessionActionWaitingText: {
     fontSize: 13,
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
   },
   sessionActionSecondary: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: `${HERA.primary}15`,
+    backgroundColor: heraLanding.primaryAlpha12,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
@@ -1443,7 +1426,7 @@ const styles = StyleSheet.create({
   sessionActionSecondaryText: {
     fontSize: 14,
     fontWeight: '500',
-    color: HERA.primary,
+    color: heraLanding.primary,
   },
 
   // Compact session block (for week view)
@@ -1454,11 +1437,11 @@ const styles = StyleSheet.create({
   sessionBlockCompactText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: heraLanding.textOnPrimary,
   },
   sessionBlockCompactTime: {
     fontSize: 10,
-    color: 'rgba(255,255,255,0.8)',
+    color: heraLanding.whiteAlpha80,
   },
 
   // Week View
@@ -1470,9 +1453,9 @@ const styles = StyleSheet.create({
   },
   weekHeader: {
     flexDirection: 'row',
-    backgroundColor: HERA.cardBg,
+    backgroundColor: heraLanding.cardBg,
     borderBottomWidth: 1,
-    borderBottomColor: HERA.border,
+    borderBottomColor: heraLanding.border,
     paddingVertical: spacing.sm,
   },
   weekHeaderSpacer: {
@@ -1486,29 +1469,29 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
   },
   weekHeaderDayToday: {
-    backgroundColor: `${HERA.primary}15`,
+    backgroundColor: heraLanding.primaryAlpha12,
   },
   weekHeaderDaySelected: {
-    backgroundColor: HERA.primary,
+    backgroundColor: heraLanding.primary,
   },
   weekHeaderDayName: {
     fontSize: 12,
     fontWeight: '500',
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
     textTransform: 'capitalize',
   },
   weekHeaderDayNameToday: {
-    color: HERA.primary,
+    color: heraLanding.primary,
     fontWeight: '600',
   },
   weekHeaderDayNumber: {
     fontSize: 18,
     fontWeight: '700',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
     marginTop: 2,
   },
   weekHeaderDayNumberToday: {
-    color: HERA.primary,
+    color: heraLanding.primary,
   },
   weekGrid: {
     flexDirection: 'row',
@@ -1517,7 +1500,7 @@ const styles = StyleSheet.create({
   weekTimeColumn: {
     width: 50,
     borderRightWidth: 1,
-    borderRightColor: HERA.borderLight,
+    borderRightColor: heraLanding.borderLight,
   },
   weekTimeSlot: {
     height: 60,
@@ -1528,18 +1511,18 @@ const styles = StyleSheet.create({
   },
   weekTimeText: {
     fontSize: 11,
-    color: HERA.textMuted,
+    color: heraLanding.textMuted,
   },
   weekDayColumn: {
     flex: 1,
     position: 'relative',
     borderRightWidth: 1,
-    borderRightColor: HERA.borderLight,
+    borderRightColor: heraLanding.borderLight,
   },
   weekGridCell: {
     height: 60,
     borderBottomWidth: 1,
-    borderBottomColor: HERA.borderLight,
+    borderBottomColor: heraLanding.borderLight,
   },
   weekSessionBlock: {
     position: 'absolute',
@@ -1551,11 +1534,11 @@ const styles = StyleSheet.create({
   weekSessionName: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: heraLanding.textOnPrimary,
   },
   weekSessionTime: {
     fontSize: 10,
-    color: 'rgba(255,255,255,0.85)',
+    color: heraLanding.whiteAlpha85,
   },
 
   // List View
@@ -1577,12 +1560,12 @@ const styles = StyleSheet.create({
   listDateText: {
     fontSize: 18,
     fontWeight: '700',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
     textTransform: 'capitalize',
     flex: 1,
   },
   listDateBadge: {
-    backgroundColor: HERA.primary,
+    backgroundColor: heraLanding.primary,
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: 12,
@@ -1592,7 +1575,7 @@ const styles = StyleSheet.create({
   listDateBadgeText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: heraLanding.textOnPrimary,
   },
   listCard: {
     marginBottom: spacing.md,
@@ -1617,23 +1600,23 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: HERA.cardBg,
+    backgroundColor: heraLanding.cardBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: HERA.border,
+    borderColor: heraLanding.border,
   },
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
     maxWidth: 280,
   },

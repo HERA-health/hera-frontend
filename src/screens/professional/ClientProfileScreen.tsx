@@ -31,40 +31,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../services/api';
 import { questionnaire, categoryLabels } from '../../utils/questionnaireData';
-
-// ============================================================================
-// HERA DESIGN TOKENS
-// ============================================================================
-const HERA = {
-  // Backgrounds
-  background: '#F5F7F5',        // Light Sage - THE constant
-  backgroundAlt: '#FDFCFB',     // Warm White
-  cardBg: '#FFFFFF',
-
-  // Primary Colors
-  primary: '#8B9D83',           // Sage Green
-  primaryLight: '#A8B8A0',
-  primaryDark: '#6E8066',
-  primaryMuted: '#D4DED0',
-
-  // Text Colors
-  textPrimary: '#2C3E2C',       // Forest
-  textSecondary: '#6B7B6B',     // Neutral gray
-  textMuted: '#9BA89B',
-  textOnPrimary: '#FFFFFF',
-
-  // Status Colors
-  success: '#7BA377',           // Green
-  warning: '#E89D88',           // Coral
-  info: '#8BA8C4',
-
-  // Borders
-  border: '#E2E8E2',
-  borderLight: '#F0F4F0',
-
-  // Shadows
-  shadowColor: 'rgba(44, 62, 44, 0.12)',
-};
+import { heraLanding } from '../../constants/colors';
 
 // ============================================================================
 // TYPES
@@ -342,7 +309,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={HERA.primary} />
+        <ActivityIndicator size="large" color={heraLanding.primary} />
         <Text style={styles.loadingText}>Cargando perfil del cliente...</Text>
       </View>
     );
@@ -355,7 +322,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
     return (
       <View style={styles.errorContainer}>
         <View style={styles.errorIconCircle}>
-          <Ionicons name="alert-circle-outline" size={48} color={HERA.warning} />
+          <Ionicons name="alert-circle-outline" size={48} color={heraLanding.warning} />
         </View>
         <Text style={styles.errorTitle}>No se pudo cargar el perfil</Text>
         <Text style={styles.errorMessage}>{error || 'Cliente no encontrado'}</Text>
@@ -402,7 +369,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={20} color={HERA.textSecondary} />
+            <Ionicons name="arrow-back" size={20} color={heraLanding.textSecondary} />
             <Text style={styles.backButtonText}>Volver a clientes</Text>
           </TouchableOpacity>
 
@@ -433,7 +400,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
                       <Text style={styles.clientAge}>{age} años</Text>
                     )}
                     <View style={styles.clientMetaRow}>
-                      <Ionicons name="calendar-outline" size={14} color={HERA.textMuted} />
+                      <Ionicons name="calendar-outline" size={14} color={heraLanding.textMuted} />
                       <Text style={styles.clientMeta}>
                         Cliente desde {clientSince}
                       </Text>
@@ -449,26 +416,26 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
               {/* Contact Information Card */}
               <View style={styles.card}>
                 <View style={styles.sectionHeader}>
-                  <Ionicons name="mail-outline" size={20} color={HERA.primary} />
+                  <Ionicons name="mail-outline" size={20} color={heraLanding.primary} />
                   <Text style={styles.sectionTitle}>Información de contacto</Text>
                 </View>
 
                 <View style={styles.contactList}>
                   <View style={styles.contactItem}>
-                    <Ionicons name="mail" size={18} color={HERA.textSecondary} />
+                    <Ionicons name="mail" size={18} color={heraLanding.textSecondary} />
                     <Text style={styles.contactText}>{client.user.email}</Text>
                   </View>
 
                   {client.user.phone && (
                     <View style={styles.contactItem}>
-                      <Ionicons name="call" size={18} color={HERA.textSecondary} />
+                      <Ionicons name="call" size={18} color={heraLanding.textSecondary} />
                       <Text style={styles.contactText}>{client.user.phone}</Text>
                     </View>
                   )}
 
                   {client.user.birthDate && (
                     <View style={styles.contactItem}>
-                      <Ionicons name="gift" size={18} color={HERA.textSecondary} />
+                      <Ionicons name="gift" size={18} color={heraLanding.textSecondary} />
                       <Text style={styles.contactText}>
                         {formatDate(client.user.birthDate)}
                       </Text>
@@ -477,7 +444,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
 
                   {client.user.occupation && (
                     <View style={styles.contactItem}>
-                      <Ionicons name="briefcase" size={18} color={HERA.textSecondary} />
+                      <Ionicons name="briefcase" size={18} color={heraLanding.textSecondary} />
                       <Text style={styles.contactText}>{client.user.occupation}</Text>
                     </View>
                   )}
@@ -506,7 +473,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
               {preferences?.concerns && Array.isArray(preferences.concerns) && preferences.concerns.length > 0 && (
                 <View style={styles.card}>
                   <View style={styles.sectionHeader}>
-                    <Ionicons name="flag-outline" size={20} color={HERA.primary} />
+                    <Ionicons name="flag-outline" size={20} color={heraLanding.primary} />
                     <Text style={styles.sectionTitle}>Motivo de consulta</Text>
                   </View>
 
@@ -537,7 +504,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
               {(preferences?.approach || preferences?.modality || preferences?.availability) && (
                 <View style={styles.card}>
                   <View style={styles.sectionHeader}>
-                    <Ionicons name="options-outline" size={20} color={HERA.primary} />
+                    <Ionicons name="options-outline" size={20} color={heraLanding.primary} />
                     <Text style={styles.sectionTitle}>Preferencias de terapia</Text>
                   </View>
 
@@ -546,7 +513,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
                       <View style={styles.preferenceItem}>
                         <Text style={styles.preferenceLabel}>Tipo de terapia</Text>
                         <View style={styles.preferenceValueRow}>
-                          <Ionicons name="bulb-outline" size={16} color={HERA.primary} />
+                          <Ionicons name="bulb-outline" size={16} color={heraLanding.primary} />
                           <Text style={styles.preferenceValue}>{preferences.approach}</Text>
                         </View>
                       </View>
@@ -559,7 +526,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
                           <Ionicons
                             name={preferences.modality.toLowerCase().includes('video') ? 'videocam-outline' : 'business-outline'}
                             size={16}
-                            color={HERA.primary}
+                            color={heraLanding.primary}
                           />
                           <Text style={styles.preferenceValue}>{preferences.modality}</Text>
                         </View>
@@ -570,7 +537,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
                       <View style={styles.preferenceItem}>
                         <Text style={styles.preferenceLabel}>Disponibilidad</Text>
                         <View style={styles.preferenceValueRow}>
-                          <Ionicons name="time-outline" size={16} color={HERA.primary} />
+                          <Ionicons name="time-outline" size={16} color={heraLanding.primary} />
                           <Text style={styles.preferenceValue}>{preferences.availability}</Text>
                         </View>
                       </View>
@@ -580,7 +547,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
                       <View style={styles.preferenceItem}>
                         <Text style={styles.preferenceLabel}>Presupuesto</Text>
                         <View style={styles.preferenceValueRow}>
-                          <Ionicons name="wallet-outline" size={16} color={HERA.primary} />
+                          <Ionicons name="wallet-outline" size={16} color={heraLanding.primary} />
                           <Text style={styles.preferenceValue}>{preferences.budget}</Text>
                         </View>
                       </View>
@@ -590,7 +557,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
                       <View style={styles.preferenceItem}>
                         <Text style={styles.preferenceLabel}>Frecuencia preferida</Text>
                         <View style={styles.preferenceValueRow}>
-                          <Ionicons name="calendar-outline" size={16} color={HERA.primary} />
+                          <Ionicons name="calendar-outline" size={16} color={heraLanding.primary} />
                           <Text style={styles.preferenceValue}>{preferences.frequency}</Text>
                         </View>
                       </View>
@@ -603,7 +570,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
               {questionnaireData && questionnaireData.length > 0 && (
                 <View style={styles.card}>
                   <View style={styles.sectionHeader}>
-                    <Ionicons name="document-text-outline" size={20} color={HERA.primary} />
+                    <Ionicons name="document-text-outline" size={20} color={heraLanding.primary} />
                     <Text style={styles.sectionTitle}>Respuestas del cuestionario</Text>
                   </View>
 
@@ -631,7 +598,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
                       <Text style={styles.viewMoreText}>
                         Ver cuestionario completo ({questionnaireData.length} respuestas)
                       </Text>
-                      <Ionicons name="chevron-forward" size={16} color={HERA.primary} />
+                      <Ionicons name="chevron-forward" size={16} color={heraLanding.primary} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -641,7 +608,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
               {!client.completedQuestionnaire && (
                 <View style={styles.card}>
                   <View style={styles.emptyState}>
-                    <Ionicons name="document-text-outline" size={48} color={HERA.textMuted} />
+                    <Ionicons name="document-text-outline" size={48} color={heraLanding.textMuted} />
                     <Text style={styles.emptyTitle}>
                       Este cliente no completó el cuestionario inicial
                     </Text>
@@ -658,7 +625,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
               {/* Resumen Card */}
               <View style={styles.card}>
                 <View style={styles.sectionHeader}>
-                  <Ionicons name="stats-chart-outline" size={20} color={HERA.primary} />
+                  <Ionicons name="stats-chart-outline" size={20} color={heraLanding.primary} />
                   <Text style={styles.sectionTitle}>Resumen</Text>
                 </View>
 
@@ -686,8 +653,8 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
                   <View style={styles.summaryItem}>
                     <Text style={styles.summaryLabel}>Estado</Text>
                     <View style={styles.summaryStatusRow}>
-                      <View style={[styles.summaryStatusDot, { backgroundColor: HERA.success }]} />
-                      <Text style={[styles.summaryValue, { color: HERA.success }]}>Activo</Text>
+                      <View style={[styles.summaryStatusDot, { backgroundColor: heraLanding.success }]} />
+                      <Text style={[styles.summaryValue, { color: heraLanding.success }]}>Activo</Text>
                     </View>
                   </View>
                 </View>
@@ -696,7 +663,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
               {/* Próxima Sesión Card */}
               <View style={styles.card}>
                 <View style={styles.sectionHeader}>
-                  <Ionicons name="calendar-outline" size={20} color={HERA.primary} />
+                  <Ionicons name="calendar-outline" size={20} color={heraLanding.primary} />
                   <Text style={styles.sectionTitle}>Próxima sesión</Text>
                 </View>
 
@@ -719,7 +686,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
                       <Ionicons
                         name={sessionStats.nextSession.type === 'VIDEO' ? 'videocam-outline' : 'call-outline'}
                         size={14}
-                        color={HERA.textSecondary}
+                        color={heraLanding.textSecondary}
                       />
                       <Text style={styles.nextSessionType}>
                         {sessionStats.nextSession.type === 'VIDEO' ? 'Videollamada' : 'Llamada'}
@@ -742,7 +709,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
                       style={styles.scheduleButton}
                       onPress={handleScheduleSession}
                     >
-                      <Ionicons name="add" size={18} color={HERA.textOnPrimary} />
+                      <Ionicons name="add" size={18} color={heraLanding.textOnPrimary} />
                       <Text style={styles.scheduleButtonText}>Agendar sesión</Text>
                     </TouchableOpacity>
                   </View>
@@ -752,7 +719,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
               {/* Contacto Rápido Card */}
               <View style={styles.card}>
                 <View style={styles.sectionHeader}>
-                  <Ionicons name="chatbubbles-outline" size={20} color={HERA.primary} />
+                  <Ionicons name="chatbubbles-outline" size={20} color={heraLanding.primary} />
                   <Text style={styles.sectionTitle}>Contacto</Text>
                 </View>
 
@@ -761,7 +728,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
                     style={styles.quickActionButton}
                     onPress={handleSendEmail}
                   >
-                    <Ionicons name="mail-outline" size={18} color={HERA.primary} />
+                    <Ionicons name="mail-outline" size={18} color={heraLanding.primary} />
                     <Text style={styles.quickActionText}>Enviar email</Text>
                   </TouchableOpacity>
 
@@ -770,7 +737,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
                       style={styles.quickActionButton}
                       onPress={handleCall}
                     >
-                      <Ionicons name="call-outline" size={18} color={HERA.primary} />
+                      <Ionicons name="call-outline" size={18} color={heraLanding.primary} />
                       <Text style={styles.quickActionText}>Llamar</Text>
                     </TouchableOpacity>
                   )}
@@ -779,7 +746,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
                     style={styles.quickActionButton}
                     onPress={handleSendMessage}
                   >
-                    <Ionicons name="chatbubble-outline" size={18} color={HERA.primary} />
+                    <Ionicons name="chatbubble-outline" size={18} color={heraLanding.primary} />
                     <Text style={styles.quickActionText}>Mensaje en app</Text>
                   </TouchableOpacity>
                 </View>
@@ -788,7 +755,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
               {/* Acciones Card */}
               <View style={styles.card}>
                 <View style={styles.sectionHeader}>
-                  <Ionicons name="flash-outline" size={20} color={HERA.primary} />
+                  <Ionicons name="flash-outline" size={20} color={heraLanding.primary} />
                   <Text style={styles.sectionTitle}>Acciones</Text>
                 </View>
 
@@ -797,27 +764,27 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
                     style={styles.actionItem}
                     onPress={handleScheduleSession}
                   >
-                    <Ionicons name="calendar-outline" size={18} color={HERA.textSecondary} />
+                    <Ionicons name="calendar-outline" size={18} color={heraLanding.textSecondary} />
                     <Text style={styles.actionItemText}>Agendar sesión</Text>
-                    <Ionicons name="chevron-forward" size={16} color={HERA.textMuted} />
+                    <Ionicons name="chevron-forward" size={16} color={heraLanding.textMuted} />
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.actionItem}
                     onPress={handleViewHistory}
                   >
-                    <Ionicons name="time-outline" size={18} color={HERA.textSecondary} />
+                    <Ionicons name="time-outline" size={18} color={heraLanding.textSecondary} />
                     <Text style={styles.actionItemText}>Ver historial</Text>
-                    <Ionicons name="chevron-forward" size={16} color={HERA.textMuted} />
+                    <Ionicons name="chevron-forward" size={16} color={heraLanding.textMuted} />
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.actionItem}
                     onPress={handleViewNotes}
                   >
-                    <Ionicons name="document-text-outline" size={18} color={HERA.textSecondary} />
+                    <Ionicons name="document-text-outline" size={18} color={heraLanding.textSecondary} />
                     <Text style={styles.actionItemText}>Ver notas</Text>
-                    <Ionicons name="chevron-forward" size={16} color={HERA.textMuted} />
+                    <Ionicons name="chevron-forward" size={16} color={heraLanding.textMuted} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -844,7 +811,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
             style={styles.mobileBackButton}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color={HERA.textPrimary} />
+            <Ionicons name="arrow-back" size={24} color={heraLanding.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.mobileHeaderTitle}>Perfil del cliente</Text>
           <View style={{ width: 24 }} />
@@ -886,7 +853,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
             </View>
             <View style={styles.mobileStatDivider} />
             <View style={styles.mobileStat}>
-              <Text style={[styles.mobileStatValue, { color: HERA.success }]}>Activo</Text>
+              <Text style={[styles.mobileStatValue, { color: heraLanding.success }]}>Activo</Text>
               <Text style={styles.mobileStatLabel}>Estado</Text>
             </View>
           </View>
@@ -895,17 +862,17 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
         {/* Contact Card */}
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="mail-outline" size={20} color={HERA.primary} />
+            <Ionicons name="mail-outline" size={20} color={heraLanding.primary} />
             <Text style={styles.sectionTitle}>Contacto</Text>
           </View>
           <View style={styles.contactList}>
             <View style={styles.contactItem}>
-              <Ionicons name="mail" size={18} color={HERA.textSecondary} />
+              <Ionicons name="mail" size={18} color={heraLanding.textSecondary} />
               <Text style={styles.contactText}>{client.user.email}</Text>
             </View>
             {client.user.phone && (
               <View style={styles.contactItem}>
-                <Ionicons name="call" size={18} color={HERA.textSecondary} />
+                <Ionicons name="call" size={18} color={heraLanding.textSecondary} />
                 <Text style={styles.contactText}>{client.user.phone}</Text>
               </View>
             )}
@@ -916,7 +883,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
         {preferences?.concerns && Array.isArray(preferences.concerns) && preferences.concerns.length > 0 && (
           <View style={styles.card}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="flag-outline" size={20} color={HERA.primary} />
+              <Ionicons name="flag-outline" size={20} color={heraLanding.primary} />
               <Text style={styles.sectionTitle}>Motivo de consulta</Text>
             </View>
             <View style={styles.tagsRow}>
@@ -933,7 +900,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
         {preferences?.approach && (
           <View style={styles.card}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="options-outline" size={20} color={HERA.primary} />
+              <Ionicons name="options-outline" size={20} color={heraLanding.primary} />
               <Text style={styles.sectionTitle}>Preferencias</Text>
             </View>
             <View style={styles.preferencesList}>
@@ -959,7 +926,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
             style={styles.mobileActionPrimary}
             onPress={handleScheduleSession}
           >
-            <Ionicons name="calendar" size={20} color={HERA.textOnPrimary} />
+            <Ionicons name="calendar" size={20} color={heraLanding.textOnPrimary} />
             <Text style={styles.mobileActionPrimaryText}>Agendar sesión</Text>
           </TouchableOpacity>
 
@@ -968,7 +935,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
               style={styles.mobileActionSecondary}
               onPress={handleSendMessage}
             >
-              <Ionicons name="chatbubble-outline" size={20} color={HERA.primary} />
+              <Ionicons name="chatbubble-outline" size={20} color={heraLanding.primary} />
               <Text style={styles.mobileActionSecondaryText}>Mensaje</Text>
             </TouchableOpacity>
 
@@ -976,7 +943,7 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
               style={styles.mobileActionSecondary}
               onPress={handleViewHistory}
             >
-              <Ionicons name="time-outline" size={20} color={HERA.primary} />
+              <Ionicons name="time-outline" size={20} color={heraLanding.primary} />
               <Text style={styles.mobileActionSecondaryText}>Historial</Text>
             </TouchableOpacity>
           </View>
@@ -996,7 +963,7 @@ const styles = StyleSheet.create({
   // Container
   container: {
     flex: 1,
-    backgroundColor: HERA.background,
+    backgroundColor: heraLanding.background,
   },
   scrollView: {
     flex: 1,
@@ -1007,12 +974,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: HERA.background,
+    backgroundColor: heraLanding.background,
     gap: 16,
   },
   loadingText: {
     fontSize: 15,
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
     fontWeight: '500',
   },
 
@@ -1021,51 +988,51 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: HERA.background,
+    backgroundColor: heraLanding.background,
     padding: 24,
   },
   errorIconCircle: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: HERA.cardBg,
+    backgroundColor: heraLanding.cardBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
     ...Platform.select({
       ios: {
-        shadowColor: HERA.shadowColor,
+        shadowColor: heraLanding.shadowColor,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 1,
         shadowRadius: 8,
       },
       android: { elevation: 4 },
-      web: { boxShadow: `0 2px 8px ${HERA.shadowColor}` },
+      web: { boxShadow: `0 2px 8px ${heraLanding.shadowColor}` },
     }),
   },
   errorTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
     marginBottom: 8,
     textAlign: 'center',
   },
   errorMessage: {
     fontSize: 15,
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
     marginBottom: 24,
   },
   errorButton: {
     paddingVertical: 12,
     paddingHorizontal: 32,
-    backgroundColor: HERA.primary,
+    backgroundColor: heraLanding.primary,
     borderRadius: 8,
   },
   errorButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: HERA.textOnPrimary,
+    color: heraLanding.textOnPrimary,
   },
 
   // Desktop Layout
@@ -1081,7 +1048,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 14,
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
     fontWeight: '500',
   },
   desktopLayout: {
@@ -1105,18 +1072,18 @@ const styles = StyleSheet.create({
 
   // Cards
   card: {
-    backgroundColor: HERA.cardBg,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: 12,
     padding: 24,
     ...Platform.select({
       ios: {
-        shadowColor: HERA.shadowColor,
+        shadowColor: heraLanding.shadowColor,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 1,
         shadowRadius: 8,
       },
       android: { elevation: 3 },
-      web: { boxShadow: `0 2px 8px ${HERA.shadowColor}` },
+      web: { boxShadow: `0 2px 8px ${heraLanding.shadowColor}` },
     }),
   },
 
@@ -1129,7 +1096,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: HERA.primaryMuted,
+    backgroundColor: heraLanding.primaryMuted,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -1142,7 +1109,7 @@ const styles = StyleSheet.create({
   avatarInitials: {
     fontSize: 40,
     fontWeight: '700',
-    color: HERA.primary,
+    color: heraLanding.primary,
   },
   statusDot: {
     position: 'absolute',
@@ -1151,9 +1118,9 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: HERA.success,
+    backgroundColor: heraLanding.success,
     borderWidth: 3,
-    borderColor: HERA.cardBg,
+    borderColor: heraLanding.cardBg,
   },
   profileInfo: {
     flex: 1,
@@ -1163,11 +1130,11 @@ const styles = StyleSheet.create({
   clientName: {
     fontSize: 28,
     fontWeight: '700',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
   },
   clientAge: {
     fontSize: 16,
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
   },
   clientMetaRow: {
     flexDirection: 'row',
@@ -1177,13 +1144,13 @@ const styles = StyleSheet.create({
   },
   clientMeta: {
     fontSize: 14,
-    color: HERA.textMuted,
+    color: heraLanding.textMuted,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: `${HERA.success}15`,
+    backgroundColor: `${heraLanding.success}15`,
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,
@@ -1194,12 +1161,12 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: HERA.success,
+    backgroundColor: heraLanding.success,
   },
   statusBadgeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: HERA.success,
+    color: heraLanding.success,
   },
 
   // Section Headers
@@ -1212,11 +1179,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
   },
   sectionDescription: {
     fontSize: 15,
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
     marginBottom: 12,
   },
 
@@ -1231,7 +1198,7 @@ const styles = StyleSheet.create({
   },
   contactText: {
     fontSize: 15,
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
   },
   contactActions: {
     flexDirection: 'row',
@@ -1239,19 +1206,19 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: HERA.borderLight,
+    borderTopColor: heraLanding.borderLight,
   },
   contactActionButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: HERA.border,
+    borderColor: heraLanding.border,
   },
   contactActionText: {
     fontSize: 14,
     fontWeight: '500',
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
   },
 
   // Concerns
@@ -1268,11 +1235,11 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: HERA.primary,
+    backgroundColor: heraLanding.primary,
   },
   concernText: {
     fontSize: 15,
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
   },
   tagsRow: {
     flexDirection: 'row',
@@ -1280,7 +1247,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tag: {
-    backgroundColor: HERA.primaryMuted,
+    backgroundColor: heraLanding.primaryMuted,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
@@ -1288,7 +1255,7 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 13,
     fontWeight: '500',
-    color: HERA.primaryDark,
+    color: heraLanding.primaryDark,
   },
 
   // Preferences
@@ -1301,7 +1268,7 @@ const styles = StyleSheet.create({
   preferenceLabel: {
     fontSize: 13,
     fontWeight: '500',
-    color: HERA.textMuted,
+    color: heraLanding.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -1312,13 +1279,13 @@ const styles = StyleSheet.create({
   },
   preferenceValue: {
     fontSize: 15,
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
   },
 
   // Questionnaire
   questionnaireDate: {
     fontSize: 14,
-    color: HERA.textMuted,
+    color: heraLanding.textMuted,
     marginBottom: 16,
   },
   questionnaireList: {
@@ -1330,14 +1297,14 @@ const styles = StyleSheet.create({
   questionText: {
     fontSize: 14,
     fontWeight: '600',
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
   },
   answersList: {
     gap: 2,
   },
   answerText: {
     fontSize: 15,
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
     paddingLeft: 12,
   },
   viewMoreButton: {
@@ -1348,12 +1315,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: HERA.borderLight,
+    borderTopColor: heraLanding.borderLight,
   },
   viewMoreText: {
     fontSize: 14,
     fontWeight: '500',
-    color: HERA.primary,
+    color: heraLanding.primary,
   },
 
   // Empty State
@@ -1364,20 +1331,20 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 15,
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
   },
   emptyAction: {
     marginTop: 8,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    backgroundColor: HERA.primary,
+    backgroundColor: heraLanding.primary,
     borderRadius: 8,
   },
   emptyActionText: {
     fontSize: 14,
     fontWeight: '600',
-    color: HERA.textOnPrimary,
+    color: heraLanding.textOnPrimary,
   },
 
   // Summary Sidebar
@@ -1389,20 +1356,20 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 13,
-    color: HERA.textMuted,
+    color: heraLanding.textMuted,
   },
   summaryValue: {
     fontSize: 18,
     fontWeight: '600',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
   },
   summaryMeta: {
     fontSize: 12,
-    color: HERA.textMuted,
+    color: heraLanding.textMuted,
   },
   summaryDivider: {
     height: 1,
-    backgroundColor: HERA.borderLight,
+    backgroundColor: heraLanding.borderLight,
     marginVertical: 4,
   },
   summaryStatusRow: {
@@ -1423,13 +1390,13 @@ const styles = StyleSheet.create({
   nextSessionDate: {
     fontSize: 16,
     fontWeight: '600',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
     textTransform: 'capitalize',
   },
   nextSessionTime: {
     fontSize: 24,
     fontWeight: '700',
-    color: HERA.primary,
+    color: heraLanding.primary,
   },
   nextSessionMeta: {
     flexDirection: 'row',
@@ -1439,7 +1406,7 @@ const styles = StyleSheet.create({
   },
   nextSessionType: {
     fontSize: 14,
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
   },
   nextSessionActions: {
     flexDirection: 'row',
@@ -1451,22 +1418,22 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1.5,
-    borderColor: HERA.border,
+    borderColor: heraLanding.border,
     alignItems: 'center',
   },
   nextSessionButtonPrimary: {
-    backgroundColor: HERA.primary,
-    borderColor: HERA.primary,
+    backgroundColor: heraLanding.primary,
+    borderColor: heraLanding.primary,
   },
   nextSessionButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
   },
   nextSessionButtonTextPrimary: {
     fontSize: 14,
     fontWeight: '600',
-    color: HERA.textOnPrimary,
+    color: heraLanding.textOnPrimary,
   },
   noSession: {
     alignItems: 'center',
@@ -1474,14 +1441,14 @@ const styles = StyleSheet.create({
   },
   noSessionText: {
     fontSize: 15,
-    color: HERA.textMuted,
+    color: heraLanding.textMuted,
   },
   scheduleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: HERA.primary,
+    backgroundColor: heraLanding.primary,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -1490,7 +1457,7 @@ const styles = StyleSheet.create({
   scheduleButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: HERA.textOnPrimary,
+    color: heraLanding.textOnPrimary,
   },
 
   // Quick Actions
@@ -1503,13 +1470,13 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    backgroundColor: HERA.background,
+    backgroundColor: heraLanding.background,
     borderRadius: 8,
   },
   quickActionText: {
     fontSize: 14,
     fontWeight: '500',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
   },
 
   // Actions List
@@ -1523,12 +1490,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: HERA.borderLight,
+    borderBottomColor: heraLanding.borderLight,
   },
   actionItemText: {
     flex: 1,
     fontSize: 15,
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
   },
 
   // Mobile Styles
@@ -1543,9 +1510,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 12,
-    backgroundColor: HERA.cardBg,
+    backgroundColor: heraLanding.cardBg,
     borderBottomWidth: 1,
-    borderBottomColor: HERA.borderLight,
+    borderBottomColor: heraLanding.borderLight,
     marginHorizontal: -16,
     marginTop: -16,
     paddingHorizontal: 16,
@@ -1557,7 +1524,7 @@ const styles = StyleSheet.create({
   mobileHeaderTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
   },
   mobileProfileHeader: {
     alignItems: 'center',
@@ -1567,7 +1534,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: HERA.primaryMuted,
+    backgroundColor: heraLanding.primaryMuted,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -1580,7 +1547,7 @@ const styles = StyleSheet.create({
   avatarInitialsMobile: {
     fontSize: 36,
     fontWeight: '700',
-    color: HERA.primary,
+    color: heraLanding.primary,
   },
   statusDotMobile: {
     position: 'absolute',
@@ -1589,22 +1556,22 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: HERA.success,
+    backgroundColor: heraLanding.success,
     borderWidth: 3,
-    borderColor: HERA.cardBg,
+    borderColor: heraLanding.cardBg,
   },
   clientNameMobile: {
     fontSize: 24,
     fontWeight: '700',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
   },
   clientAgeMobile: {
     fontSize: 16,
-    color: HERA.textSecondary,
+    color: heraLanding.textSecondary,
   },
   clientSinceMobile: {
     fontSize: 14,
-    color: HERA.textMuted,
+    color: heraLanding.textMuted,
   },
   mobileStatsRow: {
     flexDirection: 'row',
@@ -1618,16 +1585,16 @@ const styles = StyleSheet.create({
   mobileStatValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: HERA.textPrimary,
+    color: heraLanding.textPrimary,
   },
   mobileStatLabel: {
     fontSize: 12,
-    color: HERA.textMuted,
+    color: heraLanding.textMuted,
   },
   mobileStatDivider: {
     width: 1,
     height: 32,
-    backgroundColor: HERA.borderLight,
+    backgroundColor: heraLanding.borderLight,
   },
   mobileActions: {
     gap: 12,
@@ -1637,14 +1604,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    backgroundColor: HERA.primary,
+    backgroundColor: heraLanding.primary,
     paddingVertical: 14,
     borderRadius: 10,
   },
   mobileActionPrimaryText: {
     fontSize: 16,
     fontWeight: '600',
-    color: HERA.textOnPrimary,
+    color: heraLanding.textOnPrimary,
   },
   mobileActionRow: {
     flexDirection: 'row',
@@ -1659,12 +1626,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: HERA.border,
+    borderColor: heraLanding.border,
   },
   mobileActionSecondaryText: {
     fontSize: 15,
     fontWeight: '500',
-    color: HERA.primary,
+    color: heraLanding.primary,
   },
 });
 

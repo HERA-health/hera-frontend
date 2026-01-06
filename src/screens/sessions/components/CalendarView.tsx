@@ -40,15 +40,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const renderLegend = () => (
     <View style={styles.legend}>
       <View style={styles.legendItem}>
-        <View style={[styles.legendDot, { backgroundColor: '#7BA377' }]} />
+        <View style={[styles.legendDot, { backgroundColor: heraLanding.success }]} />
         <Text style={styles.legendText}>Confirmada</Text>
       </View>
       <View style={styles.legendItem}>
-        <View style={[styles.legendDot, { backgroundColor: '#D9A84F' }]} />
+        <View style={[styles.legendDot, { backgroundColor: heraLanding.warningAmber }]} />
         <Text style={styles.legendText}>Pendiente</Text>
       </View>
       <View style={styles.legendItem}>
-        <View style={[styles.legendDot, { backgroundColor: '#9BA39B' }]} />
+        <View style={[styles.legendDot, { backgroundColor: heraLanding.textMuted }]} />
         <Text style={styles.legendText}>Completada</Text>
       </View>
     </View>
@@ -93,17 +93,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           markedDates={markedDates}
           markingType="multi-dot"
           theme={{
-            backgroundColor: colors.neutral.white,
-            calendarBackground: colors.neutral.white,
+            backgroundColor: heraLanding.cardBg,
+            calendarBackground: heraLanding.cardBg,
             textSectionTitleColor: heraLanding.textSecondary,
             selectedDayBackgroundColor: heraLanding.primary,
-            selectedDayTextColor: colors.neutral.white,
+            selectedDayTextColor: heraLanding.cardBg,
             todayTextColor: heraLanding.primary,
             todayBackgroundColor: `${heraLanding.primary}15`,
             dayTextColor: heraLanding.textPrimary,
             textDisabledColor: heraLanding.textMuted,
             dotColor: heraLanding.primary,
-            selectedDotColor: colors.neutral.white,
+            selectedDotColor: heraLanding.cardBg,
             arrowColor: heraLanding.primary,
             monthTextColor: heraLanding.textPrimary,
             indicatorColor: heraLanding.primary,
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxxl,
   },
   calendarCard: {
-    backgroundColor: colors.neutral.white,
+    backgroundColor: heraLanding.cardBg,
     marginHorizontal: screenWidth > 768 ? spacing.xxxl : spacing.xl,
     marginTop: spacing.sm,
     marginBottom: spacing.xl,
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   countBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.neutral.white,
+    color: heraLanding.cardBg,
   },
   sessionsList: {
     gap: spacing.sm,
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.xxl,
     paddingHorizontal: spacing.xl,
-    backgroundColor: colors.neutral.white,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: borderRadius.lg,
     shadowColor: heraLanding.shadowColor,
     shadowOffset: { width: 0, height: 1 },

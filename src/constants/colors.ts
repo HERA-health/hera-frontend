@@ -156,6 +156,28 @@ export const heraLanding = {
   // ✅ Celebration/special
   gold: '#FFD700',
   celebration: '#FFD700',
+
+  // ✅ Overlay colors (for modals, drawers)
+  overlay: 'rgba(0, 0, 0, 0.5)',
+  overlayLight: 'rgba(0, 0, 0, 0.3)',
+
+  // ✅ Light/muted variants for backgrounds
+  successLight: '#E8F5E8',
+  successMuted: 'rgba(123, 163, 119, 0.15)',
+  warningLight: 'rgba(232, 157, 136, 0.15)',
+  mutedLight: 'rgba(155, 163, 155, 0.20)',
+
+  // ✅ Background variants
+  backgroundLight: '#FAFBFA',
+  backgroundMuted: '#F8F9F8',
+
+  // ✅ White alpha variants
+  whiteAlpha80: 'rgba(255, 255, 255, 0.8)',
+  whiteAlpha85: 'rgba(255, 255, 255, 0.85)',
+
+  // ✅ Simple status colors (for direct use as background colors)
+  statusInProgress: '#7BA377',
+  statusCompleted: '#B8C8B8',
 };
 
 // ✅ Brand colors for third-party integrations
