@@ -16,24 +16,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { MatchResult } from '../../utils/matchingAlgorithm';
 import { LinearGradient } from 'expo-linear-gradient';
 
-// HERA Design Colors
-const HERA_COLORS = {
-  background: '#F5F7F5',       // Light Sage - CRITICAL
-  cardBg: '#FFFFFF',
-  primary: '#8B9D83',          // Sage Green
-  primaryLight: '#A8B8A0',
-  primaryDark: '#6E8066',
-  success: '#7BA377',          // Match percentage color
-  successBg: '#F0F7F0',        // Match percentage background
-  textPrimary: '#2C3E2C',      // Forest green
-  textSecondary: '#6B7B6B',
-  textMuted: '#9BA89B',
-  border: '#E8EBE8',
-  borderLight: '#F0F4F0',
-  white: '#FFFFFF',
-  celebration: '#FFD700',      // Gold for celebration
-};
-
 export function QuestionnaireResultsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -98,7 +80,7 @@ export function QuestionnaireResultsScreen() {
       <View style={styles.container}>
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconContainer}>
-            <Ionicons name="search-outline" size={64} color={HERA_COLORS.textMuted} />
+            <Ionicons name="search-outline" size={64} color={heraLanding.textMuted} />
           </View>
           <Text style={styles.emptyTitle}>No encontramos matches exactos</Text>
           <Text style={styles.emptyDescription}>
@@ -110,13 +92,13 @@ export function QuestionnaireResultsScreen() {
               onPress={() => navigation.navigate('Specialists')}
             >
               <Text style={styles.primaryButtonText}>Ver todos los especialistas</Text>
-              <Ionicons name="arrow-forward" size={18} color={HERA_COLORS.white} />
+              <Ionicons name="arrow-forward" size={18} color={heraLanding.cardBackground} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.outlineButton}
               onPress={() => navigation.navigate('Questionnaire')}
             >
-              <Ionicons name="refresh" size={18} color={HERA_COLORS.primary} />
+              <Ionicons name="refresh" size={18} color={heraLanding.primary} />
               <Text style={styles.outlineButtonText}>Ajustar preferencias</Text>
             </TouchableOpacity>
           </View>
@@ -131,7 +113,7 @@ export function QuestionnaireResultsScreen() {
       <Ionicons
         name="checkmark-circle"
         size={size === 'large' ? 20 : 16}
-        color={HERA_COLORS.success}
+        color={heraLanding.success}
       />
       <Text style={[styles.matchBadgeText, size === 'large' && styles.matchBadgeTextLarge]}>
         {percentage}% match
@@ -168,7 +150,7 @@ export function QuestionnaireResultsScreen() {
       >
         {isTopMatch && (
           <View style={styles.topMatchBanner}>
-            <Ionicons name="trophy" size={16} color={HERA_COLORS.celebration} />
+            <Ionicons name="trophy" size={16} color={heraLanding.celebration} />
             <Text style={styles.topMatchBannerText}>Tu Mejor Match</Text>
           </View>
         )}
@@ -179,7 +161,7 @@ export function QuestionnaireResultsScreen() {
               <Image source={{ uri: specialist.avatar }} style={styles.avatar} />
             ) : (
               <LinearGradient
-                colors={[HERA_COLORS.primary, HERA_COLORS.primaryDark]}
+                colors={[heraLanding.primary, heraLanding.primaryDark]}
                 style={styles.avatar}
               >
                 <Text style={styles.avatarText}>
@@ -202,7 +184,7 @@ export function QuestionnaireResultsScreen() {
               {specialist.specialization}
             </Text>
             <View style={styles.ratingRow}>
-              <Ionicons name="star" size={14} color="#FFB800" />
+              <Ionicons name="star" size={14} color={heraLanding.starRating} />
               <Text style={styles.ratingText}>
                 {specialist.rating} ({specialist.reviewCount})
               </Text>
@@ -219,7 +201,7 @@ export function QuestionnaireResultsScreen() {
             <View style={styles.matchReasonsList}>
               {matchedAttributes.slice(0, 3).map((attr, idx) => (
                 <View key={idx} style={styles.matchReason}>
-                  <Ionicons name="checkmark" size={14} color={HERA_COLORS.success} />
+                  <Ionicons name="checkmark" size={14} color={heraLanding.success} />
                   <Text style={styles.matchReasonText}>{attr}</Text>
                 </View>
               ))}
@@ -236,7 +218,7 @@ export function QuestionnaireResultsScreen() {
             onPress={() => navigation.navigate('SpecialistDetail', { specialistId: specialist.id })}
           >
             <Text style={styles.viewProfileButtonText}>Ver perfil</Text>
-            <Ionicons name="arrow-forward" size={16} color={HERA_COLORS.white} />
+            <Ionicons name="arrow-forward" size={16} color={heraLanding.cardBackground} />
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -285,7 +267,7 @@ export function QuestionnaireResultsScreen() {
           ]}
         >
           <View style={styles.summaryHeader}>
-            <Ionicons name="clipboard-outline" size={20} color={HERA_COLORS.primary} />
+            <Ionicons name="clipboard-outline" size={20} color={heraLanding.primary} />
             <Text style={styles.summaryTitle}>Basado en tus preferencias</Text>
           </View>
           <Text style={styles.summaryDescription}>
@@ -296,7 +278,7 @@ export function QuestionnaireResultsScreen() {
             onPress={() => navigation.navigate('Questionnaire')}
           >
             <Text style={styles.editPreferencesText}>Editar preferencias</Text>
-            <Ionicons name="chevron-forward" size={16} color={HERA_COLORS.primary} />
+            <Ionicons name="chevron-forward" size={16} color={heraLanding.primary} />
           </TouchableOpacity>
         </Animated.View>
 
@@ -338,14 +320,14 @@ export function QuestionnaireResultsScreen() {
             onPress={() => navigation.navigate('Specialists')}
           >
             <Text style={styles.viewAllButtonText}>Ver todos los especialistas</Text>
-            <Ionicons name="arrow-forward" size={18} color={HERA_COLORS.primary} />
+            <Ionicons name="arrow-forward" size={18} color={heraLanding.primary} />
           </TouchableOpacity>
         </View>
 
         {/* Retake Questionnaire */}
         <View style={styles.retakeSection}>
           <View style={styles.retakeContent}>
-            <Ionicons name="refresh-outline" size={24} color={HERA_COLORS.textSecondary} />
+            <Ionicons name="refresh-outline" size={24} color={heraLanding.textSecondary} />
             <View style={styles.retakeTextContainer}>
               <Text style={styles.retakeTitle}>¿Cambiaron tus necesidades?</Text>
               <Text style={styles.retakeDescription}>
@@ -357,7 +339,7 @@ export function QuestionnaireResultsScreen() {
             style={styles.retakeButton}
             onPress={() => navigation.navigate('Questionnaire')}
           >
-            <Ionicons name="create-outline" size={18} color={HERA_COLORS.primary} />
+            <Ionicons name="create-outline" size={18} color={heraLanding.primary} />
             <Text style={styles.retakeButtonText}>Actualizar cuestionario</Text>
           </TouchableOpacity>
         </View>
@@ -368,7 +350,7 @@ export function QuestionnaireResultsScreen() {
             style={styles.homeButton}
             onPress={() => navigation.navigate('Home')}
           >
-            <Ionicons name="home-outline" size={18} color={HERA_COLORS.textSecondary} />
+            <Ionicons name="home-outline" size={18} color={heraLanding.textSecondary} />
             <Text style={styles.homeButtonText}>Volver al inicio</Text>
           </TouchableOpacity>
         </View>
@@ -383,7 +365,7 @@ export function QuestionnaireResultsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: HERA_COLORS.background, // #F5F7F5 Light Sage - CRITICAL
+    backgroundColor: heraLanding.background, // #F5F7F5 Light Sage - CRITICAL
   },
   scrollView: {
     flex: 1,
@@ -410,24 +392,24 @@ const styles = StyleSheet.create({
   },
   successTitle: {
     fontWeight: '700',
-    color: HERA_COLORS.textPrimary,
+    color: heraLanding.textPrimary,
     marginBottom: spacing.sm,
     textAlign: 'center',
   },
   successSubtitle: {
-    color: HERA_COLORS.textSecondary,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
   },
 
   // Summary Card
   summaryCard: {
-    backgroundColor: HERA_COLORS.cardBg,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
     marginBottom: spacing.xl,
     borderLeftWidth: 4,
-    borderLeftColor: HERA_COLORS.primary,
+    borderLeftColor: heraLanding.primary,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -447,11 +429,11 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: HERA_COLORS.textPrimary,
+    color: heraLanding.textPrimary,
   },
   summaryDescription: {
     fontSize: 14,
-    color: HERA_COLORS.textSecondary,
+    color: heraLanding.textSecondary,
     lineHeight: 22,
     marginBottom: spacing.md,
   },
@@ -463,7 +445,7 @@ const styles = StyleSheet.create({
   editPreferencesText: {
     fontSize: 14,
     fontWeight: '600',
-    color: HERA_COLORS.primary,
+    color: heraLanding.primary,
   },
 
   // Section
@@ -473,7 +455,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: HERA_COLORS.textPrimary,
+    color: heraLanding.textPrimary,
     marginBottom: spacing.lg,
   },
 
@@ -492,7 +474,7 @@ const styles = StyleSheet.create({
 
   // Specialist Card
   specialistCard: {
-    backgroundColor: HERA_COLORS.cardBg,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     ...Platform.select({
@@ -507,13 +489,13 @@ const styles = StyleSheet.create({
   },
   topMatchCard: {
     borderWidth: 2,
-    borderColor: HERA_COLORS.success,
+    borderColor: heraLanding.success,
   },
   topMatchBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: '#FFF8E7',
+    backgroundColor: heraLanding.goldMuted,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
@@ -523,7 +505,7 @@ const styles = StyleSheet.create({
   topMatchBannerText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#B8860B',
+    color: heraLanding.goldDark,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -544,23 +526,23 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 24,
     fontWeight: '700',
-    color: HERA_COLORS.white,
+    color: heraLanding.cardBackground,
   },
   freeBadge: {
     position: 'absolute',
     bottom: -4,
     right: -4,
-    backgroundColor: HERA_COLORS.success,
+    backgroundColor: heraLanding.success,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: HERA_COLORS.white,
+    borderColor: heraLanding.cardBackground,
   },
   freeBadgeText: {
     fontSize: 9,
     fontWeight: '700',
-    color: HERA_COLORS.white,
+    color: heraLanding.cardBackground,
   },
   cardInfo: {
     flex: 1,
@@ -568,12 +550,12 @@ const styles = StyleSheet.create({
   specialistName: {
     fontSize: 17,
     fontWeight: '700',
-    color: HERA_COLORS.textPrimary,
+    color: heraLanding.textPrimary,
     marginBottom: 2,
   },
   specialistSpecialization: {
     fontSize: 14,
-    color: HERA_COLORS.textSecondary,
+    color: heraLanding.textSecondary,
     marginBottom: 4,
   },
   ratingRow: {
@@ -583,13 +565,13 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 13,
-    color: HERA_COLORS.textSecondary,
+    color: heraLanding.textSecondary,
   },
   matchBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: HERA_COLORS.successBg,
+    backgroundColor: heraLanding.successBg,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: 20,
@@ -601,14 +583,14 @@ const styles = StyleSheet.create({
   matchBadgeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: HERA_COLORS.success,
+    color: heraLanding.success,
   },
   matchBadgeTextLarge: {
     fontSize: 15,
     fontWeight: '700',
   },
   matchReasons: {
-    backgroundColor: HERA_COLORS.background,
+    backgroundColor: heraLanding.background,
     padding: spacing.md,
     borderRadius: borderRadius.md,
     marginBottom: spacing.md,
@@ -616,7 +598,7 @@ const styles = StyleSheet.create({
   matchReasonsTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: HERA_COLORS.textMuted,
+    color: heraLanding.textMuted,
     marginBottom: spacing.sm,
   },
   matchReasonsList: {
@@ -629,7 +611,7 @@ const styles = StyleSheet.create({
   },
   matchReasonText: {
     fontSize: 14,
-    color: HERA_COLORS.textPrimary,
+    color: heraLanding.textPrimary,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -639,13 +621,13 @@ const styles = StyleSheet.create({
   priceText: {
     fontSize: 16,
     fontWeight: '700',
-    color: HERA_COLORS.primary,
+    color: heraLanding.primary,
   },
   viewProfileButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: HERA_COLORS.primary,
+    backgroundColor: heraLanding.primary,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
@@ -653,7 +635,7 @@ const styles = StyleSheet.create({
   viewProfileButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: HERA_COLORS.white,
+    color: heraLanding.cardBackground,
   },
 
   // More Options
@@ -661,12 +643,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.xl,
     borderTopWidth: 1,
-    borderTopColor: HERA_COLORS.borderLight,
+    borderTopColor: heraLanding.borderLight,
     marginBottom: spacing.lg,
   },
   moreOptionsTitle: {
     fontSize: 16,
-    color: HERA_COLORS.textSecondary,
+    color: heraLanding.textSecondary,
     marginBottom: spacing.md,
   },
   viewAllButton: {
@@ -674,7 +656,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     borderWidth: 2,
-    borderColor: HERA_COLORS.primary,
+    borderColor: heraLanding.primary,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     borderRadius: borderRadius.md,
@@ -682,12 +664,12 @@ const styles = StyleSheet.create({
   viewAllButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: HERA_COLORS.primary,
+    color: heraLanding.primary,
   },
 
   // Retake Section
   retakeSection: {
-    backgroundColor: HERA_COLORS.cardBg,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     marginBottom: spacing.xl,
@@ -713,12 +695,12 @@ const styles = StyleSheet.create({
   retakeTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: HERA_COLORS.textPrimary,
+    color: heraLanding.textPrimary,
     marginBottom: spacing.xs,
   },
   retakeDescription: {
     fontSize: 14,
-    color: HERA_COLORS.textSecondary,
+    color: heraLanding.textSecondary,
     lineHeight: 20,
   },
   retakeButton: {
@@ -727,7 +709,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.sm,
     borderWidth: 2,
-    borderColor: HERA_COLORS.primary,
+    borderColor: heraLanding.primary,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.md,
@@ -735,7 +717,7 @@ const styles = StyleSheet.create({
   retakeButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: HERA_COLORS.primary,
+    color: heraLanding.primary,
   },
 
   // Bottom Actions
@@ -751,7 +733,7 @@ const styles = StyleSheet.create({
   },
   homeButtonText: {
     fontSize: 15,
-    color: HERA_COLORS.textSecondary,
+    color: heraLanding.textSecondary,
   },
 
   // Empty State
@@ -765,7 +747,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: HERA_COLORS.borderLight,
+    backgroundColor: heraLanding.borderLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.xl,
@@ -773,13 +755,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: HERA_COLORS.textPrimary,
+    color: heraLanding.textPrimary,
     textAlign: 'center',
     marginBottom: spacing.sm,
   },
   emptyDescription: {
     fontSize: 16,
-    color: HERA_COLORS.textSecondary,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.xl,
   },
@@ -793,7 +775,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: HERA_COLORS.primary,
+    backgroundColor: heraLanding.primary,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.md,
@@ -801,7 +783,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: HERA_COLORS.white,
+    color: heraLanding.cardBackground,
   },
   outlineButton: {
     flexDirection: 'row',
@@ -809,7 +791,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.sm,
     borderWidth: 2,
-    borderColor: HERA_COLORS.primary,
+    borderColor: heraLanding.primary,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.md,
@@ -817,6 +799,6 @@ const styles = StyleSheet.create({
   outlineButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: HERA_COLORS.primary,
+    color: heraLanding.primary,
   },
 });

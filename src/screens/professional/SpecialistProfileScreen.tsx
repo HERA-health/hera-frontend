@@ -40,51 +40,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 
 import { useAuth } from '../../contexts/AuthContext';
-import { shadows, spacing, borderRadius, typography } from '../../constants/colors';
+import { heraLanding, shadows, spacing, borderRadius, typography } from '../../constants/colors';
 import * as professionalService from '../../services/professionalService';
 import { SpecialistProfileData as ServiceProfileData } from '../../services/professionalService';
-
-// ============================================================================
-// DESIGN TOKENS - HERA Specialist Profile Theme
-// ============================================================================
-
-const profileTheme = {
-  // Backgrounds - #F5F7F5 is THE ABSOLUTE TRUTH
-  background: '#F5F7F5',        // Light Sage - THE ONE TRUE BACKGROUND
-  cardBackground: '#FFFFFF',
-  inputBackground: '#FFFFFF',
-  inputBackgroundDisabled: '#F5F7F5',
-
-  // Primary Actions
-  primary: '#8B9D83',           // Sage Green
-  primaryHover: '#7A8B74',
-  primaryMuted: '#E8F5E8',      // Light sage tint
-
-  // Text Hierarchy
-  textDark: '#2C3E2C',          // Forest - headings
-  textMedium: '#6B7B6B',        // Gray - body
-  textLight: '#9BA39B',         // Subtle gray - helpers
-  textOnPrimary: '#FFFFFF',
-
-  // Borders & Dividers
-  border: '#E8EBE8',
-  borderFocus: '#8B9D83',
-
-  // Status Colors
-  success: '#7BA377',           // Green - verified
-  error: '#E89D88',             // Coral - error/missing
-  warning: '#D9A84F',           // Amber - pending
-  info: '#8BA8C4',
-
-  // Progress
-  progressComplete: '#8B9D83',
-  progressIncomplete: '#E8EBE8',
-
-  // Scrollbar
-  scrollbarTrack: '#F0F2F0',
-  scrollbarThumb: '#C5CFC5',
-  scrollbarThumbHover: '#8B9D83',
-};
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -576,7 +534,7 @@ export function SpecialistProfileScreen() {
             <Ionicons
               name={tab.icon as any}
               size={isDesktop ? 20 : 18}
-              color={activeTab === tab.id ? profileTheme.primary : profileTheme.textMedium}
+              color={activeTab === tab.id ? heraLanding.primary : heraLanding.textSecondary}
             />
             <Text
               style={[
@@ -601,7 +559,7 @@ export function SpecialistProfileScreen() {
   const renderProfilePreview = () => (
     <View style={styles.previewContainer}>
       <View style={styles.previewHeader}>
-        <Ionicons name="eye-outline" size={18} color={profileTheme.textMedium} />
+        <Ionicons name="eye-outline" size={18} color={heraLanding.textSecondary} />
         <Text style={styles.previewTitle}>Vista previa pública</Text>
       </View>
 
@@ -616,7 +574,7 @@ export function SpecialistProfileScreen() {
             <Image source={{ uri: profileData.avatar }} style={styles.previewAvatar} />
           ) : (
             <LinearGradient
-              colors={[profileTheme.primary, profileTheme.primaryHover]}
+              colors={[heraLanding.primary, heraLanding.primaryDark]}
               style={styles.previewAvatar}
             >
               <Text style={styles.previewAvatarText}>
@@ -679,13 +637,13 @@ export function SpecialistProfileScreen() {
         <View style={styles.previewBadges}>
           {profileData.licenseVerified && (
             <View style={styles.previewBadge}>
-              <Ionicons name="checkmark-circle" size={14} color={profileTheme.success} />
+              <Ionicons name="checkmark-circle" size={14} color={heraLanding.success} />
               <Text style={styles.previewBadgeText}>Colegiado verificado</Text>
             </View>
           )}
           {profileData.identityVerified && (
             <View style={styles.previewBadge}>
-              <Ionicons name="checkmark-circle" size={14} color={profileTheme.success} />
+              <Ionicons name="checkmark-circle" size={14} color={heraLanding.success} />
               <Text style={styles.previewBadgeText}>Identidad verificada</Text>
             </View>
           )}
@@ -694,7 +652,7 @@ export function SpecialistProfileScreen() {
         {/* View Full Profile Button */}
         <TouchableOpacity style={styles.previewButton} activeOpacity={0.7}>
           <Text style={styles.previewButtonText}>Ver perfil completo</Text>
-          <Ionicons name="arrow-forward" size={16} color={profileTheme.primary} />
+          <Ionicons name="arrow-forward" size={16} color={heraLanding.primary} />
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -746,7 +704,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={verified ? 'checkmark-circle' : 'time'}
                 size={14}
-                color={verified ? profileTheme.success : profileTheme.warning}
+                color={verified ? heraLanding.success : heraLanding.warningAmber}
               />
               <Text style={[styles.verifiedText, verified ? styles.verifiedTextSuccess : styles.verifiedTextPending]}>
                 {verified ? 'Verificado' : 'Pendiente'}
@@ -763,7 +721,7 @@ export function SpecialistProfileScreen() {
           ]}
           value={value}
           placeholder={placeholder}
-          placeholderTextColor={profileTheme.textLight}
+          placeholderTextColor={heraLanding.textMuted}
           onChangeText={onChangeText}
           editable={!disabled}
           multiline={multiline}
@@ -814,7 +772,7 @@ export function SpecialistProfileScreen() {
               disabled={isDisabled}
             >
               {isSelected && (
-                <Ionicons name="checkmark" size={14} color={profileTheme.textOnPrimary} />
+                <Ionicons name="checkmark" size={14} color={heraLanding.textOnCard} />
               )}
               <Text style={[
                 styles.chipText,
@@ -845,7 +803,7 @@ export function SpecialistProfileScreen() {
               <Image source={{ uri: profileData.avatar }} style={styles.avatarLarge} />
             ) : (
               <LinearGradient
-                colors={[profileTheme.primary, profileTheme.primaryHover]}
+                colors={[heraLanding.primary, heraLanding.primaryDark]}
                 style={styles.avatarLarge}
               >
                 <Text style={styles.avatarLargeText}>
@@ -856,7 +814,7 @@ export function SpecialistProfileScreen() {
           </View>
           <View style={styles.photoActions}>
             <TouchableOpacity style={styles.photoButton} onPress={handleImagePick} activeOpacity={0.7}>
-              <Ionicons name="camera-outline" size={18} color={profileTheme.primary} />
+              <Ionicons name="camera-outline" size={18} color={heraLanding.primary} />
               <Text style={styles.photoButtonText}>Cambiar foto</Text>
             </TouchableOpacity>
             {profileData.avatar && (
@@ -865,7 +823,7 @@ export function SpecialistProfileScreen() {
                 onPress={() => updateField('avatar', null)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="trash-outline" size={18} color={profileTheme.error} />
+                <Ionicons name="trash-outline" size={18} color={heraLanding.warning} />
                 <Text style={[styles.photoButtonText, styles.photoButtonTextDanger]}>Eliminar</Text>
               </TouchableOpacity>
             )}
@@ -957,14 +915,14 @@ export function SpecialistProfileScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Formación académica</Text>
           <TouchableOpacity style={styles.addButton} onPress={addEducation} activeOpacity={0.7}>
-            <Ionicons name="add" size={18} color={profileTheme.primary} />
+            <Ionicons name="add" size={18} color={heraLanding.primary} />
             <Text style={styles.addButtonText}>Añadir título</Text>
           </TouchableOpacity>
         </View>
 
         {profileData.education.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="school-outline" size={40} color={profileTheme.textLight} />
+            <Ionicons name="school-outline" size={40} color={heraLanding.textMuted} />
             <Text style={styles.emptyStateTitle}>No has añadido formación</Text>
             <Text style={styles.emptyStateDescription}>
               Comparte tus títulos y certificaciones para que los clientes conozcan tu preparación.
@@ -975,7 +933,7 @@ export function SpecialistProfileScreen() {
             {profileData.education.map((edu) => (
               <View key={edu.id} style={styles.itemCard}>
                 <View style={styles.itemIcon}>
-                  <Ionicons name="school" size={20} color={profileTheme.primary} />
+                  <Ionicons name="school" size={20} color={heraLanding.primary} />
                 </View>
                 <View style={styles.itemContent}>
                   <TextInput
@@ -983,14 +941,14 @@ export function SpecialistProfileScreen() {
                     value={edu.degree}
                     onChangeText={(text) => updateEducation(edu.id, 'degree', text)}
                     placeholder="Título (ej: Máster en Psicología Clínica)"
-                    placeholderTextColor={profileTheme.textLight}
+                    placeholderTextColor={heraLanding.textMuted}
                   />
                   <TextInput
                     style={styles.itemInputSmall}
                     value={edu.institution}
                     onChangeText={(text) => updateEducation(edu.id, 'institution', text)}
                     placeholder="Institución"
-                    placeholderTextColor={profileTheme.textLight}
+                    placeholderTextColor={heraLanding.textMuted}
                   />
                   <View style={styles.itemRow}>
                     <TextInput
@@ -998,7 +956,7 @@ export function SpecialistProfileScreen() {
                       value={edu.startYear}
                       onChangeText={(text) => updateEducation(edu.id, 'startYear', text)}
                       placeholder="Año inicio"
-                      placeholderTextColor={profileTheme.textLight}
+                      placeholderTextColor={heraLanding.textMuted}
                       keyboardType="numeric"
                       maxLength={4}
                     />
@@ -1008,7 +966,7 @@ export function SpecialistProfileScreen() {
                       value={edu.endYear}
                       onChangeText={(text) => updateEducation(edu.id, 'endYear', text)}
                       placeholder="Año fin"
-                      placeholderTextColor={profileTheme.textLight}
+                      placeholderTextColor={heraLanding.textMuted}
                       keyboardType="numeric"
                       maxLength={4}
                     />
@@ -1019,7 +977,7 @@ export function SpecialistProfileScreen() {
                   onPress={() => removeEducation(edu.id)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="close-circle" size={22} color={profileTheme.error} />
+                  <Ionicons name="close-circle" size={22} color={heraLanding.warning} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -1032,14 +990,14 @@ export function SpecialistProfileScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Experiencia profesional</Text>
           <TouchableOpacity style={styles.addButton} onPress={addExperience} activeOpacity={0.7}>
-            <Ionicons name="add" size={18} color={profileTheme.primary} />
+            <Ionicons name="add" size={18} color={heraLanding.primary} />
             <Text style={styles.addButtonText}>Añadir experiencia</Text>
           </TouchableOpacity>
         </View>
 
         {profileData.experience.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="briefcase-outline" size={40} color={profileTheme.textLight} />
+            <Ionicons name="briefcase-outline" size={40} color={heraLanding.textMuted} />
             <Text style={styles.emptyStateTitle}>No has añadido experiencia</Text>
             <Text style={styles.emptyStateDescription}>
               Añade tu experiencia para que los clientes conozcan tu trayectoria.
@@ -1050,7 +1008,7 @@ export function SpecialistProfileScreen() {
             {profileData.experience.map((exp) => (
               <View key={exp.id} style={styles.itemCard}>
                 <View style={styles.itemIcon}>
-                  <Ionicons name="briefcase" size={20} color={profileTheme.primary} />
+                  <Ionicons name="briefcase" size={20} color={heraLanding.primary} />
                 </View>
                 <View style={styles.itemContent}>
                   <TextInput
@@ -1058,14 +1016,14 @@ export function SpecialistProfileScreen() {
                     value={exp.position}
                     onChangeText={(text) => updateExperience(exp.id, 'position', text)}
                     placeholder="Puesto (ej: Psicóloga Clínica)"
-                    placeholderTextColor={profileTheme.textLight}
+                    placeholderTextColor={heraLanding.textMuted}
                   />
                   <TextInput
                     style={styles.itemInputSmall}
                     value={exp.organization}
                     onChangeText={(text) => updateExperience(exp.id, 'organization', text)}
                     placeholder="Organización"
-                    placeholderTextColor={profileTheme.textLight}
+                    placeholderTextColor={heraLanding.textMuted}
                   />
                   <View style={styles.itemRow}>
                     <TextInput
@@ -1073,7 +1031,7 @@ export function SpecialistProfileScreen() {
                       value={exp.startYear}
                       onChangeText={(text) => updateExperience(exp.id, 'startYear', text)}
                       placeholder="Inicio"
-                      placeholderTextColor={profileTheme.textLight}
+                      placeholderTextColor={heraLanding.textMuted}
                       keyboardType="numeric"
                       maxLength={4}
                     />
@@ -1088,7 +1046,7 @@ export function SpecialistProfileScreen() {
                         value={exp.endYear || ''}
                         onChangeText={(text) => updateExperience(exp.id, 'endYear', text)}
                         placeholder="Fin"
-                        placeholderTextColor={profileTheme.textLight}
+                        placeholderTextColor={heraLanding.textMuted}
                         keyboardType="numeric"
                         maxLength={4}
                       />
@@ -1101,7 +1059,7 @@ export function SpecialistProfileScreen() {
                       <Ionicons
                         name={exp.current ? 'checkbox' : 'square-outline'}
                         size={18}
-                        color={profileTheme.primary}
+                        color={heraLanding.primary}
                       />
                       <Text style={styles.currentToggleText}>Actual</Text>
                     </TouchableOpacity>
@@ -1112,7 +1070,7 @@ export function SpecialistProfileScreen() {
                   onPress={() => removeExperience(exp.id)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="close-circle" size={22} color={profileTheme.error} />
+                  <Ionicons name="close-circle" size={22} color={heraLanding.warning} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -1136,7 +1094,7 @@ export function SpecialistProfileScreen() {
             <Ionicons
               name={profileData.identityVerified ? 'checkmark-circle' : 'alert-circle'}
               size={24}
-              color={profileData.identityVerified ? profileTheme.success : profileTheme.warning}
+              color={profileData.identityVerified ? heraLanding.success : heraLanding.warningAmber}
             />
             <View style={styles.verificationItemContent}>
               <Text style={styles.verificationItemTitle}>Identidad verificada</Text>
@@ -1149,7 +1107,7 @@ export function SpecialistProfileScreen() {
             <Ionicons
               name={profileData.licenseVerified ? 'checkmark-circle' : 'alert-circle'}
               size={24}
-              color={profileData.licenseVerified ? profileTheme.success : profileTheme.warning}
+              color={profileData.licenseVerified ? heraLanding.success : heraLanding.warningAmber}
             />
             <View style={styles.verificationItemContent}>
               <Text style={styles.verificationItemTitle}>Número de colegiado validado</Text>
@@ -1162,7 +1120,7 @@ export function SpecialistProfileScreen() {
             <Ionicons
               name={profileData.insuranceUploaded ? 'checkmark-circle' : 'alert-circle'}
               size={24}
-              color={profileData.insuranceUploaded ? profileTheme.success : profileTheme.error}
+              color={profileData.insuranceUploaded ? heraLanding.success : heraLanding.warning}
             />
             <View style={styles.verificationItemContent}>
               <Text style={styles.verificationItemTitle}>Seguro profesional</Text>
@@ -1194,7 +1152,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.identityVerified ? 'shield-checkmark' : 'shield'}
                 size={32}
-                color={profileData.identityVerified ? profileTheme.success : profileTheme.textMedium}
+                color={profileData.identityVerified ? heraLanding.success : heraLanding.textSecondary}
               />
             </View>
             <View style={styles.verificationCardContent}>
@@ -1221,7 +1179,7 @@ export function SpecialistProfileScreen() {
           {profileData.insuranceUploaded ? (
             <View style={styles.documentCard}>
               <View style={styles.documentIcon}>
-                <Ionicons name="document-text" size={24} color={profileTheme.primary} />
+                <Ionicons name="document-text" size={24} color={heraLanding.primary} />
               </View>
               <View style={styles.documentContent}>
                 <Text style={styles.documentTitle}>Póliza de seguro</Text>
@@ -1229,22 +1187,22 @@ export function SpecialistProfileScreen() {
               </View>
               <View style={styles.documentActions}>
                 <TouchableOpacity style={styles.documentAction} activeOpacity={0.7}>
-                  <Ionicons name="eye-outline" size={20} color={profileTheme.primary} />
+                  <Ionicons name="eye-outline" size={20} color={heraLanding.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.documentAction} activeOpacity={0.7}>
-                  <Ionicons name="trash-outline" size={20} color={profileTheme.error} />
+                  <Ionicons name="trash-outline" size={20} color={heraLanding.warning} />
                 </TouchableOpacity>
               </View>
             </View>
           ) : (
             <View style={styles.uploadArea}>
-              <Ionicons name="cloud-upload-outline" size={40} color={profileTheme.textLight} />
+              <Ionicons name="cloud-upload-outline" size={40} color={heraLanding.textMuted} />
               <Text style={styles.uploadTitle}>Subir póliza de seguro</Text>
               <Text style={styles.uploadDescription}>
                 Requerido para ofrecer sesiones presenciales
               </Text>
               <TouchableOpacity style={styles.uploadButton} activeOpacity={0.7}>
-                <Ionicons name="add" size={18} color={profileTheme.textOnPrimary} />
+                <Ionicons name="add" size={18} color={heraLanding.textOnCard} />
                 <Text style={styles.uploadButtonText}>Subir documento</Text>
               </TouchableOpacity>
             </View>
@@ -1257,14 +1215,14 @@ export function SpecialistProfileScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Certificados y acreditaciones</Text>
           <TouchableOpacity style={styles.addButton} activeOpacity={0.7}>
-            <Ionicons name="add" size={18} color={profileTheme.primary} />
+            <Ionicons name="add" size={18} color={heraLanding.primary} />
             <Text style={styles.addButtonText}>Añadir certificado</Text>
           </TouchableOpacity>
         </View>
 
         {profileData.certificates.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="ribbon-outline" size={40} color={profileTheme.textLight} />
+            <Ionicons name="ribbon-outline" size={40} color={heraLanding.textMuted} />
             <Text style={styles.emptyStateTitle}>No has añadido certificados</Text>
             <Text style={styles.emptyStateDescription}>
               Añade tus certificaciones profesionales para aumentar la confianza.
@@ -1275,7 +1233,7 @@ export function SpecialistProfileScreen() {
             {profileData.certificates.map((cert) => (
               <View key={cert.id} style={styles.documentCard}>
                 <View style={styles.documentIcon}>
-                  <Ionicons name="ribbon" size={24} color={profileTheme.primary} />
+                  <Ionicons name="ribbon" size={24} color={heraLanding.primary} />
                 </View>
                 <View style={styles.documentContent}>
                   <Text style={styles.documentTitle}>{cert.name}</Text>
@@ -1286,10 +1244,10 @@ export function SpecialistProfileScreen() {
                 </View>
                 <View style={styles.documentActions}>
                   <TouchableOpacity style={styles.documentAction} activeOpacity={0.7}>
-                    <Ionicons name="create-outline" size={20} color={profileTheme.primary} />
+                    <Ionicons name="create-outline" size={20} color={heraLanding.primary} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.documentAction} activeOpacity={0.7}>
-                    <Ionicons name="trash-outline" size={20} color={profileTheme.error} />
+                    <Ionicons name="trash-outline" size={20} color={heraLanding.warning} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1329,7 +1287,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.offerExtended ? 'checkbox' : 'square-outline'}
                 size={22}
-                color={profileTheme.primary}
+                color={heraLanding.primary}
               />
               <Text style={styles.toggleText}>Ofrecer sesión de 90 minutos</Text>
             </TouchableOpacity>
@@ -1356,7 +1314,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.offerFirstSessionDiscount ? 'checkbox' : 'square-outline'}
                 size={22}
-                color={profileTheme.primary}
+                color={heraLanding.primary}
               />
               <Text style={styles.toggleText}>Precio especial primera sesión</Text>
             </TouchableOpacity>
@@ -1472,7 +1430,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={!profileData.applyVat ? 'radio-button-on' : 'radio-button-off'}
                 size={20}
-                color={profileTheme.primary}
+                color={heraLanding.primary}
               />
               <Text style={styles.radioText}>No aplicar IVA (profesional exento)</Text>
             </TouchableOpacity>
@@ -1484,7 +1442,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.applyVat ? 'radio-button-on' : 'radio-button-off'}
                 size={20}
-                color={profileTheme.primary}
+                color={heraLanding.primary}
               />
               <Text style={styles.radioText}>Aplicar 21% IVA</Text>
             </TouchableOpacity>
@@ -1499,7 +1457,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.applyIrpf ? 'checkbox' : 'square-outline'}
                 size={22}
-                color={profileTheme.primary}
+                color={heraLanding.primary}
               />
               <Text style={styles.toggleText}>Retención del 15% IRPF en facturas</Text>
             </TouchableOpacity>
@@ -1570,7 +1528,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.twoFactorEnabled ? 'shield-checkmark' : 'shield'}
                 size={24}
-                color={profileData.twoFactorEnabled ? profileTheme.success : profileTheme.textMedium}
+                color={profileData.twoFactorEnabled ? heraLanding.success : heraLanding.textSecondary}
               />
               <View>
                 <Text style={styles.securityLabel}>Autenticación de dos factores</Text>
@@ -1636,7 +1594,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.profileVisible ? 'radio-button-on' : 'radio-button-off'}
                 size={20}
-                color={profileTheme.primary}
+                color={heraLanding.primary}
               />
               <Text style={styles.radioText}>Visible (aparecer en búsquedas)</Text>
             </TouchableOpacity>
@@ -1648,7 +1606,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={!profileData.profileVisible ? 'radio-button-on' : 'radio-button-off'}
                 size={20}
-                color={profileTheme.primary}
+                color={heraLanding.primary}
               />
               <Text style={styles.radioText}>Oculto (solo enlace directo)</Text>
             </TouchableOpacity>
@@ -1663,7 +1621,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.showReviewCount ? 'checkbox' : 'square-outline'}
                 size={22}
-                color={profileTheme.primary}
+                color={heraLanding.primary}
               />
               <Text style={styles.toggleText}>Mostrar número de reseñas</Text>
             </TouchableOpacity>
@@ -1677,7 +1635,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.showLastOnline ? 'checkbox' : 'square-outline'}
                 size={22}
-                color={profileTheme.primary}
+                color={heraLanding.primary}
               />
               <Text style={styles.toggleText}>Mostrar última conexión</Text>
             </TouchableOpacity>
@@ -1690,15 +1648,15 @@ export function SpecialistProfileScreen() {
         <Text style={styles.sectionTitle}>Acciones de cuenta</Text>
         <View style={styles.formCard}>
           <TouchableOpacity style={styles.accountLink} activeOpacity={0.7}>
-            <Ionicons name="download-outline" size={20} color={profileTheme.textMedium} />
+            <Ionicons name="download-outline" size={20} color={heraLanding.textSecondary} />
             <Text style={styles.accountLinkText}>Descargar mis datos</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.accountLink} activeOpacity={0.7}>
-            <Ionicons name="pause-circle-outline" size={20} color={profileTheme.warning} />
+            <Ionicons name="pause-circle-outline" size={20} color={heraLanding.warningAmber} />
             <Text style={styles.accountLinkText}>Pausar cuenta temporalmente</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.accountLink, styles.accountLinkDanger]} activeOpacity={0.7}>
-            <Ionicons name="trash-outline" size={20} color={profileTheme.error} />
+            <Ionicons name="trash-outline" size={20} color={heraLanding.warning} />
             <Text style={[styles.accountLinkText, styles.accountLinkTextDanger]}>Eliminar cuenta</Text>
           </TouchableOpacity>
           <Text style={styles.accountWarning}>
@@ -1722,13 +1680,13 @@ export function SpecialistProfileScreen() {
         activeOpacity={0.8}
       >
         {isSaving ? (
-          <ActivityIndicator size="small" color={profileTheme.textOnPrimary} />
+          <ActivityIndicator size="small" color={heraLanding.textOnCard} />
         ) : (
           <>
             <Ionicons
               name="checkmark-circle-outline"
               size={20}
-              color={hasChanges ? profileTheme.textOnPrimary : profileTheme.textLight}
+              color={hasChanges ? heraLanding.textOnCard : heraLanding.textMuted}
             />
             <Text style={[styles.saveButtonText, !hasChanges && styles.saveButtonTextDisabled]}>
               Guardar cambios
@@ -1746,7 +1704,7 @@ export function SpecialistProfileScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={profileTheme.primary} />
+        <ActivityIndicator size="large" color={heraLanding.primary} />
         <Text style={styles.loadingText}>Cargando perfil...</Text>
       </View>
     );
@@ -1784,7 +1742,7 @@ export function SpecialistProfileScreen() {
             onPress={() => setShowPreview(!showPreview)}
             activeOpacity={0.7}
           >
-            <Ionicons name="eye-outline" size={20} color={profileTheme.textOnPrimary} />
+            <Ionicons name="eye-outline" size={20} color={heraLanding.textOnCard} />
           </TouchableOpacity>
         )}
       </View>
@@ -1805,7 +1763,7 @@ export function SpecialistProfileScreen() {
               <View style={styles.previewModalHeader}>
                 <Text style={styles.previewModalTitle}>Vista previa</Text>
                 <TouchableOpacity onPress={() => setShowPreview(false)} activeOpacity={0.7}>
-                  <Ionicons name="close" size={24} color={profileTheme.textDark} />
+                  <Ionicons name="close" size={24} color={heraLanding.textPrimary} />
                 </TouchableOpacity>
               </View>
               {renderProfilePreview()}
@@ -1824,25 +1782,25 @@ export function SpecialistProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: profileTheme.background, // #F5F7F5 - THE ABSOLUTE TRUTH
+    backgroundColor: heraLanding.background, // #F5F7F5 - THE ABSOLUTE TRUTH
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: profileTheme.background,
+    backgroundColor: heraLanding.background,
   },
   loadingText: {
     marginTop: spacing.md,
     fontSize: 16,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
 
   // ===== TAB NAVIGATION =====
   tabsContainer: {
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderBottomWidth: 1,
-    borderBottomColor: profileTheme.border,
+    borderBottomColor: heraLanding.border,
   },
   tabsContainerDesktop: {
     borderBottomWidth: 2,
@@ -1864,9 +1822,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.lg,
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderWidth: 1,
-    borderColor: profileTheme.border,
+    borderColor: heraLanding.border,
     gap: spacing.xs,
   },
   tabDesktop: {
@@ -1878,23 +1836,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   tabActive: {
-    backgroundColor: profileTheme.primaryMuted,
-    borderColor: profileTheme.primary,
+    backgroundColor: heraLanding.primaryMuted,
+    borderColor: heraLanding.primary,
   },
   tabActiveDesktop: {
     backgroundColor: 'transparent',
-    borderBottomColor: profileTheme.primary,
+    borderBottomColor: heraLanding.primary,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '500',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
   tabTextDesktop: {
     fontSize: 15,
   },
   tabTextActive: {
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     fontWeight: '600',
   },
 
@@ -1917,9 +1875,9 @@ const styles = StyleSheet.create({
   // ===== PREVIEW SIDEBAR =====
   previewContainer: {
     flex: 0.4,
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderLeftWidth: 1,
-    borderLeftColor: profileTheme.border,
+    borderLeftColor: heraLanding.border,
     maxWidth: 380,
   },
   previewHeader: {
@@ -1928,12 +1886,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     padding: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: profileTheme.border,
+    borderBottomColor: heraLanding.border,
   },
   previewTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -1959,18 +1917,18 @@ const styles = StyleSheet.create({
   previewAvatarText: {
     fontSize: 40,
     fontWeight: '700',
-    color: profileTheme.textOnPrimary,
+    color: heraLanding.textOnCard,
   },
   previewName: {
     fontSize: 20,
     fontWeight: '700',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     marginBottom: spacing.xs,
     textAlign: 'center',
   },
   previewTitle2: {
     fontSize: 15,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
   },
   previewStats: {
@@ -1979,7 +1937,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: profileTheme.background,
+    backgroundColor: heraLanding.background,
     borderRadius: borderRadius.lg,
   },
   previewStat: {
@@ -1989,16 +1947,16 @@ const styles = StyleSheet.create({
   previewStatValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
   },
   previewStatLabel: {
     fontSize: 12,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
   previewStatDivider: {
     width: 1,
     height: 30,
-    backgroundColor: profileTheme.border,
+    backgroundColor: heraLanding.border,
   },
   previewSection: {
     marginBottom: spacing.md,
@@ -2010,22 +1968,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   previewTag: {
-    backgroundColor: profileTheme.primaryMuted,
+    backgroundColor: heraLanding.primaryMuted,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.md,
   },
   previewTagMore: {
-    backgroundColor: profileTheme.border,
+    backgroundColor: heraLanding.border,
   },
   previewTagText: {
     fontSize: 12,
     fontWeight: '500',
-    color: profileTheme.primary,
+    color: heraLanding.primary,
   },
   previewBio: {
     fontSize: 14,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     fontStyle: 'italic',
     lineHeight: 20,
     textAlign: 'center',
@@ -2042,7 +2000,7 @@ const styles = StyleSheet.create({
   },
   previewBadgeText: {
     fontSize: 13,
-    color: profileTheme.success,
+    color: heraLanding.success,
     fontWeight: '500',
   },
   previewButton: {
@@ -2052,13 +2010,13 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing.md,
     borderWidth: 2,
-    borderColor: profileTheme.border,
+    borderColor: heraLanding.border,
     borderRadius: borderRadius.md,
   },
   previewButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: profileTheme.primary,
+    color: heraLanding.primary,
   },
 
   // ===== MOBILE PREVIEW =====
@@ -2069,7 +2027,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: profileTheme.primary,
+    backgroundColor: heraLanding.primary,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.lg,
@@ -2080,7 +2038,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   previewModalContent: {
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     maxHeight: '80%',
@@ -2091,12 +2049,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: profileTheme.border,
+    borderBottomColor: heraLanding.border,
   },
   previewModalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
   },
 
   // ===== TAB CONTENT =====
@@ -2117,13 +2075,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     marginBottom: spacing.md,
   },
 
   // ===== FORM CARD =====
   formCard: {
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     ...shadows.md,
@@ -2142,30 +2100,30 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
   fieldHint: {
     fontSize: 12,
     fontWeight: '400',
-    color: profileTheme.textLight,
+    color: heraLanding.textMuted,
   },
   required: {
-    color: profileTheme.error,
+    color: heraLanding.warning,
   },
   fieldInput: {
-    backgroundColor: profileTheme.inputBackground,
+    backgroundColor: heraLanding.cardBackground,
     borderWidth: 2,
-    borderColor: profileTheme.border,
+    borderColor: heraLanding.border,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 4,
     fontSize: 16,
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     minHeight: 48,
   },
   fieldInputDisabled: {
-    backgroundColor: profileTheme.inputBackgroundDisabled,
-    color: profileTheme.textMedium,
+    backgroundColor: heraLanding.cardBackgroundDisabled,
+    color: heraLanding.textSecondary,
   },
   fieldInputMultiline: {
     paddingTop: spacing.sm + 4,
@@ -2178,12 +2136,12 @@ const styles = StyleSheet.create({
   },
   helperText: {
     fontSize: 12,
-    color: profileTheme.textLight,
+    color: heraLanding.textMuted,
     fontStyle: 'italic',
   },
   characterCount: {
     fontSize: 12,
-    color: profileTheme.textLight,
+    color: heraLanding.textMuted,
   },
   verifiedBadge: {
     flexDirection: 'row',
@@ -2204,10 +2162,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   verifiedTextSuccess: {
-    color: profileTheme.success,
+    color: heraLanding.success,
   },
   verifiedTextPending: {
-    color: profileTheme.warning,
+    color: heraLanding.warningAmber,
   },
 
   // ===== CHIP SELECTOR =====
@@ -2223,14 +2181,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.xl,
-    backgroundColor: profileTheme.background,
+    backgroundColor: heraLanding.background,
     borderWidth: 2,
-    borderColor: profileTheme.border,
+    borderColor: heraLanding.border,
     gap: spacing.xs,
   },
   chipSelected: {
-    backgroundColor: profileTheme.primary,
-    borderColor: profileTheme.primary,
+    backgroundColor: heraLanding.primary,
+    borderColor: heraLanding.primary,
   },
   chipDisabled: {
     opacity: 0.5,
@@ -2238,20 +2196,20 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 14,
     fontWeight: '500',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
   chipTextSelected: {
-    color: profileTheme.textOnPrimary,
+    color: heraLanding.textOnCard,
   },
   chipTextDisabled: {
-    color: profileTheme.textLight,
+    color: heraLanding.textMuted,
   },
 
   // ===== PHOTO SECTION =====
   photoSection: {
     alignItems: 'center',
     padding: spacing.lg,
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: borderRadius.lg,
     ...shadows.md,
   },
@@ -2269,7 +2227,7 @@ const styles = StyleSheet.create({
   avatarLargeText: {
     fontSize: 48,
     fontWeight: '700',
-    color: profileTheme.textOnPrimary,
+    color: heraLanding.textOnCard,
   },
   photoActions: {
     flexDirection: 'row',
@@ -2284,22 +2242,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 2,
-    borderColor: profileTheme.border,
+    borderColor: heraLanding.border,
   },
   photoButtonDanger: {
-    borderColor: profileTheme.error,
+    borderColor: heraLanding.warning,
   },
   photoButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: profileTheme.primary,
+    color: heraLanding.primary,
   },
   photoButtonTextDanger: {
-    color: profileTheme.error,
+    color: heraLanding.warning,
   },
   photoHint: {
     fontSize: 12,
-    color: profileTheme.textLight,
+    color: heraLanding.textMuted,
     textAlign: 'center',
   },
 
@@ -2307,20 +2265,20 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     padding: spacing.xl,
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: borderRadius.lg,
     ...shadows.sm,
   },
   emptyStateTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
   emptyStateDescription: {
     fontSize: 14,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -2336,7 +2294,7 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: profileTheme.primary,
+    color: heraLanding.primary,
   },
 
   // ===== ITEMS LIST (Education/Experience) =====
@@ -2345,7 +2303,7 @@ const styles = StyleSheet.create({
   },
   itemCard: {
     flexDirection: 'row',
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     ...shadows.sm,
@@ -2354,7 +2312,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: profileTheme.primaryMuted,
+    backgroundColor: heraLanding.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -2365,17 +2323,17 @@ const styles = StyleSheet.create({
   itemInput: {
     fontSize: 15,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     borderBottomWidth: 1,
-    borderBottomColor: profileTheme.border,
+    borderBottomColor: heraLanding.border,
     paddingVertical: spacing.xs,
     marginBottom: spacing.xs,
   },
   itemInputSmall: {
     fontSize: 14,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     borderBottomWidth: 1,
-    borderBottomColor: profileTheme.border,
+    borderBottomColor: heraLanding.border,
     paddingVertical: spacing.xs,
     marginBottom: spacing.xs,
   },
@@ -2391,13 +2349,13 @@ const styles = StyleSheet.create({
   },
   itemSeparator: {
     fontSize: 14,
-    color: profileTheme.textLight,
+    color: heraLanding.textMuted,
   },
   itemRemove: {
     padding: spacing.xs,
   },
   currentBadge: {
-    backgroundColor: profileTheme.primaryMuted,
+    backgroundColor: heraLanding.primaryMuted,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.sm,
@@ -2405,7 +2363,7 @@ const styles = StyleSheet.create({
   currentBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: profileTheme.primary,
+    color: heraLanding.primary,
   },
   currentToggle: {
     flexDirection: 'row',
@@ -2415,12 +2373,12 @@ const styles = StyleSheet.create({
   },
   currentToggleText: {
     fontSize: 13,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
 
   // ===== VERIFICATION =====
   verificationOverview: {
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     ...shadows.md,
@@ -2431,7 +2389,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: profileTheme.border,
+    borderBottomColor: heraLanding.border,
   },
   verificationItemContent: {
     flex: 1,
@@ -2439,17 +2397,17 @@ const styles = StyleSheet.create({
   verificationItemTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
   },
   verificationItemStatus: {
     fontSize: 13,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
   completionSection: {
     marginTop: spacing.lg,
     paddingTop: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: profileTheme.border,
+    borderTopColor: heraLanding.border,
   },
   completionHeader: {
     flexDirection: 'row',
@@ -2459,22 +2417,22 @@ const styles = StyleSheet.create({
   completionLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
   completionValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: profileTheme.primary,
+    color: heraLanding.primary,
   },
   completionBar: {
     height: 8,
-    backgroundColor: profileTheme.progressIncomplete,
+    backgroundColor: heraLanding.border,
     borderRadius: 4,
     overflow: 'hidden',
   },
   completionFill: {
     height: '100%',
-    backgroundColor: profileTheme.progressComplete,
+    backgroundColor: heraLanding.primary,
     borderRadius: 4,
   },
 
@@ -2488,7 +2446,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: profileTheme.background,
+    backgroundColor: heraLanding.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2498,22 +2456,22 @@ const styles = StyleSheet.create({
   verificationCardTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
   },
   verificationCardStatus: {
     fontSize: 13,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
   verificationCardButton: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
-    backgroundColor: profileTheme.primary,
+    backgroundColor: heraLanding.primary,
   },
   verificationCardButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: profileTheme.textOnPrimary,
+    color: heraLanding.textOnCard,
   },
 
   // ===== DOCUMENT CARD =====
@@ -2522,14 +2480,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     padding: spacing.md,
-    backgroundColor: profileTheme.background,
+    backgroundColor: heraLanding.background,
     borderRadius: borderRadius.md,
   },
   documentIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: profileTheme.primaryMuted,
+    backgroundColor: heraLanding.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2539,11 +2497,11 @@ const styles = StyleSheet.create({
   documentTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
   },
   documentMeta: {
     fontSize: 13,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
   documentActions: {
     flexDirection: 'row',
@@ -2558,20 +2516,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.xl,
     borderWidth: 2,
-    borderColor: profileTheme.border,
+    borderColor: heraLanding.border,
     borderStyle: 'dashed',
     borderRadius: borderRadius.lg,
   },
   uploadTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
   uploadDescription: {
     fontSize: 14,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.md,
   },
@@ -2579,7 +2537,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: profileTheme.primary,
+    backgroundColor: heraLanding.primary,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
@@ -2587,7 +2545,7 @@ const styles = StyleSheet.create({
   uploadButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: profileTheme.textOnPrimary,
+    color: heraLanding.textOnCard,
   },
 
   // ===== PRICING =====
@@ -2599,7 +2557,7 @@ const styles = StyleSheet.create({
   priceCurrency: {
     fontSize: 16,
     fontWeight: '600',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     paddingBottom: spacing.md + 4,
   },
   toggleRow: {
@@ -2612,7 +2570,7 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 15,
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
   },
   taxSection: {
     marginBottom: spacing.md,
@@ -2620,7 +2578,7 @@ const styles = StyleSheet.create({
   taxLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     marginBottom: spacing.sm,
   },
   radioOption: {
@@ -2631,7 +2589,7 @@ const styles = StyleSheet.create({
   },
   radioText: {
     fontSize: 15,
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
   },
 
   // ===== ACCOUNT =====
@@ -2646,7 +2604,7 @@ const styles = StyleSheet.create({
   accountActionText: {
     fontSize: 14,
     fontWeight: '600',
-    color: profileTheme.primary,
+    color: heraLanding.primary,
   },
   passwordRow: {
     flexDirection: 'row',
@@ -2654,37 +2612,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: profileTheme.border,
+    borderBottomColor: heraLanding.border,
     marginBottom: spacing.lg,
   },
   passwordInfo: {},
   passwordLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     marginBottom: spacing.xs,
   },
   passwordValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     marginBottom: spacing.xs,
   },
   passwordMeta: {
     fontSize: 12,
-    color: profileTheme.textLight,
+    color: heraLanding.textMuted,
   },
   changePasswordButton: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 2,
-    borderColor: profileTheme.border,
+    borderColor: heraLanding.border,
   },
   changePasswordText: {
     fontSize: 14,
     fontWeight: '600',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
   securityRow: {
     flexDirection: 'row',
@@ -2699,27 +2657,27 @@ const styles = StyleSheet.create({
   securityLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
   },
   securityStatus: {
     fontSize: 13,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
   securityButton: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
-    backgroundColor: profileTheme.primary,
+    backgroundColor: heraLanding.primary,
   },
   securityButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: profileTheme.textOnPrimary,
+    color: heraLanding.textOnCard,
   },
   notificationCategory: {
     fontSize: 13,
     fontWeight: '700',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing.md,
@@ -2732,13 +2690,13 @@ const styles = StyleSheet.create({
   },
   notificationLabel: {
     fontSize: 15,
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
   },
   switchTrack: {
     width: 48,
     height: 28,
     borderRadius: 14,
-    backgroundColor: profileTheme.primary,
+    backgroundColor: heraLanding.primary,
     padding: 2,
     justifyContent: 'center',
   },
@@ -2746,7 +2704,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     ...shadows.sm,
   },
   switchThumbActive: {
@@ -2758,7 +2716,7 @@ const styles = StyleSheet.create({
   privacyLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     marginBottom: spacing.sm,
   },
   accountLink: {
@@ -2767,21 +2725,21 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: profileTheme.border,
+    borderBottomColor: heraLanding.border,
   },
   accountLinkDanger: {
     borderBottomWidth: 0,
   },
   accountLinkText: {
     fontSize: 15,
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
   },
   accountLinkTextDanger: {
-    color: profileTheme.error,
+    color: heraLanding.warning,
   },
   accountWarning: {
     fontSize: 12,
-    color: profileTheme.textLight,
+    color: heraLanding.textMuted,
     marginTop: spacing.md,
     fontStyle: 'italic',
   },
@@ -2793,9 +2751,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: spacing.lg,
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderTopWidth: 1,
-    borderTopColor: profileTheme.border,
+    borderTopColor: heraLanding.border,
     ...shadows.lg,
   },
   saveButtonContainerDesktop: {
@@ -2805,23 +2763,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: profileTheme.primary,
+    backgroundColor: heraLanding.primary,
     paddingVertical: spacing.md,
     borderRadius: borderRadius.md,
     gap: spacing.sm,
     ...shadows.md,
   },
   saveButtonDisabled: {
-    backgroundColor: profileTheme.border,
+    backgroundColor: heraLanding.border,
     ...shadows.none,
   },
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: profileTheme.textOnPrimary,
+    color: heraLanding.textOnCard,
   },
   saveButtonTextDisabled: {
-    color: profileTheme.textLight,
+    color: heraLanding.textMuted,
   },
 });
 

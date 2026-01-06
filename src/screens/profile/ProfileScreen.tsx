@@ -47,46 +47,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import * as authService from '../../services/authService';
 
 // ============================================================================
-// DESIGN TOKENS - HERA Profile Theme
-// ============================================================================
-
-const profileTheme = {
-  // Backgrounds
-  background: '#F5F7F5',        // Light Sage - CRITICAL
-  cardBackground: '#FFFFFF',
-  inputBackground: '#FFFFFF',
-  inputBackgroundDisabled: '#F5F7F5',
-
-  // Primary Actions
-  primary: '#8B9D83',           // Sage Green
-  primaryHover: '#7A8B74',
-  primaryMuted: '#E8F5E8',      // Light sage tint for active states
-
-  // Text Hierarchy
-  textDark: '#2C3E2C',          // Forest - headings
-  textMedium: '#6B7B6B',        // Gray - body
-  textLight: '#9BA39B',         // Subtle gray - helpers
-  textOnPrimary: '#FFFFFF',
-
-  // Borders & Dividers
-  border: '#E8EBE8',            // Very light gray
-  borderFocus: '#8B9D83',       // Sage green focus
-
-  // Status Colors
-  success: '#7BA377',           // Green
-  error: '#E89D88',             // Coral
-  warning: '#F5A623',
-
-  // Security Indicator
-  secure: '#7BA377',
-
-  // Scrollbar (for web)
-  scrollbarTrack: '#F0F2F0',
-  scrollbarThumb: '#D0D5D0',
-  scrollbarThumbHover: '#B8BDB8',
-};
-
-// ============================================================================
 // MOCK DATA - Payment & Transactions
 // ============================================================================
 
@@ -499,7 +459,7 @@ const ProfileScreen: React.FC = () => {
                 minimumDate={minDate}
                 maximumDate={maxDate}
                 locale="es-ES"
-                textColor={profileTheme.textDark}
+                textColor={heraLanding.textPrimary}
                 themeVariant="light"
                 style={styles.datePickerSpinner}
               />
@@ -661,7 +621,7 @@ const ProfileScreen: React.FC = () => {
               <Ionicons
                 name={tab.icon as any}
                 size={20}
-                color={activeTab === tab.id ? profileTheme.textDark : profileTheme.textMedium}
+                color={activeTab === tab.id ? heraLanding.textPrimary : heraLanding.textSecondary}
               />
               <Text
                 style={[
@@ -693,7 +653,7 @@ const ProfileScreen: React.FC = () => {
             <Ionicons
               name={tab.icon as any}
               size={16}
-              color={activeTab === tab.id ? profileTheme.textOnPrimary : profileTheme.textMedium}
+              color={activeTab === tab.id ? heraLanding.textOnCard : heraLanding.textSecondary}
               style={styles.pillTabIcon}
             />
             <Text
@@ -756,7 +716,7 @@ const ProfileScreen: React.FC = () => {
           </View>
           {isVerified && (
             <View style={styles.verifiedBadge}>
-              <Ionicons name="checkmark-circle" size={14} color={profileTheme.success} />
+              <Ionicons name="checkmark-circle" size={14} color={heraLanding.success} />
               <Text style={styles.verifiedText}>Verificado</Text>
             </View>
           )}
@@ -771,7 +731,7 @@ const ProfileScreen: React.FC = () => {
             <Text style={[styles.inputText, !value && styles.placeholderText]}>
               {value || placeholder}
             </Text>
-            <Ionicons name={pickerIcon as any} size={20} color={profileTheme.textLight} />
+            <Ionicons name={pickerIcon as any} size={20} color={heraLanding.textMuted} />
           </TouchableOpacity>
         ) : (
           <TextInput
@@ -781,7 +741,7 @@ const ProfileScreen: React.FC = () => {
             ]}
             value={value}
             placeholder={placeholder}
-            placeholderTextColor={profileTheme.textLight}
+            placeholderTextColor={heraLanding.textMuted}
             onChangeText={onChangeText}
             editable={!disabled}
             keyboardType={keyboardType}
@@ -808,7 +768,7 @@ const ProfileScreen: React.FC = () => {
         <View style={styles.avatarCard}>
           <View style={styles.avatarContainer}>
             <LinearGradient
-              colors={[profileTheme.primary, profileTheme.primaryHover]}
+              colors={[heraLanding.primary, heraLanding.primaryDark]}
               style={styles.avatar}
             >
               <Text style={styles.avatarText}>
@@ -821,7 +781,7 @@ const ProfileScreen: React.FC = () => {
             onPress={handleChangePhoto}
             activeOpacity={0.7}
           >
-            <Ionicons name="camera-outline" size={16} color={profileTheme.primary} />
+            <Ionicons name="camera-outline" size={16} color={heraLanding.primary} />
             <Text style={styles.changePhotoText}>Cambiar foto</Text>
           </TouchableOpacity>
         </View>
@@ -921,13 +881,13 @@ const ProfileScreen: React.FC = () => {
           activeOpacity={0.8}
         >
           {isSaving ? (
-            <ActivityIndicator size="small" color={profileTheme.textOnPrimary} />
+            <ActivityIndicator size="small" color={heraLanding.textOnCard} />
           ) : (
             <>
               <Ionicons
                 name="checkmark-circle-outline"
                 size={20}
-                color={hasChanges ? profileTheme.textOnPrimary : profileTheme.textLight}
+                color={hasChanges ? heraLanding.textOnCard : heraLanding.textMuted}
               />
               <Text style={[
                 styles.saveButtonText,
@@ -963,7 +923,7 @@ const ProfileScreen: React.FC = () => {
       {/* Security Banner */}
       <View style={styles.securityBanner}>
         <View style={styles.securityIcon}>
-          <Ionicons name="lock-closed" size={16} color={profileTheme.secure} />
+          <Ionicons name="lock-closed" size={16} color={heraLanding.success} />
         </View>
         <Text style={styles.securityText}>
           Conexión segura • Datos encriptados
@@ -982,7 +942,7 @@ const ProfileScreen: React.FC = () => {
                 <Ionicons
                   name={paymentMethod.type === 'visa' ? 'card' : 'card-outline'}
                   size={32}
-                  color={profileTheme.textDark}
+                  color={heraLanding.textPrimary}
                 />
                 <Text style={styles.cardBrand}>
                   {paymentMethod.type.toUpperCase()}
@@ -1002,7 +962,7 @@ const ProfileScreen: React.FC = () => {
                 onPress={handleAddCard}
                 activeOpacity={0.7}
               >
-                <Ionicons name="pencil-outline" size={16} color={profileTheme.primary} />
+                <Ionicons name="pencil-outline" size={16} color={heraLanding.primary} />
                 <Text style={styles.cardActionText}>Editar</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -1010,7 +970,7 @@ const ProfileScreen: React.FC = () => {
                 onPress={handleRemoveCard}
                 activeOpacity={0.7}
               >
-                <Ionicons name="trash-outline" size={16} color={profileTheme.error} />
+                <Ionicons name="trash-outline" size={16} color={heraLanding.warning} />
                 <Text style={[styles.cardActionText, styles.cardActionTextDanger]}>Eliminar</Text>
               </TouchableOpacity>
             </View>
@@ -1021,7 +981,7 @@ const ProfileScreen: React.FC = () => {
             <View style={styles.cardFormHeader}>
               <Text style={styles.cardFormTitle}>Añadir tarjeta</Text>
               <View style={styles.secureInputBadge}>
-                <Ionicons name="shield-checkmark" size={14} color={profileTheme.secure} />
+                <Ionicons name="shield-checkmark" size={14} color={heraLanding.success} />
                 <Text style={styles.secureInputText}>Pago seguro</Text>
               </View>
             </View>
@@ -1080,7 +1040,7 @@ const ProfileScreen: React.FC = () => {
                 onPress={handleSaveCard}
                 activeOpacity={0.8}
               >
-                <Ionicons name="lock-closed" size={16} color={profileTheme.textOnPrimary} />
+                <Ionicons name="lock-closed" size={16} color={heraLanding.textOnCard} />
                 <Text style={styles.saveCardButtonText}>Guardar tarjeta</Text>
               </TouchableOpacity>
             </View>
@@ -1089,7 +1049,7 @@ const ProfileScreen: React.FC = () => {
           // Empty state - no card
           <View style={styles.emptyPaymentCard}>
             <View style={styles.emptyPaymentIcon}>
-              <Ionicons name="card-outline" size={48} color={profileTheme.textLight} />
+              <Ionicons name="card-outline" size={48} color={heraLanding.textMuted} />
             </View>
             <Text style={styles.emptyPaymentTitle}>No tienes método de pago</Text>
             <Text style={styles.emptyPaymentDescription}>
@@ -1100,7 +1060,7 @@ const ProfileScreen: React.FC = () => {
               onPress={handleAddCard}
               activeOpacity={0.8}
             >
-              <Ionicons name="add" size={20} color={profileTheme.textOnPrimary} />
+              <Ionicons name="add" size={20} color={heraLanding.textOnCard} />
               <Text style={styles.addCardButtonText}>Añadir tarjeta</Text>
             </TouchableOpacity>
           </View>
@@ -1120,7 +1080,7 @@ const ProfileScreen: React.FC = () => {
                     <Ionicons
                       name={transaction.status === 'paid' ? 'checkmark-circle' : 'time'}
                       size={20}
-                      color={transaction.status === 'paid' ? profileTheme.success : profileTheme.warning}
+                      color={transaction.status === 'paid' ? heraLanding.success : heraLanding.warning}
                     />
                   </View>
                   <View style={styles.transactionDetails}>
@@ -1145,7 +1105,7 @@ const ProfileScreen: React.FC = () => {
                   </Text>
                   <TouchableOpacity style={styles.receiptLink} activeOpacity={0.7}>
                     <Text style={styles.receiptLinkText}>Ver recibo</Text>
-                    <Ionicons name="chevron-forward" size={14} color={profileTheme.primary} />
+                    <Ionicons name="chevron-forward" size={14} color={heraLanding.primary} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1154,7 +1114,7 @@ const ProfileScreen: React.FC = () => {
         ) : (
           <View style={styles.emptyTransactions}>
             <View style={styles.emptyTransactionsIcon}>
-              <Ionicons name="receipt-outline" size={40} color={profileTheme.textLight} />
+              <Ionicons name="receipt-outline" size={40} color={heraLanding.textMuted} />
             </View>
             <Text style={styles.emptyTransactionsTitle}>Sin transacciones</Text>
             <Text style={styles.emptyTransactionsDescription}>
@@ -1223,7 +1183,7 @@ const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: profileTheme.background, // #F5F7F5 - Light Sage
+    backgroundColor: heraLanding.background, // #F5F7F5 - Light Sage
   },
 
   // ===== DESKTOP LAYOUT =====
@@ -1233,22 +1193,22 @@ const styles = StyleSheet.create({
   },
   sidebar: {
     width: 280,
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderRightWidth: 1,
-    borderRightColor: profileTheme.border,
+    borderRightColor: heraLanding.border,
     paddingTop: 32,
   },
   sidebarHeader: {
     paddingHorizontal: 24,
     paddingBottom: 24,
     borderBottomWidth: 1,
-    borderBottomColor: profileTheme.border,
+    borderBottomColor: heraLanding.border,
     marginBottom: 16,
   },
   sidebarTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
   },
   sidebarTabs: {
     paddingHorizontal: 16,
@@ -1263,17 +1223,17 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sidebarTabActive: {
-    backgroundColor: profileTheme.primaryMuted,
+    backgroundColor: heraLanding.primaryMuted,
     borderLeftWidth: 3,
-    borderLeftColor: profileTheme.primary,
+    borderLeftColor: heraLanding.primary,
   },
   sidebarTabText: {
     fontSize: 15,
     fontWeight: '500',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
   sidebarTabTextActive: {
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     fontWeight: '600',
   },
   contentArea: {
@@ -1290,9 +1250,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     gap: 12,
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderBottomWidth: 1,
-    borderBottomColor: profileTheme.border,
+    borderBottomColor: heraLanding.border,
   },
   pillTab: {
     flexDirection: 'row',
@@ -1300,14 +1260,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 24,
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderWidth: 2,
-    borderColor: profileTheme.border,
+    borderColor: heraLanding.border,
     gap: 6,
   },
   pillTabActive: {
-    backgroundColor: profileTheme.primary,
-    borderColor: profileTheme.primary,
+    backgroundColor: heraLanding.primary,
+    borderColor: heraLanding.primary,
   },
   pillTabIcon: {
     marginRight: 2,
@@ -1315,10 +1275,10 @@ const styles = StyleSheet.create({
   pillTabText: {
     fontSize: 14,
     fontWeight: '500',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
   pillTabTextActive: {
-    color: profileTheme.textOnPrimary,
+    color: heraLanding.textOnCard,
     fontWeight: '600',
   },
 
@@ -1343,7 +1303,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     marginBottom: 16,
   },
 
@@ -1366,7 +1326,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 40,
     fontWeight: '700',
-    color: profileTheme.textOnPrimary,
+    color: heraLanding.textOnCard,
   },
   changePhotoLink: {
     flexDirection: 'row',
@@ -1378,12 +1338,12 @@ const styles = StyleSheet.create({
   changePhotoText: {
     fontSize: 14,
     fontWeight: '500',
-    color: profileTheme.primary,
+    color: heraLanding.primary,
   },
 
   // ===== FORM CARD =====
   formCard: {
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: 12,
     padding: 24,
     ...shadows.md,
@@ -1407,14 +1367,14 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   optionalBadge: {
     fontSize: 11,
     fontWeight: '500',
-    color: profileTheme.textLight,
+    color: heraLanding.textMuted,
     fontStyle: 'italic',
   },
   verifiedBadge: {
@@ -1424,37 +1384,37 @@ const styles = StyleSheet.create({
   },
   verifiedText: {
     fontSize: 12,
-    color: profileTheme.success,
+    color: heraLanding.success,
     fontWeight: '500',
   },
   fieldInput: {
-    backgroundColor: profileTheme.inputBackground,
+    backgroundColor: heraLanding.cardBackground,
     borderWidth: 2,
-    borderColor: profileTheme.border,
+    borderColor: heraLanding.border,
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: 48,
   },
   fieldInputDisabled: {
-    backgroundColor: profileTheme.inputBackgroundDisabled,
-    color: profileTheme.textMedium,
+    backgroundColor: heraLanding.cardBackgroundDisabled,
+    color: heraLanding.textSecondary,
   },
   inputText: {
     fontSize: 16,
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
   },
   placeholderText: {
-    color: profileTheme.textLight,
+    color: heraLanding.textMuted,
   },
   helperText: {
     fontSize: 12,
-    color: profileTheme.textLight,
+    color: heraLanding.textMuted,
     marginTop: 6,
     fontStyle: 'italic',
   },
@@ -1474,23 +1434,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: profileTheme.primary,
+    backgroundColor: heraLanding.primary,
     paddingVertical: 16,
     borderRadius: 8,
     gap: 8,
     ...shadows.md,
   },
   saveButtonDisabled: {
-    backgroundColor: profileTheme.border,
+    backgroundColor: heraLanding.border,
     ...shadows.none,
   },
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: profileTheme.textOnPrimary,
+    color: heraLanding.textOnCard,
   },
   saveButtonTextDisabled: {
-    color: profileTheme.textLight,
+    color: heraLanding.textMuted,
   },
 
   // ===== DATE PICKER MODAL (iOS) =====
@@ -1500,7 +1460,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   datePickerModalContent: {
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 34, // Safe area
@@ -1512,21 +1472,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: profileTheme.border,
+    borderBottomColor: heraLanding.border,
   },
   datePickerTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
   },
   datePickerCancelText: {
     fontSize: 16,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
   datePickerConfirmText: {
     fontSize: 16,
     fontWeight: '600',
-    color: profileTheme.primary,
+    color: heraLanding.primary,
   },
   datePickerSpinner: {
     height: 216,
@@ -1534,7 +1494,7 @@ const styles = StyleSheet.create({
 
   // ===== WEB DATE PICKER =====
   webDatePickerContent: {
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: 16,
     width: '90%',
     maxWidth: 400,
@@ -1559,7 +1519,7 @@ const styles = StyleSheet.create({
   webDateColumnLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
     marginBottom: 8,
     textTransform: 'uppercase',
@@ -1567,7 +1527,7 @@ const styles = StyleSheet.create({
   },
   webDateScroll: {
     height: 200,
-    backgroundColor: profileTheme.background,
+    backgroundColor: heraLanding.background,
     borderRadius: 8,
   },
   webDateOption: {
@@ -1579,27 +1539,27 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   webDateOptionSelected: {
-    backgroundColor: profileTheme.primary,
+    backgroundColor: heraLanding.primary,
   },
   webDateOptionText: {
     fontSize: 15,
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
   },
   webDateOptionTextSelected: {
-    color: profileTheme.textOnPrimary,
+    color: heraLanding.textOnCard,
     fontWeight: '600',
   },
   webDatePreview: {
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderTopWidth: 1,
-    borderTopColor: profileTheme.border,
+    borderTopColor: heraLanding.border,
     alignItems: 'center',
   },
   webDatePreviewText: {
     fontSize: 16,
     fontWeight: '600',
-    color: profileTheme.primary,
+    color: heraLanding.primary,
   },
 
   // ===== SECURITY BANNER =====
@@ -1625,18 +1585,18 @@ const styles = StyleSheet.create({
   securityText: {
     fontSize: 13,
     fontWeight: '500',
-    color: profileTheme.secure,
+    color: heraLanding.success,
   },
 
   // ===== PAYMENT CARD =====
   paymentCard: {
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: 12,
     padding: 24,
     ...shadows.md,
   },
   creditCard: {
-    backgroundColor: profileTheme.background,
+    backgroundColor: heraLanding.background,
     borderRadius: 12,
     padding: 20,
     marginBottom: 16,
@@ -1650,19 +1610,19 @@ const styles = StyleSheet.create({
   cardBrand: {
     fontSize: 14,
     fontWeight: '700',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     letterSpacing: 1,
   },
   cardNumber: {
     fontSize: 18,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     letterSpacing: 2,
     marginBottom: 8,
   },
   cardExpiry: {
     fontSize: 14,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
   cardActions: {
     flexDirection: 'row',
@@ -1675,24 +1635,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: profileTheme.border,
+    borderColor: heraLanding.border,
     gap: 6,
   },
   cardActionButtonDanger: {
-    borderColor: profileTheme.error,
+    borderColor: heraLanding.warning,
   },
   cardActionText: {
     fontSize: 14,
     fontWeight: '500',
-    color: profileTheme.primary,
+    color: heraLanding.primary,
   },
   cardActionTextDanger: {
-    color: profileTheme.error,
+    color: heraLanding.warning,
   },
 
   // ===== EMPTY PAYMENT STATE =====
   emptyPaymentCard: {
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: 12,
     padding: 40,
     alignItems: 'center',
@@ -1702,7 +1662,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: profileTheme.background,
+    backgroundColor: heraLanding.background,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
@@ -1710,12 +1670,12 @@ const styles = StyleSheet.create({
   emptyPaymentTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     marginBottom: 8,
   },
   emptyPaymentDescription: {
     fontSize: 14,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
@@ -1724,7 +1684,7 @@ const styles = StyleSheet.create({
   addCardButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: profileTheme.primary,
+    backgroundColor: heraLanding.primary,
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 8,
@@ -1734,7 +1694,7 @@ const styles = StyleSheet.create({
   addCardButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: profileTheme.textOnPrimary,
+    color: heraLanding.textOnCard,
   },
 
   // ===== CARD FORM =====
@@ -1747,7 +1707,7 @@ const styles = StyleSheet.create({
   cardFormTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
   },
   secureInputBadge: {
     flexDirection: 'row',
@@ -1761,7 +1721,7 @@ const styles = StyleSheet.create({
   secureInputText: {
     fontSize: 12,
     fontWeight: '500',
-    color: profileTheme.secure,
+    color: heraLanding.success,
   },
   cardFormActions: {
     flexDirection: 'row',
@@ -1774,17 +1734,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: profileTheme.border,
+    borderColor: heraLanding.border,
   },
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
   },
   saveCardButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: profileTheme.primary,
+    backgroundColor: heraLanding.primary,
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 8,
@@ -1794,12 +1754,12 @@ const styles = StyleSheet.create({
   saveCardButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: profileTheme.textOnPrimary,
+    color: heraLanding.textOnCard,
   },
 
   // ===== TRANSACTIONS =====
   transactionList: {
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: 12,
     overflow: 'hidden',
     ...shadows.md,
@@ -1810,7 +1770,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: profileTheme.border,
+    borderBottomColor: heraLanding.border,
   },
   transactionLeft: {
     flexDirection: 'row',
@@ -1822,7 +1782,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: profileTheme.background,
+    backgroundColor: heraLanding.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1832,17 +1792,17 @@ const styles = StyleSheet.create({
   transactionDate: {
     fontSize: 14,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     marginBottom: 2,
   },
   transactionDescription: {
     fontSize: 14,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     marginBottom: 2,
   },
   transactionSpecialist: {
     fontSize: 13,
-    color: profileTheme.textLight,
+    color: heraLanding.textMuted,
   },
   transactionRight: {
     alignItems: 'flex-end',
@@ -1850,7 +1810,7 @@ const styles = StyleSheet.create({
   transactionAmount: {
     fontSize: 16,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     marginBottom: 4,
   },
   receiptLink: {
@@ -1861,12 +1821,12 @@ const styles = StyleSheet.create({
   receiptLinkText: {
     fontSize: 13,
     fontWeight: '500',
-    color: profileTheme.primary,
+    color: heraLanding.primary,
   },
 
   // ===== EMPTY TRANSACTIONS =====
   emptyTransactions: {
-    backgroundColor: profileTheme.cardBackground,
+    backgroundColor: heraLanding.cardBg,
     borderRadius: 12,
     padding: 40,
     alignItems: 'center',
@@ -1876,7 +1836,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: profileTheme.background,
+    backgroundColor: heraLanding.background,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -1884,12 +1844,12 @@ const styles = StyleSheet.create({
   emptyTransactionsTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: profileTheme.textDark,
+    color: heraLanding.textPrimary,
     marginBottom: 6,
   },
   emptyTransactionsDescription: {
     fontSize: 14,
-    color: profileTheme.textMedium,
+    color: heraLanding.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },

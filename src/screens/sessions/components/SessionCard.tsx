@@ -50,46 +50,46 @@ const SessionCard: React.FC<SessionCardProps> = ({
   const isVideoCall = session.type === 'VIDEO_CALL';
   const canShowVideoButton = isVideoCall && !isCompleted && !isCancelled;
 
-  // Beautiful status colors with backgrounds
+  // Beautiful status colors with backgrounds - using theme tokens
   const getStatusConfig = () => {
     switch (session.status) {
       case 'CONFIRMED':
         return {
-          bg: '#E8F5E9',
-          color: '#2E7D32',
-          borderColor: '#A5D6A7',
+          bg: heraLanding.status.confirmed.bg,
+          color: heraLanding.status.confirmed.text,
+          borderColor: heraLanding.status.confirmed.border,
           icon: 'checkmark-circle',
           label: 'Confirmada',
         };
       case 'PENDING':
         return {
-          bg: '#FFF8E1',
-          color: '#F57C00',
-          borderColor: '#FFE082',
+          bg: heraLanding.status.pending.bg,
+          color: heraLanding.status.pending.text,
+          borderColor: heraLanding.status.pending.border,
           icon: 'time',
           label: 'Pendiente',
         };
       case 'COMPLETED':
         return {
-          bg: '#F3E5F5',
-          color: '#7B1FA2',
-          borderColor: '#CE93D8',
+          bg: heraLanding.status.completed.bg,
+          color: heraLanding.status.completed.text,
+          borderColor: heraLanding.status.completed.border,
           icon: 'checkmark-done-circle',
           label: 'Completada',
         };
       case 'CANCELLED':
         return {
-          bg: '#FFEBEE',
-          color: '#C62828',
-          borderColor: '#EF9A9A',
+          bg: heraLanding.status.cancelled.bg,
+          color: heraLanding.status.cancelled.text,
+          borderColor: heraLanding.status.cancelled.border,
           icon: 'close-circle',
           label: 'Cancelada',
         };
       default:
         return {
-          bg: '#F5F7F5',
-          color: '#6B7B6B',
-          borderColor: '#E2E8E2',
+          bg: heraLanding.background,
+          color: heraLanding.textSecondary,
+          borderColor: heraLanding.border,
           icon: 'ellipse',
           label: 'Desconocido',
         };
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   },
   cardPast: {
     opacity: 0.85,
-    backgroundColor: '#FAFBFA',
+    backgroundColor: heraLanding.surfaceMuted,
   },
 
   // ═══════════════════════════════════════════════════════════════
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   timeIconBgToday: {
-    backgroundColor: `${heraLanding.primary}12`,
+    backgroundColor: heraLanding.primaryAlpha12,
   },
   timeInfo: {
     // Time info wrapper
@@ -384,11 +384,11 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 16,
-    backgroundColor: `${heraLanding.primary}12`,
+    backgroundColor: heraLanding.primaryAlpha12,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: `${heraLanding.primary}20`,
+    borderColor: heraLanding.primaryAlpha20,
   },
   avatarText: {
     fontSize: 22,

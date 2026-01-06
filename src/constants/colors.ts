@@ -91,6 +91,78 @@ export const heraLanding = {
   // Borders
   border: '#E2E8E2',
   borderLight: '#F0F4F0',
+
+  // ✅ Status colors (for SessionCard)
+  status: {
+    confirmed: {
+      bg: '#E8F5E9',
+      text: '#2E7D32',
+      border: '#A5D6A7',
+    },
+    pending: {
+      bg: '#FFF8E1',
+      text: '#F57C00',
+      border: '#FFE082',
+    },
+    completed: {
+      bg: '#F3E5F5',
+      text: '#7B1FA2',
+      border: '#CE93D8',
+    },
+    cancelled: {
+      bg: '#FFEBEE',
+      text: '#C62828',
+      border: '#EF9A9A',
+    },
+  },
+
+  // ✅ Medal gradients (for SpecialistCard rankings)
+  medals: {
+    gold: ['#FFD700', '#FFA500'] as [string, string],
+    silver: ['#E8E8E8', '#C0C0C0'] as [string, string],
+    bronze: ['#CD9B6D', '#CD7F32'] as [string, string],
+  },
+
+  // ✅ Common UI tokens
+  starRating: '#FFB800',
+  cardBackground: '#FFFFFF',
+  textOnCard: '#FFFFFF',
+  inputBackgroundDisabled: '#F5F7F5',
+  hoverBackground: '#F0F2F0',
+  destructiveHover: '#FEE2E2',
+
+  // ✅ Alpha variants (for semi-transparent overlays)
+  primaryAlpha12: 'rgba(139, 157, 131, 0.12)',
+  primaryAlpha20: 'rgba(139, 157, 131, 0.20)',
+  whiteAlpha10: 'rgba(255, 255, 255, 0.1)',
+  whiteAlpha20: 'rgba(255, 255, 255, 0.2)',
+  whiteAlpha90: 'rgba(255, 255, 255, 0.9)',
+
+  // ✅ UI states
+  disabled: '#E0E5E0',
+  surfaceMuted: '#FAFBFA',
+  dangerMuted: '#FEE2E2',
+  successBg: '#F0F7F0',
+  goldMuted: '#FFF8E7',
+  goldDark: '#B8860B',
+  warningAmber: '#D9A84F',        // Amber warning (for specialist profile pending states)
+  scrollbarThumbAlt: '#C5CFC5',  // Alternative scrollbar thumb (specialist profile)
+
+  // ✅ Scrollbar (web only)
+  scrollbarTrack: '#F0F2F0',
+  scrollbarThumb: '#D0D5D0',
+  scrollbarThumbHover: '#B8BDB8',
+
+  // ✅ Celebration/special
+  gold: '#FFD700',
+  celebration: '#FFD700',
+};
+
+// ✅ Brand colors for third-party integrations
+export const brandColors = {
+  google: '#4285F4',
+  apple: '#000000',
+  facebook: '#1877F2',
 };
 
 // LEGACY COLORS - Maintained for backward compatibility

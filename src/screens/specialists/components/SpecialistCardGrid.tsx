@@ -69,9 +69,9 @@ export const SpecialistCardGrid: React.FC<SpecialistCardGridProps> = ({
   };
 
   const getMedalInfo = () => {
-    if (position === 1) return { emoji: '1', colors: ['#FFD700', '#FFA500'] };
-    if (position === 2) return { emoji: '2', colors: ['#E8E8E8', '#C0C0C0'] };
-    if (position === 3) return { emoji: '3', colors: ['#CD9B6D', '#CD7F32'] };
+    if (position === 1) return { emoji: '1', colors: heraLanding.medals.gold };
+    if (position === 2) return { emoji: '2', colors: heraLanding.medals.silver };
+    if (position === 3) return { emoji: '3', colors: heraLanding.medals.bronze };
     return null;
   };
 
@@ -115,7 +115,7 @@ export const SpecialistCardGrid: React.FC<SpecialistCardGridProps> = ({
         {/* First Visit Free Badge - Absolute top-right (doesn't affect layout) */}
         {specialist.firstVisitFree && (
           <View style={styles.firstVisitBadge}>
-            <Ionicons name="gift" size={11} color="#FFFFFF" />
+            <Ionicons name="gift" size={11} color={heraLanding.textOnCard} />
             <Text style={styles.firstVisitText}>Gratis</Text>
           </View>
         )}
@@ -131,7 +131,7 @@ export const SpecialistCardGrid: React.FC<SpecialistCardGridProps> = ({
           )}
           {specialist.verified && (
             <View style={styles.verifiedBadge}>
-              <Ionicons name="shield-checkmark" size={12} color="#FFFFFF" />
+              <Ionicons name="shield-checkmark" size={12} color={heraLanding.textOnCard} />
             </View>
           )}
         </View>
@@ -149,7 +149,7 @@ export const SpecialistCardGrid: React.FC<SpecialistCardGridProps> = ({
         {/* Meta Row: Rating + Price */}
         <View style={styles.metaRow}>
           <View style={styles.ratingContainer}>
-            <Ionicons name="star" size={14} color="#FFB800" />
+            <Ionicons name="star" size={14} color={heraLanding.starRating} />
             <Text style={styles.ratingValue}>{specialist.rating.toFixed(1)}</Text>
             <Text style={styles.reviewCount}>({specialist.reviewCount})</Text>
           </View>
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     maxWidth: 380,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: heraLanding.cardBg,
     borderRadius: 16,
     padding: spacing.lg,
     alignItems: 'center',
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   positionText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: heraLanding.textOnCard,
   },
   avatarContainer: {
     position: 'relative',
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   avatarInitial: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: heraLanding.textOnCard,
   },
   verifiedBadge: {
     position: 'absolute',
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: heraLanding.cardBackground,
   },
   name: {
     fontSize: 18,
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
   firstVisitText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: heraLanding.textOnCard,
   },
   ctaButton: {
     backgroundColor: heraLanding.primary,
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
   ctaText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: heraLanding.textOnCard,
   },
   affinityBadge: {
     position: 'absolute',
