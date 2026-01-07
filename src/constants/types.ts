@@ -211,3 +211,47 @@ export interface ProfessionalSession {
   type: 'video' | 'audio' | 'chat';
   clientAvatar?: string;
 }
+
+// ============================================================================
+// TYPED NAVIGATION HELPERS
+// ============================================================================
+
+import { NavigationProp, RouteProp } from '@react-navigation/native';
+
+/**
+ * Typed navigation prop for use with useNavigation hook
+ *
+ * Usage:
+ * const navigation = useNavigation<AppNavigationProp>();
+ */
+export type AppNavigationProp = NavigationProp<RootStackParamList>;
+
+/**
+ * Typed route prop for use with useRoute hook
+ *
+ * Usage:
+ * const route = useRoute<AppRouteProp<'Login'>>();
+ */
+export type AppRouteProp<T extends keyof RootStackParamList> = RouteProp<RootStackParamList, T>;
+
+/**
+ * Typed screen props for screen components
+ *
+ * Usage:
+ * type Props = ScreenProps<'Login'>;
+ * const LoginScreen: React.FC<Props> = ({ navigation, route }) => { ... }
+ */
+export type ScreenProps<T extends keyof RootStackParamList> = {
+  navigation: NavigationProp<RootStackParamList, T>;
+  route: RouteProp<RootStackParamList, T>;
+};
+
+/**
+ * Typed tab navigation prop
+ */
+export type TabNavigationProp = NavigationProp<MainTabParamList>;
+
+/**
+ * Typed tab route prop
+ */
+export type TabRouteProp<T extends keyof MainTabParamList> = RouteProp<MainTabParamList, T>;

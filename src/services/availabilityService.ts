@@ -1,4 +1,5 @@
 import { api } from './api';
+import { getErrorMessage } from '../constants/errors';
 
 /**
  * Day schedule interface
@@ -48,11 +49,8 @@ export const getMyWeeklySchedule = async (): Promise<WeeklySchedule> => {
     // Then get the schedule
     const response = await api.get(`/availability/schedule/${specialistId}`);
     return response.data.data.schedule;
-  } catch (error: any) {
-    console.error('[availabilityService] Error fetching weekly schedule:', error);
-    throw new Error(
-      error.response?.data?.error || 'No se pudo cargar el horario'
-    );
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo cargar el horario'));
   }
 };
 
@@ -64,11 +62,8 @@ export const updateWeeklySchedule = async (
 ): Promise<void> => {
   try {
     await api.put('/availability/schedule', schedule);
-  } catch (error: any) {
-    console.error('[availabilityService] Error updating weekly schedule:', error);
-    throw new Error(
-      error.response?.data?.error || 'No se pudo actualizar el horario'
-    );
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo actualizar el horario'));
   }
 };
 
@@ -95,11 +90,8 @@ export const getMyExceptions = async (
 
     const response = await api.get(url);
     return response.data.data.exceptions;
-  } catch (error: any) {
-    console.error('[availabilityService] Error fetching exceptions:', error);
-    throw new Error(
-      error.response?.data?.error || 'No se pudieron cargar las excepciones'
-    );
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudieron cargar las excepciones'));
   }
 };
 
@@ -120,11 +112,8 @@ export const addException = async (
       customHours,
     });
     return response.data.data;
-  } catch (error: any) {
-    console.error('[availabilityService] Error adding exception:', error);
-    throw new Error(
-      error.response?.data?.error || 'No se pudo agregar la excepción'
-    );
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo agregar la excepción'));
   }
 };
 
@@ -134,10 +123,7 @@ export const addException = async (
 export const removeException = async (date: string): Promise<void> => {
   try {
     await api.delete(`/availability/exceptions/${date}`);
-  } catch (error: any) {
-    console.error('[availabilityService] Error removing exception:', error);
-    throw new Error(
-      error.response?.data?.error || 'No se pudo eliminar la excepción'
-    );
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo eliminar la excepción'));
   }
 };

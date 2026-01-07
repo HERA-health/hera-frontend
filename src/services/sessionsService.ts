@@ -1,4 +1,5 @@
 import { api } from './api';
+import { getErrorMessage } from '../constants/errors';
 
 /**
  * Time slot from available slots API
@@ -23,44 +24,12 @@ export const getAvailableSlots = async (
   date: string // YYYY-MM-DD format
 ): Promise<TimeSlot[]> => {
   try {
-    console.log('🌐 ========== API CALL: getAvailableSlots ==========');
-    console.log('📋 Specialist ID:', specialistId);
-    console.log('📅 Date:', date);
-    console.log('📅 Date type:', typeof date);
-
     const url = `/specialists/${specialistId}/available-slots?date=${date}`;
-    console.log('🔗 Full URL:', url);
-    console.log('🔗 Base URL:', api.defaults.baseURL);
-
     const response = await api.get(url);
-
-    console.log('✅ Response status:', response.status);
-    console.log('📦 Response data:', JSON.stringify(response.data, null, 2));
-    console.log('📊 Response structure:', {
-      hasData: !!response.data,
-      hasDataProperty: !!response.data?.data,
-      hasSlotsProperty: !!response.data?.data?.slots,
-      slotsType: typeof response.data?.data?.slots,
-      slotsLength: Array.isArray(response.data?.data?.slots) ? response.data.data.slots.length : 'Not an array'
-    });
-
     const slots = response.data.data.slots || [];
-    console.log('🎯 Returning slots:', slots.length, 'slots');
-    console.log('🎯 Slots details:', slots);
-    console.log('🌐 ========== END API CALL ==========');
-
     return slots;
-  } catch (error: any) {
-    console.error('❌ ========== ERROR in getAvailableSlots ==========');
-    console.error('❌ Error type:', error.constructor.name);
-    console.error('❌ Error message:', error.message);
-    console.error('❌ Error response:', error.response?.data);
-    console.error('❌ Error status:', error.response?.status);
-    console.error('❌ Full error:', error);
-    console.error('❌ ========== END ERROR ==========');
-    throw new Error(
-      error.response?.data?.error || 'No se pudieron cargar los horarios disponibles'
-    );
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudieron cargar los horarios disponibles'));
   }
 };
 
@@ -74,27 +43,10 @@ export const createSession = async (sessionData: {
   type: SessionType;
 }): Promise<any> => {
   try {
-    console.log('🌐 ========== API CALL: createSession ==========');
-    console.log('📤 Session data being sent:', JSON.stringify(sessionData, null, 2));
-    console.log('🔗 Endpoint: POST /sessions');
-
     const response = await api.post('/sessions', sessionData);
-
-    console.log('✅ Response status:', response.status);
-    console.log('📦 Response data:', JSON.stringify(response.data, null, 2));
-    console.log('🌐 ========== END API CALL ==========');
-
     return response.data.data;
-  } catch (error: any) {
-    console.error('❌ ========== ERROR in createSession ==========');
-    console.error('❌ Error:', error);
-    console.error('❌ Error message:', error.message);
-    console.error('❌ Error response:', error.response?.data);
-    console.error('❌ Error status:', error.response?.status);
-    console.error('❌ ========== END ERROR ==========');
-    throw new Error(
-      error.response?.data?.error || 'No se pudo crear la cita'
-    );
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo crear la cita'));
   }
 };
 
@@ -103,15 +55,10 @@ export const createSession = async (sessionData: {
  */
 export const getMySessions = async (): Promise<any[]> => {
   try {
-    console.log('[sessionsService] Fetching my sessions');
     const response = await api.get('/sessions/my-sessions');
-    console.log('[sessionsService] My sessions:', response.data);
     return response.data.data || [];
-  } catch (error: any) {
-    console.error('[sessionsService] Error fetching my sessions:', error);
-    throw new Error(
-      error.response?.data?.error || 'No se pudieron cargar tus sesiones'
-    );
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudieron cargar tus sesiones'));
   }
 };
 
@@ -120,14 +67,9 @@ export const getMySessions = async (): Promise<any[]> => {
  */
 export const cancelSession = async (sessionId: string): Promise<void> => {
   try {
-    console.log(`[sessionsService] Cancelling session ${sessionId}`);
     await api.patch(`/sessions/${sessionId}/cancel`);
-    console.log('[sessionsService] Session cancelled successfully');
-  } catch (error: any) {
-    console.error('[sessionsService] Error cancelling session:', error);
-    throw new Error(
-      error.response?.data?.error || 'No se pudo cancelar la sesión'
-    );
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo cancelar la sesión'));
   }
 };
 
@@ -150,14 +92,9 @@ export interface MeetingLinkResponse {
  */
 export const getMeetingLink = async (sessionId: string): Promise<MeetingLinkResponse> => {
   try {
-    console.log(`[sessionsService] Getting meeting link for session ${sessionId}`);
     const response = await api.get(`/sessions/${sessionId}/meeting-link`);
-    console.log('[sessionsService] Meeting link response:', response.data);
     return response.data.data;
-  } catch (error: any) {
-    console.error('[sessionsService] Error getting meeting link:', error);
-    throw new Error(
-      error.response?.data?.error || 'No se pudo obtener el enlace de la videollamada'
-    );
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo obtener el enlace de la videollamada'));
   }
 };

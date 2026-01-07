@@ -1,4 +1,5 @@
 import { api } from './api';
+import { getErrorMessage } from '../constants/errors';
 
 export interface ProfessionalProfile {
   id: string;
@@ -72,68 +73,10 @@ export const updateSessionStatus = async (
   status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
 ): Promise<void> => {
   try {
-    console.log('🟠 ========== API SERVICE: updateSessionStatus ==========');
-    console.log('🟠 Function called with parameters:');
-    console.log('🟠   - sessionId:', sessionId);
-    console.log('🟠   - sessionId type:', typeof sessionId);
-    console.log('🟠   - status:', status);
-    console.log('🟠   - status type:', typeof status);
-
-    console.log('🟠 API Configuration:');
-    console.log('🟠   - Base URL:', api.defaults.baseURL);
-    console.log('🟠   - Full URL:', `${api.defaults.baseURL}/sessions/${sessionId}/status`);
-    console.log('🟠   - Request body:', JSON.stringify({ status }, null, 2));
-
-    console.log('🟠 Checking authorization header...');
-    const authHeader = api.defaults.headers.common['Authorization'];
-    console.log('🟠   - Auth header present:', !!authHeader);
-    console.log('🟠   - Auth header value:', authHeader ? `${authHeader.substring(0, 20)}...` : 'MISSING');
-
-    console.log('🟠 Making PUT request...');
     const response = await api.put(`/sessions/${sessionId}/status`, { status });
-
-    console.log('🟠 ========== API RESPONSE RECEIVED ==========');
-    console.log('🟠 Response status:', response.status);
-    console.log('🟠 Response statusText:', response.statusText);
-    console.log('🟠 Response headers:', response.headers);
-    console.log('🟠 Response data:', JSON.stringify(response.data, null, 2));
-    console.log('🟠 Response data.success:', response.data?.success);
-    console.log('🟠 Response data.data:', response.data?.data);
-
-    console.log('✅ Status updated successfully in API');
-    console.log('🟠 ========== END API SERVICE ==========');
-
     return response.data.data;
-  } catch (error: any) {
-    console.error('🔴 ========== API SERVICE ERROR ==========');
-    console.error('🔴 Error occurred in updateSessionStatus');
-    console.error('🔴 Error object:', error);
-    console.error('🔴 Error name:', error.name);
-    console.error('🔴 Error message:', error.message);
-    console.error('🔴 Error code:', error.code);
-
-    if (error.response) {
-      console.error('🔴 SERVER RESPONDED WITH ERROR:');
-      console.error('🔴   - Status:', error.response.status);
-      console.error('🔴   - Status text:', error.response.statusText);
-      console.error('🔴   - Headers:', error.response.headers);
-      console.error('🔴   - Data:', JSON.stringify(error.response.data, null, 2));
-      console.error('🔴   - Error message from server:', error.response.data?.error);
-    } else if (error.request) {
-      console.error('🔴 NO RESPONSE FROM SERVER:');
-      console.error('🔴   - Request was made but no response');
-      console.error('🔴   - Request:', error.request);
-    } else {
-      console.error('🔴 ERROR SETTING UP REQUEST:');
-      console.error('🔴   - Message:', error.message);
-    }
-
-    console.error('🔴 Error stack trace:', error.stack);
-    console.error('🔴 ========== END API SERVICE ERROR ==========');
-
-    throw new Error(
-      error.response?.data?.error || 'No se pudo actualizar el estado de la sesión'
-    );
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo actualizar el estado de la sesión'));
   }
 };
 
@@ -156,15 +99,10 @@ export interface MeetingLinkResponse {
  */
 export const getMeetingLink = async (sessionId: string): Promise<MeetingLinkResponse> => {
   try {
-    console.log(`[professionalService] Getting meeting link for session ${sessionId}`);
     const response = await api.get(`/sessions/${sessionId}/meeting-link`);
-    console.log('[professionalService] Meeting link response:', response.data);
     return response.data.data;
-  } catch (error: any) {
-    console.error('[professionalService] Error getting meeting link:', error);
-    throw new Error(
-      error.response?.data?.error || 'No se pudo obtener el enlace de la videollamada'
-    );
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo obtener el enlace de la videollamada'));
   }
 };
 
@@ -257,11 +195,8 @@ export const getComprehensiveProfile = async (): Promise<SpecialistProfileData |
       return response.data.data;
     }
     return null;
-  } catch (error: any) {
-    console.error('[professionalService] Error getting comprehensive profile:', error);
-    throw new Error(
-      error.response?.data?.error || 'No se pudo obtener el perfil'
-    );
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo obtener el perfil'));
   }
 };
 
@@ -273,7 +208,7 @@ export const updateComprehensiveProfile = async (
 ): Promise<SpecialistProfileData> => {
   try {
     // Transform frontend data to API format
-    const apiData: any = {};
+    const apiData: Record<string, unknown> = {};
 
     if (data.fullName !== undefined) apiData.fullName = data.fullName;
     if (data.professionalTitle !== undefined) apiData.professionalTitle = data.professionalTitle;
@@ -313,10 +248,7 @@ export const updateComprehensiveProfile = async (
 
     const response = await api.put('/specialists/me/profile', apiData);
     return response.data.data;
-  } catch (error: any) {
-    console.error('[professionalService] Error updating profile:', error);
-    throw new Error(
-      error.response?.data?.error || 'No se pudo actualizar el perfil'
-    );
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo actualizar el perfil'));
   }
 };

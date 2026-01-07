@@ -25,8 +25,7 @@ export const setAuthToken = async (token: string): Promise<void> => {
   try {
     await AsyncStorage.setItem(TOKEN_KEY, token);
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  } catch (error) {
-    console.error('Error saving auth token:', error);
+  } catch (_error: unknown) {
     throw new Error('Failed to save authentication token');
   }
 };
@@ -38,8 +37,8 @@ export const removeAuthToken = async (): Promise<void> => {
   try {
     await AsyncStorage.removeItem(TOKEN_KEY);
     delete api.defaults.headers.common['Authorization'];
-  } catch (error) {
-    console.error('Error removing auth token:', error);
+  } catch (_error: unknown) {
+    // Silently fail - user should still be logged out locally
   }
 };
 
@@ -49,8 +48,7 @@ export const removeAuthToken = async (): Promise<void> => {
 export const getStoredToken = async (): Promise<string | null> => {
   try {
     return await AsyncStorage.getItem(TOKEN_KEY);
-  } catch (error) {
-    console.error('Error getting stored token:', error);
+  } catch (_error: unknown) {
     return null;
   }
 };
@@ -66,8 +64,7 @@ export const initializeAuth = async (): Promise<string | null> => {
       return token;
     }
     return null;
-  } catch (error) {
-    console.error('Error initializing auth:', error);
+  } catch (_error: unknown) {
     return null;
   }
 };
@@ -75,14 +72,9 @@ export const initializeAuth = async (): Promise<string | null> => {
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // Log requests in development
-    if (__DEV__) {
-      console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
-    }
     return config;
   },
   (error) => {
-    console.error('Request error:', error);
     return Promise.reject(error);
   }
 );
@@ -90,10 +82,6 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
   (response) => {
-    // Log responses in development
-    if (__DEV__) {
-      console.log(`API Response: ${response.config.url}`, response.status);
-    }
     return response;
   },
   async (error) => {
@@ -103,8 +91,6 @@ api.interceptors.response.use(
       const status = error.response.status;
       const url = error.config?.url || '';
 
-      console.error(`API Error ${status}:`, error.response.data);
-
       // Handle 401 Unauthorized
       if (status === 401) {
         // Check if this is a login/register request
@@ -112,13 +98,12 @@ api.interceptors.response.use(
 
         if (isAuthEndpoint) {
           // For login/register, pass through the original error without modification
-          // This allows specific error messages from backend to be shown
           return Promise.reject(error);
         } else {
           // For other endpoints, it's a session expiration
           await removeAuthToken();
           const sessionError = new Error('Tu sesión ha expirado. Inicia sesión de nuevo');
-          (sessionError as any).code = 'SESSION_EXPIRED';
+          (sessionError as Error & { code: string }).code = 'SESSION_EXPIRED';
           return Promise.reject(sessionError);
         }
       }
@@ -127,13 +112,11 @@ api.interceptors.response.use(
       return Promise.reject(error);
     } else if (error.request) {
       // Request made but no response received (network error)
-      console.error('Network error:', error.message);
       const networkError = new Error('Error de conexión. Verifica tu internet');
-      (networkError as any).code = 'NETWORK_ERROR';
+      (networkError as Error & { code: string }).code = 'NETWORK_ERROR';
       return Promise.reject(networkError);
     } else {
       // Something else happened
-      console.error('Request setup error:', error.message);
       return Promise.reject(new Error('Error inesperado. Intenta de nuevo'));
     }
   }

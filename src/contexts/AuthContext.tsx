@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as authService from '../services/authService';
 import { initializeAuth } from '../services/api';
+import { getErrorMessage } from '../constants/errors';
 import type { AuthResponse } from '../services/authService';
 
 export type UserType = 'client' | 'professional';
@@ -64,8 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           setUser(mappedUser);
         }
-      } catch (err: any) {
-        console.error('Auto-login failed:', err);
+      } catch (_err: unknown) {
         // Token might be expired or invalid, just continue as logged out
         await authService.logout();
       } finally {
@@ -100,9 +100,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Return response so caller can access user data (e.g., for userType validation)
       return response;
-    } catch (err: any) {
-      console.error('Login error:', err);
-      setError(err.message || 'Error al iniciar sesión');
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err, 'Error al iniciar sesión');
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -138,9 +138,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       setUser(mappedUser);
-    } catch (err: any) {
-      console.error('Registration error:', err);
-      setError(err.message || 'Error al registrarse');
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err, 'Error al registrarse');
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -152,8 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       await authService.logout();
       setUser(null);
-    } catch (err: any) {
-      console.error('Logout error:', err);
+    } catch (_err: unknown) {
       // Even if logout fails, clear user state
       setUser(null);
     } finally {
