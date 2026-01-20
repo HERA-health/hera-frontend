@@ -22,6 +22,7 @@ import { heraLanding, colors, spacing, borderRadius, shadows } from '../../const
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import * as professionalService from '../../services/professionalService';
+import { VerificationBanner } from '../../components/auth';
 
 export function ProfessionalHomeScreen() {
   const { user } = useAuth();
@@ -536,6 +537,9 @@ export function ProfessionalHomeScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Email verification reminder banner */}
+        <VerificationBanner />
+
         {renderWelcomeHeader()}
         {renderStatsCards()}
         {renderPendingConfirmations()}

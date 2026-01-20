@@ -22,6 +22,7 @@ import { heraLanding, colors, spacing, borderRadius, shadows } from '../../const
 import { useNavigation } from '@react-navigation/native';
 import { getMatchedSpecialists, SpecialistData } from '../../services/specialistsService';
 import { useAuth } from '../../contexts/AuthContext';
+import { VerificationBanner } from '../../components/auth';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
@@ -464,6 +465,9 @@ export default function HomeScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Email verification reminder banner */}
+        <VerificationBanner />
+
         {renderWelcomeHeader()}
         {renderQuickActions()}
         {renderQuestionnaireCTA()}

@@ -176,6 +176,9 @@ const ProfileScreen: React.FC = () => {
     name: '',
   });
 
+  // Email verification state
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
+
   // Form data - now includes city and postalCode
   const [formData, setFormData] = useState({
     fullName: user?.name || '',
@@ -271,6 +274,27 @@ const ProfileScreen: React.FC = () => {
       setFormData(prev => ({ ...prev, phone: formatted }));
     }
   }, []);
+
+  // Email verification handler
+  const handleVerifyEmail = useCallback(async () => {
+    if (!user?.email) return;
+
+    setIsVerifyingEmail(true);
+    try {
+      await authService.resendVerificationEmail(user.email);
+      Alert.alert(
+        'Email enviado',
+        'Hemos enviado un correo de verificación a tu bandeja de entrada. Revisa también la carpeta de spam.'
+      );
+    } catch (error) {
+      Alert.alert(
+        'Error',
+        'No se pudo enviar el email de verificación. Inténtalo de nuevo.'
+      );
+    } finally {
+      setIsVerifyingEmail(false);
+    }
+  }, [user?.email]);
 
   // Date picker handlers
   const handleOpenDatePicker = useCallback(() => {
@@ -686,6 +710,9 @@ const ProfileScreen: React.FC = () => {
       onPickerPress?: () => void;
       helperText?: string;
       isVerified?: boolean;
+      isNotVerified?: boolean;
+      onVerifyPress?: () => void;
+      isVerifying?: boolean;
       secureTextEntry?: boolean;
       maxLength?: number;
       isOptional?: boolean;
@@ -699,6 +726,9 @@ const ProfileScreen: React.FC = () => {
       onPickerPress,
       helperText,
       isVerified,
+      isNotVerified,
+      onVerifyPress,
+      isVerifying,
       secureTextEntry,
       maxLength,
       isOptional,
@@ -718,6 +748,12 @@ const ProfileScreen: React.FC = () => {
             <View style={styles.verifiedBadge}>
               <Ionicons name="checkmark-circle" size={14} color={heraLanding.success} />
               <Text style={styles.verifiedText}>Verificado</Text>
+            </View>
+          )}
+          {isNotVerified && (
+            <View style={styles.notVerifiedBadge}>
+              <Ionicons name="alert-circle" size={14} color={heraLanding.warning} />
+              <Text style={styles.notVerifiedText}>No verificado</Text>
             </View>
           )}
         </View>
@@ -752,6 +788,24 @@ const ProfileScreen: React.FC = () => {
 
         {helperText && (
           <Text style={styles.helperText}>{helperText}</Text>
+        )}
+
+        {isNotVerified && onVerifyPress && (
+          <TouchableOpacity
+            style={styles.verifyNowButton}
+            onPress={onVerifyPress}
+            disabled={isVerifying}
+            activeOpacity={0.8}
+          >
+            {isVerifying ? (
+              <ActivityIndicator size="small" color={heraLanding.textOnPrimary} />
+            ) : (
+              <>
+                <Ionicons name="mail-outline" size={16} color={heraLanding.textOnPrimary} />
+                <Text style={styles.verifyNowButtonText}>Verificar ahora</Text>
+              </>
+            )}
+          </TouchableOpacity>
         )}
       </View>
     );
@@ -806,8 +860,13 @@ const ProfileScreen: React.FC = () => {
             {
               disabled: true,
               keyboardType: 'email-address',
-              isVerified: true,
-              helperText: 'El email no se puede modificar por seguridad',
+              isVerified: user?.emailVerified === true,
+              isNotVerified: user?.emailVerified === false,
+              onVerifyPress: handleVerifyEmail,
+              isVerifying: isVerifyingEmail,
+              helperText: user?.emailVerified
+                ? 'El email no se puede modificar por seguridad'
+                : 'Verifica tu email para mayor seguridad',
             }
           )}
 
@@ -1386,6 +1445,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: heraLanding.success,
     fontWeight: '500',
+  },
+  notVerifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  notVerifiedText: {
+    fontSize: 12,
+    color: heraLanding.warning,
+    fontWeight: '500',
+  },
+  verifyNowButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: heraLanding.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 6,
+  },
+  verifyNowButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: heraLanding.textOnPrimary,
   },
   fieldInput: {
     backgroundColor: heraLanding.cardBackground,

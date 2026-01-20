@@ -13,6 +13,7 @@ export interface AuthResponse {
     gender?: string | null;
     occupation?: string | null;
     avatar?: string | null;
+    emailVerified?: boolean;
   };
 }
 
@@ -128,6 +129,7 @@ export const getCurrentUser = async (): Promise<AuthResponse['user']> => {
         gender: response.data.data.gender,
         occupation: response.data.data.occupation,
         avatar: response.data.data.avatar,
+        emailVerified: response.data.data.emailVerified,
       };
     }
 
@@ -172,6 +174,7 @@ export const updateProfile = async (data: {
         gender: response.data.data.gender,
         occupation: response.data.data.occupation,
         avatar: response.data.data.avatar,
+        emailVerified: response.data.data.emailVerified,
       };
     }
 

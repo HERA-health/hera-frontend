@@ -145,8 +145,12 @@ export function ResetPasswordScreen() {
   };
 
   // Handle navigation to login after success
+  // Use reset() to clear the navigation stack and prevent returning to success screen
   const handleContinueToLogin = () => {
-    navigation.navigate('Login', { userType: 'CLIENT' });
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login', params: { userType: 'CLIENT' } }],
+    });
   };
 
   // Handle requesting a new reset link
@@ -224,7 +228,10 @@ export function ResetPasswordScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.secondaryButton}
-          onPress={() => navigation.navigate('Login', { userType: 'CLIENT' })}
+          onPress={() => navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login', params: { userType: 'CLIENT' } }],
+          })}
           activeOpacity={0.8}
         >
           <Ionicons name="arrow-back" size={18} color={heraLanding.primary} />
@@ -403,7 +410,10 @@ export function ResetPasswordScreen() {
           {/* Back to Login Link */}
           <TouchableOpacity
             style={styles.backLink}
-            onPress={() => navigation.navigate('Login', { userType: 'CLIENT' })}
+            onPress={() => navigation.reset({
+              index: 0,
+              routes: [{ name: 'Login', params: { userType: 'CLIENT' } }],
+            })}
             activeOpacity={0.8}
           >
             <Ionicons name="arrow-back" size={16} color={heraLanding.primary} />

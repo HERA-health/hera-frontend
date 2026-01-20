@@ -62,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             gender: userData.gender,
             occupation: userData.occupation,
             avatar: userData.avatar,
+            emailVerified: userData.emailVerified ?? false,
           };
 
           setUser(mappedUser);
@@ -95,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         gender: response.user.gender,
         occupation: response.user.occupation,
         avatar: response.user.avatar,
+        emailVerified: response.user.emailVerified ?? false,
       };
 
       setUser(mappedUser);
