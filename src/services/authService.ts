@@ -180,3 +180,272 @@ export const updateProfile = async (data: {
     throw new Error(getErrorMessage(error, 'Error al actualizar perfil'));
   }
 };
+
+// ============================================================================
+// EMAIL VERIFICATION
+// ============================================================================
+
+/**
+ * Send verification email to user
+ */
+export const sendVerificationEmail = async (email: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    const response = await api.post<{ success: boolean; message: string }>(
+      '/auth/verify-email/send',
+      { email }
+    );
+
+    if (response.data.success) {
+      return {
+        success: true,
+        message: response.data.message || 'Correo de verificación enviado',
+      };
+    }
+
+    throw new Error('Error al enviar correo de verificación');
+  } catch (error: unknown) {
+    if (hasResponseData(error)) {
+      const errorCode = error.response.data?.code as string | undefined;
+      let errorMessage = 'Error al enviar correo de verificación';
+
+      switch (errorCode) {
+        case 'EMAIL_NOT_FOUND':
+          errorMessage = 'No existe una cuenta con este correo electrónico';
+          break;
+        case 'ALREADY_VERIFIED':
+          errorMessage = 'Este correo ya ha sido verificado';
+          break;
+        case 'RATE_LIMIT':
+          errorMessage = 'Demasiados intentos. Espera unos minutos antes de intentar de nuevo';
+          break;
+        default:
+          errorMessage = getErrorMessage(error, errorMessage);
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    throw new Error(getErrorMessage(error, 'Error al enviar correo de verificación'));
+  }
+};
+
+/**
+ * Verify email with token
+ */
+export const verifyEmail = async (token: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    const response = await api.get<{ success: boolean; message: string }>(
+      `/auth/verify-email/${token}`
+    );
+
+    if (response.data.success) {
+      return {
+        success: true,
+        message: response.data.message || 'Correo verificado correctamente',
+      };
+    }
+
+    throw new Error('Error al verificar correo');
+  } catch (error: unknown) {
+    if (hasResponseData(error)) {
+      const errorCode = error.response.data?.code as string | undefined;
+      let errorMessage = 'Error al verificar correo';
+
+      switch (errorCode) {
+        case 'TOKEN_INVALID':
+          errorMessage = 'El enlace de verificación no es válido';
+          break;
+        case 'TOKEN_EXPIRED':
+          errorMessage = 'El enlace de verificación ha expirado. Solicita uno nuevo';
+          break;
+        case 'TOKEN_ALREADY_USED':
+          errorMessage = 'Este enlace ya ha sido utilizado';
+          break;
+        default:
+          errorMessage = getErrorMessage(error, errorMessage);
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    throw new Error(getErrorMessage(error, 'Error al verificar correo'));
+  }
+};
+
+/**
+ * Resend verification email
+ */
+export const resendVerificationEmail = async (email: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    const response = await api.post<{ success: boolean; message: string }>(
+      '/auth/verify-email/resend',
+      { email }
+    );
+
+    if (response.data.success) {
+      return {
+        success: true,
+        message: response.data.message || 'Correo de verificación reenviado',
+      };
+    }
+
+    throw new Error('Error al reenviar correo de verificación');
+  } catch (error: unknown) {
+    if (hasResponseData(error)) {
+      const errorCode = error.response.data?.code as string | undefined;
+      let errorMessage = 'Error al reenviar correo de verificación';
+
+      switch (errorCode) {
+        case 'EMAIL_NOT_FOUND':
+          errorMessage = 'No existe una cuenta con este correo electrónico';
+          break;
+        case 'ALREADY_VERIFIED':
+          errorMessage = 'Este correo ya ha sido verificado';
+          break;
+        case 'RATE_LIMIT':
+          errorMessage = 'Demasiados intentos. Espera unos minutos antes de intentar de nuevo';
+          break;
+        default:
+          errorMessage = getErrorMessage(error, errorMessage);
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    throw new Error(getErrorMessage(error, 'Error al reenviar correo de verificación'));
+  }
+};
+
+// ============================================================================
+// PASSWORD RECOVERY
+// ============================================================================
+
+/**
+ * Request password reset email
+ */
+export const requestPasswordReset = async (email: string): Promise<{ success: boolean; message: string }> => {
+  console.log('🔐 authService.requestPasswordReset called with email:', email);
+  try {
+    console.log('📤 Making POST request to /auth/password-reset/request');
+    const response = await api.post<{ success: boolean; message: string }>(
+      '/auth/password-reset/request',
+      { email }
+    );
+    console.log('📥 Response received:', JSON.stringify(response.data));
+
+    if (response.data.success) {
+      console.log('✅ Password reset request successful');
+      return {
+        success: true,
+        message: response.data.message || 'Correo de recuperación enviado',
+      };
+    }
+
+    console.log('⚠️ Response success was false');
+    throw new Error('Error al solicitar recuperación de contraseña');
+  } catch (error: unknown) {
+    console.error('❌ Password reset request error:', error);
+    if (hasResponseData(error)) {
+      const errorCode = error.response.data?.code as string | undefined;
+      let errorMessage = 'Error al solicitar recuperación de contraseña';
+
+      switch (errorCode) {
+        case 'EMAIL_NOT_FOUND':
+          errorMessage = 'No existe una cuenta con este correo electrónico';
+          break;
+        case 'RATE_LIMIT':
+          errorMessage = 'Demasiados intentos. Espera unos minutos antes de intentar de nuevo';
+          break;
+        default:
+          errorMessage = getErrorMessage(error, errorMessage);
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    throw new Error(getErrorMessage(error, 'Error al solicitar recuperación de contraseña'));
+  }
+};
+
+/**
+ * Validate password reset token
+ */
+export const validateResetToken = async (token: string): Promise<{ valid: boolean; email?: string }> => {
+  try {
+    const response = await api.get<{ success: boolean; valid: boolean; email?: string }>(
+      `/auth/password-reset/validate-token/${token}`
+    );
+
+    if (response.data.success) {
+      return {
+        valid: response.data.valid,
+        email: response.data.email,
+      };
+    }
+
+    return { valid: false };
+  } catch (error: unknown) {
+    if (hasResponseData(error)) {
+      const errorCode = error.response.data?.code as string | undefined;
+
+      switch (errorCode) {
+        case 'TOKEN_INVALID':
+        case 'TOKEN_EXPIRED':
+        case 'TOKEN_ALREADY_USED':
+          return { valid: false };
+      }
+    }
+
+    throw new Error(getErrorMessage(error, 'Error al validar enlace de recuperación'));
+  }
+};
+
+/**
+ * Reset password with token
+ */
+export const resetPassword = async (
+  token: string,
+  newPassword: string
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    const response = await api.post<{ success: boolean; message: string }>(
+      '/auth/password-reset/verify',
+      { token, newPassword }
+    );
+
+    if (response.data.success) {
+      return {
+        success: true,
+        message: response.data.message || 'Contraseña actualizada correctamente',
+      };
+    }
+
+    throw new Error('Error al restablecer contraseña');
+  } catch (error: unknown) {
+    if (hasResponseData(error)) {
+      const errorCode = error.response.data?.code as string | undefined;
+      let errorMessage = 'Error al restablecer contraseña';
+
+      switch (errorCode) {
+        case 'TOKEN_INVALID':
+          errorMessage = 'El enlace de recuperación no es válido';
+          break;
+        case 'TOKEN_EXPIRED':
+          errorMessage = 'El enlace de recuperación ha expirado. Solicita uno nuevo';
+          break;
+        case 'TOKEN_ALREADY_USED':
+          errorMessage = 'Este enlace ya ha sido utilizado';
+          break;
+        case 'WEAK_PASSWORD':
+          errorMessage = 'La contraseña no cumple con los requisitos mínimos';
+          break;
+        default:
+          errorMessage = getErrorMessage(error, errorMessage);
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    throw new Error(getErrorMessage(error, 'Error al restablecer contraseña'));
+  }
+};

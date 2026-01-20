@@ -72,9 +72,15 @@ export const initializeAuth = async (): Promise<string | null> => {
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
+    console.log('═══════════════════════════════════════');
+    console.log('📤 API REQUEST:', config.method?.toUpperCase(), config.url);
+    console.log('📦 Base URL:', config.baseURL);
+    console.log('📋 Data:', JSON.stringify(config.data));
+    console.log('═══════════════════════════════════════');
     return config;
   },
   (error) => {
+    console.error('❌ API REQUEST ERROR:', error);
     return Promise.reject(error);
   }
 );
@@ -82,6 +88,10 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
   (response) => {
+    console.log('═══════════════════════════════════════');
+    console.log('✅ API RESPONSE:', response.status, response.config.url);
+    console.log('📦 Data:', JSON.stringify(response.data));
+    console.log('═══════════════════════════════════════');
     return response;
   },
   async (error) => {

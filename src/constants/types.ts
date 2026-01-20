@@ -86,6 +86,11 @@ export type RootStackParamList = {
   Welcome: undefined;
   Login: { userType: 'CLIENT' | 'PROFESSIONAL'; specialization?: string };
   Register: { userType: 'CLIENT' | 'PROFESSIONAL' };
+  EmailSentVerification: { email: string; userType: 'CLIENT' | 'PROFESSIONAL' };
+  EmailVerification: { token: string };
+  ForgotPassword: undefined;
+  EmailSentPasswordReset: { email: string };
+  ResetPassword: { token: string };
   MainStack: undefined;
   Home: undefined;
   Specialists: undefined;

@@ -14,6 +14,11 @@ import { LandingPage } from '../screens/landing';
 import { WelcomeScreen } from '../screens/auth/WelcomeScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
+import { EmailSentVerificationScreen } from '../screens/auth/EmailSentVerificationScreen';
+import { EmailVerificationScreen } from '../screens/auth/EmailVerificationScreen';
+import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
+import { EmailSentPasswordResetScreen } from '../screens/auth/EmailSentPasswordResetScreen';
+import { ResetPasswordScreen } from '../screens/auth/ResetPasswordScreen';
 
 // Main screens
 import HomeScreen from '../screens/home/HomeScreen';
@@ -61,6 +66,11 @@ export function RootNavigator() {
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen name="EmailSentVerification" component={EmailSentVerificationScreen} />
+        <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        <Stack.Screen name="EmailSentPasswordReset" component={EmailSentPasswordResetScreen} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       </Stack.Navigator>
     );
   }
@@ -142,6 +152,21 @@ export function RootNavigator() {
             </MainLayout>
           )}
         </Stack.Screen>
+        <Stack.Screen
+          name="EmailSentVerification"
+          component={EmailSentVerificationScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="EmailVerification"
+          component={EmailVerificationScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ResetPassword"
+          component={ResetPasswordScreen}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     );
   }
@@ -259,6 +284,21 @@ export function RootNavigator() {
           </MainLayout>
         )}
       </Stack.Screen>
+      <Stack.Screen
+        name="EmailSentVerification"
+        component={EmailSentVerificationScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="EmailVerification"
+        component={EmailVerificationScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ResetPassword"
+        component={ResetPasswordScreen}
+        options={{ headerShown: false }}
+      />
     </Stack.Navigator>
   );
 }

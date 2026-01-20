@@ -24,13 +24,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { heraLanding, spacing, borderRadius, shadows } from '../../constants/colors';
 import { useAuth, UserType } from '../../contexts/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import * as authService from '../../services/authService';
+import { getErrorMessage } from '../../constants/errors';
+import type { AppNavigationProp } from '../../constants/types';
 
 // Password strength levels
 type PasswordStrength = 'weak' | 'medium' | 'strong';
 
 export function RegisterScreen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const navigation = useNavigation<AppNavigationProp>();
+  const route = useRoute<any>(); // Keep as any for optional params
   const { width } = useWindowDimensions();
   const { register, loading: authLoading, clearError } = useAuth();
 
@@ -171,16 +174,27 @@ export function RegisterScreen() {
     }
 
     try {
+      // Register the user
       await register(email, password, name, userType);
-    } catch (error: any) {
-      let errorMessage = 'Error al registrarse. Intenta de nuevo';
-      if (error.message.includes('already registered') || error.message.includes('already exists')) {
-        errorMessage = 'Este email ya está registrado';
-      } else if (error.message.includes('Network error')) {
-        errorMessage = 'Error de conexión. Verifica tu internet';
-      } else if (error.message) {
-        errorMessage = error.message;
+
+      // Send verification email
+      try {
+        await authService.sendVerificationEmail(email);
+      } catch (_emailError: unknown) {
+        // If sending email fails, still proceed to the email sent screen
+        // The user can retry from there
       }
+
+      // Get backend userType format for navigation
+      const backendUserType = userType === 'client' ? 'CLIENT' : 'PROFESSIONAL';
+
+      // Navigate to email sent verification screen
+      navigation.navigate('EmailSentVerification', {
+        email,
+        userType: backendUserType,
+      });
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error, 'Error al registrarse. Intenta de nuevo');
       setLocalError(errorMessage);
       triggerShake();
     }

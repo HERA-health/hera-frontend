@@ -16,6 +16,7 @@ interface User {
   gender?: string | null;
   occupation?: string | null;
   avatar?: string | null;
+  emailVerified?: boolean;
 }
 
 interface AuthContextType {
@@ -25,7 +26,7 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<AuthResponse>;
-  register: (email: string, password: string, name: string, userType: UserType) => Promise<void>;
+  register: (email: string, password: string, name: string, userType: UserType) => Promise<AuthResponse>;
   logout: () => Promise<void>;
   setUserType: (type: UserType) => void;
   updateUser: (updates: Partial<User>) => void;
@@ -135,9 +136,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         gender: response.user.gender,
         occupation: response.user.occupation,
         avatar: response.user.avatar,
+        emailVerified: false, // New users need to verify their email
       };
 
       setUser(mappedUser);
+
+      // Return the response so RegisterScreen can use it
+      return response;
     } catch (err: unknown) {
       const errorMessage = getErrorMessage(err, 'Error al registrarse');
       setError(errorMessage);

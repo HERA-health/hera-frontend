@@ -6,12 +6,42 @@
 
 import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { ErrorBoundary } from './src/components/common/ErrorBoundary';
+import type { RootStackParamList } from './src/constants/types';
+
+// Deep linking configuration
+const prefix = Linking.createURL('/');
+
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: [prefix, 'hera://'],
+  config: {
+    screens: {
+      EmailVerification: {
+        path: 'verify',
+        parse: {
+          token: (token: string) => token,
+        },
+      },
+      ResetPassword: {
+        path: 'reset',
+        parse: {
+          token: (token: string) => token,
+        },
+      },
+      // Add other deep link routes as needed
+      Landing: '',
+      Login: 'login',
+      Register: 'register',
+      ForgotPassword: 'forgot-password',
+    },
+  },
+};
 
 // Inject global scrollbar styles for web
 const injectWebStyles = () => {
@@ -64,7 +94,7 @@ export default function App() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <AuthProvider>
-          <NavigationContainer>
+          <NavigationContainer linking={linking}>
             <StatusBar style="auto" />
             <RootNavigator />
           </NavigationContainer>
