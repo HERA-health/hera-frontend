@@ -202,11 +202,18 @@ const SessionCard: React.FC<SessionCardProps> = ({
       <View style={styles.specialistSection}>
         {/* Beautiful avatar */}
         <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {session.specialist.user.name.charAt(0).toUpperCase()}
-            </Text>
-          </View>
+          {session.specialist.user.avatar || session.specialist.avatar ? (
+            <Image
+              source={{ uri: session.specialist.user.avatar || session.specialist.avatar }}
+              style={styles.avatarImage}
+            />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {session.specialist.user.name.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
           {/* Online indicator for upcoming video calls */}
           {isVideoCall && !isCompleted && !isCancelled && (
             <View style={styles.onlineIndicator} />
@@ -387,6 +394,13 @@ const styles = StyleSheet.create({
     backgroundColor: heraLanding.primaryAlpha12,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: heraLanding.primaryAlpha20,
+  },
+  avatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: heraLanding.primaryAlpha20,
   },

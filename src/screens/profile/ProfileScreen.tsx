@@ -29,9 +29,11 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
 
 // Only import DateTimePicker for native platforms
 let DateTimePicker: any = null;
@@ -179,6 +181,9 @@ const ProfileScreen: React.FC = () => {
   // Email verification state
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
 
+  // Avatar upload state
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
   // Form data - now includes city and postalCode
   const [formData, setFormData] = useState({
     fullName: user?.name || '',
@@ -220,17 +225,99 @@ const ProfileScreen: React.FC = () => {
   // HANDLERS
   // ============================================================================
 
+  const pickImageFromLibrary = useCallback(async () => {
+    try {
+      // Request permission
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permiso requerido',
+          'Necesitamos acceso a tu galería para cambiar la foto de perfil'
+        );
+        return;
+      }
+
+      // Pick image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0].base64) {
+        await uploadAvatar(result.assets[0].base64);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo seleccionar la imagen');
+    }
+  }, []);
+
+  const takePhoto = useCallback(async () => {
+    try {
+      // Request permission
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permiso requerido',
+          'Necesitamos acceso a tu cámara para tomar una foto'
+        );
+        return;
+      }
+
+      // Take photo
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0].base64) {
+        await uploadAvatar(result.assets[0].base64);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo tomar la foto');
+    }
+  }, []);
+
+  const uploadAvatar = useCallback(async (base64: string) => {
+    setIsUploadingAvatar(true);
+    try {
+      const updatedUser = await authService.uploadAvatar(base64);
+
+      updateUser({
+        avatar: updatedUser.avatar,
+      });
+
+      Alert.alert('Foto actualizada', 'Tu foto de perfil se ha guardado correctamente');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'No se pudo subir la foto');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  }, [updateUser]);
+
   const handleChangePhoto = useCallback(() => {
+    if (isUploadingAvatar) return;
+
+    // On web, only show gallery option (camera not supported)
+    if (Platform.OS === 'web') {
+      pickImageFromLibrary();
+      return;
+    }
+
     Alert.alert(
       'Cambiar foto de perfil',
       'Selecciona una opción',
       [
-        { text: 'Tomar foto', onPress: () => {} },
-        { text: 'Elegir de galería', onPress: () => {} },
+        { text: 'Tomar foto', onPress: takePhoto },
+        { text: 'Elegir de galería', onPress: pickImageFromLibrary },
         { text: 'Cancelar', style: 'cancel' },
       ]
     );
-  }, []);
+  }, [isUploadingAvatar, pickImageFromLibrary, takePhoto]);
 
   const handleSaveProfile = useCallback(async () => {
     if (!hasChanges) return;
@@ -821,22 +908,40 @@ const ProfileScreen: React.FC = () => {
       <View style={styles.section}>
         <View style={styles.avatarCard}>
           <View style={styles.avatarContainer}>
-            <LinearGradient
-              colors={[heraLanding.primary, heraLanding.primaryDark]}
-              style={styles.avatar}
-            >
-              <Text style={styles.avatarText}>
-                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-              </Text>
-            </LinearGradient>
+            {isUploadingAvatar ? (
+              <View style={[styles.avatar, styles.avatarLoading]}>
+                <ActivityIndicator size="large" color={heraLanding.primary} />
+              </View>
+            ) : user?.avatar ? (
+              <Image
+                source={{ uri: user.avatar }}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <LinearGradient
+                colors={[heraLanding.primary, heraLanding.primaryDark]}
+                style={styles.avatar}
+              >
+                <Text style={styles.avatarText}>
+                  {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </Text>
+              </LinearGradient>
+            )}
           </View>
           <TouchableOpacity
-            style={styles.changePhotoLink}
+            style={[styles.changePhotoLink, isUploadingAvatar && styles.changePhotoLinkDisabled]}
             onPress={handleChangePhoto}
             activeOpacity={0.7}
+            disabled={isUploadingAvatar}
           >
-            <Ionicons name="camera-outline" size={16} color={heraLanding.primary} />
-            <Text style={styles.changePhotoText}>Cambiar foto</Text>
+            {isUploadingAvatar ? (
+              <Text style={styles.changePhotoText}>Subiendo...</Text>
+            ) : (
+              <>
+                <Ionicons name="camera-outline" size={16} color={heraLanding.primary} />
+                <Text style={styles.changePhotoText}>Cambiar foto</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -1382,6 +1487,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...shadows.lg,
   },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    ...shadows.lg,
+  },
+  avatarLoading: {
+    backgroundColor: heraLanding.background,
+    borderWidth: 2,
+    borderColor: heraLanding.border,
+  },
   avatarText: {
     fontSize: 40,
     fontWeight: '700',
@@ -1398,6 +1514,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: heraLanding.primary,
+  },
+  changePhotoLinkDisabled: {
+    opacity: 0.6,
   },
 
   // ===== FORM CARD =====

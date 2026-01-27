@@ -320,6 +320,59 @@ export const resendVerificationEmail = async (email: string): Promise<{ success:
 };
 
 // ============================================================================
+// AVATAR UPLOAD
+// ============================================================================
+
+/**
+ * Upload user avatar
+ */
+export const uploadAvatar = async (base64Image: string): Promise<AuthResponse['user']> => {
+  try {
+    const response = await api.post<{ success: boolean; data: any; message?: string }>(
+      '/auth/upload-avatar',
+      { image: base64Image }
+    );
+
+    if (response.data.success && response.data.data) {
+      return {
+        id: response.data.data.id,
+        email: response.data.data.email,
+        name: response.data.data.name,
+        userType: response.data.data.userType,
+        phone: response.data.data.phone,
+        birthDate: response.data.data.birthDate,
+        gender: response.data.data.gender,
+        occupation: response.data.data.occupation,
+        avatar: response.data.data.avatar,
+        emailVerified: response.data.data.emailVerified,
+      };
+    }
+
+    throw new Error('Error al subir la foto de perfil');
+  } catch (error: unknown) {
+    if (hasResponseData(error)) {
+      const errorCode = error.response.data?.code as string | undefined;
+      let errorMessage = 'Error al subir la foto de perfil';
+
+      switch (errorCode) {
+        case 'UPLOAD_FAILED':
+          errorMessage = error.response.data?.message || 'Error al procesar la imagen';
+          break;
+        case 'UNAUTHORIZED':
+          errorMessage = 'Debes iniciar sesión para subir una foto';
+          break;
+        default:
+          errorMessage = getErrorMessage(error, errorMessage);
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    throw new Error(getErrorMessage(error, 'Error al subir la foto de perfil'));
+  }
+};
+
+// ============================================================================
 // PASSWORD RECOVERY
 // ============================================================================
 

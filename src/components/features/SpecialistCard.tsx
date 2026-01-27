@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, branding } from '../../constants/colors';
@@ -57,9 +57,16 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
         <View style={[styles.leftSection, { flexDirection: isWideScreen ? 'row' : 'column' }]}>
           {/* Avatar */}
           <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{specialist.initial}</Text>
-            </View>
+            {specialist.avatar || specialist.user?.avatar ? (
+              <Image
+                source={{ uri: specialist.user?.avatar || specialist.avatar }}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{specialist.initial}</Text>
+              </View>
+            )}
             {specialist.verified && (
               <View style={styles.verifiedBadge}>
                 <Ionicons name="shield-checkmark" size={14} color={branding.primary} />
@@ -238,6 +245,18 @@ const styles = StyleSheet.create({
     backgroundColor: branding.accent,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 3,
+    borderColor: branding.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  avatarImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     borderWidth: 3,
     borderColor: branding.primary,
     shadowColor: '#000',

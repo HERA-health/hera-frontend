@@ -21,6 +21,13 @@ export interface Specialist {
   firstVisitFree?: boolean;
   verified: boolean;
 
+  // User information from backend (includes avatar)
+  user?: {
+    name: string;
+    email: string;
+    avatar?: string | null;
+  };
+
   // Matching attributes for questionnaire algorithm
   matchingProfile: {
     therapeuticApproach: string[];
@@ -188,6 +195,16 @@ export interface Client {
   totalSessions: number;
   status: 'active' | 'inactive' | 'pending';
   notes?: string;
+  startDate?: Date;
+  tags?: string[];
+
+  // User information from backend (includes avatar)
+  user?: {
+    id?: string;
+    name: string;
+    email: string;
+    avatar?: string | null;
+  };
 }
 
 /**

@@ -99,8 +99,8 @@ export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
       >
         {/* Left Section: Avatar */}
         <View style={styles.avatarSection}>
-          {specialist.avatar ? (
-            <Image source={{ uri: specialist.avatar }} style={styles.avatar} />
+          {specialist.avatar || specialist.user?.avatar ? (
+            <Image source={{ uri: specialist.user?.avatar || specialist.avatar }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatar, styles.avatarPlaceholder]}>
               <Text style={styles.avatarInitial}>{specialist.initial}</Text>

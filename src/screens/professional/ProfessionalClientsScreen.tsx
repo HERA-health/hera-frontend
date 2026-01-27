@@ -26,6 +26,7 @@ import {
   Animated,
   useWindowDimensions,
   Platform,
+  Image,
 } from 'react-native';
 import { heraLanding, colors, spacing, typography, shadows } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -263,9 +264,16 @@ export function ProfessionalClientsScreen() {
       {/* Avatar and Name */}
       <View style={styles.cardHeader}>
         <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{client.initial}</Text>
-          </View>
+          {client.avatar || client.user?.avatar ? (
+            <Image
+              source={{ uri: client.user?.avatar || client.avatar }}
+              style={styles.avatarImage}
+            />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{client.initial}</Text>
+            </View>
+          )}
           {client.status === 'active' && (
             <View style={styles.onlineIndicator} />
           )}
@@ -349,9 +357,16 @@ export function ProfessionalClientsScreen() {
             ? heraLanding.success
             : heraLanding.textMuted
         }]} />
-        <View style={styles.rowAvatar}>
-          <Text style={styles.rowAvatarText}>{client.initial}</Text>
-        </View>
+        {client.avatar || client.user?.avatar ? (
+          <Image
+            source={{ uri: client.user?.avatar || client.avatar }}
+            style={styles.rowAvatarImage}
+          />
+        ) : (
+          <View style={styles.rowAvatar}>
+            <Text style={styles.rowAvatarText}>{client.initial}</Text>
+          </View>
+        )}
         <View style={styles.rowInfo}>
           <Text style={styles.rowName}>{client.name}</Text>
           <Text style={styles.rowEmail}>{client.email}</Text>
@@ -638,9 +653,16 @@ export function ProfessionalClientsScreen() {
                   showsVerticalScrollIndicator={false}
                 >
                   <View style={styles.modalClientInfo}>
-                    <View style={styles.modalAvatar}>
-                      <Text style={styles.modalAvatarText}>{selectedClient.initial}</Text>
-                    </View>
+                    {selectedClient.avatar || selectedClient.user?.avatar ? (
+                      <Image
+                        source={{ uri: selectedClient.user?.avatar || selectedClient.avatar }}
+                        style={styles.modalAvatarImage}
+                      />
+                    ) : (
+                      <View style={styles.modalAvatar}>
+                        <Text style={styles.modalAvatarText}>{selectedClient.initial}</Text>
+                      </View>
+                    )}
                     <BrandText style={styles.modalClientName}>{selectedClient.name}</BrandText>
                     <Text style={styles.modalClientSince}>
                       Cliente desde: {formatStartDate(selectedClient.startDate)}
@@ -920,6 +942,13 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: heraLanding.background,
   },
+  avatarImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    borderColor: heraLanding.background,
+  },
   avatarText: {
     fontSize: 24,
     fontWeight: '700',
@@ -1081,6 +1110,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: spacing.sm,
   },
+  rowAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: spacing.sm,
+  },
   rowAvatarText: {
     fontSize: 16,
     fontWeight: '600',
@@ -1211,6 +1246,14 @@ const styles = StyleSheet.create({
     backgroundColor: heraLanding.primaryMuted,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: spacing.md,
+    borderWidth: 3,
+    borderColor: heraLanding.primary,
+  },
+  modalAvatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     marginBottom: spacing.md,
     borderWidth: 3,
     borderColor: heraLanding.primary,
