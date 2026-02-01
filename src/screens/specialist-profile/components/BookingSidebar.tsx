@@ -11,10 +11,12 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BookingSidebarProps, Schedule, Address } from '../types';
 import { heraLanding, spacing, borderRadius, shadows } from '../../../constants/colors';
+import { LocationMapPreview } from '../../../components/location';
 
 // ============== SUB-COMPONENTS ==============
 
@@ -35,27 +37,56 @@ const InfoRow: React.FC<InfoRowProps> = ({ icon, text, highlight }) => (
 
 const Divider: React.FC = () => <View style={styles.divider} />;
 
-interface MapPlaceholderProps {
+interface LocationSectionProps {
   address?: Address;
 }
 
-const MapPlaceholder: React.FC<MapPlaceholderProps> = ({ address }) => (
-  <View style={styles.mapSection}>
-    <Text style={styles.sectionLabel}>📍 UBICACIÓN</Text>
-    <View style={styles.mapPlaceholder}>
-      <Text style={styles.mapIcon}>📍</Text>
-      <Text style={styles.mapText}>Mapa próximamente</Text>
+const LocationSection: React.FC<LocationSectionProps> = ({ address }) => {
+  // Check if we have valid coordinates
+  const hasCoordinates = !!(address?.latitude && address?.longitude);
+
+  return (
+    <View style={styles.mapSection}>
+      <Text style={styles.sectionLabel}>📍 UBICACIÓN</Text>
+
+      {hasCoordinates ? (
+        // Show interactive map when we have coordinates
+        <View style={styles.mapWrapper}>
+          <LocationMapPreview
+            lat={address!.latitude!}
+            lng={address!.longitude!}
+            address={address!.street}
+            city={address!.city}
+            height={200}
+            showDirectionsButton
+          />
+        </View>
+      ) : address ? (
+        // Show address text only when no coordinates - with helpful message
+        <View style={styles.addressOnlyContainer}>
+          <View style={styles.addressIconContainer}>
+            <Ionicons name="location" size={24} color={heraLanding.primary} />
+          </View>
+          <View style={styles.addressTextContainer}>
+            <Text style={styles.addressStreet}>{address.street}</Text>
+            <Text style={styles.addressCity}>
+              {address.postalCode} {address.city}
+            </Text>
+            <Text style={styles.noMapHint}>
+              El mapa estará disponible cuando el especialista actualice su dirección
+            </Text>
+          </View>
+        </View>
+      ) : (
+        // No address available
+        <View style={styles.noAddressContainer}>
+          <Ionicons name="location-outline" size={32} color={heraLanding.textMuted} />
+          <Text style={styles.noAddressText}>Dirección no disponible</Text>
+        </View>
+      )}
     </View>
-    {address && (
-      <View style={styles.addressContainer}>
-        <Text style={styles.addressLine}>{address.street}</Text>
-        <Text style={styles.addressLine}>
-          {address.city}, {address.postalCode}
-        </Text>
-      </View>
-    )}
-  </View>
-);
+  );
+};
 
 interface ScheduleDisplayProps {
   schedule?: Schedule;
@@ -138,7 +169,8 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
     return 'Consultar disponibilidad';
   };
 
-  const showLocationSection = specialist.sessionTypes?.includes('IN_PERSON');
+  // Show location if specialist offers in-person sessions (check both flags)
+  const showLocationSection = specialist.offersInPerson === true || specialist.sessionTypes?.includes('IN_PERSON');
 
   return (
     <View style={styles.container}>
@@ -194,7 +226,7 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
       {showLocationSection && (
         <>
           <Divider />
-          <MapPlaceholder address={specialist.address} />
+          <LocationSection address={specialist.address} />
         </>
       )}
 
@@ -217,12 +249,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     padding: spacing.xl,
     ...shadows.md,
-    ...Platform.select({
-      web: {
-        position: 'sticky' as any,
-        top: 24,
-      },
-    }),
   },
 
   // Avatar
@@ -351,33 +377,57 @@ const styles = StyleSheet.create({
   mapSection: {
     marginTop: spacing.xs,
   },
-  mapPlaceholder: {
-    width: '100%',
-    height: 160,
+  mapWrapper: {
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+  },
+  // Address only (no map)
+  addressOnlyContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
     backgroundColor: heraLanding.background,
     borderRadius: borderRadius.md,
+  },
+  addressIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: `${heraLanding.primary}15`,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: heraLanding.border,
-    borderStyle: 'dashed',
   },
-  mapIcon: {
-    fontSize: 28,
-    marginBottom: spacing.xs,
+  addressTextContainer: {
+    flex: 1,
   },
-  mapText: {
-    fontSize: 12,
-    color: heraLanding.textMuted,
-  },
-  addressContainer: {
-    paddingHorizontal: spacing.xs,
-  },
-  addressLine: {
-    fontSize: 13,
+  addressStreet: {
+    fontSize: 14,
+    fontWeight: '600',
     color: heraLanding.textPrimary,
     marginBottom: 2,
+  },
+  addressCity: {
+    fontSize: 13,
+    color: heraLanding.textSecondary,
+  },
+  noMapHint: {
+    fontSize: 11,
+    color: heraLanding.textMuted,
+    fontStyle: 'italic',
+    marginTop: spacing.xs,
+  },
+  // No address
+  noAddressContainer: {
+    padding: spacing.xl,
+    backgroundColor: heraLanding.background,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  noAddressText: {
+    fontSize: 13,
+    color: heraLanding.textMuted,
   },
 
   // Schedule Section

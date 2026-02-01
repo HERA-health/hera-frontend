@@ -39,6 +39,7 @@ import {
   BookingSidebar,
 } from '../specialist-profile/components';
 import type { Specialist, Review } from '../specialist-profile/types';
+import { LocationMapPreview, ModalityBadges } from '../../components/location';
 
 // Types
 interface SpecialistDetailScreenProps {
@@ -102,14 +103,14 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
           : (data as any).matchingProfile?.therapeuticApproach || undefined,
         languages: (data as any).matchingProfile?.language || [],
         sessionTypes: (() => {
-          const formats = (data as any).matchingProfile?.format || [];
           const types: ('VIDEO_CALL' | 'IN_PERSON' | 'PHONE_CALL')[] = [];
-          if (formats.includes('online') || formats.includes('VIDEO_CALL')) types.push('VIDEO_CALL');
-          if (formats.includes('in-person') || formats.includes('IN_PERSON')) types.push('IN_PERSON');
-          if (formats.includes('hybrid')) {
-            types.push('VIDEO_CALL');
-            types.push('IN_PERSON');
-          }
+          // Use the actual database flags for session types
+          if ((data as any).offersOnline !== false) types.push('VIDEO_CALL');
+          if ((data as any).offersInPerson === true) types.push('IN_PERSON');
+          // Also check matchingProfile.format as fallback
+          const formats = (data as any).matchingProfile?.format || [];
+          if (formats.includes('in-person') && !types.includes('IN_PERSON')) types.push('IN_PERSON');
+          if (formats.includes('hybrid') && !types.includes('IN_PERSON')) types.push('IN_PERSON');
           return types.length > 0 ? types : ['VIDEO_CALL'];
         })(),
         isAvailableToday: true,
@@ -117,12 +118,16 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
         education: [],
         experience: [],
         certifications: [],
-        // Mock address for in-person specialists
-        address: (data as any).matchingProfile?.format?.includes('in-person') ? {
-          street: 'C/ Gran Vía 123',
-          city: 'Madrid',
-          postalCode: '28013',
+        // Location data from database
+        address: (data as any).offersInPerson && (data as any).officeAddress ? {
+          street: (data as any).officeAddress,
+          city: (data as any).officeCity || '',
+          postalCode: (data as any).officePostalCode || '',
+          latitude: (data as any).officeLat,
+          longitude: (data as any).officeLng,
         } : undefined,
+        offersOnline: (data as any).offersOnline ?? true,
+        offersInPerson: (data as any).offersInPerson ?? false,
         // Mock schedule
         schedule: {
           monday: { start: '09:00', end: '20:00', available: true },
@@ -251,6 +256,42 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
           therapeuticApproach={specialist.therapeuticApproach}
         />
       </View>
+
+      {/* Location & Modality Section */}
+      {(specialist.offersOnline || specialist.offersInPerson) && (
+        <View style={styles.section}>
+          <View style={styles.locationSection}>
+            <Text style={styles.sectionTitle}>Modalidad y ubicacion</Text>
+            <ModalityBadges
+              offersOnline={specialist.offersOnline ?? true}
+              offersInPerson={specialist.offersInPerson ?? false}
+              style={styles.modalityBadges}
+            />
+            {specialist.offersInPerson && specialist.address && specialist.address.latitude && specialist.address.longitude && (
+              <View style={styles.mapContainer}>
+                <LocationMapPreview
+                  lat={specialist.address.latitude}
+                  lng={specialist.address.longitude}
+                  address={specialist.address.street}
+                  city={specialist.address.city}
+                  showDirectionsButton
+                  width={isMobile ? width - 64 : 350}
+                  height={200}
+                />
+              </View>
+            )}
+            {specialist.offersInPerson && specialist.address && !specialist.address.latitude && (
+              <View style={styles.addressTextContainer}>
+                <Ionicons name="location" size={18} color={heraLanding.primary} />
+                <View>
+                  <Text style={styles.addressText}>{specialist.address.street}</Text>
+                  <Text style={styles.addressCity}>{specialist.address.postalCode} {specialist.address.city}</Text>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* Specializations Grid */}
       {specialist.specializations.length > 0 && (
@@ -432,13 +473,7 @@ const styles = StyleSheet.create({
   rightColumn: {
     flex: 0.35,
     minWidth: 0,
-    ...Platform.select({
-      web: {
-        position: 'sticky' as any,
-        top: 24,
-        alignSelf: 'flex-start',
-      },
-    }),
+    alignSelf: 'flex-start',
   },
   rightColumnTablet: {
     flex: 0.4,
@@ -500,6 +535,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: heraLanding.textOnPrimary,
     fontWeight: '600',
+  },
+
+  // Location Section
+  locationSection: {
+    backgroundColor: heraLanding.cardBg,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    ...shadows.sm,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: heraLanding.textPrimary,
+    marginBottom: spacing.md,
+  },
+  modalityBadges: {
+    marginBottom: spacing.lg,
+  },
+  mapContainer: {
+    marginTop: spacing.sm,
+  },
+  addressTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: heraLanding.background,
+    borderRadius: borderRadius.md,
+  },
+  addressText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: heraLanding.textPrimary,
+  },
+  addressCity: {
+    fontSize: 14,
+    color: heraLanding.textSecondary,
+    marginTop: 2,
   },
 });
 

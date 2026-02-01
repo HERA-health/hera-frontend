@@ -27,6 +27,9 @@ export interface Specialist {
   experienceYears?: number;
   address?: Address;
   schedule?: Schedule;
+  // Service modality
+  offersOnline?: boolean;
+  offersInPerson?: boolean;
 }
 
 export interface Address {

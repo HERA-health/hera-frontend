@@ -43,6 +43,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { heraLanding, shadows, spacing, borderRadius, typography } from '../../constants/colors';
 import * as professionalService from '../../services/professionalService';
 import { SpecialistProfileData as ServiceProfileData } from '../../services/professionalService';
+import { AddressAutocomplete, LocationMapPreview } from '../../components/location';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -125,6 +126,16 @@ interface SpecialistProfileData {
   profileVisible: boolean;
   showReviewCount: boolean;
   showLastOnline: boolean;
+
+  // Location & Service Modality
+  officeAddress: string;
+  officeCity: string;
+  officePostalCode: string;
+  officeCountry: string;
+  officeLat: number | null;
+  officeLng: number | null;
+  offersOnline: boolean;
+  offersInPerson: boolean;
 }
 
 // ============================================================================
@@ -240,6 +251,16 @@ export function SpecialistProfileScreen() {
     profileVisible: true,
     showReviewCount: true,
     showLastOnline: false,
+
+    // Location & Service Modality
+    officeAddress: '',
+    officeCity: '',
+    officePostalCode: '',
+    officeCountry: 'Spain',
+    officeLat: null,
+    officeLng: null,
+    offersOnline: true,
+    offersInPerson: false,
   });
 
   const [originalData, setOriginalData] = useState<SpecialistProfileData>(profileData);
@@ -328,6 +349,16 @@ export function SpecialistProfileScreen() {
             profileVisible: profile.profileVisible ?? true,
             showReviewCount: profile.showReviewCount ?? true,
             showLastOnline: profile.showLastOnline || false,
+
+            // Location & Service Modality
+            officeAddress: profile.officeAddress || '',
+            officeCity: profile.officeCity || '',
+            officePostalCode: profile.officePostalCode || '',
+            officeCountry: profile.officeCountry || 'Spain',
+            officeLat: profile.officeLat ?? null,
+            officeLng: profile.officeLng ?? null,
+            offersOnline: profile.offersOnline ?? true,
+            offersInPerson: profile.offersInPerson ?? false,
           };
 
           setProfileData(mappedData);
@@ -409,6 +440,16 @@ export function SpecialistProfileScreen() {
         profileVisible: profileData.profileVisible,
         showReviewCount: profileData.showReviewCount,
         showLastOnline: profileData.showLastOnline,
+
+        // Location & Service Modality
+        officeAddress: profileData.officeAddress,
+        officeCity: profileData.officeCity,
+        officePostalCode: profileData.officePostalCode,
+        officeCountry: profileData.officeCountry,
+        officeLat: profileData.officeLat,
+        officeLng: profileData.officeLng,
+        offersOnline: profileData.offersOnline,
+        offersInPerson: profileData.offersInPerson,
       };
 
       await professionalService.updateComprehensiveProfile(updateData);
@@ -880,6 +921,110 @@ export function SpecialistProfileScreen() {
               characterCount: true,
               helperText: 'Mínimo 150 caracteres para aparecer en búsquedas',
             }
+          )}
+        </View>
+      </View>
+
+      {/* Location & Modality Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Ubicacion y modalidad</Text>
+        <View style={styles.formCard}>
+          {/* Modality Options */}
+          <View style={styles.formField}>
+            <Text style={styles.fieldLabel}>Modalidad de sesiones</Text>
+            <Text style={styles.fieldHelper}>Selecciona como ofreces tus sesiones</Text>
+            <View style={styles.modalityOptions}>
+              <TouchableOpacity
+                style={[
+                  styles.modalityOption,
+                  profileData.offersOnline && styles.modalityOptionSelected,
+                ]}
+                onPress={() => updateField('offersOnline', !profileData.offersOnline)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={profileData.offersOnline ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={profileData.offersOnline ? heraLanding.primary : heraLanding.textMuted}
+                />
+                <Ionicons name="videocam-outline" size={20} color={heraLanding.textPrimary} />
+                <Text style={styles.modalityText}>Sesiones online</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalityOption,
+                  profileData.offersInPerson && styles.modalityOptionSelected,
+                ]}
+                onPress={() => updateField('offersInPerson', !profileData.offersInPerson)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={profileData.offersInPerson ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={profileData.offersInPerson ? heraLanding.primary : heraLanding.textMuted}
+                />
+                <Ionicons name="business-outline" size={20} color={heraLanding.textPrimary} />
+                <Text style={styles.modalityText}>Sesiones presenciales</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Office Location (only if in-person is offered) */}
+          {profileData.offersInPerson && (
+            <>
+              <View style={styles.formField}>
+                <Text style={styles.fieldLabel}>Direccion de la consulta</Text>
+                <Text style={styles.fieldHelper}>Esta direccion sera visible para los clientes que reserven sesiones presenciales</Text>
+                <AddressAutocomplete
+                  value={profileData.officeAddress}
+                  placeholder="Buscar direccion..."
+                  onAddressSelect={(details) => {
+                    updateField('officeAddress', details.address);
+                    updateField('officeCity', details.city);
+                    updateField('officePostalCode', details.postalCode);
+                    updateField('officeCountry', details.country);
+                    updateField('officeLat', details.lat);
+                    updateField('officeLng', details.lng);
+                  }}
+                />
+              </View>
+
+              <View style={styles.formRow}>
+                <View style={styles.formFieldHalf}>
+                  {renderFormField(
+                    'Ciudad',
+                    profileData.officeCity,
+                    (text) => updateField('officeCity', text),
+                    { placeholder: 'Madrid' }
+                  )}
+                </View>
+                <View style={styles.formFieldHalf}>
+                  {renderFormField(
+                    'Codigo postal',
+                    profileData.officePostalCode,
+                    (text) => updateField('officePostalCode', text),
+                    { placeholder: '28001', keyboardType: 'numeric' }
+                  )}
+                </View>
+              </View>
+
+              {/* Map Preview */}
+              {profileData.officeLat && profileData.officeLng && (
+                <View style={styles.mapPreviewContainer}>
+                  <Text style={styles.fieldLabel}>Vista previa del mapa</Text>
+                  <Text style={styles.fieldHelper}>Asi veran los clientes la ubicacion de tu consulta</Text>
+                  <LocationMapPreview
+                    lat={profileData.officeLat}
+                    lng={profileData.officeLng}
+                    address={profileData.officeAddress}
+                    city={profileData.officeCity}
+                    width={isMobile ? windowWidth - 80 : 350}
+                    height={180}
+                  />
+                </View>
+              )}
+            </>
           )}
         </View>
       </View>
@@ -2780,6 +2925,47 @@ const styles = StyleSheet.create({
   },
   saveButtonTextDisabled: {
     color: heraLanding.textMuted,
+  },
+
+  // ===== LOCATION & MODALITY =====
+  modalityOptions: {
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  modalityOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderWidth: 2,
+    borderColor: heraLanding.border,
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
+    backgroundColor: heraLanding.cardBg,
+  },
+  modalityOptionSelected: {
+    borderColor: heraLanding.primary,
+    backgroundColor: heraLanding.primaryMuted,
+  },
+  modalityText: {
+    flex: 1,
+    fontSize: 15,
+    color: heraLanding.textPrimary,
+    fontWeight: '500',
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  formFieldHalf: {
+    flex: 1,
+  },
+  mapPreviewContainer: {
+    marginTop: spacing.md,
+  },
+  fieldHelper: {
+    fontSize: 13,
+    color: heraLanding.textMuted,
+    marginBottom: spacing.sm,
   },
 });
 

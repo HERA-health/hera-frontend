@@ -17,6 +17,15 @@ export interface SpecialistData {
   };
   affinity?: number;
   matchedAttributes?: string[];
+  // Location fields
+  officeAddress?: string | null;
+  officeCity?: string | null;
+  officePostalCode?: string | null;
+  officeLat?: number | null;
+  officeLng?: number | null;
+  offersOnline?: boolean;
+  offersInPerson?: boolean;
+  matchingProfile?: any;
 }
 
 export interface MatchedSpecialistsResponse {

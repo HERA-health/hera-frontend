@@ -183,6 +183,16 @@ export interface SpecialistProfileData {
   // Stats
   rating: number;
   reviewCount: number;
+
+  // Location & Service Modality
+  officeAddress: string;
+  officeCity: string;
+  officePostalCode: string;
+  officeCountry: string;
+  officeLat: number | null;
+  officeLng: number | null;
+  offersOnline: boolean;
+  offersInPerson: boolean;
 }
 
 /**
@@ -245,6 +255,16 @@ export const updateComprehensiveProfile = async (
     if (data.profileVisible !== undefined) apiData.profileVisible = data.profileVisible;
     if (data.showReviewCount !== undefined) apiData.showReviewCount = data.showReviewCount;
     if (data.showLastOnline !== undefined) apiData.showLastOnline = data.showLastOnline;
+
+    // Location & Service Modality
+    if (data.officeAddress !== undefined) apiData.officeAddress = data.officeAddress;
+    if (data.officeCity !== undefined) apiData.officeCity = data.officeCity;
+    if (data.officePostalCode !== undefined) apiData.officePostalCode = data.officePostalCode;
+    if (data.officeCountry !== undefined) apiData.officeCountry = data.officeCountry;
+    if (data.officeLat !== undefined) apiData.officeLat = data.officeLat;
+    if (data.officeLng !== undefined) apiData.officeLng = data.officeLng;
+    if (data.offersOnline !== undefined) apiData.offersOnline = data.offersOnline;
+    if (data.offersInPerson !== undefined) apiData.offersInPerson = data.offersInPerson;
 
     const response = await api.put('/specialists/me/profile', apiData);
     return response.data.data;
