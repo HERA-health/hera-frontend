@@ -150,6 +150,20 @@ export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
               <Text style={styles.priceValue}>{specialist.pricePerSession}€</Text>
               <Text style={styles.priceLabel}>/sesión</Text>
             </View>
+
+            {/* Distance Badge (when proximity filter is active) */}
+            {specialist.distance !== undefined && (
+              <View style={styles.distanceContainer}>
+                <Ionicons name="location-outline" size={12} color={heraLanding.primary} />
+                <Text style={styles.distanceValue}>
+                  {specialist.distance < 1
+                    ? `${Math.round(specialist.distance * 1000)} m`
+                    : specialist.distance > 50
+                      ? '50+ km'
+                      : `${specialist.distance.toFixed(1)} km`}
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Tags */}
@@ -337,6 +351,16 @@ const styles = StyleSheet.create({
   priceLabel: {
     fontSize: 11,
     color: heraLanding.textSecondary,
+  },
+  distanceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  distanceValue: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: heraLanding.primary,
   },
   tagsContainer: {
     flexDirection: 'row',

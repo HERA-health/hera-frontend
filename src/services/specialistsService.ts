@@ -25,7 +25,23 @@ export interface SpecialistData {
   officeLng?: number | null;
   offersOnline?: boolean;
   offersInPerson?: boolean;
-  matchingProfile?: any;
+  matchingProfile?: Record<string, unknown>;
+  // Distance (calculated by backend when proximity filter is used)
+  distance?: number; // in km
+}
+
+// Filters for getAllSpecialists
+export interface SpecialistFilters {
+  specialization?: string;
+  minRating?: number;
+  maxPrice?: number;
+  firstVisitFree?: boolean;
+  // Proximity filters
+  near?: boolean;
+  lat?: number;
+  lng?: number;
+  maxDistance?: number;
+  inPersonOnly?: boolean;
 }
 
 export interface MatchedSpecialistsResponse {
@@ -48,20 +64,22 @@ export const getMatchedSpecialists = async (): Promise<MatchedSpecialistsRespons
 
 /**
  * Gets all specialists (public endpoint, no auth required)
- * Supports optional filters: specialization, minRating, maxPrice, firstVisitFree
+ * Supports optional filters including proximity-based filtering
  */
-export const getAllSpecialists = async (filters?: {
-  specialization?: string;
-  minRating?: number;
-  maxPrice?: number;
-  firstVisitFree?: boolean;
-}): Promise<SpecialistData[]> => {
+export const getAllSpecialists = async (filters?: SpecialistFilters): Promise<SpecialistData[]> => {
   try {
     const params = new URLSearchParams();
     if (filters?.specialization) params.append('specialization', filters.specialization);
     if (filters?.minRating) params.append('minRating', filters.minRating.toString());
     if (filters?.maxPrice) params.append('maxPrice', filters.maxPrice.toString());
     if (filters?.firstVisitFree !== undefined) params.append('firstVisitFree', filters.firstVisitFree.toString());
+
+    // Proximity filters
+    if (filters?.near) params.append('near', 'true');
+    if (filters?.lat !== undefined) params.append('lat', filters.lat.toString());
+    if (filters?.lng !== undefined) params.append('lng', filters.lng.toString());
+    if (filters?.maxDistance !== undefined) params.append('maxDistance', filters.maxDistance.toString());
+    if (filters?.inPersonOnly) params.append('inPersonOnly', 'true');
 
     const queryString = params.toString();
     const url = `/specialists${queryString ? `?${queryString}` : ''}`;

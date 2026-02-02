@@ -40,6 +40,14 @@ export interface Specialist {
     availability: string;
     format: string[];
   };
+
+  // Location & modality
+  offersInPerson?: boolean;
+  offersOnline?: boolean;
+  officeCity?: string | null;
+
+  // Distance (calculated by backend when proximity filter is used)
+  distance?: number; // in km
 }
 
 /**
@@ -150,7 +158,8 @@ export type SortOption =
   | 'rating'
   | 'price_low'
   | 'price_high'
-  | 'availability';
+  | 'availability'
+  | 'distance';
 
 /**
  * Tab type for profile screen

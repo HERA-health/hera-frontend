@@ -160,6 +160,20 @@ export const SpecialistCardGrid: React.FC<SpecialistCardGridProps> = ({
           </View>
         </View>
 
+        {/* Distance Badge (when proximity filter is active) */}
+        {specialist.distance !== undefined && (
+          <View style={styles.distanceBadge}>
+            <Ionicons name="location-outline" size={14} color={heraLanding.primary} />
+            <Text style={styles.distanceText}>
+              {specialist.distance < 1
+                ? `${Math.round(specialist.distance * 1000)} m`
+                : specialist.distance > 50
+                  ? '50+ km'
+                  : `${specialist.distance.toFixed(1)} km`}
+            </Text>
+          </View>
+        )}
+
         {/* Tags */}
         <View style={styles.tagsContainer}>
           {displayTags.map((tag, index) => (
@@ -332,6 +346,21 @@ const styles = StyleSheet.create({
   priceLabel: {
     fontSize: 12,
     color: heraLanding.textSecondary,
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: heraLanding.primaryMuted,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  distanceText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: heraLanding.primary,
   },
   tagsContainer: {
     flexDirection: 'row',

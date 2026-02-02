@@ -47,6 +47,9 @@ import { heraLanding, spacing, typography, borderRadius, shadows } from '../../c
 import { ProfileTab } from '../../constants/types';
 import { useAuth } from '../../contexts/AuthContext';
 import * as authService from '../../services/authService';
+import * as clientService from '../../services/clientService';
+import { AddressAutocomplete, AddressDetails } from '../../components/location/AddressAutocomplete';
+import LocationMapPreview from '../../components/location/LocationMapPreview';
 
 // ============================================================================
 // MOCK DATA - Payment & Transactions
@@ -184,6 +187,19 @@ const ProfileScreen: React.FC = () => {
   // Avatar upload state
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
+  // Location state
+  const [locationData, setLocationData] = useState({
+    homeAddress: '',
+    homeCity: '',
+    homePostalCode: '',
+    homeCountry: 'Spain',
+    homeLat: null as number | null,
+    homeLng: null as number | null,
+  });
+  const [isSavingLocation, setIsSavingLocation] = useState(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
   // Form data - now includes city and postalCode
   const [formData, setFormData] = useState({
     fullName: user?.name || '',
@@ -220,6 +236,36 @@ const ProfileScreen: React.FC = () => {
     const changed = JSON.stringify(formData) !== JSON.stringify(originalData);
     setHasChanges(changed);
   }, [formData, originalData]);
+
+  // Load client location data on mount
+  useEffect(() => {
+    const loadLocationData = async () => {
+      if (user?.type !== 'client') {
+        setIsLoadingLocation(false);
+        return;
+      }
+
+      try {
+        setIsLoadingLocation(true);
+        const profile = await clientService.getMyClientProfile();
+        setLocationData({
+          homeAddress: profile.homeAddress || '',
+          homeCity: profile.homeCity || '',
+          homePostalCode: profile.homePostalCode || '',
+          homeCountry: profile.homeCountry || 'Spain',
+          homeLat: profile.homeLat,
+          homeLng: profile.homeLng,
+        });
+      } catch (error) {
+        // Silent fail - location is optional
+        console.log('Failed to load location data:', error);
+      } finally {
+        setIsLoadingLocation(false);
+      }
+    };
+
+    loadLocationData();
+  }, [user?.type]);
 
   // ============================================================================
   // HANDLERS
@@ -382,6 +428,74 @@ const ProfileScreen: React.FC = () => {
       setIsVerifyingEmail(false);
     }
   }, [user?.email]);
+
+  // Location handlers
+  const handleAddressSelect = useCallback(async (details: AddressDetails) => {
+    setLocationError(null);
+    setIsSavingLocation(true);
+
+    try {
+      await clientService.updateClientLocation({
+        address: details.address,
+        city: details.city,
+        postalCode: details.postalCode,
+        country: details.country,
+        lat: details.lat,
+        lng: details.lng,
+      });
+
+      setLocationData({
+        homeAddress: details.address,
+        homeCity: details.city,
+        homePostalCode: details.postalCode,
+        homeCountry: details.country,
+        homeLat: details.lat,
+        homeLng: details.lng,
+      });
+
+      Alert.alert('Ubicación guardada', 'Tu ubicación se ha actualizado correctamente.');
+    } catch (error) {
+      console.error('Error saving location:', error);
+      setLocationError('No se pudo guardar la ubicación. Intenta de nuevo.');
+      Alert.alert('Error', 'No se pudo guardar la ubicación. Intenta de nuevo.');
+    } finally {
+      setIsSavingLocation(false);
+    }
+  }, []);
+
+  const handleClearLocation = useCallback(async () => {
+    Alert.alert(
+      'Eliminar ubicación',
+      '¿Estás seguro de que quieres eliminar tu ubicación?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            setIsSavingLocation(true);
+            try {
+              await clientService.clearClientLocation();
+              setLocationData({
+                homeAddress: '',
+                homeCity: '',
+                homePostalCode: '',
+                homeCountry: 'Spain',
+                homeLat: null,
+                homeLng: null,
+              });
+              Alert.alert('Ubicación eliminada', 'Tu ubicación ha sido eliminada.');
+            } catch (error) {
+              console.error('Error clearing location:', error);
+              Alert.alert('Error', 'No se pudo eliminar la ubicación.');
+            } finally {
+              setIsSavingLocation(false);
+            }
+          },
+        },
+      ]
+    );
+  }, []);
 
   // Date picker handlers
   const handleOpenDatePicker = useCallback(() => {
@@ -983,41 +1097,6 @@ const ProfileScreen: React.FC = () => {
             { keyboardType: 'phone-pad' }
           )}
 
-          {/* City and Postal Code Row */}
-          <View style={styles.formRow}>
-            <View style={styles.formRowHalf}>
-              {renderFormField(
-                'Ciudad',
-                formData.city,
-                'Tu ciudad',
-                (text) => setFormData({ ...formData, city: text }),
-                {
-                  isOptional: true,
-                  helperText: 'Para sesiones presenciales',
-                }
-              )}
-            </View>
-            <View style={styles.formRowHalf}>
-              {renderFormField(
-                'Código Postal',
-                formData.postalCode,
-                '28001',
-                (text) => {
-                  // Only allow numbers for postal code
-                  const cleaned = text.replace(/\D/g, '');
-                  if (cleaned.length <= 5) {
-                    setFormData({ ...formData, postalCode: cleaned });
-                  }
-                },
-                {
-                  keyboardType: 'number-pad',
-                  isOptional: true,
-                  maxLength: 5,
-                }
-              )}
-            </View>
-          </View>
-
           {renderFormField(
             'Fecha de nacimiento',
             formData.birthDate ? formatDateForDisplay(parseDateString(formData.birthDate) || selectedDate) : '',
@@ -1029,6 +1108,87 @@ const ProfileScreen: React.FC = () => {
               helperText: 'Solo visible para tu especialista',
               pickerIcon: 'calendar-outline',
             }
+          )}
+        </View>
+      </View>
+
+      {/* Location Section - Mi Ubicación */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Mi Ubicación</Text>
+        <View style={styles.formCard}>
+          <View style={styles.locationInfo}>
+            <Ionicons name="location-outline" size={20} color={heraLanding.primary} />
+            <Text style={styles.locationInfoText}>
+              Usaremos tu ubicación para mostrarte especialistas cercanos que ofrecen sesiones presenciales.
+            </Text>
+          </View>
+
+          {isLoadingLocation ? (
+            <View style={styles.locationLoading}>
+              <ActivityIndicator size="small" color={heraLanding.primary} />
+              <Text style={styles.locationLoadingText}>Cargando ubicación...</Text>
+            </View>
+          ) : (
+            <>
+              <AddressAutocomplete
+                value={locationData.homeAddress}
+                onAddressSelect={handleAddressSelect}
+                placeholder="Buscar tu dirección..."
+                label="Dirección"
+                error={locationError || undefined}
+              />
+
+              {isSavingLocation && (
+                <View style={styles.locationSaving}>
+                  <ActivityIndicator size="small" color={heraLanding.primary} />
+                  <Text style={styles.locationSavingText}>Guardando ubicación...</Text>
+                </View>
+              )}
+
+              {locationData.homeLat && locationData.homeLng && (
+                <View style={styles.locationMapContainer}>
+                  <LocationMapPreview
+                    lat={locationData.homeLat}
+                    lng={locationData.homeLng}
+                    address={locationData.homeAddress}
+                    city={locationData.homeCity}
+                    height={200}
+                    interactive={true}
+                    showDirectionsButton={false}
+                  />
+
+                  <View style={styles.locationDetails}>
+                    <View style={styles.locationDetailRow}>
+                      <Text style={styles.locationDetailLabel}>Ciudad:</Text>
+                      <Text style={styles.locationDetailValue}>{locationData.homeCity || '-'}</Text>
+                    </View>
+                    <View style={styles.locationDetailRow}>
+                      <Text style={styles.locationDetailLabel}>Código Postal:</Text>
+                      <Text style={styles.locationDetailValue}>{locationData.homePostalCode || '-'}</Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.clearLocationButton}
+                    onPress={handleClearLocation}
+                    disabled={isSavingLocation}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={heraLanding.warning} />
+                    <Text style={styles.clearLocationText}>Eliminar ubicación</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {!locationData.homeLat && !locationData.homeLng && !isSavingLocation && (
+                <View style={styles.noLocationState}>
+                  <Ionicons name="location-outline" size={32} color={heraLanding.textMuted} />
+                  <Text style={styles.noLocationText}>
+                    Añade tu ubicación para encontrar especialistas cerca de ti
+                  </Text>
+                </View>
+              )}
+            </>
           )}
         </View>
       </View>
@@ -2054,6 +2214,100 @@ const styles = StyleSheet.create({
   emptyTransactionsDescription: {
     fontSize: 14,
     color: heraLanding.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
+  // ===== LOCATION SECTION =====
+  locationInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: heraLanding.primaryAlpha12,
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 20,
+    gap: 12,
+  },
+  locationInfoText: {
+    flex: 1,
+    fontSize: 14,
+    color: heraLanding.textSecondary,
+    lineHeight: 20,
+  },
+  locationLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 12,
+  },
+  locationLoadingText: {
+    fontSize: 14,
+    color: heraLanding.textSecondary,
+  },
+  locationSaving: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    marginTop: 12,
+    gap: 8,
+    backgroundColor: heraLanding.successLight,
+    borderRadius: 8,
+  },
+  locationSavingText: {
+    fontSize: 14,
+    color: heraLanding.success,
+  },
+  locationMapContainer: {
+    marginTop: 20,
+    gap: 16,
+  },
+  locationDetails: {
+    backgroundColor: heraLanding.background,
+    borderRadius: 8,
+    padding: 16,
+    gap: 8,
+  },
+  locationDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  locationDetailLabel: {
+    fontSize: 14,
+    color: heraLanding.textSecondary,
+    fontWeight: '500',
+  },
+  locationDetailValue: {
+    fontSize: 14,
+    color: heraLanding.textPrimary,
+    fontWeight: '600',
+  },
+  clearLocationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderWidth: 2,
+    borderColor: heraLanding.warning,
+    borderRadius: 8,
+    gap: 6,
+  },
+  clearLocationText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: heraLanding.warning,
+  },
+  noLocationState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    gap: 12,
+  },
+  noLocationText: {
+    fontSize: 14,
+    color: heraLanding.textMuted,
     textAlign: 'center',
     lineHeight: 20,
   },

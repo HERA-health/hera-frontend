@@ -44,6 +44,8 @@ import type { ViewMode, FilterOption } from './components';
 import { heraLanding, spacing, shadows, borderRadius, branding, colors } from '../../constants/colors';
 import { SortOption, Specialist, RootStackParamList } from '../../constants/types';
 import * as specialistsService from '../../services/specialistsService';
+import * as clientService from '../../services/clientService';
+import { useAuth } from '../../contexts/AuthContext';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Specialists'>;
 
@@ -57,8 +59,18 @@ const FILTER_OPTIONS: FilterOption[] = [
   { id: 'autoestima', label: 'Autoestima', icon: 'star-outline' },
 ];
 
+// Distance options for proximity filter (in km)
+const DISTANCE_OPTIONS = [
+  { value: 5, label: '5 km' },
+  { value: 10, label: '10 km' },
+  { value: 15, label: '15 km' },
+  { value: 25, label: '25 km' },
+  { value: 50, label: '50 km' },
+];
+
 const SpecialistsScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
@@ -76,20 +88,17 @@ const SpecialistsScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasCompletedQuestionnaire, setHasCompletedQuestionnaire] = useState(false);
 
+  // Proximity filter state
+  const [proximityEnabled, setProximityEnabled] = useState(false);
+  const [maxDistance, setMaxDistance] = useState(10); // Default 10km
+  const [clientLocation, setClientLocation] = useState<{
+    lat: number | null;
+    lng: number | null;
+    hasLocation: boolean;
+  }>({ lat: null, lng: null, hasLocation: false });
+
   // Animation values
   const headerOpacity = React.useRef(new Animated.Value(0)).current;
-
-  // Fetch specialists on mount
-  useEffect(() => {
-    fetchSpecialists();
-
-    // Animate header
-    Animated.timing(headerOpacity, {
-      toValue: 1,
-      duration: 400,
-      useNativeDriver: true,
-    }).start();
-  }, []);
 
   // Translation map for matched attributes
   const attributeLabels: Record<string, string> = {
@@ -103,7 +112,16 @@ const SpecialistsScreen: React.FC = () => {
     experience: 'Alta experiencia',
   };
 
-  const fetchSpecialists = async () => {
+  // Memoized fetch function to avoid stale closures
+  // IMPORTANT: Defined BEFORE useEffects that use it
+  const fetchSpecialists = useCallback(async (
+    forceProximity?: boolean,
+    forceMaxDistance?: number
+  ) => {
+    // Use forced values if provided, otherwise use current state
+    const useProximity = forceProximity !== undefined ? forceProximity : proximityEnabled;
+    const useMaxDist = forceMaxDistance !== undefined ? forceMaxDistance : maxDistance;
+
     try {
       setLoading(true);
       setError(null);
@@ -154,12 +172,23 @@ const SpecialistsScreen: React.FC = () => {
             };
           });
         }
-      } catch (matchErr: any) {
-        console.log('Could not fetch matched specialists:', matchErr.message);
+      } catch (matchErr: unknown) {
+        // Silent fail - matched specialists are optional
+      }
+
+      // Build filters for API call
+      const filters: specialistsService.SpecialistFilters = {};
+
+      // Add proximity filter if enabled and client has location
+      if (useProximity && clientLocation.hasLocation && clientLocation.lat && clientLocation.lng) {
+        filters.near = true;
+        filters.lat = clientLocation.lat;
+        filters.lng = clientLocation.lng;
+        filters.maxDistance = useMaxDist;
       }
 
       // Always fetch all specialists as fallback/supplement
-      const allSpecialistsData = await specialistsService.getAllSpecialists();
+      const allSpecialistsData = await specialistsService.getAllSpecialists(filters);
 
       const mappedAllSpecialists: Specialist[] = allSpecialistsData.map((s) => {
         const name = s.user.name;
@@ -192,19 +221,70 @@ const SpecialistsScreen: React.FC = () => {
             availability: '',
             format: [],
           },
+          // Location & distance
+          offersInPerson: s.offersInPerson,
+          offersOnline: s.offersOnline,
+          officeCity: s.officeCity,
+          distance: s.distance,
         };
       });
 
       setMatchedSpecialists(matchedData);
       setAllSpecialists(mappedAllSpecialists);
       setHasCompletedQuestionnaire(hasQuestionnaire);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar especialistas';
       console.error('Error fetching specialists:', err);
-      setError(err.message || 'Error al cargar especialistas');
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [proximityEnabled, maxDistance, clientLocation]);
+
+  // Load client location on mount
+  useEffect(() => {
+    const loadClientLocation = async () => {
+      if (user?.type !== 'client') return;
+
+      try {
+        const profile = await clientService.getMyClientProfile();
+        if (profile.homeLat && profile.homeLng) {
+          setClientLocation({
+            lat: profile.homeLat,
+            lng: profile.homeLng,
+            hasLocation: true,
+          });
+        }
+      } catch (err) {
+        // Silent fail - location is optional
+        console.log('Could not load client location:', err);
+      }
+    };
+
+    loadClientLocation();
+  }, [user?.type]);
+
+  // Fetch specialists on mount
+  useEffect(() => {
+    fetchSpecialists();
+
+    // Animate header
+    Animated.timing(headerOpacity, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-fetch when proximity filter changes
+  // Note: fetchSpecialists is in deps and has the current state values
+  useEffect(() => {
+    // Skip initial mount (handled above) and only run when filter changes
+    if (clientLocation.hasLocation) {
+      fetchSpecialists();
+    }
+  }, [fetchSpecialists, clientLocation.hasLocation]);
 
   const handleSpecialistPress = useCallback((specialistId: string) => {
     const specialist = matchedSpecialists.find(s => s.id === specialistId) ||
@@ -218,17 +298,21 @@ const SpecialistsScreen: React.FC = () => {
   }, [matchedSpecialists, allSpecialists, navigation]);
 
   const handleSort = () => {
-    Alert.alert(
-      'Ordenar por',
-      'Selecciona un criterio de ordenacion',
-      [
-        { text: 'Afinidad (Recomendado)', onPress: () => setSortOption('affinity') },
-        { text: 'Mejor valorados', onPress: () => setSortOption('rating') },
-        { text: 'Precio mas bajo', onPress: () => setSortOption('price_low') },
-        { text: 'Precio mas alto', onPress: () => setSortOption('price_high') },
-        { text: 'Cancelar', style: 'cancel' },
-      ]
-    );
+    const options: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }[] = [
+      { text: 'Afinidad (Recomendado)', onPress: () => setSortOption('affinity') },
+      { text: 'Mejor valorados', onPress: () => setSortOption('rating') },
+      { text: 'Precio mas bajo', onPress: () => setSortOption('price_low') },
+      { text: 'Precio mas alto', onPress: () => setSortOption('price_high') },
+    ];
+
+    // Add distance option only when proximity filter is active
+    if (proximityEnabled && clientLocation.hasLocation) {
+      options.splice(1, 0, { text: 'Más cercanos', onPress: () => setSortOption('distance') });
+    }
+
+    options.push({ text: 'Cancelar', style: 'cancel' });
+
+    Alert.alert('Ordenar por', 'Selecciona un criterio de ordenacion', options);
   };
 
   const getSortLabel = () => {
@@ -237,14 +321,68 @@ const SpecialistsScreen: React.FC = () => {
       case 'rating': return 'Valoracion';
       case 'price_low': return 'Precio: Bajo';
       case 'price_high': return 'Precio: Alto';
+      case 'distance': return 'Distancia';
       default: return 'Ordenar';
     }
   };
 
+  // Toggle proximity filter
+  const handleToggleProximity = () => {
+    if (!clientLocation.hasLocation) {
+      Alert.alert(
+        'Ubicación no configurada',
+        'Añade tu ubicación en tu perfil para usar este filtro.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Ir a Perfil', onPress: () => navigation.navigate('Profile' as never) },
+        ]
+      );
+      return;
+    }
+
+    const newProximityEnabled = !proximityEnabled;
+    setProximityEnabled(newProximityEnabled);
+    if (newProximityEnabled) {
+      setSortOption('distance');
+    }
+
+    // Immediately fetch with the NEW value (don't wait for state update)
+    fetchSpecialists(newProximityEnabled, maxDistance);
+  };
+
+  // Handle distance change
+  const handleDistanceChange = () => {
+    const buttons: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }[] =
+      DISTANCE_OPTIONS.map(opt => ({
+        text: opt.label,
+        onPress: () => {
+          setMaxDistance(opt.value);
+          // Immediately fetch with the NEW distance (don't wait for state update)
+          if (proximityEnabled) {
+            fetchSpecialists(proximityEnabled, opt.value);
+          }
+        },
+      }));
+    buttons.push({ text: 'Cancelar', style: 'cancel' });
+
+    Alert.alert('Distancia máxima', 'Selecciona la distancia máxima', buttons);
+  };
+
   // Combine and filter specialists
-  const matchedIds = matchedSpecialists.map(s => s.id);
-  const unmatchedSpecialists = allSpecialists.filter(s => !matchedIds.includes(s.id));
-  const combinedSpecialists = [...matchedSpecialists, ...unmatchedSpecialists];
+  // CRITICAL: When proximity filter is enabled, use ONLY allSpecialists (which has proximity filtering)
+  // The matchedSpecialists endpoint doesn't support proximity filtering
+  let combinedSpecialists: Specialist[];
+
+  if (proximityEnabled && clientLocation.hasLocation) {
+    // When proximity is enabled, only use allSpecialists (which was filtered by backend)
+    // These specialists have valid distance values
+    combinedSpecialists = allSpecialists;
+  } else {
+    // Normal mode: combine matched + unmatched
+    const matchedIds = matchedSpecialists.map(s => s.id);
+    const unmatchedSpecialists = allSpecialists.filter(s => !matchedIds.includes(s.id));
+    combinedSpecialists = [...matchedSpecialists, ...unmatchedSpecialists];
+  }
 
   const filteredSpecialists = combinedSpecialists
     .filter((specialist) => {
@@ -283,6 +421,12 @@ const SpecialistsScreen: React.FC = () => {
           return a.pricePerSession - b.pricePerSession;
         case 'price_high':
           return b.pricePerSession - a.pricePerSession;
+        case 'distance':
+          // Sort by distance (specialists without distance go to the end)
+          if (a.distance === undefined && b.distance === undefined) return 0;
+          if (a.distance === undefined) return 1;
+          if (b.distance === undefined) return -1;
+          return a.distance - b.distance;
         default:
           return 0;
       }
@@ -377,7 +521,7 @@ const SpecialistsScreen: React.FC = () => {
       </View>
       <Text style={styles.errorTitle}>Error al cargar</Text>
       <Text style={styles.errorDescription}>{error}</Text>
-      <TouchableOpacity style={styles.retryButton} onPress={fetchSpecialists}>
+      <TouchableOpacity style={styles.retryButton} onPress={() => fetchSpecialists()}>
         <Ionicons name="refresh" size={18} color="#FFFFFF" />
         <Text style={styles.retryButtonText}>Reintentar</Text>
       </TouchableOpacity>
@@ -514,6 +658,75 @@ const SpecialistsScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </Animated.View>
+
+        {/* Proximity Filter */}
+        {user?.type === 'client' && (
+          <View style={styles.proximityFilterContainer}>
+            <TouchableOpacity
+              style={[
+                styles.proximityToggle,
+                proximityEnabled && styles.proximityToggleActive,
+              ]}
+              onPress={handleToggleProximity}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={proximityEnabled ? 'location' : 'location-outline'}
+                size={18}
+                color={proximityEnabled ? heraLanding.textOnPrimary : heraLanding.primary}
+              />
+              <Text
+                style={[
+                  styles.proximityToggleText,
+                  proximityEnabled && styles.proximityToggleTextActive,
+                ]}
+              >
+                Cerca de mí
+              </Text>
+            </TouchableOpacity>
+
+            {/* Distance Chips - Horizontal selector */}
+            {proximityEnabled && clientLocation.hasLocation && (
+              <View style={styles.distanceChipsContainer}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.distanceChipsScroll}
+                >
+                  {DISTANCE_OPTIONS.map(opt => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[
+                        styles.distanceChip,
+                        maxDistance === opt.value && styles.distanceChipActive,
+                      ]}
+                      onPress={() => {
+                        setMaxDistance(opt.value);
+                        fetchSpecialists(true, opt.value);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.distanceChipText,
+                          maxDistance === opt.value && styles.distanceChipTextActive,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {!clientLocation.hasLocation && (
+              <Text style={styles.noLocationHint}>
+                Añade tu ubicación en tu perfil
+              </Text>
+            )}
+          </View>
+        )}
 
         {/* Filter Chips */}
         <FilterChips
@@ -899,6 +1112,90 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: heraLanding.primary,
+  },
+
+  // ===== PROXIMITY FILTER =====
+  proximityFilterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: heraLanding.border,
+    gap: spacing.sm,
+  },
+  proximityToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: heraLanding.background,
+    borderWidth: 2,
+    borderColor: heraLanding.primary,
+    gap: 6,
+  },
+  proximityToggleActive: {
+    backgroundColor: heraLanding.primary,
+    borderColor: heraLanding.primary,
+  },
+  proximityToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: heraLanding.primary,
+  },
+  proximityToggleTextActive: {
+    color: heraLanding.textOnPrimary,
+  },
+  distanceSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: heraLanding.primaryMuted,
+    gap: 4,
+  },
+  distanceSelectorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: heraLanding.primary,
+  },
+  noLocationHint: {
+    fontSize: 12,
+    color: heraLanding.textMuted,
+    fontStyle: 'italic',
+  },
+  // Distance Chips
+  distanceChipsContainer: {
+    flex: 1,
+  },
+  distanceChipsScroll: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  distanceChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: heraLanding.background,
+    borderWidth: 1,
+    borderColor: heraLanding.border,
+  },
+  distanceChipActive: {
+    backgroundColor: heraLanding.primary,
+    borderColor: heraLanding.primary,
+  },
+  distanceChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: heraLanding.textSecondary,
+  },
+  distanceChipTextActive: {
+    color: heraLanding.textOnPrimary,
+    fontWeight: '600',
   },
 });
 
