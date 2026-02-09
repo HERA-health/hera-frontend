@@ -71,6 +71,7 @@ export function CustomDrawerContent({
           onNavigate={handleNavigate}
           user={sidebarUser}
           onLogout={handleLogout}
+          isAdmin={user?.isAdmin}
         />
       </View>
     </GradientBackground>

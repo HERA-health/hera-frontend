@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as authService from '../services/authService';
+import * as professionalService from '../services/professionalService';
 import { initializeAuth } from '../services/api';
 import { getErrorMessage } from '../constants/errors';
 import type { AuthResponse } from '../services/authService';
@@ -17,6 +18,7 @@ interface User {
   occupation?: string | null;
   avatar?: string | null;
   emailVerified?: boolean;
+  isAdmin?: boolean;
 }
 
 interface AuthContextType {
@@ -25,6 +27,10 @@ interface AuthContextType {
   isInitialized: boolean;
   loading: boolean;
   error: string | null;
+  /** Whether a professional has submitted their verification data (colegiado + DNI) */
+  verificationSubmitted: boolean | null;
+  /** Mark verification as submitted (called after successful submission) */
+  markVerificationSubmitted: () => void;
   login: (email: string, password: string) => Promise<AuthResponse>;
   register: (email: string, password: string, name: string, userType: UserType) => Promise<AuthResponse>;
   logout: () => Promise<void>;
@@ -40,6 +46,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // null = not yet checked, true = submitted, false = not submitted
+  const [verificationSubmitted, setVerificationSubmitted] = useState<boolean | null>(null);
+
+  // Check verification status for professionals
+  const checkVerificationStatus = async (userType: UserType) => {
+    if (userType !== 'professional') {
+      setVerificationSubmitted(null);
+      return;
+    }
+
+    try {
+      const status = await professionalService.getVerificationStatus();
+      // A specialist has submitted if verificationSubmittedAt exists
+      const hasSubmitted = !!(status as any).verificationSubmittedAt;
+      setVerificationSubmitted(hasSubmitted);
+    } catch (_err: unknown) {
+      // If the check fails, assume not submitted to be safe
+      setVerificationSubmitted(false);
+    }
+  };
+
+  const markVerificationSubmitted = () => {
+    setVerificationSubmitted(true);
+  };
 
   // Initialize auth on mount - check for stored token
   useEffect(() => {
@@ -52,20 +82,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const userData = await authService.getCurrentUser();
 
           // Map backend userType to frontend type
+          const userType: UserType = userData.userType === 'CLIENT' ? 'client' : 'professional';
+
           const mappedUser: User = {
             id: userData.id,
             name: userData.name,
             email: userData.email,
-            type: userData.userType === 'CLIENT' ? 'client' : 'professional',
+            type: userType,
             phone: userData.phone,
             birthDate: userData.birthDate ? new Date(userData.birthDate) : null,
             gender: userData.gender,
             occupation: userData.occupation,
             avatar: userData.avatar,
             emailVerified: userData.emailVerified ?? false,
+            isAdmin: userData.isAdmin ?? false,
           };
 
           setUser(mappedUser);
+
+          // For professionals, check verification submission status
+          await checkVerificationStatus(userType);
         }
       } catch (_err: unknown) {
         // Token might be expired or invalid, just continue as logged out
@@ -86,20 +122,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await authService.login({ email, password });
 
       // Map backend userType to frontend type
+      const userType: UserType = response.user.userType === 'CLIENT' ? 'client' : 'professional';
+
       const mappedUser: User = {
         id: response.user.id,
         name: response.user.name,
         email: response.user.email,
-        type: response.user.userType === 'CLIENT' ? 'client' : 'professional',
+        type: userType,
         phone: response.user.phone,
         birthDate: response.user.birthDate ? new Date(response.user.birthDate) : null,
         gender: response.user.gender,
         occupation: response.user.occupation,
         avatar: response.user.avatar,
         emailVerified: response.user.emailVerified ?? false,
+        isAdmin: response.user.isAdmin ?? false,
       };
 
       setUser(mappedUser);
+
+      // For professionals, check verification submission status
+      await checkVerificationStatus(userType);
 
       // Return response so caller can access user data (e.g., for userType validation)
       return response;
@@ -143,6 +185,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(mappedUser);
 
+      // New professional registrations have not submitted verification yet
+      if (userType === 'professional') {
+        setVerificationSubmitted(false);
+      }
+
       // Return the response so RegisterScreen can use it
       return response;
     } catch (err: unknown) {
@@ -159,9 +206,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       await authService.logout();
       setUser(null);
+      setVerificationSubmitted(null);
     } catch (_err: unknown) {
       // Even if logout fails, clear user state
       setUser(null);
+      setVerificationSubmitted(null);
     } finally {
       setLoading(false);
     }
@@ -191,6 +240,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isInitialized,
         loading,
         error,
+        verificationSubmitted,
+        markVerificationSubmitted,
         login,
         register,
         logout,

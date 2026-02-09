@@ -177,22 +177,25 @@ export function RegisterScreen() {
       // Register the user
       await register(email, password, name, userType);
 
-      // Send verification email
-      try {
-        await authService.sendVerificationEmail(email);
-      } catch (_emailError: unknown) {
-        // If sending email fails, still proceed to the email sent screen
-        // The user can retry from there
+      // For professionals: Go directly to colegiado verification (mandatory)
+      // For clients: Go to email verification flow
+      if (userType === 'professional') {
+        // Professionals must verify their colegiado number first
+        navigation.navigate('ProfessionalVerification');
+      } else {
+        // Clients go to email verification
+        try {
+          await authService.sendVerificationEmail(email);
+        } catch (_emailError: unknown) {
+          // If sending email fails, still proceed to the email sent screen
+          // The user can retry from there
+        }
+
+        navigation.navigate('EmailSentVerification', {
+          email,
+          userType: 'CLIENT',
+        });
       }
-
-      // Get backend userType format for navigation
-      const backendUserType = userType === 'client' ? 'CLIENT' : 'PROFESSIONAL';
-
-      // Navigate to email sent verification screen
-      navigation.navigate('EmailSentVerification', {
-        email,
-        userType: backendUserType,
-      });
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error, 'Error al registrarse. Intenta de nuevo');
       setLocalError(errorMessage);

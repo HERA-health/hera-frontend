@@ -49,12 +49,13 @@ export function Sidebar({
   onNavigate,
   user,
   onLogout,
+  isAdmin,
 }: SidebarProps): React.ReactElement {
   // Get navigation sections for the current user role
   // Memoized to prevent recalculation on every render
   const sections = useMemo(
-    () => getNavigationSections(userRole),
-    [userRole]
+    () => getNavigationSections(userRole, isAdmin),
+    [userRole, isAdmin]
   );
 
   // Determine subtitle based on role

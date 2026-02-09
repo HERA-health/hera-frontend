@@ -40,10 +40,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { heraLanding, shadows, spacing, borderRadius, typography } from '../../constants/colors';
 import * as professionalService from '../../services/professionalService';
-import { SpecialistProfileData as ServiceProfileData } from '../../services/professionalService';
+import { SpecialistProfileData as ServiceProfileData, VerificationStatus, VerificationStatusResponse } from '../../services/professionalService';
 import { AddressAutocomplete, LocationMapPreview } from '../../components/location';
+import type { AppNavigationProp } from '../../constants/types';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -79,8 +81,6 @@ interface SpecialistProfileData {
   // Basic Info
   fullName: string;
   professionalTitle: string;
-  licenseNumber: string;
-  licenseVerified: boolean;
   bio: string;
   avatar: string | null;
 
@@ -199,13 +199,19 @@ export function SpecialistProfileScreen() {
   const [showPreview, setShowPreview] = useState(!isMobile);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Navigation
+  const navigation = useNavigation<AppNavigationProp>();
+
+  // Verification status state
+  const [verificationStatus, setVerificationStatus] = useState<VerificationStatusResponse>({
+    verificationStatus: 'NOT_SUBMITTED',
+  });
+
   // Profile data state
   const [profileData, setProfileData] = useState<SpecialistProfileData>({
     // Basic Info
     fullName: user?.name || '',
     professionalTitle: 'Psicóloga Clínica',
-    licenseNumber: '',
-    licenseVerified: false,
     bio: '',
     avatar: user?.avatar || null,
 
@@ -272,7 +278,7 @@ export function SpecialistProfileScreen() {
 
     if (profileData.fullName) completed++;
     if (profileData.professionalTitle) completed++;
-    if (profileData.licenseNumber) completed++;
+    if (verificationStatus.colegiadoNumber) completed++;
     if (profileData.bio && profileData.bio.length >= 150) completed++;
     if (profileData.specialties.length > 0) completed++;
     if (profileData.therapeuticApproaches.length > 0) completed++;
@@ -282,7 +288,7 @@ export function SpecialistProfileScreen() {
     if (profileData.bankIban) completed++;
 
     return Math.round((completed / total) * 100);
-  }, [profileData]);
+  }, [profileData, verificationStatus]);
 
   // Check for changes
   useEffect(() => {
@@ -290,89 +296,100 @@ export function SpecialistProfileScreen() {
     setHasChanges(changed);
   }, [profileData, originalData]);
 
-  // Load profile data
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        setIsLoading(true);
-        const profile = await professionalService.getComprehensiveProfile();
-        if (profile) {
-          // Map API data to local state
-          const mappedData: SpecialistProfileData = {
-            // Basic Info
-            fullName: profile.fullName || '',
-            professionalTitle: profile.professionalTitle || 'Psicóloga Clínica',
-            licenseNumber: profile.licenseNumber || '',
-            licenseVerified: profile.licenseVerified || false,
-            bio: profile.bio || '',
-            avatar: profile.avatar || null,
+  // Load profile data on mount and on every screen focus
+  const loadProfile = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const profile = await professionalService.getComprehensiveProfile();
+      if (profile) {
+        // Map API data to local state
+        const mappedData: SpecialistProfileData = {
+          // Basic Info
+          fullName: profile.fullName || '',
+          professionalTitle: profile.professionalTitle || 'Psicóloga Clínica',
+          bio: profile.bio || '',
+          avatar: profile.avatar || null,
 
-            // Professional Details
-            specialties: profile.specialties || [],
-            therapeuticApproaches: profile.therapeuticApproaches || [],
-            languages: profile.languages || ['spanish'],
-            education: (profile.education as Education[]) || [],
-            experience: (profile.experience as Experience[]) || [],
+          // Professional Details
+          specialties: profile.specialties || [],
+          therapeuticApproaches: profile.therapeuticApproaches || [],
+          languages: profile.languages || ['spanish'],
+          education: (profile.education as Education[]) || [],
+          experience: (profile.experience as Experience[]) || [],
 
-            // Verification
-            identityVerified: profile.identityVerified || false,
-            insuranceUploaded: profile.insuranceUploaded || false,
-            certificates: (profile.certificates as Certificate[]) || [],
+          // Verification
+          identityVerified: profile.identityVerified || false,
+          insuranceUploaded: profile.insuranceUploaded || false,
+          certificates: (profile.certificates as Certificate[]) || [],
 
-            // Pricing
-            priceStandard: profile.priceStandard?.toString() || '65',
-            priceExtended: profile.priceExtended?.toString() || '95',
-            priceFirstSession: profile.priceFirstSession?.toString() || '60',
-            offerExtended: profile.offerExtended || false,
-            offerFirstSessionDiscount: profile.offerFirstSessionDiscount || false,
-            sessionTypes: profile.sessionTypes || ['individual'],
-            modalityOnline: profile.modalityOnline?.toString() || '65',
-            modalityInPerson: profile.modalityInPerson?.toString() || '70',
+          // Pricing
+          priceStandard: profile.priceStandard?.toString() || '65',
+          priceExtended: profile.priceExtended?.toString() || '95',
+          priceFirstSession: profile.priceFirstSession?.toString() || '60',
+          offerExtended: profile.offerExtended || false,
+          offerFirstSessionDiscount: profile.offerFirstSessionDiscount || false,
+          sessionTypes: profile.sessionTypes || ['individual'],
+          modalityOnline: profile.modalityOnline?.toString() || '65',
+          modalityInPerson: profile.modalityInPerson?.toString() || '70',
 
-            // Payment
-            bankIban: profile.bankIban || '',
-            bankHolder: profile.bankHolder || '',
-            bankVerified: profile.bankVerified || false,
-            taxId: profile.taxId || '',
-            taxAddress: profile.taxAddress || '',
-            taxCity: profile.taxCity || '',
-            applyVat: profile.applyVat || false,
-            vatRate: profile.vatRate?.toString() || '21',
-            applyIrpf: profile.applyIrpf ?? true,
+          // Payment
+          bankIban: profile.bankIban || '',
+          bankHolder: profile.bankHolder || '',
+          bankVerified: profile.bankVerified || false,
+          taxId: profile.taxId || '',
+          taxAddress: profile.taxAddress || '',
+          taxCity: profile.taxCity || '',
+          applyVat: profile.applyVat || false,
+          vatRate: profile.vatRate?.toString() || '21',
+          applyIrpf: profile.applyIrpf ?? true,
 
-            // Account
-            email: profile.email || '',
-            emailVerified: profile.emailVerified || true,
-            phone: profile.phone || '',
-            phoneVerified: profile.phoneVerified || false,
-            twoFactorEnabled: profile.twoFactorEnabled || false,
-            profileVisible: profile.profileVisible ?? true,
-            showReviewCount: profile.showReviewCount ?? true,
-            showLastOnline: profile.showLastOnline || false,
+          // Account
+          email: profile.email || '',
+          emailVerified: profile.emailVerified || true,
+          phone: profile.phone || '',
+          phoneVerified: profile.phoneVerified || false,
+          twoFactorEnabled: profile.twoFactorEnabled || false,
+          profileVisible: profile.profileVisible ?? true,
+          showReviewCount: profile.showReviewCount ?? true,
+          showLastOnline: profile.showLastOnline || false,
 
-            // Location & Service Modality
-            officeAddress: profile.officeAddress || '',
-            officeCity: profile.officeCity || '',
-            officePostalCode: profile.officePostalCode || '',
-            officeCountry: profile.officeCountry || 'Spain',
-            officeLat: profile.officeLat ?? null,
-            officeLng: profile.officeLng ?? null,
-            offersOnline: profile.offersOnline ?? true,
-            offersInPerson: profile.offersInPerson ?? false,
-          };
+          // Location & Service Modality
+          officeAddress: profile.officeAddress || '',
+          officeCity: profile.officeCity || '',
+          officePostalCode: profile.officePostalCode || '',
+          officeCountry: profile.officeCountry || 'Spain',
+          officeLat: profile.officeLat ?? null,
+          officeLng: profile.officeLng ?? null,
+          offersOnline: profile.offersOnline ?? true,
+          offersInPerson: profile.offersInPerson ?? false,
+        };
 
-          setProfileData(mappedData);
-          setOriginalData(mappedData);
-        }
-      } catch (error) {
-        console.error('Error loading profile:', error);
-        // Keep default values on error
-      } finally {
-        setIsLoading(false);
+        setProfileData(mappedData);
+        setOriginalData(mappedData);
       }
-    };
-    loadProfile();
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      // Keep default values on error
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  // Reload both profile data and verification status on every screen focus
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+      const loadVerificationStatus = async () => {
+        try {
+          const status = await professionalService.getVerificationStatus();
+          setVerificationStatus(status);
+        } catch (error) {
+          console.error('Error loading verification status:', error);
+        }
+      };
+      loadVerificationStatus();
+    }, [loadProfile])
+  );
 
   // ============================================================================
   // HANDLERS
@@ -408,7 +425,6 @@ export function SpecialistProfileScreen() {
       const updateData: Partial<ServiceProfileData> = {
         fullName: profileData.fullName,
         professionalTitle: profileData.professionalTitle,
-        licenseNumber: profileData.licenseNumber,
         bio: profileData.bio,
         avatar: profileData.avatar,
 
@@ -676,17 +692,17 @@ export function SpecialistProfileScreen() {
 
         {/* Verification Badges */}
         <View style={styles.previewBadges}>
-          {profileData.licenseVerified && (
-            <View style={styles.previewBadge}>
-              <Ionicons name="checkmark-circle" size={14} color={heraLanding.success} />
-              <Text style={styles.previewBadgeText}>Colegiado verificado</Text>
-            </View>
-          )}
-          {profileData.identityVerified && (
-            <View style={styles.previewBadge}>
-              <Ionicons name="checkmark-circle" size={14} color={heraLanding.success} />
-              <Text style={styles.previewBadgeText}>Identidad verificada</Text>
-            </View>
+          {verificationStatus.verificationStatus === 'VERIFIED' && (
+            <>
+              <View style={styles.previewBadge}>
+                <Ionicons name="checkmark-circle" size={14} color={heraLanding.success} />
+                <Text style={styles.previewBadgeText}>Colegiado verificado</Text>
+              </View>
+              <View style={styles.previewBadge}>
+                <Ionicons name="checkmark-circle" size={14} color={heraLanding.success} />
+                <Text style={styles.previewBadgeText}>Identidad verificada</Text>
+              </View>
+            </>
           )}
         </View>
 
@@ -891,14 +907,20 @@ export function SpecialistProfileScreen() {
             (text) => updateField('professionalTitle', text),
             { placeholder: 'Psicóloga Clínica', required: true }
           )}
+          {/* Colegiado number - read-only, sourced from verification flow */}
           {renderFormField(
             'Número de colegiado',
-            profileData.licenseNumber,
-            (text) => updateField('licenseNumber', text),
+            verificationStatus.colegiadoNumber || '',
+            () => {},
             {
-              placeholder: 'M-12345',
-              required: true,
-              verified: profileData.licenseVerified,
+              placeholder: verificationStatus.verificationStatus === 'VERIFIED'
+                ? ''
+                : verificationStatus.verificationStatus === 'PENDING'
+                  ? 'En revisión'
+                  : 'Se completa mediante la verificación profesional',
+              required: false,
+              verified: verificationStatus.verificationStatus === 'VERIFIED',
+              disabled: true,
             }
           )}
         </View>
@@ -1229,35 +1251,146 @@ export function SpecialistProfileScreen() {
   // RENDER: TAB 2 - CREDENCIALES Y VERIFICACIÓN
   // ============================================================================
 
+  // Handler for navigating to verification screen
+  const handleResubmitVerification = () => {
+    navigation.navigate('ProfessionalVerification');
+  };
+
+  // Render the professional verification status banner
+  const renderVerificationStatusBanner = () => {
+    const status = verificationStatus.verificationStatus;
+
+    if (status === 'VERIFIED') {
+      return (
+        <View style={[styles.verificationBanner, styles.verificationBannerVerified]}>
+          <View style={styles.verificationBannerIcon}>
+            <Ionicons name="checkmark-circle" size={28} color={heraLanding.success} />
+          </View>
+          <View style={styles.verificationBannerContent}>
+            <Text style={[styles.verificationBannerTitle, styles.verificationBannerTitleVerified]}>
+              Verificado
+            </Text>
+            <Text style={styles.verificationBannerText}>
+              Tu identidad profesional ha sido verificada correctamente.
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    if (status === 'PENDING') {
+      return (
+        <View style={[styles.verificationBanner, styles.verificationBannerPending]}>
+          <View style={styles.verificationBannerIcon}>
+            <Ionicons name="time-outline" size={28} color={heraLanding.info} />
+          </View>
+          <View style={styles.verificationBannerContent}>
+            <Text style={[styles.verificationBannerTitle, styles.verificationBannerTitlePending]}>
+              Verificación en proceso
+            </Text>
+            <Text style={styles.verificationBannerText}>
+              Te avisaremos cuando esté lista. Mientras tanto, puedes completar tu perfil.
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    if (status === 'REJECTED') {
+      return (
+        <View style={[styles.verificationBanner, styles.verificationBannerRejected]}>
+          <View style={styles.verificationBannerIcon}>
+            <Ionicons name="alert-circle" size={28} color={heraLanding.warning} />
+          </View>
+          <View style={styles.verificationBannerContent}>
+            <Text style={[styles.verificationBannerTitle, styles.verificationBannerTitleRejected]}>
+              Verificación rechazada
+            </Text>
+            <Text style={styles.verificationBannerText}>
+              Por favor reenvía tus datos correctamente.
+              {verificationStatus.rejectionReason && (
+                ` Motivo: ${verificationStatus.rejectionReason}`
+              )}
+            </Text>
+            <TouchableOpacity
+              style={styles.verificationResubmitButton}
+              onPress={handleResubmitVerification}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="refresh" size={16} color="#FFFFFF" />
+              <Text style={styles.verificationResubmitButtonText}>Reenviar verificación</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    // NOT_SUBMITTED
+    return (
+      <View style={[styles.verificationBanner, styles.verificationBannerNotSubmitted]}>
+        <View style={styles.verificationBannerIcon}>
+          <Ionicons name="shield-outline" size={28} color={heraLanding.textSecondary} />
+        </View>
+        <View style={styles.verificationBannerContent}>
+          <Text style={[styles.verificationBannerTitle, styles.verificationBannerTitleNotSubmitted]}>
+            Verificación pendiente
+          </Text>
+          <Text style={styles.verificationBannerText}>
+            Completa la verificación de tu identidad profesional para que los clientes puedan encontrarte.
+          </Text>
+          <TouchableOpacity
+            style={styles.verificationSubmitButton}
+            onPress={handleResubmitVerification}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="shield-checkmark" size={16} color="#FFFFFF" />
+            <Text style={styles.verificationResubmitButtonText}>Iniciar verificación</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   const renderCredentialsTab = () => (
     <View style={styles.tabContent}>
+      {/* Professional Verification Status Banner */}
+      {renderVerificationStatusBanner()}
+
       {/* Verification Status Overview */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Estado de verificación</Text>
         <View style={styles.verificationOverview}>
           <View style={styles.verificationItem}>
             <Ionicons
-              name={profileData.identityVerified ? 'checkmark-circle' : 'alert-circle'}
+              name={verificationStatus.verificationStatus === 'VERIFIED' ? 'checkmark-circle' : 'alert-circle'}
               size={24}
-              color={profileData.identityVerified ? heraLanding.success : heraLanding.warningAmber}
+              color={verificationStatus.verificationStatus === 'VERIFIED' ? heraLanding.success : heraLanding.warningAmber}
             />
             <View style={styles.verificationItemContent}>
               <Text style={styles.verificationItemTitle}>Identidad verificada</Text>
               <Text style={styles.verificationItemStatus}>
-                {profileData.identityVerified ? 'Completado' : 'Pendiente de verificar'}
+                {verificationStatus.verificationStatus === 'VERIFIED'
+                  ? 'Completado'
+                  : verificationStatus.verificationStatus === 'PENDING'
+                    ? 'En revisión'
+                    : 'Pendiente de verificar'}
               </Text>
             </View>
           </View>
           <View style={styles.verificationItem}>
             <Ionicons
-              name={profileData.licenseVerified ? 'checkmark-circle' : 'alert-circle'}
+              name={verificationStatus.verificationStatus === 'VERIFIED' ? 'checkmark-circle' : 'alert-circle'}
               size={24}
-              color={profileData.licenseVerified ? heraLanding.success : heraLanding.warningAmber}
+              color={verificationStatus.verificationStatus === 'VERIFIED' ? heraLanding.success : heraLanding.warningAmber}
             />
             <View style={styles.verificationItemContent}>
               <Text style={styles.verificationItemTitle}>Número de colegiado validado</Text>
               <Text style={styles.verificationItemStatus}>
-                {profileData.licenseVerified ? 'Verificado' : 'En revisión'}
+                {verificationStatus.verificationStatus === 'VERIFIED'
+                  ? 'Verificado'
+                  : verificationStatus.verificationStatus === 'PENDING'
+                    ? 'En revisión'
+                    : 'Pendiente'}
               </Text>
             </View>
           </View>
@@ -1295,22 +1428,28 @@ export function SpecialistProfileScreen() {
           <View style={styles.verificationCard}>
             <View style={styles.verificationCardIcon}>
               <Ionicons
-                name={profileData.identityVerified ? 'shield-checkmark' : 'shield'}
+                name={verificationStatus.verificationStatus === 'VERIFIED' ? 'shield-checkmark' : 'shield'}
                 size={32}
-                color={profileData.identityVerified ? heraLanding.success : heraLanding.textSecondary}
+                color={verificationStatus.verificationStatus === 'VERIFIED' ? heraLanding.success : heraLanding.textSecondary}
               />
             </View>
             <View style={styles.verificationCardContent}>
               <Text style={styles.verificationCardTitle}>DNI/NIE</Text>
               <Text style={styles.verificationCardStatus}>
-                {profileData.identityVerified
-                  ? 'Verificado el 10 Oct 2024'
-                  : 'Sube tu documento de identidad'}
+                {verificationStatus.verificationStatus === 'VERIFIED'
+                  ? `Verificado${verificationStatus.reviewedAt ? ` el ${new Date(verificationStatus.reviewedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}`
+                  : verificationStatus.verificationStatus === 'PENDING'
+                    ? 'En revisión por el equipo de verificación'
+                    : 'Sube tu documento de identidad'}
               </Text>
             </View>
-            <TouchableOpacity style={styles.verificationCardButton} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.verificationCardButton}
+              activeOpacity={0.7}
+              onPress={verificationStatus.verificationStatus !== 'VERIFIED' ? handleResubmitVerification : undefined}
+            >
               <Text style={styles.verificationCardButtonText}>
-                {profileData.identityVerified ? 'Actualizar' : 'Verificar'}
+                {verificationStatus.verificationStatus === 'VERIFIED' ? 'Verificado' : 'Verificar'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -2966,6 +3105,99 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: heraLanding.textMuted,
     marginBottom: spacing.sm,
+  },
+
+  // ===== PROFESSIONAL VERIFICATION STATUS BANNER =====
+  verificationBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.xl,
+    gap: spacing.md,
+  },
+  verificationBannerVerified: {
+    backgroundColor: heraLanding.successLight,
+    borderWidth: 1,
+    borderColor: heraLanding.success,
+  },
+  verificationBannerPending: {
+    backgroundColor: 'rgba(139, 168, 196, 0.15)',
+    borderWidth: 1,
+    borderColor: heraLanding.info,
+  },
+  verificationBannerRejected: {
+    backgroundColor: heraLanding.warningLight,
+    borderWidth: 1,
+    borderColor: heraLanding.warning,
+  },
+  verificationBannerNotSubmitted: {
+    backgroundColor: heraLanding.background,
+    borderWidth: 1,
+    borderColor: heraLanding.border,
+  },
+  verificationBannerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: heraLanding.cardBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.sm,
+  },
+  verificationBannerContent: {
+    flex: 1,
+  },
+  verificationBannerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  verificationBannerTitleVerified: {
+    color: heraLanding.success,
+  },
+  verificationBannerTitlePending: {
+    color: heraLanding.info,
+  },
+  verificationBannerTitleRejected: {
+    color: heraLanding.warning,
+  },
+  verificationBannerTitleNotSubmitted: {
+    color: heraLanding.textPrimary,
+  },
+  verificationBannerText: {
+    fontSize: 14,
+    color: heraLanding.textSecondary,
+    lineHeight: 20,
+  },
+  verificationResubmitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: heraLanding.warning,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  verificationSubmitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: heraLanding.primary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  verificationResubmitButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
 

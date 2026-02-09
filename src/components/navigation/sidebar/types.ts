@@ -37,7 +37,9 @@ export type IconName =
   | 'settings'
   | 'settings-outline'
   | 'help-circle'
-  | 'help-circle-outline';
+  | 'help-circle-outline'
+  | 'shield'
+  | 'shield-outline';
 
 /**
  * Navigation item configuration
@@ -134,6 +136,8 @@ export interface SidebarProps {
   user: SidebarUser;
   /** Callback when user logs out */
   onLogout: () => void;
+  /** Whether the user is an admin */
+  isAdmin?: boolean;
 }
 
 /**

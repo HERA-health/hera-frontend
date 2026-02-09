@@ -92,6 +92,7 @@ export function EmailVerificationScreen() {
     // Navigate to login or dashboard
     if (user) {
       // User is authenticated, go to dashboard based on type
+      // Professionals have already completed colegiado verification before reaching here
       const isProfessional = user.type === 'professional';
       navigation.reset({
         index: 0,

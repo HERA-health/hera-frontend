@@ -136,12 +136,34 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
 ];
 
 /**
+ * Admin navigation section
+ * Only visible when user has admin privileges
+ */
+export const ADMIN_SECTION: NavigationSection = {
+  id: 'admin',
+  label: 'ADMINISTRACIÓN',
+  roles: ['CLIENT', 'PROFESSIONAL'],
+  items: [
+    {
+      id: 'admin-panel',
+      label: 'Panel de Admin',
+      icon: 'shield-outline',
+      iconActive: 'shield',
+      route: 'AdminPanel',
+      roles: ['CLIENT', 'PROFESSIONAL'],
+    },
+  ],
+};
+
+/**
  * Get navigation sections based on user role
  * @param role - The user's role
+ * @param isAdmin - Whether user has admin privileges
  * @returns Array of navigation sections for that role
  */
-export function getNavigationSections(role: 'CLIENT' | 'PROFESSIONAL'): NavigationSection[] {
-  return role === 'PROFESSIONAL' ? PROFESSIONAL_SECTIONS : CLIENT_SECTIONS;
+export function getNavigationSections(role: 'CLIENT' | 'PROFESSIONAL', isAdmin?: boolean): NavigationSection[] {
+  const sections = role === 'PROFESSIONAL' ? PROFESSIONAL_SECTIONS : CLIENT_SECTIONS;
+  return isAdmin ? [...sections, ADMIN_SECTION] : sections;
 }
 
 /**

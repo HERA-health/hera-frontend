@@ -114,8 +114,6 @@ export interface SpecialistProfileData {
   // Basic Info
   fullName: string;
   professionalTitle: string;
-  licenseNumber: string;
-  licenseVerified: boolean;
   bio: string;
   avatar: string | null;
 
@@ -222,7 +220,6 @@ export const updateComprehensiveProfile = async (
 
     if (data.fullName !== undefined) apiData.fullName = data.fullName;
     if (data.professionalTitle !== undefined) apiData.professionalTitle = data.professionalTitle;
-    if (data.licenseNumber !== undefined) apiData.licenseNumber = data.licenseNumber;
     if (data.bio !== undefined) apiData.bio = data.bio;
     if (data.avatar !== undefined) apiData.avatar = data.avatar;
 
@@ -270,5 +267,81 @@ export const updateComprehensiveProfile = async (
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo actualizar el perfil'));
+  }
+};
+
+// ============================================================================
+// PROFESSIONAL VERIFICATION
+// ============================================================================
+
+/**
+ * Verification status type
+ */
+export type VerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'NOT_SUBMITTED';
+
+/**
+ * Verification data interface
+ */
+export interface VerificationData {
+  colegiadoNumber: string;
+  dniImage: string; // base64 encoded image
+}
+
+/**
+ * Verification response interface
+ */
+export interface VerificationResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    verificationStatus: VerificationStatus;
+  };
+}
+
+/**
+ * Get verification status for the current specialist
+ */
+export interface VerificationStatusResponse {
+  verificationStatus: VerificationStatus;
+  colegiadoNumber?: string;
+  submittedAt?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+}
+
+export const getVerificationStatus = async (): Promise<VerificationStatusResponse> => {
+  try {
+    const response = await api.get('/specialists/me/verification');
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return { verificationStatus: 'NOT_SUBMITTED' };
+  } catch (error: unknown) {
+    // If the endpoint returns 404, the specialist hasn't submitted verification yet
+    return { verificationStatus: 'NOT_SUBMITTED' };
+  }
+};
+
+/**
+ * Submit verification data for the current specialist
+ */
+export const submitVerification = async (data: VerificationData): Promise<VerificationResponse> => {
+  try {
+    const response = await api.post('/specialists/me/verification', {
+      colegiadoNumber: data.colegiadoNumber,
+      dniPhoto: data.dniImage,
+    });
+
+    if (response.data.success) {
+      return {
+        success: true,
+        message: response.data.message || 'Verificación enviada correctamente',
+        data: response.data.data,
+      };
+    }
+
+    throw new Error('Error al enviar la verificación');
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'Error al enviar la verificación. Intenta de nuevo.'));
   }
 };

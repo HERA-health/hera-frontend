@@ -14,6 +14,7 @@ export interface AuthResponse {
     occupation?: string | null;
     avatar?: string | null;
     emailVerified?: boolean;
+    isAdmin?: boolean;
   };
 }
 
@@ -130,6 +131,7 @@ export const getCurrentUser = async (): Promise<AuthResponse['user']> => {
         occupation: response.data.data.occupation,
         avatar: response.data.data.avatar,
         emailVerified: response.data.data.emailVerified,
+        isAdmin: response.data.data.isAdmin,
       };
     }
 

@@ -106,6 +106,7 @@ export type RootStackParamList = {
   ForgotPassword: undefined;
   EmailSentPasswordReset: { email: string };
   ResetPassword: { token: string };
+  ProfessionalVerification: undefined;
   MainStack: undefined;
   Home: undefined;
   Specialists: undefined;
@@ -128,6 +129,8 @@ export type RootStackParamList = {
   ProfessionalProfile: undefined;
   ProfessionalAvailability: undefined;
   ClientProfile: { clientId: string };
+  AdminPanel: undefined;
+  AdminSpecialistDetail: { specialist: string }; // JSON-serialized PendingSpecialist
 };
 
 export type MainTabParamList = {

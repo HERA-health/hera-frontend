@@ -19,6 +19,7 @@ import { EmailVerificationScreen } from '../screens/auth/EmailVerificationScreen
 import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
 import { EmailSentPasswordResetScreen } from '../screens/auth/EmailSentPasswordResetScreen';
 import { ResetPasswordScreen } from '../screens/auth/ResetPasswordScreen';
+import { ProfessionalVerificationScreen } from '../screens/auth/ProfessionalVerificationScreen';
 
 // Main screens
 import HomeScreen from '../screens/home/HomeScreen';
@@ -45,10 +46,14 @@ import { SpecialistProfileScreen } from '../screens/professional/SpecialistProfi
 import { ProfessionalAvailabilityScreen } from '../screens/professional/ProfessionalAvailabilityScreen';
 import { ClientProfileScreen } from '../screens/professional/ClientProfileScreen';
 
+// Admin screens
+import { AdminPanelScreen } from '../screens/admin/AdminPanelScreen';
+import { AdminSpecialistDetailScreen } from '../screens/admin/AdminSpecialistDetailScreen';
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
-  const { isAuthenticated, isInitialized, user } = useAuth();
+  const { isAuthenticated, isInitialized, user, verificationSubmitted } = useAuth();
 
   // Show loading screen while checking authentication
   if (!isInitialized) {
@@ -71,12 +76,36 @@ export function RootNavigator() {
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="EmailSentPasswordReset" component={EmailSentPasswordResetScreen} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+        <Stack.Screen name="ProfessionalVerification" component={ProfessionalVerificationScreen} />
       </Stack.Navigator>
     );
   }
 
   // Show main app based on user type
-  const isProfessional = user?.type === 'professional' || user?.userType === 'PROFESSIONAL';
+  const isProfessional = user?.type === 'professional';
+
+  // VERIFICATION GATE: If a professional has NOT submitted verification data,
+  // lock them into the verification screen. No way to bypass this.
+  if (isProfessional && verificationSubmitted === false) {
+    return (
+      <Stack.Navigator
+        screenOptions={{ headerShown: false }}
+      >
+        <Stack.Screen
+          name="ProfessionalVerification"
+          component={ProfessionalVerificationScreen}
+        />
+        <Stack.Screen
+          name="EmailSentVerification"
+          component={EmailSentVerificationScreen}
+        />
+        <Stack.Screen
+          name="EmailVerification"
+          component={EmailVerificationScreen}
+        />
+      </Stack.Navigator>
+    );
+  }
 
   // Professional experience
   if (isProfessional) {
@@ -153,6 +182,26 @@ export function RootNavigator() {
           )}
         </Stack.Screen>
         <Stack.Screen
+          name="AdminPanel"
+          options={{ headerTitle: 'Panel de Admin' }}
+        >
+          {() => (
+            <MainLayout>
+              <AdminPanelScreen />
+            </MainLayout>
+          )}
+        </Stack.Screen>
+        <Stack.Screen
+          name="AdminSpecialistDetail"
+          options={{ headerTitle: 'Detalle del Especialista', headerShown: false }}
+        >
+          {() => (
+            <MainLayout>
+              <AdminSpecialistDetailScreen />
+            </MainLayout>
+          )}
+        </Stack.Screen>
+        <Stack.Screen
           name="EmailSentVerification"
           component={EmailSentVerificationScreen}
           options={{ headerShown: false }}
@@ -165,6 +214,11 @@ export function RootNavigator() {
         <Stack.Screen
           name="ResetPassword"
           component={ResetPasswordScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ProfessionalVerification"
+          component={ProfessionalVerificationScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
@@ -281,6 +335,26 @@ export function RootNavigator() {
         {() => (
           <MainLayout>
             <QuestionnaireResultsScreen />
+          </MainLayout>
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="AdminPanel"
+        options={{ headerTitle: 'Panel de Admin' }}
+      >
+        {() => (
+          <MainLayout>
+            <AdminPanelScreen />
+          </MainLayout>
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="AdminSpecialistDetail"
+        options={{ headerTitle: 'Detalle del Especialista', headerShown: false }}
+      >
+        {() => (
+          <MainLayout>
+            <AdminSpecialistDetailScreen />
           </MainLayout>
         )}
       </Stack.Screen>
