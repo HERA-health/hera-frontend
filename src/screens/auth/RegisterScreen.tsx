@@ -37,6 +37,14 @@ export function RegisterScreen() {
   const { width } = useWindowDimensions();
   const { register, loading: authLoading, clearError } = useAuth();
 
+  const handleGoBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('Landing' as never);
+    }
+  };
+
   // Responsive breakpoints
   const isDesktop = width >= 768;
   const isLargeDesktop = width >= 1200;
@@ -209,11 +217,11 @@ export function RegisterScreen() {
   };
 
   const openTerms = () => {
-    Linking.openURL('https://hera.com/terms');
+    Linking.openURL('');
   };
 
   const openPrivacy = () => {
-    Linking.openURL('https://hera.com/privacy');
+    Linking.openURL('');
   };
 
   // Brand Side Content
@@ -415,7 +423,7 @@ export function RegisterScreen() {
         {!isDesktop && (
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={handleGoBack}
           >
             <Ionicons name="arrow-back" size={24} color={heraLanding.textPrimary} />
           </TouchableOpacity>
@@ -655,28 +663,28 @@ export function RegisterScreen() {
           </TouchableOpacity>
 
           {/* Divider */}
-          <View style={styles.divider}>
+          {/* <View style={styles.divider}>
             <View style={styles.dividerLine} />
             <Text style={styles.dividerText}>o</Text>
             <View style={styles.dividerLine} />
-          </View>
+          </View> */}
 
           {/* Google SSO */}
-          <TouchableOpacity
+          {/*  <TouchableOpacity
             style={styles.googleButton}
             onPress={handleGoogleRegister}
             activeOpacity={0.85}
-          >
+          > 
             <View style={styles.googleIconContainer}>
               <Text style={styles.googleIcon}>G</Text>
             </View>
             <Text style={styles.googleButtonText}>Continuar con Google</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           {/* Login Link */}
           <View style={styles.loginContainer}>
             <Text style={styles.loginText}>¿Ya tienes cuenta?</Text>
-            <TouchableOpacity onPress={() => navigation.goBack()}>
+            <TouchableOpacity onPress={handleGoBack}>
               <Text style={styles.loginLink}>Inicia sesión</Text>
             </TouchableOpacity>
           </View>
@@ -687,7 +695,7 @@ export function RegisterScreen() {
       {isDesktop && (
         <TouchableOpacity
           style={styles.backButtonDesktop}
-          onPress={() => navigation.goBack()}
+          onPress={handleGoBack}
         >
           <Ionicons name="arrow-back" size={20} color={heraLanding.textSecondary} />
           <Text style={styles.backButtonDesktopText}>Volver</Text>
@@ -853,6 +861,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 8,
+    zIndex: 10,
   },
   backButtonDesktopText: {
     fontSize: 15,

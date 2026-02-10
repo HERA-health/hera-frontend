@@ -30,6 +30,14 @@ export function LoginScreen() {
   const { width, height } = useWindowDimensions();
   const { login, logout, loading: authLoading, error: authError, clearError } = useAuth();
 
+  const handleGoBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('Landing');
+    }
+  };
+
   // Responsive breakpoints
   const isDesktop = width >= 768;
   const isLargeDesktop = width >= 1200;
@@ -227,7 +235,7 @@ export function LoginScreen() {
         {!isDesktop && (
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={handleGoBack}
           >
             <Ionicons name="arrow-back" size={24} color={heraLanding.textPrimary} />
           </TouchableOpacity>
@@ -373,7 +381,7 @@ export function LoginScreen() {
           </View>
 
           {/* Google SSO */}
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.googleButton}
             onPress={handleGoogleLogin}
             activeOpacity={0.85}
@@ -382,7 +390,7 @@ export function LoginScreen() {
               <Text style={styles.googleIcon}>G</Text>
             </View>
             <Text style={styles.googleButtonText}>Continuar con Google</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           {/* Register Link */}
           <View style={styles.registerContainer}>
@@ -400,7 +408,7 @@ export function LoginScreen() {
       {isDesktop && (
         <TouchableOpacity
           style={styles.backButtonDesktop}
-          onPress={() => navigation.goBack()}
+          onPress={handleGoBack}
         >
           <Ionicons name="arrow-back" size={20} color={heraLanding.textSecondary} />
           <Text style={styles.backButtonDesktopText}>Volver</Text>
@@ -565,6 +573,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 8,
+    zIndex: 10,
   },
   backButtonDesktopText: {
     fontSize: 15,
