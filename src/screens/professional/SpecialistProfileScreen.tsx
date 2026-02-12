@@ -19,7 +19,7 @@
  * - Responsive for all devices
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -34,18 +34,23 @@ import {
   Modal,
   Pressable,
   Image,
+  Share,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import * as Clipboard from 'expo-clipboard';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { heraLanding, shadows, spacing, borderRadius, typography } from '../../constants/colors';
 import * as professionalService from '../../services/professionalService';
+import * as authService from '../../services/authService';
 import { SpecialistProfileData as ServiceProfileData, VerificationStatus, VerificationStatusResponse } from '../../services/professionalService';
 import { AddressAutocomplete, LocationMapPreview } from '../../components/location';
 import type { AppNavigationProp } from '../../constants/types';
+import { getWebAppUrl } from '../../config/api';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -195,12 +200,18 @@ export function SpecialistProfileScreen() {
 
   const [activeTab, setActiveTab] = useState<ProfileTab>('information');
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [showPreview, setShowPreview] = useState(!isMobile);
   const [isLoading, setIsLoading] = useState(true);
 
   // Navigation
   const navigation = useNavigation<AppNavigationProp>();
+
+  // Share profile state
+  const [specialistId, setSpecialistId] = useState<string | null>(null);
+  const [showCopiedToast, setShowCopiedToast] = useState(false);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
 
   // Verification status state
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatusResponse>({
@@ -388,6 +399,19 @@ export function SpecialistProfileScreen() {
         }
       };
       loadVerificationStatus();
+
+      // Load specialist ID for share link
+      const loadSpecialistId = async () => {
+        try {
+          const profile = await professionalService.getProfessionalProfile();
+          if (profile?.id) {
+            setSpecialistId(profile.id);
+          }
+        } catch (error) {
+          console.error('Error loading specialist ID:', error);
+        }
+      };
+      loadSpecialistId();
     }, [loadProfile])
   );
 
@@ -481,21 +505,58 @@ export function SpecialistProfileScreen() {
   }, [hasChanges, profileData]);
 
   const handleImagePick = useCallback(async () => {
+    if (isUploadingAvatar) return;
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
+        base64: true,
       });
 
-      if (!result.canceled && result.assets[0]) {
-        updateField('avatar', result.assets[0].uri);
+      if (!result.canceled && result.assets[0]?.base64) {
+        setIsUploadingAvatar(true);
+        try {
+          const updatedUser = await authService.uploadAvatar(result.assets[0].base64);
+          updateUser({ avatar: updatedUser.avatar });
+          updateField('avatar', updatedUser.avatar);
+        } catch (uploadError: any) {
+          Alert.alert('Error', uploadError.message || 'No se pudo subir la foto');
+        } finally {
+          setIsUploadingAvatar(false);
+        }
       }
     } catch (error) {
       Alert.alert('Error', 'No se pudo seleccionar la imagen');
     }
-  }, [updateField]);
+  }, [updateField, updateUser, isUploadingAvatar]);
+
+  // Share profile handler
+  const handleShareProfile = useCallback(async () => {
+    if (!specialistId) return;
+
+    const shareUrl = `${getWebAppUrl()}/especialista/${specialistId}`;
+
+    if (Platform.OS === 'web') {
+      await Clipboard.setStringAsync(shareUrl);
+      setShowCopiedToast(true);
+      Animated.sequence([
+        Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.delay(2000),
+        Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+      ]).start(() => setShowCopiedToast(false));
+    } else {
+      try {
+        await Share.share({
+          message: `Reserva tu sesión conmigo en HERA: ${shareUrl}`,
+          url: shareUrl,
+        });
+      } catch (err) {
+        // User cancelled share
+      }
+    }
+  }, [specialistId, toastOpacity]);
 
   const addEducation = useCallback(() => {
     const newEducation: Education = {
@@ -868,11 +929,16 @@ export function SpecialistProfileScreen() {
                 </Text>
               </LinearGradient>
             )}
+            {isUploadingAvatar && (
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 60 }}>
+                <ActivityIndicator size="large" color="#fff" />
+              </View>
+            )}
           </View>
           <View style={styles.photoActions}>
-            <TouchableOpacity style={styles.photoButton} onPress={handleImagePick} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.photoButton} onPress={handleImagePick} activeOpacity={0.7} disabled={isUploadingAvatar}>
               <Ionicons name="camera-outline" size={18} color={heraLanding.primary} />
-              <Text style={styles.photoButtonText}>Cambiar foto</Text>
+              <Text style={styles.photoButtonText}>{isUploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}</Text>
             </TouchableOpacity>
             {profileData.avatar && (
               <TouchableOpacity
@@ -1998,6 +2064,40 @@ export function SpecialistProfileScreen() {
     <View style={styles.container}>
       {/* Tab Navigation */}
       {renderTabNavigation()}
+
+      {/* Share Profile Banner - only for verified specialists */}
+      {verificationStatus.verificationStatus === 'VERIFIED' && specialistId && (
+        <View style={styles.shareBanner}>
+          <View style={styles.shareBannerContent}>
+            <View style={styles.shareBannerLeft}>
+              <Ionicons name="link-outline" size={18} color={heraLanding.primary} />
+              <Text style={styles.shareBannerText}>Compartir mi perfil</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.shareBannerButton}
+              onPress={handleShareProfile}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={Platform.OS === 'web' ? 'copy-outline' : 'share-outline'}
+                size={16}
+                color={heraLanding.textOnPrimary}
+              />
+              <Text style={styles.shareBannerButtonText}>
+                {Platform.OS === 'web' ? 'Copiar enlace' : 'Compartir'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Copied toast */}
+          {showCopiedToast && (
+            <Animated.View style={[styles.copiedToast, { opacity: toastOpacity }]}>
+              <Ionicons name="checkmark-circle" size={16} color={heraLanding.success} />
+              <Text style={styles.copiedToastText}>Enlace copiado al portapapeles</Text>
+            </Animated.View>
+          )}
+        </View>
+      )}
 
       {/* Main Content Area */}
       <View style={styles.mainArea}>
@@ -3198,6 +3298,55 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+
+  // ===== SHARE BANNER =====
+  shareBanner: {
+    backgroundColor: heraLanding.cardBg,
+    borderBottomWidth: 1,
+    borderBottomColor: heraLanding.border,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+  },
+  shareBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  shareBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  shareBannerText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: heraLanding.textPrimary,
+  },
+  shareBannerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: heraLanding.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: borderRadius.md,
+  },
+  shareBannerButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: heraLanding.textOnPrimary,
+  },
+  copiedToast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing.xs,
+  },
+  copiedToastText: {
+    fontSize: 13,
+    color: heraLanding.success,
+    fontWeight: '500',
   },
 });
 

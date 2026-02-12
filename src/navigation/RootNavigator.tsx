@@ -50,6 +50,9 @@ import { ClientProfileScreen } from '../screens/professional/ClientProfileScreen
 import { AdminPanelScreen } from '../screens/admin/AdminPanelScreen';
 import { AdminSpecialistDetailScreen } from '../screens/admin/AdminSpecialistDetailScreen';
 
+// Public screens
+import { PublicSpecialistProfileScreen } from '../screens/specialists/PublicSpecialistProfileScreen';
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
@@ -77,6 +80,7 @@ export function RootNavigator() {
         <Stack.Screen name="EmailSentPasswordReset" component={EmailSentPasswordResetScreen} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         <Stack.Screen name="ProfessionalVerification" component={ProfessionalVerificationScreen} />
+        <Stack.Screen name="PublicSpecialistProfile" component={PublicSpecialistProfileScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     );
   }
@@ -103,6 +107,7 @@ export function RootNavigator() {
           name="EmailVerification"
           component={EmailVerificationScreen}
         />
+        <Stack.Screen name="PublicSpecialistProfile" component={PublicSpecialistProfileScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     );
   }
@@ -221,6 +226,7 @@ export function RootNavigator() {
           component={ProfessionalVerificationScreen}
           options={{ headerShown: false }}
         />
+        <Stack.Screen name="PublicSpecialistProfile" component={PublicSpecialistProfileScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     );
   }
@@ -373,6 +379,7 @@ export function RootNavigator() {
         component={ResetPasswordScreen}
         options={{ headerShown: false }}
       />
+      <Stack.Screen name="PublicSpecialistProfile" component={PublicSpecialistProfileScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

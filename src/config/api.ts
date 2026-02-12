@@ -29,3 +29,14 @@ const getEnvVars = () => {
 };
 
 export default getEnvVars;
+
+/**
+ * Returns the web app base URL (no trailing slash).
+ * Web: uses current origin. Mobile: hardcoded production URL.
+ */
+export const getWebAppUrl = (): string => {
+  if (typeof window !== 'undefined' && window.location) {
+    return window.location.origin;
+  }
+  return 'https://www.health-hera.com';
+};

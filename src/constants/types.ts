@@ -131,6 +131,7 @@ export type RootStackParamList = {
   ClientProfile: { clientId: string };
   AdminPanel: undefined;
   AdminSpecialistDetail: { specialist: string }; // JSON-serialized PendingSpecialist
+  PublicSpecialistProfile: { specialistId: string };
 };
 
 export type MainTabParamList = {

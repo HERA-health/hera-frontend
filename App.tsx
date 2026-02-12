@@ -34,6 +34,12 @@ const linking: LinkingOptions<RootStackParamList> = {
           token: (token: string) => token,
         },
       },
+      PublicSpecialistProfile: {
+        path: 'especialista/:specialistId',
+        parse: {
+          specialistId: (specialistId: string) => specialistId,
+        },
+      },
       // Add other deep link routes as needed
       Landing: '',
       Login: 'login',
