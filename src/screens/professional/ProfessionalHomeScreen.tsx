@@ -130,6 +130,7 @@ export function ProfessionalHomeScreen() {
       .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
       .map(s => ({
         id: s.id,
+        clientId: s.clientId,
         clientName: s.client?.user?.name || 'Cliente',
         clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
         date: new Date(s.scheduledDate),
@@ -147,6 +148,7 @@ export function ProfessionalHomeScreen() {
       .slice(0, 3)
       .map(s => ({
         id: s.id,
+        clientId: s.clientId,
         clientName: s.client?.user?.name || 'Cliente',
         clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
         date: new Date(s.scheduledDate),
@@ -455,7 +457,7 @@ export function ProfessionalHomeScreen() {
                     )}
                     <TouchableOpacity
                       style={styles.viewProfileIconButton}
-                      onPress={() => navigation.navigate('ClientDetail', { clientId: session.id })}
+                      onPress={() => navigation.navigate('ClientProfile', { clientId: session.clientId })}
                     >
                       <Ionicons name="person-circle-outline" size={24} color={heraLanding.textSecondary} />
                     </TouchableOpacity>
@@ -529,6 +531,13 @@ export function ProfessionalHomeScreen() {
                 </View>
 
                 <View style={styles.requestActions}>
+                  <TouchableOpacity
+                    style={styles.viewProfileButton}
+                    onPress={() => navigation.navigate('ClientProfile', { clientId: request.clientId })}
+                  >
+                    <Ionicons name="person-outline" size={14} color={heraLanding.primary} />
+                    <Text style={styles.viewProfileButtonText}>Ver ficha</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.confirmButton, processingSessionId === request.id && { opacity: 0.6 }]}
                     onPress={() => handleConfirmSession(request.id)}
@@ -1018,6 +1027,22 @@ const styles = StyleSheet.create({
   requestActions: {
     flexDirection: 'row',
     gap: 12,
+  },
+  viewProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: heraLanding.primary,
+    borderRadius: 12,
+    gap: 4,
+  },
+  viewProfileButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: heraLanding.primary,
   },
   confirmButton: {
     flex: 1,

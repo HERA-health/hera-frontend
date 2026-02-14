@@ -13,8 +13,9 @@ import {
 } from 'react-native';
 import { heraLanding, colors, spacing, borderRadius, branding } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import * as professionalService from '../../services/professionalService';
-import { ProfessionalSession, SessionViewMode } from '../../constants/types';
+import { ProfessionalSession, SessionViewMode, AppNavigationProp } from '../../constants/types';
 import {
   getVideoCallButtonState,
   getVideoCallButtonLabel,
@@ -40,6 +41,7 @@ const STATUS_COLORS = {
 const TIME_SLOTS = Array.from({ length: 15 }, (_, i) => i + 7); // 7, 8, 9, ... 21
 
 export function ProfessionalSessionsScreen() {
+  const navigation = useNavigation<AppNavigationProp>();
   const [viewMode, setViewMode] = useState<SessionViewMode>(isMobile ? 'list' : 'day');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -586,7 +588,10 @@ export function ProfessionalSessionsScreen() {
                   </Text>
                 </View>
               )}
-              <TouchableOpacity style={styles.sessionActionSecondary}>
+              <TouchableOpacity
+                style={styles.sessionActionSecondary}
+                onPress={() => navigation.navigate('ClientProfile', { clientId: session.clientId })}
+              >
                 <Ionicons name="person-outline" size={16} color={heraLanding.primary} />
                 <Text style={styles.sessionActionSecondaryText}>Ver ficha</Text>
               </TouchableOpacity>
