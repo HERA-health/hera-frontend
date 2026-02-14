@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   Image,
   Animated,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +36,7 @@ export function ProfessionalHomeScreen() {
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<professionalService.Session[]>([]);
   const [profile, setProfile] = useState<professionalService.ProfessionalProfile | null>(null);
+  const [processingSessionId, setProcessingSessionId] = useState<string | null>(null);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -170,14 +172,49 @@ export function ProfessionalHomeScreen() {
 
   // Handle session confirmation
   const handleConfirmSession = async (sessionId: string) => {
-    // TODO: Implement confirmation API call
-    console.log('Confirming session:', sessionId);
+    if (processingSessionId) return;
+    const request = pendingRequests.find(r => r.id === sessionId);
+    const clientName = request?.clientName || 'Cliente';
+    try {
+      setProcessingSessionId(sessionId);
+      await professionalService.updateSessionStatus(sessionId, 'CONFIRMED');
+      Alert.alert('Sesión confirmada', `Sesión con ${clientName} confirmada correctamente`);
+      await loadData();
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo confirmar la sesión');
+    } finally {
+      setProcessingSessionId(null);
+    }
   };
 
   // Handle session decline
   const handleDeclineSession = async (sessionId: string) => {
-    // TODO: Implement decline API call
-    console.log('Declining session:', sessionId);
+    if (processingSessionId) return;
+    const request = pendingRequests.find(r => r.id === sessionId);
+    const clientName = request?.clientName || 'Cliente';
+    Alert.alert(
+      'Rechazar sesión',
+      `¿Estás seguro de que deseas rechazar la sesión con ${clientName}?`,
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, rechazar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setProcessingSessionId(sessionId);
+              await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
+              Alert.alert('Sesión rechazada', `La sesión con ${clientName} ha sido rechazada`);
+              await loadData();
+            } catch (error) {
+              Alert.alert('Error', 'No se pudo rechazar la sesión');
+            } finally {
+              setProcessingSessionId(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Render welcome header
@@ -493,8 +530,9 @@ export function ProfessionalHomeScreen() {
 
                 <View style={styles.requestActions}>
                   <TouchableOpacity
-                    style={styles.confirmButton}
+                    style={[styles.confirmButton, processingSessionId === request.id && { opacity: 0.6 }]}
                     onPress={() => handleConfirmSession(request.id)}
+                    disabled={processingSessionId === request.id}
                   >
                     <LinearGradient
                       colors={[heraLanding.primary, heraLanding.primaryDark]}
@@ -504,8 +542,9 @@ export function ProfessionalHomeScreen() {
                     </LinearGradient>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={styles.declineButton}
+                    style={[styles.declineButton, processingSessionId === request.id && { opacity: 0.6 }]}
                     onPress={() => handleDeclineSession(request.id)}
+                    disabled={processingSessionId === request.id}
                   >
                     <Text style={styles.declineButtonText}>Rechazar</Text>
                   </TouchableOpacity>
