@@ -10,6 +10,7 @@ import {
   TextInput,
   Modal,
   Image,
+  Pressable,
   useWindowDimensions,
 } from 'react-native';
 import { NavigationProp, RouteProp } from '@react-navigation/native';
@@ -33,7 +34,7 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
   const { user } = useAuth();
   const isAdmin = user?.isAdmin ?? false;
   const { specialistId } = route.params;
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   const isTwoCol = windowWidth >= 768;
   const isWide = windowWidth >= 1024;
@@ -640,22 +641,34 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
         </View>
       </Modal>
 
-      {/* DNI PHOTO MODAL */}
-      <Modal visible={showDniModal} transparent animationType="fade" onRequestClose={() => setShowDniModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxWidth: 600 }]}>
-            <View style={styles.dniModalHeader}>
-              <Text style={styles.modalTitle}>Carnet de Colegiado</Text>
-              <TouchableOpacity onPress={() => setShowDniModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close" size={24} color={heraLanding.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            {specialist.dniPhotoUrl && (
-              <Image source={{ uri: specialist.dniPhotoUrl }} style={styles.dniPhotoFull} resizeMode="contain" />
-            )}
+      {/* DNI PHOTO - fullscreen dark overlay */}
+      {showDniModal && specialist.dniPhotoUrl && (
+        <Pressable
+          style={styles.dniModalOverlay}
+          onPress={() => setShowDniModal(false)}
+        >
+          <View style={styles.dniModalTopBar}>
+            <Text style={styles.dniModalTitle}>Carnet de Colegiado</Text>
+            <TouchableOpacity
+              onPress={() => setShowDniModal(false)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.dniModalCloseButton}
+            >
+              <Ionicons name="close" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <Image
+              source={{ uri: specialist.dniPhotoUrl }}
+              style={{
+                width: Math.min(windowWidth * 0.92, 900),
+                height: windowHeight * 0.78,
+              }}
+              resizeMode="contain"
+            />
+          </Pressable>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -1464,18 +1477,39 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // DNI modal
-  dniModalHeader: {
+  // DNI fullscreen overlay
+  dniModalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  dniModalTopBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
+    zIndex: 10,
   },
-  dniPhotoFull: {
-    width: '100%',
-    height: 400,
-    borderRadius: borderRadius.lg,
-    backgroundColor: heraLanding.backgroundMuted,
+  dniModalTitle: {
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
+    color: '#FFFFFF',
+  },
+  dniModalCloseButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

@@ -106,8 +106,7 @@ export function ProfessionalVerificationScreen() {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [3, 2], // Card aspect ratio
+        allowsEditing: false,
         quality: 0.8,
         base64: true,
       });
@@ -141,8 +140,7 @@ export function ProfessionalVerificationScreen() {
       setIsUploadingImage(true);
 
       const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [3, 2], // Card aspect ratio
+        allowsEditing: false,
         quality: 0.8,
         base64: true,
       });

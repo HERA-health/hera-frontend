@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,6 +31,8 @@ export function AdminSpecialistDetailScreen() {
   const isAdmin = user?.isAdmin ?? false;
 
   const [processing, setProcessing] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   // Parse specialist data from navigation params
   const specialist = useMemo<PendingSpecialist | null>(() => {
@@ -201,13 +204,21 @@ export function AdminSpecialistDetailScreen() {
         <View style={styles.photoSection}>
           <Text style={styles.sectionTitle}>Foto del carnet de colegiado</Text>
           {specialist.dniPhotoUrl ? (
-            <View style={styles.photoContainer}>
+            <TouchableOpacity
+              style={styles.photoContainer}
+              onPress={() => setShowPhotoModal(true)}
+              activeOpacity={0.8}
+            >
               <Image
                 source={{ uri: specialist.dniPhotoUrl }}
                 style={styles.dniPhoto}
                 resizeMode="contain"
               />
-            </View>
+              <View style={styles.photoHint}>
+                <Ionicons name="expand-outline" size={16} color={heraLanding.primary} />
+                <Text style={styles.photoHintText}>Toca para ampliar</Text>
+              </View>
+            </TouchableOpacity>
           ) : (
             <View style={styles.noPhotoContainer}>
               <Ionicons name="image-outline" size={48} color={heraLanding.textMuted} />
@@ -245,6 +256,32 @@ export function AdminSpecialistDetailScreen() {
           <Text style={styles.actionButtonText}>Verificar</Text>
         </Pressable>
       </View>
+
+      {/* Fullscreen photo overlay */}
+      {showPhotoModal && specialist.dniPhotoUrl && (
+        <Pressable
+          style={styles.photoModalOverlay}
+          onPress={() => setShowPhotoModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.photoModalClose}
+            onPress={() => setShowPhotoModal(false)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="close" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <Image
+              source={{ uri: specialist.dniPhotoUrl }}
+              style={{
+                width: Math.min(windowWidth * 0.92, 900),
+                height: windowHeight * 0.8,
+              }}
+              resizeMode="contain"
+            />
+          </Pressable>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -423,13 +460,45 @@ const styles = StyleSheet.create({
   photoContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.xl,
-    overflow: 'hidden',
+    padding: spacing.md,
     ...shadows.md,
   },
   dniPhoto: {
     width: '100%',
-    height: 400,
+    height: 500,
     backgroundColor: heraLanding.backgroundMuted,
+    borderRadius: borderRadius.lg,
+  },
+  photoHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  photoHintText: {
+    fontSize: typography.fontSizes.xs,
+    color: heraLanding.primary,
+    fontWeight: typography.fontWeights.medium,
+  },
+  photoModalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  photoModalClose: {
+    position: 'absolute',
+    top: spacing.xl,
+    right: spacing.xl,
+    zIndex: 1001,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   noPhotoContainer: {
     backgroundColor: '#FFFFFF',
