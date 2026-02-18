@@ -1,6 +1,6 @@
 /**
  * ProfessionalVerificationScreen - Professional Identity Verification
- * Shown after specialist registration to collect colegiado number and DNI photo.
+ * Shown after specialist registration to collect colegiado number and carnet de colegiado photo.
  * Follows the exact same visual design as RegisterScreen for a seamless flow.
  */
 
@@ -97,7 +97,7 @@ export function ProfessionalVerificationScreen() {
       if (status !== 'granted') {
         Alert.alert(
           'Permiso requerido',
-          'Necesitamos acceso a tu galería para subir la foto del DNI.'
+          'Necesitamos acceso a tu galería para subir la foto del carnet de colegiado.'
         );
         return;
       }
@@ -107,7 +107,7 @@ export function ProfessionalVerificationScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [3, 2], // DNI aspect ratio
+        aspect: [3, 2], // Card aspect ratio
         quality: 0.8,
         base64: true,
       });
@@ -133,7 +133,7 @@ export function ProfessionalVerificationScreen() {
       if (status !== 'granted') {
         Alert.alert(
           'Permiso requerido',
-          'Necesitamos acceso a tu cámara para tomar una foto del DNI.'
+          'Necesitamos acceso a tu cámara para tomar una foto del carnet de colegiado.'
         );
         return;
       }
@@ -142,7 +142,7 @@ export function ProfessionalVerificationScreen() {
 
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
-        aspect: [3, 2], // DNI aspect ratio
+        aspect: [3, 2], // Card aspect ratio
         quality: 0.8,
         base64: true,
       });
@@ -169,7 +169,7 @@ export function ProfessionalVerificationScreen() {
     }
 
     Alert.alert(
-      'Foto del DNI',
+      'Foto del carnet de colegiado',
       'Selecciona cómo quieres añadir la foto',
       [
         { text: 'Tomar foto', onPress: takePhoto },
@@ -190,7 +190,7 @@ export function ProfessionalVerificationScreen() {
     }
 
     if (!dniImage) {
-      setLocalError('Por favor, sube una foto de tu DNI');
+      setLocalError('Por favor, sube una foto de tu carnet de colegiado');
       triggerShake();
       return;
     }
@@ -384,9 +384,9 @@ export function ProfessionalVerificationScreen() {
             </Text>
           </View>
 
-          {/* DNI Photo Upload */}
+          {/* Carnet de colegiado Photo Upload */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Foto del DNI</Text>
+            <Text style={styles.inputLabel}>Foto del carnet de colegiado</Text>
             <TouchableOpacity
               style={[
                 styles.imageUploadContainer,
@@ -416,13 +416,13 @@ export function ProfessionalVerificationScreen() {
                   <View style={styles.uploadIconContainer}>
                     <Ionicons name="camera-outline" size={32} color={heraLanding.primary} />
                   </View>
-                  <Text style={styles.imageUploadText}>Toca para subir foto del DNI</Text>
+                  <Text style={styles.imageUploadText}>Toca para subir foto del carnet de colegiado</Text>
                   <Text style={styles.imageUploadHint}>JPG, PNG - Máx 5MB</Text>
                 </View>
               )}
             </TouchableOpacity>
             <Text style={styles.inputHint}>
-              Asegúrate de que la foto sea clara y legible
+              Asegúrate de que se vea claramente tu número de colegiado y tus datos personales en la fotografía
             </Text>
           </View>
 
@@ -438,7 +438,7 @@ export function ProfessionalVerificationScreen() {
               )}
             </View>
             <Text style={styles.consentText}>
-              Acepto que HERA procese mi número de colegiado y documento de identidad únicamente para verificar mi identidad profesional. Estos datos serán eliminados una vez completada la verificación.
+              Acepto que HERA procese mi número de colegiado y carnet de colegiado únicamente para verificar mi identidad profesional. Estos datos serán eliminados una vez completada la verificación.
             </Text>
           </TouchableOpacity>
 

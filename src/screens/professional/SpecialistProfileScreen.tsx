@@ -1500,7 +1500,7 @@ export function SpecialistProfileScreen() {
               />
             </View>
             <View style={styles.verificationCardContent}>
-              <Text style={styles.verificationCardTitle}>DNI/NIE</Text>
+              <Text style={styles.verificationCardTitle}>Carnet de colegiado</Text>
               <Text style={styles.verificationCardStatus}>
                 {verificationStatus.verificationStatus === 'VERIFIED'
                   ? `Verificado${verificationStatus.reviewedAt ? ` el ${new Date(verificationStatus.reviewedAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}`

@@ -58,7 +58,7 @@ export function AdminSpecialistDetailScreen() {
     const actionPast = status === 'VERIFIED' ? 'verificado' : 'rechazado';
 
     const message = `¿Estás seguro de que quieres ${actionLabel} a ${specialist.user.name}?${
-      status === 'VERIFIED' ? '\n\nLa foto del DNI se eliminará por cumplimiento RGPD.' : ''
+      status === 'VERIFIED' ? '\n\nLa foto del carnet de colegiado se eliminará por cumplimiento RGPD.' : ''
     }`;
 
     const executeResolve = async () => {
@@ -197,9 +197,9 @@ export function AdminSpecialistDetailScreen() {
           </View>
         </View>
 
-        {/* DNI Photo */}
+        {/* Carnet de colegiado Photo */}
         <View style={styles.photoSection}>
-          <Text style={styles.sectionTitle}>Foto del DNI</Text>
+          <Text style={styles.sectionTitle}>Foto del carnet de colegiado</Text>
           {specialist.dniPhotoUrl ? (
             <View style={styles.photoContainer}>
               <Image
@@ -211,7 +211,7 @@ export function AdminSpecialistDetailScreen() {
           ) : (
             <View style={styles.noPhotoContainer}>
               <Ionicons name="image-outline" size={48} color={heraLanding.textMuted} />
-              <Text style={styles.noPhotoText}>No hay foto del DNI disponible</Text>
+              <Text style={styles.noPhotoText}>No hay foto del carnet de colegiado disponible</Text>
             </View>
           )}
         </View>
