@@ -7,6 +7,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
   Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -71,17 +72,6 @@ export function AdminPanelScreen() {
     });
   };
 
-  // Guard: only admins can access
-  if (!isAdmin) {
-    return (
-      <View style={styles.centered}>
-        <Ionicons name="shield-outline" size={48} color={heraLanding.textMuted} />
-        <Text style={styles.emptyTitle}>Acceso denegado</Text>
-        <Text style={styles.emptySubtitle}>No tienes permisos de administrador</Text>
-      </View>
-    );
-  }
-
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -116,20 +106,12 @@ export function AdminPanelScreen() {
         />
       }
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerIcon}>
-          <Ionicons name="shield" size={28} color={heraLanding.primary} />
-        </View>
-        <View>
-          <Text style={styles.headerTitle}>Panel de Administración</Text>
-          <Text style={styles.headerSubtitle}>
-            {specialists.length === 0
-              ? 'No hay verificaciones pendientes'
-              : `${specialists.length} verificación${specialists.length !== 1 ? 'es' : ''} pendiente${specialists.length !== 1 ? 's' : ''}`}
-          </Text>
-        </View>
-      </View>
+      {/* Summary */}
+      <Text style={styles.summaryText}>
+        {specialists.length === 0
+          ? 'No hay verificaciones pendientes'
+          : `${specialists.length} verificación${specialists.length !== 1 ? 'es' : ''} pendiente${specialists.length !== 1 ? 's' : ''}`}
+      </Text>
 
       {/* Empty State */}
       {specialists.length === 0 && (
@@ -152,11 +134,7 @@ export function AdminPanelScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.cardHeader}>
-              <View style={styles.cardAvatar}>
-                <Text style={styles.cardAvatarText}>
-                  {specialist.user.name.charAt(0).toUpperCase()}
-                </Text>
-              </View>
+              <SpecialistAvatar name={specialist.user.name} avatarUrl={specialist.user.avatar} size={44} />
               <View style={styles.cardInfo}>
                 <Text style={styles.cardName} numberOfLines={1}>
                   {specialist.user.name}
@@ -200,6 +178,28 @@ export function AdminPanelScreen() {
   );
 }
 
+function SpecialistAvatar({ name, avatarUrl, size }: { name: string; avatarUrl: string | null; size: number }) {
+  const [imageError, setImageError] = useState(false);
+
+  if (avatarUrl && !imageError) {
+    return (
+      <Image
+        source={{ uri: avatarUrl }}
+        style={{ width: size, height: size, borderRadius: size / 2 }}
+        onError={() => setImageError(true)}
+      />
+    );
+  }
+
+  return (
+    <View style={[styles.cardAvatar, { width: size, height: size, borderRadius: size / 2 }]}>
+      <Text style={styles.cardAvatarText}>
+        {name.charAt(0).toUpperCase()}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -225,30 +225,11 @@ const styles = StyleSheet.create({
     color: heraLanding.textSecondary,
   },
 
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-    gap: spacing.md,
-  },
-  headerIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.lg,
-    backgroundColor: heraLanding.primaryMuted,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: typography.fontSizes.xxl,
-    fontWeight: typography.fontWeights.bold,
-    color: heraLanding.textPrimary,
-  },
-  headerSubtitle: {
+  // Summary
+  summaryText: {
     fontSize: typography.fontSizes.sm,
     color: heraLanding.textSecondary,
-    marginTop: 2,
+    marginBottom: spacing.lg,
   },
 
   // Empty State
@@ -308,9 +289,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   cardAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
     backgroundColor: heraLanding.primaryMuted,
     justifyContent: 'center',
     alignItems: 'center',

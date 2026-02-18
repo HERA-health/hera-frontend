@@ -75,6 +75,10 @@ const styles = StyleSheet.create({
     // Background handled by GradientBackground in CustomDrawerContent
     borderRightWidth: 1,
     borderRightColor: SIDEBAR_THEME.border,
+    // Height must be explicitly set so that nested ScrollView can scroll.
+    // Without this, on React Native Web the sidebar grows to content height
+    // instead of constraining to viewport, clipping overflow items.
+    height: '100%',
   },
   content: {
     flex: 1,

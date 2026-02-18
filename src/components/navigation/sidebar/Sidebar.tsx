@@ -97,6 +97,7 @@ export function Sidebar({
             showDivider={sectionIndex > 0}
           />
         ))}
+
       </ScrollView>
 
       {/* User Section (fixed at bottom) */}

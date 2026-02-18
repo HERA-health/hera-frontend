@@ -47,8 +47,9 @@ import { ProfessionalAvailabilityScreen } from '../screens/professional/Professi
 import { ClientProfileScreen } from '../screens/professional/ClientProfileScreen';
 
 // Admin screens
-import { AdminPanelScreen } from '../screens/admin/AdminPanelScreen';
+import { AdminPanelTabbedScreen } from '../screens/admin/AdminPanelTabbedScreen';
 import { AdminSpecialistDetailScreen } from '../screens/admin/AdminSpecialistDetailScreen';
+import { SpecialistDetailAdminScreen } from '../screens/admin/SpecialistDetailAdminScreen';
 
 // Public screens
 import { PublicSpecialistProfileScreen } from '../screens/specialists/PublicSpecialistProfileScreen';
@@ -192,7 +193,7 @@ export function RootNavigator() {
         >
           {() => (
             <MainLayout>
-              <AdminPanelScreen />
+              <AdminPanelTabbedScreen />
             </MainLayout>
           )}
         </Stack.Screen>
@@ -203,6 +204,16 @@ export function RootNavigator() {
           {() => (
             <MainLayout>
               <AdminSpecialistDetailScreen />
+            </MainLayout>
+          )}
+        </Stack.Screen>
+        <Stack.Screen
+          name="SpecialistDetailAdmin"
+          options={{ headerTitle: 'Detalle del Especialista', headerShown: false }}
+        >
+          {({ route, navigation }) => (
+            <MainLayout>
+              <SpecialistDetailAdminScreen route={route} navigation={navigation} />
             </MainLayout>
           )}
         </Stack.Screen>
@@ -350,7 +361,7 @@ export function RootNavigator() {
       >
         {() => (
           <MainLayout>
-            <AdminPanelScreen />
+            <AdminPanelTabbedScreen />
           </MainLayout>
         )}
       </Stack.Screen>
@@ -361,6 +372,16 @@ export function RootNavigator() {
         {() => (
           <MainLayout>
             <AdminSpecialistDetailScreen />
+          </MainLayout>
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="SpecialistDetailAdmin"
+        options={{ headerTitle: 'Detalle del Especialista', headerShown: false }}
+      >
+        {({ route, navigation }) => (
+          <MainLayout>
+            <SpecialistDetailAdminScreen route={route} navigation={navigation} />
           </MainLayout>
         )}
       </Stack.Screen>
