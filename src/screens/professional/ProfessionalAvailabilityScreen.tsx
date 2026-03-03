@@ -15,6 +15,7 @@ import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import { heraLanding, spacing, borderRadius, shadows } from '../../constants/colors';
 import * as availabilityService from '../../services/availabilityService';
+import * as analyticsService from '../../services/analyticsService';
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -240,6 +241,10 @@ export function ProfessionalAvailabilityScreen({ navigation }: any) {
     }
   }, []);
 
+  useEffect(() => {
+    analyticsService.trackScreen('availability');
+  }, []);
+
   useEffect(() => { loadData(); }, [loadData]);
 
   // ============================================================================
@@ -322,6 +327,10 @@ export function ProfessionalAvailabilityScreen({ navigation }: any) {
       const schedule = convertSlotsToSchedule(weeklySlots);
       await availabilityService.updateWeeklySchedule(schedule);
       setHasChanges(false);
+      const totalSlots = Object.values(weeklySlots).reduce((sum, daySlots) =>
+        sum + Object.values(daySlots).filter(s => s.available).length, 0
+      );
+      analyticsService.track('availability_updated', { slotsCount: totalSlots });
       if (Platform.OS === 'web') {
         window.alert('Disponibilidad actualizada correctamente');
       } else {

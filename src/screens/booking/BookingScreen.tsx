@@ -11,7 +11,7 @@
  * - Mobile (<768px): Stacked layout with sticky summary
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import { heraLanding, spacing, borderRadius } from '../../constants/colors';
 import * as sessionsService from '../../services/sessionsService';
 import { SessionType, TimeSlot } from '../../services/sessionsService';
 import { ProfessionalInfoColumn, CompactCalendarColumn, TimeSlotsColumn } from './components';
+import * as analyticsService from '../../services/analyticsService';
 
 interface BookingScreenProps {
   route: {
@@ -57,6 +58,17 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
   const isDesktop = width >= BREAKPOINTS.desktop;
   const isTablet = width >= BREAKPOINTS.tablet && width < BREAKPOINTS.desktop;
   const isMobile = width < BREAKPOINTS.tablet;
+
+  const bookingCompletedRef = useRef(false);
+
+  useEffect(() => {
+    analyticsService.trackScreen('booking', { specialistId });
+    return () => {
+      if (!bookingCompletedRef.current) {
+        analyticsService.track('booking_abandoned', { specialistId });
+      }
+    };
+  }, []);
 
   // State
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -117,7 +129,11 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
   // Handle time slot selection
   const handleTimeSelect = useCallback((slot: TimeSlot) => {
     setSelectedSlot(slot);
-  }, []);
+    if (selectedDate) {
+      const dayOfWeek = new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long' });
+      analyticsService.track('booking_slot_selected', { dayOfWeek, timeSlot: slot.startTime });
+    }
+  }, [selectedDate]);
 
   // Handle booking confirmation
   const handleConfirmBooking = useCallback(async () => {
@@ -147,6 +163,9 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
       };
 
       await sessionsService.createSession(sessionData);
+
+      bookingCompletedRef.current = true;
+      analyticsService.track('session_booked', { specialistId, price: pricePerSession });
 
       // Navigate to Sessions screen
       navigation.navigate('Sessions', { refresh: true, showSuccess: true });

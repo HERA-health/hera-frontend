@@ -3,6 +3,7 @@ import * as authService from '../services/authService';
 import * as professionalService from '../services/professionalService';
 import { initializeAuth } from '../services/api';
 import { getErrorMessage } from '../constants/errors';
+import * as analyticsService from '../services/analyticsService';
 import type { AuthResponse } from '../services/authService';
 
 export type UserType = 'client' | 'professional';
@@ -100,6 +101,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           setUser(mappedUser);
 
+          try {
+            analyticsService.identify(mappedUser.id, {
+              userType: mappedUser.type,
+              emailVerified: mappedUser.emailVerified ?? false,
+            });
+          } catch {
+            // silently ignore analytics errors
+          }
+
           // For professionals, check verification submission status
           await checkVerificationStatus(userType);
         }
@@ -139,6 +149,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       setUser(mappedUser);
+
+      try {
+        analyticsService.identify(mappedUser.id, {
+          userType: mappedUser.type,
+          emailVerified: mappedUser.emailVerified ?? false,
+        });
+      } catch {
+        // silently ignore analytics errors
+      }
 
       // For professionals, check verification submission status
       await checkVerificationStatus(userType);
@@ -207,10 +226,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await authService.logout();
       setUser(null);
       setVerificationSubmitted(null);
+      try {
+        analyticsService.reset();
+      } catch {
+        // silently ignore analytics errors
+      }
     } catch (_err: unknown) {
       // Even if logout fails, clear user state
       setUser(null);
       setVerificationSubmitted(null);
+      try {
+        analyticsService.reset();
+      } catch {
+        // silently ignore analytics errors
+      }
     } finally {
       setLoading(false);
     }

@@ -50,6 +50,7 @@ import * as authService from '../../services/authService';
 import * as clientService from '../../services/clientService';
 import { AddressAutocomplete, AddressDetails } from '../../components/location/AddressAutocomplete';
 import LocationMapPreview from '../../components/location/LocationMapPreview';
+import * as analyticsService from '../../services/analyticsService';
 
 // ============================================================================
 // MOCK DATA - Payment & Transactions
@@ -212,6 +213,10 @@ const ProfileScreen: React.FC = () => {
 
   // Track original values for change detection
   const [originalData, setOriginalData] = useState({ ...formData });
+
+  useEffect(() => {
+    analyticsService.trackScreen('client_profile');
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -413,6 +418,7 @@ const ProfileScreen: React.FC = () => {
     if (!user?.email) return;
 
     setIsVerifyingEmail(true);
+    analyticsService.track('resend_verification_clicked');
     try {
       await authService.resendVerificationEmail(user.email);
       Alert.alert(

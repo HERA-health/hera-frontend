@@ -10,6 +10,9 @@ import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { PostHogProvider, usePostHog } from 'posthog-react-native';
+import { POSTHOG_API_KEY, POSTHOG_HOST, ANALYTICS_ENABLED } from './src/config/analytics';
+import { setPostHogClient } from './src/services/analyticsService';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { ErrorBoundary } from './src/components/common/ErrorBoundary';
@@ -90,22 +93,58 @@ const injectWebStyles = () => {
   document.head.appendChild(style);
 };
 
+/** Bridges PostHogProvider context to our analytics singleton */
+function PostHogBridge() {
+  const posthog = usePostHog();
+  useEffect(() => {
+    if (posthog) {
+      setPostHogClient(posthog);
+    }
+  }, [posthog]);
+  return null;
+}
+
 export default function App() {
   // Inject web-specific styles on mount
   useEffect(() => {
     injectWebStyles();
   }, []);
 
+  if (!ANALYTICS_ENABLED) {
+    return (
+      <ErrorBoundary>
+        <SafeAreaProvider>
+          <AuthProvider>
+            <NavigationContainer linking={linking}>
+              <StatusBar style="auto" />
+              <RootNavigator />
+            </NavigationContainer>
+          </AuthProvider>
+        </SafeAreaProvider>
+      </ErrorBoundary>
+    );
+  }
+
   return (
-    <ErrorBoundary>
-      <SafeAreaProvider>
-        <AuthProvider>
-          <NavigationContainer linking={linking}>
-            <StatusBar style="auto" />
-            <RootNavigator />
-          </NavigationContainer>
-        </AuthProvider>
-      </SafeAreaProvider>
-    </ErrorBoundary>
+    <PostHogProvider
+      apiKey={POSTHOG_API_KEY}
+      options={{
+        host: POSTHOG_HOST,
+        enableSessionReplay: false,
+      }}
+      autocapture={false}
+    >
+      <PostHogBridge />
+      <ErrorBoundary>
+        <SafeAreaProvider>
+          <AuthProvider>
+            <NavigationContainer linking={linking}>
+              <StatusBar style="auto" />
+              <RootNavigator />
+            </NavigationContainer>
+          </AuthProvider>
+        </SafeAreaProvider>
+      </ErrorBoundary>
+    </PostHogProvider>
   );
 }

@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { UserAnswers } from '../../utils/matchingAlgorithm';
 import { api } from '../../services/api';
 import { getMatchedSpecialists } from '../../services/specialistsService';
+import * as analyticsService from '../../services/analyticsService';
 
 // Step types for the questionnaire flow
 type StepType = 'welcome' | 'question' | 'review';
@@ -43,6 +44,7 @@ export function QuestionnaireScreen() {
   // Animation values
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
+  const questionnaireCompletedRef = useRef(false);
 
   // Total steps: welcome + 15 questions + review
   const totalSteps = questionnaire.length + 2;
@@ -53,6 +55,15 @@ export function QuestionnaireScreen() {
 
   // Progress calculation (excluding welcome, including review as 100%)
   const progress = isWelcome ? 0 : isReview ? 100 : ((currentStep) / (totalSteps - 1)) * 100;
+
+  useEffect(() => {
+    analyticsService.trackScreen('questionnaire');
+    return () => {
+      if (!questionnaireCompletedRef.current) {
+        analyticsService.track('questionnaire_abandoned', { lastStep: currentStep });
+      }
+    };
+  }, []);
 
   // Check if user has already completed the questionnaire
   useEffect(() => {
@@ -301,6 +312,8 @@ export function QuestionnaireScreen() {
           };
         });
 
+        questionnaireCompletedRef.current = true;
+        analyticsService.track('questionnaire_completed', { totalSteps: questionnaire.length });
         navigation.navigate('QuestionnaireResults', { results });
       } catch (error: any) {
         Alert.alert(
@@ -312,6 +325,14 @@ export function QuestionnaireScreen() {
         setLoading(false);
       }
     } else {
+      if (currentStep === 0) {
+        analyticsService.track('questionnaire_started');
+      } else {
+        analyticsService.track('questionnaire_step_completed', {
+          step: currentStep,
+          totalSteps: questionnaire.length,
+        });
+      }
       animateTransition('forward', () => {
         setCurrentStep(currentStep + 1);
       });

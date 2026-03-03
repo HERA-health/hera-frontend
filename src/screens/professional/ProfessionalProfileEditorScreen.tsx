@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Dimensions, Alert } from 'react-native';
 import { colors, spacing, branding } from '../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { BrandText } from '../../components/common/BrandText';
 import { GradientBackground } from '../../components/common/GradientBackground';
 import { useAuth } from '../../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as analyticsService from '../../services/analyticsService';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -89,6 +90,10 @@ export function ProfessionalProfileEditorScreen() {
 
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    analyticsService.trackScreen('professional_profile_edit');
+  }, []);
+
   const toggleMultiSelect = (value: string, current: string[], setter: (val: string[]) => void) => {
     if (current.includes(value)) {
       setter(current.filter(v => v !== value));
@@ -141,6 +146,9 @@ export function ProfessionalProfileEditorScreen() {
     // Simulate save
     setTimeout(() => {
       setLoading(false);
+      analyticsService.track('profile_updated', {
+        fieldsUpdated: ['therapeuticApproach', 'specialties', 'sessionStyle', 'personality', 'ageGroups', 'languages', 'availability', 'format'],
+      });
       Alert.alert('Éxito', 'Tu perfil ha sido actualizado correctamente');
     }, 1000);
   };

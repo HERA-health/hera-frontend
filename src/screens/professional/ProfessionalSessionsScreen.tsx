@@ -22,6 +22,7 @@ import {
   getVideoCallButtonStyle,
   isVideoCallButtonClickable,
 } from '../../utils/videoCallUtils';
+import * as analyticsService from '../../services/analyticsService';
 
 const { width: screenWidth } = Dimensions.get('window');
 const isDesktop = screenWidth >= 1024;
@@ -58,6 +59,7 @@ export function ProfessionalSessionsScreen() {
   }, []);
 
   useEffect(() => {
+    analyticsService.trackScreen('professional_sessions');
     loadSessions();
   }, []);
 
@@ -181,6 +183,7 @@ export function ProfessionalSessionsScreen() {
     try {
       setProcessingSessionId(sessionId);
       await professionalService.updateSessionStatus(sessionId, 'CONFIRMED');
+      analyticsService.track('session_accepted', { sessionId });
       Alert.alert('Sesión confirmada', `Sesión con ${clientName} confirmada correctamente`);
       await loadSessions();
     } catch (error) {
@@ -204,6 +207,7 @@ export function ProfessionalSessionsScreen() {
             try {
               setProcessingSessionId(sessionId);
               await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
+              analyticsService.track('session_rejected', { sessionId });
               Alert.alert('Sesión rechazada', `La sesión con ${clientName} ha sido rechazada`);
               await loadSessions();
             } catch (error) {

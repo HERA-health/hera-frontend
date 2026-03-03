@@ -3,14 +3,19 @@
  * Wraps EmailInputScreen component for password reset email request
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { EmailInputScreen } from '../../components/auth';
 import * as authService from '../../services/authService';
+import * as analyticsService from '../../services/analyticsService';
 import type { AppNavigationProp } from '../../constants/types';
 
 export function ForgotPasswordScreen() {
   const navigation = useNavigation<AppNavigationProp>();
+
+  useEffect(() => {
+    analyticsService.trackScreen('forgot_password');
+  }, []);
 
   const handleSubmit = async (email: string) => {
     console.log('═══════════════════════════════════════');
@@ -22,6 +27,7 @@ export function ForgotPasswordScreen() {
       // Request password reset - this will throw on error
       // EmailInputScreen handles the error display
       console.log('📤 Calling authService.requestPasswordReset...');
+      analyticsService.track('password_reset_requested');
       await authService.requestPasswordReset(email);
       console.log('✅ Password reset request successful, navigating...');
 

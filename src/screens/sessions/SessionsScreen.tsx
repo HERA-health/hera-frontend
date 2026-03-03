@@ -38,6 +38,7 @@ import { getTodayString } from './utils/calendarHelpers';
 import CalendarPanel from './components/CalendarPanel';
 import SessionsList from './components/SessionsList';
 import { EmptyState, LoadingState } from './components';
+import * as analyticsService from '../../services/analyticsService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isDesktop = screenWidth > 1024;
@@ -66,6 +67,7 @@ const SessionsScreen: React.FC = () => {
 
   // Load sessions on mount
   useEffect(() => {
+    analyticsService.trackScreen('sessions_client');
     loadSessions();
     // Fade in animation
     Animated.timing(fadeAnim, {
@@ -121,6 +123,7 @@ const SessionsScreen: React.FC = () => {
           onPress: async () => {
             try {
               await sessionsService.cancelSession(sessionId);
+              analyticsService.track('session_cancelled', { sessionId });
               Alert.alert('Sesión cancelada', 'La sesión ha sido cancelada correctamente');
               await loadSessions();
             } catch (error: unknown) {

@@ -46,6 +46,7 @@ import { SortOption, Specialist, RootStackParamList } from '../../constants/type
 import * as specialistsService from '../../services/specialistsService';
 import * as clientService from '../../services/clientService';
 import { useAuth } from '../../contexts/AuthContext';
+import * as analyticsService from '../../services/analyticsService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Specialists'>;
 
@@ -243,6 +244,10 @@ const SpecialistsScreen: React.FC = () => {
 
   // Load client location on mount
   useEffect(() => {
+    analyticsService.trackScreen('specialists_list');
+  }, []);
+
+  useEffect(() => {
     const loadClientLocation = async () => {
       if (user?.type !== 'client') return;
 
@@ -357,6 +362,7 @@ const SpecialistsScreen: React.FC = () => {
         text: opt.label,
         onPress: () => {
           setMaxDistance(opt.value);
+          analyticsService.track('specialist_filter_applied', { filterKm: opt.value });
           // Immediately fetch with the NEW distance (don't wait for state update)
           if (proximityEnabled) {
             fetchSpecialists(proximityEnabled, opt.value);

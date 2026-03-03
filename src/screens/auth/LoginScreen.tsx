@@ -23,6 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { heraLanding, spacing, borderRadius, shadows, typography } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import * as analyticsService from '../../services/analyticsService';
 
 export function LoginScreen() {
   const navigation = useNavigation<any>();
@@ -60,6 +61,8 @@ export function LoginScreen() {
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    analyticsService.trackScreen('login');
+
     // Entrance animations
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -115,7 +118,10 @@ export function LoginScreen() {
     }
 
     try {
+      analyticsService.track('login_attempted', { userType: expectedUserType || 'unknown' });
       const response = await login(email, password);
+
+      analyticsService.track('login_success', { userType: response.user.userType });
 
       // Validate user type if expected type was specified
       if (expectedUserType && response.user.userType !== expectedUserType) {
@@ -132,7 +138,9 @@ export function LoginScreen() {
         return;
       }
     } catch (error: any) {
-      setLocalError(error.message || 'Error al iniciar sesión. Intenta de nuevo');
+      const reason = error.message || 'Error al iniciar sesión. Intenta de nuevo';
+      analyticsService.track('login_failed', { reason: reason.substring(0, 50) });
+      setLocalError(reason);
       triggerShake();
     }
   };

@@ -25,6 +25,7 @@ import { heraLanding, spacing, borderRadius, shadows } from '../../constants/col
 import { useAuth, UserType } from '../../contexts/AuthContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as authService from '../../services/authService';
+import * as analyticsService from '../../services/analyticsService';
 import { getErrorMessage } from '../../constants/errors';
 import type { AppNavigationProp } from '../../constants/types';
 
@@ -77,6 +78,8 @@ export function RegisterScreen() {
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    analyticsService.trackScreen('register');
+
     // Entrance animations
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -182,6 +185,10 @@ export function RegisterScreen() {
     }
 
     try {
+      analyticsService.track('register_submitted', {
+        userType: userType === 'client' ? 'CLIENT' : 'PROFESSIONAL',
+      });
+
       // Register the user
       await register(email, password, name, userType);
 

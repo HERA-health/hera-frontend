@@ -40,6 +40,7 @@ import {
 } from '../specialist-profile/components';
 import type { Specialist, Review } from '../specialist-profile/types';
 import { LocationMapPreview, ModalityBadges } from '../../components/location';
+import * as analyticsService from '../../services/analyticsService';
 
 // Types
 interface SpecialistDetailScreenProps {
@@ -71,6 +72,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
   const [showStickyBar, setShowStickyBar] = useState(false);
 
   useEffect(() => {
+    analyticsService.trackScreen('specialist_detail', { specialistId });
     loadSpecialistDetails();
   }, [specialistId]);
 
@@ -181,6 +183,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
   const handleBookSession = useCallback(() => {
     if (!specialist) return;
 
+    analyticsService.track('booking_initiated', { specialistId: specialist.id });
     navigation.navigate('Booking', {
       specialistId: specialist.id,
       specialistName: specialist.name,

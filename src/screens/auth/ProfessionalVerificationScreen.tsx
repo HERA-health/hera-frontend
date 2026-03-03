@@ -29,6 +29,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as professionalService from '../../services/professionalService';
 import * as authService from '../../services/authService';
 import { getErrorMessage } from '../../constants/errors';
+import * as analyticsService from '../../services/analyticsService';
 import type { AppNavigationProp } from '../../constants/types';
 
 export function ProfessionalVerificationScreen() {
@@ -59,6 +60,8 @@ export function ProfessionalVerificationScreen() {
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    analyticsService.trackScreen('professional_verification');
+
     // Entrance animations
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -116,6 +119,7 @@ export function ProfessionalVerificationScreen() {
         if (asset.base64) {
           setDniImage(asset.base64);
           setDniImageUri(asset.uri);
+          analyticsService.track('verification_photo_selected');
         }
       }
     } catch (error) {
@@ -206,6 +210,8 @@ export function ProfessionalVerificationScreen() {
         colegiadoNumber: colegiadoNumber.trim(),
         dniImage: dniImage,
       });
+
+      analyticsService.track('verification_submitted');
 
       // Mark verification as submitted so the navigation gate opens
       markVerificationSubmitted();
