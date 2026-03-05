@@ -97,7 +97,7 @@ export default function HomeScreen() {
   const upcomingSessions = [
     {
       id: '1',
-      specialistName: 'Dra. Elena Rodríguez',
+      specialistName: 'Elena Rodríguez',
       specialization: 'Psicóloga Clínica',
       date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
       type: 'video',

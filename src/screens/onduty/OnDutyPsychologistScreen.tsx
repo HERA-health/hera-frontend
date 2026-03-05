@@ -522,14 +522,14 @@ export function OnDutyPsychologistScreen({ navigation }: any) {
         setAvailableProfessionals([
           {
             id: '1',
-            name: 'Dra. María González',
+            name: 'María González',
             specialization: 'Psicóloga Clínica',
             experienceYears: 8,
             isAvailable: true,
           },
           {
             id: '2',
-            name: 'Dr. Carlos Martínez',
+            name: 'Carlos Martínez',
             specialization: 'Terapeuta Cognitivo-Conductual',
             experienceYears: 12,
             isAvailable: true,

@@ -235,7 +235,7 @@ export function ProfessionalHomeScreen() {
     >
       <View style={styles.welcomeContent}>
         <Text style={styles.welcomeGreeting}>
-          {getGreeting()}, Dr. {user?.name?.split(' ').pop() || 'Especialista'}
+          {getGreeting()}, {user?.name?.split(' ')[0] || 'Especialista'}
         </Text>
         <Text style={styles.welcomeSubtitle}>
           Gestiona tu práctica desde aquí

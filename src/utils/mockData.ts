@@ -9,7 +9,7 @@ import { colors } from '../constants/colors';
 export const mockSpecialists: Specialist[] = [
   {
     id: '1',
-    name: 'Dr. María González',
+    name: 'María González',
     initial: 'M',
     specialization: 'Psicóloga Clínica',
     rating: 4.9,
@@ -35,7 +35,7 @@ export const mockSpecialists: Specialist[] = [
   },
   {
     id: '2',
-    name: 'Dr. Carlos Rodríguez',
+    name: 'Carlos Rodríguez',
     initial: 'C',
     specialization: 'Psicólogo Deportivo',
     rating: 4.8,
@@ -61,7 +61,7 @@ export const mockSpecialists: Specialist[] = [
   },
   {
     id: '3',
-    name: 'Dra. Ana Martínez',
+    name: 'Ana Martínez',
     initial: 'A',
     specialization: 'Terapeuta Familiar',
     rating: 5.0,
@@ -87,7 +87,7 @@ export const mockSpecialists: Specialist[] = [
   },
   {
     id: '4',
-    name: 'Dr. Luis Fernández',
+    name: 'Luis Fernández',
     initial: 'L',
     specialization: 'Psicólogo Clínico',
     rating: 4.7,
@@ -113,7 +113,7 @@ export const mockSpecialists: Specialist[] = [
   },
   {
     id: '5',
-    name: 'Dra. Isabel Sánchez',
+    name: 'Isabel Sánchez',
     initial: 'I',
     specialization: 'Psicóloga Infantil',
     rating: 4.9,
@@ -143,7 +143,7 @@ export const mockSessions: Session[] = [
   {
     id: '1',
     specialistId: '1',
-    specialistName: 'Dr. María González',
+    specialistName: 'María González',
     date: new Date('2024-03-15T10:00:00'),
     duration: 50,
     status: 'completed',
@@ -153,7 +153,7 @@ export const mockSessions: Session[] = [
   {
     id: '2',
     specialistId: '1',
-    specialistName: 'Dr. María González',
+    specialistName: 'María González',
     date: new Date('2024-03-22T10:00:00'),
     duration: 50,
     status: 'completed',
@@ -163,7 +163,7 @@ export const mockSessions: Session[] = [
   {
     id: '3',
     specialistId: '3',
-    specialistName: 'Dra. Ana Martínez',
+    specialistName: 'Ana Martínez',
     date: new Date('2024-03-25T15:30:00'),
     duration: 60,
     status: 'completed',

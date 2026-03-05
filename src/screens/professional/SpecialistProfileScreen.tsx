@@ -965,7 +965,7 @@ export function SpecialistProfileScreen() {
             'Nombre completo',
             profileData.fullName,
             (text) => updateField('fullName', text),
-            { placeholder: 'Dr. Elena Rodríguez García', required: true }
+            { placeholder: 'Elena Rodríguez García', required: true }
           )}
           {renderFormField(
             'Título profesional',

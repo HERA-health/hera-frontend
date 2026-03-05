@@ -182,7 +182,7 @@ export function ProfessionalProfileEditorScreen() {
               style={styles.input}
               value={name}
               onChangeText={setName}
-              placeholder="Dr. Juan Pérez"
+              placeholder="Juan Pérez"
             />
           </View>
 
