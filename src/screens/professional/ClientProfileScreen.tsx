@@ -69,7 +69,7 @@ interface ClientData {
 
 interface SessionData {
   id: string;
-  scheduledDate: string;
+  date: string;
   duration: number;
   status: string;
   type: string;
@@ -258,9 +258,9 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
     const upcoming = sessions
       .filter(s =>
         (s.status === 'CONFIRMED' || s.status === 'confirmed' || s.status === 'scheduled') &&
-        new Date(s.scheduledDate) > new Date()
+        new Date(s.date) > new Date()
       )
-      .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     return {
       total: sessions.length,
@@ -670,14 +670,14 @@ export const ClientProfileScreen: React.FC<ClientProfileScreenProps> = ({
                 {sessionStats.nextSession ? (
                   <View style={styles.nextSession}>
                     <Text style={styles.nextSessionDate}>
-                      {new Date(sessionStats.nextSession.scheduledDate).toLocaleDateString('es-ES', {
+                      {new Date(sessionStats.nextSession.date).toLocaleDateString('es-ES', {
                         weekday: 'long',
                         day: 'numeric',
                         month: 'long',
                       })}
                     </Text>
                     <Text style={styles.nextSessionTime}>
-                      {new Date(sessionStats.nextSession.scheduledDate).toLocaleTimeString('es-ES', {
+                      {new Date(sessionStats.nextSession.date).toLocaleTimeString('es-ES', {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}

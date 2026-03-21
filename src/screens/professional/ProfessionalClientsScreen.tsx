@@ -93,7 +93,7 @@ export function ProfessionalClientsScreen() {
         phone: '',
         initial: (c.user?.name || 'C')[0].toUpperCase(),
         status: 'active' as const,
-        lastSession: c.sessions?.[0]?.scheduledDate ? new Date(c.sessions[0].scheduledDate) : undefined,
+        lastSession: c.sessions?.[0]?.date ? new Date(c.sessions[0].date) : undefined,
         totalSessions: c.sessions?.length || 0,
         nextSession: undefined,
         tags: ['Ansiedad', 'Individual'], // Mock tags

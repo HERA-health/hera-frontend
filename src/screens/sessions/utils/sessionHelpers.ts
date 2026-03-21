@@ -134,10 +134,20 @@ export const getSessionTypeIcon = (type: SessionType): string => {
 };
 
 /**
+ * Safely parses a date string, returning null if invalid
+ */
+const safeParseDate = (dateString: string | null | undefined): Date | null => {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  return isNaN(date.getTime()) ? null : date;
+};
+
+/**
  * Formats date to Spanish locale full format
  */
 export const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
+  const date = safeParseDate(dateString);
+  if (!date) return 'Fecha no disponible';
   return new Intl.DateTimeFormat('es-ES', {
     weekday: 'long',
     day: 'numeric',
@@ -150,7 +160,8 @@ export const formatDate = (dateString: string): string => {
  * Formats date to short format (day, month)
  */
 export const formatShortDate = (dateString: string): string => {
-  const date = new Date(dateString);
+  const date = safeParseDate(dateString);
+  if (!date) return 'Fecha no disponible';
   return new Intl.DateTimeFormat('es-ES', {
     day: 'numeric',
     month: 'short',
@@ -161,7 +172,8 @@ export const formatShortDate = (dateString: string): string => {
  * Formats time in HH:MM format
  */
 export const formatTime = (dateString: string): string => {
-  const date = new Date(dateString);
+  const date = safeParseDate(dateString);
+  if (!date) return '--:--';
   return new Intl.DateTimeFormat('es-ES', {
     hour: '2-digit',
     minute: '2-digit',

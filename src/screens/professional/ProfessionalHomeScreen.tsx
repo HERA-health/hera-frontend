@@ -25,6 +25,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as professionalService from '../../services/professionalService';
 import { VerificationBanner } from '../../components/auth';
 import * as analyticsService from '../../services/analyticsService';
+import { formatDate, formatTime } from '../sessions/utils/sessionHelpers';
 
 export function ProfessionalHomeScreen() {
   const { user } = useAuth();
@@ -95,12 +96,12 @@ export function ProfessionalHomeScreen() {
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
     const sessionsThisMonth = sessions.filter(s => {
-      const date = new Date(s.scheduledDate);
+      const date = new Date(s.date);
       return date >= startOfMonth && date <= endOfMonth && s.status === 'COMPLETED';
     }).length;
 
     const todaySessions = sessions.filter(s => {
-      const date = new Date(s.scheduledDate);
+      const date = new Date(s.date);
       const today = new Date();
       return date.toDateString() === today.toDateString();
     });
@@ -127,16 +128,16 @@ export function ProfessionalHomeScreen() {
     const today = new Date();
     return sessions
       .filter(s => {
-        const date = new Date(s.scheduledDate);
+        const date = new Date(s.date);
         return date.toDateString() === today.toDateString() && s.status !== 'CANCELLED';
       })
-      .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .map(s => ({
         id: s.id,
         clientId: s.clientId,
         clientName: s.client?.user?.name || 'Cliente',
         clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
-        date: new Date(s.scheduledDate),
+        date: s.date,
         duration: 60,
         status: s.status.toLowerCase(),
         isFirstSession: false, // Would come from API
@@ -154,7 +155,7 @@ export function ProfessionalHomeScreen() {
         clientId: s.clientId,
         clientName: s.client?.user?.name || 'Cliente',
         clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
-        date: new Date(s.scheduledDate),
+        date: s.date,
         isFirstSession: true, // Would come from API
         price: profile?.pricePerSession || 60,
       }));
@@ -162,18 +163,6 @@ export function ProfessionalHomeScreen() {
 
   const todaySessions = getTodaySessions();
   const pendingRequests = getPendingRequests();
-
-  // Format time
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  };
-
-  // Format date
-  const formatDate = (date: Date) => {
-    const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
-  };
 
   // Handle session confirmation
   const handleConfirmSession = async (sessionId: string) => {

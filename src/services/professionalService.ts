@@ -22,7 +22,7 @@ export interface Session {
   id: string;
   clientId: string;
   specialistId: string;
-  scheduledDate: string;
+  date: string;
   status: string;
   notes?: string;
   client?: {

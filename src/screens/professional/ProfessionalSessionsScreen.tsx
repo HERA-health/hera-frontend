@@ -87,7 +87,7 @@ export function ProfessionalSessionsScreen() {
         return {
           id: s.id,
           clientId: s.clientId,
-          date: new Date(s.scheduledDate || (s as any).date),
+          date: new Date(s.date),
           clientName: s.client?.user?.name || 'Cliente',
           clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
           duration: (s as any).duration || 60,
