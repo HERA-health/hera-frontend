@@ -18,14 +18,15 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SidebarProps, NavigationSection } from './types';
 import { getNavigationSections, SIDEBAR_THEME } from './navConfig';
 import { containerStyles, logoStyles, sectionStyles } from './styles';
 import { NavItem } from './NavItem';
 import { UserSection } from './UserSection';
 import { StyledLogo } from '../../common/StyledLogo';
-import { BrandText } from '../../common/BrandText';
+import { spacing } from '../../../constants/colors';
 
 /**
  * Sidebar is the main navigation component for the HERA application
@@ -35,13 +36,8 @@ import { BrandText } from '../../common/BrandText';
  * - Role-based sections (CLIENT vs PROFESSIONAL)
  * - Active route highlighting
  * - User section with logout
+ * - Collapsible: shows only icons when collapsed
  * - Clean, modern design matching HERA landing page
- *
- * @param userRole - Current user's role (CLIENT or PROFESSIONAL)
- * @param currentRoute - Name of the currently active route
- * @param onNavigate - Callback to navigate to a route
- * @param user - Current user information
- * @param onLogout - Callback when user logs out
  */
 export function Sidebar({
   userRole,
@@ -50,9 +46,10 @@ export function Sidebar({
   user,
   onLogout,
   isAdmin,
+  isCollapsed = false,
+  onToggleCollapse,
 }: SidebarProps): React.ReactElement {
   // Get navigation sections for the current user role
-  // Memoized to prevent recalculation on every render
   const sections = useMemo(
     () => getNavigationSections(userRole, isAdmin),
     [userRole, isAdmin]
@@ -70,7 +67,7 @@ export function Sidebar({
 
   return (
     <View
-      style={containerStyles.sidebar}
+      style={[containerStyles.sidebar, isCollapsed && collapseStyles.sidebarCollapsed]}
       accessible
       accessibilityLabel="Main navigation"
     >
@@ -80,12 +77,50 @@ export function Sidebar({
         contentContainerStyle={containerStyles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo Section */}
-        <View style={logoStyles.container}>
-          <StyledLogo size={56} />
-          <BrandText style={logoStyles.brandName}>HERA</BrandText>
-          <Text style={logoStyles.tagline}>{tagline}</Text>
-        </View>
+        {/* Header Section */}
+        {isCollapsed ? (
+          <View style={collapseStyles.headerCollapsed}>
+            <StyledLogo size={32} />
+            {onToggleCollapse && (
+              <TouchableOpacity
+                style={collapseStyles.toggleButton}
+                onPress={onToggleCollapse}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Expandir menú"
+              >
+                <Ionicons
+                  name="menu-outline"
+                  size={22}
+                  color={SIDEBAR_THEME.text.secondary}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <View style={collapseStyles.headerExpanded}>
+            <StyledLogo size={28} />
+            <View style={collapseStyles.headerTextContainer}>
+              <Text style={logoStyles.brandName} numberOfLines={1} ellipsizeMode="tail">HERA</Text>
+              <Text style={logoStyles.tagline} numberOfLines={1} ellipsizeMode="tail">{tagline}</Text>
+            </View>
+            {onToggleCollapse && (
+              <TouchableOpacity
+                style={collapseStyles.toggleButton}
+                onPress={onToggleCollapse}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Colapsar menú"
+              >
+                <Ionicons
+                  name="menu-outline"
+                  size={22}
+                  color={SIDEBAR_THEME.text.secondary}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Navigation Sections */}
         {sections.map((section, sectionIndex) => (
@@ -95,6 +130,7 @@ export function Sidebar({
             currentRoute={currentRoute}
             onNavigate={onNavigate}
             showDivider={sectionIndex > 0}
+            isCollapsed={isCollapsed}
           />
         ))}
 
@@ -105,6 +141,7 @@ export function Sidebar({
         user={user}
         subtitle={subtitle}
         onLogout={onLogout}
+        isCollapsed={isCollapsed}
       />
     </View>
   );
@@ -112,13 +149,13 @@ export function Sidebar({
 
 /**
  * NavigationSectionComponent renders a single section of navigation items
- * This is an internal component, not exported
  */
 interface NavigationSectionComponentProps {
   section: NavigationSection;
   currentRoute: string;
   onNavigate: (route: string) => void;
   showDivider: boolean;
+  isCollapsed: boolean;
 }
 
 function NavigationSectionComponent({
@@ -126,14 +163,15 @@ function NavigationSectionComponent({
   currentRoute,
   onNavigate,
   showDivider,
+  isCollapsed,
 }: NavigationSectionComponentProps): React.ReactElement {
   return (
     <View style={sectionStyles.container}>
       {/* Divider between sections */}
       {showDivider && <View style={sectionStyles.divider} />}
 
-      {/* Section header label */}
-      {section.label && (
+      {/* Section header label — hidden when collapsed */}
+      {!isCollapsed && section.label && (
         <Text
           style={sectionStyles.header}
           accessibilityRole="header"
@@ -149,10 +187,42 @@ function NavigationSectionComponent({
           item={item}
           isActive={currentRoute === item.route}
           onPress={onNavigate}
+          isCollapsed={isCollapsed}
         />
       ))}
     </View>
   );
 }
+
+const collapseStyles = StyleSheet.create({
+  sidebarCollapsed: {
+    width: SIDEBAR_THEME.collapsedWidth,
+  },
+  headerExpanded: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: SIDEBAR_THEME.border,
+  },
+  headerTextContainer: {
+    flex: 1,
+    marginLeft: spacing.sm,
+  },
+  headerCollapsed: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: SIDEBAR_THEME.border,
+  },
+  toggleButton: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
 
 export default Sidebar;

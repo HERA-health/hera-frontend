@@ -94,6 +94,8 @@ export interface NavItemProps {
   isActive: boolean;
   /** Callback when item is pressed */
   onPress: (route: string) => void;
+  /** Whether the sidebar is in collapsed state */
+  isCollapsed?: boolean;
 }
 
 /**
@@ -119,6 +121,8 @@ export interface UserSectionProps {
   subtitle: string;
   /** Callback when logout is pressed */
   onLogout: () => void;
+  /** Whether the sidebar is in collapsed state */
+  isCollapsed?: boolean;
 }
 
 /**
@@ -138,6 +142,10 @@ export interface SidebarProps {
   onLogout: () => void;
   /** Whether the user is an admin */
   isAdmin?: boolean;
+  /** Whether the sidebar is in collapsed state */
+  isCollapsed?: boolean;
+  /** Callback to toggle collapse state */
+  onToggleCollapse?: () => void;
 }
 
 /**
@@ -147,6 +155,8 @@ export interface SidebarProps {
 export interface SidebarTheme {
   /** Sidebar width in pixels */
   width: number;
+  /** Sidebar width when collapsed (icons only) */
+  collapsedWidth: number;
   /** Background colors */
   background: {
     primary: string;

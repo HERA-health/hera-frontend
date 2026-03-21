@@ -1,10 +1,10 @@
 /**
- * ProfessionalHomeScreen - Specialist Dashboard
- * Modern, clean professional dashboard with stats, sessions, and pending requests
+ * ProfessionalHomeScreen - Calendar-based Professional Dashboard
+ * Three-column layout: sidebar (via MainLayout) | calendar | right panel
  * Follows HERA design language with sage green and lavender palette
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,52 +13,179 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   ActivityIndicator,
-  Image,
   Animated,
   Alert,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, colors, spacing, borderRadius, shadows } from '../../constants/colors';
+import {
+  heraLanding,
+  spacing,
+  borderRadius,
+  shadows,
+  typography,
+  layout,
+} from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigation } from '@react-navigation/native';
 import * as professionalService from '../../services/professionalService';
 import { VerificationBanner } from '../../components/auth';
 import * as analyticsService from '../../services/analyticsService';
-import { formatDate, formatTime } from '../sessions/utils/sessionHelpers';
+import { formatTime, getDateLabel } from '../sessions/utils/sessionHelpers';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type CalendarView = 'month' | 'week';
+
+interface CalendarDay {
+  date: Date;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  sessions: MappedSession[];
+}
+
+interface MappedSession {
+  id: string;
+  clientId: string;
+  clientName: string;
+  clientInitial: string;
+  date: string;
+  duration: number;
+  status: string;
+  type: string;
+}
+
+// ─── Helper functions ────────────────────────────────────────────────────────
+
+const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+const SHORT_MONTH_NAMES = [
+  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+];
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Buenos días';
+  if (hour < 20) return 'Buenas tardes';
+  return 'Buenas noches';
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function getMonthDays(year: number, month: number): CalendarDay[] {
+  const today = new Date();
+  const firstDay = new Date(year, month, 1);
+  // Monday = 0 in our system
+  let startDow = firstDay.getDay() - 1;
+  if (startDow < 0) startDow = 6;
+
+  const days: CalendarDay[] = [];
+
+  // Previous month padding
+  for (let i = startDow - 1; i >= 0; i--) {
+    const date = new Date(year, month, -i);
+    days.push({ date, isCurrentMonth: false, isToday: isSameDay(date, today), sessions: [] });
+  }
+
+  // Current month
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month, d);
+    days.push({ date, isCurrentMonth: true, isToday: isSameDay(date, today), sessions: [] });
+  }
+
+  // Fill remaining to complete grid (multiple of 7)
+  while (days.length % 7 !== 0) {
+    const date = new Date(year, month + 1, days.length - (startDow + daysInMonth) + 1);
+    days.push({ date, isCurrentMonth: false, isToday: isSameDay(date, today), sessions: [] });
+  }
+
+  return days;
+}
+
+function getWeekDays(referenceDate: Date): CalendarDay[] {
+  const today = new Date();
+  const dow = referenceDate.getDay();
+  // Monday-based
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(referenceDate);
+  monday.setDate(referenceDate.getDate() + mondayOffset);
+
+  const days: CalendarDay[] = [];
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + i);
+    days.push({
+      date,
+      isCurrentMonth: date.getMonth() === referenceDate.getMonth(),
+      isToday: isSameDay(date, today),
+      sessions: [],
+    });
+  }
+  return days;
+}
+
+function dateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function mapSession(s: professionalService.Session): MappedSession {
+  return {
+    id: s.id,
+    clientId: s.clientId,
+    clientName: s.client?.user?.name || 'Cliente',
+    clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
+    date: s.date,
+    duration: 60,
+    status: s.status,
+    type: 'VIDEO_CALL',
+  };
+}
+
+function getSessionTypeLabel(type: string): string {
+  switch (type) {
+    case 'VIDEO_CALL': return 'Videollamada';
+    case 'PHONE_CALL': return 'Llamada';
+    case 'IN_PERSON': return 'Presencial';
+    default: return type;
+  }
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export function ProfessionalHomeScreen() {
   const { user } = useAuth();
-  const navigation = useNavigation<any>();
   const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
-  const isDesktop = width >= 1024;
-  const isTablet = width >= 768 && width < 1024;
-
+  // Data state
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<professionalService.Session[]>([]);
   const [profile, setProfile] = useState<professionalService.ProfessionalProfile | null>(null);
   const [processingSessionId, setProcessingSessionId] = useState<string | null>(null);
 
-  // Animation values
+  // Calendar state
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<CalendarView>('month');
+  const [showViewDropdown, setShowViewDropdown] = useState(false);
+
+  // Animation
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     analyticsService.trackScreen('professional_dashboard');
-
-    // Entrance animations
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
     ]).start();
   }, []);
 
@@ -70,7 +197,7 @@ export function ProfessionalHomeScreen() {
     try {
       const [sessionsData, profileData] = await Promise.all([
         professionalService.getProfessionalSessions(),
-        professionalService.getProfessionalProfile()
+        professionalService.getProfessionalProfile(),
       ]);
       setSessions(sessionsData);
       setProfile(profileData);
@@ -81,110 +208,110 @@ export function ProfessionalHomeScreen() {
     }
   };
 
-  // Get greeting based on time
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Buenos días';
-    if (hour < 19) return 'Buenas tardes';
-    return 'Buenas noches';
-  };
+  // ─── Mapped session data ────────────────────────────────────────────────
 
-  // Calculate stats from data
-  const getStats = () => {
+  const mappedSessions = useMemo(() => sessions.map(mapSession), [sessions]);
+
+  const sessionsByDate = useMemo(() => {
+    const map = new Map<string, MappedSession[]>();
+    for (const s of mappedSessions) {
+      const key = dateKey(new Date(s.date));
+      const arr = map.get(key) || [];
+      arr.push(s);
+      map.set(key, arr);
+    }
+    return map;
+  }, [mappedSessions]);
+
+  const pendingRequests = useMemo(
+    () => mappedSessions.filter((s) => s.status === 'PENDING'),
+    [mappedSessions],
+  );
+
+  const upcomingSessions = useMemo(() => {
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return mappedSessions
+      .filter((s) => s.status === 'CONFIRMED' && new Date(s.date) >= now)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [mappedSessions]);
 
-    const sessionsThisMonth = sessions.filter(s => {
-      const date = new Date(s.date);
-      return date >= startOfMonth && date <= endOfMonth && s.status === 'COMPLETED';
-    }).length;
+  // ─── Calendar data ──────────────────────────────────────────────────────
 
-    const todaySessions = sessions.filter(s => {
-      const date = new Date(s.date);
-      const today = new Date();
-      return date.toDateString() === today.toDateString();
+  const calendarDays = useMemo(() => {
+    const days =
+      viewMode === 'month'
+        ? getMonthDays(currentDate.getFullYear(), currentDate.getMonth())
+        : getWeekDays(currentDate);
+
+    return days.map((day) => ({
+      ...day,
+      sessions: sessionsByDate.get(dateKey(day.date)) || [],
+    }));
+  }, [currentDate, viewMode, sessionsByDate]);
+
+  // ─── Navigation label ──────────────────────────────────────────────────
+
+  const navLabel = useMemo(() => {
+    if (viewMode === 'month') {
+      return `${MONTH_NAMES[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    }
+    // Week view: show range e.g. "17-23 mar"
+    const weekDays = getWeekDays(currentDate);
+    const first = weekDays[0].date;
+    const last = weekDays[6].date;
+    const firstMonth = SHORT_MONTH_NAMES[first.getMonth()];
+    const lastMonth = SHORT_MONTH_NAMES[last.getMonth()];
+    if (first.getMonth() === last.getMonth()) {
+      return `${first.getDate()}-${last.getDate()} ${firstMonth}`;
+    }
+    return `${first.getDate()} ${firstMonth} - ${last.getDate()} ${lastMonth}`;
+  }, [currentDate, viewMode]);
+
+  // ─── Handlers ──────────────────────────────────────────────────────────
+
+  const navigatePrev = useCallback(() => {
+    setCurrentDate((prev) => {
+      const d = new Date(prev);
+      if (viewMode === 'month') {
+        d.setMonth(d.getMonth() - 1);
+      } else {
+        d.setDate(d.getDate() - 7);
+      }
+      return d;
     });
+  }, [viewMode]);
 
-    const pendingRequests = sessions.filter(s => s.status === 'PENDING').length;
+  const navigateNext = useCallback(() => {
+    setCurrentDate((prev) => {
+      const d = new Date(prev);
+      if (viewMode === 'month') {
+        d.setMonth(d.getMonth() + 1);
+      } else {
+        d.setDate(d.getDate() + 7);
+      }
+      return d;
+    });
+  }, [viewMode]);
 
-    // Mock revenue calculation (in real app, this would come from API)
-    const revenueThisMonth = sessionsThisMonth * (profile?.pricePerSession || 60);
-
-    return {
-      sessionsThisMonth,
-      sessionsToday: todaySessions.length,
-      pendingRequests,
-      revenueThisMonth,
-      completedToday: todaySessions.filter(s => s.status === 'COMPLETED').length,
-      averageRating: profile?.rating || 0,
-    };
-  };
-
-  const stats = getStats();
-
-  // Get today's sessions
-  const getTodaySessions = () => {
-    const today = new Date();
-    return sessions
-      .filter(s => {
-        const date = new Date(s.date);
-        return date.toDateString() === today.toDateString() && s.status !== 'CANCELLED';
-      })
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .map(s => ({
-        id: s.id,
-        clientId: s.clientId,
-        clientName: s.client?.user?.name || 'Cliente',
-        clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
-        date: s.date,
-        duration: 60,
-        status: s.status.toLowerCase(),
-        isFirstSession: false, // Would come from API
-        issue: 'Sesión programada',
-      }));
-  };
-
-  // Get pending confirmations
-  const getPendingRequests = () => {
-    return sessions
-      .filter(s => s.status === 'PENDING')
-      .slice(0, 3)
-      .map(s => ({
-        id: s.id,
-        clientId: s.clientId,
-        clientName: s.client?.user?.name || 'Cliente',
-        clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
-        date: s.date,
-        isFirstSession: true, // Would come from API
-        price: profile?.pricePerSession || 60,
-      }));
-  };
-
-  const todaySessions = getTodaySessions();
-  const pendingRequests = getPendingRequests();
-
-  // Handle session confirmation
   const handleConfirmSession = async (sessionId: string) => {
     if (processingSessionId) return;
-    const request = pendingRequests.find(r => r.id === sessionId);
+    const request = pendingRequests.find((r) => r.id === sessionId);
     const clientName = request?.clientName || 'Cliente';
     try {
       setProcessingSessionId(sessionId);
       await professionalService.updateSessionStatus(sessionId, 'CONFIRMED');
       Alert.alert('Sesión confirmada', `Sesión con ${clientName} confirmada correctamente`);
       await loadData();
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'No se pudo confirmar la sesión');
     } finally {
       setProcessingSessionId(null);
     }
   };
 
-  // Handle session decline
   const handleDeclineSession = async (sessionId: string) => {
     if (processingSessionId) return;
-    const request = pendingRequests.find(r => r.id === sessionId);
+    const request = pendingRequests.find((r) => r.id === sessionId);
     const clientName = request?.clientName || 'Cliente';
     Alert.alert(
       'Rechazar sesión',
@@ -200,363 +327,365 @@ export function ProfessionalHomeScreen() {
               await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
               Alert.alert('Sesión rechazada', `La sesión con ${clientName} ha sido rechazada`);
               await loadData();
-            } catch (error) {
+            } catch {
               Alert.alert('Error', 'No se pudo rechazar la sesión');
             } finally {
               setProcessingSessionId(null);
             }
           },
         },
-      ]
+      ],
     );
   };
 
-  // Render welcome header
-  const renderWelcomeHeader = () => (
+  // ─── Render: Top Bar ───────────────────────────────────────────────────
+
+  const renderTopBar = () => (
     <Animated.View
       style={[
-        styles.welcomeHeader,
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        },
+        styles.topBar,
+        { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
       ]}
     >
-      <View style={styles.welcomeContent}>
-        <Text style={styles.welcomeGreeting}>
-          {getGreeting()}, {user?.name?.split(' ')[0] || 'Especialista'}
-        </Text>
-        <Text style={styles.welcomeSubtitle}>
-          Gestiona tu práctica desde aquí
-        </Text>
-      </View>
-      <TouchableOpacity
-        style={styles.profileButton}
-        onPress={() => navigation.navigate('ProfessionalProfile')}
-      >
-        <View style={styles.profileAvatar}>
-          <Ionicons name="person" size={24} color={heraLanding.secondary} />
+      <Text style={styles.greeting}>
+        {getGreeting()}, {user?.name?.split(' ')[0] || 'Especialista'}
+      </Text>
+
+      <View style={styles.topBarRight}>
+        {/* Navigation arrows */}
+        <View style={styles.navArrows}>
+          <TouchableOpacity onPress={navigatePrev} style={styles.navArrowButton}>
+            <Ionicons name="chevron-back" size={18} color={heraLanding.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.navLabel}>{navLabel}</Text>
+          <TouchableOpacity onPress={navigateNext} style={styles.navArrowButton}>
+            <Ionicons name="chevron-forward" size={18} color={heraLanding.textPrimary} />
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+
+        {/* View selector dropdown */}
+        <View style={styles.viewSelectorContainer}>
+          <TouchableOpacity
+            style={styles.viewSelectorButton}
+            onPress={() => setShowViewDropdown((prev) => !prev)}
+          >
+            <Text style={styles.viewSelectorText}>
+              {viewMode === 'month' ? 'Vista mensual' : 'Vista semanal'}
+            </Text>
+            <Ionicons
+              name={showViewDropdown ? 'chevron-up' : 'chevron-down'}
+              size={14}
+              color={heraLanding.textSecondary}
+            />
+          </TouchableOpacity>
+
+          {showViewDropdown && (
+            <View style={styles.viewDropdown}>
+              <TouchableOpacity
+                style={[
+                  styles.viewDropdownItem,
+                  viewMode === 'month' && styles.viewDropdownItemActive,
+                ]}
+                onPress={() => {
+                  setViewMode('month');
+                  setShowViewDropdown(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.viewDropdownText,
+                    viewMode === 'month' && styles.viewDropdownTextActive,
+                  ]}
+                >
+                  Vista mensual
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.viewDropdownItem,
+                  viewMode === 'week' && styles.viewDropdownItemActive,
+                ]}
+                onPress={() => {
+                  setViewMode('week');
+                  setShowViewDropdown(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.viewDropdownText,
+                    viewMode === 'week' && styles.viewDropdownTextActive,
+                  ]}
+                >
+                  Vista semanal
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
     </Animated.View>
   );
 
-  // Render stats cards
-  const renderStatsCards = () => {
-    const statsData = [
-      {
-        id: 'sessions-month',
-        icon: 'bar-chart',
-        value: stats.sessionsThisMonth.toString(),
-        label: 'Sesiones este mes',
-        color: heraLanding.primary,
-        bgColor: heraLanding.primaryMuted,
-      },
-      {
-        id: 'sessions-today',
-        icon: 'calendar',
-        value: stats.sessionsToday.toString(),
-        label: 'Sesiones hoy',
-        subtext: stats.completedToday > 0 ? `${stats.completedToday} completadas` : null,
-        color: heraLanding.secondary,
-        bgColor: heraLanding.secondaryMuted,
-      },
-      {
-        id: 'revenue',
-        icon: 'wallet',
-        value: `€${stats.revenueThisMonth}`,
-        label: 'Ingresos este mes',
-        subtext: profile?.pricePerSession ? `€${profile.pricePerSession}/sesión` : null,
-        color: heraLanding.success,
-        bgColor: 'rgba(123, 163, 119, 0.15)',
-      },
-    ];
+  // ─── Render: Month View ────────────────────────────────────────────────
 
-    return (
-      <View style={styles.section}>
-        <View style={[
-          styles.statsGrid,
-          isDesktop && styles.statsGridDesktop,
-        ]}>
-          {statsData.map((stat, index) => (
-            <Animated.View
-              key={stat.id}
-              style={[
-                styles.statCard,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }],
-                },
-              ]}
-            >
-              <View style={[styles.statIconContainer, { backgroundColor: stat.bgColor }]}>
-                <Ionicons name={stat.icon as any} size={24} color={stat.color} />
-              </View>
-              <Text style={[styles.statValue, { color: stat.color }]}>{stat.value}</Text>
-              <Text style={styles.statLabel}>{stat.label}</Text>
-              {stat.subtext && (
-                <Text style={styles.statSubtext}>{stat.subtext}</Text>
-              )}
-            </Animated.View>
-          ))}
-        </View>
-      </View>
-    );
-  };
-
-  // Render quick actions
-  const renderQuickActions = () => {
-    const actions = [
-      {
-        id: 'clients',
-        icon: 'people',
-        title: 'Ver mis clientes',
-        description: 'Gestiona tu lista de pacientes',
-        onPress: () => navigation.navigate('ProfessionalClients'),
-      },
-      {
-        id: 'sessions',
-        icon: 'calendar',
-        title: 'Gestionar sesiones',
-        description: 'Próximas citas y solicitudes',
-        onPress: () => navigation.navigate('ProfessionalSessions'),
-      },
-      {
-        id: 'availability',
-        icon: 'time',
-        title: 'Configurar disponibilidad',
-        description: 'Define tu horario',
-        onPress: () => navigation.navigate('ProfessionalAvailability'),
-      },
-      {
-        id: 'profile',
-        icon: 'create',
-        title: 'Editar mi perfil',
-        description: 'Actualiza tu información',
-        onPress: () => navigation.navigate('ProfessionalProfile'),
-      },
-    ];
-
-    return (
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Acciones rápidas</Text>
-        <View style={[
-          styles.actionsGrid,
-          isDesktop && styles.actionsGridDesktop,
-        ]}>
-          {actions.map((action) => (
-            <TouchableOpacity
-              key={action.id}
-              style={[styles.actionCard, isDesktop && styles.actionCardDesktop]}
-              onPress={action.onPress}
-              activeOpacity={0.85}
-            >
-              <View style={styles.actionIconContainer}>
-                <Ionicons name={action.icon as any} size={24} color={heraLanding.primary} />
-              </View>
-              <View style={styles.actionContent}>
-                <Text style={styles.actionTitle}>{action.title}</Text>
-                <Text style={styles.actionDescription}>{action.description}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={heraLanding.textMuted} />
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    );
-  };
-
-  // Render today's sessions
-  const renderTodaySessions = () => (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Sesiones de hoy</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('ProfessionalSessions')}>
-          <Text style={styles.sectionLink}>Ver todas</Text>
-        </TouchableOpacity>
+  const renderMonthView = () => (
+    <View style={styles.calendarGrid}>
+      {/* Weekday headers */}
+      <View style={styles.weekdayHeaderRow}>
+        {WEEKDAY_LABELS.map((label) => (
+          <View key={label} style={styles.weekdayHeaderCell}>
+            <Text style={styles.weekdayHeaderText}>{label}</Text>
+          </View>
+        ))}
       </View>
 
-      {todaySessions.length > 0 ? (
-        <View style={styles.sessionsList}>
-          {todaySessions.map((session) => {
-            const isUpcoming = session.date > new Date();
-            const isInProgress = !isUpcoming && session.status === 'scheduled';
+      {/* Day cells in rows of 7 */}
+      {Array.from({ length: calendarDays.length / 7 }, (_, weekIdx) => (
+        <View key={weekIdx} style={styles.calendarWeekRow}>
+          {calendarDays.slice(weekIdx * 7, weekIdx * 7 + 7).map((day) => {
+            const confirmed = day.sessions.filter((s) => s.status === 'CONFIRMED');
+            const pending = day.sessions.filter((s) => s.status === 'PENDING');
+            const pills = [...confirmed.slice(0, 2), ...pending.slice(0, 2)].slice(0, 2);
+            const totalEvents = confirmed.length + pending.length;
+            const extraCount = totalEvents - pills.length;
 
             return (
               <View
-                key={session.id}
+                key={dateKey(day.date)}
                 style={[
-                  styles.sessionCard,
-                  isInProgress && styles.sessionCardActive,
-                  session.status === 'completed' && styles.sessionCardCompleted,
+                  styles.monthDayCell,
+                  !day.isCurrentMonth && styles.monthDayCellMuted,
                 ]}
               >
-                <View style={styles.sessionTimeContainer}>
-                  <Text style={[
-                    styles.sessionTime,
-                    isInProgress && styles.sessionTimeActive,
-                  ]}>
-                    {formatTime(session.date)}
+                <View style={[styles.dayNumberWrapper, day.isToday && styles.dayNumberToday]}>
+                  <Text
+                    style={[
+                      styles.dayNumber,
+                      day.isToday && styles.dayNumberTodayText,
+                      !day.isCurrentMonth && styles.dayNumberMuted,
+                    ]}
+                  >
+                    {day.date.getDate()}
                   </Text>
-                  <Text style={styles.sessionDuration}>{session.duration} min</Text>
                 </View>
 
-                <View style={styles.sessionDivider} />
-
-                <View style={styles.sessionInfo}>
-                  <View style={styles.sessionClient}>
-                    <View style={[
-                      styles.clientAvatar,
-                      isInProgress && styles.clientAvatarActive,
-                    ]}>
-                      <Text style={[
-                        styles.clientAvatarText,
-                        isInProgress && styles.clientAvatarTextActive,
-                      ]}>
-                        {session.clientInitial}
-                      </Text>
-                    </View>
-                    <View style={styles.clientDetails}>
-                      <Text style={styles.clientName}>{session.clientName}</Text>
-                      <View style={styles.sessionMeta}>
-                        {session.isFirstSession && (
-                          <View style={styles.firstSessionBadge}>
-                            <Text style={styles.firstSessionBadgeText}>Primera sesión</Text>
-                          </View>
-                        )}
-                        <Text style={styles.sessionIssue}>{session.issue}</Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={styles.sessionActions}>
-                    {isInProgress && (
-                      <TouchableOpacity style={styles.startSessionButton}>
-                        <LinearGradient
-                          colors={[heraLanding.primary, heraLanding.primaryDark]}
-                          style={styles.startSessionGradient}
-                        >
-                          <Ionicons name="videocam" size={16} color="#FFFFFF" />
-                          <Text style={styles.startSessionText}>Iniciar</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    )}
-                    {session.status === 'completed' && (
-                      <View style={styles.completedBadge}>
-                        <Ionicons name="checkmark-circle" size={16} color={heraLanding.success} />
-                        <Text style={styles.completedText}>Completada</Text>
-                      </View>
-                    )}
-                    <TouchableOpacity
-                      style={styles.viewProfileIconButton}
-                      onPress={() => navigation.navigate('ClientProfile', { clientId: session.clientId })}
+                {pills.map((session) => (
+                  <View
+                    key={session.id}
+                    style={[
+                      styles.eventPill,
+                      session.status === 'CONFIRMED'
+                        ? styles.eventPillConfirmed
+                        : styles.eventPillPending,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.eventPillText,
+                        session.status === 'CONFIRMED'
+                          ? styles.eventPillTextConfirmed
+                          : styles.eventPillTextPending,
+                      ]}
+                      numberOfLines={1}
                     >
-                      <Ionicons name="person-circle-outline" size={24} color={heraLanding.textSecondary} />
-                    </TouchableOpacity>
+                      {formatTime(session.date)}
+                    </Text>
                   </View>
-                </View>
+                ))}
+
+                {extraCount > 0 && (
+                  <Text style={styles.extraEventsText}>+{extraCount} más</Text>
+                )}
               </View>
             );
           })}
         </View>
-      ) : (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIconContainer}>
-            <Ionicons name="sunny-outline" size={48} color={heraLanding.textMuted} />
-          </View>
-          <Text style={styles.emptyTitle}>No tienes sesiones programadas hoy</Text>
-          <Text style={styles.emptyDescription}>
-            Disfruta tu tiempo libre
-          </Text>
-        </View>
-      )}
+      ))}
     </View>
   );
 
-  // Render pending confirmations
-  const renderPendingConfirmations = () => {
-    if (pendingRequests.length === 0) return null;
+  // ─── Render: Week View ─────────────────────────────────────────────────
+
+  const renderWeekView = () => {
+    const hours = Array.from({ length: 12 }, (_, i) => i + 9); // 09:00 - 20:00
 
     return (
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleContainer}>
-            <Text style={styles.sectionTitle}>Solicitudes pendientes</Text>
-            <View style={styles.pendingBadge}>
-              <Text style={styles.pendingBadgeText}>{pendingRequests.length}</Text>
-            </View>
+      <ScrollView style={styles.weekViewScroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.weekGrid}>
+          {/* Header row: time col + 7 day cols */}
+          <View style={styles.weekHeaderRow}>
+            <View style={styles.weekTimeColumn} />
+            {calendarDays.map((day) => (
+              <View
+                key={dateKey(day.date)}
+                style={[styles.weekDayHeader, day.isToday && styles.weekDayHeaderToday]}
+              >
+                <Text style={styles.weekDayHeaderLabel}>
+                  {WEEKDAY_LABELS[((day.date.getDay() + 6) % 7)]}
+                </Text>
+                <Text
+                  style={[
+                    styles.weekDayHeaderNumber,
+                    day.isToday && styles.weekDayHeaderNumberToday,
+                  ]}
+                >
+                  {day.date.getDate()}
+                </Text>
+              </View>
+            ))}
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate('ProfessionalSessions')}>
-            <Text style={styles.sectionLink}>Ver todas</Text>
-          </TouchableOpacity>
-        </View>
 
-        <View style={styles.requestsList}>
-          {pendingRequests.map((request) => (
-            <View key={request.id} style={styles.requestCard}>
-              <View style={styles.requestBadge}>
-                <Text style={styles.requestBadgeText}>Nueva solicitud</Text>
+          {/* Hour rows */}
+          {hours.map((hour) => (
+            <View key={hour} style={styles.weekHourRow}>
+              <View style={styles.weekTimeColumn}>
+                <Text style={styles.weekTimeLabel}>
+                  {String(hour).padStart(2, '0')}:00
+                </Text>
               </View>
-
-              <View style={styles.requestContent}>
-                <View style={styles.requestClient}>
-                  <View style={styles.requestAvatar}>
-                    <Text style={styles.requestAvatarText}>{request.clientInitial}</Text>
+              {calendarDays.map((day) => {
+                const hourSessions = day.sessions.filter((s) => {
+                  const h = new Date(s.date).getHours();
+                  return h === hour;
+                });
+                return (
+                  <View
+                    key={dateKey(day.date)}
+                    style={[styles.weekDayCell, day.isToday && styles.weekDayCellToday]}
+                  >
+                    {hourSessions.map((session) => (
+                      <View
+                        key={session.id}
+                        style={[
+                          styles.weekSessionBlock,
+                          session.status === 'CONFIRMED'
+                            ? styles.weekSessionConfirmed
+                            : styles.weekSessionPending,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.weekSessionText,
+                            session.status === 'CONFIRMED'
+                              ? styles.weekSessionTextConfirmed
+                              : styles.weekSessionTextPending,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {session.clientName}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
-                  <View style={styles.requestInfo}>
-                    <Text style={styles.requestClientName}>{request.clientName}</Text>
-                    {request.isFirstSession && (
-                      <Text style={styles.requestType}>Primera sesión</Text>
-                    )}
-                    <View style={styles.requestMeta}>
-                      <Ionicons name="calendar-outline" size={14} color={heraLanding.textSecondary} />
-                      <Text style={styles.requestMetaText}>
-                        {formatDate(request.date)} - {formatTime(request.date)}
-                      </Text>
-                    </View>
-                    <View style={styles.requestMeta}>
-                      <Ionicons name="videocam-outline" size={14} color={heraLanding.textSecondary} />
-                      <Text style={styles.requestMetaText}>Videollamada</Text>
-                      <Text style={styles.requestPrice}>€{request.price}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.requestActions}>
-                  <TouchableOpacity
-                    style={styles.viewProfileButton}
-                    onPress={() => navigation.navigate('ClientProfile', { clientId: request.clientId })}
-                  >
-                    <Ionicons name="person-outline" size={14} color={heraLanding.primary} />
-                    <Text style={styles.viewProfileButtonText}>Ver ficha</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.confirmButton, processingSessionId === request.id && { opacity: 0.6 }]}
-                    onPress={() => handleConfirmSession(request.id)}
-                    disabled={processingSessionId === request.id}
-                  >
-                    <LinearGradient
-                      colors={[heraLanding.primary, heraLanding.primaryDark]}
-                      style={styles.confirmButtonGradient}
-                    >
-                      <Text style={styles.confirmButtonText}>Confirmar</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.declineButton, processingSessionId === request.id && { opacity: 0.6 }]}
-                    onPress={() => handleDeclineSession(request.id)}
-                    disabled={processingSessionId === request.id}
-                  >
-                    <Text style={styles.declineButtonText}>Rechazar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+                );
+              })}
             </View>
           ))}
         </View>
-      </View>
+      </ScrollView>
     );
   };
+
+  // ─── Render: Right Panel — Pending Requests ────────────────────────────
+
+  const renderPendingRequests = () => (
+    <View style={[styles.rightPanelBlock, !isDesktop && styles.rightPanelBlockMobile]}>
+      <View style={styles.rightPanelHeader}>
+        <Text style={styles.rightPanelTitle}>Solicitudes pendientes</Text>
+        <View style={styles.badgeLavender}>
+          <Text style={styles.badgeLavenderText}>{pendingRequests.length}</Text>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.rightPanelScroll}
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+      >
+        {pendingRequests.length > 0 ? (
+          pendingRequests.map((request) => (
+            <View key={request.id} style={styles.requestCard}>
+              <Text style={styles.requestClientName}>{request.clientName}</Text>
+              <Text style={styles.requestDetail}>
+                {getDateLabel(request.date)} {formatTime(request.date)} &middot;{' '}
+                {getSessionTypeLabel(request.type)}
+              </Text>
+              <View style={styles.requestButtons}>
+                <TouchableOpacity
+                  style={[
+                    styles.confirmBtn,
+                    processingSessionId === request.id && styles.buttonDisabled,
+                  ]}
+                  onPress={() => handleConfirmSession(request.id)}
+                  disabled={processingSessionId === request.id}
+                >
+                  <Text style={styles.confirmBtnText}>Confirmar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.declineBtn,
+                    processingSessionId === request.id && styles.buttonDisabled,
+                  ]}
+                  onPress={() => handleDeclineSession(request.id)}
+                  disabled={processingSessionId === request.id}
+                >
+                  <Text style={styles.declineBtnText}>Rechazar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        ) : (
+          <Text style={styles.emptyText}>Sin solicitudes pendientes</Text>
+        )}
+      </ScrollView>
+    </View>
+  );
+
+  // ─── Render: Right Panel — Upcoming Sessions ──────────────────────────
+
+  const renderUpcomingSessions = () => (
+    <View style={[styles.rightPanelBlock, styles.rightPanelBlockBottom, !isDesktop && styles.rightPanelBlockMobile]}>
+      <View style={styles.rightPanelHeader}>
+        <Text style={styles.rightPanelTitle}>Próximas sesiones</Text>
+        <View style={styles.badgeGreen}>
+          <Text style={styles.badgeGreenText}>{upcomingSessions.length}</Text>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.rightPanelScroll}
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+      >
+        {upcomingSessions.length > 0 ? (
+          upcomingSessions.map((session) => (
+            <View key={session.id} style={styles.upcomingCard}>
+              <View style={styles.upcomingTimeCol}>
+                <Text style={styles.upcomingDayLabel}>
+                  {getDateLabel(session.date)}
+                </Text>
+                <Text style={styles.upcomingTime}>
+                  {formatTime(session.date)}
+                </Text>
+              </View>
+              <View style={styles.upcomingInfo}>
+                <Text style={styles.upcomingClientName} numberOfLines={1}>
+                  {session.clientName}
+                </Text>
+                <Text style={styles.upcomingMeta} numberOfLines={1}>
+                  {getSessionTypeLabel(session.type)} &middot; {session.duration} min
+                </Text>
+              </View>
+            </View>
+          ))
+        ) : (
+          <Text style={styles.emptyText}>No hay sesiones próximas</Text>
+        )}
+      </ScrollView>
+    </View>
+  );
+
+  // ─── Loading state ─────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -567,48 +696,53 @@ export function ProfessionalHomeScreen() {
     );
   }
 
+  // ─── Main render ───────────────────────────────────────────────────────
+
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          isDesktop && styles.scrollContentDesktop,
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Email verification reminder banner */}
-        <VerificationBanner />
+      <VerificationBanner />
 
-        {renderWelcomeHeader()}
-        {renderStatsCards()}
-        {renderPendingConfirmations()}
-        {renderTodaySessions()}
-        {renderQuickActions()}
+      {renderTopBar()}
 
-        {/* Bottom spacing */}
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      {isDesktop ? (
+        /* Desktop: calendar + right panel side by side */
+        <View style={styles.bodyRow}>
+          <View style={styles.calendarPanel}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {viewMode === 'month' ? renderMonthView() : renderWeekView()}
+            </ScrollView>
+          </View>
+
+          <View style={styles.rightPanel}>
+            {renderPendingRequests()}
+            {renderUpcomingSessions()}
+          </View>
+        </View>
+      ) : (
+        /* Mobile: stacked */
+        <ScrollView
+          style={styles.mobileScroll}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+        >
+          <View style={styles.calendarPanelMobile}>
+            {viewMode === 'month' ? renderMonthView() : renderWeekView()}
+          </View>
+          {renderPendingRequests()}
+          {renderUpcomingSessions()}
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
+      )}
     </View>
   );
 }
+
+// ─── Styles ────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: heraLanding.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-  },
-  scrollContentDesktop: {
-    maxWidth: 1200,
-    alignSelf: 'center',
-    width: '100%',
-    paddingHorizontal: 40,
   },
   loadingContainer: {
     flex: 1,
@@ -617,452 +751,469 @@ const styles = StyleSheet.create({
     backgroundColor: heraLanding.background,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
+    marginTop: spacing.md,
+    fontSize: typography.fontSizes.md,
     color: heraLanding.textSecondary,
   },
 
-  // Welcome Header
-  welcomeHeader: {
+  // ─── Top Bar ─────────────────────────────────────────────────────────
+
+  topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: heraLanding.cardBg,
+    borderBottomWidth: 1,
+    borderBottomColor: heraLanding.border,
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    zIndex: 100,
+    overflow: 'visible',
   },
-  welcomeContent: {
-    flex: 1,
-  },
-  welcomeGreeting: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-    marginBottom: 4,
-  },
-  welcomeSubtitle: {
-    fontSize: 16,
-    color: heraLanding.textSecondary,
-  },
-  profileButton: {
-    padding: 4,
-  },
-  profileAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: heraLanding.secondaryMuted,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.sm,
-  },
-
-  // Section
-  section: {
-    marginBottom: 32,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+  greeting: {
+    fontSize: typography.fontSizes.xl,
+    fontWeight: typography.fontWeights.bold,
     color: heraLanding.textPrimary,
   },
-  sectionLink: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: heraLanding.primary,
-  },
-
-  // Stats Grid
-  statsGrid: {
-    gap: 16,
-  },
-  statsGridDesktop: {
+  topBarRight: {
     flexDirection: 'row',
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
     alignItems: 'center',
-    ...shadows.md,
+    gap: spacing.sm,
   },
-  statIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    justifyContent: 'center',
+  navArrows: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    gap: spacing.xs,
   },
-  statValue: {
-    fontSize: 32,
-    fontWeight: '800',
-    marginBottom: 4,
+  navArrowButton: {
+    padding: spacing.xs,
+    borderRadius: borderRadius.sm,
+    backgroundColor: heraLanding.background,
   },
-  statLabel: {
-    fontSize: 14,
-    color: heraLanding.textSecondary,
+  navLabel: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
+    color: heraLanding.textPrimary,
+    minWidth: 100,
     textAlign: 'center',
   },
-  statSubtext: {
-    fontSize: 12,
-    color: heraLanding.textMuted,
-    marginTop: 4,
-  },
 
-  // Actions Grid
-  actionsGrid: {
-    gap: 12,
+  // ─── View Selector ───────────────────────────────────────────────────
+
+  viewSelectorContainer: {
+    position: 'relative',
+    zIndex: 10,
   },
-  actionsGridDesktop: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  actionCard: {
+  viewSelectorButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    ...shadows.sm,
+    gap: spacing.xs,
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.sm + 2,
+    borderWidth: 1,
+    borderColor: heraLanding.border,
+    borderRadius: borderRadius.md,
+    backgroundColor: heraLanding.cardBg,
   },
-  actionCardDesktop: {
-    flex: 1,
-    minWidth: 280,
-  },
-  actionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: heraLanding.primaryMuted,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  actionContent: {
-    flex: 1,
-  },
-  actionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-    marginBottom: 2,
-  },
-  actionDescription: {
-    fontSize: 13,
+  viewSelectorText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.medium,
     color: heraLanding.textSecondary,
   },
-
-  // Sessions List
-  sessionsList: {
-    gap: 12,
-  },
-  sessionCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+  viewDropdown: {
+    position: 'absolute',
+    top: '100%',
+    right: 0,
+    marginTop: spacing.xs,
+    backgroundColor: heraLanding.cardBg,
+    borderWidth: 1,
+    borderColor: heraLanding.border,
+    borderRadius: borderRadius.md,
     ...shadows.md,
+    minWidth: 140,
+    zIndex: 1000,
   },
-  sessionCardActive: {
-    borderWidth: 2,
-    borderColor: heraLanding.primary,
+  viewDropdownItem: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
-  sessionCardCompleted: {
-    opacity: 0.7,
-  },
-  sessionTimeContainer: {
-    width: 70,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sessionTime: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-    marginBottom: 4,
-  },
-  sessionTimeActive: {
-    color: heraLanding.primary,
-  },
-  sessionDuration: {
-    fontSize: 12,
-    color: heraLanding.textMuted,
-  },
-  sessionDivider: {
-    width: 1,
-    backgroundColor: heraLanding.border,
-    marginHorizontal: 16,
-  },
-  sessionInfo: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  sessionClient: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  clientAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: heraLanding.secondaryMuted,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  clientAvatarActive: {
+  viewDropdownItemActive: {
     backgroundColor: heraLanding.primaryMuted,
   },
-  clientAvatarText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: heraLanding.secondary,
-  },
-  clientAvatarTextActive: {
-    color: heraLanding.primary,
-  },
-  clientDetails: {
-    flex: 1,
-  },
-  clientName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-    marginBottom: 4,
-  },
-  sessionMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  firstSessionBadge: {
-    backgroundColor: heraLanding.secondaryMuted,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  firstSessionBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: heraLanding.secondary,
-  },
-  sessionIssue: {
-    fontSize: 13,
+  viewDropdownText: {
+    fontSize: typography.fontSizes.sm,
     color: heraLanding.textSecondary,
   },
-  sessionActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  viewDropdownTextActive: {
+    color: heraLanding.primary,
+    fontWeight: typography.fontWeights.semibold,
   },
-  startSessionButton: {
-    borderRadius: 10,
+
+  // ─── Body Layout ─────────────────────────────────────────────────────
+
+  bodyRow: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  calendarPanel: {
+    flex: 1,
+    padding: spacing.md,
+  },
+  calendarPanelMobile: {
+    padding: spacing.sm,
+  },
+  rightPanel: {
+    width: layout.rightPanelWidth,
+    borderLeftWidth: 1,
+    borderLeftColor: heraLanding.border,
+    backgroundColor: heraLanding.cardBg,
+  },
+  mobileScroll: {
+    flex: 1,
+  },
+  bottomSpacer: {
+    height: spacing.xxl,
+  },
+
+  // ─── Month Calendar ──────────────────────────────────────────────────
+
+  calendarGrid: {
+    backgroundColor: heraLanding.cardBg,
+    borderRadius: borderRadius.lg,
+    ...shadows.sm,
     overflow: 'hidden',
   },
-  startSessionGradient: {
+  weekdayHeaderRow: {
     flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: heraLanding.border,
+  },
+  weekdayHeaderCell: {
+    flex: 1,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    gap: 6,
   },
-  startSessionText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  weekdayHeaderText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.semibold,
+    color: heraLanding.textMuted,
+    textTransform: 'uppercase',
   },
-  completedBadge: {
+  calendarWeekRow: {
     flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: heraLanding.borderLight,
+  },
+  monthDayCell: {
+    flex: 1,
+    minHeight: 80,
+    padding: spacing.xs,
+    borderRightWidth: 1,
+    borderRightColor: heraLanding.borderLight,
+  },
+  monthDayCellMuted: {
+    opacity: 0.45,
+  },
+  dayNumberWrapper: {
+    width: 24,
+    height: 24,
+    borderRadius: borderRadius.full,
     alignItems: 'center',
-    gap: 4,
-  },
-  completedText: {
-    fontSize: 12,
-    color: heraLanding.success,
-    fontWeight: '600',
-  },
-  viewProfileIconButton: {
-    padding: 4,
-  },
-
-  // Empty State
-  emptyState: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
-    ...shadows.sm,
-  },
-  emptyIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: heraLanding.background,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 2,
   },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+  dayNumberToday: {
+    backgroundColor: heraLanding.primary,
+  },
+  dayNumber: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.medium,
     color: heraLanding.textPrimary,
-    marginBottom: 8,
-    textAlign: 'center',
   },
-  emptyDescription: {
-    fontSize: 14,
-    color: heraLanding.textSecondary,
-    textAlign: 'center',
+  dayNumberTodayText: {
+    color: heraLanding.textOnPrimary,
+    fontWeight: typography.fontWeights.bold,
   },
-
-  // Pending Badge
-  pendingBadge: {
-    backgroundColor: heraLanding.warning,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  pendingBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  dayNumberMuted: {
+    color: heraLanding.textMuted,
   },
 
-  // Requests List
-  requestsList: {
-    gap: 16,
+  // ─── Event Pills ─────────────────────────────────────────────────────
+
+  eventPill: {
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+    marginBottom: 2,
   },
-  requestCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: heraLanding.primaryLight,
-    ...shadows.md,
+  eventPillConfirmed: {
+    backgroundColor: heraLanding.calendarConfirmedBg,
   },
-  requestBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: heraLanding.primaryMuted,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 12,
+  eventPillPending: {
+    backgroundColor: heraLanding.calendarPendingBg,
   },
-  requestBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
+  eventPillText: {
+    fontSize: 10,
+    fontWeight: typography.fontWeights.medium,
+  },
+  eventPillTextConfirmed: {
+    color: heraLanding.calendarConfirmedText,
+  },
+  eventPillTextPending: {
+    color: heraLanding.calendarPendingText,
+  },
+  extraEventsText: {
+    fontSize: 9,
+    color: heraLanding.textMuted,
+    marginTop: 1,
+  },
+
+  // ─── Week View ────────────────────────────────────────────────────────
+
+  weekViewScroll: {
+    flex: 1,
+  },
+  weekGrid: {
+    backgroundColor: heraLanding.cardBg,
+    borderRadius: borderRadius.lg,
+    ...shadows.sm,
+    overflow: 'hidden',
+  },
+  weekHeaderRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: heraLanding.border,
+  },
+  weekTimeColumn: {
+    width: layout.calendarTimeColumnWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekDayHeader: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  weekDayHeaderToday: {
+    backgroundColor: heraLanding.calendarConfirmedBg,
+  },
+  weekDayHeaderLabel: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.medium,
+    color: heraLanding.textMuted,
+  },
+  weekDayHeaderNumber: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.bold,
+    color: heraLanding.textPrimary,
+  },
+  weekDayHeaderNumberToday: {
     color: heraLanding.primary,
   },
-  requestContent: {
-    gap: 16,
-  },
-  requestClient: {
+  weekHourRow: {
     flexDirection: 'row',
+    minHeight: 48,
+    borderBottomWidth: 1,
+    borderBottomColor: heraLanding.borderLight,
   },
-  requestAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: heraLanding.secondaryMuted,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
+  weekTimeLabel: {
+    fontSize: 10,
+    color: heraLanding.textMuted,
+    fontWeight: typography.fontWeights.medium,
   },
-  requestAvatarText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: heraLanding.secondary,
-  },
-  requestInfo: {
+  weekDayCell: {
     flex: 1,
+    borderRightWidth: 1,
+    borderRightColor: heraLanding.borderLight,
+    padding: 2,
+  },
+  weekDayCellToday: {
+    backgroundColor: 'rgba(139, 157, 131, 0.04)',
+  },
+  weekSessionBlock: {
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    marginBottom: 2,
+  },
+  weekSessionConfirmed: {
+    backgroundColor: heraLanding.calendarConfirmedBg,
+  },
+  weekSessionPending: {
+    backgroundColor: heraLanding.calendarPendingBg,
+  },
+  weekSessionText: {
+    fontSize: 9,
+    fontWeight: typography.fontWeights.medium,
+  },
+  weekSessionTextConfirmed: {
+    color: heraLanding.calendarConfirmedText,
+  },
+  weekSessionTextPending: {
+    color: heraLanding.calendarPendingText,
+  },
+
+  // ─── Right Panel ─────────────────────────────────────────────────────
+
+  rightPanelBlock: {
+    flex: 1,
+    maxHeight: '50%',
+    borderBottomWidth: 1,
+    borderBottomColor: heraLanding.border,
+  },
+  rightPanelBlockBottom: {
+    borderBottomWidth: 0,
+  },
+  rightPanelBlockMobile: {
+    maxHeight: layout.mobilePanelHeight,
+    marginHorizontal: spacing.sm,
+    marginTop: spacing.md,
+    backgroundColor: heraLanding.cardBg,
+    borderRadius: borderRadius.lg,
+    borderBottomWidth: 0,
+    ...shadows.sm,
+  },
+  rightPanelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: heraLanding.borderLight,
+  },
+  rightPanelTitle: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.bold,
+    color: heraLanding.textPrimary,
+  },
+  rightPanelScroll: {
+    flex: 1,
+    paddingHorizontal: spacing.sm,
+  },
+
+  // ─── Badges ──────────────────────────────────────────────────────────
+
+  badgeLavender: {
+    backgroundColor: heraLanding.calendarPendingBg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  badgeLavenderText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.bold,
+    color: heraLanding.calendarPendingText,
+  },
+  badgeGreen: {
+    backgroundColor: heraLanding.calendarConfirmedBg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  badgeGreenText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.bold,
+    color: heraLanding.calendarConfirmedText,
+  },
+
+  // ─── Request Cards ───────────────────────────────────────────────────
+
+  requestCard: {
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: heraLanding.borderLight,
   },
   requestClientName: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
     color: heraLanding.textPrimary,
     marginBottom: 2,
   },
-  requestType: {
-    fontSize: 13,
+  requestDetail: {
+    fontSize: typography.fontSizes.xs,
     color: heraLanding.textSecondary,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
-  requestMeta: {
+  requestButtons: {
     flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  confirmBtn: {
+    flex: 1,
+    backgroundColor: heraLanding.primary,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.xs + 2,
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
   },
-  requestMetaText: {
-    fontSize: 13,
-    color: heraLanding.textSecondary,
+  confirmBtnText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.bold,
+    color: heraLanding.textOnPrimary,
   },
-  requestPrice: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: heraLanding.primary,
-    marginLeft: 'auto',
-  },
-  requestActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  viewProfileButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+  declineBtn: {
+    flex: 1,
     borderWidth: 1,
-    borderColor: heraLanding.primary,
-    borderRadius: 12,
-    gap: 4,
+    borderColor: heraLanding.border,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.xs + 2,
+    alignItems: 'center',
   },
-  viewProfileButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
+  declineBtnText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.semibold,
+    color: heraLanding.textSecondary,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+
+  // ─── Upcoming Session Cards ──────────────────────────────────────────
+
+  upcomingCard: {
+    flexDirection: 'row',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: heraLanding.borderLight,
+    gap: spacing.sm,
+  },
+  upcomingTimeCol: {
+    alignItems: 'center',
+    minWidth: 48,
+  },
+  upcomingDayLabel: {
+    fontSize: 10,
+    fontWeight: typography.fontWeights.semibold,
     color: heraLanding.primary,
   },
-  confirmButton: {
+  upcomingTime: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.bold,
+    color: heraLanding.primary,
+  },
+  upcomingInfo: {
     flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  confirmButtonGradient: {
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
   },
-  confirmButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  upcomingClientName: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
+    color: heraLanding.textPrimary,
   },
-  declineButton: {
-    flex: 1,
-    borderWidth: 2,
-    borderColor: heraLanding.border,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-  },
-  declineButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+  upcomingMeta: {
+    fontSize: typography.fontSizes.xs,
     color: heraLanding.textSecondary,
+    marginTop: 1,
+  },
+
+  // ─── Empty State ─────────────────────────────────────────────────────
+
+  emptyText: {
+    fontSize: typography.fontSizes.xs,
+    color: heraLanding.textMuted,
+    textAlign: 'center',
+    paddingVertical: spacing.xl,
   },
 });

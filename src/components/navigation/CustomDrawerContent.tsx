@@ -24,6 +24,8 @@ import { GradientBackground } from '../common/GradientBackground';
 
 interface CustomDrawerContentProps {
   currentRoute?: string;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 /**
@@ -31,9 +33,13 @@ interface CustomDrawerContentProps {
  * to the application's navigation and authentication systems.
  *
  * @param currentRoute - The currently active route name
+ * @param isCollapsed - Whether the sidebar is collapsed
+ * @param onToggleCollapse - Callback to toggle collapse state
  */
 export function CustomDrawerContent({
   currentRoute = 'Home',
+  isCollapsed = false,
+  onToggleCollapse,
 }: CustomDrawerContentProps): React.ReactElement {
   const navigation = useNavigation<any>();
   const { user, logout } = useAuth();
@@ -72,6 +78,8 @@ export function CustomDrawerContent({
           user={sidebarUser}
           onLogout={handleLogout}
           isAdmin={user?.isAdmin}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={onToggleCollapse}
         />
       </View>
     </GradientBackground>

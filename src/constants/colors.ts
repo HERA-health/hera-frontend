@@ -178,6 +178,12 @@ export const heraLanding = {
   // ✅ Simple status colors (for direct use as background colors)
   statusInProgress: '#7BA377',
   statusCompleted: '#B8C8B8',
+
+  // ✅ Calendar pill colors (for calendar event indicators)
+  calendarConfirmedBg: '#E8EFE6',
+  calendarConfirmedText: '#5A7A52',
+  calendarPendingBg: '#EDE8F7',
+  calendarPendingText: '#7B67B8',
 };
 
 // ✅ Brand colors for third-party integrations
@@ -343,4 +349,8 @@ export const layout = {
   contentMaxWidth: 1200,               // Max width for content
   drawerWidth: 280,                    // Drawer width on mobile
   drawerWidthTablet: 320,              // Drawer width on tablet
+  rightPanelWidth: 230,                // Right panel width on desktop (calendar view)
+  calendarTimeColumnWidth: 36,         // Time labels column in week view
+  mobilePanelHeight: 300,              // Right panel section height on mobile
+  collapsedSidebarWidth: 52,           // Sidebar width when collapsed (icons only)
 };

@@ -125,7 +125,7 @@ const pulsingBadgeStyles = StyleSheet.create({
  * @param isActive - Whether this item represents the current route
  * @param onPress - Callback when item is pressed
  */
-export function NavItem({ item, isActive, onPress }: NavItemProps): React.ReactElement {
+export function NavItem({ item, isActive, onPress, isCollapsed = false }: NavItemProps): React.ReactElement {
   const handlePress = useCallback(() => {
     if (!item.disabled) {
       onPress(item.route);
@@ -173,13 +173,14 @@ export function NavItem({ item, isActive, onPress }: NavItemProps): React.ReactE
           styles.inner,
           styles.default,
           isActive && styles.active,
+          isCollapsed && collapsedItemStyles.inner,
         ]}
       >
         {/* Active indicator bar */}
         {isActive && <View style={styles.activeBar} />}
 
         {/* Icon */}
-        <View style={styles.iconContainer}>
+        <View style={[styles.iconContainer, isCollapsed && collapsedItemStyles.iconContainer]}>
           <Ionicons
             name={iconName}
             size={20}
@@ -187,19 +188,21 @@ export function NavItem({ item, isActive, onPress }: NavItemProps): React.ReactE
           />
         </View>
 
-        {/* Label */}
-        <Text
-          style={[
-            styles.label,
-            isActive && styles.labelActive,
-          ]}
-          numberOfLines={1}
-        >
-          {item.label}
-        </Text>
+        {/* Label — hidden when collapsed */}
+        {!isCollapsed && (
+          <Text
+            style={[
+              styles.label,
+              isActive && styles.labelActive,
+            ]}
+            numberOfLines={1}
+          >
+            {item.label}
+          </Text>
+        )}
 
-        {/* Optional Badge - with pulse animation for urgent items */}
-        {item.badge && (
+        {/* Optional Badge — hidden when collapsed */}
+        {!isCollapsed && item.badge && (
           <PulsingBadge
             colors={getBadgeColors()}
             text={item.badge}
@@ -210,5 +213,15 @@ export function NavItem({ item, isActive, onPress }: NavItemProps): React.ReactE
     </TouchableOpacity>
   );
 }
+
+const collapsedItemStyles = StyleSheet.create({
+  inner: {
+    justifyContent: 'center',
+    paddingHorizontal: 0,
+  },
+  iconContainer: {
+    marginRight: 0,
+  },
+});
 
 export default NavItem;

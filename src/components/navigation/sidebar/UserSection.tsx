@@ -12,7 +12,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Platform, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserSectionProps } from './types';
 import { userSectionStyles as styles } from './styles';
@@ -25,7 +25,7 @@ import { SIDEBAR_THEME } from './navConfig';
  * @param subtitle - Subtitle text to display under the name
  * @param onLogout - Callback when logout button is pressed
  */
-export function UserSection({ user, subtitle, onLogout }: UserSectionProps): React.ReactElement {
+export function UserSection({ user, subtitle, onLogout, isCollapsed = false }: UserSectionProps): React.ReactElement {
   const [isHovering, setIsHovering] = useState(false);
 
   const handleLogout = useCallback(() => {
@@ -51,7 +51,7 @@ export function UserSection({ user, subtitle, onLogout }: UserSectionProps): Rea
 
   return (
     <View
-      style={styles.container}
+      style={[styles.container, isCollapsed && collapsedUserStyles.container]}
       accessible
       accessibilityLabel="User section"
     >
@@ -59,57 +59,73 @@ export function UserSection({ user, subtitle, onLogout }: UserSectionProps): Rea
       {user.avatarUrl ? (
         <Image
           source={{ uri: user.avatarUrl }}
-          style={styles.avatarImage}
+          style={[styles.avatarImage, isCollapsed && collapsedUserStyles.avatar]}
           accessibilityLabel={`${user.name}'s avatar`}
         />
       ) : (
-        <View style={styles.avatar}>
+        <View style={[styles.avatar, isCollapsed && collapsedUserStyles.avatar]}>
           <Text style={styles.avatarText}>
             {getInitials(user.name)}
           </Text>
         </View>
       )}
 
-      {/* User Info */}
-      <View style={styles.infoContainer}>
-        <Text
-          style={styles.userName}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {user.name}
-        </Text>
-        <Text
-          style={styles.userSubtitle}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {subtitle}
-        </Text>
-      </View>
+      {/* User Info — hidden when collapsed */}
+      {!isCollapsed && (
+        <View style={styles.infoContainer}>
+          <Text
+            style={styles.userName}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {user.name}
+          </Text>
+          <Text
+            style={styles.userSubtitle}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {subtitle}
+          </Text>
+        </View>
+      )}
 
-      {/* Logout Button */}
-      <TouchableOpacity
-        style={[
-          styles.logoutButton,
-          isHovering && styles.logoutButtonHover,
-        ]}
-        onPress={handleLogout}
-        activeOpacity={0.7}
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel="Log out"
-        accessibilityHint="Double tap to sign out of your account"
-        {...hoverProps}
-      >
-        <Ionicons
-          name="log-out-outline"
-          size={20}
-          color={isHovering ? '#EF4444' : SIDEBAR_THEME.text.secondary}
-        />
-      </TouchableOpacity>
+      {/* Logout Button — hidden when collapsed */}
+      {!isCollapsed && (
+        <TouchableOpacity
+          style={[
+            styles.logoutButton,
+            isHovering && styles.logoutButtonHover,
+          ]}
+          onPress={handleLogout}
+          activeOpacity={0.7}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Log out"
+          accessibilityHint="Double tap to sign out of your account"
+          {...hoverProps}
+        >
+          <Ionicons
+            name="log-out-outline"
+            size={20}
+            color={isHovering ? '#EF4444' : SIDEBAR_THEME.text.secondary}
+          />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
+
+import { spacing } from '../../../constants/colors';
+
+const collapsedUserStyles = StyleSheet.create({
+  container: {
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xs,
+  },
+  avatar: {
+    marginRight: 0,
+  },
+});
 
 export default UserSection;

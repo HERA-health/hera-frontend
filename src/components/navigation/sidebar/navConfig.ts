@@ -14,7 +14,7 @@
  */
 
 import { NavigationSection, SidebarTheme } from './types';
-import { heraLanding } from '../../../constants/colors';
+import { heraLanding, layout } from '../../../constants/colors';
 
 /**
  * Client navigation sections
@@ -171,7 +171,8 @@ export function getNavigationSections(role: 'CLIENT' | 'PROFESSIONAL', isAdmin?:
  * Uses HERA landing page colors for consistency
  */
 export const SIDEBAR_THEME: SidebarTheme = {
-  width: 280,
+  width: 200,
+  collapsedWidth: layout.collapsedSidebarWidth,
   background: {
     primary: '#FFFFFF',
     hover: '#F5F7F5',
