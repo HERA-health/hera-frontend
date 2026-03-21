@@ -222,9 +222,10 @@ export function ProfessionalAvailabilityScreen({ navigation }: any) {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [scheduleData, exceptionsData] = await Promise.all([
+      const [scheduleData, exceptionsData, savedBufferTime] = await Promise.all([
         availabilityService.getMyWeeklySchedule(),
         availabilityService.getMyExceptions(),
+        availabilityService.getMyBufferTime(),
       ]);
       const slots = convertScheduleToSlots(scheduleData);
       setWeeklySlots(slots);
@@ -234,6 +235,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: any) {
       });
       setEnabledDays(newEnabledDays);
       setExceptions(exceptionsData);
+      setBufferTime(savedBufferTime);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'No se pudo cargar la disponibilidad');
     } finally {
@@ -325,7 +327,10 @@ export function ProfessionalAvailabilityScreen({ navigation }: any) {
     try {
       setSaving(true);
       const schedule = convertSlotsToSchedule(weeklySlots);
-      await availabilityService.updateWeeklySchedule(schedule);
+      await Promise.all([
+        availabilityService.updateWeeklySchedule(schedule),
+        availabilityService.updateBufferTime(bufferTime),
+      ]);
       setHasChanges(false);
       const totalSlots = Object.values(weeklySlots).reduce((sum, daySlots) =>
         sum + Object.values(daySlots).filter(s => s.available).length, 0
@@ -346,7 +351,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: any) {
     } finally {
       setSaving(false);
     }
-  }, [weeklySlots]);
+  }, [weeklySlots, bufferTime]);
 
   // ============================================================================
   // EXCEPTIONS HANDLERS
@@ -533,7 +538,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: any) {
               <TouchableOpacity
                 key={opt.value}
                 style={[styles.settingOption, bufferTime === opt.value && styles.settingOptionActive]}
-                onPress={() => setBufferTime(opt.value)}
+                onPress={() => { setBufferTime(opt.value); setHasChanges(true); }}
               >
                 <Text style={[styles.settingOptionText, bufferTime === opt.value && styles.settingOptionTextActive]}>
                   {opt.label}

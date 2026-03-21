@@ -127,3 +127,26 @@ export const removeException = async (date: string): Promise<void> => {
     throw new Error(getErrorMessage(error, 'No se pudo eliminar la excepción'));
   }
 };
+
+/**
+ * Get the specialist's current bufferTime setting
+ */
+export const getMyBufferTime = async (): Promise<number> => {
+  try {
+    const response = await api.get('/specialists/me/profile');
+    return response.data.data.bufferTime ?? 0;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo obtener la configuración'));
+  }
+};
+
+/**
+ * Update the specialist's bufferTime setting
+ */
+export const updateBufferTime = async (bufferTime: number): Promise<void> => {
+  try {
+    await api.put('/specialists/me/profile', { bufferTime });
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo actualizar el buffer'));
+  }
+};
