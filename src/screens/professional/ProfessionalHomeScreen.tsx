@@ -17,6 +17,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import {
   heraLanding,
   spacing,
@@ -25,6 +26,7 @@ import {
   typography,
   layout,
 } from '../../constants/colors';
+import { AppNavigationProp } from '../../constants/types';
 import { useAuth } from '../../contexts/AuthContext';
 import * as professionalService from '../../services/professionalService';
 import { VerificationBanner } from '../../components/auth';
@@ -54,6 +56,14 @@ interface MappedSession {
 }
 
 // ─── Helper functions ────────────────────────────────────────────────────────
+
+const WEEK_VIEW_HOUR_HEIGHT = 48;
+const WEEK_VIEW_START_HOUR = 9;
+const WEEK_VIEW_END_HOUR = 21; // exclusive — grid shows 09:00–20:00
+const WEEK_VIEW_MIN_BLOCK_HEIGHT = 20;
+const WEEK_VIEW_BLOCK_SHORT_THRESHOLD = 40;
+const WEEK_VIEW_TYPE_THRESHOLD = 60;
+const WEEK_VIEW_SESSION_ICON_SIZE = 10;
 
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const MONTH_NAMES = [
@@ -153,16 +163,34 @@ function mapSession(s: professionalService.Session): MappedSession {
 function getSessionTypeLabel(type: string): string {
   switch (type) {
     case 'VIDEO_CALL': return 'Videollamada';
-    case 'PHONE_CALL': return 'Llamada';
+    case 'PHONE_CALL': return 'Teléfono';
     case 'IN_PERSON': return 'Presencial';
     default: return type;
   }
+}
+
+function getSessionTypeIcon(type: string): keyof typeof Ionicons.glyphMap {
+  switch (type) {
+    case 'VIDEO_CALL': return 'videocam-outline';
+    case 'PHONE_CALL': return 'call-outline';
+    case 'IN_PERSON': return 'person-outline';
+    default: return 'ellipse-outline';
+  }
+}
+
+function formatEndTime(startDate: string, durationMinutes: number): string {
+  const start = new Date(startDate);
+  const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+  const hh = String(end.getHours()).padStart(2, '0');
+  const mm = String(end.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function ProfessionalHomeScreen() {
   const { user } = useAuth();
+  const navigation = useNavigation<AppNavigationProp>();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
@@ -507,7 +535,9 @@ export function ProfessionalHomeScreen() {
   // ─── Render: Week View ─────────────────────────────────────────────────
 
   const renderWeekView = () => {
-    const hours = Array.from({ length: 12 }, (_, i) => i + 9); // 09:00 - 20:00
+    const totalHours = WEEK_VIEW_END_HOUR - WEEK_VIEW_START_HOUR;
+    const hours = Array.from({ length: totalHours }, (_, i) => i + WEEK_VIEW_START_HOUR);
+    const bodyHeight = totalHours * WEEK_VIEW_HOUR_HEIGHT;
 
     return (
       <ScrollView style={styles.weekViewScroll} showsVerticalScrollIndicator={false}>
@@ -535,52 +565,123 @@ export function ProfessionalHomeScreen() {
             ))}
           </View>
 
-          {/* Hour rows */}
-          {hours.map((hour) => (
-            <View key={hour} style={styles.weekHourRow}>
-              <View style={styles.weekTimeColumn}>
-                <Text style={styles.weekTimeLabel}>
-                  {String(hour).padStart(2, '0')}:00
-                </Text>
-              </View>
-              {calendarDays.map((day) => {
-                const hourSessions = day.sessions.filter((s) => {
-                  const h = new Date(s.date).getHours();
-                  return h === hour;
-                });
-                return (
+          {/* Body: time labels column + day columns with absolute session blocks */}
+          <View style={styles.weekBody}>
+            {/* Time labels column */}
+            <View style={styles.weekTimeColumn}>
+              {hours.map((hour) => (
+                <View key={hour} style={styles.weekTimeLabelCell}>
+                  <Text style={styles.weekTimeLabel}>
+                    {String(hour).padStart(2, '0')}:00
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Day columns */}
+            {calendarDays.map((day) => (
+              <View
+                key={dateKey(day.date)}
+                style={[
+                  styles.weekDayColumn,
+                  { height: bodyHeight },
+                  day.isToday && styles.weekDayCellToday,
+                ]}
+              >
+                {/* Hour grid lines */}
+                {hours.map((hour) => (
                   <View
-                    key={dateKey(day.date)}
-                    style={[styles.weekDayCell, day.isToday && styles.weekDayCellToday]}
-                  >
-                    {hourSessions.map((session) => (
-                      <View
-                        key={session.id}
-                        style={[
-                          styles.weekSessionBlock,
-                          session.status === 'CONFIRMED'
-                            ? styles.weekSessionConfirmed
-                            : styles.weekSessionPending,
-                        ]}
-                      >
+                    key={hour}
+                    style={[
+                      styles.weekHourGridLine,
+                      { top: (hour - WEEK_VIEW_START_HOUR) * WEEK_VIEW_HOUR_HEIGHT },
+                    ]}
+                  />
+                ))}
+
+                {/* Session blocks */}
+                {day.sessions.map((session) => {
+                  const sessionDate = new Date(session.date);
+                  const sessionHour = sessionDate.getHours();
+                  const sessionMinutes = sessionDate.getMinutes();
+                  const topOffset =
+                    ((sessionHour - WEEK_VIEW_START_HOUR) * 60 + sessionMinutes) /
+                    60 *
+                    WEEK_VIEW_HOUR_HEIGHT;
+                  const blockHeight = Math.max(
+                    (session.duration / 60) * WEEK_VIEW_HOUR_HEIGHT,
+                    WEEK_VIEW_MIN_BLOCK_HEIGHT,
+                  );
+                  const showClientName = blockHeight >= WEEK_VIEW_BLOCK_SHORT_THRESHOLD;
+                  const showType = blockHeight >= WEEK_VIEW_TYPE_THRESHOLD;
+                  const timeRange = `${formatTime(session.date)} - ${formatEndTime(session.date, session.duration)}`;
+                  const textColorStyle =
+                    session.status === 'CONFIRMED'
+                      ? styles.weekSessionTextConfirmed
+                      : styles.weekSessionTextPending;
+
+                  return (
+                    <TouchableOpacity
+                      key={session.id}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        // TODO: pass { sessionId: session.id } once ProfessionalSessionsScreen supports it
+                        navigation.navigate('ProfessionalSessions');
+                      }}
+                      style={[
+                        styles.weekSessionBlock,
+                        session.status === 'CONFIRMED'
+                          ? styles.weekSessionConfirmed
+                          : styles.weekSessionPending,
+                        {
+                          position: 'absolute',
+                          top: topOffset,
+                          height: blockHeight,
+                          left: 2,
+                          right: 2,
+                          overflow: 'hidden',
+                        },
+                      ]}
+                    >
+                      {showClientName && (
                         <Text
-                          style={[
-                            styles.weekSessionText,
-                            session.status === 'CONFIRMED'
-                              ? styles.weekSessionTextConfirmed
-                              : styles.weekSessionTextPending,
-                          ]}
+                          style={[styles.weekSessionText, textColorStyle]}
                           numberOfLines={1}
                         >
                           {session.clientName}
                         </Text>
-                      </View>
-                    ))}
-                  </View>
-                );
-              })}
-            </View>
-          ))}
+                      )}
+                      <Text
+                        style={[styles.weekSessionTimeText, textColorStyle]}
+                        numberOfLines={1}
+                      >
+                        {timeRange}
+                      </Text>
+                      {showType && (
+                        <View style={styles.weekSessionTypeRow}>
+                          <Ionicons
+                            name={getSessionTypeIcon(session.type)}
+                            size={WEEK_VIEW_SESSION_ICON_SIZE}
+                            color={
+                              session.status === 'CONFIRMED'
+                                ? heraLanding.calendarConfirmedText
+                                : heraLanding.calendarPendingText
+                            }
+                          />
+                          <Text
+                            style={[styles.weekSessionTypeText, textColorStyle]}
+                            numberOfLines={1}
+                          >
+                            {getSessionTypeLabel(session.type)}
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ))}
+          </View>
         </View>
       </ScrollView>
     );
@@ -1012,22 +1113,33 @@ const styles = StyleSheet.create({
   weekDayHeaderNumberToday: {
     color: heraLanding.primary,
   },
-  weekHourRow: {
+  weekBody: {
     flexDirection: 'row',
-    minHeight: 48,
-    borderBottomWidth: 1,
-    borderBottomColor: heraLanding.borderLight,
+  },
+  weekTimeLabelCell: {
+    height: WEEK_VIEW_HOUR_HEIGHT,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingTop: 2,
   },
   weekTimeLabel: {
     fontSize: 10,
     color: heraLanding.textMuted,
     fontWeight: typography.fontWeights.medium,
   },
-  weekDayCell: {
+  weekDayColumn: {
     flex: 1,
+    position: 'relative',
     borderRightWidth: 1,
     borderRightColor: heraLanding.borderLight,
-    padding: 2,
+  },
+  weekHourGridLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: WEEK_VIEW_HOUR_HEIGHT,
+    borderBottomWidth: 1,
+    borderBottomColor: heraLanding.borderLight,
   },
   weekDayCellToday: {
     backgroundColor: 'rgba(139, 157, 131, 0.04)',
@@ -1036,7 +1148,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.sm,
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
-    marginBottom: 2,
   },
   weekSessionConfirmed: {
     backgroundColor: heraLanding.calendarConfirmedBg,
@@ -1053,6 +1164,21 @@ const styles = StyleSheet.create({
   },
   weekSessionTextPending: {
     color: heraLanding.calendarPendingText,
+  },
+  weekSessionTimeText: {
+    fontSize: 8,
+    fontWeight: typography.fontWeights.medium,
+  },
+  weekSessionTypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 1,
+  },
+  weekSessionTypeText: {
+    fontSize: 7,
+    fontWeight: typography.fontWeights.medium,
+    flexShrink: 1,
   },
 
   // ─── Right Panel ─────────────────────────────────────────────────────
