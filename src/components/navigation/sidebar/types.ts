@@ -39,7 +39,11 @@ export type IconName =
   | 'help-circle'
   | 'help-circle-outline'
   | 'shield'
-  | 'shield-outline';
+  | 'shield-outline'
+  | 'receipt'
+  | 'receipt-outline'
+  | 'heart'
+  | 'heart-outline';
 
 /**
  * Navigation item configuration

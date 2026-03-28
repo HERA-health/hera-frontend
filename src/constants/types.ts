@@ -127,6 +127,8 @@ export type RootStackParamList = {
   ProfessionalClients: undefined;
   ProfessionalSessions: undefined;
   ProfessionalProfile: undefined;
+  ProfessionalBilling: undefined;
+  CreateInvoice: { invoiceId?: string };
   ProfessionalAvailability: undefined;
   ClientProfile: { clientId: string };
   AdminPanel: undefined;

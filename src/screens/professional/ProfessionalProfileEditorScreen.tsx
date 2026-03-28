@@ -85,7 +85,6 @@ export function ProfessionalProfileEditorScreen() {
   // Basic profile fields
   const [name, setName] = useState(user?.name || '');
   const [specialization, setSpecialization] = useState('');
-  const [pricePerSession, setPricePerSession] = useState('');
   const [description, setDescription] = useState('');
 
   const [loading, setLoading] = useState(false);
@@ -193,17 +192,6 @@ export function ProfessionalProfileEditorScreen() {
               value={specialization}
               onChangeText={setSpecialization}
               placeholder="Psicólogo Clínico"
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Precio por sesión (€)</Text>
-            <TextInput
-              style={styles.input}
-              value={pricePerSession}
-              onChangeText={setPricePerSession}
-              placeholder="65"
-              keyboardType="numeric"
             />
           </View>
 

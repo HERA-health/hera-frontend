@@ -116,6 +116,14 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         roles: ['PROFESSIONAL'],
       },
       {
+        id: 'billing',
+        label: 'Facturación',
+        icon: 'receipt-outline',
+        iconActive: 'receipt',
+        route: 'ProfessionalBilling',
+        roles: ['PROFESSIONAL'],
+      },
+      {
         id: 'availability',
         label: 'Disponibilidad',
         icon: 'time-outline',

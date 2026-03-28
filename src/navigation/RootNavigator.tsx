@@ -44,6 +44,8 @@ import { ProfessionalSessionsScreen } from '../screens/professional/Professional
 import { ProfessionalProfileEditorScreen } from '../screens/professional/ProfessionalProfileEditorScreen';
 import { SpecialistProfileScreen } from '../screens/professional/SpecialistProfileScreen';
 import { ProfessionalAvailabilityScreen } from '../screens/professional/ProfessionalAvailabilityScreen';
+import { BillingScreen } from '../screens/professional/BillingScreen';
+import { CreateInvoiceScreen } from '../screens/professional/CreateInvoiceScreen';
 import { ClientProfileScreen } from '../screens/professional/ClientProfileScreen';
 
 // Admin screens
@@ -148,6 +150,26 @@ export function RootNavigator() {
           {() => (
             <MainLayout>
               <ProfessionalSessionsScreen />
+            </MainLayout>
+          )}
+        </Stack.Screen>
+        <Stack.Screen
+          name="ProfessionalBilling"
+          options={{ headerTitle: 'Facturación' }}
+        >
+          {() => (
+            <MainLayout>
+              <BillingScreen />
+            </MainLayout>
+          )}
+        </Stack.Screen>
+        <Stack.Screen
+          name="CreateInvoice"
+          options={{ headerTitle: 'Nueva Factura' }}
+        >
+          {({ route, navigation }) => (
+            <MainLayout>
+              <CreateInvoiceScreen route={route} navigation={navigation} />
             </MainLayout>
           )}
         </Stack.Screen>
