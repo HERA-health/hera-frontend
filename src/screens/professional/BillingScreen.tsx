@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import {
   BillingSummary,
   Invoice,
   InvoiceStatus,
+  InvoiceFilters,
   BillingConfig,
   TariffsConfig,
   TariffItem,
@@ -102,6 +103,8 @@ const STRINGS = {
   resendConfirmMsg: '¿Reenviar factura {number} a {client}?',
   resendBtn: 'Reenviar',
   resendSuccess: 'Factura reenviada correctamente',
+  pageOf: 'Página {current} de {total}',
+  invoicesTotal: '{total} facturas en total',
 };
 
 const VAT_OPTIONS = [
@@ -123,6 +126,9 @@ const STATUS_COLORS: Record<InvoiceStatus, { bg: string; text: string; label: st
   DRAFT: { bg: heraLanding.warningLight, text: heraLanding.warningAmber, label: 'Borrador' },
   CANCELLED: { bg: heraLanding.mutedLight, text: heraLanding.textMuted, label: 'Cancelada' },
 };
+
+const INVOICES_PER_PAGE = 10;
+const SEARCH_DEBOUNCE_MS = 300;
 
 type FilterTab = 'all' | InvoiceStatus;
 
@@ -192,6 +198,12 @@ export function BillingScreen() {
   const [summary, setSummary] = useState<BillingSummary | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalInvoices, setTotalInvoices] = useState(0);
 
   // Specialist billing config (loaded from API)
   const [billingConfig, setBillingConfig] = useState<BillingConfig>({});
@@ -201,6 +213,9 @@ export function BillingScreen() {
   // Filter state
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const invoiceListRef = useRef<View>(null);
 
   // Menu state (portal pattern — window-relative coordinates)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -224,22 +239,47 @@ export function BillingScreen() {
   const [savingConfig, setSavingConfig] = useState(false);
 
 
+  // ── Load invoices (paginated) ────────────────────────────────
+  const loadInvoices = useCallback(async (page: number, filter: FilterTab, clientName: string) => {
+    try {
+      setInvoicesLoading(true);
+      const filters: InvoiceFilters = {
+        page,
+        limit: INVOICES_PER_PAGE,
+      };
+      if (filter !== 'all') {
+        filters.status = filter;
+      }
+      if (clientName.trim()) {
+        filters.clientName = clientName.trim();
+      }
+      const result = await billingService.getInvoices(filters);
+      setInvoices(result.invoices);
+      setTotalPages(result.totalPages);
+      setTotalInvoices(result.total);
+      setCurrentPage(result.page);
+    } catch (error) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Error al cargar facturas');
+    } finally {
+      setInvoicesLoading(false);
+    }
+  }, []);
+
   // ── Load data ────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [summaryData, invoicesData] = await Promise.all([
+      const [summaryData] = await Promise.all([
         billingService.getSummary(),
-        billingService.getInvoices(),
+        loadInvoices(1, 'all', ''),
       ]);
       setSummary(summaryData);
-      setInvoices(invoicesData);
     } catch (error) {
       Alert.alert('Error', error instanceof Error ? error.message : 'Error al cargar datos');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadInvoices]);
 
   useFocusEffect(
     useCallback(() => {
@@ -247,6 +287,32 @@ export function BillingScreen() {
       analyticsService.trackScreen('billing');
     }, [loadData])
   );
+
+  // ── Debounced search ───────────────────────────────────────
+  useEffect(() => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+    };
+  }, [searchQuery]);
+
+  // ── Fetch when filter/search/page changes ──────────────────
+  const initialLoadDone = useRef(false);
+  useEffect(() => {
+    if (!loading && initialLoadDone.current) {
+      loadInvoices(currentPage, activeFilter, debouncedSearch);
+    }
+    if (!loading) {
+      initialLoadDone.current = true;
+    }
+  }, [currentPage, activeFilter, debouncedSearch, loadInvoices, loading]);
 
   // Load specialist billing config from API
   const loadConfig = useCallback(async () => {
@@ -301,21 +367,20 @@ export function BillingScreen() {
     loadConfig();
   }, [loadConfig]);
 
-  // ── Filtered invoices ────────────────────────────────────────
-  const filteredInvoices = useMemo(() => {
-    let result = invoices;
-    if (activeFilter !== 'all') {
-      result = result.filter((inv) => inv.status === activeFilter);
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter((inv) =>
-        inv.client.user.name.toLowerCase().includes(q) ||
-        inv.invoiceNumber.toLowerCase().includes(q)
-      );
-    }
-    return result;
-  }, [invoices, activeFilter, searchQuery]);
+  // ── Filter/search change handlers ───────────────────────────
+  const handleFilterChange = useCallback((filter: FilterTab) => {
+    setActiveFilter(filter);
+    setCurrentPage(1);
+  }, []);
+
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
+    setCurrentPage(1);
+  }, []);
+
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
 
   // ── Actions ──────────────────────────────────────────────────
   const handleSendInvoice = (invoiceId: string) => {
@@ -323,111 +388,149 @@ export function BillingScreen() {
     const clientName = invoice?.client?.user?.name || 'el cliente';
     const invoiceNumber = invoice?.invoiceNumber || '';
 
-    Alert.alert(
-      '¿Enviar factura?',
-      `Se enviará la factura ${invoiceNumber} a ${clientName}. ¿Continuar?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Enviar',
-          onPress: async () => {
-            try {
-              setSendingId(invoiceId);
-              await billingService.sendInvoice(invoiceId);
-              // Update local state to reflect SENT status
-              setInvoices((prev) =>
-                prev.map((inv) =>
-                  inv.id === invoiceId ? { ...inv, status: 'SENT' as const, sentAt: new Date().toISOString() } : inv
-                ),
-              );
-              Alert.alert('Éxito', 'Factura enviada correctamente');
-            } catch (error) {
-              Alert.alert('Error', error instanceof Error ? error.message : 'Error al enviar la factura');
-            } finally {
-              setSendingId(null);
-            }
-          },
-        },
-      ],
-    );
+    const executeSend = async () => {
+      try {
+        setSendingId(invoiceId);
+        await billingService.sendInvoice(invoiceId);
+        await loadInvoices(currentPage, activeFilter, debouncedSearch);
+        if (Platform.OS === 'web') {
+          window.alert('Factura enviada correctamente');
+        } else {
+          Alert.alert('Éxito', 'Factura enviada correctamente');
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Error al enviar la factura';
+        if (Platform.OS === 'web') {
+          window.alert(msg);
+        } else {
+          Alert.alert('Error', msg);
+        }
+      } finally {
+        setSendingId(null);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Se enviará la factura ${invoiceNumber} a ${clientName}. ¿Continuar?`)) {
+        executeSend();
+      }
+    } else {
+      Alert.alert(
+        '¿Enviar factura?',
+        `Se enviará la factura ${invoiceNumber} a ${clientName}. ¿Continuar?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Enviar', onPress: executeSend },
+        ],
+      );
+    }
   };
 
   const handleDownload = async (invoiceId: string, invoiceNumber: string) => {
     try {
       await billingService.downloadInvoice(invoiceId, invoiceNumber);
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Error al descargar');
+      const msg = error instanceof Error ? error.message : 'Error al descargar';
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Error', msg);
+      }
     }
   };
 
   const handleResendInvoice = (invoice: Invoice) => {
     setOpenMenuId(null);
     const clientName = invoice.client?.user?.name || 'el cliente';
-    Alert.alert(
-      STRINGS.resend,
-      STRINGS.resendConfirmMsg.replace('{number}', invoice.invoiceNumber).replace('{client}', clientName),
-      [
-        { text: STRINGS.cancel, style: 'cancel' },
-        {
-          text: STRINGS.resendBtn,
-          onPress: async () => {
-            try {
-              setSendingId(invoice.id);
-              await billingService.sendInvoice(invoice.id);
-              setInvoices((prev) =>
-                prev.map((inv) =>
-                  inv.id === invoice.id ? { ...inv, status: 'SENT' as const, sentAt: new Date().toISOString() } : inv
-                ),
-              );
-              Alert.alert('Éxito', STRINGS.resendSuccess);
-            } catch (error) {
-              Alert.alert('Error', error instanceof Error ? error.message : 'Error al reenviar');
-            } finally {
-              setSendingId(null);
-            }
-          },
-        },
-      ],
-    );
+    const confirmMsg = STRINGS.resendConfirmMsg
+      .replace('{number}', invoice.invoiceNumber)
+      .replace('{client}', clientName);
+
+    const executeResend = async () => {
+      try {
+        setSendingId(invoice.id);
+        await billingService.sendInvoice(invoice.id);
+        await loadInvoices(currentPage, activeFilter, debouncedSearch);
+        if (Platform.OS === 'web') {
+          window.alert(STRINGS.resendSuccess);
+        } else {
+          Alert.alert('Éxito', STRINGS.resendSuccess);
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Error al reenviar';
+        if (Platform.OS === 'web') {
+          window.alert(msg);
+        } else {
+          Alert.alert('Error', msg);
+        }
+      } finally {
+        setSendingId(null);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(confirmMsg)) {
+        executeResend();
+      }
+    } else {
+      Alert.alert(
+        STRINGS.resend,
+        confirmMsg,
+        [
+          { text: STRINGS.cancel, style: 'cancel' },
+          { text: STRINGS.resendBtn, onPress: executeResend },
+        ],
+      );
+    }
   };
 
   const handleDeleteInvoice = (invoice: Invoice) => {
     setOpenMenuId(null);
-    Alert.alert(
-      STRINGS.deleteConfirmTitle,
-      STRINGS.deleteConfirmMsg.replace('{number}', invoice.invoiceNumber),
-      [
-        { text: STRINGS.cancel, style: 'cancel' },
-        {
-          text: STRINGS.continueBtn,
-          onPress: () => {
-            Alert.alert(
-              STRINGS.deleteConfirm2Title,
-              STRINGS.deleteConfirm2Msg.replace('{number}', invoice.invoiceNumber),
-              [
-                { text: STRINGS.cancel, style: 'cancel' },
-                {
-                  text: STRINGS.deleteConfirm2Btn,
-                  style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      await billingService.cancelInvoice(invoice.id);
-                      setInvoices((prev) =>
-                        prev.map((inv) =>
-                          inv.id === invoice.id ? { ...inv, status: 'CANCELLED' as const } : inv
-                        ),
-                      );
-                    } catch (error) {
-                      Alert.alert('Error', error instanceof Error ? error.message : 'Error al eliminar');
-                    }
-                  },
-                },
-              ],
-            );
+    const msg1 = STRINGS.deleteConfirmMsg.replace('{number}', invoice.invoiceNumber);
+    const msg2 = STRINGS.deleteConfirm2Msg.replace('{number}', invoice.invoiceNumber);
+
+    const executeDelete = async () => {
+      try {
+        await billingService.cancelInvoice(invoice.id);
+        await loadInvoices(currentPage, activeFilter, debouncedSearch);
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : 'Error al eliminar';
+        if (Platform.OS === 'web') {
+          window.alert(errMsg);
+        } else {
+          Alert.alert('Error', errMsg);
+        }
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(msg1)) {
+        if (window.confirm(msg2)) {
+          executeDelete();
+        }
+      }
+    } else {
+      Alert.alert(
+        STRINGS.deleteConfirmTitle,
+        msg1,
+        [
+          { text: STRINGS.cancel, style: 'cancel' },
+          {
+            text: STRINGS.continueBtn,
+            onPress: () => {
+              Alert.alert(
+                STRINGS.deleteConfirm2Title,
+                msg2,
+                [
+                  { text: STRINGS.cancel, style: 'cancel' },
+                  { text: STRINGS.deleteConfirm2Btn, style: 'destructive', onPress: executeDelete },
+                ],
+              );
+            },
           },
-        },
-      ],
-    );
+        ],
+      );
+    }
   };
 
   const handleSaveTariffs = async () => {
@@ -536,7 +639,7 @@ export function BillingScreen() {
           <TouchableOpacity
             key={f.key}
             style={[styles.filterChip, activeFilter === f.key && styles.filterChipActive]}
-            onPress={() => setActiveFilter(f.key)}
+            onPress={() => handleFilterChange(f.key)}
           >
             <Text style={[styles.filterChipText, activeFilter === f.key && styles.filterChipTextActive]}>
               {f.label}
@@ -589,24 +692,24 @@ export function BillingScreen() {
     const menuOptions = getMenuOptions(invoice);
 
     return (
-      <TouchableOpacity
-        key={invoice.id}
-        style={styles.invoiceRow}
-        onPress={() => handleInvoiceRowPress(invoice)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.invoiceInfo}>
+      <View key={invoice.id} style={styles.invoiceRow}>
+        <Pressable
+          style={styles.invoiceInfo}
+          onPress={() => handleInvoiceRowPress(invoice)}
+        >
           <Text style={styles.invoiceNumber}>{invoice.invoiceNumber}</Text>
           <Text style={styles.invoiceClient} numberOfLines={1}>{invoice.client.user.name}</Text>
           <Text style={styles.invoiceDate}>{formatDateShort(invoice.createdAt)}</Text>
-        </View>
+        </Pressable>
         <View style={styles.invoiceRight}>
-          <Text style={styles.invoiceAmount}>{formatCurrency(invoice.total)}</Text>
+          <Pressable onPress={() => handleInvoiceRowPress(invoice)}>
+            <Text style={styles.invoiceAmount}>{formatCurrency(invoice.total)}</Text>
+          </Pressable>
           <InvoiceStatusBadge status={invoice.status} />
           <View style={styles.invoiceActions}>
             <TouchableOpacity
               style={styles.iconBtn}
-              onPress={(e) => { e.stopPropagation(); handleDownload(invoice.id, invoice.invoiceNumber); }}
+              onPress={() => handleDownload(invoice.id, invoice.invoiceNumber)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Ionicons name="download-outline" size={18} color={heraLanding.textSecondary} />
@@ -614,7 +717,7 @@ export function BillingScreen() {
             {invoice.status === 'DRAFT' && (
               <TouchableOpacity
                 style={styles.iconBtn}
-                onPress={(e) => { e.stopPropagation(); handleSendInvoice(invoice.id); }}
+                onPress={() => handleSendInvoice(invoice.id)}
                 disabled={sendingId === invoice.id}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
@@ -632,8 +735,7 @@ export function BillingScreen() {
               >
                 <TouchableOpacity
                   style={styles.iconBtn}
-                  onPress={(e) => {
-                    e.stopPropagation();
+                  onPress={() => {
                     if (openMenuId === invoice.id) {
                       setOpenMenuId(null);
                     } else {
@@ -648,7 +750,51 @@ export function BillingScreen() {
             )}
           </View>
         </View>
-      </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+
+    const isFirstPage = currentPage === 1;
+    const isLastPage = currentPage === totalPages;
+
+    return (
+      <View style={styles.paginationContainer}>
+        <View style={styles.paginationRow}>
+          <TouchableOpacity
+            style={[styles.paginationBtn, isFirstPage && styles.paginationBtnDisabled]}
+            onPress={() => handlePageChange(currentPage - 1)}
+            disabled={isFirstPage}
+          >
+            <Ionicons
+              name="chevron-back"
+              size={18}
+              color={isFirstPage ? heraLanding.textMuted : heraLanding.textPrimary}
+            />
+          </TouchableOpacity>
+          <Text style={styles.paginationLabel}>
+            {STRINGS.pageOf
+              .replace('{current}', String(currentPage))
+              .replace('{total}', String(totalPages))}
+          </Text>
+          <TouchableOpacity
+            style={[styles.paginationBtn, isLastPage && styles.paginationBtnDisabled]}
+            onPress={() => handlePageChange(currentPage + 1)}
+            disabled={isLastPage}
+          >
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={isLastPage ? heraLanding.textMuted : heraLanding.textPrimary}
+            />
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.paginationTotal}>
+          {STRINGS.invoicesTotal.replace('{total}', String(totalInvoices))}
+        </Text>
+      </View>
     );
   };
 
@@ -661,17 +807,25 @@ export function BillingScreen() {
         placeholder={STRINGS.searchClient}
         placeholderTextColor={heraLanding.textMuted}
         value={searchQuery}
-        onChangeText={setSearchQuery}
+        onChangeText={handleSearchChange}
       />
-      {filteredInvoices.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="document-text-outline" size={48} color={heraLanding.textMuted} />
-          <Text style={styles.emptyTitle}>{STRINGS.emptyTitle}</Text>
-          <Text style={styles.emptyDesc}>{STRINGS.emptyDesc}</Text>
-        </View>
-      ) : (
-        filteredInvoices.map(renderInvoiceRow)
-      )}
+      <View ref={invoiceListRef} style={invoicesLoading ? styles.invoiceListLoading : undefined}>
+        {invoicesLoading && (
+          <View style={styles.invoiceListOverlay}>
+            <ActivityIndicator size="small" color={heraLanding.primary} />
+          </View>
+        )}
+        {invoices.length === 0 && !invoicesLoading ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="document-text-outline" size={48} color={heraLanding.textMuted} />
+            <Text style={styles.emptyTitle}>{STRINGS.emptyTitle}</Text>
+            <Text style={styles.emptyDesc}>{STRINGS.emptyDesc}</Text>
+          </View>
+        ) : (
+          invoices.map(renderInvoiceRow)
+        )}
+      </View>
+      {renderPagination()}
     </View>
   );
 
@@ -755,14 +909,6 @@ export function BillingScreen() {
                   >
                     <Text style={[styles.tariffToggleText, tariff.isDefault && styles.tariffToggleTextActive]}>
                       Por defecto
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.tariffToggle, !tariff.isActive && styles.tariffToggleInactive]}
-                    onPress={() => handleUpdateTempTariff(tariff.id, 'isActive', !tariff.isActive)}
-                  >
-                    <Text style={[styles.tariffToggleText, !tariff.isActive && styles.tariffToggleTextInactive]}>
-                      {tariff.isActive ? 'Activa' : 'Inactiva'}
                     </Text>
                   </TouchableOpacity>
                   {tempTariffItems.length > 1 && (
@@ -1509,10 +1655,6 @@ const styles = StyleSheet.create({
     backgroundColor: heraLanding.primaryMuted,
     borderColor: heraLanding.primary,
   },
-  tariffToggleInactive: {
-    backgroundColor: heraLanding.warningLight,
-    borderColor: heraLanding.warningAmber,
-  },
   tariffToggleText: {
     fontSize: typography.fontSizes.xs,
     color: heraLanding.textSecondary,
@@ -1521,9 +1663,6 @@ const styles = StyleSheet.create({
   tariffToggleTextActive: {
     color: heraLanding.primary,
     fontWeight: typography.fontWeights.semibold,
-  },
-  tariffToggleTextInactive: {
-    color: heraLanding.warningAmber,
   },
   tariffDisplayRow: {
     flexDirection: 'row',
@@ -1558,6 +1697,57 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.xs,
     color: heraLanding.textMuted,
     fontStyle: 'italic',
+  },
+
+  // Pagination
+  paginationContainer: {
+    alignItems: 'center',
+    marginTop: spacing.md,
+    gap: spacing.xs,
+  },
+  paginationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  paginationBtn: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: heraLanding.border,
+    minWidth: touchTarget.minWidth - 8,
+    minHeight: touchTarget.minHeight - 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  paginationBtnDisabled: {
+    borderColor: heraLanding.borderLight,
+    opacity: 0.5,
+  },
+  paginationLabel: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.medium,
+    color: heraLanding.textPrimary,
+  },
+  paginationTotal: {
+    fontSize: typography.fontSizes.xs,
+    color: heraLanding.textMuted,
+  },
+
+  // Invoice list loading overlay
+  invoiceListLoading: {
+    opacity: 0.5,
+  },
+  invoiceListOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
 
 });

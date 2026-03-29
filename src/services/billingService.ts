@@ -52,6 +52,16 @@ export interface InvoiceFilters {
   month?: number;
   year?: number;
   clientId?: string;
+  clientName?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedInvoices {
+  invoices: Invoice[];
+  total: number;
+  page: number;
+  totalPages: number;
 }
 
 export interface CreateInvoiceData {
@@ -183,18 +193,27 @@ export const billingService = {
     }
   },
 
-  async getInvoices(filters?: InvoiceFilters): Promise<Invoice[]> {
+  async getInvoices(filters?: InvoiceFilters): Promise<PaginatedInvoices> {
     try {
       const params = new URLSearchParams();
       if (filters?.status) params.append('status', filters.status);
       if (filters?.month) params.append('month', String(filters.month));
       if (filters?.year) params.append('year', String(filters.year));
       if (filters?.clientId) params.append('clientId', filters.clientId);
+      if (filters?.clientName) params.append('clientName', filters.clientName);
+      if (filters?.page) params.append('page', String(filters.page));
+      if (filters?.limit) params.append('limit', String(filters.limit));
 
       const query = params.toString();
       const url = `/billing/invoices${query ? `?${query}` : ''}`;
       const response = await api.get(url);
-      return response.data.data || [];
+      const data = response.data.data;
+      return {
+        invoices: data.invoices || [],
+        total: data.total ?? 0,
+        page: data.page ?? 1,
+        totalPages: data.totalPages ?? 1,
+      };
     } catch (error: unknown) {
       throw new Error(getErrorMessage(error, 'No se pudieron cargar las facturas'));
     }
