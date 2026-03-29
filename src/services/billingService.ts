@@ -31,6 +31,7 @@ export interface Invoice {
   durationMinutes: number | null;
   status: InvoiceStatus;
   sentAt: string | null;
+  paidAt: string | null;
   internalNotes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -45,7 +46,7 @@ export interface Invoice {
   } | null;
 }
 
-export type InvoiceStatus = 'DRAFT' | 'SENT' | 'CANCELLED';
+export type InvoiceStatus = 'DRAFT' | 'SENT' | 'PAID' | 'CANCELLED';
 
 export interface InvoiceFilters {
   status?: InvoiceStatus;
@@ -261,6 +262,15 @@ export const billingService = {
       return response.data.data;
     } catch (error: unknown) {
       throw new Error(getErrorMessage(error, 'No se pudo cancelar la factura'));
+    }
+  },
+
+  async markInvoiceAsPaid(invoiceId: string): Promise<Invoice> {
+    try {
+      const response = await api.patch(`/billing/invoices/${invoiceId}/paid`);
+      return response.data.data;
+    } catch (error: unknown) {
+      throw new Error(getErrorMessage(error, 'No se pudo marcar la factura como pagada'));
     }
   },
 

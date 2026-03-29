@@ -39,8 +39,8 @@ const STRINGS = {
   title: 'Facturación',
   exportMonth: 'Exportar mes',
   newInvoice: ' Nueva factura',
-  thisMonth: 'Facturado este mes',
-  thisYear: 'Acumulado este año',
+  thisMonth: 'Cobrado este mes',
+  thisYear: 'Cobrado este año',
   invoicesMonth: 'Facturas emitidas',
   pendingSend: 'Pendientes de envío',
   invoiceHistory: 'Historial de facturas',
@@ -92,6 +92,10 @@ const STRINGS = {
   confirmSend: '¿Enviar esta factura al cliente?',
   confirmCancel: '¿Cancelar esta factura?',
   resend: 'Volver a enviar',
+  markAsPaid: 'Marcar como pagada',
+  markAsPaidConfirm: '¿Marcar esta factura como pagada?',
+  markAsPaidSuccess: 'Factura marcada como pagada',
+  paid: 'Pagadas',
   deleteDraft: 'Eliminar borrador',
   deleteInvoice: 'Eliminar',
   deleteConfirmTitle: '¿Eliminar factura?',
@@ -123,6 +127,7 @@ const SLOT_OPTIONS = [
 
 const STATUS_COLORS: Record<InvoiceStatus, { bg: string; text: string; label: string }> = {
   SENT: { bg: heraLanding.successLight, text: heraLanding.success, label: 'Enviada' },
+  PAID: { bg: colors.background.success, text: colors.feedback.success, label: 'Pagada' },
   DRAFT: { bg: heraLanding.warningLight, text: heraLanding.warningAmber, label: 'Borrador' },
   CANCELLED: { bg: heraLanding.mutedLight, text: heraLanding.textMuted, label: 'Cancelada' },
 };
@@ -451,6 +456,7 @@ export function BillingScreen() {
         setSendingId(invoice.id);
         await billingService.sendInvoice(invoice.id);
         await loadInvoices(currentPage, activeFilter, debouncedSearch);
+        billingService.getSummary().then(setSummary).catch(() => {});
         if (Platform.OS === 'web') {
           window.alert(STRINGS.resendSuccess);
         } else {
@@ -484,6 +490,48 @@ export function BillingScreen() {
     }
   };
 
+  const handleMarkAsPaid = (invoice: Invoice) => {
+    setOpenMenuId(null);
+
+    const executeMark = async () => {
+      try {
+        setSendingId(invoice.id);
+        await billingService.markInvoiceAsPaid(invoice.id);
+        await loadInvoices(currentPage, activeFilter, debouncedSearch);
+        billingService.getSummary().then(setSummary).catch(() => {});
+        if (Platform.OS === 'web') {
+          window.alert(STRINGS.markAsPaidSuccess);
+        } else {
+          Alert.alert('Éxito', STRINGS.markAsPaidSuccess);
+        }
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : 'Error al marcar como pagada';
+        if (Platform.OS === 'web') {
+          window.alert(msg);
+        } else {
+          Alert.alert('Error', msg);
+        }
+      } finally {
+        setSendingId(null);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(STRINGS.markAsPaidConfirm)) {
+        executeMark();
+      }
+    } else {
+      Alert.alert(
+        STRINGS.markAsPaid,
+        STRINGS.markAsPaidConfirm,
+        [
+          { text: STRINGS.cancel, style: 'cancel' },
+          { text: 'Confirmar', onPress: executeMark },
+        ],
+      );
+    }
+  };
+
   const handleDeleteInvoice = (invoice: Invoice) => {
     setOpenMenuId(null);
     const msg1 = STRINGS.deleteConfirmMsg.replace('{number}', invoice.invoiceNumber);
@@ -493,6 +541,7 @@ export function BillingScreen() {
       try {
         await billingService.cancelInvoice(invoice.id);
         await loadInvoices(currentPage, activeFilter, debouncedSearch);
+        billingService.getSummary().then(setSummary).catch(() => {});
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : 'Error al eliminar';
         if (Platform.OS === 'web') {
@@ -630,6 +679,7 @@ export function BillingScreen() {
     const filters: Array<{ key: FilterTab; label: string }> = [
       { key: 'all', label: STRINGS.all },
       { key: 'SENT', label: STRINGS.sent },
+      { key: 'PAID', label: STRINGS.paid },
       { key: 'DRAFT', label: STRINGS.drafts },
       { key: 'CANCELLED', label: STRINGS.cancelled },
     ];
@@ -662,6 +712,9 @@ export function BillingScreen() {
     const options: Array<{ label: string; onPress: () => void; danger?: boolean }> = [];
     if (invoice.status === 'SENT' || (invoice.status === 'DRAFT' && invoice.sentAt)) {
       options.push({ label: STRINGS.resend, onPress: () => handleResendInvoice(invoice) });
+    }
+    if (invoice.status === 'SENT') {
+      options.push({ label: STRINGS.markAsPaid, onPress: () => handleMarkAsPaid(invoice) });
     }
     if (invoice.status === 'DRAFT') {
       options.push({ label: STRINGS.deleteDraft, onPress: () => handleDeleteInvoice(invoice), danger: true });
