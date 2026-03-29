@@ -882,6 +882,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: heraLanding.textPrimary,
+    flex: 1,
+    textAlign: 'center',
   },
   unsavedBadge: {
     flexDirection: 'row',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Alert,
   Switch,
   Platform,
+  Pressable,
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -89,6 +90,18 @@ const STRINGS = {
   invoiceNumber: 'N.º factura',
   confirmSend: '¿Enviar esta factura al cliente?',
   confirmCancel: '¿Cancelar esta factura?',
+  resend: 'Volver a enviar',
+  deleteDraft: 'Eliminar borrador',
+  deleteInvoice: 'Eliminar',
+  deleteConfirmTitle: '¿Eliminar factura?',
+  deleteConfirmMsg: 'Esta acción no se puede deshacer. La factura {number} será eliminada permanentemente.',
+  deleteConfirm2Title: 'Confirmar eliminación',
+  deleteConfirm2Msg: '¿Estás seguro? La factura {number} desaparecerá del historial.',
+  deleteConfirm2Btn: 'Eliminar definitivamente',
+  continueBtn: 'Continuar',
+  resendConfirmMsg: '¿Reenviar factura {number} a {client}?',
+  resendBtn: 'Reenviar',
+  resendSuccess: 'Factura reenviada correctamente',
 };
 
 const VAT_OPTIONS = [
@@ -188,6 +201,11 @@ export function BillingScreen() {
   // Filter state
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Menu state (portal pattern — window-relative coordinates)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+  const menuButtonRefs = useRef<Record<string, View | null>>({});
 
   // Edit state
   const [editingTariffs, setEditingTariffs] = useState(false);
@@ -342,6 +360,76 @@ export function BillingScreen() {
     }
   };
 
+  const handleResendInvoice = (invoice: Invoice) => {
+    setOpenMenuId(null);
+    const clientName = invoice.client?.user?.name || 'el cliente';
+    Alert.alert(
+      STRINGS.resend,
+      STRINGS.resendConfirmMsg.replace('{number}', invoice.invoiceNumber).replace('{client}', clientName),
+      [
+        { text: STRINGS.cancel, style: 'cancel' },
+        {
+          text: STRINGS.resendBtn,
+          onPress: async () => {
+            try {
+              setSendingId(invoice.id);
+              await billingService.sendInvoice(invoice.id);
+              setInvoices((prev) =>
+                prev.map((inv) =>
+                  inv.id === invoice.id ? { ...inv, status: 'SENT' as const, sentAt: new Date().toISOString() } : inv
+                ),
+              );
+              Alert.alert('Éxito', STRINGS.resendSuccess);
+            } catch (error) {
+              Alert.alert('Error', error instanceof Error ? error.message : 'Error al reenviar');
+            } finally {
+              setSendingId(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleDeleteInvoice = (invoice: Invoice) => {
+    setOpenMenuId(null);
+    Alert.alert(
+      STRINGS.deleteConfirmTitle,
+      STRINGS.deleteConfirmMsg.replace('{number}', invoice.invoiceNumber),
+      [
+        { text: STRINGS.cancel, style: 'cancel' },
+        {
+          text: STRINGS.continueBtn,
+          onPress: () => {
+            Alert.alert(
+              STRINGS.deleteConfirm2Title,
+              STRINGS.deleteConfirm2Msg.replace('{number}', invoice.invoiceNumber),
+              [
+                { text: STRINGS.cancel, style: 'cancel' },
+                {
+                  text: STRINGS.deleteConfirm2Btn,
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await billingService.cancelInvoice(invoice.id);
+                      setInvoices((prev) =>
+                        prev.map((inv) =>
+                          inv.id === invoice.id ? { ...inv, status: 'CANCELLED' as const } : inv
+                        ),
+                      );
+                    } catch (error) {
+                      Alert.alert('Error', error instanceof Error ? error.message : 'Error al eliminar');
+                    }
+                  },
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
+  };
+
   const handleSaveTariffs = async () => {
     const defaults = tempTariffItems.filter((t) => t.isDefault);
     if (defaults.length !== 1) {
@@ -467,47 +555,102 @@ export function BillingScreen() {
     }
   };
 
-  const renderInvoiceRow = (invoice: Invoice) => (
-    <TouchableOpacity
-      key={invoice.id}
-      style={styles.invoiceRow}
-      onPress={() => handleInvoiceRowPress(invoice)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.invoiceInfo}>
-        <Text style={styles.invoiceNumber}>{invoice.invoiceNumber}</Text>
-        <Text style={styles.invoiceClient} numberOfLines={1}>{invoice.client.user.name}</Text>
-        <Text style={styles.invoiceDate}>{formatDateShort(invoice.createdAt)}</Text>
-      </View>
-      <View style={styles.invoiceRight}>
-        <Text style={styles.invoiceAmount}>{formatCurrency(invoice.total)}</Text>
-        <InvoiceStatusBadge status={invoice.status} />
-        <View style={styles.invoiceActions}>
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() => handleDownload(invoice.id, invoice.invoiceNumber)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="download-outline" size={18} color={heraLanding.textSecondary} />
-          </TouchableOpacity>
-          {invoice.status === 'DRAFT' && (
+  const getMenuOptions = (invoice: Invoice): Array<{ label: string; onPress: () => void; danger?: boolean }> => {
+    const options: Array<{ label: string; onPress: () => void; danger?: boolean }> = [];
+    if (invoice.status === 'SENT' || (invoice.status === 'DRAFT' && invoice.sentAt)) {
+      options.push({ label: STRINGS.resend, onPress: () => handleResendInvoice(invoice) });
+    }
+    if (invoice.status === 'DRAFT') {
+      options.push({ label: STRINGS.deleteDraft, onPress: () => handleDeleteInvoice(invoice), danger: true });
+    } else if (invoice.status === 'SENT') {
+      options.push({ label: STRINGS.deleteInvoice, onPress: () => handleDeleteInvoice(invoice), danger: true });
+    } else if (invoice.status === 'CANCELLED') {
+      options.push({ label: STRINGS.deleteInvoice, onPress: () => handleDeleteInvoice(invoice), danger: true });
+    }
+    return options;
+  };
+
+  const handleOpenMenu = (invoiceId: string) => {
+    const buttonRef = menuButtonRefs.current[invoiceId];
+    if (buttonRef) {
+      buttonRef.measure((_x, _y, w, h, pageX, pageY) => {
+        setMenuPosition({
+          top: pageY + h + 4,
+          right: width - (pageX + w),
+        });
+        setOpenMenuId(invoiceId);
+      });
+    } else {
+      setOpenMenuId(invoiceId);
+    }
+  };
+
+  const renderInvoiceRow = (invoice: Invoice) => {
+    const menuOptions = getMenuOptions(invoice);
+
+    return (
+      <TouchableOpacity
+        key={invoice.id}
+        style={styles.invoiceRow}
+        onPress={() => handleInvoiceRowPress(invoice)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.invoiceInfo}>
+          <Text style={styles.invoiceNumber}>{invoice.invoiceNumber}</Text>
+          <Text style={styles.invoiceClient} numberOfLines={1}>{invoice.client.user.name}</Text>
+          <Text style={styles.invoiceDate}>{formatDateShort(invoice.createdAt)}</Text>
+        </View>
+        <View style={styles.invoiceRight}>
+          <Text style={styles.invoiceAmount}>{formatCurrency(invoice.total)}</Text>
+          <InvoiceStatusBadge status={invoice.status} />
+          <View style={styles.invoiceActions}>
             <TouchableOpacity
               style={styles.iconBtn}
-              onPress={() => handleSendInvoice(invoice.id)}
-              disabled={sendingId === invoice.id}
+              onPress={(e) => { e.stopPropagation(); handleDownload(invoice.id, invoice.invoiceNumber); }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              {sendingId === invoice.id ? (
-                <ActivityIndicator size="small" color={heraLanding.primary} />
-              ) : (
-                <Ionicons name="send-outline" size={18} color={heraLanding.primary} />
-              )}
+              <Ionicons name="download-outline" size={18} color={heraLanding.textSecondary} />
             </TouchableOpacity>
-          )}
+            {invoice.status === 'DRAFT' && (
+              <TouchableOpacity
+                style={styles.iconBtn}
+                onPress={(e) => { e.stopPropagation(); handleSendInvoice(invoice.id); }}
+                disabled={sendingId === invoice.id}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                {sendingId === invoice.id ? (
+                  <ActivityIndicator size="small" color={heraLanding.primary} />
+                ) : (
+                  <Ionicons name="send-outline" size={18} color={heraLanding.primary} />
+                )}
+              </TouchableOpacity>
+            )}
+            {menuOptions.length > 0 && (
+              <View
+                ref={(ref) => { menuButtonRefs.current[invoice.id] = ref; }}
+                collapsable={false}
+              >
+                <TouchableOpacity
+                  style={styles.iconBtn}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    if (openMenuId === invoice.id) {
+                      setOpenMenuId(null);
+                    } else {
+                      handleOpenMenu(invoice.id);
+                    }
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="ellipsis-vertical" size={18} color={heraLanding.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   const renderInvoiceList = () => (
     <View style={styles.card}>
@@ -821,6 +964,10 @@ export function BillingScreen() {
   );
 
 
+  // ── Portal menu ─────────────────────────────────────────────
+  const openMenuInvoice = openMenuId ? invoices.find((inv) => inv.id === openMenuId) : null;
+  const portalMenuOptions = openMenuInvoice ? getMenuOptions(openMenuInvoice) : [];
+
   // ── Main layout ──────────────────────────────────────────────
   return (
     <View style={styles.container}>
@@ -873,6 +1020,28 @@ export function BillingScreen() {
         )}
       </ScrollView>
 
+      {/* Portal: three-dot menu rendered at root level */}
+      {openMenuId && portalMenuOptions.length > 0 && (
+        <>
+          <Pressable
+            style={styles.menuBackdrop}
+            onPress={() => setOpenMenuId(null)}
+          />
+          <View style={[styles.menuDropdown, { top: menuPosition.top, right: menuPosition.right }]}>
+            {portalMenuOptions.map((opt) => (
+              <TouchableOpacity
+                key={opt.label}
+                style={styles.menuOption}
+                onPress={() => opt.onPress()}
+              >
+                <Text style={[styles.menuOptionText, opt.danger && styles.menuOptionTextDanger]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -913,6 +1082,8 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.xxxl,
     fontWeight: typography.fontWeights.bold,
     color: heraLanding.textPrimary,
+    flex: 1,
+    textAlign: 'center',
   },
   headerActions: {
     flexDirection: 'row',
@@ -941,6 +1112,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     paddingBottom: spacing.xxxl,
+    overflow: 'visible' as const,
   },
   scrollContentDesktop: {
     paddingHorizontal: spacing.xxxl,
@@ -980,6 +1152,7 @@ const styles = StyleSheet.create({
   desktopColumns: {
     flexDirection: 'row',
     gap: spacing.lg,
+    overflow: 'visible' as const,
   },
   mainColumn: {
     flex: 1,
@@ -1129,6 +1302,7 @@ const styles = StyleSheet.create({
   invoiceActions: {
     flexDirection: 'row',
     gap: spacing.xs,
+    alignItems: 'center',
   },
   iconBtn: {
     padding: spacing.xs,
@@ -1136,6 +1310,39 @@ const styles = StyleSheet.create({
     minHeight: touchTarget.minHeight - 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  // Three-dot menu (portal — rendered at root level)
+  menuBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 2000,
+  },
+  menuDropdown: {
+    position: 'absolute',
+    backgroundColor: colors.neutral.white,
+    borderWidth: 1,
+    borderColor: heraLanding.border,
+    borderRadius: borderRadius.lg,
+    zIndex: 2001,
+    minWidth: 160,
+    ...shadows.md,
+    elevation: 20,
+    ...(Platform.OS === 'web' ? { boxShadow: '0 4px 12px rgba(0,0,0,0.15)' } as Record<string, string> : {}),
+  },
+  menuOption: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  menuOptionText: {
+    fontSize: typography.fontSizes.sm,
+    color: heraLanding.textPrimary,
+  },
+  menuOptionTextDanger: {
+    color: colors.feedback.error,
   },
 
   // Badge
@@ -1171,9 +1378,12 @@ const styles = StyleSheet.create({
   // Edit form
   editForm: {
     gap: spacing.sm,
+    overflow: 'visible' as const,
   },
   formGroup: {
     marginBottom: spacing.sm,
+    zIndex: 100,
+    overflow: 'visible' as const,
   },
   fieldLabel: {
     fontSize: typography.fontSizes.sm,
@@ -1268,9 +1478,12 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
+    overflow: 'visible' as const,
+    zIndex: 100,
   },
   tariffEditFields: {
     gap: spacing.sm,
+    overflow: 'visible' as const,
   },
   tariffPriceRow: {
     flexDirection: 'row',

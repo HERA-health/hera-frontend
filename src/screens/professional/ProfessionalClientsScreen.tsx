@@ -791,10 +791,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: heraLanding.textPrimary,
     marginBottom: spacing.xs,
+    textAlign: 'center',
   },
   headerSubtitle: {
     fontSize: typography.fontSizes.sm,
     color: heraLanding.textSecondary,
+    textAlign: 'center',
   },
 
   // Controls

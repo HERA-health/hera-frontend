@@ -539,10 +539,12 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     marginBottom: spacing.xs,
+    textAlign: 'center',
   },
   headerSubtitle: {
     fontSize: 15,
     color: colors.neutral.gray600,
+    textAlign: 'center',
   },
   scrollView: {
     flex: 1,

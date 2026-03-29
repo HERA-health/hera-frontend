@@ -983,6 +983,8 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     color: heraLanding.textPrimary,
+    flex: 1,
+    textAlign: 'center',
   },
   statsRow: {
     flexDirection: 'row',

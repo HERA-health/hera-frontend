@@ -435,6 +435,12 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   // ── Render helpers ──
   const renderHeader = () => (
     <View style={styles.header}>
+      {/* Centered title — absolute so it spans full width */}
+      <View style={styles.headerTitleWrapper} pointerEvents="none">
+        <Text style={styles.headerTitle}>
+          {isEditing ? STRINGS.titleEdit : STRINGS.titleNew}
+        </Text>
+      </View>
       <View style={styles.headerLeft}>
         <TouchableOpacity
           style={styles.backButton}
@@ -443,9 +449,6 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
           <Ionicons name="arrow-back" size={20} color={heraLanding.primary} />
           <Text style={styles.backLabel}>{STRINGS.backLabel}</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isEditing ? STRINGS.titleEdit : STRINGS.titleNew}
-        </Text>
       </View>
       <View style={styles.headerRight}>
         <View style={styles.statusBadge}>
@@ -852,10 +855,20 @@ const styles = StyleSheet.create({
     color: heraLanding.primary,
     fontWeight: typography.fontWeights.medium,
   },
+  headerTitleWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   headerTitle: {
     fontSize: typography.fontSizes.xl,
     fontWeight: typography.fontWeights.bold,
     color: heraLanding.textPrimary,
+    textAlign: 'center',
   },
   headerRight: {
     flexDirection: 'row',

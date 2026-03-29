@@ -123,6 +123,7 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.xxl,
     fontWeight: typography.fontWeights.bold,
     color: heraLanding.textPrimary,
+    textAlign: 'center',
   },
   tabBar: {
     flexDirection: 'row',

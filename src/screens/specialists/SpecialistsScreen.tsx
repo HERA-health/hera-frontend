@@ -841,6 +841,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: heraLanding.textPrimary,
     marginBottom: 4,
+    textAlign: 'center',
   },
   resultsCount: {
     fontSize: 14,
