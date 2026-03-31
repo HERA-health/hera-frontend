@@ -124,6 +124,7 @@ export type RootStackParamList = {
   Questionnaire: undefined;
   QuestionnaireResults: { results: any[] };
   ProfessionalHome: undefined;
+  ProfessionalDashboard: undefined;
   ProfessionalClients: undefined;
   ProfessionalSessions: undefined;
   ProfessionalProfile: undefined;

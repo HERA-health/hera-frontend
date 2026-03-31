@@ -92,10 +92,10 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
     roles: ['PROFESSIONAL'],
     items: [
       {
-        id: 'dashboard',
-        label: 'Panel Principal',
-        icon: 'grid-outline',
-        iconActive: 'grid',
+        id: 'home',
+        label: 'Inicio',
+        icon: 'home-outline',
+        iconActive: 'home',
         route: 'ProfessionalHome',
         roles: ['PROFESSIONAL'],
       },
@@ -121,6 +121,14 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         icon: 'receipt-outline',
         iconActive: 'receipt',
         route: 'ProfessionalBilling',
+        roles: ['PROFESSIONAL'],
+      },
+      {
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: 'bar-chart-outline',
+        iconActive: 'bar-chart',
+        route: 'ProfessionalDashboard',
         roles: ['PROFESSIONAL'],
       },
       {

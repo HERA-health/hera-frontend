@@ -45,6 +45,7 @@ import { ProfessionalProfileEditorScreen } from '../screens/professional/Profess
 import { SpecialistProfileScreen } from '../screens/professional/SpecialistProfileScreen';
 import { ProfessionalAvailabilityScreen } from '../screens/professional/ProfessionalAvailabilityScreen';
 import { BillingScreen } from '../screens/professional/BillingScreen';
+import { DashboardScreen } from '../screens/professional/DashboardScreen';
 import { CreateInvoiceScreen } from '../screens/professional/CreateInvoiceScreen';
 import { ClientProfileScreen } from '../screens/professional/ClientProfileScreen';
 
@@ -130,6 +131,16 @@ export function RootNavigator() {
           {() => (
             <MainLayout>
               <ProfessionalHomeScreen />
+            </MainLayout>
+          )}
+        </Stack.Screen>
+        <Stack.Screen
+          name="ProfessionalDashboard"
+          options={{ headerTitle: 'Dashboard' }}
+        >
+          {() => (
+            <MainLayout>
+              <DashboardScreen />
             </MainLayout>
           )}
         </Stack.Screen>
