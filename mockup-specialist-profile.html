@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HERA - Perfil de Especialista (Mockup Mejorado)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            sage: {
+              50: '#F8FAF8',
+              100: '#F0F4F0',
+              200: '#E0E8E0',
+              300: '#C5D0C5',
+              400: '#A8B8A0',
+              500: '#8B9D83',
+              600: '#7A8C72',
+              700: '#6E8066',
+              800: '#4A5D4A',
+              900: '#2C3E2C',
+            },
+            lavender: {
+              100: '#F0ECFA',
+              200: '#E0D4F2',
+              300: '#D4C9E8',
+              400: '#B8A8D9',
+              500: '#9B87C4',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * {
+      font-family: 'Inter', sans-serif;
+    }
+    .gradient-header {
+      background: linear-gradient(135deg, rgba(139, 157, 131, 0.15) 0%, rgba(184, 168, 217, 0.1) 50%, rgba(139, 157, 131, 0.15) 100%);
+    }
+    .cta-gradient {
+      background: linear-gradient(135deg, #8B9D83 0%, #7A8C72 100%);
+    }
+    .card-hover {
+      transition: all 0.2s ease;
+    }
+    .card-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(44, 62, 44, 0.12);
+    }
+    .pulse-dot {
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body class="bg-sage-50 min-h-screen">
+  <!-- Back Navigation - Sticky -->
+  <div class="sticky top-0 z-40 bg-sage-50/90 backdrop-blur-md border-b border-sage-200/50">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+      <button class="flex items-center gap-2 text-sage-600 hover:text-sage-900 transition-colors group">
+        <svg class="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        <span class="text-sm font-medium">Volver a especialistas</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr,380px] gap-8">
+      <!-- Main Content -->
+      <div class="space-y-6">
+        <!-- Hero Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-sage-200/50 overflow-hidden card-hover">
+          <!-- Header Gradient -->
+          <div class="h-24 gradient-header"></div>
+          
+          <!-- Profile Info -->
+          <div class="px-6 sm:px-8 pb-6 -mt-12">
+            <div class="flex flex-col sm:flex-row gap-5 items-start sm:items-end">
+              <!-- Avatar -->
+              <div class="relative">
+                <div class="w-28 h-28 rounded-2xl overflow-hidden ring-4 ring-white shadow-lg">
+                  <img 
+                    src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop&crop=face" 
+                    alt="Judith Fernández Alonso"
+                    class="object-cover w-full h-full"
+                  />
+                </div>
+                <!-- Online Indicator -->
+                <div class="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full ring-3 ring-white flex items-center justify-center">
+                  <div class="w-2 h-2 bg-white rounded-full pulse-dot"></div>
+                </div>
+              </div>
+
+              <!-- Name & Title -->
+              <div class="flex-1 pb-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h1 class="text-2xl font-semibold text-sage-900">Judith Fernández Alonso</h1>
+                  <div class="flex items-center gap-1 px-2 py-0.5 bg-emerald-50 rounded-full">
+                    <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                    <span class="text-xs font-medium text-emerald-700">Verificada</span>
+                  </div>
+                </div>
+                <p class="text-sage-600 mt-0.5">Psicóloga General Sanitaria</p>
+                
+                <!-- Quick Stats -->
+                <div class="flex items-center gap-4 mt-3 flex-wrap">
+                  <button class="flex items-center gap-1.5 group">
+                    <svg class="w-4 h-4 text-amber-400 fill-amber-400" viewBox="0 0 24 24">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                    <span class="font-semibold text-sage-900">4.9</span>
+                    <span class="text-sage-600 text-sm group-hover:text-sage-900 transition-colors">(127 reseñas)</span>
+                  </button>
+                  <div class="flex items-center gap-1.5 text-sm text-sage-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
+                    <span>8 años de experiencia</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tags -->
+            <div class="flex flex-wrap gap-2 mt-5">
+              <span class="px-3 py-1.5 text-sm bg-sage-100 text-sage-800 rounded-lg font-medium">Ansiedad</span>
+              <span class="px-3 py-1.5 text-sm bg-sage-100 text-sage-800 rounded-lg font-medium">Depresión</span>
+              <span class="px-3 py-1.5 text-sm bg-sage-100 text-sage-800 rounded-lg font-medium">Autoestima</span>
+              <span class="px-3 py-1.5 text-sm bg-sage-100 text-sage-800 rounded-lg font-medium">Estrés laboral</span>
+              <span class="px-3 py-1.5 text-sm bg-sage-500/10 text-sage-500 rounded-lg font-medium">+1 más</span>
+            </div>
+
+            <!-- Session Types -->
+            <div class="flex items-center gap-3 mt-5 pt-5 border-t border-sage-200/50 flex-wrap">
+              <div class="flex items-center gap-2 px-3 py-2 bg-sage-100 rounded-lg">
+                <svg class="w-4 h-4 text-sage-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+                <span class="text-sm text-sage-800 font-medium">Videollamada</span>
+              </div>
+              <div class="flex items-center gap-2 px-3 py-2 bg-sage-100 rounded-lg">
+                <svg class="w-4 h-4 text-sage-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+                <span class="text-sm text-sage-800 font-medium">Presencial</span>
+              </div>
+              <div class="flex items-center gap-2 px-3 py-2 bg-emerald-50 rounded-lg ml-auto">
+                <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+                </svg>
+                <span class="text-sm text-emerald-700 font-medium">Disponible hoy</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- About Section -->
+        <div class="bg-white rounded-2xl shadow-sm border border-sage-200/50 p-6 sm:p-8 card-hover">
+          <h2 class="text-lg font-semibold text-sage-900 mb-4">Sobre mí</h2>
+          <p class="text-sage-800 leading-relaxed">
+            Soy psicóloga con más de 8 años de experiencia especializada en el tratamiento de la ansiedad, depresión y problemas de autoestima. Mi enfoque se basa en crear un espacio seguro donde puedas explorar tus emociones y desarrollar herramientas para mejorar tu bienestar emocional.
+          </p>
+          
+          <div class="mt-6 pt-6 border-t border-sage-200/50">
+            <h3 class="text-xs font-semibold text-sage-400 uppercase tracking-wider mb-3">
+              Enfoque terapéutico
+            </h3>
+            <p class="text-sage-800">Terapia Cognitivo-Conductual (TCC), Mindfulness, ACT</p>
+          </div>
+
+          <div class="mt-6 pt-6 border-t border-sage-200/50">
+            <h3 class="text-xs font-semibold text-sage-400 uppercase tracking-wider mb-3">
+              Idiomas
+            </h3>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="flex items-center gap-1.5 px-3 py-1.5 bg-sage-100 rounded-lg text-sm text-sage-800">
+                <svg class="w-3.5 h-3.5 text-sage-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+                </svg>
+                Español
+              </span>
+              <span class="flex items-center gap-1.5 px-3 py-1.5 bg-sage-100 rounded-lg text-sm text-sage-800">
+                <svg class="w-3.5 h-3.5 text-sage-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+                </svg>
+                Inglés
+              </span>
+              <span class="flex items-center gap-1.5 px-3 py-1.5 bg-sage-100 rounded-lg text-sm text-sage-800">
+                <svg class="w-3.5 h-3.5 text-sage-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+                </svg>
+                Catalán
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Specializations -->
+        <div class="bg-white rounded-2xl shadow-sm border border-sage-200/50 p-6 sm:p-8 card-hover">
+          <h2 class="text-lg font-semibold text-sage-900 mb-5">Áreas de especialización</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- Specialization Cards -->
+            <div class="flex items-start gap-4 p-4 bg-sage-50 rounded-xl hover:bg-sage-100 transition-colors group cursor-pointer">
+              <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-lg shadow-sm group-hover:scale-110 transition-transform">
+                😰
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="font-medium text-sage-900">Ansiedad</h3>
+                <p class="text-sm text-sage-600 mt-0.5">Manejo del estrés, ataques de pánico y preocupaciones</p>
+              </div>
+            </div>
+            
+            <div class="flex items-start gap-4 p-4 bg-sage-50 rounded-xl hover:bg-sage-100 transition-colors group cursor-pointer">
+              <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-lg shadow-sm group-hover:scale-110 transition-transform">
+                💙
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="font-medium text-sage-900">Depresión</h3>
+                <p class="text-sm text-sage-600 mt-0.5">Acompañamiento en estados de ánimo bajo</p>
+              </div>
+            </div>
+            
+            <div class="flex items-start gap-4 p-4 bg-sage-50 rounded-xl hover:bg-sage-100 transition-colors group cursor-pointer">
+              <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-lg shadow-sm group-hover:scale-110 transition-transform">
+                💪
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="font-medium text-sage-900">Autoestima</h3>
+                <p class="text-sm text-sage-600 mt-0.5">Desarrollo de la confianza y amor propio</p>
+              </div>
+            </div>
+            
+            <div class="flex items-start gap-4 p-4 bg-sage-50 rounded-xl hover:bg-sage-100 transition-colors group cursor-pointer">
+              <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-lg shadow-sm group-hover:scale-110 transition-transform">
+                💼
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="font-medium text-sage-900">Estrés laboral</h3>
+                <p class="text-sm text-sage-600 mt-0.5">Bienestar y equilibrio en el trabajo</p>
+              </div>
+            </div>
+            
+            <div class="flex items-start gap-4 p-4 bg-sage-50 rounded-xl hover:bg-sage-100 transition-colors group cursor-pointer">
+              <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-lg shadow-sm group-hover:scale-110 transition-transform">
+                💕
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="font-medium text-sage-900">Relaciones</h3>
+                <p class="text-sm text-sage-600 mt-0.5">Comunicación y vínculos saludables</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Education & Credentials -->
+        <div class="bg-white rounded-2xl shadow-sm border border-sage-200/50 p-6 sm:p-8 card-hover">
+          <h2 class="text-lg font-semibold text-sage-900 mb-5">Formación y credenciales</h2>
+          
+          <div class="space-y-4">
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 rounded-xl bg-lavender-100 flex items-center justify-center">
+                <svg class="w-5 h-5 text-lavender-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 14l9-5-9-5-9 5 9 5z"/>
+                  <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-medium text-sage-900">Grado en Psicología</h3>
+                <p class="text-sm text-sage-600">Universitat de Barcelona · 2014</p>
+              </div>
+            </div>
+            
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 rounded-xl bg-lavender-100 flex items-center justify-center">
+                <svg class="w-5 h-5 text-lavender-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 14l9-5-9-5-9 5 9 5z"/>
+                  <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-medium text-sage-900">Máster en Psicología General Sanitaria</h3>
+                <p class="text-sm text-sage-600">UAB · 2016</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 pt-6 border-t border-sage-200/50">
+            <div class="flex items-center gap-3 p-4 bg-emerald-50 rounded-xl">
+              <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+              </svg>
+              <div>
+                <p class="text-sm font-medium text-emerald-800">Colegiada verificada</p>
+                <p class="text-xs text-emerald-600">Nº Colegiado: COL-28542</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reviews Section -->
+        <div class="bg-white rounded-2xl shadow-sm border border-sage-200/50 p-6 sm:p-8 card-hover">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-lg font-semibold text-sage-900">Opiniones de pacientes</h2>
+            <button class="text-sm text-sage-500 font-medium hover:text-sage-700 transition-colors flex items-center gap-1">
+              Ver todas
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Rating Summary -->
+          <div class="flex items-center gap-6 p-4 bg-sage-50 rounded-xl mb-6">
+            <div class="text-center">
+              <div class="text-3xl font-bold text-sage-900">4.9</div>
+              <div class="flex items-center gap-0.5 mt-1">
+                <svg class="w-4 h-4 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-4 h-4 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-4 h-4 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-4 h-4 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-4 h-4 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              </div>
+            </div>
+            <div class="flex-1">
+              <p class="text-sm text-sage-600">127 opiniones verificadas</p>
+              <p class="text-xs text-sage-400 mt-1">98% de pacientes la recomiendan</p>
+            </div>
+          </div>
+
+          <!-- Reviews List -->
+          <div class="space-y-4">
+            <!-- Review 1 -->
+            <div class="p-4 border border-sage-200/50 rounded-xl hover:border-sage-300 transition-colors">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-full bg-sage-500/10 flex items-center justify-center text-sm font-medium text-sage-500">
+                    M
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="font-medium text-sage-900">María G.</span>
+                      <svg class="w-3.5 h-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                    </div>
+                    <div class="flex items-center gap-2 mt-0.5">
+                      <div class="flex items-center gap-0.5">
+                        <svg class="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                      </div>
+                      <span class="text-xs text-sage-400">· Hace 2 semanas</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p class="text-sm text-sage-800 mt-3 leading-relaxed">Excelente profesional. Me ayudó mucho a entender y gestionar mi ansiedad. Muy recomendable.</p>
+            </div>
+
+            <!-- Review 2 -->
+            <div class="p-4 border border-sage-200/50 rounded-xl hover:border-sage-300 transition-colors">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-full bg-sage-500/10 flex items-center justify-center text-sm font-medium text-sage-500">
+                    C
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="font-medium text-sage-900">Carlos R.</span>
+                      <svg class="w-3.5 h-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                    </div>
+                    <div class="flex items-center gap-2 mt-0.5">
+                      <div class="flex items-center gap-0.5">
+                        <svg class="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                      </div>
+                      <span class="text-xs text-sage-400">· Hace 1 mes</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p class="text-sm text-sage-800 mt-3 leading-relaxed">Muy empática y profesional. Las sesiones son muy productivas y me siento escuchada.</p>
+            </div>
+
+            <!-- Review 3 -->
+            <div class="p-4 border border-sage-200/50 rounded-xl hover:border-sage-300 transition-colors">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-full bg-sage-500/10 flex items-center justify-center text-sm font-medium text-sage-500">
+                    A
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="font-medium text-sage-900">Ana P.</span>
+                      <svg class="w-3.5 h-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                    </div>
+                    <div class="flex items-center gap-2 mt-0.5">
+                      <div class="flex items-center gap-0.5">
+                        <svg class="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3 h-3 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3 h-3 text-gray-200 fill-gray-200" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                      </div>
+                      <span class="text-xs text-sage-400">· Hace 1 mes</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p class="text-sm text-sage-800 mt-3 leading-relaxed">Gran experiencia. El enfoque terapéutico es muy efectivo para mi situación.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar - Booking Card -->
+      <div class="lg:sticky lg:top-20 lg:h-fit space-y-4">
+        <div class="bg-white rounded-2xl shadow-md border border-sage-200/50 overflow-hidden">
+          <!-- Price Header -->
+          <div class="p-6 cta-gradient text-white">
+            <div class="flex items-baseline gap-1">
+              <span class="text-3xl font-bold">60€</span>
+              <span class="text-white/80">/sesión</span>
+            </div>
+            <p class="text-white/80 text-sm mt-1">Sesión de 50 minutos</p>
+          </div>
+
+          <div class="p-6 space-y-5">
+            <!-- Availability -->
+            <div class="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl">
+              <div class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+              </div>
+              <div>
+                <p class="text-sm font-medium text-emerald-800">Próxima disponibilidad</p>
+                <p class="text-xs text-emerald-600">Hoy a las 18:00</p>
+              </div>
+            </div>
+
+            <!-- Quick Info -->
+            <div class="space-y-3">
+              <div class="flex items-center gap-3 text-sm">
+                <svg class="w-4 h-4 text-sage-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+                <span class="text-sage-800">Videollamada disponible</span>
+              </div>
+              <div class="flex items-center gap-3 text-sm">
+                <svg class="w-4 h-4 text-sage-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+                <span class="text-sage-800">Consulta presencial</span>
+              </div>
+              <div class="flex items-center gap-3 text-sm">
+                <svg class="w-4 h-4 text-sage-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                </svg>
+                <span class="text-sage-800">Chat incluido entre sesiones</span>
+              </div>
+            </div>
+
+            <!-- CTA Button -->
+            <button class="w-full py-4 rounded-xl font-semibold text-white cta-gradient hover:opacity-95 hover:shadow-lg active:scale-[0.98] transition-all">
+              Reservar sesión
+            </button>
+
+            <!-- Secondary Action -->
+            <button class="w-full py-3 rounded-xl font-medium text-sage-500 border-2 border-sage-500/20 hover:border-sage-500/40 hover:bg-sage-500/5 transition-all flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+              </svg>
+              Guardar perfil
+            </button>
+          </div>
+
+          <!-- Location Section -->
+          <div class="border-t border-sage-200/50 p-6">
+            <h3 class="text-xs font-semibold text-sage-400 uppercase tracking-wider mb-3">
+              Ubicación de consulta
+            </h3>
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-xl bg-sage-100 flex items-center justify-center">
+                <svg class="w-5 h-5 text-sage-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </div>
+              <div>
+                <p class="text-sm font-medium text-sage-900">Carrer del Llenguadoc, 50</p>
+                <p class="text-sm text-sage-600">08001 Barcelona</p>
+              </div>
+            </div>
+            <button class="w-full mt-4 py-2.5 text-sm text-sage-500 font-medium hover:bg-sage-100 rounded-lg transition-colors">
+              Ver en mapa
+            </button>
+          </div>
+
+          <!-- Schedule Section -->
+          <div class="border-t border-sage-200/50 p-6">
+            <h3 class="text-xs font-semibold text-sage-400 uppercase tracking-wider mb-3">
+              Horario de atención
+            </h3>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-sage-600">Lunes - Viernes</span>
+                <span class="text-sage-900 font-medium">09:00 - 20:00</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-sage-600">Sábado</span>
+                <span class="text-sage-900 font-medium">10:00 - 14:00</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-sage-600">Domingo</span>
+                <span class="text-sage-400">Cerrado</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trust Badges -->
+        <div class="p-4 bg-sage-100/50 rounded-xl">
+          <div class="flex items-center justify-center gap-6 text-xs text-sage-600">
+            <div class="flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-sage-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+              </svg>
+              <span>Pago seguro</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-sage-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+              </svg>
+              <span>Garantía HERA</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Sticky CTA -->
+  <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-sage-200 p-4 shadow-lg">
+    <div class="flex items-center gap-4">
+      <div>
+        <span class="text-xl font-bold text-sage-900">60€</span>
+        <span class="text-sage-600 text-sm">/sesión</span>
+      </div>
+      <button class="flex-1 py-3.5 rounded-xl font-semibold text-white cta-gradient hover:opacity-95 transition-all">
+        Reservar sesión
+      </button>
+    </div>
+  </div>
+</body>
+</html>
