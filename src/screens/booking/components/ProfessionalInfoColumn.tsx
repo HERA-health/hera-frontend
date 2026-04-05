@@ -256,7 +256,7 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
                 <Ionicons
                   name="checkmark-circle"
                   size={18}
-                  color={isComplete ? '#FFFFFF' : '#9BA39B'}
+                  color={isComplete ? heraLanding.textOnPrimary : heraLanding.textMuted}
                 />
                 <Text
                   style={[styles.confirmButtonText, !isComplete && styles.confirmButtonTextDisabled]}
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
   },
   // Summary Section
   summarySection: {
-    backgroundColor: '#F0F4F0',
+    backgroundColor: heraLanding.borderLight,
     borderRadius: borderRadius.md,
     padding: spacing.md,
   },
@@ -502,16 +502,16 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   confirmButtonDisabled: {
-    backgroundColor: '#E0E5E0',
+    backgroundColor: heraLanding.disabled,
     opacity: 0.6,
   },
   confirmButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: heraLanding.textOnPrimary,
   },
   confirmButtonTextDisabled: {
-    color: '#9BA39B',
+    color: heraLanding.textMuted,
   },
 });
 

@@ -1,106 +1,56 @@
-/**
- * SpecializationsGrid - Detailed specializations display
- * Shows specializations with icons and descriptions in a grid
- */
-
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  useWindowDimensions,
-} from 'react-native';
-import { SpecializationsGridProps, getSpecializationIcon } from '../types';
-import { heraLanding, spacing, borderRadius, shadows } from '../../../constants/colors';
+import { View, Text, StyleSheet, useWindowDimensions, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { SpecializationsGridProps } from '../types';
+import { heraLanding, colors, spacing, borderRadius } from '../../../constants/colors';
 
-const SPECIALIZATION_DESCRIPTIONS: Record<string, string> = {
-  'Ansiedad': 'Manejo del estrés, ataques de pánico y preocupaciones excesivas',
-  'Estrés': 'Técnicas de relajación y gestión del estrés laboral y personal',
-  'Depresión': 'Acompañamiento en estados de ánimo bajo y desmotivación',
-  'Pareja': 'Comunicación, conflictos y fortalecimiento de relaciones',
-  'Trauma': 'Procesamiento de experiencias difíciles y TEPT',
-  'Autoestima': 'Desarrollo de la confianza y amor propio',
-  'Duelo': 'Acompañamiento en procesos de pérdida y duelo',
-  'TDAH': 'Estrategias de concentración y organización',
-  'Adicciones': 'Apoyo en la superación de dependencias',
-  'Fobias': 'Tratamiento de miedos específicos e irracionales',
-  'TOC': 'Manejo de pensamientos obsesivos y compulsiones',
-  'Alimentación': 'Relación saludable con la comida y el cuerpo',
-  'Sueño': 'Mejora de la calidad del descanso nocturno',
-  'Laboral': 'Desarrollo profesional y bienestar en el trabajo',
-  'Familia': 'Dinámicas familiares y resolución de conflictos',
-  'Adolescentes': 'Acompañamiento en la etapa adolescente',
-  'Infantil': 'Desarrollo emocional y conductual en niños',
-  'Sexología': 'Salud sexual y relaciones íntimas',
+// Mapeo hermoso y pastel para las especialidades
+const SPECIALTY_MAP: Record<string, { label: string, icon: React.ComponentProps<typeof Ionicons>['name'], bgColor: string, color: string, desc: string }> = {
+  'anxiety': { label: 'Ansiedad', icon: 'water-outline', bgColor: '#E8F3F1', color: '#4A8B7B', desc: 'Manejo del estrés y ataques de pánico.' },
+  'depression': { label: 'Depresión', icon: 'sunny-outline', bgColor: '#FFF4E5', color: '#B8860B', desc: 'Acompañamiento en estados de ánimo bajo.' },
+  'self-esteem': { label: 'Autoestima', icon: 'star-outline', bgColor: '#F3E8FF', color: '#9B87C4', desc: 'Desarrollo de la confianza y amor propio.' },
+  'stress': { label: 'Estrés laboral', icon: 'briefcase-outline', bgColor: '#EDE7F6', color: '#7E57C2', desc: 'Prevención del burnout y equilibrio.' },
+  'relationships': { label: 'Relaciones', icon: 'heart-half-outline', bgColor: '#FFEBEE', color: '#E57373', desc: 'Vínculos sanos y terapia de pareja.' },
+  'sleep': { label: 'Problemas de sueño', icon: 'moon-outline', bgColor: '#E3F2FD', color: '#4A6B8B', desc: 'Higiene del sueño y descanso profundo.' },
+  'phobias': { label: 'Fobias', icon: 'shield-checkmark-outline', bgColor: '#E8F5E9', color: '#388E3C', desc: 'Superación de miedos limitantes.' },
+  'trauma': { label: 'Trauma', icon: 'leaf-outline', bgColor: '#FFF3E0', color: '#F57C00', desc: 'Procesamiento de experiencias difíciles.' },
+  'default': { label: 'Salud Mental', icon: 'flower-outline', bgColor: heraLanding.background, color: heraLanding.primaryDark, desc: 'Apoyo integral y personalizado.' }
 };
-
-const getDescription = (name: string): string => {
-  const normalizedName = name.toLowerCase();
-  for (const [key, description] of Object.entries(SPECIALIZATION_DESCRIPTIONS)) {
-    if (normalizedName.includes(key.toLowerCase())) {
-      return description;
-    }
-  }
-  return 'Apoyo especializado en esta área de la salud mental';
-};
-
-interface SpecializationCardProps {
-  name: string;
-  icon: string;
-  description: string;
-}
-
-const SpecializationCard: React.FC<SpecializationCardProps> = ({
-  name,
-  icon,
-  description,
-}) => (
-  <View style={styles.card}>
-    <Text style={styles.cardIcon}>{icon}</Text>
-    <View style={styles.cardContent}>
-      <Text style={styles.cardTitle}>{name}</Text>
-      <Text style={styles.cardDescription} numberOfLines={2}>
-        {description}
-      </Text>
-    </View>
-  </View>
-);
 
 export const SpecializationsGrid: React.FC<SpecializationsGridProps> = ({
   specializations,
-  specializationsDetail,
 }) => {
   const { width } = useWindowDimensions();
-  const isWideScreen = width > 768;
+  const isDesktop = width >= 768;
 
-  if (!specializations || specializations.length === 0) {
-    return null;
-  }
-
-  // Use detailed specializations if available, otherwise generate from names
-  const displaySpecializations = specializationsDetail || specializations.map(name => ({
-    name,
-    icon: getSpecializationIcon(name),
-    description: getDescription(name),
-  }));
+  if (!specializations || specializations.length === 0) return null;
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Áreas de especialización</Text>
 
-      <View style={[styles.grid, isWideScreen && styles.gridWide]}>
-        {displaySpecializations.map((spec, index) => (
-          <View
-            key={index}
-            style={[styles.cardWrapper, isWideScreen && styles.cardWrapperWide]}
-          >
-            <SpecializationCard
-              name={spec.name}
-              icon={spec.icon}
-              description={spec.description}
-            />
-          </View>
-        ))}
+      <View style={styles.grid}>
+        {specializations.map((specKey, index) => {
+          const config = SPECIALTY_MAP[specKey.toLowerCase()] || SPECIALTY_MAP['default'];
+          
+          return (
+            <View
+              key={index}
+              style={[
+                styles.card,
+                { width: isDesktop ? '48%' : '100%' }
+              ]}
+            >
+              <View style={[styles.iconBox, { backgroundColor: config.bgColor }]}>
+                <Ionicons name={config.icon} size={24} color={config.color} />
+              </View>
+              <View style={styles.textContent}>
+                <Text style={styles.cardTitle}>{config.label || specKey}</Text>
+                <Text style={styles.cardDescription}>{config.desc}</Text>
+              </View>
+            </View>
+          );
+        })}
       </View>
     </View>
   );
@@ -109,43 +59,46 @@ export const SpecializationsGrid: React.FC<SpecializationsGridProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: heraLanding.cardBg,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     padding: spacing.xl,
-    ...shadows.sm,
+    borderWidth: 1,
+    borderColor: heraLanding.borderLight,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 20px rgba(44, 62, 44, 0.06)' } as any,
+      default: { elevation: 3, shadowColor: colors.neutral.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8 }
+    })
   },
   title: {
-    fontSize: 22,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: heraLanding.textPrimary,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
   grid: {
-    flexDirection: 'column',
-    gap: spacing.md,
-  },
-  gridWide: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-  },
-  cardWrapper: {
-    width: '100%',
-  },
-  cardWrapperWide: {
-    width: '48%',
-    marginRight: '2%',
+    gap: spacing.md,
+    justifyContent: 'space-between',
   },
   card: {
     backgroundColor: heraLanding.background,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     padding: spacing.lg,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: spacing.md,
+    ...Platform.select({
+      web: { transition: 'transform 0.2s ease, box-shadow 0.2s ease' } as any,
+    }),
   },
-  cardIcon: {
-    fontSize: 28,
+  iconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cardContent: {
+  textContent: {
     flex: 1,
   },
   cardTitle: {
@@ -155,9 +108,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardDescription: {
-    fontSize: 14,
+    fontSize: 13,
     color: heraLanding.textSecondary,
-    lineHeight: 20,
+    lineHeight: 18,
   },
 });
 

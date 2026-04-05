@@ -50,7 +50,7 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
   const today = minDate || new Date().toISOString().split('T')[0];
 
   // Create marked dates object
-  const markedDates: { [key: string]: any } = {};
+  const markedDates: { [key: string]: object } = {};
 
   // Mark available dates if provided
   if (availableDates) {
@@ -68,7 +68,7 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
       ...markedDates[selectedDate],
       selected: true,
       selectedColor: heraLanding.primary,
-      selectedTextColor: '#FFFFFF',
+      selectedTextColor: heraLanding.textOnPrimary,
     };
   }
 
@@ -96,8 +96,8 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
           firstDay={1}
           monthFormat={'MMMM yyyy'}
           theme={{
-            backgroundColor: '#FFFFFF',
-            calendarBackground: '#FFFFFF',
+            backgroundColor: heraLanding.cardBg,
+            calendarBackground: heraLanding.cardBg,
             monthTextColor: heraLanding.textPrimary,
             textMonthFontWeight: '700',
             textMonthFontSize: 18,
@@ -110,13 +110,13 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
             todayTextColor: heraLanding.primary,
             todayBackgroundColor: 'transparent',
             selectedDayBackgroundColor: heraLanding.primary,
-            selectedDayTextColor: '#FFFFFF',
-            textDisabledColor: '#D0D5D0',
+            selectedDayTextColor: heraLanding.textOnPrimary,
+            textDisabledColor: heraLanding.scrollbarThumb,
             arrowColor: heraLanding.primary,
             arrowHeight: 20,
             arrowWidth: 20,
             dotColor: heraLanding.primary,
-            selectedDotColor: '#FFFFFF',
+            selectedDotColor: heraLanding.textOnPrimary,
           }}
           style={styles.calendar}
         />

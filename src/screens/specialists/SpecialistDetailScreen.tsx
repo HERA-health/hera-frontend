@@ -9,14 +9,14 @@
  * - All business logic (unchanged)
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   useWindowDimensions,
   Alert,
   NativeSyntheticEvent,
@@ -26,17 +26,20 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as specialistsService from '../../services/specialistsService';
 import { heraLanding, spacing, borderRadius, shadows } from '../../constants/colors';
+import { getGradientColors } from '../../constants/gradients';
 
 // Import modular components
 import {
   ProfileHero,
-  CompactHero,
   AboutSection,
   SpecializationsGrid,
   ExperienceSection,
   ReviewsSection,
   StickyBookingBar,
   BookingSidebar,
+  PhotoGallerySection,
+  VideoSection,
+  ProfileSkeleton,
 } from '../specialist-profile/components';
 import type { Specialist, Review } from '../specialist-profile/types';
 import { LocationMapPreview, ModalityBadges } from '../../components/location';
@@ -44,8 +47,8 @@ import * as analyticsService from '../../services/analyticsService';
 
 // Types
 interface SpecialistDetailScreenProps {
-  route: any;
-  navigation: any;
+  route: { params?: { specialistId?: string; affinity?: number } };
+  navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void };
 }
 
 // Breakpoints
@@ -65,16 +68,19 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
   const isMobile = width < TABLET_BREAKPOINT;
 
   const scrollViewRef = useRef<ScrollView>(null);
+  const reviewsYOffset = useRef<number>(0);
 
   const [specialist, setSpecialist] = useState<Specialist | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [showStickyBar, setShowStickyBar] = useState(false);
 
-  useEffect(() => {
-    analyticsService.trackScreen('specialist_detail', { specialistId });
-    loadSpecialistDetails();
-  }, [specialistId]);
+  useFocusEffect(
+    useCallback(() => {
+      analyticsService.trackScreen('specialist_detail', { specialistId });
+      loadSpecialistDetails();
+    }, [specialistId])
+  );
 
   // ============== DATA FETCHING (PRESERVED) ==============
   const loadSpecialistDetails = async () => {
@@ -88,91 +94,22 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       // Fetch specialist details from backend (UNCHANGED)
       const data = await specialistsService.getSpecialistDetails(specialistId);
 
-      // Map backend data to new Specialist type
-      const mappedSpecialist: Specialist = {
-        id: data.id,
-        name: data.user.name,
-        title: data.specialization,
-        avatar: data.avatar || undefined,
-        bio: data.description,
-        rating: data.rating,
-        reviewCount: data.reviewCount,
-        pricePerSession: data.pricePerSession,
-        specializations: (data as any).matchingProfile?.specialties || [],
-        experienceYears: (data as any).matchingProfile?.experienceYears || 0,
-        therapeuticApproach: Array.isArray((data as any).matchingProfile?.therapeuticApproach)
-          ? (data as any).matchingProfile.therapeuticApproach.join(', ')
-          : (data as any).matchingProfile?.therapeuticApproach || undefined,
-        languages: (data as any).matchingProfile?.language || [],
-        sessionTypes: (() => {
-          const types: ('VIDEO_CALL' | 'IN_PERSON' | 'PHONE_CALL')[] = [];
-          // Use the actual database flags for session types
-          if ((data as any).offersOnline !== false) types.push('VIDEO_CALL');
-          if ((data as any).offersInPerson === true) types.push('IN_PERSON');
-          // Also check matchingProfile.format as fallback
-          const formats = (data as any).matchingProfile?.format || [];
-          if (formats.includes('in-person') && !types.includes('IN_PERSON')) types.push('IN_PERSON');
-          if (formats.includes('hybrid') && !types.includes('IN_PERSON')) types.push('IN_PERSON');
-          return types.length > 0 ? types : ['VIDEO_CALL'];
-        })(),
-        isAvailableToday: true,
-        isOnline: true,
-        education: [],
-        experience: [],
-        certifications: [],
-        // Location data from database
-        address: (data as any).offersInPerson && (data as any).officeAddress ? {
-          street: (data as any).officeAddress,
-          city: (data as any).officeCity || '',
-          postalCode: (data as any).officePostalCode || '',
-          latitude: (data as any).officeLat,
-          longitude: (data as any).officeLng,
-        } : undefined,
-        offersOnline: (data as any).offersOnline ?? true,
-        offersInPerson: (data as any).offersInPerson ?? false,
-        // Mock schedule
-        schedule: {
-          monday: { start: '09:00', end: '20:00', available: true },
-          tuesday: { start: '09:00', end: '20:00', available: true },
-          wednesday: { start: '09:00', end: '20:00', available: true },
-          thursday: { start: '09:00', end: '20:00', available: true },
-          friday: { start: '09:00', end: '20:00', available: true },
-          saturday: { start: '10:00', end: '14:00', available: true },
-          sunday: { start: '', end: '', available: false },
-        },
-      };
+      // Map backend data to Specialist type
+      const mappedSpecialist = specialistsService.mapSpecialistToProfile(data);
 
       setSpecialist(mappedSpecialist);
 
-      // Mock reviews for display
-      if (data.reviewCount > 0) {
-        setReviews([
-          {
-            id: '1',
-            rating: 5,
-            text: 'Excelente profesional. Me ayudó mucho a entender y gestionar mi ansiedad. Muy recomendable.',
-            authorName: 'María G.',
-            date: 'Hace 2 semanas',
-          },
-          {
-            id: '2',
-            rating: 5,
-            text: 'Muy empática y profesional. Las sesiones son muy productivas y me siento escuchada.',
-            authorName: 'Carlos R.',
-            date: 'Hace 1 mes',
-          },
-          {
-            id: '3',
-            rating: 4,
-            text: 'Gran experiencia. El enfoque terapéutico es muy efectivo para mi situación.',
-            authorName: 'Ana P.',
-            date: 'Hace 1 mes',
-          },
-        ]);
+      // Reviews: use real data if available, empty otherwise
+      if (data.reviewCount > 0 && data.reviews) {
+        setReviews(data.reviews);
       }
-    } catch (error: any) {
-      const errorMessage = error.message || 'No se pudo cargar el perfil del especialista';
-      Alert.alert('Error', errorMessage);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'No se pudo cargar el perfil del especialista';
+      if (Platform.OS === 'web') {
+        window.alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
       navigation.goBack();
     } finally {
       setLoading(false);
@@ -191,6 +128,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       avatar: specialist.avatar,
       title: specialist.title,
       specializations: specialist.specializations,
+      slotDuration: specialist.slotDuration ?? 60,
     });
   }, [specialist, navigation]);
 
@@ -199,7 +137,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
   }, [navigation]);
 
   const handleScrollToReviews = useCallback(() => {
-    scrollViewRef.current?.scrollTo({ y: 800, animated: true });
+    scrollViewRef.current?.scrollTo({ y: reviewsYOffset.current, animated: true });
   }, []);
 
   // Scroll handler for sticky bar (mobile only)
@@ -210,14 +148,12 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
     }
   }, [isMobile]);
 
+  // ============== GRADIENT COLORS ==============
+  const gradientColors = getGradientColors(specialist?.gradientId);
+
   // ============== LOADING STATE ==============
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={heraLanding.primary} />
-        <Text style={styles.loadingText}>Cargando perfil...</Text>
-      </View>
-    );
+    return <ProfileSkeleton isDesktop={!isMobile} />;
   }
 
   // ============== ERROR STATE ==============
@@ -234,23 +170,38 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
   }
 
   // ============== MAIN CONTENT SECTIONS ==============
-  const renderMainContent = () => (
+  const heroRenderedAbove = isDesktop || isTablet;
+
+  const renderMainContent = (skipHero = false) => (
     <>
-      {/* Hero Section - Compact on desktop, Full on mobile */}
-      {isDesktop || isTablet ? (
-        <CompactHero
-          specialist={specialist}
-          affinity={affinity}
-          onRatingPress={handleScrollToReviews}
-        />
-      ) : (
+      {/* Hero Section */}
+      {!skipHero && (
         <ProfileHero
           specialist={specialist}
           affinity={affinity}
           onBookPress={handleBookSession}
           onRatingPress={handleScrollToReviews}
+          gradientColors={gradientColors}
         />
       )}
+
+      {/* Photo Gallery */}
+      {specialist.photoGallery && specialist.photoGallery.length > 0 && (
+        <View style={styles.section}>
+          <PhotoGallerySection photoGallery={specialist.photoGallery} />
+        </View>
+      )}
+
+      {/* Video Section */}
+      {specialist.presentationVideoUrl ? (
+        <View style={styles.section}>
+          <VideoSection
+            presentationVideoUrl={specialist.presentationVideoUrl}
+            specialistName={specialist.name}
+            gradientColors={gradientColors}
+          />
+        </View>
+      ) : null}
 
       {/* About Section */}
       <View style={styles.section}>
@@ -259,42 +210,6 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
           therapeuticApproach={specialist.therapeuticApproach}
         />
       </View>
-
-      {/* Location & Modality Section */}
-      {(specialist.offersOnline || specialist.offersInPerson) && (
-        <View style={styles.section}>
-          <View style={styles.locationSection}>
-            <Text style={styles.sectionTitle}>Modalidad y ubicacion</Text>
-            <ModalityBadges
-              offersOnline={specialist.offersOnline ?? true}
-              offersInPerson={specialist.offersInPerson ?? false}
-              style={styles.modalityBadges}
-            />
-            {specialist.offersInPerson && specialist.address && specialist.address.latitude && specialist.address.longitude && (
-              <View style={styles.mapContainer}>
-                <LocationMapPreview
-                  lat={specialist.address.latitude}
-                  lng={specialist.address.longitude}
-                  address={specialist.address.street}
-                  city={specialist.address.city}
-                  showDirectionsButton
-                  width={isMobile ? width - 64 : 350}
-                  height={200}
-                />
-              </View>
-            )}
-            {specialist.offersInPerson && specialist.address && !specialist.address.latitude && (
-              <View style={styles.addressTextContainer}>
-                <Ionicons name="location" size={18} color={heraLanding.primary} />
-                <View>
-                  <Text style={styles.addressText}>{specialist.address.street}</Text>
-                  <Text style={styles.addressCity}>{specialist.address.postalCode} {specialist.address.city}</Text>
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-      )}
 
       {/* Specializations Grid */}
       {specialist.specializations.length > 0 && (
@@ -318,7 +233,10 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       </View>
 
       {/* Reviews Section */}
-      <View style={styles.section}>
+      <View
+        style={styles.section}
+        onLayout={(e) => { reviewsYOffset.current = e.nativeEvent.layout.y; }}
+      >
         <ReviewsSection
           reviews={reviews}
           rating={specialist.rating}
@@ -350,26 +268,38 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Two Column Layout */}
+          {/* Two Column Container */}
           <View style={styles.twoColumnContainer}>
-            {/* Left Column - Main Content */}
-            <View style={[
-              styles.leftColumn,
-              isTablet && styles.leftColumnTablet,
-            ]}>
-              {renderMainContent()}
-              <View style={styles.bottomSpacer} />
-            </View>
 
-            {/* Right Column - Sticky Sidebar */}
-            <View style={[
-              styles.rightColumn,
-              isTablet && styles.rightColumnTablet,
-            ]}>
-              <BookingSidebar
-                specialist={specialist}
-                onBookPress={handleBookSession}
-              />
+            {/* Columns */}
+            <View style={styles.columnsRow}>
+              {/* Left Column - Main Content */}
+              <View style={[
+                styles.leftColumn,
+                isTablet && styles.leftColumnTablet,
+              ]}>
+                <ProfileHero
+                  specialist={specialist}
+                  affinity={affinity}
+                  onBookPress={handleBookSession}
+                  onRatingPress={handleScrollToReviews}
+                  gradientColors={gradientColors}
+                />
+                {renderMainContent(heroRenderedAbove)}
+                <View style={styles.bottomSpacer} />
+              </View>
+
+              {/* Right Column - Sticky Sidebar */}
+              <View style={[
+                styles.rightColumn,
+                isTablet && styles.rightColumnTablet,
+              ]}>
+                <BookingSidebar
+                  specialist={specialist}
+                  onBookPress={handleBookSession}
+                  gradientColors={gradientColors}
+                />
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -402,7 +332,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
 
         {/* Main Content */}
         <View style={styles.mobileContainer}>
-          {renderMainContent()}
+          {renderMainContent(heroRenderedAbove)}
           <View style={styles.bottomSpacerMobile} />
         </View>
       </ScrollView>
@@ -451,6 +381,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     alignSelf: 'flex-start',
     paddingVertical: spacing.xs,
+    minHeight: 44,
   },
   backButtonText: {
     fontSize: 15,
@@ -459,27 +390,29 @@ const styles = StyleSheet.create({
 
   // Two Column Layout
   twoColumnContainer: {
-    flexDirection: 'row',
     maxWidth: 1200,
     alignSelf: 'center',
     width: '100%',
     paddingHorizontal: spacing.lg,
+  },
+  columnsRow: {
+    flexDirection: 'row',
     gap: spacing.xxl,
   },
   leftColumn: {
-    flex: 0.6,
+    flex: 0.62,
     minWidth: 0,
   },
   leftColumnTablet: {
-    flex: 0.55,
+    flex: 0.58,
   },
   rightColumn: {
-    flex: 0.35,
+    flex: 0.38,
     minWidth: 0,
     alignSelf: 'flex-start',
   },
   rightColumnTablet: {
-    flex: 0.4,
+    flex: 0.42,
   },
 
   // Mobile Container
@@ -498,19 +431,6 @@ const styles = StyleSheet.create({
   },
   bottomSpacerMobile: {
     height: 100,
-  },
-
-  // Loading State
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: heraLanding.background,
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: 16,
-    color: heraLanding.textSecondary,
   },
 
   // Error State
@@ -533,6 +453,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 4,
     backgroundColor: heraLanding.primary,
     borderRadius: borderRadius.md,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   backButtonErrorText: {
     fontSize: 16,

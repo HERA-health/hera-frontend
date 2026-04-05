@@ -56,7 +56,7 @@ import { getWebAppUrl } from '../../config/api';
 // TYPE DEFINITIONS
 // ============================================================================
 
-type ProfileTab = 'information' | 'credentials' | 'pricing' | 'account';
+type ProfileTab = 'mi-espacio' | 'information' | 'credentials' | 'pricing' | 'account';
 
 interface Education {
   id: string;
@@ -132,6 +132,14 @@ interface SpecialistProfileData {
   showReviewCount: boolean;
   showLastOnline: boolean;
 
+  // Mi Espacio
+  gradientId: string;
+  personalMotto: string;
+  photoGallery: string[];
+  presentationVideoUrl: string;
+  yearsInPractice: number;
+  languagesSpoken: string[];
+
   // Location & Service Modality
   officeAddress: string;
   officeCity: string;
@@ -188,6 +196,46 @@ const SESSION_TYPES = [
 ];
 
 // ============================================================================
+// MI ESPACIO CONSTANTS
+// ============================================================================
+
+interface GradientOption {
+  id: string;
+  name: string;
+  colors: [string, string];
+}
+
+const GRADIENTS: GradientOption[] = [
+  { id: 'salvia-lavanda', name: 'Salvia & Lavanda', colors: ['#8B9D83', '#B8A8D9'] },
+  { id: 'menta-rosa', name: 'Menta & Rosa', colors: ['#A8C4B8', '#D4A5C9'] },
+  { id: 'cielo-lila', name: 'Cielo & Lila', colors: ['#B8C9E8', '#C8B8D9'] },
+  { id: 'melocoton-rosa', name: 'Melocotón & Rosa', colors: ['#E8C4A8', '#D4A5C9'] },
+  { id: 'oceano-salvia', name: 'Océano & Salvia', colors: ['#9DB8C8', '#8B9D83'] },
+  { id: 'prado-azul', name: 'Prado & Azul', colors: ['#C8D8B8', '#A8C4D8'] },
+  { id: 'arena-tostado', name: 'Arena & Tostado', colors: ['#E8D4C8', '#C8B8A8'] },
+  { id: 'amatista-coral', name: 'Amatista & Coral', colors: ['#D4C8E8', '#E8C4C8'] },
+];
+
+const STRINGS = {
+  miEspacio: {
+    tabLabel: 'Mi Espacio',
+    gradientTitle: 'Apariencia del perfil',
+    gradientSubtitle: 'Elige el gradiente de fondo que verán tus pacientes',
+    mottoLabel: 'Tu frase',
+    mottoSubtitle: 'Una frase que refleje tu enfoque terapéutico (máx. 200 caracteres)',
+    mottoPlaceholder: 'Ej: Creo en el poder de la conexión terapéutica...',
+    mottoCounter: (count: number) => `${count} / 200 caracteres`,
+    galleryLabel: 'Galería',
+    gallerySubtitle: 'Añade fotos de tu consulta o de ti misma. Máximo 6 fotos.',
+    galleryDeleteConfirm: '¿Eliminar esta foto?',
+    videoLabel: 'Vídeo de presentación',
+    videoSubtitle: 'Pega el enlace de tu vídeo de YouTube o Vimeo',
+    videoPlaceholder: 'https://youtube.com/...',
+    videoNote: 'El vídeo debe ser público para que tus pacientes puedan verlo',
+  },
+};
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -198,9 +246,10 @@ export function SpecialistProfileScreen() {
   const isTablet = windowWidth >= 768 && windowWidth < 1024;
   const isMobile = windowWidth < 768;
 
-  const [activeTab, setActiveTab] = useState<ProfileTab>('information');
+  const [activeTab, setActiveTab] = useState<ProfileTab>('mi-espacio');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isUploadingGalleryPhoto, setIsUploadingGalleryPhoto] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [showPreview, setShowPreview] = useState(!isMobile);
   const [isLoading, setIsLoading] = useState(true);
@@ -268,6 +317,14 @@ export function SpecialistProfileScreen() {
     profileVisible: true,
     showReviewCount: true,
     showLastOnline: false,
+
+    // Mi Espacio
+    gradientId: 'salvia-lavanda',
+    personalMotto: '',
+    photoGallery: [],
+    presentationVideoUrl: '',
+    yearsInPractice: 0,
+    languagesSpoken: [],
 
     // Location & Service Modality
     officeAddress: '',
@@ -363,6 +420,14 @@ export function SpecialistProfileScreen() {
           profileVisible: profile.profileVisible ?? true,
           showReviewCount: profile.showReviewCount ?? true,
           showLastOnline: profile.showLastOnline || false,
+
+          // Mi Espacio
+          gradientId: profile.gradientId ?? 'salvia-lavanda',
+          personalMotto: profile.personalMotto ?? '',
+          photoGallery: profile.photoGallery ?? [],
+          presentationVideoUrl: profile.presentationVideoUrl ?? '',
+          yearsInPractice: profile.yearsInPractice ?? 0,
+          languagesSpoken: profile.languagesSpoken ?? [],
 
           // Location & Service Modality
           officeAddress: profile.officeAddress || '',
@@ -480,6 +545,14 @@ export function SpecialistProfileScreen() {
         profileVisible: profileData.profileVisible,
         showReviewCount: profileData.showReviewCount,
         showLastOnline: profileData.showLastOnline,
+
+        // Mi Espacio
+        gradientId: profileData.gradientId,
+        personalMotto: profileData.personalMotto,
+        photoGallery: profileData.photoGallery,
+        presentationVideoUrl: profileData.presentationVideoUrl,
+        yearsInPractice: profileData.yearsInPractice,
+        languagesSpoken: profileData.languagesSpoken,
 
         // Location & Service Modality
         officeAddress: profileData.officeAddress,
@@ -624,6 +697,7 @@ export function SpecialistProfileScreen() {
   // ============================================================================
 
   const tabs: { id: ProfileTab; label: string; icon: string }[] = [
+    { id: 'mi-espacio', label: STRINGS.miEspacio.tabLabel, icon: 'sparkles-outline' },
     { id: 'information', label: 'Información Profesional', icon: 'person-outline' },
     { id: 'credentials', label: 'Credenciales', icon: 'shield-checkmark-outline' },
     { id: 'pricing', label: 'Tarifas y Pagos', icon: 'card-outline' },
@@ -902,6 +976,205 @@ export function SpecialistProfileScreen() {
             </TouchableOpacity>
           );
         })}
+      </View>
+    </View>
+  );
+
+  // ============================================================================
+  // HANDLERS: MI ESPACIO - Gallery
+  // ============================================================================
+
+  const handleGalleryPhotoPick = useCallback(async () => {
+    if (isUploadingGalleryPhoto || profileData.photoGallery.length >= 6) return;
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0]?.base64) {
+        setIsUploadingGalleryPhoto(true);
+        try {
+          const mimeType = result.assets[0].mimeType || 'image/jpeg';
+          const response = await professionalService.uploadGalleryPhoto(
+            result.assets[0].base64,
+            mimeType
+          );
+          updateField('photoGallery', [...profileData.photoGallery, response.url]);
+        } catch (uploadError: unknown) {
+          const message = uploadError instanceof Error ? uploadError.message : 'No se pudo subir la foto';
+          Alert.alert('Error', message);
+        } finally {
+          setIsUploadingGalleryPhoto(false);
+        }
+      }
+    } catch {
+      Alert.alert('Error', 'No se pudo seleccionar la imagen');
+    }
+  }, [isUploadingGalleryPhoto, profileData.photoGallery, updateField]);
+
+  const handleDeleteGalleryPhoto = useCallback((url: string) => {
+    const doDelete = async () => {
+      try {
+        await professionalService.deleteGalleryPhoto(url);
+        updateField('photoGallery', profileData.photoGallery.filter(u => u !== url));
+      } catch (deleteError: unknown) {
+        const message = deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar la foto';
+        Alert.alert('Error', message);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(STRINGS.miEspacio.galleryDeleteConfirm)) {
+        doDelete();
+      }
+    } else {
+      Alert.alert(
+        STRINGS.miEspacio.galleryDeleteConfirm,
+        undefined,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Eliminar', style: 'destructive', onPress: doDelete },
+        ]
+      );
+    }
+  }, [profileData.photoGallery, updateField]);
+
+  // ============================================================================
+  // RENDER: TAB 0 - MI ESPACIO
+  // ============================================================================
+
+  const renderMiEspacioTab = () => (
+    <View style={styles.tabContent}>
+      {/* Section 1: Gradient Picker */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{STRINGS.miEspacio.gradientTitle}</Text>
+        <Text style={miEspacioStyles.subtitle}>{STRINGS.miEspacio.gradientSubtitle}</Text>
+        <View style={miEspacioStyles.gradientGrid}>
+          {GRADIENTS.map((gradient) => {
+            const isSelected = profileData.gradientId === gradient.id;
+            return (
+              <TouchableOpacity
+                key={gradient.id}
+                style={[
+                  miEspacioStyles.gradientCard,
+                  isSelected && miEspacioStyles.gradientCardSelected,
+                  { width: isMobile ? '48%' as unknown as number : 160 },
+                ]}
+                onPress={() => updateField('gradientId', gradient.id)}
+                activeOpacity={0.7}
+              >
+                <LinearGradient
+                  colors={gradient.colors}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={miEspacioStyles.gradientPreview}
+                >
+                  {isSelected && (
+                    <View style={miEspacioStyles.gradientCheck}>
+                      <Ionicons name="checkmark" size={16} color={heraLanding.textOnCard} />
+                    </View>
+                  )}
+                </LinearGradient>
+                <Text style={[
+                  miEspacioStyles.gradientName,
+                  isSelected && miEspacioStyles.gradientNameSelected,
+                ]} numberOfLines={1}>
+                  {gradient.name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Section 2: Personal Motto */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{STRINGS.miEspacio.mottoLabel}</Text>
+        <Text style={miEspacioStyles.subtitle}>{STRINGS.miEspacio.mottoSubtitle}</Text>
+        <TextInput
+          style={[styles.fieldInput, styles.fieldInputMultiline, { minHeight: 100 }]}
+          value={profileData.personalMotto}
+          onChangeText={(text) => updateField('personalMotto', text)}
+          placeholder={STRINGS.miEspacio.mottoPlaceholder}
+          placeholderTextColor={heraLanding.textMuted}
+          multiline
+          maxLength={200}
+        />
+        <Text style={styles.characterCount}>
+          {STRINGS.miEspacio.mottoCounter(profileData.personalMotto.length)}
+        </Text>
+      </View>
+
+      {/* Section 3: Photo Gallery */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{STRINGS.miEspacio.galleryLabel}</Text>
+        <Text style={miEspacioStyles.subtitle}>{STRINGS.miEspacio.gallerySubtitle}</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={miEspacioStyles.galleryRow}
+        >
+          {profileData.photoGallery.map((url) => (
+            <View key={url} style={miEspacioStyles.galleryPhotoContainer}>
+              <Image source={{ uri: url }} style={miEspacioStyles.galleryPhoto} />
+              <TouchableOpacity
+                style={miEspacioStyles.galleryDeleteBtn}
+                onPress={() => handleDeleteGalleryPhoto(url)}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Text style={miEspacioStyles.galleryDeleteText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+          {profileData.photoGallery.length < 6 && (
+            <TouchableOpacity
+              style={miEspacioStyles.galleryAddBtn}
+              onPress={handleGalleryPhotoPick}
+              activeOpacity={0.7}
+              disabled={isUploadingGalleryPhoto}
+            >
+              {isUploadingGalleryPhoto ? (
+                <ActivityIndicator size="small" color={heraLanding.textMuted} />
+              ) : (
+                <Ionicons name="add" size={32} color={heraLanding.textMuted} />
+              )}
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      </View>
+
+      {/* Section 4: Presentation Video */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{STRINGS.miEspacio.videoLabel}</Text>
+        <Text style={miEspacioStyles.subtitle}>{STRINGS.miEspacio.videoSubtitle}</Text>
+        <TextInput
+          style={styles.fieldInput}
+          value={profileData.presentationVideoUrl}
+          onChangeText={(text) => updateField('presentationVideoUrl', text)}
+          placeholder={STRINGS.miEspacio.videoPlaceholder}
+          placeholderTextColor={heraLanding.textMuted}
+          keyboardType="url"
+          autoCapitalize="none"
+        />
+        <Text style={[styles.helperText, { marginTop: spacing.xs }]}>
+          {STRINGS.miEspacio.videoNote}
+        </Text>
+        {profileData.presentationVideoUrl.length > 0 && (
+          <View style={miEspacioStyles.videoPreview}>
+            <View style={miEspacioStyles.videoPlayIcon}>
+              <Ionicons name="play" size={20} color={heraLanding.textOnCard} />
+            </View>
+            <Text style={miEspacioStyles.videoUrl} numberOfLines={1}>
+              {profileData.presentationVideoUrl.length > 40
+                ? profileData.presentationVideoUrl.substring(0, 40) + '...'
+                : profileData.presentationVideoUrl}
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -2107,6 +2380,7 @@ export function SpecialistProfileScreen() {
           contentContainerStyle={styles.formContent}
           showsVerticalScrollIndicator={true}
         >
+          {activeTab === 'mi-espacio' && renderMiEspacioTab()}
           {activeTab === 'information' && renderInformationTab()}
           {activeTab === 'credentials' && renderCredentialsTab()}
           {activeTab === 'pricing' && renderPricingTab()}
@@ -3347,6 +3621,130 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: heraLanding.success,
     fontWeight: '500',
+  },
+});
+
+// ============================================================================
+// MI ESPACIO STYLES
+// ============================================================================
+
+const miEspacioStyles = StyleSheet.create({
+  subtitle: {
+    fontSize: typography.fontSizes.sm,
+    color: heraLanding.textSecondary,
+    marginBottom: spacing.md,
+  },
+
+  // Gradient grid
+  gradientGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  gradientCard: {
+    borderWidth: 0.5,
+    borderColor: heraLanding.border,
+    borderRadius: borderRadius.md,
+    padding: spacing.xs,
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  gradientCardSelected: {
+    borderWidth: 2,
+    borderColor: heraLanding.primary,
+  },
+  gradientPreview: {
+    width: '100%',
+    height: 70,
+    borderRadius: borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gradientCheck: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: heraLanding.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gradientName: {
+    fontSize: typography.fontSizes.xs,
+    color: heraLanding.textSecondary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  gradientNameSelected: {
+    color: heraLanding.primary,
+    fontWeight: typography.fontWeights.semibold,
+  },
+
+  // Gallery
+  galleryRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  galleryPhotoContainer: {
+    position: 'relative',
+  },
+  galleryPhoto: {
+    width: 100,
+    height: 100,
+    borderRadius: borderRadius.md,
+  },
+  galleryDeleteBtn: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: heraLanding.warning,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  galleryDeleteText: {
+    color: heraLanding.textOnCard,
+    fontSize: 12,
+    fontWeight: typography.fontWeights.bold,
+    lineHeight: 14,
+  },
+  galleryAddBtn: {
+    width: 100,
+    height: 100,
+    borderRadius: borderRadius.md,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: heraLanding.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 44,
+    minHeight: 44,
+  },
+
+  // Video preview
+  videoPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: heraLanding.backgroundMuted,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  videoPlayIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: heraLanding.textSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoUrl: {
+    flex: 1,
+    fontSize: typography.fontSizes.sm,
+    color: heraLanding.textSecondary,
   },
 });
 

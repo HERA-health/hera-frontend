@@ -15,6 +15,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
   View,
   Text,
+  Image,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
@@ -29,6 +30,10 @@ import { SessionType, TimeSlot } from '../../services/sessionsService';
 import { ProfessionalInfoColumn, CompactCalendarColumn, TimeSlotsColumn } from './components';
 import * as analyticsService from '../../services/analyticsService';
 
+const STRINGS = {
+  perSession: '/ sesión',
+};
+
 interface BookingScreenProps {
   route: {
     params: {
@@ -38,9 +43,10 @@ interface BookingScreenProps {
       avatar?: string;
       title?: string;
       specializations?: string[];
+      slotDuration?: number;
     };
   };
-  navigation: any;
+  navigation: { navigate: (screen: string, params?: Record<string, unknown>) => void; goBack: () => void };
 }
 
 // Layout breakpoints
@@ -51,7 +57,8 @@ const BREAKPOINTS = {
 };
 
 export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation }) => {
-  const { specialistId, specialistName, pricePerSession, avatar, title, specializations } = route.params;
+  const { specialistId, specialistName, pricePerSession, avatar, title, specializations, slotDuration: paramSlotDuration } = route.params;
+  const slotDuration = paramSlotDuration ?? 60;
   const { width, height } = useWindowDimensions();
 
   // Responsive layout detection
@@ -86,7 +93,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
     avatar,
     pricePerSession,
     specializations: specializations || [],
-    sessionDuration: 60,
+    sessionDuration: slotDuration,
   }), [specialistId, specialistName, title, avatar, pricePerSession, specializations]);
 
   // Booking state object for dynamic summary
@@ -111,9 +118,14 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
       // Filter slots - if 'available' property doesn't exist, treat as available
       const available = slots.filter(slot => slot.available !== false);
       setAvailableSlots(available);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading slots:', error);
-      Alert.alert('Error', error.message || 'No se pudieron cargar los horarios disponibles');
+      const message = error instanceof Error ? error.message : 'No se pudieron cargar los horarios disponibles';
+      if (Platform.OS === 'web') {
+        window.alert(message);
+      } else {
+        Alert.alert('Error', message);
+      }
       setAvailableSlots([]);
     } finally {
       setLoadingSlots(false);
@@ -138,7 +150,11 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
   // Handle booking confirmation
   const handleConfirmBooking = useCallback(async () => {
     if (!selectedDate || !selectedSlot) {
-      Alert.alert('Error', 'Por favor selecciona fecha y hora');
+      if (Platform.OS === 'web') {
+        window.alert('Por favor selecciona fecha y hora');
+      } else {
+        Alert.alert('Error', 'Por favor selecciona fecha y hora');
+      }
       return;
     }
 
@@ -158,7 +174,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
       const sessionData = {
         specialistId,
         date: dateTime,
-        duration: 60,
+        duration: slotDuration,
         type: sessionType,
       };
 
@@ -181,15 +197,24 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
 
         const sessionTypeText = sessionType === 'VIDEO_CALL' ? 'Videollamada' : 'Presencial';
 
-        Alert.alert(
-          'Reserva confirmada',
-          `Tu ${sessionTypeText.toLowerCase()} con ${specialistName} ha sido solicitada.\n\nEstado: Pendiente de confirmacion\nFecha: ${formattedDate}\nHora: ${selectedSlot.startTime}\nTipo: ${sessionTypeText}`,
-          [{ text: 'Entendido' }]
-        );
+        if (Platform.OS === 'web') {
+          window.alert(`Tu ${sessionTypeText.toLowerCase()} con ${specialistName} ha sido solicitada.\n\nEstado: Pendiente de confirmación\nFecha: ${formattedDate}\nHora: ${selectedSlot.startTime}\nTipo: ${sessionTypeText}`);
+        } else {
+          Alert.alert(
+            'Reserva confirmada',
+            `Tu ${sessionTypeText.toLowerCase()} con ${specialistName} ha sido solicitada.\n\nEstado: Pendiente de confirmacion\nFecha: ${formattedDate}\nHora: ${selectedSlot.startTime}\nTipo: ${sessionTypeText}`,
+            [{ text: 'Entendido' }]
+          );
+        }
       }, 500);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating booking:', error);
-      Alert.alert('Error', error.message || 'No se pudo crear la cita. Intenta de nuevo.');
+      const message = error instanceof Error ? error.message : 'No se pudo crear la cita. Intenta de nuevo.';
+      if (Platform.OS === 'web') {
+        window.alert(message);
+      } else {
+        Alert.alert('Error', message);
+      }
     } finally {
       setLoading(false);
     }
@@ -307,18 +332,18 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
           <View style={styles.mobileSpecialistRow}>
             <View style={styles.mobileAvatarContainer}>
               {avatar ? (
-                <View style={styles.mobileAvatar}>
-                  <Text style={styles.mobileAvatarText}>{specialistName[0]}</Text>
-                </View>
+                <Image source={{ uri: avatar }} style={styles.mobileAvatar} />
               ) : (
-                <View style={styles.mobileAvatar}>
-                  <Text style={styles.mobileAvatarText}>{specialistName[0]}</Text>
+                <View style={styles.mobileAvatarPlaceholder}>
+                  <Text style={styles.mobileAvatarInitial}>
+                    {specialistName?.[0]?.toUpperCase() ?? '?'}
+                  </Text>
                 </View>
               )}
             </View>
             <View style={styles.mobileSpecialistInfo}>
               <Text style={styles.mobileSpecialistName}>{specialistName}</Text>
-              <Text style={styles.mobileSpecialistPrice}>{pricePerSession} / sesion</Text>
+              <Text style={styles.mobileSpecialistPrice}>€{pricePerSession} {STRINGS.perSession}</Text>
             </View>
           </View>
         </View>
@@ -397,7 +422,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7F5', // HERA Light Sage background
+    backgroundColor: heraLanding.background,
   },
 
   // Desktop Layout Styles
@@ -406,7 +431,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingTop: spacing.md,
     overflow: 'hidden',
-    backgroundColor: '#F5F7F5',
+    backgroundColor: heraLanding.background,
   },
   backButtonDesktop: {
     flexDirection: 'row',
@@ -443,7 +468,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: spacing.lg,
     overflow: 'hidden',
-    backgroundColor: '#F5F7F5',
+    backgroundColor: heraLanding.background,
   },
   backButtonTablet: {
     flexDirection: 'row',
@@ -535,11 +560,21 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
+  },
+  mobileAvatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: `${heraLanding.primary}20`,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: heraLanding.primary,
+  },
+  mobileAvatarInitial: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: heraLanding.primary,
   },
   mobileAvatarText: {
     fontSize: 18,
@@ -615,15 +650,15 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
   },
   mobileConfirmButtonDisabled: {
-    backgroundColor: '#E0E5E0',
+    backgroundColor: heraLanding.disabled,
   },
   mobileConfirmButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: heraLanding.textOnPrimary,
   },
   mobileConfirmButtonTextDisabled: {
-    color: '#9BA39B',
+    color: heraLanding.textMuted,
   },
 });
 

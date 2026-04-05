@@ -182,6 +182,14 @@ export interface SpecialistProfileData {
   rating: number;
   reviewCount: number;
 
+  // Mi Espacio
+  gradientId?: string;
+  personalMotto?: string;
+  photoGallery?: string[];
+  presentationVideoUrl?: string;
+  yearsInPractice?: number;
+  languagesSpoken?: string[];
+
   // Location & Service Modality
   officeAddress: string;
   officeCity: string;
@@ -252,6 +260,14 @@ export const updateComprehensiveProfile = async (
     if (data.profileVisible !== undefined) apiData.profileVisible = data.profileVisible;
     if (data.showReviewCount !== undefined) apiData.showReviewCount = data.showReviewCount;
     if (data.showLastOnline !== undefined) apiData.showLastOnline = data.showLastOnline;
+
+    // Mi Espacio
+    if (data.gradientId !== undefined) apiData.gradientId = data.gradientId;
+    if (data.personalMotto !== undefined) apiData.personalMotto = data.personalMotto;
+    if (data.photoGallery !== undefined) apiData.photoGallery = data.photoGallery;
+    if (data.presentationVideoUrl !== undefined) apiData.presentationVideoUrl = data.presentationVideoUrl;
+    if (data.yearsInPractice !== undefined) apiData.yearsInPractice = data.yearsInPractice;
+    if (data.languagesSpoken !== undefined) apiData.languagesSpoken = data.languagesSpoken;
 
     // Location & Service Modality
     if (data.officeAddress !== undefined) apiData.officeAddress = data.officeAddress;
@@ -343,5 +359,34 @@ export const submitVerification = async (data: VerificationData): Promise<Verifi
     throw new Error('Error al enviar la verificación');
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'Error al enviar la verificación. Intenta de nuevo.'));
+  }
+};
+
+/**
+ * Upload a photo to the specialist's gallery
+ */
+export const uploadGalleryPhoto = async (
+  imageBase64: string,
+  mimeType: string
+): Promise<{ url: string }> => {
+  try {
+    const response = await api.post('/specialists/me/gallery', {
+      imageBase64,
+      mimeType,
+    });
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo subir la foto a la galería'));
+  }
+};
+
+/**
+ * Delete a photo from the specialist's gallery
+ */
+export const deleteGalleryPhoto = async (url: string): Promise<void> => {
+  try {
+    await api.delete('/specialists/me/gallery', { data: { url } });
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo eliminar la foto de la galería'));
   }
 };

@@ -1,143 +1,151 @@
-/**
- * ProfileHero - Hero section for specialist profile
- * Displays avatar, name, title, rating, specializations, and CTA
- */
-
 import React from 'react';
 import {
   View,
   Text,
   Image,
-  TouchableOpacity,
   StyleSheet,
   useWindowDimensions,
+  Platform,
+  Pressable,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { ProfileHeroProps, getSpecializationIcon } from '../types';
-import { heraLanding, spacing, borderRadius, shadows } from '../../../constants/colors';
+import { ProfileHeroProps } from '../types';
+import { colors, heraLanding, spacing, borderRadius } from '../../../constants/colors';
 
-const InfoRow: React.FC<{
-  icon: string;
-  text: string;
-  highlight?: boolean;
-}> = ({ icon, text, highlight }) => (
-  <View style={styles.infoRow}>
-    <Text style={styles.infoIcon}>{icon}</Text>
-    <Text style={[styles.infoText, highlight && styles.infoTextHighlight]}>
-      {text}
-    </Text>
-  </View>
-);
-
-const SpecializationTag: React.FC<{ name: string }> = ({ name }) => (
-  <View style={styles.tag}>
-    <Text style={styles.tagText}>{name}</Text>
-  </View>
-);
+export const SPECIALTY_TRANSLATIONS: Record<string, string> = {
+  'anxiety': 'Ansiedad',
+  'depression': 'Depresión',
+  'self-esteem': 'Autoestima',
+  'stress': 'Estrés laboral',
+  'relationships': 'Relaciones',
+  'sleep': 'Problemas de sueño',
+  'phobias': 'Fobias',
+  'trauma': 'Trauma',
+};
 
 export const ProfileHero: React.FC<ProfileHeroProps> = ({
   specialist,
-  affinity,
-  onBookPress,
   onRatingPress,
+  gradientColors,
 }) => {
   const { width } = useWindowDimensions();
-  const isWideScreen = width > 768;
-
-  const getModalityText = () => {
-    const types = specialist.sessionTypes || [];
-    const parts: string[] = [];
-    if (types.includes('VIDEO_CALL')) parts.push('Videollamada');
-    if (types.includes('IN_PERSON')) parts.push('Presencial');
-    if (types.includes('PHONE_CALL')) parts.push('Teléfono');
-    return parts.length > 0 ? parts.join(' / ') : 'Online';
-  };
-
-  const getAvailabilityText = () => {
-    if (specialist.isAvailableToday) return 'Disponible hoy';
-    if (specialist.nextAvailable) return specialist.nextAvailable;
-    return 'Consultar disponibilidad';
-  };
+  const isDesktop = width >= 768;
+  const isMobile = width < 600;
+  
+  const avatarSize = isDesktop ? 120 : 96;
+  const offersOnline = specialist.offersOnline ?? true;
+  const offersInPerson = specialist.offersInPerson ?? false;
 
   return (
-    <View style={[styles.container, isWideScreen && styles.containerWide]}>
-      {/* Affinity Badge - Top Right */}
-      {affinity && affinity > 0 && (
-        <View style={styles.affinityBadge}>
-          <Ionicons name="heart" size={14} color={heraLanding.secondary} />
-          <Text style={styles.affinityText}>{Math.round(affinity * 100)}% Match</Text>
-        </View>
-      )}
+    <View style={styles.cardContainer}>
+      {/* 1. Header Gradient Fijo */}
+      <LinearGradient
+        colors={gradientColors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
+      />
 
-      <View style={[styles.content, isWideScreen && styles.contentWide]}>
-        {/* Avatar Section */}
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatarWrapper}>
-            {specialist.avatar ? (
-              <Image source={{ uri: specialist.avatar }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarInitial}>{specialist.name[0]}</Text>
-              </View>
-            )}
+      <View style={styles.contentContainer}>
+        <View style={[styles.mainRow, isMobile && styles.mainRowMobile]}>
+          
+          {/* 2. Avatar con margen negativo independiente */}
+          <View style={[styles.avatarWrapper, { marginTop: isDesktop ? -60 : -48 }]}>
+            <View style={[styles.avatarRing, { width: avatarSize, height: avatarSize }]}>
+              {specialist.avatar ? (
+                <Image source={{ uri: specialist.avatar }} style={styles.avatarImage} />
+              ) : (
+                <View style={[styles.avatarPlaceholder, { backgroundColor: gradientColors[0] }]}>
+                  <Text style={styles.avatarInitial}>{specialist.name[0]}</Text>
+                </View>
+              )}
+            </View>
           </View>
-          {specialist.isOnline && (
-            <View style={styles.onlineIndicator} />
-          )}
+
+          {/* 3. Info Block (Sin margen negativo, alineado natural) */}
+          <View style={[styles.infoBlock, isMobile && styles.infoBlockMobile]}>
+            <View style={[styles.titleRow, isMobile && styles.titleRowMobile]}>
+              <Text style={[styles.nameText, isMobile && styles.nameTextMobile]} numberOfLines={2}>
+                {specialist.name}
+              </Text>
+              
+              {specialist.verificationStatus === 'VERIFIED' && (
+                <View style={styles.verifiedBadge}>
+                  <Ionicons name="checkmark-circle" size={14} color={heraLanding.success} />
+                  <Text style={styles.verifiedText}>
+                    Verificada {specialist.collegiateNumber ? `· Col. ${specialist.collegiateNumber}` : ''}
+                  </Text>
+                </View>
+              )}
+            </View>
+            
+            <Text style={[styles.titleText, isMobile && styles.titleTextMobile]}>{specialist.title}</Text>
+
+            <View style={[styles.statsRow, isMobile && styles.statsRowMobile]}>
+              {specialist.reviewCount > 0 && (
+                <Pressable 
+                  style={({ pressed }) => [styles.statItem, pressed && styles.statItemPressed]} 
+                  onPress={onRatingPress}
+                >
+                  <Ionicons name="star" size={16} color={heraLanding.starRating} />
+                  <Text style={styles.statValue}>{specialist.rating.toFixed(1)}</Text>
+                  <Text style={styles.statLabel}>({specialist.reviewCount} reseñas)</Text>
+                </Pressable>
+              )}
+              
+              {specialist.yearsInPractice != null && specialist.yearsInPractice > 0 && (
+                <View style={styles.statItem}>
+                  <Ionicons name="briefcase-outline" size={16} color={heraLanding.textSecondary} />
+                  <Text style={styles.statLabel}>{specialist.yearsInPractice} años de experiencia</Text>
+                </View>
+              )}
+            </View>
+          </View>
         </View>
 
-        {/* Info Section */}
-        <View style={[styles.infoContainer, isWideScreen && styles.infoContainerWide]}>
-          {/* Name & Title */}
-          <Text style={styles.name}>{specialist.name}</Text>
-          <Text style={styles.title}>{specialist.title}</Text>
-
-          {/* Rating - Clickable */}
-          <TouchableOpacity
-            style={styles.ratingContainer}
-            onPress={onRatingPress}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="star" size={16} color="#FFB800" />
-            <Text style={styles.ratingText}>
-              {specialist.rating.toFixed(1)} ({specialist.reviewCount} reseñas)
-            </Text>
-            {onRatingPress && (
-              <Ionicons name="chevron-forward" size={14} color={heraLanding.textMuted} />
-            )}
-          </TouchableOpacity>
-
-          {/* Specialization Tags */}
-          <View style={styles.tagsContainer}>
-            {specialist.specializations.slice(0, 3).map((spec, index) => (
-              <SpecializationTag key={index} name={spec} />
+        {/* 4. Tags */}
+        {specialist.specializations.length > 0 && (
+          <View style={[styles.tagsContainer, isMobile && styles.tagsContainerMobile]}>
+            {specialist.specializations.slice(0, 4).map((tag, index) => (
+              <View key={index} style={styles.tagBadge}>
+                <Text style={styles.tagText}>
+                  {SPECIALTY_TRANSLATIONS[tag.toLowerCase()] || tag}
+                </Text>
+              </View>
             ))}
-            {specialist.specializations.length > 3 && (
-              <View style={styles.tagMore}>
-                <Text style={styles.tagMoreText}>+{specialist.specializations.length - 3}</Text>
+            {specialist.specializations.length > 4 && (
+              <View style={[styles.tagBadge, styles.tagBadgeMore]}>
+                <Text style={styles.tagTextMore}>+{specialist.specializations.length - 4} más</Text>
               </View>
             )}
           </View>
+        )}
 
-          {/* Quick Info */}
-          <View style={styles.quickInfo}>
-            <InfoRow icon="💶" text={`${specialist.pricePerSession}€/sesión`} />
-            <InfoRow icon="📹" text={getModalityText()} />
-            <InfoRow
-              icon="📅"
-              text={getAvailabilityText()}
-              highlight={specialist.isAvailableToday}
-            />
-          </View>
+        <View style={styles.divider} />
 
-          {/* CTA Button */}
-          <TouchableOpacity
-            style={styles.ctaButton}
-            onPress={onBookPress}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.ctaText}>Reservar sesión</Text>
-          </TouchableOpacity>
+        {/* 5. Modalities */}
+        <View style={[styles.modalityContainer, isMobile && styles.modalityContainerMobile]}>
+          {offersOnline && (
+            <View style={styles.modalityBadge}>
+              <Ionicons name="videocam-outline" size={16} color={heraLanding.textSecondary} />
+              <Text style={styles.modalityText}>Videollamada</Text>
+            </View>
+          )}
+          {offersInPerson && (
+            <View style={styles.modalityBadge}>
+              <Ionicons name="business-outline" size={16} color={heraLanding.textSecondary} />
+              <Text style={styles.modalityText}>Presencial</Text>
+            </View>
+          )}
+          {specialist.nextAvailable && (
+            <View style={[styles.availableBadge, isMobile && styles.availableBadgeMobile]}>
+              <Ionicons name="calendar-outline" size={14} color={heraLanding.textSecondary} />
+              <Text style={styles.availableText}>
+                {'Próxima cita: ' + new Date(specialist.nextAvailable).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
     </View>
@@ -145,193 +153,222 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
+  cardContainer: {
     backgroundColor: heraLanding.cardBg,
-    borderRadius: borderRadius.lg,
-    padding: spacing.xl,
-    ...shadows.lg,
-    position: 'relative',
+    borderRadius: borderRadius.xl,
     overflow: 'hidden',
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: heraLanding.borderLight,
+    ...Platform.select({
+      web: { boxShadow: `0 4px 20px ${heraLanding.shadowColor}` } as any,
+      default: { elevation: 3, shadowColor: colors.neutral.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8 }
+    })
   },
-  containerWide: {
-    padding: spacing.xxl,
+  headerGradient: {
+    height: 110,
+    width: '100%',
   },
-  content: {
+  contentContainer: {
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.lg,
+  },
+  mainRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end', // Alinea el texto a la base del avatar
+    gap: spacing.lg,
+  },
+  mainRowMobile: {
     flexDirection: 'column',
     alignItems: 'center',
-  },
-  contentWide: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-
-  // Affinity Badge
-  affinityBadge: {
-    position: 'absolute',
-    top: spacing.md,
-    right: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: heraLanding.secondaryMuted,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    gap: 4,
-  },
-  affinityText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: heraLanding.secondaryDark,
-  },
-
-  // Avatar
-  avatarContainer: {
-    position: 'relative',
-    marginBottom: spacing.md,
+    gap: spacing.sm,
   },
   avatarWrapper: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: heraLanding.background,
-    backgroundColor: heraLanding.cardBg,
-    ...shadows.md,
-    overflow: 'hidden',
+    position: 'relative',
+    // marginTop se inyecta dinámicamente arriba
   },
-  avatar: {
+  avatarRing: {
+    borderRadius: borderRadius.xl,
+    backgroundColor: heraLanding.cardBg,
+    padding: 6, // Espacio blanco alrededor del avatar
+  },
+  avatarImage: {
     width: '100%',
     height: '100%',
+    borderRadius: borderRadius.lg,
   },
   avatarPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: heraLanding.primaryMuted,
+    borderRadius: borderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitial: {
-    fontSize: 40,
-    fontWeight: '700',
-    color: heraLanding.primary,
+    fontWeight: 'bold',
+    color: heraLanding.cardBg,
+    fontSize: 36,
   },
-  onlineIndicator: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: heraLanding.success,
-    borderWidth: 3,
-    borderColor: heraLanding.cardBg,
+  infoBlock: {
+    flex: 1,
+    paddingBottom: spacing.xs,
+    paddingTop: spacing.md, // Da aire al texto respecto al gradiente
   },
-
-  // Info
-  infoContainer: {
+  infoBlockMobile: {
     alignItems: 'center',
     width: '100%',
+    paddingTop: 0,
   },
-  infoContainerWide: {
-    flex: 1,
-    marginLeft: spacing.xl,
-    alignItems: 'flex-start',
-  },
-  name: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  title: {
-    fontSize: 16,
-    color: heraLanding.textSecondary,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-
-  // Rating
-  ratingContainer: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginBottom: spacing.md,
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: 4,
   },
-  ratingText: {
+  titleRowMobile: {
+    justifyContent: 'center',
+  },
+  nameText: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: heraLanding.textPrimary,
+  },
+  nameTextMobile: {
+    textAlign: 'center',
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: heraLanding.successBg,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: heraLanding.successLight,
+  },
+  verifiedText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: heraLanding.success,
+  },
+  titleText: {
+    fontSize: 16,
+    color: heraLanding.textSecondary,
+    fontWeight: '500',
+  },
+  titleTextMobile: {
+    textAlign: 'center',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  statsRowMobile: {
+    justifyContent: 'center',
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statItemPressed: {
+    opacity: 0.7,
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: heraLanding.textPrimary,
+  },
+  statLabel: {
     fontSize: 14,
     color: heraLanding.textSecondary,
   },
-
-  // Tags
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    marginBottom: spacing.md,
+    marginTop: spacing.xl,
+  },
+  tagsContainerMobile: {
     justifyContent: 'center',
   },
-  tag: {
-    backgroundColor: heraLanding.background,
-    paddingHorizontal: spacing.sm + 4,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
+  tagBadge: {
+    backgroundColor: heraLanding.background, // Gris clarito pastel
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: heraLanding.borderLight,
   },
   tagText: {
     fontSize: 13,
-    color: heraLanding.textSecondary,
     fontWeight: '500',
-  },
-  tagMore: {
-    backgroundColor: heraLanding.primaryMuted,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
-  },
-  tagMoreText: {
-    fontSize: 13,
-    color: heraLanding.primary,
-    fontWeight: '600',
-  },
-
-  // Quick Info
-  quickInfo: {
-    marginBottom: spacing.lg,
-    gap: spacing.sm,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  infoIcon: {
-    fontSize: 18,
-  },
-  infoText: {
-    fontSize: 15,
     color: heraLanding.textPrimary,
   },
-  infoTextHighlight: {
-    color: heraLanding.success,
-    fontWeight: '500',
+  tagBadgeMore: {
+    backgroundColor: heraLanding.primaryAlpha12,
+    borderWidth: 0,
   },
-
-  // CTA
-  ctaButton: {
-    backgroundColor: heraLanding.primary,
-    paddingVertical: 14,
-    paddingHorizontal: spacing.xxl,
-    borderRadius: borderRadius.md,
-    width: '100%',
-    maxWidth: 300,
-    alignItems: 'center',
-    ...shadows.md,
-  },
-  ctaText: {
-    color: heraLanding.textOnPrimary,
-    fontSize: 16,
+  tagTextMore: {
+    fontSize: 13,
     fontWeight: '600',
+    color: heraLanding.primaryDark,
   },
+  divider: {
+    height: 1,
+    backgroundColor: heraLanding.borderLight,
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
+  },
+  modalityContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  modalityContainerMobile: {
+    justifyContent: 'center',
+  },
+  modalityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: heraLanding.cardBg,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 8,
+  },
+  modalityText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: heraLanding.textPrimary,
+  },
+  availableBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: heraLanding.background,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 8,
+    marginLeft: 'auto',
+    borderWidth: 1,
+    borderColor: heraLanding.borderLight,
+  },
+  availableBadgeMobile: {
+    marginLeft: 0,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  availableText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: heraLanding.textSecondary,
+  }
 });
 
 export default ProfileHero;

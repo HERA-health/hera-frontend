@@ -1,16 +1,18 @@
-/**
- * AboutSection - Bio and therapeutic approach section
- * Simple, readable presentation of specialist's description
- */
-
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { AboutSectionProps } from '../types';
 import { heraLanding, spacing, borderRadius, shadows } from '../../../constants/colors';
+
+export const APPROACH_TRANSLATIONS: Record<string, string> = {
+  'cbt': 'Cognitivo-Conductual (TCC)',
+  'act': 'Aceptación y Compromiso (ACT)',
+  'emdr': 'EMDR',
+  'psychodynamic': 'Psicodinámico',
+  'humanistic': 'Humanista',
+  'systemic': 'Sistémico',
+  'mindfulness': 'Mindfulness',
+  'gestalt': 'Gestalt',
+};
 
 export const AboutSection: React.FC<AboutSectionProps> = ({
   bio,
@@ -20,11 +22,19 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
     return null;
   }
 
+  // Función para traducir las claves separadas por coma
+  const formatApproaches = (rawText: string) => {
+    return rawText.split(',').map(item => {
+      const cleanItem = item.trim().toLowerCase();
+      return APPROACH_TRANSLATIONS[cleanItem] || item.trim();
+    }).join(', ');
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Sobre mí</Text>
 
-      {bio && (
+      {bio ? (
         <View style={styles.bioContainer}>
           {bio.split('\n\n').map((paragraph, index) => (
             <Text key={index} style={styles.bioText}>
@@ -32,14 +42,16 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
             </Text>
           ))}
         </View>
-      )}
+      ) : null}
 
-      {therapeuticApproach && (
+      {therapeuticApproach ? (
         <View style={styles.approachContainer}>
           <Text style={styles.approachLabel}>Enfoque terapéutico</Text>
-          <Text style={styles.approachText}>{therapeuticApproach}</Text>
+          <Text style={styles.approachText}>
+            {formatApproaches(therapeuticApproach)}
+          </Text>
         </View>
-      )}
+      ) : null}
     </View>
   );
 };
@@ -72,8 +84,8 @@ const styles = StyleSheet.create({
     borderTopColor: heraLanding.borderLight,
   },
   approachLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: heraLanding.textSecondary,
     marginBottom: spacing.xs,
     textTransform: 'uppercase',

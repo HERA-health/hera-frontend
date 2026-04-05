@@ -14,13 +14,14 @@ export interface Specialist {
   pricePerSession: number;
   specializations: string[];
   specializationsDetail?: SpecializationDetail[];
-  experience?: string[];
+  experience?: ExperienceItem[];
   education?: EducationItem[];
-  certifications?: string[];
+  certifications?: CertificateItem[];
   collegiateNumber?: string;
-  nextAvailable?: string;
-  isAvailableToday: boolean;
+  nextAvailable?: string | null;
+  isAvailableToday?: boolean;
   isOnline?: boolean;
+  slotDuration?: number | null;
   sessionTypes: SessionType[];
   languages?: string[];
   therapeuticApproach?: string;
@@ -30,6 +31,15 @@ export interface Specialist {
   // Service modality
   offersOnline?: boolean;
   offersInPerson?: boolean;
+  // New profile fields
+  gradientId?: string;
+  personalMotto?: string | null;
+  photoGallery?: string[];
+  presentationVideoUrl?: string | null;
+  yearsInPractice?: number | null;
+  languagesSpoken?: string[];
+  verificationStatus?: string;
+  firstVisitFree?: boolean;
 }
 
 export interface Address {
@@ -66,10 +76,26 @@ export interface SpecializationDetail {
 
 export interface EducationItem {
   id: string;
-  title: string;
+  degree: string;
   institution: string;
-  year: string;
-  type: 'degree' | 'certificate';
+  startYear: string;
+  endYear: string;
+}
+
+export interface ExperienceItem {
+  id: string;
+  position: string;
+  organization: string;
+  startYear: string;
+  endYear?: string | null;
+  current?: boolean;
+}
+
+export interface CertificateItem {
+  id: string;
+  name: string;
+  issuer?: string;
+  validUntil?: string | null;
 }
 
 export interface Review {
@@ -86,6 +112,8 @@ export interface ProfileHeroProps {
   affinity?: number;
   onBookPress: () => void;
   onRatingPress?: () => void;
+  gradientColors: [string, string];
+  onSharePress?: () => void;
 }
 
 export interface AboutSectionProps {
@@ -100,8 +128,8 @@ export interface SpecializationsGridProps {
 
 export interface ExperienceSectionProps {
   education?: EducationItem[];
-  experience?: string[];
-  certifications?: string[];
+  experience?: ExperienceItem[];
+  certifications?: CertificateItem[];
   collegiateNumber?: string;
   experienceYears?: number;
 }
@@ -127,12 +155,28 @@ export interface StickyBookingBarProps {
 export interface BookingSidebarProps {
   specialist: Specialist;
   onBookPress: () => void;
+  gradientColors: [string, string];
 }
 
 export interface CompactHeroProps {
   specialist: Specialist;
   affinity?: number;
   onRatingPress?: () => void;
+  gradientColors: [string, string];
+}
+
+export interface PhotoGallerySectionProps {
+  photoGallery: string[];
+}
+
+export interface VideoSectionProps {
+  presentationVideoUrl: string;
+  specialistName: string;
+  gradientColors: [string, string];
+}
+
+export interface ProfileSkeletonProps {
+  isDesktop?: boolean;
 }
 
 // Specialization icon mapping

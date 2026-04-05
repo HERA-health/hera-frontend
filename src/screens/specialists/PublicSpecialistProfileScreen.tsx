@@ -13,7 +13,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   useWindowDimensions,
   Platform,
   Modal,
@@ -25,6 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as specialistsService from '../../services/specialistsService';
 import { heraLanding, spacing, borderRadius, shadows } from '../../constants/colors';
+import { getGradientColors } from '../../constants/gradients';
 import { useAuth } from '../../contexts/AuthContext';
 import { StyledLogo } from '../../components/common/StyledLogo';
 import { LocationMapPreview, ModalityBadges } from '../../components/location';
@@ -38,6 +38,9 @@ import {
   ReviewsSection,
   StickyBookingBar,
   BookingSidebar,
+  PhotoGallerySection,
+  VideoSection,
+  ProfileSkeleton,
 } from '../specialist-profile/components';
 import type { Specialist, Review } from '../specialist-profile/types';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
@@ -92,6 +95,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
 
       const data = await specialistsService.getSpecialistDetails(specialistId);
 
+      const mp = data.matchingProfile as Record<string, unknown> | undefined;
       const mappedSpecialist: Specialist = {
         id: data.id,
         name: data.user.name,
@@ -101,74 +105,55 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         rating: data.rating,
         reviewCount: data.reviewCount,
         pricePerSession: data.pricePerSession,
-        specializations: (data as any).matchingProfile?.specialties || [],
-        experienceYears: (data as any).matchingProfile?.experienceYears || 0,
-        therapeuticApproach: Array.isArray((data as any).matchingProfile?.therapeuticApproach)
-          ? (data as any).matchingProfile.therapeuticApproach.join(', ')
-          : (data as any).matchingProfile?.therapeuticApproach || undefined,
-        languages: (data as any).matchingProfile?.language || [],
+        specializations: (mp?.specialties as string[]) || [],
+        experienceYears: (mp?.experienceYears as number) || 0,
+        therapeuticApproach: Array.isArray(mp?.therapeuticApproach)
+          ? (mp.therapeuticApproach as string[]).join(', ')
+          : (mp?.therapeuticApproach as string) || undefined,
+        languages: (mp?.language as string[]) || [],
         sessionTypes: (() => {
           const types: ('VIDEO_CALL' | 'IN_PERSON' | 'PHONE_CALL')[] = [];
-          if ((data as any).offersOnline !== false) types.push('VIDEO_CALL');
-          if ((data as any).offersInPerson === true) types.push('IN_PERSON');
-          const formats = (data as any).matchingProfile?.format || [];
+          if (data.offersOnline !== false) types.push('VIDEO_CALL');
+          if (data.offersInPerson === true) types.push('IN_PERSON');
+          const formats = (mp?.format as string[]) || [];
           if (formats.includes('in-person') && !types.includes('IN_PERSON')) types.push('IN_PERSON');
           if (formats.includes('hybrid') && !types.includes('IN_PERSON')) types.push('IN_PERSON');
           return types.length > 0 ? types : ['VIDEO_CALL'];
         })(),
         isAvailableToday: true,
         isOnline: true,
-        education: [],
-        experience: [],
-        certifications: [],
-        address: (data as any).offersInPerson && (data as any).officeAddress ? {
-          street: (data as any).officeAddress,
-          city: (data as any).officeCity || '',
-          postalCode: (data as any).officePostalCode || '',
-          latitude: (data as any).officeLat,
-          longitude: (data as any).officeLng,
+        // Real data from API
+        education: data.education ?? [],
+        experience: data.experience ?? [],
+        certifications: data.certificates ?? [],
+        address: data.offersInPerson && data.officeAddress ? {
+          street: data.officeAddress,
+          city: data.officeCity || '',
+          postalCode: data.officePostalCode || '',
+          latitude: data.officeLat ?? undefined,
+          longitude: data.officeLng ?? undefined,
         } : undefined,
-        offersOnline: (data as any).offersOnline ?? true,
-        offersInPerson: (data as any).offersInPerson ?? false,
-        schedule: {
-          monday: { start: '09:00', end: '20:00', available: true },
-          tuesday: { start: '09:00', end: '20:00', available: true },
-          wednesday: { start: '09:00', end: '20:00', available: true },
-          thursday: { start: '09:00', end: '20:00', available: true },
-          friday: { start: '09:00', end: '20:00', available: true },
-          saturday: { start: '10:00', end: '14:00', available: true },
-          sunday: { start: '', end: '', available: false },
-        },
+        offersOnline: data.offersOnline ?? true,
+        offersInPerson: data.offersInPerson ?? false,
+        // New profile fields
+        gradientId: data.gradientId || undefined,
+        personalMotto: data.personalMotto || null,
+        photoGallery: data.photoGallery || [],
+        presentationVideoUrl: data.presentationVideoUrl || null,
+        yearsInPractice: data.yearsInPractice ?? null,
+        languagesSpoken: data.languagesSpoken || [],
+        verificationStatus: data.verificationStatus || undefined,
+        firstVisitFree: data.firstVisitFree || false,
+        collegiateNumber: data.collegiateNumber || undefined,
       };
 
       setSpecialist(mappedSpecialist);
 
-      if (data.reviewCount > 0) {
-        setReviews([
-          {
-            id: '1',
-            rating: 5,
-            text: 'Excelente profesional. Me ayudó mucho a entender y gestionar mi ansiedad. Muy recomendable.',
-            authorName: 'María G.',
-            date: 'Hace 2 semanas',
-          },
-          {
-            id: '2',
-            rating: 5,
-            text: 'Muy empática y profesional. Las sesiones son muy productivas y me siento escuchada.',
-            authorName: 'Carlos R.',
-            date: 'Hace 1 mes',
-          },
-          {
-            id: '3',
-            rating: 4,
-            text: 'Gran experiencia. El enfoque terapéutico es muy efectivo para mi situación.',
-            authorName: 'Ana P.',
-            date: 'Hace 1 mes',
-          },
-        ]);
+      // Reviews: use real data if available
+      if (data.reviewCount > 0 && data.reviews) {
+        setReviews(data.reviews);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error loading public profile:', err);
       setError(true);
     } finally {
@@ -211,6 +196,9 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     }
   }, [isMobile]);
 
+  // ============== GRADIENT COLORS ==============
+  const gradientColors = getGradientColors(specialist?.gradientId);
+
   // ============== HERA BRANDED HEADER ==============
   const renderHeader = () => (
     <View style={[styles.heraHeader, (isDesktop || isTablet) && styles.heraHeaderDesktop]}>
@@ -241,14 +229,6 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       )}
-    </View>
-  );
-
-  // ============== VERIFIED BADGE ==============
-  const renderVerifiedBadge = () => (
-    <View style={styles.verifiedBadge}>
-      <Ionicons name="shield-checkmark" size={16} color={heraLanding.success} />
-      <Text style={styles.verifiedBadgeText}>Verificado por HERA</Text>
     </View>
   );
 
@@ -311,9 +291,9 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   // ============== LOADING ==============
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={heraLanding.primary} />
-        <Text style={styles.loadingText}>Cargando perfil...</Text>
+      <View style={styles.screenContainer}>
+        {renderHeader()}
+        <ProfileSkeleton isDesktop={!isMobile} />
       </View>
     );
   }
@@ -340,20 +320,38 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   // ============== MAIN CONTENT ==============
   const renderMainContent = () => (
     <>
-      {renderVerifiedBadge()}
-
       {isDesktop || isTablet ? (
         <CompactHero
           specialist={specialist}
           onRatingPress={handleScrollToReviews}
+          gradientColors={gradientColors}
         />
       ) : (
         <ProfileHero
           specialist={specialist}
           onBookPress={handleBookSession}
           onRatingPress={handleScrollToReviews}
+          gradientColors={gradientColors}
         />
       )}
+
+      {/* Photo Gallery */}
+      {specialist.photoGallery && specialist.photoGallery.length > 0 && (
+        <View style={styles.section}>
+          <PhotoGallerySection photoGallery={specialist.photoGallery} />
+        </View>
+      )}
+
+      {/* Video Section */}
+      {specialist.presentationVideoUrl ? (
+        <View style={styles.section}>
+          <VideoSection
+            presentationVideoUrl={specialist.presentationVideoUrl}
+            specialistName={specialist.name}
+            gradientColors={gradientColors}
+          />
+        </View>
+      ) : null}
 
       <View style={styles.section}>
         <AboutSection
@@ -518,17 +516,6 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: 40,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: heraLanding.background,
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: 16,
-    color: heraLanding.textSecondary,
-  },
 
   // HERA Header
   heraHeader: {
@@ -548,6 +535,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    minHeight: 44,
   },
   heraLogoText: {
     fontSize: 22,
@@ -564,6 +552,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   heraLoginButtonText: {
     fontSize: 14,
@@ -575,29 +565,13 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     backgroundColor: heraLanding.primary,
     borderRadius: borderRadius.md,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   heraRegisterButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: heraLanding.textOnPrimary,
-  },
-
-  // Verified Badge
-  verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: heraLanding.successBg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: borderRadius.full,
-    alignSelf: 'flex-start',
-    marginBottom: spacing.md,
-  },
-  verifiedBadgeText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: heraLanding.success,
   },
 
   // Error State
@@ -626,6 +600,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 4,
     backgroundColor: heraLanding.primary,
     borderRadius: borderRadius.md,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   errorButtonText: {
     fontSize: 16,
@@ -644,19 +620,19 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
   },
   leftColumn: {
-    flex: 0.6,
+    flex: 0.62,
     minWidth: 0,
   },
   leftColumnTablet: {
-    flex: 0.55,
+    flex: 0.58,
   },
   rightColumn: {
-    flex: 0.35,
+    flex: 0.38,
     minWidth: 0,
     alignSelf: 'flex-start',
   },
   rightColumnTablet: {
-    flex: 0.4,
+    flex: 0.42,
   },
   mobileContainer: {
     paddingHorizontal: spacing.lg,
@@ -754,6 +730,10 @@ const styles = StyleSheet.create({
     right: spacing.md,
     zIndex: 1,
     padding: spacing.xs,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalBody: {
     alignItems: 'center',
@@ -781,6 +761,8 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     alignItems: 'center',
     marginBottom: spacing.sm,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   modalPrimaryButtonText: {
     fontSize: 16,
@@ -794,6 +776,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: heraLanding.border,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   modalSecondaryButtonText: {
     fontSize: 16,

@@ -11,6 +11,9 @@ import ReviewsSection from './ReviewsSection';
 import ReviewCard from './ReviewCard';
 import StickyBookingBar from './StickyBookingBar';
 import BookingSidebar from './BookingSidebar';
+import PhotoGallerySection from './PhotoGallerySection';
+import VideoSection from './VideoSection';
+import ProfileSkeleton from './ProfileSkeleton';
 
 export {
   ProfileHero,
@@ -22,4 +25,7 @@ export {
   ReviewCard,
   StickyBookingBar,
   BookingSidebar,
+  PhotoGallerySection,
+  VideoSection,
+  ProfileSkeleton,
 };

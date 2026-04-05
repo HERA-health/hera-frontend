@@ -1,6 +1,6 @@
 /**
  * ExperienceSection - Education, experience, and certifications
- * Displays professional credentials and background
+ * Timeline visual for education/experience, pill badges for certificates
  */
 
 import React from 'react';
@@ -10,61 +10,49 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { ExperienceSectionProps, EducationItem } from '../types';
+import { ExperienceSectionProps, EducationItem, ExperienceItem, CertificateItem } from '../types';
 import { heraLanding, spacing, borderRadius, shadows } from '../../../constants/colors';
 
-interface SubSectionProps {
-  icon: keyof typeof Ionicons.glyphMap;
+const STRINGS = {
+  title: 'Experiencia y formación',
+  education: 'Educación',
+  experience: 'Experiencia',
+  certificates: 'Certificaciones',
+  yearsExperience: 'años de experiencia clínica',
+};
+
+interface TimelineItemProps {
   title: string;
-  children: React.ReactNode;
+  subtitle: string;
+  dateRange: string;
+  isLast: boolean;
 }
 
-const SubSection: React.FC<SubSectionProps> = ({ icon, title, children }) => (
-  <View style={styles.subSection}>
-    <View style={styles.subSectionHeader}>
-      <Text style={styles.subSectionIcon}>
-        {icon === 'school-outline' ? '🎓' : icon === 'briefcase-outline' ? '💼' : '✓'}
-      </Text>
-      <Text style={styles.subSectionTitle}>{title}</Text>
+const TimelineItem: React.FC<TimelineItemProps> = ({ title, subtitle, dateRange, isLast }) => (
+  <View style={styles.timelineItem}>
+    {/* Left column: dot + line */}
+    <View style={styles.timelineLeft}>
+      <View style={styles.timelineDot} />
+      {!isLast && <View style={styles.timelineLine} />}
     </View>
-    {children}
-  </View>
-);
-
-interface EducationItemViewProps {
-  item: EducationItem;
-}
-
-const EducationItemView: React.FC<EducationItemViewProps> = ({ item }) => (
-  <View style={styles.educationItem}>
-    <View style={[styles.itemBullet, item.type === 'certificate' && styles.itemBulletCert]} />
-    <View style={styles.itemContent}>
-      <Text style={styles.itemTitle}>{item.title}</Text>
-      <Text style={styles.itemSubtitle}>{item.institution} • {item.year}</Text>
+    {/* Right column: content */}
+    <View style={styles.timelineRight}>
+      <Text style={styles.timelineTitle}>{title}</Text>
+      <Text style={styles.timelineSubtitle}>{subtitle}</Text>
+      <Text style={styles.timelineDate}>{dateRange}</Text>
     </View>
   </View>
 );
 
-interface ListItemProps {
-  text: string;
+interface SubSectionHeaderProps {
+  emoji: string;
+  title: string;
 }
 
-const ListItem: React.FC<ListItemProps> = ({ text }) => (
-  <View style={styles.listItem}>
-    <Text style={styles.listBullet}>•</Text>
-    <Text style={styles.listText}>{text}</Text>
-  </View>
-);
-
-interface VerificationBadgeProps {
-  label: string;
-  value: string;
-}
-
-const VerificationBadge: React.FC<VerificationBadgeProps> = ({ label, value }) => (
-  <View style={styles.badge}>
-    <Ionicons name="checkmark-circle" size={16} color={heraLanding.success} />
-    <Text style={styles.badgeText}>{label}: {value}</Text>
+const SubSectionHeader: React.FC<SubSectionHeaderProps> = ({ emoji, title }) => (
+  <View style={styles.subSectionHeader}>
+    <Text style={styles.subSectionEmoji}>{emoji}</Text>
+    <Text style={styles.subSectionTitle}>{title}</Text>
   </View>
 );
 
@@ -75,59 +63,74 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
   collegiateNumber,
   experienceYears,
 }) => {
-  const hasContent = (education && education.length > 0) ||
-    (experience && experience.length > 0) ||
-    (certifications && certifications.length > 0) ||
-    collegiateNumber ||
-    experienceYears;
+  const hasEducation = education && education.length > 0;
+  const hasExperience = experience && experience.length > 0;
+  const hasCertificates = certifications && certifications.length > 0;
+  const hasContent = hasEducation || hasExperience || hasCertificates || collegiateNumber || experienceYears;
 
-  if (!hasContent) {
-    return null;
-  }
+  if (!hasContent) return null;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Experiencia y formación</Text>
+      <Text style={styles.title}>{STRINGS.title}</Text>
 
-      {/* Education */}
-      {education && education.length > 0 && (
-        <SubSection icon="school-outline" title="Educación">
-          <View style={styles.educationList}>
-            {education.map((item) => (
-              <EducationItemView key={item.id} item={item} />
+      {/* Education timeline */}
+      {hasEducation && (
+        <View style={styles.subSection}>
+          <SubSectionHeader emoji="🎓" title={STRINGS.education} />
+          <View style={styles.timeline}>
+            {education!.map((item, index) => (
+              <TimelineItem
+                key={item.id}
+                title={item.degree}
+                subtitle={item.institution}
+                dateRange={item.endYear ? `${item.startYear} – ${item.endYear}` : item.startYear}
+                isLast={index === education!.length - 1}
+              />
             ))}
           </View>
-        </SubSection>
+        </View>
       )}
 
-      {/* Experience */}
-      {((experience && experience.length > 0) || experienceYears) && (
-        <SubSection icon="briefcase-outline" title="Experiencia">
-          <View style={styles.listContainer}>
-            {experienceYears && (
-              <ListItem text={`${experienceYears}+ años de experiencia clínica`} />
-            )}
-            {experience?.map((item, index) => (
-              <ListItem key={index} text={item} />
-            ))}
-          </View>
-        </SubSection>
-      )}
-
-      {/* Verification Badges */}
-      {(collegiateNumber || (certifications && certifications.length > 0)) && (
-        <View style={styles.badgesContainer}>
-          {collegiateNumber && (
-            <VerificationBadge label="Colegiada" value={collegiateNumber} />
+      {/* Experience timeline */}
+      {(hasExperience || (typeof experienceYears === 'number' && experienceYears > 0)) && (
+        <View style={styles.subSection}>
+          <SubSectionHeader emoji="💼" title={STRINGS.experience} />
+          {(typeof experienceYears === 'number' && experienceYears > 0) && !hasExperience && (
+            <Text style={styles.experienceYearsText}>
+              {experienceYears}+ {STRINGS.yearsExperience}
+            </Text>
           )}
-          {certifications && certifications.length > 0 && (
-            <VerificationBadge
-              label="Certificaciones"
-              value={certifications.join(', ')}
-            />
+          {hasExperience && (
+            <View style={styles.timeline}>
+              {experience!.map((item, index) => (
+                <TimelineItem
+                  key={item.id}
+                  title={item.position}
+                  subtitle={item.organization}
+                  dateRange={item.current || !item.endYear ? `${item.startYear} - Actual` : `${item.startYear} - ${item.endYear}`}
+                  isLast={index === experience!.length - 1}
+                />
+              ))}
+            </View>
           )}
         </View>
       )}
+
+      {/* Certificates as pill badges */}
+      {hasCertificates && (
+        <View style={styles.subSection}>
+          <SubSectionHeader emoji="✓" title={STRINGS.certificates} />
+          <View style={styles.certificatesContainer}>
+            {certifications!.map((cert) => (
+              <View key={cert.id} style={styles.certificatePill}>
+                <Text style={styles.certificatePillText}>{cert.name}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
     </View>
   );
 };
@@ -145,6 +148,8 @@ const styles = StyleSheet.create({
     color: heraLanding.textPrimary,
     marginBottom: spacing.lg,
   },
+
+  // Sub-sections
   subSection: {
     marginBottom: spacing.lg,
   },
@@ -152,9 +157,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
-  subSectionIcon: {
+  subSectionEmoji: {
     fontSize: 20,
   },
   subSectionTitle: {
@@ -162,75 +167,79 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: heraLanding.textPrimary,
   },
-  educationList: {
-    gap: spacing.sm,
-    marginLeft: spacing.xxl,
+
+  // Timeline
+  timeline: {
+    marginLeft: spacing.sm,
   },
-  educationItem: {
+  timelineItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
+    minHeight: 60,
   },
-  itemBullet: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  timelineLeft: {
+    width: spacing.lg,
+    alignItems: 'center',
+  },
+  timelineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: heraLanding.primary,
-    marginTop: 6,
+    marginTop: 4,
   },
-  itemBulletCert: {
-    backgroundColor: heraLanding.secondary,
-  },
-  itemContent: {
+  timelineLine: {
+    width: 2,
     flex: 1,
-  },
-  itemTitle: {
-    fontSize: 15,
-    color: heraLanding.textPrimary,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  itemSubtitle: {
-    fontSize: 13,
-    color: heraLanding.textSecondary,
-  },
-  listContainer: {
-    marginLeft: spacing.xxl,
-  },
-  listItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
+    backgroundColor: heraLanding.border,
+    marginTop: spacing.xs,
     marginBottom: spacing.xs,
   },
-  listBullet: {
-    fontSize: 15,
-    color: heraLanding.textSecondary,
-    lineHeight: 24,
-  },
-  listText: {
+  timelineRight: {
     flex: 1,
+    paddingLeft: spacing.sm,
+    paddingBottom: spacing.md,
+  },
+  timelineTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: heraLanding.textPrimary,
+    marginBottom: 2,
+  },
+  timelineSubtitle: {
+    fontSize: 13,
+    color: heraLanding.textSecondary,
+    marginBottom: 2,
+  },
+  timelineDate: {
+    fontSize: 12,
+    color: heraLanding.textMuted,
+  },
+
+  // Experience years fallback
+  experienceYearsText: {
     fontSize: 15,
     color: heraLanding.textPrimary,
+    marginLeft: spacing.xxl,
     lineHeight: 24,
   },
-  badgesContainer: {
+
+  // Certificate pills
+  certificatesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    marginTop: spacing.md,
+    marginLeft: spacing.sm,
   },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: '#F0F7F0',
+  certificatePill: {
+    backgroundColor: heraLanding.successBg,
+    borderRadius: 20,
+    paddingVertical: 4,
     paddingHorizontal: spacing.sm + 4,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: heraLanding.successLight,
   },
-  badgeText: {
-    fontSize: 14,
+  certificatePillText: {
+    fontSize: 11,
     color: heraLanding.success,
     fontWeight: '500',
   },

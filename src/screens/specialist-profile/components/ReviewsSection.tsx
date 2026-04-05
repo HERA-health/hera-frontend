@@ -1,6 +1,6 @@
 /**
  * ReviewsSection - Client testimonials section
- * Shows review summary and list of reviews
+ * Shows review cards or honest empty state placeholder
  */
 
 import React from 'react';
@@ -15,13 +15,20 @@ import { ReviewsSectionProps } from '../types';
 import { ReviewCard } from './ReviewCard';
 import { heraLanding, spacing, borderRadius, shadows } from '../../../constants/colors';
 
+const STRINGS = {
+  title: 'Reseñas de clientes',
+  average: 'promedio',
+  reviews: 'reseñas',
+  emptyTitle: 'Las reseñas llegan pronto',
+  emptySubtitle: 'Los pacientes podrán valorar sus sesiones próximamente',
+  seeAll: 'Ver todas las reseñas',
+};
+
 const EmptyState: React.FC = () => (
   <View style={styles.emptyContainer}>
-    <Ionicons name="chatbubbles-outline" size={48} color={heraLanding.textMuted} />
-    <Text style={styles.emptyTitle}>Este especialista aún no tiene reseñas</Text>
-    <Text style={styles.emptySubtitle}>
-      Sé el primero en dejar tu opinión después de tu sesión
-    </Text>
+    <Text style={styles.emptyStars}>★★★★★</Text>
+    <Text style={styles.emptyTitle}>{STRINGS.emptyTitle}</Text>
+    <Text style={styles.emptySubtitle}>{STRINGS.emptySubtitle}</Text>
   </View>
 );
 
@@ -31,6 +38,7 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = ({
   reviewCount,
   onSeeAllPress,
 }) => {
+  const hasReviews = reviewCount > 0 && reviews.length > 0;
   const displayedReviews = reviews.slice(0, 3);
   const hasMoreReviews = reviews.length > 3;
 
@@ -38,19 +46,19 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = ({
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Reseñas de clientes</Text>
-        {reviewCount > 0 && (
+        <Text style={styles.title}>{STRINGS.title}</Text>
+        {hasReviews && (
           <View style={styles.summaryBadge}>
             <Ionicons name="star" size={16} color="#FFB800" />
             <Text style={styles.summaryText}>
-              {rating.toFixed(1)} promedio ({reviewCount} reseñas)
+              {rating.toFixed(1)} {STRINGS.average} ({reviewCount} {STRINGS.reviews})
             </Text>
           </View>
         )}
       </View>
 
       {/* Reviews List or Empty State */}
-      {displayedReviews.length > 0 ? (
+      {hasReviews ? (
         <View style={styles.reviewsList}>
           {displayedReviews.map((review) => (
             <ReviewCard key={review.id} review={review} />
@@ -67,7 +75,7 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = ({
           onPress={onSeeAllPress}
           activeOpacity={0.7}
         >
-          <Text style={styles.seeAllText}>Ver todas las reseñas</Text>
+          <Text style={styles.seeAllText}>{STRINGS.seeAll}</Text>
           <Ionicons name="arrow-forward" size={16} color={heraLanding.primary} />
         </TouchableOpacity>
       )}
@@ -103,23 +111,37 @@ const styles = StyleSheet.create({
   reviewsList: {
     gap: spacing.sm,
   },
+
+  // Empty state
   emptyContainer: {
+    borderWidth: 0.5,
+    borderColor: heraLanding.textMuted,
+    borderStyle: 'dashed',
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
     alignItems: 'center',
-    paddingVertical: spacing.xxl,
+  },
+  emptyStars: {
+    fontSize: 22,
+    color: '#E8B45D',
+    letterSpacing: 4,
+    marginBottom: spacing.md,
   },
   emptyTitle: {
     fontSize: 15,
-    color: heraLanding.textSecondary,
-    marginTop: spacing.md,
+    fontWeight: '500',
+    color: heraLanding.textPrimary,
+    marginBottom: spacing.xs,
     textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: heraLanding.textMuted,
-    marginTop: spacing.xs,
     textAlign: 'center',
-    paddingHorizontal: spacing.lg,
+    maxWidth: 280,
   },
+
+  // See all
   seeAllButton: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -172,6 +172,9 @@ export const heraLanding = {
   backgroundMuted: '#F8F9F8',
 
   // ✅ White alpha variants
+  whiteAlpha25: 'rgba(255, 255, 255, 0.25)',
+  whiteAlpha30: 'rgba(255, 255, 255, 0.3)',
+  whiteAlpha40: 'rgba(255, 255, 255, 0.4)',
   whiteAlpha80: 'rgba(255, 255, 255, 0.8)',
   whiteAlpha85: 'rgba(255, 255, 255, 0.85)',
 
