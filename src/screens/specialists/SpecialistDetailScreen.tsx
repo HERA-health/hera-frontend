@@ -200,13 +200,6 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
         />
       )}
 
-      {/* Photo Gallery */}
-      {specialist.photoGallery && specialist.photoGallery.length > 0 && (
-        <View style={styles.section}>
-          <PhotoGallerySection photoGallery={specialist.photoGallery} />
-        </View>
-      )}
-
       {/* Video Section */}
       {specialist.presentationVideoUrl ? (
         <View style={styles.section}>
@@ -299,7 +292,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
                 <View style={styles.bottomSpacer} />
               </View>
 
-              {/* Right Column - Sticky Sidebar */}
+              {/* Right Column - Booking Sidebar + Photo Gallery */}
               <View style={[
                 styles.rightColumn,
                 isTablet && styles.rightColumnTablet,
@@ -309,6 +302,14 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
                   onBookPress={handleBookSession}
                   gradientColors={gradientColors}
                 />
+                {specialist.photoGallery && specialist.photoGallery.length > 0 && (
+                  <View style={styles.rightColumnGallery}>
+                    <PhotoGallerySection
+                      photoGallery={specialist.photoGallery}
+                      specialistName={specialist.name}
+                    />
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -350,6 +351,14 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
               gradientColors={gradientColors}
             />
           </View>
+          {specialist.photoGallery && specialist.photoGallery.length > 0 && (
+            <View style={styles.section}>
+              <PhotoGallerySection
+                photoGallery={specialist.photoGallery}
+                specialistName={specialist.name}
+              />
+            </View>
+          )}
           <View style={styles.bottomSpacerMobile} />
         </View>
       </ScrollView>
@@ -434,6 +443,9 @@ const styles = StyleSheet.create({
   },
   rightColumnTablet: {
     flex: 0.42,
+  },
+  rightColumnGallery: {
+    marginTop: spacing.md,
   },
 
   // Mobile Container

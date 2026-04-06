@@ -170,6 +170,7 @@ export interface CompactHeroProps {
 
 export interface PhotoGallerySectionProps {
   photoGallery: string[];
+  specialistName?: string;
 }
 
 export interface VideoSectionProps {

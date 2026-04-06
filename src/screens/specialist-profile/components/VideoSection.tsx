@@ -1,9 +1,9 @@
 /**
  * VideoSection - Presentation video preview card
- * Opens video URL in browser via Linking
+ * Shows real YouTube thumbnail; opens video URL in browser via Linking
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,19 @@ import {
   StyleSheet,
   Linking,
   useWindowDimensions,
+  Image,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { VideoSectionProps } from '../types';
 import { heraLanding, spacing, borderRadius, shadows } from '../../../constants/colors';
+
+const extractYouTubeId = (url: string): string | null => {
+  if (!url) return null;
+  const pattern =
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/;
+  const match = url.match(pattern);
+  return match ? match[1] : null;
+};
 
 const STRINGS = {
   title: 'Vídeo de presentación',
@@ -29,6 +37,10 @@ export const VideoSection: React.FC<VideoSectionProps> = ({
   gradientColors,
 }) => {
   const { width } = useWindowDimensions();
+  const videoId = extractYouTubeId(presentationVideoUrl);
+  const [thumbUrl, setThumbUrl] = useState(
+    videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : null
+  );
 
   const handlePress = async (): Promise<void> => {
     try {
@@ -60,19 +72,29 @@ export const VideoSection: React.FC<VideoSectionProps> = ({
         style={styles.thumbnailTouch}
       >
         <View style={[styles.thumbnailContainer, { height: videoHeight }]}>
-          {/* Dark base */}
+          {/* Dark base fallback */}
           <View style={styles.darkBase} />
-          {/* Gradient overlay */}
-          <LinearGradient
-            colors={gradientColors}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[StyleSheet.absoluteFillObject, { opacity: 0.6 }]}
-          />
+
+          {/* Real YouTube thumbnail */}
+          {thumbUrl && (
+            <Image
+              source={{ uri: thumbUrl }}
+              style={StyleSheet.absoluteFillObject}
+              resizeMode="cover"
+              onError={() => {
+                if (videoId) {
+                  setThumbUrl(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`);
+                }
+              }}
+            />
+          )}
+
+          {/* Subtle dark overlay for contrast */}
+          <View style={styles.overlay} />
 
           {/* Play button */}
           <View style={styles.playButton}>
-            <Ionicons name="play" size={28} color={gradientColors[0]} style={styles.playIcon} />
+            <Ionicons name="play" size={28} color="#fff" style={styles.playIcon} />
           </View>
 
           {/* Bottom label */}
@@ -124,19 +146,23 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#1A1A1A',
   },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
 
   // Play button
   playButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: 'rgba(255,255,255,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
   },
   playIcon: {
-    marginLeft: 3, // visual center offset for play triangle
+    marginLeft: 4, // visual center offset for play triangle
   },
 
   // Bottom label

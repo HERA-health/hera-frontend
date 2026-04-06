@@ -1,6 +1,7 @@
 /**
- * PhotoGallerySection - Horizontal scrolling photo gallery
- * with fullscreen modal viewer and navigation arrows
+ * PhotoGallerySection - Modern carousel photo gallery
+ * Main image with animated fade transition, thumbnail strip, dot indicators,
+ * and fullscreen lightbox on tap.
  */
 
 import React, { useState } from 'react';
@@ -12,117 +13,263 @@ import {
   ScrollView,
   Modal,
   StyleSheet,
-  useWindowDimensions,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  runOnJS,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { PhotoGallerySectionProps } from '../types';
 import { heraLanding, spacing, borderRadius, shadows } from '../../../constants/colors';
 
 const STRINGS = {
   title: 'Galería',
-  close: 'Cerrar',
+  prevImage: 'Imagen anterior',
+  nextImage: 'Imagen siguiente',
+  closeGallery: 'Cerrar galería',
 };
+
+const MAX_DOTS = 5;
+const THUMBNAIL_SIZE = 64;
+const FADE_DURATION = 150;
 
 export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
   photoGallery,
+  specialistName,
 }) => {
-  const { width: screenWidth } = useWindowDimensions();
-  const [modalVisible, setModalVisible] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [lightboxVisible, setLightboxVisible] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  if (photoGallery.length === 0) return null;
+  // Carousel fade
+  const opacity = useSharedValue(1);
+  // Lightbox fade
+  const lightboxOpacity = useSharedValue(1);
 
-  const openPhoto = (index: number) => {
-    setActiveIndex(index);
-    setModalVisible(true);
+  if (!photoGallery || photoGallery.length === 0) return null;
+
+  const count = photoGallery.length;
+
+  // ── Carousel helpers ──────────────────────────────────────────────────────
+
+  const changeImage = (newIndex: number) => {
+    if (newIndex === currentIndex) return;
+    opacity.value = withTiming(0, { duration: FADE_DURATION }, () => {
+      runOnJS(setCurrentIndex)(newIndex);
+      opacity.value = withTiming(1, { duration: FADE_DURATION });
+    });
   };
 
   const goToPrev = () => {
-    setActiveIndex((prev) => (prev > 0 ? prev - 1 : photoGallery.length - 1));
+    if (currentIndex > 0) changeImage(currentIndex - 1);
   };
 
   const goToNext = () => {
-    setActiveIndex((prev) => (prev < photoGallery.length - 1 ? prev + 1 : 0));
+    if (currentIndex < count - 1) changeImage(currentIndex + 1);
   };
+
+  const animatedImageStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  // ── Lightbox helpers ──────────────────────────────────────────────────────
+
+  const openLightbox = () => {
+    setLightboxIndex(currentIndex);
+    lightboxOpacity.value = 1;
+    setLightboxVisible(true);
+  };
+
+  const closeLightbox = () => {
+    // Sync carousel to wherever the user navigated in the lightbox
+    setCurrentIndex(lightboxIndex);
+    setLightboxVisible(false);
+  };
+
+  const lightboxPrev = () => {
+    if (lightboxIndex > 0) {
+      lightboxOpacity.value = withTiming(0, { duration: FADE_DURATION }, () => {
+        runOnJS(setLightboxIndex)(lightboxIndex - 1);
+        lightboxOpacity.value = withTiming(1, { duration: FADE_DURATION });
+      });
+    }
+  };
+
+  const lightboxNext = () => {
+    if (lightboxIndex < count - 1) {
+      lightboxOpacity.value = withTiming(0, { duration: FADE_DURATION }, () => {
+        runOnJS(setLightboxIndex)(lightboxIndex + 1);
+        lightboxOpacity.value = withTiming(1, { duration: FADE_DURATION });
+      });
+    }
+  };
+
+  const animatedLightboxStyle = useAnimatedStyle(() => ({
+    opacity: lightboxOpacity.value,
+  }));
+
+  // ── Shared display values ─────────────────────────────────────────────────
+
+  const carouselCounter = `${String(currentIndex + 1).padStart(2, '0')} / ${String(count).padStart(2, '0')}`;
+  const lightboxCounter = `${String(lightboxIndex + 1).padStart(2, '0')} / ${String(count).padStart(2, '0')}`;
+
+  const dotCount = Math.min(count, MAX_DOTS);
+  const activeDot =
+    count <= MAX_DOTS
+      ? currentIndex
+      : Math.round((currentIndex / (count - 1)) * (MAX_DOTS - 1));
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.headerRow}>
         <Ionicons name="images-outline" size={20} color={heraLanding.textPrimary} />
         <Text style={styles.title}>{STRINGS.title}</Text>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+      {/* Main Image Area */}
+      <TouchableOpacity
+        activeOpacity={0.95}
+        onPress={openLightbox}
+        style={styles.mainImageWrapper}
       >
-        {photoGallery.map((url, index) => (
-          <TouchableOpacity
-            key={index}
-            onPress={() => openPhoto(index)}
-            activeOpacity={0.8}
-            style={styles.photoTouchable}
-          >
-            <Image
-              source={{ uri: url }}
-              style={index === 0 ? styles.firstPhoto : styles.photo}
-              resizeMode="cover"
-            />
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+        <Animated.Image
+          source={{ uri: photoGallery[currentIndex] }}
+          style={[styles.mainImage, animatedImageStyle]}
+          resizeMode="contain"
+          accessibilityLabel={specialistName ? `${specialistName} — ${carouselCounter}` : carouselCounter}
+        />
 
-      {/* Fullscreen Modal */}
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          {/* Close button */}
+        {/* Counter badge */}
+        <View style={styles.counterBadge}>
+          <Text style={styles.counterText}>{carouselCounter}</Text>
+        </View>
+
+        {/* Prev button — hidden on first image */}
+        {count > 1 && currentIndex > 0 && (
           <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => setModalVisible(false)}
+            style={[styles.navButton, styles.navButtonLeft]}
+            onPress={(e) => { e.stopPropagation?.(); goToPrev(); }}
             activeOpacity={0.7}
+            accessibilityLabel={STRINGS.prevImage}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="close" size={28} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={18} color="#FFFFFF" />
           </TouchableOpacity>
+        )}
 
+        {/* Next button — hidden on last image */}
+        {count > 1 && currentIndex < count - 1 && (
+          <TouchableOpacity
+            style={[styles.navButton, styles.navButtonRight]}
+            onPress={(e) => { e.stopPropagation?.(); goToNext(); }}
+            activeOpacity={0.7}
+            accessibilityLabel={STRINGS.nextImage}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        )}
+      </TouchableOpacity>
+
+      {/* Thumbnail Strip */}
+      {count > 1 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.thumbnailRow}
+        >
+          {photoGallery.map((url, index) => {
+            const isActive = index === currentIndex;
+            return (
+              <TouchableOpacity
+                key={index}
+                onPress={() => changeImage(index)}
+                activeOpacity={0.8}
+                style={[styles.thumbnailWrapper, isActive && styles.thumbnailWrapperActive]}
+              >
+                <Image
+                  source={{ uri: url }}
+                  style={[styles.thumbnail, { opacity: isActive ? 1 : 0.6 }]}
+                  resizeMode="cover"
+                />
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {/* Dot Indicators */}
+      {count > 1 && (
+        <View style={styles.dotsRow}>
+          {Array.from({ length: dotCount }).map((_, i) => (
+            <View key={i} style={[styles.dot, i === activeDot && styles.dotActive]} />
+          ))}
+        </View>
+      )}
+
+      {/* ── Fullscreen Lightbox ── */}
+      <Modal
+        visible={lightboxVisible}
+        transparent={false}
+        animationType="fade"
+        onRequestClose={closeLightbox}
+        statusBarTranslucent
+      >
+        <View style={styles.lightboxContainer}>
           {/* Image */}
-          <Image
-            source={{ uri: photoGallery[activeIndex] }}
-            style={styles.modalImage}
+          <Animated.Image
+            source={{ uri: photoGallery[lightboxIndex] }}
+            style={[styles.lightboxImage, animatedLightboxStyle]}
             resizeMode="contain"
+            accessibilityLabel={specialistName ? `${specialistName} — ${lightboxCounter}` : lightboxCounter}
           />
 
-          {/* Navigation arrows */}
-          {photoGallery.length > 1 && (
-            <>
-              <TouchableOpacity
-                style={[styles.navArrow, styles.navArrowLeft]}
-                onPress={goToPrev}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="chevron-back" size={32} color="#FFFFFF" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.navArrow, styles.navArrowRight]}
-                onPress={goToNext}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="chevron-forward" size={32} color="#FFFFFF" />
-              </TouchableOpacity>
-            </>
-          )}
+          {/* Close button */}
+          <TouchableOpacity
+            style={styles.lightboxClose}
+            onPress={closeLightbox}
+            activeOpacity={0.7}
+            accessibilityLabel={STRINGS.closeGallery}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="close" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
 
           {/* Counter */}
-          <View style={styles.counterPill}>
-            <Text style={styles.counterText}>
-              {activeIndex + 1} / {photoGallery.length}
-            </Text>
+          <View style={styles.lightboxCounter}>
+            <Text style={styles.counterText}>{lightboxCounter}</Text>
           </View>
+
+          {/* Prev arrow */}
+          {count > 1 && lightboxIndex > 0 && (
+            <TouchableOpacity
+              style={[styles.navButton, styles.navButtonLeft]}
+              onPress={lightboxPrev}
+              activeOpacity={0.7}
+              accessibilityLabel={STRINGS.prevImage}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="chevron-back" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
+
+          {/* Next arrow */}
+          {count > 1 && lightboxIndex < count - 1 && (
+            <TouchableOpacity
+              style={[styles.navButton, styles.navButtonRight]}
+              onPress={lightboxNext}
+              activeOpacity={0.7}
+              accessibilityLabel={STRINGS.nextImage}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
         </View>
       </Modal>
     </View>
@@ -133,96 +280,145 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: heraLanding.cardBg,
     borderRadius: borderRadius.lg,
-    padding: spacing.xl,
+    overflow: 'hidden',
     ...shadows.sm,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
   },
   title: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '600',
     color: heraLanding.textPrimary,
   },
 
-  // Scroll
-  scrollContent: {
-    gap: 10,
+  // Main image
+  mainImageWrapper: {
+    aspectRatio: 16 / 9,
+    maxHeight: 280,
+    width: '100%',
+    backgroundColor: heraLanding.cardBg,
+    position: 'relative',
   },
-  photoTouchable: {
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  firstPhoto: {
-    width: 220,
-    height: 150,
-    borderRadius: 10,
-  },
-  photo: {
-    width: 150,
-    height: 150,
-    borderRadius: 10,
+  mainImage: {
+    width: '100%',
+    height: '100%',
   },
 
-  // Modal
-  modalContainer: {
+  // Counter badge (shared by carousel and lightbox)
+  counterBadge: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    left: spacing.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    borderRadius: 20,
+    paddingVertical: 3,
+    paddingHorizontal: spacing.sm,
+  },
+  counterText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+
+  // Nav buttons (shared by carousel and lightbox)
+  navButton: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -22,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: heraLanding.whiteAlpha30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  navButtonLeft: {
+    left: spacing.sm,
+  },
+  navButtonRight: {
+    right: spacing.sm,
+  },
+
+  // Thumbnail strip
+  thumbnailRow: {
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  thumbnailWrapper: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  thumbnailWrapperActive: {
+    borderColor: heraLanding.primary,
+  },
+  thumbnail: {
+    width: THUMBNAIL_SIZE,
+    height: THUMBNAIL_SIZE,
+  },
+
+  // Dot indicators
+  dotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingBottom: spacing.lg,
+    paddingTop: spacing.xs,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: heraLanding.textMuted,
+  },
+  dotActive: {
+    width: 18,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: heraLanding.primary,
+  },
+
+  // Lightbox
+  lightboxContainer: {
     flex: 1,
     backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  closeButton: {
+  lightboxImage: {
+    flex: 1,
+    width: '100%',
+  },
+  lightboxClose: {
     position: 'absolute',
-    top: spacing.xxl + spacing.md,
+    top: spacing.xxl,
     right: spacing.lg,
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: heraLanding.whiteAlpha30,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
   },
-  modalImage: {
-    width: '100%',
-    height: '80%',
-  },
-
-  // Nav arrows
-  navArrow: {
+  lightboxCounter: {
     position: 'absolute',
-    top: '50%',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: -24,
-    zIndex: 10,
-  },
-  navArrowLeft: {
-    left: spacing.md,
-  },
-  navArrowRight: {
-    right: spacing.md,
-  },
-
-  // Counter
-  counterPill: {
-    position: 'absolute',
-    bottom: spacing.xxl + spacing.md,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    bottom: spacing.xxl,
+    left: spacing.lg,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     borderRadius: 20,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-  },
-  counterText: {
-    fontSize: 13,
-    color: '#FFFFFF',
+    paddingVertical: 3,
+    paddingHorizontal: spacing.sm,
   },
 });
 
