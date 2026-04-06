@@ -246,7 +246,7 @@ export function SpecialistProfileScreen() {
   const isTablet = windowWidth >= 768 && windowWidth < 1024;
   const isMobile = windowWidth < 768;
 
-  const [activeTab, setActiveTab] = useState<ProfileTab>('mi-espacio');
+  const [activeTab, setActiveTab] = useState<ProfileTab>('information');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isUploadingGalleryPhoto, setIsUploadingGalleryPhoto] = useState(false);
@@ -605,6 +605,19 @@ export function SpecialistProfileScreen() {
     }
   }, [updateField, updateUser, isUploadingAvatar]);
 
+  // Navigate to own public profile (as patients see it)
+  const handleViewPublicProfile = useCallback(() => {
+    if (!specialistId) {
+      if (Platform.OS === 'web') {
+        window.alert('No se pudo cargar el perfil');
+      } else {
+        Alert.alert('Error', 'No se pudo cargar el perfil');
+      }
+      return;
+    }
+    navigation.navigate('SpecialistDetail', { specialistId });
+  }, [specialistId, navigation]);
+
   // Share profile handler
   const handleShareProfile = useCallback(async () => {
     if (!specialistId) return;
@@ -697,8 +710,8 @@ export function SpecialistProfileScreen() {
   // ============================================================================
 
   const tabs: { id: ProfileTab; label: string; icon: string }[] = [
-    { id: 'mi-espacio', label: STRINGS.miEspacio.tabLabel, icon: 'sparkles-outline' },
     { id: 'information', label: 'Información Profesional', icon: 'person-outline' },
+    { id: 'mi-espacio', label: STRINGS.miEspacio.tabLabel, icon: 'sparkles-outline' },
     { id: 'credentials', label: 'Credenciales', icon: 'shield-checkmark-outline' },
     { id: 'pricing', label: 'Tarifas y Pagos', icon: 'card-outline' },
     { id: 'account', label: 'Cuenta', icon: 'settings-outline' },
@@ -842,7 +855,7 @@ export function SpecialistProfileScreen() {
         </View>
 
         {/* View Full Profile Button */}
-        <TouchableOpacity style={styles.previewButton} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.previewButton} activeOpacity={0.7} onPress={handleViewPublicProfile}>
           <Text style={styles.previewButtonText}>Ver perfil completo</Text>
           <Ionicons name="arrow-forward" size={16} color={heraLanding.primary} />
         </TouchableOpacity>

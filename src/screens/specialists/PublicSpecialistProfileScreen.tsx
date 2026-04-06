@@ -15,6 +15,7 @@ import {
   StyleSheet,
   useWindowDimensions,
   Platform,
+  Alert,
   Modal,
   Pressable,
   NativeSyntheticEvent,
@@ -170,6 +171,11 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     }
 
     if (user?.type === 'professional') {
+      if (Platform.OS === 'web') {
+        window.alert('No puedes reservar tu propia sesión');
+      } else {
+        Alert.alert('Información', 'No puedes reservar tu propia sesión');
+      }
       return;
     }
 
@@ -427,23 +433,16 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   // Professional info text (when a professional views the profile)
   const isProfessional = isAuthenticated && user?.type === 'professional';
 
-  // ============== BOOKING SIDEBAR WRAPPER ==============
-  const renderBookingSidebarWithAuth = () => {
-    if (isProfessional) {
-      return (
-        <View style={styles.professionalInfoBox}>
-          <Ionicons name="information-circle" size={20} color={heraLanding.info} />
-          <Text style={styles.professionalInfoText}>
-            Estás viendo este perfil como profesional. Los pacientes pueden reservar sesiones desde esta página.
-          </Text>
-        </View>
-      );
-    }
+  // ============== PROFESSIONAL BANNER ==============
+  const renderProfessionalBanner = () => {
+    if (!isProfessional) return null;
     return (
-      <BookingSidebar
-        specialist={specialist}
-        onBookPress={handleBookSession}
-      />
+      <View style={styles.professionalInfoBox}>
+        <Ionicons name="information-circle" size={20} color={heraLanding.info} />
+        <Text style={styles.professionalInfoText}>
+          Estás viendo este perfil como profesional. Los pacientes pueden reservar sesiones desde esta página.
+        </Text>
+      </View>
     );
   };
 
@@ -452,6 +451,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     return (
       <View style={styles.screenContainer}>
         {renderHeader()}
+        {renderProfessionalBanner()}
         <ScrollView
           ref={scrollViewRef}
           style={styles.container}
@@ -464,7 +464,11 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
               <View style={styles.bottomSpacer} />
             </View>
             <View style={[styles.rightColumn, isTablet && styles.rightColumnTablet]}>
-              {renderBookingSidebarWithAuth()}
+              <BookingSidebar
+                specialist={specialist}
+                onBookPress={handleBookSession}
+                gradientColors={gradientColors}
+              />
             </View>
           </View>
         </ScrollView>
@@ -477,6 +481,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   return (
     <View style={styles.screenContainer}>
       {renderHeader()}
+      {renderProfessionalBanner()}
       <ScrollView
         ref={scrollViewRef}
         style={styles.container}
@@ -491,14 +496,12 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         </View>
       </ScrollView>
 
-      {!isProfessional && (
-        <StickyBookingBar
-          specialistName={specialist.name}
-          pricePerSession={specialist.pricePerSession}
-          onBookPress={handleBookSession}
-          visible={showStickyBar}
-        />
-      )}
+      <StickyBookingBar
+        specialistName={specialist.name}
+        pricePerSession={specialist.pricePerSession}
+        onBookPress={handleBookSession}
+        visible={showStickyBar}
+      />
       {renderAuthModal()}
     </View>
   );
@@ -687,16 +690,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Professional info box
+  // Professional info banner (full-width strip below header)
   professionalInfoBox: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: heraLanding.cardBg,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: heraLanding.border,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: heraLanding.border,
   },
   professionalInfoText: {
     flex: 1,

@@ -270,6 +270,16 @@ export function RootNavigator() {
           component={ProfessionalVerificationScreen}
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="SpecialistDetail"
+          options={{ headerTitle: 'Perfil del Especialista', headerShown: false }}
+        >
+          {({ route, navigation }) => (
+            <MainLayout>
+              <SpecialistDetailScreen route={route} navigation={navigation} />
+            </MainLayout>
+          )}
+        </Stack.Screen>
         <Stack.Screen name="PublicSpecialistProfile" component={PublicSpecialistProfileScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     );
