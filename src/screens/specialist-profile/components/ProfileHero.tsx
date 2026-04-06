@@ -24,6 +24,10 @@ export const SPECIALTY_TRANSLATIONS: Record<string, string> = {
   'sleep': 'Problemas de sueño',
   'phobias': 'Fobias',
   'trauma': 'Trauma',
+  'couples': 'Terapia de pareja',
+  'grief': 'Duelo',
+  'addiction': 'Adicciones',
+  'eating': 'Trastornos alimentarios',
 };
 
 export const ProfileHero: React.FC<ProfileHeroProps> = ({

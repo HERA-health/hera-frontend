@@ -14,6 +14,10 @@ const SPECIALTY_MAP: Record<string, { label: string, icon: React.ComponentProps<
   'sleep': { label: 'Problemas de sueño', icon: 'moon-outline', bgColor: '#E3F2FD', color: '#4A6B8B', desc: 'Higiene del sueño y descanso profundo.' },
   'phobias': { label: 'Fobias', icon: 'shield-checkmark-outline', bgColor: '#E8F5E9', color: '#388E3C', desc: 'Superación de miedos limitantes.' },
   'trauma': { label: 'Trauma', icon: 'leaf-outline', bgColor: '#FFF3E0', color: '#F57C00', desc: 'Procesamiento de experiencias difíciles.' },
+  'couples': { label: 'Terapia de pareja', icon: 'people-outline', bgColor: '#FCE4EC', color: '#C2185B', desc: 'Mejora de la comunicación y vínculos en pareja.' },
+  'grief': { label: 'Duelo', icon: 'heart-outline', bgColor: '#F3E5F5', color: '#7B1FA2', desc: 'Acompañamiento en pérdidas y procesos de duelo.' },
+  'addiction': { label: 'Adicciones', icon: 'medical-outline', bgColor: '#E0F2F1', color: '#00796B', desc: 'Apoyo en procesos de deshabituación y recaídas.' },
+  'eating': { label: 'Trastornos alimentarios', icon: 'nutrition-outline', bgColor: '#FFF8E1', color: '#F9A825', desc: 'Acompañamiento en trastornos de la conducta alimentaria.' },
   'default': { label: 'Salud Mental', icon: 'flower-outline', bgColor: heraLanding.background, color: heraLanding.primaryDark, desc: 'Apoyo integral y personalizado.' }
 };
 
