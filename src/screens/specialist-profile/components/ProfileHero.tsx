@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { ProfileHeroProps } from '../types';
 import { colors, heraLanding, spacing, borderRadius } from '../../../constants/colors';
+import { APPROACH_TRANSLATIONS } from './AboutSection';
 
 export const SPECIALTY_TRANSLATIONS: Record<string, string> = {
   'anxiety': 'Ansiedad',
@@ -29,6 +30,9 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
   specialist,
   onRatingPress,
   gradientColors,
+  bio,
+  personalMotto,
+  therapeuticApproach,
 }) => {
   const { width } = useWindowDimensions();
   const [isDesktop, setIsDesktop] = useState(
@@ -157,6 +161,37 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
             </View>
           )}
         </View>
+
+        {/* 6. Sobre mí — merged bio section */}
+        {(bio || personalMotto) ? (
+          <>
+            <View style={styles.bioDivider} />
+            <View style={styles.bioSection}>
+              <Text style={styles.bioTitle}>Sobre mí</Text>
+              {personalMotto ? (
+                <Text style={styles.mottoText}>"{personalMotto}"</Text>
+              ) : null}
+              {bio ? (
+                <View style={styles.bioContent}>
+                  {bio.split('\n\n').map((paragraph, index) => (
+                    <Text key={index} style={styles.bioText}>{paragraph}</Text>
+                  ))}
+                </View>
+              ) : null}
+              {therapeuticApproach ? (
+                <View style={styles.approachContainer}>
+                  <Text style={styles.approachLabel}>Enfoque terapéutico</Text>
+                  <Text style={styles.approachText}>
+                    {therapeuticApproach.split(',').map(item => {
+                      const key = item.trim().toLowerCase();
+                      return APPROACH_TRANSLATIONS[key] || item.trim();
+                    }).join(', ')}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          </>
+        ) : null}
       </View>
     </View>
   );
@@ -378,7 +413,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: heraLanding.textSecondary,
-  }
+  },
+  bioDivider: {
+    height: 1,
+    backgroundColor: heraLanding.borderLight,
+    marginTop: spacing.lg,
+  },
+  bioSection: {
+    paddingTop: spacing.md,
+  },
+  bioTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: heraLanding.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  mottoText: {
+    fontSize: 15,
+    fontStyle: 'italic',
+    color: heraLanding.textSecondary,
+    marginBottom: spacing.md,
+    lineHeight: 22,
+    flexShrink: 1,
+  },
+  bioContent: {
+    gap: spacing.sm,
+  },
+  bioText: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: heraLanding.textPrimary,
+    flexShrink: 1,
+  },
+  approachContainer: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: heraLanding.borderLight,
+  },
+  approachLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: heraLanding.textSecondary,
+    marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  approachText: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: heraLanding.textPrimary,
+    flexShrink: 1,
+  },
 });
 
 export default ProfileHero;

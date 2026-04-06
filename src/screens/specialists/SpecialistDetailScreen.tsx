@@ -32,7 +32,6 @@ import { getGradientColors } from '../../constants/gradients';
 // Import modular components
 import {
   ProfileHero,
-  AboutSection,
   SpecializationsGrid,
   ExperienceSection,
   ReviewsSection,
@@ -195,6 +194,9 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
           onBookPress={handleBookSession}
           onRatingPress={handleScrollToReviews}
           gradientColors={gradientColors}
+          bio={specialist.bio}
+          personalMotto={specialist.personalMotto}
+          therapeuticApproach={specialist.therapeuticApproach}
         />
       )}
 
@@ -215,14 +217,6 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
           />
         </View>
       ) : null}
-
-      {/* About Section */}
-      <View style={styles.section}>
-        <AboutSection
-          bio={specialist.bio}
-          therapeuticApproach={specialist.therapeuticApproach}
-        />
-      </View>
 
       {/* Specializations Grid */}
       {specialist.specializations.length > 0 && (
@@ -297,6 +291,9 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
                   onBookPress={handleBookSession}
                   onRatingPress={handleScrollToReviews}
                   gradientColors={gradientColors}
+                  bio={specialist.bio}
+                  personalMotto={specialist.personalMotto}
+                  therapeuticApproach={specialist.therapeuticApproach}
                 />
                 {renderMainContent(heroRenderedAbove)}
                 <View style={styles.bottomSpacer} />

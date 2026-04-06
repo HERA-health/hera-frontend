@@ -114,6 +114,9 @@ export interface ProfileHeroProps {
   onRatingPress?: () => void;
   gradientColors: [string, string];
   onSharePress?: () => void;
+  bio?: string | null;
+  personalMotto?: string | null;
+  therapeuticApproach?: string;
 }
 
 export interface AboutSectionProps {
