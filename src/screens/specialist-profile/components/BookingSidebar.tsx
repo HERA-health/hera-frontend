@@ -117,7 +117,7 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
           <View style={styles.calendarIconWrap}>
             <Ionicons name="calendar-outline" size={18} color={heraLanding.success} />
           </View>
-          <View>
+          <View style={styles.availTextBlock}>
             <Text style={styles.availLabel}>{STRINGS.nextAvailability}</Text>
             <Text style={[styles.availValue, nextAvailableDate === null && styles.availValueNeutral]}>
               {availabilityText}
@@ -188,7 +188,7 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
                   address={address.street}
                   city={address.city}
                   showDirectionsButton={false}
-                  width={300}
+                  width="100%"
                   height={140}
                 />
               </View>
@@ -276,6 +276,10 @@ const styles = StyleSheet.create({
     backgroundColor: heraLanding.successBg,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  availTextBlock: {
+    flex: 1,
+    minWidth: 0,
   },
   availLabel: {
     fontSize: 12,

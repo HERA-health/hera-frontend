@@ -9,7 +9,7 @@
  * - All business logic (unchanged)
  */
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   useWindowDimensions,
+  Dimensions,
   Alert,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -62,10 +63,22 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
 }) => {
   const { specialistId, affinity } = route?.params || {};
   const { width } = useWindowDimensions();
+  const [isDesktop, setIsDesktop] = useState(
+    () => Dimensions.get('window').width >= DESKTOP_BREAKPOINT
+  );
+  const [isTablet, setIsTablet] = useState(() => {
+    const w = Dimensions.get('window').width;
+    return w >= TABLET_BREAKPOINT && w < DESKTOP_BREAKPOINT;
+  });
+  const [isMobile, setIsMobile] = useState(
+    () => Dimensions.get('window').width < TABLET_BREAKPOINT
+  );
 
-  const isDesktop = width >= DESKTOP_BREAKPOINT;
-  const isTablet = width >= TABLET_BREAKPOINT && width < DESKTOP_BREAKPOINT;
-  const isMobile = width < TABLET_BREAKPOINT;
+  useEffect(() => {
+    setIsDesktop(width >= DESKTOP_BREAKPOINT);
+    setIsTablet(width >= TABLET_BREAKPOINT && width < DESKTOP_BREAKPOINT);
+    setIsMobile(width < TABLET_BREAKPOINT);
+  }, [width]);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const reviewsYOffset = useRef<number>(0);
@@ -333,6 +346,13 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
         {/* Main Content */}
         <View style={styles.mobileContainer}>
           {renderMainContent(heroRenderedAbove)}
+          <View style={styles.section}>
+            <BookingSidebar
+              specialist={specialist}
+              onBookPress={handleBookSession}
+              gradientColors={gradientColors}
+            />
+          </View>
           <View style={styles.bottomSpacerMobile} />
         </View>
       </ScrollView>
@@ -353,12 +373,16 @@ const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
     backgroundColor: heraLanding.background,
+    ...Platform.select({
+      web: { overflowX: 'hidden', maxWidth: '100vw' } as any,
+    }),
   },
   container: {
     flex: 1,
   },
   contentContainer: {
     paddingBottom: 40,
+    width: '100%',
   },
 
   // Header / Back Navigation

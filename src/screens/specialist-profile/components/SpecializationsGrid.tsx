@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, useWindowDimensions, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, useWindowDimensions, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SpecializationsGridProps } from '../types';
 import { heraLanding, colors, spacing, borderRadius } from '../../../constants/colors';
@@ -21,7 +21,13 @@ export const SpecializationsGrid: React.FC<SpecializationsGridProps> = ({
   specializations,
 }) => {
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
+  const [isDesktop, setIsDesktop] = useState(
+    () => Dimensions.get('window').width >= 768
+  );
+
+  useEffect(() => {
+    setIsDesktop(width >= 768);
+  }, [width]);
 
   if (!specializations || specializations.length === 0) return null;
 
@@ -87,6 +93,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    minWidth: 0,
     ...Platform.select({
       web: { transition: 'transform 0.2s ease, box-shadow 0.2s ease' } as any,
     }),

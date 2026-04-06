@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   Image,
   StyleSheet,
   useWindowDimensions,
+  Dimensions,
   Platform,
   Pressable,
 } from 'react-native';
@@ -30,8 +31,17 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
   gradientColors,
 }) => {
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
-  const isMobile = width < 600;
+  const [isDesktop, setIsDesktop] = useState(
+    () => Dimensions.get('window').width >= 768
+  );
+  const [isMobile, setIsMobile] = useState(
+    () => Dimensions.get('window').width < 600
+  );
+
+  useEffect(() => {
+    setIsDesktop(width >= 768);
+    setIsMobile(width < 600);
+  }, [width]);
   
   const avatarSize = isDesktop ? 120 : 96;
   const offersOnline = specialist.offersOnline ?? true;
