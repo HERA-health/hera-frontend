@@ -22,18 +22,15 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import * as specialistsService from '../../services/specialistsService';
-import { heraLanding, spacing, borderRadius, shadows } from '../../constants/colors';
+import { heraLanding, spacing, borderRadius } from '../../constants/colors';
 import { getGradientColors } from '../../constants/gradients';
 import { useAuth } from '../../contexts/AuthContext';
 import { StyledLogo } from '../../components/common/StyledLogo';
-import { LocationMapPreview, ModalityBadges } from '../../components/location';
 
 import {
   ProfileHero,
-  CompactHero,
-  AboutSection,
   SpecializationsGrid,
   ExperienceSection,
   ReviewsSection,
@@ -81,9 +78,11 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     };
   }, [specialist]);
 
-  useEffect(() => {
-    loadSpecialistDetails();
-  }, [specialistId]);
+  useFocusEffect(
+    useCallback(() => {
+      loadSpecialistDetails();
+    }, [specialistId])
+  );
 
   const loadSpecialistDetails = async () => {
     try {
@@ -96,57 +95,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
 
       const data = await specialistsService.getSpecialistDetails(specialistId);
 
-      const mp = data.matchingProfile as Record<string, unknown> | undefined;
-      const mappedSpecialist: Specialist = {
-        id: data.id,
-        name: data.user.name,
-        title: data.specialization,
-        avatar: data.avatar || undefined,
-        bio: data.description,
-        rating: data.rating,
-        reviewCount: data.reviewCount,
-        pricePerSession: data.pricePerSession,
-        specializations: (mp?.specialties as string[]) || [],
-        experienceYears: (mp?.experienceYears as number) || 0,
-        therapeuticApproach: Array.isArray(mp?.therapeuticApproach)
-          ? (mp.therapeuticApproach as string[]).join(', ')
-          : (mp?.therapeuticApproach as string) || undefined,
-        languages: (mp?.language as string[]) || [],
-        sessionTypes: (() => {
-          const types: ('VIDEO_CALL' | 'IN_PERSON' | 'PHONE_CALL')[] = [];
-          if (data.offersOnline !== false) types.push('VIDEO_CALL');
-          if (data.offersInPerson === true) types.push('IN_PERSON');
-          const formats = (mp?.format as string[]) || [];
-          if (formats.includes('in-person') && !types.includes('IN_PERSON')) types.push('IN_PERSON');
-          if (formats.includes('hybrid') && !types.includes('IN_PERSON')) types.push('IN_PERSON');
-          return types.length > 0 ? types : ['VIDEO_CALL'];
-        })(),
-        isAvailableToday: true,
-        isOnline: true,
-        // Real data from API
-        education: data.education ?? [],
-        experience: data.experience ?? [],
-        certifications: data.certificates ?? [],
-        address: data.offersInPerson && data.officeAddress ? {
-          street: data.officeAddress,
-          city: data.officeCity || '',
-          postalCode: data.officePostalCode || '',
-          latitude: data.officeLat ?? undefined,
-          longitude: data.officeLng ?? undefined,
-        } : undefined,
-        offersOnline: data.offersOnline ?? true,
-        offersInPerson: data.offersInPerson ?? false,
-        // New profile fields
-        gradientId: data.gradientId || undefined,
-        personalMotto: data.personalMotto || null,
-        photoGallery: data.photoGallery || [],
-        presentationVideoUrl: data.presentationVideoUrl || null,
-        yearsInPractice: data.yearsInPractice ?? null,
-        languagesSpoken: data.languagesSpoken || [],
-        verificationStatus: data.verificationStatus || undefined,
-        firstVisitFree: data.firstVisitFree || false,
-        collegiateNumber: data.collegiateNumber || undefined,
-      };
+      const mappedSpecialist = specialistsService.mapSpecialistToProfile(data);
 
       setSpecialist(mappedSpecialist);
 
@@ -324,28 +273,21 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   }
 
   // ============== MAIN CONTENT ==============
-  const renderMainContent = () => (
+  const heroRenderedAbove = isDesktop || isTablet;
+
+  const renderMainContent = (skipHero = false) => (
     <>
-      {isDesktop || isTablet ? (
-        <CompactHero
-          specialist={specialist}
-          onRatingPress={handleScrollToReviews}
-          gradientColors={gradientColors}
-        />
-      ) : (
+      {/* Hero Section */}
+      {!skipHero && (
         <ProfileHero
           specialist={specialist}
           onBookPress={handleBookSession}
           onRatingPress={handleScrollToReviews}
           gradientColors={gradientColors}
+          bio={specialist.bio}
+          personalMotto={specialist.personalMotto}
+          therapeuticApproach={specialist.therapeuticApproach}
         />
-      )}
-
-      {/* Photo Gallery */}
-      {specialist.photoGallery && specialist.photoGallery.length > 0 && (
-        <View style={styles.section}>
-          <PhotoGallerySection photoGallery={specialist.photoGallery} />
-        </View>
       )}
 
       {/* Video Section */}
@@ -359,48 +301,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         </View>
       ) : null}
 
-      <View style={styles.section}>
-        <AboutSection
-          bio={specialist.bio}
-          therapeuticApproach={specialist.therapeuticApproach}
-        />
-      </View>
-
-      {(specialist.offersOnline || specialist.offersInPerson) && (
-        <View style={styles.section}>
-          <View style={styles.locationSection}>
-            <Text style={styles.sectionTitle}>Modalidad y ubicación</Text>
-            <ModalityBadges
-              offersOnline={specialist.offersOnline ?? true}
-              offersInPerson={specialist.offersInPerson ?? false}
-              style={styles.modalityBadges}
-            />
-            {specialist.offersInPerson && specialist.address && specialist.address.latitude && specialist.address.longitude && (
-              <View style={styles.mapContainer}>
-                <LocationMapPreview
-                  lat={specialist.address.latitude}
-                  lng={specialist.address.longitude}
-                  address={specialist.address.street}
-                  city={specialist.address.city}
-                  showDirectionsButton
-                  width={isMobile ? width - 64 : 350}
-                  height={200}
-                />
-              </View>
-            )}
-            {specialist.offersInPerson && specialist.address && !specialist.address.latitude && (
-              <View style={styles.addressTextContainer}>
-                <Ionicons name="location" size={18} color={heraLanding.primary} />
-                <View>
-                  <Text style={styles.addressText}>{specialist.address.street}</Text>
-                  <Text style={styles.addressCity}>{specialist.address.postalCode} {specialist.address.city}</Text>
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-      )}
-
+      {/* Specializations Grid */}
       {specialist.specializations.length > 0 && (
         <View style={styles.section}>
           <SpecializationsGrid
@@ -410,6 +311,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         </View>
       )}
 
+      {/* Experience & Education Section */}
       <View style={styles.section}>
         <ExperienceSection
           education={specialist.education}
@@ -420,6 +322,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         />
       </View>
 
+      {/* Reviews Section */}
       <View style={styles.section}>
         <ReviewsSection
           reviews={reviews}
@@ -460,7 +363,16 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         >
           <View style={styles.twoColumnContainer}>
             <View style={[styles.leftColumn, isTablet && styles.leftColumnTablet]}>
-              {renderMainContent()}
+              <ProfileHero
+                specialist={specialist}
+                onBookPress={handleBookSession}
+                onRatingPress={handleScrollToReviews}
+                gradientColors={gradientColors}
+                bio={specialist.bio}
+                personalMotto={specialist.personalMotto}
+                therapeuticApproach={specialist.therapeuticApproach}
+              />
+              {renderMainContent(heroRenderedAbove)}
               <View style={styles.bottomSpacer} />
             </View>
             <View style={[styles.rightColumn, isTablet && styles.rightColumnTablet]}>
@@ -469,6 +381,14 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
                 onBookPress={handleBookSession}
                 gradientColors={gradientColors}
               />
+              {specialist.photoGallery && specialist.photoGallery.length > 0 && (
+                <View style={styles.rightColumnGallery}>
+                  <PhotoGallerySection
+                    photoGallery={specialist.photoGallery}
+                    specialistName={specialist.name}
+                  />
+                </View>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -491,7 +411,22 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         scrollEventThrottle={16}
       >
         <View style={styles.mobileContainer}>
-          {renderMainContent()}
+          {renderMainContent(false)}
+          <View style={styles.section}>
+            <BookingSidebar
+              specialist={specialist}
+              onBookPress={handleBookSession}
+              gradientColors={gradientColors}
+            />
+          </View>
+          {specialist.photoGallery && specialist.photoGallery.length > 0 && (
+            <View style={styles.section}>
+              <PhotoGallerySection
+                photoGallery={specialist.photoGallery}
+                specialistName={specialist.name}
+              />
+            </View>
+          )}
           <View style={styles.bottomSpacerMobile} />
         </View>
       </ScrollView>
@@ -637,6 +572,9 @@ const styles = StyleSheet.create({
   rightColumnTablet: {
     flex: 0.42,
   },
+  rightColumnGallery: {
+    marginTop: spacing.md,
+  },
   mobileContainer: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -649,45 +587,6 @@ const styles = StyleSheet.create({
   },
   bottomSpacerMobile: {
     height: 100,
-  },
-
-  // Location Section
-  locationSection: {
-    backgroundColor: heraLanding.cardBg,
-    borderRadius: borderRadius.lg,
-    padding: spacing.xl,
-    ...shadows.sm,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-    marginBottom: spacing.md,
-  },
-  modalityBadges: {
-    marginBottom: spacing.lg,
-  },
-  mapContainer: {
-    marginTop: spacing.sm,
-  },
-  addressTextContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    padding: spacing.md,
-    backgroundColor: heraLanding.background,
-    borderRadius: borderRadius.md,
-  },
-  addressText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: heraLanding.textPrimary,
-  },
-  addressCity: {
-    fontSize: 14,
-    color: heraLanding.textSecondary,
-    marginTop: 2,
   },
 
   // Professional info banner (full-width strip below header)
