@@ -29,13 +29,16 @@ export interface ApiSession {
   type: SessionType;
   meetingLink?: string;
   notes?: string;
+  hasReview?: boolean;
   specialist: {
     id: string;
     specialization: string;
     pricePerSession: number;
+    avatar?: string;
     user: {
       name: string;
       email: string;
+      avatar?: string;
     };
   };
 }
@@ -90,6 +93,8 @@ export interface SessionCardProps {
   onPress?: () => void;
   onJoinPress?: () => void;
   onCancelPress?: () => void;
+  onLeaveReviewPress?: () => void;
+  hasReview?: boolean;
   showActions?: boolean;
 }
 

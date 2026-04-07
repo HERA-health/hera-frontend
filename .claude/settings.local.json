@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "mcp__ide__getDiagnostics",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

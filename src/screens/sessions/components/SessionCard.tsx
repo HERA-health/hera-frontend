@@ -41,6 +41,8 @@ const SessionCard: React.FC<SessionCardProps> = ({
   onPress,
   onJoinPress,
   onCancelPress,
+  onLeaveReviewPress,
+  hasReview = false,
   showActions = true,
 }) => {
   const isCompleted = session.status === 'COMPLETED';
@@ -286,11 +288,31 @@ const SessionCard: React.FC<SessionCardProps> = ({
         </View>
       )}
 
-      {/* Completion indicator for past sessions */}
+      {/* Completion footer with optional review CTA */}
       {isCompleted && (
         <View style={styles.completedFooter}>
-          <Ionicons name="checkmark-done" size={16} color={heraLanding.success} />
-          <Text style={styles.completedText}>Sesión completada exitosamente</Text>
+          {hasReview ? (
+            <>
+              <Ionicons name="star" size={15} color={heraLanding.starRating} />
+              <Text style={[styles.completedText, { color: heraLanding.starRating }]}>
+                Reseña enviada
+              </Text>
+            </>
+          ) : onLeaveReviewPress ? (
+            <TouchableOpacity
+              style={styles.reviewButton}
+              onPress={onLeaveReviewPress}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="star-outline" size={16} color={heraLanding.primary} />
+              <Text style={styles.reviewButtonText}>Dejar reseña</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <Ionicons name="checkmark-done" size={16} color={heraLanding.success} />
+              <Text style={styles.completedText}>Sesión completada exitosamente</Text>
+            </>
+          )}
         </View>
       )}
     </TouchableOpacity>
@@ -590,6 +612,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: heraLanding.success,
+  },
+  reviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: heraLanding.primaryAlpha12,
+  },
+  reviewButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: heraLanding.primary,
   },
 });
 

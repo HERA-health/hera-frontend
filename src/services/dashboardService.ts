@@ -36,10 +36,22 @@ export interface SessionsByDayItem {
   count: number;
 }
 
+export interface RatingBreakdownItem {
+  stars: number;
+  count: number;
+}
+
+export interface ReviewsMetrics {
+  averageRating: number;
+  totalReviews: number;
+  ratingBreakdown: RatingBreakdownItem[];
+}
+
 export interface DashboardCharts {
   monthlyIncome: MonthlyIncomeItem[];
   sessionStatusBreakdown: SessionStatusBreakdown;
   sessionsByDayOfWeek: SessionsByDayItem[];
+  reviewsMetrics: ReviewsMetrics;
 }
 
 export interface DashboardData {

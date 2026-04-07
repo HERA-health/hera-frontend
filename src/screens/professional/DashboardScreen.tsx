@@ -12,7 +12,7 @@ import { BarChart, PieChart } from 'react-native-gifted-charts';
 import { heraLanding, colors, spacing, borderRadius, typography, shadows } from '../../constants/colors';
 import { LoadingState } from '../../components/common/LoadingState';
 import { EmptyState } from '../../components/common/EmptyState';
-import { dashboardService, DashboardData } from '../../services/dashboardService';
+import { dashboardService, DashboardData, ReviewsMetrics } from '../../services/dashboardService';
 
 // ============================================================================
 // CONSTANTS
@@ -181,6 +181,90 @@ const HBarRow: React.FC<HBarRowProps> = ({ label, count, maxValue }) => {
         <View style={[styles.hbarFill, { width: `${fillPercent}%` as unknown as number }]} />
       </View>
       <Text style={styles.hbarCount}>{count}</Text>
+    </View>
+  );
+};
+
+// Star colors — derived from design token colors, one per star tier
+const STAR_BAR_COLORS = [
+  '',
+  colors.feedback.error,       // 1★
+  colors.secondary.orange,     // 2★
+  colors.feedback.warning,     // 3★
+  heraLanding.success,         // 4★
+  colors.feedback.success,     // 5★
+];
+
+interface ReviewsCardProps {
+  metrics: ReviewsMetrics;
+}
+
+const ReviewsCard: React.FC<ReviewsCardProps> = ({ metrics }) => {
+  const { averageRating, totalReviews, ratingBreakdown } = metrics;
+  const maxCount = Math.max(...ratingBreakdown.map((r) => r.count), 1);
+
+  return (
+    <View style={[styles.card, styles.flex1, styles.bottomCardHeight]}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle}>Valoraciones</Text>
+        <Text style={styles.cardSub}>Reseñas de pacientes</Text>
+      </View>
+
+      {totalReviews === 0 ? (
+        <View style={styles.reviewsEmptyContainer}>
+          <Text style={styles.reviewsEmptyIcon}>★</Text>
+          <Text style={styles.reviewsEmptyTitle}>Sin reseñas aún</Text>
+          <Text style={styles.reviewsEmptyDesc}>
+            Las reseñas de tus pacientes aparecerán aquí
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.reviewsContent}>
+          {/* Big rating number */}
+          <View style={styles.reviewsLeft}>
+            <Text style={styles.reviewsBigRating}>{averageRating.toFixed(1)}</Text>
+            <View style={styles.reviewsStarsRow}>
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Text
+                  key={s}
+                  style={[
+                    styles.reviewsStar,
+                    { color: s <= Math.round(averageRating) ? heraLanding.starRating : heraLanding.border },
+                  ]}
+                >
+                  ★
+                </Text>
+              ))}
+            </View>
+            <Text style={styles.reviewsTotal}>{totalReviews} {totalReviews === 1 ? 'reseña' : 'reseñas'}</Text>
+          </View>
+
+          {/* Breakdown bars */}
+          <View style={styles.reviewsRight}>
+            {ratingBreakdown.map(({ stars, count }) => {
+              const fillPct = (count / maxCount) * 100;
+              const barColor = STAR_BAR_COLORS[stars];
+              return (
+                <View key={stars} style={styles.reviewsBarRow}>
+                  <Text style={styles.reviewsBarLabel}>{stars}★</Text>
+                  <View style={styles.reviewsBarTrack}>
+                    <View
+                      style={[
+                        styles.reviewsBarFill,
+                        {
+                          width: `${fillPct}%` as unknown as number,
+                          backgroundColor: barColor,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.reviewsBarCount}>{count}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -409,13 +493,9 @@ export function DashboardScreen() {
 
         {/* ── BOTTOM ROW ───────────────────────────────────────── */}
         <View style={[styles.bottomRow, { flexDirection: isDesktop ? 'row' : 'column' }]}>
-          {/* LEFT: Placeholder (desktop only) */}
+          {/* LEFT: Reviews metrics */}
           {isDesktop && (
-            <View style={[styles.card, styles.placeholder, styles.flex1, styles.bottomCardHeight]}>
-              <Text style={styles.placeholderIcon}>★</Text>
-              <Text style={styles.placeholderText}>{STRINGS.placeholderSoon}</Text>
-              <Text style={styles.placeholderSubText}>{STRINGS.placeholderDesc}</Text>
-            </View>
+            <ReviewsCard metrics={charts.reviewsMetrics} />
           )}
 
           {/* MIDDLE: Donut chart */}
@@ -748,6 +828,93 @@ const styles = StyleSheet.create({
   placeholderSubText: {
     fontSize: FONT_PLACEHOLDER_DESC,
     color: heraLanding.textMuted,
+  },
+
+  // ── Reviews card ─────────────────────────────────────────────
+  reviewsContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  reviewsLeft: {
+    alignItems: 'center',
+    minWidth: 72,
+  },
+  reviewsBigRating: {
+    fontSize: 36,
+    fontWeight: '800' as const,
+    color: heraLanding.textPrimary,
+    letterSpacing: -1,
+    lineHeight: 40,
+  },
+  reviewsStarsRow: {
+    flexDirection: 'row',
+    gap: 1,
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  reviewsStar: {
+    fontSize: 14,
+  },
+  reviewsTotal: {
+    fontSize: 11,
+    color: heraLanding.textMuted,
+    textAlign: 'center',
+  },
+  reviewsRight: {
+    flex: 1,
+    gap: 7,
+  },
+  reviewsBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  reviewsBarLabel: {
+    fontSize: 11,
+    color: heraLanding.textSecondary,
+    width: 22,
+    textAlign: 'right',
+  },
+  reviewsBarTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: heraLanding.borderLight,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  reviewsBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  reviewsBarCount: {
+    fontSize: 11,
+    color: heraLanding.textMuted,
+    width: 18,
+    textAlign: 'right',
+  },
+  reviewsEmptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  reviewsEmptyIcon: {
+    fontSize: 24,
+    color: heraLanding.textMuted,
+  },
+  reviewsEmptyTitle: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: heraLanding.textMuted,
+  },
+  reviewsEmptyDesc: {
+    fontSize: 11,
+    color: heraLanding.textMuted,
+    textAlign: 'center',
+    maxWidth: 160,
+    lineHeight: 16,
   },
 
   // ── Empty state ──────────────────────────────────────────────

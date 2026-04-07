@@ -221,6 +221,21 @@ export function ProfessionalSessionsScreen() {
     );
   };
 
+  const handleCompleteSession = async (sessionId: string, clientName: string) => {
+    if (processingSessionId) return;
+    try {
+      setProcessingSessionId(sessionId);
+      await professionalService.updateSessionStatus(sessionId, 'COMPLETED');
+      analyticsService.track('session_completed_by_specialist', { sessionId });
+      Alert.alert('Sesión completada', `La sesión con ${clientName} ha sido marcada como completada`);
+      await loadSessions();
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo completar la sesión');
+    } finally {
+      setProcessingSessionId(null);
+    }
+  };
+
   const handleJoinSession = async (sessionId: string) => {
     try {
       const meetingData = await professionalService.getMeetingLink(sessionId);
@@ -572,25 +587,44 @@ export function ProfessionalSessionsScreen() {
                 <Text style={styles.sessionActionRejectText}>Rechazar</Text>
               </TouchableOpacity>
             </>
-          ) : session.type === 'video' && session.status === 'scheduled' ? (
+          ) : session.status === 'scheduled' ? (
             <>
-              {inJoinWindow ? (
+              {session.type === 'video' && (
+                inJoinWindow ? (
+                  <TouchableOpacity
+                    style={styles.sessionActionJoin}
+                    onPress={() => handleJoinSession(session.id)}
+                  >
+                    <Ionicons name="videocam" size={16} color={heraLanding.textOnPrimary} />
+                    <Text style={styles.sessionActionJoinText}>Unirse ahora</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.sessionActionWaiting}>
+                    <Ionicons name="time-outline" size={16} color={heraLanding.textSecondary} />
+                    <Text style={styles.sessionActionWaitingText}>
+                      {session.date > currentTime
+                        ? `Comienza ${formatTime(session.date)}`
+                        : 'Sesión finalizada'}
+                    </Text>
+                  </View>
+                )
+              )}
+              {/* Show "mark complete" after session end time */}
+              {session.date.getTime() + session.duration * 60 * 1000 < currentTime.getTime() && (
                 <TouchableOpacity
-                  style={styles.sessionActionJoin}
-                  onPress={() => handleJoinSession(session.id)}
+                  style={styles.sessionActionComplete}
+                  onPress={() => handleCompleteSession(session.id, session.clientName)}
+                  disabled={processingSessionId === session.id}
                 >
-                  <Ionicons name="videocam" size={16} color={heraLanding.textOnPrimary} />
-                  <Text style={styles.sessionActionJoinText}>Unirse ahora</Text>
+                  {processingSessionId === session.id ? (
+                    <ActivityIndicator size="small" color={heraLanding.textOnPrimary} />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-done" size={16} color={heraLanding.textOnPrimary} />
+                      <Text style={styles.sessionActionConfirmText}>Completar</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
-              ) : (
-                <View style={styles.sessionActionWaiting}>
-                  <Ionicons name="time-outline" size={16} color={heraLanding.textSecondary} />
-                  <Text style={styles.sessionActionWaitingText}>
-                    {session.date > currentTime
-                      ? `Comienza ${formatTime(session.date)}`
-                      : 'Sesión finalizada'}
-                  </Text>
-                </View>
               )}
               <TouchableOpacity
                 style={styles.sessionActionSecondary}
@@ -1374,6 +1408,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: heraLanding.textOnPrimary,
+  },
+  sessionActionComplete: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: heraLanding.success,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    gap: spacing.xs,
   },
   sessionActionReject: {
     flex: 1,

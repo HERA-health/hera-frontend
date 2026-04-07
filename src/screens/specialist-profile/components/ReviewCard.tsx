@@ -36,7 +36,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
       </Text>
 
       <Text style={styles.author}>
-        — {review.authorName}, {review.date}
+        — {review.authorName}, {new Date(review.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
       </Text>
     </View>
   );

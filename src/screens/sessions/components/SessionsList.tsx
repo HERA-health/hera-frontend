@@ -32,6 +32,7 @@ interface SessionsListProps {
   onSessionPress?: (session: ApiSession) => void;
   onJoinSession?: (sessionId: string) => void;
   onCancelSession?: (sessionId: string) => void;
+  onLeaveReview?: (session: ApiSession) => void;
   onRefresh?: () => Promise<void>;
   refreshing?: boolean;
   embedded?: boolean; // For mobile: part of parent scroll
@@ -52,6 +53,7 @@ const SessionsList: React.FC<SessionsListProps> = ({
   onSessionPress,
   onJoinSession,
   onCancelSession,
+  onLeaveReview,
   onRefresh,
   refreshing = false,
   embedded = false,
@@ -173,6 +175,8 @@ const SessionsList: React.FC<SessionsListProps> = ({
         onPress={() => onSessionPress?.(session)}
         onJoinPress={() => onJoinSession?.(session.id)}
         onCancelPress={() => onCancelSession?.(session.id)}
+        onLeaveReviewPress={onLeaveReview ? () => onLeaveReview(session) : undefined}
+        hasReview={session.hasReview}
       />
     </View>
   );

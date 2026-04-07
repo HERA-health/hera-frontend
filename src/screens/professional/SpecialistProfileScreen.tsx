@@ -267,6 +267,9 @@ export function SpecialistProfileScreen() {
     verificationStatus: 'NOT_SUBMITTED',
   });
 
+  // Read-only stats from API (not editable)
+  const [specialistStats, setSpecialistStats] = useState({ rating: 0, reviewCount: 0 });
+
   // Profile data state
   const [profileData, setProfileData] = useState<SpecialistProfileData>({
     // Basic Info
@@ -442,6 +445,10 @@ export function SpecialistProfileScreen() {
 
         setProfileData(mappedData);
         setOriginalData(mappedData);
+        setSpecialistStats({
+          rating: profile.rating ?? 0,
+          reviewCount: profile.reviewCount ?? 0,
+        });
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -798,8 +805,14 @@ export function SpecialistProfileScreen() {
         {/* Rating & Price */}
         <View style={styles.previewStats}>
           <View style={styles.previewStat}>
-            <Text style={styles.previewStatValue}>⭐ 4.8</Text>
-            <Text style={styles.previewStatLabel}>(127 reseñas)</Text>
+            <Text style={styles.previewStatValue}>
+              {specialistStats.reviewCount > 0 ? `⭐ ${specialistStats.rating.toFixed(1)}` : '⭐ —'}
+            </Text>
+            <Text style={styles.previewStatLabel}>
+              {specialistStats.reviewCount > 0
+                ? `(${specialistStats.reviewCount} ${specialistStats.reviewCount === 1 ? 'reseña' : 'reseñas'})`
+                : 'Sin reseñas aún'}
+            </Text>
           </View>
           <View style={styles.previewStatDivider} />
           <View style={styles.previewStat}>

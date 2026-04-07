@@ -37,6 +37,7 @@ import { getTodayString } from './utils/calendarHelpers';
 
 import CalendarPanel from './components/CalendarPanel';
 import SessionsList from './components/SessionsList';
+import ReviewModal from './components/ReviewModal';
 import { EmptyState, LoadingState } from './components';
 import * as analyticsService from '../../services/analyticsService';
 
@@ -58,6 +59,7 @@ const SessionsScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
+  const [reviewSession, setReviewSession] = useState<ApiSession | null>(null);
 
   // Auto-refresh countdown state
   const [, setCountdownTick] = useState(0);
@@ -175,6 +177,19 @@ const SessionsScreen: React.FC = () => {
     // The SessionsList component will handle scrolling to this date
   }, []);
 
+  const handleLeaveReview = useCallback((session: ApiSession) => {
+    setReviewSession(session);
+  }, []);
+
+  const handleReviewSuccess = useCallback(() => {
+    setReviewSession(null);
+    // Mark session as reviewed locally to update the UI immediately
+    setSessions((prev) =>
+      prev.map((s) => (s.id === reviewSession?.id ? { ...s, hasReview: true } : s))
+    );
+    Alert.alert('¡Gracias!', 'Tu reseña ha sido enviada correctamente.');
+  }, [reviewSession]);
+
   // Calculate session stats for header
   const sessionStats = useMemo(() => {
     const { upcoming, past } = groupSessions(sessions);
@@ -233,6 +248,7 @@ const SessionsScreen: React.FC = () => {
                 onSessionPress={handleSessionPress}
                 onJoinSession={handleJoinSession}
                 onCancelSession={handleCancelSession}
+                onLeaveReview={handleLeaveReview}
                 onRefresh={handleRefresh}
                 refreshing={refreshing}
               />
@@ -247,6 +263,14 @@ const SessionsScreen: React.FC = () => {
               />
             </View>
           </View>
+          <ReviewModal
+            visible={reviewSession !== null}
+            sessionId={reviewSession?.id ?? ''}
+            specialistName={reviewSession?.specialist.user.name ?? ''}
+            specialistAvatar={reviewSession?.specialist.user.avatar ?? reviewSession?.specialist.avatar}
+            onClose={() => setReviewSession(null)}
+            onSuccess={handleReviewSuccess}
+          />
         </Animated.View>
       </SafeAreaView>
     );
@@ -285,9 +309,17 @@ const SessionsScreen: React.FC = () => {
             onSessionPress={handleSessionPress}
             onJoinSession={handleJoinSession}
             onCancelSession={handleCancelSession}
+            onLeaveReview={handleLeaveReview}
             embedded
           />
         </ScrollView>
+        <ReviewModal
+          visible={reviewSession !== null}
+          sessionId={reviewSession?.id ?? ''}
+          specialistName={reviewSession?.specialist.user.name ?? ''}
+          onClose={() => setReviewSession(null)}
+          onSuccess={handleReviewSuccess}
+        />
       </Animated.View>
     </SafeAreaView>
   );
