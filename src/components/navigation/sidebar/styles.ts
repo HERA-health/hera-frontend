@@ -1,227 +1,269 @@
-/**
- * Sidebar Styles
- *
- * Centralized styles for the sidebar navigation system.
- * Uses the HERA landing page design language:
- * - Sage green (#8B9D83) as primary accent
- * - Clean, white backgrounds
- * - Generous spacing and breathing room
- * - Smooth, professional aesthetic
- */
+import { Platform, StyleSheet } from 'react-native';
+import { borderRadius, spacing } from '../../../constants/colors';
 
-import { StyleSheet } from 'react-native';
-import { SIDEBAR_THEME } from './navConfig';
-import { spacing, borderRadius, typography } from '../../../constants/colors';
-
-/**
- * Sidebar container styles
- */
 export const containerStyles = StyleSheet.create({
   sidebar: {
-    width: SIDEBAR_THEME.width,
+    width: '100%',
     height: '100%',
-    backgroundColor: SIDEBAR_THEME.background.primary,
-    borderRightWidth: 1,
-    borderRightColor: SIDEBAR_THEME.border,
     flexDirection: 'column',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
+  },
+  scrollContentCollapsed: {
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingTop: spacing.md,
   },
 });
 
-/**
- * Logo section styles
- */
 export const logoStyles = StyleSheet.create({
-  container: {
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F2F0',
+  headerBlock: {
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerCollapsed: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logoWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logo: {
-    width: 56,
-    height: 56,
-    marginBottom: spacing.sm,
+  brandCopy: {
+    flex: 1,
+    marginLeft: spacing.sm,
+  },
+  eyebrow: {
+    fontSize: 11,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
   },
   brandName: {
-    fontSize: 22,
-    fontWeight: typography.fontWeights.bold,
-    color: SIDEBAR_THEME.text.primary,
-    letterSpacing: 1,
-    marginTop: spacing.xs,
+    fontSize: 20,
+    lineHeight: 24,
+    marginTop: 2,
   },
   tagline: {
-    fontSize: typography.fontSizes.sm,
-    color: SIDEBAR_THEME.text.secondary,
+    fontSize: 12,
+    lineHeight: 17,
     marginTop: 2,
+  },
+  mobileHint: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
   },
 });
 
-/**
- * Navigation section styles
- */
 export const sectionStyles = StyleSheet.create({
   container: {
+    marginTop: spacing.lg,
+  },
+  containerCollapsed: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.sm,
-    paddingTop: spacing.md,
+    marginBottom: spacing.sm,
   },
   header: {
     fontSize: 11,
-    fontWeight: typography.fontWeights.semibold,
+    letterSpacing: 1,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    color: SIDEBAR_THEME.text.muted,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F0F2F0',
-    marginVertical: spacing.md,
-    marginHorizontal: spacing.md,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.md,
   },
 });
 
-/**
- * Navigation item styles
- */
 export const navItemStyles = StyleSheet.create({
   container: {
-    height: 48,
-    marginHorizontal: spacing.xs,
-    marginBottom: 4,
-    borderRadius: borderRadius.md,
+    marginBottom: 8,
+    width: '100%',
+    paddingHorizontal: 2,
+  },
+  pressable: {
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
   },
   inner: {
-    flex: 1,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     position: 'relative',
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 1,
   },
-  // Default state
-  default: {
-    backgroundColor: 'transparent',
+  innerCollapsed: {
+    width: 58,
+    minHeight: 58,
+    borderRadius: 18,
+    justifyContent: 'center',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
-  // Hover state (web)
-  hover: {
-    backgroundColor: SIDEBAR_THEME.background.hover,
+  activeGlow: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: Platform.OS === 'web' ? 1 : 0.92,
   },
-  // Active state (current route)
-  active: {
-    backgroundColor: SIDEBAR_THEME.background.active,
+  indicator: {
+    position: 'absolute',
+    left: 10,
+    top: 12,
+    bottom: 12,
+    width: 4,
+    borderRadius: 8,
   },
-  // Disabled state
+  iconShell: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  iconShellCollapsed: {
+    marginRight: 0,
+    width: 36,
+    height: 36,
+    borderRadius: 14,
+  },
+  labelWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  label: {
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  caption: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 1,
+  },
   disabled: {
     opacity: 0.5,
   },
-  // Active indicator bar
-  activeBar: {
-    position: 'absolute',
-    left: 0,
-    top: 8,
-    bottom: 8,
-    width: 3,
-    backgroundColor: SIDEBAR_THEME.activeIndicator,
-    borderTopRightRadius: 2,
-    borderBottomRightRadius: 2,
+  badgeWrap: {
+    marginLeft: spacing.sm,
   },
-  // Icon container
-  iconContainer: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.sm,
-  },
-  // Label text
-  label: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: typography.fontWeights.medium,
-    color: SIDEBAR_THEME.text.primary,
-  },
-  labelActive: {
-    fontWeight: typography.fontWeights.semibold,
-  },
-  // Badge container
   badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginLeft: 'auto',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
   },
   badgeText: {
     fontSize: 10,
-    fontWeight: typography.fontWeights.bold,
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
 });
 
-/**
- * User section styles
- */
 export const userSectionStyles = StyleSheet.create({
   container: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    paddingTop: spacing.sm,
+  },
+  panel: {
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    padding: spacing.md,
+  },
+  panelCollapsed: {
+    width: 58,
+    paddingHorizontal: 0,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F2F0',
-    backgroundColor: SIDEBAR_THEME.background.primary,
+  },
+  topRowCollapsed: {
+    flexDirection: 'column',
+    alignItems: 'center',
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: SIDEBAR_THEME.activeIndicator,
-    justifyContent: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 16,
     alignItems: 'center',
+    justifyContent: 'center',
     marginRight: spacing.sm,
   },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: typography.fontWeights.semibold,
-    color: '#FFFFFF',
-  },
   avatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    marginRight: spacing.sm,
+  },
+  avatarCollapsed: {
+    marginRight: 0,
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 14,
+  },
+  avatarText: {
+    fontSize: 15,
   },
   infoContainer: {
     flex: 1,
-    marginRight: spacing.sm,
+    minWidth: 0,
   },
   userName: {
     fontSize: 14,
-    fontWeight: typography.fontWeights.semibold,
-    color: SIDEBAR_THEME.text.primary,
-    marginBottom: 2,
+    lineHeight: 18,
   },
   userSubtitle: {
     fontSize: 12,
-    color: SIDEBAR_THEME.text.secondary,
+    lineHeight: 16,
+    marginTop: 2,
   },
-  logoutButton: {
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: spacing.md,
+  },
+  iconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  iconButtonCollapsed: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-  logoutButtonHover: {
-    backgroundColor: '#FEE2E2',
+    borderRadius: 12,
+    marginTop: 8,
   },
 });

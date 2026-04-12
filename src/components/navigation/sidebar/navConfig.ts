@@ -1,30 +1,17 @@
 /**
- * Navigation Configuration for HERA Sidebar
+ * Navigation Configuration for the HERA Sidebar.
  *
- * Following Open/Closed Principle (OCP):
- * - Easy to add new menu items without modifying existing code
- * - Navigation items defined in CONFIG arrays
- * - Component renders from config (data-driven)
- * - No hardcoded menu items scattered in JSX
- *
- * To add a new navigation item:
- * 1. Add to the appropriate section in CLIENT_SECTIONS or PROFESSIONAL_SECTIONS
- * 2. Ensure the route exists in your navigation stack
- * 3. The sidebar will automatically render the new item
+ * Keeps navigation data separate from presentation while exposing a
+ * theme-aware visual token factory for the sidebar module.
  */
 
-import { NavigationSection, SidebarTheme } from './types';
-import { heraLanding, layout } from '../../../constants/colors';
 import { Theme } from '../../../constants/theme';
+import { NavigationSection, SidebarTheme } from './types';
 
-/**
- * Client navigation sections
- * Contains all navigation items visible to clients
- */
 export const CLIENT_SECTIONS: NavigationSection[] = [
   {
     id: 'main-nav',
-    label: 'NAVEGACION',
+    label: 'Paciente',
     roles: ['CLIENT'],
     items: [
       {
@@ -45,7 +32,7 @@ export const CLIENT_SECTIONS: NavigationSection[] = [
       },
       {
         id: 'sessions',
-        label: 'Mis Sesiones',
+        label: 'Mis sesiones',
         icon: 'calendar-outline',
         iconActive: 'calendar',
         route: 'Sessions',
@@ -63,33 +50,28 @@ export const CLIENT_SECTIONS: NavigationSection[] = [
   },
   {
     id: 'support',
-    label: 'SOPORTE',
+    label: 'Atención',
     roles: ['CLIENT'],
     items: [
       {
         id: 'on-duty',
-        label: 'Psicólogo de Guardia',
+        label: 'Psicólogo de guardia',
         icon: 'heart-outline',
         iconActive: 'heart',
         route: 'OnDutyPsychologist',
         roles: ['CLIENT'],
         badge: '24/7',
         badgeVariant: 'urgent',
-        // Coral/amber colors - warm urgency without panic
         badgeColors: ['#E89D88', '#D4826E'],
       },
     ],
   },
 ];
 
-/**
- * Professional navigation sections
- * Contains all navigation items visible to professionals/specialists
- */
 export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
   {
     id: 'main-nav',
-    label: 'NAVEGACION',
+    label: 'Profesional',
     roles: ['PROFESSIONAL'],
     items: [
       {
@@ -102,7 +84,7 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
       },
       {
         id: 'clients',
-        label: 'Mis Clientes',
+        label: 'Mis clientes',
         icon: 'people-outline',
         iconActive: 'people',
         route: 'ProfessionalClients',
@@ -142,7 +124,7 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
       },
       {
         id: 'profile',
-        label: 'Editar Perfil',
+        label: 'Editar perfil',
         icon: 'create-outline',
         iconActive: 'create',
         route: 'ProfessionalProfile',
@@ -152,18 +134,14 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
   },
 ];
 
-/**
- * Admin navigation section
- * Only visible when user has admin privileges
- */
 export const ADMIN_SECTION: NavigationSection = {
   id: 'admin',
-  label: 'ADMINISTRACIÓN',
+  label: 'Administración',
   roles: ['CLIENT', 'PROFESSIONAL'],
   items: [
     {
       id: 'admin-panel',
-      label: 'Panel de Admin',
+      label: 'Panel de admin',
       icon: 'shield-outline',
       iconActive: 'shield',
       route: 'AdminPanel',
@@ -172,76 +150,64 @@ export const ADMIN_SECTION: NavigationSection = {
   ],
 };
 
-/**
- * Get navigation sections based on user role
- * @param role - The user's role
- * @param isAdmin - Whether user has admin privileges
- * @returns Array of navigation sections for that role
- */
-export function getNavigationSections(role: 'CLIENT' | 'PROFESSIONAL', isAdmin?: boolean): NavigationSection[] {
+export function getNavigationSections(
+  role: 'CLIENT' | 'PROFESSIONAL',
+  isAdmin?: boolean,
+): NavigationSection[] {
   const sections = role === 'PROFESSIONAL' ? PROFESSIONAL_SECTIONS : CLIENT_SECTIONS;
   return isAdmin ? [...sections, ADMIN_SECTION] : sections;
 }
 
-/**
- * Sidebar theme configuration
- * Uses HERA landing page colors for consistency
- */
 export const SIDEBAR_THEME: SidebarTheme = {
-  width: 200,
-  collapsedWidth: layout.collapsedSidebarWidth,
+  width: 272,
+  collapsedWidth: 78,
   background: {
-    primary: '#FFFFFF',
-    hover: '#F5F7F5',
-    active: '#E8F5E8',
+    primary: '#FDFCFB',
+    secondary: '#FFFFFF',
+    subtle: '#F7F9F7',
+    hover: 'rgba(139, 157, 131, 0.10)',
+    active: 'rgba(139, 157, 131, 0.16)',
+    overlay: 'rgba(0, 0, 0, 0.48)',
   },
   text: {
-    primary: heraLanding.textPrimary,     // #2C3E2C - Forest
-    secondary: heraLanding.textSecondary, // #6B7B6B - Neutral
-    muted: heraLanding.textMuted,         // #9BA89B
-    active: heraLanding.textPrimary,      // #2C3E2C
+    primary: '#2C3E2C',
+    secondary: '#6B7B6B',
+    muted: '#95A395',
+    active: '#2C3E2C',
   },
   icon: {
-    inactive: heraLanding.textSecondary,  // #6B7B6B
-    active: heraLanding.primary,          // #8B9D83 - Sage Green
+    inactive: '#6B7B6B',
+    active: '#8B9D83',
   },
-  activeIndicator: heraLanding.primary,   // #8B9D83 - Sage Green
-  border: '#E8EBE8',
+  activeIndicator: '#8B9D83',
+  border: '#E2E8E2',
+  borderStrong: '#CDD8CD',
+  shadow: 'rgba(44, 62, 44, 0.10)',
   badge: {
-    default: [heraLanding.primary, heraLanding.primaryLight],
-    // Coral/amber - warm urgency without panic
+    default: ['#8B9D83', '#A8B8A0'],
     urgent: ['#E89D88', '#D4826E'],
-    info: [heraLanding.secondary, heraLanding.secondaryLight],
+    info: ['#B8A8D9', '#D4C9E8'],
   },
 };
 
-/**
- * Animation configuration for sidebar interactions
- */
 export const SIDEBAR_ANIMATIONS = {
-  /** Duration for hover/press transitions in ms */
-  transitionDuration: 200,
-  /** Easing function for animations */
+  transitionDuration: 220,
   easing: 'ease-out',
-  /** Scale factor for press feedback */
   pressScale: 0.98,
-  /** Horizontal translation on hover (desktop) */
   hoverTranslateX: 2,
 };
 
-/**
- * Dynamic sidebar theme factory — dark mode aware.
- * Components should call this with the current theme from useTheme().
- * SIDEBAR_THEME (static) remains for backward compat.
- */
 export function getSidebarTheme(theme: Theme): SidebarTheme {
   return {
-    width: 200,
-    collapsedWidth: layout.collapsedSidebarWidth,
+    width: 272,
+    collapsedWidth: 78,
     background: {
       primary: theme.bgAlt,
+      secondary: theme.bgCard,
+      subtle: theme.bgMuted,
       hover: theme.primaryAlpha12,
       active: theme.primaryAlpha20,
+      overlay: theme.overlayLight,
     },
     text: {
       primary: theme.textPrimary,
@@ -255,6 +221,8 @@ export function getSidebarTheme(theme: Theme): SidebarTheme {
     },
     activeIndicator: theme.primary,
     border: theme.border,
+    borderStrong: theme.borderStrong,
+    shadow: theme.shadowCard,
     badge: {
       default: [theme.primary, theme.primaryLight],
       urgent: ['#E89D88', '#D4826E'],
@@ -263,14 +231,8 @@ export function getSidebarTheme(theme: Theme): SidebarTheme {
   };
 }
 
-/**
- * Accessibility configuration
- */
 export const SIDEBAR_A11Y = {
-  /** Minimum touch target size in pixels */
   minTouchTarget: 44,
-  /** Role for navigation container */
   navRole: 'navigation',
-  /** Label for the navigation */
   navLabel: 'Main navigation',
 };
