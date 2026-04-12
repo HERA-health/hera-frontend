@@ -1,72 +1,48 @@
 /**
- * Global CSS styles for MindConnect Web
- * Custom scrollbar styling for HERA design system
+ * HERA Global CSS — Web only
+ *
+ * Static fallback styles. The dynamic version (dark-mode-aware) is injected
+ * at runtime by App.tsx via injectWebStyles(isDark).
+ *
+ * These rules provide a baseline before React mounts (prevents flash).
  */
 
-/* ============================================
-   CUSTOM SCROLLBAR STYLES (Web Only)
-   ============================================ */
+/* ─── Custom Scrollbar (light mode default) ─────────────────────────────── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #F5F7F5; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: #C5CFC5; border-radius: 4px; border: 1px solid #F5F7F5; }
+::-webkit-scrollbar-thumb:hover { background: #8B9D83; }
+::-webkit-scrollbar-corner { background: #F5F7F5; }
+* { scrollbar-width: thin; scrollbar-color: #C5CFC5 #F5F7F5; }
 
-/* Webkit browsers (Chrome, Safari, Edge) */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* ─── Dark mode scrollbar override (system preference) ──────────────────── */
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-track { background: #1A221B; }
+  ::-webkit-scrollbar-thumb { background: #3A4F3A; border-color: #1A221B; }
+  ::-webkit-scrollbar-thumb:hover { background: #9AAF91; }
+  * { scrollbar-color: #3A4F3A #1A221B; }
 }
 
-::-webkit-scrollbar-track {
-  background: #F5F7F5; /* Light sage - matches page background */
-  border-radius: 4px;
-}
+/* ─── Smooth scrolling ───────────────────────────────────────────────────── */
+html { scroll-behavior: smooth; }
 
-::-webkit-scrollbar-thumb {
-  background: #C5CFC5; /* Medium gray-sage */
-  border-radius: 4px;
-  border: 1px solid #F5F7F5;
-}
+/* ─── Interactive element cursors ────────────────────────────────────────── */
+[role="button"], button { cursor: pointer; }
+[role="button"] { user-select: none; -webkit-user-select: none; }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #8B9D83; /* Sage green on hover */
-}
+/* ─── Remove tap highlight on mobile web ─────────────────────────────────── */
+* { -webkit-tap-highlight-color: transparent; }
 
-::-webkit-scrollbar-corner {
-  background: #F5F7F5;
-}
+/* ─── React Native Web ScrollView ────────────────────────────────────────── */
+[data-testid="scrollview"]::-webkit-scrollbar { width: 8px; height: 8px; }
+[data-testid="scrollview"]::-webkit-scrollbar-track { background: #F5F7F5; border-radius: 4px; }
+[data-testid="scrollview"]::-webkit-scrollbar-thumb { background: #C5CFC5; border-radius: 4px; }
+[data-testid="scrollview"]::-webkit-scrollbar-thumb:hover { background: #8B9D83; }
 
-/* Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #C5CFC5 #F5F7F5;
-}
-
-/* Smooth scrolling globally */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Ensure scrollable containers have visible scrollbars */
-[data-testid="scrollview"],
-.r-overflow-y-auto,
-.r-overflow-x-auto {
-  scrollbar-width: thin !important;
-  scrollbar-color: #C5CFC5 #F5F7F5 !important;
-}
-
-/* React Native Web ScrollView specific */
-[data-testid="scrollview"]::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-[data-testid="scrollview"]::-webkit-scrollbar-track {
-  background: #F5F7F5;
-  border-radius: 4px;
-}
-
-[data-testid="scrollview"]::-webkit-scrollbar-thumb {
-  background: #C5CFC5;
-  border-radius: 4px;
-}
-
-[data-testid="scrollview"]::-webkit-scrollbar-thumb:hover {
-  background: #8B9D83;
+/* ─── Backdrop filter support ────────────────────────────────────────────── */
+@supports (backdrop-filter: blur(1px)) {
+  .hera-glass {
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
 }

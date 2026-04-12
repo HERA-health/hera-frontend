@@ -15,6 +15,7 @@
 
 import { NavigationSection, SidebarTheme } from './types';
 import { heraLanding, layout } from '../../../constants/colors';
+import { Theme } from '../../../constants/theme';
 
 /**
  * Client navigation sections
@@ -126,8 +127,8 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
       {
         id: 'dashboard',
         label: 'Dashboard',
-        icon: 'bar-chart-outline',
-        iconActive: 'bar-chart',
+        icon: 'grid-outline',
+        iconActive: 'grid',
         route: 'ProfessionalDashboard',
         roles: ['PROFESSIONAL'],
       },
@@ -227,6 +228,40 @@ export const SIDEBAR_ANIMATIONS = {
   /** Horizontal translation on hover (desktop) */
   hoverTranslateX: 2,
 };
+
+/**
+ * Dynamic sidebar theme factory — dark mode aware.
+ * Components should call this with the current theme from useTheme().
+ * SIDEBAR_THEME (static) remains for backward compat.
+ */
+export function getSidebarTheme(theme: Theme): SidebarTheme {
+  return {
+    width: 200,
+    collapsedWidth: layout.collapsedSidebarWidth,
+    background: {
+      primary: theme.bgAlt,
+      hover: theme.primaryAlpha12,
+      active: theme.primaryAlpha20,
+    },
+    text: {
+      primary: theme.textPrimary,
+      secondary: theme.textSecondary,
+      muted: theme.textMuted,
+      active: theme.textPrimary,
+    },
+    icon: {
+      inactive: theme.textSecondary,
+      active: theme.primary,
+    },
+    activeIndicator: theme.primary,
+    border: theme.border,
+    badge: {
+      default: [theme.primary, theme.primaryLight],
+      urgent: ['#E89D88', '#D4826E'],
+      info: [theme.secondary, theme.secondaryLight],
+    },
+  };
+}
 
 /**
  * Accessibility configuration

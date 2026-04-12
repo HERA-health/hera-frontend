@@ -1,38 +1,27 @@
-/**
- * UserSection Component
- *
- * Single Responsibility Principle (SRP):
- * - This component is ONLY responsible for displaying user info and logout action
- * - It receives user data and callbacks via props
- * - No internal state management or business logic
- *
- * Interface Segregation Principle (ISP):
- * - Only depends on the minimal props it needs (UserSectionProps)
- * - Doesn't require full user object, just name/role/avatar
- */
-
-import React, { useCallback, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Platform, StyleSheet } from 'react-native';
+import React, { useCallback } from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserSectionProps } from './types';
 import { userSectionStyles as styles } from './styles';
-import { SIDEBAR_THEME } from './navConfig';
+import { getSidebarTheme } from './navConfig';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { AnimatedPressable } from '../../common/AnimatedPressable';
+import { ThemeToggleButton } from '../../common/ThemeToggleButton';
+import { spacing } from '../../../constants/colors';
 
-/**
- * UserSection displays the current user's info at the bottom of the sidebar
- *
- * @param user - User information (name, role, avatarUrl)
- * @param subtitle - Subtitle text to display under the name
- * @param onLogout - Callback when logout button is pressed
- */
-export function UserSection({ user, subtitle, onLogout, isCollapsed = false }: UserSectionProps): React.ReactElement {
-  const [isHovering, setIsHovering] = useState(false);
+export function UserSection({
+  user,
+  subtitle,
+  onLogout,
+  isCollapsed = false,
+}: UserSectionProps): React.ReactElement {
+  const { theme } = useTheme();
+  const sidebarTheme = getSidebarTheme(theme);
 
   const handleLogout = useCallback(() => {
     onLogout();
   }, [onLogout]);
 
-  // Get initials from user name
   const getInitials = (name: string): string => {
     const parts = name.trim().split(' ');
     if (parts.length >= 2) {
@@ -41,21 +30,16 @@ export function UserSection({ user, subtitle, onLogout, isCollapsed = false }: U
     return name.charAt(0).toUpperCase();
   };
 
-  // Web hover handlers
-  const hoverProps = Platform.OS === 'web'
-    ? {
-        onMouseEnter: () => setIsHovering(true),
-        onMouseLeave: () => setIsHovering(false),
-      }
-    : {};
-
   return (
     <View
-      style={[styles.container, isCollapsed && collapsedUserStyles.container]}
+      style={[
+        styles.container,
+        { borderTopColor: sidebarTheme.border },
+        isCollapsed && collapsedUserStyles.container,
+      ]}
       accessible
       accessibilityLabel="User section"
     >
-      {/* Avatar */}
       {user.avatarUrl ? (
         <Image
           source={{ uri: user.avatarUrl }}
@@ -63,25 +47,41 @@ export function UserSection({ user, subtitle, onLogout, isCollapsed = false }: U
           accessibilityLabel={`${user.name}'s avatar`}
         />
       ) : (
-        <View style={[styles.avatar, isCollapsed && collapsedUserStyles.avatar]}>
-          <Text style={styles.avatarText}>
+        <View
+          style={[
+            styles.avatar,
+            { backgroundColor: theme.primaryAlpha20 },
+            isCollapsed && collapsedUserStyles.avatar,
+          ]}
+        >
+          <Text
+            style={[
+              styles.avatarText,
+              { color: theme.primaryDark, fontFamily: theme.fontSansBold },
+            ]}
+          >
             {getInitials(user.name)}
           </Text>
         </View>
       )}
 
-      {/* User Info — hidden when collapsed */}
       {!isCollapsed && (
         <View style={styles.infoContainer}>
           <Text
-            style={styles.userName}
+            style={[
+              styles.userName,
+              { color: sidebarTheme.text.primary, fontFamily: theme.fontSansSemiBold },
+            ]}
             numberOfLines={1}
             ellipsizeMode="tail"
           >
             {user.name}
           </Text>
           <Text
-            style={styles.userSubtitle}
+            style={[
+              styles.userSubtitle,
+              { color: sidebarTheme.text.muted, fontFamily: theme.fontSans },
+            ]}
             numberOfLines={1}
             ellipsizeMode="tail"
           >
@@ -90,41 +90,78 @@ export function UserSection({ user, subtitle, onLogout, isCollapsed = false }: U
         </View>
       )}
 
-      {/* Logout Button — hidden when collapsed */}
       {!isCollapsed && (
-        <TouchableOpacity
-          style={[
-            styles.logoutButton,
-            isHovering && styles.logoutButtonHover,
-          ]}
+        <View style={actionStyles.row}>
+          <ThemeToggleButton size="sm" />
+          <AnimatedPressable
+            onPress={handleLogout}
+            pressScale={0.88}
+            hoverLift={false}
+            style={[
+              actionStyles.iconButton,
+              { backgroundColor: theme.primaryAlpha12, borderColor: theme.border },
+            ]}
+          >
+            <Ionicons
+              name="log-out-outline"
+              size={16}
+              color={sidebarTheme.text.secondary}
+            />
+          </AnimatedPressable>
+        </View>
+      )}
+
+      {isCollapsed && (
+        <AnimatedPressable
           onPress={handleLogout}
-          activeOpacity={0.7}
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel="Log out"
-          accessibilityHint="Double tap to sign out of your account"
-          {...hoverProps}
+          pressScale={0.88}
+          hoverLift={false}
+          style={[
+            actionStyles.iconButton,
+            {
+              backgroundColor: theme.primaryAlpha12,
+              borderColor: theme.border,
+              marginTop: 4,
+            },
+          ]}
         >
           <Ionicons
             name="log-out-outline"
-            size={20}
-            color={isHovering ? '#EF4444' : SIDEBAR_THEME.text.secondary}
+            size={16}
+            color={sidebarTheme.text.secondary}
           />
-        </TouchableOpacity>
+        </AnimatedPressable>
       )}
     </View>
   );
 }
 
-import { spacing } from '../../../constants/colors';
+const actionStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+  },
+  iconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+});
 
 const collapsedUserStyles = StyleSheet.create({
   container: {
     justifyContent: 'center',
     paddingHorizontal: spacing.xs,
+    flexDirection: 'column',
+    alignItems: 'center',
   },
   avatar: {
     marginRight: 0,
+    marginBottom: 4,
   },
 });
 

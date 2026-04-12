@@ -1,8 +1,13 @@
 /**
- * HeroSection Component
+ * HeroSection — HERA Design System v5.0
  *
- * The most critical section - hooks visitors in 3 seconds.
- * Features dual CTAs for clients and professionals.
+ * Premium hero with:
+ * - Fraunces-Black display typography
+ * - AmbientBackground gradient blobs
+ * - GlassCard floating elements + central orb
+ * - MotionView staggered entry (Reanimated)
+ * - AnimatedPressable CTAs
+ * - Dark mode via useTheme()
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -10,13 +15,16 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   useWindowDimensions,
-  Animated,
+  Animated as RNAnimated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, shadows } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { MotionView } from '../../../components/common/MotionView';
+import { GlassCard } from '../../../components/common/GlassCard';
+import { AmbientBackground } from '../../../components/common/AmbientBackground';
+import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 
 interface HeroSectionProps {
   onFindSpecialist: () => void;
@@ -34,52 +42,19 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
+  const showFloatingDetails = width >= 900;
+  const { theme, isDark } = useTheme();
 
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const bounceAnim = useRef(new Animated.Value(0)).current;
-
+  // Bounce animation for scroll indicator (keep RN Animated for this simple loop)
+  const bounceAnim = useRef(new RNAnimated.Value(0)).current;
   useEffect(() => {
-    // Staggered entrance animation
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // Infinite bounce animation for scroll indicator
-    const bounceAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bounceAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(bounceAnim, {
-          toValue: 0,
-          duration: 800,
-          useNativeDriver: true,
-        }),
+    const bounceAnimation = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(bounceAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        RNAnimated.timing(bounceAnim, { toValue: 0, duration: 800, useNativeDriver: true }),
       ])
     );
     bounceAnimation.start();
-
     return () => bounceAnimation.stop();
   }, []);
 
@@ -90,160 +65,208 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
   return (
     <View style={[styles.container, isDesktop && styles.containerDesktop]}>
+      {/* Ambient gradient blobs — landing variant */}
+      <AmbientBackground variant="landing" />
+
       <View style={[
         styles.content,
         isDesktop && styles.contentDesktop,
         isTablet && styles.contentTablet,
       ]}>
-        {/* Left Side: Text Content */}
-        <Animated.View
-          style={[
-            styles.textContainer,
-            isDesktop && styles.textContainerDesktop,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          {/* Badge */}
-          <View style={styles.badge}>
-            <Ionicons name="shield-checkmark" size={14} color={heraLanding.primary} />
-            <Text style={styles.badgeText}>Especialistas verificados</Text>
-          </View>
+        {/* ── Left: Text Content ────────────────────────────────────────── */}
+        <View style={[styles.textContainer, isDesktop && styles.textContainerDesktop]}>
 
-          {/* Main Headline */}
-          <Text style={[styles.headline, isDesktop && styles.headlineDesktop]}>
-            Tu bienestar emocional{'\n'}merece la mejor{'\n'}
-            <Text style={styles.headlineAccent}>atención</Text>
-          </Text>
+          {/* Badge — stagger 0ms */}
+          <MotionView entering="fadeInUp" delay={0} style={styles.badgeWrapper}>
+            <GlassCard intensity={28} borderRadius={20} style={styles.badgePill}>
+              <Ionicons name="shield-checkmark" size={14} color={theme.primary} />
+              <Text style={[styles.badgeText, { color: theme.primaryDark, fontFamily: theme.fontSansSemiBold }]}>
+                Especialistas verificados
+              </Text>
+            </GlassCard>
+          </MotionView>
 
-          {/* Subheadline */}
-          <Text style={[styles.subheadline, isDesktop && styles.subheadlineDesktop]}>
-            Conecta con especialistas verificados desde cualquier lugar.{'\n'}
-            Terapia online o presencial, tú decides.
-          </Text>
+          {/* Headline — stagger 100ms */}
+          <MotionView entering="fadeInUp" delay={100} duration={500}>
+            <Text style={[
+              styles.headline,
+              isDesktop && styles.headlineDesktop,
+              { color: theme.textPrimary, fontFamily: theme.fontDisplay },
+            ]}>
+              Tu bienestar emocional{'\n'}merece la mejor{'\n'}
+              <Text style={[styles.headlineAccent, { color: theme.primary, fontFamily: theme.fontDisplayItalic }]}>
+                atención
+              </Text>
+            </Text>
+          </MotionView>
 
-          {/* CTAs */}
-          <View style={[styles.ctaContainer, isDesktop && styles.ctaContainerDesktop]}>
+          {/* Subheadline — stagger 200ms */}
+          <MotionView entering="fadeInUp" delay={200}>
+            <Text style={[
+              styles.subheadline,
+              isDesktop && styles.subheadlineDesktop,
+              { color: theme.textSecondary, fontFamily: theme.fontSans },
+            ]}>
+              Conecta con especialistas verificados desde cualquier lugar.{'\n'}
+              Terapia online o presencial, tú decides.
+            </Text>
+          </MotionView>
+
+          {/* CTAs — stagger 300ms */}
+          <MotionView entering="fadeInUp" delay={300} style={[styles.ctaContainer, ...(isDesktop ? [styles.ctaContainerDesktop] : [])]}>
             {/* Primary CTA */}
-            <TouchableOpacity
-              style={styles.primaryCTA}
+            <AnimatedPressable
               onPress={onFindSpecialist}
-              activeOpacity={0.85}
+              pressScale={0.96}
+              hoverLift={true}
+              style={[styles.primaryCTAWrapper, {
+                shadowColor: theme.shadowPrimary,
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 1,
+                shadowRadius: 18,
+                elevation: 6,
+                borderRadius: 14,
+                overflow: 'hidden',
+              }]}
             >
               <LinearGradient
-                colors={[heraLanding.primary, heraLanding.primaryDark]}
+                colors={[theme.primary, theme.primaryDark]}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.primaryCTAGradient}
               >
-                <Text style={styles.primaryCTAText}>Encuentra tu especialista</Text>
+                <Text style={[styles.primaryCTAText, { fontFamily: theme.fontSansBold }]}>
+                  Encuentra tu especialista
+                </Text>
                 <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
               </LinearGradient>
-            </TouchableOpacity>
+            </AnimatedPressable>
 
             {/* Secondary CTA */}
-            <TouchableOpacity
-              style={styles.secondaryCTA}
+            <AnimatedPressable
               onPress={onJoinAsProfessional}
-              activeOpacity={0.85}
+              pressScale={0.96}
+              hoverLift={false}
+              style={[styles.secondaryCTA, {
+                borderColor: theme.border,
+                backgroundColor: isDark ? theme.bgCard : 'rgba(255,255,255,0.72)',
+              }]}
             >
-              <Text style={styles.secondaryCTAText}>Únete como profesional</Text>
-              <Ionicons name="briefcase-outline" size={18} color={heraLanding.secondary} />
-            </TouchableOpacity>
-          </View>
+              <Text style={[styles.secondaryCTAText, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
+                Únete como profesional
+              </Text>
+              <Ionicons name="briefcase-outline" size={18} color={theme.secondary} />
+            </AnimatedPressable>
+          </MotionView>
 
-          {/* Trust Indicator */}
-          <View style={styles.trustIndicator}>
-            <View style={styles.stars}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <Ionicons
-                  key={star}
-                  name="star"
-                  size={16}
-                  color="#FFB800"
-                />
-              ))}
+          {/* Trust Indicator — stagger 400ms */}
+          <MotionView entering="fadeIn" delay={400}>
+            <View style={styles.trustIndicator}>
+              <View style={styles.stars}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Ionicons key={star} name="star" size={15} color={theme.starRating} />
+                ))}
+              </View>
+              <Text style={[styles.trustText, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
+                4.9/5 valoración media · +100 especialistas
+              </Text>
             </View>
-            <Text style={styles.trustText}>4.9/5 valoración media · +100 especialistas</Text>
-          </View>
-        </Animated.View>
+          </MotionView>
+        </View>
 
-        {/* Right Side: Visual */}
-        <Animated.View
+        {/* ── Right: Visual ──────────────────────────────────────────────── */}
+        <MotionView
+          entering="fadeIn"
+          delay={150}
+          duration={600}
+          damping={25}
           style={[
             styles.visualContainer,
-            isDesktop && styles.visualContainerDesktop,
-            isTablet && styles.visualContainerTablet,
-            {
-              opacity: fadeAnim,
-              transform: [{ scale: scaleAnim }],
-            },
+            ...(isDesktop ? [styles.visualContainerDesktop] : []),
+            ...(isTablet ? [styles.visualContainerTablet] : []),
           ]}
         >
+          {/* Central orb with glass + gradient */}
           <View style={styles.illustrationWrapper}>
-            {/* Decorative background shapes */}
-            <View style={[styles.decorativeCircle, styles.circle1]} />
-            <View style={[styles.decorativeCircle, styles.circle2]} />
-
-            {/* Abstract illustration - Wellness visual */}
             <View style={[styles.illustrationContainer, isDesktop && styles.illustrationContainerDesktop]}>
-              {/* Central icon */}
-              <View style={styles.centralIconWrapper}>
-                <LinearGradient
-                  colors={[heraLanding.primary, heraLanding.primaryLight]}
-                  style={styles.centralIconGradient}
-                >
-                  <Ionicons name="heart" size={48} color="#FFFFFF" />
-                </LinearGradient>
-              </View>
+              {/* Outer glow ring */}
+              <View style={[styles.glowRing, {
+                borderColor: theme.primaryAlpha20,
+                shadowColor: theme.primary,
+              }]} />
 
-              {/* Orbiting elements */}
-              <View style={[styles.orbitElement, styles.orbit1]}>
-                <Ionicons name="chatbubble-ellipses" size={24} color={heraLanding.secondary} />
-              </View>
-              <View style={[styles.orbitElement, styles.orbit2]}>
-                <Ionicons name="people" size={24} color={heraLanding.primary} />
-              </View>
-              <View style={[styles.orbitElement, styles.orbit3]}>
-                <Ionicons name="shield-checkmark" size={24} color={heraLanding.success} />
-              </View>
+              {/* Central glass orb */}
+              <GlassCard
+                intensity={70}
+                borderRadius={60}
+                style={styles.centralOrb}
+              >
+                <LinearGradient
+                  colors={[theme.primary, theme.secondary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.centralOrbGradient}
+                >
+                  <Ionicons name="heart" size={44} color="#FFFFFF" />
+                </LinearGradient>
+              </GlassCard>
+
+              {/* Orbit elements — glass pills */}
+              <GlassCard intensity={26} borderRadius={24} style={[styles.orbitElement, styles.orbit1]}>
+                <Ionicons name="chatbubble-ellipses" size={22} color={theme.secondary} />
+              </GlassCard>
+              <GlassCard intensity={26} borderRadius={24} style={[styles.orbitElement, styles.orbit2]}>
+                <Ionicons name="people" size={22} color={theme.primary} />
+              </GlassCard>
+              {showFloatingDetails && (
+                <GlassCard intensity={26} borderRadius={24} style={[styles.orbitElement, styles.orbit3]}>
+                  <Ionicons name="shield-checkmark" size={22} color={theme.success} />
+                </GlassCard>
+              )}
             </View>
           </View>
 
-          {/* Floating cards */}
-          <View style={[styles.floatingCard, styles.floatingCard1]}>
-            <Ionicons name="videocam" size={20} color={heraLanding.primary} />
-            <Text style={styles.floatingCardText}>Sesiones online</Text>
-          </View>
+          {/* Floating info cards — GlassCard */}
+          {showFloatingDetails && (
+            <>
+              <GlassCard intensity={24} borderRadius={12} style={[styles.floatingCard, styles.floatingCard1]}>
+                <Ionicons name="videocam" size={18} color={theme.primary} />
+                <Text style={[styles.floatingCardText, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
+                  Sesiones online
+                </Text>
+              </GlassCard>
 
-          <View style={[styles.floatingCard, styles.floatingCard2]}>
-            <Ionicons name="lock-closed" size={20} color={heraLanding.secondary} />
-            <Text style={styles.floatingCardText}>100% privado</Text>
-          </View>
-        </Animated.View>
+              <GlassCard intensity={24} borderRadius={12} style={[styles.floatingCard, styles.floatingCard2]}>
+                <Ionicons name="lock-closed" size={18} color={theme.secondary} />
+                <Text style={[styles.floatingCardText, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
+                  100% privado
+                </Text>
+              </GlassCard>
+            </>
+          )}
+        </MotionView>
       </View>
 
-      {/* Scroll indicator - shows on all screen sizes when visible */}
+      {/* Scroll indicator */}
       {showScrollIndicator && (
-        <TouchableOpacity
-          style={styles.scrollIndicatorContainer}
+        <AnimatedPressable
           onPress={onScrollIndicatorPress}
-          activeOpacity={0.7}
+          hoverLift={false}
+          pressScale={0.92}
+          style={styles.scrollIndicatorContainer}
         >
-          <Animated.View
+          <RNAnimated.View
             style={[
               styles.scrollIndicator,
               { transform: [{ translateY: bounceTranslate }] },
             ]}
           >
-            <Text style={styles.scrollIndicatorText}>Descubre más</Text>
-            <View style={styles.scrollIndicatorArrows}>
-              <Ionicons name="chevron-down" size={20} color={heraLanding.primary} />
-            </View>
-          </Animated.View>
-        </TouchableOpacity>
+            <Text style={[styles.scrollIndicatorText, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
+              Descubre más
+            </Text>
+            <Ionicons name="chevron-down" size={20} color={theme.primary} />
+          </RNAnimated.View>
+        </AnimatedPressable>
       )}
     </View>
   );
@@ -251,17 +274,16 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: heraLanding.background,
     paddingTop: 20,
     paddingBottom: 40,
     paddingHorizontal: 20,
     minHeight: 580,
+    overflow: 'hidden',
   },
   containerDesktop: {
     paddingTop: 40,
     paddingBottom: 60,
     paddingHorizontal: 60,
-    minHeight: 'auto',
   },
   content: {
     maxWidth: 1400,
@@ -279,7 +301,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
 
-  // Text Container
+  // Text container
   textContainer: {
     alignItems: 'flex-start',
     marginBottom: 40,
@@ -291,80 +313,72 @@ const styles = StyleSheet.create({
   },
 
   // Badge
-  badge: {
+  badgeWrapper: {
+    marginBottom: 24,
+  },
+  badgePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: heraLanding.primaryMuted,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 24,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     gap: 6,
   },
   badgeText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: heraLanding.primaryDark,
   },
 
   // Headlines
   headline: {
     fontSize: 40,
-    fontWeight: '800',
-    color: heraLanding.textPrimary,
-    lineHeight: 48,
+    lineHeight: 50,
     marginBottom: 20,
-    letterSpacing: -0.5,
+    letterSpacing: -1,
   },
   headlineDesktop: {
-    fontSize: 56,
-    lineHeight: 64,
+    fontSize: 62,
+    lineHeight: 72,
+    letterSpacing: -2,
   },
   headlineAccent: {
-    color: heraLanding.primary,
+    // Fraunces-Italic applied via fontFamily
   },
   subheadline: {
     fontSize: 17,
-    color: heraLanding.textSecondary,
-    lineHeight: 26,
+    lineHeight: 27,
     marginBottom: 32,
     maxWidth: 500,
   },
   subheadlineDesktop: {
     fontSize: 18,
-    lineHeight: 28,
+    lineHeight: 29,
   },
 
   // CTAs
   ctaContainer: {
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 28,
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 420,
   },
   ctaContainerDesktop: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 14,
   },
-  primaryCTA: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    ...shadows.lg,
-    shadowColor: heraLanding.primary,
+  primaryCTAWrapper: {
+    // shadow styles added inline
   },
   primaryCTAGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 17,
     paddingHorizontal: 28,
     gap: 10,
   },
   primaryCTAText: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   secondaryCTA: {
     flexDirection: 'row',
@@ -372,19 +386,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: heraLanding.secondaryLight,
-    backgroundColor: 'transparent',
+    borderRadius: 14,
+    borderWidth: 1.5,
     gap: 8,
   },
   secondaryCTAText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: heraLanding.secondaryDark,
   },
 
-  // Trust Indicator
+  // Trust
   trustIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -396,11 +406,10 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   trustText: {
-    fontSize: 14,
-    color: heraLanding.textSecondary,
+    fontSize: 13,
   },
 
-  // Visual Container
+  // Visual container
   visualContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -428,90 +437,69 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   illustrationContainerDesktop: {
-    width: 380,
-    height: 380,
+    width: 360,
+    height: 360,
   },
-  centralIconWrapper: {
+
+  // Central orb
+  glowRing: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 0,
+  },
+  centralOrb: {
+    width: 120,
+    height: 120,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: 'rgba(139, 157, 131, 0.35)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 8,
   },
-  centralIconGradient: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  centralOrbGradient: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.lg,
   },
   orbitElement: {
     position: 'absolute',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
+    width: 50,
+    height: 50,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.md,
   },
-  orbit1: {
-    top: 20,
-    right: 40,
-  },
-  orbit2: {
-    bottom: 30,
-    left: 30,
-  },
-  orbit3: {
-    top: 80,
-    left: 20,
-  },
-
-  // Decorative circles
-  decorativeCircle: {
-    position: 'absolute',
-    borderRadius: 999,
-  },
-  circle1: {
-    width: 300,
-    height: 300,
-    backgroundColor: heraLanding.primaryMuted,
-    opacity: 0.4,
-    top: -20,
-    right: -30,
-  },
-  circle2: {
-    width: 200,
-    height: 200,
-    backgroundColor: heraLanding.secondaryMuted,
-    opacity: 0.5,
-    bottom: -10,
-    left: -20,
-  },
+  orbit1: { top: 20, right: 40 },
+  orbit2: { bottom: 30, left: 30 },
+  orbit3: { top: 80, left: 20 },
 
   // Floating cards
   floatingCard: {
     position: 'absolute',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 10,
     gap: 8,
-    ...shadows.md,
+    shadowColor: 'rgba(44,62,44,0.12)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  floatingCard1: {
-    top: 20,
-    right: 10,
-  },
-  floatingCard2: {
-    bottom: 40,
-    left: 0,
-  },
+  floatingCard1: { top: 20, right: 10 },
+  floatingCard2: { bottom: 40, left: 0 },
   floatingCardText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
   },
 
   // Scroll indicator
@@ -525,11 +513,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   scrollIndicatorText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: heraLanding.textSecondary,
-  },
-  scrollIndicatorArrows: {
-    alignItems: 'center',
+    fontSize: 13,
   },
 });

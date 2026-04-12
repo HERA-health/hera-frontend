@@ -1,23 +1,29 @@
 /**
- * Reusable Card Component
- * Provides consistent card styling with shadows and optional press behavior
+ * Card — HERA Design System v5.0
+ *
+ * Provides consistent card styling with dark mode support,
+ * tinted shadows, and optional press interactions via AnimatedPressable.
+ *
+ * Variants:
+ *  - default: Subtle shadow card
+ *  - elevated: Larger tinted shadow for feature cards
+ *  - outlined: Border-only, no shadow
+ *  - glass: Delegates to GlassCard (glassmorphism)
  *
  * Usage:
- * <Card>
- *   <Text>Card content</Text>
- * </Card>
+ *   <Card variant="elevated" onPress={handlePress}>
+ *     <Text>Content</Text>
+ *   </Card>
  */
 
 import React from 'react';
-import {
-  View,
-  StyleSheet,
-  ViewStyle,
-  TouchableOpacity,
-} from 'react-native';
-import { colors, spacing, borderRadius, shadows } from '../../constants/colors';
+import { View, ViewStyle } from 'react-native';
+import { useTheme } from '../../contexts/ThemeContext';
+import { AnimatedPressable } from './AnimatedPressable';
+import { GlassCard } from './GlassCard';
+import { borderRadius, spacing } from '../../constants/colors';
 
-type CardVariant = 'default' | 'elevated' | 'outlined';
+type CardVariant = 'default' | 'elevated' | 'outlined' | 'glass';
 type CardPadding = 'none' | 'small' | 'medium' | 'large';
 
 interface CardProps {
@@ -25,8 +31,19 @@ interface CardProps {
   variant?: CardVariant;
   padding?: CardPadding;
   onPress?: () => void;
-  style?: ViewStyle;
+  style?: ViewStyle | ViewStyle[];
+  /** Hover lift on web (default: true when onPress is set) */
+  hoverLift?: boolean;
+  /** Press scale factor (default: 0.98) */
+  pressScale?: number;
 }
+
+const PADDING_MAP: Record<CardPadding, number> = {
+  none: 0,
+  small: spacing.sm,
+  medium: spacing.md,
+  large: spacing.lg,
+};
 
 export const Card: React.FC<CardProps> = ({
   children,
@@ -34,69 +51,79 @@ export const Card: React.FC<CardProps> = ({
   padding = 'medium',
   onPress,
   style,
+  hoverLift,
+  pressScale = 0.98,
 }) => {
-  const getCardStyle = (): ViewStyle => {
-    const baseStyle: ViewStyle = {
-      ...styles.base,
-      ...styles[`padding_${padding}`],
-    };
+  const { theme } = useTheme();
+  const normalizedStyle = Array.isArray(style) ? style : style ? [style] : [];
 
-    switch (variant) {
-      case 'elevated':
-        return {
-          ...baseStyle,
-          ...shadows.lg,
-          backgroundColor: colors.neutral.white,
-        };
-      case 'outlined':
-        return {
-          ...baseStyle,
-          backgroundColor: colors.neutral.white,
-          borderWidth: 1,
-          borderColor: colors.neutral.gray200,
-        };
-      case 'default':
-      default:
-        return {
-          ...baseStyle,
-          ...shadows.md,
-          backgroundColor: colors.neutral.white,
-        };
+  const pad = PADDING_MAP[padding];
+
+  // ─── Glass variant ────────────────────────────────────────────────────────
+  if (variant === 'glass') {
+    const inner = (
+      <GlassCard
+        borderRadius={borderRadius.lg}
+        style={[{ padding: pad }, ...normalizedStyle]}
+      >
+        {children}
+      </GlassCard>
+    );
+
+    if (onPress) {
+      return (
+        <AnimatedPressable
+          onPress={onPress}
+          pressScale={pressScale}
+          hoverLift={hoverLift ?? true}
+        >
+          {inner}
+        </AnimatedPressable>
+      );
     }
+    return inner;
+  }
+
+  // ─── Shadow/outlined variants ─────────────────────────────────────────────
+  const cardStyle: ViewStyle = {
+    borderRadius: borderRadius.lg,
+    padding: pad,
+    backgroundColor: theme.bgCard,
+    overflow: 'hidden',
+    ...(variant === 'default' && {
+      shadowColor: theme.shadowCard,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 1,
+      shadowRadius: 8,
+      elevation: 3,
+    }),
+    ...(variant === 'elevated' && {
+      shadowColor: theme.shadowNeutral,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 1,
+      shadowRadius: 16,
+      elevation: 6,
+    }),
+    ...(variant === 'outlined' && {
+      borderWidth: 1,
+      borderColor: theme.border,
+    }),
   };
 
-  const combinedStyle = [getCardStyle(), style];
+  const combined: ViewStyle[] = [cardStyle, ...normalizedStyle];
 
   if (onPress) {
     return (
-      <TouchableOpacity
-        style={combinedStyle}
+      <AnimatedPressable
         onPress={onPress}
-        activeOpacity={0.8}
+        pressScale={pressScale}
+        hoverLift={hoverLift ?? true}
+        style={combined}
       >
         {children}
-      </TouchableOpacity>
+      </AnimatedPressable>
     );
   }
 
-  return <View style={combinedStyle}>{children}</View>;
+  return <View style={combined}>{children}</View>;
 };
-
-const styles = StyleSheet.create({
-  base: {
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-  },
-  padding_none: {
-    padding: 0,
-  },
-  padding_small: {
-    padding: spacing.sm,
-  },
-  padding_medium: {
-    padding: spacing.md,
-  },
-  padding_large: {
-    padding: spacing.lg,
-  },
-});

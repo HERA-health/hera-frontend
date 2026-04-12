@@ -1,93 +1,87 @@
 /**
- * NavItem Component
+ * NavItem Component — HERA Design System v5.0
  *
- * Single Responsibility Principle (SRP):
- * - This component is ONLY responsible for rendering a single navigation item
- * - It receives all data via props and has no internal business logic
- * - Styling is based on props (isActive, item.disabled)
- * - Navigation is delegated to parent via onPress callback
- *
- * Liskov Substitution Principle (LSP):
- * - All navigation items use this same component
- * - Consistent interface and behavior for all items
- * - No special cases breaking expectations
+ * Single navigation item with:
+ * - Reanimated spring scale on press (replaces TouchableOpacity activeOpacity)
+ * - Animated active indicator bar (width spring: 0 → 3px)
+ * - Animated active pill background (opacity spring)
+ * - Hover translateX on web
+ * - Dark mode via useTheme() + getSidebarTheme()
  */
 
-import React, { useCallback, useEffect, useRef } from 'react';
-import { TouchableOpacity, View, Text, Animated, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import { Pressable } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NavItemProps } from './types';
 import { navItemStyles as styles } from './styles';
-import { SIDEBAR_THEME } from './navConfig';
+import { getSidebarTheme } from './navConfig';
+import { useTheme } from '../../../contexts/ThemeContext';
 
-/**
- * PulsingBadge - Animated badge wrapper for urgent items
- * Creates a subtle pulse effect to draw attention without being annoying
- */
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// ─── PulsingBadge (migrated to Reanimated) ────────────────────────────────────
+
 const PulsingBadge: React.FC<{
   colors: [string, string];
   text: string;
   isUrgent: boolean;
 }> = ({ colors, text, isUrgent }) => {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const glowAnim = useRef(new Animated.Value(0.3)).current;
+  const scale = useSharedValue(1);
+  const glowOpacity = useSharedValue(0.3);
 
   useEffect(() => {
     if (!isUrgent) return;
 
-    // Subtle pulse animation - 2 second cycle, not distracting
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(pulseAnim, {
-            toValue: 1.08,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(glowAnim, {
-            toValue: 0.6,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.parallel([
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(glowAnim, {
-            toValue: 0.3,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ]),
-      ])
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.08, { duration: 1000 }),
+        withTiming(1, { duration: 1000 }),
+      ),
+      -1, // infinite
+      false,
     );
 
-    pulse.start();
-    return () => pulse.stop();
-  }, [isUrgent, pulseAnim, glowAnim]);
+    glowOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.6, { duration: 1000 }),
+        withTiming(0.3, { duration: 1000 }),
+      ),
+      -1,
+      false,
+    );
+
+    return () => {
+      scale.value = 1;
+      glowOpacity.value = 0.3;
+    };
+  }, [isUrgent]);
+
+  const scaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
 
   return (
-    <Animated.View
-      style={[
-        pulsingBadgeStyles.container,
-        isUrgent && {
-          transform: [{ scale: pulseAnim }],
-        },
-      ]}
-    >
-      {/* Glow effect for urgent badges */}
+    <Animated.View style={[pulsingBadgeStyles.container, isUrgent && scaleStyle]}>
       {isUrgent && (
         <Animated.View
           style={[
             pulsingBadgeStyles.glow,
-            {
-              opacity: glowAnim,
-              backgroundColor: colors[0],
-            },
+            glowStyle,
+            { backgroundColor: colors[0] },
           ]}
         />
       )}
@@ -118,103 +112,152 @@ const pulsingBadgeStyles = StyleSheet.create({
   },
 });
 
-/**
- * NavItem renders a single navigation item in the sidebar
- *
- * @param item - Navigation item configuration
- * @param isActive - Whether this item represents the current route
- * @param onPress - Callback when item is pressed
- */
+// ─── NavItem ──────────────────────────────────────────────────────────────────
+
 export function NavItem({ item, isActive, onPress, isCollapsed = false }: NavItemProps): React.ReactElement {
+  const { theme } = useTheme();
+  const sidebarTheme = getSidebarTheme(theme);
+
   const handlePress = useCallback(() => {
-    if (!item.disabled) {
-      onPress(item.route);
-    }
+    if (!item.disabled) onPress(item.route);
   }, [item.disabled, item.route, onPress]);
 
-  // Determine icon to display (filled when active, outline when not)
   const iconName = isActive && item.iconActive ? item.iconActive : item.icon;
-  const iconColor = isActive
-    ? SIDEBAR_THEME.icon.active
-    : SIDEBAR_THEME.icon.inactive;
+  const iconColor = isActive ? sidebarTheme.icon.active : sidebarTheme.icon.inactive;
 
-  // Get badge colors based on variant
+  // ── Reanimated: press scale + hover translateX ─────────────────────────
+  const pressScale = useSharedValue(1);
+  const hoverX = useSharedValue(0);
+
+  const containerAnimStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: pressScale.value },
+      { translateX: hoverX.value },
+    ],
+  }));
+
+  // ── Reanimated: active indicator bar (width 0 → 3) ─────────────────────
+  const barWidth = useSharedValue(isActive ? 3 : 0);
+  const pillOpacity = useSharedValue(isActive ? 1 : 0);
+
+  useEffect(() => {
+    barWidth.value = withSpring(isActive ? 3 : 0, { damping: 20, stiffness: 300 });
+    pillOpacity.value = withTiming(isActive ? 1 : 0, { duration: 150 });
+  }, [isActive]);
+
+  const barAnimStyle = useAnimatedStyle(() => ({
+    width: barWidth.value,
+    opacity: barWidth.value / 3,
+  }));
+
+  const pillAnimStyle = useAnimatedStyle(() => ({
+    opacity: pillOpacity.value,
+  }));
+
   const getBadgeColors = (): [string, string] => {
     if (item.badgeColors) return item.badgeColors;
     switch (item.badgeVariant) {
-      case 'urgent':
-        return SIDEBAR_THEME.badge.urgent;
-      case 'info':
-        return SIDEBAR_THEME.badge.info;
-      default:
-        return SIDEBAR_THEME.badge.default;
+      case 'urgent': return sidebarTheme.badge.urgent;
+      case 'info':   return sidebarTheme.badge.info;
+      default:       return sidebarTheme.badge.default;
     }
   };
 
   return (
-    <TouchableOpacity
-      style={[
-        styles.container,
-        item.disabled && styles.disabled,
-      ]}
-      onPress={handlePress}
-      disabled={item.disabled}
-      activeOpacity={0.7}
-      accessible
-      accessibilityRole="button"
-      accessibilityLabel={`Navigate to ${item.label}`}
-      accessibilityState={{
-        selected: isActive,
-        disabled: item.disabled,
-      }}
-    >
-      <View
-        style={[
-          styles.inner,
-          styles.default,
-          isActive && styles.active,
-          isCollapsed && collapsedItemStyles.inner,
-        ]}
+    <Animated.View style={containerAnimStyle}>
+      <AnimatedPressable
+        onPress={handlePress}
+        disabled={item.disabled}
+        onPressIn={() => {
+          pressScale.value = withSpring(0.96, { damping: 15 });
+        }}
+        onPressOut={() => {
+          pressScale.value = withSpring(1, { damping: 12 });
+        }}
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={`Navegar a ${item.label}`}
+        accessibilityState={{ selected: isActive, disabled: item.disabled }}
+        style={(state: { hovered?: boolean; pressed?: boolean }) => {
+          if (Platform.OS === 'web' && state.hovered && !state.pressed) {
+            hoverX.value = withSpring(2, { damping: 20 });
+          } else {
+            hoverX.value = withSpring(0, { damping: 20 });
+          }
+          return [
+            styles.container,
+            item.disabled && styles.disabled,
+          ];
+        }}
       >
-        {/* Active indicator bar */}
-        {isActive && <View style={styles.activeBar} />}
-
-        {/* Icon */}
-        <View style={[styles.iconContainer, isCollapsed && collapsedItemStyles.iconContainer]}>
-          <Ionicons
-            name={iconName}
-            size={20}
-            color={iconColor}
-          />
-        </View>
-
-        {/* Label — hidden when collapsed */}
-        {!isCollapsed && (
-          <Text
+        <View
+          style={[
+            styles.inner,
+            styles.default,
+            isCollapsed && collapsedStyles.inner,
+          ]}
+        >
+          {/* Animated active pill background */}
+          <Animated.View
             style={[
-              styles.label,
-              isActive && styles.labelActive,
+              StyleSheet.absoluteFill,
+              pillAnimStyle,
+              {
+                borderRadius: 8,
+                backgroundColor: sidebarTheme.background.active,
+              },
             ]}
-            numberOfLines={1}
-          >
-            {item.label}
-          </Text>
-        )}
-
-        {/* Optional Badge — hidden when collapsed */}
-        {!isCollapsed && item.badge && (
-          <PulsingBadge
-            colors={getBadgeColors()}
-            text={item.badge}
-            isUrgent={item.badgeVariant === 'urgent'}
           />
-        )}
-      </View>
-    </TouchableOpacity>
+
+          {/* Animated active indicator bar (left edge) */}
+          <Animated.View
+            style={[
+              barAnimStyle,
+              {
+                position: 'absolute',
+                left: 0,
+                top: 6,
+                bottom: 6,
+                borderRadius: 3,
+                backgroundColor: sidebarTheme.activeIndicator,
+              },
+            ]}
+          />
+
+          {/* Icon */}
+          <View style={[styles.iconContainer, isCollapsed && collapsedStyles.iconContainer]}>
+            <Ionicons name={iconName} size={20} color={iconColor} />
+          </View>
+
+          {/* Label — hidden when collapsed */}
+          {!isCollapsed && (
+            <Text
+              style={[
+                styles.label,
+                { color: isActive ? sidebarTheme.text.active : sidebarTheme.text.secondary },
+                isActive && styles.labelActive,
+              ]}
+              numberOfLines={1}
+            >
+              {item.label}
+            </Text>
+          )}
+
+          {/* Badge — hidden when collapsed */}
+          {!isCollapsed && item.badge && (
+            <PulsingBadge
+              colors={getBadgeColors()}
+              text={item.badge}
+              isUrgent={item.badgeVariant === 'urgent'}
+            />
+          )}
+        </View>
+      </AnimatedPressable>
+    </Animated.View>
   );
 }
 
-const collapsedItemStyles = StyleSheet.create({
+const collapsedStyles = StyleSheet.create({
   inner: {
     justifyContent: 'center',
     paddingHorizontal: 0,

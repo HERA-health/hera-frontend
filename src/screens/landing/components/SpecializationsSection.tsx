@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { heraLanding, shadows } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 interface Specialization {
   id: string;
@@ -109,6 +110,7 @@ export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
   onSpecializationPress,
 }) => {
   const { width } = useWindowDimensions();
+  const { theme } = useTheme();
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
 
@@ -140,6 +142,7 @@ export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
             key={spec.id}
             style={[
               styles.card,
+              { backgroundColor: theme.bgCard, shadowColor: theme.shadowNeutral },
               isDesktop && styles.cardDesktop,
               isTablet && styles.cardTablet,
             ]}
@@ -147,21 +150,21 @@ export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
             activeOpacity={0.85}
           >
             {/* Icon Container */}
-            <View style={[styles.iconContainer, { backgroundColor: spec.bgColor }]}>
+            <View style={[styles.iconContainer, { backgroundColor: spec.bgColor + '33' }]}>
               <Text style={styles.emoji}>{spec.emoji}</Text>
             </View>
 
             {/* Title */}
-            <Text style={styles.title} numberOfLines={2}>{spec.title}</Text>
+            <Text style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]} numberOfLines={2}>{spec.title}</Text>
 
             {/* Description */}
-            <Text style={styles.description} numberOfLines={2}>
+            <Text style={[styles.description, { color: theme.textSecondary, fontFamily: theme.fontSans }]} numberOfLines={2}>
               {spec.description}
             </Text>
 
             {/* Link */}
             <View style={styles.linkContainer}>
-              <Text style={[styles.linkText, { color: spec.color }]}>
+              <Text style={[styles.linkText, { color: spec.color, fontFamily: theme.fontSansSemiBold }]}>
                 Ver especialistas
               </Text>
               <Ionicons name="arrow-forward" size={14} color={spec.color} />
@@ -173,14 +176,14 @@ export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
   };
 
   return (
-    <View style={[styles.container, isDesktop && styles.containerDesktop]}>
+    <View style={[styles.container, { backgroundColor: theme.bg }, isDesktop && styles.containerDesktop]}>
       <View style={styles.content}>
         {/* Section Header */}
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, isDesktop && styles.headerTitleDesktop]}>
+          <Text style={[styles.headerTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplay }, isDesktop && styles.headerTitleDesktop]}>
             Encuentra el especialista que necesitas
           </Text>
-          <Text style={styles.headerSubtitle}>
+          <Text style={[styles.headerSubtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
             Más de 20 especialidades para cuidar cada aspecto de tu bienestar
           </Text>
         </View>

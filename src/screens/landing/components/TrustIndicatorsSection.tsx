@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { heraLanding, shadows } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 interface TrustCard {
   icon: keyof typeof Ionicons.glyphMap;
@@ -82,11 +83,12 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({ target, duration = 15
     setDisplayValue(target);
   }, [target]);
 
-  return <Text style={styles.stat}>{displayValue}</Text>;
+  return <Text style={styles.stat}>{displayValue}</Text>; // color overridden inline per card
 };
 
 export const TrustIndicatorsSection: React.FC = () => {
   const { width } = useWindowDimensions();
+  const { theme } = useTheme();
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
 
@@ -128,6 +130,7 @@ export const TrustIndicatorsSection: React.FC = () => {
             key={cardIndex}
             style={[
               styles.card,
+              { backgroundColor: theme.bgCard, shadowColor: theme.shadowNeutral },
               isDesktop && styles.cardDesktop,
               isTablet && styles.cardTablet,
               {
@@ -142,15 +145,15 @@ export const TrustIndicatorsSection: React.FC = () => {
             ]}
           >
             {/* Icon */}
-            <View style={[styles.iconContainer, { backgroundColor: card.bgColor }]}>
+            <View style={[styles.iconContainer, { backgroundColor: card.bgColor + '22' }]}>
               <Ionicons name={card.icon} size={28} color={card.iconColor} />
             </View>
 
             {/* Stat */}
-            <AnimatedCounter target={card.stat} />
+            <Text style={[styles.stat, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{card.stat}</Text>
 
             {/* Description */}
-            <Text style={styles.description}>{card.description}</Text>
+            <Text style={[styles.description, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{card.description}</Text>
           </Animated.View>
         ))}
       </View>
@@ -158,14 +161,14 @@ export const TrustIndicatorsSection: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, isDesktop && styles.containerDesktop]}>
+    <View style={[styles.container, { backgroundColor: theme.bgMuted }, isDesktop && styles.containerDesktop]}>
       <View style={styles.content}>
         {/* Section Title */}
         <View style={styles.header}>
-          <Text style={[styles.title, isDesktop && styles.titleDesktop]}>
+          <Text style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontDisplay }, isDesktop && styles.titleDesktop]}>
             ¿Por qué elegir HERA?
           </Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
             Cuidamos cada detalle para tu bienestar
           </Text>
         </View>

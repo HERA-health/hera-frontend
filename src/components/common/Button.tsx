@@ -1,16 +1,18 @@
 /**
- * Reusable Button Component
- * Supports multiple variants, sizes, loading state, and icons
+ * Button — HERA Design System v5.0
+ *
+ * Supports multiple variants, sizes, loading state, and icons.
+ * Uses ThemeContext for dark mode and tinted shadows.
+ * Uses AnimatedPressable for spring scale + hover lift.
  *
  * Usage:
- * <Button variant="primary" size="large" onPress={handlePress}>
- *   Click Me
- * </Button>
+ *   <Button variant="primary" size="large" onPress={handlePress}>
+ *     Encuentra tu especialista
+ *   </Button>
  */
 
 import React from 'react';
 import {
-  TouchableOpacity,
   Text,
   StyleSheet,
   ActivityIndicator,
@@ -19,9 +21,11 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, borderRadius, typography, branding } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
+import { AnimatedPressable } from './AnimatedPressable';
+import { spacing, borderRadius, typography } from '../../constants/colors';
 
-type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
+type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type ButtonSize = 'small' | 'medium' | 'large';
 
 interface ButtonProps {
@@ -51,183 +55,263 @@ export const Button: React.FC<ButtonProps> = ({
   style,
   textStyle,
 }) => {
+  const { theme } = useTheme();
   const isDisabled = disabled || loading;
 
-  const getButtonStyle = (): ViewStyle => {
-    const baseStyle: ViewStyle = {
-      ...styles.base,
-      ...styles[`size_${size}`],
-    };
-
-    if (fullWidth) {
-      baseStyle.width = '100%';
-    }
-
-    const shouldUseGradient = (variant === 'primary' || variant === 'secondary') && !isDisabled;
-
-    switch (variant) {
-      case 'primary':
-        return {
-          ...baseStyle,
-          ...styles.primary,
-          // Only add backgroundColor if not using gradient
-          ...(!shouldUseGradient && { backgroundColor: isDisabled ? colors.neutral.gray300 : colors.primary.main }),
-        };
-      case 'secondary':
-        return {
-          ...baseStyle,
-          ...styles.secondary,
-          // Only add backgroundColor if not using gradient
-          ...(!shouldUseGradient && { backgroundColor: isDisabled ? colors.neutral.gray200 : colors.primary.main }),
-        };
-      case 'outline':
-        return {
-          ...baseStyle,
-          ...styles.outline,
-          backgroundColor: colors.neutral.white,
-          borderWidth: 1.5,
-          borderColor: isDisabled ? colors.neutral.gray300 : colors.primary.main,
-        };
-      case 'ghost':
-        return {
-          ...baseStyle,
-          backgroundColor: 'transparent',
-        };
-      default:
-        return baseStyle;
-    }
-  };
-
-  const getTextStyle = (): TextStyle => {
-    const baseTextStyle: TextStyle = {
-      ...styles.text,
-      ...styles[`text_${size}`],
-    };
-
-    switch (variant) {
-      case 'primary':
-      case 'secondary':
-        return {
-          ...baseTextStyle,
-          color: colors.neutral.white,
-        };
-      case 'outline':
-        return {
-          ...baseTextStyle,
-          color: isDisabled ? colors.neutral.gray300 : colors.primary.main,
-        };
-      case 'ghost':
-        return {
-          ...baseTextStyle,
-          color: isDisabled ? colors.neutral.gray300 : colors.primary.main,
-        };
-      default:
-        return baseTextStyle;
-    }
-  };
-
-  // For primary and secondary, use gradient wrapper
-  const shouldUseGradient = (variant === 'primary' || variant === 'secondary') && !isDisabled;
+  const sizeStyle = SIZE_STYLES[size];
 
   const content = loading ? (
     <ActivityIndicator
-      color={variant === 'primary' || variant === 'secondary' ? colors.neutral.white : colors.primary.main}
+      color={
+        variant === 'primary' || variant === 'secondary' || variant === 'danger'
+          ? '#FFFFFF'
+          : theme.primary
+      }
       size="small"
     />
   ) : (
     <View style={styles.content}>
       {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
-      <Text style={[getTextStyle(), textStyle]}>{children}</Text>
+      <Text style={[getTextStyle(variant, isDisabled, size, theme), textStyle]}>
+        {children}
+      </Text>
       {icon && iconPosition === 'right' && <View style={styles.iconRight}>{icon}</View>}
     </View>
   );
 
-  if (shouldUseGradient) {
+  const containerStyle: ViewStyle = {
+    ...(fullWidth ? { width: '100%' } : {}),
+    ...(isDisabled ? { opacity: 0.5 } : {}),
+    ...style,
+  };
+
+  // ─── Primary: Sage gradient + tinted shadow ──────────────────────────────
+  if (variant === 'primary' && !isDisabled) {
     return (
-      <TouchableOpacity
+      <AnimatedPressable
         onPress={onPress}
         disabled={isDisabled}
-        activeOpacity={0.7}
-        style={style}
+        pressScale={0.96}
+        hoverLift={true}
+        style={[
+          containerStyle,
+          styles.base,
+          {
+            borderRadius: borderRadius.lg,
+            overflow: 'hidden',
+            shadowColor: theme.shadowPrimary,
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 1,
+            shadowRadius: 14,
+            elevation: 5,
+          },
+        ]}
       >
         <LinearGradient
-          colors={[branding.accent, branding.accentLight]}
+          colors={[theme.primary, theme.primaryDark]}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[getButtonStyle()]}
+          end={{ x: 1, y: 1 }}
+          style={[styles.gradientFill, sizeStyle]}
         >
           {content}
         </LinearGradient>
-      </TouchableOpacity>
+      </AnimatedPressable>
     );
   }
 
+  // ─── Secondary: Lavender gradient ────────────────────────────────────────
+  if (variant === 'secondary' && !isDisabled) {
+    return (
+      <AnimatedPressable
+        onPress={onPress}
+        disabled={isDisabled}
+        pressScale={0.96}
+        hoverLift={true}
+        style={[
+          containerStyle,
+          styles.base,
+          sizeStyle,
+          {
+            borderRadius: borderRadius.lg,
+            backgroundColor: theme.secondaryAlpha12,
+            borderWidth: 1,
+            borderColor: theme.secondaryLight,
+            shadowColor: theme.shadowCard,
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: 1,
+            shadowRadius: 8,
+            elevation: 2,
+          },
+        ]}
+      >
+        {content}
+      </AnimatedPressable>
+    );
+  }
+
+  // ─── Danger: Error gradient ───────────────────────────────────────────────
+  if (variant === 'danger' && !isDisabled) {
+    return (
+      <AnimatedPressable
+        onPress={onPress}
+        disabled={isDisabled}
+        pressScale={0.96}
+        hoverLift={false}
+        style={[
+          containerStyle,
+          styles.base,
+          {
+            borderRadius: borderRadius.lg,
+            overflow: 'hidden',
+            shadowColor: 'rgba(224,112,112,0.25)',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 1,
+            shadowRadius: 10,
+            elevation: 3,
+          },
+        ]}
+      >
+        <LinearGradient
+          colors={[theme.error, '#C45050']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.gradientFill, sizeStyle]}
+        >
+          {content}
+        </LinearGradient>
+      </AnimatedPressable>
+    );
+  }
+
+  // ─── Outline ──────────────────────────────────────────────────────────────
+  if (variant === 'outline') {
+    return (
+      <AnimatedPressable
+        onPress={onPress}
+        disabled={isDisabled}
+        pressScale={0.97}
+        hoverLift={false}
+        style={[
+          containerStyle,
+          styles.base,
+          sizeStyle,
+          {
+            borderRadius: borderRadius.lg,
+            backgroundColor: 'transparent',
+            borderWidth: 1.5,
+            borderColor: isDisabled ? theme.border : theme.primary,
+          },
+        ]}
+      >
+        {content}
+      </AnimatedPressable>
+    );
+  }
+
+  // ─── Ghost ────────────────────────────────────────────────────────────────
+  if (variant === 'ghost') {
+    return (
+      <AnimatedPressable
+        onPress={onPress}
+        disabled={isDisabled}
+        pressScale={0.97}
+        hoverLift={false}
+        style={[containerStyle, styles.base, sizeStyle, { borderRadius: borderRadius.lg }]}
+      >
+        {content}
+      </AnimatedPressable>
+    );
+  }
+
+  // ─── Disabled fallback for all variants ───────────────────────────────────
   return (
-    <TouchableOpacity
-      style={[getButtonStyle(), style]}
+    <AnimatedPressable
       onPress={onPress}
       disabled={isDisabled}
-      activeOpacity={0.7}
+      pressScale={1}
+      hoverLift={false}
+      style={[
+        containerStyle,
+        styles.base,
+        sizeStyle,
+        {
+          borderRadius: borderRadius.lg,
+          backgroundColor: theme.border,
+        },
+      ]}
     >
       {content}
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 };
 
-const styles = StyleSheet.create({
-  base: {
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  primary: {
-    shadowColor: branding.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  secondary: {
-    shadowColor: branding.accent,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  outline: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  size_small: {
+// ─── Text styles ──────────────────────────────────────────────────────────────
+
+function getTextStyle(
+  variant: ButtonVariant,
+  isDisabled: boolean,
+  size: ButtonSize,
+  theme: ReturnType<typeof useTheme>['theme'],
+): TextStyle {
+  const base: TextStyle = {
+    fontFamily: theme.fontSansSemiBold,
+    fontSize: SIZE_FONT[size],
+    letterSpacing: 0.2,
+  };
+
+  if (variant === 'primary' || variant === 'secondary' || variant === 'danger') {
+    if (variant === 'secondary') {
+      return { ...base, color: theme.secondaryDark };
+    }
+    return { ...base, color: '#FFFFFF' };
+  }
+  if (variant === 'outline') {
+    return { ...base, color: isDisabled ? theme.textMuted : theme.primary };
+  }
+  if (variant === 'ghost') {
+    return { ...base, color: isDisabled ? theme.textMuted : theme.primary };
+  }
+  return { ...base, color: theme.textMuted };
+}
+
+// ─── Size configs ─────────────────────────────────────────────────────────────
+
+const SIZE_STYLES: Record<ButtonSize, ViewStyle> = {
+  small: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     minHeight: 36,
   },
-  size_medium: {
+  medium: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     minHeight: 44,
   },
-  size_large: {
-    paddingVertical: spacing.md + 2,
+  large: {
+    paddingVertical: spacing.md + 4,
     paddingHorizontal: spacing.xl,
-    minHeight: 52,
+    minHeight: 54,
   },
-  text: {
-    fontWeight: '600',
+};
+
+const SIZE_FONT: Record<ButtonSize, number> = {
+  small: 13,
+  medium: 15,
+  large: 16,
+};
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  base: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
-  text_small: {
-    fontSize: 14,
-  },
-  text_medium: {
-    fontSize: 15,
-  },
-  text_large: {
-    fontSize: 16,
+  gradientFill: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
   content: {
     flexDirection: 'row',

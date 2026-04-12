@@ -16,6 +16,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { heraLanding, shadows } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 interface ForSpecialistsSectionProps {
   onLearnMore: () => void;
@@ -25,6 +26,7 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
   onLearnMore,
 }) => {
   const { width } = useWindowDimensions();
+  const { theme } = useTheme();
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
 
@@ -36,7 +38,7 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
   ];
 
   return (
-    <View style={[styles.container, isDesktop && styles.containerDesktop]}>
+    <View style={[styles.container, { backgroundColor: theme.secondaryMuted }, isDesktop && styles.containerDesktop]}>
       <View style={[
         styles.content,
         isDesktop && styles.contentDesktop,
@@ -82,12 +84,12 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
           </View>
 
           {/* Title */}
-          <Text style={[styles.title, isDesktop && styles.titleDesktop]}>
+          <Text style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontDisplay }, isDesktop && styles.titleDesktop]}>
             ¿Eres especialista en salud mental?
           </Text>
 
           {/* Subtitle */}
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
             Únete a HERA y haz crecer tu práctica profesional.
             Sin permanencia, sin comisiones ocultas.
           </Text>
@@ -95,23 +97,23 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
           {/* Benefits */}
           <View style={[styles.benefitsGrid, isDesktop && styles.benefitsGridDesktop]}>
             {benefits.map((benefit, index) => (
-              <View key={index} style={styles.benefitItem}>
-                <View style={styles.benefitIcon}>
-                  <Ionicons name={benefit.icon} size={18} color={heraLanding.secondary} />
+              <View key={index} style={[styles.benefitItem, { backgroundColor: theme.bgCard }]}>
+                <View style={[styles.benefitIcon, { backgroundColor: theme.secondaryAlpha12 }]}>
+                  <Ionicons name={benefit.icon} size={18} color={theme.secondary} />
                 </View>
-                <Text style={styles.benefitText}>{benefit.text}</Text>
+                <Text style={[styles.benefitText, { color: theme.textPrimary, fontFamily: theme.fontSans }]}>{benefit.text}</Text>
               </View>
             ))}
           </View>
 
           {/* CTA */}
           <TouchableOpacity
-            style={styles.cta}
+            style={[styles.cta, { backgroundColor: theme.bgCard, borderColor: theme.secondaryLight }]}
             onPress={onLearnMore}
             activeOpacity={0.85}
           >
-            <Text style={styles.ctaText}>Más información</Text>
-            <Ionicons name="arrow-forward" size={18} color={heraLanding.secondaryDark} />
+            <Text style={[styles.ctaText, { color: theme.secondaryDark, fontFamily: theme.fontSansSemiBold }]}>Más información</Text>
+            <Ionicons name="arrow-forward" size={18} color={theme.secondaryDark} />
           </TouchableOpacity>
         </View>
       </View>

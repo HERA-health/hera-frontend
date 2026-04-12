@@ -1,9 +1,9 @@
 import React from 'react';
-import { Image, StyleSheet, ViewStyle } from 'react-native';
+import { Image, ImageStyle, StyleSheet } from 'react-native';
 
 interface StyledLogoProps {
   size?: number;
-  style?: ViewStyle;
+  style?: ImageStyle;
 }
 
 /**

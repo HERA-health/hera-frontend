@@ -10,7 +10,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   useWindowDimensions,
   ActivityIndicator,
   Image,
@@ -18,13 +17,20 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, shadows, spacing } from '../../constants/colors';
+import { shadows, spacing } from '../../constants/colors';
+import type { Theme } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
+import { AmbientBackground } from '../../components/common/AmbientBackground';
+import { AnimatedPressable } from '../../components/common/AnimatedPressable';
+import { Button } from '../../components/common/Button';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { getMatchedSpecialists, SpecialistData } from '../../services/specialistsService';
 import { getMySessions } from '../../services/sessionsService';
 import { useAuth } from '../../contexts/AuthContext';
 import { VerificationBanner } from '../../components/auth';
 import { ApiSession } from '../sessions/types';
+import type { RootStackParamList } from '../../constants/types';
 import {
   isUpcomingSession,
   getSessionTypeIcon,
@@ -61,25 +67,34 @@ const getCountdown = (dateStr: string): { label: string; isUrgent: boolean } => 
   return { label: days === 1 ? 'Mañana' : `En ${days} días`, isUrgent: false };
 };
 
-const getAffinityColor = (affinity: number): string => {
+const getAffinityColor = (affinity: number, theme: Theme): string => {
   const pct = affinity > 1 ? affinity : affinity * 100;
-  if (pct >= 80) return heraLanding.success;
-  if (pct >= 60) return heraLanding.warningAmber;
-  return heraLanding.secondary;
+  if (pct >= 80) return theme.success;
+  if (pct >= 60) return theme.warningAmber;
+  return theme.secondary;
 };
 
 const getAffinityLabel = (affinity: number): string =>
   `${Math.round(affinity > 1 ? affinity : affinity * 100)}%`;
 
+type QuickActionScreen = 'Sessions' | 'Specialists' | 'Questionnaire' | 'Profile';
+type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<HomeNavigationProp>();
   const { width } = useWindowDimensions();
   const { user } = useAuth();
+  const { theme } = useTheme();
 
   const isDesktop = width >= 1024;
   const isMobile = width < 768;
+
+  const getStatusTokens = useCallback((status: ApiSession['status']) => {
+    const normalizedStatus = status.toLowerCase() as keyof Theme['status'];
+    return theme.status[normalizedStatus] ?? theme.status.pending;
+  }, [theme]);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [sessions, setSessions] = useState<ApiSession[]>([]);
@@ -237,53 +252,60 @@ export default function HomeScreen() {
 
   // ── Section: Hero Header ───────────────────────────────────────────────────
   const renderHeroHeader = () => (
-    <Animated.View style={[styles.heroCard, animStyle(0)]}>
+    <Animated.View style={[styles.heroCard, { backgroundColor: theme.bgCard, shadowColor: theme.shadowNeutral }, animStyle(0)]}>
       {/* Greeting + avatar */}
       <View style={styles.heroTop}>
         <View style={styles.heroTextBlock}>
-          <Text style={styles.heroDate}>{getCurrentDate()}</Text>
-          <Text style={styles.heroGreeting}>{getGreeting()},</Text>
-          <Text style={styles.heroName}>{getFirstName()}</Text>
+          <Text style={[styles.heroDate, { color: theme.textMuted, fontFamily: theme.fontSans }]}>{getCurrentDate()}</Text>
+          <Text style={[styles.heroGreeting, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>{getGreeting()},</Text>
+          <Text style={[styles.heroName, { color: theme.primary, fontFamily: theme.fontDisplay }]}>{getFirstName()}</Text>
         </View>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.85}>
+        <AnimatedPressable onPress={() => navigation.navigate('Profile')} hoverTranslateY={-2} pressScale={0.98}>
           <View style={styles.avatarWrapper}>
             <Animated.View
-              style={[styles.avatarRing, { opacity: ringOpacity, transform: [{ scale: ringScale }] }]}
+              style={[styles.avatarRing, { borderColor: theme.primary, opacity: ringOpacity, transform: [{ scale: ringScale }] }]}
             />
             {user?.avatar ? (
               <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
             ) : (
               <LinearGradient
-                colors={[heraLanding.primary, heraLanding.secondary]}
+                colors={[theme.primary, theme.secondary]}
                 style={styles.avatarGradient}
               >
-                <Text style={styles.avatarInitial}>{getFirstName().charAt(0).toUpperCase()}</Text>
+                <Text style={[styles.avatarInitial, { fontFamily: theme.fontSansBold }]}>{getFirstName().charAt(0).toUpperCase()}</Text>
               </LinearGradient>
             )}
           </View>
-        </TouchableOpacity>
+        </AnimatedPressable>
       </View>
 
       {/* Divider */}
-      <View style={styles.heroDivider} />
+      <View style={[styles.heroDivider, { backgroundColor: theme.border }]} />
 
       {/* Mood — integrado en la misma tarjeta */}
       <View style={styles.heroMoodSection}>
-        <Text style={styles.moodLabel}>¿Cómo te sientes hoy?</Text>
+        <Text style={[styles.moodLabel, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>¿Cómo te sientes hoy?</Text>
         <View style={styles.moodRow}>
           {MOODS.map((emoji, i) => (
-            <TouchableOpacity key={i} onPress={() => handleMoodPress(i)} activeOpacity={0.8}>
+            <AnimatedPressable
+              key={i}
+              onPress={() => handleMoodPress(i)}
+              hoverLift={false}
+              pressScale={0.94}
+              style={styles.moodPressable}
+            >
               <Animated.View
                 style={[
                   styles.moodEmoji,
-                  selectedMood === i && styles.moodEmojiSelected,
+                  { backgroundColor: theme.bgAlt },
+                  selectedMood === i && { backgroundColor: theme.secondaryMuted, borderWidth: 2, borderColor: theme.secondaryLight },
                   selectedMood !== null && selectedMood !== i && styles.moodEmojiDimmed,
                   { transform: [{ scale: moodScaleAnims[i] }] },
                 ]}
               >
                 <Text style={styles.moodEmojiText}>{emoji}</Text>
               </Animated.View>
-            </TouchableOpacity>
+            </AnimatedPressable>
           ))}
         </View>
       </View>
@@ -291,19 +313,20 @@ export default function HomeScreen() {
       {/* Quick nav pills */}
       <View style={styles.heroQuickActions}>
         {([
-          { icon: 'calendar-outline', label: 'Sesiones', screen: 'Sessions', color: heraLanding.secondary, bg: heraLanding.secondaryMuted },
-          { icon: 'search', label: 'Buscar', screen: hasCompletedQuestionnaire ? 'Specialists' : 'Questionnaire', color: heraLanding.primary, bg: heraLanding.successBg },
-          { icon: 'person-outline', label: 'Mi perfil', screen: 'Profile', color: heraLanding.textSecondary, bg: heraLanding.background },
-        ] as Array<{ icon: React.ComponentProps<typeof Ionicons>['name']; label: string; screen: string; color: string; bg: string }>).map(({ icon, label, screen, color, bg }) => (
-          <TouchableOpacity
+          { icon: 'calendar-outline', label: 'Sesiones', screen: 'Sessions', color: theme.secondary, bg: theme.secondary + '18' },
+          { icon: 'search', label: 'Buscar', screen: hasCompletedQuestionnaire ? 'Specialists' : 'Questionnaire', color: theme.primary, bg: theme.primaryAlpha12 },
+          { icon: 'person-outline', label: 'Mi perfil', screen: 'Profile', color: theme.textSecondary, bg: theme.bgAlt },
+        ] as Array<{ icon: React.ComponentProps<typeof Ionicons>['name']; label: string; screen: QuickActionScreen; color: string; bg: string }>).map(({ icon, label, screen, color, bg }) => (
+          <AnimatedPressable
             key={label}
             style={[styles.heroQuickPill, { backgroundColor: bg }]}
-            onPress={() => navigation.navigate(screen as any)}
-            activeOpacity={0.8}
+            onPress={() => navigation.navigate(screen)}
+            hoverTranslateY={-2}
+            pressScale={0.98}
           >
             <Ionicons name={icon} size={14} color={color} />
-            <Text style={[styles.heroQuickPillText, { color }]}>{label}</Text>
-          </TouchableOpacity>
+            <Text style={[styles.heroQuickPillText, { color, fontFamily: theme.fontSansSemiBold }]}>{label}</Text>
+          </AnimatedPressable>
         ))}
       </View>
     </Animated.View>
@@ -313,9 +336,9 @@ export default function HomeScreen() {
   const renderNextSessionCard = () => (
     <Animated.View style={animStyle(1)}>
       {nextSession ? (
-        <TouchableOpacity activeOpacity={0.92} onPress={() => navigation.navigate('Sessions')}>
+        <AnimatedPressable onPress={() => navigation.navigate('Sessions')} style={styles.nextSessionPressable} pressScale={0.985}>
           <LinearGradient
-            colors={['#7A9172', '#A89AC4']}
+            colors={[theme.primary, theme.secondary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.nextSessionCard}
@@ -353,7 +376,11 @@ export default function HomeScreen() {
                 <Text style={styles.nextSessionName}>{nextSession.specialist.user.name}</Text>
                 <Text style={styles.nextSessionSpec}>{nextSession.specialist.specialization}</Text>
                 <View style={styles.nextSessionTypePill}>
-                  <Ionicons name={getSessionTypeIcon(nextSession.type) as any} size={11} color="rgba(255,255,255,0.85)" />
+                  <Ionicons
+                    name={getSessionTypeIcon(nextSession.type) as React.ComponentProps<typeof Ionicons>['name']}
+                    size={11}
+                    color="rgba(255,255,255,0.85)"
+                  />
                   <Text style={styles.nextSessionTypeText}>{getSessionTypeLabel(nextSession.type)}</Text>
                 </View>
               </View>
@@ -367,29 +394,37 @@ export default function HomeScreen() {
                 <Text style={styles.nextSessionPrice}>€{nextSession.specialist.pricePerSession}</Text>
               </View>
               <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                <TouchableOpacity style={styles.joinButton} activeOpacity={0.85}>
-                  <Ionicons name={getSessionTypeIcon(nextSession.type) as any} size={15} color={heraLanding.primaryDark} />
-                  <Text style={styles.joinButtonText}>Unirse</Text>
-                </TouchableOpacity>
+                <View style={styles.joinButton}>
+                  <Ionicons
+                    name={getSessionTypeIcon(nextSession.type) as React.ComponentProps<typeof Ionicons>['name']}
+                    size={15}
+                    color={theme.primaryDark}
+                  />
+                  <Text style={[styles.joinButtonText, { color: theme.primaryDark, fontFamily: theme.fontSansBold }]}>Unirse</Text>
+                </View>
               </Animated.View>
             </View>
           </LinearGradient>
-        </TouchableOpacity>
+        </AnimatedPressable>
       ) : (
-        <View style={styles.noSessionCard}>
-          <View style={styles.noSessionIconWrap}>
-            <Ionicons name="calendar-outline" size={38} color={heraLanding.textMuted} />
+        <View style={[styles.noSessionCard, { backgroundColor: theme.bgCard, shadowColor: theme.shadowNeutral }]}>
+          <View style={[styles.noSessionIconWrap, { backgroundColor: theme.bgAlt }]}>
+            <Ionicons name="calendar-outline" size={38} color={theme.textMuted} />
           </View>
-          <Text style={styles.noSessionTitle}>Sin sesiones próximas</Text>
-          <Text style={styles.noSessionDesc}>Reserva tu primera sesión con un especialista</Text>
-          <TouchableOpacity
-            style={styles.noSessionCTA}
+          <Text style={[styles.noSessionTitle, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>Sin sesiones próximas</Text>
+          <Text style={[styles.noSessionDesc, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Reserva tu primera sesión con un especialista</Text>
+          <Button
             onPress={() => navigation.navigate(hasCompletedQuestionnaire ? 'Specialists' : 'Questionnaire')}
-            activeOpacity={0.85}
+            variant="primary"
+            size="large"
+            icon={<Ionicons name="arrow-forward" size={15} color="#FFFFFF" />}
+            iconPosition="right"
+            fullWidth={isMobile}
+            textStyle={{ fontFamily: theme.fontSansBold }}
+            style={styles.noSessionCTAButton}
           >
-            <Text style={styles.noSessionCTAText}>Encontrar especialista</Text>
-            <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
-          </TouchableOpacity>
+            Encontrar especialista
+          </Button>
         </View>
       )}
     </Animated.View>
@@ -403,22 +438,22 @@ export default function HomeScreen() {
       icon: React.ComponentProps<typeof Ionicons>['name'];
       colors: [string, string];
     }> = [
-      { label: 'Sesiones', value: stats.completed, icon: 'checkmark-circle', colors: [heraLanding.primary, heraLanding.primaryDark] },
-      { label: 'Horas', value: stats.hours, icon: 'time', colors: [heraLanding.secondary, heraLanding.secondaryDark] },
-      { label: 'Especialistas', value: stats.specialists, icon: 'people', colors: ['#8BA8C4', '#6B88A4'] },
+      { label: 'Sesiones', value: stats.completed, icon: 'checkmark-circle', colors: [theme.primary, theme.primaryDark] },
+      { label: 'Horas', value: stats.hours, icon: 'time', colors: [theme.secondary, theme.secondaryDark] },
+      { label: 'Especialistas', value: stats.specialists, icon: 'people', colors: [theme.info, '#6B88A4'] },
     ];
     return (
       <Animated.View style={[styles.statsRow, animStyle(2)]}>
         {statDefs.map((stat, i) => (
           <Animated.View
             key={stat.label}
-            style={[styles.statCard, { transform: [{ scale: statScaleAnims[i] }] }]}
+            style={[styles.statCard, { backgroundColor: theme.bgCard, shadowColor: theme.shadowNeutral, transform: [{ scale: statScaleAnims[i] }] }]}
           >
             <LinearGradient colors={stat.colors} style={styles.statIconCircle}>
               <Ionicons name={stat.icon} size={17} color="#FFFFFF" />
             </LinearGradient>
-            <Text style={styles.statValue}>{stat.value}</Text>
-            <Text style={styles.statLabel}>{stat.label}</Text>
+            <Text style={[styles.statValue, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{stat.value}</Text>
+            <Text style={[styles.statLabel, { color: theme.textMuted, fontFamily: theme.fontSans }]}>{stat.label}</Text>
           </Animated.View>
         ))}
       </Animated.View>
@@ -431,21 +466,20 @@ export default function HomeScreen() {
     return (
       <Animated.View style={[styles.section, animStyle(animIdx)]}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{title}</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Sessions')}>
-            <Text style={styles.sectionLink}>Ver todas</Text>
-          </TouchableOpacity>
+          <Text style={[styles.sectionTitle, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>{title}</Text>
+          <AnimatedPressable onPress={() => navigation.navigate('Sessions')} hoverLift={false} pressScale={0.98}>
+            <Text style={[styles.sectionLink, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>Ver todas</Text>
+          </AnimatedPressable>
         </View>
         <View style={styles.sessionsList}>
           {list.map(session => {
-            const statusKey = session.status.toLowerCase() as keyof typeof heraLanding.status;
-            const statusTokens = heraLanding.status[statusKey];
+            const statusTokens = getStatusTokens(session.status);
             return (
-              <TouchableOpacity
+              <AnimatedPressable
                 key={session.id}
-                style={styles.sessionCard}
+                style={[styles.sessionCard, { backgroundColor: theme.bgCard, shadowColor: theme.shadowNeutral }]}
                 onPress={() => navigation.navigate('Sessions')}
-                activeOpacity={0.85}
+                pressScale={0.985}
               >
                 <View style={styles.sessionAvatarWrap}>
                   {session.specialist.avatar || session.specialist.user.avatar ? (
@@ -455,7 +489,7 @@ export default function HomeScreen() {
                     />
                   ) : (
                     <LinearGradient
-                      colors={[heraLanding.primary, heraLanding.primaryDark]}
+                      colors={[theme.primary, theme.primaryDark]}
                       style={styles.sessionAvatar}
                     >
                       <Text style={styles.sessionAvatarInitial}>
@@ -465,28 +499,32 @@ export default function HomeScreen() {
                   )}
                 </View>
                 <View style={styles.sessionInfo}>
-                  <Text style={styles.sessionName}>{session.specialist.user.name}</Text>
-                  <Text style={styles.sessionSpec}>{session.specialist.specialization}</Text>
+                  <Text style={[styles.sessionName, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>{session.specialist.user.name}</Text>
+                  <Text style={[styles.sessionSpec, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{session.specialist.specialization}</Text>
                   <View style={styles.sessionMeta}>
-                    <Ionicons name="calendar-outline" size={11} color={heraLanding.textMuted} />
-                    <Text style={styles.sessionMetaText}>
+                    <Ionicons name="calendar-outline" size={11} color={theme.textMuted} />
+                    <Text style={[styles.sessionMetaText, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
                       {getDateLabel(session.date)} · {formatTime(session.date)}
                     </Text>
                   </View>
                   <View style={styles.sessionMeta}>
-                    <Ionicons name={getSessionTypeIcon(session.type) as any} size={11} color={heraLanding.textMuted} />
-                    <Text style={styles.sessionMetaText}>{getSessionTypeLabel(session.type)}</Text>
+                    <Ionicons
+                      name={getSessionTypeIcon(session.type) as React.ComponentProps<typeof Ionicons>['name']}
+                      size={11}
+                      color={theme.textMuted}
+                    />
+                    <Text style={[styles.sessionMetaText, { color: theme.textMuted, fontFamily: theme.fontSans }]}>{getSessionTypeLabel(session.type)}</Text>
                   </View>
                 </View>
                 <View style={styles.sessionRight}>
-                  <View style={[styles.statusBadge, { backgroundColor: statusTokens?.bg ?? heraLanding.primaryMuted }]}>
-                    <Text style={[styles.statusText, { color: statusTokens?.text ?? heraLanding.primary }]}>
+                  <View style={[styles.statusBadge, { backgroundColor: statusTokens?.bg ?? theme.primaryMuted }]}>
+                    <Text style={[styles.statusText, { color: statusTokens?.text ?? theme.primary, fontFamily: theme.fontSansSemiBold }]}>
                       {getStatusLabel(session.status)}
                     </Text>
                   </View>
-                  <Text style={styles.sessionPrice}>€{session.specialist.pricePerSession}</Text>
+                  <Text style={[styles.sessionPrice, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>€{session.specialist.pricePerSession}</Text>
                 </View>
-              </TouchableOpacity>
+              </AnimatedPressable>
             );
           })}
         </View>
@@ -496,18 +534,18 @@ export default function HomeScreen() {
 
   // ── Section: Recommended Specialists ─────────────────────────────────────
   const renderSpecialistItem = (specialist: SpecialistData, compact = false) => (
-    <TouchableOpacity
+    <AnimatedPressable
       key={specialist.id}
-      style={compact ? styles.specialistCardCompact : styles.specialistCard}
+      style={[compact ? styles.specialistCardCompact : styles.specialistCard, { backgroundColor: theme.bgCard, shadowColor: theme.shadowNeutral }]}
       onPress={() => navigation.navigate('SpecialistDetail', { specialistId: specialist.id })}
-      activeOpacity={0.85}
+      pressScale={0.985}
     >
       <View style={styles.specialistAvatarWrap}>
         {specialist.avatar ? (
           <Image source={{ uri: specialist.avatar }} style={compact ? styles.specialistAvatarSm : styles.specialistAvatar} />
         ) : (
           <LinearGradient
-            colors={[heraLanding.secondary, heraLanding.secondaryDark]}
+            colors={[theme.secondary, theme.secondaryDark]}
             style={compact ? styles.specialistAvatarSm : styles.specialistAvatar}
           >
             <Text style={compact ? styles.specialistAvatarInitialSm : styles.specialistAvatarInitial}>
@@ -516,33 +554,33 @@ export default function HomeScreen() {
           </LinearGradient>
         )}
         {specialist.affinity != null && (
-          <View style={[styles.affinityBadge, { backgroundColor: getAffinityColor(specialist.affinity) }]}>
+          <View style={[styles.affinityBadge, { backgroundColor: getAffinityColor(specialist.affinity, theme) }]}>
             <Text style={styles.affinityText}>{getAffinityLabel(specialist.affinity)}</Text>
           </View>
         )}
         {specialist.firstVisitFree && (
-          <View style={styles.freeBadge}>
+          <View style={[styles.freeBadge, { backgroundColor: theme.success }]}>
             <Text style={styles.freeBadgeText}>Gratis</Text>
           </View>
         )}
       </View>
-      <Text style={compact ? styles.specialistNameSm : styles.specialistName} numberOfLines={1}>
+      <Text style={[compact ? styles.specialistNameSm : styles.specialistName, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]} numberOfLines={1}>
         {specialist.user.name}
       </Text>
-      <Text style={compact ? styles.specialistSpecSm : styles.specialistSpec} numberOfLines={compact ? 1 : 2}>
+      <Text style={[compact ? styles.specialistSpecSm : styles.specialistSpec, { color: theme.textSecondary, fontFamily: theme.fontSans }]} numberOfLines={compact ? 1 : 2}>
         {specialist.specialization}
       </Text>
       <View style={styles.ratingRow}>
-        <Ionicons name="star" size={11} color={heraLanding.starRating} />
-        <Text style={styles.ratingText}>{specialist.rating} ({specialist.reviewCount})</Text>
+        <Ionicons name="star" size={11} color={theme.starRating} />
+        <Text style={[styles.ratingText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{specialist.rating} ({specialist.reviewCount})</Text>
       </View>
-      <Text style={styles.specialistPrice}>€{specialist.pricePerSession}/ses.</Text>
+      <Text style={[styles.specialistPrice, { color: theme.primary, fontFamily: theme.fontDisplay }]}>€{specialist.pricePerSession}/ses.</Text>
       {!compact && (
-        <View style={styles.viewProfileBtn}>
-          <Text style={styles.viewProfileText}>Ver perfil</Text>
+        <View style={[styles.viewProfileBtn, { backgroundColor: theme.primaryAlpha12, borderColor: theme.border }]}>
+          <Text style={[styles.viewProfileText, { color: theme.primaryDark, fontFamily: theme.fontSansSemiBold }]}>Ver perfil</Text>
         </View>
       )}
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 
   const renderRecommendedSpecialists = () => {
@@ -550,10 +588,10 @@ export default function HomeScreen() {
     return (
       <Animated.View style={[styles.section, animStyle(4)]}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recomendados</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Specialists')}>
-            <Text style={styles.sectionLink}>Ver todos</Text>
-          </TouchableOpacity>
+          <Text style={[styles.sectionTitle, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>Recomendados</Text>
+          <AnimatedPressable onPress={() => navigation.navigate('Specialists')} hoverLift={false} pressScale={0.98}>
+            <Text style={[styles.sectionLink, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>Ver todos</Text>
+          </AnimatedPressable>
         </View>
         {isDesktop ? (
           <View style={styles.specialistsGrid}>
@@ -573,7 +611,7 @@ export default function HomeScreen() {
     <Animated.View style={[styles.section, animStyle(5)]}>
       {!hasCompletedQuestionnaire ? (
         <LinearGradient
-          colors={[heraLanding.primary, heraLanding.secondary]}
+          colors={[theme.primary, theme.secondary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.ctaCard}
@@ -583,32 +621,43 @@ export default function HomeScreen() {
           <View style={styles.ctaIconWrap}>
             <Ionicons name="heart" size={26} color="#FFFFFF" />
           </View>
-          <Text style={styles.ctaTitle}>Encuentra tu match perfecto</Text>
-          <Text style={styles.ctaDesc}>
+          <Text style={[styles.ctaTitle, { fontFamily: theme.fontDisplay }]}>Encuentra tu match perfecto</Text>
+          <Text style={[styles.ctaDesc, { fontFamily: theme.fontSans }]}>
             Completa nuestro cuestionario de 5 minutos y te conectaremos con el especialista ideal para ti.
           </Text>
-          <TouchableOpacity style={styles.ctaButton} onPress={() => navigation.navigate('Questionnaire')} activeOpacity={0.85}>
-            <Text style={styles.ctaButtonText}>Comenzar</Text>
-            <Ionicons name="arrow-forward" size={16} color={heraLanding.primary} />
-          </TouchableOpacity>
+          <Button
+            onPress={() => navigation.navigate('Questionnaire')}
+            variant="secondary"
+            size="medium"
+            icon={<Ionicons name="arrow-forward" size={16} color={theme.secondaryDark} />}
+            iconPosition="right"
+            textStyle={{ fontFamily: theme.fontSansBold }}
+            style={styles.ctaButtonNative}
+          >
+            Comenzar
+          </Button>
           <View style={styles.ctaInfo}>
             <Ionicons name="time-outline" size={12} color="rgba(255,255,255,0.8)" />
-            <Text style={styles.ctaInfoText}>Solo 5 minutos · Gratuito</Text>
+            <Text style={[styles.ctaInfoText, { fontFamily: theme.fontSans }]}>Solo 5 minutos · Gratuito</Text>
           </View>
         </LinearGradient>
       ) : (
-        <TouchableOpacity style={styles.refineCard} onPress={() => navigation.navigate('Questionnaire')} activeOpacity={0.85}>
+        <AnimatedPressable
+          style={[styles.refineCard, { backgroundColor: theme.bgCard, shadowColor: theme.shadowNeutral, borderColor: theme.border }]}
+          onPress={() => navigation.navigate('Questionnaire')}
+          pressScale={0.985}
+        >
           <View style={styles.refineLeft}>
-            <View style={styles.refineIconWrap}>
-              <Ionicons name="options-outline" size={20} color={heraLanding.primary} />
+            <View style={[styles.refineIconWrap, { backgroundColor: theme.primaryAlpha12 }]}>
+              <Ionicons name="options-outline" size={20} color={theme.primary} />
             </View>
             <View style={styles.refineText}>
-              <Text style={styles.refineTitle}>Refina tus matches</Text>
-              <Text style={styles.refineDesc}>Actualiza tus preferencias para mejores resultados.</Text>
+              <Text style={[styles.refineTitle, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>Refina tus matches</Text>
+              <Text style={[styles.refineDesc, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Actualiza tus preferencias para mejores resultados.</Text>
             </View>
           </View>
-          <Ionicons name="chevron-forward" size={16} color={heraLanding.primary} />
-        </TouchableOpacity>
+          <Ionicons name="chevron-forward" size={16} color={theme.primary} />
+        </AnimatedPressable>
       )}
     </Animated.View>
   );
@@ -616,16 +665,17 @@ export default function HomeScreen() {
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={heraLanding.primary} />
-        <Text style={styles.loadingText}>Cargando...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.bg }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Cargando...</Text>
       </View>
     );
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <AmbientBackground variant="home" />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
@@ -681,7 +731,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: heraLanding.background,
   },
   scrollView: {
     flex: 1,
@@ -703,12 +752,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: heraLanding.background,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 15,
-    color: heraLanding.textSecondary,
   },
 
   // ── Two-column desktop grid ─────────────────────────────────────────────────
@@ -745,25 +792,21 @@ const styles = StyleSheet.create({
   heroDate: {
     fontSize: 12,
     fontWeight: '500',
-    color: heraLanding.textMuted,
     textTransform: 'capitalize',
     marginBottom: 6,
   },
   heroGreeting: {
     fontSize: 28,
     fontWeight: '800',
-    color: heraLanding.textPrimary,
     lineHeight: 32,
   },
   heroName: {
     fontSize: 28,
     fontWeight: '800',
-    color: heraLanding.primary,
     lineHeight: 32,
   },
   heroDivider: {
     height: 1,
-    backgroundColor: heraLanding.borderLight,
     marginVertical: 20,
   },
   heroMoodSection: {
@@ -802,7 +845,6 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 32,
     borderWidth: 2,
-    borderColor: heraLanding.primary,
   },
   avatarImage: {
     width: 52,
@@ -826,7 +868,6 @@ const styles = StyleSheet.create({
   moodLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: heraLanding.textSecondary,
   },
   moodRow: {
     flexDirection: 'row',
@@ -840,10 +881,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  moodEmojiSelected: {
-    backgroundColor: heraLanding.secondaryMuted,
-    borderWidth: 2,
-    borderColor: heraLanding.secondaryLight,
+  moodPressable: {
+    borderRadius: 24,
   },
   moodEmojiDimmed: {
     opacity: 0.38,
@@ -860,6 +899,9 @@ const styles = StyleSheet.create({
     position: 'relative',
     gap: 18,
     ...shadows.lg,
+  },
+  nextSessionPressable: {
+    borderRadius: 20,
   },
   decorCircle: {
     position: 'absolute',
@@ -987,7 +1029,6 @@ const styles = StyleSheet.create({
   joinButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: heraLanding.primaryDark,
   },
 
   // ── No Session Empty State ──────────────────────────────────────────────────
@@ -1003,7 +1044,6 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: heraLanding.background,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
@@ -1011,28 +1051,16 @@ const styles = StyleSheet.create({
   noSessionTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: heraLanding.textPrimary,
   },
   noSessionDesc: {
     fontSize: 14,
-    color: heraLanding.textSecondary,
     textAlign: 'center',
     maxWidth: 240,
   },
-  noSessionCTA: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: heraLanding.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  noSessionCTAText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  noSessionCTAButton: {
+    marginTop: 12,
+    alignSelf: 'center',
+    minWidth: 220,
   },
 
   // ── Stats Row ───────────────────────────────────────────────────────────────
@@ -1059,12 +1087,10 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 24,
     fontWeight: '800',
-    color: heraLanding.textPrimary,
   },
   statLabel: {
     fontSize: 11,
     fontWeight: '500',
-    color: heraLanding.textMuted,
     textAlign: 'center',
   },
 
@@ -1080,12 +1106,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: heraLanding.textPrimary,
   },
   sectionLink: {
     fontSize: 13,
     fontWeight: '600',
-    color: heraLanding.primary,
   },
 
   // ── Upcoming Sessions ───────────────────────────────────────────────────────
@@ -1122,11 +1146,9 @@ const styles = StyleSheet.create({
   sessionName: {
     fontSize: 14,
     fontWeight: '700',
-    color: heraLanding.textPrimary,
   },
   sessionSpec: {
     fontSize: 11,
-    color: heraLanding.textSecondary,
     marginBottom: 2,
   },
   sessionMeta: {
@@ -1136,7 +1158,6 @@ const styles = StyleSheet.create({
   },
   sessionMetaText: {
     fontSize: 11,
-    color: heraLanding.textMuted,
     textTransform: 'capitalize',
   },
   sessionRight: {
@@ -1155,7 +1176,6 @@ const styles = StyleSheet.create({
   sessionPrice: {
     fontSize: 13,
     fontWeight: '700',
-    color: heraLanding.primary,
   },
   // ── Recommended Specialists (mobile: horizontal scroll) ────────────────────
   specialistsScroll: {
@@ -1219,12 +1239,10 @@ const styles = StyleSheet.create({
   specialistNameSm: {
     fontSize: 12,
     fontWeight: '700',
-    color: heraLanding.textPrimary,
     textAlign: 'center',
   },
   specialistSpecSm: {
     fontSize: 10,
-    color: heraLanding.textSecondary,
     textAlign: 'center',
   },
   affinityBadge: {
@@ -1246,7 +1264,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -4,
     right: -4,
-    backgroundColor: heraLanding.success,
     paddingVertical: 2,
     paddingHorizontal: 5,
     borderRadius: 7,
@@ -1261,12 +1278,10 @@ const styles = StyleSheet.create({
   specialistName: {
     fontSize: 13,
     fontWeight: '700',
-    color: heraLanding.textPrimary,
     textAlign: 'center',
   },
   specialistSpec: {
     fontSize: 11,
-    color: heraLanding.textSecondary,
     textAlign: 'center',
     minHeight: 28,
   },
@@ -1277,16 +1292,13 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 11,
-    color: heraLanding.textSecondary,
   },
   specialistPrice: {
     fontSize: 12,
     fontWeight: '700',
-    color: heraLanding.primary,
   },
   viewProfileBtn: {
     borderWidth: 1.5,
-    borderColor: heraLanding.border,
     borderRadius: 9,
     paddingVertical: 6,
     paddingHorizontal: 12,
@@ -1295,7 +1307,6 @@ const styles = StyleSheet.create({
   viewProfileText: {
     fontSize: 11,
     fontWeight: '600',
-    color: heraLanding.textSecondary,
   },
 
   // ── CTA Card ────────────────────────────────────────────────────────────────
@@ -1340,22 +1351,9 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     lineHeight: 19,
   },
-  ctaButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  ctaButtonNative: {
     alignSelf: 'flex-start',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 11,
     marginTop: 4,
-    ...shadows.sm,
-  },
-  ctaButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: heraLanding.primary,
   },
   ctaInfo: {
     flexDirection: 'row',
@@ -1374,7 +1372,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     borderWidth: 1.5,
-    borderColor: heraLanding.primaryMuted,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1391,7 +1388,6 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: heraLanding.primaryMuted,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1401,11 +1397,9 @@ const styles = StyleSheet.create({
   refineTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: heraLanding.textPrimary,
   },
   refineDesc: {
     fontSize: 11,
-    color: heraLanding.textSecondary,
     lineHeight: 16,
     marginTop: 1,
   },

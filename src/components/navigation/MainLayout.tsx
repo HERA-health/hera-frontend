@@ -22,9 +22,11 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { CustomDrawerContent } from './CustomDrawerContent';
-import { colors, layout, heraLanding, spacing, borderRadius, shadows } from '../../constants/colors';
+import { layout, spacing, borderRadius, shadows } from '../../constants/colors';
 import { useNavigationState } from '@react-navigation/native';
 import { SIDEBAR_THEME, SIDEBAR_ANIMATIONS } from './sidebar/navConfig';
+import { useTheme } from '../../contexts/ThemeContext';
+import { AmbientBackground } from '../common/AmbientBackground';
 
 const STORAGE_KEY = 'sidebar_collapsed';
 
@@ -38,6 +40,7 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
   const { width: windowWidth } = useWindowDimensions();
   const isLargeScreen = windowWidth >= 768;
+  const { theme } = useTheme();
 
   // Collapse state
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -132,15 +135,15 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
 
   if (!isLargeScreen) {
     return (
-      <View style={styles.mobileContainer}>
+      <View style={[styles.mobileContainer, { backgroundColor: theme.bg }]}>
         {/* Hamburger button */}
         <TouchableOpacity
-          style={styles.hamburgerButton}
+          style={[styles.hamburgerButton, { backgroundColor: theme.bgCard, borderColor: theme.border }]}
           onPress={openMobileSidebar}
           accessibilityRole="button"
           accessibilityLabel="Abrir menú"
         >
-          <Ionicons name="menu" size={24} color={heraLanding.textPrimary} />
+          <Ionicons name="menu" size={24} color={theme.textPrimary} />
         </TouchableOpacity>
 
         {children}
@@ -175,11 +178,18 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
   // ─── Desktop layout ───────────────────────────────────────────────────
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      {/* Subtle ambient blobs behind the whole layout */}
+      <AmbientBackground variant="subtle" />
+
       <Animated.View
         style={[
           styles.sidebar,
-          { width: sidebarWidth },
+          {
+            width: sidebarWidth,
+            borderRightColor: theme.border,
+            backgroundColor: theme.bgAlt,
+          },
         ]}
       >
         <CustomDrawerContent
@@ -188,7 +198,7 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
           onToggleCollapse={handleToggleCollapse}
         />
       </Animated.View>
-      <View style={styles.content}>{children}</View>
+      <View style={[styles.content, { backgroundColor: theme.bg }]}>{children}</View>
     </View>
   );
 }
@@ -197,21 +207,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: heraLanding.background,
   },
   mobileContainer: {
     flex: 1,
-    backgroundColor: heraLanding.background,
   },
   sidebar: {
     borderRightWidth: 1,
-    borderRightColor: SIDEBAR_THEME.border,
     height: '100%',
     overflow: 'hidden',
   },
   content: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
   },
   hamburgerButton: {
     position: 'absolute',
@@ -221,14 +227,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: borderRadius.md,
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     ...shadows.sm,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: heraLanding.overlay,
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
   mobileSidebar: {
     position: 'absolute',

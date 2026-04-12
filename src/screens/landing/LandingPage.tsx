@@ -28,6 +28,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../constants/types';
 
 // Section Components
 import {
@@ -42,9 +43,9 @@ import {
   FooterSection,
 } from './components';
 
-import { heraLanding } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 
-type NavigationProp = NativeStackNavigationProp<any>;
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Landing'>;
 
 // Threshold for header compact mode
 const HEADER_SCROLL_THRESHOLD = 50;
@@ -62,6 +63,7 @@ type SectionPositions = {
 
 export const LandingPage: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const { theme, isDark } = useTheme();
   const scrollViewRef = useRef<ScrollView>(null);
   const [headerScrolled, setHeaderScrolled] = useState(false);
   const [showScrollIndicator, setShowScrollIndicator] = useState(true);
@@ -120,10 +122,10 @@ export const LandingPage: React.FC = () => {
   }, [navigation]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar
-        barStyle="dark-content"
-        backgroundColor={heraLanding.background}
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.bg}
       />
 
       {/* Always-visible Sticky Header */}
@@ -193,11 +195,6 @@ export const LandingPage: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: heraLanding.background,
-    // Force scrollbar visibility on web
-    ...(Platform.OS === 'web' ? {
-      overflow: 'auto',
-    } : {}),
   },
   scrollView: {
     flex: 1,

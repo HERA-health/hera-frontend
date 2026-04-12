@@ -1,127 +1,184 @@
 /**
- * HowItWorksSection Component
+ * HowItWorksSection — HERA Design System v5.0
  *
- * Shows simplicity of the process in 3 clear steps.
- * Features numbered cards with icons and descriptions.
+ * Bento-grid layout on desktop (step 1 = 2/3 wide, steps 2+3 = 1/3).
+ * GlassCard with Fraunces ghost number in background.
+ * Staggered MotionView entry.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   useWindowDimensions,
-  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, shadows } from '../../../constants/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { GlassCard } from '../../../components/common/GlassCard';
+import { MotionView } from '../../../components/common/MotionView';
+import type { Theme } from '../../../constants/theme';
 
 interface Step {
   number: string;
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   description: string;
-  iconColor: string;
 }
 
-const steps: Step[] = [
+const STEPS: Step[] = [
   {
-    number: '1',
+    number: '01',
     icon: 'clipboard-outline',
     title: 'Completa el cuestionario',
-    description: 'En 2 minutos, cuéntanos qué necesitas. Te recomendaremos los especialistas que mejor encajen contigo.',
-    iconColor: heraLanding.primary,
+    description: 'En 2 minutos, cuéntanos qué necesitas. Te recomendaremos los especialistas que mejor encajen contigo según tu perfil único.',
   },
   {
-    number: '2',
+    number: '02',
     icon: 'calendar-outline',
     title: 'Reserva tu sesión',
     description: 'Elige fecha y hora que te convengan. Confirma en segundos. Flexible y sin compromiso.',
-    iconColor: heraLanding.secondary,
   },
   {
-    number: '3',
+    number: '03',
     icon: 'chatbubbles-outline',
     title: 'Comienza tu proceso',
     description: 'Sesión segura por videollamada o presencial. Tu privacidad es nuestra prioridad.',
-    iconColor: heraLanding.success,
   },
+];
+
+const STEP_ACCENT_COLORS = [
+  (theme: Theme) => [theme.primary, theme.primaryDark] as [string, string],
+  (theme: Theme) => [theme.secondary, theme.secondaryDark] as [string, string],
+  (theme: Theme) => [theme.success, theme.primaryDark] as [string, string],
 ];
 
 export const HowItWorksSection: React.FC = () => {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
-
-  // Animation
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: true,
-    }).start();
-  }, []);
+  const { theme } = useTheme();
 
   return (
-    <View style={[styles.container, isDesktop && styles.containerDesktop]}>
-      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-        {/* Section Title */}
-        <View style={styles.header}>
-          <Text style={[styles.title, isDesktop && styles.titleDesktop]}>
-            Comienza tu terapia en 3 pasos
+    <View style={[
+      styles.container,
+      { backgroundColor: theme.bgAlt },
+      isDesktop && styles.containerDesktop,
+    ]}>
+      <View style={styles.content}>
+        {/* Section Header */}
+        <MotionView entering="fadeInUp" delay={0} style={styles.header}>
+          <Text style={[
+            styles.eyebrow,
+            { color: theme.primary, fontFamily: theme.fontSansSemiBold },
+          ]}>
+            PROCESO
           </Text>
-          <Text style={styles.subtitle}>
-            Simple, rápido y confidencial
+          <Text style={[
+            styles.title,
+            isDesktop && styles.titleDesktop,
+            { color: theme.textPrimary, fontFamily: theme.fontDisplay },
+          ]}>
+            Comienza en 3 pasos
           </Text>
-        </View>
+          <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+            Simple, rápido y completamente confidencial
+          </Text>
+        </MotionView>
 
-        {/* Steps Grid */}
-        <View style={[
-          styles.stepsContainer,
-          isDesktop && styles.stepsContainerDesktop,
-          isTablet && styles.stepsContainerTablet,
-        ]}>
-          {steps.map((step, index) => (
-            <View key={step.number} style={styles.stepWrapper}>
-              <View style={[
-                styles.stepCard,
-                isDesktop && styles.stepCardDesktop,
-              ]}>
-                {/* Number Badge */}
-                <View style={[styles.numberBadge, { backgroundColor: step.iconColor }]}>
-                  <Text style={styles.numberText}>{step.number}</Text>
-                </View>
+        {/* ── Bento grid ───────────────────────────────────────────────── */}
+        {isDesktop ? (
+          <View style={styles.bentoGrid}>
+            {/* Step 1 — large card (2/3 width) */}
+            <MotionView entering="fadeInUp" delay={100} style={styles.bentoLarge}>
+              <StepCard step={STEPS[0]} index={0} theme={theme} large />
+            </MotionView>
 
-                {/* Icon */}
-                <View style={[styles.iconContainer, { backgroundColor: `${step.iconColor}15` }]}>
-                  <Ionicons name={step.icon} size={32} color={step.iconColor} />
-                </View>
-
-                {/* Content */}
-                <Text style={styles.stepTitle}>{step.title}</Text>
-                <Text style={styles.stepDescription}>{step.description}</Text>
-              </View>
-
-              {/* Arrow connector (desktop only) */}
-              {isDesktop && index < steps.length - 1 && (
-                <View style={styles.arrowConnector}>
-                  <View style={styles.arrowLine} />
-                  <Ionicons name="chevron-forward" size={20} color={heraLanding.border} />
-                </View>
-              )}
+            {/* Steps 2 + 3 — stacked (1/3 width) */}
+            <View style={styles.bentoSmallCol}>
+              <MotionView entering="fadeInUp" delay={180} style={{ flex: 1 }}>
+                <StepCard step={STEPS[1]} index={1} theme={theme} />
+              </MotionView>
+              <MotionView entering="fadeInUp" delay={260} style={{ flex: 1 }}>
+                <StepCard step={STEPS[2]} index={2} theme={theme} />
+              </MotionView>
             </View>
-          ))}
-        </View>
-      </Animated.View>
+          </View>
+        ) : (
+          // Mobile/tablet: column
+          <View style={[styles.columnGrid, isTablet && styles.tabletGrid]}>
+            {STEPS.map((step, index) => (
+              <MotionView key={step.number} entering="fadeInUp" delay={80 + index * 80}>
+                <StepCard step={step} index={index} theme={theme} />
+              </MotionView>
+            ))}
+          </View>
+        )}
+      </View>
     </View>
   );
 };
 
+// ─── StepCard ────────────────────────────────────────────────────────────────
+
+interface StepCardProps {
+  step: Step;
+  index: number;
+  theme: Theme;
+  large?: boolean;
+}
+
+function StepCard({ step, index, theme, large = false }: StepCardProps) {
+  const gradientColors = STEP_ACCENT_COLORS[index](theme);
+
+  return (
+    <GlassCard
+      intensity={40}
+      borderRadius={20}
+      style={[styles.stepCard, ...(large ? [styles.stepCardLarge] : [])]}
+    >
+      {/* Ghost number in background */}
+      <Text style={[
+        styles.ghostNumber,
+        { color: theme.primary, fontFamily: theme.fontDisplay },
+        ...(large ? [styles.ghostNumberLarge] : []),
+      ]}>
+        {step.number}
+      </Text>
+
+      {/* Icon with gradient background */}
+      <View style={styles.iconWrapper}>
+        <LinearGradient
+          colors={gradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.iconGradient}
+        >
+          <Ionicons name={step.icon} size={large ? 32 : 26} color="#FFFFFF" />
+        </LinearGradient>
+      </View>
+
+      {/* Content */}
+      <Text style={[
+        styles.stepTitle,
+        large && styles.stepTitleLarge,
+        { color: theme.textPrimary, fontFamily: theme.fontSansBold },
+      ]}>
+        {step.title}
+      </Text>
+      <Text style={[
+        styles.stepDescription,
+        { color: theme.textSecondary, fontFamily: theme.fontSans },
+      ]}>
+        {step.description}
+      </Text>
+    </GlassCard>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
     paddingVertical: 60,
     paddingHorizontal: 20,
   },
@@ -138,113 +195,103 @@ const styles = StyleSheet.create({
   // Header
   header: {
     alignItems: 'center',
-    marginBottom: 50,
+    marginBottom: 48,
+  },
+  eyebrow: {
+    fontSize: 12,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 12,
   },
   title: {
     fontSize: 32,
-    fontWeight: '800',
-    color: heraLanding.textPrimary,
     textAlign: 'center',
     marginBottom: 12,
+    letterSpacing: -0.5,
   },
   titleDesktop: {
-    fontSize: 40,
+    fontSize: 44,
+    letterSpacing: -1,
   },
   subtitle: {
     fontSize: 17,
-    color: heraLanding.textSecondary,
     textAlign: 'center',
   },
 
-  // Steps
-  stepsContainer: {
-    gap: 24,
-  },
-  stepsContainerDesktop: {
+  // Bento grid
+  bentoGrid: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    gap: 0,
+    gap: 16,
+    alignItems: 'stretch',
   },
-  stepsContainerTablet: {
+  bentoLarge: {
+    flex: 2,
+  },
+  bentoSmallCol: {
+    flex: 1,
+    gap: 16,
+  },
+
+  // Column grid (mobile/tablet)
+  columnGrid: {
+    gap: 16,
+  },
+  tabletGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 20,
   },
 
-  stepWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
+  // Step card
   stepCard: {
-    backgroundColor: heraLanding.background,
-    borderRadius: 20,
     padding: 28,
-    alignItems: 'center',
     position: 'relative',
-    ...shadows.md,
+    overflow: 'hidden',
+    minHeight: 200,
   },
-  stepCardDesktop: {
-    width: 320,
-    padding: 32,
+  stepCardLarge: {
+    minHeight: 280,
+    padding: 36,
   },
 
-  // Number Badge
-  numberBadge: {
+  // Ghost number
+  ghostNumber: {
     position: 'absolute',
-    top: -12,
-    left: 24,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.sm,
+    bottom: -10,
+    right: 16,
+    fontSize: 100,
+    opacity: 0.06,
+    lineHeight: 110,
   },
-  numberText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
+  ghostNumberLarge: {
+    fontSize: 140,
+    lineHeight: 150,
   },
 
   // Icon
-  iconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+  iconWrapper: {
     marginBottom: 20,
   },
+  iconGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
-  // Content
+  // Text
   stepTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-    marginBottom: 10,
-    textAlign: 'center',
+    fontSize: 18,
+    marginBottom: 8,
+    lineHeight: 24,
+  },
+  stepTitleLarge: {
+    fontSize: 22,
+    lineHeight: 28,
   },
   stepDescription: {
     fontSize: 15,
-    color: heraLanding.textSecondary,
     lineHeight: 22,
-    textAlign: 'center',
-    maxWidth: 260,
-  },
-
-  // Arrow connector
-  arrowConnector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  arrowLine: {
-    width: 40,
-    height: 2,
-    backgroundColor: heraLanding.border,
-    marginRight: -8,
   },
 });
