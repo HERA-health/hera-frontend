@@ -3,7 +3,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { Platform, Pressable, StyleProp, ViewStyle } from 'react-native';
+import { Insets, Platform, Pressable, StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -19,6 +19,7 @@ interface AnimatedPressableProps {
   pressScale?: number;
   hoverTranslateY?: number;
   disabled?: boolean;
+  hitSlop?: Insets;
   accessibilityLabel?: string;
   accessibilityRole?: 'button' | 'link' | 'none';
 }
@@ -34,6 +35,7 @@ export function AnimatedPressable({
   pressScale = 0.97,
   hoverTranslateY = -3,
   disabled = false,
+  hitSlop,
   accessibilityLabel,
   accessibilityRole = 'button',
 }: AnimatedPressableProps) {
@@ -74,6 +76,7 @@ export function AnimatedPressable({
       onHoverIn={handleHoverIn}
       onHoverOut={handleHoverOut}
       disabled={disabled}
+      hitSlop={hitSlop}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityRole}
       style={[style, animStyle]}

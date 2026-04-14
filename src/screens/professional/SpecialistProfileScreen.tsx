@@ -1984,7 +1984,7 @@ export function SpecialistProfileScreen() {
                 size="small"
                 onPress={() => {}}
                 icon={<Ionicons name="add" size={18} color={palette.textOnCard} />}
-                style={{ ...styles.uploadButton }}
+                style={styles.uploadButton}
                 textStyle={{ ...styles.uploadButtonText }}
               >
                 Subir documento
@@ -2485,11 +2485,10 @@ export function SpecialistProfileScreen() {
     <View style={[styles.saveButtonContainer, isDesktop && styles.saveButtonContainerDesktop]}>
       <Button
         variant="primary"
-        size="large"
+        size="medium"
         onPress={handleSave}
         disabled={!hasChanges || isSaving}
         loading={isSaving}
-        fullWidth
         style={{ ...styles.saveButton, ...(!hasChanges ? styles.saveButtonDisabled : {}) }}
         textStyle={{ ...styles.saveButtonText, ...(!hasChanges ? styles.saveButtonTextDisabled : {}) }}
         icon={<Ionicons name="checkmark-circle-outline" size={20} color={hasChanges ? palette.textOnCard : palette.textMuted} />}
@@ -3387,13 +3386,8 @@ function createStyles(
     marginBottom: spacing.md,
   },
   uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: palette.primary,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
+    alignSelf: 'center',
+    minWidth: 190,
   },
   uploadButtonText: {
     fontSize: 14,
@@ -3607,24 +3601,21 @@ function createStyles(
     backgroundColor: palette.cardBg,
     borderTopWidth: 1,
     borderTopColor: palette.border,
+    alignItems: 'center',
     ...shadows.lg,
   },
   saveButtonContainerDesktop: {
     right: 380, // Account for preview sidebar
   },
   saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.primary,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
-    ...shadows.md,
+    width: '100%',
+    maxWidth: 320,
+    alignSelf: 'center',
   },
   saveButtonDisabled: {
-    backgroundColor: palette.border,
-    ...shadows.none,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   saveButtonText: {
     fontSize: 16,

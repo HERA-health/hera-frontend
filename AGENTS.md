@@ -1,37 +1,48 @@
-# HERA Backend: Agent Guidelines & Architecture (April 2026)
+# HERA Frontend: Agent Guidelines & UI Architecture (April 2026)
 
-## 1. API Logic Flow & Architecture
-Strict adherence to the following request flow:
-`src/index.ts` → `routes/` → `controllers/` (Zod Validation) → `src/services/` (Business Logic) → Prisma (Data Access).
+## 1. Frontend Mission
+The frontend must feel premium, calm, trustworthy and easy to evolve. We optimize for clean architecture, visual consistency and honest product behavior.
 
-### Core Rules:
-- **Thin Controllers**: Controllers ONLY handle req/res and Zod parsing. 100% of business logic MUST reside in `src/services/`.
-- **SOLID Implementation**: Every service must have a single responsibility (e.g., `matchingService.ts` for algorithms, `billingService.ts` for tax logic).
-- **Singleton Prisma**: Use ONLY the client from `src/utils/prisma.ts`. Never re-instantiate.
+## 2. Frontend Architecture Rules
+- **Screen as Container**: Screens orchestrate data loading, navigation and high-level state.
+- **UI in Components**: Reusable visual sections belong in `src/components/` or local feature subcomponents, not inline in giant screens.
+- **Services Own API Access**: Screens and components should call domain services in `src/services/`, not raw API clients directly.
+- **Single Responsibility**: Keep render logic, mapping logic and side effects separated whenever practical.
+- **Strict TypeScript**: No `any`, no `@ts-ignore`, no untyped navigation payloads.
 
-## 2. Data Protection & Clinical Compliance (GDPR/LOPDGDD)
-HERA is a mental health platform. Compliance is the highest priority.
-- **Highly Sensitive Data**: Treat all patient notes, specialist profiles, and clinical sessions as sensitive under EU GDPR and Spanish LOPDGDD.
-- **PII Protection**: Ensure API responses never leak sensitive fields. Use Zod to explicitly filter output.
-- **Audit Logging**: Every access to clinical records must be logged via Pino with the corresponding `userId`.
-- **Anonymization**: Any data used for matching or analytics must be strictly anonymized at the service level.
+## 3. Design System Standards
+- **Theme First**: Use shared theme tokens as the source of truth for colors, spacing and typography.
+- **Dark Mode Mandatory**: Every touched screen and component must render correctly in both light and dark mode.
+- **Shared Primitives First**: Use shared primitives such as `Button`, `AnimatedPressable`, dropdowns, cards and loaders before building custom one-offs.
+- **No New Legacy Styling**: Do not introduce new usage of `heraLanding`, hardcoded color systems or ad hoc visual tokens.
+- **Professional Aesthetic**: Large surfaces should stay neutral and calm. Brand colors should appear as accents, not neon-heavy backgrounds.
+- **Responsive by Default**: Preserve affordance, scroll visibility and hierarchy across desktop, tablet and mobile.
 
-## 3. Database & Type Safety
-- **Prisma First**: Always read `prisma/schema.prisma` before proposing changes to controllers or services.
-- **Zero-Trust Validation**: Every incoming request must be validated against a Zod schema before hitting the service layer.
+## 4. Visual & UX Expectations
+- **Primary/Secondary CTA Discipline**: CTA hierarchy must stay consistent across screens.
+- **Visible Scroll Affordance**: If desktop content scrolls, the UI should make that discoverable.
+- **Honest Status Design**: Empty states, beta states and loading states must reflect real product behavior.
+- **Loading Quality**: Global and local loaders must match the active theme and the premium HERA visual language.
 
-## 4. Operational Commands
-- **Development**: `npm run dev` (starts nodemon + ts-node).
-- **DB Tools**: `npm run prisma:migrate` (migrations), `npm run prisma:studio` (GUI).
+## 5. Quality & Maintainability
+- **Incremental Refactors**: When touching legacy hotspots, reduce responsibility and coupling rather than adding more logic to the same file.
+- **No Fake Operative Flows**: Demo or beta experiences must be labeled clearly and must not imitate a real live service if one does not exist.
+- **Rebrand Readiness**: Touched code should move toward centralized style control through the shared theme.
+- **Typecheck Before Close-Out**: Run `npx tsc --noEmit --pretty false` before finishing substantial frontend changes.
+- **Smoke Tests for Core Flows**: Add or update smoke tests when touching shared primitives, onboarding, questionnaire, sessions, profile or other critical flows.
 
-## 5. Error Handling & Logging
-- **Pino Logger**: Use structured logging for all significant events.
-- **Error Wrapping**: Always wrap errors in the `safeError` utility to prevent leaking sensitive info.
+## 6. Operational Commands
+- **Development**: `npm start`
+- **Web**: `npm run web`
+- **Typecheck**: `npx tsc --noEmit --pretty false`
+- **Tests**: `npm test`
 
-## 6. Feature Context
-- **Billing**: Handle Spanish IRPF/VAT rules. Sequential ID format: `{prefix}-{year}-{padded3digits}`.
-- **Integrations**: Daily.co (video), Discord (internal alerts), Cloudinary (PDF storage).
+## 7. Safety & Privacy
+- **Sensitive Context**: Never expose unnecessary patient or specialist data in UI, logs or helper text.
+- **Minimal Data Rendering**: Render only the information required for the current screen or action.
+- **Respect Existing Navigation Context**: Do not break sidebars, back navigation or escape routes when modernizing screens.
 
-## 7. Coding Style & Commits
-- **TypeScript**: Strict mode. No `any`.
-- **Git Safety**: Agent is PROHIBITED from executing 'git push' or 'git commit' without explicit user authorization.
+## 8. Release Bar
+- **Production-Looking Means Production-Honest**: If a feature is demo-only, the UI must say so.
+- **No Silent Regressions**: Preserve existing working behavior unless the change is intentional and user-visible.
+- **Definition of Done**: Visual consistency, dark mode correctness, typecheck pass and no new architectural shortcuts.

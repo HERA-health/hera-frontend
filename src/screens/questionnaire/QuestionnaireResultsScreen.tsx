@@ -1,229 +1,253 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   useWindowDimensions,
   Animated,
   Platform,
   Image,
 } from 'react-native';
-import { heraLanding, spacing, borderRadius } from '../../constants/colors';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { MatchResult } from '../../utils/matchingAlgorithm';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { spacing, borderRadius } from '../../constants/colors';
+import type { RootStackParamList } from '../../constants/types';
+import { useTheme } from '../../contexts/ThemeContext';
+import type { Theme } from '../../constants/theme';
+import { Button, AnimatedPressable, Card } from '../../components/common';
+import type { MatchResult } from '../../utils/matchingAlgorithm';
+
+type QuestionnaireResultsNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type QuestionnaireResultsRouteProp = RouteProp<RootStackParamList, 'QuestionnaireResults'>;
+
+const getResultsPalette = (theme: Theme, isDark: boolean) => ({
+  accent: theme.primary,
+  accentStrong: theme.primaryDark,
+  accentSoft: theme.primaryLight,
+  secondary: theme.secondary,
+  success: theme.success,
+  successBg: theme.successBg,
+  warning: theme.warning,
+  warningBg: theme.warningBg,
+  bg: theme.bg,
+  cardBg: theme.bgCard,
+  surface: isDark ? theme.bgElevated : theme.bgMuted,
+  text: theme.textPrimary,
+  textSecondary: theme.textSecondary,
+  textMuted: theme.textMuted,
+  border: theme.border,
+  borderLight: theme.borderLight,
+});
+
+type ResultsPalette = ReturnType<typeof getResultsPalette>;
+
 export function QuestionnaireResultsScreen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
+  const navigation = useNavigation<QuestionnaireResultsNavigationProp>();
+  const route = useRoute<QuestionnaireResultsRouteProp>();
   const { width } = useWindowDimensions();
-  const results: MatchResult[] = route.params?.results || [];
+  const { theme, isDark } = useTheme();
+  const palette = useMemo(() => getResultsPalette(theme, isDark), [theme, isDark]);
+  const styles = useMemo(() => createStyles(theme, isDark, palette), [theme, isDark, palette]);
 
-  const isDesktop = width >= 1024;
-  const isTablet = width >= 768 && width < 1024;
-  const isMobile = width < 768;
+  const results = (route.params?.results || []) as MatchResult[];
+  const isDesktop = width >= 1100;
+  const isTablet = width >= 768 && width < 1100;
+  const topMatch = results[0];
+  const otherMatches = results.slice(1, 7);
 
-  // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const slideAnim = useRef(new Animated.Value(24)).current;
   const cardAnimations = useRef(results.map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
-    // Entrance animations
     Animated.sequence([
-      // Header animation
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 500,
+          duration: 420,
           useNativeDriver: true,
         }),
         Animated.timing(slideAnim, {
           toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 6,
-          tension: 100,
+          duration: 420,
           useNativeDriver: true,
         }),
       ]),
-      // Staggered card animations
       Animated.stagger(
-        100,
+        80,
         cardAnimations.map((anim) =>
           Animated.timing(anim, {
             toValue: 1,
-            duration: 400,
+            duration: 320,
             useNativeDriver: true,
           })
         )
       ),
     ]).start();
-  }, []);
+  }, [cardAnimations, fadeAnim, slideAnim]);
 
-  const topMatch = results[0];
-  const otherMatches = results.slice(1, 6); // Show up to 5 more
-
-  // Calculate grid columns
-  const gridColumns = isDesktop ? 3 : isTablet ? 2 : 1;
-
-  // Empty state
-  if (!results || results.length === 0) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.emptyContainer}>
-          <View style={styles.emptyIconContainer}>
-            <Ionicons name="search-outline" size={64} color={heraLanding.textMuted} />
-          </View>
-          <Text style={styles.emptyTitle}>No encontramos matches exactos</Text>
-          <Text style={styles.emptyDescription}>
-            Pero tenemos especialistas que pueden ayudarte.
-          </Text>
-          <View style={styles.emptyActions}>
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={() => navigation.navigate('Specialists')}
-            >
-              <Text style={styles.primaryButtonText}>Ver todos los especialistas</Text>
-              <Ionicons name="arrow-forward" size={18} color={heraLanding.cardBackground} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.outlineButton}
-              onPress={() => navigation.navigate('Questionnaire')}
-            >
-              <Ionicons name="refresh" size={18} color={heraLanding.primary} />
-              <Text style={styles.outlineButtonText}>Ajustar preferencias</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  // Render match percentage badge
-  const renderMatchBadge = (percentage: number, size: 'large' | 'small' = 'small') => (
-    <View style={[styles.matchBadge, size === 'large' && styles.matchBadgeLarge]}>
+  const renderMatchBadge = (percentage: number, prominent = false) => (
+    <View style={[styles.matchBadge, prominent ? styles.matchBadgeProminent : null]}>
       <Ionicons
         name="checkmark-circle"
-        size={size === 'large' ? 20 : 16}
-        color={heraLanding.success}
+        size={prominent ? 18 : 16}
+        color={palette.success}
       />
-      <Text style={[styles.matchBadgeText, size === 'large' && styles.matchBadgeTextLarge]}>
+      <Text style={[styles.matchBadgeText, prominent ? styles.matchBadgeTextProminent : null]}>
         {percentage}% match
       </Text>
     </View>
   );
 
-  // Render specialist card
-  const renderSpecialistCard = (
-    result: MatchResult,
-    index: number,
-    isTopMatch: boolean = false
-  ) => {
+  const renderMatchCard = (result: MatchResult, index: number, isTop = false) => {
     const { specialist, affinityScore, matchedAttributes } = result;
-    const percentage = specialist.affinityPercentage || Math.round((affinityScore / 130) * 100);
+    const percentage =
+      specialist.affinityPercentage || Math.round((affinityScore / 130) * 100);
     const animValue = cardAnimations[index] || new Animated.Value(1);
 
     return (
       <Animated.View
         key={specialist.id}
         style={[
-          styles.specialistCard,
-          isTopMatch && styles.topMatchCard,
+          isTop ? styles.topMatchWrapper : styles.matchCardWrapper,
           {
             opacity: animValue,
-            transform: [{
-              translateY: animValue.interpolate({
-                inputRange: [0, 1],
-                outputRange: [20, 0],
-              }),
-            }],
+            transform: [
+              {
+                translateY: animValue.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [18, 0],
+                }),
+              },
+            ],
           },
         ]}
       >
-        {isTopMatch && (
-          <View style={styles.topMatchBanner}>
-            <Ionicons name="trophy" size={16} color={heraLanding.celebration} />
-            <Text style={styles.topMatchBannerText}>Tu Mejor Match</Text>
-          </View>
-        )}
+        <Card style={isTop ? { ...styles.matchCard, ...styles.topMatchCard } : styles.matchCard}>
+          {isTop ? (
+            <View style={styles.topMatchBanner}>
+              <Ionicons name="trophy" size={16} color={palette.warning} />
+              <Text style={styles.topMatchBannerText}>Tu mejor match</Text>
+            </View>
+          ) : null}
 
-        <View style={styles.cardHeader}>
-          <View style={styles.avatarContainer}>
-            {specialist.avatar ? (
-              <Image source={{ uri: specialist.avatar }} style={styles.avatar} />
-            ) : (
-              <LinearGradient
-                colors={[heraLanding.primary, heraLanding.primaryDark]}
-                style={styles.avatar}
-              >
-                <Text style={styles.avatarText}>
-                  {specialist.initial || specialist.name.charAt(0)}
+          <View style={styles.matchHeader}>
+            <View style={styles.avatarStack}>
+              {specialist.avatar ? (
+                <Image source={{ uri: specialist.avatar }} style={styles.avatar} />
+              ) : (
+                <LinearGradient
+                  colors={[palette.accent, palette.secondary]}
+                  style={styles.avatar}
+                >
+                  <Text style={styles.avatarText}>
+                    {specialist.initial || specialist.name.charAt(0)}
+                  </Text>
+                </LinearGradient>
+              )}
+              {specialist.firstVisitFree ? (
+                <View style={styles.freeBadge}>
+                  <Text style={styles.freeBadgeText}>Gratis</Text>
+                </View>
+              ) : null}
+            </View>
+
+            <View style={styles.matchHeaderInfo}>
+              <Text style={styles.specialistName} numberOfLines={1}>
+                {specialist.name}
+              </Text>
+              <Text style={styles.specialistSpecialization} numberOfLines={2}>
+                {specialist.specialization}
+              </Text>
+              <View style={styles.ratingRow}>
+                <Ionicons name="star" size={14} color={palette.warning} />
+                <Text style={styles.ratingText}>
+                  {specialist.rating} ({specialist.reviewCount})
                 </Text>
-              </LinearGradient>
-            )}
-            {specialist.firstVisitFree && (
-              <View style={styles.freeBadge}>
-                <Text style={styles.freeBadgeText}>Gratis</Text>
               </View>
-            )}
+            </View>
+
+            {renderMatchBadge(percentage, isTop)}
           </View>
 
-          <View style={styles.cardInfo}>
-            <Text style={styles.specialistName} numberOfLines={1}>
-              {specialist.name}
-            </Text>
-            <Text style={styles.specialistSpecialization} numberOfLines={1}>
-              {specialist.specialization}
-            </Text>
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={14} color={heraLanding.starRating} />
-              <Text style={styles.ratingText}>
-                {specialist.rating} ({specialist.reviewCount})
+          {matchedAttributes.length > 0 ? (
+            <View style={styles.reasonsPanel}>
+              <Text style={styles.reasonsTitle}>Por qué encaja contigo</Text>
+              <View style={styles.reasonsList}>
+                {matchedAttributes.slice(0, isTop ? 4 : 3).map((attribute) => (
+                  <View key={attribute} style={styles.reasonItem}>
+                    <Ionicons name="checkmark" size={14} color={palette.success} />
+                    <Text style={styles.reasonText}>{attribute}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          <View style={styles.matchFooter}>
+            <View>
+              <Text style={styles.priceValue}>{specialist.pricePerSession}€/sesión</Text>
+              <Text style={styles.priceHint}>
+                {specialist.firstVisitFree ? 'Con primera visita gratuita' : 'Tarifa por sesión'}
               </Text>
             </View>
+
+            <Button
+              onPress={() =>
+                navigation.navigate('SpecialistDetail', { specialistId: specialist.id })
+              }
+              size="medium"
+              icon={<Ionicons name="arrow-forward" size={16} color="#FFFFFF" />}
+              iconPosition="right"
+            >
+              Ver perfil
+            </Button>
           </View>
-
-          {renderMatchBadge(percentage, isTopMatch ? 'large' : 'small')}
-        </View>
-
-        {/* Match reasons */}
-        {matchedAttributes && matchedAttributes.length > 0 && (
-          <View style={styles.matchReasons}>
-            <Text style={styles.matchReasonsTitle}>Por que es buen match:</Text>
-            <View style={styles.matchReasonsList}>
-              {matchedAttributes.slice(0, 3).map((attr, idx) => (
-                <View key={idx} style={styles.matchReason}>
-                  <Ionicons name="checkmark" size={14} color={heraLanding.success} />
-                  <Text style={styles.matchReasonText}>{attr}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        <View style={styles.cardFooter}>
-          <Text style={styles.priceText}>
-            {specialist.pricePerSession}€/sesion
-          </Text>
-          <TouchableOpacity
-            style={styles.viewProfileButton}
-            onPress={() => navigation.navigate('SpecialistDetail', { specialistId: specialist.id })}
-          >
-            <Text style={styles.viewProfileButtonText}>Ver perfil</Text>
-            <Ionicons name="arrow-forward" size={16} color={heraLanding.cardBackground} />
-          </TouchableOpacity>
-        </View>
+        </Card>
       </Animated.View>
     );
   };
+
+  if (results.length === 0) {
+    return (
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.emptyScrollContent} showsVerticalScrollIndicator={false}>
+          <Card style={styles.emptyStateCard}>
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name="search-outline" size={54} color={palette.textMuted} />
+            </View>
+            <Text style={styles.emptyTitle}>No encontramos matches exactos</Text>
+            <Text style={styles.emptyDescription}>
+              Aun así, podemos enseñarte especialistas que pueden ayudarte a empezar.
+            </Text>
+            <View style={styles.emptyActions}>
+              <Button
+                onPress={() => navigation.navigate('Specialists')}
+                size="large"
+                icon={<Ionicons name="arrow-forward" size={18} color="#FFFFFF" />}
+                iconPosition="right"
+              >
+                Ver todos los especialistas
+              </Button>
+              <Button
+                onPress={() => navigation.navigate('Questionnaire')}
+                variant="outline"
+                size="large"
+                icon={<Ionicons name="refresh" size={18} color={palette.accent} />}
+              >
+                Ajustar preferencias
+              </Button>
+            </View>
+          </Card>
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -231,574 +255,555 @@ export function QuestionnaireResultsScreen() {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingHorizontal: isMobile ? spacing.md : spacing.xl }
+          { paddingHorizontal: isDesktop ? spacing.xxxl : spacing.xl },
         ]}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={isDesktop}
       >
-        {/* Success Header */}
         <Animated.View
           style={[
             styles.successHeader,
             {
               opacity: fadeAnim,
-              transform: [
-                { translateY: slideAnim },
-                { scale: scaleAnim },
-              ],
+              transform: [{ translateY: slideAnim }],
             },
           ]}
         >
-          <View style={styles.celebrationIcon}>
+          <View style={styles.celebrationWrap}>
             <Text style={styles.celebrationEmoji}>✨</Text>
           </View>
-          <Text style={[styles.successTitle, { fontSize: isMobile ? 28 : 36 }]}>
-            ¡Listo!
-          </Text>
-          <Text style={[styles.successSubtitle, { fontSize: isMobile ? 16 : 18 }]}>
-            Encontramos {results.length} especialista{results.length > 1 ? 's' : ''} perfecto{results.length > 1 ? 's' : ''} para ti
+          <Text style={styles.successTitle}>Listo, ya tenemos tus mejores matches</Text>
+          <Text style={styles.successSubtitle}>
+            Encontramos {results.length} especialista{results.length > 1 ? 's' : ''} con buena afinidad
+            para tu momento y tus preferencias.
           </Text>
         </Animated.View>
 
-        {/* Match Summary Card */}
-        <Animated.View
-          style={[
-            styles.summaryCard,
-            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-          ]}
-        >
+        <Card style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
-            <Ionicons name="clipboard-outline" size={20} color={heraLanding.primary} />
-            <Text style={styles.summaryTitle}>Basado en tus preferencias</Text>
+            <View style={styles.summaryIconWrap}>
+              <Ionicons name="clipboard-outline" size={20} color={palette.accent} />
+            </View>
+            <View style={styles.summaryHeaderText}>
+              <Text style={styles.summaryTitle}>Basado en tus preferencias</Text>
+              <Text style={styles.summaryDescription}>
+                Analizamos tus respuestas para priorizar especialidad, estilo terapéutico, disponibilidad y afinidad personal.
+              </Text>
+            </View>
           </View>
-          <Text style={styles.summaryDescription}>
-            Hemos analizado tus respuestas y encontrado especialistas que coinciden con lo que buscas.
-          </Text>
-          <TouchableOpacity
-            style={styles.editPreferencesLink}
+
+          <AnimatedPressable
             onPress={() => navigation.navigate('Questionnaire')}
+            style={styles.summaryLink}
           >
-            <Text style={styles.editPreferencesText}>Editar preferencias</Text>
-            <Ionicons name="chevron-forward" size={16} color={heraLanding.primary} />
-          </TouchableOpacity>
-        </Animated.View>
+            <Text style={styles.summaryLinkText}>Editar preferencias</Text>
+            <Ionicons name="chevron-forward" size={16} color={palette.accent} />
+          </AnimatedPressable>
+        </Card>
 
-        {/* Top Match */}
-        {topMatch && (
-          <View style={styles.section}>
-            {renderSpecialistCard(topMatch, 0, true)}
-          </View>
-        )}
+        {topMatch ? <View style={styles.section}>{renderMatchCard(topMatch, 0, true)}</View> : null}
 
-        {/* Other Matches */}
-        {otherMatches.length > 0 && (
+        {otherMatches.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Otros especialistas recomendados</Text>
-            <View style={[
-              styles.matchesGrid,
-              gridColumns === 1 && styles.matchesGridSingle,
-            ]}>
+            <View style={styles.sectionHeading}>
+              <Text style={styles.sectionTitle}>Otros especialistas recomendados</Text>
+              <Text style={styles.sectionMeta}>{otherMatches.length} alternativas más</Text>
+            </View>
+
+            <View
+              style={[
+                styles.matchesGrid,
+                isDesktop ? styles.matchesGridDesktop : null,
+                isTablet ? styles.matchesGridTablet : null,
+              ]}
+            >
               {otherMatches.map((result, idx) => (
                 <View
                   key={result.specialist.id}
                   style={[
                     styles.gridItem,
-                    gridColumns > 1 && { width: `${100 / gridColumns - 2}%` },
+                    isDesktop ? styles.gridItemDesktop : null,
+                    isTablet ? styles.gridItemTablet : null,
                   ]}
                 >
-                  {renderSpecialistCard(result, idx + 1)}
+                  {renderMatchCard(result, idx + 1)}
                 </View>
               ))}
             </View>
           </View>
-        )}
+        ) : null}
 
-        {/* More Options */}
-        <View style={styles.moreOptionsSection}>
-          <Text style={styles.moreOptionsTitle}>¿Quieres ver mas opciones?</Text>
-          <TouchableOpacity
-            style={styles.viewAllButton}
+        <Card style={styles.moreOptionsCard}>
+          <View style={styles.moreOptionsText}>
+            <Text style={styles.moreOptionsTitle}>¿Quieres ver más opciones?</Text>
+            <Text style={styles.moreOptionsDescription}>
+              También puedes explorar el listado completo y comparar otros perfiles por tu cuenta.
+            </Text>
+          </View>
+          <Button
             onPress={() => navigation.navigate('Specialists')}
+            variant="outline"
+            size="medium"
+            icon={<Ionicons name="arrow-forward" size={16} color={palette.accent} />}
+            iconPosition="right"
           >
-            <Text style={styles.viewAllButtonText}>Ver todos los especialistas</Text>
-            <Ionicons name="arrow-forward" size={18} color={heraLanding.primary} />
-          </TouchableOpacity>
-        </View>
+            Ver todos
+          </Button>
+        </Card>
 
-        {/* Retake Questionnaire */}
-        <View style={styles.retakeSection}>
-          <View style={styles.retakeContent}>
-            <Ionicons name="refresh-outline" size={24} color={heraLanding.textSecondary} />
-            <View style={styles.retakeTextContainer}>
+        <Card style={styles.retakeCard}>
+          <View style={styles.retakeTextBlock}>
+            <Ionicons name="refresh-outline" size={22} color={palette.textSecondary} />
+            <View style={styles.retakeCopy}>
               <Text style={styles.retakeTitle}>¿Cambiaron tus necesidades?</Text>
               <Text style={styles.retakeDescription}>
-                Puedes actualizar tus preferencias en cualquier momento
+                Puedes actualizar tus respuestas en cualquier momento para refinar tus recomendaciones.
               </Text>
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.retakeButton}
+          <Button
             onPress={() => navigation.navigate('Questionnaire')}
+            variant="secondary"
+            size="medium"
+            icon={<Ionicons name="create-outline" size={16} color={theme.secondaryDark} />}
           >
-            <Ionicons name="create-outline" size={18} color={heraLanding.primary} />
-            <Text style={styles.retakeButtonText}>Actualizar cuestionario</Text>
-          </TouchableOpacity>
-        </View>
+            Actualizar cuestionario
+          </Button>
+        </Card>
 
-        {/* Bottom Actions */}
         <View style={styles.bottomActions}>
-          <TouchableOpacity
-            style={styles.homeButton}
+          <Button
             onPress={() => navigation.navigate('Home')}
+            variant="ghost"
+            size="medium"
+            icon={<Ionicons name="home-outline" size={16} color={palette.accent} />}
           >
-            <Ionicons name="home-outline" size={18} color={heraLanding.textSecondary} />
-            <Text style={styles.homeButtonText}>Volver al inicio</Text>
-          </TouchableOpacity>
+            Volver al inicio
+          </Button>
         </View>
-
-        {/* Bottom spacing */}
-        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: heraLanding.background, // #F5F7F5 Light Sage - CRITICAL
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxxl,
-    maxWidth: 1000,
-    alignSelf: 'center',
-    width: '100%',
-  },
-
-  // Success Header
-  successHeader: {
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-    paddingVertical: spacing.xl,
-  },
-  celebrationIcon: {
-    marginBottom: spacing.md,
-  },
-  celebrationEmoji: {
-    fontSize: 64,
-  },
-  successTitle: {
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  successSubtitle: {
-    color: heraLanding.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-
-  // Summary Card
-  summaryCard: {
-    backgroundColor: heraLanding.cardBg,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    marginBottom: spacing.xl,
-    borderLeftWidth: 4,
-    borderLeftColor: heraLanding.primary,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-      },
-      android: { elevation: 3 },
-    }),
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-  },
-  summaryDescription: {
-    fontSize: 14,
-    color: heraLanding.textSecondary,
-    lineHeight: 22,
-    marginBottom: spacing.md,
-  },
-  editPreferencesLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  editPreferencesText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: heraLanding.primary,
-  },
-
-  // Section
-  section: {
-    marginBottom: spacing.xl,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-    marginBottom: spacing.lg,
-  },
-
-  // Matches Grid
-  matchesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  matchesGridSingle: {
-    flexDirection: 'column',
-  },
-  gridItem: {
-    marginBottom: spacing.md,
-  },
-
-  // Specialist Card
-  specialistCard: {
-    backgroundColor: heraLanding.cardBg,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-      },
-      android: { elevation: 3 },
-    }),
-  },
-  topMatchCard: {
-    borderWidth: 2,
-    borderColor: heraLanding.success,
-  },
-  topMatchBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: heraLanding.goldMuted,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    alignSelf: 'flex-start',
-    marginBottom: spacing.md,
-  },
-  topMatchBannerText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: heraLanding.goldDark,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    marginBottom: spacing.md,
-  },
-  avatarContainer: {
-    position: 'relative',
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: heraLanding.cardBackground,
-  },
-  freeBadge: {
-    position: 'absolute',
-    bottom: -4,
-    right: -4,
-    backgroundColor: heraLanding.success,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: heraLanding.cardBackground,
-  },
-  freeBadgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: heraLanding.cardBackground,
-  },
-  cardInfo: {
-    flex: 1,
-  },
-  specialistName: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-    marginBottom: 2,
-  },
-  specialistSpecialization: {
-    fontSize: 14,
-    color: heraLanding.textSecondary,
-    marginBottom: 4,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  ratingText: {
-    fontSize: 13,
-    color: heraLanding.textSecondary,
-  },
-  matchBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: heraLanding.successBg,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 20,
-  },
-  matchBadgeLarge: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  matchBadgeText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: heraLanding.success,
-  },
-  matchBadgeTextLarge: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  matchReasons: {
-    backgroundColor: heraLanding.background,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.md,
-  },
-  matchReasonsTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: heraLanding.textMuted,
-    marginBottom: spacing.sm,
-  },
-  matchReasonsList: {
-    gap: spacing.xs,
-  },
-  matchReason: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  matchReasonText: {
-    fontSize: 14,
-    color: heraLanding.textPrimary,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  priceText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: heraLanding.primary,
-  },
-  viewProfileButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: heraLanding.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-  },
-  viewProfileButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: heraLanding.cardBackground,
-  },
-
-  // More Options
-  moreOptionsSection: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-    borderTopWidth: 1,
-    borderTopColor: heraLanding.borderLight,
-    marginBottom: spacing.lg,
-  },
-  moreOptionsTitle: {
-    fontSize: 16,
-    color: heraLanding.textSecondary,
-    marginBottom: spacing.md,
-  },
-  viewAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 2,
-    borderColor: heraLanding.primary,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-  },
-  viewAllButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: heraLanding.primary,
-  },
-
-  // Retake Section
-  retakeSection: {
-    backgroundColor: heraLanding.cardBg,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.xl,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-      },
-      android: { elevation: 3 },
-    }),
-  },
-  retakeContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  retakeTextContainer: {
-    flex: 1,
-  },
-  retakeTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  retakeDescription: {
-    fontSize: 14,
-    color: heraLanding.textSecondary,
-    lineHeight: 20,
-  },
-  retakeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    borderWidth: 2,
-    borderColor: heraLanding.primary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.md,
-  },
-  retakeButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: heraLanding.primary,
-  },
-
-  // Bottom Actions
-  bottomActions: {
-    alignItems: 'center',
-  },
-  homeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-  },
-  homeButtonText: {
-    fontSize: 15,
-    color: heraLanding.textSecondary,
-  },
-
-  // Empty State
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  emptyIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: heraLanding.borderLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-  },
-  emptyTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  emptyDescription: {
-    fontSize: 16,
-    color: heraLanding.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  emptyActions: {
-    gap: spacing.md,
-    width: '100%',
-    maxWidth: 300,
-  },
-  primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: heraLanding.primary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.md,
-  },
-  primaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: heraLanding.cardBackground,
-  },
-  outlineButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    borderWidth: 2,
-    borderColor: heraLanding.primary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.md,
-  },
-  outlineButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: heraLanding.primary,
-  },
-});
+const createStyles = (theme: Theme, isDark: boolean, palette: ResultsPalette) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: palette.bg,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingTop: spacing.xxl,
+      paddingBottom: spacing.xxxl,
+      maxWidth: 1160,
+      alignSelf: 'center',
+      width: '100%',
+    },
+    emptyScrollContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.xxl,
+    },
+    successHeader: {
+      alignItems: 'center',
+      marginBottom: spacing.xxl,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.lg,
+    },
+    celebrationWrap: {
+      marginBottom: spacing.md,
+    },
+    celebrationEmoji: {
+      fontSize: 58,
+    },
+    successTitle: {
+      fontSize: 38,
+      fontWeight: '800',
+      color: palette.text,
+      textAlign: 'center',
+      marginBottom: spacing.sm,
+      lineHeight: 44,
+      maxWidth: 760,
+    },
+    successSubtitle: {
+      fontSize: 18,
+      color: palette.textSecondary,
+      textAlign: 'center',
+      lineHeight: 28,
+      maxWidth: 720,
+    },
+    summaryCard: {
+      backgroundColor: palette.cardBg,
+      borderRadius: borderRadius.xl,
+      padding: spacing.xl,
+      marginBottom: spacing.xxl,
+      borderWidth: 1,
+      borderColor: palette.border,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 5 },
+          shadowOpacity: isDark ? 0.2 : 0.06,
+          shadowRadius: 18,
+        },
+        android: { elevation: 4 },
+        web: {
+          boxShadow: isDark
+            ? '0 14px 28px rgba(0,0,0,0.24)'
+            : '0 10px 24px rgba(26,36,26,0.08)',
+        },
+      }),
+    },
+    summaryHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.md,
+      marginBottom: spacing.md,
+    },
+    summaryIconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: palette.accentSoft,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    summaryHeaderText: {
+      flex: 1,
+    },
+    summaryTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: palette.text,
+      marginBottom: spacing.xs,
+    },
+    summaryDescription: {
+      fontSize: 15,
+      color: palette.textSecondary,
+      lineHeight: 24,
+    },
+    summaryLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      alignSelf: 'flex-start',
+    },
+    summaryLinkText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: palette.accent,
+    },
+    section: {
+      marginBottom: spacing.xxl,
+    },
+    sectionHeading: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginBottom: spacing.lg,
+      flexWrap: 'wrap',
+    },
+    sectionTitle: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: palette.text,
+    },
+    sectionMeta: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: palette.textMuted,
+    },
+    topMatchWrapper: {
+      width: '100%',
+    },
+    matchCardWrapper: {
+      width: '100%',
+    },
+    matchesGrid: {
+      gap: spacing.md,
+    },
+    matchesGridDesktop: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    matchesGridTablet: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    gridItem: {
+      width: '100%',
+    },
+    gridItemDesktop: {
+      width: '49%',
+    },
+    gridItemTablet: {
+      width: '48%',
+    },
+    matchCard: {
+      backgroundColor: palette.cardBg,
+      borderRadius: borderRadius.xl,
+      padding: spacing.xl,
+      borderWidth: 1,
+      borderColor: palette.border,
+    },
+    topMatchCard: {
+      borderColor: palette.success,
+      borderWidth: 1.5,
+    },
+    topMatchBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      backgroundColor: palette.warningBg,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.md,
+      alignSelf: 'flex-start',
+      marginBottom: spacing.md,
+    },
+    topMatchBannerText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: palette.warning,
+    },
+    matchHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.md,
+      marginBottom: spacing.lg,
+    },
+    avatarStack: {
+      position: 'relative',
+    },
+    avatar: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    avatarText: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    freeBadge: {
+      position: 'absolute',
+      bottom: -4,
+      right: -4,
+      backgroundColor: palette.success,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      borderWidth: 2,
+      borderColor: palette.cardBg,
+    },
+    freeBadgeText: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: '#FFFFFF',
+    },
+    matchHeaderInfo: {
+      flex: 1,
+      minWidth: 0,
+    },
+    specialistName: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: palette.text,
+      marginBottom: 4,
+    },
+    specialistSpecialization: {
+      fontSize: 16,
+      color: palette.textSecondary,
+      marginBottom: spacing.xs,
+    },
+    ratingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    ratingText: {
+      fontSize: 14,
+      color: palette.textSecondary,
+      fontWeight: '600',
+    },
+    matchBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: 999,
+      backgroundColor: palette.successBg,
+      alignSelf: 'flex-start',
+    },
+    matchBadgeProminent: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+    },
+    matchBadgeText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: palette.success,
+    },
+    matchBadgeTextProminent: {
+      fontSize: 16,
+    },
+    reasonsPanel: {
+      padding: spacing.lg,
+      borderRadius: borderRadius.lg,
+      backgroundColor: palette.surface,
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+      marginBottom: spacing.lg,
+    },
+    reasonsTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: palette.textMuted,
+      marginBottom: spacing.sm,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+    },
+    reasonsList: {
+      gap: spacing.sm,
+    },
+    reasonItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    reasonText: {
+      flex: 1,
+      fontSize: 15,
+      color: palette.text,
+      lineHeight: 22,
+    },
+    matchFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: spacing.md,
+      flexWrap: 'wrap',
+    },
+    priceValue: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: palette.text,
+    },
+    priceHint: {
+      fontSize: 13,
+      color: palette.textSecondary,
+      marginTop: 2,
+    },
+    moreOptionsCard: {
+      backgroundColor: palette.cardBg,
+      borderRadius: borderRadius.xl,
+      padding: spacing.xl,
+      marginBottom: spacing.lg,
+      borderWidth: 1,
+      borderColor: palette.border,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: spacing.lg,
+      flexWrap: 'wrap',
+    },
+    moreOptionsText: {
+      flex: 1,
+      minWidth: 260,
+    },
+    moreOptionsTitle: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: palette.text,
+      marginBottom: spacing.xs,
+    },
+    moreOptionsDescription: {
+      fontSize: 15,
+      color: palette.textSecondary,
+      lineHeight: 24,
+    },
+    retakeCard: {
+      backgroundColor: palette.cardBg,
+      borderRadius: borderRadius.xl,
+      padding: spacing.xl,
+      marginBottom: spacing.xl,
+      borderWidth: 1,
+      borderColor: palette.border,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: spacing.lg,
+      flexWrap: 'wrap',
+    },
+    retakeTextBlock: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.md,
+      flex: 1,
+      minWidth: 260,
+    },
+    retakeCopy: {
+      flex: 1,
+    },
+    retakeTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: palette.text,
+      marginBottom: spacing.xs,
+    },
+    retakeDescription: {
+      fontSize: 15,
+      color: palette.textSecondary,
+      lineHeight: 24,
+    },
+    bottomActions: {
+      alignItems: 'center',
+      marginTop: spacing.md,
+    },
+    emptyStateCard: {
+      width: '100%',
+      maxWidth: 720,
+      padding: spacing.xxxl,
+      borderRadius: borderRadius.xl,
+      borderWidth: 1,
+      borderColor: palette.border,
+      alignItems: 'center',
+      backgroundColor: palette.cardBg,
+    },
+    emptyIconContainer: {
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: palette.surface,
+      marginBottom: spacing.lg,
+    },
+    emptyTitle: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: palette.text,
+      textAlign: 'center',
+      marginBottom: spacing.sm,
+    },
+    emptyDescription: {
+      fontSize: 16,
+      color: palette.textSecondary,
+      textAlign: 'center',
+      lineHeight: 24,
+      marginBottom: spacing.xl,
+      maxWidth: 480,
+    },
+    emptyActions: {
+      gap: spacing.md,
+      width: '100%',
+      maxWidth: 360,
+    },
+  });

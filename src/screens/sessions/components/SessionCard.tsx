@@ -1,43 +1,22 @@
-/**
- * SessionCard Component
- * Premium card design inspired by Apple Calendar, Notion, Stripe
- * Beautiful, informative, delightful to use
- *
- * Design principles:
- * - Clear visual hierarchy
- * - Status at a glance
- * - Generous whitespace
- * - Subtle shadows and depth
- * - HERA color harmony
- */
-
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
+import React, { useMemo } from 'react';
+import { Image, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SessionCardProps } from '../types';
-import { heraLanding, colors, spacing, borderRadius } from '../../../constants/colors';
+
+import { borderRadius, shadows, spacing } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import type { Theme } from '../../../constants/theme';
+import { AnimatedPressable, Button } from '../../../components/common';
+import type { SessionCardProps } from '../types';
+import { formatTime, getDateLabel, getSessionTypeIcon, getSessionTypeLabel, isToday } from '../utils/sessionHelpers';
 import {
-  formatDate,
-  formatTime,
-  getSessionTypeLabel,
-  getSessionTypeIcon,
-  getStatusLabel,
-  getDateLabel,
-  isToday,
-} from '../utils/sessionHelpers';
-import {
-  getVideoCallButtonState,
   getVideoCallButtonLabel,
+  getVideoCallButtonState,
   getVideoCallButtonStyle,
   isVideoCallButtonClickable,
 } from '../../../utils/videoCallUtils';
 
-const { width: screenWidth } = Dimensions.get('window');
-const isDesktop = screenWidth > 1024;
-
 const SessionCard: React.FC<SessionCardProps> = ({
   session,
-  variant = 'detailed',
   onPress,
   onJoinPress,
   onCancelPress,
@@ -45,588 +24,460 @@ const SessionCard: React.FC<SessionCardProps> = ({
   hasReview = false,
   showActions = true,
 }) => {
+  const { width } = useWindowDimensions();
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark, width), [theme, isDark, width]);
+
   const isCompleted = session.status === 'COMPLETED';
   const isCancelled = session.status === 'CANCELLED';
-  const isPending = session.status === 'PENDING';
-  const isConfirmed = session.status === 'CONFIRMED';
   const isVideoCall = session.type === 'VIDEO_CALL';
+  const isTodaySession = isToday(session.date);
   const canShowVideoButton = isVideoCall && !isCompleted && !isCancelled;
 
-  // Beautiful status colors with backgrounds - using theme tokens
-  const getStatusConfig = () => {
+  const statusConfig = (() => {
     switch (session.status) {
       case 'CONFIRMED':
-        return {
-          bg: heraLanding.status.confirmed.bg,
-          color: heraLanding.status.confirmed.text,
-          borderColor: heraLanding.status.confirmed.border,
-          icon: 'checkmark-circle',
-          label: 'Confirmada',
-        };
+        return { ...theme.status.confirmed, icon: 'checkmark-circle' as const, label: 'Confirmada' };
       case 'PENDING':
-        return {
-          bg: heraLanding.status.pending.bg,
-          color: heraLanding.status.pending.text,
-          borderColor: heraLanding.status.pending.border,
-          icon: 'time',
-          label: 'Pendiente',
-        };
+        return { ...theme.status.pending, icon: 'time' as const, label: 'Pendiente' };
       case 'COMPLETED':
-        return {
-          bg: heraLanding.status.completed.bg,
-          color: heraLanding.status.completed.text,
-          borderColor: heraLanding.status.completed.border,
-          icon: 'checkmark-done-circle',
-          label: 'Completada',
-        };
+        return { ...theme.status.completed, icon: 'checkmark-done-circle' as const, label: 'Completada' };
       case 'CANCELLED':
-        return {
-          bg: heraLanding.status.cancelled.bg,
-          color: heraLanding.status.cancelled.text,
-          borderColor: heraLanding.status.cancelled.border,
-          icon: 'close-circle',
-          label: 'Cancelada',
-        };
+        return { ...theme.status.cancelled, icon: 'close-circle' as const, label: 'Cancelada' };
       default:
-        return {
-          bg: heraLanding.background,
-          color: heraLanding.textSecondary,
-          borderColor: heraLanding.border,
-          icon: 'ellipse',
-          label: 'Desconocido',
-        };
+        return { bg: theme.bgMuted, text: theme.textSecondary, border: theme.border, icon: 'ellipse' as const, label: 'Desconocida' };
     }
-  };
+  })();
 
-  const statusConfig = getStatusConfig();
-  const isTodaySession = isToday(session.date);
-
-  const renderVideoCallButton = () => {
-    if (!canShowVideoButton) return null;
-
-    const buttonState = getVideoCallButtonState(session);
-    const { primary, helper, icon } = getVideoCallButtonLabel(buttonState, session);
-    const buttonStyle = getVideoCallButtonStyle(buttonState);
-    const isClickable = isVideoCallButtonClickable(buttonState);
-
-    return (
-      <View style={styles.videoCallSection}>
-        <TouchableOpacity
-          style={[
-            styles.videoCallButton,
-            {
-              backgroundColor: isClickable ? heraLanding.primary : buttonStyle.backgroundColor,
-              borderColor: buttonStyle.borderColor || 'transparent',
-              borderWidth: buttonStyle.borderColor ? 1 : 0,
-            },
-            isClickable && styles.videoCallButtonActive,
-          ]}
-          onPress={() => isClickable && onJoinPress?.()}
-          disabled={!isClickable}
-          activeOpacity={isClickable ? 0.85 : 1}
-        >
-          <View style={styles.videoCallButtonContent}>
-            <Ionicons
-              name={icon as keyof typeof Ionicons.glyphMap}
-              size={20}
-              color={isClickable ? colors.neutral.white : buttonStyle.textColor}
-            />
-            <Text style={[
-              styles.videoCallButtonText,
-              { color: isClickable ? colors.neutral.white : buttonStyle.textColor }
-            ]}>
-              {primary}
-            </Text>
-          </View>
-          {isClickable && (
-            <Ionicons name="arrow-forward" size={18} color={colors.neutral.white} />
-          )}
-        </TouchableOpacity>
-        {helper && (
-          <View style={styles.helperContainer}>
-            <Ionicons name="information-circle-outline" size={14} color={heraLanding.textMuted} />
-            <Text style={styles.videoCallHelperText}>{helper}</Text>
-          </View>
-        )}
-      </View>
-    );
-  };
-
-  // Card accent for upcoming sessions
-  const cardAccentStyle = isTodaySession && !isCompleted && !isCancelled
-    ? { borderLeftWidth: 4, borderLeftColor: heraLanding.primary }
-    : {};
+  const buttonState = canShowVideoButton ? getVideoCallButtonState(session) : null;
+  const buttonMeta = buttonState ? getVideoCallButtonLabel(buttonState, session) : null;
+  const buttonStyle = buttonState ? getVideoCallButtonStyle(buttonState) : null;
+  const isJoinClickable = buttonState ? isVideoCallButtonClickable(buttonState) : false;
 
   return (
-    <TouchableOpacity
+    <AnimatedPressable
       style={[
         styles.card,
-        cardAccentStyle,
-        (isCompleted || isCancelled) && styles.cardPast,
+        isTodaySession && !isCompleted && !isCancelled ? styles.cardToday : null,
+        (isCompleted || isCancelled) ? styles.cardPast : null,
       ]}
-      onPress={onPress}
-      activeOpacity={onPress ? 0.95 : 1}
+      onPress={onPress ?? (() => undefined)}
       disabled={!onPress}
+      hoverLift={!!onPress}
+      pressScale={onPress ? 0.99 : 1}
     >
-      {/* Top section: Time + Status */}
-      <View style={styles.topSection}>
-        {/* Time display - prominent */}
-        <View style={styles.timeContainer}>
-          <View style={[styles.timeIconBg, isTodaySession && styles.timeIconBgToday]}>
-            <Ionicons
-              name="time"
-              size={18}
-              color={isTodaySession ? heraLanding.primary : heraLanding.textSecondary}
-            />
+      <View style={styles.topRow}>
+        <View style={styles.timeBlock}>
+          <View style={[styles.timeIconShell, isTodaySession && styles.timeIconShellToday]}>
+            <Ionicons name="time-outline" size={17} color={isTodaySession ? theme.primary : theme.textSecondary} />
           </View>
-          <View style={styles.timeInfo}>
-            <Text style={[styles.timeText, isTodaySession && styles.timeTextToday]}>
-              {formatTime(session.date)}
-            </Text>
+          <View>
+            <Text style={[styles.timeText, isTodaySession && styles.timeTextToday]}>{formatTime(session.date)}</Text>
             <Text style={styles.durationText}>{session.duration} minutos</Text>
           </View>
         </View>
 
-        {/* Status badge - beautiful pill */}
-        <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg, borderColor: statusConfig.borderColor }]}>
-          <Ionicons
-            name={statusConfig.icon as keyof typeof Ionicons.glyphMap}
-            size={14}
-            color={statusConfig.color}
-          />
-          <Text style={[styles.statusText, { color: statusConfig.color }]}>
-            {statusConfig.label}
-          </Text>
+        <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg, borderColor: statusConfig.border }]}>
+          <Ionicons name={statusConfig.icon} size={14} color={statusConfig.text} />
+          <Text style={[styles.statusText, { color: statusConfig.text }]}>{statusConfig.label}</Text>
         </View>
       </View>
 
-      {/* Specialist section - the star of the show */}
-      <View style={styles.specialistSection}>
-        {/* Beautiful avatar */}
-        <View style={styles.avatarContainer}>
+      <View style={styles.profileRow}>
+        <View style={styles.avatarWrap}>
           {session.specialist.user.avatar || session.specialist.avatar ? (
             <Image
               source={{ uri: session.specialist.user.avatar || session.specialist.avatar }}
               style={styles.avatarImage}
             />
           ) : (
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
+            <View style={styles.avatarFallback}>
+              <Text style={styles.avatarFallbackText}>
                 {session.specialist.user.name.charAt(0).toUpperCase()}
               </Text>
             </View>
           )}
-          {/* Online indicator for upcoming video calls */}
-          {isVideoCall && !isCompleted && !isCancelled && (
-            <View style={styles.onlineIndicator} />
-          )}
+          {isVideoCall && !isCompleted && !isCancelled ? <View style={styles.onlineDot} /> : null}
         </View>
 
-        <View style={styles.specialistInfo}>
-          <Text style={styles.specialistName} numberOfLines={1}>
-            {session.specialist.user.name}
-          </Text>
-          <Text style={styles.specialization} numberOfLines={1}>
-            {session.specialist.specialization}
-          </Text>
+        <View style={styles.profileCopy}>
+          <Text style={styles.specialistName} numberOfLines={1}>{session.specialist.user.name}</Text>
+          <Text style={styles.specialization} numberOfLines={1}>{session.specialist.specialization}</Text>
         </View>
 
-        {/* Quick info pills */}
-        <View style={styles.quickInfoContainer}>
-          <View style={styles.quickInfoPill}>
-            <Ionicons
-              name={getSessionTypeIcon(session.type) as keyof typeof Ionicons.glyphMap}
-              size={12}
-              color={heraLanding.textSecondary}
-            />
-            <Text style={styles.quickInfoText}>
-              {getSessionTypeLabel(session.type)}
-            </Text>
-          </View>
+        <View style={styles.typePill}>
+          <Ionicons
+            name={getSessionTypeIcon(session.type) as keyof typeof Ionicons.glyphMap}
+            size={12}
+            color={theme.textSecondary}
+          />
+          <Text style={styles.typePillText}>{getSessionTypeLabel(session.type)}</Text>
         </View>
       </View>
 
-      {/* Session details row - clean, minimal */}
-      <View style={styles.detailsRow}>
+      <View style={styles.detailRow}>
         <View style={styles.detailChip}>
-          <Ionicons name="calendar-outline" size={14} color={heraLanding.textSecondary} />
-          <Text style={styles.detailText}>{getDateLabel(session.date)}</Text>
+          <Ionicons name="calendar-outline" size={14} color={theme.textSecondary} />
+          <Text style={styles.detailChipText}>{getDateLabel(session.date)}</Text>
         </View>
         <View style={styles.detailChip}>
-          <Ionicons name="wallet-outline" size={14} color={heraLanding.textSecondary} />
-          <Text style={styles.detailText}>${session.specialist.pricePerSession}</Text>
+          <Ionicons name="wallet-outline" size={14} color={theme.textSecondary} />
+          <Text style={styles.detailChipText}>{session.specialist.pricePerSession}€</Text>
         </View>
       </View>
 
-      {/* Notes section - subtle, expandable feel */}
-      {session.notes && (
-        <View style={styles.notesSection}>
+      {session.notes ? (
+        <View style={styles.notesCard}>
           <View style={styles.notesHeader}>
-            <Ionicons name="document-text-outline" size={14} color={heraLanding.primary} />
+            <Ionicons name="document-text-outline" size={14} color={theme.primary} />
             <Text style={styles.notesLabel}>Notas de la sesión</Text>
           </View>
-          <Text style={styles.notesText} numberOfLines={2}>
-            {session.notes}
-          </Text>
+          <Text style={styles.notesText} numberOfLines={2}>{session.notes}</Text>
         </View>
-      )}
+      ) : null}
 
-      {/* Video call button - prominent for upcoming sessions */}
-      {renderVideoCallButton()}
-
-      {/* Actions footer - subtle, secondary */}
-      {showActions && !isCompleted && !isCancelled && (
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.secondaryAction}
-            onPress={onCancelPress}
-            activeOpacity={0.7}
+      {canShowVideoButton && buttonState && buttonMeta && buttonStyle ? (
+        <View style={styles.videoActionBlock}>
+          <AnimatedPressable
+            style={[
+              styles.videoActionButton,
+              {
+                backgroundColor: isJoinClickable ? theme.primary : buttonStyle.backgroundColor,
+                borderColor: buttonStyle.borderColor || 'transparent',
+                borderWidth: buttonStyle.borderColor ? 1 : 0,
+              },
+            ]}
+            onPress={isJoinClickable ? (onJoinPress ?? (() => undefined)) : () => undefined}
+            disabled={!isJoinClickable}
+            hoverLift={isJoinClickable}
           >
-            <Ionicons name="close-outline" size={16} color={heraLanding.warning} />
-            <Text style={styles.secondaryActionText}>Cancelar sesión</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+            <View style={styles.videoActionContent}>
+              <Ionicons
+                name={buttonMeta.icon as keyof typeof Ionicons.glyphMap}
+                size={18}
+                color={isJoinClickable ? theme.textOnPrimary : buttonStyle.textColor}
+              />
+              <Text
+                style={[
+                  styles.videoActionText,
+                  { color: isJoinClickable ? theme.textOnPrimary : buttonStyle.textColor },
+                ]}
+              >
+                {buttonMeta.primary}
+              </Text>
+            </View>
+            {isJoinClickable ? (
+              <Ionicons name="arrow-forward" size={18} color={theme.textOnPrimary} />
+            ) : null}
+          </AnimatedPressable>
 
-      {/* Completion footer with optional review CTA */}
-      {isCompleted && (
+          {buttonMeta.helper ? (
+            <View style={styles.videoHelperRow}>
+              <Ionicons name="information-circle-outline" size={14} color={theme.textMuted} />
+              <Text style={styles.videoHelperText}>{buttonMeta.helper}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {showActions && !isCompleted && !isCancelled ? (
+        <View style={styles.footerActions}>
+          <Button
+            variant="ghost"
+            size="small"
+            onPress={onCancelPress ?? (() => undefined)}
+            icon={<Ionicons name="close-outline" size={16} color={theme.warning} />}
+            style={styles.cancelGhostButton}
+            textStyle={styles.cancelGhostButtonText}
+          >
+            Cancelar sesión
+          </Button>
+        </View>
+      ) : null}
+
+      {isCompleted ? (
         <View style={styles.completedFooter}>
           {hasReview ? (
             <>
-              <Ionicons name="star" size={15} color={heraLanding.starRating} />
-              <Text style={[styles.completedText, { color: heraLanding.starRating }]}>
-                Reseña enviada
-              </Text>
+              <Ionicons name="star" size={15} color={theme.starRating} />
+              <Text style={[styles.completedText, { color: theme.starRating }]}>Reseña enviada</Text>
             </>
           ) : onLeaveReviewPress ? (
-            <TouchableOpacity
-              style={styles.reviewButton}
+            <Button
+              variant="secondary"
+              size="small"
               onPress={onLeaveReviewPress}
-              activeOpacity={0.8}
+              icon={<Ionicons name="star-outline" size={16} color={theme.secondaryDark} />}
+              style={styles.reviewButton}
+              textStyle={styles.reviewButtonText}
             >
-              <Ionicons name="star-outline" size={16} color={heraLanding.primary} />
-              <Text style={styles.reviewButtonText}>Dejar reseña</Text>
-            </TouchableOpacity>
+              Dejar reseña
+            </Button>
           ) : (
             <>
-              <Ionicons name="checkmark-done" size={16} color={heraLanding.success} />
-              <Text style={styles.completedText}>Sesión completada exitosamente</Text>
+              <Ionicons name="checkmark-done" size={15} color={theme.success} />
+              <Text style={styles.completedText}>Sesión completada</Text>
             </>
           )}
         </View>
-      )}
-    </TouchableOpacity>
+      ) : null}
+    </AnimatedPressable>
   );
 };
 
-const styles = StyleSheet.create({
-  // ═══════════════════════════════════════════════════════════════
-  // Card container - Premium, elevated design
-  // ═══════════════════════════════════════════════════════════════
-  card: {
-    backgroundColor: colors.neutral.white,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg + 4,
-    shadowColor: heraLanding.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  cardPast: {
-    opacity: 0.85,
-    backgroundColor: heraLanding.surfaceMuted,
-  },
-
-  // ═══════════════════════════════════════════════════════════════
-  // Top section - Time and Status
-  // ═══════════════════════════════════════════════════════════════
-  topSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: heraLanding.borderLight,
-  },
-  timeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  timeIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: heraLanding.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  timeIconBgToday: {
-    backgroundColor: heraLanding.primaryAlpha12,
-  },
-  timeInfo: {
-    // Time info wrapper
-  },
-  timeText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-    letterSpacing: -0.5,
-  },
-  timeTextToday: {
-    color: heraLanding.primary,
-  },
-  durationText: {
-    fontSize: 13,
-    color: heraLanding.textSecondary,
-    marginTop: 2,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 5,
-    borderWidth: 1,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-
-  // ═══════════════════════════════════════════════════════════════
-  // Specialist section - The focal point
-  // ═══════════════════════════════════════════════════════════════
-  specialistSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginRight: spacing.md,
-  },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: heraLanding.primaryAlpha12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: heraLanding.primaryAlpha20,
-  },
-  avatarImage: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: heraLanding.primaryAlpha20,
-  },
-  avatarText: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: heraLanding.primary,
-  },
-  onlineIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: heraLanding.success,
-    borderWidth: 2,
-    borderColor: colors.neutral.white,
-  },
-  specialistInfo: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  specialistName: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-    marginBottom: 3,
-    letterSpacing: -0.3,
-  },
-  specialization: {
-    fontSize: 14,
-    color: heraLanding.textSecondary,
-  },
-  quickInfoContainer: {
-    // Quick info wrapper
-  },
-  quickInfoPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: heraLanding.background,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 4,
-  },
-  quickInfoText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: heraLanding.textSecondary,
-  },
-
-  // ═══════════════════════════════════════════════════════════════
-  // Details row - Clean chips
-  // ═══════════════════════════════════════════════════════════════
-  detailsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-    flexWrap: 'wrap',
-  },
-  detailChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: `${heraLanding.primary}06`,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 5,
-  },
-  detailText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: heraLanding.textSecondary,
-  },
-
-  // ═══════════════════════════════════════════════════════════════
-  // Notes section - Elegant, subtle
-  // ═══════════════════════════════════════════════════════════════
-  notesSection: {
-    backgroundColor: `${heraLanding.primary}08`,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  notesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: spacing.xs,
-  },
-  notesLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: heraLanding.primary,
-  },
-  notesText: {
-    fontSize: 14,
-    color: heraLanding.textPrimary,
-    lineHeight: 20,
-  },
-
-  // ═══════════════════════════════════════════════════════════════
-  // Video call button - The hero CTA
-  // ═══════════════════════════════════════════════════════════════
-  videoCallSection: {
-    marginTop: spacing.md,
-  },
-  videoCallButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-  },
-  videoCallButtonActive: {
-    shadowColor: heraLanding.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  videoCallButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  videoCallButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  helperContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: spacing.sm,
-  },
-  videoCallHelperText: {
-    fontSize: 12,
-    color: heraLanding.textMuted,
-    textAlign: 'center',
-  },
-
-  // ═══════════════════════════════════════════════════════════════
-  // Actions row - Secondary, subtle
-  // ═══════════════════════════════════════════════════════════════
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: heraLanding.borderLight,
-  },
-  secondaryAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    backgroundColor: `${heraLanding.warning}08`,
-  },
-  secondaryActionText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: heraLanding.warning,
-  },
-
-  // ═══════════════════════════════════════════════════════════════
-  // Completed footer
-  // ═══════════════════════════════════════════════════════════════
-  completedFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: heraLanding.borderLight,
-  },
-  completedText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: heraLanding.success,
-  },
-  reviewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    backgroundColor: heraLanding.primaryAlpha12,
-  },
-  reviewButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: heraLanding.primary,
-  },
-});
+const createStyles = (theme: Theme, isDark: boolean, width: number) =>
+  StyleSheet.create({
+    card: {
+      padding: spacing.lg,
+      borderRadius: borderRadius.xxl,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.bgCard,
+      ...shadows.md,
+    },
+    cardToday: {
+      borderColor: theme.primaryAlpha20,
+      shadowColor: theme.shadowPrimary,
+    },
+    cardPast: {
+      opacity: 0.92,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    },
+    topRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+      paddingBottom: spacing.md,
+      marginBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.borderLight,
+    },
+    timeBlock: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      flex: 1,
+    },
+    timeIconShell: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    },
+    timeIconShellToday: {
+      backgroundColor: theme.primaryAlpha12,
+    },
+    timeText: {
+      fontSize: width > 480 ? 22 : 20,
+      fontFamily: theme.fontSansBold,
+      color: theme.textPrimary,
+    },
+    timeTextToday: {
+      color: theme.primary,
+    },
+    durationText: {
+      marginTop: 2,
+      fontSize: 13,
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+    },
+    statusBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+      borderRadius: borderRadius.full,
+    },
+    statusText: {
+      fontSize: 12,
+      fontFamily: theme.fontSansSemiBold,
+    },
+    profileRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginBottom: spacing.md,
+    },
+    avatarWrap: {
+      position: 'relative',
+    },
+    avatarImage: {
+      width: 56,
+      height: 56,
+      borderRadius: 18,
+      borderWidth: 2,
+      borderColor: theme.primaryAlpha20,
+    },
+    avatarFallback: {
+      width: 56,
+      height: 56,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.primaryAlpha12,
+      borderWidth: 2,
+      borderColor: theme.primaryAlpha20,
+    },
+    avatarFallbackText: {
+      fontSize: 22,
+      fontFamily: theme.fontSansBold,
+      color: theme.primary,
+    },
+    onlineDot: {
+      position: 'absolute',
+      right: 0,
+      bottom: 0,
+      width: 14,
+      height: 14,
+      borderRadius: 999,
+      backgroundColor: theme.success,
+      borderWidth: 2,
+      borderColor: theme.bgCard,
+    },
+    profileCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    specialistName: {
+      fontSize: 17,
+      fontFamily: theme.fontSansBold,
+      color: theme.textPrimary,
+      marginBottom: 3,
+    },
+    specialization: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+    },
+    typePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+      borderRadius: borderRadius.lg,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    },
+    typePillText: {
+      fontSize: 12,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.textSecondary,
+    },
+    detailRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    detailChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+      borderRadius: borderRadius.lg,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    },
+    detailChipText: {
+      fontSize: 13,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.textSecondary,
+    },
+    notesCard: {
+      padding: spacing.md,
+      borderRadius: borderRadius.lg,
+      backgroundColor: theme.primaryAlpha12,
+      borderWidth: 1,
+      borderColor: theme.primaryAlpha20,
+      marginBottom: spacing.md,
+    },
+    notesHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 6,
+    },
+    notesLabel: {
+      fontSize: 12,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.primary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    notesText: {
+      fontSize: 14,
+      lineHeight: 21,
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+    },
+    videoActionBlock: {
+      gap: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    videoActionButton: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 14,
+      borderRadius: borderRadius.xl,
+    },
+    videoActionContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      flex: 1,
+    },
+    videoActionText: {
+      fontSize: 15,
+      fontFamily: theme.fontSansBold,
+    },
+    videoHelperRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 4,
+    },
+    videoHelperText: {
+      flex: 1,
+      fontSize: 12,
+      color: theme.textMuted,
+      fontFamily: theme.fontSans,
+    },
+    footerActions: {
+      alignItems: 'flex-start',
+      marginTop: spacing.xs,
+    },
+    cancelGhostButton: {
+      paddingHorizontal: 0,
+    },
+    cancelGhostButtonText: {
+      color: theme.warning,
+      fontFamily: theme.fontSansSemiBold,
+    },
+    completedFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: spacing.sm,
+    },
+    completedText: {
+      fontSize: 13,
+      color: theme.success,
+      fontFamily: theme.fontSansSemiBold,
+    },
+    reviewButton: {
+      alignSelf: 'flex-start',
+    },
+    reviewButtonText: {
+      color: theme.secondaryDark,
+      fontFamily: theme.fontSansSemiBold,
+    },
+  });
 
 export default SessionCard;

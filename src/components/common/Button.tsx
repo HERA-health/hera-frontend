@@ -317,6 +317,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   gradientFill: {
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',

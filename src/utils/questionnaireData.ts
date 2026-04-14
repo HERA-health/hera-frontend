@@ -4,24 +4,24 @@ export interface QuestionOption {
   id: string;
   text: string;
   value: string;
-  matchingKey?: string; // Which specialist attribute this maps to
-  emoji?: string; // Optional emoji for visual warmth
+  matchingKey?: string;
+  emoji?: string;
 }
 
 export interface Question {
   id: string;
   text: string;
-  helpText?: string; // Optional helper text below the question
+  helpText?: string;
   type: QuestionType;
   options: QuestionOption[];
-  category: string; // For grouping similar questions
+  category: string;
 }
 
 export const questionnaire: Question[] = [
   {
     id: 'q1',
     text: '¿Qué te gustaría trabajar?',
-    helpText: 'Puedes seleccionar todas las que apliquen',
+    helpText: 'Puedes seleccionar todas las que apliquen.',
     type: 'multiple',
     category: 'specialties',
     options: [
@@ -36,12 +36,12 @@ export const questionnaire: Question[] = [
   {
     id: 'q2',
     text: '¿Qué enfoque terapéutico prefieres?',
-    helpText: 'No te preocupes si no estás seguro/a, te ayudaremos',
+    helpText: 'Si no lo tienes claro, te ayudaremos igualmente.',
     type: 'single',
     category: 'approach',
     options: [
-      { id: 'q2-1', text: 'Práctico, orientado a soluciones', value: 'cognitive-behavioral', matchingKey: 'therapeuticApproach', emoji: '🎯' },
-      { id: 'q2-2', text: 'Centrado en la persona, empático', value: 'humanistic', matchingKey: 'therapeuticApproach', emoji: '💚' },
+      { id: 'q2-1', text: 'Práctico y orientado a soluciones', value: 'cognitive-behavioral', matchingKey: 'therapeuticApproach', emoji: '🎯' },
+      { id: 'q2-2', text: 'Centrado en la persona y empático', value: 'humanistic', matchingKey: 'therapeuticApproach', emoji: '💚' },
       { id: 'q2-3', text: 'Exploración profunda del pasado', value: 'psychodynamic', matchingKey: 'therapeuticApproach', emoji: '🔍' },
       { id: 'q2-4', text: 'Mindfulness y atención plena', value: 'mindfulness', matchingKey: 'therapeuticApproach', emoji: '🧘' },
       { id: 'q2-5', text: 'No estoy seguro/a', value: 'unsure', matchingKey: 'therapeuticApproach', emoji: '🤔' },
@@ -53,15 +53,15 @@ export const questionnaire: Question[] = [
     type: 'single',
     category: 'style',
     options: [
-      { id: 'q3-1', text: 'Estructuradas con objetivos claros', value: 'structured', matchingKey: 'sessionStyle', emoji: '📋' },
+      { id: 'q3-1', text: 'Estructuradas y con objetivos claros', value: 'structured', matchingKey: 'sessionStyle', emoji: '📋' },
       { id: 'q3-2', text: 'Flexibles y conversacionales', value: 'conversational', matchingKey: 'sessionStyle', emoji: '💭' },
-      { id: 'q3-3', text: 'Mixto según necesidad', value: 'flexible', matchingKey: 'sessionStyle', emoji: '✨' },
+      { id: 'q3-3', text: 'Mixtas según la necesidad', value: 'flexible', matchingKey: 'sessionStyle', emoji: '✨' },
     ],
   },
   {
     id: 'q4',
     text: '¿Qué cualidades valoras más en un terapeuta?',
-    helpText: 'Selecciona las que sean importantes para ti',
+    helpText: 'Selecciona las que sean importantes para ti.',
     type: 'multiple',
     category: 'personality',
     options: [
@@ -75,7 +75,7 @@ export const questionnaire: Question[] = [
   {
     id: 'q5',
     text: '¿En qué rango de edad te encuentras?',
-    helpText: 'Esto nos ayuda a encontrar terapeutas con experiencia en tu grupo de edad',
+    helpText: 'Esto nos ayuda a encontrar terapeutas con experiencia en tu momento vital.',
     type: 'single',
     category: 'demographics',
     options: [
@@ -117,7 +117,7 @@ export const questionnaire: Question[] = [
       { id: 'q8-1', text: 'Por las mañanas', value: 'morning', matchingKey: 'availability', emoji: '🌅' },
       { id: 'q8-2', text: 'Por las tardes', value: 'afternoon', matchingKey: 'availability', emoji: '☀️' },
       { id: 'q8-3', text: 'Por las noches', value: 'evening', matchingKey: 'availability', emoji: '🌙' },
-      { id: 'q8-4', text: 'Horario flexible', value: 'flexible', matchingKey: 'availability', emoji: '📅' },
+      { id: 'q8-4', text: 'Horario flexible', value: 'flexible', matchingKey: 'availability', emoji: '📆' },
     ],
   },
   {
@@ -128,7 +128,7 @@ export const questionnaire: Question[] = [
     options: [
       { id: 'q9-1', text: 'Videollamada online', value: 'online', matchingKey: 'format', emoji: '📹' },
       { id: 'q9-2', text: 'Presencial en consulta', value: 'in-person', matchingKey: 'format', emoji: '🏢' },
-      { id: 'q9-3', text: 'Sin preferencia (flexible)', value: 'both', matchingKey: 'format', emoji: '✨' },
+      { id: 'q9-3', text: 'Sin preferencia, me adapto', value: 'both', matchingKey: 'format', emoji: '✨' },
     ],
   },
   {
@@ -137,9 +137,9 @@ export const questionnaire: Question[] = [
     type: 'single',
     category: 'experience',
     options: [
-      { id: 'q10-1', text: 'Sí, y fue positiva', value: 'positive', matchingKey: 'previous', emoji: '👍' },
-      { id: 'q10-2', text: 'Sí, pero no me ayudó', value: 'negative', matchingKey: 'previous', emoji: '🔄' },
-      { id: 'q10-3', text: 'No, es mi primera vez', value: 'first-time', matchingKey: 'previous', emoji: '🌱' },
+      { id: 'q10-1', text: 'Sí, y fue una buena experiencia', value: 'positive', matchingKey: 'previous', emoji: '👍' },
+      { id: 'q10-2', text: 'Sí, pero no me ayudó como esperaba', value: 'negative', matchingKey: 'previous', emoji: '🔄' },
+      { id: 'q10-3', text: 'No, sería mi primera vez', value: 'first-time', matchingKey: 'previous', emoji: '🌱' },
     ],
   },
   {
@@ -148,8 +148,8 @@ export const questionnaire: Question[] = [
     type: 'single',
     category: 'urgency',
     options: [
-      { id: 'q11-1', text: 'Lo antes posible (esta semana)', value: 'urgent', matchingKey: 'urgency', emoji: '⚡' },
-      { id: 'q11-2', text: 'Pronto (próximas 2 semanas)', value: 'soon', matchingKey: 'urgency', emoji: '📆' },
+      { id: 'q11-1', text: 'Lo antes posible, esta semana', value: 'urgent', matchingKey: 'urgency', emoji: '⚡' },
+      { id: 'q11-2', text: 'Pronto, en las próximas dos semanas', value: 'soon', matchingKey: 'urgency', emoji: '📅' },
       { id: 'q11-3', text: 'Sin prisa, puedo esperar', value: 'flexible', matchingKey: 'urgency', emoji: '🕐' },
     ],
   },
@@ -170,18 +170,18 @@ export const questionnaire: Question[] = [
     category: 'session-length',
     options: [
       { id: 'q13-1', text: '30-45 minutos', value: 'short', matchingKey: 'sessionLength', emoji: '⏱️' },
-      { id: 'q13-2', text: '50-60 minutos (estándar)', value: 'standard', matchingKey: 'sessionLength', emoji: '⏰' },
+      { id: 'q13-2', text: '50-60 minutos, formato estándar', value: 'standard', matchingKey: 'sessionLength', emoji: '⏰' },
       { id: 'q13-3', text: '90 minutos o más', value: 'long', matchingKey: 'sessionLength', emoji: '🕐' },
     ],
   },
   {
     id: 'q14',
-    text: '¿Con qué frecuencia te gustaría las sesiones?',
+    text: '¿Con qué frecuencia te gustaría tener sesiones?',
     type: 'single',
     category: 'frequency',
     options: [
-      { id: 'q14-1', text: 'Una vez por semana', value: 'weekly', matchingKey: 'frequency', emoji: '📅' },
-      { id: 'q14-2', text: 'Cada dos semanas', value: 'biweekly', matchingKey: 'frequency', emoji: '📆' },
+      { id: 'q14-1', text: 'Una vez por semana', value: 'weekly', matchingKey: 'frequency', emoji: '📆' },
+      { id: 'q14-2', text: 'Cada dos semanas', value: 'biweekly', matchingKey: 'frequency', emoji: '📅' },
       { id: 'q14-3', text: 'Una vez al mes', value: 'monthly', matchingKey: 'frequency', emoji: '🗓️' },
       { id: 'q14-4', text: 'Según necesidad', value: 'flexible', matchingKey: 'frequency', emoji: '✨' },
     ],
@@ -201,12 +201,9 @@ export const questionnaire: Question[] = [
   },
 ];
 
-// Helper function to get option label with emoji
-export const getOptionLabel = (option: QuestionOption): string => {
-  return option.emoji ? `${option.emoji} ${option.text}` : option.text;
-};
+export const getOptionLabel = (option: QuestionOption): string =>
+  option.emoji ? `${option.emoji} ${option.text}` : option.text;
 
-// Category labels for the review screen
 export const categoryLabels: Record<string, string> = {
   specialties: 'Áreas de trabajo',
   approach: 'Enfoque terapéutico',
