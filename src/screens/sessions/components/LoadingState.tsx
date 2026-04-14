@@ -1,21 +1,10 @@
-/**
- * LoadingState Component
- * Beautiful, calming loading state
- *
- * CRITICAL: Background #F5F7F5 (Light Sage) - HERA signature
- */
-
-import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  Animated,
-  Easing,
-} from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { ActivityIndicator, Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, colors, spacing, borderRadius } from '../../../constants/colors';
+
+import { shadows, spacing } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import type { Theme } from '../../../constants/theme';
 
 interface LoadingStateProps {
   message?: string;
@@ -24,99 +13,89 @@ interface LoadingStateProps {
 const LoadingState: React.FC<LoadingStateProps> = ({
   message = 'Cargando tus sesiones...',
 }) => {
-  // Pulse animation
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 1000,
+          toValue: 1.08,
+          duration: 900,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1000,
+          duration: 900,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
       ])
     );
+
     pulse.start();
     return () => pulse.stop();
-  }, []);
+  }, [pulseAnim]);
 
   return (
     <View style={styles.container}>
-      <Animated.View
-        style={[
-          styles.iconContainer,
-          { transform: [{ scale: pulseAnim }] },
-        ]}
-      >
+      <Animated.View style={[styles.iconOuter, { transform: [{ scale: pulseAnim }] }]}>
         <View style={styles.iconInner}>
-          <Ionicons name="calendar" size={32} color={heraLanding.primary} />
+          <Ionicons name="calendar-outline" size={30} color={theme.primary} />
         </View>
       </Animated.View>
 
-      <ActivityIndicator
-        size="small"
-        color={heraLanding.primary}
-        style={styles.spinner}
-      />
+      <ActivityIndicator size="small" color={theme.primary} style={styles.spinner} />
 
       <Text style={styles.message}>{message}</Text>
-      <Text style={styles.submessage}>Preparando tu experiencia...</Text>
+      <Text style={styles.submessage}>Preparando tu agenda con calma…</Text>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-    backgroundColor: heraLanding.background, // #F5F7F5 Light Sage - CRITICAL
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: `${heraLanding.primary}12`,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  iconInner: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: colors.neutral.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: heraLanding.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  spinner: {
-    marginBottom: spacing.md,
-  },
-  message: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  submessage: {
-    fontSize: 14,
-    color: heraLanding.textSecondary,
-    fontWeight: '400',
-  },
-});
+const createStyles = (theme: Theme, isDark: boolean) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.xxxl,
+      backgroundColor: theme.bg,
+    },
+    iconOuter: {
+      width: 82,
+      height: 82,
+      borderRadius: 26,
+      backgroundColor: theme.primaryAlpha12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.lg,
+    },
+    iconInner: {
+      width: 58,
+      height: 58,
+      borderRadius: 18,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgCard,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...shadows.sm,
+    },
+    spinner: {
+      marginBottom: spacing.md,
+    },
+    message: {
+      fontSize: 16,
+      fontFamily: theme.fontSansBold,
+      color: theme.textPrimary,
+      marginBottom: spacing.xs,
+    },
+    submessage: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+    },
+  });
 
 export default LoadingState;

@@ -43,14 +43,17 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { heraLanding, shadows, spacing, borderRadius, typography } from '../../constants/colors';
+import { shadows, spacing, borderRadius, typography } from '../../constants/colors';
+import type { Theme } from '../../constants/theme';
 import * as professionalService from '../../services/professionalService';
 import * as authService from '../../services/authService';
 import { SpecialistProfileData as ServiceProfileData, VerificationStatus, VerificationStatusResponse } from '../../services/professionalService';
 import { AddressAutocomplete, LocationMapPreview } from '../../components/location';
 import type { AppNavigationProp } from '../../constants/types';
 import { getWebAppUrl } from '../../config/api';
+import { AnimatedPressable, Button } from '../../components/common';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -205,6 +208,32 @@ interface GradientOption {
   colors: [string, string];
 }
 
+type IconName = React.ComponentProps<typeof Ionicons>['name'];
+
+interface ProfilePalette {
+  background: string;
+  backgroundMuted: string;
+  border: string;
+  cardBackground: string;
+  cardBackgroundDisabled: string;
+  cardBg: string;
+  info: string;
+  overlay: string;
+  primary: string;
+  primaryDark: string;
+  primaryMuted: string;
+  success: string;
+  successLight: string;
+  warning: string;
+  warningAmber: string;
+  warningLight: string;
+  textMuted: string;
+  textOnCard: string;
+  textOnPrimary: string;
+  textPrimary: string;
+  textSecondary: string;
+}
+
 const GRADIENTS: GradientOption[] = [
   { id: 'salvia-lavanda', name: 'Salvia & Lavanda', colors: ['#8B9D83', '#B8A8D9'] },
   { id: 'menta-rosa', name: 'Menta & Rosa', colors: ['#A8C4B8', '#D4A5C9'] },
@@ -235,16 +264,48 @@ const STRINGS = {
   },
 };
 
+function createProfilePalette(theme: Theme, isDark: boolean): ProfilePalette {
+  return {
+    background: theme.bg,
+    backgroundMuted: theme.bgMuted,
+    border: theme.border,
+    cardBackground: theme.surfaceMuted,
+    cardBackgroundDisabled: isDark ? theme.surfaceMuted : theme.borderLight,
+    cardBg: theme.bgCard,
+    info: theme.info,
+    overlay: theme.overlay,
+    primary: theme.primary,
+    primaryDark: theme.primaryDark,
+    primaryMuted: theme.primaryMuted,
+    success: theme.success,
+    successLight: theme.successLight,
+    warning: theme.warning,
+    warningAmber: theme.warningAmber,
+    warningLight: theme.warningBg,
+    textMuted: theme.textMuted,
+    textOnCard: theme.textOnPrimary,
+    textOnPrimary: theme.textOnPrimary,
+    textPrimary: theme.textPrimary,
+    textSecondary: theme.textSecondary,
+  };
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
 export function SpecialistProfileScreen() {
   const { user, updateUser } = useAuth();
+  const { theme, isDark } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
   const isDesktop = windowWidth >= 1024;
   const isTablet = windowWidth >= 768 && windowWidth < 1024;
   const isMobile = windowWidth < 768;
+  const palette = useMemo(() => createProfilePalette(theme, isDark), [theme, isDark]);
 
   const [activeTab, setActiveTab] = useState<ProfileTab>('information');
   const [isSaving, setIsSaving] = useState(false);
@@ -253,6 +314,8 @@ export function SpecialistProfileScreen() {
   const [hasChanges, setHasChanges] = useState(false);
   const [showPreview, setShowPreview] = useState(!isMobile);
   const [isLoading, setIsLoading] = useState(true);
+  const styles = useMemo(() => createStyles(palette, isDesktop, isMobile, showPreview), [palette, isDesktop, isMobile, showPreview]);
+  const miEspacioStyles = useMemo(() => createMiEspacioStyles(palette), [palette]);
 
   // Navigation
   const navigation = useNavigation<AppNavigationProp>();
@@ -576,9 +639,9 @@ export function SpecialistProfileScreen() {
 
       setOriginalData(profileData);
       Alert.alert('Cambios guardados', 'Tu perfil ha sido actualizado correctamente');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving profile:', error);
-      Alert.alert('Error', error.message || 'No se pudo guardar el perfil. Intenta de nuevo.');
+      Alert.alert('Error', getErrorMessage(error, 'No se pudo guardar el perfil. Intenta de nuevo.'));
     } finally {
       setIsSaving(false);
     }
@@ -599,10 +662,10 @@ export function SpecialistProfileScreen() {
         setIsUploadingAvatar(true);
         try {
           const updatedUser = await authService.uploadAvatar(result.assets[0].base64);
-          updateUser({ avatar: updatedUser.avatar });
-          updateField('avatar', updatedUser.avatar);
-        } catch (uploadError: any) {
-          Alert.alert('Error', uploadError.message || 'No se pudo subir la foto');
+          updateUser({ avatar: updatedUser.avatar ?? undefined });
+          updateField('avatar', updatedUser.avatar ?? null);
+        } catch (uploadError: unknown) {
+          Alert.alert('Error', getErrorMessage(uploadError, 'No se pudo subir la foto'));
         } finally {
           setIsUploadingAvatar(false);
         }
@@ -615,11 +678,7 @@ export function SpecialistProfileScreen() {
   // Navigate to own public profile (as patients see it)
   const handleViewPublicProfile = useCallback(() => {
     if (!specialistId) {
-      if (Platform.OS === 'web') {
-        window.alert('No se pudo cargar el perfil');
-      } else {
-        Alert.alert('Error', 'No se pudo cargar el perfil');
-      }
+      Alert.alert('Error', 'No se pudo cargar el perfil');
       return;
     }
     navigation.navigate('SpecialistDetail', { specialistId });
@@ -696,7 +755,7 @@ export function SpecialistProfileScreen() {
     }));
   }, []);
 
-  const updateExperience = useCallback((id: string, field: keyof Experience, value: any) => {
+  const updateExperience = useCallback((id: string, field: keyof Experience, value: Experience[keyof Experience]) => {
     setProfileData(prev => ({
       ...prev,
       experience: prev.experience.map(exp =>
@@ -716,7 +775,7 @@ export function SpecialistProfileScreen() {
   // RENDER: TAB NAVIGATION
   // ============================================================================
 
-  const tabs: { id: ProfileTab; label: string; icon: string }[] = [
+  const tabs: { id: ProfileTab; label: string; icon: IconName }[] = [
     { id: 'information', label: 'Información Profesional', icon: 'person-outline' },
     { id: 'mi-espacio', label: STRINGS.miEspacio.tabLabel, icon: 'sparkles-outline' },
     { id: 'credentials', label: 'Credenciales', icon: 'shield-checkmark-outline' },
@@ -724,43 +783,77 @@ export function SpecialistProfileScreen() {
     { id: 'account', label: 'Cuenta', icon: 'settings-outline' },
   ];
 
+  const canShareProfile = verificationStatus.verificationStatus === 'VERIFIED' && Boolean(specialistId);
+
   const renderTabNavigation = () => (
     <View style={[styles.tabsContainer, isDesktop && styles.tabsContainerDesktop]}>
+      <View style={[styles.topBar, isDesktop ? styles.topBarDesktop : styles.topBarMobile]}>
+        <View style={styles.topBarContent}>
+          <Text style={styles.topBarTitle}>Editar perfil</Text>
+          <Text style={styles.topBarSubtitle}>
+            Ajusta tu ficha pública, credenciales y condiciones de trabajo.
+          </Text>
+        </View>
+
+        {canShareProfile ? (
+          <View style={styles.topBarActions}>
+            <Button
+              variant="outline"
+              size="small"
+              onPress={handleShareProfile}
+              icon={<Ionicons name="link-outline" size={16} color={palette.primary} />}
+              style={{ ...styles.topBarActionButton }}
+              textStyle={{ ...styles.topBarActionText }}
+            >
+              Compartir perfil
+            </Button>
+          </View>
+        ) : null}
+      </View>
+
       <ScrollView
         horizontal={!isDesktop}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={isDesktop ? styles.tabsDesktop : styles.tabsMobile}
       >
         {tabs.map((tab) => (
-          <TouchableOpacity
+          <AnimatedPressable
             key={tab.id}
-            style={[
-              styles.tab,
-              isDesktop && styles.tabDesktop,
-              activeTab === tab.id && styles.tabActive,
-              isDesktop && activeTab === tab.id && styles.tabActiveDesktop,
-            ]}
+            style={{
+              ...styles.tab,
+              ...(isDesktop ? styles.tabDesktop : {}),
+              ...(activeTab === tab.id ? styles.tabActive : {}),
+              ...(isDesktop && activeTab === tab.id ? styles.tabActiveDesktop : {}),
+            }}
             onPress={() => setActiveTab(tab.id)}
-            activeOpacity={0.7}
+            hoverLift={false}
+            pressScale={0.985}
           >
             <Ionicons
-              name={tab.icon as any}
+              name={tab.icon}
               size={isDesktop ? 20 : 18}
-              color={activeTab === tab.id ? heraLanding.primary : heraLanding.textSecondary}
+              color={activeTab === tab.id ? palette.primary : palette.textSecondary}
             />
             <Text
               style={[
                 styles.tabText,
-                isDesktop && styles.tabTextDesktop,
-                activeTab === tab.id && styles.tabTextActive,
+                isDesktop ? styles.tabTextDesktop : {},
+                activeTab === tab.id ? styles.tabTextActive : {},
               ]}
               numberOfLines={1}
             >
               {tab.label}
             </Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         ))}
       </ScrollView>
+
+      {showCopiedToast ? (
+        <Animated.View style={[styles.copiedToast, { opacity: toastOpacity }]}>
+          <Ionicons name="checkmark-circle" size={16} color={palette.success} />
+          <Text style={styles.copiedToastText}>Enlace copiado al portapapeles</Text>
+        </Animated.View>
+      ) : null}
     </View>
   );
 
@@ -771,7 +864,7 @@ export function SpecialistProfileScreen() {
   const renderProfilePreview = () => (
     <View style={styles.previewContainer}>
       <View style={styles.previewHeader}>
-        <Ionicons name="eye-outline" size={18} color={heraLanding.textSecondary} />
+        <Ionicons name="eye-outline" size={18} color={palette.textSecondary} />
         <Text style={styles.previewTitle}>Vista previa pública</Text>
       </View>
 
@@ -786,7 +879,7 @@ export function SpecialistProfileScreen() {
             <Image source={{ uri: profileData.avatar }} style={styles.previewAvatar} />
           ) : (
             <LinearGradient
-              colors={[heraLanding.primary, heraLanding.primaryDark]}
+              colors={[palette.primary, palette.primaryDark]}
               style={styles.previewAvatar}
             >
               <Text style={styles.previewAvatarText}>
@@ -856,11 +949,11 @@ export function SpecialistProfileScreen() {
           {verificationStatus.verificationStatus === 'VERIFIED' && (
             <>
               <View style={styles.previewBadge}>
-                <Ionicons name="checkmark-circle" size={14} color={heraLanding.success} />
+                <Ionicons name="checkmark-circle" size={14} color={palette.success} />
                 <Text style={styles.previewBadgeText}>Colegiado verificado</Text>
               </View>
               <View style={styles.previewBadge}>
-                <Ionicons name="checkmark-circle" size={14} color={heraLanding.success} />
+                <Ionicons name="checkmark-circle" size={14} color={palette.success} />
                 <Text style={styles.previewBadgeText}>Identidad verificada</Text>
               </View>
             </>
@@ -868,10 +961,18 @@ export function SpecialistProfileScreen() {
         </View>
 
         {/* View Full Profile Button */}
-        <TouchableOpacity style={styles.previewButton} activeOpacity={0.7} onPress={handleViewPublicProfile}>
-          <Text style={styles.previewButtonText}>Ver perfil completo</Text>
-          <Ionicons name="arrow-forward" size={16} color={heraLanding.primary} />
-        </TouchableOpacity>
+        <Button
+          variant="outline"
+          size="medium"
+          onPress={handleViewPublicProfile}
+          fullWidth
+          icon={<Ionicons name="arrow-forward" size={16} color={palette.primary} />}
+          iconPosition="right"
+          style={styles.previewButton}
+          textStyle={styles.previewButtonText}
+        >
+          Ver perfil completo
+        </Button>
       </ScrollView>
     </View>
   );
@@ -922,7 +1023,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={verified ? 'checkmark-circle' : 'time'}
                 size={14}
-                color={verified ? heraLanding.success : heraLanding.warningAmber}
+                color={verified ? palette.success : palette.warningAmber}
               />
               <Text style={[styles.verifiedText, verified ? styles.verifiedTextSuccess : styles.verifiedTextPending]}>
                 {verified ? 'Verificado' : 'Pendiente'}
@@ -939,7 +1040,7 @@ export function SpecialistProfileScreen() {
           ]}
           value={value}
           placeholder={placeholder}
-          placeholderTextColor={heraLanding.textMuted}
+          placeholderTextColor={palette.textMuted}
           onChangeText={onChangeText}
           editable={!disabled}
           multiline={multiline}
@@ -975,31 +1076,33 @@ export function SpecialistProfileScreen() {
       <View style={styles.chipContainer}>
         {options.map((option) => {
           const isSelected = selectedValues.includes(option.value);
-          const isDisabled = !isSelected && maxSelections && selectedValues.length >= maxSelections;
+          const reachedMax = maxSelections !== undefined && selectedValues.length >= maxSelections;
+          const isDisabled = !isSelected && reachedMax;
 
           return (
-            <TouchableOpacity
+            <AnimatedPressable
               key={option.value}
-              style={[
-                styles.chip,
-                isSelected && styles.chipSelected,
-                isDisabled && styles.chipDisabled,
-              ]}
+              style={{
+                ...styles.chip,
+                ...(isSelected ? styles.chipSelected : {}),
+                ...(isDisabled ? styles.chipDisabled : {}),
+              }}
               onPress={() => !isDisabled && toggleMultiSelect(field, option.value)}
-              activeOpacity={0.7}
               disabled={isDisabled}
+              hoverLift={false}
+              pressScale={0.985}
             >
               {isSelected && (
-                <Ionicons name="checkmark" size={14} color={heraLanding.textOnCard} />
+                <Ionicons name="checkmark" size={14} color={palette.textOnCard} />
               )}
               <Text style={[
                 styles.chipText,
-                isSelected && styles.chipTextSelected,
-                isDisabled && styles.chipTextDisabled,
+                isSelected ? styles.chipTextSelected : null,
+                isDisabled ? styles.chipTextDisabled : null,
               ]}>
                 {option.label}
               </Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           );
         })}
       </View>
@@ -1100,7 +1203,7 @@ export function SpecialistProfileScreen() {
                 >
                   {isSelected && (
                     <View style={miEspacioStyles.gradientCheck}>
-                      <Ionicons name="checkmark" size={16} color={heraLanding.textOnCard} />
+                      <Ionicons name="checkmark" size={16} color={palette.textOnCard} />
                     </View>
                   )}
                 </LinearGradient>
@@ -1125,7 +1228,7 @@ export function SpecialistProfileScreen() {
           value={profileData.personalMotto}
           onChangeText={(text) => updateField('personalMotto', text)}
           placeholder={STRINGS.miEspacio.mottoPlaceholder}
-          placeholderTextColor={heraLanding.textMuted}
+          placeholderTextColor={palette.textMuted}
           multiline
           maxLength={200}
         />
@@ -1164,9 +1267,9 @@ export function SpecialistProfileScreen() {
               disabled={isUploadingGalleryPhoto}
             >
               {isUploadingGalleryPhoto ? (
-                <ActivityIndicator size="small" color={heraLanding.textMuted} />
+                <ActivityIndicator size="small" color={palette.textMuted} />
               ) : (
-                <Ionicons name="add" size={32} color={heraLanding.textMuted} />
+                <Ionicons name="add" size={32} color={palette.textMuted} />
               )}
             </TouchableOpacity>
           )}
@@ -1182,7 +1285,7 @@ export function SpecialistProfileScreen() {
           value={profileData.presentationVideoUrl}
           onChangeText={(text) => updateField('presentationVideoUrl', text)}
           placeholder={STRINGS.miEspacio.videoPlaceholder}
-          placeholderTextColor={heraLanding.textMuted}
+          placeholderTextColor={palette.textMuted}
           keyboardType="url"
           autoCapitalize="none"
         />
@@ -1192,7 +1295,7 @@ export function SpecialistProfileScreen() {
         {profileData.presentationVideoUrl.length > 0 && (
           <View style={miEspacioStyles.videoPreview}>
             <View style={miEspacioStyles.videoPlayIcon}>
-              <Ionicons name="play" size={20} color={heraLanding.textOnCard} />
+              <Ionicons name="play" size={20} color={palette.textOnCard} />
             </View>
             <Text style={miEspacioStyles.videoUrl} numberOfLines={1}>
               {profileData.presentationVideoUrl.length > 40
@@ -1220,7 +1323,7 @@ export function SpecialistProfileScreen() {
               <Image source={{ uri: profileData.avatar }} style={styles.avatarLarge} />
             ) : (
               <LinearGradient
-                colors={[heraLanding.primary, heraLanding.primaryDark]}
+                colors={[palette.primary, palette.primaryDark]}
                 style={styles.avatarLarge}
               >
                 <Text style={styles.avatarLargeText}>
@@ -1235,19 +1338,28 @@ export function SpecialistProfileScreen() {
             )}
           </View>
           <View style={styles.photoActions}>
-            <TouchableOpacity style={styles.photoButton} onPress={handleImagePick} activeOpacity={0.7} disabled={isUploadingAvatar}>
-              <Ionicons name="camera-outline" size={18} color={heraLanding.primary} />
-              <Text style={styles.photoButtonText}>{isUploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}</Text>
-            </TouchableOpacity>
+            <Button
+              variant="outline"
+              size="small"
+              onPress={handleImagePick}
+              disabled={isUploadingAvatar}
+              icon={<Ionicons name="camera-outline" size={18} color={palette.primary} />}
+              style={{ ...styles.photoButton }}
+              textStyle={{ ...styles.photoButtonText }}
+            >
+              {isUploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
+            </Button>
             {profileData.avatar && (
-              <TouchableOpacity
-                style={[styles.photoButton, styles.photoButtonDanger]}
+              <Button
+                variant="ghost"
+                size="small"
                 onPress={() => updateField('avatar', null)}
-                activeOpacity={0.7}
+                icon={<Ionicons name="trash-outline" size={18} color={palette.warning} />}
+                style={{ ...styles.photoButton, ...styles.photoButtonDanger }}
+                textStyle={{ ...styles.photoButtonText, ...styles.photoButtonTextDanger }}
               >
-                <Ionicons name="trash-outline" size={18} color={heraLanding.warning} />
-                <Text style={[styles.photoButtonText, styles.photoButtonTextDanger]}>Eliminar</Text>
-              </TouchableOpacity>
+                Eliminar
+              </Button>
             )}
           </View>
           <Text style={styles.photoHint}>
@@ -1332,9 +1444,9 @@ export function SpecialistProfileScreen() {
                 <Ionicons
                   name={profileData.offersOnline ? 'checkbox' : 'square-outline'}
                   size={22}
-                  color={profileData.offersOnline ? heraLanding.primary : heraLanding.textMuted}
+                  color={profileData.offersOnline ? palette.primary : palette.textMuted}
                 />
-                <Ionicons name="videocam-outline" size={20} color={heraLanding.textPrimary} />
+                <Ionicons name="videocam-outline" size={20} color={palette.textPrimary} />
                 <Text style={styles.modalityText}>Sesiones online</Text>
               </TouchableOpacity>
 
@@ -1349,9 +1461,9 @@ export function SpecialistProfileScreen() {
                 <Ionicons
                   name={profileData.offersInPerson ? 'checkbox' : 'square-outline'}
                   size={22}
-                  color={profileData.offersInPerson ? heraLanding.primary : heraLanding.textMuted}
+                  color={profileData.offersInPerson ? palette.primary : palette.textMuted}
                 />
-                <Ionicons name="business-outline" size={20} color={heraLanding.textPrimary} />
+                <Ionicons name="business-outline" size={20} color={palette.textPrimary} />
                 <Text style={styles.modalityText}>Sesiones presenciales</Text>
               </TouchableOpacity>
             </View>
@@ -1446,15 +1558,21 @@ export function SpecialistProfileScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Formación académica</Text>
-          <TouchableOpacity style={styles.addButton} onPress={addEducation} activeOpacity={0.7}>
-            <Ionicons name="add" size={18} color={heraLanding.primary} />
-            <Text style={styles.addButtonText}>Añadir título</Text>
-          </TouchableOpacity>
+          <Button
+            variant="outline"
+            size="small"
+            onPress={addEducation}
+            icon={<Ionicons name="add" size={18} color={palette.primary} />}
+            style={{ ...styles.addButton }}
+            textStyle={{ ...styles.addButtonText }}
+          >
+            Añadir título
+          </Button>
         </View>
 
         {profileData.education.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="school-outline" size={40} color={heraLanding.textMuted} />
+            <Ionicons name="school-outline" size={40} color={palette.textMuted} />
             <Text style={styles.emptyStateTitle}>No has añadido formación</Text>
             <Text style={styles.emptyStateDescription}>
               Comparte tus títulos y certificaciones para que los clientes conozcan tu preparación.
@@ -1465,7 +1583,7 @@ export function SpecialistProfileScreen() {
             {profileData.education.map((edu) => (
               <View key={edu.id} style={styles.itemCard}>
                 <View style={styles.itemIcon}>
-                  <Ionicons name="school" size={20} color={heraLanding.primary} />
+                  <Ionicons name="school" size={20} color={palette.primary} />
                 </View>
                 <View style={styles.itemContent}>
                   <TextInput
@@ -1473,14 +1591,14 @@ export function SpecialistProfileScreen() {
                     value={edu.degree}
                     onChangeText={(text) => updateEducation(edu.id, 'degree', text)}
                     placeholder="Título (ej: Máster en Psicología Clínica)"
-                    placeholderTextColor={heraLanding.textMuted}
+                    placeholderTextColor={palette.textMuted}
                   />
                   <TextInput
                     style={styles.itemInputSmall}
                     value={edu.institution}
                     onChangeText={(text) => updateEducation(edu.id, 'institution', text)}
                     placeholder="Institución"
-                    placeholderTextColor={heraLanding.textMuted}
+                    placeholderTextColor={palette.textMuted}
                   />
                   <View style={styles.itemRow}>
                     <TextInput
@@ -1488,7 +1606,7 @@ export function SpecialistProfileScreen() {
                       value={edu.startYear}
                       onChangeText={(text) => updateEducation(edu.id, 'startYear', text)}
                       placeholder="Año inicio"
-                      placeholderTextColor={heraLanding.textMuted}
+                      placeholderTextColor={palette.textMuted}
                       keyboardType="numeric"
                       maxLength={4}
                     />
@@ -1498,7 +1616,7 @@ export function SpecialistProfileScreen() {
                       value={edu.endYear}
                       onChangeText={(text) => updateEducation(edu.id, 'endYear', text)}
                       placeholder="Año fin"
-                      placeholderTextColor={heraLanding.textMuted}
+                      placeholderTextColor={palette.textMuted}
                       keyboardType="numeric"
                       maxLength={4}
                     />
@@ -1509,7 +1627,7 @@ export function SpecialistProfileScreen() {
                   onPress={() => removeEducation(edu.id)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="close-circle" size={22} color={heraLanding.warning} />
+                  <Ionicons name="close-circle" size={22} color={palette.warning} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -1521,15 +1639,21 @@ export function SpecialistProfileScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Experiencia profesional</Text>
-          <TouchableOpacity style={styles.addButton} onPress={addExperience} activeOpacity={0.7}>
-            <Ionicons name="add" size={18} color={heraLanding.primary} />
-            <Text style={styles.addButtonText}>Añadir experiencia</Text>
-          </TouchableOpacity>
+          <Button
+            variant="outline"
+            size="small"
+            onPress={addExperience}
+            icon={<Ionicons name="add" size={18} color={palette.primary} />}
+            style={{ ...styles.addButton }}
+            textStyle={{ ...styles.addButtonText }}
+          >
+            Añadir experiencia
+          </Button>
         </View>
 
         {profileData.experience.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="briefcase-outline" size={40} color={heraLanding.textMuted} />
+            <Ionicons name="briefcase-outline" size={40} color={palette.textMuted} />
             <Text style={styles.emptyStateTitle}>No has añadido experiencia</Text>
             <Text style={styles.emptyStateDescription}>
               Añade tu experiencia para que los clientes conozcan tu trayectoria.
@@ -1540,7 +1664,7 @@ export function SpecialistProfileScreen() {
             {profileData.experience.map((exp) => (
               <View key={exp.id} style={styles.itemCard}>
                 <View style={styles.itemIcon}>
-                  <Ionicons name="briefcase" size={20} color={heraLanding.primary} />
+                  <Ionicons name="briefcase" size={20} color={palette.primary} />
                 </View>
                 <View style={styles.itemContent}>
                   <TextInput
@@ -1548,14 +1672,14 @@ export function SpecialistProfileScreen() {
                     value={exp.position}
                     onChangeText={(text) => updateExperience(exp.id, 'position', text)}
                     placeholder="Puesto (ej: Psicóloga Clínica)"
-                    placeholderTextColor={heraLanding.textMuted}
+                    placeholderTextColor={palette.textMuted}
                   />
                   <TextInput
                     style={styles.itemInputSmall}
                     value={exp.organization}
                     onChangeText={(text) => updateExperience(exp.id, 'organization', text)}
                     placeholder="Organización"
-                    placeholderTextColor={heraLanding.textMuted}
+                    placeholderTextColor={palette.textMuted}
                   />
                   <View style={styles.itemRow}>
                     <TextInput
@@ -1563,7 +1687,7 @@ export function SpecialistProfileScreen() {
                       value={exp.startYear}
                       onChangeText={(text) => updateExperience(exp.id, 'startYear', text)}
                       placeholder="Inicio"
-                      placeholderTextColor={heraLanding.textMuted}
+                      placeholderTextColor={palette.textMuted}
                       keyboardType="numeric"
                       maxLength={4}
                     />
@@ -1578,7 +1702,7 @@ export function SpecialistProfileScreen() {
                         value={exp.endYear || ''}
                         onChangeText={(text) => updateExperience(exp.id, 'endYear', text)}
                         placeholder="Fin"
-                        placeholderTextColor={heraLanding.textMuted}
+                        placeholderTextColor={palette.textMuted}
                         keyboardType="numeric"
                         maxLength={4}
                       />
@@ -1591,7 +1715,7 @@ export function SpecialistProfileScreen() {
                       <Ionicons
                         name={exp.current ? 'checkbox' : 'square-outline'}
                         size={18}
-                        color={heraLanding.primary}
+                        color={palette.primary}
                       />
                       <Text style={styles.currentToggleText}>Actual</Text>
                     </TouchableOpacity>
@@ -1602,7 +1726,7 @@ export function SpecialistProfileScreen() {
                   onPress={() => removeExperience(exp.id)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="close-circle" size={22} color={heraLanding.warning} />
+                  <Ionicons name="close-circle" size={22} color={palette.warning} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -1629,7 +1753,7 @@ export function SpecialistProfileScreen() {
       return (
         <View style={[styles.verificationBanner, styles.verificationBannerVerified]}>
           <View style={styles.verificationBannerIcon}>
-            <Ionicons name="checkmark-circle" size={28} color={heraLanding.success} />
+            <Ionicons name="checkmark-circle" size={28} color={palette.success} />
           </View>
           <View style={styles.verificationBannerContent}>
             <Text style={[styles.verificationBannerTitle, styles.verificationBannerTitleVerified]}>
@@ -1647,7 +1771,7 @@ export function SpecialistProfileScreen() {
       return (
         <View style={[styles.verificationBanner, styles.verificationBannerPending]}>
           <View style={styles.verificationBannerIcon}>
-            <Ionicons name="time-outline" size={28} color={heraLanding.info} />
+            <Ionicons name="time-outline" size={28} color={palette.info} />
           </View>
           <View style={styles.verificationBannerContent}>
             <Text style={[styles.verificationBannerTitle, styles.verificationBannerTitlePending]}>
@@ -1665,7 +1789,7 @@ export function SpecialistProfileScreen() {
       return (
         <View style={[styles.verificationBanner, styles.verificationBannerRejected]}>
           <View style={styles.verificationBannerIcon}>
-            <Ionicons name="alert-circle" size={28} color={heraLanding.warning} />
+            <Ionicons name="alert-circle" size={28} color={palette.warning} />
           </View>
           <View style={styles.verificationBannerContent}>
             <Text style={[styles.verificationBannerTitle, styles.verificationBannerTitleRejected]}>
@@ -1677,14 +1801,16 @@ export function SpecialistProfileScreen() {
                 ` Motivo: ${verificationStatus.rejectionReason}`
               )}
             </Text>
-            <TouchableOpacity
-              style={styles.verificationResubmitButton}
+            <Button
+              variant="danger"
+              size="small"
               onPress={handleResubmitVerification}
-              activeOpacity={0.7}
+              icon={<Ionicons name="refresh" size={16} color="#FFFFFF" />}
+              style={{ ...styles.verificationResubmitButton }}
+              textStyle={{ ...styles.verificationResubmitButtonText }}
             >
-              <Ionicons name="refresh" size={16} color="#FFFFFF" />
-              <Text style={styles.verificationResubmitButtonText}>Reenviar verificación</Text>
-            </TouchableOpacity>
+              Reenviar verificación
+            </Button>
           </View>
         </View>
       );
@@ -1694,7 +1820,7 @@ export function SpecialistProfileScreen() {
     return (
       <View style={[styles.verificationBanner, styles.verificationBannerNotSubmitted]}>
         <View style={styles.verificationBannerIcon}>
-          <Ionicons name="shield-outline" size={28} color={heraLanding.textSecondary} />
+          <Ionicons name="shield-outline" size={28} color={palette.textSecondary} />
         </View>
         <View style={styles.verificationBannerContent}>
           <Text style={[styles.verificationBannerTitle, styles.verificationBannerTitleNotSubmitted]}>
@@ -1703,14 +1829,16 @@ export function SpecialistProfileScreen() {
           <Text style={styles.verificationBannerText}>
             Completa la verificación de tu identidad profesional para que los clientes puedan encontrarte.
           </Text>
-          <TouchableOpacity
-            style={styles.verificationSubmitButton}
+          <Button
+            variant="primary"
+            size="small"
             onPress={handleResubmitVerification}
-            activeOpacity={0.7}
+            icon={<Ionicons name="shield-checkmark" size={16} color="#FFFFFF" />}
+            style={{ ...styles.verificationSubmitButton }}
+            textStyle={{ ...styles.verificationResubmitButtonText }}
           >
-            <Ionicons name="shield-checkmark" size={16} color="#FFFFFF" />
-            <Text style={styles.verificationResubmitButtonText}>Iniciar verificación</Text>
-          </TouchableOpacity>
+            Iniciar verificación
+          </Button>
         </View>
       </View>
     );
@@ -1729,7 +1857,7 @@ export function SpecialistProfileScreen() {
             <Ionicons
               name={verificationStatus.verificationStatus === 'VERIFIED' ? 'checkmark-circle' : 'alert-circle'}
               size={24}
-              color={verificationStatus.verificationStatus === 'VERIFIED' ? heraLanding.success : heraLanding.warningAmber}
+              color={verificationStatus.verificationStatus === 'VERIFIED' ? palette.success : palette.warningAmber}
             />
             <View style={styles.verificationItemContent}>
               <Text style={styles.verificationItemTitle}>Identidad verificada</Text>
@@ -1746,7 +1874,7 @@ export function SpecialistProfileScreen() {
             <Ionicons
               name={verificationStatus.verificationStatus === 'VERIFIED' ? 'checkmark-circle' : 'alert-circle'}
               size={24}
-              color={verificationStatus.verificationStatus === 'VERIFIED' ? heraLanding.success : heraLanding.warningAmber}
+              color={verificationStatus.verificationStatus === 'VERIFIED' ? palette.success : palette.warningAmber}
             />
             <View style={styles.verificationItemContent}>
               <Text style={styles.verificationItemTitle}>Número de colegiado validado</Text>
@@ -1763,7 +1891,7 @@ export function SpecialistProfileScreen() {
             <Ionicons
               name={profileData.insuranceUploaded ? 'checkmark-circle' : 'alert-circle'}
               size={24}
-              color={profileData.insuranceUploaded ? heraLanding.success : heraLanding.warning}
+              color={profileData.insuranceUploaded ? palette.success : palette.warning}
             />
             <View style={styles.verificationItemContent}>
               <Text style={styles.verificationItemTitle}>Seguro profesional</Text>
@@ -1795,7 +1923,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={verificationStatus.verificationStatus === 'VERIFIED' ? 'shield-checkmark' : 'shield'}
                 size={32}
-                color={verificationStatus.verificationStatus === 'VERIFIED' ? heraLanding.success : heraLanding.textSecondary}
+                color={verificationStatus.verificationStatus === 'VERIFIED' ? palette.success : palette.textSecondary}
               />
             </View>
             <View style={styles.verificationCardContent}>
@@ -1808,15 +1936,16 @@ export function SpecialistProfileScreen() {
                     : 'Sube tu documento de identidad'}
               </Text>
             </View>
-            <TouchableOpacity
-              style={styles.verificationCardButton}
-              activeOpacity={0.7}
-              onPress={verificationStatus.verificationStatus !== 'VERIFIED' ? handleResubmitVerification : undefined}
+            <Button
+              variant={verificationStatus.verificationStatus === 'VERIFIED' ? 'ghost' : 'outline'}
+              size="small"
+              onPress={verificationStatus.verificationStatus !== 'VERIFIED' ? handleResubmitVerification : () => {}}
+              disabled={verificationStatus.verificationStatus === 'VERIFIED'}
+              style={{ ...styles.verificationCardButton }}
+              textStyle={{ ...styles.verificationCardButtonText }}
             >
-              <Text style={styles.verificationCardButtonText}>
-                {verificationStatus.verificationStatus === 'VERIFIED' ? 'Verificado' : 'Verificar'}
-              </Text>
-            </TouchableOpacity>
+              {verificationStatus.verificationStatus === 'VERIFIED' ? 'Verificado' : 'Verificar'}
+            </Button>
           </View>
         </View>
       </View>
@@ -1828,7 +1957,7 @@ export function SpecialistProfileScreen() {
           {profileData.insuranceUploaded ? (
             <View style={styles.documentCard}>
               <View style={styles.documentIcon}>
-                <Ionicons name="document-text" size={24} color={heraLanding.primary} />
+                <Ionicons name="document-text" size={24} color={palette.primary} />
               </View>
               <View style={styles.documentContent}>
                 <Text style={styles.documentTitle}>Póliza de seguro</Text>
@@ -1836,24 +1965,30 @@ export function SpecialistProfileScreen() {
               </View>
               <View style={styles.documentActions}>
                 <TouchableOpacity style={styles.documentAction} activeOpacity={0.7}>
-                  <Ionicons name="eye-outline" size={20} color={heraLanding.primary} />
+                  <Ionicons name="eye-outline" size={20} color={palette.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.documentAction} activeOpacity={0.7}>
-                  <Ionicons name="trash-outline" size={20} color={heraLanding.warning} />
+                  <Ionicons name="trash-outline" size={20} color={palette.warning} />
                 </TouchableOpacity>
               </View>
             </View>
           ) : (
             <View style={styles.uploadArea}>
-              <Ionicons name="cloud-upload-outline" size={40} color={heraLanding.textMuted} />
+              <Ionicons name="cloud-upload-outline" size={40} color={palette.textMuted} />
               <Text style={styles.uploadTitle}>Subir póliza de seguro</Text>
               <Text style={styles.uploadDescription}>
                 Requerido para ofrecer sesiones presenciales
               </Text>
-              <TouchableOpacity style={styles.uploadButton} activeOpacity={0.7}>
-                <Ionicons name="add" size={18} color={heraLanding.textOnCard} />
-                <Text style={styles.uploadButtonText}>Subir documento</Text>
-              </TouchableOpacity>
+              <Button
+                variant="primary"
+                size="small"
+                onPress={() => {}}
+                icon={<Ionicons name="add" size={18} color={palette.textOnCard} />}
+                style={styles.uploadButton}
+                textStyle={{ ...styles.uploadButtonText }}
+              >
+                Subir documento
+              </Button>
             </View>
           )}
         </View>
@@ -1863,15 +1998,21 @@ export function SpecialistProfileScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Certificados y acreditaciones</Text>
-          <TouchableOpacity style={styles.addButton} activeOpacity={0.7}>
-            <Ionicons name="add" size={18} color={heraLanding.primary} />
-            <Text style={styles.addButtonText}>Añadir certificado</Text>
-          </TouchableOpacity>
+          <Button
+            variant="outline"
+            size="small"
+            onPress={() => {}}
+            icon={<Ionicons name="add" size={18} color={palette.primary} />}
+            style={{ ...styles.addButton }}
+            textStyle={{ ...styles.addButtonText }}
+          >
+            Añadir certificado
+          </Button>
         </View>
 
         {profileData.certificates.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="ribbon-outline" size={40} color={heraLanding.textMuted} />
+            <Ionicons name="ribbon-outline" size={40} color={palette.textMuted} />
             <Text style={styles.emptyStateTitle}>No has añadido certificados</Text>
             <Text style={styles.emptyStateDescription}>
               Añade tus certificaciones profesionales para aumentar la confianza.
@@ -1882,7 +2023,7 @@ export function SpecialistProfileScreen() {
             {profileData.certificates.map((cert) => (
               <View key={cert.id} style={styles.documentCard}>
                 <View style={styles.documentIcon}>
-                  <Ionicons name="ribbon" size={24} color={heraLanding.primary} />
+                  <Ionicons name="ribbon" size={24} color={palette.primary} />
                 </View>
                 <View style={styles.documentContent}>
                   <Text style={styles.documentTitle}>{cert.name}</Text>
@@ -1893,10 +2034,10 @@ export function SpecialistProfileScreen() {
                 </View>
                 <View style={styles.documentActions}>
                   <TouchableOpacity style={styles.documentAction} activeOpacity={0.7}>
-                    <Ionicons name="create-outline" size={20} color={heraLanding.primary} />
+                    <Ionicons name="create-outline" size={20} color={palette.primary} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.documentAction} activeOpacity={0.7}>
-                    <Ionicons name="trash-outline" size={20} color={heraLanding.warning} />
+                    <Ionicons name="trash-outline" size={20} color={palette.warning} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1936,7 +2077,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.offerExtended ? 'checkbox' : 'square-outline'}
                 size={22}
-                color={heraLanding.primary}
+                color={palette.primary}
               />
               <Text style={styles.toggleText}>Ofrecer sesión de 90 minutos</Text>
             </TouchableOpacity>
@@ -1963,7 +2104,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.offerFirstSessionDiscount ? 'checkbox' : 'square-outline'}
                 size={22}
-                color={heraLanding.primary}
+                color={palette.primary}
               />
               <Text style={styles.toggleText}>Precio especial primera sesión</Text>
             </TouchableOpacity>
@@ -2079,7 +2220,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={!profileData.applyVat ? 'radio-button-on' : 'radio-button-off'}
                 size={20}
-                color={heraLanding.primary}
+                color={palette.primary}
               />
               <Text style={styles.radioText}>No aplicar IVA (profesional exento)</Text>
             </TouchableOpacity>
@@ -2091,7 +2232,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.applyVat ? 'radio-button-on' : 'radio-button-off'}
                 size={20}
-                color={heraLanding.primary}
+                color={palette.primary}
               />
               <Text style={styles.radioText}>Aplicar 21% IVA</Text>
             </TouchableOpacity>
@@ -2106,7 +2247,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.applyIrpf ? 'checkbox' : 'square-outline'}
                 size={22}
-                color={heraLanding.primary}
+                color={palette.primary}
               />
               <Text style={styles.toggleText}>Retención del 15% IRPF en facturas</Text>
             </TouchableOpacity>
@@ -2147,12 +2288,24 @@ export function SpecialistProfileScreen() {
             }
           )}
           <View style={styles.accountActions}>
-            <TouchableOpacity style={styles.accountAction} activeOpacity={0.7}>
-              <Text style={styles.accountActionText}>Cambiar email</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.accountAction} activeOpacity={0.7}>
-              <Text style={styles.accountActionText}>Cambiar teléfono</Text>
-            </TouchableOpacity>
+            <Button
+              variant="outline"
+              size="small"
+              onPress={() => {}}
+              style={{ ...styles.accountAction }}
+              textStyle={{ ...styles.accountActionText }}
+            >
+              Cambiar email
+            </Button>
+            <Button
+              variant="outline"
+              size="small"
+              onPress={() => {}}
+              style={{ ...styles.accountAction }}
+              textStyle={{ ...styles.accountActionText }}
+            >
+              Cambiar teléfono
+            </Button>
           </View>
         </View>
       </View>
@@ -2167,9 +2320,15 @@ export function SpecialistProfileScreen() {
               <Text style={styles.passwordValue}>••••••••••••</Text>
               <Text style={styles.passwordMeta}>Última actualización: Hace 3 meses</Text>
             </View>
-            <TouchableOpacity style={styles.changePasswordButton} activeOpacity={0.7}>
-              <Text style={styles.changePasswordText}>Cambiar</Text>
-            </TouchableOpacity>
+            <Button
+              variant="outline"
+              size="small"
+              onPress={() => {}}
+              style={{ ...styles.changePasswordButton }}
+              textStyle={{ ...styles.changePasswordText }}
+            >
+              Cambiar
+            </Button>
           </View>
 
           <View style={styles.securityRow}>
@@ -2177,7 +2336,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.twoFactorEnabled ? 'shield-checkmark' : 'shield'}
                 size={24}
-                color={profileData.twoFactorEnabled ? heraLanding.success : heraLanding.textSecondary}
+                color={profileData.twoFactorEnabled ? palette.success : palette.textSecondary}
               />
               <View>
                 <Text style={styles.securityLabel}>Autenticación de dos factores</Text>
@@ -2186,16 +2345,18 @@ export function SpecialistProfileScreen() {
                 </Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.securityButton} activeOpacity={0.7}>
-              <Text style={styles.securityButtonText}>
-                {profileData.twoFactorEnabled ? 'Gestionar' : 'Activar'}
-              </Text>
-            </TouchableOpacity>
+            <Button
+              variant="outline"
+              size="small"
+              onPress={() => {}}
+              style={{ ...styles.securityButton }}
+              textStyle={{ ...styles.securityButtonText }}
+            >
+              {profileData.twoFactorEnabled ? 'Gestionar' : 'Activar'}
+            </Button>
           </View>
         </View>
       </View>
-
-      {/* Notifications */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Notificaciones</Text>
         <View style={styles.formCard}>
@@ -2243,7 +2404,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.profileVisible ? 'radio-button-on' : 'radio-button-off'}
                 size={20}
-                color={heraLanding.primary}
+                color={palette.primary}
               />
               <Text style={styles.radioText}>Visible (aparecer en búsquedas)</Text>
             </TouchableOpacity>
@@ -2255,7 +2416,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={!profileData.profileVisible ? 'radio-button-on' : 'radio-button-off'}
                 size={20}
-                color={heraLanding.primary}
+                color={palette.primary}
               />
               <Text style={styles.radioText}>Oculto (solo enlace directo)</Text>
             </TouchableOpacity>
@@ -2270,7 +2431,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.showReviewCount ? 'checkbox' : 'square-outline'}
                 size={22}
-                color={heraLanding.primary}
+                color={palette.primary}
               />
               <Text style={styles.toggleText}>Mostrar número de reseñas</Text>
             </TouchableOpacity>
@@ -2284,7 +2445,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={profileData.showLastOnline ? 'checkbox' : 'square-outline'}
                 size={22}
-                color={heraLanding.primary}
+                color={palette.primary}
               />
               <Text style={styles.toggleText}>Mostrar última conexión</Text>
             </TouchableOpacity>
@@ -2297,15 +2458,15 @@ export function SpecialistProfileScreen() {
         <Text style={styles.sectionTitle}>Acciones de cuenta</Text>
         <View style={styles.formCard}>
           <TouchableOpacity style={styles.accountLink} activeOpacity={0.7}>
-            <Ionicons name="download-outline" size={20} color={heraLanding.textSecondary} />
+            <Ionicons name="download-outline" size={20} color={palette.textSecondary} />
             <Text style={styles.accountLinkText}>Descargar mis datos</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.accountLink} activeOpacity={0.7}>
-            <Ionicons name="pause-circle-outline" size={20} color={heraLanding.warningAmber} />
+            <Ionicons name="pause-circle-outline" size={20} color={palette.warningAmber} />
             <Text style={styles.accountLinkText}>Pausar cuenta temporalmente</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.accountLink, styles.accountLinkDanger]} activeOpacity={0.7}>
-            <Ionicons name="trash-outline" size={20} color={heraLanding.warning} />
+            <Ionicons name="trash-outline" size={20} color={palette.warning} />
             <Text style={[styles.accountLinkText, styles.accountLinkTextDanger]}>Eliminar cuenta</Text>
           </TouchableOpacity>
           <Text style={styles.accountWarning}>
@@ -2322,27 +2483,18 @@ export function SpecialistProfileScreen() {
 
   const renderSaveButton = () => (
     <View style={[styles.saveButtonContainer, isDesktop && styles.saveButtonContainerDesktop]}>
-      <TouchableOpacity
-        style={[styles.saveButton, !hasChanges && styles.saveButtonDisabled]}
+      <Button
+        variant="primary"
+        size="medium"
         onPress={handleSave}
         disabled={!hasChanges || isSaving}
-        activeOpacity={0.8}
+        loading={isSaving}
+        style={{ ...styles.saveButton, ...(!hasChanges ? styles.saveButtonDisabled : {}) }}
+        textStyle={{ ...styles.saveButtonText, ...(!hasChanges ? styles.saveButtonTextDisabled : {}) }}
+        icon={<Ionicons name="checkmark-circle-outline" size={20} color={hasChanges ? palette.textOnCard : palette.textMuted} />}
       >
-        {isSaving ? (
-          <ActivityIndicator size="small" color={heraLanding.textOnCard} />
-        ) : (
-          <>
-            <Ionicons
-              name="checkmark-circle-outline"
-              size={20}
-              color={hasChanges ? heraLanding.textOnCard : heraLanding.textMuted}
-            />
-            <Text style={[styles.saveButtonText, !hasChanges && styles.saveButtonTextDisabled]}>
-              Guardar cambios
-            </Text>
-          </>
-        )}
-      </TouchableOpacity>
+        Guardar cambios
+      </Button>
     </View>
   );
 
@@ -2353,7 +2505,7 @@ export function SpecialistProfileScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={heraLanding.primary} />
+        <ActivityIndicator size="large" color={palette.primary} />
         <Text style={styles.loadingText}>Cargando perfil...</Text>
       </View>
     );
@@ -2363,40 +2515,6 @@ export function SpecialistProfileScreen() {
     <View style={styles.container}>
       {/* Tab Navigation */}
       {renderTabNavigation()}
-
-      {/* Share Profile Banner - only for verified specialists */}
-      {verificationStatus.verificationStatus === 'VERIFIED' && specialistId && (
-        <View style={styles.shareBanner}>
-          <View style={styles.shareBannerContent}>
-            <View style={styles.shareBannerLeft}>
-              <Ionicons name="link-outline" size={18} color={heraLanding.primary} />
-              <Text style={styles.shareBannerText}>Compartir mi perfil</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.shareBannerButton}
-              onPress={handleShareProfile}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={Platform.OS === 'web' ? 'copy-outline' : 'share-outline'}
-                size={16}
-                color={heraLanding.textOnPrimary}
-              />
-              <Text style={styles.shareBannerButtonText}>
-                {Platform.OS === 'web' ? 'Copiar enlace' : 'Compartir'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Copied toast */}
-          {showCopiedToast && (
-            <Animated.View style={[styles.copiedToast, { opacity: toastOpacity }]}>
-              <Ionicons name="checkmark-circle" size={16} color={heraLanding.success} />
-              <Text style={styles.copiedToastText}>Enlace copiado al portapapeles</Text>
-            </Animated.View>
-          )}
-        </View>
-      )}
 
       {/* Main Content Area */}
       <View style={styles.mainArea}>
@@ -2421,13 +2539,14 @@ export function SpecialistProfileScreen() {
 
         {/* Mobile Preview Toggle */}
         {isMobile && (
-          <TouchableOpacity
+          <AnimatedPressable
             style={styles.previewToggle}
             onPress={() => setShowPreview(!showPreview)}
-            activeOpacity={0.7}
+            hoverLift={false}
+            pressScale={0.97}
           >
-            <Ionicons name="eye-outline" size={20} color={heraLanding.textOnCard} />
-          </TouchableOpacity>
+            <Ionicons name="eye-outline" size={20} color={palette.textOnCard} />
+          </AnimatedPressable>
         )}
       </View>
 
@@ -2447,7 +2566,7 @@ export function SpecialistProfileScreen() {
               <View style={styles.previewModalHeader}>
                 <Text style={styles.previewModalTitle}>Vista previa</Text>
                 <TouchableOpacity onPress={() => setShowPreview(false)} activeOpacity={0.7}>
-                  <Ionicons name="close" size={24} color={heraLanding.textPrimary} />
+                  <Ionicons name="close" size={24} color={palette.textPrimary} />
                 </TouchableOpacity>
               </View>
               {renderProfilePreview()}
@@ -2463,31 +2582,80 @@ export function SpecialistProfileScreen() {
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
+function createStyles(
+  palette: ProfilePalette,
+  isDesktop: boolean,
+  isMobile: boolean,
+  showPreview: boolean,
+) {
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: heraLanding.background, // #F5F7F5 - THE ABSOLUTE TRUTH
+    backgroundColor: palette.background, // #F5F7F5 - THE ABSOLUTE TRUTH
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: heraLanding.background,
+    backgroundColor: palette.background,
   },
   loadingText: {
     marginTop: spacing.md,
     fontSize: 16,
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
   },
 
   // ===== TAB NAVIGATION =====
   tabsContainer: {
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: palette.cardBg,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: palette.border,
   },
   tabsContainerDesktop: {
     borderBottomWidth: 2,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  topBarDesktop: {
+    paddingHorizontal: spacing.xl,
+  },
+  topBarMobile: {
+    paddingHorizontal: spacing.md,
+    flexWrap: 'wrap',
+  },
+  topBarContent: {
+    flex: 1,
+    minWidth: 220,
+  },
+  topBarTitle: {
+    fontSize: isDesktop ? 28 : 24,
+    lineHeight: isDesktop ? 34 : 30,
+    fontWeight: '800',
+    color: palette.textPrimary,
+  },
+  topBarSubtitle: {
+    marginTop: spacing.xs,
+    fontSize: 14,
+    lineHeight: 20,
+    color: palette.textSecondary,
+  },
+  topBarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: isMobile ? 'flex-start' : 'flex-end',
+  },
+  topBarActionButton: {
+    minWidth: isMobile ? 0 : 172,
+  },
+  topBarActionText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   tabsMobile: {
     paddingHorizontal: spacing.md,
@@ -2506,9 +2674,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.lg,
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: palette.cardBg,
     borderWidth: 1,
-    borderColor: heraLanding.border,
+    borderColor: palette.border,
     gap: spacing.xs,
   },
   tabDesktop: {
@@ -2520,23 +2688,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   tabActive: {
-    backgroundColor: heraLanding.primaryMuted,
-    borderColor: heraLanding.primary,
+    backgroundColor: palette.primaryMuted,
+    borderColor: palette.primary,
   },
   tabActiveDesktop: {
     backgroundColor: 'transparent',
-    borderBottomColor: heraLanding.primary,
+    borderBottomColor: palette.primary,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '500',
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
   },
   tabTextDesktop: {
     fontSize: 15,
   },
   tabTextActive: {
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
     fontWeight: '600',
   },
 
@@ -2559,9 +2727,9 @@ const styles = StyleSheet.create({
   // ===== PREVIEW SIDEBAR =====
   previewContainer: {
     flex: 0.4,
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: palette.cardBg,
     borderLeftWidth: 1,
-    borderLeftColor: heraLanding.border,
+    borderLeftColor: palette.border,
     maxWidth: 380,
   },
   previewHeader: {
@@ -2570,12 +2738,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     padding: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: palette.border,
   },
   previewTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -2601,18 +2769,18 @@ const styles = StyleSheet.create({
   previewAvatarText: {
     fontSize: 40,
     fontWeight: '700',
-    color: heraLanding.textOnCard,
+    color: palette.textOnCard,
   },
   previewName: {
     fontSize: 20,
     fontWeight: '700',
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
     marginBottom: spacing.xs,
     textAlign: 'center',
   },
   previewTitle2: {
     fontSize: 15,
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
     textAlign: 'center',
   },
   previewStats: {
@@ -2621,7 +2789,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: heraLanding.background,
+    backgroundColor: palette.background,
     borderRadius: borderRadius.lg,
   },
   previewStat: {
@@ -2631,16 +2799,16 @@ const styles = StyleSheet.create({
   previewStatValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
   },
   previewStatLabel: {
     fontSize: 12,
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
   },
   previewStatDivider: {
     width: 1,
     height: 30,
-    backgroundColor: heraLanding.border,
+    backgroundColor: palette.border,
   },
   previewSection: {
     marginBottom: spacing.md,
@@ -2652,22 +2820,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   previewTag: {
-    backgroundColor: heraLanding.primaryMuted,
+    backgroundColor: palette.primaryMuted,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.md,
   },
   previewTagMore: {
-    backgroundColor: heraLanding.border,
+    backgroundColor: palette.border,
   },
   previewTagText: {
     fontSize: 12,
     fontWeight: '500',
-    color: heraLanding.primary,
+    color: palette.primary,
   },
   previewBio: {
     fontSize: 14,
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
     fontStyle: 'italic',
     lineHeight: 20,
     textAlign: 'center',
@@ -2684,7 +2852,7 @@ const styles = StyleSheet.create({
   },
   previewBadgeText: {
     fontSize: 13,
-    color: heraLanding.success,
+    color: palette.success,
     fontWeight: '500',
   },
   previewButton: {
@@ -2694,13 +2862,13 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing.md,
     borderWidth: 2,
-    borderColor: heraLanding.border,
+    borderColor: palette.border,
     borderRadius: borderRadius.md,
   },
   previewButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: heraLanding.primary,
+    color: palette.primary,
   },
 
   // ===== MOBILE PREVIEW =====
@@ -2711,7 +2879,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: heraLanding.primary,
+    backgroundColor: palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.lg,
@@ -2722,7 +2890,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   previewModalContent: {
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: palette.cardBg,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     maxHeight: '80%',
@@ -2733,12 +2901,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: palette.border,
   },
   previewModalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
   },
 
   // ===== TAB CONTENT =====
@@ -2759,13 +2927,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
     marginBottom: spacing.md,
   },
 
   // ===== FORM CARD =====
   formCard: {
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: palette.cardBg,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     ...shadows.md,
@@ -2784,30 +2952,30 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
   },
   fieldHint: {
     fontSize: 12,
     fontWeight: '400',
-    color: heraLanding.textMuted,
+    color: palette.textMuted,
   },
   required: {
-    color: heraLanding.warning,
+    color: palette.warning,
   },
   fieldInput: {
-    backgroundColor: heraLanding.cardBackground,
+    backgroundColor: palette.cardBackground,
     borderWidth: 2,
-    borderColor: heraLanding.border,
+    borderColor: palette.border,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 4,
     fontSize: 16,
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
     minHeight: 48,
   },
   fieldInputDisabled: {
-    backgroundColor: heraLanding.cardBackgroundDisabled,
-    color: heraLanding.textSecondary,
+    backgroundColor: palette.cardBackgroundDisabled,
+    color: palette.textSecondary,
   },
   fieldInputMultiline: {
     paddingTop: spacing.sm + 4,
@@ -2820,12 +2988,12 @@ const styles = StyleSheet.create({
   },
   helperText: {
     fontSize: 12,
-    color: heraLanding.textMuted,
+    color: palette.textMuted,
     fontStyle: 'italic',
   },
   characterCount: {
     fontSize: 12,
-    color: heraLanding.textMuted,
+    color: palette.textMuted,
   },
   verifiedBadge: {
     flexDirection: 'row',
@@ -2846,10 +3014,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   verifiedTextSuccess: {
-    color: heraLanding.success,
+    color: palette.success,
   },
   verifiedTextPending: {
-    color: heraLanding.warningAmber,
+    color: palette.warningAmber,
   },
 
   // ===== CHIP SELECTOR =====
@@ -2865,14 +3033,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.xl,
-    backgroundColor: heraLanding.background,
+    backgroundColor: palette.background,
     borderWidth: 2,
-    borderColor: heraLanding.border,
+    borderColor: palette.border,
     gap: spacing.xs,
   },
   chipSelected: {
-    backgroundColor: heraLanding.primary,
-    borderColor: heraLanding.primary,
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
   },
   chipDisabled: {
     opacity: 0.5,
@@ -2880,20 +3048,20 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 14,
     fontWeight: '500',
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
   },
   chipTextSelected: {
-    color: heraLanding.textOnCard,
+    color: palette.textOnCard,
   },
   chipTextDisabled: {
-    color: heraLanding.textMuted,
+    color: palette.textMuted,
   },
 
   // ===== PHOTO SECTION =====
   photoSection: {
     alignItems: 'center',
     padding: spacing.lg,
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: palette.cardBg,
     borderRadius: borderRadius.lg,
     ...shadows.md,
   },
@@ -2911,7 +3079,7 @@ const styles = StyleSheet.create({
   avatarLargeText: {
     fontSize: 48,
     fontWeight: '700',
-    color: heraLanding.textOnCard,
+    color: palette.textOnCard,
   },
   photoActions: {
     flexDirection: 'row',
@@ -2926,22 +3094,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 2,
-    borderColor: heraLanding.border,
+    borderColor: palette.border,
   },
   photoButtonDanger: {
-    borderColor: heraLanding.warning,
+    borderColor: palette.warning,
   },
   photoButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: heraLanding.primary,
+    color: palette.primary,
   },
   photoButtonTextDanger: {
-    color: heraLanding.warning,
+    color: palette.warning,
   },
   photoHint: {
     fontSize: 12,
-    color: heraLanding.textMuted,
+    color: palette.textMuted,
     textAlign: 'center',
   },
 
@@ -2949,20 +3117,20 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     padding: spacing.xl,
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: palette.cardBg,
     borderRadius: borderRadius.lg,
     ...shadows.sm,
   },
   emptyStateTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
   emptyStateDescription: {
     fontSize: 14,
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -2978,7 +3146,7 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: heraLanding.primary,
+    color: palette.primary,
   },
 
   // ===== ITEMS LIST (Education/Experience) =====
@@ -2987,7 +3155,7 @@ const styles = StyleSheet.create({
   },
   itemCard: {
     flexDirection: 'row',
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: palette.cardBg,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     ...shadows.sm,
@@ -2996,7 +3164,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: heraLanding.primaryMuted,
+    backgroundColor: palette.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -3007,17 +3175,17 @@ const styles = StyleSheet.create({
   itemInput: {
     fontSize: 15,
     fontWeight: '600',
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: palette.border,
     paddingVertical: spacing.xs,
     marginBottom: spacing.xs,
   },
   itemInputSmall: {
     fontSize: 14,
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: palette.border,
     paddingVertical: spacing.xs,
     marginBottom: spacing.xs,
   },
@@ -3033,13 +3201,13 @@ const styles = StyleSheet.create({
   },
   itemSeparator: {
     fontSize: 14,
-    color: heraLanding.textMuted,
+    color: palette.textMuted,
   },
   itemRemove: {
     padding: spacing.xs,
   },
   currentBadge: {
-    backgroundColor: heraLanding.primaryMuted,
+    backgroundColor: palette.primaryMuted,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.sm,
@@ -3047,7 +3215,7 @@ const styles = StyleSheet.create({
   currentBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: heraLanding.primary,
+    color: palette.primary,
   },
   currentToggle: {
     flexDirection: 'row',
@@ -3057,12 +3225,12 @@ const styles = StyleSheet.create({
   },
   currentToggleText: {
     fontSize: 13,
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
   },
 
   // ===== VERIFICATION =====
   verificationOverview: {
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: palette.cardBg,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     ...shadows.md,
@@ -3073,7 +3241,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: palette.border,
   },
   verificationItemContent: {
     flex: 1,
@@ -3081,17 +3249,17 @@ const styles = StyleSheet.create({
   verificationItemTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
   },
   verificationItemStatus: {
     fontSize: 13,
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
   },
   completionSection: {
     marginTop: spacing.lg,
     paddingTop: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: heraLanding.border,
+    borderTopColor: palette.border,
   },
   completionHeader: {
     flexDirection: 'row',
@@ -3101,22 +3269,22 @@ const styles = StyleSheet.create({
   completionLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
   },
   completionValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: heraLanding.primary,
+    color: palette.primary,
   },
   completionBar: {
     height: 8,
-    backgroundColor: heraLanding.border,
+    backgroundColor: palette.border,
     borderRadius: 4,
     overflow: 'hidden',
   },
   completionFill: {
     height: '100%',
-    backgroundColor: heraLanding.primary,
+    backgroundColor: palette.primary,
     borderRadius: 4,
   },
 
@@ -3130,7 +3298,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: heraLanding.background,
+    backgroundColor: palette.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3140,22 +3308,22 @@ const styles = StyleSheet.create({
   verificationCardTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
   },
   verificationCardStatus: {
     fontSize: 13,
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
   },
   verificationCardButton: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
-    backgroundColor: heraLanding.primary,
+    backgroundColor: palette.primary,
   },
   verificationCardButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: heraLanding.textOnCard,
+    color: palette.textOnCard,
   },
 
   // ===== DOCUMENT CARD =====
@@ -3164,14 +3332,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     padding: spacing.md,
-    backgroundColor: heraLanding.background,
+    backgroundColor: palette.background,
     borderRadius: borderRadius.md,
   },
   documentIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: heraLanding.primaryMuted,
+    backgroundColor: palette.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3181,11 +3349,11 @@ const styles = StyleSheet.create({
   documentTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
   },
   documentMeta: {
     fontSize: 13,
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
   },
   documentActions: {
     flexDirection: 'row',
@@ -3200,36 +3368,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.xl,
     borderWidth: 2,
-    borderColor: heraLanding.border,
+    borderColor: palette.border,
     borderStyle: 'dashed',
     borderRadius: borderRadius.lg,
   },
   uploadTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
   uploadDescription: {
     fontSize: 14,
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.md,
   },
   uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: heraLanding.primary,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
+    alignSelf: 'center',
+    minWidth: 190,
   },
   uploadButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: heraLanding.textOnCard,
+    color: palette.textOnCard,
   },
 
   // ===== PRICING =====
@@ -3241,7 +3404,7 @@ const styles = StyleSheet.create({
   priceCurrency: {
     fontSize: 16,
     fontWeight: '600',
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
     paddingBottom: spacing.md + 4,
   },
   toggleRow: {
@@ -3254,7 +3417,7 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 15,
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
   },
   taxSection: {
     marginBottom: spacing.md,
@@ -3262,7 +3425,7 @@ const styles = StyleSheet.create({
   taxLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
     marginBottom: spacing.sm,
   },
   radioOption: {
@@ -3273,7 +3436,7 @@ const styles = StyleSheet.create({
   },
   radioText: {
     fontSize: 15,
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
   },
 
   // ===== ACCOUNT =====
@@ -3288,7 +3451,7 @@ const styles = StyleSheet.create({
   accountActionText: {
     fontSize: 14,
     fontWeight: '600',
-    color: heraLanding.primary,
+    color: palette.primary,
   },
   passwordRow: {
     flexDirection: 'row',
@@ -3296,37 +3459,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: palette.border,
     marginBottom: spacing.lg,
   },
   passwordInfo: {},
   passwordLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
     marginBottom: spacing.xs,
   },
   passwordValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
     marginBottom: spacing.xs,
   },
   passwordMeta: {
     fontSize: 12,
-    color: heraLanding.textMuted,
+    color: palette.textMuted,
   },
   changePasswordButton: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 2,
-    borderColor: heraLanding.border,
+    borderColor: palette.border,
   },
   changePasswordText: {
     fontSize: 14,
     fontWeight: '600',
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
   },
   securityRow: {
     flexDirection: 'row',
@@ -3341,27 +3504,27 @@ const styles = StyleSheet.create({
   securityLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
   },
   securityStatus: {
     fontSize: 13,
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
   },
   securityButton: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
-    backgroundColor: heraLanding.primary,
+    backgroundColor: palette.primary,
   },
   securityButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: heraLanding.textOnCard,
+    color: palette.textOnCard,
   },
   notificationCategory: {
     fontSize: 13,
     fontWeight: '700',
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing.md,
@@ -3374,13 +3537,13 @@ const styles = StyleSheet.create({
   },
   notificationLabel: {
     fontSize: 15,
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
   },
   switchTrack: {
     width: 48,
     height: 28,
     borderRadius: 14,
-    backgroundColor: heraLanding.primary,
+    backgroundColor: palette.primary,
     padding: 2,
     justifyContent: 'center',
   },
@@ -3388,7 +3551,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: palette.cardBg,
     ...shadows.sm,
   },
   switchThumbActive: {
@@ -3400,7 +3563,7 @@ const styles = StyleSheet.create({
   privacyLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
     marginBottom: spacing.sm,
   },
   accountLink: {
@@ -3409,21 +3572,21 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: palette.border,
   },
   accountLinkDanger: {
     borderBottomWidth: 0,
   },
   accountLinkText: {
     fontSize: 15,
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
   },
   accountLinkTextDanger: {
-    color: heraLanding.warning,
+    color: palette.warning,
   },
   accountWarning: {
     fontSize: 12,
-    color: heraLanding.textMuted,
+    color: palette.textMuted,
     marginTop: spacing.md,
     fontStyle: 'italic',
   },
@@ -3435,35 +3598,32 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: spacing.lg,
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: palette.cardBg,
     borderTopWidth: 1,
-    borderTopColor: heraLanding.border,
+    borderTopColor: palette.border,
+    alignItems: 'center',
     ...shadows.lg,
   },
   saveButtonContainerDesktop: {
     right: 380, // Account for preview sidebar
   },
   saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: heraLanding.primary,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
-    ...shadows.md,
+    width: '100%',
+    maxWidth: 320,
+    alignSelf: 'center',
   },
   saveButtonDisabled: {
-    backgroundColor: heraLanding.border,
-    ...shadows.none,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: heraLanding.textOnCard,
+    color: palette.textOnCard,
   },
   saveButtonTextDisabled: {
-    color: heraLanding.textMuted,
+    color: palette.textMuted,
   },
 
   // ===== LOCATION & MODALITY =====
@@ -3476,19 +3636,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.md,
     borderWidth: 2,
-    borderColor: heraLanding.border,
+    borderColor: palette.border,
     borderRadius: borderRadius.md,
     gap: spacing.sm,
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: palette.cardBg,
   },
   modalityOptionSelected: {
-    borderColor: heraLanding.primary,
-    backgroundColor: heraLanding.primaryMuted,
+    borderColor: palette.primary,
+    backgroundColor: palette.primaryMuted,
   },
   modalityText: {
     flex: 1,
     fontSize: 15,
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
     fontWeight: '500',
   },
   formRow: {
@@ -3503,7 +3663,7 @@ const styles = StyleSheet.create({
   },
   fieldHelper: {
     fontSize: 13,
-    color: heraLanding.textMuted,
+    color: palette.textMuted,
     marginBottom: spacing.sm,
   },
 
@@ -3517,30 +3677,30 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   verificationBannerVerified: {
-    backgroundColor: heraLanding.successLight,
+    backgroundColor: palette.successLight,
     borderWidth: 1,
-    borderColor: heraLanding.success,
+    borderColor: palette.success,
   },
   verificationBannerPending: {
     backgroundColor: 'rgba(139, 168, 196, 0.15)',
     borderWidth: 1,
-    borderColor: heraLanding.info,
+    borderColor: palette.info,
   },
   verificationBannerRejected: {
-    backgroundColor: heraLanding.warningLight,
+    backgroundColor: palette.warningLight,
     borderWidth: 1,
-    borderColor: heraLanding.warning,
+    borderColor: palette.warning,
   },
   verificationBannerNotSubmitted: {
-    backgroundColor: heraLanding.background,
+    backgroundColor: palette.background,
     borderWidth: 1,
-    borderColor: heraLanding.border,
+    borderColor: palette.border,
   },
   verificationBannerIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: palette.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.sm,
@@ -3554,27 +3714,27 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   verificationBannerTitleVerified: {
-    color: heraLanding.success,
+    color: palette.success,
   },
   verificationBannerTitlePending: {
-    color: heraLanding.info,
+    color: palette.info,
   },
   verificationBannerTitleRejected: {
-    color: heraLanding.warning,
+    color: palette.warning,
   },
   verificationBannerTitleNotSubmitted: {
-    color: heraLanding.textPrimary,
+    color: palette.textPrimary,
   },
   verificationBannerText: {
     fontSize: 14,
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
     lineHeight: 20,
   },
   verificationResubmitButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: heraLanding.warning,
+    backgroundColor: palette.warning,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
@@ -3586,7 +3746,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: heraLanding.primary,
+    backgroundColor: palette.primary,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
@@ -3600,178 +3760,146 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // ===== SHARE BANNER =====
-  shareBanner: {
-    backgroundColor: heraLanding.cardBg,
-    borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 2,
-  },
-  shareBannerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  shareBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  shareBannerText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: heraLanding.textPrimary,
-  },
-  shareBannerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: heraLanding.primary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: borderRadius.md,
-  },
-  shareBannerButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: heraLanding.textOnPrimary,
-  },
   copiedToast: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+    paddingHorizontal: isDesktop ? spacing.xl : spacing.md,
   },
   copiedToastText: {
     fontSize: 13,
-    color: heraLanding.success,
+    color: palette.success,
     fontWeight: '500',
   },
-});
+  });
+}
 
 // ============================================================================
 // MI ESPACIO STYLES
 // ============================================================================
 
-const miEspacioStyles = StyleSheet.create({
-  subtitle: {
+function createMiEspacioStyles(palette: ProfilePalette) {
+  return StyleSheet.create({
+    subtitle: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
     marginBottom: spacing.md,
-  },
+    },
 
   // Gradient grid
-  gradientGrid: {
+    gradientGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-  },
-  gradientCard: {
+    },
+    gradientCard: {
     borderWidth: 0.5,
-    borderColor: heraLanding.border,
+    borderColor: palette.border,
     borderRadius: borderRadius.md,
     padding: spacing.xs,
     alignItems: 'center',
     minHeight: 44,
-  },
-  gradientCardSelected: {
+    },
+    gradientCardSelected: {
     borderWidth: 2,
-    borderColor: heraLanding.primary,
-  },
-  gradientPreview: {
+    borderColor: palette.primary,
+    },
+    gradientPreview: {
     width: '100%',
     height: 70,
     borderRadius: borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  gradientCheck: {
+    },
+    gradientCheck: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: heraLanding.primary,
+    backgroundColor: palette.primary,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  gradientName: {
+    },
+    gradientName: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textSecondary,
+    color: palette.textSecondary,
     marginTop: spacing.xs,
     textAlign: 'center',
-  },
-  gradientNameSelected: {
-    color: heraLanding.primary,
+    },
+    gradientNameSelected: {
+    color: palette.primary,
     fontWeight: typography.fontWeights.semibold,
-  },
+    },
 
   // Gallery
-  galleryRow: {
+    galleryRow: {
     flexDirection: 'row',
     gap: spacing.sm,
     paddingVertical: spacing.xs,
-  },
-  galleryPhotoContainer: {
+    },
+    galleryPhotoContainer: {
     position: 'relative',
-  },
-  galleryPhoto: {
+    },
+    galleryPhoto: {
     width: 100,
     height: 100,
     borderRadius: borderRadius.md,
-  },
-  galleryDeleteBtn: {
+    },
+    galleryDeleteBtn: {
     position: 'absolute',
     top: -6,
     right: -6,
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: heraLanding.warning,
+    backgroundColor: palette.warning,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  galleryDeleteText: {
-    color: heraLanding.textOnCard,
+    },
+    galleryDeleteText: {
+    color: palette.textOnCard,
     fontSize: 12,
     fontWeight: typography.fontWeights.bold,
     lineHeight: 14,
-  },
-  galleryAddBtn: {
+    },
+    galleryAddBtn: {
     width: 100,
     height: 100,
     borderRadius: borderRadius.md,
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: heraLanding.border,
+    borderColor: palette.border,
     justifyContent: 'center',
     alignItems: 'center',
     minWidth: 44,
     minHeight: 44,
-  },
+    },
 
   // Video preview
-  videoPreview: {
+    videoPreview: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: heraLanding.backgroundMuted,
+    backgroundColor: palette.backgroundMuted,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginTop: spacing.sm,
-  },
-  videoPlayIcon: {
+    },
+    videoPlayIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: heraLanding.textSecondary,
+    backgroundColor: palette.textSecondary,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  videoUrl: {
+    },
+    videoUrl: {
     flex: 1,
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
-  },
-});
+    color: palette.textSecondary,
+    },
+  });
+}
 
 export default SpecialistProfileScreen;

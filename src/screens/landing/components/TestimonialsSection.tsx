@@ -1,11 +1,11 @@
 /**
- * TestimonialsSection Component
+ * TestimonialsSection - HERA Design System v5.0
  *
- * Build trust through user stories with 3 testimonial cards.
- * Horizontal scroll on mobile, grid on desktop.
+ * GlassCard testimonials with staggered MotionView entry.
+ * Dark mode via useTheme().
  */
 
-import React, { useRef } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,10 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, shadows } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { GlassCard } from '../../../components/common/GlassCard';
+import { MotionView } from '../../../components/common/MotionView';
+import type { Theme } from '../../../constants/theme';
 
 interface Testimonial {
   id: string;
@@ -23,42 +26,45 @@ interface Testimonial {
   role: string;
   location: string;
   rating: number;
-  avatarColor: string;
-  avatarInitials: string;
+  accentColor: (theme: Theme) => string;
+  initials: string;
   isProfessional?: boolean;
 }
 
-const testimonials: Testimonial[] = [
+const TESTIMONIALS: Testimonial[] = [
   {
     id: '1',
-    quote: 'Encontrar ayuda profesional nunca fue tan fácil. El proceso fue sencillo y mi psicóloga es excelente. Después de 3 meses, mi ansiedad ha mejorado mucho.',
+    quote:
+      'Encontrar ayuda profesional nunca fue tan fácil. El proceso fue sencillo y mi psicóloga es excelente. Después de 3 meses, mi ansiedad ha mejorado mucho.',
     name: 'María G.',
     role: 'Cliente',
     location: 'Madrid',
     rating: 5,
-    avatarColor: heraLanding.primary,
-    avatarInitials: 'MG',
+    accentColor: (theme) => theme.primary,
+    initials: 'MG',
   },
   {
     id: '2',
-    quote: 'Como profesional, HERA me permite gestionar mi consulta de forma flexible y llegar a más pacientes. La plataforma es intuitiva y el soporte excepcional.',
+    quote:
+      'Como profesional, HERA me permite gestionar mi consulta de forma flexible y llegar a más pacientes. La plataforma es intuitiva y el soporte excepcional.',
     name: 'Dr. Carlos M.',
     role: 'Especialista en Salud Mental',
     location: 'Barcelona',
     rating: 5,
-    avatarColor: heraLanding.secondary,
-    avatarInitials: 'CM',
+    accentColor: (theme) => theme.secondary,
+    initials: 'CM',
     isProfessional: true,
   },
   {
     id: '3',
-    quote: 'La videollamada funciona perfecta. Me siento cómoda haciendo terapia desde casa. Poder elegir entre online y presencial es un plus enorme.',
+    quote:
+      'La videollamada funciona perfecta. Me siento cómoda haciendo terapia desde casa. Poder elegir entre online y presencial es un plus enorme.',
     name: 'Ana R.',
     role: 'Cliente',
     location: 'Valencia',
     rating: 5,
-    avatarColor: heraLanding.success,
-    avatarInitials: 'AR',
+    accentColor: (theme) => theme.success,
+    initials: 'AR',
   },
 ];
 
@@ -66,117 +72,111 @@ export const TestimonialsSection: React.FC = () => {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
-  const scrollRef = useRef<ScrollView>(null);
+  const { theme } = useTheme();
 
-  const renderStars = (rating: number) => {
+  const renderCard = (testimonial: Testimonial, index: number) => {
+    const accent = testimonial.accentColor(theme);
+
     return (
-      <View style={styles.stars}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Ionicons
-            key={star}
-            name={star <= rating ? 'star' : 'star-outline'}
-            size={16}
-            color={star <= rating ? '#FFB800' : heraLanding.textMuted}
-          />
-        ))}
-      </View>
-    );
-  };
+      <MotionView
+        key={testimonial.id}
+        entering="fadeInUp"
+        delay={100 + index * 80}
+        style={isDesktop || isTablet ? { flex: 1 } : undefined}
+      >
+        <GlassCard
+          intensity={45}
+          borderRadius={20}
+          style={[
+            styles.card,
+            ...(isDesktop ? [styles.cardDesktop] : []),
+            ...(!isDesktop && !isTablet ? [styles.cardMobile] : []),
+          ]}
+        >
+          <View style={[styles.accentBar, { backgroundColor: accent }]} />
 
-  const renderCard = (testimonial: Testimonial, index: number) => (
-    <View
-      key={testimonial.id}
-      style={[
-        styles.card,
-        isDesktop && styles.cardDesktop,
-        isTablet && styles.cardTablet,
-        !isDesktop && !isTablet && styles.cardMobile,
-      ]}
-    >
-      {/* Quote Icon */}
-      <View style={styles.quoteIconContainer}>
-        <Ionicons name="chatbubble-ellipses" size={24} color={heraLanding.primaryMuted} />
-      </View>
-
-      {/* Quote Text */}
-      <Text style={styles.quote}>"{testimonial.quote}"</Text>
-
-      {/* Rating */}
-      {renderStars(testimonial.rating)}
-
-      {/* Author */}
-      <View style={styles.author}>
-        <View style={[styles.avatar, { backgroundColor: testimonial.avatarColor }]}>
-          <Text style={styles.avatarText}>{testimonial.avatarInitials}</Text>
-        </View>
-        <View style={styles.authorInfo}>
-          <View style={styles.nameRow}>
-            <Text style={styles.name}>{testimonial.name}</Text>
-            {testimonial.isProfessional && (
-              <View style={styles.verifiedBadge}>
-                <Ionicons name="checkmark-circle" size={14} color={heraLanding.secondary} />
-              </View>
-            )}
+          <View style={[styles.quoteIconBg, { backgroundColor: accent + '18' }]}>
+            <Ionicons name="chatbubble-ellipses" size={22} color={accent} />
           </View>
-          <Text style={styles.role}>
-            {testimonial.role} · {testimonial.location}
+
+          <Text style={[styles.quote, { color: theme.textPrimary, fontFamily: theme.fontSans }]}>
+            "{testimonial.quote}"
           </Text>
-        </View>
-      </View>
 
-      {/* Left accent border */}
-      <View style={[styles.accentBorder, { backgroundColor: testimonial.avatarColor }]} />
-    </View>
-  );
-
-  return (
-    <View style={[styles.container, isDesktop && styles.containerDesktop]}>
-      <View style={styles.content}>
-        {/* Section Header */}
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, isDesktop && styles.headerTitleDesktop]}>
-            La confianza de quienes ya dieron el paso
-          </Text>
-          <Text style={styles.headerSubtitle}>
-            Miles de personas cuidan su bienestar con HERA
-          </Text>
-        </View>
-
-        {/* Testimonials */}
-        {isDesktop || isTablet ? (
-          <View style={[
-            styles.grid,
-            isDesktop && styles.gridDesktop,
-            isTablet && styles.gridTablet,
-          ]}>
-            {testimonials.map((t, i) => renderCard(t, i))}
-          </View>
-        ) : (
-          <ScrollView
-            ref={scrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-            snapToInterval={300}
-            decelerationRate="fast"
-          >
-            {testimonials.map((t, i) => renderCard(t, i))}
-          </ScrollView>
-        )}
-
-        {/* Scroll indicator (mobile) */}
-        {!isDesktop && !isTablet && (
-          <View style={styles.scrollIndicator}>
-            {testimonials.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.dot,
-                  index === 0 && styles.dotActive,
-                ]}
+          <View style={styles.stars}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Ionicons
+                key={star}
+                name={star <= testimonial.rating ? 'star' : 'star-outline'}
+                size={15}
+                color={star <= testimonial.rating ? theme.starRating : theme.textMuted}
               />
             ))}
           </View>
+
+          <View style={styles.author}>
+            <View style={[styles.avatar, { backgroundColor: accent }]}>
+              <Text style={[styles.avatarText, { fontFamily: theme.fontSansBold }]}>
+                {testimonial.initials}
+              </Text>
+            </View>
+            <View style={styles.authorInfo}>
+              <View style={styles.nameRow}>
+                <Text
+                  style={[
+                    styles.name,
+                    { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
+                  ]}
+                >
+                  {testimonial.name}
+                </Text>
+                {testimonial.isProfessional && (
+                  <Ionicons name="checkmark-circle" size={15} color={theme.secondary} />
+                )}
+              </View>
+              <Text style={[styles.role, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
+                {testimonial.role} · {testimonial.location}
+              </Text>
+            </View>
+          </View>
+        </GlassCard>
+      </MotionView>
+    );
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.bg }, isDesktop && styles.containerDesktop]}>
+      <View style={styles.content}>
+        <MotionView entering="fadeInUp" delay={0} style={styles.header}>
+          <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
+            TESTIMONIOS
+          </Text>
+          <Text
+            style={[
+              styles.headerTitle,
+              isDesktop && styles.headerTitleDesktop,
+              { color: theme.textPrimary, fontFamily: theme.fontDisplay },
+            ]}
+          >
+            La confianza de quienes ya dieron el paso
+          </Text>
+          <Text style={[styles.headerSubtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+            Miles de personas cuidan su bienestar con HERA
+          </Text>
+        </MotionView>
+
+        {isDesktop || isTablet ? (
+          <View style={styles.grid}>{TESTIMONIALS.map((testimonial, index) => renderCard(testimonial, index))}</View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            snapToInterval={308}
+            decelerationRate="fast"
+          >
+            {TESTIMONIALS.map((testimonial, index) => renderCard(testimonial, index))}
+          </ScrollView>
         )}
       </View>
     </View>
@@ -185,7 +185,6 @@ export const TestimonialsSection: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: heraLanding.background,
     paddingVertical: 60,
     paddingHorizontal: 20,
   },
@@ -198,104 +197,96 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-
-  // Header
   header: {
     alignItems: 'center',
     marginBottom: 50,
   },
+  eyebrow: {
+    fontSize: 12,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+  },
   headerTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: heraLanding.textPrimary,
+    fontSize: 30,
     textAlign: 'center',
     marginBottom: 12,
+    letterSpacing: -0.5,
   },
   headerTitleDesktop: {
     fontSize: 40,
+    letterSpacing: -1,
   },
   headerSubtitle: {
-    fontSize: 17,
-    color: heraLanding.textSecondary,
+    fontSize: 16,
     textAlign: 'center',
   },
-
-  // Grid
   grid: {
-    gap: 24,
-  },
-  gridDesktop: {
     flexDirection: 'row',
+    gap: 16,
+    alignItems: 'stretch',
   },
-  gridTablet: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-
-  // Scroll
   scrollContent: {
-    paddingRight: 20,
+    paddingHorizontal: 4,
     gap: 16,
   },
-
-  // Card
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
+    padding: 28,
     position: 'relative',
     overflow: 'hidden',
-    ...shadows.md,
+    minHeight: 250,
   },
   cardDesktop: {
-    flex: 1,
-  },
-  cardTablet: {
-    width: '48%',
-    marginBottom: 16,
+    padding: 32,
   },
   cardMobile: {
-    width: 280,
+    width: 290,
   },
-
-  // Quote icon
-  quoteIconContainer: {
+  accentBar: {
+    position: 'absolute',
+    left: 0,
+    top: 20,
+    bottom: 20,
+    width: 3,
+    borderRadius: 3,
+  },
+  quoteIconBg: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 16,
+    marginLeft: 12,
   },
-
-  // Quote
   quote: {
     fontSize: 15,
-    color: heraLanding.textPrimary,
     lineHeight: 24,
-    fontStyle: 'italic',
     marginBottom: 16,
+    fontStyle: 'italic',
+    paddingLeft: 12,
   },
-
-  // Stars
   stars: {
     flexDirection: 'row',
     gap: 2,
     marginBottom: 20,
+    paddingLeft: 12,
   },
-
-  // Author
   author: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    paddingLeft: 12,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
   avatarText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
     color: '#FFFFFF',
   },
   authorInfo: {
@@ -304,47 +295,13 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    marginBottom: 2,
   },
   name: {
     fontSize: 15,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-  },
-  verifiedBadge: {
-    marginLeft: 2,
   },
   role: {
     fontSize: 13,
-    color: heraLanding.textSecondary,
-    marginTop: 2,
-  },
-
-  // Accent border
-  accentBorder: {
-    position: 'absolute',
-    left: 0,
-    top: 20,
-    bottom: 20,
-    width: 4,
-    borderRadius: 2,
-  },
-
-  // Scroll indicator
-  scrollIndicator: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 24,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: heraLanding.border,
-  },
-  dotActive: {
-    backgroundColor: heraLanding.primary,
-    width: 24,
   },
 });

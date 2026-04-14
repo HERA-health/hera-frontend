@@ -3,13 +3,15 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Pressable,
   Platform,
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, colors, spacing, borderRadius, typography, shadows } from '../../constants/colors';
+import { spacing, borderRadius, typography, shadows } from '../../constants/colors';
+import { Theme } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
+import { AnimatedPressable } from './AnimatedPressable';
 
 export interface DropdownOption<T> {
   label: string;
@@ -32,15 +34,18 @@ export function SimpleDropdown<T extends string | number>({
   placeholder = 'Seleccionar...',
   maxHeight = 200,
 }: SimpleDropdownProps<T>) {
+  const { theme, isDark } = useTheme();
+  const dropdownStyles = React.useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value);
 
   return (
     <View style={dropdownStyles.container}>
-      <TouchableOpacity
+      <AnimatedPressable
         style={dropdownStyles.trigger}
         onPress={() => setOpen(!open)}
-        activeOpacity={0.7}
+        hoverLift={false}
+        pressScale={0.98}
       >
         <View style={{ flex: 1 }}>
           <Text
@@ -61,9 +66,9 @@ export function SimpleDropdown<T extends string | number>({
         <Ionicons
           name={open ? 'chevron-up' : 'chevron-down'}
           size={16}
-          color={heraLanding.textMuted}
+          color={theme.textMuted}
         />
-      </TouchableOpacity>
+      </AnimatedPressable>
       {open && (
         <>
           <Pressable
@@ -73,22 +78,18 @@ export function SimpleDropdown<T extends string | number>({
           <View style={[dropdownStyles.optionsList, { maxHeight }]}>
             <ScrollView nestedScrollEnabled bounces={false}>
               {options.map((opt) => (
-                <TouchableOpacity
+                <AnimatedPressable
                   key={String(opt.value)}
-                  style={[
-                    dropdownStyles.option,
-                    opt.value === value && dropdownStyles.optionActive,
-                  ]}
+                  style={opt.value === value ? [dropdownStyles.option, dropdownStyles.optionActive] : dropdownStyles.option}
                   onPress={() => {
                     onSelect(opt.value);
                     setOpen(false);
                   }}
+                  hoverLift={false}
+                  pressScale={0.98}
                 >
                   <Text
-                    style={[
-                      dropdownStyles.optionText,
-                      opt.value === value && dropdownStyles.optionTextActive,
-                    ]}
+                    style={opt.value === value ? [dropdownStyles.optionText, dropdownStyles.optionTextActive] : dropdownStyles.optionText}
                   >
                     {opt.label}
                   </Text>
@@ -97,7 +98,7 @@ export function SimpleDropdown<T extends string | number>({
                       {opt.subtitle}
                     </Text>
                   )}
-                </TouchableOpacity>
+                </AnimatedPressable>
               ))}
             </ScrollView>
           </View>
@@ -107,77 +108,84 @@ export function SimpleDropdown<T extends string | number>({
   );
 }
 
-const dropdownStyles = StyleSheet.create({
-  container: {
-    position: 'relative',
-    zIndex: 1000,
-  },
-  trigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: heraLanding.backgroundMuted,
-    borderWidth: 1,
-    borderColor: heraLanding.border,
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  triggerText: {
-    fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
-  },
-  placeholderText: {
-    color: heraLanding.textMuted,
-  },
-  subtitleText: {
-    fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
-    marginTop: 2,
-  },
-  backdrop: {
-    position: 'absolute',
-    top: 0,
-    left: -1000,
-    right: -1000,
-    bottom: -1000,
-    zIndex: 999,
-  },
-  optionsList: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    backgroundColor: colors.neutral.white,
-    borderWidth: 1,
-    borderColor: heraLanding.border,
-    borderRadius: borderRadius.lg,
-    marginTop: spacing.xs,
-    zIndex: 9999,
-    ...shadows.md,
-    elevation: 10,
-    ...(Platform.OS === 'web' ? { boxShadow: '0 4px 12px rgba(0,0,0,0.12)' } as Record<string, string> : {}),
-  },
-  option: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  optionActive: {
-    backgroundColor: heraLanding.primaryMuted,
-  },
-  optionText: {
-    fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
-  },
-  optionTextActive: {
-    color: heraLanding.primaryDark,
-    fontWeight: typography.fontWeights.semibold,
-  },
-  optionSubtitle: {
-    fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
-    marginTop: 2,
-  },
-});
+function createStyles(theme: Theme, isDark: boolean) {
+  return StyleSheet.create({
+    container: {
+      position: 'relative',
+      zIndex: 1000,
+    },
+    trigger: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: borderRadius.lg,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      minHeight: 48,
+    },
+    triggerText: {
+      fontSize: typography.fontSizes.sm,
+      color: theme.textPrimary,
+      fontFamily: theme.fontSans,
+    },
+    placeholderText: {
+      color: theme.textMuted,
+    },
+    subtitleText: {
+      fontSize: typography.fontSizes.xs,
+      color: theme.textMuted,
+      marginTop: 2,
+      fontFamily: theme.fontSans,
+    },
+    backdrop: {
+      position: 'absolute',
+      top: 0,
+      left: -1000,
+      right: -1000,
+      bottom: -1000,
+      zIndex: 999,
+    },
+    optionsList: {
+      position: 'absolute',
+      top: '100%',
+      left: 0,
+      right: 0,
+      backgroundColor: theme.bgElevated,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: borderRadius.lg,
+      marginTop: spacing.xs,
+      zIndex: 9999,
+      ...shadows.md,
+      elevation: 10,
+      ...(Platform.OS === 'web' ? { boxShadow: '0 4px 12px rgba(0,0,0,0.12)' } as Record<string, string> : {}),
+    },
+    option: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    optionActive: {
+      backgroundColor: theme.primaryAlpha12,
+    },
+    optionText: {
+      fontSize: typography.fontSizes.sm,
+      color: theme.textPrimary,
+      fontFamily: theme.fontSans,
+    },
+    optionTextActive: {
+      color: theme.primary,
+      fontFamily: theme.fontSansSemiBold,
+    },
+    optionSubtitle: {
+      fontSize: typography.fontSizes.xs,
+      color: theme.textMuted,
+      marginTop: 2,
+      fontFamily: theme.fontSans,
+    },
+  });
+}
 
 export default SimpleDropdown;

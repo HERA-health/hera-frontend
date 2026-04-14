@@ -1,20 +1,10 @@
-/**
- * StickyBookingBar - Fixed bottom CTA bar
- * Shows on scroll when hero is out of view
- */
-
-import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Animated,
-  useWindowDimensions,
-  Platform,
-} from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, useWindowDimensions, Platform } from 'react-native';
 import { StickyBookingBarProps } from '../types';
-import { heraLanding, spacing, borderRadius, shadows } from '../../../constants/colors';
+import { spacing, borderRadius, shadows } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import type { Theme } from '../../../constants/theme';
+import { Button } from '../../../components/common';
 
 export const StickyBookingBar: React.FC<StickyBookingBarProps> = ({
   specialistName,
@@ -23,8 +13,11 @@ export const StickyBookingBar: React.FC<StickyBookingBarProps> = ({
   visible,
 }) => {
   const { width } = useWindowDimensions();
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const isWideScreen = width > 768;
   const translateY = useRef(new Animated.Value(100)).current;
+  const ctaStyle = isWideScreen ? styles.ctaButton : { ...styles.ctaButton, ...styles.ctaButtonFull };
 
   useEffect(() => {
     Animated.spring(translateY, {
@@ -33,62 +26,39 @@ export const StickyBookingBar: React.FC<StickyBookingBarProps> = ({
       friction: 8,
       tension: 65,
     }).start();
-  }, [visible]);
+  }, [visible, translateY]);
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        { transform: [{ translateY }] },
-      ]}
-    >
+    <Animated.View style={[styles.container, { transform: [{ translateY }] }]}>
       <View style={[styles.content, isWideScreen && styles.contentWide]}>
-        {/* Info - Hidden on mobile */}
         {isWideScreen && (
           <View style={styles.info}>
-            <Text style={styles.name} numberOfLines={1}>
-              {specialistName}
-            </Text>
+            <Text style={styles.name} numberOfLines={1}>{specialistName}</Text>
             <Text style={styles.price}>€{pricePerSession}/sesión</Text>
           </View>
         )}
-
-        {/* CTA Button */}
-        <TouchableOpacity
-          style={[styles.ctaButton, !isWideScreen && styles.ctaButtonFull]}
-          onPress={onBookPress}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.ctaText}>Reservar sesión</Text>
-          {!isWideScreen && (
-            <Text style={styles.ctaPrice}>€{pricePerSession}</Text>
-          )}
-        </TouchableOpacity>
+        <Button variant="primary" size="large" style={ctaStyle} onPress={onBookPress}>
+          Reservar sesión
+        </Button>
       </View>
     </Animated.View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   container: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: theme.bgCard,
     borderTopWidth: 1,
-    borderTopColor: heraLanding.border,
+    borderTopColor: theme.borderLight,
     ...shadows.lg,
     ...Platform.select({
-      ios: {
-        paddingBottom: 20,
-      },
-      android: {
-        paddingBottom: 10,
-      },
-      default: {
-        paddingBottom: 0,
-      },
+      ios: { paddingBottom: 20 },
+      android: { paddingBottom: 10 },
+      default: { paddingBottom: 0 },
     }),
   },
   content: {
@@ -101,46 +71,12 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
   },
-  contentWide: {
-    justifyContent: 'space-between',
-  },
-  info: {
-    flex: 1,
-    marginRight: spacing.lg,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-  },
-  price: {
-    fontSize: 14,
-    color: heraLanding.textSecondary,
-    marginTop: 2,
-  },
-  ctaButton: {
-    backgroundColor: heraLanding.primary,
-    paddingVertical: 14,
-    paddingHorizontal: spacing.xxl,
-    borderRadius: borderRadius.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  ctaButtonFull: {
-    flex: 1,
-  },
-  ctaText: {
-    color: heraLanding.textOnPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  ctaPrice: {
-    color: heraLanding.textOnPrimary,
-    fontSize: 14,
-    opacity: 0.9,
-  },
+  contentWide: { justifyContent: 'space-between' },
+  info: { flex: 1, marginRight: spacing.lg },
+  name: { fontSize: 16, fontWeight: '600', color: theme.textPrimary },
+  price: { fontSize: 14, color: theme.textSecondary, marginTop: 2 },
+  ctaButton: { minWidth: 240 },
+  ctaButtonFull: { flex: 1, minWidth: 0 },
 });
 
 export default StickyBookingBar;

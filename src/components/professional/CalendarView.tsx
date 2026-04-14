@@ -260,7 +260,7 @@ export function CalendarView({ sessions }: CalendarViewProps) {
                             <Ionicons
                               name={getSessionTypeIcon(session.type)}
                               size={14}
-                              color={heraLanding.backgroundLight0}
+                              color={heraLanding.backgroundLight}
                             />
                             <Text style={styles.metaText}>{session.duration} min</Text>
                           </View>

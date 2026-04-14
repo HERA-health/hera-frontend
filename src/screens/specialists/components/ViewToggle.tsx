@@ -1,19 +1,10 @@
-/**
- * ViewToggle Component
- * Toggle between grid and list view
- * Features: Animated selection indicator, accessible
- */
-
-import React, { useRef, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-  Platform,
-} from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, spacing, shadows } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
+import { spacing } from '../../../constants/colors';
+import type { Theme } from '../../../constants/theme';
 
 export type ViewMode = 'grid' | 'list';
 
@@ -26,98 +17,93 @@ export const ViewToggle: React.FC<ViewToggleProps> = ({
   viewMode,
   onViewModeChange,
 }) => {
-  const slideAnim = useRef(new Animated.Value(viewMode === 'grid' ? 0 : 1)).current;
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const indicatorX = useRef(new Animated.Value(viewMode === 'grid' ? 0 : 1)).current;
 
   useEffect(() => {
-    Animated.spring(slideAnim, {
+    Animated.spring(indicatorX, {
       toValue: viewMode === 'grid' ? 0 : 1,
       friction: 8,
-      tension: 100,
+      tension: 120,
       useNativeDriver: true,
     }).start();
-  }, [viewMode]);
+  }, [indicatorX, viewMode]);
 
-  const translateX = slideAnim.interpolate({
+  const translateX = indicatorX.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 36], // Width of one button
+    outputRange: [0, 48],
   });
 
   return (
     <View style={styles.container}>
-      {/* Animated indicator */}
-      <Animated.View
-        style={[
-          styles.indicator,
-          {
-            transform: [{ translateX }],
-          },
-        ]}
-      />
+      <Animated.View style={[styles.indicator, { transform: [{ translateX }] }]} />
 
-      {/* Grid button */}
-      <TouchableOpacity
-        style={styles.button}
+      <AnimatedPressable
         onPress={() => onViewModeChange('grid')}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityState={{ selected: viewMode === 'grid' }}
+        hoverLift={false}
+        pressScale={0.96}
+        style={styles.button}
         accessibilityLabel="Vista de cuadrícula"
       >
         <Ionicons
           name="grid-outline"
           size={18}
-          color={viewMode === 'grid' ? '#FFFFFF' : heraLanding.textSecondary}
+          color={viewMode === 'grid' ? theme.textOnPrimary : theme.textSecondary}
         />
-      </TouchableOpacity>
+      </AnimatedPressable>
 
-      {/* List button */}
-      <TouchableOpacity
-        style={styles.button}
+      <AnimatedPressable
         onPress={() => onViewModeChange('list')}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityState={{ selected: viewMode === 'list' }}
+        hoverLift={false}
+        pressScale={0.96}
+        style={styles.button}
         accessibilityLabel="Vista de lista"
       >
         <Ionicons
           name="list-outline"
           size={18}
-          color={viewMode === 'list' ? '#FFFFFF' : heraLanding.textSecondary}
+          color={viewMode === 'list' ? theme.textOnPrimary : theme.textSecondary}
         />
-      </TouchableOpacity>
+      </AnimatedPressable>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    backgroundColor: heraLanding.background,
-    borderRadius: 10,
-    padding: 4,
-    position: 'relative',
-    ...(Platform.OS === 'web' && {
-      // @ts-ignore
-      cursor: 'pointer',
-    }),
-  },
-  indicator: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    width: 36,
-    height: 32,
-    backgroundColor: heraLanding.primary,
-    borderRadius: 8,
-    ...shadows.sm,
-  },
-  button: {
-    width: 36,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
-  },
-});
+function createStyles(theme: Theme, isDark: boolean) {
+  return StyleSheet.create({
+    container: {
+      width: 104,
+      flexDirection: 'row',
+      position: 'relative',
+      padding: 4,
+      borderRadius: 16,
+      backgroundColor: isDark ? theme.bgElevated : theme.bgCard,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+    },
+    indicator: {
+      position: 'absolute',
+      top: 4,
+      left: 4,
+      width: 48,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: theme.primary,
+      shadowColor: theme.shadowPrimary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.8,
+      shadowRadius: 10,
+      elevation: 2,
+    },
+    button: {
+      width: 48,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1,
+    },
+  });
+}
 
 export default ViewToggle;

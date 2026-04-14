@@ -16,6 +16,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { heraLanding, shadows } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 interface FinalCTASectionProps {
   onFindSpecialist: () => void;
@@ -25,6 +26,7 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
   onFindSpecialist,
 }) => {
   const { width } = useWindowDimensions();
+  const { theme } = useTheme();
   const isDesktop = width >= 1024;
 
   const benefits = [
@@ -35,7 +37,7 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
 
   return (
     <LinearGradient
-      colors={[heraLanding.primary, heraLanding.primaryDark]}
+      colors={[theme.primary, theme.primaryDark]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[styles.container, isDesktop && styles.containerDesktop]}
@@ -62,8 +64,8 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
           onPress={onFindSpecialist}
           activeOpacity={0.9}
         >
-          <Text style={styles.ctaText}>Encuentra tu especialista</Text>
-          <Ionicons name="arrow-forward" size={20} color={heraLanding.primary} />
+          <Text style={[styles.ctaText, { color: theme.primaryDark }]}>Encuentra tu especialista</Text>
+          <Ionicons name="arrow-forward" size={20} color={theme.primaryDark} />
         </TouchableOpacity>
 
         {/* Benefits */}

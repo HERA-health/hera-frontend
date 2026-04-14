@@ -1,152 +1,136 @@
-/**
- * ProfileSkeleton - Shimmer skeleton loader for profile screens
- * Replaces ActivityIndicator during data loading
- */
-
-import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Animated,
-  StyleSheet,
-  useWindowDimensions,
-} from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { Animated, DimensionValue, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ProfileSkeletonProps } from '../types';
-import { heraLanding, spacing, borderRadius } from '../../../constants/colors';
+import { spacing } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import type { Theme } from '../../../constants/theme';
 
 const DESKTOP_BREAKPOINT = 768;
 
 const useShimmer = () => {
-  const shimmerAnim = useRef(new Animated.Value(0.4)).current;
+  const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerAnim, {
-          toValue: 0.9,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shimmerAnim, {
-          toValue: 0.4,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
+      Animated.timing(shimmer, {
+        toValue: 1,
+        duration: 1100,
+        useNativeDriver: true,
+      }),
     );
     animation.start();
     return () => animation.stop();
-  }, [shimmerAnim]);
+  }, [shimmer]);
 
-  return shimmerAnim;
+  return shimmer;
 };
 
-interface ShimmerBlockProps {
-  width?: number | string;
+interface BlockProps {
+  width?: DimensionValue;
   height: number;
-  borderRadius?: number;
-  style?: object;
-  shimmerAnim: Animated.Value;
+  radius?: number;
 }
 
-const ShimmerBlock: React.FC<ShimmerBlockProps> = ({
-  width = '100%',
-  height,
-  borderRadius: br = borderRadius.md,
-  style,
-  shimmerAnim,
-}) => (
-  <Animated.View
-    style={[
-      {
-        width: width as number | string,
-        height,
-        borderRadius: br,
-        backgroundColor: heraLanding.disabled,
-        opacity: shimmerAnim,
-      },
-      style,
-    ]}
-  />
-);
+const Block: React.FC<BlockProps> = ({ width = '100%', height, radius = 10 }) => {
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const shimmer = useShimmer();
+
+  const translateX = shimmer.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-220, 260],
+  });
+
+  return (
+    <View style={[styles.block, { width, height, borderRadius: radius }]}>
+      <Animated.View style={[styles.shimmer, { transform: [{ translateX }] }]}>
+        <LinearGradient
+          colors={[
+            'rgba(255,255,255,0)',
+            isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.42)',
+            'rgba(255,255,255,0)',
+          ]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
+    </View>
+  );
+};
 
 export const ProfileSkeleton: React.FC<ProfileSkeletonProps> = ({ isDesktop }) => {
-  const shimmerAnim = useShimmer();
   const { width } = useWindowDimensions();
   const desktop = isDesktop ?? width >= DESKTOP_BREAKPOINT;
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
 
   return (
     <View style={styles.container}>
-      {/* Hero area */}
-      <ShimmerBlock
-        height={desktop ? 300 : 260}
-        borderRadius={borderRadius.lg}
-        shimmerAnim={shimmerAnim}
-      />
+      <Block height={desktop ? 320 : 280} radius={28} />
 
-      {/* Content cards */}
-      <View style={styles.cardsContainer}>
-        {/* Card 1 - About */}
+      <View style={styles.cards}>
         <View style={styles.card}>
-          <ShimmerBlock width="60%" height={20} shimmerAnim={shimmerAnim} />
-          <View style={styles.cardSpacer} />
-          <ShimmerBlock width="100%" height={14} shimmerAnim={shimmerAnim} />
-          <View style={styles.lineSpace} />
-          <ShimmerBlock width="90%" height={14} shimmerAnim={shimmerAnim} />
-          <View style={styles.lineSpace} />
-          <ShimmerBlock width="75%" height={14} shimmerAnim={shimmerAnim} />
+          <Block width="54%" height={24} radius={12} />
+          <Block height={16} />
+          <Block width="88%" height={16} />
+          <Block width="72%" height={16} />
         </View>
 
-        {/* Card 2 - Specializations */}
         <View style={styles.card}>
-          <ShimmerBlock width="50%" height={20} shimmerAnim={shimmerAnim} />
-          <View style={styles.cardSpacer} />
-          <View style={styles.tagsRow}>
-            <ShimmerBlock width={80} height={28} borderRadius={14} shimmerAnim={shimmerAnim} />
-            <ShimmerBlock width={100} height={28} borderRadius={14} shimmerAnim={shimmerAnim} />
-            <ShimmerBlock width={70} height={28} borderRadius={14} shimmerAnim={shimmerAnim} />
+          <Block width="44%" height={24} radius={12} />
+          <View style={styles.tagRow}>
+            <Block width={88} height={30} radius={15} />
+            <Block width={112} height={30} radius={15} />
+            <Block width={76} height={30} radius={15} />
           </View>
         </View>
 
-        {/* Card 3 - Experience */}
         <View style={styles.card}>
-          <ShimmerBlock width="55%" height={20} shimmerAnim={shimmerAnim} />
-          <View style={styles.cardSpacer} />
-          <ShimmerBlock width="80%" height={14} shimmerAnim={shimmerAnim} />
-          <View style={styles.lineSpace} />
-          <ShimmerBlock width="65%" height={14} shimmerAnim={shimmerAnim} />
-          <View style={styles.lineSpace} />
-          <ShimmerBlock width="70%" height={14} shimmerAnim={shimmerAnim} />
+          <Block width="50%" height={24} radius={12} />
+          <Block width="90%" height={16} />
+          <Block width="68%" height={16} />
+          <Block width="76%" height={16} />
         </View>
       </View>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: heraLanding.background,
-    padding: spacing.lg,
-  },
-  cardsContainer: {
-    marginTop: spacing.xl,
-    gap: spacing.lg,
-  },
-  card: {
-    backgroundColor: heraLanding.cardBg,
-    borderRadius: borderRadius.lg,
-    padding: spacing.xl,
-  },
-  cardSpacer: {
-    height: spacing.md,
-  },
-  lineSpace: {
-    height: spacing.sm,
-  },
-  tagsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-});
+function createStyles(theme: Theme, isDark: boolean) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: spacing.lg,
+      backgroundColor: theme.bg,
+    },
+    cards: {
+      marginTop: spacing.xl,
+      gap: spacing.lg,
+    },
+    card: {
+      gap: spacing.md,
+      padding: spacing.xl,
+      borderRadius: 24,
+      backgroundColor: theme.bgCard,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+    },
+    tagRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    block: {
+      overflow: 'hidden',
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgAlt,
+    },
+    shimmer: {
+      ...StyleSheet.absoluteFillObject,
+      width: 140,
+    },
+  });
+}
 
 export default ProfileSkeleton;

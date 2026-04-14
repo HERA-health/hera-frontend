@@ -1,14 +1,11 @@
 /**
  * BookingSidebar - Single card sidebar
- * Gradient price header · availability · modality · CTAs · location + map
  */
 
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
-  Pressable,
   StyleSheet,
   Linking,
   Platform,
@@ -16,38 +13,39 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { BookingSidebarProps } from '../types';
-import { heraLanding, spacing, borderRadius, shadows } from '../../../constants/colors';
+import { spacing, borderRadius, shadows } from '../../../constants/colors';
 import { LocationMapPreview } from '../../../components/location';
-
+import { useTheme } from '../../../contexts/ThemeContext';
+import type { Theme } from '../../../constants/theme';
+import { AnimatedPressable, Button } from '../../../components/common';
 
 const STRINGS = {
-  perSession:        '/sesión',
-  nextAvailability:  'Próxima disponibilidad',
-  videoCall:         'Videollamada disponible',
-  inPerson:          'Consulta presencial',
-  bookSession:       'Reservar sesión',
-  locationLabel:     'UBICACIÓN DE CONSULTA',
-  howToGet:          'Cómo llegar',
+  perSession: '/sesión',
+  nextAvailability: 'Próxima disponibilidad',
+  videoCall: 'Videollamada disponible',
+  inPerson: 'Consulta presencial',
+  bookSession: 'Reservar sesión',
+  locationLabel: 'UBICACIÓN DE CONSULTA',
+  howToGet: 'Cómo llegar',
 };
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
-
-const SectionDivider: React.FC = () => <View style={styles.sectionDivider} />;
-
-// ─── Component ────────────────────────────────────────────────────────────────
+const SectionDivider: React.FC<{ color: string }> = ({ color }) => (
+  <View style={{ height: 0.5, backgroundColor: color }} />
+);
 
 export const BookingSidebar: React.FC<BookingSidebarProps> = ({
   specialist,
   onBookPress,
   gradientColors,
 }) => {
-  const [mapLinkHovered,   setMapLinkHovered]   = useState(false);
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
 
-  const offersOnline    = specialist.offersOnline   ?? true;
-  const offersInPerson  = specialist.offersInPerson ?? false;
-  const address         = specialist.address;
-  const showLocation    = offersInPerson && !!address;
-  const hasCoordinates  = !!(address?.latitude && address?.longitude);
+  const offersOnline = specialist.offersOnline ?? true;
+  const offersInPerson = specialist.offersInPerson ?? false;
+  const address = specialist.address;
+  const showLocation = offersInPerson && !!address;
+  const hasCoordinates = !!(address?.latitude && address?.longitude);
 
   const slotDuration = specialist.slotDuration ?? 60;
   const sessionDurationText = `Sesión de ${slotDuration} minutos`;
@@ -58,30 +56,19 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
   const daysUntilAvailable = nextAvailableDate
     ? Math.floor((nextAvailableDate.getTime() - todayStart.getTime()) / (24 * 60 * 60 * 1000))
     : null;
+
   const availabilityText = nextAvailableDate === null
     ? 'Consulta disponibilidad'
     : daysUntilAvailable !== null && daysUntilAvailable <= 7
       ? 'Disponible esta semana'
       : 'Próxima cita: ' + nextAvailableDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
 
-  // Web-only hover props helper
-  const webHover = (
-    onEnter: () => void,
-    onLeave: () => void,
-  ): Record<string, unknown> => {
-    if (Platform.OS !== 'web') return {};
-    return { onMouseEnter: onEnter, onMouseLeave: onLeave };
-  };
-
   const handleOpenDirections = async () => {
     if (!address) return;
-    let url: string;
-    if (hasCoordinates) {
-      url = `https://www.google.com/maps/dir/?api=1&destination=${address.latitude},${address.longitude}`;
-    } else {
-      const dest = encodeURIComponent(`${address.street}, ${address.city}`);
-      url = `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
-    }
+    const url = hasCoordinates
+      ? `https://www.google.com/maps/dir/?api=1&destination=${address.latitude},${address.longitude}`
+      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${address.street}, ${address.city}`)}`;
+
     try {
       const canOpen = await Linking.canOpenURL(url);
       if (canOpen) await Linking.openURL(url);
@@ -94,8 +81,6 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
 
   return (
     <View style={styles.sidebarCard}>
-
-      {/* ══ SECTION 1: Price header (gradient, no own borderRadius) ══ */}
       <LinearGradient
         colors={gradientColors}
         start={{ x: 0, y: 0 }}
@@ -109,13 +94,10 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
         <Text style={styles.priceDuration}>{sessionDurationText}</Text>
       </LinearGradient>
 
-      {/* ══ SECTION 2: Availability + modality ══ */}
       <View style={styles.infoSection}>
-
-        {/* Availability row */}
         <View style={styles.availabilityRow}>
           <View style={styles.calendarIconWrap}>
-            <Ionicons name="calendar-outline" size={18} color={heraLanding.success} />
+            <Ionicons name="calendar-outline" size={18} color={theme.success} />
           </View>
           <View style={styles.availTextBlock}>
             <Text style={styles.availLabel}>{STRINGS.nextAvailability}</Text>
@@ -125,61 +107,44 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
           </View>
         </View>
 
-        {/* Internal divider */}
         <View style={styles.internalDivider} />
 
-        {/* Modality rows */}
         {offersOnline && (
           <View style={styles.modalityRow}>
-            <Ionicons name="videocam-outline" size={16} color={heraLanding.textSecondary} />
+            <Ionicons name="videocam-outline" size={16} color={theme.textSecondary} />
             <Text style={styles.modalityText}>{STRINGS.videoCall}</Text>
           </View>
         )}
         {offersInPerson && (
           <View style={styles.modalityRow}>
-            <Ionicons name="business-outline" size={16} color={heraLanding.textSecondary} />
+            <Ionicons name="business-outline" size={16} color={theme.textSecondary} />
             <Text style={styles.modalityText}>{STRINGS.inPerson}</Text>
           </View>
         )}
-
       </View>
 
-      {/* ── Divider between info and CTAs ── */}
-      <SectionDivider />
+      <SectionDivider color={theme.borderLight} />
 
-      {/* ══ SECTION 3: CTAs ══ */}
       <View style={styles.ctaSection}>
-        {/* Primary CTA */}
-        <Pressable
-          style={({ hovered, pressed }) => [
-            styles.primaryCTA,
-            hovered && styles.primaryCTAHovered,
-            pressed && { transform: [{ scale: 0.98 }] }
-          ]}
-          onPress={onBookPress}
-        >
-          <Text style={styles.primaryCTAText}>{STRINGS.bookSession}</Text>
-        </Pressable>
-
+        <Button variant="primary" size="large" fullWidth onPress={onBookPress}>
+          {STRINGS.bookSession}
+        </Button>
       </View>
 
-      {/* ══ SECTION 4: Location (only if in-person + address) ══ */}
       {showLocation && address && (
         <>
-          <SectionDivider />
+          <SectionDivider color={theme.borderLight} />
           <View style={styles.locationSection}>
-
             <Text style={styles.locationLabel}>{STRINGS.locationLabel}</Text>
 
             <View style={styles.addressRow}>
-              <Ionicons name="location-outline" size={16} color={heraLanding.textSecondary} />
+              <Ionicons name="location-outline" size={16} color={theme.textSecondary} />
               <View style={styles.addressTextBlock}>
                 <Text style={styles.addressText}>{address.street}</Text>
                 <Text style={styles.addressCity}>{address.city}</Text>
               </View>
             </View>
 
-            {/* Map preview (only when coordinates available) */}
             {hasCoordinates && (
               <View style={styles.mapWrapper}>
                 <LocationMapPreview
@@ -194,50 +159,33 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
               </View>
             )}
 
-            {/* Cómo llegar button */}
-            <TouchableOpacity
-              style={[
-                styles.mapLink,
-                mapLinkHovered && styles.mapLinkHovered,
-              ]}
+            <AnimatedPressable
+              style={styles.mapLink}
               onPress={handleOpenDirections}
-              activeOpacity={0.7}
-              {...webHover(
-                () => setMapLinkHovered(true),
-                () => setMapLinkHovered(false),
-              )}
+              hoverLift={false}
+              pressScale={0.98}
             >
-              <Ionicons name="navigate-outline" size={14} color={gradientColors[0]} />
-              <Text style={[styles.mapLinkText, { color: gradientColors[0] }]}>
-                {STRINGS.howToGet}
-              </Text>
-            </TouchableOpacity>
-
+              <Ionicons name="navigate-outline" size={14} color={theme.primary} />
+              <Text style={styles.mapLinkText}>{STRINGS.howToGet}</Text>
+            </AnimatedPressable>
           </View>
         </>
       )}
-
     </View>
   );
 };
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  // Single card
+const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   sidebarCard: {
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: theme.bgCard,
     borderRadius: 16,
-    borderWidth: 0.5,
-    borderColor: heraLanding.border,
+    borderWidth: 1,
+    borderColor: theme.borderLight,
     overflow: 'hidden',
     ...shadows.sm,
   },
-
-  // ── Price header ──
   priceHeader: {
     padding: 20,
-    // No borderRadius — card overflow:'hidden' clips it
   },
   priceRow: {
     flexDirection: 'row',
@@ -248,19 +196,17 @@ const styles = StyleSheet.create({
   priceAmount: {
     fontSize: 32,
     fontWeight: '700',
-    color: heraLanding.textOnPrimary,
+    color: theme.textOnPrimary,
   },
   priceLabel: {
     fontSize: 16,
     fontWeight: '400',
-    color: heraLanding.whiteAlpha85,
+    color: 'rgba(255,255,255,0.85)',
   },
   priceDuration: {
     fontSize: 13,
-    color: heraLanding.whiteAlpha80,
+    color: 'rgba(255,255,255,0.8)',
   },
-
-  // ── Info section ──
   infoSection: {
     padding: spacing.md,
   },
@@ -273,7 +219,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: heraLanding.successBg,
+    backgroundColor: theme.successBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -283,21 +229,21 @@ const styles = StyleSheet.create({
   },
   availLabel: {
     fontSize: 12,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     marginBottom: 2,
   },
   availValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: heraLanding.success,
+    color: theme.success,
   },
   availValueNeutral: {
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     fontWeight: '500',
   },
   internalDivider: {
     height: 1,
-    backgroundColor: heraLanding.border,
+    backgroundColor: theme.borderLight,
     marginVertical: 12,
   },
   modalityRow: {
@@ -309,39 +255,12 @@ const styles = StyleSheet.create({
   },
   modalityText: {
     fontSize: 13,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
   },
-
-  // ── Section divider ──
-  sectionDivider: {
-    height: 0.5,
-    backgroundColor: heraLanding.border,
-  },
-
-  // ── CTA section ──
   ctaSection: {
     padding: spacing.md,
     gap: 10,
   },
-  primaryCTA: {
-    backgroundColor: heraLanding.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-    ...Platform.select({ web: { transition: 'all 0.2s ease' } as any })
-  },
-  primaryCTAHovered: {
-    backgroundColor: heraLanding.primaryDark,
-    ...Platform.select({ web: { boxShadow: '0 4px 14px rgba(139, 157, 131, 0.4)' } as any })
-  },
-  primaryCTAText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: heraLanding.textOnPrimary,
-  },
-  // ── Location section ──
   locationSection: {
     padding: spacing.md,
     gap: spacing.sm,
@@ -349,7 +268,7 @@ const styles = StyleSheet.create({
   locationLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     letterSpacing: 0.5,
     marginBottom: 10,
     ...(Platform.OS === 'web' ? { textTransform: 'uppercase' } as Record<string, string> : {}),
@@ -365,11 +284,11 @@ const styles = StyleSheet.create({
   addressText: {
     fontSize: 13,
     fontWeight: '500',
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
   },
   addressCity: {
     fontSize: 12,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     marginTop: 2,
   },
   mapWrapper: {
@@ -385,12 +304,10 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingVertical: spacing.xs,
   },
-  mapLinkHovered: {
-    opacity: 0.7,
-  },
   mapLinkText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: theme.primary,
   },
 });
 

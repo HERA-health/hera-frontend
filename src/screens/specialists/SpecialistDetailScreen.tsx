@@ -15,10 +15,8 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
   StyleSheet,
   useWindowDimensions,
-  Dimensions,
   Alert,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -26,8 +24,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as specialistsService from '../../services/specialistsService';
-import { heraLanding, spacing, borderRadius, shadows } from '../../constants/colors';
+import { spacing, borderRadius, shadows } from '../../constants/colors';
 import { getGradientColors } from '../../constants/gradients';
+import { useTheme } from '../../contexts/ThemeContext';
+import type { Theme } from '../../constants/theme';
 
 // Import modular components
 import {
@@ -44,6 +44,7 @@ import {
 import type { Specialist, Review } from '../specialist-profile/types';
 import { LocationMapPreview, ModalityBadges } from '../../components/location';
 import * as analyticsService from '../../services/analyticsService';
+import { AnimatedPressable, Button } from '../../components/common';
 
 // Types
 interface SpecialistDetailScreenProps {
@@ -62,22 +63,11 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
 }) => {
   const { specialistId, affinity } = route?.params || {};
   const { width } = useWindowDimensions();
-  const [isDesktop, setIsDesktop] = useState(
-    () => Dimensions.get('window').width >= DESKTOP_BREAKPOINT
-  );
-  const [isTablet, setIsTablet] = useState(() => {
-    const w = Dimensions.get('window').width;
-    return w >= TABLET_BREAKPOINT && w < DESKTOP_BREAKPOINT;
-  });
-  const [isMobile, setIsMobile] = useState(
-    () => Dimensions.get('window').width < TABLET_BREAKPOINT
-  );
-
-  useEffect(() => {
-    setIsDesktop(width >= DESKTOP_BREAKPOINT);
-    setIsTablet(width >= TABLET_BREAKPOINT && width < DESKTOP_BREAKPOINT);
-    setIsMobile(width < TABLET_BREAKPOINT);
-  }, [width]);
+  const { theme, isDark } = useTheme();
+  const isDesktop = width >= DESKTOP_BREAKPOINT;
+  const isTablet = width >= TABLET_BREAKPOINT && width < DESKTOP_BREAKPOINT;
+  const isMobile = width < TABLET_BREAKPOINT;
+  const styles = createStyles(theme, isDark);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const reviewsYOffset = useRef<number>(0);
@@ -117,11 +107,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'No se pudo cargar el perfil del especialista';
-      if (Platform.OS === 'web') {
-        window.alert(errorMessage);
-      } else {
-        Alert.alert('Error', errorMessage);
-      }
+      Alert.alert('Error', errorMessage);
       navigation.goBack();
     } finally {
       setLoading(false);
@@ -172,11 +158,9 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
   if (!specialist) {
     return (
       <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle" size={64} color={heraLanding.warning} />
+        <Ionicons name="alert-circle" size={64} color={theme.warning} />
         <Text style={styles.errorText}>No se pudo cargar el perfil</Text>
-        <TouchableOpacity onPress={handleGoBack} style={styles.backButtonError}>
-          <Text style={styles.backButtonErrorText}>Volver</Text>
-        </TouchableOpacity>
+        <Button onPress={handleGoBack} variant="primary" size="large" style={styles.backButtonError}>Volver</Button>
       </View>
     );
   }
@@ -258,14 +242,15 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
         >
           {/* Back Navigation */}
           <View style={styles.headerTwoColumn}>
-            <TouchableOpacity
+            <AnimatedPressable
               style={styles.backButton}
               onPress={handleGoBack}
-              activeOpacity={0.7}
+              hoverLift={false}
+              pressScale={0.985}
             >
-              <Ionicons name="arrow-back" size={20} color={heraLanding.textSecondary} />
+              <Ionicons name="arrow-back" size={20} color={theme.textSecondary} />
               <Text style={styles.backButtonText}>Volver</Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
 
           {/* Two Column Container */}
@@ -331,14 +316,15 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       >
         {/* Back Navigation */}
         <View style={styles.header}>
-          <TouchableOpacity
+          <AnimatedPressable
             style={styles.backButton}
             onPress={handleGoBack}
-            activeOpacity={0.7}
+            hoverLift={false}
+            pressScale={0.985}
           >
-            <Ionicons name="arrow-back" size={20} color={heraLanding.textSecondary} />
+            <Ionicons name="arrow-back" size={20} color={theme.textSecondary} />
             <Text style={styles.backButtonText}>Volver</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         </View>
 
         {/* Main Content */}
@@ -375,13 +361,10 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
 };
 
 // ============== STYLES ==============
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: heraLanding.background,
-    ...Platform.select({
-      web: { overflowX: 'hidden', maxWidth: '100vw' } as any,
-    }),
+    backgroundColor: theme.bg,
   },
   container: {
     flex: 1,
@@ -415,7 +398,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 15,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
   },
 
   // Two Column Layout
@@ -471,33 +454,23 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: heraLanding.background,
+    backgroundColor: theme.bg,
     padding: spacing.xl,
   },
   errorText: {
     fontSize: 16,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     marginTop: spacing.md,
     textAlign: 'center',
   },
   backButtonError: {
     marginTop: spacing.lg,
-    paddingHorizontal: spacing.xxl,
-    paddingVertical: spacing.sm + 4,
-    backgroundColor: heraLanding.primary,
-    borderRadius: borderRadius.md,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  backButtonErrorText: {
-    fontSize: 16,
-    color: heraLanding.textOnPrimary,
-    fontWeight: '600',
+    minWidth: 180,
   },
 
   // Location Section
   locationSection: {
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.lg,
     padding: spacing.xl,
     ...shadows.sm,
@@ -505,7 +478,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     marginBottom: spacing.md,
   },
   modalityBadges: {
@@ -520,17 +493,17 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.md,
     padding: spacing.md,
-    backgroundColor: heraLanding.background,
+    backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
     borderRadius: borderRadius.md,
   },
   addressText: {
     fontSize: 15,
     fontWeight: '500',
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
   },
   addressCity: {
     fontSize: 14,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     marginTop: 2,
   },
 });

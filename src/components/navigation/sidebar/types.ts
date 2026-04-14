@@ -5,6 +5,8 @@
  * - No massive prop objects with unused fields
  */
 
+import { RootStackParamList } from '../../../constants/types';
+
 /**
  * User roles within the HERA platform
  */
@@ -59,7 +61,7 @@ export interface NavigationItem {
   /** Icon name for active state (filled) - optional, defaults to non-outline version */
   iconActive?: IconName;
   /** Route name to navigate to */
-  route: string;
+  route: keyof RootStackParamList;
   /** User roles that can see this item */
   roles: UserRole[];
   /** Optional badge text (e.g., "24/7", "New", notification count) */
@@ -97,7 +99,7 @@ export interface NavItemProps {
   /** Whether this item represents the current route */
   isActive: boolean;
   /** Callback when item is pressed */
-  onPress: (route: string) => void;
+  onPress: (route: keyof RootStackParamList) => void;
   /** Whether the sidebar is in collapsed state */
   isCollapsed?: boolean;
 }
@@ -139,7 +141,7 @@ export interface SidebarProps {
   /** Current active route name */
   currentRoute: string;
   /** Callback to navigate to a route */
-  onNavigate: (route: string) => void;
+  onNavigate: (route: keyof RootStackParamList) => void;
   /** User information for the user section */
   user: SidebarUser;
   /** Callback when user logs out */
@@ -164,8 +166,11 @@ export interface SidebarTheme {
   /** Background colors */
   background: {
     primary: string;
+    secondary: string;
+    subtle: string;
     hover: string;
     active: string;
+    overlay: string;
   };
   /** Text colors */
   text: {
@@ -183,6 +188,10 @@ export interface SidebarTheme {
   activeIndicator: string;
   /** Border colors */
   border: string;
+  /** Divider/border emphasis for elevated blocks */
+  borderStrong: string;
+  /** Theme-aware shadow color */
+  shadow: string;
   /** Badge colors */
   badge: {
     default: [string, string];

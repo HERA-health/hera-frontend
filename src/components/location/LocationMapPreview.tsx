@@ -4,19 +4,20 @@
  * Shows location with marker and optional directions button
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Linking,
   Platform,
   ViewStyle,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, spacing, borderRadius, shadows } from '../../constants/colors';
+import { AnimatedPressable } from '../common';
+import { spacing, borderRadius, shadows } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface LocationMapPreviewProps {
   lat: number;
@@ -30,14 +31,11 @@ interface LocationMapPreviewProps {
   interactive?: boolean;
 }
 
-// Get API key from environment
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
-// Track if Google Maps script is loaded
 let googleMapsLoaded = false;
 let googleMapsLoadPromise: Promise<void> | null = null;
 
-// Load Google Maps script dynamically (web only)
 const loadGoogleMapsScript = (): Promise<void> => {
   if (Platform.OS !== 'web') {
     return Promise.resolve();
@@ -64,7 +62,7 @@ const loadGoogleMapsScript = (): Promise<void> => {
         googleMapsLoaded = true;
         resolve();
       });
-      // If script exists but not loaded yet, wait a bit
+
       const checkLoaded = setInterval(() => {
         if (window.google?.maps) {
           clearInterval(checkLoaded);
@@ -72,6 +70,7 @@ const loadGoogleMapsScript = (): Promise<void> => {
           resolve();
         }
       }, 100);
+
       return;
     }
 
@@ -79,16 +78,13 @@ const loadGoogleMapsScript = (): Promise<void> => {
     script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=es`;
     script.async = true;
     script.defer = true;
-
     script.onload = () => {
       googleMapsLoaded = true;
       resolve();
     };
-
     script.onerror = () => {
       reject(new Error('Failed to load Google Maps script'));
     };
-
     document.head.appendChild(script);
   });
 
@@ -106,20 +102,16 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
   style,
   interactive = true,
 }) => {
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize map
   useEffect(() => {
-    if (Platform.OS !== 'web' || !GOOGLE_MAPS_API_KEY) {
-      setIsLoading(false);
-      return;
-    }
-
-    if (!lat || !lng) {
+    if (Platform.OS !== 'web' || !GOOGLE_MAPS_API_KEY || !lat || !lng) {
       setIsLoading(false);
       return;
     }
@@ -132,7 +124,6 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
 
         const position = { lat, lng };
 
-        // Create map
         mapRef.current = new window.google.maps.Map(mapContainerRef.current, {
           center: position,
           zoom: 15,
@@ -150,14 +141,13 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
           ],
         });
 
-        // Create custom marker
         markerRef.current = new window.google.maps.Marker({
           position,
           map: mapRef.current,
           icon: {
             path: window.google.maps.SymbolPath.CIRCLE,
             scale: 10,
-            fillColor: heraLanding.primary,
+            fillColor: theme.primary,
             fillOpacity: 1,
             strokeColor: '#ffffff',
             strokeWeight: 3,
@@ -165,7 +155,6 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
           title: address,
         });
 
-        // Add info window on marker click
         const infoWindow = new window.google.maps.InfoWindow({
           content: `
             <div style="padding: 8px; font-family: system-ui, -apple-system, sans-serif;">
@@ -188,13 +177,10 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
       });
 
     return () => {
-      if (markerRef.current) {
-        markerRef.current.setMap(null);
-      }
+      markerRef.current?.setMap(null);
     };
-  }, [lat, lng, address, city, interactive]);
+  }, [address, city, interactive, lat, lng, theme.primary]);
 
-  // Update marker position when coordinates change
   useEffect(() => {
     if (mapRef.current && markerRef.current && lat && lng) {
       const position = { lat, lng };
@@ -213,84 +199,83 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
       default: `https://www.google.com/maps/dir/?api=1&destination=${coords}&destination_place_id=`,
     });
 
-    if (url) {
-      Linking.openURL(url).catch(() => {
-        Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${destination}`);
-      });
+    if (!url) {
+      return;
     }
+
+    Linking.openURL(url).catch(() => {
+      void Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${destination}`);
+    });
   };
 
   const handleOpenInMaps = () => {
     const coords = `${lat},${lng}`;
-    const url = `https://www.google.com/maps/search/?api=1&query=${coords}`;
-    Linking.openURL(url);
+    void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${coords}`);
   };
 
-  // Non-web fallback
   if (Platform.OS !== 'web') {
     return (
-      <View style={[styles.container, style]}>
-        <View style={[styles.mapPlaceholder, { height }]}>
-          <Ionicons name="map-outline" size={48} color={heraLanding.textMuted} />
-          <Text style={styles.placeholderText}>Mapa disponible en versión web</Text>
+      <View style={[styles.container, { backgroundColor: theme.bgCard, borderColor: theme.border, borderWidth: 1 }, style]}>
+        <View style={[styles.mapPlaceholder, { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted }]}>
+          <Ionicons name="map-outline" size={48} color={theme.textMuted} />
+          <Text style={[styles.placeholderText, { color: theme.textMuted }]}>Mapa disponible en versión web</Text>
         </View>
-        <View style={styles.addressOverlay}>
-          <Ionicons name="location" size={18} color={heraLanding.primary} />
+        <View style={[styles.addressOverlay, { backgroundColor: theme.bgCard, borderTopColor: theme.borderLight }]}>
+          <Ionicons name="location" size={18} color={theme.primary} />
           <View style={styles.addressText}>
-            <Text style={styles.address} numberOfLines={1}>{address}</Text>
-            <Text style={styles.city}>{city}</Text>
+            <Text style={[styles.address, { color: theme.textPrimary }]} numberOfLines={1}>{address}</Text>
+            <Text style={[styles.city, { color: theme.textSecondary }]}>{city}</Text>
           </View>
         </View>
-        {showDirectionsButton && (
-          <TouchableOpacity style={styles.directionsButton} onPress={handleOpenDirections} activeOpacity={0.8}>
-            <Ionicons name="navigate" size={18} color={heraLanding.textOnPrimary} />
-            <Text style={styles.directionsText}>Cómo llegar</Text>
-          </TouchableOpacity>
-        )}
+        {showDirectionsButton ? (
+          <AnimatedPressable style={[styles.directionsButton, { backgroundColor: theme.primary }]} onPress={handleOpenDirections}>
+            <Ionicons name="navigate" size={18} color={theme.textOnPrimary} />
+            <Text style={[styles.directionsText, { color: theme.textOnPrimary }]}>Cómo llegar</Text>
+          </AnimatedPressable>
+        ) : null}
       </View>
     );
   }
 
-  // No API key
   if (!GOOGLE_MAPS_API_KEY) {
     return (
-      <View style={[styles.container, style]}>
-        <View style={[styles.mapPlaceholder, { height }]}>
-          <Ionicons name="warning-outline" size={48} color={heraLanding.textMuted} />
-          <Text style={styles.placeholderText}>API key de Google Maps no configurada</Text>
+      <View style={[styles.container, { backgroundColor: theme.bgCard, borderColor: theme.border, borderWidth: 1 }, style]}>
+        <View style={[styles.mapPlaceholder, { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted }]}>
+          <Ionicons name="warning-outline" size={48} color={theme.textMuted} />
+          <Text style={[styles.placeholderText, { color: theme.textMuted }]}>API key de Google Maps no configurada</Text>
         </View>
       </View>
     );
   }
 
-  // No coordinates
   if (!lat || !lng) {
     return (
-      <View style={[styles.container, style]}>
-        <View style={[styles.mapPlaceholder, { height }]}>
-          <Ionicons name="location-outline" size={48} color={heraLanding.textMuted} />
-          <Text style={styles.placeholderText}>Selecciona una dirección para ver el mapa</Text>
+      <View style={[styles.container, { backgroundColor: theme.bgCard, borderColor: theme.border, borderWidth: 1 }, style]}>
+        <View style={[styles.mapPlaceholder, { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted }]}>
+          <Ionicons name="location-outline" size={48} color={theme.textMuted} />
+          <Text style={[styles.placeholderText, { color: theme.textMuted }]}>Selecciona una dirección para ver el mapa</Text>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, style]}>
-      {/* Map Container */}
+    <View style={[styles.container, { backgroundColor: theme.bgCard, borderColor: theme.border, borderWidth: 1 }, style]}>
       <View style={[styles.mapWrapper, { height }]}>
-        {isLoading && (
-          <View style={[styles.loadingOverlay, { height }]}>
-            <ActivityIndicator size="large" color={heraLanding.primary} />
-            <Text style={styles.loadingText}>Cargando mapa...</Text>
+        {isLoading ? (
+          <View style={[styles.loadingOverlay, { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted }]}>
+            <ActivityIndicator size="large" color={theme.primary} />
+            <Text style={[styles.loadingText, { color: theme.textMuted }]}>Cargando mapa...</Text>
           </View>
-        )}
-        {error && (
-          <View style={[styles.mapPlaceholder, { height }]}>
-            <Ionicons name="alert-circle-outline" size={48} color={heraLanding.warning} />
-            <Text style={styles.placeholderText}>{error}</Text>
+        ) : null}
+
+        {error ? (
+          <View style={[styles.mapPlaceholder, { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted }]}>
+            <Ionicons name="alert-circle-outline" size={48} color={theme.error} />
+            <Text style={[styles.placeholderText, { color: theme.textMuted }]}>{error}</Text>
           </View>
-        )}
+        ) : null}
+
         <div
           ref={mapContainerRef}
           style={{
@@ -303,118 +288,104 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
         />
       </View>
 
-      {/* Address Overlay */}
-      <TouchableOpacity
-        style={styles.addressOverlay}
+      <AnimatedPressable
+        style={[styles.addressOverlay, { backgroundColor: theme.bgCard, borderTopColor: theme.borderLight }]}
         onPress={handleOpenInMaps}
-        activeOpacity={0.8}
       >
-        <View style={styles.addressIcon}>
-          <Ionicons name="location" size={20} color={heraLanding.primary} />
+        <View style={[styles.addressIcon, { backgroundColor: theme.primaryAlpha12 }]}>
+          <Ionicons name="location" size={20} color={theme.primary} />
         </View>
         <View style={styles.addressText}>
-          <Text style={styles.address} numberOfLines={1}>{address}</Text>
-          <Text style={styles.city}>{city}</Text>
+          <Text style={[styles.address, { color: theme.textPrimary }]} numberOfLines={1}>{address}</Text>
+          <Text style={[styles.city, { color: theme.textSecondary }]}>{city}</Text>
         </View>
-        <Ionicons name="open-outline" size={18} color={heraLanding.textMuted} />
-      </TouchableOpacity>
+        <Ionicons name="open-outline" size={18} color={theme.textMuted} />
+      </AnimatedPressable>
 
-      {/* Directions Button */}
-      {showDirectionsButton && (
-        <TouchableOpacity
-          style={styles.directionsButton}
-          onPress={handleOpenDirections}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="navigate" size={18} color={heraLanding.textOnPrimary} />
-          <Text style={styles.directionsText}>Cómo llegar</Text>
-        </TouchableOpacity>
-      )}
+      {showDirectionsButton ? (
+        <AnimatedPressable style={[styles.directionsButton, { backgroundColor: theme.primary }]} onPress={handleOpenDirections}>
+          <Ionicons name="navigate" size={18} color={theme.textOnPrimary} />
+          <Text style={[styles.directionsText, { color: theme.textOnPrimary }]}>Cómo llegar</Text>
+        </AnimatedPressable>
+      ) : null}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-    backgroundColor: heraLanding.cardBg,
-    ...shadows.md,
-  },
-  mapWrapper: {
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: heraLanding.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  loadingText: {
-    marginTop: spacing.sm,
-    fontSize: 13,
-    color: heraLanding.textMuted,
-  },
-  mapPlaceholder: {
-    backgroundColor: heraLanding.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  placeholderText: {
-    fontSize: 13,
-    color: heraLanding.textMuted,
-    textAlign: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  addressOverlay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    gap: spacing.sm,
-    backgroundColor: heraLanding.cardBg,
-    borderTopWidth: 1,
-    borderTopColor: heraLanding.borderLight,
-  },
-  addressIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: `${heraLanding.primary}15`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addressText: {
-    flex: 1,
-  },
-  address: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-  },
-  city: {
-    fontSize: 12,
-    color: heraLanding.textSecondary,
-    marginTop: 2,
-  },
-  directionsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: heraLanding.primary,
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
-  },
-  directionsText: {
-    color: heraLanding.textOnPrimary,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-});
+const createStyles = (
+  theme: ReturnType<typeof useTheme>['theme'],
+  isDark: boolean
+) =>
+  StyleSheet.create({
+    container: {
+      borderRadius: borderRadius.lg,
+      overflow: 'hidden',
+      ...shadows.md,
+    },
+    mapWrapper: {
+      position: 'relative',
+      overflow: 'hidden',
+    },
+    loadingOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1,
+    },
+    loadingText: {
+      marginTop: spacing.sm,
+      fontSize: 13,
+      color: isDark ? theme.textMuted : theme.textSecondary,
+    },
+    mapPlaceholder: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    placeholderText: {
+      fontSize: 13,
+      textAlign: 'center',
+      paddingHorizontal: spacing.lg,
+    },
+    addressOverlay: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: spacing.md,
+      gap: spacing.sm,
+      borderTopWidth: 1,
+    },
+    addressIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    addressText: {
+      flex: 1,
+    },
+    address: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    city: {
+      fontSize: 12,
+      marginTop: 2,
+    },
+    directionsButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.md,
+      gap: spacing.sm,
+    },
+    directionsText: {
+      fontSize: 15,
+      fontWeight: '600',
+    },
+  });
 
 export default LocationMapPreview;

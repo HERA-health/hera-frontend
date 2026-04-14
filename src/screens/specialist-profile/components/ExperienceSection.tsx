@@ -1,17 +1,9 @@
-/**
- * ExperienceSection - Education, experience, and certifications
- * Timeline visual for education/experience, pill badges for certificates
- */
-
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { ExperienceSectionProps, EducationItem, ExperienceItem, CertificateItem } from '../types';
-import { heraLanding, spacing, borderRadius, shadows } from '../../../constants/colors';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import { ExperienceSectionProps } from '../types';
+import { spacing, borderRadius, shadows } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import type { Theme } from '../../../constants/theme';
 
 const STRINGS = {
   title: 'Experiencia y formación',
@@ -21,38 +13,23 @@ const STRINGS = {
   yearsExperience: 'años de experiencia clínica',
 };
 
-interface TimelineItemProps {
+const TimelineItem: React.FC<{
   title: string;
   subtitle: string;
   dateRange: string;
   isLast: boolean;
-}
-
-const TimelineItem: React.FC<TimelineItemProps> = ({ title, subtitle, dateRange, isLast }) => (
+  styles: ReturnType<typeof createStyles>;
+}> = ({ title, subtitle, dateRange, isLast, styles }) => (
   <View style={styles.timelineItem}>
-    {/* Left column: dot + line */}
     <View style={styles.timelineLeft}>
       <View style={styles.timelineDot} />
       {!isLast && <View style={styles.timelineLine} />}
     </View>
-    {/* Right column: content */}
     <View style={styles.timelineRight}>
       <Text style={styles.timelineTitle}>{title}</Text>
       <Text style={styles.timelineSubtitle}>{subtitle}</Text>
       <Text style={styles.timelineDate}>{dateRange}</Text>
     </View>
-  </View>
-);
-
-interface SubSectionHeaderProps {
-  emoji: string;
-  title: string;
-}
-
-const SubSectionHeader: React.FC<SubSectionHeaderProps> = ({ emoji, title }) => (
-  <View style={styles.subSectionHeader}>
-    <Text style={styles.subSectionEmoji}>{emoji}</Text>
-    <Text style={styles.subSectionTitle}>{title}</Text>
   </View>
 );
 
@@ -63,21 +40,21 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
   collegiateNumber,
   experienceYears,
 }) => {
-  const hasEducation = education && education.length > 0;
-  const hasExperience = experience && experience.length > 0;
-  const hasCertificates = certifications && certifications.length > 0;
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const hasEducation = !!education?.length;
+  const hasExperience = !!experience?.length;
+  const hasCertificates = !!certifications?.length;
   const hasContent = hasEducation || hasExperience || hasCertificates || collegiateNumber || experienceYears;
-
   if (!hasContent) return null;
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{STRINGS.title}</Text>
 
-      {/* Education timeline */}
       {hasEducation && (
         <View style={styles.subSection}>
-          <SubSectionHeader emoji="🎓" title={STRINGS.education} />
+          <Text style={styles.subSectionTitle}>{STRINGS.education}</Text>
           <View style={styles.timeline}>
             {education!.map((item, index) => (
               <TimelineItem
@@ -86,20 +63,18 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
                 subtitle={item.institution}
                 dateRange={item.endYear ? `${item.startYear} – ${item.endYear}` : item.startYear}
                 isLast={index === education!.length - 1}
+                styles={styles}
               />
             ))}
           </View>
         </View>
       )}
 
-      {/* Experience timeline */}
       {(hasExperience || (typeof experienceYears === 'number' && experienceYears > 0)) && (
         <View style={styles.subSection}>
-          <SubSectionHeader emoji="💼" title={STRINGS.experience} />
+          <Text style={styles.subSectionTitle}>{STRINGS.experience}</Text>
           {(typeof experienceYears === 'number' && experienceYears > 0) && !hasExperience && (
-            <Text style={styles.experienceYearsText}>
-              {experienceYears}+ {STRINGS.yearsExperience}
-            </Text>
+            <Text style={styles.experienceYearsText}>{experienceYears}+ {STRINGS.yearsExperience}</Text>
           )}
           {hasExperience && (
             <View style={styles.timeline}>
@@ -108,8 +83,9 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
                   key={item.id}
                   title={item.position}
                   subtitle={item.organization}
-                  dateRange={item.current || !item.endYear ? `${item.startYear} - Actual` : `${item.startYear} - ${item.endYear}`}
+                  dateRange={item.current || !item.endYear ? `${item.startYear} – Actual` : `${item.startYear} – ${item.endYear}`}
                   isLast={index === experience!.length - 1}
+                  styles={styles}
                 />
               ))}
             </View>
@@ -117,10 +93,9 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
         </View>
       )}
 
-      {/* Certificates as pill badges */}
       {hasCertificates && (
         <View style={styles.subSection}>
-          <SubSectionHeader emoji="✓" title={STRINGS.certificates} />
+          <Text style={styles.subSectionTitle}>{STRINGS.certificates}</Text>
           <View style={styles.certificatesContainer}>
             {certifications!.map((cert) => (
               <View key={cert.id} style={styles.certificatePill}>
@@ -130,119 +105,42 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
           </View>
         </View>
       )}
-
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   container: {
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.lg,
     padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: theme.borderLight,
     ...shadows.sm,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-    marginBottom: spacing.lg,
-  },
-
-  // Sub-sections
-  subSection: {
-    marginBottom: spacing.lg,
-  },
-  subSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  subSectionEmoji: {
-    fontSize: 20,
-  },
-  subSectionTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-  },
-
-  // Timeline
-  timeline: {
-    marginLeft: spacing.sm,
-  },
-  timelineItem: {
-    flexDirection: 'row',
-    minHeight: 60,
-  },
-  timelineLeft: {
-    width: spacing.lg,
-    alignItems: 'center',
-  },
-  timelineDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: heraLanding.primary,
-    marginTop: 4,
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: heraLanding.border,
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  timelineRight: {
-    flex: 1,
-    paddingLeft: spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  timelineTitle: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: heraLanding.textPrimary,
-    marginBottom: 2,
-  },
-  timelineSubtitle: {
-    fontSize: 13,
-    color: heraLanding.textSecondary,
-    marginBottom: 2,
-  },
-  timelineDate: {
-    fontSize: 12,
-    color: heraLanding.textMuted,
-  },
-
-  // Experience years fallback
-  experienceYearsText: {
-    fontSize: 15,
-    color: heraLanding.textPrimary,
-    marginLeft: spacing.xxl,
-    lineHeight: 24,
-  },
-
-  // Certificate pills
-  certificatesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginLeft: spacing.sm,
-  },
+  title: { fontSize: 22, fontWeight: '700', color: theme.textPrimary, marginBottom: spacing.lg },
+  subSection: { marginBottom: spacing.lg },
+  subSectionTitle: { fontSize: 17, fontWeight: '700', color: theme.textPrimary, marginBottom: spacing.md },
+  timeline: { marginLeft: spacing.xs },
+  timelineItem: { flexDirection: 'row', minHeight: 60 },
+  timelineLeft: { width: spacing.lg, alignItems: 'center' },
+  timelineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: theme.primary, marginTop: 4 },
+  timelineLine: { width: 2, flex: 1, backgroundColor: theme.border, marginTop: spacing.xs, marginBottom: spacing.xs },
+  timelineRight: { flex: 1, paddingLeft: spacing.sm, paddingBottom: spacing.md },
+  timelineTitle: { fontSize: 15, fontWeight: '600', color: theme.textPrimary, marginBottom: 2 },
+  timelineSubtitle: { fontSize: 13, color: theme.textSecondary, marginBottom: 2 },
+  timelineDate: { fontSize: 12, color: theme.textMuted },
+  experienceYearsText: { fontSize: 15, color: theme.textPrimary, lineHeight: 24 },
+  certificatesContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   certificatePill: {
-    backgroundColor: heraLanding.successBg,
+    backgroundColor: isDark ? theme.successBg : theme.surface,
     borderRadius: 20,
-    paddingVertical: 4,
+    paddingVertical: 5,
     paddingHorizontal: spacing.sm + 4,
     borderWidth: 1,
-    borderColor: heraLanding.successLight,
+    borderColor: theme.successLight,
   },
-  certificatePillText: {
-    fontSize: 11,
-    color: heraLanding.success,
-    fontWeight: '500',
-  },
+  certificatePillText: { fontSize: 11, color: theme.success, fontWeight: '600' },
 });
 
 export default ExperienceSection;

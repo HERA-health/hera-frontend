@@ -1,20 +1,10 @@
-/**
- * SearchBar Component
- * Modern pill-shaped search input with clear functionality
- * Features: Focus states, debounced input, accessibility
- */
-
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import {
-  View,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-  Platform,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, spacing, shadows } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
+import { spacing } from '../../../constants/colors';
+import type { Theme } from '../../../constants/theme';
 
 interface SearchBarProps {
   value: string;
@@ -27,51 +17,56 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   value,
   onChangeText,
   placeholder = 'Buscar por nombre o especialidad...',
-  debounceMs = 300,
+  debounceMs = 250,
 }) => {
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const [localValue, setLocalValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
-  const borderAnim = useRef(new Animated.Value(0)).current;
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const ringAnim = useRef(new Animated.Value(0)).current;
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sync local value with prop
   useEffect(() => {
     setLocalValue(value);
   }, [value]);
 
-  // Animate border on focus
   useEffect(() => {
-    Animated.timing(borderAnim, {
+    Animated.timing(ringAnim, {
       toValue: isFocused ? 1 : 0,
-      duration: 200,
+      duration: 180,
       useNativeDriver: false,
     }).start();
-  }, [isFocused]);
+  }, [isFocused, ringAnim]);
 
-  const handleChangeText = useCallback(
-    (text: string) => {
-      setLocalValue(text);
+  useEffect(() => () => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+  }, []);
 
-      // Debounce the onChangeText callback
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
+  const handleChangeText = useCallback((text: string) => {
+    setLocalValue(text);
 
-      debounceRef.current = setTimeout(() => {
-        onChangeText(text);
-      }, debounceMs);
-    },
-    [onChangeText, debounceMs]
-  );
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
 
-  const handleClear = () => {
+    debounceRef.current = setTimeout(() => {
+      onChangeText(text);
+    }, debounceMs);
+  }, [debounceMs, onChangeText]);
+
+  const handleClear = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
     setLocalValue('');
     onChangeText('');
-  };
+  }, [onChangeText]);
 
-  const borderColor = borderAnim.interpolate({
+  const borderColor = ringAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [heraLanding.border, heraLanding.primary],
+    outputRange: [theme.border, theme.primary],
   });
 
   return (
@@ -80,78 +75,88 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         styles.container,
         {
           borderColor,
-          shadowOpacity: isFocused ? 0.08 : 0.04,
+          shadowOpacity: isFocused ? 1 : 0.7,
         },
       ]}
     >
       <Ionicons
         name="search"
-        size={20}
-        color={isFocused ? heraLanding.primary : heraLanding.textMuted}
-        style={styles.searchIcon}
+        size={18}
+        color={isFocused ? theme.primary : theme.textMuted}
+        style={styles.leadingIcon}
       />
 
       <TextInput
-        style={styles.input}
         value={localValue}
         onChangeText={handleChangeText}
         placeholder={placeholder}
-        placeholderTextColor={heraLanding.textMuted}
+        placeholderTextColor={theme.textMuted}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
-        returnKeyType="search"
+        style={styles.input}
         autoCapitalize="none"
         autoCorrect={false}
+        returnKeyType="search"
         accessibilityLabel="Buscar especialistas"
-        accessibilityHint="Escribe para buscar por nombre o especialidad"
       />
 
-      {localValue.length > 0 && (
-        <TouchableOpacity
+      {localValue.length > 0 ? (
+        <AnimatedPressable
           onPress={handleClear}
+          hoverLift={false}
+          pressScale={0.9}
           style={styles.clearButton}
-          accessibilityRole="button"
           accessibilityLabel="Limpiar búsqueda"
         >
-          <Ionicons
-            name="close-circle"
-            size={20}
-            color={heraLanding.textMuted}
-          />
-        </TouchableOpacity>
-      )}
+          <View style={styles.clearButtonInner}>
+            <Ionicons name="close" size={15} color={theme.textSecondary} />
+          </View>
+        </AnimatedPressable>
+      ) : null}
     </Animated.View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingHorizontal: spacing.md,
-    height: 48,
-    borderWidth: 2,
-    ...shadows.sm,
-    ...(Platform.OS === 'web' && {
-      // @ts-ignore
-      transition: 'all 0.2s ease',
-    }),
-  },
-  searchIcon: {
-    marginRight: spacing.sm,
-  },
-  input: {
-    flex: 1,
-    fontSize: 15,
-    color: heraLanding.textPrimary,
-    paddingVertical: 0,
-  },
-  clearButton: {
-    padding: spacing.xs,
-    marginLeft: spacing.xs,
-  },
-});
+function createStyles(theme: Theme, isDark: boolean) {
+  return StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minHeight: 52,
+      borderRadius: 18,
+      paddingHorizontal: spacing.md,
+      backgroundColor: theme.bgCard,
+      borderWidth: 1.5,
+      shadowColor: theme.shadowCard,
+      shadowOffset: { width: 0, height: 8 },
+      shadowRadius: 20,
+      elevation: 3,
+    },
+    leadingIcon: {
+      marginRight: spacing.sm,
+    },
+    input: {
+      flex: 1,
+      paddingVertical: 0,
+      color: theme.textPrimary,
+      fontSize: 15,
+      fontFamily: theme.fontSans,
+    },
+    clearButton: {
+      marginLeft: spacing.sm,
+      borderRadius: 999,
+    },
+    clearButtonInner: {
+      width: 28,
+      height: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 999,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgAlt,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+    },
+  });
+}
 
 export default SearchBar;

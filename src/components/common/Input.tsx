@@ -1,18 +1,4 @@
-/**
- * Reusable Input Component
- * Text input with label, error state, and helper text
- *
- * Usage:
- * <Input
- *   label="Email"
- *   placeholder="Enter your email"
- *   value={email}
- *   onChangeText={setEmail}
- *   error="Invalid email"
- * />
- */
-
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,8 +6,17 @@ import {
   StyleSheet,
   ViewStyle,
   TextInputProps,
+  TextStyle,
 } from 'react-native';
-import { colors, spacing, borderRadius, typography } from '../../constants/colors';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolateColor,
+  Easing,
+} from 'react-native-reanimated';
+import { useTheme } from '../../contexts/ThemeContext';
+import { spacing, borderRadius, typography } from '../../constants/colors';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -32,6 +27,9 @@ interface InputProps extends TextInputProps {
   rightIcon?: React.ReactNode;
 }
 
+type TextInputFocusEvent = Parameters<NonNullable<TextInputProps['onFocus']>>[0];
+type TextInputBlurEvent = Parameters<NonNullable<TextInputProps['onBlur']>>[0];
+
 export const Input: React.FC<InputProps> = ({
   label,
   error,
@@ -40,28 +38,97 @@ export const Input: React.FC<InputProps> = ({
   leftIcon,
   rightIcon,
   style,
+  onFocus,
+  onBlur,
   ...textInputProps
 }) => {
-  const hasError = !!error;
+  const { theme } = useTheme();
+  const hasError = Boolean(error);
+  const focusAnim = useSharedValue(0);
+
+  const handleFocus = useCallback((e: TextInputFocusEvent) => {
+    focusAnim.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.ease) });
+    onFocus?.(e);
+  }, [focusAnim, onFocus]);
+
+  const handleBlur = useCallback((e: TextInputBlurEvent) => {
+    focusAnim.value = withTiming(0, { duration: 180, easing: Easing.out(Easing.ease) });
+    onBlur?.(e);
+  }, [focusAnim, onBlur]);
+
+  const animatedContainerStyle = useAnimatedStyle(() => {
+    const borderColor = hasError
+      ? theme.error
+      : interpolateColor(focusAnim.value, [0, 1], [theme.border, theme.primary]);
+
+    const glowOpacity = hasError ? 0 : focusAnim.value * 0.18;
+
+    return {
+      borderColor,
+      shadowColor: hasError ? theme.error : theme.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: hasError ? 0.15 : glowOpacity,
+      shadowRadius: 8,
+      elevation: focusAnim.value * 2,
+    };
+  });
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label ? (
+        <Text
+          style={[
+            styles.label,
+            { color: theme.textSecondary, fontFamily: theme.fontSansMedium },
+          ]}
+        >
+          {label}
+        </Text>
+      ) : null}
 
-      <View style={[styles.inputContainer, hasError && styles.inputContainerError]}>
-        {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
+      <Animated.View
+        style={[
+          styles.inputContainer,
+          {
+            backgroundColor: theme.bgCard,
+            borderColor: theme.border,
+          },
+          animatedContainerStyle,
+        ]}
+      >
+        {leftIcon ? <View style={styles.leftIcon}>{leftIcon}</View> : null}
 
         <TextInput
-          style={[styles.input, style]}
-          placeholderTextColor={colors.neutral.gray300}
+          style={[
+            styles.input,
+            {
+              color: theme.textPrimary,
+              fontFamily: theme.fontSans,
+            },
+            style,
+          ]}
+          placeholderTextColor={theme.textMuted}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           {...textInputProps}
         />
 
-        {rightIcon && <View style={styles.rightIcon}>{rightIcon}</View>}
-      </View>
+        {rightIcon ? <View style={styles.rightIcon}>{rightIcon}</View> : null}
+      </Animated.View>
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
-      {helperText && !error && <Text style={styles.helperText}>{helperText}</Text>}
+      {error ? (
+        <Text style={[styles.errorText, { color: theme.error, fontFamily: theme.fontSans }]}>
+          {error}
+        </Text>
+      ) : null}
+
+      {helperText && !error ? (
+        <Text
+          style={[styles.helperText, { color: theme.textMuted, fontFamily: theme.fontSans }]}
+        >
+          {helperText}
+        </Text>
+      ) : null}
     </View>
   );
 };
@@ -72,28 +139,29 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.medium,
-    color: colors.neutral.gray900,
+    fontWeight: '500',
     marginBottom: spacing.xs,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.neutral.white,
-    borderWidth: 1,
-    borderColor: colors.neutral.gray200,
+    borderWidth: 1.5,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
-    minHeight: 48,
-  },
-  inputContainerError: {
-    borderColor: colors.feedback.error,
+    minHeight: 50,
   },
   input: {
     flex: 1,
     fontSize: typography.fontSizes.md,
-    color: colors.neutral.gray900,
     paddingVertical: spacing.sm,
+    backgroundColor: 'transparent',
+    ...({
+      outlineStyle: 'none',
+      appearance: 'none',
+      WebkitAppearance: 'none',
+      WebkitBoxShadow: '0 0 0 1000px transparent inset',
+      WebkitTextFillColor: 'inherit',
+    } as unknown as TextStyle),
   },
   leftIcon: {
     marginRight: spacing.sm,
@@ -103,12 +171,10 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: typography.fontSizes.xs,
-    color: colors.feedback.error,
     marginTop: spacing.xs,
   },
   helperText: {
     fontSize: typography.fontSizes.xs,
-    color: colors.neutral.gray600,
     marginTop: spacing.xs,
   },
 });

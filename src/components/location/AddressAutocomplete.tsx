@@ -4,19 +4,21 @@
  * Dropdown renders at document body level to escape stacking contexts
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   Platform,
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, spacing, borderRadius } from '../../constants/colors';
+import { AnimatedPressable } from '../common';
+import { spacing, borderRadius } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getWebFocusRingStyle, getWebInputResetStyle } from './locationThemeHelpers';
 
 // Types
 export interface AddressDetails {
@@ -49,6 +51,15 @@ interface DropdownPosition {
   left: number;
   width: number;
 }
+
+type WebMeasurableElement = View & {
+  getBoundingClientRect?: () => {
+    top: number;
+    left: number;
+    width: number;
+    bottom: number;
+  };
+};
 
 // Get API key from environment
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
@@ -171,6 +182,8 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   error,
   style,
 }) => {
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const [query, setQuery] = useState(value);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -191,8 +204,8 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     if (Platform.OS !== 'web' || !inputContainerRef.current) return;
 
     // Get the native element
-    const element = inputContainerRef.current as any;
-    if (element && element.getBoundingClientRect) {
+    const element = inputContainerRef.current as WebMeasurableElement | null;
+    if (element?.getBoundingClientRect) {
       const rect = element.getBoundingClientRect();
       setDropdownPosition({
         top: rect.bottom + 8,
@@ -378,8 +391,8 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   const renderDropdownContent = () => (
     <div
       style={{
-        backgroundColor: heraLanding.cardBg,
-        border: `1px solid ${heraLanding.border}`,
+        backgroundColor: theme.bgCard,
+        border: `1px solid ${theme.border}`,
         borderRadius: `${borderRadius.lg}px`,
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08)',
         overflow: 'hidden',
@@ -399,9 +412,9 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
             padding: '14px 16px',
             gap: '12px',
             cursor: 'pointer',
-            backgroundColor: hoveredIndex === index ? heraLanding.background : heraLanding.cardBg,
-            borderBottom: index < predictions.length - 1 ? `1px solid ${heraLanding.borderLight}` : 'none',
-            borderLeft: hoveredIndex === index ? `3px solid ${heraLanding.primary}` : '3px solid transparent',
+            backgroundColor: hoveredIndex === index ? theme.bgMuted : theme.bgCard,
+            borderBottom: index < predictions.length - 1 ? `1px solid ${theme.borderLight}` : 'none',
+            borderLeft: hoveredIndex === index ? `3px solid ${theme.primary}` : '3px solid transparent',
             transition: 'all 0.15s ease',
           }}
         >
@@ -410,7 +423,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
               width: '40px',
               height: '40px',
               borderRadius: '20px',
-              backgroundColor: hoveredIndex === index ? heraLanding.primary : heraLanding.primaryAlpha12,
+              backgroundColor: hoveredIndex === index ? theme.primary : theme.primaryAlpha12,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -421,7 +434,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
             <Ionicons
               name="location"
               size={18}
-              color={hoveredIndex === index ? heraLanding.textOnPrimary : heraLanding.primary}
+              color={hoveredIndex === index ? theme.textOnPrimary : theme.primary}
             />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -429,7 +442,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
               style={{
                 fontSize: '15px',
                 fontWeight: 600,
-                color: heraLanding.textPrimary,
+                color: theme.textPrimary,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -441,7 +454,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
               <div
                 style={{
                   fontSize: '13px',
-                  color: heraLanding.textSecondary,
+                  color: theme.textSecondary,
                   marginTop: '2px',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -455,18 +468,18 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
           <Ionicons
             name="chevron-forward"
             size={16}
-            color={hoveredIndex === index ? heraLanding.primary : heraLanding.textMuted}
+            color={hoveredIndex === index ? theme.primary : theme.textMuted}
           />
         </div>
       ))}
       <div
         style={{
           padding: '8px 16px',
-          backgroundColor: heraLanding.surfaceMuted,
-          borderTop: `1px solid ${heraLanding.borderLight}`,
+          backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+          borderTop: `1px solid ${theme.borderLight}`,
           textAlign: 'right',
           fontSize: '10px',
-          color: heraLanding.textMuted,
+          color: theme.textMuted,
         }}
       >
         Powered by Google
@@ -478,21 +491,21 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   if (Platform.OS !== 'web') {
     return (
       <View style={[styles.wrapper, style]}>
-        {label && <Text style={styles.label}>{label}</Text>}
-        <View style={[styles.container, error && styles.containerError]}>
+        {label && <Text style={[styles.label, { color: theme.textPrimary }]}>{label}</Text>}
+        <View style={[styles.container, { backgroundColor: theme.bgCard, borderColor: theme.border }, error && [styles.containerError, { borderColor: theme.error }]]}>
           <View style={styles.inputContainer}>
-            <Ionicons name="location-outline" size={20} color={heraLanding.textMuted} />
+            <Ionicons name="location-outline" size={20} color={theme.textMuted} />
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: theme.textPrimary }]}
               value={query}
               onChangeText={setQuery}
               placeholder={placeholder}
-              placeholderTextColor={heraLanding.textMuted}
+              placeholderTextColor={theme.textMuted}
             />
           </View>
         </View>
-        {error && <Text style={styles.errorText}>{error}</Text>}
-        <Text style={styles.warningText}>
+        {error && <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>}
+        <Text style={[styles.warningText, { color: theme.textMuted }]}>
           Introduce la dirección manualmente en dispositivos móviles.
         </Text>
       </View>
@@ -501,30 +514,30 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 
   return (
     <View style={[styles.wrapper, style]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, { color: theme.textPrimary }]}>{label}</Text>}
 
       <View
         ref={inputContainerRef}
-        style={[styles.container, isFocused && styles.containerFocused, error && styles.containerError]}
+        style={[styles.container, { backgroundColor: theme.bgCard, borderColor: theme.border }, isFocused && [styles.containerFocused, { borderColor: theme.primary }], error && [styles.containerError, { borderColor: theme.error }]]}
       >
         <View style={styles.inputContainer}>
-          <Ionicons name="location-outline" size={20} color={heraLanding.textMuted} />
+          <Ionicons name="location-outline" size={20} color={theme.textMuted} />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: theme.textPrimary }]}
             value={query}
             onChangeText={handleInputChange}
             placeholder={placeholder}
-            placeholderTextColor={heraLanding.textMuted}
+            placeholderTextColor={theme.textMuted}
             onFocus={handleFocus}
             onBlur={handleBlur}
             autoCorrect={false}
             autoCapitalize="words"
           />
-          {isLoading && <ActivityIndicator size="small" color={heraLanding.primary} />}
+          {isLoading && <ActivityIndicator size="small" color={theme.primary} />}
           {query.length > 0 && !isLoading && (
-            <TouchableOpacity onPress={handleClear} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close-circle" size={18} color={heraLanding.textMuted} />
-            </TouchableOpacity>
+            <AnimatedPressable onPress={handleClear} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="close-circle" size={18} color={theme.textMuted} />
+            </AnimatedPressable>
           )}
         </View>
       </View>
@@ -537,16 +550,16 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         {renderDropdownContent()}
       </DropdownPortal>
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>}
 
       {!GOOGLE_MAPS_API_KEY && (
-        <Text style={styles.warningText}>
+        <Text style={[styles.warningText, { color: theme.textMuted }]}>
           Autocompletado no disponible. Configura EXPO_PUBLIC_GOOGLE_MAPS_API_KEY.
         </Text>
       )}
 
       {GOOGLE_MAPS_API_KEY && !isReady && (
-        <Text style={styles.loadingText}>
+        <Text style={[styles.loadingText, { color: theme.textMuted }]}>
           Cargando autocompletado...
         </Text>
       )}
@@ -554,66 +567,53 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  wrapper: {
-    position: 'relative',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: heraLanding.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  container: {
-    backgroundColor: heraLanding.cardBg,
-    borderWidth: 1,
-    borderColor: heraLanding.border,
-    borderRadius: borderRadius.md,
-  },
-  containerFocused: {
-    borderColor: heraLanding.primary,
-    ...Platform.select({
-      web: {
-        boxShadow: `0 0 0 3px ${heraLanding.primary}20`,
-      } as any,
-    }),
-  },
-  containerError: {
-    borderColor: heraLanding.warning,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    height: 52,
-    gap: spacing.sm,
-  },
-  input: {
-    flex: 1,
-    fontSize: 15,
-    color: heraLanding.textPrimary,
-    ...Platform.select({
-      web: {
-        outlineStyle: 'none',
-      } as any,
-    }),
-  },
-  errorText: {
-    fontSize: 12,
-    color: heraLanding.warning,
-    marginTop: spacing.xs,
-  },
-  warningText: {
-    fontSize: 12,
-    color: heraLanding.textMuted,
-    marginTop: spacing.xs,
-    fontStyle: 'italic',
-  },
-  loadingText: {
-    fontSize: 12,
-    color: heraLanding.textMuted,
-    marginTop: spacing.xs,
-  },
-});
+const createStyles = (
+  theme: ReturnType<typeof useTheme>['theme'],
+  isDark: boolean
+) =>
+  StyleSheet.create({
+    wrapper: {
+      position: 'relative',
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '500',
+      marginBottom: spacing.xs,
+    },
+    container: {
+      borderWidth: 1,
+      borderRadius: borderRadius.md,
+    },
+    containerFocused: {
+      ...getWebFocusRingStyle(theme.primary),
+    },
+    containerError: {},
+    inputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.md,
+      height: 52,
+      gap: spacing.sm,
+    },
+    input: {
+      flex: 1,
+      fontSize: 15,
+      ...getWebInputResetStyle(),
+    },
+    errorText: {
+      fontSize: 12,
+      marginTop: spacing.xs,
+    },
+    warningText: {
+      fontSize: 12,
+      marginTop: spacing.xs,
+      fontStyle: 'italic',
+    },
+    loadingText: {
+      fontSize: 12,
+      marginTop: spacing.xs,
+      color: isDark ? theme.textMuted : theme.textSecondary,
+    },
+  });
 
 export default AddressAutocomplete;

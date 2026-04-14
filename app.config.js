@@ -6,7 +6,10 @@ export default {
     scheme: "hera",
     orientation: "portrait",
     icon: "./assets/main-logo.png",
-    userInterfaceStyle: "light",
+    userInterfaceStyle: "automatic",
+    plugins: [
+      "expo-font"
+    ],
     newArchEnabled: true,
     splash: {
       image: "./assets/main-logo.png",

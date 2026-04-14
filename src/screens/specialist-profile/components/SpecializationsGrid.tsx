@@ -1,56 +1,44 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, useWindowDimensions, Dimensions, Platform } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, useWindowDimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SpecializationsGridProps } from '../types';
-import { heraLanding, colors, spacing, borderRadius } from '../../../constants/colors';
+import { spacing, borderRadius } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import type { Theme } from '../../../constants/theme';
 
-// Mapeo hermoso y pastel para las especialidades
-const SPECIALTY_MAP: Record<string, { label: string, icon: React.ComponentProps<typeof Ionicons>['name'], bgColor: string, color: string, desc: string }> = {
-  'anxiety': { label: 'Ansiedad', icon: 'water-outline', bgColor: '#E8F3F1', color: '#4A8B7B', desc: 'Manejo del estrés y ataques de pánico.' },
-  'depression': { label: 'Depresión', icon: 'sunny-outline', bgColor: '#FFF4E5', color: '#B8860B', desc: 'Acompañamiento en estados de ánimo bajo.' },
-  'self-esteem': { label: 'Autoestima', icon: 'star-outline', bgColor: '#F3E8FF', color: '#9B87C4', desc: 'Desarrollo de la confianza y amor propio.' },
-  'stress': { label: 'Estrés laboral', icon: 'briefcase-outline', bgColor: '#EDE7F6', color: '#7E57C2', desc: 'Prevención del burnout y equilibrio.' },
-  'relationships': { label: 'Relaciones', icon: 'heart-half-outline', bgColor: '#FFEBEE', color: '#E57373', desc: 'Vínculos sanos y terapia de pareja.' },
-  'sleep': { label: 'Problemas de sueño', icon: 'moon-outline', bgColor: '#E3F2FD', color: '#4A6B8B', desc: 'Higiene del sueño y descanso profundo.' },
-  'phobias': { label: 'Fobias', icon: 'shield-checkmark-outline', bgColor: '#E8F5E9', color: '#388E3C', desc: 'Superación de miedos limitantes.' },
-  'trauma': { label: 'Trauma', icon: 'leaf-outline', bgColor: '#FFF3E0', color: '#F57C00', desc: 'Procesamiento de experiencias difíciles.' },
-  'couples': { label: 'Terapia de pareja', icon: 'people-outline', bgColor: '#FCE4EC', color: '#C2185B', desc: 'Mejora de la comunicación y vínculos en pareja.' },
-  'grief': { label: 'Duelo', icon: 'heart-outline', bgColor: '#F3E5F5', color: '#7B1FA2', desc: 'Acompañamiento en pérdidas y procesos de duelo.' },
-  'addiction': { label: 'Adicciones', icon: 'medical-outline', bgColor: '#E0F2F1', color: '#00796B', desc: 'Apoyo en procesos de deshabituación y recaídas.' },
-  'eating': { label: 'Trastornos alimentarios', icon: 'nutrition-outline', bgColor: '#FFF8E1', color: '#F9A825', desc: 'Acompañamiento en trastornos de la conducta alimentaria.' },
-  'default': { label: 'Salud Mental', icon: 'flower-outline', bgColor: heraLanding.background, color: heraLanding.primaryDark, desc: 'Apoyo integral y personalizado.' }
-};
+const createSpecialtyMap = (theme: Theme) => ({
+  anxiety: { label: 'Ansiedad', icon: 'water-outline' as const, bgColor: theme.primaryAlpha12, color: theme.info, desc: 'Manejo del estrés y ataques de pánico.' },
+  depression: { label: 'Depresión', icon: 'sunny-outline' as const, bgColor: theme.warningBg, color: theme.warningAmber, desc: 'Acompañamiento en estados de ánimo bajo.' },
+  'self-esteem': { label: 'Autoestima', icon: 'star-outline' as const, bgColor: theme.secondaryLight, color: theme.secondaryDark, desc: 'Desarrollo de la confianza y amor propio.' },
+  stress: { label: 'Estrés laboral', icon: 'briefcase-outline' as const, bgColor: theme.secondaryLight, color: theme.secondary, desc: 'Prevención del burnout y equilibrio.' },
+  relationships: { label: 'Relaciones', icon: 'heart-half-outline' as const, bgColor: '#FCEAEA', color: '#C86A6A', desc: 'Vínculos sanos y terapia de pareja.' },
+  sleep: { label: 'Problemas de sueño', icon: 'moon-outline' as const, bgColor: theme.primaryAlpha12, color: theme.info, desc: 'Higiene del sueño y descanso profundo.' },
+  phobias: { label: 'Fobias', icon: 'shield-checkmark-outline' as const, bgColor: theme.successBg, color: theme.success, desc: 'Superación de miedos limitantes.' },
+  trauma: { label: 'Trauma', icon: 'leaf-outline' as const, bgColor: theme.warningBg, color: theme.warningAmber, desc: 'Procesamiento de experiencias difíciles.' },
+  couples: { label: 'Terapia de pareja', icon: 'people-outline' as const, bgColor: theme.primaryLight, color: theme.primaryDark, desc: 'Mejora de la comunicación y vínculos en pareja.' },
+  grief: { label: 'Duelo', icon: 'heart-outline' as const, bgColor: theme.secondaryLight, color: theme.secondaryDark, desc: 'Acompañamiento en pérdidas y procesos de duelo.' },
+  addiction: { label: 'Adicciones', icon: 'medical-outline' as const, bgColor: theme.successBg, color: theme.success, desc: 'Apoyo en procesos de deshabituación y recaídas.' },
+  eating: { label: 'Trastornos alimentarios', icon: 'nutrition-outline' as const, bgColor: theme.warningBg, color: theme.warningAmber, desc: 'Acompañamiento en TCA.' },
+  default: { label: 'Salud mental', icon: 'flower-outline' as const, bgColor: theme.bgAlt, color: theme.primaryDark, desc: 'Apoyo integral y personalizado.' },
+});
 
-export const SpecializationsGrid: React.FC<SpecializationsGridProps> = ({
-  specializations,
-}) => {
+export const SpecializationsGrid: React.FC<SpecializationsGridProps> = ({ specializations }) => {
   const { width } = useWindowDimensions();
-  const [isDesktop, setIsDesktop] = useState(
-    () => Dimensions.get('window').width >= 768
-  );
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const specialtyMap = useMemo(() => createSpecialtyMap(theme), [theme]);
+  const isDesktop = width >= 768;
 
-  useEffect(() => {
-    setIsDesktop(width >= 768);
-  }, [width]);
-
-  if (!specializations || specializations.length === 0) return null;
+  if (!specializations?.length) return null;
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Áreas de especialización</Text>
-
       <View style={styles.grid}>
         {specializations.map((specKey, index) => {
-          const config = SPECIALTY_MAP[specKey.toLowerCase()] || SPECIALTY_MAP['default'];
-          
+          const config = specialtyMap[specKey.toLowerCase() as keyof typeof specialtyMap] || specialtyMap.default;
           return (
-            <View
-              key={index}
-              style={[
-                styles.card,
-                { width: isDesktop ? '48%' : '100%' }
-              ]}
-            >
+            <View key={`${specKey}-${index}`} style={[styles.card, { width: isDesktop ? '48%' : '100%' }]}>
               <View style={[styles.iconBox, { backgroundColor: config.bgColor }]}>
                 <Ionicons name={config.icon} size={24} color={config.color} />
               </View>
@@ -66,22 +54,23 @@ export const SpecializationsGrid: React.FC<SpecializationsGridProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   container: {
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
     borderWidth: 1,
-    borderColor: heraLanding.borderLight,
-    ...Platform.select({
-      web: { boxShadow: '0 4px 20px rgba(44, 62, 44, 0.06)' } as any,
-      default: { elevation: 3, shadowColor: colors.neutral.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8 }
-    })
+    borderColor: theme.borderLight,
+    shadowColor: theme.shadowCard,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.8,
+    shadowRadius: 24,
+    elevation: 3,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     marginBottom: spacing.xl,
   },
   grid: {
@@ -91,16 +80,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   card: {
-    backgroundColor: heraLanding.background,
+    backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     minWidth: 0,
-    ...Platform.select({
-      web: { transition: 'transform 0.2s ease, box-shadow 0.2s ease' } as any,
-    }),
+    borderWidth: 1,
+    borderColor: theme.borderLight,
   },
   iconBox: {
     width: 48,
@@ -109,18 +97,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  textContent: {
-    flex: 1,
-  },
+  textContent: { flex: 1 },
   cardTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     marginBottom: 4,
   },
   cardDescription: {
     fontSize: 13,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     lineHeight: 18,
   },
 });

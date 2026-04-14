@@ -1,285 +1,130 @@
-/**
- * SkeletonLoader Components
- * Shimmer effect loading placeholders for specialist cards
- * Provides visual feedback during data fetching
- */
-
-import React, { useRef, useEffect } from 'react';
-import { View, StyleSheet, Animated, useWindowDimensions } from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { Animated, DimensionValue, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { heraLanding, spacing, shadows } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { spacing } from '../../../constants/colors';
+import type { Theme } from '../../../constants/theme';
+import type { ViewMode } from './ViewToggle';
 
-// Shimmer animation hook
 const useShimmer = () => {
-  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerAnim, {
-          toValue: 1,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shimmerAnim, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
+      Animated.timing(shimmer, {
+        toValue: 1,
+        duration: 1100,
+        useNativeDriver: true,
+      })
     );
+
     animation.start();
-
     return () => animation.stop();
-  }, []);
+  }, [shimmer]);
 
-  return shimmerAnim;
+  return shimmer;
 };
 
-// Shimmer overlay component
-const ShimmerOverlay: React.FC<{ shimmerAnim: Animated.Value }> = ({
-  shimmerAnim,
-}) => {
-  const translateX = shimmerAnim.interpolate({
+interface BlockProps {
+  width: DimensionValue;
+  height: number;
+  radius?: number;
+}
+
+const Block: React.FC<BlockProps> = ({ width, height, radius = 8 }) => {
+  const { theme, isDark } = useTheme();
+  const shimmer = useShimmer();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+
+  const translateX = shimmer.interpolate({
     inputRange: [0, 1],
-    outputRange: [-200, 400],
+    outputRange: [-220, 260],
   });
 
   return (
-    <Animated.View
-      style={[
-        StyleSheet.absoluteFill,
-        {
-          transform: [{ translateX }],
-        },
-      ]}
-    >
-      <LinearGradient
-        colors={[
-          'rgba(255,255,255,0)',
-          'rgba(255,255,255,0.5)',
-          'rgba(255,255,255,0)',
-        ]}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
-        style={StyleSheet.absoluteFill}
-      />
-    </Animated.View>
+    <View style={[styles.block, { width, height, borderRadius: radius }]}>
+      <Animated.View style={[styles.shimmerWrap, { transform: [{ translateX }] }]}>
+        <LinearGradient
+          colors={[
+            'rgba(255,255,255,0)',
+            isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.44)',
+            'rgba(255,255,255,0)',
+          ]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
+    </View>
   );
 };
 
-// Skeleton block component
-interface SkeletonBlockProps {
-  width: number | string;
-  height: number;
-  borderRadius?: number;
-  style?: any;
-}
-
-const SkeletonBlock: React.FC<SkeletonBlockProps & { shimmerAnim: Animated.Value }> = ({
-  width,
-  height,
-  borderRadius = 4,
-  style,
-  shimmerAnim,
-}) => (
-  <View
-    style={[
-      {
-        width,
-        height,
-        borderRadius,
-        backgroundColor: heraLanding.border,
-        overflow: 'hidden',
-      },
-      style,
-    ]}
-  >
-    <ShimmerOverlay shimmerAnim={shimmerAnim} />
-  </View>
-);
-
-// Grid card skeleton
 export const SpecialistCardGridSkeleton: React.FC = () => {
-  const shimmerAnim = useShimmer();
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
 
   return (
-    <View style={gridStyles.card}>
-      {/* Avatar */}
-      <SkeletonBlock
-        width={80}
-        height={80}
-        borderRadius={40}
-        style={gridStyles.avatar}
-        shimmerAnim={shimmerAnim}
-      />
-
-      {/* Name */}
-      <SkeletonBlock
-        width={140}
-        height={20}
-        borderRadius={10}
-        style={gridStyles.name}
-        shimmerAnim={shimmerAnim}
-      />
-
-      {/* Title */}
-      <SkeletonBlock
-        width={100}
-        height={14}
-        borderRadius={7}
-        style={gridStyles.title}
-        shimmerAnim={shimmerAnim}
-      />
-
-      {/* Meta row */}
-      <View style={gridStyles.metaRow}>
-        <SkeletonBlock
-          width={60}
-          height={16}
-          borderRadius={8}
-          shimmerAnim={shimmerAnim}
-        />
-        <SkeletonBlock
-          width={50}
-          height={16}
-          borderRadius={8}
-          shimmerAnim={shimmerAnim}
-        />
+    <View style={styles.gridCard}>
+      <Block width={72} height={72} radius={36} />
+      <Block width="62%" height={24} radius={12} />
+      <Block width="38%" height={16} radius={8} />
+      <View style={styles.row}>
+        <Block width={82} height={18} radius={9} />
+        <Block width={64} height={18} radius={9} />
       </View>
-
-      {/* Tags */}
-      <View style={gridStyles.tagsRow}>
-        <SkeletonBlock
-          width={60}
-          height={24}
-          borderRadius={12}
-          shimmerAnim={shimmerAnim}
-        />
-        <SkeletonBlock
-          width={70}
-          height={24}
-          borderRadius={12}
-          shimmerAnim={shimmerAnim}
-        />
-        <SkeletonBlock
-          width={50}
-          height={24}
-          borderRadius={12}
-          shimmerAnim={shimmerAnim}
-        />
+      <View style={styles.row}>
+        <Block width={72} height={28} radius={14} />
+        <Block width={84} height={28} radius={14} />
+        <Block width={56} height={28} radius={14} />
       </View>
-
-      {/* Availability */}
-      <SkeletonBlock
-        width={100}
-        height={14}
-        borderRadius={7}
-        style={gridStyles.availability}
-        shimmerAnim={shimmerAnim}
-      />
-
-      {/* CTA Button */}
-      <SkeletonBlock
-        width="100%"
-        height={44}
-        borderRadius={10}
-        shimmerAnim={shimmerAnim}
-      />
+      <Block width="48%" height={16} radius={8} />
+      <Block width="100%" height={46} radius={16} />
     </View>
   );
 };
 
-// List item skeleton
 export const SpecialistListItemSkeleton: React.FC = () => {
-  const shimmerAnim = useShimmer();
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
 
   return (
-    <View style={listStyles.card}>
-      {/* Avatar */}
-      <SkeletonBlock
-        width={64}
-        height={64}
-        borderRadius={32}
-        shimmerAnim={shimmerAnim}
-      />
-
-      {/* Info section */}
-      <View style={listStyles.infoSection}>
-        <SkeletonBlock
-          width={140}
-          height={18}
-          borderRadius={9}
-          style={listStyles.name}
-          shimmerAnim={shimmerAnim}
-        />
-        <SkeletonBlock
-          width={100}
-          height={12}
-          borderRadius={6}
-          style={listStyles.title}
-          shimmerAnim={shimmerAnim}
-        />
-        <View style={listStyles.metaRow}>
-          <SkeletonBlock
-            width={50}
-            height={14}
-            borderRadius={7}
-            shimmerAnim={shimmerAnim}
-          />
-          <SkeletonBlock
-            width={60}
-            height={14}
-            borderRadius={7}
-            shimmerAnim={shimmerAnim}
-          />
+    <View style={styles.listCard}>
+      <Block width={72} height={72} radius={36} />
+      <View style={styles.listContent}>
+        <Block width="44%" height={22} radius={11} />
+        <Block width="28%" height={14} radius={7} />
+        <View style={styles.row}>
+          <Block width={80} height={16} radius={8} />
+          <Block width={92} height={16} radius={8} />
+          <Block width={68} height={16} radius={8} />
         </View>
-        <View style={listStyles.tagsRow}>
-          <SkeletonBlock
-            width={50}
-            height={20}
-            borderRadius={10}
-            shimmerAnim={shimmerAnim}
-          />
-          <SkeletonBlock
-            width={60}
-            height={20}
-            borderRadius={10}
-            shimmerAnim={shimmerAnim}
-          />
+        <View style={styles.row}>
+          <Block width={70} height={26} radius={13} />
+          <Block width={86} height={26} radius={13} />
         </View>
       </View>
-
-      {/* CTA */}
-      <SkeletonBlock
-        width={90}
-        height={36}
-        borderRadius={8}
-        shimmerAnim={shimmerAnim}
-      />
+      <Block width={128} height={42} radius={16} />
     </View>
   );
 };
 
-// Loading grid
-interface LoadingGridProps {
+interface SpecialistsLoadingStateProps {
   count?: number;
-  viewMode?: 'grid' | 'list';
+  viewMode?: ViewMode;
 }
 
-export const SpecialistsLoadingState: React.FC<LoadingGridProps> = ({
+export const SpecialistsLoadingState: React.FC<SpecialistsLoadingStateProps> = ({
   count = 6,
   viewMode = 'grid',
 }) => {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
-
   const columns = isDesktop ? 3 : isTablet ? 2 : 1;
 
   if (viewMode === 'list') {
     return (
-      <View style={loadingStyles.listContainer}>
+      <View style={{ gap: spacing.md }}>
         {Array.from({ length: count }).map((_, index) => (
           <SpecialistListItemSkeleton key={index} />
         ))}
@@ -287,105 +132,65 @@ export const SpecialistsLoadingState: React.FC<LoadingGridProps> = ({
     );
   }
 
-  // Grid layout
-  const rows = Math.ceil(count / columns);
+  const rows = [];
+  for (let i = 0; i < count; i += columns) {
+    rows.push(
+      <View key={i} style={{ flexDirection: 'row', gap: spacing.md }}>
+        {Array.from({ length: columns }).map((_, colIndex) => (
+          <View key={colIndex} style={{ flex: 1, minWidth: 280 }}>
+            {i + colIndex < count ? <SpecialistCardGridSkeleton /> : null}
+          </View>
+        ))}
+      </View>
+    );
+  }
 
-  return (
-    <View style={loadingStyles.gridContainer}>
-      {Array.from({ length: rows }).map((_, rowIndex) => (
-        <View key={rowIndex} style={loadingStyles.row}>
-          {Array.from({ length: columns }).map((_, colIndex) => {
-            const itemIndex = rowIndex * columns + colIndex;
-            if (itemIndex >= count) return <View key={colIndex} style={{ flex: 1 }} />;
-            return <SpecialistCardGridSkeleton key={colIndex} />;
-          })}
-        </View>
-      ))}
-    </View>
-  );
+  return <View style={{ gap: spacing.md }}>{rows}</View>;
 };
 
-const gridStyles = StyleSheet.create({
-  card: {
-    flex: 1,
-    minWidth: 280,
-    maxWidth: 380,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: spacing.lg,
-    alignItems: 'center',
-    ...shadows.sm,
-  },
-  avatar: {
-    marginBottom: 12,
-  },
-  name: {
-    marginBottom: 8,
-  },
-  title: {
-    marginBottom: 16,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    paddingHorizontal: spacing.sm,
-    marginBottom: 12,
-    gap: 16,
-  },
-  tagsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 6,
-    marginBottom: 12,
-  },
-  availability: {
-    marginBottom: 12,
-  },
-});
-
-const listStyles = StyleSheet.create({
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    ...shadows.sm,
-  },
-  infoSection: {
-    flex: 1,
-    marginLeft: spacing.md,
-    marginRight: spacing.sm,
-  },
-  name: {
-    marginBottom: 6,
-  },
-  title: {
-    marginBottom: 8,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 8,
-  },
-  tagsRow: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-});
-
-const loadingStyles = StyleSheet.create({
-  gridContainer: {
-    gap: spacing.md,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  listContainer: {
-    gap: spacing.md,
-  },
-});
-
-export default SpecialistsLoadingState;
+function createStyles(theme: Theme, isDark: boolean) {
+  return StyleSheet.create({
+    block: {
+      overflow: 'hidden',
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgAlt,
+    },
+    shimmerWrap: {
+      ...StyleSheet.absoluteFillObject,
+      width: 140,
+    },
+    gridCard: {
+      minHeight: 360,
+      padding: spacing.lg,
+      borderRadius: 20,
+      backgroundColor: theme.bgCard,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+      shadowColor: theme.shadowCard,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.8,
+      shadowRadius: 24,
+      elevation: 2,
+      gap: spacing.md,
+      alignItems: 'center',
+    },
+    listCard: {
+      padding: spacing.lg,
+      borderRadius: 20,
+      backgroundColor: theme.bgCard,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    listContent: {
+      flex: 1,
+      gap: spacing.sm,
+    },
+    row: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+  });
+}

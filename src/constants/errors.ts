@@ -92,7 +92,7 @@ export function isValidationError(error: unknown): error is ValidationError {
 /**
  * Type guard: Check if error has response data (Axios error)
  */
-export function hasResponseData(error: unknown): error is { response: { data: { message?: string; error?: string } } } {
+export function hasResponseData(error: unknown): error is { response: { data: { message?: string; error?: string; code?: string } } } {
   return (
     typeof error === 'object' &&
     error !== null &&

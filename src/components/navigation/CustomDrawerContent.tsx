@@ -16,11 +16,10 @@
 
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { NavigationProp, ParamListBase, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { Sidebar } from './sidebar';
 import { UserRole, SidebarUser } from './sidebar/types';
-import { GradientBackground } from '../common/GradientBackground';
 
 interface CustomDrawerContentProps {
   currentRoute?: string;
@@ -41,7 +40,7 @@ export function CustomDrawerContent({
   isCollapsed = false,
   onToggleCollapse,
 }: CustomDrawerContentProps): React.ReactElement {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { user, logout } = useAuth();
 
   // Determine user role from auth context
@@ -69,20 +68,18 @@ export function CustomDrawerContent({
   }, [logout]);
 
   return (
-    <GradientBackground>
-      <View style={styles.container}>
-        <Sidebar
-          userRole={userRole}
-          currentRoute={currentRoute}
-          onNavigate={handleNavigate}
-          user={sidebarUser}
-          onLogout={handleLogout}
-          isAdmin={user?.isAdmin}
-          isCollapsed={isCollapsed}
-          onToggleCollapse={onToggleCollapse}
-        />
-      </View>
-    </GradientBackground>
+    <View style={styles.container}>
+      <Sidebar
+        userRole={userRole}
+        currentRoute={currentRoute}
+        onNavigate={handleNavigate}
+        user={sidebarUser}
+        onLogout={handleLogout}
+        isAdmin={user?.isAdmin}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={onToggleCollapse}
+      />
+    </View>
   );
 }
 
