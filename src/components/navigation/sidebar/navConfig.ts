@@ -84,7 +84,7 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
       },
       {
         id: 'clients',
-        label: 'Mis clientes',
+        label: 'Mis pacientes',
         icon: 'people-outline',
         iconActive: 'people',
         route: 'ProfessionalClients',

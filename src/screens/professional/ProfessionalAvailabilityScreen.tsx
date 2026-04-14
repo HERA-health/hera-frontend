@@ -1,58 +1,25 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  Modal,
-  useWindowDimensions,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, spacing, borderRadius, shadows } from '../../constants/colors';
-import * as availabilityService from '../../services/availabilityService';
+import { borderRadius, shadows, spacing } from '../../constants/colors';
+import { Theme } from '../../constants/theme';
+import type { ScreenProps } from '../../constants/types';
+import { useTheme } from '../../contexts/ThemeContext';
 import * as analyticsService from '../../services/analyticsService';
+import * as availabilityService from '../../services/availabilityService';
+import { AnimatedPressable, Button, Card } from '../../components/common';
 
-// ============================================================================
-// TYPES & INTERFACES
-// ============================================================================
-
+type Props = ScreenProps<'ProfessionalAvailability'>;
 type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
-
-interface DayConfig {
-  name: DayOfWeek;
-  label: string;
-  shortLabel: string;
-}
-
-interface TimeSlot {
-  hour: number;
-  minute: number;
-  label: string;
-}
-
-interface SlotState {
-  available: boolean;
-  isBreak: boolean;
-}
-
-type DaySlots = { [key: string]: SlotState };
-type WeeklySlots = { [key in DayOfWeek]: DaySlots };
-
-interface ExceptionType {
-  id: string;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
-}
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
+interface DayConfig { name: DayOfWeek; label: string; shortLabel: string; }
+interface TimeSlot { hour: number; minute: number; label: string; }
+interface SlotState { available: boolean; isBreak: boolean; }
+type DaySlots = Record<string, SlotState>;
+type WeeklySlots = Record<DayOfWeek, DaySlots>;
+type EnabledDays = Record<DayOfWeek, boolean>;
+type CalendarMarkedDates = Record<string, { marked?: boolean; dotColor?: string; selected?: boolean; selectedColor?: string }>;
+interface ExceptionType { id: string; label: string; icon: keyof typeof Ionicons.glyphMap; tone: 'primary' | 'secondary' | 'warning' | 'muted'; }
 
 const DAYS: DayConfig[] = [
   { name: 'monday', label: 'Lunes', shortLabel: 'Lun' },
@@ -64,21 +31,18 @@ const DAYS: DayConfig[] = [
   { name: 'sunday', label: 'Domingo', shortLabel: 'Dom' },
 ];
 
-// Time slots from 8:00 to 21:00 (30-minute intervals)
 const TIME_SLOTS: TimeSlot[] = [];
-for (let hour = 8; hour <= 21; hour++) {
+for (let hour = 8; hour <= 21; hour += 1) {
   TIME_SLOTS.push({ hour, minute: 0, label: `${hour.toString().padStart(2, '0')}:00` });
-  if (hour < 21) {
-    TIME_SLOTS.push({ hour, minute: 30, label: `${hour.toString().padStart(2, '0')}:30` });
-  }
+  if (hour < 21) TIME_SLOTS.push({ hour, minute: 30, label: `${hour.toString().padStart(2, '0')}:30` });
 }
 
 const EXCEPTION_TYPES: ExceptionType[] = [
-  { id: 'vacation', label: 'Vacaciones', icon: 'airplane-outline', color: '#7BA377' },
-  { id: 'conference', label: 'Conferencia', icon: 'school-outline', color: '#8B9D83' },
-  { id: 'personal', label: 'Personal', icon: 'person-outline', color: '#B8A8D9' },
-  { id: 'holiday', label: 'Festivo', icon: 'calendar-outline', color: '#E89D88' },
-  { id: 'other', label: 'Otro', icon: 'ellipsis-horizontal-outline', color: '#6B7B6B' },
+  { id: 'vacation', label: 'Vacaciones', icon: 'airplane-outline', tone: 'primary' },
+  { id: 'conference', label: 'Conferencia', icon: 'school-outline', tone: 'secondary' },
+  { id: 'personal', label: 'Personal', icon: 'person-outline', tone: 'warning' },
+  { id: 'holiday', label: 'Festivo', icon: 'calendar-outline', tone: 'warning' },
+  { id: 'other', label: 'Otro', icon: 'ellipsis-horizontal-outline', tone: 'muted' },
 ];
 
 const QUICK_PRESETS = [
@@ -101,60 +65,95 @@ const SESSION_DURATIONS = [
   { value: 90, label: '90 min' },
 ];
 
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
 const createEmptyDaySlots = (): DaySlots => {
   const slots: DaySlots = {};
-  TIME_SLOTS.forEach((slot) => {
-    slots[slot.label] = { available: false, isBreak: false };
-  });
+  TIME_SLOTS.forEach((slot) => { slots[slot.label] = { available: false, isBreak: false }; });
   return slots;
 };
 
-const createEmptyWeeklySlots = (): WeeklySlots => {
-  const weeklySlots: WeeklySlots = {} as WeeklySlots;
-  DAYS.forEach((day) => {
-    weeklySlots[day.name] = createEmptyDaySlots();
-  });
-  return weeklySlots;
+const createEmptyWeeklySlots = (): WeeklySlots => ({
+  monday: createEmptyDaySlots(),
+  tuesday: createEmptyDaySlots(),
+  wednesday: createEmptyDaySlots(),
+  thursday: createEmptyDaySlots(),
+  friday: createEmptyDaySlots(),
+  saturday: createEmptyDaySlots(),
+  sunday: createEmptyDaySlots(),
+});
+
+const createDefaultEnabledDays = (): EnabledDays => ({
+  monday: true,
+  tuesday: true,
+  wednesday: true,
+  thursday: true,
+  friday: true,
+  saturday: false,
+  sunday: false,
+});
+
+const getErrorMessage = (error: unknown, fallback: string): string => error instanceof Error ? error.message : fallback;
+
+const getExceptionToneColor = (theme: Theme, type: ExceptionType): string => {
+  switch (type.tone) {
+    case 'primary': return theme.primary;
+    case 'secondary': return theme.secondary;
+    case 'warning': return theme.warning;
+    default: return theme.textMuted;
+  }
+};
+
+const getDayNameFromDate = (dateString: string): DayOfWeek => {
+  const weekday = new Date(`${dateString}T12:00:00`).getDay();
+  const dayMap: Record<number, DayOfWeek> = {
+    0: 'sunday',
+    1: 'monday',
+    2: 'tuesday',
+    3: 'wednesday',
+    4: 'thursday',
+    5: 'friday',
+    6: 'saturday',
+  };
+  return dayMap[weekday];
+};
+
+const getInitialPreviewDate = (enabledDays: EnabledDays): string => {
+  const today = new Date();
+  for (let offset = 0; offset < 14; offset += 1) {
+    const candidate = new Date(today);
+    candidate.setDate(today.getDate() + offset);
+    const dateString = candidate.toISOString().split('T')[0];
+    if (enabledDays[getDayNameFromDate(dateString)]) {
+      return dateString;
+    }
+  }
+  return today.toISOString().split('T')[0];
 };
 
 const convertScheduleToSlots = (schedule: availabilityService.WeeklySchedule): WeeklySlots => {
   const weeklySlots = createEmptyWeeklySlots();
   DAYS.forEach((day) => {
     const daySchedule = schedule[day.name];
-    if (daySchedule) {
-      const startMinutes = parseInt(daySchedule.start.split(':')[0]) * 60 + parseInt(daySchedule.start.split(':')[1]);
-      const endMinutes = parseInt(daySchedule.end.split(':')[0]) * 60 + parseInt(daySchedule.end.split(':')[1]);
-      TIME_SLOTS.forEach((slot) => {
-        const slotMinutes = slot.hour * 60 + slot.minute;
-        if (slotMinutes >= startMinutes && slotMinutes < endMinutes) {
-          weeklySlots[day.name][slot.label].available = true;
-        }
-      });
-    }
+    if (!daySchedule) return;
+    const startMinutes = Number(daySchedule.start.split(':')[0]) * 60 + Number(daySchedule.start.split(':')[1]);
+    const endMinutes = Number(daySchedule.end.split(':')[0]) * 60 + Number(daySchedule.end.split(':')[1]);
+    TIME_SLOTS.forEach((slot) => {
+      const slotMinutes = slot.hour * 60 + slot.minute;
+      if (slotMinutes >= startMinutes && slotMinutes < endMinutes) weeklySlots[day.name][slot.label] = { available: true, isBreak: false };
+    });
   });
   return weeklySlots;
 };
 
 const convertSlotsToSchedule = (weeklySlots: WeeklySlots): availabilityService.WeeklySchedule => {
-  const schedule: availabilityService.WeeklySchedule = {
-    monday: null, tuesday: null, wednesday: null, thursday: null,
-    friday: null, saturday: null, sunday: null,
-  };
+  const schedule: availabilityService.WeeklySchedule = { monday: null, tuesday: null, wednesday: null, thursday: null, friday: null, saturday: null, sunday: null };
   DAYS.forEach((day) => {
-    const daySlots = weeklySlots[day.name];
-    const availableSlots = TIME_SLOTS.filter((slot) => daySlots[slot.label]?.available);
-    if (availableSlots.length > 0) {
-      const firstSlot = availableSlots[0];
-      const lastSlot = availableSlots[availableSlots.length - 1];
-      schedule[day.name] = {
-        start: firstSlot.label,
-        end: `${(lastSlot.hour + (lastSlot.minute === 30 ? 1 : 0)).toString().padStart(2, '0')}:${lastSlot.minute === 30 ? '00' : '30'}`,
-      };
-    }
+    const availableSlots = TIME_SLOTS.filter((slot) => weeklySlots[day.name][slot.label]?.available);
+    if (availableSlots.length === 0) return;
+    const firstSlot = availableSlots[0];
+    const lastSlot = availableSlots[availableSlots.length - 1];
+    const endHour = lastSlot.hour + (lastSlot.minute === 30 ? 1 : 0);
+    const endMinute = lastSlot.minute === 30 ? '00' : '30';
+    schedule[day.name] = { start: firstSlot.label, end: `${endHour.toString().padStart(2, '0')}:${endMinute}` };
   });
   return schedule;
 };
@@ -162,62 +161,38 @@ const convertSlotsToSchedule = (weeklySlots: WeeklySlots): availabilityService.W
 const calculateWeeklySummary = (weeklySlots: WeeklySlots) => {
   let totalMinutes = 0;
   let activeDays = 0;
-  const dailyHours: { [key: string]: number } = {};
-
+  const dailyHours: Record<DayOfWeek, number> = { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 };
   DAYS.forEach((day) => {
-    const daySlots = weeklySlots[day.name];
-    const availableCount = TIME_SLOTS.filter((slot) => daySlots[slot.label]?.available).length;
+    const availableCount = TIME_SLOTS.filter((slot) => weeklySlots[day.name][slot.label]?.available).length;
     const dayMinutes = availableCount * 30;
     dailyHours[day.name] = dayMinutes / 60;
-    if (dayMinutes > 0) {
-      totalMinutes += dayMinutes;
-      activeDays++;
-    }
+    if (dayMinutes > 0) { totalMinutes += dayMinutes; activeDays += 1; }
   });
-
-  return {
-    totalHours: totalMinutes / 60,
-    activeDays,
-    possibleSessions: Math.floor(totalMinutes / 60),
-    dailyHours,
-  };
+  return { totalHours: totalMinutes / 60, activeDays, possibleSessions: Math.floor(totalMinutes / 60), dailyHours };
 };
 
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
-
-export function ProfessionalAvailabilityScreen({ navigation }: any) {
+export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   const { width } = useWindowDimensions();
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark, width), [theme, isDark, width]);
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
   const isMobile = width < 768;
-  const useTwoColumns = width >= 900;
+  const useTwoColumns = width >= 1080;
 
-  // State
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [weeklySlots, setWeeklySlots] = useState<WeeklySlots>(createEmptyWeeklySlots());
-  const [enabledDays, setEnabledDays] = useState<{ [key in DayOfWeek]: boolean }>({
-    monday: true, tuesday: true, wednesday: true, thursday: true,
-    friday: true, saturday: false, sunday: false,
-  });
+  const [enabledDays, setEnabledDays] = useState<EnabledDays>(createDefaultEnabledDays());
   const [exceptions, setExceptions] = useState<availabilityService.AvailabilityException[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
-
-  // Modal states
   const [showExceptionModal, setShowExceptionModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [selectedExceptionDate, setSelectedExceptionDate] = useState<string>('');
-  const [selectedExceptionType, setSelectedExceptionType] = useState<string>('vacation');
-
-  // Settings
+  const [selectedExceptionDate, setSelectedExceptionDate] = useState('');
+  const [selectedExceptionType, setSelectedExceptionType] = useState('vacation');
+  const [previewSelectedDate, setPreviewSelectedDate] = useState('');
   const [bufferTime, setBufferTime] = useState(15);
   const [sessionDurations, setSessionDurations] = useState<number[]>([60]);
-
-  // ============================================================================
-  // DATA LOADING
-  // ============================================================================
 
   const loadData = useCallback(async () => {
     try {
@@ -227,225 +202,178 @@ export function ProfessionalAvailabilityScreen({ navigation }: any) {
         availabilityService.getMyExceptions(),
         availabilityService.getMyBufferTime(),
       ]);
-      const slots = convertScheduleToSlots(scheduleData);
-      setWeeklySlots(slots);
-      const newEnabledDays = { ...enabledDays };
-      DAYS.forEach((day) => {
-        newEnabledDays[day.name] = scheduleData[day.name] !== null;
-      });
-      setEnabledDays(newEnabledDays);
+      setWeeklySlots(convertScheduleToSlots(scheduleData));
+      const nextEnabledDays = createDefaultEnabledDays();
+      DAYS.forEach((day) => { nextEnabledDays[day.name] = scheduleData[day.name] !== null; });
+      setEnabledDays(nextEnabledDays);
       setExceptions(exceptionsData);
       setBufferTime(savedBufferTime);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo cargar la disponibilidad');
+    } catch (error: unknown) {
+      Alert.alert('Error', getErrorMessage(error, 'No se pudo cargar la disponibilidad'));
     } finally {
       setLoading(false);
     }
   }, []);
 
+  useEffect(() => { analyticsService.trackScreen('availability'); }, []);
+  useEffect(() => { void loadData(); }, [loadData]);
   useEffect(() => {
-    analyticsService.trackScreen('availability');
-  }, []);
-
-  useEffect(() => { loadData(); }, [loadData]);
-
-  // ============================================================================
-  // SLOT MANIPULATION
-  // ============================================================================
+    if (showPreviewModal) {
+      setPreviewSelectedDate(getInitialPreviewDate(enabledDays));
+    }
+  }, [enabledDays, showPreviewModal]);
 
   const toggleSlot = useCallback((day: DayOfWeek, time: string) => {
-    if (!enabledDays[day]) return;
     setWeeklySlots((prev) => {
-      const newSlots = { ...prev };
-      newSlots[day] = { ...newSlots[day] };
-      const currentState = newSlots[day][time];
-      newSlots[day][time] = { ...currentState, available: !currentState.available, isBreak: false };
-      return newSlots;
+      if (!enabledDays[day]) return prev;
+      const nextSlots = { ...prev };
+      const currentState = nextSlots[day][time];
+      nextSlots[day] = { ...nextSlots[day], [time]: { ...currentState, available: !currentState.available, isBreak: false } };
+      return nextSlots;
     });
     setHasChanges(true);
   }, [enabledDays]);
 
   const toggleDayEnabled = useCallback((day: DayOfWeek) => {
     setEnabledDays((prev) => {
-      const newState = { ...prev, [day]: !prev[day] };
-      if (!newState[day]) {
-        setWeeklySlots((prevSlots) => {
-          const newSlots = { ...prevSlots };
-          newSlots[day] = createEmptyDaySlots();
-          return newSlots;
-        });
-      }
-      return newState;
+      const nextState = { ...prev, [day]: !prev[day] };
+      if (!nextState[day]) setWeeklySlots((prevSlots) => ({ ...prevSlots, [day]: createEmptyDaySlots() }));
+      return nextState;
     });
     setHasChanges(true);
   }, []);
 
   const applyPreset = useCallback((presetId: string) => {
-    const preset = QUICK_PRESETS.find((p) => p.id === presetId);
+    const preset = QUICK_PRESETS.find((item) => item.id === presetId);
     if (!preset) return;
-    const daysToApply = DAYS.filter((d) => enabledDays[d.name]).map((d) => d.name);
+    const daysToApply = DAYS.filter((day) => enabledDays[day.name]).map((day) => day.name);
     setWeeklySlots((prev) => {
-      const newSlots = { ...prev };
+      const nextSlots = { ...prev };
       daysToApply.forEach((day) => {
-        newSlots[day] = createEmptyDaySlots();
+        nextSlots[day] = createEmptyDaySlots();
         const ranges = Array.isArray(preset.slots) ? preset.slots : [preset.slots];
         ranges.forEach((range) => {
-          const startMinutes = parseInt(range.start.split(':')[0]) * 60 + parseInt(range.start.split(':')[1]);
-          const endMinutes = parseInt(range.end.split(':')[0]) * 60 + parseInt(range.end.split(':')[1]);
+          const startMinutes = Number(range.start.split(':')[0]) * 60 + Number(range.start.split(':')[1]);
+          const endMinutes = Number(range.end.split(':')[0]) * 60 + Number(range.end.split(':')[1]);
           TIME_SLOTS.forEach((slot) => {
             const slotMinutes = slot.hour * 60 + slot.minute;
-            if (slotMinutes >= startMinutes && slotMinutes < endMinutes) {
-              newSlots[day][slot.label] = { available: true, isBreak: false };
-            }
+            if (slotMinutes >= startMinutes && slotMinutes < endMinutes) nextSlots[day][slot.label] = { available: true, isBreak: false };
           });
         });
       });
-      return newSlots;
+      return nextSlots;
     });
     setHasChanges(true);
   }, [enabledDays]);
 
   const copyDayToAll = useCallback((sourceDay: DayOfWeek) => {
     setWeeklySlots((prev) => {
-      const newSlots = { ...prev };
+      const nextSlots = { ...prev };
       const sourceSlots = prev[sourceDay];
-      DAYS.forEach((day) => {
-        if (day.name !== sourceDay && enabledDays[day.name]) {
-          newSlots[day.name] = { ...sourceSlots };
-        }
-      });
-      return newSlots;
+      DAYS.forEach((day) => { if (day.name !== sourceDay && enabledDays[day.name]) nextSlots[day.name] = { ...sourceSlots }; });
+      return nextSlots;
     });
     setHasChanges(true);
   }, [enabledDays]);
-
-  // ============================================================================
-  // SAVE HANDLER
-  // ============================================================================
 
   const handleSave = useCallback(async () => {
     try {
       setSaving(true);
       const schedule = convertSlotsToSchedule(weeklySlots);
-      await Promise.all([
-        availabilityService.updateWeeklySchedule(schedule),
-        availabilityService.updateBufferTime(bufferTime),
-      ]);
+      await Promise.all([availabilityService.updateWeeklySchedule(schedule), availabilityService.updateBufferTime(bufferTime)]);
       setHasChanges(false);
-      const totalSlots = Object.values(weeklySlots).reduce((sum, daySlots) =>
-        sum + Object.values(daySlots).filter(s => s.available).length, 0
-      );
+      const totalSlots = Object.values(weeklySlots).reduce((sum, daySlots) => sum + Object.values(daySlots).filter((slot) => slot.available).length, 0);
       analyticsService.track('availability_updated', { slotsCount: totalSlots });
-      if (Platform.OS === 'web') {
-        window.alert('Disponibilidad actualizada correctamente');
-      } else {
-        Alert.alert('Éxito', 'Disponibilidad actualizada correctamente');
-      }
-    } catch (error: any) {
-      const errorMessage = error.message || 'No se pudo guardar';
-      if (Platform.OS === 'web') {
-        window.alert('Error: ' + errorMessage);
-      } else {
-        Alert.alert('Error', errorMessage);
-      }
+      Alert.alert('Éxito', 'Disponibilidad actualizada correctamente');
+    } catch (error: unknown) {
+      Alert.alert('Error', getErrorMessage(error, 'No se pudo guardar'));
     } finally {
       setSaving(false);
     }
-  }, [weeklySlots, bufferTime]);
-
-  // ============================================================================
-  // EXCEPTIONS HANDLERS
-  // ============================================================================
+  }, [bufferTime, weeklySlots]);
 
   const handleAddException = useCallback(async () => {
     if (!selectedExceptionDate) return;
     try {
-      const exceptionType = EXCEPTION_TYPES.find((t) => t.id === selectedExceptionType);
-      const reason = exceptionType?.label || 'No disponible';
-      await availabilityService.addException(selectedExceptionDate, reason, false);
+      const exceptionType = EXCEPTION_TYPES.find((type) => type.id === selectedExceptionType);
+      await availabilityService.addException(selectedExceptionDate, exceptionType?.label ?? 'No disponible', false);
       await loadData();
       setShowExceptionModal(false);
       setSelectedExceptionDate('');
-    } catch (error: any) {
-      const errorMessage = error.message || 'No se pudo añadir';
-      if (Platform.OS === 'web') {
-        window.alert('Error: ' + errorMessage);
-      } else {
-        Alert.alert('Error', errorMessage);
-      }
+    } catch (error: unknown) {
+      Alert.alert('Error', getErrorMessage(error, 'No se pudo añadir la excepción'));
     }
-  }, [selectedExceptionDate, selectedExceptionType, loadData]);
+  }, [loadData, selectedExceptionDate, selectedExceptionType]);
 
-  const handleRemoveException = useCallback(async (date: string) => {
-    const confirmRemove = async () => {
-      try {
-        const dateOnly = date.split('T')[0];
-        await availabilityService.removeException(dateOnly);
-        await loadData();
-      } catch (error: any) {
-        const errorMessage = error.message || 'No se pudo eliminar';
-        if (Platform.OS === 'web') {
-          window.alert('Error: ' + errorMessage);
-        } else {
-          Alert.alert('Error', errorMessage);
+  const handleRemoveException = useCallback((date: string) => {
+    Alert.alert('Eliminar excepción', '¿Quieres eliminar esta excepción?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: async () => {
+        try {
+          await availabilityService.removeException(date.split('T')[0]);
+          await loadData();
+        } catch (error: unknown) {
+          Alert.alert('Error', getErrorMessage(error, 'No se pudo eliminar la excepción'));
         }
-      }
-    };
-    if (Platform.OS === 'web') {
-      if (window.confirm('¿Eliminar esta excepción?')) await confirmRemove();
-    } else {
-      Alert.alert('Eliminar', '¿Eliminar esta excepción?', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar', style: 'destructive', onPress: confirmRemove },
-      ]);
-    }
+      } },
+    ]);
   }, [loadData]);
 
-  // ============================================================================
-  // COMPUTED VALUES
-  // ============================================================================
-
   const summary = useMemo(() => calculateWeeklySummary(weeklySlots), [weeklySlots]);
-
-  const markedDates = useMemo(() => {
-    return exceptions.reduce((acc, exception) => {
-      const dateKey = exception.date.split('T')[0];
-      acc[dateKey] = { marked: true, dotColor: heraLanding.warning };
-      return acc;
-    }, {} as any);
-  }, [exceptions]);
-
-  // ============================================================================
-  // LOADING STATE
-  // ============================================================================
-
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={heraLanding.primary} />
-          <Text style={styles.loadingText}>Cargando disponibilidad...</Text>
-        </View>
-      </View>
-    );
-  }
-
-  // ============================================================================
-  // RENDER: SIDEBAR CONTENT (Right Column)
-  // ============================================================================
+  const markedDates = useMemo<CalendarMarkedDates>(() => exceptions.reduce<CalendarMarkedDates>((acc, exception) => {
+    acc[exception.date.split('T')[0]] = { marked: true, dotColor: theme.warning };
+    return acc;
+  }, {}), [exceptions, theme.warning]);
+  const previewDayName = useMemo<DayOfWeek>(
+    () => getDayNameFromDate(previewSelectedDate || getInitialPreviewDate(enabledDays)),
+    [enabledDays, previewSelectedDate]
+  );
+  const previewSlots = useMemo(
+    () => TIME_SLOTS.filter((slot) => weeklySlots[previewDayName][slot.label]?.available).slice(0, 8),
+    [previewDayName, weeklySlots]
+  );
+  const previewMarkedDates = useMemo<CalendarMarkedDates>(() => (
+    previewSelectedDate
+      ? { [previewSelectedDate]: { selected: true, selectedColor: theme.primary } }
+      : {}
+  ), [previewSelectedDate, theme.primary]);
+  const previewDayLabel = useMemo(
+    () => DAYS.find((day) => day.name === previewDayName)?.label.toLowerCase() ?? 'lunes',
+    [previewDayName]
+  );
+  const calendarTheme = useMemo(() => ({
+    backgroundColor: theme.bgElevated,
+    calendarBackground: theme.bgElevated,
+    todayTextColor: theme.primary,
+    todayBackgroundColor: theme.primaryAlpha12,
+    selectedDayBackgroundColor: theme.primary,
+    selectedDayTextColor: theme.textOnPrimary,
+    dayTextColor: theme.textPrimary,
+    textDisabledColor: theme.textMuted,
+    arrowColor: theme.primary,
+    monthTextColor: theme.textPrimary,
+    textDayFontSize: 14,
+    textMonthFontSize: 16,
+    textDayFontWeight: '500' as const,
+    textMonthFontWeight: '700' as const,
+  }), [theme]);
 
   const renderSidebar = () => (
     <View style={[styles.sidebar, !useTwoColumns && styles.sidebarStacked]}>
-      {/* Summary Card */}
-      <View style={styles.sidebarCard}>
+      <Card variant="default" padding="large" style={styles.sidebarCard}>
         <View style={styles.cardHeader}>
-          <Ionicons name="stats-chart-outline" size={18} color={heraLanding.primary} />
-          <Text style={styles.cardTitle}>Resumen semanal</Text>
+          <View style={[styles.iconShell, { backgroundColor: theme.primaryAlpha12 }]}>
+            <Ionicons name="stats-chart-outline" size={18} color={theme.primary} />
+          </View>
+          <View style={styles.cardHeaderText}>
+            <Text style={styles.cardTitle}>Resumen semanal</Text>
+            <Text style={styles.cardCaption}>Tu agenda base de esta semana tipo</Text>
+          </View>
         </View>
         <View style={styles.summaryStats}>
           <View style={styles.statBlock}>
             <Text style={styles.statValue}>{summary.totalHours.toFixed(1)}h</Text>
-            <Text style={styles.statLabel}>Total</Text>
+            <Text style={styles.statLabel}>Disponibles</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBlock}>
@@ -458,249 +386,234 @@ export function ProfessionalAvailabilityScreen({ navigation }: any) {
             <Text style={styles.statLabel}>Días</Text>
           </View>
         </View>
-        {/* Mini Chart */}
         <View style={styles.miniChart}>
           {DAYS.map((day) => {
             const hours = summary.dailyHours[day.name] || 0;
-            const barHeight = Math.min((hours / 10) * 40, 40);
+            const barHeight = Math.min((hours / 10) * 52, 52);
+            const dayEnabled = enabledDays[day.name];
             return (
               <View key={day.name} style={styles.miniChartCol}>
                 <View style={styles.miniChartBarBg}>
-                  <View style={[styles.miniChartBar, { height: barHeight }]} />
+                  <View style={[styles.miniChartBar, { height: barHeight, backgroundColor: dayEnabled ? theme.primary : theme.border }]} />
                 </View>
                 <Text style={styles.miniChartLabel}>{day.shortLabel.charAt(0)}</Text>
               </View>
             );
           })}
         </View>
-      </View>
+      </Card>
 
-      {/* Exceptions Card */}
-      <View style={styles.sidebarCard}>
+      <Card variant="default" padding="large" style={styles.sidebarCard}>
         <View style={styles.cardHeader}>
-          <Ionicons name="calendar-clear-outline" size={18} color={heraLanding.warning} />
-          <Text style={styles.cardTitle}>Excepciones</Text>
+          <View style={[styles.iconShell, { backgroundColor: theme.warningBg }]}>
+            <Ionicons name="calendar-clear-outline" size={18} color={theme.warning} />
+          </View>
+          <View style={styles.cardHeaderText}>
+            <Text style={styles.cardTitle}>Excepciones</Text>
+            <Text style={styles.cardCaption}>Bloquea días concretos sin tocar la base</Text>
+          </View>
         </View>
-
         {exceptions.length > 0 ? (
           <View style={styles.exceptionsList}>
             {exceptions.slice(0, 5).map((exception) => {
-              const exType = EXCEPTION_TYPES.find((t) =>
-                exception.reason?.toLowerCase().includes(t.label.toLowerCase())
-              ) || EXCEPTION_TYPES[4];
+              const exceptionType = EXCEPTION_TYPES.find((type) => exception.reason?.toLowerCase().includes(type.label.toLowerCase())) ?? EXCEPTION_TYPES[4];
+              const exceptionColor = getExceptionToneColor(theme, exceptionType);
               return (
-                <View key={exception.id} style={[styles.exceptionItem, { borderLeftColor: exType.color }]}>
+                <View key={exception.id} style={[styles.exceptionItem, { borderLeftColor: exceptionColor }]}>
                   <View style={styles.exceptionInfo}>
-                    <Ionicons name={exType.icon} size={16} color={exType.color} />
+                    <Ionicons name={exceptionType.icon} size={16} color={exceptionColor} />
                     <View style={styles.exceptionText}>
                       <Text style={styles.exceptionDate} numberOfLines={1}>
-                        {new Date(exception.date).toLocaleDateString('es-ES', {
-                          day: 'numeric', month: 'short',
-                        })}
+                        {new Date(exception.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
                       </Text>
-                      <Text style={styles.exceptionReason} numberOfLines={1}>{exception.reason}</Text>
+                      <Text style={styles.exceptionReason} numberOfLines={1}>{exception.reason ?? 'No disponible'}</Text>
                     </View>
                   </View>
-                  <TouchableOpacity onPress={() => handleRemoveException(exception.date)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Ionicons name="close-circle" size={18} color={heraLanding.textMuted} />
-                  </TouchableOpacity>
+                  <AnimatedPressable onPress={() => handleRemoveException(exception.date)} style={styles.exceptionRemoveButton} hoverLift={false} pressScale={0.96}>
+                    <Ionicons name="close-circle" size={18} color={theme.textMuted} />
+                  </AnimatedPressable>
                 </View>
               );
             })}
-            {exceptions.length > 5 && (
-              <Text style={styles.moreExceptions}>+{exceptions.length - 5} más...</Text>
-            )}
+            {exceptions.length > 5 ? <Text style={styles.moreExceptions}>+{exceptions.length - 5} más…</Text> : null}
           </View>
         ) : (
-          <Text style={styles.emptyText}>Sin fechas bloqueadas</Text>
+          <View style={styles.emptyStateBox}>
+            <Ionicons name="calendar-outline" size={22} color={theme.textMuted} />
+            <Text style={styles.emptyText}>Sin fechas bloqueadas</Text>
+          </View>
         )}
-
-        <TouchableOpacity
-          style={styles.addExceptionButton}
-          onPress={() => setShowExceptionModal(true)}
-        >
-          <Ionicons name="add-circle-outline" size={18} color={heraLanding.primary} />
+        <AnimatedPressable style={styles.addExceptionButton} onPress={() => setShowExceptionModal(true)} hoverLift={false}>
+          <Ionicons name="add-circle-outline" size={18} color={theme.primary} />
           <Text style={styles.addExceptionText}>Añadir excepción</Text>
-        </TouchableOpacity>
-      </View>
+        </AnimatedPressable>
+      </Card>
 
-      {/* Settings Card */}
-      <View style={styles.sidebarCard}>
+      <Card variant="default" padding="large" style={styles.sidebarCard}>
         <View style={styles.cardHeader}>
-          <Ionicons name="settings-outline" size={18} color={heraLanding.primary} />
-          <Text style={styles.cardTitle}>Configuración</Text>
-        </View>
-
-        <View style={styles.settingRow}>
-          <Text style={styles.settingLabel}>Buffer entre sesiones</Text>
-          <View style={styles.settingOptions}>
-            {BUFFER_OPTIONS.map((opt) => (
-              <TouchableOpacity
-                key={opt.value}
-                style={[styles.settingOption, bufferTime === opt.value && styles.settingOptionActive]}
-                onPress={() => { setBufferTime(opt.value); setHasChanges(true); }}
-              >
-                <Text style={[styles.settingOptionText, bufferTime === opt.value && styles.settingOptionTextActive]}>
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <View style={[styles.iconShell, { backgroundColor: theme.secondaryAlpha12 }]}>
+            <Ionicons name="settings-outline" size={18} color={theme.secondary} />
+          </View>
+          <View style={styles.cardHeaderText}>
+            <Text style={styles.cardTitle}>Configuración</Text>
+            <Text style={styles.cardCaption}>Ajustes que afectan a cómo se agenda</Text>
           </View>
         </View>
-
         <View style={styles.settingRow}>
-          <Text style={styles.settingLabel}>Duración de sesión</Text>
+          <Text style={styles.settingLabel}>Descanso entre sesiones</Text>
           <View style={styles.settingOptions}>
-            {SESSION_DURATIONS.map((dur) => {
-              const isActive = sessionDurations.includes(dur.value);
+            {BUFFER_OPTIONS.map((option) => {
+              const isActive = bufferTime === option.value;
               return (
-                <TouchableOpacity
-                  key={dur.value}
-                  style={[styles.settingOption, isActive && styles.settingOptionActive]}
-                  onPress={() => {
-                    if (isActive && sessionDurations.length > 1) {
-                      setSessionDurations((prev) => prev.filter((d) => d !== dur.value));
-                    } else if (!isActive) {
-                      setSessionDurations((prev) => [...prev, dur.value]);
-                    }
-                  }}
-                >
-                  <Text style={[styles.settingOptionText, isActive && styles.settingOptionTextActive]}>
-                    {dur.label}
-                  </Text>
-                </TouchableOpacity>
+                <AnimatedPressable key={option.value} style={isActive ? [styles.settingOption, styles.settingOptionActive] : styles.settingOption} onPress={() => { setBufferTime(option.value); setHasChanges(true); }} hoverLift={false}>
+                  <Text style={[styles.settingOptionText, isActive && styles.settingOptionTextActive]}>{option.label}</Text>
+                </AnimatedPressable>
               );
             })}
           </View>
         </View>
-      </View>
+        <View style={styles.settingRowLast}>
+          <Text style={styles.settingLabel}>Duración de sesión</Text>
+          <View style={styles.settingOptions}>
+            {SESSION_DURATIONS.map((duration) => {
+              const isActive = sessionDurations.includes(duration.value);
+              return (
+                <AnimatedPressable
+                  key={duration.value}
+                  style={isActive ? [styles.settingOption, styles.settingOptionActive] : styles.settingOption}
+                  onPress={() => {
+                    if (isActive && sessionDurations.length > 1) {
+                      setSessionDurations((prev) => prev.filter((item) => item !== duration.value));
+                    } else if (!isActive) {
+                      setSessionDurations((prev) => [...prev, duration.value]);
+                    }
+                    setHasChanges(true);
+                  }}
+                  hoverLift={false}
+                >
+                  <Text style={[styles.settingOptionText, isActive && styles.settingOptionTextActive]}>{duration.label}</Text>
+                </AnimatedPressable>
+              );
+            })}
+          </View>
+        </View>
+      </Card>
     </View>
   );
 
-  // ============================================================================
-  // RENDER: MAIN CONTENT
-  // ============================================================================
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.primary} />
+          <Text style={styles.loadingText}>Cargando disponibilidad…</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* Fixed Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.pageTitle}>Configurar Disponibilidad</Text>
-          {hasChanges && (
-            <View style={styles.unsavedBadge}>
-              <Ionicons name="ellipse" size={8} color={heraLanding.warning} />
-              <Text style={styles.unsavedText}>Sin guardar</Text>
-            </View>
-          )}
+        <View style={styles.headerCopy}>
+          <View style={styles.headerTitleRow}>
+            <Text style={styles.pageTitle}>Configurar disponibilidad</Text>
+            {hasChanges ? (
+              <View style={styles.unsavedBadge}>
+                <Ionicons name="ellipse" size={8} color={theme.warning} />
+                <Text style={styles.unsavedText}>Cambios sin guardar</Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={styles.pageSubtitle}>Define tu patrón semanal y las excepciones sin perder visibilidad de la agenda.</Text>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.previewBtn} onPress={() => setShowPreviewModal(true)}>
-            <Ionicons name="eye-outline" size={18} color={heraLanding.textSecondary} />
-            {!isMobile && <Text style={styles.previewBtnText}>Vista previa</Text>}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.saveBtn, !hasChanges && styles.saveBtnDisabled]}
-            onPress={handleSave}
-            disabled={!hasChanges || saving}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-                <Text style={styles.saveBtnText}>Guardar</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerButtonWrap}>
+            <Button variant="outline" size="medium" onPress={() => setShowPreviewModal(true)} icon={<Ionicons name="eye-outline" size={18} color={theme.primary} />} fullWidth>
+              {isMobile ? 'Vista' : 'Vista previa'}
+            </Button>
+          </View>
+          <View style={styles.headerButtonWrap}>
+            <Button variant="primary" size="medium" onPress={handleSave} disabled={!hasChanges || saving} loading={saving} icon={<Ionicons name="checkmark" size={18} color={theme.textOnPrimary} />} fullWidth>
+              Guardar
+            </Button>
+          </View>
         </View>
       </View>
 
-      {/* Main Content - 2 Column Layout */}
-      <View style={styles.mainContent}>
-        {/* LEFT COLUMN: Grid */}
-        <ScrollView
-          style={[styles.leftColumn, useTwoColumns && styles.leftColumnDesktop]}
-          contentContainerStyle={styles.leftColumnContent}
-          showsVerticalScrollIndicator={true}
-        >
-          {/* Quick Presets */}
-          <View style={styles.presetsSection}>
-            <Text style={styles.presetsLabel}>Patrones rápidos:</Text>
+      <ScrollView style={styles.mainScroll} contentContainerStyle={styles.mainScrollContent} showsVerticalScrollIndicator>
+        <View style={styles.mainContent}>
+          <View style={[styles.leftColumn, useTwoColumns && styles.leftColumnDesktop]}>
+            <View style={styles.leftColumnContent}>
+          <Card variant="default" padding="large" style={styles.controlsCard}>
+            <View style={styles.controlsHeader}>
+              <View>
+                <Text style={styles.controlsTitle}>Patrones rápidos</Text>
+                <Text style={styles.controlsSubtitle}>Aplica una base inicial y luego ajusta solo donde necesites.</Text>
+              </View>
+            </View>
             <View style={styles.presetsRow}>
               {QUICK_PRESETS.map((preset) => (
-                <TouchableOpacity
-                  key={preset.id}
-                  style={styles.presetBtn}
-                  onPress={() => applyPreset(preset.id)}
-                >
+                <AnimatedPressable key={preset.id} style={styles.presetBtn} onPress={() => applyPreset(preset.id)} hoverLift={false}>
                   <Text style={styles.presetBtnText}>{preset.label}</Text>
-                </TouchableOpacity>
+                </AnimatedPressable>
               ))}
-              <TouchableOpacity style={styles.copyBtn} onPress={() => copyDayToAll('monday')}>
-                <Ionicons name="copy-outline" size={14} color={heraLanding.primary} />
-                <Text style={styles.copyBtnText}>Copiar Lun</Text>
-              </TouchableOpacity>
+              <AnimatedPressable style={styles.copyBtn} onPress={() => copyDayToAll('monday')} hoverLift={false}>
+                <Ionicons name="copy-outline" size={14} color={theme.primary} />
+                <Text style={styles.copyBtnText}>Copiar lunes</Text>
+              </AnimatedPressable>
             </View>
-          </View>
+          </Card>
 
-          {/* Weekly Grid */}
-          <View style={styles.gridCard}>
-            {/* Grid Header */}
+          <Card variant="default" padding="none" style={styles.gridCard}>
+            <View style={styles.gridIntro}>
+              <Text style={styles.gridTitle}>Disponibilidad semanal</Text>
+              <Text style={styles.gridSubtitle}>Activa días y pulsa en las franjas para marcar cuándo ofreces sesiones.</Text>
+            </View>
             <View style={styles.gridHeader}>
               <View style={styles.timeCol} />
               {DAYS.map((day) => (
-                <TouchableOpacity
-                  key={day.name}
-                  style={styles.dayCol}
-                  onPress={() => toggleDayEnabled(day.name)}
-                >
+                <AnimatedPressable key={day.name} style={styles.dayCol} onPress={() => toggleDayEnabled(day.name)} hoverLift={false}>
                   <View style={[styles.dayCheck, enabledDays[day.name] && styles.dayCheckActive]}>
-                    {enabledDays[day.name] && <Ionicons name="checkmark" size={10} color="#FFF" />}
+                    {enabledDays[day.name] ? <Ionicons name="checkmark" size={10} color={theme.textOnPrimary} /> : null}
                   </View>
                   <Text style={[styles.dayLabel, !enabledDays[day.name] && styles.dayLabelDisabled]}>
                     {isMobile ? day.shortLabel.charAt(0) : isTablet ? day.shortLabel : day.label}
                   </Text>
-                </TouchableOpacity>
+                </AnimatedPressable>
               ))}
             </View>
-
-            {/* Grid Body */}
-            <ScrollView
-              style={styles.gridBody}
-              contentContainerStyle={styles.gridBodyContent}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-            >
+            <View style={styles.gridBody}>
               {TIME_SLOTS.map((slot) => (
                 <View key={slot.label} style={styles.gridRow}>
                   <View style={styles.timeCol}>
-                    {slot.minute === 0 && <Text style={styles.timeLabel}>{slot.label}</Text>}
+                    {slot.minute === 0 ? <Text style={styles.timeLabel}>{slot.label}</Text> : null}
                   </View>
                   {DAYS.map((day) => {
-                    const slotState = weeklySlots[day.name]?.[slot.label];
-                    const isAvailable = slotState?.available || false;
+                    const slotState = weeklySlots[day.name][slot.label];
+                    const isAvailable = slotState?.available ?? false;
                     const isEnabled = enabledDays[day.name];
                     return (
-                      <TouchableOpacity
+                      <AnimatedPressable
                         key={`${day.name}-${slot.label}`}
                         style={[
                           styles.slotCell,
-                          slot.minute === 0 && styles.slotCellHour,
-                          !isEnabled && styles.slotCellDisabled,
-                          isAvailable && styles.slotCellAvailable,
+                          ...(slot.minute === 0 ? [styles.slotCellHour] : []),
+                          ...(!isEnabled ? [styles.slotCellDisabled] : []),
+                          ...(isAvailable ? [styles.slotCellAvailable] : []),
                         ]}
                         onPress={() => toggleSlot(day.name, slot.label)}
                         disabled={!isEnabled}
-                        activeOpacity={0.7}
-                      />
+                        hoverLift={false}
+                        pressScale={0.99}
+                      >
+                        <View style={styles.slotCellFiller} />
+                      </AnimatedPressable>
                     );
                   })}
                 </View>
               ))}
-            </ScrollView>
-
-            {/* Legend */}
+            </View>
             <View style={styles.legend}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendBox, styles.legendAvailable]} />
@@ -711,129 +624,149 @@ export function ProfessionalAvailabilityScreen({ navigation }: any) {
                 <Text style={styles.legendText}>No disponible</Text>
               </View>
             </View>
+          </Card>
+
+          {!useTwoColumns ? renderSidebar() : null}
+            </View>
           </View>
 
-          {/* Show sidebar content below grid on mobile */}
-          {!useTwoColumns && renderSidebar()}
-        </ScrollView>
+        {useTwoColumns ? (
+          <View style={styles.rightColumn}>
+            <View style={styles.rightColumnContent}>
+              {renderSidebar()}
+            </View>
+          </View>
+        ) : null}
+        </View>
+      </ScrollView>
 
-        {/* RIGHT COLUMN: Sidebar (Desktop only) */}
-        {useTwoColumns && (
-          <ScrollView
-            style={styles.rightColumn}
-            contentContainerStyle={styles.rightColumnContent}
-            showsVerticalScrollIndicator={true}
-          >
-            {renderSidebar()}
-          </ScrollView>
-        )}
-      </View>
-
-      {/* Exception Modal */}
       <Modal visible={showExceptionModal} transparent animationType="fade" onRequestClose={() => setShowExceptionModal(false)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowExceptionModal(false)}>
-          <TouchableOpacity style={styles.modalContent} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowExceptionModal(false)}>
+          <Pressable style={styles.modalContent} onPress={() => undefined}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Bloquear fecha</Text>
-              <TouchableOpacity onPress={() => setShowExceptionModal(false)}>
-                <Ionicons name="close" size={24} color={heraLanding.textSecondary} />
-              </TouchableOpacity>
+              <AnimatedPressable onPress={() => setShowExceptionModal(false)} style={styles.modalCloseButton} hoverLift={false}>
+                <Ionicons name="close" size={22} color={theme.textSecondary} />
+              </AnimatedPressable>
             </View>
-
             <View style={styles.modalCalendar}>
               <Calendar
                 onDayPress={(day) => setSelectedExceptionDate(day.dateString)}
                 markedDates={{
                   ...markedDates,
-                  ...(selectedExceptionDate ? { [selectedExceptionDate]: { selected: true, selectedColor: heraLanding.primary } } : {}),
+                  ...(selectedExceptionDate ? { [selectedExceptionDate]: { selected: true, selectedColor: theme.primary } } : {}),
                 }}
                 minDate={new Date().toISOString().split('T')[0]}
-                theme={{
-                  backgroundColor: '#FFFFFF',
-                  calendarBackground: '#FFFFFF',
-                  todayTextColor: heraLanding.primary,
-                  selectedDayBackgroundColor: heraLanding.primary,
-                  selectedDayTextColor: '#FFFFFF',
-                  dayTextColor: heraLanding.textPrimary,
-                  textDisabledColor: heraLanding.textMuted,
-                  arrowColor: heraLanding.primary,
-                  monthTextColor: heraLanding.textPrimary,
-                  textDayFontSize: 14,
-                  textMonthFontSize: 16,
-                  textDayFontWeight: '500',
-                  textMonthFontWeight: '700',
-                }}
+                theme={calendarTheme}
               />
             </View>
-
-            {selectedExceptionDate && (
+            {selectedExceptionDate ? (
               <>
                 <Text style={styles.modalLabel}>Tipo de ausencia</Text>
                 <View style={styles.exTypeGrid}>
-                  {EXCEPTION_TYPES.map((type) => (
-                    <TouchableOpacity
-                      key={type.id}
-                      style={[
-                        styles.exTypeBtn,
-                        selectedExceptionType === type.id && { backgroundColor: type.color + '20', borderColor: type.color },
-                      ]}
-                      onPress={() => setSelectedExceptionType(type.id)}
-                    >
-                      <Ionicons name={type.icon} size={18} color={selectedExceptionType === type.id ? type.color : heraLanding.textSecondary} />
-                      <Text style={[styles.exTypeBtnText, selectedExceptionType === type.id && { color: type.color }]}>
-                        {type.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  {EXCEPTION_TYPES.map((type) => {
+                    const typeColor = getExceptionToneColor(theme, type);
+                    const isSelected = selectedExceptionType === type.id;
+                    return (
+                      <AnimatedPressable
+                        key={type.id}
+                        style={isSelected ? [styles.exTypeBtn, { backgroundColor: `${typeColor}20`, borderColor: typeColor }] : styles.exTypeBtn}
+                        onPress={() => setSelectedExceptionType(type.id)}
+                        hoverLift={false}
+                      >
+                        <Ionicons name={type.icon} size={18} color={isSelected ? typeColor : theme.textSecondary} />
+                        <Text style={[styles.exTypeBtnText, isSelected && { color: typeColor }]}>{type.label}</Text>
+                      </AnimatedPressable>
+                    );
+                  })}
                 </View>
-
-                <TouchableOpacity style={styles.modalConfirmBtn} onPress={handleAddException}>
-                  <Text style={styles.modalConfirmText}>Bloquear fecha</Text>
-                </TouchableOpacity>
+                <View style={styles.modalActionWrap}>
+                  <Button variant="primary" size="large" onPress={handleAddException} fullWidth>
+                    Bloquear fecha
+                  </Button>
+                </View>
               </>
-            )}
-          </TouchableOpacity>
-        </TouchableOpacity>
+            ) : null}
+          </Pressable>
+        </Pressable>
       </Modal>
 
-      {/* Preview Modal */}
       <Modal visible={showPreviewModal} transparent animationType="slide" onRequestClose={() => setShowPreviewModal(false)}>
         <View style={styles.previewOverlay}>
           <View style={styles.previewContent}>
             <View style={styles.previewHeader}>
-              <Text style={styles.previewTitle}>Vista del cliente</Text>
-              <TouchableOpacity onPress={() => setShowPreviewModal(false)}>
-                <Ionicons name="close" size={24} color={heraLanding.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.previewBody}>
-              <Text style={styles.previewDesc}>
-                Así verán los clientes tu disponibilidad cuando agenden una sesión:
-              </Text>
-              <View style={styles.previewCalendar}>
-                <Calendar
-                  theme={{
-                    backgroundColor: '#FFFFFF',
-                    calendarBackground: '#FFFFFF',
-                    todayTextColor: heraLanding.primary,
-                    dayTextColor: heraLanding.textPrimary,
-                    arrowColor: heraLanding.primary,
-                    monthTextColor: heraLanding.textPrimary,
-                  }}
-                />
+              <View style={styles.previewHeaderCopy}>
+                <View style={styles.previewBadge}>
+                  <Ionicons name="sparkles-outline" size={14} color={theme.primary} />
+                  <Text style={styles.previewBadgeText}>Vista de cliente</Text>
+                </View>
+                <Text style={styles.previewTitle}>Vista del cliente</Text>
+                <Text style={styles.previewSubtitle}>Así se verá tu agenda al reservar una sesión.</Text>
               </View>
-              <Text style={styles.previewSlotsTitle}>Horarios disponibles (Lunes):</Text>
-              <View style={styles.previewSlots}>
-                {TIME_SLOTS.filter((slot) => weeklySlots.monday?.[slot.label]?.available).slice(0, 8).map((slot) => (
-                  <View key={slot.label} style={styles.previewSlot}>
-                    <Text style={styles.previewSlotText}>{slot.label}</Text>
+              <AnimatedPressable onPress={() => setShowPreviewModal(false)} style={styles.modalCloseButton} hoverLift={false}>
+                <Ionicons name="close" size={22} color={theme.textSecondary} />
+              </AnimatedPressable>
+            </View>
+            <ScrollView style={styles.previewBody} showsVerticalScrollIndicator={false}>
+              <View style={isMobile ? styles.previewMobileStack : styles.previewLayout}>
+                <View style={styles.previewCalendarPanel}>
+                  <Text style={styles.previewSectionTitle}>Calendario visible</Text>
+                  <Text style={styles.previewSectionCaption}>El cliente seleccionará el día y verá solo tus franjas activas.</Text>
+                  <View style={styles.previewCalendar}>
+                    <Calendar
+                      theme={calendarTheme}
+                      markedDates={previewMarkedDates}
+                      onDayPress={(day) => setPreviewSelectedDate(day.dateString)}
+                    />
                   </View>
-                ))}
+                </View>
+
+                <View style={styles.previewAside}>
+                  <View style={styles.previewInfoCard}>
+                    <View style={styles.previewInfoHeader}>
+                      <View style={[styles.iconShell, { backgroundColor: theme.primaryAlpha12 }]}>
+                        <Ionicons name="time-outline" size={18} color={theme.primary} />
+                      </View>
+                      <View style={styles.previewInfoCopy}>
+                        <Text style={styles.previewInfoTitle}>Horarios disponibles</Text>
+                        <Text style={styles.previewInfoText}>Ejemplo de bloques visibles para el {previewDayLabel}.</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.previewSlots}>
+                      {previewSlots.length > 0 ? (
+                        previewSlots.map((slot) => (
+                          <View key={slot.label} style={styles.previewSlot}>
+                            <Text style={styles.previewSlotText}>{slot.label}</Text>
+                          </View>
+                        ))
+                      ) : (
+                        <Text style={styles.emptyText}>Todavía no hay horarios disponibles en lunes.</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={styles.previewInfoCard}>
+                    <View style={styles.previewInfoHeader}>
+                      <View style={[styles.iconShell, { backgroundColor: theme.secondaryAlpha12 }]}>
+                        <Ionicons name="information-circle-outline" size={18} color={theme.secondary} />
+                      </View>
+                      <View style={styles.previewInfoCopy}>
+                        <Text style={styles.previewInfoTitle}>Qué transmite esta vista</Text>
+                        <Text style={styles.previewInfoText}>
+                          Una agenda clara, profesional y fácil de reservar desde cualquier dispositivo.
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
               </View>
             </ScrollView>
-            <TouchableOpacity style={styles.previewCloseBtn} onPress={() => setShowPreviewModal(false)}>
-              <Text style={styles.previewCloseBtnText}>Cerrar</Text>
-            </TouchableOpacity>
+            <View style={styles.previewFooter}>
+              <Button variant="outline" size="medium" onPress={() => setShowPreviewModal(false)} fullWidth>
+                Cerrar
+              </Button>
+            </View>
           </View>
         </View>
       </Modal>
@@ -841,611 +774,393 @@ export function ProfessionalAvailabilityScreen({ navigation }: any) {
   );
 }
 
-// ============================================================================
-// STYLES
-// ============================================================================
+const createStyles = (theme: Theme, isDark: boolean, width: number) => {
+  const isMobile = width < 768;
+  const useTwoColumns = width >= 1080;
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: heraLanding.background, // #F5F7F5 - THE SACRED BACKGROUND
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: 15,
-    color: heraLanding.textSecondary,
-  },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
-    ...shadows.sm,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  pageTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-    flex: 1,
-    textAlign: 'center',
-  },
-  unsavedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: heraLanding.warning + '20',
-    borderRadius: borderRadius.full,
-  },
-  unsavedText: {
-    fontSize: 12,
-    color: heraLanding.warning,
-    fontWeight: '500',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  previewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: heraLanding.border,
-    backgroundColor: '#FFFFFF',
-  },
-  previewBtnText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: heraLanding.textSecondary,
-  },
-  saveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: borderRadius.md,
-    backgroundColor: heraLanding.primary,
-  },
-  saveBtnDisabled: {
-    backgroundColor: heraLanding.textMuted,
-  },
-  saveBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-
-  // Main Content
-  mainContent: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  leftColumn: {
-    flex: 1,
-  },
-  leftColumnDesktop: {
-    flex: 0.6,
-    borderRightWidth: 1,
-    borderRightColor: heraLanding.border,
-  },
-  leftColumnContent: {
-    padding: spacing.lg,
-    paddingBottom: 100,
-  },
-  rightColumn: {
-    flex: 0.4,
-    backgroundColor: heraLanding.background,
-  },
-  rightColumnContent: {
-    padding: spacing.lg,
-  },
-
-  // Presets
-  presetsSection: {
-    marginBottom: spacing.md,
-  },
-  presetsLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: heraLanding.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  presetsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  presetBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: borderRadius.md,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: heraLanding.border,
-  },
-  presetBtnText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: heraLanding.textPrimary,
-  },
-  copyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: heraLanding.primary,
-    backgroundColor: '#FFFFFF',
-  },
-  copyBtnText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: heraLanding.primary,
-  },
-
-  // Grid
-  gridCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-    ...shadows.md,
-  },
-  gridHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#FAFBFA',
-    borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
-  },
-  timeCol: {
-    width: 44,
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    paddingRight: 6,
-  },
-  dayCol: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    gap: 4,
-  },
-  dayCheck: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: heraLanding.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  dayCheckActive: {
-    backgroundColor: heraLanding.primary,
-    borderColor: heraLanding.primary,
-  },
-  dayLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-  },
-  dayLabelDisabled: {
-    color: heraLanding.textMuted,
-  },
-  gridBody: {
-    maxHeight: 520,
-  },
-  gridBodyContent: {
-    flexGrow: 1,
-  },
-  gridRow: {
-    flexDirection: 'row',
-    height: 20,
-  },
-  timeLabel: {
-    fontSize: 10,
-    color: heraLanding.textMuted,
-    fontWeight: '500',
-  },
-  slotCell: {
-    flex: 1,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: heraLanding.borderLight,
-    backgroundColor: '#FFFFFF',
-  },
-  slotCellHour: {
-    borderBottomColor: heraLanding.border,
-  },
-  slotCellDisabled: {
-    backgroundColor: '#F8F9F8',
-  },
-  slotCellAvailable: {
-    backgroundColor: '#E8F5E8',
-  },
-  legend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.lg,
-    padding: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: heraLanding.border,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendBox: {
-    width: 14,
-    height: 14,
-    borderRadius: 3,
-    borderWidth: 1,
-    borderColor: heraLanding.border,
-  },
-  legendAvailable: {
-    backgroundColor: '#E8F5E8',
-  },
-  legendUnavailable: {
-    backgroundColor: '#FFFFFF',
-  },
-  legendText: {
-    fontSize: 12,
-    color: heraLanding.textSecondary,
-  },
-
-  // Sidebar
-  sidebar: {
-    gap: spacing.md,
-  },
-  sidebarStacked: {
-    marginTop: spacing.xl,
-  },
-  sidebarCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    ...shadows.sm,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-  },
-
-  // Summary
-  summaryStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: spacing.md,
-  },
-  statBlock: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: heraLanding.primary,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: heraLanding.textSecondary,
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: heraLanding.border,
-  },
-  miniChart: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: heraLanding.borderLight,
-  },
-  miniChartCol: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  miniChartBarBg: {
-    width: 20,
-    height: 40,
-    backgroundColor: heraLanding.borderLight,
-    borderRadius: 4,
-    justifyContent: 'flex-end',
-  },
-  miniChartBar: {
-    width: '100%',
-    backgroundColor: heraLanding.primary,
-    borderRadius: 4,
-  },
-  miniChartLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: heraLanding.textMuted,
-  },
-
-  // Exceptions
-  exceptionsList: {
-    gap: spacing.xs,
-  },
-  exceptionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    backgroundColor: heraLanding.backgroundAlt,
-    borderRadius: borderRadius.md,
-    borderLeftWidth: 3,
-  },
-  exceptionInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flex: 1,
-  },
-  exceptionText: {
-    flex: 1,
-  },
-  exceptionDate: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-  },
-  exceptionReason: {
-    fontSize: 11,
-    color: heraLanding.textSecondary,
-  },
-  moreExceptions: {
-    fontSize: 12,
-    color: heraLanding.textMuted,
-    textAlign: 'center',
-    paddingTop: spacing.xs,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: heraLanding.textMuted,
-    textAlign: 'center',
-    paddingVertical: spacing.md,
-  },
-  addExceptionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: heraLanding.primary,
-    borderStyle: 'dashed',
-  },
-  addExceptionText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: heraLanding.primary,
-  },
-
-  // Settings
-  settingRow: {
-    marginBottom: spacing.md,
-  },
-  settingLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: heraLanding.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  settingOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  settingOption: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: heraLanding.border,
-    backgroundColor: '#FFFFFF',
-  },
-  settingOptionActive: {
-    borderColor: heraLanding.primary,
-    backgroundColor: '#E8F5E8',
-  },
-  settingOptionText: {
-    fontSize: 12,
-    color: heraLanding.textSecondary,
-    fontWeight: '500',
-  },
-  settingOptionTextActive: {
-    color: heraLanding.primary,
-  },
-
-  // Modals
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    width: '100%',
-    maxWidth: 400,
-    maxHeight: '90%',
-    ...shadows.xl,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-  },
-  modalCalendar: {
-    marginBottom: spacing.md,
-    borderRadius: borderRadius.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: heraLanding.border,
-  },
-  modalLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: heraLanding.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  exTypeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: spacing.lg,
-  },
-  exTypeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: heraLanding.border,
-    backgroundColor: '#FFFFFF',
-  },
-  exTypeBtnText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: heraLanding.textSecondary,
-  },
-  modalConfirmBtn: {
-    paddingVertical: 14,
-    borderRadius: borderRadius.md,
-    backgroundColor: heraLanding.primary,
-    alignItems: 'center',
-  },
-  modalConfirmText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-
-  // Preview Modal
-  previewOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  previewContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    maxHeight: '85%',
-    ...shadows.xl,
-  },
-  previewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
-  },
-  previewTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-  },
-  previewBody: {
-    padding: spacing.lg,
-  },
-  previewDesc: {
-    fontSize: 14,
-    color: heraLanding.textSecondary,
-    marginBottom: spacing.md,
-    lineHeight: 20,
-  },
-  previewCalendar: {
-    borderRadius: borderRadius.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: heraLanding.border,
-    marginBottom: spacing.lg,
-  },
-  previewSlotsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: heraLanding.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  previewSlots: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  previewSlot: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: borderRadius.md,
-    backgroundColor: heraLanding.background,
-    borderWidth: 1,
-    borderColor: heraLanding.primary,
-  },
-  previewSlotText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: heraLanding.primary,
-  },
-  previewCloseBtn: {
-    margin: spacing.lg,
-    marginTop: 0,
-    paddingVertical: 14,
-    borderRadius: borderRadius.md,
-    backgroundColor: heraLanding.primary,
-    alignItems: 'center',
-  },
-  previewCloseBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-});
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.bg },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    loadingText: { marginTop: spacing.md, fontSize: 15, color: theme.textSecondary },
+    header: {
+      flexDirection: isMobile ? 'column' : 'row',
+      justifyContent: 'space-between',
+      alignItems: isMobile ? 'stretch' : 'center',
+      gap: spacing.md,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      backgroundColor: theme.bgCard,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+      ...shadows.sm,
+    },
+    headerCopy: { flex: 1, gap: 6 },
+    headerTitleRow: {
+      flexDirection: isMobile ? 'column' : 'row',
+      alignItems: isMobile ? 'flex-start' : 'center',
+      gap: spacing.sm,
+    },
+    pageTitle: { fontSize: isMobile ? 28 : 18, fontWeight: '800', color: theme.textPrimary },
+    pageSubtitle: { fontSize: 14, lineHeight: 20, color: theme.textSecondary, maxWidth: 640 },
+    unsavedBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: borderRadius.full,
+      backgroundColor: theme.warningBg,
+      borderWidth: 1,
+      borderColor: isDark ? theme.warning : theme.border,
+    },
+    unsavedText: { fontSize: 12, fontWeight: '600', color: theme.warning },
+    headerActions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+    },
+    headerButtonWrap: { minWidth: isMobile ? 0 : 144, flex: isMobile ? 1 : 0 },
+    mainScroll: { flex: 1 },
+    mainScrollContent: { paddingBottom: 120 },
+    mainContent: {
+      flexDirection: useTwoColumns ? 'row' : 'column',
+      alignItems: useTwoColumns ? 'flex-start' : 'stretch',
+    },
+    leftColumn: { flex: 1 },
+    leftColumnDesktop: { flex: 0.62 },
+    leftColumnContent: { padding: spacing.lg, paddingBottom: 120, gap: spacing.lg },
+    rightColumn: { flex: 0.38, alignSelf: 'flex-start' },
+    rightColumnContent: { padding: spacing.lg, paddingBottom: 120 },
+    controlsCard: { borderWidth: 1, borderColor: theme.border },
+    controlsHeader: { marginBottom: spacing.md },
+    controlsTitle: { fontSize: 16, fontWeight: '700', color: theme.textPrimary },
+    controlsSubtitle: { marginTop: 4, fontSize: 13, lineHeight: 18, color: theme.textSecondary },
+    presetsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+    presetBtn: {
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: borderRadius.md,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    presetBtnText: { fontSize: 13, fontWeight: '600', color: theme.textPrimary },
+    copyBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.primary,
+      backgroundColor: theme.primaryAlpha12,
+    },
+    copyBtnText: { fontSize: 13, fontWeight: '600', color: theme.primary },
+    gridCard: { overflow: 'hidden', borderWidth: 1, borderColor: theme.border },
+    gridIntro: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.borderLight,
+      backgroundColor: theme.bgCard,
+    },
+    gridTitle: { fontSize: 17, fontWeight: '700', color: theme.textPrimary },
+    gridSubtitle: { marginTop: 4, fontSize: 13, lineHeight: 18, color: theme.textSecondary },
+    gridHeader: {
+      flexDirection: 'row',
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    timeCol: { width: isMobile ? 38 : 54, justifyContent: 'center', alignItems: 'flex-end', paddingRight: 8 },
+    dayCol: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm, gap: 6 },
+    dayCheck: {
+      width: 18,
+      height: 18,
+      borderRadius: 5,
+      borderWidth: 1.5,
+      borderColor: theme.borderStrong,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.bgCard,
+    },
+    dayCheckActive: { backgroundColor: theme.primary, borderColor: theme.primary },
+    dayLabel: { fontSize: isMobile ? 11 : 12, fontWeight: '700', color: theme.textPrimary },
+    dayLabelDisabled: { color: theme.textMuted },
+    gridBody: { backgroundColor: theme.bgCard },
+    gridRow: { flexDirection: 'row', height: 22 },
+    timeLabel: { fontSize: 10, fontWeight: '600', color: theme.textMuted },
+    slotCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: theme.borderLight, backgroundColor: theme.bgCard },
+    slotCellFiller: { flex: 1 },
+    slotCellHour: { borderBottomColor: theme.border },
+    slotCellDisabled: { backgroundColor: theme.surfaceMuted },
+    slotCellAvailable: { backgroundColor: theme.successLight },
+    legend: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      gap: spacing.lg,
+      padding: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    legendBox: { width: 14, height: 14, borderRadius: 4, borderWidth: 1, borderColor: theme.borderStrong },
+    legendAvailable: { backgroundColor: theme.successLight },
+    legendUnavailable: { backgroundColor: theme.bgCard },
+    legendText: { fontSize: 12, color: theme.textSecondary },
+    sidebar: { gap: spacing.lg },
+    sidebarStacked: { marginTop: spacing.xs },
+    sidebarCard: { borderWidth: 1, borderColor: theme.border },
+    cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.md },
+    iconShell: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    cardHeaderText: { flex: 1, gap: 2 },
+    cardTitle: { fontSize: 15, fontWeight: '700', color: theme.textPrimary },
+    cardCaption: { fontSize: 12, lineHeight: 18, color: theme.textSecondary },
+    summaryStats: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: borderRadius.lg,
+      overflow: 'hidden',
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    },
+    statBlock: { flex: 1, paddingVertical: spacing.md, alignItems: 'center', justifyContent: 'center', gap: 4 },
+    statValue: { fontSize: 24, fontWeight: '800', color: theme.primary },
+    statLabel: { fontSize: 11, fontWeight: '600', color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4 },
+    statDivider: { width: 1, backgroundColor: theme.border },
+    miniChart: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingTop: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: theme.borderLight,
+    },
+    miniChartCol: { alignItems: 'center', gap: 6, flex: 1 },
+    miniChartBarBg: {
+      width: 24,
+      height: 52,
+      justifyContent: 'flex-end',
+      borderRadius: 8,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+      overflow: 'hidden',
+    },
+    miniChartBar: { width: '100%', borderRadius: 8 },
+    miniChartLabel: { fontSize: 10, fontWeight: '600', color: theme.textMuted },
+    exceptionsList: { gap: spacing.sm },
+    exceptionItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.sm,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+      borderRadius: borderRadius.md,
+      borderLeftWidth: 3,
+    },
+    exceptionInfo: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
+    exceptionText: { flex: 1 },
+    exceptionDate: { fontSize: 13, fontWeight: '700', color: theme.textPrimary },
+    exceptionReason: { marginTop: 2, fontSize: 12, color: theme.textSecondary },
+    exceptionRemoveButton: { padding: 4 },
+    moreExceptions: { fontSize: 12, color: theme.textMuted, textAlign: 'center', paddingTop: spacing.xs },
+    emptyStateBox: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.lg,
+      gap: spacing.xs,
+      borderRadius: borderRadius.lg,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    },
+    emptyText: { fontSize: 13, color: theme.textMuted, textAlign: 'center' },
+    addExceptionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: spacing.md,
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.primary,
+      borderStyle: 'dashed',
+      backgroundColor: theme.primaryAlpha12,
+    },
+    addExceptionText: { fontSize: 13, fontWeight: '600', color: theme.primary },
+    settingRow: { marginBottom: spacing.md },
+    settingRowLast: { marginBottom: 0 },
+    settingLabel: { marginBottom: spacing.sm, fontSize: 13, fontWeight: '700', color: theme.textPrimary },
+    settingOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    settingOption: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    },
+    settingOptionActive: { borderColor: theme.primary, backgroundColor: theme.primaryAlpha12 },
+    settingOptionText: { fontSize: 12, fontWeight: '600', color: theme.textSecondary },
+    settingOptionTextActive: { color: theme.primary },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: theme.overlay,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.lg,
+    },
+    modalContent: {
+      width: '100%',
+      maxWidth: 420,
+      maxHeight: '90%',
+      borderRadius: borderRadius.xl,
+      padding: spacing.lg,
+      paddingBottom: spacing.xl,
+      backgroundColor: theme.bgElevated,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...shadows.xl,
+    },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
+    modalTitle: { fontSize: 18, fontWeight: '800', color: theme.textPrimary },
+    modalCloseButton: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    modalCalendar: {
+      marginBottom: spacing.md,
+      borderRadius: borderRadius.lg,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.bgElevated,
+    },
+    modalLabel: { marginBottom: spacing.sm, fontSize: 13, fontWeight: '700', color: theme.textPrimary },
+    exTypeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
+    modalActionWrap: { marginTop: spacing.xs, paddingBottom: spacing.sm },
+    exTypeBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    },
+    exTypeBtnText: { fontSize: 13, fontWeight: '600', color: theme.textSecondary },
+    previewOverlay: {
+      flex: 1,
+      backgroundColor: theme.overlay,
+      justifyContent: isMobile ? 'flex-end' : 'center',
+      alignItems: 'center',
+      padding: isMobile ? 0 : spacing.lg,
+    },
+    previewContent: {
+      width: '100%',
+      maxWidth: isMobile ? undefined : 980,
+      maxHeight: isMobile ? '88%' : '92%',
+      borderTopLeftRadius: borderRadius.xl,
+      borderTopRightRadius: borderRadius.xl,
+      borderBottomLeftRadius: isMobile ? 0 : borderRadius.xl,
+      borderBottomRightRadius: isMobile ? 0 : borderRadius.xl,
+      backgroundColor: theme.bgElevated,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...shadows.xl,
+    },
+    previewHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    previewHeaderCopy: { flex: 1, gap: 8 },
+    previewBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      alignSelf: 'flex-start',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: borderRadius.full,
+      backgroundColor: theme.primaryAlpha12,
+      borderWidth: 1,
+      borderColor: theme.primaryAlpha20,
+    },
+    previewBadgeText: { fontSize: 12, fontWeight: '700', color: theme.primary },
+    previewTitle: { fontSize: 18, fontWeight: '800', color: theme.textPrimary },
+    previewSubtitle: { marginTop: 4, fontSize: 13, color: theme.textSecondary },
+    previewBody: { padding: spacing.lg },
+    previewLayout: {
+      flexDirection: isMobile ? 'column' : 'row',
+      gap: spacing.lg,
+      alignItems: 'stretch',
+    },
+    previewMobileStack: {
+      gap: spacing.lg,
+      alignItems: 'stretch',
+    },
+    previewCalendarPanel: {
+      flex: isMobile ? 0 : 1,
+      width: '100%',
+      flexShrink: 0,
+      marginBottom: isMobile ? spacing.lg : 0,
+    },
+    previewAside: {
+      width: isMobile ? '100%' : 300,
+      gap: spacing.md,
+      flexShrink: 0,
+    },
+    previewSectionTitle: { fontSize: 15, fontWeight: '700', color: theme.textPrimary },
+    previewSectionCaption: {
+      marginTop: 4,
+      marginBottom: spacing.md,
+      fontSize: 13,
+      lineHeight: 18,
+      color: theme.textSecondary,
+    },
+    previewCalendar: {
+      minHeight: isMobile ? 308 : undefined,
+      height: isMobile ? 308 : undefined,
+      borderRadius: borderRadius.lg,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.bgElevated,
+      marginBottom: isMobile ? spacing.sm : 0,
+    },
+    previewInfoCard: {
+      padding: spacing.md,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+      gap: spacing.md,
+    },
+    previewInfoHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+    previewInfoCopy: { flex: 1, gap: 2 },
+    previewInfoTitle: { fontSize: 14, fontWeight: '700', color: theme.textPrimary },
+    previewInfoText: { fontSize: 12, lineHeight: 18, color: theme.textSecondary },
+    previewSlots: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+    previewSlot: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: borderRadius.md,
+      backgroundColor: theme.primaryAlpha12,
+      borderWidth: 1,
+      borderColor: theme.primary,
+    },
+    previewSlotText: { fontSize: 13, fontWeight: '600', color: theme.primary },
+    previewFooter: { padding: spacing.lg, paddingTop: 0 },
+  });
+};
 
 export default ProfessionalAvailabilityScreen;

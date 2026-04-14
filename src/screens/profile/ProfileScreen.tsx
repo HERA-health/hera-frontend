@@ -1772,7 +1772,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   fieldInputDisabled: {
-    backgroundColor: heraLanding.cardBackgroundDisabled,
+    backgroundColor: heraLanding.inputBackgroundDisabled,
     color: heraLanding.textSecondary,
   },
   inputText: {

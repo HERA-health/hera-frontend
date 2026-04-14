@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   TextInput,
   ActivityIndicator,
   Alert,
@@ -15,14 +14,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { NavigationProp, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../constants/types';
 import {
-  heraLanding,
-  colors,
   spacing,
   borderRadius,
   typography,
   shadows,
 } from '../../constants/colors';
+import { Theme } from '../../constants/theme';
+import { AnimatedPressable, Button } from '../../components/common';
 import { SimpleDropdown, DropdownOption } from '../../components/common/SimpleDropdown';
+import { useTheme } from '../../contexts/ThemeContext';
 import {
   billingService,
   FullBillingConfig,
@@ -141,6 +141,8 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   const { invoiceId } = route?.params || {};
   const isEditing = !!invoiceId;
   const { width } = useWindowDimensions();
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const isDesktop = width >= 768;
 
   // ── State ──
@@ -427,7 +429,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={heraLanding.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
@@ -442,44 +444,45 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
         </Text>
       </View>
       <View style={styles.headerLeft}>
-        <TouchableOpacity
+        <AnimatedPressable
           style={styles.backButton}
           onPress={() => navigation.navigate('ProfessionalBilling')}
+          hoverLift={false}
+          pressScale={0.98}
         >
-          <Ionicons name="arrow-back" size={20} color={heraLanding.primary} />
+          <Ionicons name="arrow-back" size={20} color={theme.primary} />
           <Text style={styles.backLabel}>{STRINGS.backLabel}</Text>
-        </TouchableOpacity>
+        </AnimatedPressable>
       </View>
       <View style={styles.headerRight}>
         <View style={styles.statusBadge}>
           <Text style={styles.statusBadgeText}>{STRINGS.statusDraft}</Text>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={styles.draftBtn}
-            onPress={() => handleSave(false)}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color={heraLanding.primary} />
-            ) : (
-              <Text style={styles.draftBtnText}>{STRINGS.saveDraft}</Text>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.sendBtn}
-            onPress={() => handleSave(true)}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color={colors.neutral.white} />
-            ) : (
-              <View style={styles.sendBtnContent}>
-                <Ionicons name="send" size={14} color={colors.neutral.white} />
-                <Text style={styles.sendBtnText}>{STRINGS.confirmSend}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerSecondaryAction}>
+            <Button
+              variant="outline"
+              size="small"
+              onPress={() => handleSave(false)}
+              disabled={saving}
+              fullWidth
+            >
+              {STRINGS.saveDraft}
+            </Button>
+          </View>
+          <View style={styles.headerPrimaryAction}>
+            <Button
+              variant="primary"
+              size="small"
+              onPress={() => handleSave(true)}
+              disabled={saving}
+              loading={saving}
+              icon={<Ionicons name="send" size={14} color={theme.textOnPrimary} />}
+              fullWidth
+            >
+              {STRINGS.confirmSend}
+            </Button>
+          </View>
         </View>
       </View>
     </View>
@@ -544,7 +547,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
               value={item.concept}
               onChangeText={(v) => updateLineItem(item.id, 'concept', v)}
               placeholder={STRINGS.defaultConcept}
-              placeholderTextColor={heraLanding.textMuted}
+              placeholderTextColor={theme.textMuted}
             />
           </View>
 
@@ -555,7 +558,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
               value={item.date}
               onChangeText={(v) => updateLineItem(item.id, 'date', v)}
               placeholder="DD/MM/AAAA"
-              placeholderTextColor={heraLanding.textMuted}
+              placeholderTextColor={theme.textMuted}
             />
           </View>
 
@@ -576,7 +579,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
               value={item.unitPrice}
               onChangeText={(v) => updateLineItem(item.id, 'unitPrice', v)}
               placeholder="0,00"
-              placeholderTextColor={heraLanding.textMuted}
+              placeholderTextColor={theme.textMuted}
               keyboardType="decimal-pad"
             />
           </View>
@@ -591,18 +594,18 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
           {/* Delete */}
           <View style={styles.lineDeleteCol}>
             {lineItems.length > 1 && (
-              <TouchableOpacity onPress={() => removeLineItem(item.id)}>
-                <Ionicons name="trash-outline" size={18} color={heraLanding.status.cancelled.text} />
-              </TouchableOpacity>
+              <AnimatedPressable onPress={() => removeLineItem(item.id)} hoverLift={false} pressScale={0.96}>
+                <Ionicons name="trash-outline" size={18} color={theme.status.cancelled.text} />
+              </AnimatedPressable>
             )}
           </View>
         </View>
       ))}
 
-      <TouchableOpacity style={styles.addLineBtn} onPress={addLineItem}>
-        <Ionicons name="add-circle-outline" size={18} color={heraLanding.primary} />
+      <AnimatedPressable style={styles.addLineBtn} onPress={addLineItem} hoverLift={false} pressScale={0.98}>
+        <Ionicons name="add-circle-outline" size={18} color={theme.primary} />
         <Text style={styles.addLineBtnText}>{STRINGS.addLine}</Text>
-      </TouchableOpacity>
+      </AnimatedPressable>
     </View>
   );
 
@@ -618,7 +621,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
         onChangeText={setInternalNotes}
         multiline
         textAlignVertical="top"
-        placeholderTextColor={heraLanding.textMuted}
+        placeholderTextColor={theme.textMuted}
       />
 
       <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>{STRINGS.paymentConditions}</Text>
@@ -628,7 +631,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
         onChangeText={setPaymentConditions}
         multiline
         textAlignVertical="top"
-        placeholderTextColor={heraLanding.textMuted}
+        placeholderTextColor={theme.textMuted}
       />
     </View>
   );
@@ -651,7 +654,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
           value={issueDate}
           onChangeText={setIssueDate}
           placeholder="DD/MM/AAAA"
-          placeholderTextColor={heraLanding.textMuted}
+          placeholderTextColor={theme.textMuted}
         />
       </View>
 
@@ -682,21 +685,16 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
           {/* IVA included toggle */}
           <View style={styles.ivaToggleRow}>
             <Text style={styles.summaryLabel}>{STRINGS.ivaIncluded}</Text>
-            <TouchableOpacity
-              style={[
-                styles.toggleTrack,
-                ivaIncluded && styles.toggleTrackActive,
-              ]}
+            <AnimatedPressable
+              style={ivaIncluded ? [styles.toggleTrack, styles.toggleTrackActive] : styles.toggleTrack}
               onPress={() => setIvaIncluded(!ivaIncluded)}
-              activeOpacity={0.7}
+              hoverLift={false}
+              pressScale={0.97}
             >
               <View
-                style={[
-                  styles.toggleThumb,
-                  ivaIncluded && styles.toggleThumbActive,
-                ]}
+                style={ivaIncluded ? [styles.toggleThumb, styles.toggleThumbActive] : styles.toggleThumb}
               />
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
 
           <View style={styles.summaryRow}>
@@ -731,11 +729,13 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
       <Text style={styles.ivaNote}>
         {STRINGS.ivaConfigNote} ({vatRate}%)
       </Text>
-      <TouchableOpacity
+      <AnimatedPressable
         onPress={() => navigation.navigate('ProfessionalBilling')}
+        hoverLift={false}
+        pressScale={0.98}
       >
         <Text style={styles.changeConfigLink}>{STRINGS.changeConfig}</Text>
-      </TouchableOpacity>
+      </AnimatedPressable>
     </View>
   );
 
@@ -746,11 +746,12 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
       <View style={styles.card}>
         <Text style={styles.cardTitle}>{STRINGS.tariffSection}</Text>
         {activeTariffs.map((tariff) => (
-          <TouchableOpacity
+          <AnimatedPressable
             key={tariff.id}
             style={styles.tariffRow}
             onPress={() => applyTariff(tariff)}
-            activeOpacity={0.7}
+            hoverLift={false}
+            pressScale={0.98}
           >
             <View style={styles.tariffInfo}>
               <Text style={styles.tariffName}>{tariff.name}</Text>
@@ -758,8 +759,8 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
                 {tariff.price > 0 ? `€${formatCurrency(tariff.price)}` : 'Gratis'} — {tariff.durationMinutes} min
               </Text>
             </View>
-            <Ionicons name="arrow-forward" size={16} color={heraLanding.textMuted} />
-          </TouchableOpacity>
+            <Ionicons name="arrow-forward" size={16} color={theme.textMuted} />
+          </AnimatedPressable>
         ))}
       </View>
     );
@@ -815,16 +816,17 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
 // STYLES
 // ============================================================================
 
-const styles = StyleSheet.create({
+function createStyles(theme: Theme, isDark: boolean) {
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: heraLanding.backgroundMuted,
+    backgroundColor: theme.bg,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: heraLanding.backgroundMuted,
+    backgroundColor: theme.bg,
   },
 
   // Header
@@ -834,9 +836,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: colors.neutral.white,
+    backgroundColor: theme.bgCard,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: theme.border,
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
@@ -852,8 +854,8 @@ const styles = StyleSheet.create({
   },
   backLabel: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.primary,
-    fontWeight: typography.fontWeights.medium,
+    color: theme.primary,
+    fontFamily: theme.fontSansMedium,
   },
   headerTitleWrapper: {
     position: 'absolute',
@@ -866,8 +868,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: typography.fontSizes.xl,
-    fontWeight: typography.fontWeights.bold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansBold,
     textAlign: 'center',
   },
   headerRight: {
@@ -876,47 +878,25 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   statusBadge: {
-    backgroundColor: heraLanding.backgroundMuted,
+    backgroundColor: theme.primaryAlpha12,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.full,
   },
   statusBadgeText: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
-    fontWeight: typography.fontWeights.medium,
+    color: theme.primary,
+    fontFamily: theme.fontSansMedium,
   },
   headerActions: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
-  draftBtn: {
-    borderWidth: 1,
-    borderColor: heraLanding.primary,
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+  headerSecondaryAction: {
+    minWidth: 154,
   },
-  draftBtnText: {
-    fontSize: typography.fontSizes.sm,
-    color: heraLanding.primary,
-    fontWeight: typography.fontWeights.semibold,
-  },
-  sendBtn: {
-    backgroundColor: heraLanding.primary,
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  sendBtnContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  sendBtnText: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.neutral.white,
-    fontWeight: typography.fontWeights.semibold,
+  headerPrimaryAction: {
+    minWidth: 188,
   },
 
   // Scroll
@@ -947,9 +927,11 @@ const styles = StyleSheet.create({
 
   // Card
   card: {
-    backgroundColor: colors.neutral.white,
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.border,
     ...shadows.sm,
     ...(Platform.OS === 'web'
       ? ({ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } as Record<string, string>)
@@ -957,8 +939,8 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
     marginBottom: spacing.md,
   },
 
@@ -967,16 +949,17 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: heraLanding.border,
+    borderTopColor: theme.border,
   },
   selectedClientName: {
     fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
   },
   selectedClientEmail: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
     marginTop: 2,
   },
 
@@ -986,13 +969,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: theme.border,
     marginBottom: spacing.sm,
   },
   lineHeaderCell: {
     fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSansSemiBold,
     textTransform: 'uppercase',
   },
   lineConceptCol: {
@@ -1026,22 +1009,22 @@ const styles = StyleSheet.create({
   },
   lineRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: theme.border,
   },
   lineInput: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
-    backgroundColor: heraLanding.backgroundMuted,
+    color: theme.textPrimary,
+    backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
     borderWidth: 1,
-    borderColor: heraLanding.border,
+    borderColor: theme.border,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
   lineTotalText: {
     fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
   },
   addLineBtn: {
     flexDirection: 'row',
@@ -1052,28 +1035,29 @@ const styles = StyleSheet.create({
   },
   addLineBtnText: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.primary,
-    fontWeight: typography.fontWeights.medium,
+    color: theme.primary,
+    fontFamily: theme.fontSansMedium,
   },
 
   // Notes section
   fieldLabel: {
     fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.medium,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansMedium,
     marginBottom: spacing.xs,
   },
   fieldHint: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
     marginBottom: spacing.xs,
   },
   textArea: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
-    backgroundColor: heraLanding.backgroundMuted,
+    color: theme.textPrimary,
+    backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
     borderWidth: 1,
-    borderColor: heraLanding.border,
+    borderColor: theme.border,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
@@ -1091,34 +1075,36 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
   },
   summaryValue: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
-    fontWeight: typography.fontWeights.medium,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansMedium,
   },
   summaryValueMuted: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
     fontStyle: 'italic',
   },
   summaryLabelBold: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
-    fontWeight: typography.fontWeights.semibold,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
   },
   summaryValueBold: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
-    fontWeight: typography.fontWeights.bold,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansBold,
   },
   summaryDateInput: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
-    backgroundColor: heraLanding.backgroundMuted,
+    color: theme.textPrimary,
+    backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
     borderWidth: 1,
-    borderColor: heraLanding.border,
+    borderColor: theme.border,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -1127,7 +1113,7 @@ const styles = StyleSheet.create({
   },
   summaryDivider: {
     height: 1,
-    backgroundColor: heraLanding.border,
+    backgroundColor: theme.border,
     marginVertical: spacing.md,
   },
   ivaToggleRow: {
@@ -1140,18 +1126,18 @@ const styles = StyleSheet.create({
     width: 44,
     height: 24,
     borderRadius: 12,
-    backgroundColor: heraLanding.border,
+    backgroundColor: theme.border,
     justifyContent: 'center',
     paddingHorizontal: 2,
   },
   toggleTrackActive: {
-    backgroundColor: heraLanding.primary,
+    backgroundColor: theme.primary,
   },
   toggleThumb: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: colors.neutral.white,
+    backgroundColor: theme.bgCard,
   },
   toggleThumbActive: {
     alignSelf: 'flex-end',
@@ -1164,23 +1150,24 @@ const styles = StyleSheet.create({
   },
   summaryTotalLabel: {
     fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.bold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansBold,
   },
   summaryTotalValue: {
     fontSize: typography.fontSizes.xl,
-    fontWeight: typography.fontWeights.bold,
-    color: heraLanding.primary,
+    color: theme.primary,
+    fontFamily: theme.fontSansBold,
   },
   ivaNote: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
     marginTop: spacing.sm,
   },
   changeConfigLink: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.primary,
-    fontWeight: typography.fontWeights.medium,
+    color: theme.primary,
+    fontFamily: theme.fontSansMedium,
     marginTop: spacing.xs,
   },
 
@@ -1191,21 +1178,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: theme.border,
   },
   tariffInfo: {
     flex: 1,
   },
   tariffName: {
     fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.medium,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansMedium,
   },
   tariffDetails: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
     marginTop: 2,
   },
-});
+  });
+}
 
 export default CreateInvoiceScreen;

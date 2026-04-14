@@ -11,7 +11,6 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
   StyleSheet,
   useWindowDimensions,
   Platform,
@@ -24,9 +23,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import * as specialistsService from '../../services/specialistsService';
-import { heraLanding, spacing, borderRadius } from '../../constants/colors';
+import { spacing, borderRadius } from '../../constants/colors';
 import { getGradientColors } from '../../constants/gradients';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
+import type { Theme } from '../../constants/theme';
 import { StyledLogo } from '../../components/common/StyledLogo';
 
 import {
@@ -42,6 +43,7 @@ import {
 } from '../specialist-profile/components';
 import type { Specialist, Review } from '../specialist-profile/types';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
+import { AnimatedPressable, Button } from '../../components/common';
 
 const DESKTOP_BREAKPOINT = 1024;
 const TABLET_BREAKPOINT = 768;
@@ -50,12 +52,14 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   const route = useRoute<AppRouteProp<'PublicSpecialistProfile'>>();
   const navigation = useNavigation<AppNavigationProp>();
   const { isAuthenticated, user } = useAuth();
+  const { theme, isDark } = useTheme();
   const { specialistId } = route.params || {};
   const { width } = useWindowDimensions();
 
   const isDesktop = width >= DESKTOP_BREAKPOINT;
   const isTablet = width >= TABLET_BREAKPOINT && width < DESKTOP_BREAKPOINT;
   const isMobile = width < TABLET_BREAKPOINT;
+  const styles = createStyles(theme, isDark, isDesktop, isTablet, isMobile);
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -120,11 +124,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     }
 
     if (user?.type === 'professional') {
-      if (Platform.OS === 'web') {
-        window.alert('No puedes reservar tu propia sesión');
-      } else {
-        Alert.alert('Información', 'No puedes reservar tu propia sesión');
-      }
+      Alert.alert('Información', 'No puedes reservar tu propia sesión');
       return;
     }
 
@@ -157,31 +157,34 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   // ============== HERA BRANDED HEADER ==============
   const renderHeader = () => (
     <View style={[styles.heraHeader, (isDesktop || isTablet) && styles.heraHeaderDesktop]}>
-      <TouchableOpacity
+      <AnimatedPressable
         style={styles.heraLogoContainer}
         onPress={handleGoToLanding}
-        activeOpacity={0.7}
+        hoverLift={false}
+        pressScale={0.985}
       >
         <StyledLogo size={32} />
         <Text style={styles.heraLogoText}>HERA</Text>
-      </TouchableOpacity>
+      </AnimatedPressable>
 
       {!isAuthenticated && (
         <View style={styles.heraHeaderActions}>
-          <TouchableOpacity
+          <Button
+            variant="ghost"
+            size="medium"
             style={styles.heraLoginButton}
             onPress={() => navigation.navigate('Login', { userType: 'CLIENT' })}
-            activeOpacity={0.7}
           >
-            <Text style={styles.heraLoginButtonText}>Iniciar sesión</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+            Iniciar sesión
+          </Button>
+          <Button
+            variant="primary"
+            size="medium"
             style={styles.heraRegisterButton}
             onPress={() => navigation.navigate('Register', { userType: 'CLIENT' })}
-            activeOpacity={0.7}
           >
-            <Text style={styles.heraRegisterButtonText}>Crear cuenta</Text>
-          </TouchableOpacity>
+            Crear cuenta
+          </Button>
         </View>
       )}
     </View>
@@ -197,13 +200,14 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     >
       <Pressable style={styles.modalOverlay} onPress={() => setShowAuthModal(false)}>
         <Pressable style={[styles.modalContent, isMobile && styles.modalContentMobile]} onPress={e => e.stopPropagation()}>
-          <TouchableOpacity
+          <AnimatedPressable
             style={styles.modalCloseButton}
             onPress={() => setShowAuthModal(false)}
-            activeOpacity={0.7}
+            hoverLift={false}
+            pressScale={0.96}
           >
-            <Ionicons name="close" size={24} color={heraLanding.textSecondary} />
-          </TouchableOpacity>
+            <Ionicons name="close" size={24} color={theme.textSecondary} />
+          </AnimatedPressable>
 
           <View style={styles.modalBody}>
             <View style={styles.modalLogoRow}>
@@ -216,27 +220,31 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
               para reservar tu sesión con {specialist?.name}
             </Text>
 
-            <TouchableOpacity
+            <Button
+              variant="primary"
+              size="large"
+              fullWidth
               style={styles.modalPrimaryButton}
               onPress={() => {
                 setShowAuthModal(false);
                 navigation.navigate('Register', { userType: 'CLIENT' });
               }}
-              activeOpacity={0.7}
             >
-              <Text style={styles.modalPrimaryButtonText}>Crear cuenta</Text>
-            </TouchableOpacity>
+              Crear cuenta
+            </Button>
 
-            <TouchableOpacity
+            <Button
+              variant="outline"
+              size="large"
+              fullWidth
               style={styles.modalSecondaryButton}
               onPress={() => {
                 setShowAuthModal(false);
                 navigation.navigate('Login', { userType: 'CLIENT' });
               }}
-              activeOpacity={0.7}
             >
-              <Text style={styles.modalSecondaryButtonText}>Ya tengo cuenta</Text>
-            </TouchableOpacity>
+              Ya tengo cuenta
+            </Button>
           </View>
         </Pressable>
       </Pressable>
@@ -259,14 +267,14 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
       <View style={styles.screenContainer}>
         {renderHeader()}
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={64} color={heraLanding.warning} />
+          <Ionicons name="alert-circle" size={64} color={theme.warning} />
           <Text style={styles.errorTitle}>Perfil no disponible</Text>
           <Text style={styles.errorText}>
             Este perfil no existe o no está disponible en este momento.
           </Text>
-          <TouchableOpacity onPress={handleGoToLanding} style={styles.errorButton}>
-            <Text style={styles.errorButtonText}>Volver a HERA</Text>
-          </TouchableOpacity>
+          <Button variant="primary" size="large" style={styles.errorButton} onPress={handleGoToLanding}>
+            Volver a HERA
+          </Button>
         </View>
       </View>
     );
@@ -341,7 +349,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     if (!isProfessional) return null;
     return (
       <View style={styles.professionalInfoBox}>
-        <Ionicons name="information-circle" size={20} color={heraLanding.info} />
+        <Ionicons name="information-circle" size={20} color={theme.info} />
         <Text style={styles.professionalInfoText}>
           Estás viendo este perfil como profesional. Los pacientes pueden reservar sesiones desde esta página.
         </Text>
@@ -443,16 +451,22 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
 };
 
 // ============== STYLES ==============
-const styles = StyleSheet.create({
+const createStyles = (
+  theme: Theme,
+  isDark: boolean,
+  isDesktop: boolean,
+  isTablet: boolean,
+  isMobile: boolean
+) => StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: heraLanding.background,
+    backgroundColor: theme.bg,
   },
   container: {
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: 40,
+    paddingBottom: isMobile ? 32 : 48,
   },
 
   // HERA Header
@@ -462,9 +476,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: theme.bgCard,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: theme.borderLight,
   },
   heraHeaderDesktop: {
     paddingHorizontal: spacing.xxl,
@@ -477,9 +491,9 @@ const styles = StyleSheet.create({
   },
   heraLogoText: {
     fontSize: 22,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-    letterSpacing: 1,
+    fontWeight: '800',
+    color: theme.textPrimary,
+    letterSpacing: 0.8,
   },
   heraHeaderActions: {
     flexDirection: 'row',
@@ -487,29 +501,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   heraLoginButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  heraLoginButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: heraLanding.textSecondary,
+    minWidth: isMobile ? 0 : 132,
   },
   heraRegisterButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: heraLanding.primary,
-    borderRadius: borderRadius.md,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  heraRegisterButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: heraLanding.textOnPrimary,
+    minWidth: isMobile ? 0 : 148,
   },
 
   // Error State
@@ -521,41 +516,31 @@ const styles = StyleSheet.create({
   },
   errorTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
+    fontWeight: '700',
+    color: theme.textPrimary,
     marginTop: spacing.md,
   },
   errorText: {
     fontSize: 15,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     marginTop: spacing.sm,
     textAlign: 'center',
     maxWidth: 300,
   },
   errorButton: {
     marginTop: spacing.lg,
-    paddingHorizontal: spacing.xxl,
-    paddingVertical: spacing.sm + 4,
-    backgroundColor: heraLanding.primary,
-    borderRadius: borderRadius.md,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  errorButtonText: {
-    fontSize: 16,
-    color: heraLanding.textOnPrimary,
-    fontWeight: '600',
+    minWidth: 220,
   },
 
   // Two Column Layout
   twoColumnContainer: {
     flexDirection: 'row',
-    maxWidth: 1200,
+    maxWidth: 1240,
     alignSelf: 'center',
     width: '100%',
     paddingHorizontal: spacing.lg,
-    gap: spacing.xxl,
-    paddingTop: spacing.lg,
+    gap: isTablet ? spacing.lg : spacing.xxl,
+    paddingTop: spacing.xl,
   },
   leftColumn: {
     flex: 0.62,
@@ -577,7 +562,7 @@ const styles = StyleSheet.create({
   },
   mobileContainer: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.lg,
   },
   section: {
     marginTop: spacing.xl,
@@ -592,35 +577,43 @@ const styles = StyleSheet.create({
   // Professional info banner (full-width strip below header)
   professionalInfoBox: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.sm,
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: isDark ? theme.bgElevated : theme.bgCard,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: theme.borderLight,
   },
   professionalInfoText: {
     flex: 1,
     fontSize: 14,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     lineHeight: 20,
   },
 
   // Auth Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: isDark ? 'rgba(6, 10, 8, 0.76)' : 'rgba(23, 30, 25, 0.42)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: spacing.lg,
   },
   modalContent: {
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
     padding: spacing.xxl,
     width: '90%',
     maxWidth: 420,
     position: 'relative',
+    borderWidth: 1,
+    borderColor: theme.borderLight,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: isDark ? 0.3 : 0.1,
+    shadowRadius: 32,
+    elevation: 10,
   },
   modalContentMobile: {
     width: '92%',
@@ -645,47 +638,21 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
+    fontWeight: '800',
+    color: theme.textPrimary,
     textAlign: 'center',
   },
   modalSubtitle: {
     fontSize: 15,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     textAlign: 'center',
     marginTop: spacing.xs,
     marginBottom: spacing.xl,
   },
   modalPrimaryButton: {
-    width: '100%',
-    paddingVertical: spacing.md,
-    backgroundColor: heraLanding.primary,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
     marginBottom: spacing.sm,
-    minHeight: 44,
-    justifyContent: 'center',
   },
-  modalPrimaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: heraLanding.textOnPrimary,
-  },
-  modalSecondaryButton: {
-    width: '100%',
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: heraLanding.border,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  modalSecondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-  },
+  modalSecondaryButton: {},
 });
 
 export default PublicSpecialistProfileScreen;

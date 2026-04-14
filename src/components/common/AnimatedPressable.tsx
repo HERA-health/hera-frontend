@@ -3,7 +3,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { Platform, Pressable, ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -14,7 +14,7 @@ interface AnimatedPressableProps {
   onPress?: () => void;
   onLongPress?: () => void;
   children: React.ReactNode;
-  style?: ViewStyle | ViewStyle[];
+  style?: StyleProp<ViewStyle>;
   hoverLift?: boolean;
   pressScale?: number;
   hoverTranslateY?: number;

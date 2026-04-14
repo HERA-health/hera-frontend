@@ -41,7 +41,6 @@ import { OnDutyPsychologistScreen } from '../screens/onduty/OnDutyPsychologistSc
 import { ProfessionalHomeScreen } from '../screens/professional/ProfessionalHomeScreen';
 import { ProfessionalClientsScreen } from '../screens/professional/ProfessionalClientsScreen';
 import { ProfessionalSessionsScreen } from '../screens/professional/ProfessionalSessionsScreen';
-import { ProfessionalProfileEditorScreen } from '../screens/professional/ProfessionalProfileEditorScreen';
 import { SpecialistProfileScreen } from '../screens/professional/SpecialistProfileScreen';
 import { ProfessionalAvailabilityScreen } from '../screens/professional/ProfessionalAvailabilityScreen';
 import { BillingScreen } from '../screens/professional/BillingScreen';
@@ -201,9 +200,9 @@ export function RootNavigator() {
             headerShown: false,
           }}
         >
-          {({ navigation }) => (
+          {({ route, navigation }) => (
             <MainLayout>
-              <ProfessionalAvailabilityScreen navigation={navigation} />
+              <ProfessionalAvailabilityScreen route={route} navigation={navigation} />
             </MainLayout>
           )}
         </Stack.Screen>

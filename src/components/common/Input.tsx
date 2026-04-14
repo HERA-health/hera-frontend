@@ -1,21 +1,4 @@
-/**
- * Input — HERA Design System v5.0
- *
- * Animated focus state: border transitions from neutral → sage green,
- * with a soft glow shadow that fades in on focus.
- * Full dark mode support via useTheme().
- *
- * Usage:
- *   <Input
- *     label="Email"
- *     placeholder="tu@email.com"
- *     value={email}
- *     onChangeText={setEmail}
- *     error="Email inválido"
- *   />
- */
-
-import React, { useRef, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -23,6 +6,7 @@ import {
   StyleSheet,
   ViewStyle,
   TextInputProps,
+  TextStyle,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -59,33 +43,24 @@ export const Input: React.FC<InputProps> = ({
   ...textInputProps
 }) => {
   const { theme } = useTheme();
-  const hasError = !!error;
-
-  // Shared value: 0 = blurred, 1 = focused
+  const hasError = Boolean(error);
   const focusAnim = useSharedValue(0);
 
   const handleFocus = useCallback((e: TextInputFocusEvent) => {
     focusAnim.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.ease) });
     onFocus?.(e);
-  }, [onFocus]);
+  }, [focusAnim, onFocus]);
 
   const handleBlur = useCallback((e: TextInputBlurEvent) => {
     focusAnim.value = withTiming(0, { duration: 180, easing: Easing.out(Easing.ease) });
     onBlur?.(e);
-  }, [onBlur]);
+  }, [focusAnim, onBlur]);
 
-  // Animated border color: neutral → primary (or error color stays static)
   const animatedContainerStyle = useAnimatedStyle(() => {
     const borderColor = hasError
       ? theme.error
-      : interpolateColor(
-          focusAnim.value,
-          [0, 1],
-          [theme.border, theme.primary],
-        );
+      : interpolateColor(focusAnim.value, [0, 1], [theme.border, theme.primary]);
 
-    // Soft shadow glow appears on focus
-    const shadowOpacity = withTiming(0); // base; overridden below
     const glowOpacity = hasError ? 0 : focusAnim.value * 0.18;
 
     return {
@@ -100,11 +75,16 @@ export const Input: React.FC<InputProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && (
-        <Text style={[styles.label, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]}>
+      {label ? (
+        <Text
+          style={[
+            styles.label,
+            { color: theme.textSecondary, fontFamily: theme.fontSansMedium },
+          ]}
+        >
           {label}
         </Text>
-      )}
+      ) : null}
 
       <Animated.View
         style={[
@@ -116,7 +96,7 @@ export const Input: React.FC<InputProps> = ({
           animatedContainerStyle,
         ]}
       >
-        {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
+        {leftIcon ? <View style={styles.leftIcon}>{leftIcon}</View> : null}
 
         <TextInput
           style={[
@@ -133,19 +113,22 @@ export const Input: React.FC<InputProps> = ({
           {...textInputProps}
         />
 
-        {rightIcon && <View style={styles.rightIcon}>{rightIcon}</View>}
+        {rightIcon ? <View style={styles.rightIcon}>{rightIcon}</View> : null}
       </Animated.View>
 
-      {error && (
+      {error ? (
         <Text style={[styles.errorText, { color: theme.error, fontFamily: theme.fontSans }]}>
           {error}
         </Text>
-      )}
-      {helperText && !error && (
-        <Text style={[styles.helperText, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
+      ) : null}
+
+      {helperText && !error ? (
+        <Text
+          style={[styles.helperText, { color: theme.textMuted, fontFamily: theme.fontSans }]}
+        >
           {helperText}
         </Text>
-      )}
+      ) : null}
     </View>
   );
 };
@@ -171,8 +154,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: typography.fontSizes.md,
     paddingVertical: spacing.sm,
-    // outlineStyle: 'none' for web — remove default browser outline
-    ...({ outlineStyle: 'none' } as unknown as ViewStyle),
+    backgroundColor: 'transparent',
+    ...({
+      outlineStyle: 'none',
+      appearance: 'none',
+      WebkitAppearance: 'none',
+      WebkitBoxShadow: '0 0 0 1000px transparent inset',
+      WebkitTextFillColor: 'inherit',
+    } as unknown as TextStyle),
   },
   leftIcon: {
     marginRight: spacing.sm,

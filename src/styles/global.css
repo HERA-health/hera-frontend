@@ -17,10 +17,11 @@
 
 /* ─── Dark mode scrollbar override (system preference) ──────────────────── */
 @media (prefers-color-scheme: dark) {
-  ::-webkit-scrollbar-track { background: #1A221B; }
-  ::-webkit-scrollbar-thumb { background: #3A4F3A; border-color: #1A221B; }
-  ::-webkit-scrollbar-thumb:hover { background: #9AAF91; }
-  * { scrollbar-color: #3A4F3A #1A221B; }
+  ::-webkit-scrollbar-track { background: #131519; }
+  ::-webkit-scrollbar-thumb { background: #343848; border-color: #131519; }
+  ::-webkit-scrollbar-thumb:hover { background: #B7A6D8; }
+  ::-webkit-scrollbar-corner { background: #131519; }
+  * { scrollbar-color: #343848 #131519; }
 }
 
 /* ─── Smooth scrolling ───────────────────────────────────────────────────── */
@@ -38,6 +39,12 @@ html { scroll-behavior: smooth; }
 [data-testid="scrollview"]::-webkit-scrollbar-track { background: #F5F7F5; border-radius: 4px; }
 [data-testid="scrollview"]::-webkit-scrollbar-thumb { background: #C5CFC5; border-radius: 4px; }
 [data-testid="scrollview"]::-webkit-scrollbar-thumb:hover { background: #8B9D83; }
+
+@media (prefers-color-scheme: dark) {
+  [data-testid="scrollview"]::-webkit-scrollbar-track { background: #131519; }
+  [data-testid="scrollview"]::-webkit-scrollbar-thumb { background: #343848; border-radius: 4px; }
+  [data-testid="scrollview"]::-webkit-scrollbar-thumb:hover { background: #B7A6D8; }
+}
 
 /* ─── Backdrop filter support ────────────────────────────────────────────── */
 @supports (backdrop-filter: blur(1px)) {

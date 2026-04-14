@@ -10,6 +10,8 @@ export type { FilterOption } from './FilterChips';
 export { SearchBar } from './SearchBar';
 export { ViewToggle } from './ViewToggle';
 export type { ViewMode } from './ViewToggle';
+export { TopicFilterDropdown } from './TopicFilterDropdown';
+export { LocationFilterDropdown } from './LocationFilterDropdown';
 export {
   SpecialistCardGridSkeleton,
   SpecialistListItemSkeleton,

@@ -4,14 +4,17 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BarChart, PieChart } from 'react-native-gifted-charts';
-import { heraLanding, colors, spacing, borderRadius, typography, shadows } from '../../constants/colors';
+import type { barDataItem } from 'react-native-gifted-charts';
+import { colors, spacing, borderRadius, typography, shadows } from '../../constants/colors';
+import { Theme } from '../../constants/theme';
+import { AnimatedPressable } from '../../components/common';
 import { LoadingState } from '../../components/common/LoadingState';
 import { EmptyState } from '../../components/common/EmptyState';
+import { useTheme } from '../../contexts/ThemeContext';
 import { dashboardService, DashboardData, ReviewsMetrics } from '../../services/dashboardService';
 
 // ============================================================================
@@ -53,9 +56,6 @@ const MONTH_NAMES_ES = [
 
 const MONTH_LABELS = ['Ene','Feb','Mar','Abr','May','Jun',
                       'Jul','Ago','Sep','Oct','Nov','Dic'];
-
-// Muted bar color for non-current months — no exact token in palette
-const MUTED_BAR_COLOR = heraLanding.primaryMuted;
 
 // Layout constants
 const KPI_COLUMN_WIDTH = 280;
@@ -112,18 +112,20 @@ const getCurrentMonthLabel = (): string => {
 // CHART COLORS
 // ============================================================================
 
-const CHART_COLORS = {
-  completed: heraLanding.success,
-  cancelled: heraLanding.warning,
-  pending: heraLanding.secondary,
-};
+const getChartColors = (theme: Theme) => ({
+  completed: theme.primary,
+  cancelled: theme.primaryLight,
+  pending: theme.secondary,
+  mutedBar: theme.primaryMuted,
+  dayBars: theme.secondaryLight,
+});
 
-const KPI_ACCENTS = {
-  income: heraLanding.primary,
-  sessions: heraLanding.secondary,
-  patients: heraLanding.info,
-  upcoming: heraLanding.warning,
-};
+const getKpiAccents = (theme: Theme) => ({
+  income: theme.primary,
+  sessions: theme.secondary,
+  patients: theme.primaryLight,
+  upcoming: theme.secondaryLight,
+});
 
 // ============================================================================
 // SUB-COMPONENTS
@@ -135,9 +137,10 @@ interface KpiCardProps {
   sublabel: string;
   accentColor: string;
   valueColor?: string;
+  styles: ReturnType<typeof createStyles>;
 }
 
-const KpiCard: React.FC<KpiCardProps> = ({ value, label, sublabel, accentColor, valueColor }) => (
+const KpiCard: React.FC<KpiCardProps> = ({ value, label, sublabel, accentColor, valueColor, styles }) => (
   <>
     <View style={[styles.kpiAccent, { backgroundColor: accentColor }]} />
     <Text style={[styles.kpiValue, valueColor ? { color: valueColor } : undefined]} numberOfLines={1}>
@@ -153,9 +156,10 @@ interface LegendRowProps {
   label: string;
   count: number;
   isLast: boolean;
+  styles: ReturnType<typeof createStyles>;
 }
 
-const LegendRow: React.FC<LegendRowProps> = ({ color, label, count, isLast }) => (
+const LegendRow: React.FC<LegendRowProps> = ({ color, label, count, isLast, styles }) => (
   <>
     <View style={styles.legendRow}>
       <View style={[styles.legendDot, { backgroundColor: color }]} />
@@ -170,15 +174,17 @@ interface HBarRowProps {
   label: string;
   count: number;
   maxValue: number;
+  styles: ReturnType<typeof createStyles>;
+  fillColor: string;
 }
 
-const HBarRow: React.FC<HBarRowProps> = ({ label, count, maxValue }) => {
+const HBarRow: React.FC<HBarRowProps> = ({ label, count, maxValue, styles, fillColor }) => {
   const fillPercent = maxValue > 0 ? (count / maxValue) * 100 : 0;
   return (
     <View style={styles.legendRow}>
       <Text style={styles.hbarLabel}>{label}</Text>
       <View style={styles.hbarTrack}>
-        <View style={[styles.hbarFill, { width: `${fillPercent}%` as unknown as number }]} />
+        <View style={[styles.hbarFill, { width: `${fillPercent}%` as unknown as number, backgroundColor: fillColor }]} />
       </View>
       <Text style={styles.hbarCount}>{count}</Text>
     </View>
@@ -186,22 +192,25 @@ const HBarRow: React.FC<HBarRowProps> = ({ label, count, maxValue }) => {
 };
 
 // Star colors — derived from design token colors, one per star tier
-const STAR_BAR_COLORS = [
+const getStarBarColors = (theme: Theme) => [
   '',
-  colors.feedback.error,       // 1★
-  colors.secondary.orange,     // 2★
-  colors.feedback.warning,     // 3★
-  heraLanding.success,         // 4★
-  colors.feedback.success,     // 5★
+  theme.warning,
+  theme.secondaryDark,
+  theme.secondary,
+  theme.primaryLight,
+  theme.primary,
 ];
 
 interface ReviewsCardProps {
   metrics: ReviewsMetrics;
+  styles: ReturnType<typeof createStyles>;
+  theme: Theme;
 }
 
-const ReviewsCard: React.FC<ReviewsCardProps> = ({ metrics }) => {
+const ReviewsCard: React.FC<ReviewsCardProps> = ({ metrics, styles, theme }) => {
   const { averageRating, totalReviews, ratingBreakdown } = metrics;
   const maxCount = Math.max(...ratingBreakdown.map((r) => r.count), 1);
+  const starBarColors = getStarBarColors(theme);
 
   return (
     <View style={[styles.card, styles.flex1, styles.bottomCardHeight]}>
@@ -229,7 +238,7 @@ const ReviewsCard: React.FC<ReviewsCardProps> = ({ metrics }) => {
                   key={s}
                   style={[
                     styles.reviewsStar,
-                    { color: s <= Math.round(averageRating) ? heraLanding.starRating : heraLanding.border },
+                    { color: s <= Math.round(averageRating) ? theme.starRating : theme.border },
                   ]}
                 >
                   ★
@@ -243,7 +252,7 @@ const ReviewsCard: React.FC<ReviewsCardProps> = ({ metrics }) => {
           <View style={styles.reviewsRight}>
             {ratingBreakdown.map(({ stars, count }) => {
               const fillPct = (count / maxCount) * 100;
-              const barColor = STAR_BAR_COLORS[stars];
+              const barColor = starBarColors[stars];
               return (
                 <View key={stars} style={styles.reviewsBarRow}>
                   <Text style={styles.reviewsBarLabel}>{stars}★</Text>
@@ -275,6 +284,10 @@ const ReviewsCard: React.FC<ReviewsCardProps> = ({ metrics }) => {
 
 export function DashboardScreen() {
   const { width } = useWindowDimensions();
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const chartColors = useMemo(() => getChartColors(theme), [theme]);
+  const kpiAccents = useMemo(() => getKpiAccents(theme), [theme]);
   const isDesktop = width >= 768;
 
   const [loading, setLoading] = useState(true);
@@ -343,12 +356,12 @@ export function DashboardScreen() {
     };
   });
 
-  const monthlyIncomeBarData = yearData.map((item) => {
+  const monthlyIncomeBarData: barDataItem[] = yearData.map((item) => {
     const isCurrent = item.monthStr === currentMonthStr;
     return {
       value: item.value,
       label: item.label,
-      frontColor: isCurrent ? heraLanding.primaryDark : MUTED_BAR_COLOR,
+      frontColor: isCurrent ? theme.primaryDark : chartColors.mutedBar,
       topLabelComponent: item.value > 0
         ? () => (
             <Text style={styles.barTopLabel}>
@@ -367,9 +380,9 @@ export function DashboardScreen() {
   const allSessionsZero = totalSessions === 0;
 
   const donutData = [
-    { value: completed || 0.001, color: CHART_COLORS.completed, text: String(completed) },
-    { value: cancelled || 0.001, color: CHART_COLORS.cancelled, text: String(cancelled) },
-    { value: pending || 0.001, color: CHART_COLORS.pending, text: String(pending) },
+    { value: completed || 0.001, color: chartColors.completed, text: String(completed) },
+    { value: cancelled || 0.001, color: chartColors.cancelled, text: String(cancelled) },
+    { value: pending || 0.001, color: chartColors.pending, text: String(pending) },
   ];
 
   // Sessions by day — horizontal bar chart (custom), ensure Saturday is included
@@ -394,16 +407,16 @@ export function DashboardScreen() {
         {!isDesktop && (
           <View style={styles.mobileKpiGrid}>
             <View style={[styles.kpiCard, styles.mobileKpiCard]}>
-              <KpiCard value={formatCurrency(kpis.incomeThisMonth)} label={STRINGS.incomeLabel} sublabel={getCurrentMonthLabel()} accentColor={KPI_ACCENTS.income} valueColor={heraLanding.primary} />
+              <KpiCard value={formatCurrency(kpis.incomeThisMonth)} label={STRINGS.incomeLabel} sublabel={getCurrentMonthLabel()} accentColor={kpiAccents.income} valueColor={theme.primary} styles={styles} />
             </View>
             <View style={[styles.kpiCard, styles.mobileKpiCard]}>
-              <KpiCard value={String(kpis.sessionsThisMonth.total)} label={STRINGS.sessionsLabel} sublabel={`${kpis.sessionsThisMonth.completed} comp. · ${kpis.sessionsThisMonth.cancelled} canc.`} accentColor={KPI_ACCENTS.sessions} />
+              <KpiCard value={String(kpis.sessionsThisMonth.total)} label={STRINGS.sessionsLabel} sublabel={`${kpis.sessionsThisMonth.completed} comp. · ${kpis.sessionsThisMonth.cancelled} canc.`} accentColor={kpiAccents.sessions} styles={styles} />
             </View>
             <View style={[styles.kpiCard, styles.mobileKpiCard]}>
-              <KpiCard value={String(kpis.activePatients)} label={STRINGS.patientsLabel} sublabel={STRINGS.patientsSubLabel} accentColor={KPI_ACCENTS.patients} />
+              <KpiCard value={String(kpis.activePatients)} label={STRINGS.patientsLabel} sublabel={STRINGS.patientsSubLabel} accentColor={kpiAccents.patients} styles={styles} />
             </View>
             <View style={[styles.kpiCard, styles.mobileKpiCard]}>
-              <KpiCard value={String(kpis.upcomingThisWeek)} label={STRINGS.upcomingLabel} sublabel={STRINGS.upcomingSubLabel} accentColor={KPI_ACCENTS.upcoming} />
+              <KpiCard value={String(kpis.upcomingThisWeek)} label={STRINGS.upcomingLabel} sublabel={STRINGS.upcomingSubLabel} accentColor={kpiAccents.upcoming} styles={styles} />
             </View>
           </View>
         )}
@@ -417,23 +430,27 @@ export function DashboardScreen() {
             </View>
             {/* Year pagination */}
             <View style={styles.yearNavRow}>
-              <TouchableOpacity
+              <AnimatedPressable
                 onPress={() => setChartYear((y) => y - 1)}
                 disabled={chartYear <= earliestAvailableYear}
-                style={[styles.yearNavButton, chartYear <= earliestAvailableYear && styles.yearNavDisabled]}
+                style={chartYear <= earliestAvailableYear ? [styles.yearNavButton, styles.yearNavDisabled] : styles.yearNavButton}
+                hoverLift={false}
+                pressScale={0.98}
               >
                 <Text style={styles.yearNavArrow}>{'‹'}</Text>
-              </TouchableOpacity>
+              </AnimatedPressable>
               <Text style={styles.yearNavLabel}>
                 {chartYear}
               </Text>
-              <TouchableOpacity
+              <AnimatedPressable
                 onPress={() => setChartYear((y) => y + 1)}
                 disabled={chartYear >= new Date().getFullYear()}
-                style={[styles.yearNavButton, chartYear >= new Date().getFullYear() && styles.yearNavDisabled]}
+                style={chartYear >= new Date().getFullYear() ? [styles.yearNavButton, styles.yearNavDisabled] : styles.yearNavButton}
+                hoverLift={false}
+                pressScale={0.98}
               >
                 <Text style={styles.yearNavArrow}>{'›'}</Text>
-              </TouchableOpacity>
+              </AnimatedPressable>
             </View>
             {allIncomeZero ? (
               <Text style={styles.emptyText}>{STRINGS.incomeEmpty}</Text>
@@ -449,15 +466,13 @@ export function DashboardScreen() {
                     barWidth={Math.floor((chartWidth - 40) / 12) - 6}
                     spacing={6}
                     height={160}
-                    extraHeight={28}
                     barBorderTopLeftRadius={borderRadius.sm}
                     barBorderTopRightRadius={borderRadius.sm}
-                    xAxisLabelTextStyle={{ fontSize: 9, color: heraLanding.textMuted }}
+                    xAxisLabelTextStyle={{ fontSize: 9, color: theme.textMuted }}
                     hideYAxisText
-                    hideAxes={false}
                     hideRules={false}
-                    rulesColor={heraLanding.borderLight}
-                    xAxisColor={heraLanding.border}
+                    rulesColor={theme.borderLight}
+                    xAxisColor={theme.border}
                     yAxisColor={'transparent'}
                     noOfSections={4}
                     isAnimated
@@ -473,18 +488,18 @@ export function DashboardScreen() {
             <View style={styles.desktopKpiColumn}>
               <View style={styles.desktopKpiRow}>
                 <View style={[styles.kpiCard, styles.flex1]}>
-                  <KpiCard value={formatCurrency(kpis.incomeThisMonth)} label={STRINGS.incomeLabel} sublabel={getCurrentMonthLabel()} accentColor={KPI_ACCENTS.income} valueColor={heraLanding.primary} />
+                  <KpiCard value={formatCurrency(kpis.incomeThisMonth)} label={STRINGS.incomeLabel} sublabel={getCurrentMonthLabel()} accentColor={kpiAccents.income} valueColor={theme.primary} styles={styles} />
                 </View>
                 <View style={[styles.kpiCard, styles.flex1]}>
-                  <KpiCard value={String(kpis.sessionsThisMonth.total)} label={STRINGS.sessionsLabel} sublabel={`${kpis.sessionsThisMonth.completed} comp. · ${kpis.sessionsThisMonth.cancelled} canc.`} accentColor={KPI_ACCENTS.sessions} />
+                  <KpiCard value={String(kpis.sessionsThisMonth.total)} label={STRINGS.sessionsLabel} sublabel={`${kpis.sessionsThisMonth.completed} comp. · ${kpis.sessionsThisMonth.cancelled} canc.`} accentColor={kpiAccents.sessions} styles={styles} />
                 </View>
               </View>
               <View style={styles.desktopKpiRow}>
                 <View style={[styles.kpiCard, styles.flex1]}>
-                  <KpiCard value={String(kpis.activePatients)} label={STRINGS.patientsLabel} sublabel={STRINGS.patientsSubLabel} accentColor={KPI_ACCENTS.patients} />
+                  <KpiCard value={String(kpis.activePatients)} label={STRINGS.patientsLabel} sublabel={STRINGS.patientsSubLabel} accentColor={kpiAccents.patients} styles={styles} />
                 </View>
                 <View style={[styles.kpiCard, styles.flex1]}>
-                  <KpiCard value={String(kpis.upcomingThisWeek)} label={STRINGS.upcomingLabel} sublabel={STRINGS.upcomingSubLabel} accentColor={KPI_ACCENTS.upcoming} />
+                  <KpiCard value={String(kpis.upcomingThisWeek)} label={STRINGS.upcomingLabel} sublabel={STRINGS.upcomingSubLabel} accentColor={kpiAccents.upcoming} styles={styles} />
                 </View>
               </View>
             </View>
@@ -494,9 +509,7 @@ export function DashboardScreen() {
         {/* ── BOTTOM ROW ───────────────────────────────────────── */}
         <View style={[styles.bottomRow, { flexDirection: isDesktop ? 'row' : 'column' }]}>
           {/* LEFT: Reviews metrics */}
-          {isDesktop && (
-            <ReviewsCard metrics={charts.reviewsMetrics} />
-          )}
+          <ReviewsCard metrics={charts.reviewsMetrics} styles={styles} theme={theme} />
 
           {/* MIDDLE: Donut chart */}
           <View style={[styles.card, styles.flex1, styles.bottomCardHeight]}>
@@ -511,8 +524,13 @@ export function DashboardScreen() {
                 <PieChart
                   data={donutData}
                   donut
-                  radius={50}
-                  innerRadius={35}
+                  radius={54}
+                  innerRadius={38}
+                  innerCircleColor={theme.bgCard}
+                  innerCircleBorderWidth={6}
+                  innerCircleBorderColor={theme.bgCard}
+                  strokeColor={theme.bgCard}
+                  strokeWidth={2}
                   centerLabelComponent={() => (
                     <View style={styles.donutCenter}>
                       <Text style={styles.donutCenterValue}>{totalSessions}</Text>
@@ -522,9 +540,9 @@ export function DashboardScreen() {
                   isAnimated
                 />
                 <View style={styles.legendContainer}>
-                  <LegendRow color={CHART_COLORS.completed} label={STRINGS.legendCompleted} count={completed} isLast={false} />
-                  <LegendRow color={CHART_COLORS.cancelled} label={STRINGS.legendCancelled} count={cancelled} isLast={false} />
-                  <LegendRow color={CHART_COLORS.pending} label={STRINGS.legendPending} count={pending} isLast />
+                  <LegendRow color={chartColors.completed} label={STRINGS.legendCompleted} count={completed} isLast={false} styles={styles} />
+                  <LegendRow color={chartColors.cancelled} label={STRINGS.legendCancelled} count={cancelled} isLast={false} styles={styles} />
+                  <LegendRow color={chartColors.pending} label={STRINGS.legendPending} count={pending} isLast styles={styles} />
                 </View>
               </View>
             )}
@@ -538,7 +556,7 @@ export function DashboardScreen() {
             </View>
             <View style={styles.hbarContainer}>
               {sessionsByDayWithSat.map((item) => (
-                <HBarRow key={item.day} label={item.label} count={item.count} maxValue={maxDayCount} />
+                <HBarRow key={item.day} label={item.label} count={item.count} maxValue={maxDayCount} styles={styles} fillColor={chartColors.dayBars} />
               ))}
             </View>
           </View>
@@ -558,26 +576,27 @@ const CONTENT_PH = 24;
 const CONTENT_PV = 20;
 const CONTENT_GAP = 14;
 
-const styles = StyleSheet.create({
+function createStyles(theme: Theme, isDark: boolean) {
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: heraLanding.background,
+    backgroundColor: theme.bg,
   },
   header: {
-    backgroundColor: colors.neutral.white,
+    backgroundColor: theme.bgCard,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: theme.border,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: typography.fontSizes.xxxl,
-    fontWeight: typography.fontWeights.bold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansBold,
     textAlign: 'center',
   },
   screen: {
@@ -637,10 +656,10 @@ const styles = StyleSheet.create({
 
   // ── Card ─────────────────────────────────────────────────────
   card: {
-    backgroundColor: colors.neutral.white,
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.lg,
     borderWidth: CARD_BORDER_WIDTH,
-    borderColor: heraLanding.border,
+    borderColor: theme.border,
     padding: spacing.md,
     ...shadows.sm,
   },
@@ -652,20 +671,21 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: FONT_CARD_TITLE,
-    fontWeight: typography.fontWeights.medium,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansMedium,
   },
   cardSub: {
     fontSize: FONT_CARD_SUB,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
   },
 
   // ── KPI card ─────────────────────────────────────────────────
   kpiCard: {
-    backgroundColor: colors.neutral.white,
+    backgroundColor: isDark ? theme.surfaceMuted : theme.bgCard,
     borderRadius: borderRadius.lg,
     borderWidth: CARD_BORDER_WIDTH,
-    borderColor: heraLanding.border,
+    borderColor: theme.border,
     padding: 16,
     ...shadows.sm,
   },
@@ -677,17 +697,19 @@ const styles = StyleSheet.create({
   },
   kpiValue: {
     fontSize: 26,
-    fontWeight: '500',
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansBold,
   },
   kpiLabel: {
     fontSize: 13,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSans,
     marginTop: 8,
   },
   kpiSub: {
     fontSize: 11,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
     marginTop: 4,
   },
 
@@ -707,12 +729,12 @@ const styles = StyleSheet.create({
   },
   yearNavArrow: {
     fontSize: 16,
-    color: heraLanding.primary,
+    color: theme.primary,
   },
   yearNavLabel: {
     fontSize: FONT_CARD_TITLE,
-    fontWeight: typography.fontWeights.medium,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansMedium,
   },
 
   // ── Bar chart ────────────────────────────────────────────────
@@ -722,12 +744,13 @@ const styles = StyleSheet.create({
   },
   axisText: {
     fontSize: FONT_AXIS,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
   },
   barTopLabel: {
     fontSize: 9,
-    fontWeight: '500',
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansMedium,
     marginBottom: spacing.xs,
   },
 
@@ -739,15 +762,20 @@ const styles = StyleSheet.create({
   donutCenter: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: theme.bgCard,
   },
   donutCenterValue: {
     fontSize: DONUT_CENTER_VALUE_SIZE,
-    fontWeight: typography.fontWeights.medium,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansMedium,
   },
   donutCenterLabel: {
     fontSize: FONT_DONUT_CENTER_LABEL,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSans,
   },
 
   // ── Legend ───────────────────────────────────────────────────
@@ -767,18 +795,19 @@ const styles = StyleSheet.create({
   },
   legendLabel: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSans,
     flex: 1,
     marginLeft: spacing.sm,
   },
   legendCount: {
     fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
   },
   legendDivider: {
     height: CARD_BORDER_WIDTH,
-    backgroundColor: heraLanding.borderLight,
+    backgroundColor: theme.borderLight,
   },
 
   // ── Horizontal bar chart ─────────────────────────────────────
@@ -788,25 +817,25 @@ const styles = StyleSheet.create({
   hbarLabel: {
     width: HBAR_LABEL_WIDTH,
     fontSize: FONT_HBAR_LABEL,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSans,
   },
   hbarTrack: {
     flex: 1,
     height: HBAR_HEIGHT,
-    backgroundColor: heraLanding.borderLight,
+    backgroundColor: theme.borderLight,
     borderRadius: HBAR_RADIUS,
     overflow: 'hidden',
   },
   hbarFill: {
     height: '100%' as unknown as number,
-    backgroundColor: heraLanding.secondary,
     borderRadius: HBAR_RADIUS,
   },
   hbarCount: {
     width: HBAR_COUNT_WIDTH,
     fontSize: FONT_HBAR_COUNT,
-    fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
     textAlign: 'right',
   },
 
@@ -819,15 +848,17 @@ const styles = StyleSheet.create({
   },
   placeholderIcon: {
     fontSize: PLACEHOLDER_ICON_SIZE,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
   },
   placeholderText: {
     fontSize: FONT_PLACEHOLDER_TITLE,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
   },
   placeholderSubText: {
     fontSize: FONT_PLACEHOLDER_DESC,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
   },
 
   // ── Reviews card ─────────────────────────────────────────────
@@ -844,7 +875,7 @@ const styles = StyleSheet.create({
   reviewsBigRating: {
     fontSize: 36,
     fontWeight: '800' as const,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     letterSpacing: -1,
     lineHeight: 40,
   },
@@ -859,7 +890,8 @@ const styles = StyleSheet.create({
   },
   reviewsTotal: {
     fontSize: 11,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
     textAlign: 'center',
   },
   reviewsRight: {
@@ -873,14 +905,15 @@ const styles = StyleSheet.create({
   },
   reviewsBarLabel: {
     fontSize: 11,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSans,
     width: 22,
     textAlign: 'right',
   },
   reviewsBarTrack: {
     flex: 1,
     height: 8,
-    backgroundColor: heraLanding.borderLight,
+    backgroundColor: theme.borderLight,
     borderRadius: 4,
     overflow: 'hidden',
   },
@@ -890,7 +923,8 @@ const styles = StyleSheet.create({
   },
   reviewsBarCount: {
     fontSize: 11,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
     width: 18,
     textAlign: 'right',
   },
@@ -902,16 +936,17 @@ const styles = StyleSheet.create({
   },
   reviewsEmptyIcon: {
     fontSize: 24,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
   },
   reviewsEmptyTitle: {
     fontSize: 13,
     fontWeight: '600' as const,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
   },
   reviewsEmptyDesc: {
     fontSize: 11,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
     textAlign: 'center',
     maxWidth: 160,
     lineHeight: 16,
@@ -920,10 +955,12 @@ const styles = StyleSheet.create({
   // ── Empty state ──────────────────────────────────────────────
   emptyText: {
     textAlign: 'center',
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     fontSize: typography.fontSizes.xs,
+    fontFamily: theme.fontSans,
     paddingVertical: EMPTY_PV,
   },
-});
+  });
+}
 
 export default DashboardScreen;

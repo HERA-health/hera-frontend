@@ -1,15 +1,12 @@
 /**
  * PhotoGallerySection - Modern carousel photo gallery
- * Main image with animated fade transition, thumbnail strip, dot indicators,
- * and fullscreen lightbox on tap.
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   Image,
-  TouchableOpacity,
   ScrollView,
   Modal,
   StyleSheet,
@@ -22,7 +19,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { PhotoGallerySectionProps } from '../types';
-import { heraLanding, spacing, borderRadius, shadows } from '../../../constants/colors';
+import { spacing, borderRadius, shadows } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import type { Theme } from '../../../constants/theme';
+import { AnimatedPressable } from '../../../components/common';
 
 const STRINGS = {
   title: 'Galería',
@@ -39,20 +39,17 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
   photoGallery,
   specialistName,
 }) => {
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-
-  // Carousel fade
   const opacity = useSharedValue(1);
-  // Lightbox fade
   const lightboxOpacity = useSharedValue(1);
 
-  if (!photoGallery || photoGallery.length === 0) return null;
+  if (!photoGallery?.length) return null;
 
   const count = photoGallery.length;
-
-  // ── Carousel helpers ──────────────────────────────────────────────────────
 
   const changeImage = (newIndex: number) => {
     if (newIndex === currentIndex) return;
@@ -70,12 +67,6 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
     if (currentIndex < count - 1) changeImage(currentIndex + 1);
   };
 
-  const animatedImageStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
-
-  // ── Lightbox helpers ──────────────────────────────────────────────────────
-
   const openLightbox = () => {
     setLightboxIndex(currentIndex);
     lightboxOpacity.value = 1;
@@ -83,7 +74,6 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
   };
 
   const closeLightbox = () => {
-    // Sync carousel to wherever the user navigated in the lightbox
     setCurrentIndex(lightboxIndex);
     setLightboxVisible(false);
   };
@@ -106,104 +96,78 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
     }
   };
 
-  const animatedLightboxStyle = useAnimatedStyle(() => ({
-    opacity: lightboxOpacity.value,
-  }));
-
-  // ── Shared display values ─────────────────────────────────────────────────
+  const animatedImageStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const animatedLightboxStyle = useAnimatedStyle(() => ({ opacity: lightboxOpacity.value }));
 
   const carouselCounter = `${String(currentIndex + 1).padStart(2, '0')} / ${String(count).padStart(2, '0')}`;
   const lightboxCounter = `${String(lightboxIndex + 1).padStart(2, '0')} / ${String(count).padStart(2, '0')}`;
 
   const dotCount = Math.min(count, MAX_DOTS);
-  const activeDot =
-    count <= MAX_DOTS
-      ? currentIndex
-      : Math.round((currentIndex / (count - 1)) * (MAX_DOTS - 1));
-
-  // ── Render ────────────────────────────────────────────────────────────────
+  const activeDot = count <= MAX_DOTS ? currentIndex : Math.round((currentIndex / (count - 1)) * (MAX_DOTS - 1));
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.headerRow}>
-        <Ionicons name="images-outline" size={20} color={heraLanding.textPrimary} />
+        <Ionicons name="images-outline" size={20} color={theme.textPrimary} />
         <Text style={styles.title}>{STRINGS.title}</Text>
       </View>
 
-      {/* Main Image Area */}
-      <TouchableOpacity
-        activeOpacity={0.95}
-        onPress={openLightbox}
-        style={styles.mainImageWrapper}
-      >
+      <AnimatedPressable onPress={openLightbox} style={styles.mainImageWrapper} hoverLift={false} pressScale={0.995}>
         <Animated.Image
           source={{ uri: photoGallery[currentIndex] }}
           style={[styles.mainImage, animatedImageStyle]}
           resizeMode="contain"
-          accessibilityLabel={specialistName ? `${specialistName} — ${carouselCounter}` : carouselCounter}
+          accessibilityLabel={specialistName ? `${specialistName} - ${carouselCounter}` : carouselCounter}
         />
 
-        {/* Counter badge */}
         <View style={styles.counterBadge}>
           <Text style={styles.counterText}>{carouselCounter}</Text>
         </View>
 
-        {/* Prev button — hidden on first image */}
         {count > 1 && currentIndex > 0 && (
-          <TouchableOpacity
+          <AnimatedPressable
             style={[styles.navButton, styles.navButtonLeft]}
-            onPress={(e) => { e.stopPropagation?.(); goToPrev(); }}
-            activeOpacity={0.7}
+            onPress={goToPrev}
+            hoverLift={false}
+            pressScale={0.96}
             accessibilityLabel={STRINGS.prevImage}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons name="chevron-back" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
+          </AnimatedPressable>
         )}
 
-        {/* Next button — hidden on last image */}
         {count > 1 && currentIndex < count - 1 && (
-          <TouchableOpacity
+          <AnimatedPressable
             style={[styles.navButton, styles.navButtonRight]}
-            onPress={(e) => { e.stopPropagation?.(); goToNext(); }}
-            activeOpacity={0.7}
+            onPress={goToNext}
+            hoverLift={false}
+            pressScale={0.96}
             accessibilityLabel={STRINGS.nextImage}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
+          </AnimatedPressable>
         )}
-      </TouchableOpacity>
+      </AnimatedPressable>
 
-      {/* Thumbnail Strip */}
       {count > 1 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.thumbnailRow}
-        >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbnailRow}>
           {photoGallery.map((url, index) => {
             const isActive = index === currentIndex;
             return (
-              <TouchableOpacity
-                key={index}
+              <AnimatedPressable
+                key={`${url}-${index}`}
                 onPress={() => changeImage(index)}
-                activeOpacity={0.8}
-                style={[styles.thumbnailWrapper, isActive && styles.thumbnailWrapperActive]}
+                hoverLift={false}
+                pressScale={0.97}
+                style={isActive ? [styles.thumbnailWrapper, styles.thumbnailWrapperActive] : styles.thumbnailWrapper}
               >
-                <Image
-                  source={{ uri: url }}
-                  style={[styles.thumbnail, { opacity: isActive ? 1 : 0.6 }]}
-                  resizeMode="cover"
-                />
-              </TouchableOpacity>
+                <Image source={{ uri: url }} style={[styles.thumbnail, { opacity: isActive ? 1 : 0.68 }]} resizeMode="cover" />
+              </AnimatedPressable>
             );
           })}
         </ScrollView>
       )}
 
-      {/* Dot Indicators */}
       {count > 1 && (
         <View style={styles.dotsRow}>
           {Array.from({ length: dotCount }).map((_, i) => (
@@ -212,63 +176,51 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
         </View>
       )}
 
-      {/* ── Fullscreen Lightbox ── */}
-      <Modal
-        visible={lightboxVisible}
-        transparent={false}
-        animationType="fade"
-        onRequestClose={closeLightbox}
-        statusBarTranslucent
-      >
+      <Modal visible={lightboxVisible} transparent={false} animationType="fade" onRequestClose={closeLightbox} statusBarTranslucent>
         <View style={styles.lightboxContainer}>
-          {/* Image */}
           <Animated.Image
             source={{ uri: photoGallery[lightboxIndex] }}
             style={[styles.lightboxImage, animatedLightboxStyle]}
             resizeMode="contain"
-            accessibilityLabel={specialistName ? `${specialistName} — ${lightboxCounter}` : lightboxCounter}
+            accessibilityLabel={specialistName ? `${specialistName} - ${lightboxCounter}` : lightboxCounter}
           />
 
-          {/* Close button */}
-          <TouchableOpacity
+          <AnimatedPressable
             style={styles.lightboxClose}
             onPress={closeLightbox}
-            activeOpacity={0.7}
+            hoverLift={false}
+            pressScale={0.96}
             accessibilityLabel={STRINGS.closeGallery}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons name="close" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          {/* Counter */}
           <View style={styles.lightboxCounter}>
             <Text style={styles.counterText}>{lightboxCounter}</Text>
           </View>
 
-          {/* Prev arrow */}
           {count > 1 && lightboxIndex > 0 && (
-            <TouchableOpacity
+            <AnimatedPressable
               style={[styles.navButton, styles.navButtonLeft]}
               onPress={lightboxPrev}
-              activeOpacity={0.7}
+              hoverLift={false}
+              pressScale={0.96}
               accessibilityLabel={STRINGS.prevImage}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Ionicons name="chevron-back" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
+            </AnimatedPressable>
           )}
 
-          {/* Next arrow */}
           {count > 1 && lightboxIndex < count - 1 && (
-            <TouchableOpacity
+            <AnimatedPressable
               style={[styles.navButton, styles.navButtonRight]}
               onPress={lightboxNext}
-              activeOpacity={0.7}
+              hoverLift={false}
+              pressScale={0.96}
               accessibilityLabel={STRINGS.nextImage}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
+            </AnimatedPressable>
           )}
         </View>
       </Modal>
@@ -276,11 +228,13 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   container: {
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: theme.borderLight,
     ...shadows.sm,
   },
   headerRow: {
@@ -293,24 +247,20 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 18,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
+    fontWeight: '700',
+    color: theme.textPrimary,
   },
-
-  // Main image
   mainImageWrapper: {
     aspectRatio: 16 / 9,
     maxHeight: 280,
     width: '100%',
-    backgroundColor: heraLanding.cardBg,
+    backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
     position: 'relative',
   },
   mainImage: {
     width: '100%',
     height: '100%',
   },
-
-  // Counter badge (shared by carousel and lightbox)
   counterBadge: {
     position: 'absolute',
     bottom: spacing.sm,
@@ -322,12 +272,10 @@ const styles = StyleSheet.create({
   },
   counterText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
-
-  // Nav buttons (shared by carousel and lightbox)
   navButton: {
     position: 'absolute',
     top: '50%',
@@ -335,18 +283,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: heraLanding.whiteAlpha30,
+    backgroundColor: 'rgba(20, 20, 20, 0.36)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  navButtonLeft: {
-    left: spacing.sm,
-  },
-  navButtonRight: {
-    right: spacing.sm,
-  },
-
-  // Thumbnail strip
+  navButtonLeft: { left: spacing.sm },
+  navButtonRight: { right: spacing.sm },
   thumbnailRow: {
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
@@ -354,20 +296,19 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   thumbnailWrapper: {
-    borderRadius: 10,
+    borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
+    backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
   },
   thumbnailWrapperActive: {
-    borderColor: heraLanding.primary,
+    borderColor: theme.primary,
   },
   thumbnail: {
     width: THUMBNAIL_SIZE,
     height: THUMBNAIL_SIZE,
   },
-
-  // Dot indicators
   dotsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -380,45 +321,43 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: heraLanding.textMuted,
+    backgroundColor: theme.textMuted,
+    opacity: 0.45,
   },
   dotActive: {
-    width: 18,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: heraLanding.primary,
+    width: 22,
+    backgroundColor: theme.primary,
+    opacity: 1,
   },
-
-  // Lightbox
   lightboxContainer: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: isDark ? '#0B0F0B' : '#101410',
     justifyContent: 'center',
     alignItems: 'center',
   },
   lightboxImage: {
-    flex: 1,
     width: '100%',
+    height: '100%',
   },
   lightboxClose: {
     position: 'absolute',
-    top: spacing.xxl,
-    right: spacing.lg,
+    top: spacing.xl,
+    right: spacing.xl,
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: heraLanding.whiteAlpha30,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   lightboxCounter: {
     position: 'absolute',
-    bottom: spacing.xxl,
-    left: spacing.lg,
+    bottom: spacing.xl,
+    alignSelf: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
     borderRadius: 20,
-    paddingVertical: 3,
-    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.md,
   },
 });
 

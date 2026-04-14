@@ -1,5 +1,6 @@
 import { api } from './api';
 import { getErrorMessage } from '../constants/errors';
+import type { Specialist } from '../constants/types';
 
 export interface ProfessionalProfile {
   id: string;
@@ -9,7 +10,7 @@ export interface ProfessionalProfile {
   experience: number;
   rating: number;
   sessionsCount: number;
-  matchingProfile: any;
+  matchingProfile: Specialist['matchingProfile'];
   user: {
     id: string;
     email: string;
@@ -23,14 +24,20 @@ export interface Session {
   clientId: string;
   specialistId: string;
   date: string;
+  duration: number;
   status: string;
+  type: string;
+  meetingLink?: string | null;
   notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
   client?: {
     id: string;
     userId: string;
     user: {
       name: string;
       email: string;
+      avatar?: string | null;
     };
   };
 }
@@ -38,12 +45,20 @@ export interface Session {
 export interface Client {
   id: string;
   userId: string;
-  preferences: any;
+  completedQuestionnaire?: boolean;
+  questionnaireAnswers?: unknown;
+  createdAt?: string;
+  updatedAt?: string;
   user: {
     id: string;
     email: string;
     name: string;
     userType: string;
+    phone?: string;
+    avatar?: string | null;
+    birthDate?: string;
+    gender?: string;
+    occupation?: string;
   };
   sessions?: Session[];
 }
@@ -61,6 +76,11 @@ export const getProfessionalSessions = async (): Promise<Session[]> => {
 export const getProfessionalClients = async (): Promise<Client[]> => {
   const response = await api.get('/clients');
   return response.data.success ? response.data.data : [];
+};
+
+export const getProfessionalClientDetail = async (clientId: string): Promise<Client | null> => {
+  const response = await api.get(`/clients/${clientId}`);
+  return response.data.success ? response.data.data : null;
 };
 
 /**

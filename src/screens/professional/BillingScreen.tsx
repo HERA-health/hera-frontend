@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,10 +15,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { heraLanding, colors, spacing, borderRadius, typography, shadows, touchTarget } from '../../constants/colors';
+import { colors, spacing, borderRadius, typography, shadows, touchTarget } from '../../constants/colors';
+import { Theme } from '../../constants/theme';
 import { AppNavigationProp } from '../../constants/types';
+import { AnimatedPressable, Button } from '../../components/common';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import {
   billingService,
   BillingSummary,
@@ -125,12 +128,12 @@ const SLOT_OPTIONS = [
   { value: 120, label: '120 min' },
 ];
 
-const STATUS_COLORS: Record<InvoiceStatus, { bg: string; text: string; label: string }> = {
-  SENT: { bg: heraLanding.successLight, text: heraLanding.success, label: 'Enviada' },
-  PAID: { bg: colors.background.success, text: colors.feedback.success, label: 'Pagada' },
-  DRAFT: { bg: heraLanding.warningLight, text: heraLanding.warningAmber, label: 'Borrador' },
-  CANCELLED: { bg: heraLanding.mutedLight, text: heraLanding.textMuted, label: 'Cancelada' },
-};
+const getStatusColors = (theme: Theme): Record<InvoiceStatus, { bg: string; text: string; label: string }> => ({
+  SENT: { bg: theme.successLight, text: theme.success, label: 'Enviada' },
+  PAID: { bg: theme.status.confirmed.bg, text: theme.status.confirmed.text, label: 'Pagada' },
+  DRAFT: { bg: theme.warningBg, text: theme.warningAmber, label: 'Borrador' },
+  CANCELLED: { bg: theme.status.cancelled.bg, text: theme.status.cancelled.text, label: 'Cancelada' },
+});
 
 const INVOICES_PER_PAGE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -166,9 +169,10 @@ interface StatCardProps {
   value: string;
   label: string;
   sublabel: string;
+  styles: ReturnType<typeof createStyles>;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ value, label, sublabel }) => (
+const StatCard: React.FC<StatCardProps> = ({ value, label, sublabel, styles }) => (
   <View style={styles.statCard}>
     <Text style={styles.statValue} numberOfLines={1}>{value}</Text>
     <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
@@ -178,10 +182,12 @@ const StatCard: React.FC<StatCardProps> = ({ value, label, sublabel }) => (
 
 interface StatusBadgeProps {
   status: InvoiceStatus;
+  styles: ReturnType<typeof createStyles>;
+  theme: Theme;
 }
 
-const InvoiceStatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
-  const config = STATUS_COLORS[status];
+const InvoiceStatusBadge: React.FC<StatusBadgeProps> = ({ status, styles, theme }) => {
+  const config = getStatusColors(theme)[status];
   return (
     <View style={[styles.badge, { backgroundColor: config.bg }]}>
       <Text style={[styles.badgeText, { color: config.text }]}>{config.label}</Text>
@@ -197,6 +203,8 @@ const InvoiceStatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
 export function BillingScreen() {
   const { user } = useAuth();
   const { width } = useWindowDimensions();
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const isDesktop = width >= 768;
 
   // Data state
@@ -647,12 +655,24 @@ export function BillingScreen() {
     }
   };
 
+  const handleToggleEmailCopy = async (enabled: boolean) => {
+    const email = enabled ? (user?.email || null) : null;
+    const prev = billingConfig.sendInvoiceCopyTo;
+    setBillingConfig((c) => ({ ...c, sendInvoiceCopyTo: email }));
+    try {
+      await billingService.updateBillingConfig({ sendInvoiceCopyTo: email });
+    } catch (error) {
+      setBillingConfig((c) => ({ ...c, sendInvoiceCopyTo: prev }));
+      Alert.alert('Error', error instanceof Error ? error.message : 'Error al guardar');
+    }
+  };
+
 
   // ── Loading state ────────────────────────────────────────────
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={heraLanding.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
@@ -667,10 +687,10 @@ export function BillingScreen() {
 
     return (
       <View style={styles.statsRow}>
-        <StatCard value={formatCurrency(summary?.totalThisMonth ?? 0)} label={STRINGS.thisMonth} sublabel={monthFull} />
-        <StatCard value={formatCurrency(summary?.totalThisYear ?? 0)} label={STRINGS.thisYear} sublabel={monthRange} />
-        <StatCard value={String(summary?.invoiceCountThisMonth ?? 0)} label={STRINGS.invoicesMonth} sublabel="Este mes" />
-        <StatCard value={String(summary?.pendingCount ?? 0)} label={STRINGS.pendingSend} sublabel="Requieren revisión" />
+        <StatCard value={formatCurrency(summary?.totalThisMonth ?? 0)} label={STRINGS.thisMonth} sublabel={monthFull} styles={styles} />
+        <StatCard value={formatCurrency(summary?.totalThisYear ?? 0)} label={STRINGS.thisYear} sublabel={monthRange} styles={styles} />
+        <StatCard value={String(summary?.invoiceCountThisMonth ?? 0)} label={STRINGS.invoicesMonth} sublabel="Este mes" styles={styles} />
+        <StatCard value={String(summary?.pendingCount ?? 0)} label={STRINGS.pendingSend} sublabel="Requieren revisión" styles={styles} />
       </View>
     );
   };
@@ -686,15 +706,17 @@ export function BillingScreen() {
     return (
       <View style={styles.filterRow}>
         {filters.map((f) => (
-          <TouchableOpacity
+          <AnimatedPressable
             key={f.key}
-            style={[styles.filterChip, activeFilter === f.key && styles.filterChipActive]}
+            style={activeFilter === f.key ? [styles.filterChip, styles.filterChipActive] : styles.filterChip}
             onPress={() => handleFilterChange(f.key)}
+            hoverLift={false}
+            pressScale={0.98}
           >
-            <Text style={[styles.filterChipText, activeFilter === f.key && styles.filterChipTextActive]}>
+            <Text style={activeFilter === f.key ? [styles.filterChipText, styles.filterChipTextActive] : styles.filterChipText}>
               {f.label}
             </Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         ))}
       </View>
     );
@@ -758,14 +780,14 @@ export function BillingScreen() {
           <Pressable onPress={() => handleInvoiceRowPress(invoice)}>
             <Text style={styles.invoiceAmount}>{formatCurrency(invoice.total)}</Text>
           </Pressable>
-          <InvoiceStatusBadge status={invoice.status} />
+          <InvoiceStatusBadge status={invoice.status} styles={styles} theme={theme} />
           <View style={styles.invoiceActions}>
             <TouchableOpacity
               style={styles.iconBtn}
               onPress={() => handleDownload(invoice.id, invoice.invoiceNumber)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="download-outline" size={18} color={heraLanding.textSecondary} />
+              <Ionicons name="download-outline" size={18} color={theme.textSecondary} />
             </TouchableOpacity>
             {invoice.status === 'DRAFT' && (
               <TouchableOpacity
@@ -775,9 +797,9 @@ export function BillingScreen() {
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 {sendingId === invoice.id ? (
-                  <ActivityIndicator size="small" color={heraLanding.primary} />
+                  <ActivityIndicator size="small" color={theme.primary} />
                 ) : (
-                  <Ionicons name="send-outline" size={18} color={heraLanding.primary} />
+                  <Ionicons name="send-outline" size={18} color={theme.primary} />
                 )}
               </TouchableOpacity>
             )}
@@ -797,7 +819,7 @@ export function BillingScreen() {
                   }}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Ionicons name="ellipsis-vertical" size={18} color={heraLanding.textSecondary} />
+                  <Ionicons name="ellipsis-vertical" size={18} color={theme.textSecondary} />
                 </TouchableOpacity>
               </View>
             )}
@@ -824,7 +846,7 @@ export function BillingScreen() {
             <Ionicons
               name="chevron-back"
               size={18}
-              color={isFirstPage ? heraLanding.textMuted : heraLanding.textPrimary}
+              color={isFirstPage ? theme.textMuted : theme.textPrimary}
             />
           </TouchableOpacity>
           <Text style={styles.paginationLabel}>
@@ -840,7 +862,7 @@ export function BillingScreen() {
             <Ionicons
               name="chevron-forward"
               size={18}
-              color={isLastPage ? heraLanding.textMuted : heraLanding.textPrimary}
+              color={isLastPage ? theme.textMuted : theme.textPrimary}
             />
           </TouchableOpacity>
         </View>
@@ -858,19 +880,19 @@ export function BillingScreen() {
       <TextInput
         style={styles.searchInput}
         placeholder={STRINGS.searchClient}
-        placeholderTextColor={heraLanding.textMuted}
+        placeholderTextColor={theme.textMuted}
         value={searchQuery}
         onChangeText={handleSearchChange}
       />
       <View ref={invoiceListRef} style={invoicesLoading ? styles.invoiceListLoading : undefined}>
         {invoicesLoading && (
           <View style={styles.invoiceListOverlay}>
-            <ActivityIndicator size="small" color={heraLanding.primary} />
+            <ActivityIndicator size="small" color={theme.primary} />
           </View>
         )}
         {invoices.length === 0 && !invoicesLoading ? (
           <View style={styles.emptyState}>
-            <Ionicons name="document-text-outline" size={48} color={heraLanding.textMuted} />
+            <Ionicons name="document-text-outline" size={48} color={theme.textMuted} />
             <Text style={styles.emptyTitle}>{STRINGS.emptyTitle}</Text>
             <Text style={styles.emptyDesc}>{STRINGS.emptyDesc}</Text>
           </View>
@@ -934,7 +956,7 @@ export function BillingScreen() {
                   value={tariff.name}
                   onChangeText={(v) => handleUpdateTempTariff(tariff.id, 'name', v)}
                   placeholder="Nombre de la tarifa"
-                  placeholderTextColor={heraLanding.textMuted}
+                  placeholderTextColor={theme.textMuted}
                 />
                 <View style={styles.tariffPriceRow}>
                   <TextInput
@@ -943,7 +965,7 @@ export function BillingScreen() {
                     onChangeText={(v) => handleUpdateTempTariff(tariff.id, 'price', parseFloat(v) || 0)}
                     keyboardType="numeric"
                     placeholder="€"
-                    placeholderTextColor={heraLanding.textMuted}
+                    placeholderTextColor={theme.textMuted}
                   />
                   <Text style={styles.fieldHint}>€</Text>
                 </View>
@@ -966,7 +988,7 @@ export function BillingScreen() {
                   </TouchableOpacity>
                   {tempTariffItems.length > 1 && (
                     <TouchableOpacity onPress={() => handleDeleteTempTariff(tariff.id)}>
-                      <Ionicons name="trash-outline" size={18} color={heraLanding.warning} />
+                      <Ionicons name="trash-outline" size={18} color={theme.warning} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -974,7 +996,7 @@ export function BillingScreen() {
             </View>
           ))}
           <TouchableOpacity style={styles.addTariffBtn} onPress={handleAddTariff}>
-            <Ionicons name="add" size={16} color={heraLanding.primary} />
+            <Ionicons name="add" size={16} color={theme.primary} />
             <Text style={styles.addTariffBtnText}>Añadir tarifa</Text>
           </TouchableOpacity>
           <View style={styles.switchRow}>
@@ -982,8 +1004,8 @@ export function BillingScreen() {
             <Switch
               value={tempFirstVisitFree}
               onValueChange={setTempFirstVisitFree}
-              trackColor={{ false: colors.neutral.gray300, true: heraLanding.primaryMuted }}
-              thumbColor={tempFirstVisitFree ? heraLanding.primary : colors.neutral.gray400}
+              trackColor={{ false: colors.neutral.gray300, true: theme.primaryMuted }}
+              thumbColor={tempFirstVisitFree ? theme.primary : colors.neutral.gray400}
             />
           </View>
           <TouchableOpacity style={styles.saveBtn} onPress={handleSaveTariffs} disabled={savingConfig}>
@@ -1050,7 +1072,7 @@ export function BillingScreen() {
           <Text style={styles.fieldLabel}>{STRINGS.bankAccount}</Text>
           <TextInput style={styles.input} value={tempFiscal.bankIban || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, bankIban: v }))} />
           <Text style={styles.fieldLabel}>{STRINGS.paymentConditions}</Text>
-          <TextInput style={styles.input} value={tempFiscal.paymentConditions || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, paymentConditions: v }))} placeholder="Transferencia bancaria" placeholderTextColor={heraLanding.textMuted} />
+          <TextInput style={styles.input} value={tempFiscal.paymentConditions || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, paymentConditions: v }))} placeholder="Transferencia bancaria" placeholderTextColor={theme.textMuted} />
           <TouchableOpacity style={styles.saveBtn} onPress={handleSaveFiscal} disabled={savingConfig}>
             {savingConfig ? <ActivityIndicator size="small" color={colors.neutral.white} /> : (
               <Text style={styles.saveBtnText}>{STRINGS.save}</Text>
@@ -1128,8 +1150,8 @@ export function BillingScreen() {
         <Switch
           value={billingConfig.autoGenerateInvoice || false}
           onValueChange={(v) => handleToggleAutomation('autoGenerateInvoice', v)}
-          trackColor={{ false: colors.neutral.gray300, true: heraLanding.primaryMuted }}
-          thumbColor={billingConfig.autoGenerateInvoice ? heraLanding.primary : colors.neutral.gray400}
+          trackColor={{ false: colors.neutral.gray300, true: theme.primaryMuted }}
+          thumbColor={billingConfig.autoGenerateInvoice ? theme.primary : colors.neutral.gray400}
         />
       </View>
       <View style={styles.automationItem}>
@@ -1140,8 +1162,8 @@ export function BillingScreen() {
         <Switch
           value={billingConfig.autoSendToClient || false}
           onValueChange={(v) => handleToggleAutomation('autoSendToClient', v)}
-          trackColor={{ false: colors.neutral.gray300, true: heraLanding.primaryMuted }}
-          thumbColor={billingConfig.autoSendToClient ? heraLanding.primary : colors.neutral.gray400}
+          trackColor={{ false: colors.neutral.gray300, true: theme.primaryMuted }}
+          thumbColor={billingConfig.autoSendToClient ? theme.primary : colors.neutral.gray400}
         />
       </View>
       <View style={styles.automationItem}>
@@ -1151,12 +1173,9 @@ export function BillingScreen() {
         </View>
         <Switch
           value={!!billingConfig.sendInvoiceCopyTo}
-          onValueChange={(v) => {
-            const email = v ? (user?.email || '') : null;
-            handleToggleAutomation('sendInvoiceCopyTo', email as unknown as boolean);
-          }}
-          trackColor={{ false: colors.neutral.gray300, true: heraLanding.primaryMuted }}
-          thumbColor={billingConfig.sendInvoiceCopyTo ? heraLanding.primary : colors.neutral.gray400}
+          onValueChange={handleToggleEmailCopy}
+          trackColor={{ false: colors.neutral.gray300, true: theme.primaryMuted }}
+          thumbColor={billingConfig.sendInvoiceCopyTo ? theme.primary : colors.neutral.gray400}
         />
       </View>
     </View>
@@ -1174,13 +1193,17 @@ export function BillingScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{STRINGS.title}</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={styles.headerBtn}
-            onPress={() => navigation.navigate('CreateInvoice', {})}
-          >
-            <Ionicons name="add" size={18} color={colors.neutral.white} />
-            <Text style={styles.headerBtnText}>{STRINGS.newInvoice}</Text>
-          </TouchableOpacity>
+          <View style={styles.headerBtnWrap}>
+            <Button
+              variant="primary"
+              size="large"
+              onPress={() => navigation.navigate('CreateInvoice', {})}
+              icon={<Ionicons name="add" size={18} color={theme.textOnPrimary} />}
+              fullWidth
+            >
+              Nueva factura
+            </Button>
+          </View>
         </View>
       </View>
 
@@ -1253,34 +1276,35 @@ export function BillingScreen() {
 // - Always use spacing constants, never hardcoded values
 // - All interactive UI must connect to backend — no decorative-only controls
 
-const styles = StyleSheet.create({
+function createStyles(theme: Theme, isDark: boolean) {
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: heraLanding.background,
+    backgroundColor: theme.bg,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: heraLanding.background,
+    backgroundColor: theme.bg,
   },
 
   // Header
   header: {
-    backgroundColor: colors.neutral.white,
+    backgroundColor: theme.bgCard,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.border,
+    borderBottomColor: theme.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: typography.fontSizes.xxxl,
-    fontWeight: typography.fontWeights.bold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansBold,
     flex: 1,
     textAlign: 'center',
   },
@@ -1288,20 +1312,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
   },
+  headerBtnWrap: {
+    minWidth: 204,
+  },
   headerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: heraLanding.primary,
+    backgroundColor: theme.primary,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.lg,
     gap: spacing.xs,
     minHeight: touchTarget.minHeight,
+    ...shadows.sm,
   },
   headerBtnText: {
-    color: colors.neutral.white,
+    color: theme.textOnPrimary,
     fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
+    fontFamily: theme.fontSansSemiBold,
   },
 
   // Scroll
@@ -1328,23 +1356,28 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web'
       ? { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, overflow: 'hidden' as const }
       : { width: '48%' as unknown as number }),
-    backgroundColor: heraLanding.backgroundMuted,
+    backgroundColor: isDark ? theme.surfaceMuted : theme.bgCard,
     borderRadius: borderRadius.xl,
-    padding: spacing.sm,
+    padding: spacing.md,
     gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...shadows.sm,
   },
   statValue: {
     fontSize: typography.fontSizes.xl,
-    fontWeight: typography.fontWeights.medium,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansBold,
   },
   statLabel: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSans,
   },
   statSublabel: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
   },
 
   // Desktop layout
@@ -1366,10 +1399,12 @@ const styles = StyleSheet.create({
 
   // Card
   card: {
-    backgroundColor: colors.neutral.white,
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
     marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: theme.border,
     ...shadows.sm,
   },
   cardHeader: {
@@ -1380,38 +1415,39 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.bold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansBold,
     marginBottom: spacing.sm,
   },
   editBtn: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.primary,
-    fontWeight: typography.fontWeights.semibold,
+    color: theme.primary,
+    fontFamily: theme.fontSansSemiBold,
   },
 
   // Config display
   configValue: {
     fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
     marginBottom: spacing.xs,
   },
   configDetail: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSans,
     marginBottom: spacing.xs,
   },
   configHint: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
     fontStyle: 'italic',
     marginTop: spacing.sm,
   },
 
   // Free badge
   freeBadge: {
-    backgroundColor: heraLanding.secondaryMuted,
+    backgroundColor: theme.secondaryAlpha12,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.md,
@@ -1420,8 +1456,8 @@ const styles = StyleSheet.create({
   },
   freeBadgeText: {
     fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.secondary,
+    color: theme.secondary,
+    fontFamily: theme.fontSansSemiBold,
   },
 
   // Filters
@@ -1435,29 +1471,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
-    backgroundColor: heraLanding.backgroundMuted,
+    backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.border,
   },
   filterChipActive: {
-    backgroundColor: heraLanding.primary,
+    backgroundColor: theme.primary,
+    borderColor: theme.primary,
   },
   filterChipText: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
-    fontWeight: typography.fontWeights.medium,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSansMedium,
   },
   filterChipTextActive: {
-    color: colors.neutral.white,
+    color: theme.textOnPrimary,
   },
 
   // Search
   searchInput: {
-    backgroundColor: heraLanding.backgroundMuted,
+    backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
     borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.border,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     marginBottom: spacing.md,
   },
 
@@ -1468,7 +1509,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.borderLight,
+    borderBottomColor: theme.borderLight,
     minHeight: touchTarget.minHeight,
   },
   invoiceInfo: {
@@ -1477,16 +1518,18 @@ const styles = StyleSheet.create({
   },
   invoiceNumber: {
     fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
   },
   invoiceClient: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSans,
   },
   invoiceDate: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
   },
   invoiceRight: {
     flexDirection: 'row',
@@ -1495,8 +1538,8 @@ const styles = StyleSheet.create({
   },
   invoiceAmount: {
     fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.bold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansBold,
   },
   invoiceActions: {
     flexDirection: 'row',
@@ -1522,9 +1565,9 @@ const styles = StyleSheet.create({
   },
   menuDropdown: {
     position: 'absolute',
-    backgroundColor: colors.neutral.white,
+    backgroundColor: theme.bgElevated,
     borderWidth: 1,
-    borderColor: heraLanding.border,
+    borderColor: theme.border,
     borderRadius: borderRadius.lg,
     zIndex: 2001,
     minWidth: 160,
@@ -1538,7 +1581,8 @@ const styles = StyleSheet.create({
   },
   menuOptionText: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSans,
   },
   menuOptionTextDanger: {
     color: colors.feedback.error,
@@ -1552,7 +1596,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.semibold,
+    fontFamily: theme.fontSansSemiBold,
   },
 
   // Empty state
@@ -1563,13 +1607,14 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
     textAlign: 'center',
   },
   emptyDesc: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSans,
     textAlign: 'center',
     maxWidth: 300,
   },
@@ -1586,19 +1631,19 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
     marginBottom: spacing.xs,
   },
   input: {
-    backgroundColor: heraLanding.backgroundMuted,
+    backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
     borderWidth: 1,
-    borderColor: heraLanding.border,
+    borderColor: theme.border,
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
   },
   chipRow: {
     flexDirection: 'row',
@@ -1609,21 +1654,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
-    backgroundColor: heraLanding.backgroundMuted,
+    backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
     borderWidth: 1,
-    borderColor: heraLanding.border,
+    borderColor: theme.border,
   },
   selectChipActive: {
-    backgroundColor: heraLanding.primary,
-    borderColor: heraLanding.primary,
+    backgroundColor: theme.primary,
+    borderColor: theme.primary,
   },
   selectChipText: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSans,
   },
   selectChipTextActive: {
-    color: colors.neutral.white,
-    fontWeight: typography.fontWeights.semibold,
+    color: theme.textOnPrimary,
+    fontFamily: theme.fontSansSemiBold,
   },
   switchRow: {
     flexDirection: 'row',
@@ -1632,7 +1678,7 @@ const styles = StyleSheet.create({
     minHeight: touchTarget.minHeight,
   },
   saveBtn: {
-    backgroundColor: heraLanding.primary,
+    backgroundColor: theme.primary,
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.sm,
     alignItems: 'center',
@@ -1641,9 +1687,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   saveBtnText: {
-    color: colors.neutral.white,
+    color: theme.textOnPrimary,
     fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.bold,
+    fontFamily: theme.fontSansBold,
   },
 
   // Automation
@@ -1653,7 +1699,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.borderLight,
+    borderBottomColor: theme.borderLight,
     minHeight: touchTarget.minHeight,
   },
   automationText: {
@@ -1662,18 +1708,19 @@ const styles = StyleSheet.create({
   },
   automationLabel: {
     fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
   },
   automationDesc: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
     marginTop: spacing.xs,
   },
 
   // Tariff editor
   tariffEditRow: {
-    backgroundColor: heraLanding.backgroundMuted,
+    backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -1700,22 +1747,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
-    backgroundColor: heraLanding.backgroundMuted,
+    backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
     borderWidth: 1,
-    borderColor: heraLanding.border,
+    borderColor: theme.border,
   },
   tariffToggleActive: {
-    backgroundColor: heraLanding.primaryMuted,
-    borderColor: heraLanding.primary,
+    backgroundColor: theme.primaryMuted,
+    borderColor: theme.primary,
   },
   tariffToggleText: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textSecondary,
-    fontWeight: typography.fontWeights.medium,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSansMedium,
   },
   tariffToggleTextActive: {
-    color: heraLanding.primary,
-    fontWeight: typography.fontWeights.semibold,
+    color: theme.primary,
+    fontFamily: theme.fontSansSemiBold,
   },
   tariffDisplayRow: {
     flexDirection: 'row',
@@ -1723,8 +1770,8 @@ const styles = StyleSheet.create({
   },
   defaultBadgeInline: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.primary,
-    fontWeight: typography.fontWeights.semibold,
+    color: theme.primary,
+    fontFamily: theme.fontSansSemiBold,
   },
   addTariffBtn: {
     flexDirection: 'row',
@@ -1735,20 +1782,20 @@ const styles = StyleSheet.create({
   },
   addTariffBtnText: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.primary,
-    fontWeight: typography.fontWeights.semibold,
+    color: theme.primary,
+    fontFamily: theme.fontSansSemiBold,
   },
   selectChipSmall: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
-    backgroundColor: heraLanding.backgroundMuted,
+    backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
     borderWidth: 1,
-    borderColor: heraLanding.border,
+    borderColor: theme.border,
   },
   fieldHint: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
     fontStyle: 'italic',
   },
 
@@ -1768,24 +1815,25 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderColor: heraLanding.border,
+    borderColor: theme.border,
     minWidth: touchTarget.minWidth - 8,
     minHeight: touchTarget.minHeight - 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   paginationBtnDisabled: {
-    borderColor: heraLanding.borderLight,
+    borderColor: theme.borderLight,
     opacity: 0.5,
   },
   paginationLabel: {
     fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.medium,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansMedium,
   },
   paginationTotal: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
   },
 
   // Invoice list loading overlay
@@ -1803,4 +1851,5 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
 
-});
+  });
+}

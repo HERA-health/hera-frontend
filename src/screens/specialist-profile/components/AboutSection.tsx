@@ -1,34 +1,40 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { AboutSectionProps } from '../types';
-import { heraLanding, spacing, borderRadius, shadows } from '../../../constants/colors';
+import { spacing } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import type { Theme } from '../../../constants/theme';
 
 export const APPROACH_TRANSLATIONS: Record<string, string> = {
-  'cbt': 'Cognitivo-Conductual (TCC)',
-  'act': 'Aceptación y Compromiso (ACT)',
-  'emdr': 'EMDR',
-  'psychodynamic': 'Psicodinámico',
-  'humanistic': 'Humanista',
-  'systemic': 'Sistémico',
-  'mindfulness': 'Mindfulness',
-  'gestalt': 'Gestalt',
+  cbt: 'Cognitivo-Conductual (TCC)',
+  act: 'Aceptación y Compromiso (ACT)',
+  emdr: 'EMDR',
+  psychodynamic: 'Psicodinámico',
+  humanistic: 'Humanista',
+  systemic: 'Sistémico',
+  mindfulness: 'Mindfulness',
+  gestalt: 'Gestalt',
 };
 
 export const AboutSection: React.FC<AboutSectionProps> = ({
   bio,
   therapeuticApproach,
 }) => {
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+
   if (!bio && !therapeuticApproach) {
     return null;
   }
 
-  // Función para traducir las claves separadas por coma
-  const formatApproaches = (rawText: string) => {
-    return rawText.split(',').map(item => {
-      const cleanItem = item.trim().toLowerCase();
-      return APPROACH_TRANSLATIONS[cleanItem] || item.trim();
-    }).join(', ');
-  };
+  const formatApproaches = (rawText: string) =>
+    rawText
+      .split(',')
+      .map((item) => {
+        const cleanItem = item.trim().toLowerCase();
+        return APPROACH_TRANSLATIONS[cleanItem] || item.trim();
+      })
+      .join(', ');
 
   return (
     <View style={styles.container}>
@@ -47,55 +53,63 @@ export const AboutSection: React.FC<AboutSectionProps> = ({
       {therapeuticApproach ? (
         <View style={styles.approachContainer}>
           <Text style={styles.approachLabel}>Enfoque terapéutico</Text>
-          <Text style={styles.approachText}>
-            {formatApproaches(therapeuticApproach)}
-          </Text>
+          <Text style={styles.approachText}>{formatApproaches(therapeuticApproach)}</Text>
         </View>
       ) : null}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: heraLanding.cardBg,
-    borderRadius: borderRadius.lg,
-    padding: spacing.xl,
-    ...shadows.sm,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-    marginBottom: spacing.md,
-  },
-  bioContainer: {
-    gap: spacing.sm,
-  },
-  bioText: {
-    fontSize: 16,
-    lineHeight: 26,
-    color: heraLanding.textPrimary,
-  },
-  approachContainer: {
-    marginTop: spacing.lg,
-    paddingTop: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: heraLanding.borderLight,
-  },
-  approachLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: heraLanding.textSecondary,
-    marginBottom: spacing.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  approachText: {
-    fontSize: 15,
-    lineHeight: 24,
-    color: heraLanding.textPrimary,
-  },
-});
+function createStyles(theme: Theme, isDark: boolean) {
+  return StyleSheet.create({
+    container: {
+      padding: spacing.xl,
+      borderRadius: 24,
+      backgroundColor: theme.bgCard,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+      shadowColor: theme.shadowCard,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.8,
+      shadowRadius: 24,
+      elevation: 2,
+    },
+    title: {
+      fontSize: 24,
+      fontFamily: theme.fontDisplay,
+      color: theme.textPrimary,
+      marginBottom: spacing.md,
+    },
+    bioContainer: {
+      gap: spacing.sm,
+    },
+    bioText: {
+      fontSize: 16,
+      lineHeight: 27,
+      fontFamily: theme.fontSans,
+      color: theme.textPrimary,
+    },
+    approachContainer: {
+      marginTop: spacing.lg,
+      paddingTop: spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: theme.borderLight,
+    },
+    approachLabel: {
+      fontSize: 12,
+      fontFamily: theme.fontSansBold,
+      color: theme.textSecondary,
+      marginBottom: spacing.xs,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    approachText: {
+      fontSize: 15,
+      lineHeight: 24,
+      fontFamily: theme.fontSans,
+      color: theme.textPrimary,
+    },
+  });
+}
 
 export default AboutSection;

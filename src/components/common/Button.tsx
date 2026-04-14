@@ -111,7 +111,11 @@ export const Button: React.FC<ButtonProps> = ({
           colors={[theme.primary, theme.primaryDark]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[styles.gradientFill, sizeStyle]}
+          style={[
+            styles.gradientFill,
+            sizeStyle,
+            fullWidth ? styles.gradientFillFullWidth : null,
+          ]}
         >
           {content}
         </LinearGradient>
@@ -175,7 +179,11 @@ export const Button: React.FC<ButtonProps> = ({
           colors={[theme.error, '#C45050']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[styles.gradientFill, sizeStyle]}
+          style={[
+            styles.gradientFill,
+            sizeStyle,
+            fullWidth ? styles.gradientFillFullWidth : null,
+          ]}
         >
           {content}
         </LinearGradient>
@@ -312,6 +320,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+  },
+  gradientFillFullWidth: {
+    width: '100%',
   },
   content: {
     flexDirection: 'row',

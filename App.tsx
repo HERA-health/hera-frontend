@@ -75,20 +75,20 @@ const injectWebStyles = (isDark: boolean) => {
   const style = document.createElement('style');
   style.id = styleId;
 
-  const track = isDark ? '#1A221B' : '#F5F7F5';
-  const thumb = isDark ? '#3A4F3A' : '#C5CFC5';
-  const thumbHover = isDark ? '#9AAF91' : '#8B9D83';
+  const track = isDark ? '#131519' : '#F5F7F5';
+  const thumb = isDark ? '#343848' : '#C5CFC5';
+  const thumbHover = isDark ? '#B7A6D8' : '#8B9D83';
 
   style.textContent = `
     /* HERA Design System — Global Web Styles */
 
     /* CSS custom properties for dark mode */
     :root {
-      --bg: ${isDark ? '#0F1410' : '#F5F7F5'};
-      --bg-card: ${isDark ? '#1A221B' : '#FFFFFF'};
+      --bg: ${isDark ? '#0A0D0B' : '#F5F7F5'};
+      --bg-card: ${isDark ? '#131519' : '#FFFFFF'};
       --text-primary: ${isDark ? '#E8F0E8' : '#2C3E2C'};
-      --primary: ${isDark ? '#9AAF91' : '#8B9D83'};
-      --border: ${isDark ? '#2A3A2A' : '#E2E8E2'};
+      --primary: ${isDark ? '#B7A6D8' : '#8B9D83'};
+      --border: ${isDark ? '#2A2C34' : '#E2E8E2'};
     }
 
     /* Custom Scrollbar */
@@ -108,6 +108,24 @@ const injectWebStyles = (isDark: boolean) => {
 
     /* Remove tap highlight on mobile web */
     * { -webkit-tap-highlight-color: transparent; }
+
+    /* Neutralize browser autofill background inside auth inputs */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    textarea:-webkit-autofill,
+    textarea:-webkit-autofill:hover,
+    textarea:-webkit-autofill:focus,
+    select:-webkit-autofill,
+    select:-webkit-autofill:hover,
+    select:-webkit-autofill:focus {
+      -webkit-text-fill-color: var(--text-primary) !important;
+      caret-color: var(--text-primary) !important;
+      -webkit-box-shadow: 0 0 0 1000px var(--bg-card) inset !important;
+      box-shadow: 0 0 0 1000px var(--bg-card) inset !important;
+      border-radius: 12px !important;
+      transition: background-color 9999s ease-out 0s;
+    }
 
     /* Backdrop filter support check */
     @supports (backdrop-filter: blur(1px)) {

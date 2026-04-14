@@ -1,22 +1,12 @@
-/**
- * SpecialistListItem Component
- * Horizontal list item design for specialist display
- * Used in list view mode - more compact, information-dense
- */
-
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  Animated,
-  Platform,
-} from 'react-native';
+import React, { useMemo } from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, shadows, spacing } from '../../../constants/colors';
 import { Specialist } from '../../../constants/types';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
+import { Button } from '../../../components/common/Button';
+import { spacing } from '../../../constants/colors';
+import type { Theme } from '../../../constants/theme';
 
 interface SpecialistListItemProps {
   specialist: Specialist;
@@ -29,133 +19,71 @@ export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
   specialist,
   onPress,
   position,
-  animationDelay = 0,
 }) => {
-  const scaleAnim = React.useRef(new Animated.Value(1)).current;
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const translateX = React.useRef(new Animated.Value(-20)).current;
-
-  React.useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        delay: animationDelay,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateX, {
-        toValue: 0,
-        duration: 300,
-        delay: animationDelay,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [animationDelay]);
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.99,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      friction: 3,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const getMedalEmoji = () => {
-    if (position === 1) return '#1';
-    if (position === 2) return '#2';
-    if (position === 3) return '#3';
-    return null;
-  };
-
-  const medal = getMedalEmoji();
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const displayTags = specialist.tags.slice(0, 3);
   const remainingTags = specialist.tags.length > 3 ? specialist.tags.length - 3 : 0;
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        {
-          opacity: fadeAnim,
-          transform: [{ scale: scaleAnim }, { translateX }],
-        },
-      ]}
+    <AnimatedPressable
+      onPress={onPress}
+      style={styles.card}
+      accessibilityLabel={`Ver perfil de ${specialist.name}`}
     >
-      <TouchableOpacity
-        style={styles.card}
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={1}
-        accessibilityRole="button"
-        accessibilityLabel={`Ver perfil de ${specialist.name}, ${specialist.specialization}`}
-      >
-        {/* Left Section: Avatar */}
-        <View style={styles.avatarSection}>
+      <View style={styles.left}>
+        <View style={styles.avatarWrap}>
           {specialist.avatar || specialist.user?.avatar ? (
             <Image source={{ uri: specialist.user?.avatar || specialist.avatar }} style={styles.avatar} />
           ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+            <View style={styles.avatarFallback}>
               <Text style={styles.avatarInitial}>{specialist.initial}</Text>
             </View>
           )}
-          {specialist.verified && (
+
+          {specialist.verified ? (
             <View style={styles.verifiedBadge}>
-              <Ionicons name="shield-checkmark" size={10} color="#FFFFFF" />
+              <Ionicons name="shield-checkmark" size={12} color={theme.textOnPrimary} />
             </View>
-          )}
-          {medal && (
+          ) : null}
+
+          {position ? (
             <View style={styles.positionBadge}>
-              <Text style={styles.positionText}>{medal}</Text>
+              <Text style={styles.positionText}>#{position}</Text>
             </View>
-          )}
+          ) : null}
         </View>
 
-        {/* Center Section: Info */}
-        <View style={styles.infoSection}>
-          <View style={styles.nameRow}>
-            <Text style={styles.name} numberOfLines={1}>
-              {specialist.name}
-            </Text>
-            {specialist.affinityPercentage > 0 && (
-              <View style={styles.affinityBadge}>
-                <Ionicons name="heart" size={10} color={heraLanding.secondary} />
-                <Text style={styles.affinityText}>
-                  {specialist.affinityPercentage}%
-                </Text>
+        <View style={styles.content}>
+          <View style={styles.headerRow}>
+            <View style={styles.titleWrap}>
+              <Text style={styles.name} numberOfLines={1}>{specialist.name}</Text>
+              <Text style={styles.specialization} numberOfLines={1}>{specialist.specialization}</Text>
+            </View>
+
+            {specialist.affinityPercentage > 0 ? (
+              <View style={styles.affinityPill}>
+                <Ionicons name="heart" size={12} color={theme.secondary} />
+                <Text style={styles.affinityText}>{specialist.affinityPercentage}% match</Text>
               </View>
-            )}
+            ) : null}
           </View>
 
-          <Text style={styles.title} numberOfLines={1}>
-            {specialist.specialization}
-          </Text>
-
-          {/* Meta Row */}
           <View style={styles.metaRow}>
-            <View style={styles.ratingContainer}>
-              <Ionicons name="star" size={12} color="#FFB800" />
-              <Text style={styles.ratingValue}>{specialist.rating.toFixed(1)}</Text>
-              <Text style={styles.reviewCount}>({specialist.reviewCount})</Text>
+            <View style={styles.metaPill}>
+              <Ionicons name="star" size={13} color={theme.starRating} />
+              <Text style={styles.metaStrong}>{specialist.rating.toFixed(1)}</Text>
+              <Text style={styles.metaSoft}>({specialist.reviewCount})</Text>
             </View>
-
-            <View style={styles.priceContainer}>
-              <Text style={styles.priceValue}>{specialist.pricePerSession}€</Text>
-              <Text style={styles.priceLabel}>/sesión</Text>
+            <View style={styles.metaPill}>
+              <Ionicons name="cash-outline" size={13} color={theme.primary} />
+              <Text style={styles.metaStrong}>{specialist.pricePerSession}€</Text>
+              <Text style={styles.metaSoft}>/ sesión</Text>
             </View>
-
-            {/* Distance Badge (when proximity filter is active) */}
-            {specialist.distance !== undefined && (
-              <View style={styles.distanceContainer}>
-                <Ionicons name="location-outline" size={12} color={heraLanding.primary} />
-                <Text style={styles.distanceValue}>
+            {specialist.distance !== undefined ? (
+              <View style={styles.metaPill}>
+                <Ionicons name="location-outline" size={13} color={theme.primary} />
+                <Text style={styles.metaStrong}>
                   {specialist.distance < 1
                     ? `${Math.round(specialist.distance * 1000)} m`
                     : specialist.distance > 50
@@ -163,276 +91,241 @@ export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
                       : `${specialist.distance.toFixed(1)} km`}
                 </Text>
               </View>
-            )}
+            ) : null}
           </View>
 
-          {/* Tags */}
-          <View style={styles.tagsContainer}>
+          <View style={styles.tagsRow}>
             {displayTags.map((tag, index) => (
-              <View key={index} style={styles.tag}>
-                <Text style={styles.tagText} numberOfLines={1}>
-                  {tag}
-                </Text>
+              <View key={`${specialist.id}-${tag}-${index}`} style={styles.tag}>
+                <Text style={styles.tagText} numberOfLines={1}>{tag}</Text>
               </View>
             ))}
-            {remainingTags > 0 && (
-              <View style={[styles.tag, styles.tagMore]}>
-                <Text style={styles.tagMoreText}>+{remainingTags}</Text>
+            {remainingTags > 0 ? (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>+{remainingTags}</Text>
               </View>
-            )}
+            ) : null}
           </View>
 
-          {/* Bottom Row: Availability + First Visit */}
-          <View style={styles.bottomRow}>
-            <View style={styles.availabilityRow}>
-              <Ionicons
-                name="calendar-outline"
-                size={12}
-                color={heraLanding.success}
-              />
+          <View style={styles.footerRow}>
+            <View style={styles.availability}>
+              <Ionicons name="calendar-outline" size={14} color={theme.success} />
               <Text style={styles.availabilityText}>Disponible hoy</Text>
             </View>
 
-            {specialist.firstVisitFree && (
-              <View style={styles.firstVisitBadge}>
-                <Ionicons name="gift-outline" size={10} color={heraLanding.secondary} />
-                <Text style={styles.firstVisitText}>1ra gratis</Text>
+            {specialist.firstVisitFree ? (
+              <View style={styles.freeVisitPill}>
+                <Ionicons name="gift-outline" size={12} color={theme.secondaryDark} />
+                <Text style={styles.freeVisitText}>Primera visita gratis</Text>
               </View>
-            )}
+            ) : null}
           </View>
         </View>
+      </View>
 
-        {/* Right Section: CTA */}
-        <View style={styles.ctaSection}>
-          <TouchableOpacity
-            style={styles.ctaButton}
-            onPress={onPress}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.ctaText}>Ver perfil</Text>
-            <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
+      <View style={styles.ctaWrap}>
+        <Button
+          variant="outline"
+          size="medium"
+          onPress={onPress}
+          icon={<Ionicons name="arrow-forward" size={16} color={theme.primary} />}
+          iconPosition="right"
+        >
+          Ver perfil
+        </Button>
+      </View>
+    </AnimatedPressable>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    ...shadows.sm,
-    ...(Platform.OS === 'web' && {
-      // @ts-ignore
-      cursor: 'pointer',
-      transition: 'all 0.2s ease',
-    }),
-  },
-  avatarSection: {
-    position: 'relative',
-    marginRight: spacing.md,
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 2,
-    borderColor: heraLanding.background,
-  },
-  avatarPlaceholder: {
-    backgroundColor: heraLanding.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  verifiedBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: heraLanding.success,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  positionBadge: {
-    position: 'absolute',
-    top: -4,
-    left: -4,
-    backgroundColor: heraLanding.primary,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  positionText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  infoSection: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 2,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-    flex: 1,
-  },
-  affinityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: heraLanding.secondaryMuted,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  affinityText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: heraLanding.secondary,
-  },
-  title: {
-    fontSize: 13,
-    color: heraLanding.textSecondary,
-    marginBottom: 8,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginBottom: 8,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  ratingValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-  },
-  reviewCount: {
-    fontSize: 12,
-    color: heraLanding.textSecondary,
-  },
-  priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 2,
-  },
-  priceValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-  },
-  priceLabel: {
-    fontSize: 11,
-    color: heraLanding.textSecondary,
-  },
-  distanceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  distanceValue: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: heraLanding.primary,
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginBottom: 8,
-  },
-  tag: {
-    backgroundColor: heraLanding.background,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  tagText: {
-    fontSize: 11,
-    color: heraLanding.textSecondary,
-    fontWeight: '500',
-  },
-  tagMore: {
-    backgroundColor: heraLanding.primaryMuted,
-  },
-  tagMoreText: {
-    fontSize: 11,
-    color: heraLanding.primary,
-    fontWeight: '600',
-  },
-  bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  availabilityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  availabilityText: {
-    fontSize: 12,
-    color: heraLanding.success,
-    fontWeight: '500',
-  },
-  firstVisitBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: heraLanding.secondaryMuted,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  firstVisitText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: heraLanding.secondary,
-  },
-  ctaSection: {
-    marginLeft: spacing.sm,
-  },
-  ctaButton: {
-    backgroundColor: heraLanding.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  ctaText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-});
+function createStyles(theme: Theme, isDark: boolean) {
+  return StyleSheet.create({
+    card: {
+      width: '100%',
+      padding: spacing.lg,
+      borderRadius: 20,
+      backgroundColor: theme.bgCard,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+      shadowColor: theme.shadowCard,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.8,
+      shadowRadius: 24,
+      elevation: 3,
+      gap: spacing.lg,
+    },
+    left: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.md,
+    },
+    avatarWrap: {
+      position: 'relative',
+    },
+    avatar: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      borderWidth: 2,
+      borderColor: theme.primaryMuted,
+    },
+    avatarFallback: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.primary,
+    },
+    avatarInitial: {
+      fontSize: 26,
+      fontFamily: theme.fontDisplay,
+      color: theme.textOnPrimary,
+    },
+    verifiedBadge: {
+      position: 'absolute',
+      right: -2,
+      bottom: -2,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.success,
+      borderWidth: 2,
+      borderColor: theme.bgCard,
+    },
+    positionBadge: {
+      position: 'absolute',
+      top: -6,
+      left: -6,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 999,
+      backgroundColor: theme.primaryAlpha12,
+      borderWidth: 1,
+      borderColor: theme.primaryMuted,
+    },
+    positionText: {
+      fontSize: 11,
+      fontFamily: theme.fontSansBold,
+      color: theme.primaryDark,
+    },
+    content: {
+      flex: 1,
+      gap: spacing.sm,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+    },
+    titleWrap: {
+      flex: 1,
+    },
+    name: {
+      fontSize: 21,
+      fontFamily: theme.fontDisplay,
+      color: theme.textPrimary,
+      marginBottom: 2,
+    },
+    specialization: {
+      fontSize: 14,
+      fontFamily: theme.fontSans,
+      color: theme.textSecondary,
+    },
+    affinityPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      alignSelf: 'flex-start',
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: 999,
+      backgroundColor: theme.secondaryAlpha12,
+    },
+    affinityText: {
+      fontSize: 12,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.secondaryDark,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    metaPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: 999,
+      backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+    },
+    metaStrong: {
+      fontSize: 12,
+      fontFamily: theme.fontSansBold,
+      color: theme.textPrimary,
+    },
+    metaSoft: {
+      fontSize: 12,
+      fontFamily: theme.fontSans,
+      color: theme.textMuted,
+    },
+    tagsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
+    },
+    tag: {
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+      borderRadius: 999,
+      backgroundColor: theme.primaryAlpha12,
+    },
+    tagText: {
+      fontSize: 12,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.primaryDark,
+    },
+    footerRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+      alignItems: 'center',
+    },
+    availability: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    availabilityText: {
+      fontSize: 13,
+      fontFamily: theme.fontSansMedium,
+      color: theme.textSecondary,
+    },
+    freeVisitPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: 999,
+      backgroundColor: theme.secondaryAlpha12,
+    },
+    freeVisitText: {
+      fontSize: 12,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.secondaryDark,
+    },
+    ctaWrap: {
+      alignItems: 'flex-end',
+    },
+  });
+}
 
 export default SpecialistListItem;

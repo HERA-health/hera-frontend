@@ -38,6 +38,81 @@ const CalendarPanel: React.FC<CalendarPanelProps> = ({
   compact = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(!compact);
+  const calendarTheme = useMemo(
+    () =>
+      ({
+        backgroundColor: 'transparent',
+        calendarBackground: 'transparent',
+        textSectionTitleColor: heraLanding.textMuted,
+        selectedDayBackgroundColor: heraLanding.primary,
+        selectedDayTextColor: colors.neutral.white,
+        todayTextColor: heraLanding.primary,
+        todayBackgroundColor: `${heraLanding.primary}12`,
+        dayTextColor: heraLanding.textPrimary,
+        textDisabledColor: `${heraLanding.textMuted}80`,
+        dotColor: heraLanding.primary,
+        selectedDotColor: colors.neutral.white,
+        arrowColor: heraLanding.primary,
+        monthTextColor: heraLanding.textPrimary,
+        indicatorColor: heraLanding.primary,
+        textDayFontWeight: '500' as const,
+        textMonthFontWeight: '700' as const,
+        textDayHeaderFontWeight: '600' as const,
+        textDayFontSize: 14,
+        textMonthFontSize: 16,
+        textDayHeaderFontSize: 11,
+        'stylesheet.calendar.header': {
+          header: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingHorizontal: 8,
+            paddingVertical: 8,
+          },
+          monthText: {
+            fontSize: 16,
+            fontWeight: '700' as const,
+            color: heraLanding.textPrimary,
+            textTransform: 'capitalize',
+          },
+          arrow: {
+            padding: 8,
+          },
+          week: {
+            marginTop: 4,
+            flexDirection: 'row',
+            justifyContent: 'space-around',
+            borderBottomWidth: 0,
+          },
+          dayHeader: {
+            width: 32,
+            textAlign: 'center',
+            fontSize: 11,
+                fontWeight: '600' as const,
+            color: heraLanding.textMuted,
+            textTransform: 'uppercase',
+          },
+        },
+        'stylesheet.day.basic': {
+          base: {
+            width: 32,
+            height: 32,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 16,
+          },
+          today: {
+            backgroundColor: `${heraLanding.primary}12`,
+            borderRadius: 16,
+          },
+          selected: {
+            backgroundColor: heraLanding.primary,
+            borderRadius: 16,
+          },
+        },
+      }),
+    []
+  );
 
   // Create marked dates for calendar
   const markedDates = useMemo(() => {
@@ -115,78 +190,7 @@ const CalendarPanel: React.FC<CalendarPanelProps> = ({
           markedDates={markedDates}
           markingType="multi-dot"
           enableSwipeMonths={true}
-          theme={{
-            backgroundColor: 'transparent',
-            calendarBackground: 'transparent',
-            textSectionTitleColor: heraLanding.textMuted,
-            selectedDayBackgroundColor: heraLanding.primary,
-            selectedDayTextColor: colors.neutral.white,
-            todayTextColor: heraLanding.primary,
-            todayBackgroundColor: `${heraLanding.primary}12`,
-            dayTextColor: heraLanding.textPrimary,
-            textDisabledColor: `${heraLanding.textMuted}80`,
-            dotColor: heraLanding.primary,
-            selectedDotColor: colors.neutral.white,
-            arrowColor: heraLanding.primary,
-            monthTextColor: heraLanding.textPrimary,
-            indicatorColor: heraLanding.primary,
-            textDayFontWeight: '500',
-            textMonthFontWeight: '700',
-            textDayHeaderFontWeight: '600',
-            textDayFontSize: 14,
-            textMonthFontSize: 16,
-            textDayHeaderFontSize: 11,
-            // Custom styling for better appearance
-            'stylesheet.calendar.header': {
-              header: {
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                paddingHorizontal: 8,
-                paddingVertical: 8,
-              },
-              monthText: {
-                fontSize: 16,
-                fontWeight: '700',
-                color: heraLanding.textPrimary,
-                textTransform: 'capitalize',
-              },
-              arrow: {
-                padding: 8,
-              },
-              week: {
-                marginTop: 4,
-                flexDirection: 'row',
-                justifyContent: 'space-around',
-                borderBottomWidth: 0,
-              },
-              dayHeader: {
-                width: 32,
-                textAlign: 'center',
-                fontSize: 11,
-                fontWeight: '600',
-                color: heraLanding.textMuted,
-                textTransform: 'uppercase',
-              },
-            },
-            'stylesheet.day.basic': {
-              base: {
-                width: 32,
-                height: 32,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 16,
-              },
-              today: {
-                backgroundColor: `${heraLanding.primary}12`,
-                borderRadius: 16,
-              },
-              selected: {
-                backgroundColor: heraLanding.primary,
-                borderRadius: 16,
-              },
-            },
-          }}
+          theme={calendarTheme}
           style={styles.calendar}
         />
       </View>
