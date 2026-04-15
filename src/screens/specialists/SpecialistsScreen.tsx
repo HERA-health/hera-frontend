@@ -51,6 +51,33 @@ const DISTANCE_OPTIONS = [
   { value: 50, label: '50 km' },
 ];
 
+const buildMatchingProfile = (matchingProfile?: Record<string, unknown>) => ({
+  therapeuticApproach: Array.isArray(matchingProfile?.therapeuticApproach)
+    ? (matchingProfile.therapeuticApproach as string[])
+    : [],
+  specialties: Array.isArray(matchingProfile?.specialties)
+    ? (matchingProfile.specialties as string[])
+    : [],
+  sessionStyle:
+    typeof matchingProfile?.sessionStyle === 'string' ? matchingProfile.sessionStyle : '',
+  personality: Array.isArray(matchingProfile?.personality)
+    ? (matchingProfile.personality as string[])
+    : [],
+  ageGroups: Array.isArray(matchingProfile?.ageGroups)
+    ? (matchingProfile.ageGroups as string[])
+    : [],
+  experienceYears:
+    typeof matchingProfile?.experienceYears === 'number'
+      ? matchingProfile.experienceYears
+      : 0,
+  language: Array.isArray(matchingProfile?.language)
+    ? (matchingProfile.language as string[])
+    : [],
+  availability:
+    typeof matchingProfile?.availability === 'string' ? matchingProfile.availability : '',
+  format: Array.isArray(matchingProfile?.format) ? (matchingProfile.format as string[]) : [],
+});
+
 const attributeLabels: Record<string, string> = {
   specialty: 'Especialidad coincidente',
   approach: 'Enfoque terapéutico',
@@ -132,17 +159,7 @@ const SpecialistsScreen: React.FC = () => {
               pricePerSession: specialist.pricePerSession,
               firstVisitFree: specialist.firstVisitFree,
               verified: true,
-              matchingProfile: {
-                therapeuticApproach: [],
-                specialties: [],
-                sessionStyle: '',
-                personality: [],
-                ageGroups: [],
-                experienceYears: 0,
-                language: [],
-                availability: '',
-                format: [],
-              },
+              matchingProfile: buildMatchingProfile(specialist.matchingProfile),
             };
           });
         }
@@ -173,17 +190,7 @@ const SpecialistsScreen: React.FC = () => {
         pricePerSession: specialist.pricePerSession,
         firstVisitFree: specialist.firstVisitFree,
         verified: true,
-        matchingProfile: {
-          therapeuticApproach: [],
-          specialties: [],
-          sessionStyle: '',
-          personality: [],
-          ageGroups: [],
-          experienceYears: 0,
-          language: [],
-          availability: '',
-          format: [],
-        },
+        matchingProfile: buildMatchingProfile(specialist.matchingProfile),
         offersInPerson: specialist.offersInPerson,
         offersOnline: specialist.offersOnline,
         officeCity: specialist.officeCity,

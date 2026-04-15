@@ -23,6 +23,81 @@ interface SpecialistCardProps {
   position?: 1 | 2 | 3;
 }
 
+const APPROACH_LABELS: Record<string, string> = {
+  cbt: 'TCC',
+  'cognitive-behavioral': 'TCC',
+  act: 'ACT',
+  emdr: 'EMDR',
+  psychodynamic: 'Psicodinámico',
+  humanistic: 'Humanista',
+  systemic: 'Sistémico',
+  mindfulness: 'Mindfulness',
+  gestalt: 'Gestalt',
+};
+
+const TAG_LABELS: Record<string, string> = {
+  ansiedad: 'Ansiedad',
+  anxiety: 'Ansiedad',
+  depresion: 'Depresión',
+  depression: 'Depresión',
+  pareja: 'Pareja',
+  couples: 'Pareja',
+  trauma: 'Trauma',
+  estres: 'Estrés',
+  stress: 'Estrés',
+  autoestima: 'Autoestima',
+  self_esteem: 'Autoestima',
+  selfesteem: 'Autoestima',
+  duelo: 'Duelo',
+  grief: 'Duelo',
+  infantil: 'Infantil',
+  adolescentes: 'Adolescentes',
+  familia: 'Familia',
+  comunicacion: 'Comunicación',
+  conflictos: 'Conflictos',
+  adultos: 'Adultos',
+  mindfulness: 'Mindfulness',
+  emdr: 'EMDR',
+  tcc: 'TCC',
+};
+
+const prettifyTag = (value: string): string => {
+  const normalized = value.trim().toLowerCase().replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e').replace(/[íìï]/g, 'i').replace(/[óòö]/g, 'o').replace(/[úùü]/g, 'u').replace(/\s+/g, '_');
+  return (
+    TAG_LABELS[normalized] ??
+    value
+      .trim()
+      .replace(/[_-]+/g, ' ')
+      .replace(/\b\w/g, (letter) => letter.toUpperCase())
+  );
+};
+
+const getDisplayTags = (specialist: Specialist): string[] => {
+  const therapyTags = (specialist.matchingProfile?.therapeuticApproach ?? [])
+    .map((approach) => APPROACH_LABELS[approach.trim().toLowerCase()] ?? prettifyTag(approach))
+    .filter(Boolean);
+
+  const specialtyTags = (specialist.matchingProfile?.specialties ?? [])
+    .map((specialty) => prettifyTag(specialty))
+    .filter(Boolean);
+
+  const fallbackTags = (specialist.tags ?? [])
+    .map((tag) => prettifyTag(tag))
+    .filter((tag) =>
+      ![
+        'Especialidad Coincidente',
+        'Enfoque Terapéutico',
+        'Personalidad Compatible',
+        'Estilo De Sesión',
+        'Disponibilidad',
+        'Modalidad Compatible',
+        'Alta Experiencia',
+      ].includes(tag),
+    );
+
+  return Array.from(new Set([...therapyTags, ...specialtyTags, ...fallbackTags])).slice(0, 4);
+};
+
 function AffinityRing({ pct, theme }: { pct: number; theme: Theme }) {
   const radius = 20;
   const stroke = 3;
@@ -74,6 +149,7 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
   const { width } = useWindowDimensions();
   const isWideScreen = width > 768;
   const affinityPct = specialist.affinityPercentage ?? 0;
+  const visibleTags = getDisplayTags(specialist);
 
   const medalGradients: Record<number, [string, string]> = {
     1: theme.medals.gold,
@@ -200,7 +276,7 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
       </Text>
 
       <View style={styles.tags}>
-        {specialist.tags.slice(0, 3).map((tag, index) => (
+        {visibleTags.map((tag, index) => (
           <View
             key={`${specialist.id}-${tag}-${index}`}
             style={[
@@ -219,21 +295,6 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
             </Text>
           </View>
         ))}
-        {specialist.tags.length > 3 ? (
-          <View
-            style={[
-              styles.tag,
-              {
-                backgroundColor: theme.primaryAlpha12,
-                borderColor: theme.primaryMuted,
-              },
-            ]}
-          >
-            <Text style={[styles.tagText, { color: theme.primaryDark, fontFamily: theme.fontSansSemiBold }]}>
-              +{specialist.tags.length - 3}
-            </Text>
-          </View>
-        ) : null}
       </View>
 
       <View style={[styles.footer, { borderTopColor: theme.border }]}>
@@ -423,16 +484,19 @@ const styles = StyleSheet.create({
   },
   tags: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     gap: 6,
     marginBottom: spacing.md,
   },
   tag: {
+    flex: 1,
+    minWidth: 0,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
     borderWidth: 1,
-    maxWidth: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tagText: {
     fontSize: 12,

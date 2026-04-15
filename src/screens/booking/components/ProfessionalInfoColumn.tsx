@@ -1,21 +1,18 @@
-/**
- * ProfessionalInfoColumn
- * Displays specialist information, session type selector, and dynamic booking summary
- * Part of the 4-column Calendly-style booking layout
- */
-
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
   Image,
-  TouchableOpacity,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { branding, heraLanding, colors, spacing, borderRadius, shadows } from '../../../constants/colors';
+import { spacing, borderRadius } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
+import { Button } from '../../../components/common/Button';
 import { SessionType } from '../../../services/sessionsService';
 
 interface SpecialistInfo {
@@ -40,68 +37,64 @@ interface ProfessionalInfoColumnProps {
   onConfirm: () => void;
   onSessionTypeChange: (type: SessionType) => void;
   loading?: boolean;
+  showConfirmButton?: boolean;
+  showSummary?: boolean;
 }
 
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('es-ES', {
+const SESSION_OPTIONS: Array<{
+  type: SessionType;
+  label: string;
+  description: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}> = [
+  {
+    type: 'VIDEO_CALL',
+    label: 'Videollamada',
+    description: 'Sesion segura desde cualquier lugar',
+    icon: 'videocam-outline',
+  },
+  {
+    type: 'IN_PERSON',
+    label: 'Presencial',
+    description: 'Encuentro en la consulta del especialista',
+    icon: 'business-outline',
+  },
+];
+
+const SPECIALIZATION_LABELS: Record<string, string> = {
+  anxiety: 'Ansiedad',
+  depression: 'Depresión',
+  couples: 'Pareja',
+  trauma: 'Trauma',
+  stress: 'Estrés',
+  self_esteem: 'Autoestima',
+  selfesteem: 'Autoestima',
+  autoestima: 'Autoestima',
+  pareja: 'Pareja',
+  ansiedad: 'Ansiedad',
+  depresion: 'Depresión',
+  trauma_y_duelo: 'Trauma y duelo',
+  grief: 'Duelo',
+  duelo: 'Duelo',
+};
+
+const formatSpecialization = (specialization: string): string => {
+  const normalized = specialization.trim().toLowerCase().replace(/\s+/g, '_');
+  return (
+    SPECIALIZATION_LABELS[normalized] ??
+    specialization
+      .trim()
+      .replace(/[_-]+/g, ' ')
+      .replace(/\b\w/g, (letter) => letter.toUpperCase())
+  );
+};
+
+const formatDate = (dateString: string): string =>
+  new Date(dateString).toLocaleDateString('es-ES', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
   });
-};
-
-// Session Type Selector Component
-const SessionTypeSelector = ({
-  selectedType,
-  onTypeChange,
-}: {
-  selectedType: SessionType;
-  onTypeChange: (type: SessionType) => void;
-}) => (
-  <View style={styles.section}>
-    <Text style={styles.sectionTitle}>Tipo de sesion</Text>
-    <View style={styles.typeButtons}>
-      <TouchableOpacity
-        style={[
-          styles.typeButton,
-          selectedType === 'VIDEO_CALL' && styles.typeButtonSelected,
-        ]}
-        onPress={() => onTypeChange('VIDEO_CALL')}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.typeButtonIcon}>📹</Text>
-        <Text
-          style={[
-            styles.typeButtonText,
-            selectedType === 'VIDEO_CALL' && styles.typeButtonTextSelected,
-          ]}
-        >
-          Videollamada
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[
-          styles.typeButton,
-          selectedType === 'IN_PERSON' && styles.typeButtonSelected,
-        ]}
-        onPress={() => onTypeChange('IN_PERSON')}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.typeButtonIcon}>🏢</Text>
-        <Text
-          style={[
-            styles.typeButtonText,
-            selectedType === 'IN_PERSON' && styles.typeButtonTextSelected,
-          ]}
-        >
-          Presencial
-        </Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-);
 
 export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
   specialist,
@@ -109,410 +102,475 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
   onConfirm,
   onSessionTypeChange,
   loading = false,
+  showConfirmButton = true,
+  showSummary = true,
 }) => {
-  const isComplete = booking.selectedDate && booking.selectedTime;
-  const { name, title, avatar, pricePerSession, specializations, sessionDuration = 60 } = specialist;
-  const isVideoCall = booking.sessionType === 'VIDEO_CALL';
+  const { theme, isDark } = useTheme();
+  const { width } = useWindowDimensions();
+  const isCompact = width < 1024;
+  const styles = useMemo(() => createStyles(theme, isDark, isCompact), [theme, isDark, isCompact]);
+  const isComplete = Boolean(booking.selectedDate && booking.selectedTime);
+  const activeType =
+    SESSION_OPTIONS.find((option) => option.type === booking.sessionType) ?? SESSION_OPTIONS[0];
 
   return (
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator
       >
-        {/* Section 1: Avatar + Name */}
-        <View style={styles.section}>
-          <View style={styles.avatarContainer}>
-            {avatar ? (
-              <Image source={{ uri: avatar }} style={styles.avatar} />
+        <View style={styles.card}>
+          <View style={styles.profileRow}>
+            {specialist.avatar ? (
+              <Image source={{ uri: specialist.avatar }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>{name[0]}</Text>
+                <Text style={styles.avatarLetter}>
+                  {specialist.name?.[0]?.toUpperCase() ?? '?'}
+                </Text>
               </View>
             )}
-          </View>
-          <Text style={styles.name}>{name}</Text>
-          {title && <Text style={styles.title}>{title}</Text>}
-        </View>
 
-        {/* Section 2: Session Details */}
-        <View style={styles.section}>
-          <View style={styles.detailsRow}>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailIcon}>💶</Text>
-              <Text style={styles.detailValue}>€{pricePerSession}</Text>
-            </View>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailIcon}>⏱️</Text>
-              <Text style={styles.detailValue}>{sessionDuration}min</Text>
+            <View style={styles.profileText}>
+              <Text style={styles.name}>{specialist.name}</Text>
+              <Text style={styles.title}>{specialist.title || 'Especialista'}</Text>
             </View>
           </View>
-        </View>
 
-        {/* Section 3: Session Type Selector */}
-        <SessionTypeSelector
-          selectedType={booking.sessionType}
-          onTypeChange={onSessionTypeChange}
-        />
+          <View style={styles.metricsRow}>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>PRECIO</Text>
+              <Text style={styles.metricValue}>{specialist.pricePerSession}€ / sesión</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>DURACIÓN</Text>
+              <Text style={styles.metricValue}>{specialist.sessionDuration ?? 60} min</Text>
+            </View>
+          </View>
 
-        {/* Section 4: Specializations */}
-        {specializations && specializations.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Especialidades</Text>
-            <View style={styles.specializationsContainer}>
-              {specializations.slice(0, 3).map((spec, index) => (
-                <View key={index} style={styles.specializationTag}>
-                  <Text style={styles.specializationText}>{spec}</Text>
+          {specialist.specializations && specialist.specializations.length > 0 && (
+            <View style={styles.tagsRow}>
+              {specialist.specializations.slice(0, 4).map((specialization) => (
+                <View key={specialization} style={styles.tag}>
+                  <Text style={styles.tagText}>{formatSpecialization(specialization)}</Text>
                 </View>
               ))}
             </View>
-          </View>
-        )}
+          )}
+        </View>
 
-        {/* Section 5: Session Info - Dynamic based on type */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Detalles</Text>
-          <View style={styles.infoList}>
-            <View style={styles.infoItem}>
-              <Ionicons name="globe-outline" size={14} color={heraLanding.textSecondary} />
-              <Text style={styles.infoText}>Zona horaria: Madrid (CET)</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Ionicons name="refresh-outline" size={14} color={heraLanding.textSecondary} />
-              <Text style={styles.infoText}>Cancelacion gratis 24h antes</Text>
-            </View>
-            {isVideoCall ? (
-              <View style={styles.infoItem}>
-                <Ionicons name="lock-closed-outline" size={14} color={heraLanding.textSecondary} />
-                <Text style={styles.infoText}>Videollamada privada y segura</Text>
-              </View>
-            ) : (
-              <View style={styles.infoItem}>
-                <Ionicons name="location-outline" size={14} color={heraLanding.textSecondary} />
-                <Text style={styles.infoText}>En la consulta del profesional</Text>
-              </View>
-            )}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Tipo de sesion</Text>
+          <Text style={styles.cardSubtitle}>Elige como prefieres tener este encuentro.</Text>
+
+          <View style={styles.sessionList}>
+            {SESSION_OPTIONS.map((option) => {
+              const selected = booking.sessionType === option.type;
+
+              return (
+                <AnimatedPressable
+                  key={option.type}
+                  onPress={() => onSessionTypeChange(option.type)}
+                  style={[styles.sessionItem, selected ? styles.sessionItemSelected : null]}
+                >
+                  <View
+                    style={[
+                      styles.sessionIconShell,
+                      selected ? styles.sessionIconShellSelected : null,
+                    ]}
+                  >
+                    <Ionicons
+                      name={option.icon}
+                      size={16}
+                      color={selected ? theme.textOnPrimary : theme.primary}
+                    />
+                  </View>
+
+                  <View style={styles.sessionTextBlock}>
+                    <Text
+                      style={[
+                        styles.sessionLabel,
+                        selected ? styles.sessionLabelSelected : null,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.sessionDescription,
+                        selected ? styles.sessionDescriptionSelected : null,
+                      ]}
+                    >
+                      {option.description}
+                    </Text>
+                  </View>
+
+                  {selected && (
+                    <Ionicons name="checkmark-circle" size={18} color={theme.textOnPrimary} />
+                  )}
+                </AnimatedPressable>
+              );
+            })}
           </View>
         </View>
 
-        {/* Section 6: Booking Summary */}
-        <View style={styles.summarySection}>
-          <Text style={styles.summaryTitle}>Resumen</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Antes de confirmar</Text>
+          <View style={styles.infoList}>
+            <View style={styles.infoRow}>
+              <Ionicons name="globe-outline" size={14} color={theme.textSecondary} />
+              <Text style={styles.infoText}>Horario local adaptado a Europe/Madrid.</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Ionicons name="refresh-outline" size={14} color={theme.textSecondary} />
+              <Text style={styles.infoText}>Cancelacion gratis 24 h antes.</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Ionicons name={activeType.icon} size={14} color={theme.textSecondary} />
+              <Text style={styles.infoText}>{activeType.description}</Text>
+            </View>
+          </View>
+        </View>
 
-          <View style={styles.summaryGrid}>
-            {/* Date */}
+        {showSummary && (
+          <View style={styles.card}>
+            <View style={styles.summaryHeader}>
+              <Text style={styles.cardTitle}>Resumen de tu reserva</Text>
+              <View style={styles.summaryBadge}>
+                <Text style={styles.summaryBadgeText}>{activeType.label}</Text>
+              </View>
+            </View>
+
             <View style={styles.summaryItem}>
               <Ionicons
                 name="calendar-outline"
-                size={16}
-                color={booking.selectedDate ? heraLanding.primary : heraLanding.textMuted}
+                size={14}
+                color={booking.selectedDate ? theme.primary : theme.textMuted}
               />
               <Text
-                style={[styles.summaryValue, !booking.selectedDate && styles.summaryPlaceholder]}
+                style={[
+                  styles.summaryValue,
+                  !booking.selectedDate ? styles.summaryValueMuted : null,
+                ]}
               >
-                {booking.selectedDate ? formatDate(booking.selectedDate) : 'Fecha'}
+                {booking.selectedDate ? formatDate(booking.selectedDate) : 'Elige una fecha'}
               </Text>
             </View>
 
-            {/* Time */}
             <View style={styles.summaryItem}>
               <Ionicons
                 name="time-outline"
-                size={16}
-                color={booking.selectedTime ? heraLanding.primary : heraLanding.textMuted}
+                size={14}
+                color={booking.selectedTime ? theme.primary : theme.textMuted}
               />
               <Text
-                style={[styles.summaryValue, !booking.selectedTime && styles.summaryPlaceholder]}
+                style={[
+                  styles.summaryValue,
+                  !booking.selectedTime ? styles.summaryValueMuted : null,
+                ]}
               >
-                {booking.selectedTime || 'Hora'}
+                {booking.selectedTime || 'Elige una hora'}
               </Text>
             </View>
 
-            {/* Session Type */}
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryTypeIcon}>{isVideoCall ? '📹' : '🏢'}</Text>
-              <Text style={styles.summaryValue}>
-                {isVideoCall ? 'Video' : 'Presencial'}
-              </Text>
+            <View style={styles.totalRow}>
+              <View>
+                <Text style={styles.totalLabel}>TOTAL ESTIMADO</Text>
+                <Text style={styles.totalCaption}>Pago seguro al confirmar la reserva</Text>
+              </View>
+              <Text style={styles.totalValue}>{specialist.pricePerSession}€</Text>
             </View>
-          </View>
 
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalPrice}>€{pricePerSession}</Text>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.confirmButton, !isComplete && styles.confirmButtonDisabled]}
-            onPress={onConfirm}
-            disabled={!isComplete || loading}
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <>
-                <Ionicons
-                  name="checkmark-circle"
-                  size={18}
-                  color={isComplete ? heraLanding.textOnPrimary : heraLanding.textMuted}
-                />
-                <Text
-                  style={[styles.confirmButtonText, !isComplete && styles.confirmButtonTextDisabled]}
-                >
-                  Confirmar Reserva
-                </Text>
-              </>
+            {showConfirmButton && (
+              <Button
+                variant="primary"
+                size="medium"
+                onPress={onConfirm}
+                disabled={!isComplete || loading}
+                loading={loading}
+                fullWidth
+                icon={
+                  !loading ? (
+                    <Ionicons
+                      name="checkmark-circle-outline"
+                      size={18}
+                      color="#FFFFFF"
+                    />
+                  ) : undefined
+                }
+              >
+                Confirmar reserva
+              </Button>
             )}
-          </TouchableOpacity>
-        </View>
+
+            {loading && !showConfirmButton && (
+              <ActivityIndicator size="small" color={theme.primary} />
+            )}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    width: 280,
-    flex: 1,
-    maxHeight: '100%',
-    backgroundColor: heraLanding.cardBg,
-    borderRadius: borderRadius.lg,
-    shadowColor: heraLanding.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
-    overflow: 'hidden',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  section: {},
-  // Avatar Section
-  avatarContainer: {
-    alignSelf: 'center',
-    marginBottom: spacing.sm,
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 3,
-    borderColor: heraLanding.background,
-    shadowColor: heraLanding.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  avatarPlaceholder: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: `${heraLanding.primary}20`,
-    borderWidth: 3,
-    borderColor: heraLanding.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: heraLanding.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  avatarText: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: heraLanding.primary,
-  },
-  name: {
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    color: heraLanding.textPrimary,
-    marginBottom: 2,
-  },
-  title: {
-    fontSize: 13,
-    color: heraLanding.textSecondary,
-    textAlign: 'center',
-  },
-  // Details Row
-  detailsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    backgroundColor: heraLanding.background,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.lg,
-  },
-  detailItem: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  detailIcon: {
-    fontSize: 16,
-  },
-  detailValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-  },
-  // Section Title
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: heraLanding.textMuted,
-    marginBottom: spacing.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  // Session Type Selector
-  typeButtons: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  typeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.md,
-    backgroundColor: heraLanding.background,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    gap: 6,
-  },
-  typeButtonSelected: {
-    backgroundColor: `${heraLanding.primary}15`,
-    borderColor: heraLanding.primary,
-  },
-  typeButtonIcon: {
-    fontSize: 14,
-  },
-  typeButtonText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: heraLanding.textSecondary,
-  },
-  typeButtonTextSelected: {
-    color: heraLanding.textPrimary,
-    fontWeight: '600',
-  },
-  // Specializations
-  specializationsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  specializationTag: {
-    backgroundColor: `${heraLanding.primary}15`,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: borderRadius.full,
-  },
-  specializationText: {
-    fontSize: 11,
-    color: heraLanding.primary,
-    fontWeight: '500',
-  },
-  // Info List
-  infoList: {
-    gap: spacing.xs,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  infoText: {
-    fontSize: 12,
-    color: heraLanding.textSecondary,
-  },
-  // Summary Section
-  summarySection: {
-    backgroundColor: heraLanding.borderLight,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-  },
-  summaryTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  summaryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  summaryTypeIcon: {
-    fontSize: 14,
-  },
-  summaryValue: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-    textTransform: 'capitalize',
-  },
-  summaryPlaceholder: {
-    color: heraLanding.textMuted,
-    fontWeight: '400',
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: heraLanding.border,
-    paddingTop: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  totalLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-  },
-  totalPrice: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: heraLanding.textPrimary,
-  },
-  confirmButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: heraLanding.primary,
-    borderRadius: borderRadius.md,
-    paddingVertical: 12,
-    height: 48,
-    gap: spacing.xs,
-  },
-  confirmButtonDisabled: {
-    backgroundColor: heraLanding.disabled,
-    opacity: 0.6,
-  },
-  confirmButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: heraLanding.textOnPrimary,
-  },
-  confirmButtonTextDisabled: {
-    color: heraLanding.textMuted,
-  },
-});
+const createStyles = (
+  theme: ReturnType<typeof useTheme>['theme'],
+  isDark: boolean,
+  isCompact: boolean,
+) =>
+  StyleSheet.create({
+    container: {
+      width: '100%',
+      maxWidth: isCompact ? 9999 : 340,
+      alignSelf: 'stretch',
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      gap: spacing.md,
+      paddingBottom: spacing.xs,
+    },
+    card: {
+      backgroundColor: theme.bgCard,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: spacing.md,
+      gap: spacing.md,
+      shadowColor: theme.shadowCard,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 1,
+      shadowRadius: 14,
+      elevation: 3,
+    },
+    profileRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    avatar: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+    },
+    avatarPlaceholder: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.primaryAlpha12,
+      borderWidth: 1,
+      borderColor: theme.primaryAlpha20,
+    },
+    avatarLetter: {
+      fontSize: 24,
+      fontFamily: theme.fontDisplayBold,
+      color: theme.primary,
+    },
+    profileText: {
+      flex: 1,
+      gap: 2,
+    },
+    name: {
+      fontSize: 24,
+      lineHeight: 28,
+      fontFamily: theme.fontDisplayBold,
+      color: theme.textPrimary,
+    },
+    title: {
+      fontSize: 14,
+      fontFamily: theme.fontSansMedium,
+      color: theme.textSecondary,
+    },
+    metricsRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    metricCard: {
+      flex: 1,
+      backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+      borderRadius: borderRadius.md,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm,
+      gap: 2,
+    },
+    metricLabel: {
+      fontSize: 10,
+      letterSpacing: 0.5,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+    },
+    metricValue: {
+      fontSize: 13,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.textPrimary,
+    },
+    tagsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
+    },
+    tag: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.full,
+      backgroundColor: theme.secondaryAlpha12,
+      borderWidth: 1,
+      borderColor: theme.glassBorder,
+    },
+    tagText: {
+      fontSize: 11,
+      fontFamily: theme.fontSansMedium,
+      color: theme.secondaryDark,
+    },
+    cardTitle: {
+      fontSize: 16,
+      fontFamily: theme.fontDisplayBold,
+      color: theme.textPrimary,
+    },
+    cardSubtitle: {
+      marginTop: -6,
+      fontSize: 12,
+      lineHeight: 17,
+      fontFamily: theme.fontSans,
+      color: theme.textSecondary,
+    },
+    sessionList: {
+      gap: spacing.sm,
+    },
+    sessionItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      padding: spacing.md,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
+    },
+    sessionItemSelected: {
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
+    },
+    sessionIconShell: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? theme.primaryMuted : theme.primaryAlpha12,
+    },
+    sessionIconShellSelected: {
+      backgroundColor: 'rgba(255,255,255,0.16)',
+    },
+    sessionTextBlock: {
+      flex: 1,
+      gap: 2,
+    },
+    sessionLabel: {
+      fontSize: 14,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.textPrimary,
+    },
+    sessionLabelSelected: {
+      color: theme.textOnPrimary,
+    },
+    sessionDescription: {
+      fontSize: 11,
+      lineHeight: 15,
+      fontFamily: theme.fontSans,
+      color: theme.textSecondary,
+    },
+    sessionDescriptionSelected: {
+      color: 'rgba(255,255,255,0.82)',
+    },
+    infoList: {
+      gap: spacing.sm,
+    },
+    infoRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    infoText: {
+      flex: 1,
+      fontSize: 12,
+      lineHeight: 18,
+      fontFamily: theme.fontSans,
+      color: theme.textSecondary,
+    },
+    summaryHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+    },
+    summaryBadge: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+      borderRadius: borderRadius.full,
+      backgroundColor: theme.secondaryAlpha12,
+      borderWidth: 1,
+      borderColor: theme.glassBorder,
+    },
+    summaryBadgeText: {
+      fontSize: 10,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.secondaryDark,
+    },
+    summaryItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.md,
+      backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+    },
+    summaryValue: {
+      flex: 1,
+      fontSize: 12,
+      fontFamily: theme.fontSansMedium,
+      color: theme.textPrimary,
+      textTransform: 'capitalize',
+    },
+    summaryValueMuted: {
+      color: theme.textMuted,
+    },
+    totalRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      justifyContent: 'space-between',
+      paddingTop: spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: theme.borderLight,
+    },
+    totalLabel: {
+      fontSize: 10,
+      letterSpacing: 0.5,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+    },
+    totalCaption: {
+      marginTop: 2,
+      fontSize: 11,
+      fontFamily: theme.fontSans,
+      color: theme.textSecondary,
+    },
+    totalValue: {
+      fontSize: 28,
+      fontFamily: theme.fontDisplayBold,
+      color: theme.textPrimary,
+    },
+  });
 
 export default ProfessionalInfoColumn;

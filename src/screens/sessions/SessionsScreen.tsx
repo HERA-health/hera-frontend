@@ -274,7 +274,7 @@ const SessionsScreen: React.FC = () => {
         )}
 
         <ReviewModal
-          visible={reviewSession !== null}
+          visible={Boolean(reviewSession?.id)}
           sessionId={reviewSession?.id ?? ''}
           specialistName={reviewSession?.specialist.user.name ?? ''}
           specialistAvatar={reviewSession?.specialist.user.avatar ?? reviewSession?.specialist.avatar}

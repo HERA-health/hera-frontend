@@ -1,20 +1,16 @@
-/**
- * TimeSlotsColumn
- * Calendly-style time slot selection list
- * Part of the 4-column Calendly-style booking layout
- */
-
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { branding, heraLanding, colors, spacing, borderRadius, shadows } from '../../../constants/colors';
+import { spacing, borderRadius } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { TimeSlot } from '../../../services/sessionsService';
 
 interface TimeSlotsColumnProps {
@@ -25,45 +21,12 @@ interface TimeSlotsColumnProps {
   loading?: boolean;
 }
 
-const EmptyState = ({ icon, message, submessage }: { icon: string; message: string; submessage?: string }) => (
-  <View style={styles.emptyState}>
-    <Text style={styles.emptyIcon}>{icon}</Text>
-    <Text style={styles.emptyMessage}>{message}</Text>
-    {submessage && <Text style={styles.emptySubmessage}>{submessage}</Text>}
-  </View>
-);
-
-const TimeSlotButton = ({
-  slot,
-  isSelected,
-  onPress,
-}: {
-  slot: TimeSlot;
-  isSelected: boolean;
-  onPress: () => void;
-}) => (
-  <TouchableOpacity
-    style={[styles.slotButton, isSelected && styles.slotButtonSelected]}
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
-    <Text style={[styles.slotButtonText, isSelected && styles.slotButtonTextSelected]}>
-      {slot.startTime}
-    </Text>
-    {isSelected && (
-      <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-    )}
-  </TouchableOpacity>
-);
-
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('es-ES', {
+const formatDate = (dateString: string): string =>
+  new Date(dateString).toLocaleDateString('es-ES', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
   });
-};
 
 export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
   selectedDate,
@@ -72,268 +35,245 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
   onTimeSelect,
   loading = false,
 }) => {
-  // No date selected yet
+  const { theme, isDark } = useTheme();
+  const { width } = useWindowDimensions();
+  const isCompact = width < 1024;
+  const styles = useMemo(() => createStyles(theme, isDark, isCompact), [theme, isDark, isCompact]);
+
+  const slotGroups = useMemo(() => {
+    const groups = [
+      { key: 'morning', label: 'Manana', icon: 'sunny-outline' as const, slots: [] as TimeSlot[] },
+      { key: 'afternoon', label: 'Tarde', icon: 'partly-sunny-outline' as const, slots: [] as TimeSlot[] },
+      { key: 'evening', label: 'Noche', icon: 'moon-outline' as const, slots: [] as TimeSlot[] },
+    ];
+
+    availableSlots.forEach((slot) => {
+      const hour = Number(slot.startTime.split(':')[0]);
+      if (hour < 12) groups[0].slots.push(slot);
+      else if (hour < 18) groups[1].slots.push(slot);
+      else groups[2].slots.push(slot);
+    });
+
+    return groups.filter((group) => group.slots.length > 0);
+  }, [availableSlots]);
+
+  const renderEmpty = (icon: keyof typeof Ionicons.glyphMap, title: string, description: string) => (
+    <View style={styles.emptyState}>
+      <Ionicons name={icon} size={34} color={theme.textMuted} />
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptyDescription}>{description}</Text>
+    </View>
+  );
+
   if (!selectedDate) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Horarios disponibles</Text>
-        </View>
-        <EmptyState
-          icon="📅"
-          message="Selecciona una fecha"
-          submessage="Elige una fecha en el calendario para ver los horarios disponibles"
-        />
+        <Text style={styles.title}>Horarios disponibles</Text>
+        <Text style={styles.subtitle}>
+          Selecciona primero una fecha para desbloquear las horas.
+        </Text>
+        {renderEmpty(
+          'calendar-clear-outline',
+          'Elige una fecha',
+          'Cuando marques un dia, te mostraremos las franjas disponibles al momento.',
+        )}
       </View>
     );
   }
 
-  // Loading state
   if (loading) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Horarios disponibles</Text>
-          <Text style={styles.dateSubtitle}>{formatDate(selectedDate)}</Text>
-        </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={heraLanding.primary} />
-          <Text style={styles.loadingText}>Cargando horarios...</Text>
+        <Text style={styles.title}>Horarios disponibles</Text>
+        <Text style={styles.subtitle}>{formatDate(selectedDate)}</Text>
+        <View style={styles.emptyState}>
+          <ActivityIndicator size="large" color={theme.primary} />
+          <Text style={styles.emptyTitle}>Cargando horarios</Text>
+          <Text style={styles.emptyDescription}>Estamos consultando la agenda del especialista.</Text>
         </View>
       </View>
     );
   }
 
-  // No slots available for selected date
   if (availableSlots.length === 0) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Horarios disponibles</Text>
-          <Text style={styles.dateSubtitle}>{formatDate(selectedDate)}</Text>
-        </View>
-        <EmptyState
-          icon="😔"
-          message="No hay horarios disponibles"
-          submessage="Selecciona otra fecha para ver más opciones"
-        />
+        <Text style={styles.title}>Horarios disponibles</Text>
+        <Text style={styles.subtitle}>{formatDate(selectedDate)}</Text>
+        {renderEmpty(
+          'sad-outline',
+          'No hay horas libres',
+          'Prueba con otra fecha para ver mas opciones.',
+        )}
       </View>
     );
   }
 
-  // Group slots by morning/afternoon/evening
-  const morningSlots = availableSlots.filter(slot => {
-    const hour = parseInt(slot.startTime.split(':')[0]);
-    return hour < 12;
-  });
-  const afternoonSlots = availableSlots.filter(slot => {
-    const hour = parseInt(slot.startTime.split(':')[0]);
-    return hour >= 12 && hour < 18;
-  });
-  const eveningSlots = availableSlots.filter(slot => {
-    const hour = parseInt(slot.startTime.split(':')[0]);
-    return hour >= 18;
-  });
-
-  const renderSlotGroup = (title: string, slots: TimeSlot[], icon: string) => {
-    if (slots.length === 0) return null;
-    return (
-      <View style={styles.slotGroup}>
-        <View style={styles.slotGroupHeader}>
-          <Text style={styles.slotGroupIcon}>{icon}</Text>
-          <Text style={styles.slotGroupTitle}>{title}</Text>
-          <Text style={styles.slotGroupCount}>{slots.length}</Text>
-        </View>
-        <View style={styles.slotsGrid}>
-          {slots.map((slot, index) => (
-            <TimeSlotButton
-              key={`${slot.startTime}-${index}`}
-              slot={slot}
-              isSelected={selectedTime === slot.startTime}
-              onPress={() => onTimeSelect(slot)}
-            />
-          ))}
-        </View>
-      </View>
-    );
-  };
-
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Horarios disponibles</Text>
-        <Text style={styles.dateSubtitle}>{formatDate(selectedDate)}</Text>
-        <View style={styles.availabilityBadge}>
-          <Ionicons name="time-outline" size={14} color={heraLanding.primary} />
-          <Text style={styles.availabilityText}>
-            {availableSlots.length} {availableSlots.length === 1 ? 'horario' : 'horarios'}
-          </Text>
-        </View>
-      </View>
+      <Text style={styles.title}>Horarios disponibles</Text>
+      <Text style={styles.subtitle}>{formatDate(selectedDate)}</Text>
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={true}
+        showsVerticalScrollIndicator
       >
-        {renderSlotGroup('Mañana', morningSlots, '🌅')}
-        {renderSlotGroup('Tarde', afternoonSlots, '☀️')}
-        {renderSlotGroup('Noche', eveningSlots, '🌙')}
+        {slotGroups.map((group) => (
+          <View key={group.key} style={styles.slotGroup}>
+            <View style={styles.slotGroupHeader}>
+              <View style={styles.slotGroupTitleWrap}>
+                <Ionicons name={group.icon} size={14} color={theme.secondaryDark} />
+                <Text style={styles.slotGroupTitle}>{group.label}</Text>
+              </View>
+              <Text style={styles.slotGroupCount}>{group.slots.length}</Text>
+            </View>
+
+            <View style={styles.slotsGrid}>
+              {group.slots.map((slot) => {
+                const selected = selectedTime === slot.startTime;
+                return (
+                  <AnimatedPressable
+                    key={slot.startTime}
+                    onPress={() => onTimeSelect(slot)}
+                    style={[styles.slotButton, selected ? styles.slotButtonSelected : null]}
+                  >
+                    <Text style={[styles.slotButtonText, selected ? styles.slotButtonTextSelected : null]}>
+                      {slot.startTime}
+                    </Text>
+                    {selected && (
+                      <Ionicons name="checkmark" size={16} color={theme.textOnPrimary} />
+                    )}
+                  </AnimatedPressable>
+                );
+              })}
+            </View>
+          </View>
+        ))}
       </ScrollView>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    minWidth: 280,
-    maxWidth: 320,
-    maxHeight: '100%',
-    backgroundColor: heraLanding.cardBg,
-    borderRadius: borderRadius.lg,
-    shadowColor: heraLanding.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  header: {
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: heraLanding.borderLight,
-    flexShrink: 0,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  dateSubtitle: {
-    fontSize: 14,
-    color: heraLanding.textSecondary,
-    textTransform: 'capitalize',
-    marginBottom: spacing.sm,
-  },
-  availabilityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: `${heraLanding.primary}15`,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    alignSelf: 'flex-start',
-  },
-  availabilityText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: heraLanding.primary,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
-  },
-  slotGroup: {
-    marginBottom: spacing.lg,
-  },
-  slotGroupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-    gap: spacing.xs,
-  },
-  slotGroupIcon: {
-    fontSize: 14,
-  },
-  slotGroupTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: heraLanding.textMuted,
-    textTransform: 'uppercase',
-    flex: 1,
-  },
-  slotGroupCount: {
-    fontSize: 12,
-    color: heraLanding.textMuted,
-    backgroundColor: heraLanding.background,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  slotsGrid: {
-    gap: spacing.sm,
-  },
-  slotButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: heraLanding.background,
-    borderRadius: borderRadius.md,
-    paddingVertical: 12,
-    paddingHorizontal: spacing.md,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    gap: spacing.sm,
-  },
-  slotButtonSelected: {
-    backgroundColor: heraLanding.primary,
-    borderColor: heraLanding.success,
-  },
-  slotButtonText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: heraLanding.textPrimary,
-  },
-  slotButtonTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  // Empty & Loading States
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
-    minHeight: 200,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: spacing.md,
-  },
-  emptyMessage: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: heraLanding.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-  },
-  emptySubmessage: {
-    fontSize: 14,
-    color: heraLanding.textMuted,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
-    minHeight: 200,
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: 14,
-    color: heraLanding.textSecondary,
-  },
-});
+const createStyles = (
+  theme: ReturnType<typeof useTheme>['theme'],
+  isDark: boolean,
+  isCompact: boolean,
+) =>
+  StyleSheet.create({
+    container: {
+      flexGrow: isCompact ? 0 : 1,
+      flexShrink: 0,
+      flexBasis: isCompact ? 'auto' : 0,
+      width: '100%',
+      minWidth: isCompact ? 0 : 270,
+      maxWidth: isCompact ? 9999 : 320,
+      backgroundColor: theme.bgCard,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: spacing.md,
+      gap: spacing.sm,
+      shadowColor: theme.shadowCard,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 1,
+      shadowRadius: 14,
+      elevation: 3,
+    },
+    title: {
+      fontSize: 16,
+      fontFamily: theme.fontDisplayBold,
+      color: theme.textPrimary,
+    },
+    subtitle: {
+      marginTop: -4,
+      fontSize: 12,
+      lineHeight: 17,
+      fontFamily: theme.fontSans,
+      color: theme.textSecondary,
+      textTransform: 'capitalize',
+    },
+    scrollView: {
+      flex: isCompact ? 0 : 1,
+    },
+    scrollContent: {
+      gap: spacing.md,
+      paddingBottom: spacing.sm,
+    },
+    slotGroup: {
+      gap: spacing.sm,
+    },
+    slotGroupHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    slotGroupTitleWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    slotGroupTitle: {
+      fontSize: 13,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.textPrimary,
+    },
+    slotGroupCount: {
+      fontSize: 11,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.textMuted,
+    },
+    slotsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    slotButton: {
+      minWidth: 92,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.md,
+      backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    slotButtonSelected: {
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
+    },
+    slotButtonText: {
+      fontSize: 13,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.textPrimary,
+    },
+    slotButtonTextSelected: {
+      color: theme.textOnPrimary,
+    },
+    emptyState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.md,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.xl,
+    },
+    emptyTitle: {
+      fontSize: 16,
+      fontFamily: theme.fontDisplayBold,
+      color: theme.textPrimary,
+      textAlign: 'center',
+    },
+    emptyDescription: {
+      fontSize: 12,
+      lineHeight: 18,
+      fontFamily: theme.fontSans,
+      color: theme.textSecondary,
+      textAlign: 'center',
+    },
+  });
 
 export default TimeSlotsColumn;

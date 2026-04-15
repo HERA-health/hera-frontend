@@ -54,18 +54,14 @@ const SessionCard: React.FC<SessionCardProps> = ({
   const buttonStyle = buttonState ? getVideoCallButtonStyle(buttonState) : null;
   const isJoinClickable = buttonState ? isVideoCallButtonClickable(buttonState) : false;
 
-  return (
-    <AnimatedPressable
-      style={[
-        styles.card,
-        isTodaySession && !isCompleted && !isCancelled ? styles.cardToday : null,
-        (isCompleted || isCancelled) ? styles.cardPast : null,
-      ]}
-      onPress={onPress ?? (() => undefined)}
-      disabled={!onPress}
-      hoverLift={!!onPress}
-      pressScale={onPress ? 0.99 : 1}
-    >
+  const cardStyles = [
+    styles.card,
+    isTodaySession && !isCompleted && !isCancelled ? styles.cardToday : null,
+    isCompleted || isCancelled ? styles.cardPast : null,
+  ];
+
+  const cardContent = (
+    <>
       <View style={styles.topRow}>
         <View style={styles.timeBlock}>
           <View style={[styles.timeIconShell, isTodaySession && styles.timeIconShellToday]}>
@@ -221,8 +217,23 @@ const SessionCard: React.FC<SessionCardProps> = ({
           )}
         </View>
       ) : null}
-    </AnimatedPressable>
+    </>
   );
+
+  if (onPress) {
+    return (
+      <AnimatedPressable
+        style={cardStyles}
+        onPress={onPress}
+        hoverLift
+        pressScale={0.99}
+      >
+        {cardContent}
+      </AnimatedPressable>
+    );
+  }
+
+  return <View style={cardStyles}>{cardContent}</View>;
 };
 
 const createStyles = (theme: Theme, isDark: boolean, width: number) =>

@@ -1,36 +1,16 @@
-/**
- * CompactCalendarColumn
- * Clean calendar for date selection - ONLY calendar, no extras
- * Part of the 4-column Calendly-style booking layout
- * FIXED: Removed irrelevant info cards, calendar centered
- */
-
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-} from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { Calendar, DateData, LocaleConfig } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
-import { branding, heraLanding, colors, spacing, borderRadius, shadows } from '../../../constants/colors';
+import { spacing, borderRadius } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
 
-// Configure Spanish locale for calendar
-LocaleConfig.locales['es'] = {
-  monthNames: [
-    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-  ],
-  monthNamesShort: [
-    'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
-  ],
-  dayNames: [
-    'Domingo', 'Lunes', 'Martes', 'Miércoles',
-    'Jueves', 'Viernes', 'Sábado'
-  ],
-  dayNamesShort: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
-  today: 'Hoy'
+LocaleConfig.locales.es = {
+  monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+  monthNamesShort: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+  dayNames: ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'],
+  dayNamesShort: ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'],
+  today: 'Hoy',
 };
 LocaleConfig.defaultLocale = 'es';
 
@@ -47,30 +27,69 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
   availableDates,
   minDate,
 }) => {
+  const { theme, isDark } = useTheme();
+  const { width } = useWindowDimensions();
+  const isCompact = width < 1024;
+  const styles = useMemo(() => createStyles(theme, isDark, isCompact), [theme, isDark, isCompact]);
   const today = minDate || new Date().toISOString().split('T')[0];
+  const calendarSurface = isDark ? theme.bgElevated : '#FFFFFF';
+  const calendarBorder = isDark ? theme.borderLight : theme.border;
+  const calendarTheme = useMemo(
+    () => ({
+      backgroundColor: calendarSurface,
+      calendarBackground: calendarSurface,
+      monthTextColor: theme.textPrimary,
+      textMonthFontWeight: '700' as const,
+      textMonthFontSize: isCompact ? 16 : 18,
+      textSectionTitleColor: theme.textMuted,
+      textDayHeaderFontWeight: '600' as const,
+      textDayHeaderFontSize: isCompact ? 10 : 11,
+      dayTextColor: theme.textPrimary,
+      textDayFontWeight: '500' as const,
+      textDayFontSize: isCompact ? 13 : 14,
+      todayTextColor: theme.secondaryDark,
+      todayBackgroundColor: 'transparent',
+      selectedDayBackgroundColor: theme.primary,
+      selectedDayTextColor: theme.textOnPrimary,
+      textDisabledColor: theme.textMuted,
+      arrowColor: theme.primary,
+      dotColor: theme.secondary,
+      selectedDotColor: theme.textOnPrimary,
+    }),
+    [
+      calendarSurface,
+      isCompact,
+      theme.primary,
+      theme.secondary,
+      theme.secondaryDark,
+      theme.textMuted,
+      theme.textOnPrimary,
+      theme.textPrimary,
+    ],
+  );
+  const calendarKey = `${isDark ? 'dark' : 'light'}-${isCompact ? 'compact' : 'regular'}`;
 
-  // Create marked dates object
-  const markedDates: { [key: string]: object } = {};
+  const markedDates = useMemo(() => {
+    const dates: Record<string, object> = {};
 
-  // Mark available dates if provided
-  if (availableDates) {
-    availableDates.forEach(date => {
-      markedDates[date] = {
+    availableDates?.forEach((date) => {
+      dates[date] = {
         marked: true,
-        dotColor: heraLanding.primary,
+        dotColor: theme.secondary,
       };
     });
-  }
 
-  // Mark selected date
-  if (selectedDate) {
-    markedDates[selectedDate] = {
-      ...markedDates[selectedDate],
-      selected: true,
-      selectedColor: heraLanding.primary,
-      selectedTextColor: heraLanding.textOnPrimary,
-    };
-  }
+    if (selectedDate) {
+      dates[selectedDate] = {
+        ...(dates[selectedDate] ?? {}),
+        selected: true,
+        selectedColor: theme.primary,
+        selectedTextColor: theme.textOnPrimary,
+      };
+    }
+
+    return dates;
+  }, [availableDates, selectedDate, theme.primary, theme.secondary, theme.textOnPrimary]);
 
   const handleDayPress = (day: DateData) => {
     onDateSelect(day.dateString);
@@ -78,128 +97,115 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Selecciona una fecha</Text>
-        <Text style={styles.subtitle}>Elige el dia de tu cita</Text>
-      </View>
+      <Text style={styles.title}>Selecciona una fecha</Text>
+      <Text style={styles.subtitle}>Elige el dia que mejor encaje con tu agenda.</Text>
 
-      {/* Calendar Wrapper - Centers the calendar */}
-      <View style={styles.calendarWrapper}>
+      <View style={styles.calendarShell}>
         <Calendar
+          key={calendarKey}
           current={today}
           minDate={today}
           onDayPress={handleDayPress}
           markedDates={markedDates}
-          hideExtraDays={true}
-          enableSwipeMonths={true}
+          hideExtraDays
+          enableSwipeMonths
           firstDay={1}
-          monthFormat={'MMMM yyyy'}
-          theme={{
-            backgroundColor: heraLanding.cardBg,
-            calendarBackground: heraLanding.cardBg,
-            monthTextColor: heraLanding.textPrimary,
-            textMonthFontWeight: '700',
-            textMonthFontSize: 18,
-            textSectionTitleColor: heraLanding.textSecondary,
-            textDayHeaderFontWeight: '600',
-            textDayHeaderFontSize: 13,
-            dayTextColor: heraLanding.textPrimary,
-            textDayFontWeight: '500',
-            textDayFontSize: 15,
-            todayTextColor: heraLanding.primary,
-            todayBackgroundColor: 'transparent',
-            selectedDayBackgroundColor: heraLanding.primary,
-            selectedDayTextColor: heraLanding.textOnPrimary,
-            textDisabledColor: heraLanding.scrollbarThumb,
-            arrowColor: heraLanding.primary,
-            arrowHeight: 20,
-            arrowWidth: 20,
-            dotColor: heraLanding.primary,
-            selectedDotColor: heraLanding.textOnPrimary,
-          }}
-          style={styles.calendar}
+          monthFormat="MMMM yyyy"
+          theme={calendarTheme}
+          style={[styles.calendar, { backgroundColor: calendarSurface }]}
         />
       </View>
 
-      {/* Selected Date Confirmation */}
-      {selectedDate && (
-        <View style={styles.selectedDateBanner}>
-          <Ionicons name="checkmark-circle" size={18} color={heraLanding.primary} />
-          <Text style={styles.selectedDateText}>
-            {new Date(selectedDate).toLocaleDateString('es-ES', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-            })}
-          </Text>
-        </View>
-      )}
+      <View style={styles.helperBanner}>
+        <Ionicons name="sparkles-outline" size={16} color={theme.secondaryDark} />
+        <Text style={styles.helperText}>
+          {selectedDate
+            ? new Date(selectedDate).toLocaleDateString('es-ES', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+              })
+            : 'Las fechas disponibles se actualizan al momento.'}
+        </Text>
+      </View>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    minWidth: 320,
-    maxWidth: 400,
-    maxHeight: '100%',
-    backgroundColor: heraLanding.cardBg,
-    borderRadius: borderRadius.lg,
-    shadowColor: heraLanding.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  header: {
-    padding: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: heraLanding.borderLight,
-    flexShrink: 0,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: heraLanding.textPrimary,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: heraLanding.textSecondary,
-  },
-  calendarWrapper: {
-    flex: 1,
-    padding: spacing.md,
-    paddingTop: spacing.sm,
-    justifyContent: 'center',
-  },
-  calendar: {
-    borderRadius: borderRadius.md,
-  },
-  selectedDateBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: `${heraLanding.primary}10`,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: heraLanding.borderLight,
-    flexShrink: 0,
-  },
-  selectedDateText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: heraLanding.textSecondary,
-    textTransform: 'capitalize',
-  },
-});
+const createStyles = (
+  theme: ReturnType<typeof useTheme>['theme'],
+  isDark: boolean,
+  isCompact: boolean,
+) => {
+  const calendarSurface = isDark ? theme.bgElevated : '#FFFFFF';
+  const calendarBorder = isDark ? theme.borderLight : theme.border;
 
+  return StyleSheet.create({
+    container: {
+      flexGrow: isCompact ? 0 : 1,
+      flexShrink: 0,
+      flexBasis: isCompact ? 'auto' : 0,
+      width: '100%',
+      minWidth: isCompact ? 0 : 300,
+      maxWidth: isCompact ? 9999 : 360,
+      alignSelf: 'stretch',
+      backgroundColor: theme.bgCard,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: spacing.md,
+      gap: spacing.sm,
+      shadowColor: theme.shadowCard,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 1,
+      shadowRadius: 14,
+      elevation: 3,
+    },
+    title: {
+      fontSize: 16,
+      fontFamily: theme.fontDisplayBold,
+      color: theme.textPrimary,
+    },
+    subtitle: {
+      marginTop: -4,
+      fontSize: 12,
+      lineHeight: 17,
+      fontFamily: theme.fontSans,
+      color: theme.textSecondary,
+    },
+    calendarShell: {
+      width: '100%',
+      minHeight: isCompact ? 292 : undefined,
+      borderWidth: 1,
+      borderColor: calendarBorder,
+      borderRadius: borderRadius.md,
+      overflow: 'hidden',
+      backgroundColor: calendarSurface,
+    },
+    calendar: {
+      width: '100%',
+      minHeight: isCompact ? 280 : undefined,
+      paddingBottom: spacing.xs,
+    },
+    helperBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm,
+    },
+    helperText: {
+      flex: 1,
+      fontSize: 11,
+      lineHeight: 16,
+      fontFamily: theme.fontSans,
+      color: theme.textSecondary,
+      textTransform: 'capitalize',
+    },
+  });
+};
 export default CompactCalendarColumn;
