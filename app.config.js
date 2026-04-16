@@ -51,10 +51,7 @@ export default {
     },
     web: {
       favicon: "./assets/main-logo.png",
-      bundler: "metro",
-      meta: {
-        "google-site-verification": "WvW2aVTUa9BIhO4PKaqViyIsjci6ZFnf_TjtYgyjdlE"
-      }
+      bundler: "metro"
     },
     extra: {
       googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY
