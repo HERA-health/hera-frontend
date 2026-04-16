@@ -1,8 +1,8 @@
 /**
- * ForSpecialistsSection Component
+ * ForSpecialistsSection
  *
- * Secondary CTA section targeting psychologists.
- * Full-width banner with lavender accent.
+ * Evolves the previous secondary banner into a product-focused section
+ * that speaks clearly about real professional workflows.
  */
 
 import React from 'react';
@@ -10,111 +10,162 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, shadows } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 
 interface ForSpecialistsSectionProps {
   onLearnMore: () => void;
 }
 
+const BENEFITS = [
+  { icon: 'calendar-outline' as const, text: 'Agenda semanal y sesiones en un mismo panel' },
+  { icon: 'people-outline' as const, text: 'Vista más clara de pacientes y seguimiento' },
+  { icon: 'receipt-outline' as const, text: 'Facturación y configuración administrativa' },
+  { icon: 'stats-chart-outline' as const, text: 'Métricas para entender tu actividad' },
+];
+
 export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
   onLearnMore,
 }) => {
   const { width } = useWindowDimensions();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
 
-  const benefits = [
-    { icon: 'calendar-outline' as const, text: 'Gestiona tu agenda fácilmente' },
-    { icon: 'people-outline' as const, text: 'Pacientes verificados' },
-    { icon: 'card-outline' as const, text: 'Facturación automática' },
-    { icon: 'trending-up-outline' as const, text: 'Haz crecer tu práctica' },
-  ];
-
   return (
-    <View style={[styles.container, { backgroundColor: theme.secondaryMuted }, isDesktop && styles.containerDesktop]}>
-      <View style={[
-        styles.content,
-        isDesktop && styles.contentDesktop,
-        isTablet && styles.contentTablet,
-      ]}>
-        {/* Left: Illustration (desktop) */}
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.secondaryMuted },
+        isDesktop && styles.containerDesktop,
+      ]}
+    >
+      <View
+        style={[
+          styles.content,
+          isDesktop && styles.contentDesktop,
+          isTablet && styles.contentTablet,
+        ]}
+      >
         {(isDesktop || isTablet) && (
-          <View style={[styles.illustrationContainer, isDesktop && styles.illustrationContainerDesktop]}>
-            {/* Abstract professional visual */}
+          <View
+            style={[
+              styles.illustrationContainer,
+              isDesktop && styles.illustrationContainerDesktop,
+            ]}
+          >
             <View style={styles.illustrationWrapper}>
-              {/* Central briefcase icon */}
               <LinearGradient
-                colors={[heraLanding.secondary, heraLanding.secondaryLight]}
+                colors={[theme.secondary, theme.secondaryDark]}
                 style={styles.centralIcon}
               >
-                <Ionicons name="briefcase" size={48} color="#FFFFFF" />
+                <Ionicons name="briefcase-outline" size={46} color="#FFFFFF" />
               </LinearGradient>
 
-              {/* Decorative elements */}
-              <View style={[styles.floatingBadge, styles.badge1]}>
-                <Ionicons name="calendar" size={20} color={heraLanding.secondary} />
+              <View style={[styles.floatingBadge, styles.badge1, { backgroundColor: theme.bgCard }]}>
+                <Ionicons name="calendar-outline" size={20} color={theme.secondary} />
               </View>
-              <View style={[styles.floatingBadge, styles.badge2]}>
-                <Ionicons name="trending-up" size={20} color={heraLanding.success} />
+              <View style={[styles.floatingBadge, styles.badge2, { backgroundColor: theme.bgCard }]}>
+                <Ionicons name="receipt-outline" size={20} color={theme.success} />
               </View>
-              <View style={[styles.floatingBadge, styles.badge3]}>
-                <Ionicons name="people" size={20} color={heraLanding.primary} />
+              <View style={[styles.floatingBadge, styles.badge3, { backgroundColor: theme.bgCard }]}>
+                <Ionicons name="stats-chart-outline" size={20} color={theme.primary} />
               </View>
 
-              {/* Background circles */}
-              <View style={styles.bgCircle1} />
-              <View style={styles.bgCircle2} />
+              <View style={[styles.bgCircle1, { backgroundColor: theme.secondaryAlpha12 }]} />
+              <View style={[styles.bgCircle2, { backgroundColor: theme.primaryAlpha12 }]} />
             </View>
           </View>
         )}
 
-        {/* Right: Content */}
         <View style={[styles.textContainer, isDesktop && styles.textContainerDesktop]}>
-          {/* Badge */}
-          <View style={styles.badge}>
-            <Ionicons name="briefcase" size={14} color={heraLanding.secondaryDark} />
-            <Text style={styles.badgeText}>Para profesionales</Text>
+          <View style={[styles.badge, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>
+            <Ionicons name="briefcase-outline" size={14} color={theme.secondaryDark} />
+            <Text
+              style={[
+                styles.badgeText,
+                { color: theme.secondaryDark, fontFamily: theme.fontSansSemiBold },
+              ]}
+            >
+              Herramientas para especialistas en salud mental
+            </Text>
           </View>
 
-          {/* Title */}
-          <Text style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontDisplay }, isDesktop && styles.titleDesktop]}>
-            ¿Eres especialista en salud mental?
+          <Text
+            style={[
+              styles.title,
+              { color: theme.textPrimary, fontFamily: theme.fontDisplay },
+              isDesktop && styles.titleDesktop,
+            ]}
+          >
+            Una base más sólida para organizar tu consulta
           </Text>
 
-          {/* Subtitle */}
-          <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-            Únete a HERA y haz crecer tu práctica profesional.
-            Sin permanencia, sin comisiones ocultas.
+          <Text
+            style={[
+              styles.subtitle,
+              { color: theme.textSecondary, fontFamily: theme.fontSans },
+            ]}
+          >
+            HERA te ayuda a trabajar con una operativa más clara: agenda, pacientes,
+            disponibilidad, sesiones y gestión administrativa dentro de la misma experiencia de salud mental.
           </Text>
 
-          {/* Benefits */}
           <View style={[styles.benefitsGrid, isDesktop && styles.benefitsGridDesktop]}>
-            {benefits.map((benefit, index) => (
-              <View key={index} style={[styles.benefitItem, { backgroundColor: theme.bgCard }]}>
+            {BENEFITS.map((benefit) => (
+              <View
+                key={benefit.text}
+                style={[
+                  styles.benefitItem,
+                  {
+                    backgroundColor: theme.bgCard,
+                    borderColor: theme.border,
+                    shadowColor: theme.shadowNeutral,
+                  },
+                ]}
+              >
                 <View style={[styles.benefitIcon, { backgroundColor: theme.secondaryAlpha12 }]}>
                   <Ionicons name={benefit.icon} size={18} color={theme.secondary} />
                 </View>
-                <Text style={[styles.benefitText, { color: theme.textPrimary, fontFamily: theme.fontSans }]}>{benefit.text}</Text>
+                <Text
+                  style={[
+                    styles.benefitText,
+                    { color: theme.textPrimary, fontFamily: theme.fontSans },
+                  ]}
+                >
+                  {benefit.text}
+                </Text>
               </View>
             ))}
           </View>
 
-          {/* CTA */}
-          <TouchableOpacity
-            style={[styles.cta, { backgroundColor: theme.bgCard, borderColor: theme.secondaryLight }]}
+          <AnimatedPressable
+            style={[
+              styles.cta,
+              {
+                backgroundColor: isDark ? theme.bgElevated : theme.bgCard,
+                borderColor: theme.secondaryLight,
+                shadowColor: theme.shadowNeutral,
+              },
+            ]}
             onPress={onLearnMore}
-            activeOpacity={0.85}
+            hoverLift
+            pressScale={0.98}
           >
-            <Text style={[styles.ctaText, { color: theme.secondaryDark, fontFamily: theme.fontSansSemiBold }]}>Más información</Text>
+            <Text
+              style={[
+                styles.ctaText,
+                { color: theme.secondaryDark, fontFamily: theme.fontSansSemiBold },
+              ]}
+            >
+              Entrar en mi espacio profesional
+            </Text>
             <Ionicons name="arrow-forward" size={18} color={theme.secondaryDark} />
-          </TouchableOpacity>
+          </AnimatedPressable>
         </View>
       </View>
     </View>
@@ -123,7 +174,6 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: heraLanding.secondaryMuted,
     paddingVertical: 60,
     paddingHorizontal: 20,
   },
@@ -146,8 +196,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 40,
   },
-
-  // Illustration
   illustrationContainer: {
     flex: 0.4,
     alignItems: 'center',
@@ -164,41 +212,45 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   centralIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.lg,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 8,
   },
   floatingBadge: {
     position: 'absolute',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.md,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 4,
   },
   badge1: {
-    top: 30,
-    right: 40,
+    top: 26,
+    right: 42,
   },
   badge2: {
-    bottom: 50,
-    left: 30,
+    bottom: 42,
+    left: 28,
   },
   badge3: {
-    top: 100,
-    left: 20,
+    top: 102,
+    left: 18,
   },
   bgCircle1: {
     position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(184, 168, 217, 0.2)',
+    width: 210,
+    height: 210,
+    borderRadius: 105,
     zIndex: -1,
   },
   bgCircle2: {
@@ -206,59 +258,42 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: 75,
-    backgroundColor: 'rgba(139, 157, 131, 0.15)',
-    top: -30,
-    right: -20,
+    top: -18,
+    right: -8,
     zIndex: -1,
   },
-
-  // Text Container
   textContainer: {
     alignItems: 'flex-start',
   },
   textContainerDesktop: {
     flex: 0.55,
   },
-
-  // Badge
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     marginBottom: 20,
     gap: 6,
-    ...shadows.sm,
+    borderWidth: 1,
   },
   badgeText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: heraLanding.secondaryDark,
   },
-
-  // Title
   title: {
     fontSize: 32,
-    fontWeight: '800',
-    color: heraLanding.textPrimary,
     marginBottom: 16,
   },
   titleDesktop: {
     fontSize: 40,
   },
-
-  // Subtitle
   subtitle: {
     fontSize: 17,
-    color: heraLanding.textSecondary,
     lineHeight: 26,
     marginBottom: 28,
-    maxWidth: 450,
+    maxWidth: 520,
   },
-
-  // Benefits
   benefitsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -271,43 +306,41 @@ const styles = StyleSheet.create({
   benefitItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
     gap: 8,
-    ...shadows.sm,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 2,
   },
   benefitIcon: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: heraLanding.secondaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   benefitText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: heraLanding.textPrimary,
+    maxWidth: 250,
   },
-
-  // CTA
   cta: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,
     gap: 10,
-    borderWidth: 2,
-    borderColor: heraLanding.secondaryLight,
-    ...shadows.sm,
+    borderWidth: 1.5,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    elevation: 3,
   },
   ctaText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: heraLanding.secondaryDark,
   },
 });

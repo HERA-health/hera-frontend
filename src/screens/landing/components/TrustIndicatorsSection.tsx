@@ -1,11 +1,11 @@
 /**
- * TrustIndicatorsSection Component
+ * TrustIndicatorsSection
  *
- * Build trust through concrete benefits with 6 value propositions.
- * Features stats, icons, and descriptions in a responsive grid.
+ * Reframed as a grid of specialist capabilities rather than marketplace claims.
+ * Uses theme tokens only.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,84 +14,59 @@ import {
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, shadows } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 
-interface TrustCard {
+interface CapabilityCard {
   icon: keyof typeof Ionicons.glyphMap;
-  stat: string;
+  title: string;
   description: string;
-  iconColor: string;
-  bgColor: string;
+  accent: 'primary' | 'secondary' | 'success' | 'warning' | 'info';
 }
 
-const trustCards: TrustCard[] = [
+const capabilityCards: CapabilityCard[] = [
   {
-    icon: 'shield-checkmark',
-    stat: '100% Verificados',
-    description: 'Todos nuestros especialistas pasan un riguroso proceso de verificación',
-    iconColor: heraLanding.primary,
-    bgColor: heraLanding.primaryMuted,
+    icon: 'calendar-outline',
+    title: 'Agenda y sesiones',
+    description: 'Ordena tu calendario profesional con una vista clara de la actividad diaria.',
+    accent: 'primary',
+  },
+  {
+    icon: 'people-outline',
+    title: 'Gestión de pacientes',
+    description: 'Consulta la base de pacientes y mantén el seguimiento dentro del mismo entorno.',
+    accent: 'secondary',
   },
   {
     icon: 'time-outline',
-    stat: '24/7 Disponible',
-    description: 'Reserva en minutos. Cancela hasta 24h antes sin coste',
-    iconColor: heraLanding.secondary,
-    bgColor: heraLanding.secondaryMuted,
+    title: 'Disponibilidad',
+    description: 'Configura tus franjas y adapta la operativa semanal sin depender de flujos externos.',
+    accent: 'success',
   },
   {
-    icon: 'pricetag-outline',
-    stat: 'Desde 50€',
-    description: 'Precios transparentes y accesibles sin sorpresas',
-    iconColor: heraLanding.success,
-    bgColor: '#E8F5E9',
+    icon: 'receipt-outline',
+    title: 'Facturación',
+    description: 'Centraliza configuración, historial de facturas y tareas administrativas clave.',
+    accent: 'warning',
+  },
+  {
+    icon: 'stats-chart-outline',
+    title: 'Dashboard',
+    description: 'Revisa actividad, ingresos, sesiones y tendencias desde un panel pensado para decidir.',
+    accent: 'info',
   },
   {
     icon: 'lock-closed-outline',
-    stat: 'RGPD Compliant',
-    description: 'Datos protegidos y encriptados. 100% confidencial',
-    iconColor: '#6B8DE3',
-    bgColor: '#E8F0FF',
-  },
-  {
-    icon: 'heart-outline',
-    stat: '+5,000 Sesiones',
-    description: 'Miles de personas ya cuidan su bienestar con nosotros',
-    iconColor: heraLanding.warning,
-    bgColor: '#FFF3E8',
-  },
-  {
-    icon: 'videocam-outline',
-    stat: 'Online o Presencial',
-    description: 'Elige el formato que mejor se adapte a tu estilo de vida',
-    iconColor: '#9B87C4',
-    bgColor: '#F5F0FF',
+    title: 'RGPD y LOPDGDD',
+    description: 'Protección de datos y privacidad alineadas con el RGPD y la Ley Orgánica 3/2018 en España.',
+    accent: 'primary',
   },
 ];
-
-interface AnimatedCounterProps {
-  target: string;
-  duration?: number;
-}
-
-const AnimatedCounter: React.FC<AnimatedCounterProps> = ({ target, duration = 1500 }) => {
-  const [displayValue, setDisplayValue] = useState(target);
-
-  // Simple display without animation for now (animation can be enhanced later)
-  useEffect(() => {
-    setDisplayValue(target);
-  }, [target]);
-
-  return <Text style={styles.stat}>{displayValue}</Text>; // color overridden inline per card
-};
 
 export const TrustIndicatorsSection: React.FC = () => {
   const { width } = useWindowDimensions();
   const { theme } = useTheme();
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
-
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -100,7 +75,7 @@ export const TrustIndicatorsSection: React.FC = () => {
       duration: 600,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [fadeAnim]);
 
   const getGridColumns = () => {
     if (isDesktop) return 3;
@@ -108,12 +83,27 @@ export const TrustIndicatorsSection: React.FC = () => {
     return 1;
   };
 
+  const getAccentColors = (accent: CapabilityCard['accent']) => {
+    switch (accent) {
+      case 'secondary':
+        return { icon: theme.secondary, bg: theme.secondaryAlpha12 };
+      case 'success':
+        return { icon: theme.success, bg: theme.successBg };
+      case 'warning':
+        return { icon: theme.warning, bg: theme.warningBg };
+      case 'info':
+        return { icon: theme.info, bg: theme.primaryAlpha12 };
+      default:
+        return { icon: theme.primary, bg: theme.primaryAlpha12 };
+    }
+  };
+
   const renderCards = () => {
     const columns = getGridColumns();
-    const rows: TrustCard[][] = [];
+    const rows: CapabilityCard[][] = [];
 
-    for (let i = 0; i < trustCards.length; i += columns) {
-      rows.push(trustCards.slice(i, i + columns));
+    for (let i = 0; i < capabilityCards.length; i += columns) {
+      rows.push(capabilityCards.slice(i, i + columns));
     }
 
     return rows.map((row, rowIndex) => (
@@ -125,58 +115,97 @@ export const TrustIndicatorsSection: React.FC = () => {
           isTablet && styles.rowTablet,
         ]}
       >
-        {row.map((card, cardIndex) => (
-          <Animated.View
-            key={cardIndex}
-            style={[
-              styles.card,
-              { backgroundColor: theme.bgCard, shadowColor: theme.shadowNeutral },
-              isDesktop && styles.cardDesktop,
-              isTablet && styles.cardTablet,
-              {
-                opacity: fadeAnim,
-                transform: [{
-                  translateY: fadeAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [20, 0],
-                  }),
-                }],
-              },
-            ]}
-          >
-            {/* Icon */}
-            <View style={[styles.iconContainer, { backgroundColor: card.bgColor + '22' }]}>
-              <Ionicons name={card.icon} size={28} color={card.iconColor} />
-            </View>
+        {row.map((card, cardIndex) => {
+          const accent = getAccentColors(card.accent);
 
-            {/* Stat */}
-            <Text style={[styles.stat, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{card.stat}</Text>
+          return (
+            <Animated.View
+              key={card.title}
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.bgCard,
+                  borderColor: theme.border,
+                  shadowColor: theme.shadowNeutral,
+                  opacity: fadeAnim,
+                  transform: [{
+                    translateY: fadeAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  }],
+                },
+                isDesktop && styles.cardDesktop,
+                isTablet && styles.cardTablet,
+              ]}
+            >
+              <View style={[styles.iconContainer, { backgroundColor: accent.bg }]}>
+                <Ionicons name={card.icon} size={26} color={accent.icon} />
+              </View>
 
-            {/* Description */}
-            <Text style={[styles.description, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{card.description}</Text>
-          </Animated.View>
-        ))}
+              <Text
+                style={[
+                  styles.title,
+                  { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
+                ]}
+              >
+                {card.title}
+              </Text>
+
+              <Text
+                style={[
+                  styles.description,
+                  { color: theme.textSecondary, fontFamily: theme.fontSans },
+                ]}
+              >
+                {card.description}
+              </Text>
+            </Animated.View>
+          );
+        })}
       </View>
     ));
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.bgMuted }, isDesktop && styles.containerDesktop]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.bgMuted },
+        isDesktop && styles.containerDesktop,
+      ]}
+    >
       <View style={styles.content}>
-        {/* Section Title */}
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontDisplay }, isDesktop && styles.titleDesktop]}>
-            ¿Por qué elegir HERA?
+          <Text
+            style={[
+              styles.eyebrow,
+              { color: theme.primary, fontFamily: theme.fontSansSemiBold },
+            ]}
+          >
+            HERRAMIENTAS
           </Text>
-          <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-            Cuidamos cada detalle para tu bienestar
+          <Text
+            style={[
+              styles.headerTitle,
+              { color: theme.textPrimary, fontFamily: theme.fontDisplay },
+              isDesktop && styles.headerTitleDesktop,
+            ]}
+          >
+            Todo lo esencial para tu operativa
+          </Text>
+          <Text
+            style={[
+              styles.headerSubtitle,
+              { color: theme.textSecondary, fontFamily: theme.fontSans },
+            ]}
+          >
+            HERA deja de hablarte como un marketplace secundario y empieza a presentarse
+            como tu espacio de trabajo.
           </Text>
         </View>
 
-        {/* Trust Grid */}
-        <View style={styles.grid}>
-          {renderCards()}
-        </View>
+        <View style={styles.grid}>{renderCards()}</View>
       </View>
     </View>
   );
@@ -184,7 +213,6 @@ export const TrustIndicatorsSection: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: heraLanding.background,
     paddingVertical: 60,
     paddingHorizontal: 20,
   },
@@ -197,29 +225,29 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-
-  // Header
   header: {
     alignItems: 'center',
     marginBottom: 50,
   },
-  title: {
+  eyebrow: {
+    fontSize: 12,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+  },
+  headerTitle: {
     fontSize: 32,
-    fontWeight: '800',
-    color: heraLanding.textPrimary,
     textAlign: 'center',
     marginBottom: 12,
   },
-  titleDesktop: {
+  headerTitleDesktop: {
     fontSize: 40,
   },
-  subtitle: {
+  headerSubtitle: {
     fontSize: 17,
-    color: heraLanding.textSecondary,
     textAlign: 'center',
+    maxWidth: 760,
   },
-
-  // Grid
   grid: {
     gap: 20,
   },
@@ -234,14 +262,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
   },
-
-  // Card
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 24,
-    alignItems: 'center',
-    ...shadows.md,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 4,
   },
   cardDesktop: {
     flex: 1,
@@ -251,31 +279,20 @@ const styles = StyleSheet.create({
     flex: 1,
     maxWidth: 340,
   },
-
-  // Icon
   iconContainer: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
-
-  // Stat
-  stat: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: heraLanding.textPrimary,
+  title: {
+    fontSize: 20,
     marginBottom: 8,
-    textAlign: 'center',
   },
-
-  // Description
   description: {
     fontSize: 14,
-    color: heraLanding.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
   },
 });

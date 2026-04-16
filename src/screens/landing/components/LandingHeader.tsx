@@ -28,6 +28,12 @@ interface LandingHeaderProps {
   onScrollToSection?: (section: 'howItWorks' | 'specializations' | 'forSpecialists') => void;
 }
 
+const NAV_ITEMS = [
+  { id: 'howItWorks' as const, label: 'Cómo funciona' },
+  { id: 'forSpecialists' as const, label: 'Herramientas' },
+  { id: 'specializations' as const, label: 'Especialidades' },
+];
+
 export const LandingHeader: React.FC<LandingHeaderProps> = ({
   isScrolled,
   onFindSpecialist,
@@ -70,13 +76,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
       : undefined;
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        containerAnimStyle,
-        webGlassStyle,
-      ]}
-    >
+    <Animated.View style={[styles.container, containerAnimStyle, webGlassStyle]}>
       {Platform.OS !== 'web' && isScrolled && (
         <BlurView
           intensity={55}
@@ -107,27 +107,24 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
 
         {isDesktop && (
           <View style={styles.navLinks}>
-            {(['howItWorks', 'specializations', 'forSpecialists'] as const).map((section, index) => {
-              const labels = ['Cómo funciona', 'Especialidades', 'Para profesionales'];
-              return (
-                <AnimatedPressable
-                  key={section}
-                  onPress={() => onScrollToSection?.(section)}
-                  hoverLift={false}
-                  pressScale={0.96}
-                  style={styles.navLink}
+            {NAV_ITEMS.map((item) => (
+              <AnimatedPressable
+                key={item.id}
+                onPress={() => onScrollToSection?.(item.id)}
+                hoverLift={false}
+                pressScale={0.96}
+                style={styles.navLink}
+              >
+                <Text
+                  style={[
+                    styles.navLinkText,
+                    { color: theme.textSecondary, fontFamily: theme.fontSansMedium },
+                  ]}
                 >
-                  <Text
-                    style={[
-                      styles.navLinkText,
-                      { color: theme.textSecondary, fontFamily: theme.fontSansMedium },
-                    ]}
-                  >
-                    {labels[index]}
-                  </Text>
-                </AnimatedPressable>
-              );
-            })}
+                  {item.label}
+                </Text>
+              </AnimatedPressable>
+            ))}
           </View>
         )}
 
@@ -136,14 +133,14 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
 
           {isDesktop && (
             <AnimatedPressable
-              onPress={onJoinAsProfessional}
+              onPress={onFindSpecialist}
               hoverLift={false}
               pressScale={0.96}
               style={[
                 styles.secondaryCTA,
                 {
-                  backgroundColor: theme.bgCard,
-                  borderColor: theme.border,
+                  backgroundColor: theme.secondaryAlpha12,
+                  borderColor: theme.secondaryAlpha12,
                 },
               ]}
             >
@@ -153,15 +150,16 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
                   { color: theme.secondaryDark, fontFamily: theme.fontSansSemiBold },
                 ]}
               >
-                Soy profesional
+                Busco terapia
               </Text>
+              <Ionicons name="arrow-forward" size={16} color={theme.secondaryDark} />
             </AnimatedPressable>
           )}
 
           <AnimatedPressable
-            onPress={onFindSpecialist}
+            onPress={onJoinAsProfessional}
             pressScale={0.96}
-            hoverLift={true}
+            hoverLift
             style={[
               styles.primaryCTA,
               ...(isMobile ? [styles.primaryCTAMobile] : []),
@@ -172,7 +170,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             ]}
           >
             <Text style={[styles.primaryCTAText, { fontFamily: theme.fontSansSemiBold }]}>
-              Empezar
+              Soy profesional
             </Text>
             <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
           </AnimatedPressable>
@@ -268,10 +266,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   secondaryCTA: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 20,
     borderRadius: 12,
     borderWidth: 1,
+    gap: 6,
   },
   secondaryCTAText: {
     fontSize: 14,

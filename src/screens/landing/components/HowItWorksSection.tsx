@@ -1,9 +1,8 @@
 /**
- * HowItWorksSection — HERA Design System v5.0
+ * HowItWorksSection - HERA Design System v5.0
  *
- * Bento-grid layout on desktop (step 1 = 2/3 wide, steps 2+3 = 1/3).
- * GlassCard with Fraunces ghost number in background.
- * Staggered MotionView entry.
+ * Keeps the current bento layout but reframes the flow around the
+ * professional workspace instead of patient discovery.
  */
 
 import React from 'react';
@@ -30,21 +29,24 @@ interface Step {
 const STEPS: Step[] = [
   {
     number: '01',
-    icon: 'clipboard-outline',
-    title: 'Completa el cuestionario',
-    description: 'En 2 minutos, cuéntanos qué necesitas. Te recomendaremos los especialistas que mejor encajen contigo según tu perfil único.',
+    icon: 'log-in-outline',
+    title: 'Accede a tu espacio profesional',
+    description:
+      'Entra con tu cuenta o únete como profesional para centralizar tu consulta desde el primer momento.',
   },
   {
     number: '02',
-    icon: 'calendar-outline',
-    title: 'Reserva tu sesión',
-    description: 'Elige fecha y hora que te convengan. Confirma en segundos. Flexible y sin compromiso.',
+    icon: 'options-outline',
+    title: 'Configura agenda, disponibilidad y tarifas',
+    description:
+      'Define tu operativa con claridad: franjas horarias, sesiones, precios y reglas básicas del trabajo diario.',
   },
   {
     number: '03',
-    icon: 'chatbubbles-outline',
-    title: 'Comienza tu proceso',
-    description: 'Sesión segura por videollamada o presencial. Tu privacidad es nuestra prioridad.',
+    icon: 'layers-outline',
+    title: 'Gestiona pacientes, sesiones y facturación',
+    description:
+      'Haz seguimiento de tu actividad, organiza tu calendario y trabaja con una vista más ordenada de todo el negocio.',
   },
 ];
 
@@ -61,41 +63,48 @@ export const HowItWorksSection: React.FC = () => {
   const { theme } = useTheme();
 
   return (
-    <View style={[
-      styles.container,
-      { backgroundColor: theme.bgAlt },
-      isDesktop && styles.containerDesktop,
-    ]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.bgAlt },
+        isDesktop && styles.containerDesktop,
+      ]}
+    >
       <View style={styles.content}>
-        {/* Section Header */}
         <MotionView entering="fadeInUp" delay={0} style={styles.header}>
-          <Text style={[
-            styles.eyebrow,
-            { color: theme.primary, fontFamily: theme.fontSansSemiBold },
-          ]}>
-            PROCESO
+          <Text
+            style={[
+              styles.eyebrow,
+              { color: theme.primary, fontFamily: theme.fontSansSemiBold },
+            ]}
+          >
+            FLUJO
           </Text>
-          <Text style={[
-            styles.title,
-            isDesktop && styles.titleDesktop,
-            { color: theme.textPrimary, fontFamily: theme.fontDisplay },
-          ]}>
-            Comienza en 3 pasos
+          <Text
+            style={[
+              styles.title,
+              isDesktop && styles.titleDesktop,
+              { color: theme.textPrimary, fontFamily: theme.fontDisplay },
+            ]}
+          >
+            Empieza a trabajar en 3 pasos
           </Text>
-          <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-            Simple, rápido y completamente confidencial
+          <Text
+            style={[
+              styles.subtitle,
+              { color: theme.textSecondary, fontFamily: theme.fontSans },
+            ]}
+          >
+            Una entrada más clara para tu operativa diaria, sin cambiar la calma visual de HERA.
           </Text>
         </MotionView>
 
-        {/* ── Bento grid ───────────────────────────────────────────────── */}
         {isDesktop ? (
           <View style={styles.bentoGrid}>
-            {/* Step 1 — large card (2/3 width) */}
             <MotionView entering="fadeInUp" delay={100} style={styles.bentoLarge}>
               <StepCard step={STEPS[0]} index={0} theme={theme} large />
             </MotionView>
 
-            {/* Steps 2 + 3 — stacked (1/3 width) */}
             <View style={styles.bentoSmallCol}>
               <MotionView entering="fadeInUp" delay={180} style={{ flex: 1 }}>
                 <StepCard step={STEPS[1]} index={1} theme={theme} />
@@ -106,7 +115,6 @@ export const HowItWorksSection: React.FC = () => {
             </View>
           </View>
         ) : (
-          // Mobile/tablet: column
           <View style={[styles.columnGrid, isTablet && styles.tabletGrid]}>
             {STEPS.map((step, index) => (
               <MotionView key={step.number} entering="fadeInUp" delay={80 + index * 80}>
@@ -119,8 +127,6 @@ export const HowItWorksSection: React.FC = () => {
     </View>
   );
 };
-
-// ─── StepCard ────────────────────────────────────────────────────────────────
 
 interface StepCardProps {
   step: Step;
@@ -138,16 +144,16 @@ function StepCard({ step, index, theme, large = false }: StepCardProps) {
       borderRadius={20}
       style={[styles.stepCard, ...(large ? [styles.stepCardLarge] : [])]}
     >
-      {/* Ghost number in background */}
-      <Text style={[
-        styles.ghostNumber,
-        { color: theme.primary, fontFamily: theme.fontDisplay },
-        ...(large ? [styles.ghostNumberLarge] : []),
-      ]}>
+      <Text
+        style={[
+          styles.ghostNumber,
+          { color: theme.primary, fontFamily: theme.fontDisplay },
+          ...(large ? [styles.ghostNumberLarge] : []),
+        ]}
+      >
         {step.number}
       </Text>
 
-      {/* Icon with gradient background */}
       <View style={styles.iconWrapper}>
         <LinearGradient
           colors={gradientColors}
@@ -159,18 +165,21 @@ function StepCard({ step, index, theme, large = false }: StepCardProps) {
         </LinearGradient>
       </View>
 
-      {/* Content */}
-      <Text style={[
-        styles.stepTitle,
-        large && styles.stepTitleLarge,
-        { color: theme.textPrimary, fontFamily: theme.fontSansBold },
-      ]}>
+      <Text
+        style={[
+          styles.stepTitle,
+          large && styles.stepTitleLarge,
+          { color: theme.textPrimary, fontFamily: theme.fontSansBold },
+        ]}
+      >
         {step.title}
       </Text>
-      <Text style={[
-        styles.stepDescription,
-        { color: theme.textSecondary, fontFamily: theme.fontSans },
-      ]}>
+      <Text
+        style={[
+          styles.stepDescription,
+          { color: theme.textSecondary, fontFamily: theme.fontSans },
+        ]}
+      >
         {step.description}
       </Text>
     </GlassCard>
@@ -191,8 +200,6 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-
-  // Header
   header: {
     alignItems: 'center',
     marginBottom: 48,
@@ -216,9 +223,8 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 17,
     textAlign: 'center',
+    maxWidth: 760,
   },
-
-  // Bento grid
   bentoGrid: {
     flexDirection: 'row',
     gap: 16,
@@ -231,8 +237,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 16,
   },
-
-  // Column grid (mobile/tablet)
   columnGrid: {
     gap: 16,
   },
@@ -241,8 +245,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
   },
-
-  // Step card
   stepCard: {
     padding: 28,
     position: 'relative',
@@ -253,8 +255,6 @@ const styles = StyleSheet.create({
     minHeight: 280,
     padding: 36,
   },
-
-  // Ghost number
   ghostNumber: {
     position: 'absolute',
     bottom: -10,
@@ -267,8 +267,6 @@ const styles = StyleSheet.create({
     fontSize: 140,
     lineHeight: 150,
   },
-
-  // Icon
   iconWrapper: {
     marginBottom: 20,
   },
@@ -279,8 +277,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // Text
   stepTitle: {
     fontSize: 18,
     marginBottom: 8,

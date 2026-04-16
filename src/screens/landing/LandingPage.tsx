@@ -7,10 +7,10 @@
  * Sections:
  * 1. Hero - Hook visitors in 3 seconds with dual CTAs
  * 2. How It Works - Show simplicity in 3 steps
- * 3. Trust Indicators - Build credibility with benefits
- * 4. For Specialists - Secondary CTA for professionals
- * 5. Specializations - Show breadth of services
- * 6. Testimonials - Social proof
+ * 3. For Specialists - Product-focused section for professionals
+ * 4. Trust Indicators - Show concrete specialist capabilities
+ * 5. Specializations - Show breadth of supported practice areas
+ * 6. Testimonials - Reframed as real use cases
  * 7. Final CTA - Convert after they've seen everything
  * 8. Footer - Navigation and legal
  */
@@ -157,15 +157,15 @@ export const LandingPage: React.FC = () => {
           <HowItWorksSection />
         </View>
 
-        {/* Section 3: Trust Indicators */}
-        <TrustIndicatorsSection />
-
-        {/* Section 4: For Specialists */}
+        {/* Section 3: For Specialists */}
         <View onLayout={handleSectionLayout('forSpecialists')}>
           <ForSpecialistsSection
             onLearnMore={handleLearnMoreProfessional}
           />
         </View>
+
+        {/* Section 4: Trust Indicators */}
+        <TrustIndicatorsSection />
 
         {/* Section 5: Specializations */}
         <View onLayout={handleSectionLayout('specializations')}>
@@ -180,6 +180,7 @@ export const LandingPage: React.FC = () => {
         {/* Section 7: Final CTA */}
         <FinalCTASection
           onFindSpecialist={handleFindSpecialist}
+          onJoinAsProfessional={handleJoinAsProfessional}
         />
 
         {/* Section 8: Footer */}

@@ -1,8 +1,8 @@
 /**
- * TestimonialsSection - HERA Design System v5.0
+ * TestimonialsSection
  *
- * GlassCard testimonials with staggered MotionView entry.
- * Dark mode via useTheme().
+ * Reused visually as a use-cases section to avoid inventing new testimonials
+ * while still explaining real specialist workflows.
  */
 
 import React from 'react';
@@ -19,52 +19,46 @@ import { GlassCard } from '../../../components/common/GlassCard';
 import { MotionView } from '../../../components/common/MotionView';
 import type { Theme } from '../../../constants/theme';
 
-interface Testimonial {
+interface UseCase {
   id: string;
-  quote: string;
-  name: string;
-  role: string;
-  location: string;
-  rating: number;
+  title: string;
+  summary: string;
+  context: string;
+  outcome: string;
   accentColor: (theme: Theme) => string;
-  initials: string;
-  isProfessional?: boolean;
+  icon: keyof typeof Ionicons.glyphMap;
 }
 
-const TESTIMONIALS: Testimonial[] = [
+const USE_CASES: UseCase[] = [
   {
     id: '1',
-    quote:
-      'Encontrar ayuda profesional nunca fue tan fácil. El proceso fue sencillo y mi psicóloga es excelente. Después de 3 meses, mi ansiedad ha mejorado mucho.',
-    name: 'María G.',
-    role: 'Cliente',
-    location: 'Madrid',
-    rating: 5,
+    title: 'Semana clínica más ordenada',
+    summary:
+      'Consulta agenda, próximas sesiones y solicitudes pendientes sin saltar entre herramientas.',
+    context: 'Para especialistas con varias sesiones a la semana',
+    outcome: 'Menos fricción operativa al empezar el día',
     accentColor: (theme) => theme.primary,
-    initials: 'MG',
+    icon: 'calendar-outline',
   },
   {
     id: '2',
-    quote:
-      'Como profesional, HERA me permite gestionar mi consulta de forma flexible y llegar a más pacientes. La plataforma es intuitiva y el soporte excepcional.',
-    name: 'Dr. Carlos M.',
-    role: 'Especialista en Salud Mental',
-    location: 'Barcelona',
-    rating: 5,
+    title: 'Seguimiento de pacientes en un mismo entorno',
+    summary:
+      'Accede al listado de pacientes, sesiones asociadas y contexto operativo desde un panel coherente.',
+    context: 'Para consultas que necesitan continuidad y seguimiento',
+    outcome: 'Más claridad al revisar cada caso',
     accentColor: (theme) => theme.secondary,
-    initials: 'CM',
-    isProfessional: true,
+    icon: 'people-outline',
   },
   {
     id: '3',
-    quote:
-      'La videollamada funciona perfecta. Me siento cómoda haciendo terapia desde casa. Poder elegir entre online y presencial es un plus enorme.',
-    name: 'Ana R.',
-    role: 'Cliente',
-    location: 'Valencia',
-    rating: 5,
+    title: 'Operación y negocio mejor conectados',
+    summary:
+      'Combina disponibilidad, facturación y dashboard para entender mejor la actividad de la consulta.',
+    context: 'Para quien necesita una base de gestión más profesional',
+    outcome: 'Visión más completa del trabajo y del negocio',
     accentColor: (theme) => theme.success,
-    initials: 'AR',
+    icon: 'stats-chart-outline',
   },
 ];
 
@@ -74,12 +68,12 @@ export const TestimonialsSection: React.FC = () => {
   const isTablet = width >= 768 && width < 1024;
   const { theme } = useTheme();
 
-  const renderCard = (testimonial: Testimonial, index: number) => {
-    const accent = testimonial.accentColor(theme);
+  const renderCard = (item: UseCase, index: number) => {
+    const accent = item.accentColor(theme);
 
     return (
       <MotionView
-        key={testimonial.id}
+        key={item.id}
         entering="fadeInUp"
         delay={100 + index * 80}
         style={isDesktop || isTablet ? { flex: 1 } : undefined}
@@ -89,55 +83,71 @@ export const TestimonialsSection: React.FC = () => {
           borderRadius={20}
           style={[
             styles.card,
+            ...(isDesktop || isTablet ? [styles.cardEqualHeight] : []),
             ...(isDesktop ? [styles.cardDesktop] : []),
             ...(!isDesktop && !isTablet ? [styles.cardMobile] : []),
           ]}
         >
           <View style={[styles.accentBar, { backgroundColor: accent }]} />
 
-          <View style={[styles.quoteIconBg, { backgroundColor: accent + '18' }]}>
-            <Ionicons name="chatbubble-ellipses" size={22} color={accent} />
+          <View style={[styles.iconBg, { backgroundColor: accent + '18' }]}>
+            <Ionicons name={item.icon} size={22} color={accent} />
           </View>
 
-          <Text style={[styles.quote, { color: theme.textPrimary, fontFamily: theme.fontSans }]}>
-            "{testimonial.quote}"
+          <Text
+            style={[
+              styles.title,
+              { color: theme.textPrimary, fontFamily: theme.fontSansBold },
+            ]}
+          >
+            {item.title}
           </Text>
 
-          <View style={styles.stars}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Ionicons
-                key={star}
-                name={star <= testimonial.rating ? 'star' : 'star-outline'}
-                size={15}
-                color={star <= testimonial.rating ? theme.starRating : theme.textMuted}
-              />
-            ))}
+          <Text
+            style={[
+              styles.summary,
+              { color: theme.textPrimary, fontFamily: theme.fontSans },
+            ]}
+          >
+            {item.summary}
+          </Text>
+
+          <View style={[styles.metaBlock, styles.metaBlockLast]}>
+            <Text
+              style={[
+                styles.metaLabel,
+                { color: theme.textMuted, fontFamily: theme.fontSansSemiBold },
+              ]}
+            >
+              Contexto
+            </Text>
+            <Text
+              style={[
+                styles.metaText,
+                { color: theme.textSecondary, fontFamily: theme.fontSans },
+              ]}
+            >
+              {item.context}
+            </Text>
           </View>
 
-          <View style={styles.author}>
-            <View style={[styles.avatar, { backgroundColor: accent }]}>
-              <Text style={[styles.avatarText, { fontFamily: theme.fontSansBold }]}>
-                {testimonial.initials}
-              </Text>
-            </View>
-            <View style={styles.authorInfo}>
-              <View style={styles.nameRow}>
-                <Text
-                  style={[
-                    styles.name,
-                    { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
-                  ]}
-                >
-                  {testimonial.name}
-                </Text>
-                {testimonial.isProfessional && (
-                  <Ionicons name="checkmark-circle" size={15} color={theme.secondary} />
-                )}
-              </View>
-              <Text style={[styles.role, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
-                {testimonial.role} · {testimonial.location}
-              </Text>
-            </View>
+          <View style={styles.metaBlock}>
+            <Text
+              style={[
+                styles.metaLabel,
+                { color: theme.textMuted, fontFamily: theme.fontSansSemiBold },
+              ]}
+            >
+              Lo que resuelve
+            </Text>
+            <Text
+              style={[
+                styles.metaText,
+                { color: theme.textSecondary, fontFamily: theme.fontSans },
+              ]}
+            >
+              {item.outcome}
+            </Text>
           </View>
         </GlassCard>
       </MotionView>
@@ -145,11 +155,22 @@ export const TestimonialsSection: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.bg }, isDesktop && styles.containerDesktop]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.bg },
+        isDesktop && styles.containerDesktop,
+      ]}
+    >
       <View style={styles.content}>
         <MotionView entering="fadeInUp" delay={0} style={styles.header}>
-          <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
-            TESTIMONIOS
+          <Text
+            style={[
+              styles.eyebrow,
+              { color: theme.primary, fontFamily: theme.fontSansSemiBold },
+            ]}
+          >
+            CASOS DE USO
           </Text>
           <Text
             style={[
@@ -158,15 +179,23 @@ export const TestimonialsSection: React.FC = () => {
               { color: theme.textPrimary, fontFamily: theme.fontDisplay },
             ]}
           >
-            La confianza de quienes ya dieron el paso
+            Flujos que HERA ya puede sostener
           </Text>
-          <Text style={[styles.headerSubtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-            Miles de personas cuidan su bienestar con HERA
+          <Text
+            style={[
+              styles.headerSubtitle,
+              { color: theme.textSecondary, fontFamily: theme.fontSans },
+            ]}
+          >
+            En lugar de forzar testimonios nuevos, la landing muestra de forma honesta
+            las situaciones que el producto ya ayuda a ordenar.
           </Text>
         </MotionView>
 
         {isDesktop || isTablet ? (
-          <View style={styles.grid}>{TESTIMONIALS.map((testimonial, index) => renderCard(testimonial, index))}</View>
+          <View style={styles.grid}>
+            {USE_CASES.map((item, index) => renderCard(item, index))}
+          </View>
         ) : (
           <ScrollView
             horizontal
@@ -175,7 +204,7 @@ export const TestimonialsSection: React.FC = () => {
             snapToInterval={308}
             decelerationRate="fast"
           >
-            {TESTIMONIALS.map((testimonial, index) => renderCard(testimonial, index))}
+            {USE_CASES.map((item, index) => renderCard(item, index))}
           </ScrollView>
         )}
       </View>
@@ -220,6 +249,7 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 16,
     textAlign: 'center',
+    maxWidth: 760,
   },
   grid: {
     flexDirection: 'row',
@@ -234,7 +264,11 @@ const styles = StyleSheet.create({
     padding: 28,
     position: 'relative',
     overflow: 'hidden',
-    minHeight: 250,
+    minHeight: 280,
+  },
+  cardEqualHeight: {
+    flex: 1,
+    height: '100%',
   },
   cardDesktop: {
     padding: 32,
@@ -250,7 +284,7 @@ const styles = StyleSheet.create({
     width: 3,
     borderRadius: 3,
   },
-  quoteIconBg: {
+  iconBg: {
     width: 42,
     height: 42,
     borderRadius: 12,
@@ -259,49 +293,32 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginLeft: 12,
   },
-  quote: {
+  title: {
+    fontSize: 18,
+    marginBottom: 12,
+    paddingLeft: 12,
+  },
+  summary: {
     fontSize: 15,
     lineHeight: 24,
-    marginBottom: 16,
-    fontStyle: 'italic',
+    marginBottom: 18,
     paddingLeft: 12,
   },
-  stars: {
-    flexDirection: 'row',
-    gap: 2,
-    marginBottom: 20,
+  metaBlock: {
     paddingLeft: 12,
+    marginBottom: 12,
   },
-  author: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 12,
+  metaBlockLast: {
+    marginTop: 'auto',
   },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
+  metaLabel: {
+    fontSize: 12,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
-  avatarText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  authorInfo: {
-    flex: 1,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
-  },
-  name: {
-    fontSize: 15,
-  },
-  role: {
+  metaText: {
     fontSize: 13,
+    lineHeight: 20,
   },
 });

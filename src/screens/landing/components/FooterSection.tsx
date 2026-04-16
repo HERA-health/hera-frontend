@@ -1,8 +1,8 @@
 /**
- * FooterSection Component
+ * FooterSection
  *
- * Functional footer with 4 columns and bottom bar.
- * Responsive layout that stacks on mobile.
+ * Keeps the existing footer structure while making the professional workspace
+ * the dominant narrative and leaving patient access visible but secondary.
  */
 
 import React from 'react';
@@ -15,7 +15,6 @@ import {
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { heraLanding, shadows } from '../../../constants/colors';
 import { StyledLogo } from '../../../components/common/StyledLogo';
 
 interface FooterLink {
@@ -44,20 +43,20 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
 
   const columns: FooterColumn[] = [
     {
-      title: 'Para Clientes',
+      title: 'Espacio profesional',
       links: [
-        { label: 'Encuentra especialista', onPress: onFindSpecialist },
-        { label: 'Cómo funciona', href: '#como-funciona' },
-        { label: 'Precios', href: '#precios' },
-        { label: 'FAQ', href: '#faq' },
+        { label: 'Acceder como profesional', onPress: onJoinAsProfessional },
+        { label: 'Herramientas', href: '#herramientas' },
+        { label: 'Dashboard', href: '#dashboard' },
+        { label: 'Disponibilidad y agenda', href: '#agenda' },
       ],
     },
     {
-      title: 'Para Profesionales',
+      title: 'Pacientes',
       links: [
-        { label: 'Únete a HERA', onPress: onJoinAsProfessional },
-        { label: 'Beneficios', href: '#beneficios' },
-        { label: 'Recursos', href: '#recursos' },
+        { label: 'Buscar especialista', onPress: onFindSpecialist },
+        { label: 'Especialidades', href: '#especialidades' },
+        { label: 'Cómo funciona', href: '#como-funciona' },
         { label: 'Centro de ayuda', href: '#ayuda' },
       ],
     },
@@ -74,9 +73,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
 
   const socialLinks = [
     { icon: 'logo-instagram' as const, href: 'https://instagram.com' },
-    { icon: 'logo-linkedin' as const, href: 'https://linkedin.com' },
-    { icon: 'logo-twitter' as const, href: 'https://twitter.com' },
-    { icon: 'logo-facebook' as const, href: 'https://facebook.com' },
+    { icon: 'logo-linkedin' as const, href: 'https://www.linkedin.com/in/hera-health' },
   ];
 
   const handleLinkPress = (link: FooterLink) => {
@@ -92,59 +89,56 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
   };
 
   return (
-    <View style={[styles.container, isDesktop && styles.containerDesktop]}>
+    <View style={styles.container}>
       <View style={styles.content}>
-        {/* Main Footer Content */}
-        <View style={[
-          styles.mainContent,
-          isDesktop && styles.mainContentDesktop,
-          isTablet && styles.mainContentTablet,
-        ]}>
-          {/* Brand Column */}
+        <View
+          style={[
+            styles.mainContent,
+            isDesktop && styles.mainContentDesktop,
+            isTablet && styles.mainContentTablet,
+          ]}
+        >
           <View style={[styles.brandColumn, isDesktop && styles.brandColumnDesktop]}>
             <View style={styles.logoRow}>
               <StyledLogo size={48} />
               <Text style={styles.brandName}>HERA</Text>
             </View>
-            <Text style={styles.tagline}>Tu bienestar mental</Text>
+            <Text style={styles.tagline}>Workspace para salud mental</Text>
             <Text style={styles.brandDescription}>
-              Conectamos personas con los mejores profesionales de salud mental.
-              Terapia accesible, profesional y privada.
+              HERA evoluciona hacia una herramienta de gestión para especialistas,
+              manteniendo el acceso paciente sin perder una presentación honesta y calmada para salud mental.
             </Text>
 
-            {/* Social Links */}
             <View style={styles.socialLinks}>
-              {socialLinks.map((social, index) => (
+              {socialLinks.map((social) => (
                 <TouchableOpacity
-                  key={index}
+                  key={social.icon}
                   style={styles.socialButton}
                   onPress={() => handleSocialPress(social.href)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name={social.icon} size={20} color={heraLanding.textSecondary} />
+                  <Ionicons name={social.icon} size={20} color="rgba(255, 255, 255, 0.7)" />
                 </TouchableOpacity>
               ))}
             </View>
           </View>
 
-          {/* Link Columns */}
-          <View style={[
-            styles.columnsContainer,
-            isDesktop && styles.columnsContainerDesktop,
-            isTablet && styles.columnsContainerTablet,
-          ]}>
-            {columns.map((column, colIndex) => (
+          <View
+            style={[
+              styles.columnsContainer,
+              isDesktop && styles.columnsContainerDesktop,
+              isTablet && styles.columnsContainerTablet,
+            ]}
+          >
+            {columns.map((column) => (
               <View
-                key={colIndex}
-                style={[
-                  styles.column,
-                  isDesktop && styles.columnDesktop,
-                ]}
+                key={column.title}
+                style={[styles.column, isDesktop && styles.columnDesktop]}
               >
                 <Text style={styles.columnTitle}>{column.title}</Text>
-                {column.links.map((link, linkIndex) => (
+                {column.links.map((link) => (
                   <TouchableOpacity
-                    key={linkIndex}
+                    key={link.label}
                     onPress={() => handleLinkPress(link)}
                     activeOpacity={0.7}
                   >
@@ -156,16 +150,14 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
           </View>
         </View>
 
-        {/* Divider */}
         <View style={styles.divider} />
 
-        {/* Bottom Bar */}
         <View style={[styles.bottomBar, isDesktop && styles.bottomBarDesktop]}>
           <Text style={styles.copyright}>
-            © {new Date().getFullYear()} HERA - Tu bienestar mental
+            (c) {new Date().getFullYear()} HERA - Workspace para especialistas y pacientes
           </Text>
           <Text style={styles.madeWith}>
-            Hecho con <Ionicons name="heart" size={12} color={heraLanding.warning} /> en España
+            Hecho con <Ionicons name="heart" size={12} color="#D9A84F" /> en España
           </Text>
         </View>
       </View>
@@ -175,22 +167,16 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: heraLanding.textPrimary,
+    backgroundColor: '#2C3E2C',
     paddingTop: 60,
     paddingBottom: 32,
     paddingHorizontal: 20,
-  },
-  containerDesktop: {
-    paddingTop: 80,
-    paddingHorizontal: 60,
   },
   content: {
     maxWidth: 1200,
     width: '100%',
     alignSelf: 'center',
   },
-
-  // Main content
   mainContent: {
     gap: 40,
   },
@@ -203,14 +189,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 40,
   },
-
-  // Brand column
   brandColumn: {
-    maxWidth: 320,
+    maxWidth: 340,
   },
   brandColumnDesktop: {
     flex: 0.35,
-    maxWidth: 340,
   },
   logoRow: {
     flexDirection: 'row',
@@ -235,8 +218,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 24,
   },
-
-  // Social links
   socialLinks: {
     flexDirection: 'row',
     gap: 12,
@@ -249,8 +230,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // Link columns
   columnsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -284,15 +263,11 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     lineHeight: 20,
   },
-
-  // Divider
   divider: {
     height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     marginVertical: 32,
   },
-
-  // Bottom bar
   bottomBar: {
     alignItems: 'center',
     gap: 8,
@@ -304,6 +279,7 @@ const styles = StyleSheet.create({
   copyright: {
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.5)',
+    textAlign: 'center',
   },
   madeWith: {
     fontSize: 13,
