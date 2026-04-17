@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { Calendar, DateData, LocaleConfig } from 'react-native-calendars';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { spacing, borderRadius } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 

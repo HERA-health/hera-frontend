@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { heraLanding, spacing, borderRadius, typography } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { AdminPanelScreen } from './AdminPanelScreen';

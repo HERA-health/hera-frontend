@@ -15,7 +15,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyledLogo } from '../../../components/common/StyledLogo';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { ThemeToggleButton } from '../../../components/common/ThemeToggleButton';

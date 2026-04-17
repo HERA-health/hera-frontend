@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { heraLanding, spacing, borderRadius } from '../../constants/colors';
 
 interface ModalityBadgesProps {

@@ -2,6 +2,13 @@ import { api } from './api';
 import { getErrorMessage } from '../constants/errors';
 import type { Specialist } from '../screens/specialist-profile/types';
 
+const SPECIALISTS_CACHE_TTL_MS = 30_000;
+
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
 export interface SpecialistData {
   id: string;
   userId: string;
@@ -18,7 +25,6 @@ export interface SpecialistData {
   };
   affinity?: number;
   matchedAttributes?: string[];
-  // Location fields
   officeAddress?: string | null;
   officeCity?: string | null;
   officePostalCode?: string | null;
@@ -27,9 +33,7 @@ export interface SpecialistData {
   offersOnline?: boolean;
   offersInPerson?: boolean;
   matchingProfile?: Record<string, unknown>;
-  // Distance (calculated by backend when proximity filter is used)
-  distance?: number; // in km
-  // New profile fields
+  distance?: number;
   gradientId?: string;
   personalMotto?: string | null;
   photoGallery?: string[];
@@ -46,13 +50,11 @@ export interface SpecialistData {
   reviews?: Array<{ id: string; rating: number; text: string; authorName: string; date: string }>;
 }
 
-// Filters for getAllSpecialists
 export interface SpecialistFilters {
   specialization?: string;
   minRating?: number;
   maxPrice?: number;
   firstVisitFree?: boolean;
-  // Proximity filters
   near?: boolean;
   lat?: number;
   lng?: number;
@@ -65,9 +67,73 @@ export interface MatchedSpecialistsResponse {
   hasCompletedQuestionnaire: boolean;
 }
 
+const matchedSpecialistsCache = new Map<string, CacheEntry<MatchedSpecialistsResponse>>();
+const matchedSpecialistsRequests = new Map<string, Promise<MatchedSpecialistsResponse>>();
+const publicSpecialistsCache = new Map<string, CacheEntry<SpecialistData[]>>();
+const publicSpecialistsRequests = new Map<string, Promise<SpecialistData[]>>();
+
+const getFreshCache = <T>(cache: Map<string, CacheEntry<T>>, key: string): T | null => {
+  const cached = cache.get(key);
+
+  if (!cached) {
+    return null;
+  }
+
+  if (cached.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return null;
+  }
+
+  return cached.data;
+};
+
+const setCache = <T>(cache: Map<string, CacheEntry<T>>, key: string, data: T): T => {
+  cache.set(key, {
+    data,
+    expiresAt: Date.now() + SPECIALISTS_CACHE_TTL_MS,
+  });
+
+  return data;
+};
+
+const getAuthCacheKey = (): string => {
+  const commonHeaders = api.defaults.headers.common as unknown as Record<string, string | undefined>;
+  return commonHeaders.Authorization || 'anonymous';
+};
+
+const buildSpecialistsQueryParams = (filters?: SpecialistFilters): URLSearchParams => {
+  const params = new URLSearchParams();
+
+  if (filters?.specialization) params.append('specialization', filters.specialization);
+  if (filters?.minRating) params.append('minRating', filters.minRating.toString());
+  if (filters?.maxPrice) params.append('maxPrice', filters.maxPrice.toString());
+  if (filters?.firstVisitFree !== undefined) params.append('firstVisitFree', filters.firstVisitFree.toString());
+  if (filters?.near) params.append('near', 'true');
+  if (filters?.lat !== undefined) params.append('lat', filters.lat.toString());
+  if (filters?.lng !== undefined) params.append('lng', filters.lng.toString());
+  if (filters?.maxDistance !== undefined) params.append('maxDistance', filters.maxDistance.toString());
+  if (filters?.inPersonOnly) params.append('inPersonOnly', 'true');
+
+  return params;
+};
+
+const getMatchedCacheKey = (): string => `matched:${getAuthCacheKey()}`;
+
+const getPublicSpecialistsCacheKey = (filters?: SpecialistFilters): string => {
+  const queryString = buildSpecialistsQueryParams(filters).toString();
+  return `public:${queryString}`;
+};
+
+export const invalidateSpecialistsCache = (): void => {
+  matchedSpecialistsCache.clear();
+  matchedSpecialistsRequests.clear();
+  publicSpecialistsCache.clear();
+  publicSpecialistsRequests.clear();
+};
+
 /**
  * Maps a raw API SpecialistData response to the Specialist profile shape
- * used by the UI components. Pure function — no side effects.
+ * used by the UI components. Pure function - no side effects.
  */
 export const mapSpecialistToProfile = (data: SpecialistData): Specialist => {
   const mp = data.matchingProfile as Record<string, unknown> | undefined;
@@ -126,12 +192,29 @@ export const mapSpecialistToProfile = (data: SpecialistData): Specialist => {
  * based on their questionnaire answers
  */
 export const getMatchedSpecialists = async (): Promise<MatchedSpecialistsResponse> => {
-  try {
-    const response = await api.get<{ success: boolean; data: MatchedSpecialistsResponse }>('/specialists/matched/for-me');
-    return response.data.data;
-  } catch (error: unknown) {
-    throw new Error(getErrorMessage(error, 'Error al cargar especialistas recomendados'));
+  const cacheKey = getMatchedCacheKey();
+  const cached = getFreshCache(matchedSpecialistsCache, cacheKey);
+  if (cached) {
+    return cached;
   }
+
+  const inFlight = matchedSpecialistsRequests.get(cacheKey);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const request = api
+    .get<{ success: boolean; data: MatchedSpecialistsResponse }>('/specialists/matched/for-me')
+    .then((response) => setCache(matchedSpecialistsCache, cacheKey, response.data.data))
+    .catch((error: unknown) => {
+      throw new Error(getErrorMessage(error, 'Error al cargar especialistas recomendados'));
+    })
+    .finally(() => {
+      matchedSpecialistsRequests.delete(cacheKey);
+    });
+
+  matchedSpecialistsRequests.set(cacheKey, request);
+  return request;
 };
 
 /**
@@ -139,35 +222,38 @@ export const getMatchedSpecialists = async (): Promise<MatchedSpecialistsRespons
  * Supports optional filters including proximity-based filtering
  */
 export const getAllSpecialists = async (filters?: SpecialistFilters): Promise<SpecialistData[]> => {
-  try {
-    const params = new URLSearchParams();
-    if (filters?.specialization) params.append('specialization', filters.specialization);
-    if (filters?.minRating) params.append('minRating', filters.minRating.toString());
-    if (filters?.maxPrice) params.append('maxPrice', filters.maxPrice.toString());
-    if (filters?.firstVisitFree !== undefined) params.append('firstVisitFree', filters.firstVisitFree.toString());
-
-    // Proximity filters
-    if (filters?.near) params.append('near', 'true');
-    if (filters?.lat !== undefined) params.append('lat', filters.lat.toString());
-    if (filters?.lng !== undefined) params.append('lng', filters.lng.toString());
-    if (filters?.maxDistance !== undefined) params.append('maxDistance', filters.maxDistance.toString());
-    if (filters?.inPersonOnly) params.append('inPersonOnly', 'true');
-
-    const queryString = params.toString();
-    const url = `/specialists${queryString ? `?${queryString}` : ''}`;
-
-    const response = await api.get<{ success: boolean; data: SpecialistData[] }>(url);
-    return response.data.data;
-  } catch (error: unknown) {
-    throw new Error(getErrorMessage(error, 'Error al cargar especialistas'));
+  const cacheKey = getPublicSpecialistsCacheKey(filters);
+  const cached = getFreshCache(publicSpecialistsCache, cacheKey);
+  if (cached) {
+    return cached;
   }
+
+  const inFlight = publicSpecialistsRequests.get(cacheKey);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const queryString = buildSpecialistsQueryParams(filters).toString();
+  const url = `/specialists${queryString ? `?${queryString}` : ''}`;
+
+  const request = api
+    .get<{ success: boolean; data: SpecialistData[] }>(url)
+    .then((response) => setCache(publicSpecialistsCache, cacheKey, response.data.data))
+    .catch((error: unknown) => {
+      throw new Error(getErrorMessage(error, 'Error al cargar especialistas'));
+    })
+    .finally(() => {
+      publicSpecialistsRequests.delete(cacheKey);
+    });
+
+  publicSpecialistsRequests.set(cacheKey, request);
+  return request;
 };
 
 /**
  * Gets detailed information about a specific specialist
  */
 export const getSpecialistDetails = async (specialistId: string): Promise<SpecialistData> => {
-  // Validate specialist ID before making API call
   if (!specialistId || specialistId === 'undefined' || specialistId === 'null' || specialistId.trim() === '') {
     throw new Error('Invalid specialist ID: Cannot fetch details for undefined or null specialist');
   }

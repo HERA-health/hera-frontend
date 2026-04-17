@@ -7,7 +7,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { Calendar, DateData } from 'react-native-calendars';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { CalendarViewProps } from '../types';
 import { heraLanding, colors, spacing, borderRadius } from '../../../constants/colors';
 import { createMarkedDates, getTodayString, formatSelectedDateHeader } from '../utils/calendarHelpers';

@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { Calendar, DateData } from 'react-native-calendars';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { heraLanding, colors, spacing, shadows } from '../../constants/colors';
-import { Ionicons } from '@expo/vector-icons';
 import { ProfessionalSession } from '../../constants/types';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -14,9 +14,6 @@ interface CalendarViewProps {
 export function CalendarView({ sessions }: CalendarViewProps) {
   const today = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState<string>(today);
-
-  // Debug logging
-  console.log('[CalendarView] Rendering with', sessions?.length || 0, 'sessions');
 
   // Create marked dates object for the calendar
   const markedDates = useMemo(() => {

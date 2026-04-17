@@ -13,7 +13,7 @@ import {
   RefreshControl,
   Dimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { ListViewProps, ApiSession } from '../types';
 import { heraLanding, colors, spacing } from '../../../constants/colors';
 import { groupSessions } from '../utils/sessionHelpers';

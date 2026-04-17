@@ -7,7 +7,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -168,7 +168,12 @@ const SpecialistsScreen: React.FC = () => {
       }
 
       const filters: specialistsService.SpecialistFilters = {};
-      if (useProximity && clientLocation.hasLocation && clientLocation.lat && clientLocation.lng) {
+      if (
+        useProximity
+        && clientLocation.hasLocation
+        && clientLocation.lat !== null
+        && clientLocation.lng !== null
+      ) {
         filters.near = true;
         filters.lat = clientLocation.lat;
         filters.lng = clientLocation.lng;
@@ -217,7 +222,7 @@ const SpecialistsScreen: React.FC = () => {
 
       try {
         const profile = await clientService.getMyClientProfile();
-        if (profile.homeLat && profile.homeLng) {
+        if (profile.homeLat !== null && profile.homeLng !== null) {
           setClientLocation({
             lat: profile.homeLat,
             lng: profile.homeLng,
@@ -233,8 +238,8 @@ const SpecialistsScreen: React.FC = () => {
   }, [user?.type]);
 
   useEffect(() => {
-    fetchSpecialists();
-  }, [fetchSpecialists]);
+    void fetchSpecialists();
+  }, [user?.type]);
 
   const handleSpecialistPress = useCallback((specialistId: string) => {
     const specialist = matchedSpecialists.find((item) => item.id === specialistId)
@@ -286,8 +291,8 @@ const SpecialistsScreen: React.FC = () => {
       return allSpecialists;
     }
 
-    const matchedIds = matchedSpecialists.map((item) => item.id);
-    const unmatched = allSpecialists.filter((item) => !matchedIds.includes(item.id));
+    const matchedIds = new Set(matchedSpecialists.map((item) => item.id));
+    const unmatched = allSpecialists.filter((item) => !matchedIds.has(item.id));
     return [...matchedSpecialists, ...unmatched];
   }, [allSpecialists, clientLocation.hasLocation, matchedSpecialists, proximityEnabled]);
 

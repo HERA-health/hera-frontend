@@ -16,7 +16,7 @@ import {
   ActivityIndicator,
   Animated,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { heraLanding, spacing, borderRadius, shadows } from '../../constants/colors';
 import { getErrorMessage } from '../../constants/errors';
 import { validateEmail, getEmailError } from '../../utils/validation';

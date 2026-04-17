@@ -1,5 +1,6 @@
 import api, { setAuthToken, removeAuthToken } from './api';
 import { getErrorMessage, hasResponseData } from '../constants/errors';
+import { invalidateSpecialistsCache } from './specialistsService';
 
 export interface AuthResponse {
   token: string;
@@ -147,6 +148,7 @@ export const getCurrentUser = async (): Promise<AuthResponse['user']> => {
 export const logout = async (): Promise<void> => {
   try {
     await removeAuthToken();
+    invalidateSpecialistsCache();
   } catch (_error: unknown) {
     // Silently fail on logout errors - user should still be logged out locally
   }
@@ -382,27 +384,21 @@ export const uploadAvatar = async (base64Image: string): Promise<AuthResponse['u
  * Request password reset email
  */
 export const requestPasswordReset = async (email: string): Promise<{ success: boolean; message: string }> => {
-  console.log('🔐 authService.requestPasswordReset called with email:', email);
   try {
-    console.log('📤 Making POST request to /auth/password-reset/request');
     const response = await api.post<{ success: boolean; message: string }>(
       '/auth/password-reset/request',
       { email }
     );
-    console.log('📥 Response received:', JSON.stringify(response.data));
 
     if (response.data.success) {
-      console.log('✅ Password reset request successful');
       return {
         success: true,
         message: response.data.message || 'Correo de recuperación enviado',
       };
     }
 
-    console.log('⚠️ Response success was false');
     throw new Error('Error al solicitar recuperación de contraseña');
   } catch (error: unknown) {
-    console.error('❌ Password reset request error:', error);
     if (hasResponseData(error)) {
       const errorCode = error.response.data?.code as string | undefined;
       let errorMessage = 'Error al solicitar recuperación de contraseña';

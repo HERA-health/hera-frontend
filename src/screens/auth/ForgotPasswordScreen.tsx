@@ -18,24 +18,12 @@ export function ForgotPasswordScreen() {
   }, []);
 
   const handleSubmit = async (email: string) => {
-    console.log('═══════════════════════════════════════');
-    console.log('🔐 ForgotPasswordScreen.handleSubmit called');
-    console.log('📧 Email:', email);
-    console.log('═══════════════════════════════════════');
-
     try {
-      // Request password reset - this will throw on error
-      // EmailInputScreen handles the error display
-      console.log('📤 Calling authService.requestPasswordReset...');
       analyticsService.track('password_reset_requested');
       await authService.requestPasswordReset(email);
-      console.log('✅ Password reset request successful, navigating...');
-
-      // On success, navigate to email sent screen
       navigation.navigate('EmailSentPasswordReset', { email });
     } catch (error) {
-      console.error('❌ ForgotPasswordScreen error:', error);
-      throw error; // Re-throw for EmailInputScreen to handle
+      throw error;
     }
   };
 

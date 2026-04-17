@@ -1,4 +1,5 @@
 import { api } from './api';
+import { invalidateSpecialistsCache } from './specialistsService';
 import type { SpecialistData } from './specialistsService';
 import type { UserAnswers } from '../utils/matchingAlgorithm';
 
@@ -19,5 +20,6 @@ export const submitQuestionnaire = async (
     answers,
   });
 
+  invalidateSpecialistsCache();
   return response.data.data;
 };

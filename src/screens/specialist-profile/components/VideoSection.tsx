@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Linking, useWindowDimensions, Image, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { VideoSectionProps } from '../types';
 import { spacing, borderRadius, shadows } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';

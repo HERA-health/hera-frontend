@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Specialist } from '../../../constants/types';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';

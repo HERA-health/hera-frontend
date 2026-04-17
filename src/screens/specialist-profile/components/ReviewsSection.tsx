@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { ReviewsSectionProps } from '../types';
 import { ReviewCard } from './ReviewCard';
 import { spacing, borderRadius, shadows } from '../../../constants/colors';

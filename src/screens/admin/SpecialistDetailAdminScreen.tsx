@@ -14,7 +14,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { NavigationProp, RouteProp } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { heraLanding, spacing, borderRadius, typography, shadows } from '../../constants/colors';
 import { RootStackParamList } from '../../constants/types';
 import { useAuth } from '../../contexts/AuthContext';

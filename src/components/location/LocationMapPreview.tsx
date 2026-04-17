@@ -14,10 +14,11 @@ import {
   ViewStyle,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable } from '../common';
 import { spacing, borderRadius, shadows } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
+import { GOOGLE_MAPS_API_KEY, loadGoogleMaps } from './googleMapsLoader';
 
 interface LocationMapPreviewProps {
   lat: number;
@@ -31,65 +32,7 @@ interface LocationMapPreviewProps {
   interactive?: boolean;
 }
 
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-
-let googleMapsLoaded = false;
-let googleMapsLoadPromise: Promise<void> | null = null;
-
-const loadGoogleMapsScript = (): Promise<void> => {
-  if (Platform.OS !== 'web') {
-    return Promise.resolve();
-  }
-
-  if (googleMapsLoaded && window.google?.maps) {
-    return Promise.resolve();
-  }
-
-  if (googleMapsLoadPromise) {
-    return googleMapsLoadPromise;
-  }
-
-  googleMapsLoadPromise = new Promise((resolve, reject) => {
-    if (window.google?.maps) {
-      googleMapsLoaded = true;
-      resolve();
-      return;
-    }
-
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-    if (existingScript) {
-      existingScript.addEventListener('load', () => {
-        googleMapsLoaded = true;
-        resolve();
-      });
-
-      const checkLoaded = setInterval(() => {
-        if (window.google?.maps) {
-          clearInterval(checkLoaded);
-          googleMapsLoaded = true;
-          resolve();
-        }
-      }, 100);
-
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=es`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      googleMapsLoaded = true;
-      resolve();
-    };
-    script.onerror = () => {
-      reject(new Error('Failed to load Google Maps script'));
-    };
-    document.head.appendChild(script);
-  });
-
-  return googleMapsLoadPromise;
-};
+const hasGoogleMapsApiKey = GOOGLE_MAPS_API_KEY.length > 0;
 
 export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
   lat,
@@ -111,20 +54,22 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || !GOOGLE_MAPS_API_KEY || !lat || !lng) {
+    if (Platform.OS !== 'web' || !hasGoogleMapsApiKey || !lat || !lng) {
       setIsLoading(false);
       return;
     }
 
-    loadGoogleMapsScript()
-      .then(() => {
-        if (!mapContainerRef.current || !window.google?.maps) {
+    let isCancelled = false;
+
+    void loadGoogleMaps()
+      .then((maps) => {
+        if (isCancelled || !mapContainerRef.current) {
           return;
         }
 
         const position = { lat, lng };
 
-        mapRef.current = new window.google.maps.Map(mapContainerRef.current, {
+        mapRef.current = new maps.Map(mapContainerRef.current, {
           center: position,
           zoom: 15,
           disableDefaultUI: !interactive,
@@ -141,11 +86,11 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
           ],
         });
 
-        markerRef.current = new window.google.maps.Marker({
+        markerRef.current = new maps.Marker({
           position,
           map: mapRef.current,
           icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
+            path: maps.SymbolPath.CIRCLE,
             scale: 10,
             fillColor: theme.primary,
             fillOpacity: 1,
@@ -155,7 +100,7 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
           title: address,
         });
 
-        const infoWindow = new window.google.maps.InfoWindow({
+        const infoWindow = new maps.InfoWindow({
           content: `
             <div style="padding: 8px; font-family: system-ui, -apple-system, sans-serif;">
               <strong style="color: #2d3748; font-size: 14px;">${address}</strong>
@@ -168,25 +113,35 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
           infoWindow.open(mapRef.current, markerRef.current);
         });
 
+        setError(null);
         setIsLoading(false);
       })
       .catch((err) => {
+        if (isCancelled) {
+          return;
+        }
+
         console.error('Error loading Google Maps:', err);
         setError('Error al cargar el mapa');
         setIsLoading(false);
       });
 
     return () => {
+      isCancelled = true;
       markerRef.current?.setMap(null);
+      markerRef.current = null;
+      mapRef.current = null;
     };
   }, [address, city, interactive, lat, lng, theme.primary]);
 
   useEffect(() => {
-    if (mapRef.current && markerRef.current && lat && lng) {
-      const position = { lat, lng };
-      markerRef.current.setPosition(position);
-      mapRef.current.panTo(position);
+    if (!mapRef.current || !markerRef.current || !lat || !lng) {
+      return;
     }
+
+    const position = { lat, lng };
+    markerRef.current.setPosition(position);
+    mapRef.current.panTo(position);
   }, [lat, lng]);
 
   const handleOpenDirections = () => {
@@ -215,34 +170,72 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
 
   if (Platform.OS !== 'web') {
     return (
-      <View style={[styles.container, { backgroundColor: theme.bgCard, borderColor: theme.border, borderWidth: 1 }, style]}>
-        <View style={[styles.mapPlaceholder, { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.bgCard, borderColor: theme.border, borderWidth: 1 },
+          style,
+        ]}
+      >
+        <View
+          style={[
+            styles.mapPlaceholder,
+            { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted },
+          ]}
+        >
           <Ionicons name="map-outline" size={48} color={theme.textMuted} />
-          <Text style={[styles.placeholderText, { color: theme.textMuted }]}>Mapa disponible en versión web</Text>
+          <Text style={[styles.placeholderText, { color: theme.textMuted }]}>
+            Mapa disponible en versión web
+          </Text>
         </View>
-        <View style={[styles.addressOverlay, { backgroundColor: theme.bgCard, borderTopColor: theme.borderLight }]}>
+        <View
+          style={[
+            styles.addressOverlay,
+            { backgroundColor: theme.bgCard, borderTopColor: theme.borderLight },
+          ]}
+        >
           <Ionicons name="location" size={18} color={theme.primary} />
           <View style={styles.addressText}>
-            <Text style={[styles.address, { color: theme.textPrimary }]} numberOfLines={1}>{address}</Text>
+            <Text style={[styles.address, { color: theme.textPrimary }]} numberOfLines={1}>
+              {address}
+            </Text>
             <Text style={[styles.city, { color: theme.textSecondary }]}>{city}</Text>
           </View>
         </View>
         {showDirectionsButton ? (
-          <AnimatedPressable style={[styles.directionsButton, { backgroundColor: theme.primary }]} onPress={handleOpenDirections}>
+          <AnimatedPressable
+            style={[styles.directionsButton, { backgroundColor: theme.primary }]}
+            onPress={handleOpenDirections}
+          >
             <Ionicons name="navigate" size={18} color={theme.textOnPrimary} />
-            <Text style={[styles.directionsText, { color: theme.textOnPrimary }]}>Cómo llegar</Text>
+            <Text style={[styles.directionsText, { color: theme.textOnPrimary }]}>
+              Cómo llegar
+            </Text>
           </AnimatedPressable>
         ) : null}
       </View>
     );
   }
 
-  if (!GOOGLE_MAPS_API_KEY) {
+  if (!hasGoogleMapsApiKey) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.bgCard, borderColor: theme.border, borderWidth: 1 }, style]}>
-        <View style={[styles.mapPlaceholder, { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.bgCard, borderColor: theme.border, borderWidth: 1 },
+          style,
+        ]}
+      >
+        <View
+          style={[
+            styles.mapPlaceholder,
+            { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted },
+          ]}
+        >
           <Ionicons name="warning-outline" size={48} color={theme.textMuted} />
-          <Text style={[styles.placeholderText, { color: theme.textMuted }]}>API key de Google Maps no configurada</Text>
+          <Text style={[styles.placeholderText, { color: theme.textMuted }]}>
+            API key de Google Maps no configurada
+          </Text>
         </View>
       </View>
     );
@@ -250,27 +243,56 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
 
   if (!lat || !lng) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.bgCard, borderColor: theme.border, borderWidth: 1 }, style]}>
-        <View style={[styles.mapPlaceholder, { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.bgCard, borderColor: theme.border, borderWidth: 1 },
+          style,
+        ]}
+      >
+        <View
+          style={[
+            styles.mapPlaceholder,
+            { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted },
+          ]}
+        >
           <Ionicons name="location-outline" size={48} color={theme.textMuted} />
-          <Text style={[styles.placeholderText, { color: theme.textMuted }]}>Selecciona una dirección para ver el mapa</Text>
+          <Text style={[styles.placeholderText, { color: theme.textMuted }]}>
+            Selecciona una dirección para ver el mapa
+          </Text>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.bgCard, borderColor: theme.border, borderWidth: 1 }, style]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.bgCard, borderColor: theme.border, borderWidth: 1 },
+        style,
+      ]}
+    >
       <View style={[styles.mapWrapper, { height }]}>
         {isLoading ? (
-          <View style={[styles.loadingOverlay, { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted }]}>
+          <View
+            style={[
+              styles.loadingOverlay,
+              { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted },
+            ]}
+          >
             <ActivityIndicator size="large" color={theme.primary} />
             <Text style={[styles.loadingText, { color: theme.textMuted }]}>Cargando mapa...</Text>
           </View>
         ) : null}
 
         {error ? (
-          <View style={[styles.mapPlaceholder, { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted }]}>
+          <View
+            style={[
+              styles.mapPlaceholder,
+              { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted },
+            ]}
+          >
             <Ionicons name="alert-circle-outline" size={48} color={theme.error} />
             <Text style={[styles.placeholderText, { color: theme.textMuted }]}>{error}</Text>
           </View>
@@ -289,23 +311,33 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
       </View>
 
       <AnimatedPressable
-        style={[styles.addressOverlay, { backgroundColor: theme.bgCard, borderTopColor: theme.borderLight }]}
+        style={[
+          styles.addressOverlay,
+          { backgroundColor: theme.bgCard, borderTopColor: theme.borderLight },
+        ]}
         onPress={handleOpenInMaps}
       >
         <View style={[styles.addressIcon, { backgroundColor: theme.primaryAlpha12 }]}>
           <Ionicons name="location" size={20} color={theme.primary} />
         </View>
         <View style={styles.addressText}>
-          <Text style={[styles.address, { color: theme.textPrimary }]} numberOfLines={1}>{address}</Text>
+          <Text style={[styles.address, { color: theme.textPrimary }]} numberOfLines={1}>
+            {address}
+          </Text>
           <Text style={[styles.city, { color: theme.textSecondary }]}>{city}</Text>
         </View>
         <Ionicons name="open-outline" size={18} color={theme.textMuted} />
       </AnimatedPressable>
 
       {showDirectionsButton ? (
-        <AnimatedPressable style={[styles.directionsButton, { backgroundColor: theme.primary }]} onPress={handleOpenDirections}>
+        <AnimatedPressable
+          style={[styles.directionsButton, { backgroundColor: theme.primary }]}
+          onPress={handleOpenDirections}
+        >
           <Ionicons name="navigate" size={18} color={theme.textOnPrimary} />
-          <Text style={[styles.directionsText, { color: theme.textOnPrimary }]}>Cómo llegar</Text>
+          <Text style={[styles.directionsText, { color: theme.textOnPrimary }]}>
+            Cómo llegar
+          </Text>
         </AnimatedPressable>
       ) : null}
     </View>
@@ -314,7 +346,7 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
 
 const createStyles = (
   theme: ReturnType<typeof useTheme>['theme'],
-  isDark: boolean
+  isDark: boolean,
 ) =>
   StyleSheet.create({
     container: {

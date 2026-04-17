@@ -14,7 +14,7 @@ import {
   useWindowDimensions,
   Linking,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyledLogo } from '../../../components/common/StyledLogo';
 
 interface FooterLink {

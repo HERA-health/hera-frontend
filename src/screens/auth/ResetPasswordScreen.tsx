@@ -17,7 +17,7 @@ import {
   Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { SuccessScreen } from '../../components/auth';
 import * as authService from '../../services/authService';
 import {

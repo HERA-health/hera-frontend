@@ -21,7 +21,7 @@ import {
   Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { heraLanding, spacing, shadows } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
@@ -284,7 +284,7 @@ export function ProfessionalVerificationScreen() {
         </View>
 
         {isDesktop && (
-          <>
+          <View style={styles.brandDesktopContent}>
             <Text style={styles.brandTitle}>Verificación Profesional</Text>
             <Text style={styles.brandSubtitle}>
               Garantizamos la calidad de{'\n'}
@@ -312,7 +312,7 @@ export function ProfessionalVerificationScreen() {
                 <Text style={styles.featureText}>Proceso rápido</Text>
               </View>
             </View>
-          </>
+          </View>
         )}
       </Animated.View>
     </LinearGradient>
@@ -462,6 +462,7 @@ export function ProfessionalVerificationScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.primaryButtonGradient}
             >
+              <View style={styles.primaryButtonContent}>
               {isLoading ? (
                 <>
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -473,6 +474,7 @@ export function ProfessionalVerificationScreen() {
                   <Text style={styles.primaryButtonText}>Enviar para verificación</Text>
                 </>
               )}
+              </View>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -591,6 +593,9 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.9)',
     lineHeight: 26,
     marginBottom: 40,
+  },
+  brandDesktopContent: {
+    width: '100%',
   },
   features: {
     gap: 16,
@@ -824,10 +829,14 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   primaryButtonGradient: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
+  },
+  primaryButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
   },
   primaryButtonText: {

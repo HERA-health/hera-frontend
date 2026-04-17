@@ -7,7 +7,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { spacing, borderRadius, typography, shadows } from '../../constants/colors';
 import { Theme } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';

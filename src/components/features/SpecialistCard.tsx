@@ -7,7 +7,7 @@ import {
   ViewStyle,
   useWindowDimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -320,12 +320,7 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
           ) : null}
         </View>
 
-        <AnimatedPressable
-          onPress={onPress}
-          pressScale={0.95}
-          hoverLift={false}
-          style={[styles.ctaWrapper, { overflow: 'hidden' }]}
-        >
+        <View pointerEvents="none" style={[styles.ctaWrapper, { overflow: 'hidden' }]}>
           <LinearGradient
             colors={[theme.primary, theme.primaryDark]}
             start={{ x: 0, y: 0 }}
@@ -335,7 +330,7 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
             <Text style={[styles.ctaText, { fontFamily: theme.fontSansBold }]}>Ver perfil</Text>
             <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
           </LinearGradient>
-        </AnimatedPressable>
+        </View>
       </View>
     </AnimatedPressable>
   );

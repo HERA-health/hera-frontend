@@ -13,7 +13,7 @@ import {
   Pressable,
   useWindowDimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, borderRadius, typography, shadows, touchTarget } from '../../constants/colors';
 import { Theme } from '../../constants/theme';

@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { Image, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { AnimatedPressable } from '../../common/AnimatedPressable';
 import { ThemeToggleButton } from '../../common/ThemeToggleButton';

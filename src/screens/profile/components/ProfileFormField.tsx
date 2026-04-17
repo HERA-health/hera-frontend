@@ -7,7 +7,7 @@ import {
   KeyboardTypeOptions,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { AnimatedPressable } from '../../../components/common';
 import { spacing, borderRadius } from '../../../constants/colors';

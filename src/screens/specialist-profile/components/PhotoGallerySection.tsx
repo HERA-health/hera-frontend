@@ -17,7 +17,7 @@ import Animated, {
   withTiming,
   runOnJS,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { PhotoGallerySectionProps } from '../types';
 import { spacing, borderRadius, shadows } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';

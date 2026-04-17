@@ -8,6 +8,18 @@ const API_BASE_URL = apiUrl;
 
 // Storage key for the auth token
 const TOKEN_KEY = '@hera_token';
+const API_DEBUG_LOGGING_ENABLED = __DEV__ && process.env.EXPO_PUBLIC_DEBUG_API === 'true';
+
+const logApiDebug = (message: string, meta?: Record<string, unknown>) => {
+  if (!API_DEBUG_LOGGING_ENABLED) return;
+
+  if (meta) {
+    console.log(`[api] ${message}`, meta);
+    return;
+  }
+
+  console.log(`[api] ${message}`);
+};
 
 // Create axios instance
 export const api = axios.create({
@@ -24,7 +36,7 @@ export const api = axios.create({
 export const setAuthToken = async (token: string): Promise<void> => {
   try {
     await AsyncStorage.setItem(TOKEN_KEY, token);
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    api.defaults.headers.common.Authorization = `Bearer ${token}`;
   } catch (_error: unknown) {
     throw new Error('Failed to save authentication token');
   }
@@ -36,7 +48,7 @@ export const setAuthToken = async (token: string): Promise<void> => {
 export const removeAuthToken = async (): Promise<void> => {
   try {
     await AsyncStorage.removeItem(TOKEN_KEY);
-    delete api.defaults.headers.common['Authorization'];
+    delete api.defaults.headers.common.Authorization;
   } catch (_error: unknown) {
     // Silently fail - user should still be logged out locally
   }
@@ -60,7 +72,7 @@ export const initializeAuth = async (): Promise<string | null> => {
   try {
     const token = await getStoredToken();
     if (token) {
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      api.defaults.headers.common.Authorization = `Bearer ${token}`;
       return token;
     }
     return null;
@@ -72,15 +84,19 @@ export const initializeAuth = async (): Promise<string | null> => {
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    console.log('═══════════════════════════════════════');
-    console.log('📤 API REQUEST:', config.method?.toUpperCase(), config.url);
-    console.log('📦 Base URL:', config.baseURL);
-    console.log('📋 Data:', JSON.stringify(config.data));
-    console.log('═══════════════════════════════════════');
+    logApiDebug('request', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      hasBody: config.data !== undefined,
+    });
+
     return config;
   },
   (error) => {
-    console.error('❌ API REQUEST ERROR:', error);
+    if (API_DEBUG_LOGGING_ENABLED) {
+      console.error('[api] request error', error);
+    }
+
     return Promise.reject(error);
   }
 );
@@ -88,47 +104,48 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
   (response) => {
-    console.log('═══════════════════════════════════════');
-    console.log('✅ API RESPONSE:', response.status, response.config.url);
-    console.log('📦 Data:', JSON.stringify(response.data));
-    console.log('═══════════════════════════════════════');
+    logApiDebug('response', {
+      status: response.status,
+      url: response.config.url,
+    });
+
     return response;
   },
   async (error) => {
-    // Handle different error scenarios
+    if (API_DEBUG_LOGGING_ENABLED) {
+      console.error('[api] response error', {
+        status: error.response?.status,
+        url: error.config?.url,
+      });
+    }
+
     if (error.response) {
-      // Server responded with error status
       const status = error.response.status;
       const url = error.config?.url || '';
 
-      // Handle 401 Unauthorized
       if (status === 401) {
-        // Check if this is a login/register request
         const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register');
 
         if (isAuthEndpoint) {
-          // For login/register, pass through the original error without modification
           return Promise.reject(error);
-        } else {
-          // For other endpoints, it's a session expiration
-          await removeAuthToken();
-          const sessionError = new Error('Tu sesión ha expirado. Inicia sesión de nuevo');
-          (sessionError as Error & { code: string }).code = 'SESSION_EXPIRED';
-          return Promise.reject(sessionError);
         }
+
+        await removeAuthToken();
+        const sessionError = new Error('Tu sesión ha expirado. Inicia sesión de nuevo');
+        (sessionError as Error & { code: string }).code = 'SESSION_EXPIRED';
+        return Promise.reject(sessionError);
       }
 
-      // For other errors, pass through the original error
       return Promise.reject(error);
-    } else if (error.request) {
-      // Request made but no response received (network error)
+    }
+
+    if (error.request) {
       const networkError = new Error('Error de conexión. Verifica tu internet');
       (networkError as Error & { code: string }).code = 'NETWORK_ERROR';
       return Promise.reject(networkError);
-    } else {
-      // Something else happened
-      return Promise.reject(new Error('Error inesperado. Intenta de nuevo'));
     }
+
+    return Promise.reject(new Error('Error inesperado. Intenta de nuevo'));
   }
 );
 

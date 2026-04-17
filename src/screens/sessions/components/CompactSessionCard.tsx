@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { CompactSessionCardProps } from '../types';
 import { heraLanding, colors, spacing, borderRadius } from '../../../constants/colors';
 import {

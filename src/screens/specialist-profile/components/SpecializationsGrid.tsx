@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, useWindowDimensions, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { SpecializationsGridProps } from '../types';
 import { spacing, borderRadius } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';

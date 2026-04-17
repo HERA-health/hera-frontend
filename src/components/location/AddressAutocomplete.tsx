@@ -14,13 +14,16 @@ import {
   Platform,
   ViewStyle,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable } from '../common';
 import { spacing, borderRadius } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getWebFocusRingStyle, getWebInputResetStyle } from './locationThemeHelpers';
+import {
+  GOOGLE_MAPS_API_KEY,
+  loadGoogleMapsPlacesLibrary,
+} from './googleMapsLoader';
 
-// Types
 export interface AddressDetails {
   address: string;
   city: string;
@@ -61,71 +64,8 @@ type WebMeasurableElement = View & {
   };
 };
 
-// Get API key from environment
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+const hasGoogleMapsApiKey = GOOGLE_MAPS_API_KEY.length > 0;
 
-// Track if Google Maps script is loaded
-let googleMapsLoaded = false;
-let googleMapsLoadPromise: Promise<void> | null = null;
-
-// Load Google Maps script dynamically (web only)
-const loadGoogleMapsScript = (): Promise<void> => {
-  if (Platform.OS !== 'web') {
-    return Promise.resolve();
-  }
-
-  if (googleMapsLoaded && window.google?.maps?.places) {
-    return Promise.resolve();
-  }
-
-  if (googleMapsLoadPromise) {
-    return googleMapsLoadPromise;
-  }
-
-  googleMapsLoadPromise = new Promise((resolve, reject) => {
-    if (window.google?.maps?.places) {
-      googleMapsLoaded = true;
-      resolve();
-      return;
-    }
-
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-    if (existingScript) {
-      existingScript.addEventListener('load', () => {
-        googleMapsLoaded = true;
-        resolve();
-      });
-      const checkLoaded = setInterval(() => {
-        if (window.google?.maps?.places) {
-          clearInterval(checkLoaded);
-          googleMapsLoaded = true;
-          resolve();
-        }
-      }, 100);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=es`;
-    script.async = true;
-    script.defer = true;
-
-    script.onload = () => {
-      googleMapsLoaded = true;
-      resolve();
-    };
-
-    script.onerror = () => {
-      reject(new Error('Failed to load Google Maps script'));
-    };
-
-    document.head.appendChild(script);
-  });
-
-  return googleMapsLoadPromise;
-};
-
-// Portal component for web - renders dropdown at body level
 const DropdownPortal: React.FC<{
   children: React.ReactNode;
   position: DropdownPosition;
@@ -136,7 +76,6 @@ const DropdownPortal: React.FC<{
   useEffect(() => {
     if (Platform.OS !== 'web') return;
 
-    // Create portal container
     const container = document.createElement('div');
     container.id = 'address-autocomplete-portal';
     container.style.cssText = `
@@ -155,21 +94,21 @@ const DropdownPortal: React.FC<{
     };
   }, []);
 
-  // Update position when it changes
   useEffect(() => {
-    if (portalContainer) {
-      portalContainer.style.top = `${position.top}px`;
-      portalContainer.style.left = `${position.left}px`;
-      portalContainer.style.width = `${position.width}px`;
-      portalContainer.style.pointerEvents = visible ? 'auto' : 'none';
+    if (!portalContainer) {
+      return;
     }
+
+    portalContainer.style.top = `${position.top}px`;
+    portalContainer.style.left = `${position.left}px`;
+    portalContainer.style.width = `${position.width}px`;
+    portalContainer.style.pointerEvents = visible ? 'auto' : 'none';
   }, [position, visible, portalContainer]);
 
   if (Platform.OS !== 'web' || !portalContainer || !visible) {
     return null;
   }
 
-  // Use React's createPortal
   const ReactDOM = require('react-dom');
   return ReactDOM.createPortal(children, portalContainer);
 };
@@ -191,19 +130,28 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   const [isFocused, setIsFocused] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [dropdownPosition, setDropdownPosition] = useState<DropdownPosition>({ top: 0, left: 0, width: 300 });
+  const [dropdownPosition, setDropdownPosition] = useState<DropdownPosition>({
+    top: 0,
+    left: 0,
+    width: 300,
+  });
 
-  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
-  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
+  const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dummyDivRef = useRef<HTMLDivElement | null>(null);
   const inputContainerRef = useRef<View>(null);
 
-  // Update dropdown position when showing
+  const resetSessionToken = useCallback(() => {
+    if (Platform.OS !== 'web' || !window.google?.maps?.places?.AutocompleteSessionToken) {
+      sessionTokenRef.current = null;
+      return;
+    }
+
+    sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
+  }, []);
+
   const updateDropdownPosition = useCallback(() => {
     if (Platform.OS !== 'web' || !inputContainerRef.current) return;
 
-    // Get the native element
     const element = inputContainerRef.current as WebMeasurableElement | null;
     if (element?.getBoundingClientRect) {
       const rect = element.getBoundingClientRect();
@@ -215,35 +163,25 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     }
   }, []);
 
-  // Initialize Google Maps services
   useEffect(() => {
-    if (Platform.OS !== 'web' || !GOOGLE_MAPS_API_KEY) {
+    if (Platform.OS !== 'web' || !hasGoogleMapsApiKey) {
       return;
     }
 
-    loadGoogleMapsScript()
+    void loadGoogleMapsPlacesLibrary()
       .then(() => {
-        if (window.google?.maps?.places) {
-          autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
-
-          if (!dummyDivRef.current) {
-            dummyDivRef.current = document.createElement('div');
-          }
-          placesServiceRef.current = new window.google.maps.places.PlacesService(dummyDivRef.current);
-          setIsReady(true);
-        }
+        resetSessionToken();
+        setIsReady(true);
       })
       .catch((err) => {
         console.error('Error loading Google Maps:', err);
       });
-  }, []);
+  }, [resetSessionToken]);
 
-  // Sync with external value changes
   useEffect(() => {
     setQuery(value);
   }, [value]);
 
-  // Update position on scroll/resize
   useEffect(() => {
     if (Platform.OS !== 'web' || !showDropdown) return;
 
@@ -258,136 +196,163 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     };
   }, [showDropdown, updateDropdownPosition]);
 
-  // Fetch predictions using Google Places Autocomplete Service
-  const fetchPredictions = useCallback(async (input: string) => {
-    if (input.length < 3 || !autocompleteServiceRef.current) {
-      setPredictions([]);
-      setShowDropdown(false);
-      return;
-    }
+  useEffect(
+    () => () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    },
+    [],
+  );
 
-    setIsLoading(true);
+  const fetchPredictions = useCallback(
+    async (input: string) => {
+      if (input.length < 3 || !isReady) {
+        setPredictions([]);
+        setShowDropdown(false);
+        return;
+      }
 
-    try {
-      autocompleteServiceRef.current.getPlacePredictions(
-        {
-          input,
-          types: ['address'],
-          componentRestrictions: { country: 'es' },
-        },
-        (results, status) => {
-          setIsLoading(false);
+      setIsLoading(true);
 
-          if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
-            const formattedPredictions: Prediction[] = results.slice(0, 5).map((result) => ({
-              placeId: result.place_id,
-              description: result.description,
-              mainText: result.structured_formatting?.main_text || result.description,
-              secondaryText: result.structured_formatting?.secondary_text || '',
-            }));
-            setPredictions(formattedPredictions);
-            updateDropdownPosition();
-            setShowDropdown(true);
-          } else {
-            setPredictions([]);
-            setShowDropdown(false);
-          }
+      try {
+        const placesLibrary = await loadGoogleMapsPlacesLibrary();
+
+        if (!sessionTokenRef.current) {
+          sessionTokenRef.current = new placesLibrary.AutocompleteSessionToken();
         }
-      );
-    } catch (err) {
-      console.error('Error fetching predictions:', err);
-      setIsLoading(false);
-      setPredictions([]);
-    }
-  }, [updateDropdownPosition]);
 
-  // Handle input change with debounce
+        const { suggestions } =
+          await placesLibrary.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+            input,
+            includedRegionCodes: ['es'],
+            language: 'es',
+            region: 'es',
+            sessionToken: sessionTokenRef.current,
+          });
+
+        const formattedPredictions: Prediction[] = suggestions
+          .map((suggestion) => suggestion.placePrediction)
+          .filter(
+            (prediction): prediction is google.maps.places.PlacePrediction =>
+              prediction !== null,
+          )
+          .slice(0, 5)
+          .map((prediction) => ({
+            placeId: prediction.placeId,
+            description: prediction.text.text,
+            mainText: prediction.mainText?.text ?? prediction.text.text,
+            secondaryText: prediction.secondaryText?.text ?? '',
+          }));
+
+        setPredictions(formattedPredictions);
+        updateDropdownPosition();
+        setShowDropdown(formattedPredictions.length > 0);
+      } catch (err) {
+        console.error('Error fetching predictions:', err);
+        setPredictions([]);
+        setShowDropdown(false);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isReady, updateDropdownPosition],
+  );
+
   const handleInputChange = useCallback(
     (text: string) => {
       setQuery(text);
+
+      if (!text.trim()) {
+        setPredictions([]);
+        setShowDropdown(false);
+        resetSessionToken();
+      }
 
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
       }
 
       debounceRef.current = setTimeout(() => {
-        fetchPredictions(text);
+        void fetchPredictions(text);
       }, 300);
     },
-    [fetchPredictions]
+    [fetchPredictions, resetSessionToken],
   );
 
-  // Handle prediction selection
   const handleSelectPrediction = useCallback(
     (prediction: Prediction) => {
-      if (!placesServiceRef.current) {
-        return;
-      }
+      void (async () => {
+        setIsLoading(true);
+        setShowDropdown(false);
+        setQuery(prediction.mainText);
 
-      setIsLoading(true);
-      setShowDropdown(false);
-      setQuery(prediction.mainText);
+        try {
+          const placesLibrary = await loadGoogleMapsPlacesLibrary();
+          const place = new placesLibrary.Place({
+            id: prediction.placeId,
+            requestedLanguage: 'es',
+          });
 
-      placesServiceRef.current.getDetails(
-        {
-          placeId: prediction.placeId,
-          fields: ['address_components', 'geometry', 'formatted_address'],
-        },
-        (place, status) => {
+          await place.fetchFields({
+            fields: ['addressComponents', 'formattedAddress', 'location'],
+          });
+
+          const components = place.addressComponents ?? [];
+
+          const getComponent = (type: string): string => {
+            const component = components.find((item) => item.types.includes(type));
+            return component?.longText ?? '';
+          };
+
+          const streetNumber = getComponent('street_number');
+          const route = getComponent('route');
+          const address = [route, streetNumber].filter(Boolean).join(' ').trim();
+          const location = place.location;
+
+          onAddressSelect({
+            address: address || prediction.mainText,
+            city:
+              getComponent('locality') ||
+              getComponent('postal_town') ||
+              getComponent('administrative_area_level_2') ||
+              '',
+            postalCode: getComponent('postal_code') || '',
+            country: getComponent('country') || 'España',
+            lat: location?.lat() ?? 0,
+            lng: location?.lng() ?? 0,
+          });
+        } catch (err) {
+          console.error('Error fetching place details:', err);
+        } finally {
           setIsLoading(false);
-
-          if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
-            const components = place.address_components || [];
-
-            const getComponent = (type: string): string => {
-              const component = components.find((c) => c.types.includes(type));
-              return component?.long_name || '';
-            };
-
-            const streetNumber = getComponent('street_number');
-            const route = getComponent('route');
-            const address = [route, streetNumber].filter(Boolean).join(' ').trim();
-
-            const details: AddressDetails = {
-              address: address || prediction.mainText,
-              city: getComponent('locality') || getComponent('administrative_area_level_2') || '',
-              postalCode: getComponent('postal_code') || '',
-              country: getComponent('country') || 'España',
-              lat: place.geometry?.location?.lat() || 0,
-              lng: place.geometry?.location?.lng() || 0,
-            };
-
-            onAddressSelect(details);
-          }
+          resetSessionToken();
         }
-      );
+      })();
     },
-    [onAddressSelect]
+    [onAddressSelect, resetSessionToken],
   );
 
-  // Clear input
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     setQuery('');
     setPredictions([]);
     setShowDropdown(false);
-  };
+    resetSessionToken();
+  }, [resetSessionToken]);
 
-  // Handle focus
-  const handleFocus = () => {
+  const handleFocus = useCallback(() => {
     setIsFocused(true);
     updateDropdownPosition();
     if (predictions.length > 0) {
       setShowDropdown(true);
     }
-  };
+  }, [predictions.length, updateDropdownPosition]);
 
-  // Handle blur with delay to allow click
-  const handleBlur = () => {
+  const handleBlur = useCallback(() => {
     setIsFocused(false);
-    setTimeout(() => setShowDropdown(false), 200);
-  };
+    window.setTimeout(() => setShowDropdown(false), 200);
+  }, []);
 
-  // Render dropdown content
   const renderDropdownContent = () => (
     <div
       style={{
@@ -413,8 +378,10 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
             gap: '12px',
             cursor: 'pointer',
             backgroundColor: hoveredIndex === index ? theme.bgMuted : theme.bgCard,
-            borderBottom: index < predictions.length - 1 ? `1px solid ${theme.borderLight}` : 'none',
-            borderLeft: hoveredIndex === index ? `3px solid ${theme.primary}` : '3px solid transparent',
+            borderBottom:
+              index < predictions.length - 1 ? `1px solid ${theme.borderLight}` : 'none',
+            borderLeft:
+              hoveredIndex === index ? `3px solid ${theme.primary}` : '3px solid transparent',
             transition: 'all 0.15s ease',
           }}
         >
@@ -450,7 +417,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
             >
               {item.mainText}
             </div>
-            {item.secondaryText && (
+            {item.secondaryText ? (
               <div
                 style={{
                   fontSize: '13px',
@@ -463,7 +430,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
               >
                 {item.secondaryText}
               </div>
-            )}
+            ) : null}
           </div>
           <Ionicons
             name="chevron-forward"
@@ -487,12 +454,17 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     </div>
   );
 
-  // Render for non-web platforms (basic input)
   if (Platform.OS !== 'web') {
     return (
       <View style={[styles.wrapper, style]}>
-        {label && <Text style={[styles.label, { color: theme.textPrimary }]}>{label}</Text>}
-        <View style={[styles.container, { backgroundColor: theme.bgCard, borderColor: theme.border }, error && [styles.containerError, { borderColor: theme.error }]]}>
+        {label ? <Text style={[styles.label, { color: theme.textPrimary }]}>{label}</Text> : null}
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: theme.bgCard, borderColor: theme.border },
+            error ? [styles.containerError, { borderColor: theme.error }] : null,
+          ]}
+        >
           <View style={styles.inputContainer}>
             <Ionicons name="location-outline" size={20} color={theme.textMuted} />
             <TextInput
@@ -504,7 +476,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
             />
           </View>
         </View>
-        {error && <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>}
+        {error ? <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text> : null}
         <Text style={[styles.warningText, { color: theme.textMuted }]}>
           Introduce la dirección manualmente en dispositivos móviles.
         </Text>
@@ -514,11 +486,16 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 
   return (
     <View style={[styles.wrapper, style]}>
-      {label && <Text style={[styles.label, { color: theme.textPrimary }]}>{label}</Text>}
+      {label ? <Text style={[styles.label, { color: theme.textPrimary }]}>{label}</Text> : null}
 
       <View
         ref={inputContainerRef}
-        style={[styles.container, { backgroundColor: theme.bgCard, borderColor: theme.border }, isFocused && [styles.containerFocused, { borderColor: theme.primary }], error && [styles.containerError, { borderColor: theme.error }]]}
+        style={[
+          styles.container,
+          { backgroundColor: theme.bgCard, borderColor: theme.border },
+          isFocused ? [styles.containerFocused, { borderColor: theme.primary }] : null,
+          error ? [styles.containerError, { borderColor: theme.error }] : null,
+        ]}
       >
         <View style={styles.inputContainer}>
           <Ionicons name="location-outline" size={20} color={theme.textMuted} />
@@ -533,43 +510,42 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
             autoCorrect={false}
             autoCapitalize="words"
           />
-          {isLoading && <ActivityIndicator size="small" color={theme.primary} />}
-          {query.length > 0 && !isLoading && (
-            <AnimatedPressable onPress={handleClear} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          {isLoading ? <ActivityIndicator size="small" color={theme.primary} /> : null}
+          {query.length > 0 && !isLoading ? (
+            <AnimatedPressable
+              onPress={handleClear}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Ionicons name="close-circle" size={18} color={theme.textMuted} />
             </AnimatedPressable>
-          )}
+          ) : null}
         </View>
       </View>
 
-      {/* Portal-based dropdown for proper z-index */}
-      <DropdownPortal
-        position={dropdownPosition}
-        visible={showDropdown && predictions.length > 0}
-      >
+      <DropdownPortal position={dropdownPosition} visible={showDropdown && predictions.length > 0}>
         {renderDropdownContent()}
       </DropdownPortal>
 
-      {error && <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>}
+      {error ? <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text> : null}
 
-      {!GOOGLE_MAPS_API_KEY && (
+      {!hasGoogleMapsApiKey ? (
         <Text style={[styles.warningText, { color: theme.textMuted }]}>
           Autocompletado no disponible. Configura EXPO_PUBLIC_GOOGLE_MAPS_API_KEY.
         </Text>
-      )}
+      ) : null}
 
-      {GOOGLE_MAPS_API_KEY && !isReady && (
+      {hasGoogleMapsApiKey && !isReady ? (
         <Text style={[styles.loadingText, { color: theme.textMuted }]}>
           Cargando autocompletado...
         </Text>
-      )}
+      ) : null}
     </View>
   );
 };
 
 const createStyles = (
   theme: ReturnType<typeof useTheme>['theme'],
-  isDark: boolean
+  isDark: boolean,
 ) =>
   StyleSheet.create({
     wrapper: {

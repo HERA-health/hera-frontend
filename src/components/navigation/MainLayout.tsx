@@ -7,7 +7,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigationState } from '@react-navigation/native';
 import { borderRadius, shadows, spacing } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';

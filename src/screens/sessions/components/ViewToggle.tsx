@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Dimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { ViewToggleProps, ViewMode } from '../types';
 import { heraLanding, colors, spacing, borderRadius } from '../../../constants/colors';
 

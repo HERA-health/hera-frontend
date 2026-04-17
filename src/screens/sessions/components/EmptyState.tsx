@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { borderRadius, shadows, spacing } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';

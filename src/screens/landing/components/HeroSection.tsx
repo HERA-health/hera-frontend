@@ -14,7 +14,7 @@ import {
   Animated as RNAnimated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { MotionView } from '../../../components/common/MotionView';
 import { GlassCard } from '../../../components/common/GlassCard';
