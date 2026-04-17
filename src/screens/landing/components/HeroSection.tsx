@@ -12,6 +12,7 @@ import {
   StyleSheet,
   useWindowDimensions,
   Animated as RNAnimated,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -50,6 +51,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   const bounceAnim = useRef(new RNAnimated.Value(0)).current;
 
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      bounceAnim.stopAnimation();
+      bounceAnim.setValue(0);
+      return undefined;
+    }
+
     const bounceAnimation = RNAnimated.loop(
       RNAnimated.sequence([
         RNAnimated.timing(bounceAnim, { toValue: 1, duration: 800, useNativeDriver: true }),

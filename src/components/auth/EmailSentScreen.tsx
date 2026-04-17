@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Animated,
+  Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { heraLanding, spacing, borderRadius, shadows } from '../../constants/colors';
@@ -51,13 +52,13 @@ export const EmailSentScreen: React.FC<EmailSentScreenProps> = ({
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 400,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
         friction: 8,
         tension: 40,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
   }, [fadeAnim, scaleAnim]);
@@ -68,14 +69,14 @@ export const EmailSentScreen: React.FC<EmailSentScreenProps> = ({
       Animated.timing(successFadeAnim, {
         toValue: 1,
         duration: 200,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }).start();
 
       const timer = setTimeout(() => {
         Animated.timing(successFadeAnim, {
           toValue: 0,
           duration: 200,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }).start(() => setResendSuccess(false));
       }, 3000);
 

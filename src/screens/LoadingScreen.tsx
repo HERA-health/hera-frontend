@@ -1,5 +1,13 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { ActivityIndicator, Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyledLogo } from '../components/common/StyledLogo';
 import { useTheme } from '../contexts/ThemeContext';
@@ -19,7 +27,7 @@ const LoadingScreen = () => {
         toValue: 1,
         duration: 1800,
         easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       })
     );
 
@@ -29,13 +37,13 @@ const LoadingScreen = () => {
           toValue: 1,
           duration: 1300,
           easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(pulse, {
           toValue: 0.96,
           duration: 1300,
           easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ])
     );

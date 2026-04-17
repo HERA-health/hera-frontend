@@ -10,6 +10,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
+  Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { heraLanding, spacing, borderRadius, shadows } from '../../constants/colors';
@@ -40,20 +41,20 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.spring(scaleAnim, {
           toValue: 1,
           friction: 6,
           tension: 80,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ]),
       Animated.spring(bounceAnim, {
         toValue: 1,
         friction: 3,
         tension: 100,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
   }, [fadeAnim, scaleAnim, bounceAnim]);
