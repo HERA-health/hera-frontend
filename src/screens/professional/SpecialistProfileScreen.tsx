@@ -127,7 +127,7 @@ interface SpecialistProfileData {
 
   // Account
   email: string;
-  emailVerified: boolean;
+  emailVerified?: boolean;
   phone: string;
   phoneVerified: boolean;
   twoFactorEnabled: boolean;
@@ -220,6 +220,7 @@ interface ProfilePalette {
   info: string;
   overlay: string;
   primary: string;
+  primaryAlpha12: string;
   primaryDark: string;
   primaryMuted: string;
   success: string;
@@ -275,6 +276,7 @@ function createProfilePalette(theme: Theme, isDark: boolean): ProfilePalette {
     info: theme.info,
     overlay: theme.overlay,
     primary: theme.primary,
+    primaryAlpha12: theme.primaryAlpha12,
     primaryDark: theme.primaryDark,
     primaryMuted: theme.primaryMuted,
     success: theme.success,
@@ -376,7 +378,7 @@ export function SpecialistProfileScreen() {
 
     // Account
     email: user?.email || '',
-    emailVerified: true,
+    emailVerified: user?.emailVerified,
     phone: user?.phone || '',
     phoneVerified: false,
     twoFactorEnabled: false,
@@ -479,7 +481,7 @@ export function SpecialistProfileScreen() {
 
           // Account
           email: profile.email || '',
-          emailVerified: profile.emailVerified || true,
+          emailVerified: profile.emailVerified,
           phone: profile.phone || '',
           phoneVerified: profile.phoneVerified || false,
           twoFactorEnabled: profile.twoFactorEnabled || false,
@@ -2273,7 +2275,7 @@ export function SpecialistProfileScreen() {
             () => {},
             {
               disabled: true,
-              verified: profileData.emailVerified,
+              verified: profileData.emailVerified === true,
               helperText: 'El email no se puede modificar por seguridad',
             }
           )}
@@ -2360,32 +2362,40 @@ export function SpecialistProfileScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Notificaciones</Text>
         <View style={styles.formCard}>
-          <Text style={styles.notificationCategory}>Email</Text>
-          <View style={styles.notificationToggle}>
-            <Text style={styles.notificationLabel}>Nuevas reservas</Text>
-            <TouchableOpacity style={styles.switchTrack} activeOpacity={0.7}>
-              <View style={[styles.switchThumb, styles.switchThumbActive]} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.notificationToggle}>
-            <Text style={styles.notificationLabel}>Cancelaciones</Text>
-            <TouchableOpacity style={styles.switchTrack} activeOpacity={0.7}>
-              <View style={[styles.switchThumb, styles.switchThumbActive]} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.notificationToggle}>
-            <Text style={styles.notificationLabel}>Mensajes de clientes</Text>
-            <TouchableOpacity style={styles.switchTrack} activeOpacity={0.7}>
-              <View style={[styles.switchThumb, styles.switchThumbActive]} />
-            </TouchableOpacity>
-          </View>
+          <View style={styles.notificationInfoCard}>
+            <View style={styles.notificationInfoHeader}>
+              <View style={styles.notificationInfoIcon}>
+                <Ionicons name="mail-outline" size={18} color={theme.primary} />
+              </View>
+              <View style={styles.notificationInfoCopy}>
+                <Text style={styles.notificationInfoTitle}>Emails automáticos activos</Text>
+                <Text style={styles.notificationInfoDescription}>
+                  En esta versión HERA envía por defecto los avisos críticos de agenda para evitar que se pierda una reserva o una cancelación.
+                </Text>
+              </View>
+              <View style={styles.notificationStatusPill}>
+                <Text style={styles.notificationStatusText}>Activas</Text>
+              </View>
+            </View>
 
-          <Text style={[styles.notificationCategory, { marginTop: spacing.lg }]}>Push</Text>
-          <View style={styles.notificationToggle}>
-            <Text style={styles.notificationLabel}>Recordatorios de sesión (30min antes)</Text>
-            <TouchableOpacity style={styles.switchTrack} activeOpacity={0.7}>
-              <View style={[styles.switchThumb, styles.switchThumbActive]} />
-            </TouchableOpacity>
+            <View style={styles.notificationInfoList}>
+              <View style={styles.notificationInfoRow}>
+                <Ionicons name="calendar-clear-outline" size={16} color={theme.primary} />
+                <Text style={styles.notificationInfoRowText}>Nueva solicitud de cita</Text>
+              </View>
+              <View style={styles.notificationInfoRow}>
+                <Ionicons name="close-circle-outline" size={16} color={theme.warning} />
+                <Text style={styles.notificationInfoRowText}>Cancelación de cita</Text>
+              </View>
+              <View style={styles.notificationInfoRow}>
+                <Ionicons name="time-outline" size={16} color={theme.textSecondary} />
+                <Text style={styles.notificationInfoRowText}>Los recordatorios push llegarán en una fase posterior</Text>
+              </View>
+            </View>
+
+            <Text style={styles.notificationInfoHint}>
+              Cuando exista configuración real por canal, aparecerá aquí en lugar de estos avisos informativos.
+            </Text>
           </View>
         </View>
       </View>
@@ -3521,41 +3531,72 @@ function createStyles(
     fontWeight: '600',
     color: palette.textOnCard,
   },
-  notificationCategory: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: palette.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: spacing.md,
+  notificationInfoCard: {
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.backgroundMuted,
+    padding: spacing.lg,
+    gap: spacing.md,
   },
-  notificationToggle: {
+  notificationInfoHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
+    alignItems: 'flex-start',
+    gap: spacing.sm,
   },
-  notificationLabel: {
+  notificationInfoIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.primaryAlpha12,
+  },
+  notificationInfoCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  notificationInfoTitle: {
     fontSize: 15,
+    fontWeight: '700',
     color: palette.textPrimary,
   },
-  switchTrack: {
-    width: 48,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: palette.primary,
-    padding: 2,
-    justifyContent: 'center',
+  notificationInfoDescription: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: palette.textSecondary,
   },
-  switchThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: palette.cardBg,
-    ...shadows.sm,
+  notificationStatusPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: palette.primaryAlpha12,
+    borderWidth: 1,
+    borderColor: palette.primaryMuted,
   },
-  switchThumbActive: {
-    alignSelf: 'flex-end',
+  notificationStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: palette.primary,
+  },
+  notificationInfoList: {
+    gap: spacing.sm,
+  },
+  notificationInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  notificationInfoRowText: {
+    flex: 1,
+    fontSize: 14,
+    color: palette.textPrimary,
+    lineHeight: 20,
+  },
+  notificationInfoHint: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: palette.textMuted,
   },
   privacySection: {
     marginBottom: spacing.md,

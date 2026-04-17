@@ -17,6 +17,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import * as analyticsService from '../../services/analyticsService';
 import * as authService from '../../services/authService';
 import * as clientService from '../../services/clientService';
+import { resendVerificationEmailWithRefresh } from '../../services/emailVerificationService';
 import type { AddressDetails } from '../../components/location/AddressAutocomplete';
 import ProfileDatePickerModal from './components/ProfileDatePickerModal';
 import ProfileInformationSection from './components/ProfileInformationSection';
@@ -60,7 +61,7 @@ const buildLocationData = (): ProfileLocationData => ({
 });
 
 const ProfileScreen: React.FC = () => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, refreshCurrentUser } = useAuth();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const { width: windowWidth } = useWindowDimensions();
@@ -262,14 +263,14 @@ const ProfileScreen: React.FC = () => {
     setIsVerifyingEmail(true);
     analyticsService.track('resend_verification_clicked');
     try {
-      await authService.resendVerificationEmail(user.email);
-      Alert.alert('Email enviado', 'Hemos enviado un correo de verificación a tu bandeja de entrada.');
+      const result = await resendVerificationEmailWithRefresh(user.email, refreshCurrentUser);
+      Alert.alert(result.outcome === 'sent' ? 'Email enviado' : 'Email actualizado', result.message);
     } catch {
       Alert.alert('Error', 'No se pudo enviar el email de verificación. Inténtalo de nuevo.');
     } finally {
       setIsVerifyingEmail(false);
     }
-  }, [user?.email]);
+  }, [refreshCurrentUser, user?.email]);
 
   const handleAddressSelect = useCallback(async (details: AddressDetails) => {
     setLocationError(null);

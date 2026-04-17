@@ -121,9 +121,11 @@ export const ProfileInformationSection: React.FC<ProfileInformationSectionProps>
             onVerifyPress={onVerifyEmail}
             isVerifying={isVerifyingEmail}
             helperText={
-              user?.emailVerified
+              user?.emailVerified === true
                 ? 'El email no se puede modificar por seguridad'
-                : 'Verifica tu email para mayor seguridad'
+                : user?.emailVerified === false
+                  ? 'Verifica tu email para mayor seguridad'
+                  : 'Estamos comprobando el estado de verificación'
             }
           />
 

@@ -19,7 +19,7 @@ type VerificationState = 'loading' | 'success' | 'error';
 export function EmailVerificationScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<AppRouteProp<'EmailVerification'>>();
-  const { user, updateUser } = useAuth();
+  const { user, refreshCurrentUser } = useAuth();
 
   const [state, setState] = useState<VerificationState>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -43,9 +43,8 @@ export function EmailVerificationScreen() {
         hasVerified.current = true;
         await authService.verifyEmail(token);
 
-        // Update user state with emailVerified = true
         if (user) {
-          updateUser({ emailVerified: true });
+          await refreshCurrentUser();
         }
 
         setState('success');
@@ -56,7 +55,7 @@ export function EmailVerificationScreen() {
     };
 
     verifyEmail();
-  }, [token, user, updateUser]);
+  }, [refreshCurrentUser, token, user]);
 
   const handleRetry = () => {
     hasVerified.current = false;
@@ -75,7 +74,7 @@ export function EmailVerificationScreen() {
         await authService.verifyEmail(token);
 
         if (user) {
-          updateUser({ emailVerified: true });
+          await refreshCurrentUser();
         }
 
         setState('success');

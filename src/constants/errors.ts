@@ -153,6 +153,22 @@ export function getErrorMessage(error: unknown, defaultMessage = 'Ha ocurrido un
 }
 
 /**
+ * Extract a stable application error code from known error shapes.
+ */
+export function getErrorCode(error: unknown): string | undefined {
+  if (hasResponseData(error)) {
+    return error.response.data?.code;
+  }
+
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === 'string' ? code : undefined;
+  }
+
+  return undefined;
+}
+
+/**
  * Create a typed API error
  */
 export function createApiError(message: string, status?: number, code?: string): ApiError {

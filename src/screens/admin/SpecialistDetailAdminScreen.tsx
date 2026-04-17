@@ -334,7 +334,7 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
           </View>
         )}
         <View style={styles.timelineColumn}>
-          <TimelineRow icon="mail-outline" label="Email" value={specialist.user.emailVerified ? 'Verificado' : 'No verificado'} color={specialist.user.emailVerified ? heraLanding.success : heraLanding.status.cancelled.text} />
+          <TimelineRow icon="mail-outline" label="Email" value={specialist.user.emailVerified === true ? 'Verificado' : 'No verificado'} color={specialist.user.emailVerified === true ? heraLanding.success : heraLanding.status.cancelled.text} />
           <TimelineRow icon="paper-plane-outline" label="Enviado" value={formatDateShort(specialist.verificationSubmittedAt)} />
           <TimelineRow icon="checkmark-done-outline" label="Resuelto" value={formatDateShort(specialist.verificationResolvedAt)} />
         </View>
