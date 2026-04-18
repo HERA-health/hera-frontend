@@ -30,6 +30,9 @@ The frontend must feel premium, calm, trustworthy and easy to evolve. We optimiz
 - **Rebrand Readiness**: Touched code should move toward centralized style control through the shared theme.
 - **Typecheck Before Close-Out**: Run `npx tsc --noEmit --pretty false` before finishing substantial frontend changes.
 - **Smoke Tests for Core Flows**: Add or update smoke tests when touching shared primitives, onboarding, questionnaire, sessions, profile or other critical flows.
+- **Web Performance Budget Mindset**: Avoid eager-loading heavy screens, oversized fonts/icon packs, always-on animations or repeated data fetches unless the UX gain clearly justifies the cost.
+- **SEO & CWV Safety**: Public web changes must preserve meaningful metadata, crawlable structure and fast first render instead of shipping SPA-only shells with avoidable heavy assets.
+- **Upload Efficiency**: For images or documents, prefer file/multipart flows over converting assets to `base64` in the client.
 
 ## 6. Operational Commands
 - **Development**: `npm start`

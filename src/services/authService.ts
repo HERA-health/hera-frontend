@@ -1,6 +1,7 @@
 import api, { setAuthToken, removeAuthToken } from './api';
 import { getErrorMessage, hasResponseData } from '../constants/errors';
 import { invalidateSpecialistsCache } from './specialistsService';
+import { buildImageFormData, type UploadAsset } from '../utils/multipartUpload';
 
 export interface AuthResponse {
   token: string;
@@ -330,11 +331,17 @@ export const resendVerificationEmail = async (email: string): Promise<{ success:
 /**
  * Upload user avatar
  */
-export const uploadAvatar = async (base64Image: string): Promise<AuthResponse['user']> => {
+export const uploadAvatar = async (image: UploadAsset): Promise<AuthResponse['user']> => {
   try {
-    const response = await api.post<{ success: boolean; data: any; message?: string }>(
+    const formData = await buildImageFormData('image', image, {}, 'avatar');
+    const response = await api.post<{ success: boolean; data: AuthResponse['user']; message?: string }>(
       '/auth/upload-avatar',
-      { image: base64Image }
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
     );
 
     if (response.data.success && response.data.data) {

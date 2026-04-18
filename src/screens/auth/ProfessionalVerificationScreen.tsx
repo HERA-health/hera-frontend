@@ -31,6 +31,7 @@ import * as authService from '../../services/authService';
 import { getErrorMessage } from '../../constants/errors';
 import * as analyticsService from '../../services/analyticsService';
 import type { AppNavigationProp } from '../../constants/types';
+import type { UploadAsset } from '../../utils/multipartUpload';
 
 export function ProfessionalVerificationScreen() {
   const navigation = useNavigation<AppNavigationProp>();
@@ -43,7 +44,7 @@ export function ProfessionalVerificationScreen() {
 
   // Form state
   const [colegiadoNumber, setColegiadoNumber] = useState('');
-  const [dniImage, setDniImage] = useState<string | null>(null);
+  const [dniImage, setDniImage] = useState<UploadAsset | null>(null);
   const [dniImageUri, setDniImageUri] = useState<string | null>(null);
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -111,16 +112,17 @@ export function ProfessionalVerificationScreen() {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
         quality: 0.8,
-        base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        if (asset.base64) {
-          setDniImage(asset.base64);
-          setDniImageUri(asset.uri);
-          analyticsService.track('verification_photo_selected');
-        }
+        setDniImage({
+          uri: asset.uri,
+          mimeType: asset.mimeType,
+          fileName: asset.fileName,
+        });
+        setDniImageUri(asset.uri);
+        analyticsService.track('verification_photo_selected');
       }
     } catch (error) {
       Alert.alert('Error', 'No se pudo seleccionar la imagen. Intenta de nuevo.');
@@ -146,15 +148,16 @@ export function ProfessionalVerificationScreen() {
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: false,
         quality: 0.8,
-        base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        if (asset.base64) {
-          setDniImage(asset.base64);
-          setDniImageUri(asset.uri);
-        }
+        setDniImage({
+          uri: asset.uri,
+          mimeType: asset.mimeType,
+          fileName: asset.fileName,
+        });
+        setDniImageUri(asset.uri);
       }
     } catch (error) {
       Alert.alert('Error', 'No se pudo tomar la foto. Intenta de nuevo.');

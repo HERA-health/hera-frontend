@@ -54,6 +54,7 @@ import { AddressAutocomplete, LocationMapPreview } from '../../components/locati
 import type { AppNavigationProp } from '../../constants/types';
 import { getWebAppUrl } from '../../config/api';
 import { AnimatedPressable, Button } from '../../components/common';
+import type { UploadAsset } from '../../utils/multipartUpload';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -657,13 +658,17 @@ export function SpecialistProfileScreen() {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
-        base64: true,
       });
 
-      if (!result.canceled && result.assets[0]?.base64) {
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
         setIsUploadingAvatar(true);
         try {
-          const updatedUser = await authService.uploadAvatar(result.assets[0].base64);
+          const updatedUser = await authService.uploadAvatar({
+            uri: asset.uri,
+            mimeType: asset.mimeType,
+            fileName: asset.fileName,
+          });
           updateUser({ avatar: updatedUser.avatar ?? undefined });
           updateField('avatar', updatedUser.avatar ?? null);
         } catch (uploadError: unknown) {
@@ -1122,17 +1127,18 @@ export function SpecialistProfileScreen() {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         quality: 0.8,
-        base64: true,
       });
 
-      if (!result.canceled && result.assets[0]?.base64) {
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const imageUpload: UploadAsset = {
+          uri: asset.uri,
+          mimeType: asset.mimeType,
+          fileName: asset.fileName,
+        };
         setIsUploadingGalleryPhoto(true);
         try {
-          const mimeType = result.assets[0].mimeType || 'image/jpeg';
-          const response = await professionalService.uploadGalleryPhoto(
-            result.assets[0].base64,
-            mimeType
-          );
+          const response = await professionalService.uploadGalleryPhoto(imageUpload);
           updateField('photoGallery', [...profileData.photoGallery, response.url]);
         } catch (uploadError: unknown) {
           const message = uploadError instanceof Error ? uploadError.message : 'No se pudo subir la foto';

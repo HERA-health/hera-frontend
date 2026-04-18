@@ -18,6 +18,7 @@ import * as analyticsService from '../../services/analyticsService';
 import * as authService from '../../services/authService';
 import * as clientService from '../../services/clientService';
 import { resendVerificationEmailWithRefresh } from '../../services/emailVerificationService';
+import type { UploadAsset } from '../../utils/multipartUpload';
 import type { AddressDetails } from '../../components/location/AddressAutocomplete';
 import ProfileDatePickerModal from './components/ProfileDatePickerModal';
 import ProfileInformationSection from './components/ProfileInformationSection';
@@ -134,10 +135,10 @@ const ProfileScreen: React.FC = () => {
   }, [user?.type]);
 
   const uploadAvatar = useCallback(
-    async (base64: string) => {
+    async (image: UploadAsset) => {
       setIsUploadingAvatar(true);
       try {
-        const updatedUser = await authService.uploadAvatar(base64);
+        const updatedUser = await authService.uploadAvatar(image);
         updateUser({ avatar: updatedUser.avatar });
         Alert.alert('Foto actualizada', 'Tu foto de perfil se ha guardado correctamente.');
       } catch (error) {
@@ -163,11 +164,15 @@ const ProfileScreen: React.FC = () => {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
-        base64: true,
       });
 
-      if (!result.canceled && result.assets[0]?.base64) {
-        await uploadAvatar(result.assets[0].base64);
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        await uploadAvatar({
+          uri: asset.uri,
+          mimeType: asset.mimeType,
+          fileName: asset.fileName,
+        });
       }
     } catch {
       Alert.alert('Error', 'No se pudo seleccionar la imagen.');
@@ -186,11 +191,15 @@ const ProfileScreen: React.FC = () => {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
-        base64: true,
       });
 
-      if (!result.canceled && result.assets[0]?.base64) {
-        await uploadAvatar(result.assets[0].base64);
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        await uploadAvatar({
+          uri: asset.uri,
+          mimeType: asset.mimeType,
+          fileName: asset.fileName,
+        });
       }
     } catch {
       Alert.alert('Error', 'No se pudo tomar la foto.');

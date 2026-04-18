@@ -1,6 +1,7 @@
 import { api } from './api';
 import { getErrorMessage } from '../constants/errors';
 import type { Specialist } from '../constants/types';
+import { buildImageFormData, type UploadAsset } from '../utils/multipartUpload';
 
 export interface ProfessionalProfile {
   id: string;
@@ -320,7 +321,7 @@ export type VerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'NOT_SUBM
  */
 export interface VerificationData {
   colegiadoNumber: string;
-  dniImage: string; // base64 encoded image
+  dniImage: UploadAsset;
 }
 
 /**
@@ -363,9 +364,16 @@ export const getVerificationStatus = async (): Promise<VerificationStatusRespons
  */
 export const submitVerification = async (data: VerificationData): Promise<VerificationResponse> => {
   try {
-    const response = await api.post('/specialists/me/verification', {
-      colegiadoNumber: data.colegiadoNumber,
-      dniPhoto: data.dniImage,
+    const formData = await buildImageFormData(
+      'dniPhoto',
+      data.dniImage,
+      { colegiadoNumber: data.colegiadoNumber },
+      'colegiado'
+    );
+    const response = await api.post('/specialists/me/verification', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     });
 
     if (response.data.success) {
@@ -385,14 +393,13 @@ export const submitVerification = async (data: VerificationData): Promise<Verifi
 /**
  * Upload a photo to the specialist's gallery
  */
-export const uploadGalleryPhoto = async (
-  imageBase64: string,
-  mimeType: string
-): Promise<{ url: string }> => {
+export const uploadGalleryPhoto = async (image: UploadAsset): Promise<{ url: string }> => {
   try {
-    const response = await api.post('/specialists/me/gallery', {
-      imageBase64,
-      mimeType,
+    const formData = await buildImageFormData('image', image, {}, 'gallery');
+    const response = await api.post('/specialists/me/gallery', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     });
     return response.data.data;
   } catch (error: unknown) {
