@@ -1,4 +1,5 @@
 ﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRef } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -184,6 +185,8 @@ export function ClientProfileScreen() {
   const [contentHeight, setContentHeight] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [keepClinicalMounted, setKeepClinicalMounted] = useState(false);
+  const hasLoadedClientRef = useRef(false);
+  const loadClientPromiseRef = useRef<Promise<void> | null>(null);
 
   const isDesktop = width >= 1180;
   const isTablet = width >= 860;
@@ -194,38 +197,46 @@ export function ClientProfileScreen() {
   const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
 
   const loadClient = useCallback(async () => {
-    const isInitialLoad = !client;
-
-    try {
-      if (isInitialLoad) {
-        setLoading(true);
-      } else {
-        setRefreshingClient(true);
-      }
-
-      const result = await professionalService.getProfessionalClientDetail(clientId);
-
-      if (!result) {
-        setError('Paciente no encontrado');
-        return;
-      }
-
-      setClient(result);
-      setError(null);
-    } catch (loadError: unknown) {
-      setError(getErrorMessage(loadError, 'No se pudo cargar la ficha del paciente'));
-    } finally {
-      if (isInitialLoad) {
-        setLoading(false);
-      } else {
-        setRefreshingClient(false);
-      }
+    if (loadClientPromiseRef.current) {
+      await loadClientPromiseRef.current;
+      return;
     }
-  }, [client, clientId]);
 
-  useEffect(() => {
-    void loadClient();
-  }, [loadClient]);
+    const isInitialLoad = !hasLoadedClientRef.current;
+    const request = (async () => {
+      try {
+        if (isInitialLoad) {
+          setLoading(true);
+        } else {
+          setRefreshingClient(true);
+        }
+
+        const result = await professionalService.getProfessionalClientDetail(clientId);
+
+        if (!result) {
+          setError('Paciente no encontrado');
+          return;
+        }
+
+        setClient(result);
+        setError(null);
+        hasLoadedClientRef.current = true;
+      } catch (loadError: unknown) {
+        setError(getErrorMessage(loadError, 'No se pudo cargar la ficha del paciente'));
+      } finally {
+        if (isInitialLoad) {
+          setLoading(false);
+        } else {
+          setRefreshingClient(false);
+        }
+
+        loadClientPromiseRef.current = null;
+      }
+    })();
+
+    loadClientPromiseRef.current = request;
+    await request;
+  }, [clientId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -239,6 +250,9 @@ export function ClientProfileScreen() {
   }, [clientId, initialTab]);
 
   useEffect(() => {
+    hasLoadedClientRef.current = false;
+    loadClientPromiseRef.current = null;
+    setRefreshingClient(false);
     setKeepClinicalMounted(false);
   }, [clientId]);
 
