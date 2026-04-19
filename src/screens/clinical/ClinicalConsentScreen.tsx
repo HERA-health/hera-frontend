@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
@@ -52,6 +52,8 @@ export function ClinicalConsentScreen() {
   const { requestId, token } = route.params;
   const { isAuthenticated, user } = useAuth();
   const { theme } = useTheme();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 720;
 
   const [resolution, setResolution] = useState<clinicalService.ClinicalConsentRequestResolution | null>(null);
   const [loading, setLoading] = useState(true);
@@ -160,6 +162,26 @@ export function ClinicalConsentScreen() {
         </Card>
       ) : resolution ? (
         <View style={styles.contentStack}>
+          {isPending && needsLogin ? (
+            <Card variant="default" padding="large">
+              <View style={styles.contentStack}>
+                <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
+                  Inicia sesión para continuar
+                </Text>
+                <Text style={[textStyles.body, { color: theme.textSecondary }]}>
+                  Para responder a esta solicitud debes entrar con tu cuenta de paciente. Si después del login no vuelves automáticamente aquí, reabre este mismo enlace.
+                </Text>
+                <Button
+                  variant="primary"
+                  size="large"
+                  onPress={() => navigation.navigate('Login', { userType: 'CLIENT' })}
+                >
+                  Iniciar sesión
+                </Button>
+              </View>
+            </Card>
+          ) : null}
+
           <Card variant="default" padding="large">
             <View style={styles.metaStack}>
               <View style={styles.metaRow}>
@@ -197,21 +219,7 @@ export function ClinicalConsentScreen() {
                 profesional. Podras retirar este consentimiento mas adelante.
               </Text>
 
-              {isPending && needsLogin ? (
-                <View style={styles.contentStack}>
-                  <Text style={[textStyles.body, { color: theme.textSecondary }]}>
-                    Para responder a esta solicitud debes iniciar sesion con tu cuenta de paciente en HERA.
-                    Si al iniciar sesion no vuelves automaticamente aqui, reabre este mismo enlace.
-                  </Text>
-                  <Button
-                    variant="primary"
-                    size="large"
-                    onPress={() => navigation.navigate('Login', { userType: 'CLIENT' })}
-                  >
-                    Iniciar sesion
-                  </Button>
-                </View>
-              ) : canConfirm ? (
+              {canConfirm ? (
                 <Button
                   variant="primary"
                   size="large"

@@ -177,6 +177,7 @@ export function ClientProfileScreen() {
   const [activeTab, setActiveTab] = useState<TabKey>(resolveInitialTab(initialTab));
   const [client, setClient] = useState<professionalService.Client | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshingClient, setRefreshingClient] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [visibleHistoryItems, setVisibleHistoryItems] = useState(5);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -193,8 +194,15 @@ export function ClientProfileScreen() {
   const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
 
   const loadClient = useCallback(async () => {
+    const isInitialLoad = !client;
+
     try {
-      setLoading(true);
+      if (isInitialLoad) {
+        setLoading(true);
+      } else {
+        setRefreshingClient(true);
+      }
+
       const result = await professionalService.getProfessionalClientDetail(clientId);
 
       if (!result) {
@@ -207,9 +215,13 @@ export function ClientProfileScreen() {
     } catch (loadError: unknown) {
       setError(getErrorMessage(loadError, 'No se pudo cargar la ficha del paciente'));
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+      } else {
+        setRefreshingClient(false);
+      }
     }
-  }, [clientId]);
+  }, [client, clientId]);
 
   useEffect(() => {
     void loadClient();
@@ -280,7 +292,7 @@ export function ClientProfileScreen() {
     setScrollOffset(event.nativeEvent.contentOffset.y);
   }, []);
 
-  if (loading) {
+  if (loading && !client) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.bg }]}>
         <ActivityIndicator size="large" color={theme.primary} />
@@ -521,6 +533,15 @@ export function ClientProfileScreen() {
               ) : null}
             </View>
           </View>
+
+          {refreshingClient ? (
+            <View style={styles.heroRefreshRow}>
+              <ActivityIndicator size="small" color={theme.primary} />
+              <Text style={[styles.heroRefreshText, { color: theme.textSecondary }, labelStyle]}>
+                Actualizando ficha...
+              </Text>
+            </View>
+          ) : null}
         </LinearGradient>
       </Card>
 
@@ -837,6 +858,16 @@ const styles = StyleSheet.create({
   heroActionsMobile: {
     width: '100%',
     marginTop: spacing.xs,
+  },
+  heroRefreshRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  heroRefreshText: {
+    fontSize: typography.fontSizes.xs,
+    lineHeight: 18,
   },
   summaryStatsRow: {
     flexDirection: 'row',
