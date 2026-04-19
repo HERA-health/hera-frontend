@@ -46,6 +46,27 @@ export interface Invoice {
   } | null;
 }
 
+export interface SessionInvoiceSummary {
+  id: string;
+  clientId: string;
+  sessionId: string | null;
+  invoiceNumber: string;
+  status: InvoiceStatus;
+}
+
+export interface AttachableInvoiceSummary {
+  id: string;
+  clientId: string;
+  sessionId: string | null;
+  invoiceNumber: string;
+  status: InvoiceStatus;
+  total: number;
+  concept: string;
+  sessionDate: string | null;
+  createdAt: string;
+  sentAt: string | null;
+}
+
 export type InvoiceStatus = 'DRAFT' | 'SENT' | 'PAID' | 'CANCELLED';
 
 export interface InvoiceFilters {
@@ -333,6 +354,40 @@ export const billingService = {
       return response.data.data || [];
     } catch (error: unknown) {
       throw new Error(getErrorMessage(error, 'No se pudieron cargar las sesiones'));
+    }
+  },
+
+  async generateInvoiceFromSession(sessionId: string): Promise<SessionInvoiceSummary> {
+    try {
+      const response = await api.post(`/billing/sessions/${sessionId}/invoice`);
+      return response.data.data;
+    } catch (error: unknown) {
+      throw new Error(getErrorMessage(error, 'No se pudo generar la factura de la sesión'));
+    }
+  },
+
+  async getAttachableInvoicesForSession(sessionId: string): Promise<AttachableInvoiceSummary[]> {
+    try {
+      const response = await api.get(`/billing/sessions/${sessionId}/attachable-invoices`);
+      return response.data.data ?? [];
+    } catch (error: unknown) {
+      throw new Error(getErrorMessage(error, 'No se pudieron cargar las facturas disponibles'));
+    }
+  },
+
+  async attachInvoiceToSession(
+    sessionId: string,
+    invoiceId: string,
+    sendToPatient = false
+  ): Promise<SessionInvoiceSummary> {
+    try {
+      const response = await api.post(`/billing/sessions/${sessionId}/attach-invoice`, {
+        invoiceId,
+        sendToPatient,
+      });
+      return response.data.data;
+    } catch (error: unknown) {
+      throw new Error(getErrorMessage(error, 'No se pudo enlazar la factura a la sesión'));
     }
   },
 

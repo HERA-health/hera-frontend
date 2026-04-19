@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -11,164 +14,172 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import {
-  borderRadius,
-  shadows,
-  spacing,
-  typography,
-} from '../../constants/colors';
-import { Theme } from '../../constants/theme';
-import { Client, RootStackParamList } from '../../constants/types';
+import { z } from 'zod';
 import { AnimatedPressable, Button, Card } from '../../components/common';
-import { BrandText } from '../../components/common/BrandText';
+import { borderRadius, shadows, spacing, typography } from '../../constants/colors';
+import type { RootStackParamList } from '../../constants/types';
+import type { Theme } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
+import { getErrorCode, getErrorMessage } from '../../constants/errors';
 import * as professionalService from '../../services/professionalService';
-import { questionnaire } from '../../utils/questionnaireData';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ProfessionalClients'>;
-type ViewMode = 'cards' | 'list';
-type DateFilter = 'this_week' | 'this_month' | 'all';
-type StatusFilter = 'active' | 'paused' | 'archived' | 'all';
+type SourceFilter = professionalService.ClientSource | 'ALL';
+type LifecycleFilter = professionalService.ClientLifecycleFilter;
 
-interface ExtendedClient extends Client {
-  tags?: string[];
-  startDate?: Date;
-  archived?: boolean;
-  completedSessions?: number;
-}
+const managedClientSchema = z.object({
+  firstName: z.string().trim().min(2, 'Introduce el nombre'),
+  lastName: z.string().trim().min(2, 'Introduce los apellidos'),
+  email: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => value || '')
+    .refine((value) => value.length === 0 || z.string().email().safeParse(value).success, {
+      message: 'Introduce un email válido',
+    }),
+  phone: z.string().trim().optional().transform((value) => value || ''),
+  consentOnFile: z.boolean().refine((value) => value === true, {
+    message: 'Debes confirmar que dispones del consentimiento informado',
+  }),
+});
 
-interface FilterOption<T extends string> {
-  label: string;
-  value: T;
-}
+type ManagedClientForm = z.infer<typeof managedClientSchema>;
 
-const DATE_FILTER_OPTIONS: FilterOption<DateFilter>[] = [
-  { label: 'Todos', value: 'all' },
-  { label: 'Esta semana', value: 'this_week' },
-  { label: 'Este mes', value: 'this_month' },
+const FILTERS: Array<{ label: string; value: SourceFilter }> = [
+  { label: 'Todos', value: 'ALL' },
+  { label: 'Registrados', value: 'REGISTERED' },
+  { label: 'Gestionados', value: 'MANAGED' },
 ];
 
-const STATUS_FILTER_OPTIONS: FilterOption<StatusFilter>[] = [
-  { label: 'Activos', value: 'active' },
-  { label: 'En pausa', value: 'paused' },
-  { label: 'Archivados', value: 'archived' },
-  { label: 'Todos', value: 'all' },
+const LIFECYCLE_FILTERS: Array<{ label: string; value: LifecycleFilter }> = [
+  { label: 'Activos', value: 'ACTIVE' },
+  { label: 'Archivados', value: 'ARCHIVED' },
+  { label: 'Todos', value: 'ALL' },
 ];
 
-function formatShortDate(date?: Date) {
-  if (!date) return '-';
-  return new Date(date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-}
+const emptyForm: ManagedClientForm = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  consentOnFile: false,
+};
 
-function formatLongDate(date?: Date) {
-  if (!date) return '-';
-  return new Date(date).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-}
+const textStyles = {
+  caption: { fontSize: typography.fontSizes.xs, lineHeight: 18 },
+  bodySmall: { fontSize: typography.fontSizes.sm, lineHeight: 21 },
+  body: { fontSize: typography.fontSizes.md, lineHeight: 24 },
+  h4: { fontSize: typography.fontSizes.xl, lineHeight: 28 },
+  h3: { fontSize: typography.fontSizes.xxl, lineHeight: 32 },
+  h1: { fontSize: typography.fontSizes.xxxxl, lineHeight: 40 },
+};
 
-function isWithinThisWeek(date: Date) {
-  const now = new Date();
-  const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  return date <= weekEnd;
-}
+const formatDate = (date?: string | Date | null, options?: Intl.DateTimeFormatOptions) => {
+  if (!date) {
+    return 'Sin fecha';
+  }
 
-function isWithinThisMonth(date: Date) {
-  const now = new Date();
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return date <= monthEnd;
-}
+  return new Date(date).toLocaleDateString('es-ES', options || {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+};
 
-function getStatusLabel(status: StatusFilter | ExtendedClient['status'], archived?: boolean) {
-  if (archived) return 'Archivado';
-  if (status === 'active') return 'Activo';
-  if (status === 'inactive' || status === 'paused') return 'En pausa';
-  return 'Activo';
-}
+const getConsentLabel = (client: professionalService.Client): string => {
+  if (client.consentOnFile) {
+    return 'Consentimiento vigente';
+  }
 
-function getClientTagsFromQuestionnaire(answers?: unknown): string[] {
-  if (!answers || !Array.isArray(answers)) return [];
+  return 'Pendiente de consentimiento';
+};
 
-  const specialtiesQuestion = questionnaire.find((item) => item.category === 'specialties');
-  if (!specialtiesQuestion) return [];
+const getConsentTone = (
+  client: professionalService.Client,
+  theme: Theme
+): { backgroundColor: string; color: string } =>
+  client.consentOnFile
+    ? { backgroundColor: theme.success + '18', color: theme.success }
+    : { backgroundColor: theme.warning + '18', color: theme.warning };
 
-  const specialtyAnswer = answers.find((answer) => {
-    if (!answer || typeof answer !== 'object') return false;
-    const safeAnswer = answer as { questionId?: string };
-    return safeAnswer.questionId === specialtiesQuestion.id;
-  }) as { answers?: string[] } | undefined;
-
-  if (!specialtyAnswer?.answers?.length) return [];
-
-  return specialtyAnswer.answers
-    .map((value) => {
-      const option = specialtiesQuestion.options.find((item) => item.value === value || item.id === value);
-      return option?.text || value;
-    })
-    .slice(0, 3);
-}
-
-function FilterDropdown<T extends string>({
-  icon,
+function SegmentedFilterGroup<T extends string>({
   label,
   options,
+  activeValue,
+  onChange,
+  theme,
+}: {
+  label: string;
+  options: Array<{ label: string; value: T }>;
+  activeValue: T;
+  onChange: (value: T) => void;
+  theme: Theme;
+}) {
+  return (
+    <View style={styles.segmentedGroup}>
+      <Text style={[styles.segmentedLabel, { color: theme.textMuted }]}>{label}</Text>
+      <View
+        style={[
+          styles.segmentedTrack,
+          {
+            backgroundColor: theme.bgMuted,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        {options.map((option) => {
+          const active = option.value === activeValue;
+
+          return (
+            <AnimatedPressable
+              key={option.value}
+              onPress={() => onChange(option.value)}
+              hoverLift={false}
+              pressScale={0.98}
+              style={[
+                styles.segmentedOption,
+                active && {
+                  backgroundColor: theme.bgCard,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.segmentedOptionText,
+                  { color: active ? theme.textPrimary : theme.textSecondary },
+                ]}
+              >
+                {option.label}
+              </Text>
+            </AnimatedPressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function MetricCard({
+  icon,
+  label,
   value,
-  open,
-  onToggle,
-  onSelect,
-  styles,
   theme,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
-  options: FilterOption<T>[];
-  value: T;
-  open: boolean;
-  onToggle: () => void;
-  onSelect: (value: T) => void;
-  styles: ReturnType<typeof createStyles>;
+  value: string;
   theme: Theme;
 }) {
-  const selectedLabel = options.find((option) => option.value === value)?.label || label;
-
   return (
-    <View style={[styles.filterField, open ? styles.filterFieldRaised : null]}>
-      <AnimatedPressable
-        onPress={onToggle}
-        style={styles.filterButton}
-        hoverLift={false}
-        pressScale={0.98}
-      >
-        <Ionicons name={icon} size={18} color={theme.textSecondary} />
-        <Text style={styles.filterButtonText}>{selectedLabel}</Text>
-        <Ionicons
-          name={open ? 'chevron-up' : 'chevron-down'}
-          size={16}
-          color={theme.textSecondary}
-        />
-      </AnimatedPressable>
-
-      {open ? (
-        <View style={styles.dropdownMenu}>
-          {options.map((option) => {
-            const isActive = option.value === value;
-            return (
-              <AnimatedPressable
-                key={option.value}
-                onPress={() => onSelect(option.value)}
-                style={isActive ? [styles.dropdownItem, styles.dropdownItemActive] : styles.dropdownItem}
-                hoverLift={false}
-                pressScale={0.99}
-              >
-                <Text
-                  style={isActive ? [styles.dropdownItemText, styles.dropdownItemTextActive] : styles.dropdownItemText}
-                >
-                  {option.label}
-                </Text>
-              </AnimatedPressable>
-            );
-          })}
-        </View>
-      ) : null}
-    </View>
+    <Card variant="default" padding="large" style={styles.metricCard}>
+      <View style={[styles.metricIconWrap, { backgroundColor: theme.primary + '16' }]}>
+        <Ionicons name={icon} size={18} color={theme.primary} />
+      </View>
+      <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>{label}</Text>
+      <Text style={[styles.metricValue, { color: theme.textPrimary }]}>{value}</Text>
+    </Card>
   );
 }
 
@@ -176,976 +187,851 @@ export function ProfessionalClientsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
-
-  const isDesktop = width >= 1024;
-  const isTablet = width >= 768 && width < 1024;
+  const stylesForTheme = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const isDesktop = width >= 1180;
+  const isTablet = width >= 768 && width < 1180;
   const isMobile = width < 768;
-  const columns = isDesktop ? 3 : isTablet ? 2 : 1;
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
-  const [viewMode, setViewMode] = useState<ViewMode>('cards');
+  const [clients, setClients] = useState<professionalService.Client[]>([]);
   const [loading, setLoading] = useState(true);
-  const [clients, setClients] = useState<ExtendedClient[]>([]);
-  const [openFilter, setOpenFilter] = useState<'date' | 'status' | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('ALL');
+  const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleFilter>('ACTIVE');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [form, setForm] = useState<ManagedClientForm>(emptyForm);
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof ManagedClientForm, string>>>({});
 
-  const navigateToClient = useCallback(
-    (clientId: string) => {
-      setOpenFilter(null);
-      navigation.navigate('ClientProfile', { clientId });
-    },
-    [navigation],
-  );
+  const gridColumns = isDesktop ? 3 : isTablet ? 2 : 1;
+  const gridItemWidth = isDesktop ? '31.8%' : isTablet ? '48.8%' : '100%';
 
   const loadClients = useCallback(async () => {
     try {
-      const data = await professionalService.getProfessionalClients();
-      const mappedClients: ExtendedClient[] = data.map((client) => {
-        const sessions = client.sessions || [];
-        const completedSessions = sessions.filter(
-          (session) => session.status === 'COMPLETED' || session.status === 'completed',
-        ).length;
-        const upcomingSessions = sessions
-          .filter((session) => new Date(session.date) > new Date())
-          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        const nextSession = upcomingSessions[0] ? new Date(upcomingSessions[0].date) : undefined;
-        const lastSession = sessions[0]?.date ? new Date(sessions[0].date) : undefined;
-
-        return {
-          id: client.id,
-          name: client.user?.name || 'Cliente',
-          email: client.user?.email || '',
-          phone: client.user?.phone || '',
-          initial: (client.user?.name || 'C')[0].toUpperCase(),
-          status: 'active',
-          lastSession,
-          totalSessions: sessions.length,
-          completedSessions,
-          nextSession,
-          tags: getClientTagsFromQuestionnaire(client.questionnaireAnswers),
-          startDate: client.createdAt ? new Date(client.createdAt) : undefined,
-          archived: false,
-          user: client.user,
-          sessions,
-        };
-      });
-      setClients(mappedClients);
-    } catch (error) {
-      console.error('Error loading clients:', error);
+      setLoading(true);
+      setError(null);
+      const data = await professionalService.getProfessionalClients(sourceFilter, lifecycleFilter);
+      setClients(data);
+    } catch (loadError: unknown) {
+      setError(getErrorMessage(loadError, 'No se pudo cargar tu base de pacientes'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [lifecycleFilter, sourceFilter]);
 
   useEffect(() => {
-    loadClients();
+    void loadClients();
   }, [loadClients]);
 
   const filteredClients = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
     return clients.filter((client) => {
-      const matchesSearch =
-        client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        client.email.toLowerCase().includes(searchQuery.toLowerCase());
-
-      let matchesStatus = true;
-      if (statusFilter === 'active') {
-        matchesStatus = client.status === 'active' && !client.archived;
-      } else if (statusFilter === 'paused') {
-        matchesStatus = client.status === 'inactive';
-      } else if (statusFilter === 'archived') {
-        matchesStatus = client.archived === true;
+      if (!query) {
+        return true;
       }
 
-      let matchesDate = true;
-      if (dateFilter !== 'all' && client.nextSession) {
-        matchesDate =
-          dateFilter === 'this_week'
-            ? isWithinThisWeek(new Date(client.nextSession))
-            : isWithinThisMonth(new Date(client.nextSession));
-      }
+      const haystacks = [
+        client.displayName,
+        client.primaryEmail,
+        client.primaryPhone,
+        client.user?.email,
+      ]
+        .filter(Boolean)
+        .map((value) => value!.toLowerCase());
 
-      return matchesSearch && matchesStatus && matchesDate;
+      return haystacks.some((value) => value.includes(query));
     });
-  }, [clients, dateFilter, searchQuery, statusFilter]);
+  }, [clients, searchQuery]);
 
-  const activeClients = useMemo(
-    () => clients.filter((client) => client.status === 'active' && !client.archived).length,
-    [clients],
-  );
-
-  const sessionsThisWeek = useMemo(() => {
-    return clients.reduce((total, client) => {
-      if (client.nextSession && isWithinThisWeek(new Date(client.nextSession))) {
-        return total + 1;
-      }
-      return total;
-    }, 0);
-  }, [clients]);
-
-  const getCardWidth = () => {
-    const containerWidth = Math.min(width - spacing.lg * 2, 1200 - spacing.lg * 2);
-    const gapTotal = (columns - 1) * spacing.lg;
-    return (containerWidth - gapTotal) / columns;
+  const resetForm = () => {
+    setForm(emptyForm);
+    setFormErrors({});
   };
 
-  const renderClientAvatar = (client: ExtendedClient, size: 'large' | 'small' = 'large') => {
-    const avatarStyle = size === 'large' ? styles.avatar : styles.rowAvatar;
-    const avatarImageStyle = size === 'large' ? styles.avatarImage : styles.rowAvatarImage;
-    const avatarTextStyle = size === 'large' ? styles.avatarText : styles.rowAvatarText;
+  const updateFormField = <K extends keyof ManagedClientForm>(field: K, value: ManagedClientForm[K]) => {
+    setForm((current) => ({ ...current, [field]: value }));
+    setFormErrors((current) => ({ ...current, [field]: undefined }));
+  };
 
-    if (client.avatar || client.user?.avatar) {
-      return (
-        <Image
-          source={{ uri: client.user?.avatar || client.avatar }}
-          style={avatarImageStyle}
-        />
+  const handleCreateManagedClient = async () => {
+    try {
+      setSaving(true);
+      setFormErrors({});
+
+      const parsed = managedClientSchema.parse(form);
+      const created = await professionalService.createManagedClient({
+        ...parsed,
+        consentOnFile: true,
+        consentVersion: 'v1',
+      });
+
+      setClients((current) => [created, ...current]);
+      setModalVisible(false);
+      resetForm();
+    } catch (createError: unknown) {
+      if (createError instanceof z.ZodError) {
+        const nextErrors: Partial<Record<keyof ManagedClientForm, string>> = {};
+        createError.issues.forEach((issue) => {
+          const field = issue.path[0] as keyof ManagedClientForm | undefined;
+          if (field) {
+            nextErrors[field] = issue.message;
+          }
+        });
+        setFormErrors(nextErrors);
+        return;
+      }
+
+      const errorCode = getErrorCode(createError);
+      if (errorCode === 'DATA_PROCESSING_AGREEMENT_REQUIRED') {
+        setError('Debes aceptar el encargo de tratamiento desde el Área clínica antes de crear pacientes gestionados.');
+        setModalVisible(false);
+        return;
+      }
+
+      setError(getErrorMessage(createError, 'No se pudo crear el paciente gestionado'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const renderClientCard = (client: professionalService.Client) => {
+    const consentTone = getConsentTone(client, theme);
+    const nextSession = client.sessions
+      ?.filter((session) => new Date(session.date).getTime() > Date.now())
+      .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())[0];
+
+    return (
+      <Card
+        key={client.id}
+        variant="default"
+        padding="large"
+        hoverLift
+        style={stylesForTheme.clientCard}
+        onPress={() => navigation.navigate('ClientProfile', { clientId: client.id })}
+      >
+        <View style={stylesForTheme.clientHeader}>
+          <View style={[stylesForTheme.avatar, { backgroundColor: theme.primary + '14' }]}>
+            {client.user?.avatar ? (
+              <Image
+                source={{ uri: client.user.avatar }}
+                style={{ width: '100%', height: '100%', borderRadius: 18 }}
+              />
+            ) : (
+              <Text style={[stylesForTheme.avatarText, { color: theme.primary }]}>
+                {client.initials || client.displayName?.slice(0, 1) || 'P'}
+              </Text>
+            )}
+          </View>
+
+          <View style={stylesForTheme.clientHeaderInfo}>
+            <View style={stylesForTheme.badgeRow}>
+              <View
+                style={[
+                  stylesForTheme.sourceBadge,
+                  {
+                    backgroundColor:
+                      client.source === 'MANAGED' ? theme.secondary + '16' : theme.primary + '12',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    stylesForTheme.sourceBadgeText,
+                    { color: client.source === 'MANAGED' ? theme.secondary : theme.primary },
+                  ]}
+                >
+                  {client.source === 'MANAGED' ? 'Gestionado' : 'Registrado'}
+                </Text>
+                </View>
+              {client.archivedAt ? (
+                <View
+                  style={[
+                    stylesForTheme.sourceBadge,
+                    { backgroundColor: theme.textMuted + '14' },
+                  ]}
+                >
+                  <Text style={[stylesForTheme.sourceBadgeText, { color: theme.textMuted }]}>
+                    Archivado
+                  </Text>
+                </View>
+              ) : null}
+              <View style={[stylesForTheme.consentBadge, { backgroundColor: consentTone.backgroundColor }]}>
+                <Text style={[stylesForTheme.consentBadgeText, { color: consentTone.color }]}>
+                  {getConsentLabel(client)}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={[stylesForTheme.clientName, { color: theme.textPrimary }]}>
+              {client.displayName || client.user?.name || 'Paciente'}
+            </Text>
+            <Text style={[stylesForTheme.clientMeta, { color: theme.textSecondary }]}>
+              {client.primaryEmail || 'Sin email registrado'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={stylesForTheme.statRow}>
+          <View style={stylesForTheme.statBlock}>
+            <Text style={[stylesForTheme.statLabel, { color: theme.textMuted }]}>Sesiones</Text>
+            <Text style={[stylesForTheme.statValue, { color: theme.textPrimary }]}>
+              {client.sessions?.length || 0}
+            </Text>
+          </View>
+          <View style={stylesForTheme.statBlock}>
+            <Text style={[stylesForTheme.statLabel, { color: theme.textMuted }]}>Próxima</Text>
+            <Text style={[stylesForTheme.statValue, { color: theme.textPrimary }]}>
+              {nextSession ? formatDate(nextSession.date, { day: 'numeric', month: 'short' }) : 'Sin cita'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={stylesForTheme.infoRow}>
+          <Ionicons name="call-outline" size={16} color={theme.textMuted} />
+          <Text style={[stylesForTheme.infoText, { color: theme.textSecondary }]}>
+            {client.primaryPhone || 'Sin teléfono'}
+          </Text>
+        </View>
+      </Card>
+    );
+  };
+
+  const renderClientGrid = () => {
+    const rows = [];
+
+    for (let i = 0; i < filteredClients.length; i += gridColumns) {
+      const rowItems = filteredClients.slice(i, i + gridColumns);
+      rows.push(
+        <View key={`row-${i}`} style={stylesForTheme.gridRow}>
+          {rowItems.map((client) => (
+            <View key={client.id} style={[stylesForTheme.gridItem, { width: gridItemWidth }]}>
+              {renderClientCard(client)}
+            </View>
+          ))}
+        </View>
       );
     }
 
-    return (
-      <View style={avatarStyle}>
-        <Text style={avatarTextStyle}>{client.initial}</Text>
-      </View>
-    );
+    return rows;
   };
 
-  const renderSkeletonCard = (index: number) => (
-    <View
-      key={`skeleton-${index}`}
-      style={[
-        styles.clientCard,
-        styles.skeletonCard,
-        { width: columns === 1 ? '100%' : getCardWidth() },
-      ]}
-    >
-      <View style={styles.cardHeader}>
-        <View style={[styles.avatar, styles.skeletonBlock]} />
-        <View style={styles.headerInfo}>
-          <View style={[styles.skeletonLine, { width: '60%', height: 18 }]} />
-          <View style={[styles.skeletonLine, { width: '40%', height: 14, marginTop: 8 }]} />
-        </View>
-      </View>
-      <View style={styles.cardStats}>
-        <View style={[styles.skeletonLine, { width: '75%', height: 14 }]} />
-        <View style={[styles.skeletonLine, { width: '55%', height: 14, marginTop: 8 }]} />
-      </View>
-      <View style={styles.tagsContainer}>
-        <View style={styles.skeletonTag} />
-        <View style={styles.skeletonTag} />
-      </View>
-      <View style={styles.cardActions}>
-        <View style={[styles.skeletonLine, { width: '100%', height: 40, borderRadius: borderRadius.md }]} />
-      </View>
-    </View>
-  );
+  return (
+    <>
+      <ScrollView
+        style={[stylesForTheme.screen, { backgroundColor: theme.bg }]}
+        contentContainerStyle={[
+          stylesForTheme.content,
+          width < 720 ? stylesForTheme.contentCompact : null,
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={stylesForTheme.hero}>
+          <View style={stylesForTheme.heroTextBlock}>
+            <Text style={[stylesForTheme.eyebrow, { color: theme.primary }]}>CRM clínico</Text>
+            <Text style={[stylesForTheme.title, { color: theme.textPrimary }]}>Mis pacientes</Text>
+          </View>
 
-  const renderClientCard = (client: ExtendedClient) => (
-    <Card
-      key={client.id}
-      variant="default"
-      padding="large"
-      onPress={() => navigateToClient(client.id)}
-      hoverLift
-      style={[
-        styles.clientCard,
-        { width: columns === 1 ? '100%' : getCardWidth() },
-      ]}
-    >
-      <View style={styles.cardHeader}>
-        <View style={styles.avatarContainer}>
-          {renderClientAvatar(client)}
-          {client.status === 'active' ? <View style={styles.onlineIndicator} /> : null}
-        </View>
-
-        <View style={styles.headerInfo}>
-          <Text style={styles.clientName}>{client.name}</Text>
-          {client.nextSession ? (
-            <View style={styles.nextSessionRow}>
-              <Ionicons name="calendar-outline" size={14} color={theme.primary} />
-              <Text style={styles.nextSessionText}>Próxima: {formatShortDate(client.nextSession)}</Text>
-            </View>
-          ) : client.lastSession ? (
-            <View style={styles.nextSessionRow}>
-              <Ionicons name="time-outline" size={14} color={theme.textMuted} />
-              <Text style={[styles.nextSessionText, styles.nextSessionMuted]}>
-                Última: {formatShortDate(client.lastSession)}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      </View>
-
-      <View style={styles.cardStats}>
-        <Text style={styles.statsText}>
-          Sesiones: <Text style={styles.statsValue}>{client.completedSessions || 0} completadas</Text>
-        </Text>
-        <Text style={styles.statsText}>
-          Desde: <Text style={styles.statsValue}>{formatLongDate(client.startDate)}</Text>
-        </Text>
-      </View>
-
-      {client.tags?.length ? (
-        <View style={styles.tagsContainer}>
-          {client.tags.slice(0, 3).map((tag) => (
-            <View key={`${client.id}-${tag}`} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
-          ))}
-          {client.tags.length > 3 ? (
-            <View style={styles.tagMore}>
-              <Text style={styles.tagMoreText}>+{client.tags.length - 3}</Text>
-            </View>
-          ) : null}
-        </View>
-      ) : null}
-
-      <View style={styles.cardActions}>
-        <View style={styles.cardButtonSlot}>
           <Button
-            variant="outline"
-            size="medium"
-            onPress={() => navigateToClient(client.id)}
-            fullWidth
-            icon={<Ionicons name="arrow-forward" size={16} color={theme.primary} />}
-            iconPosition="right"
+            variant="primary"
+            size="large"
+            onPress={() => {
+              resetForm();
+              setModalVisible(true);
+            }}
+            icon={<Ionicons name="add" size={18} color={theme.textOnPrimary} />}
           >
-            Ver ficha
+            Nuevo paciente
           </Button>
         </View>
-        <AnimatedPressable
-          style={styles.menuButton}
-          onPress={() => navigateToClient(client.id)}
-          hoverLift={false}
-          pressScale={0.98}
-        >
-          <Ionicons name="ellipsis-horizontal" size={20} color={theme.textSecondary} />
-        </AnimatedPressable>
-      </View>
-    </Card>
-  );
 
-  const renderClientRow = (client: ExtendedClient) => (
-    <AnimatedPressable
-      key={client.id}
-      style={styles.listRow}
-      onPress={() => navigateToClient(client.id)}
-      hoverLift={false}
-      pressScale={0.99}
-    >
-      <View style={styles.rowLeft}>
-        <View
-          style={[
-            styles.statusDot,
-            { backgroundColor: client.status === 'active' ? theme.success : theme.textMuted },
-          ]}
-        />
-        {renderClientAvatar(client, 'small')}
-        <View style={styles.rowInfo}>
-          <Text style={styles.rowName}>{client.name}</Text>
-          <Text style={styles.rowEmail}>{client.email}</Text>
-        </View>
-      </View>
-
-      {!isMobile ? (
-        <>
-          <View style={styles.rowCell}>
-            <Text style={styles.rowCellText}>
-              {client.nextSession ? formatShortDate(client.nextSession) : '-'}
-            </Text>
-          </View>
-          <View style={styles.rowCell}>
-            <Text style={styles.rowCellText}>{client.completedSessions || 0}</Text>
-          </View>
-          <View style={styles.rowCell}>
-            <View
-              style={[
-                styles.statusBadge,
-                {
-                  backgroundColor:
-                    client.status === 'active' ? theme.primaryAlpha12 : theme.surfaceMuted,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statusBadgeText,
-                  { color: client.status === 'active' ? theme.primary : theme.textSecondary },
-                ]}
-              >
-                {getStatusLabel(client.status, client.archived)}
-              </Text>
+        <Card variant="default" padding="large" style={stylesForTheme.toolbarCard}>
+          <View style={stylesForTheme.searchRow}>
+            <View style={[stylesForTheme.searchField, { borderColor: theme.border, backgroundColor: theme.bgMuted }]}>
+              <Ionicons name="search-outline" size={18} color={theme.textMuted} />
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Buscar por nombre, email o teléfono"
+                placeholderTextColor={theme.textMuted}
+                style={[stylesForTheme.searchInput, { color: theme.textPrimary }]}
+              />
             </View>
           </View>
-        </>
-      ) : null}
 
-      <View style={styles.rowAction}>
-        <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
-      </View>
-    </AnimatedPressable>
-  );
-
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <View style={[styles.skeletonLine, { width: 180, height: 30 }]} />
-            <View style={[styles.skeletonLine, { width: 240, height: 14, marginTop: 10 }]} />
-          </View>
-        </View>
-        <View style={styles.controlsContainer}>
-          <View style={styles.controlsRow}>
-            <View style={[styles.searchContainer, styles.skeletonBlock]} />
-          </View>
-        </View>
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-          <View style={styles.cardsGrid}>
-            {Array.from({ length: 6 }, (_, index) => renderSkeletonCard(index))}
-          </View>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.headerTextBlock}>
-            <BrandText style={styles.headerTitle}>Mis Pacientes</BrandText>
-            <Text style={styles.headerSubtitle}>
-              {activeClients} pacientes activos · {sessionsThisWeek} sesiones esta semana
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.controlsContainer}>
-        <View style={styles.controlsRow}>
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color={theme.textMuted} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Buscar por nombre..."
-              placeholderTextColor={theme.textMuted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onFocus={() => setOpenFilter(null)}
+          <View style={stylesForTheme.filtersBar}>
+            <SegmentedFilterGroup
+              label="Tipo"
+              options={FILTERS}
+              activeValue={sourceFilter}
+              onChange={setSourceFilter}
+              theme={theme}
             />
-            {searchQuery ? (
-              <AnimatedPressable onPress={() => setSearchQuery('')} hoverLift={false} pressScale={0.95}>
-                <Ionicons name="close-circle" size={20} color={theme.textMuted} />
-              </AnimatedPressable>
-            ) : null}
+            <SegmentedFilterGroup
+              label="Estado"
+              options={LIFECYCLE_FILTERS}
+              activeValue={lifecycleFilter}
+              onChange={setLifecycleFilter}
+              theme={theme}
+            />
           </View>
+        </Card>
 
-          <FilterDropdown
-            icon="calendar-outline"
-            label="Todos"
-            options={DATE_FILTER_OPTIONS}
-            value={dateFilter}
-            open={openFilter === 'date'}
-            onToggle={() => setOpenFilter((prev) => (prev === 'date' ? null : 'date'))}
-            onSelect={(value) => {
-              setDateFilter(value);
-              setOpenFilter(null);
-            }}
-            styles={styles}
-            theme={theme}
-          />
-
-          <FilterDropdown
-            icon="funnel-outline"
-            label="Activos"
-            options={STATUS_FILTER_OPTIONS}
-            value={statusFilter}
-            open={openFilter === 'status'}
-            onToggle={() => setOpenFilter((prev) => (prev === 'status' ? null : 'status'))}
-            onSelect={(value) => {
-              setStatusFilter(value);
-              setOpenFilter(null);
-            }}
-            styles={styles}
-            theme={theme}
-          />
-
-          <View style={styles.viewToggle}>
-            <AnimatedPressable
-              style={viewMode === 'cards' ? [styles.viewButton, styles.viewButtonActive] : styles.viewButton}
-              onPress={() => setViewMode('cards')}
-              hoverLift={false}
-              pressScale={0.98}
-            >
-              <Ionicons
-                name="grid-outline"
-                size={20}
-                color={viewMode === 'cards' ? theme.textOnPrimary : theme.textSecondary}
-              />
-            </AnimatedPressable>
-            <AnimatedPressable
-              style={viewMode === 'list' ? [styles.viewButton, styles.viewButtonActive] : styles.viewButton}
-              onPress={() => setViewMode('list')}
-              hoverLift={false}
-              pressScale={0.98}
-            >
-              <Ionicons
-                name="list-outline"
-                size={20}
-                color={viewMode === 'list' ? theme.textOnPrimary : theme.textSecondary}
-              />
-            </AnimatedPressable>
-          </View>
-        </View>
-
-        {searchQuery ? (
-          <Text style={styles.resultsCount}>
-            Mostrando {filteredClients.length} de {clients.length} pacientes
-          </Text>
-        ) : null}
-      </View>
-
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        onScrollBeginDrag={() => setOpenFilter(null)}
-      >
-        {filteredClients.length === 0 ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
-              <Ionicons
-                name={searchQuery ? 'search-outline' : 'people-outline'}
-                size={48}
-                color={theme.textMuted}
-              />
+        {error ? (
+          <Card variant="outlined" padding="large" style={stylesForTheme.errorCard}>
+            <View style={stylesForTheme.errorRow}>
+              <Ionicons name="alert-circle-outline" size={20} color={theme.warning} />
+              <Text style={[stylesForTheme.errorText, { color: theme.textSecondary }]}>{error}</Text>
             </View>
-            <Text style={styles.emptyTitle}>
-              {searchQuery ? 'No encontramos pacientes' : 'Aún no tienes pacientes'}
+          </Card>
+        ) : null}
+
+        {loading ? (
+          <View style={stylesForTheme.loadingState}>
+            <ActivityIndicator size="large" color={theme.primary} />
+            <Text style={[stylesForTheme.loadingText, { color: theme.textSecondary }]}>
+              Cargando pacientes...
             </Text>
-            <Text style={styles.emptyDescription}>
-              {searchQuery
-                ? 'Prueba ajustando la búsqueda o los filtros.'
-                : 'Tus clientes aparecerán aquí cuando reserven su primera sesión contigo.'}
-            </Text>
-            {searchQuery ? (
-              <View style={styles.clearFiltersButtonWrap}>
-                <Button
-                  variant="secondary"
-                  size="medium"
-                  onPress={() => {
-                    setSearchQuery('');
-                    setStatusFilter('all');
-                    setDateFilter('all');
-                  }}
-                >
-                  Limpiar filtros
-                </Button>
-              </View>
-            ) : null}
           </View>
-        ) : viewMode === 'cards' ? (
-          <View style={styles.cardsGrid}>{filteredClients.map(renderClientCard)}</View>
+        ) : filteredClients.length === 0 ? (
+          <Card variant="outlined" padding="large" style={stylesForTheme.emptyCard}>
+              <Ionicons name="people-outline" size={28} color={theme.textMuted} />
+            <Text style={[stylesForTheme.emptyTitle, { color: theme.textPrimary }]}>
+              No hay pacientes para este filtro
+            </Text>
+            <Text style={[stylesForTheme.emptyText, { color: theme.textSecondary }]}>
+              {lifecycleFilter === 'ARCHIVED'
+                ? 'Todavía no tienes pacientes archivados con este filtro.'
+                : 'Puedes crear un paciente gestionado o cambiar los filtros para ver tu base completa.'}
+            </Text>
+          </Card>
         ) : (
-          <View style={styles.listContainer}>
-            {!isMobile ? (
-              <View style={styles.listHeader}>
-                <Text style={[styles.listHeaderCell, styles.listHeaderCellWide]}>Cliente</Text>
-                <Text style={styles.listHeaderCell}>Próxima sesión</Text>
-                <Text style={styles.listHeaderCell}>Sesiones</Text>
-                <Text style={styles.listHeaderCell}>Estado</Text>
-                <View style={styles.listHeaderActionSpacer} />
-              </View>
-            ) : null}
-            {filteredClients.map(renderClientRow)}
-          </View>
+          <View style={stylesForTheme.clientsGrid}>{renderClientGrid()}</View>
         )}
       </ScrollView>
-    </View>
+
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={stylesForTheme.modalBackdrop}>
+          <Card
+            variant="default"
+            padding="none"
+            style={isMobile ? [stylesForTheme.modalCard, stylesForTheme.modalCardMobile] : stylesForTheme.modalCard}
+          >
+            <ScrollView
+              contentContainerStyle={stylesForTheme.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={stylesForTheme.modalHeader}>
+                <View style={stylesForTheme.modalHeaderCopy}>
+                  <Text style={[stylesForTheme.modalTitle, { color: theme.textPrimary }]}>Nuevo paciente gestionado</Text>
+                  <Text style={[stylesForTheme.modalSubtitle, { color: theme.textSecondary }]}>
+                    Crea una ficha administrativa mínima. El expediente clínico permanecerá pendiente hasta adjuntar el consentimiento firmado y desbloquear el área clínica.
+                  </Text>
+                </View>
+                <AnimatedPressable
+                  onPress={() => setModalVisible(false)}
+                  hoverLift={false}
+                  pressScale={0.96}
+                  style={[stylesForTheme.closeButton, { backgroundColor: theme.bgMuted }]}
+                >
+                  <Ionicons name="close" size={18} color={theme.textSecondary} />
+                </AnimatedPressable>
+              </View>
+
+              <View style={[stylesForTheme.formGrid, isMobile ? stylesForTheme.formGridMobile : null]}>
+                <View style={stylesForTheme.field}>
+                  <Text style={[stylesForTheme.fieldLabel, { color: theme.textSecondary }]}>Nombre</Text>
+                  <TextInput
+                    value={form.firstName}
+                    onChangeText={(value) => updateFormField('firstName', value)}
+                    style={[stylesForTheme.input, { color: theme.textPrimary, borderColor: formErrors.firstName ? theme.error : theme.border }]}
+                    placeholder="Nombre"
+                    placeholderTextColor={theme.textMuted}
+                  />
+                  {formErrors.firstName ? (
+                    <Text style={[stylesForTheme.fieldError, { color: theme.error }]}>{formErrors.firstName}</Text>
+                  ) : null}
+                </View>
+
+                <View style={stylesForTheme.field}>
+                  <Text style={[stylesForTheme.fieldLabel, { color: theme.textSecondary }]}>Apellidos</Text>
+                  <TextInput
+                    value={form.lastName}
+                    onChangeText={(value) => updateFormField('lastName', value)}
+                    style={[stylesForTheme.input, { color: theme.textPrimary, borderColor: formErrors.lastName ? theme.error : theme.border }]}
+                    placeholder="Apellidos"
+                    placeholderTextColor={theme.textMuted}
+                  />
+                  {formErrors.lastName ? (
+                    <Text style={[stylesForTheme.fieldError, { color: theme.error }]}>{formErrors.lastName}</Text>
+                  ) : null}
+                </View>
+
+                <View style={stylesForTheme.field}>
+                  <Text style={[stylesForTheme.fieldLabel, { color: theme.textSecondary }]}>Email</Text>
+                  <TextInput
+                    value={form.email}
+                    onChangeText={(value) => updateFormField('email', value)}
+                    style={[stylesForTheme.input, { color: theme.textPrimary, borderColor: formErrors.email ? theme.error : theme.border }]}
+                    placeholder="Email opcional"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    placeholderTextColor={theme.textMuted}
+                  />
+                  {formErrors.email ? (
+                    <Text style={[stylesForTheme.fieldError, { color: theme.error }]}>{formErrors.email}</Text>
+                  ) : null}
+                </View>
+
+                <View style={stylesForTheme.field}>
+                  <Text style={[stylesForTheme.fieldLabel, { color: theme.textSecondary }]}>Teléfono</Text>
+                  <TextInput
+                    value={form.phone}
+                    onChangeText={(value) => updateFormField('phone', value)}
+                    style={[stylesForTheme.input, { color: theme.textPrimary, borderColor: formErrors.phone ? theme.error : theme.border }]}
+                    placeholder="Teléfono opcional"
+                    keyboardType="phone-pad"
+                    placeholderTextColor={theme.textMuted}
+                  />
+                  {formErrors.phone ? (
+                    <Text style={[stylesForTheme.fieldError, { color: theme.error }]}>{formErrors.phone}</Text>
+                  ) : null}
+                </View>
+              </View>
+
+              <View style={[stylesForTheme.consentPanel, { backgroundColor: theme.bgMuted, borderColor: theme.border }]}>
+                <View style={stylesForTheme.consentPanelCopy}>
+                  <Text style={[stylesForTheme.consentPanelTitle, { color: theme.textPrimary }]}>
+                    Declaración previa del profesional
+                  </Text>
+                  <Text style={[stylesForTheme.consentPanelText, { color: theme.textSecondary }]}>
+                    Confirmas que cuentas con el consentimiento informado y que adjuntarás el documento firmado en el área clínica antes de activar el expediente.
+                  </Text>
+                </View>
+                <Switch
+                  value={form.consentOnFile}
+                  onValueChange={(value) => updateFormField('consentOnFile', value)}
+                  trackColor={{ false: theme.border, true: theme.primary }}
+                  thumbColor={theme.textOnPrimary}
+                />
+              </View>
+              {formErrors.consentOnFile ? (
+                <Text style={[stylesForTheme.fieldError, { color: theme.error }]}>{formErrors.consentOnFile}</Text>
+              ) : null}
+
+              <View style={[stylesForTheme.modalActions, isMobile ? stylesForTheme.modalActionsMobile : null]}>
+                <Button variant="ghost" size="medium" onPress={() => setModalVisible(false)} fullWidth={isMobile}>
+                  Cancelar
+                </Button>
+                <Button variant="primary" size="medium" onPress={handleCreateManagedClient} loading={saving} fullWidth={isMobile}>
+                  Crear paciente
+                </Button>
+              </View>
+            </ScrollView>
+          </Card>
+        </View>
+      </Modal>
+    </>
   );
 }
 
-function createStyles(theme: Theme, isDark: boolean) {
-  return StyleSheet.create({
-    container: {
+const styles = StyleSheet.create({
+  segmentedGroup: {
+    gap: 6,
+    minWidth: 220,
+  },
+  segmentedLabel: {
+    ...textStyles.caption,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  segmentedTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    padding: 4,
+    gap: 4,
+  },
+  segmentedOption: {
+    minHeight: 34,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentedOptionText: {
+    ...textStyles.bodySmall,
+    fontWeight: '700',
+  },
+  metricCard: {
+    flex: 1,
+    minWidth: 170,
+  },
+  metricIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  metricLabel: {
+    ...textStyles.caption,
+    marginBottom: 6,
+  },
+  metricValue: {
+    ...textStyles.h3,
+    fontWeight: '700',
+  },
+});
+
+const createStyles = (theme: Theme, isDark: boolean) =>
+  StyleSheet.create({
+    screen: {
       flex: 1,
-      backgroundColor: theme.bg,
     },
-    header: {
-      backgroundColor: theme.bgAlt,
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.lg,
-      paddingBottom: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
-    },
-    headerContent: {
-      maxWidth: 1200,
+    content: {
+      padding: spacing.lg,
+      gap: spacing.lg,
+      paddingBottom: spacing.xxl,
+      maxWidth: 1320,
       width: '100%',
       alignSelf: 'center',
     },
-    headerTextBlock: {
-      alignItems: 'center',
-      gap: spacing.xs,
+    contentCompact: {
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.md,
     },
-    headerTitle: {
-      fontSize: 28,
-      color: theme.textPrimary,
-      textAlign: 'center',
+    hero: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: spacing.lg,
+      alignItems: 'flex-end',
+      flexWrap: 'wrap',
     },
-    headerSubtitle: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textSecondary,
-      textAlign: 'center',
-      fontFamily: theme.fontSans,
+    heroTextBlock: {
+      flex: 1,
+      minWidth: 280,
+      gap: 8,
     },
-    controlsContainer: {
-      backgroundColor: theme.bgAlt,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
-      zIndex: 40,
+    eyebrow: {
+      ...textStyles.caption,
+      textTransform: 'uppercase',
+      letterSpacing: 1.2,
+      fontWeight: '700',
     },
-    controlsRow: {
+    title: {
+      ...textStyles.h1,
+      fontWeight: '700',
+    },
+    toolbarCard: {
+      gap: spacing.md,
+    },
+    compactStatsRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      alignItems: 'center',
       gap: spacing.sm,
-      maxWidth: 1200,
-      width: '100%',
-      alignSelf: 'center',
-      zIndex: 50,
     },
-    searchContainer: {
-      flex: 1,
-      minWidth: 220,
-      maxWidth: 360,
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: theme.bgCard,
+    compactStat: {
       borderRadius: borderRadius.lg,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
+      minWidth: 110,
+      gap: 2,
+    },
+    compactStatLabel: {
+      ...textStyles.caption,
+      fontWeight: '700',
+    },
+    compactStatValue: {
+      ...textStyles.body,
+      fontWeight: '700',
+    },
+    searchRow: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      flexWrap: 'wrap',
+    },
+    searchField: {
+      minHeight: 52,
+      borderRadius: borderRadius.lg,
       borderWidth: 1,
-      borderColor: theme.border,
-      shadowColor: theme.shadowCard,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 1,
-      shadowRadius: 12,
-      elevation: 2,
+      paddingHorizontal: spacing.md,
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: spacing.sm,
+      flex: 1,
+      minWidth: 260,
     },
     searchInput: {
       flex: 1,
-      marginLeft: spacing.sm,
-      fontSize: typography.fontSizes.md,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSans,
+      ...textStyles.body,
+      minHeight: 44,
     },
-    filterField: {
-      position: 'relative',
-      minWidth: 150,
-      zIndex: 60,
-    },
-    filterFieldRaised: {
-      zIndex: 80,
-    },
-    filterButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm + 2,
-      backgroundColor: theme.bgCard,
-      borderRadius: borderRadius.lg,
-      borderWidth: 1,
-      borderColor: theme.border,
-      gap: spacing.xs,
-      shadowColor: theme.shadowCard,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 1,
-      shadowRadius: 12,
-      elevation: 2,
-    },
-    filterButtonText: {
-      flex: 1,
-      fontSize: typography.fontSizes.sm,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSansMedium,
-    },
-    dropdownMenu: {
-      position: 'absolute',
-      top: '100%',
-      left: 0,
-      right: 0,
-      marginTop: spacing.xs,
-      backgroundColor: theme.bgElevated,
-      borderRadius: borderRadius.lg,
-      borderWidth: 1,
-      borderColor: theme.border,
-      shadowColor: theme.shadowNeutral,
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 1,
-      shadowRadius: 18,
-      elevation: 10,
-      zIndex: 200,
-      overflow: 'hidden',
-    },
-    dropdownItem: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-    },
-    dropdownItemActive: {
-      backgroundColor: theme.primaryAlpha12,
-    },
-    dropdownItemText: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
-    },
-    dropdownItemTextActive: {
-      color: theme.primary,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    viewToggle: {
-      flexDirection: 'row',
-      borderRadius: borderRadius.lg,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.bgCard,
-      shadowColor: theme.shadowCard,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 1,
-      shadowRadius: 12,
-      elevation: 2,
-    },
-    viewButton: {
-      padding: spacing.sm + 2,
-      backgroundColor: theme.bgCard,
-    },
-    viewButtonActive: {
-      backgroundColor: theme.primary,
-    },
-    resultsCount: {
-      marginTop: spacing.sm,
-      maxWidth: 1200,
-      width: '100%',
-      alignSelf: 'center',
-      fontSize: typography.fontSizes.sm,
-      color: theme.textMuted,
-      fontFamily: theme.fontSans,
-    },
-    content: {
-      flex: 1,
-    },
-    contentContainer: {
-      padding: spacing.lg,
-      maxWidth: 1200,
-      width: '100%',
-      alignSelf: 'center',
-    },
-    cardsGrid: {
+    filterRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: spacing.lg,
-      justifyContent: 'flex-start',
-    },
-    clientCard: {
-      backgroundColor: theme.bgCard,
-      borderRadius: borderRadius.lg,
-      borderWidth: 1,
-      borderColor: theme.border,
-      ...shadows.md,
-    },
-    cardHeader: {
-      flexDirection: 'row',
-      marginBottom: spacing.md,
-    },
-    avatarContainer: {
-      position: 'relative',
-      marginRight: spacing.md,
-    },
-    avatar: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      backgroundColor: theme.primaryAlpha12,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    avatarImage: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    avatarText: {
-      fontSize: 28,
-      color: theme.primary,
-      fontFamily: theme.fontSansBold,
-    },
-    onlineIndicator: {
-      position: 'absolute',
-      bottom: 4,
-      right: 2,
-      width: 16,
-      height: 16,
-      borderRadius: 8,
-      backgroundColor: theme.success,
-      borderWidth: 2,
-      borderColor: theme.bgCard,
-    },
-    headerInfo: {
-      flex: 1,
-      justifyContent: 'center',
-      gap: 4,
-    },
-    clientName: {
-      fontSize: 18,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    nextSessionRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-    },
-    nextSessionText: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.primary,
-      fontFamily: theme.fontSans,
-    },
-    nextSessionMuted: {
-      color: theme.textMuted,
-    },
-    cardStats: {
-      marginBottom: spacing.md,
-      gap: 2,
-    },
-    statsText: {
-      fontSize: 13,
-      color: theme.textSecondary,
-      lineHeight: 22,
-      fontFamily: theme.fontSans,
-    },
-    statsValue: {
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    tagsContainer: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.xs,
-      marginBottom: spacing.md,
-    },
-    tag: {
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
-      borderRadius: borderRadius.full,
-      borderWidth: 1,
-      borderColor: theme.borderLight,
-    },
-    tagText: {
-      fontSize: 12,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSansMedium,
-    },
-    tagMore: {
-      backgroundColor: theme.primaryAlpha12,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
-      borderRadius: borderRadius.full,
-    },
-    tagMoreText: {
-      fontSize: 12,
-      color: theme.primary,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    cardActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
       gap: spacing.sm,
-      borderTopWidth: 1,
-      borderTopColor: theme.borderLight,
-      paddingTop: spacing.md,
-      marginTop: spacing.xs,
     },
-    cardButtonSlot: {
-      flex: 1,
-    },
-    menuButton: {
-      width: 42,
-      height: 42,
-      borderRadius: borderRadius.md,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    listContainer: {
-      backgroundColor: theme.bgCard,
-      borderRadius: borderRadius.lg,
-      borderWidth: 1,
-      borderColor: theme.border,
-      overflow: 'hidden',
-      ...shadows.sm,
-    },
-    listHeader: {
+    filtersBar: {
       flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.sm,
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
-    },
-    listHeaderCell: {
-      flex: 1,
-      fontSize: 12,
-      color: theme.textMuted,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    listHeaderCellWide: {
-      flex: 2,
-    },
-    listHeaderActionSpacer: {
-      width: 40,
-    },
-    listRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
-      backgroundColor: theme.bgCard,
-    },
-    rowLeft: {
-      flex: 2,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    statusDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      marginRight: spacing.sm,
-    },
-    rowAvatar: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: theme.primaryAlpha12,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: spacing.sm,
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    rowAvatarImage: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      marginRight: spacing.sm,
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    rowAvatarText: {
-      fontSize: 17,
-      color: theme.primary,
-      fontFamily: theme.fontSansBold,
-    },
-    rowInfo: {
-      flex: 1,
-    },
-    rowName: {
-      fontSize: typography.fontSizes.md,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    rowEmail: {
-      fontSize: 13,
-      color: theme.textMuted,
-      fontFamily: theme.fontSans,
-    },
-    rowCell: {
-      flex: 1,
+      flexWrap: 'wrap',
+      gap: spacing.md,
       alignItems: 'flex-start',
     },
-    rowCellText: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
+    errorCard: {
+      borderColor: theme.warning + '35',
+      backgroundColor: isDark ? theme.bgMuted : '#FFF7EC',
     },
-    statusBadge: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
-      borderRadius: borderRadius.full,
-    },
-    statusBadgeText: {
-      fontSize: 12,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    rowAction: {
-      width: 40,
+    errorRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
       alignItems: 'center',
     },
-    emptyState: {
+    errorText: {
+      ...textStyles.body,
+      flex: 1,
+    },
+    loadingState: {
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: spacing.xxxl * 2,
+      gap: spacing.md,
+      paddingVertical: spacing.xxl,
     },
-    emptyIcon: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      backgroundColor: theme.primaryAlpha12,
-      justifyContent: 'center',
+    loadingText: {
+      ...textStyles.body,
+    },
+    emptyCard: {
       alignItems: 'center',
-      marginBottom: spacing.lg,
+      gap: spacing.sm,
+      paddingVertical: spacing.xxl,
     },
     emptyTitle: {
-      fontSize: typography.fontSizes.lg,
-      color: theme.textPrimary,
-      marginBottom: spacing.sm,
+      ...textStyles.h4,
+      fontWeight: '700',
+    },
+    emptyText: {
+      ...textStyles.body,
+      maxWidth: 520,
       textAlign: 'center',
-      fontFamily: theme.fontSansBold,
     },
-    emptyDescription: {
-      fontSize: typography.fontSizes.md,
-      color: theme.textSecondary,
-      textAlign: 'center',
-      maxWidth: 320,
-      fontFamily: theme.fontSans,
+    clientsGrid: {
+      gap: spacing.md,
     },
-    clearFiltersButtonWrap: {
-      marginTop: spacing.lg,
+    gridRow: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      alignItems: 'stretch',
     },
-    skeletonCard: {
-      opacity: 0.8,
+    gridItem: {
+      alignSelf: 'stretch',
     },
-    skeletonBlock: {
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-      borderColor: theme.borderLight,
+    clientCard: {
+      gap: spacing.md,
+      minWidth: 0,
+      height: '100%',
     },
-    skeletonLine: {
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-      borderRadius: borderRadius.md,
+    clientHeader: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      alignItems: 'flex-start',
     },
-    skeletonTag: {
-      width: 72,
-      height: 28,
-      borderRadius: borderRadius.full,
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    avatar: {
+      width: 52,
+      height: 52,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    avatarImage: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 18,
+    },
+    avatarText: {
+      ...textStyles.body,
+      fontWeight: '700',
+    },
+    clientHeaderInfo: {
+      flex: 1,
+      gap: 6,
+    },
+    badgeRow: {
+      flexDirection: 'row',
+      gap: spacing.xs,
+      flexWrap: 'wrap',
+    },
+    sourceBadge: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+      borderRadius: 999,
+    },
+    sourceBadgeText: {
+      ...textStyles.caption,
+      fontWeight: '700',
+    },
+    consentBadge: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+      borderRadius: 999,
+    },
+    consentBadgeText: {
+      ...textStyles.caption,
+      fontWeight: '700',
+    },
+    clientName: {
+      ...textStyles.h4,
+      fontWeight: '700',
+    },
+    clientMeta: {
+      ...textStyles.bodySmall,
+    },
+    statRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    statBlock: {
+      flex: 1,
+      borderRadius: borderRadius.lg,
+      padding: spacing.md,
+      backgroundColor: theme.bgMuted,
+    },
+    statLabel: {
+      ...textStyles.caption,
+      marginBottom: 4,
+    },
+    statValue: {
+      ...textStyles.body,
+      fontWeight: '700',
+    },
+    infoRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      alignItems: 'center',
+    },
+    infoText: {
+      ...textStyles.bodySmall,
+      flex: 1,
+    },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(15, 23, 42, 0.42)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: spacing.lg,
+    },
+    modalCard: {
+      width: '100%',
+      maxWidth: 760,
+      maxHeight: '92%',
+    },
+    modalCardMobile: {
+      alignSelf: 'stretch',
+      marginTop: 'auto',
+      borderBottomLeftRadius: 0,
+      borderBottomRightRadius: 0,
+      maxWidth: '100%',
+      maxHeight: '88%',
+    },
+    modalScrollContent: {
+      padding: spacing.lg,
+      gap: spacing.lg,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: spacing.md,
+      alignItems: 'flex-start',
+    },
+    modalHeaderCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    modalTitle: {
+      ...textStyles.h3,
+      fontWeight: '700',
+      marginBottom: 6,
+    },
+    modalSubtitle: {
+      ...textStyles.bodySmall,
+      lineHeight: 22,
+      maxWidth: 560,
+    },
+    closeButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    formGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.md,
+    },
+    formGridMobile: {
+      flexDirection: 'column',
+    },
+    field: {
+      minWidth: 220,
+      flex: 1,
+      gap: 8,
+    },
+    fieldLabel: {
+      ...textStyles.caption,
+      fontWeight: '700',
+    },
+    input: {
+      minHeight: 50,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1,
+      paddingHorizontal: spacing.md,
+      backgroundColor: theme.bgMuted,
+      ...textStyles.body,
+    },
+    fieldError: {
+      ...textStyles.caption,
+      fontWeight: '600',
+    },
+    consentPanel: {
+      borderRadius: borderRadius.xl,
+      borderWidth: 1,
+      padding: spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    consentPanelCopy: {
+      flex: 1,
+      gap: 6,
+    },
+    consentPanelTitle: {
+      ...textStyles.body,
+      fontWeight: '700',
+    },
+    consentPanelText: {
+      ...textStyles.bodySmall,
+      lineHeight: 22,
+    },
+    modalActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: spacing.sm,
+      flexWrap: 'wrap',
+    },
+    modalActionsMobile: {
+      justifyContent: 'flex-start',
+      flexDirection: 'column-reverse',
     },
   });
-}

@@ -2,12 +2,18 @@ import React, { useMemo } from 'react';
 import { Image, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { borderRadius, shadows, spacing } from '../../../constants/colors';
-import { useTheme } from '../../../contexts/ThemeContext';
-import type { Theme } from '../../../constants/theme';
 import { AnimatedPressable, Button } from '../../../components/common';
+import { borderRadius, shadows, spacing } from '../../../constants/colors';
+import type { Theme } from '../../../constants/theme';
+import { useTheme } from '../../../contexts/ThemeContext';
 import type { SessionCardProps } from '../types';
-import { formatTime, getDateLabel, getSessionTypeIcon, getSessionTypeLabel, isToday } from '../utils/sessionHelpers';
+import {
+  formatTime,
+  getDateLabel,
+  getSessionTypeIcon,
+  getSessionTypeLabel,
+  isToday,
+} from '../utils/sessionHelpers';
 import {
   getVideoCallButtonLabel,
   getVideoCallButtonState,
@@ -45,7 +51,13 @@ const SessionCard: React.FC<SessionCardProps> = ({
       case 'CANCELLED':
         return { ...theme.status.cancelled, icon: 'close-circle' as const, label: 'Cancelada' };
       default:
-        return { bg: theme.bgMuted, text: theme.textSecondary, border: theme.border, icon: 'ellipse' as const, label: 'Desconocida' };
+        return {
+          bg: theme.bgMuted,
+          text: theme.textSecondary,
+          border: theme.border,
+          icon: 'ellipse' as const,
+          label: 'Desconocida',
+        };
     }
   })();
 
@@ -97,8 +109,12 @@ const SessionCard: React.FC<SessionCardProps> = ({
         </View>
 
         <View style={styles.profileCopy}>
-          <Text style={styles.specialistName} numberOfLines={1}>{session.specialist.user.name}</Text>
-          <Text style={styles.specialization} numberOfLines={1}>{session.specialist.specialization}</Text>
+          <Text style={styles.specialistName} numberOfLines={1}>
+            {session.specialist.user.name}
+          </Text>
+          <Text style={styles.specialization} numberOfLines={1}>
+            {session.specialist.specialization}
+          </Text>
         </View>
 
         <View style={styles.typePill}>
@@ -118,19 +134,9 @@ const SessionCard: React.FC<SessionCardProps> = ({
         </View>
         <View style={styles.detailChip}>
           <Ionicons name="wallet-outline" size={14} color={theme.textSecondary} />
-          <Text style={styles.detailChipText}>{session.specialist.pricePerSession}€</Text>
+          <Text style={styles.detailChipText}>{session.specialist.pricePerSession} EUR</Text>
         </View>
       </View>
-
-      {session.notes ? (
-        <View style={styles.notesCard}>
-          <View style={styles.notesHeader}>
-            <Ionicons name="document-text-outline" size={14} color={theme.primary} />
-            <Text style={styles.notesLabel}>Notas de la sesión</Text>
-          </View>
-          <Text style={styles.notesText} numberOfLines={2}>{session.notes}</Text>
-        </View>
-      ) : null}
 
       {canShowVideoButton && buttonState && buttonMeta && buttonStyle ? (
         <View style={styles.videoActionBlock}>
@@ -186,7 +192,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             style={styles.cancelGhostButton}
             textStyle={styles.cancelGhostButtonText}
           >
-            Cancelar sesión
+            Cancelar sesion
           </Button>
         </View>
       ) : null}
@@ -196,7 +202,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
           {hasReview ? (
             <>
               <Ionicons name="star" size={15} color={theme.starRating} />
-              <Text style={[styles.completedText, { color: theme.starRating }]}>Reseña enviada</Text>
+              <Text style={[styles.completedText, { color: theme.starRating }]}>Resena enviada</Text>
             </>
           ) : onLeaveReviewPress ? (
             <Button
@@ -207,12 +213,12 @@ const SessionCard: React.FC<SessionCardProps> = ({
               style={styles.reviewButton}
               textStyle={styles.reviewButtonText}
             >
-              Dejar reseña
+              Dejar resena
             </Button>
           ) : (
             <>
               <Ionicons name="checkmark-done" size={15} color={theme.success} />
-              <Text style={styles.completedText}>Sesión completada</Text>
+              <Text style={styles.completedText}>Sesion completada</Text>
             </>
           )}
         </View>
@@ -222,12 +228,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
 
   if (onPress) {
     return (
-      <AnimatedPressable
-        style={cardStyles}
-        onPress={onPress}
-        hoverLift
-        pressScale={0.99}
-      >
+      <AnimatedPressable style={cardStyles} onPress={onPress} hoverLift pressScale={0.99}>
         {cardContent}
       </AnimatedPressable>
     );
@@ -397,33 +398,6 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) =>
       fontSize: 13,
       fontFamily: theme.fontSansSemiBold,
       color: theme.textSecondary,
-    },
-    notesCard: {
-      padding: spacing.md,
-      borderRadius: borderRadius.lg,
-      backgroundColor: theme.primaryAlpha12,
-      borderWidth: 1,
-      borderColor: theme.primaryAlpha20,
-      marginBottom: spacing.md,
-    },
-    notesHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      marginBottom: 6,
-    },
-    notesLabel: {
-      fontSize: 12,
-      fontFamily: theme.fontSansSemiBold,
-      color: theme.primary,
-      textTransform: 'uppercase',
-      letterSpacing: 0.4,
-    },
-    notesText: {
-      fontSize: 14,
-      lineHeight: 21,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
     },
     videoActionBlock: {
       gap: spacing.sm,

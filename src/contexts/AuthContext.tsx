@@ -8,10 +8,11 @@ import React, {
 } from 'react';
 import * as authService from '../services/authService';
 import * as professionalService from '../services/professionalService';
-import { initializeAuth } from '../services/api';
+import { initializeAuth, registerSessionExpiredHandler } from '../services/api';
 import { getErrorMessage } from '../constants/errors';
 import * as analyticsService from '../services/analyticsService';
 import type { AuthResponse } from '../services/authService';
+import { clearPersistedClinicalAccessSession } from '../services/secureSessionStorage';
 
 export type UserType = 'client' | 'professional';
 
@@ -122,6 +123,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    registerSessionExpiredHandler(() => {
+      setUser(null);
+      setVerificationSubmitted(null);
+      void clearPersistedClinicalAccessSession();
+      try {
+        analyticsService.reset();
+      } catch {
+        // silently ignore analytics errors
+      }
+    });
+
     const initialize = async () => {
       try {
         const token = await initializeAuth();
@@ -132,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (_err: unknown) {
         // Token might be expired or invalid, just continue as logged out
         await authService.logout();
+        await clearPersistedClinicalAccessSession();
         setUser(null);
         setVerificationSubmitted(null);
       } finally {
@@ -140,6 +153,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     initialize();
+    return () => {
+      registerSessionExpiredHandler(null);
+    };
   }, [refreshCurrentUser]);
 
   const login = async (email: string, password: string) => {

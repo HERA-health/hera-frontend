@@ -1,8 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
   Linking,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,980 +12,1063 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import {
-  borderRadius,
-  shadows,
-  spacing,
-  typography,
-} from '../../constants/colors';
-import { Theme } from '../../constants/theme';
-import { AppNavigationProp, AppRouteProp } from '../../constants/types';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { AnimatedPressable, Button, Card } from '../../components/common';
-import { BrandText } from '../../components/common/BrandText';
+import { ClinicalTab } from '../../components/professional/ClinicalTab';
+import { borderRadius, spacing, typography } from '../../constants/colors';
+import { getErrorMessage } from '../../constants/errors';
+import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as professionalService from '../../services/professionalService';
-import { questionnaire, categoryLabels } from '../../utils/questionnaireData';
 
-interface QuestionnaireAnswer {
-  questionId: string;
-  answers: string[];
-}
+type TabKey = 'summary' | 'history' | 'clinical';
 
-interface QuestionnaireDisplayItem {
-  category: string;
-  question: string;
-  answers: string[];
-}
+const TABS: Array<{ key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
+  { key: 'summary', label: 'Resumen', icon: 'person-outline' },
+  { key: 'history', label: 'Historial', icon: 'time-outline' },
+  { key: 'clinical', label: 'Área clínica', icon: 'shield-checkmark-outline' },
+];
 
-interface TherapyPreferences {
-  concerns?: string[];
-  approach?: string;
-  sessionStyle?: string;
-  modality?: string;
-  availability?: string;
-  budget?: string;
-  frequency?: string;
-}
+const resolveInitialTab = (tab?: AppRouteProp<'ClientProfile'>['params']['initialTab']): TabKey => {
+  if (tab === 'history' || tab === 'clinical') {
+    return tab;
+  }
 
-interface SessionStats {
-  total: number;
-  completed: number;
-  nextSession: professionalService.Session | null;
-}
+  return 'summary';
+};
 
-interface ClientProfileScreenProps {
-  route?: AppRouteProp<'ClientProfile'>;
-  navigation?: AppNavigationProp;
-}
+const textStyles = {
+  eyebrow: {
+    fontSize: typography.fontSizes.xs,
+    lineHeight: 18,
+    fontWeight: '700' as const,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase' as const,
+  },
+  title: { fontSize: typography.fontSizes.xxxl, lineHeight: 36, fontWeight: '700' as const },
+  section: { fontSize: typography.fontSizes.xxl, lineHeight: 30, fontWeight: '700' as const },
+  body: { fontSize: typography.fontSizes.sm, lineHeight: 22 },
+  strong: { fontSize: typography.fontSizes.sm, lineHeight: 22, fontWeight: '700' as const },
+  metric: { fontSize: typography.fontSizes.xxl, lineHeight: 30, fontWeight: '700' as const },
+  caption: { fontSize: typography.fontSizes.xs, lineHeight: 18, fontWeight: '700' as const },
+};
 
-export function ClientProfileScreen(props: ClientProfileScreenProps) {
-  const navigationFromHook = useNavigation<AppNavigationProp>();
-  const routeFromHook = useRoute<AppRouteProp<'ClientProfile'>>();
-  const navigation = props.navigation ?? navigationFromHook;
-  const route = props.route ?? routeFromHook;
-  const { clientId } = route.params;
+const SESSION_TYPE_LABELS: Record<string, string> = {
+  VIDEO_CALL: 'Videollamada',
+  IN_PERSON: 'Presencial',
+  CHAT: 'Chat',
+  PHONE_CALL: 'Llamada',
+};
+
+const SESSION_STATUS_LABELS: Record<string, string> = {
+  CONFIRMED: 'Confirmada',
+  COMPLETED: 'Completada',
+  PENDING: 'Pendiente',
+  CANCELLED: 'Cancelada',
+};
+
+const formatDate = (value?: string | Date | null, withTime = false) =>
+  value
+    ? new Date(value).toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        ...(withTime ? { hour: '2-digit', minute: '2-digit' } : {}),
+      })
+    : 'Sin fecha';
+
+const formatShortDate = (value?: string | Date | null) =>
+  value
+    ? new Date(value).toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'short',
+      })
+    : 'Sin cita';
+
+const formatNumericDate = (value?: string | Date | null) =>
+  value
+    ? new Date(value).toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+    : 'Sin fecha';
+
+const getClientAge = (birthDate?: string | null) => {
+  if (!birthDate) {
+    return null;
+  }
+
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age -= 1;
+  }
+
+  return age;
+};
+
+const getGenderLabel = (gender?: string | null) => {
+  if (!gender) {
+    return null;
+  }
+
+  const normalized = gender.toUpperCase();
+
+  if (normalized === 'MALE' || normalized === 'HOMBRE') {
+    return 'Hombre';
+  }
+
+  if (normalized === 'FEMALE' || normalized === 'MUJER') {
+    return 'Mujer';
+  }
+
+  if (normalized === 'NON_BINARY' || normalized === 'NON-BINARY' || normalized === 'NO_BINARIO') {
+    return 'No binario';
+  }
+
+  if (normalized === 'OTHER' || normalized === 'OTRO') {
+    return 'Otro';
+  }
+
+  return gender;
+};
+
+const getSessionTypeLabel = (type: string) => SESSION_TYPE_LABELS[type.toUpperCase()] || type;
+const getSessionStatusLabel = (status: string) =>
+  SESSION_STATUS_LABELS[status.toUpperCase()] || status;
+
+const getTimelineStatusColor = (
+  status: string,
+  theme: ReturnType<typeof useTheme>['theme']
+) => {
+  const normalized = status.toUpperCase();
+
+  if (normalized === 'COMPLETED') {
+    return theme.success;
+  }
+
+  if (normalized === 'CONFIRMED') {
+    return theme.primary;
+  }
+
+  if (normalized === 'PENDING') {
+    return theme.warning;
+  }
+
+  if (normalized === 'CANCELLED') {
+    return theme.error;
+  }
+
+  return theme.textMuted;
+};
+
+export function ClientProfileScreen() {
+  const navigation = useNavigation<AppNavigationProp>();
+  const route = useRoute<AppRouteProp<'ClientProfile'>>();
+  const { clientId, initialTab } = route.params;
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
-  const isDesktop = width >= 1100;
-  const isTablet = width >= 768 && width < 1100;
 
+  const [activeTab, setActiveTab] = useState<TabKey>(resolveInitialTab(initialTab));
   const [client, setClient] = useState<professionalService.Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [visibleHistoryItems, setVisibleHistoryItems] = useState(5);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const [keepClinicalMounted, setKeepClinicalMounted] = useState(false);
 
-  const loadClientProfile = useCallback(async () => {
+  const isDesktop = width >= 1180;
+  const isTablet = width >= 860;
+  const isMobile = width < 720;
+  const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontDisplayBold }), [theme]);
+  const sectionTitleStyle = useMemo(() => ({ fontFamily: theme.fontDisplayBold }), [theme]);
+  const emphasisStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
+  const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
+
+  const loadClient = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
-      const data = await professionalService.getProfessionalClientDetail(clientId);
+      const result = await professionalService.getProfessionalClientDetail(clientId);
 
-      if (!data) {
-        setError('No se encontró el cliente');
+      if (!result) {
+        setError('Paciente no encontrado');
         return;
       }
 
-      setClient(data);
-    } catch (loadError) {
-      console.error('Error loading client profile:', loadError);
-      setError('No se pudo cargar el perfil del cliente');
+      setClient(result);
+      setError(null);
+    } catch (loadError: unknown) {
+      setError(getErrorMessage(loadError, 'No se pudo cargar la ficha del paciente'));
     } finally {
       setLoading(false);
     }
   }, [clientId]);
 
   useEffect(() => {
-    loadClientProfile();
-  }, [loadClientProfile]);
+    void loadClient();
+  }, [loadClient]);
 
-  const getClientAge = useCallback((birthDate?: string) => {
-    if (!birthDate) return null;
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age;
-  }, []);
-
-  const getClientSince = useCallback((createdAt?: string) => {
-    if (!createdAt) return '-';
-    return new Date(createdAt).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-  }, []);
-
-  const getMonthsSince = useCallback((createdAt?: string) => {
-    if (!createdAt) return 0;
-    const start = new Date(createdAt);
-    const now = new Date();
-    return Math.max(
-      0,
-      Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)),
-    );
-  }, []);
-
-  const formatFullDate = useCallback((dateString?: string) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  }, []);
-
-  const getQuestionnaireDisplay = useCallback(
-    (answers?: unknown): QuestionnaireDisplayItem[] | null => {
-      if (!answers || !Array.isArray(answers) || answers.length === 0) return null;
-
-      const displayData: QuestionnaireDisplayItem[] = [];
-
-      answers.forEach((answer) => {
-        const safeAnswer = answer as Partial<QuestionnaireAnswer>;
-        if (!safeAnswer?.questionId || !Array.isArray(safeAnswer.answers)) return;
-
-        const question = questionnaire.find((item) => item.id === safeAnswer.questionId);
-        if (!question || safeAnswer.answers.length === 0) return;
-
-        const answerTexts = safeAnswer.answers.map((value) => {
-          const option = question.options.find((item) => item.value === value || item.id === value);
-          return option ? (option.emoji ? `${option.emoji} ${option.text}` : option.text) : value;
-        });
-
-        displayData.push({
-          category: categoryLabels[question.category] || question.category,
-          question: question.text,
-          answers: answerTexts,
-        });
-      });
-
-      return displayData;
-    },
-    [],
+  useFocusEffect(
+    useCallback(() => {
+      void loadClient();
+    }, [loadClient])
   );
 
-  const getTherapyPreferences = useCallback((answers?: unknown): TherapyPreferences | null => {
-    if (!answers || !Array.isArray(answers) || answers.length === 0) return null;
+  useEffect(() => {
+    setVisibleHistoryItems(5);
+    setActiveTab(resolveInitialTab(initialTab));
+  }, [clientId, initialTab]);
 
-    const preferences: TherapyPreferences = {};
+  useEffect(() => {
+    setKeepClinicalMounted(false);
+  }, [clientId]);
 
-    answers.forEach((answer) => {
-      const safeAnswer = answer as Partial<QuestionnaireAnswer>;
-      if (!safeAnswer?.questionId || !Array.isArray(safeAnswer.answers) || safeAnswer.answers.length === 0) {
-        return;
-      }
-
-      const question = questionnaire.find((item) => item.id === safeAnswer.questionId);
-      if (!question) return;
-
-      const getAnswerText = (value: string) => {
-        const option = question.options.find((item) => item.value === value || item.id === value);
-        return option?.text || value;
-      };
-
-      switch (question.category) {
-        case 'specialties':
-          preferences.concerns = safeAnswer.answers.map(getAnswerText);
-          break;
-        case 'approach':
-          preferences.approach = getAnswerText(safeAnswer.answers[0]);
-          break;
-        case 'style':
-          preferences.sessionStyle = getAnswerText(safeAnswer.answers[0]);
-          break;
-        case 'format':
-          preferences.modality = getAnswerText(safeAnswer.answers[0]);
-          break;
-        case 'availability':
-          preferences.availability = getAnswerText(safeAnswer.answers[0]);
-          break;
-        case 'budget':
-          preferences.budget = getAnswerText(safeAnswer.answers[0]);
-          break;
-        case 'frequency':
-          preferences.frequency = getAnswerText(safeAnswer.answers[0]);
-          break;
-      }
-    });
-
-    return preferences;
-  }, []);
-
-  const getSessionStats = useCallback((sessions?: professionalService.Session[]): SessionStats => {
-    if (!sessions?.length) {
-      return { total: 0, completed: 0, nextSession: null };
+  useEffect(() => {
+    if (activeTab === 'clinical') {
+      setKeepClinicalMounted(true);
     }
+  }, [activeTab]);
 
-    const completed = sessions.filter(
-      (session) => session.status === 'COMPLETED' || session.status === 'completed',
-    ).length;
+  const sessions = useMemo(
+    () =>
+      [...(client?.sessions || [])].sort(
+        (left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()
+      ),
+    [client?.sessions]
+  );
 
-    const nextSession =
+  const completedSessions = useMemo(
+    () => sessions.filter((session) => session.status.toUpperCase() === 'COMPLETED').length,
+    [sessions]
+  );
+
+  const nextSession = useMemo(
+    () =>
       sessions
-        .filter((session) => {
-          const isUpcoming = new Date(session.date) > new Date();
-          const isBookableStatus =
-            session.status === 'CONFIRMED' ||
-            session.status === 'confirmed' ||
-            session.status === 'scheduled' ||
-            session.status === 'PENDING';
-          return isUpcoming && isBookableStatus;
-        })
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0] || null;
+        .filter((session) => new Date(session.date).getTime() > Date.now())
+        .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())[0] || null,
+    [sessions]
+  );
 
-    return {
-      total: sessions.length,
-      completed,
-      nextSession,
-    };
-  }, []);
+  const visibleSessions = useMemo(
+    () => sessions.slice(0, visibleHistoryItems),
+    [sessions, visibleHistoryItems]
+  );
 
-  const handleSendEmail = useCallback(async () => {
-    if (!client?.user.email) return;
-    await Linking.openURL(`mailto:${client.user.email}`);
-  }, [client]);
-
-  const handleCall = useCallback(async () => {
-    if (!client?.user.phone) return;
-    await Linking.openURL(`tel:${client.user.phone}`);
-  }, [client]);
-
-  const handleScheduleSession = useCallback(() => {
-    navigation.navigate('ProfessionalAvailability');
-  }, [navigation]);
-
+  const initials = client?.initials || (client?.displayName || client?.user.name || 'P').slice(0, 2).toUpperCase();
   const age = getClientAge(client?.user.birthDate);
-  const clientSince = getClientSince(client?.createdAt);
-  const monthsSince = getMonthsSince(client?.createdAt);
-  const questionnaireData = getQuestionnaireDisplay(client?.questionnaireAnswers);
-  const preferences = getTherapyPreferences(client?.questionnaireAnswers);
-  const sessionStats = getSessionStats(client?.sessions);
-  const initials = (client?.user.name || 'U')
-    .split(' ')
-    .filter((part) => part.length > 0)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) || 'U';
+  const genderLabel = getGenderLabel(client?.user.gender);
+  const heroSummary = [
+    age !== null ? `${age} años` : null,
+    genderLabel,
+    `Paciente desde ${formatNumericDate(client?.createdAt)}`,
+    `${sessions.length} sesiones`,
+    `${completedSessions} completadas`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const showScrollCue = isMobile && contentHeight > viewportHeight + 48 && scrollOffset < 20;
+
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setScrollOffset(event.nativeEvent.contentOffset.y);
+  }, []);
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.centered, { backgroundColor: theme.bg }]}>
         <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={styles.loadingText}>Cargando perfil del cliente...</Text>
       </View>
     );
   }
 
-  if (error || !client) {
+  if (!client || error) {
     return (
-      <View style={styles.errorContainer}>
-        <View style={styles.errorIconCircle}>
-          <Ionicons name="alert-circle-outline" size={48} color={theme.warning} />
-        </View>
-        <Text style={styles.errorTitle}>No se pudo cargar el perfil</Text>
-        <Text style={styles.errorMessage}>{error || 'Cliente no encontrado'}</Text>
-        <Button variant="secondary" size="medium" onPress={() => navigation.goBack()}>
-          Volver
-        </Button>
+      <View style={[styles.centered, styles.errorWrap, { backgroundColor: theme.bg }]}>
+        <Ionicons name="alert-circle-outline" size={42} color={theme.warning} />
+        <Text style={[textStyles.section, { color: theme.textPrimary }]}>No se pudo abrir la ficha</Text>
+        <Text style={[textStyles.body, { color: theme.textSecondary, textAlign: 'center' }]}>
+          {error || 'Paciente no encontrado'}
+        </Text>
       </View>
     );
   }
 
-  const summaryCard = (
-    <Card variant="default" padding="large" style={styles.sidebarCard}>
-      <View style={styles.sectionHeader}>
-        <Ionicons name="stats-chart-outline" size={20} color={theme.primary} />
-        <Text style={styles.sectionTitle}>Resumen</Text>
+  const heroGradient: [string, string] = isDark
+    ? ['rgba(183,166,216,0.18)', 'rgba(14,17,16,0.94)']
+    : ['rgba(139,157,131,0.12)', 'rgba(255,255,255,0.98)'];
+  const mobileSurfaceCard = isMobile
+    ? [styles.mobileSurfaceCard, { borderColor: theme.border }]
+    : [];
+
+  const administrativeCard = (
+    <Card variant="default" padding="large" style={mobileSurfaceCard}>
+      <Text style={[textStyles.section, { color: theme.textPrimary }, sectionTitleStyle]}>
+        Información administrativa
+      </Text>
+
+      <View style={[styles.infoGrid, isMobile && styles.infoGridStack]}>
+        <View style={[styles.infoBlock, isMobile && styles.infoBlockStack]}>
+          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Email</Text>
+          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
+            {client.primaryEmail || 'No registrado'}
+          </Text>
+        </View>
+        <View style={[styles.infoBlock, isMobile && styles.infoBlockStack]}>
+          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Teléfono</Text>
+          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
+            {client.primaryPhone || 'No registrado'}
+          </Text>
+        </View>
+        <View style={[styles.infoBlock, isMobile && styles.infoBlockStack]}>
+          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Ocupación</Text>
+          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
+            {client.user.occupation || 'Sin información'}
+          </Text>
+        </View>
+        <View style={[styles.infoBlock, isMobile && styles.infoBlockStack]}>
+          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Ubicación</Text>
+          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
+            {client.homeCity || client.homeCountry || 'Sin información'}
+          </Text>
+        </View>
       </View>
+    </Card>
+  );
 
-      <View style={styles.summaryList}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Cliente desde</Text>
-          <Text style={styles.summaryValue}>{clientSince}</Text>
-          <Text style={styles.summaryMeta}>({monthsSince} meses)</Text>
+  const followUpCard = (
+    <Card variant="default" padding="large" style={mobileSurfaceCard}>
+      <Text style={[textStyles.section, { color: theme.textPrimary }, sectionTitleStyle]}>Seguimiento</Text>
+      <View style={styles.sideStack}>
+        <View style={styles.sideRow}>
+          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Paciente desde</Text>
+          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
+            {formatNumericDate(client.createdAt)}
+          </Text>
         </View>
-
-        <View style={styles.summaryDivider} />
-
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryMetric}>
-            <Text style={styles.summaryLabel}>Total sesiones</Text>
-            <Text style={styles.summaryValue}>{sessionStats.total}</Text>
-          </View>
-          <View style={styles.summaryMetric}>
-            <Text style={styles.summaryLabel}>Completadas</Text>
-            <Text style={styles.summaryValue}>{sessionStats.completed}</Text>
-          </View>
+        <View style={styles.sideRow}>
+          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>
+            Última actualización
+          </Text>
+          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
+            {formatDate(client.updatedAt, false)}
+          </Text>
         </View>
-
-        <View style={styles.summaryDivider} />
-
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Estado</Text>
-          <View style={styles.summaryStatusRow}>
-            <View style={styles.summaryStatusDot} />
-            <Text style={[styles.summaryValue, styles.summaryValueSuccess]}>Activo</Text>
-          </View>
+        <View style={styles.sideRow}>
+          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Consentimiento</Text>
+          <Text
+            style={[
+              textStyles.strong,
+              { color: client.consentOnFile ? theme.success : theme.warning },
+              emphasisStyle,
+            ]}
+          >
+            {client.consentOnFile ? 'Vigente' : 'Pendiente'}
+          </Text>
         </View>
       </View>
     </Card>
   );
 
   const nextSessionCard = (
-    <Card variant="default" padding="large" style={styles.sidebarCard}>
-      <View style={styles.sectionHeader}>
-        <Ionicons name="calendar-outline" size={20} color={theme.primary} />
-        <Text style={styles.sectionTitle}>Próxima sesión</Text>
-      </View>
-
-      {sessionStats.nextSession ? (
-        <View style={styles.nextSessionBlock}>
-          <Text style={styles.nextSessionDate}>
-            {new Date(sessionStats.nextSession.date).toLocaleDateString('es-ES', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-            })}
+    <Card variant="default" padding="large" style={mobileSurfaceCard}>
+      <Text style={[textStyles.section, { color: theme.textPrimary }, sectionTitleStyle]}>
+        Próxima sesión
+      </Text>
+      {nextSession ? (
+        <View style={styles.sideStack}>
+          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
+            {formatDate(nextSession.date, true)}
           </Text>
-          <Text style={styles.nextSessionTime}>
-            {new Date(sessionStats.nextSession.date).toLocaleTimeString('es-ES', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </Text>
-          <Text style={styles.nextSessionType}>
-            {sessionStats.nextSession.type === 'VIDEO' ? 'Videollamada' : 'Sesión programada'}
+          <Text style={[textStyles.body, { color: theme.textSecondary }]}>
+            {nextSession.duration} min · {getSessionTypeLabel(nextSession.type)} ·{' '}
+            {getSessionStatusLabel(nextSession.status)}
           </Text>
         </View>
       ) : (
-        <View style={styles.nextSessionEmpty}>
-          <Text style={styles.nextSessionEmptyText}>No programada</Text>
-        </View>
+        <Text style={[textStyles.body, { color: theme.textSecondary }]}>
+          No hay ninguna sesión futura programada.
+        </Text>
       )}
-
-      <Button
-        variant="primary"
-        size="large"
-        onPress={handleScheduleSession}
-        fullWidth
-        icon={<Ionicons name="add" size={18} color={theme.textOnPrimary} />}
-      >
-        Agendar sesión
-      </Button>
     </Card>
   );
 
-  const mainContent = (
-    <>
-      <Card variant="default" padding="large" style={styles.heroCard}>
-        <View style={styles.profileHeader}>
-          <View style={styles.avatarLarge}>
-            {client.user.avatar ? (
-              <Image source={{ uri: client.user.avatar }} style={styles.avatarLargeImage} />
-            ) : (
-              <Text style={styles.avatarInitials}>{initials}</Text>
-            )}
-            <View style={styles.statusDotLarge} />
-          </View>
-
-          <View style={styles.profileInfo}>
-            <Text style={styles.clientName}>{client.user.name}</Text>
-            {age ? <Text style={styles.clientAge}>{age} años</Text> : null}
-            <View style={styles.clientMetaRow}>
-              <Ionicons name="calendar-outline" size={14} color={theme.textMuted} />
-              <Text style={styles.clientMeta}>Cliente desde {clientSince}</Text>
-            </View>
-            <View style={styles.statusBadge}>
-              <View style={styles.statusBadgeDot} />
-              <Text style={styles.statusBadgeText}>Activo</Text>
-            </View>
-          </View>
-        </View>
-      </Card>
-
-      <Card variant="default" padding="large" style={styles.mainCard}>
-        <View style={styles.sectionHeader}>
-          <Ionicons name="mail-outline" size={20} color={theme.primary} />
-          <Text style={styles.sectionTitle}>Información de contacto</Text>
-        </View>
-
-        <View style={styles.contactList}>
-          <View style={styles.contactItem}>
-            <Ionicons name="mail" size={18} color={theme.textSecondary} />
-            <Text style={styles.contactText}>{client.user.email}</Text>
-          </View>
-          {client.user.phone ? (
-            <View style={styles.contactItem}>
-              <Ionicons name="call" size={18} color={theme.textSecondary} />
-              <Text style={styles.contactText}>{client.user.phone}</Text>
-            </View>
-          ) : null}
-          {client.user.occupation ? (
-            <View style={styles.contactItem}>
-              <Ionicons name="briefcase-outline" size={18} color={theme.textSecondary} />
-              <Text style={styles.contactText}>{client.user.occupation}</Text>
-            </View>
-          ) : null}
-          {client.user.birthDate ? (
-            <View style={styles.contactItem}>
-              <Ionicons name="gift-outline" size={18} color={theme.textSecondary} />
-              <Text style={styles.contactText}>{formatFullDate(client.user.birthDate)}</Text>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={styles.contactActions}>
-          <View style={styles.inlineAction}>
-            <Button variant="outline" size="medium" onPress={handleSendEmail}>
-              Enviar email
-            </Button>
-          </View>
-          {client.user.phone ? (
-            <View style={styles.inlineAction}>
-              <Button variant="ghost" size="medium" onPress={handleCall}>
-                Llamar
-              </Button>
-            </View>
-          ) : null}
-        </View>
-      </Card>
-
-      {preferences?.concerns?.length ? (
-        <Card variant="default" padding="large" style={styles.mainCard}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="flag-outline" size={20} color={theme.primary} />
-            <Text style={styles.sectionTitle}>Motivo de consulta</Text>
-          </View>
-
-          <Text style={styles.sectionDescription}>
-            {(client.user.name || 'El cliente').split(' ')[0]} busca ayuda con:
-          </Text>
-
-          <View style={styles.tagsRow}>
-            {preferences.concerns.map((concern) => (
-              <View key={concern} style={styles.tag}>
-                <Text style={styles.tagText}>{concern}</Text>
-              </View>
-            ))}
-          </View>
-        </Card>
-      ) : null}
-
-      {preferences?.approach || preferences?.modality || preferences?.availability ? (
-        <Card variant="default" padding="large" style={styles.mainCard}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="options-outline" size={20} color={theme.primary} />
-            <Text style={styles.sectionTitle}>Preferencias terapéuticas</Text>
-          </View>
-
-          <View style={styles.preferenceGrid}>
-            {preferences.approach ? (
-              <View style={styles.preferenceItem}>
-                <Text style={styles.preferenceLabel}>Enfoque</Text>
-                <Text style={styles.preferenceValue}>{preferences.approach}</Text>
-              </View>
-            ) : null}
-            {preferences.modality ? (
-              <View style={styles.preferenceItem}>
-                <Text style={styles.preferenceLabel}>Modalidad</Text>
-                <Text style={styles.preferenceValue}>{preferences.modality}</Text>
-              </View>
-            ) : null}
-            {preferences.availability ? (
-              <View style={styles.preferenceItem}>
-                <Text style={styles.preferenceLabel}>Disponibilidad</Text>
-                <Text style={styles.preferenceValue}>{preferences.availability}</Text>
-              </View>
-            ) : null}
-            {preferences.frequency ? (
-              <View style={styles.preferenceItem}>
-                <Text style={styles.preferenceLabel}>Frecuencia</Text>
-                <Text style={styles.preferenceValue}>{preferences.frequency}</Text>
-              </View>
-            ) : null}
-          </View>
-        </Card>
-      ) : null}
-
-      {questionnaireData?.length ? (
-        <Card variant="default" padding="large" style={styles.mainCard}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="document-text-outline" size={20} color={theme.primary} />
-            <Text style={styles.sectionTitle}>Respuestas del cuestionario</Text>
-          </View>
-
-          <View style={styles.questionnaireList}>
-            {questionnaireData.slice(0, 8).map((item) => (
-              <View key={`${item.category}-${item.question}`} style={styles.questionnaireItem}>
-                <Text style={styles.questionCategory}>{item.category}</Text>
-                <Text style={styles.questionText}>{item.question}</Text>
-                <View style={styles.answerList}>
-                  {item.answers.map((answer) => (
-                    <Text key={answer} style={styles.answerText}>{answer}</Text>
-                  ))}
-                </View>
-              </View>
-            ))}
-          </View>
-        </Card>
-      ) : (
-        <Card variant="default" padding="large" style={styles.mainCard}>
-          <View style={styles.emptyState}>
-            <Ionicons name="document-text-outline" size={40} color={theme.textMuted} />
-            <Text style={styles.emptyTitle}>Cuestionario no completado</Text>
-            <Text style={styles.emptyDescription}>
-              Este cliente todavía no tiene respuestas registradas en el cuestionario inicial.
-            </Text>
-          </View>
-        </Card>
-      )}
-    </>
-  );
-
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator>
+    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.bg }}
+        contentContainerStyle={[
+          styles.container,
+          {
+            paddingHorizontal: width < 720 ? spacing.md : spacing.lg,
+          },
+        ]}
+        showsVerticalScrollIndicator
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
+        onLayout={(event) => {
+          setViewportHeight(event.nativeEvent.layout.height);
+        }}
+        onContentSizeChange={(_, height) => {
+          setContentHeight(height);
+        }}
+      >
+      <View style={[styles.topBar, isMobile && styles.topBarMobile]}>
         <AnimatedPressable
-          style={styles.backButton}
           onPress={() => navigation.goBack()}
           hoverLift={false}
-          pressScale={0.98}
+          pressScale={0.97}
+          style={[styles.backButton, { backgroundColor: theme.bgCard, borderColor: theme.border }]}
         >
-          <Ionicons name="arrow-back" size={20} color={theme.textSecondary} />
-          <Text style={styles.backButtonText}>Volver a pacientes</Text>
+          <Ionicons name="arrow-back" size={18} color={theme.textSecondary} />
         </AnimatedPressable>
 
-        {isDesktop || isTablet ? (
-          <View style={styles.desktopLayout}>
-            <View style={styles.mainColumn}>{mainContent}</View>
-            <View style={styles.sidebarColumn}>
-              {summaryCard}
-              {nextSessionCard}
-              <Card variant="default" padding="large" style={styles.sidebarCard}>
-                <View style={styles.sectionHeader}>
-                  <Ionicons name="chatbubbles-outline" size={20} color={theme.primary} />
-                  <Text style={styles.sectionTitle}>Contacto</Text>
+        <View style={[styles.topBarBadges, isMobile && styles.topBarBadgesMobile]}>
+          <View
+            style={[
+              styles.topBadge,
+              isMobile && styles.topBadgeMobile,
+              {
+                backgroundColor:
+                  client.source === 'MANAGED' ? theme.secondaryAlpha12 : theme.primaryAlpha12,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                textStyles.caption,
+                styles.topBadgeText,
+                isMobile && styles.topBadgeTextMobile,
+                { color: client.source === 'MANAGED' ? theme.secondary : theme.primary },
+              ]}
+            >
+              {client.source === 'MANAGED' ? 'Paciente gestionado' : 'Paciente HERA'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+       <Card variant="default" padding="none" style={styles.heroCard}>
+         <LinearGradient colors={heroGradient} style={[styles.heroGradient, isMobile && styles.heroGradientMobile]}>
+          <View style={[styles.heroContent, !isTablet && styles.heroContentStack]}>
+            <View
+              style={[
+                styles.heroIdentity,
+                !isTablet && styles.heroIdentityStack,
+                isMobile && styles.heroIdentityMobile,
+              ]}
+            >
+              <View
+                style={[
+                  styles.avatarShell,
+                  { backgroundColor: theme.bgCard, borderColor: theme.border },
+                ]}
+              >
+                {client.user.avatar ? (
+                  <Image source={{ uri: client.user.avatar }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={[styles.avatarText, { color: theme.primary }]}>{initials}</Text>
+                )}
+              </View>
+
+                <View style={[styles.heroCopy, isMobile && styles.heroCopyMobile]}>
+                  <Text style={[textStyles.eyebrow, { color: theme.textMuted }]}>Ficha del paciente</Text>
+                  <Text style={[textStyles.title, { color: theme.textPrimary }, displayTitleStyle]}>
+                    {client.displayName || client.user.name}
+                  </Text>
+                  <Text style={[styles.heroSummary, { color: theme.textSecondary }, emphasisStyle]}>
+                    {heroSummary}
+                  </Text>
                 </View>
-                <View style={styles.sidebarActions}>
-                  <View style={styles.sidebarActionWrap}>
-                    <Button variant="outline" size="medium" onPress={handleSendEmail} fullWidth>
-                      Enviar email
-                    </Button>
-                  </View>
-                  {client.user.phone ? (
-                    <View style={styles.sidebarActionWrap}>
-                      <Button variant="ghost" size="medium" onPress={handleCall} fullWidth>
-                        Llamar
-                      </Button>
-                    </View>
-                  ) : null}
-                </View>
-              </Card>
+              </View>
+
+            <View
+              style={[
+                styles.heroActions,
+                !isTablet && styles.heroActionsStack,
+                isMobile && styles.heroActionsMobile,
+              ]}
+            >
+              <Button
+                variant="secondary"
+                size="medium"
+                onPress={() =>
+                  client.primaryEmail ? void Linking.openURL(`mailto:${client.primaryEmail}`) : undefined
+                }
+                disabled={!client.primaryEmail}
+              >
+                Enviar email
+              </Button>
+
+              {client.source === 'MANAGED' ? (
+                <Button
+                  variant="ghost"
+                  size="medium"
+                  onPress={() => {
+                    void professionalService
+                      .updateManagedClient(client.id, { archived: true })
+                      .then(() => navigation.goBack());
+                  }}
+                >
+                  Archivar
+                </Button>
+              ) : null}
             </View>
           </View>
-        ) : (
-          <View style={styles.mobileStack}>
-            {mainContent}
-            {summaryCard}
+        </LinearGradient>
+      </Card>
+
+      <View style={[styles.tabs, isMobile && styles.tabsMobile]}>
+        {TABS.map((tab) => (
+          <AnimatedPressable
+            key={tab.key}
+            onPress={() => setActiveTab(tab.key)}
+            hoverLift={false}
+            pressScale={0.98}
+            style={[
+              styles.tab,
+              isMobile && styles.tabMobile,
+              {
+                backgroundColor: activeTab === tab.key ? theme.primary : theme.bgCard,
+                borderColor: activeTab === tab.key ? theme.primary : theme.border,
+              },
+            ]}
+          >
+            <Ionicons
+              name={tab.icon}
+              size={16}
+              color={activeTab === tab.key ? theme.textOnPrimary : theme.textSecondary}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                labelStyle,
+                { color: activeTab === tab.key ? theme.textOnPrimary : theme.textSecondary },
+              ]}
+            >
+              {tab.label}
+            </Text>
+          </AnimatedPressable>
+        ))}
+      </View>
+
+      {activeTab === 'summary' ? (
+        isMobile ? (
+          <View style={styles.mobileSummaryStack}>
+            {administrativeCard}
+            {followUpCard}
             {nextSessionCard}
           </View>
-        )}
+        ) : (
+        <View style={[styles.summaryLayout, !isDesktop && styles.summaryLayoutStack]}>
+          <View style={[styles.summaryMain, !isDesktop && styles.summaryMainStack]}>
+            {administrativeCard}
+          </View>
+
+          <View style={[styles.summarySide, !isDesktop && styles.summarySideStack]}>
+            {followUpCard}
+            {nextSessionCard}
+          </View>
+        </View>
+        )
+      ) : null}
+
+      {activeTab === 'history' ? (
+        <Card variant="default" padding="large">
+          <View style={styles.historyHeader}>
+            <Text style={[textStyles.section, { color: theme.textPrimary }, sectionTitleStyle]}>Historial de sesiones</Text>
+            <Text style={[textStyles.body, { color: theme.textSecondary }]}>{sessions.length} sesiones registradas</Text>
+          </View>
+
+          <View style={styles.timeline}>
+            {sessions.length === 0 ? (
+              <Text style={[textStyles.body, { color: theme.textSecondary }]}>Todavía no hay sesiones asociadas a este paciente.</Text>
+            ) : (
+              visibleSessions.map((session) => (
+                <View key={session.id} style={[styles.timelineItem, { borderColor: theme.border, backgroundColor: theme.bgMuted }]}>
+                  <View style={styles.timelineMarkerColumn}>
+                    <View style={[styles.timelineDot, { backgroundColor: getTimelineStatusColor(session.status, theme) }]} />
+                    <View style={[styles.timelineLine, { backgroundColor: theme.border }]} />
+                  </View>
+
+                  <View style={styles.timelineContent}>
+                    <View style={styles.timelineTopRow}>
+                      <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>{formatDate(session.date, true)}</Text>
+                      <Text style={[textStyles.caption, { color: theme.textMuted }]}>{getSessionStatusLabel(session.status)}</Text>
+                    </View>
+                    <Text style={[textStyles.body, { color: theme.textSecondary }]}>
+                      {session.duration} min · {getSessionTypeLabel(session.type)}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            )}
+
+            {visibleHistoryItems < sessions.length ? (
+              <View style={styles.historyLoadMore}>
+                <Button variant="secondary" size="medium" onPress={() => setVisibleHistoryItems((current) => current + 5)}>
+                  Cargar más sesiones
+                </Button>
+              </View>
+            ) : null}
+          </View>
+        </Card>
+      ) : null}
+
+      {keepClinicalMounted ? (
+        <View style={activeTab === 'clinical' ? undefined : styles.hiddenTabContent}>
+          <ClinicalTab clientId={client.id} client={client} onRequestRefreshClient={loadClient} />
+        </View>
+      ) : null}
       </ScrollView>
+
+      {showScrollCue ? (
+        <View pointerEvents="none" style={styles.scrollCueWrap}>
+          <LinearGradient
+            colors={[`${theme.bg}00`, theme.bg]}
+            style={styles.scrollCueGradient}
+          >
+            <View
+              style={[
+                styles.scrollCuePill,
+                {
+                  backgroundColor: theme.bgCard,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
+              <Text style={[styles.scrollCueText, { color: theme.textSecondary }, labelStyle]}>
+                Desliza para ver más
+              </Text>
+              <Ionicons name="chevron-down" size={16} color={theme.textSecondary} />
+            </View>
+          </LinearGradient>
+        </View>
+      ) : null}
     </View>
   );
 }
 
-function createStyles(theme: Theme, isDark: boolean) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.bg,
-    },
-    scrollView: {
-      flex: 1,
-    },
-    content: {
-      padding: spacing.lg,
-      maxWidth: 1280,
-      width: '100%',
-      alignSelf: 'center',
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: theme.bg,
-      gap: spacing.md,
-    },
-    loadingText: {
-      fontSize: typography.fontSizes.md,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
-    },
-    errorContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacing.xl,
-      gap: spacing.md,
-      backgroundColor: theme.bg,
-    },
-    errorIconCircle: {
-      width: 88,
-      height: 88,
-      borderRadius: 44,
-      backgroundColor: theme.warningBg,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    errorTitle: {
-      fontSize: typography.fontSizes.xl,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansBold,
-    },
-    errorMessage: {
-      fontSize: typography.fontSizes.md,
-      color: theme.textSecondary,
-      textAlign: 'center',
-      maxWidth: 420,
-      fontFamily: theme.fontSans,
-    },
-    backButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      marginBottom: spacing.lg,
-      alignSelf: 'flex-start',
-      paddingVertical: spacing.xs,
-    },
-    backButtonText: {
-      fontSize: typography.fontSizes.md,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    desktopLayout: {
-      flexDirection: 'row',
-      gap: spacing.lg,
-      alignItems: 'flex-start',
-    },
-    mainColumn: {
-      flex: 1.85,
-      gap: spacing.lg,
-    },
-    sidebarColumn: {
-      flex: 1,
-      gap: spacing.lg,
-    },
-    mobileStack: {
-      gap: spacing.lg,
-    },
-    heroCard: {
-      borderRadius: borderRadius.xl,
-    },
-    mainCard: {
-      borderRadius: borderRadius.xl,
-    },
-    sidebarCard: {
-      borderRadius: borderRadius.xl,
-    },
-    profileHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.lg,
-    },
-    avatarLarge: {
-      width: 148,
-      height: 148,
-      borderRadius: 74,
-      backgroundColor: theme.primaryAlpha12,
-      alignItems: 'center',
-      justifyContent: 'center',
-      position: 'relative',
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    avatarLargeImage: {
-      width: 148,
-      height: 148,
-      borderRadius: 74,
-    },
-    avatarInitials: {
-      fontSize: 56,
-      color: theme.primary,
-      fontFamily: theme.fontSansBold,
-    },
-    statusDotLarge: {
-      position: 'absolute',
-      right: 10,
-      bottom: 10,
-      width: 22,
-      height: 22,
-      borderRadius: 11,
-      backgroundColor: theme.success,
-      borderWidth: 3,
-      borderColor: theme.bgCard,
-    },
-    profileInfo: {
-      flex: 1,
-      gap: spacing.xs,
-    },
-    clientName: {
-      fontSize: 32,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansBold,
-    },
-    clientAge: {
-      fontSize: typography.fontSizes.md,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
-    },
-    clientMetaRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-      marginTop: spacing.xs,
-    },
-    clientMeta: {
-      fontSize: typography.fontSizes.md,
-      color: theme.textMuted,
-      fontFamily: theme.fontSans,
-    },
-    statusBadge: {
-      alignSelf: 'flex-start',
-      marginTop: spacing.sm,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      borderRadius: borderRadius.full,
-      backgroundColor: theme.primaryAlpha12,
-      borderWidth: 1,
-      borderColor: theme.primaryMuted,
-    },
-    statusBadgeDot: {
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-      backgroundColor: theme.success,
-    },
-    statusBadgeText: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.primary,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    sectionHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      marginBottom: spacing.md,
-    },
-    sectionTitle: {
-      fontSize: typography.fontSizes.xl,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansBold,
-    },
-    sectionDescription: {
-      fontSize: typography.fontSizes.md,
-      color: theme.textSecondary,
-      marginBottom: spacing.md,
-      fontFamily: theme.fontSans,
-    },
-    contactList: {
-      gap: spacing.md,
-    },
-    contactItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    contactText: {
-      flex: 1,
-      fontSize: typography.fontSizes.md,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSans,
-    },
-    contactActions: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-      marginTop: spacing.lg,
-    },
-    inlineAction: {
-      minWidth: 140,
-    },
-    summaryList: {
-      gap: spacing.md,
-    },
-    summaryItem: {
-      gap: 4,
-    },
-    summaryDivider: {
-      height: 1,
-      backgroundColor: theme.borderLight,
-    },
-    summaryLabel: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textMuted,
-      fontFamily: theme.fontSans,
-    },
-    summaryValue: {
-      fontSize: typography.fontSizes.xl,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansBold,
-    },
-    summaryMeta: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textMuted,
-      fontFamily: theme.fontSans,
-    },
-    summaryGrid: {
-      flexDirection: 'row',
-      gap: spacing.lg,
-    },
-    summaryMetric: {
-      flex: 1,
-      gap: 4,
-    },
-    summaryStatusRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-    },
-    summaryStatusDot: {
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-      backgroundColor: theme.success,
-    },
-    summaryValueSuccess: {
-      color: theme.success,
-    },
-    nextSessionBlock: {
-      gap: spacing.xs,
-      marginBottom: spacing.lg,
-    },
-    nextSessionDate: {
-      fontSize: typography.fontSizes.lg,
-      color: theme.textPrimary,
-      textTransform: 'capitalize',
-      fontFamily: theme.fontSansSemiBold,
-    },
-    nextSessionTime: {
-      fontSize: typography.fontSizes.md,
-      color: theme.primary,
-      fontFamily: theme.fontSansBold,
-    },
-    nextSessionType: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
-    },
-    nextSessionEmpty: {
-      paddingVertical: spacing.lg,
-      alignItems: 'center',
-    },
-    nextSessionEmptyText: {
-      fontSize: typography.fontSizes.lg,
-      color: theme.textMuted,
-      fontFamily: theme.fontSans,
-    },
-    sidebarActions: {
-      gap: spacing.sm,
-    },
-    sidebarActionWrap: {
-      width: '100%',
-    },
-    tagsRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
-    tag: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs + 2,
-      borderRadius: borderRadius.full,
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-      borderWidth: 1,
-      borderColor: theme.borderLight,
-    },
-    tagText: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSansMedium,
-    },
-    preferenceGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.md,
-    },
-    preferenceItem: {
-      minWidth: 220,
-      flex: 1,
-      padding: spacing.md,
-      borderRadius: borderRadius.lg,
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-      borderWidth: 1,
-      borderColor: theme.borderLight,
-      gap: 6,
-    },
-    preferenceLabel: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textMuted,
-      fontFamily: theme.fontSans,
-    },
-    preferenceValue: {
-      fontSize: typography.fontSizes.md,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    questionnaireList: {
-      gap: spacing.md,
-    },
-    questionnaireItem: {
-      paddingBottom: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
-      gap: spacing.xs,
-    },
-    questionCategory: {
-      fontSize: typography.fontSizes.xs,
-      color: theme.primary,
-      textTransform: 'uppercase',
-      fontFamily: theme.fontSansSemiBold,
-    },
-    questionText: {
-      fontSize: typography.fontSizes.md,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    answerList: {
-      gap: 4,
-    },
-    answerText: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
-    },
-    emptyState: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacing.xl,
-      gap: spacing.sm,
-    },
-    emptyTitle: {
-      fontSize: typography.fontSizes.lg,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansBold,
-    },
-    emptyDescription: {
-      fontSize: typography.fontSizes.md,
-      color: theme.textSecondary,
-      textAlign: 'center',
-      maxWidth: 420,
-      fontFamily: theme.fontSans,
-    },
-  });
-}
+const styles = StyleSheet.create({
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorWrap: {
+    gap: spacing.md,
+    padding: spacing.xl,
+  },
+  container: {
+    width: '100%',
+    maxWidth: 1360,
+    alignSelf: 'center',
+    paddingVertical: spacing.lg,
+    paddingBottom: spacing.xxl,
+    gap: spacing.lg,
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.md,
+    flexWrap: 'wrap',
+  },
+  topBarMobile: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: spacing.sm,
+  },
+  topBarBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  topBarBadgesMobile: {
+    width: '100%',
+    flex: 0,
+    flexDirection: 'column',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+    minWidth: 0,
+    gap: spacing.xs,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topBadge: {
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+  },
+  topBadgeMobile: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 9,
+  },
+  topBadgeText: {
+    fontWeight: '700',
+  },
+  topBadgeTextMobile: {
+    fontSize: 12,
+    lineHeight: 15,
+    letterSpacing: 0.2,
+  },
+  heroCard: {
+    overflow: 'hidden',
+  },
+  heroGradient: {
+    padding: spacing.lg,
+  },
+  heroGradientMobile: {
+    padding: spacing.md,
+  },
+  heroContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.lg,
+    alignItems: 'center',
+  },
+  heroContentStack: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  heroIdentity: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 280,
+  },
+  heroIdentityStack: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  heroIdentityMobile: {
+    minWidth: 0,
+    width: '100%',
+    gap: spacing.md,
+  },
+  avatarShell: {
+    width: 108,
+    height: 108,
+    borderRadius: 32,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarText: {
+    fontSize: typography.fontSizes.xxxl,
+    lineHeight: 34,
+    fontWeight: '700',
+  },
+  heroCopy: {
+    flex: 1,
+    gap: spacing.sm,
+  },
+  heroCopyMobile: {
+    width: '100%',
+  },
+  heroSummary: {
+    ...textStyles.body,
+    maxWidth: 560,
+  },
+  heroMetaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  heroMetaGridStack: {
+    flexDirection: 'column',
+  },
+  heroMetaCard: {
+    minWidth: 168,
+    maxWidth: 260,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: 4,
+    flexGrow: 1,
+  },
+  heroMetaCardFull: {
+    width: '100%',
+    maxWidth: '100%',
+    minWidth: 0,
+  },
+  concernRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  concernChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+  },
+  heroActions: {
+    flexDirection: 'column',
+    gap: spacing.sm,
+    alignItems: 'stretch',
+    justifyContent: 'center',
+    width: 220,
+  },
+  heroActionsStack: {
+    width: '100%',
+    justifyContent: 'flex-start',
+  },
+  heroActionsMobile: {
+    width: '100%',
+    marginTop: spacing.xs,
+  },
+  summaryStatsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  summaryStatsRowMobile: {
+    gap: spacing.sm,
+  },
+  summaryStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+  },
+  summaryStatLabel: {
+    fontSize: typography.fontSizes.xs,
+    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  summaryStatValue: {
+    fontSize: typography.fontSizes.md,
+    lineHeight: 22,
+  },
+  tabs: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  tabsMobile: {
+    gap: spacing.xs,
+  },
+  tab: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  tabMobile: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 10,
+    justifyContent: 'center',
+  },
+  tabText: {
+    ...textStyles.body,
+    fontWeight: '700',
+  },
+  summaryLayout: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    alignItems: 'flex-start',
+  },
+  mobileSummaryStack: {
+    gap: spacing.md,
+  },
+  summaryLayoutStack: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  summaryMain: {
+    flex: 1.3,
+    gap: spacing.lg,
+  },
+  summaryMainStack: {
+    width: '100%',
+    flex: 0,
+  },
+  summarySide: {
+    flex: 0.9,
+    gap: spacing.lg,
+  },
+  summarySideStack: {
+    width: '100%',
+    flex: 0,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    flexWrap: 'wrap',
+  },
+  cardHeaderStack: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: spacing.sm,
+  },
+  sectionCopy: {
+    flex: 1,
+    minWidth: 240,
+    gap: 6,
+  },
+  sectionCopyMobile: {
+    minWidth: 0,
+    width: '100%',
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  infoGridStack: {
+    flexDirection: 'column',
+    flexWrap: 'nowrap',
+    gap: spacing.sm,
+  },
+  infoBlock: {
+    minWidth: 180,
+    flex: 1,
+    gap: 4,
+  },
+  infoBlockStack: {
+    minWidth: 0,
+    width: '100%',
+    flexGrow: 0,
+    flexShrink: 1,
+    flexBasis: '100%',
+  },
+  questionnairePanel: {
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  questionnairePreview: {
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  questionnaireEmpty: {
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  preferencePanel: {
+    gap: spacing.sm,
+  },
+  sideStack: {
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  sideRow: {
+    gap: 4,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    flexWrap: 'wrap',
+    marginBottom: spacing.md,
+  },
+  timeline: {
+    gap: spacing.md,
+  },
+  historyLoadMore: {
+    marginTop: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  timelineItem: {
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    padding: spacing.md,
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  timelineMarkerColumn: {
+    alignItems: 'center',
+  },
+  timelineDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 999,
+    marginTop: 4,
+  },
+  timelineLine: {
+    width: 2,
+    flex: 1,
+    marginTop: 8,
+  },
+  timelineContent: {
+    flex: 1,
+    gap: 4,
+  },
+  timelineTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    flexWrap: 'wrap',
+  },
+  scrollCueWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  scrollCueGradient: {
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+  },
+  scrollCuePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+  },
+  scrollCueText: {
+    ...textStyles.caption,
+  },
+  mobileSurfaceCard: {
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
+    borderWidth: 1,
+  },
+  hiddenTabContent: {
+    display: 'none',
+  },
+});

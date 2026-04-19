@@ -104,7 +104,6 @@ export function ProfessionalSessionsScreen() {
           status: mappedStatus,
           type: mappedType,
           meetingLink: session.meetingLink || undefined,
-          notes: session.notes || undefined,
           clientAvatar: session.client?.user?.avatar || undefined,
         };
       });
@@ -546,13 +545,6 @@ export function ProfessionalSessionsScreen() {
               </Text>
             </View>
           </View>
-
-          {!compact && session.notes ? (
-            <Text style={styles.sessionNotes} numberOfLines={2}>
-              {session.notes}
-            </Text>
-          ) : null}
-
           {!compact ? renderSessionActions(session) : null}
         </Card>
       );
@@ -1360,12 +1352,6 @@ function createStyles(theme: Theme, isDark: boolean) {
     sessionStatusText: {
       fontSize: typography.fontSizes.xs,
       fontFamily: theme.fontSansSemiBold,
-    },
-    sessionNotes: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textSecondary,
-      marginBottom: spacing.md,
-      fontFamily: theme.fontSans,
     },
     actionStack: {
       gap: spacing.sm,

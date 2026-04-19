@@ -58,13 +58,15 @@ const STRINGS = {
   titleNew: 'Nueva factura',
   titleEdit: 'Editar borrador',
   backLabel: 'Facturación',
+  backToPatientLabel: 'Volver a la ficha',
   statusDraft: 'Borrador',
   statusSent: 'Enviada',
   preview: 'Vista previa',
   saveDraft: 'Guardar borrador',
   confirmSend: 'Confirmar y enviar',
-  clientSection: 'Cliente',
+  clientSection: 'Paciente',
   clientPlaceholder: 'Seleccionar cliente...',
+  clientLockedHint: 'Paciente fijado por la sesión seleccionada',
   conceptSection: 'Concepto',
   conceptHeader: 'Concepto',
   dateHeader: 'Fecha',
@@ -138,12 +140,31 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   route,
   navigation,
 }) => {
-  const { invoiceId } = route?.params || {};
+  const {
+    invoiceId,
+    clientId: presetClientId,
+    sessionId: presetSessionId,
+    sessionDate: presetSessionDate,
+    sessionDuration: presetSessionDuration,
+    returnToClientId,
+  } = route?.params || {};
   const isEditing = !!invoiceId;
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const isDesktop = width >= 768;
+  const sessionContext = useMemo(
+    () =>
+      !isEditing && presetSessionId
+        ? {
+            sessionId: presetSessionId,
+            clientId: presetClientId ?? null,
+            sessionDate: presetSessionDate ?? null,
+            sessionDuration: presetSessionDuration ?? null,
+          }
+        : null,
+    [isEditing, presetClientId, presetSessionDate, presetSessionDuration, presetSessionId],
+  );
 
   // ── State ──
   const [loading, setLoading] = useState(true);
@@ -214,6 +235,23 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
     [clients, selectedClientId],
   );
 
+  const navigateAfterSave = useCallback(() => {
+    if (sessionContext && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    if (returnToClientId) {
+      navigation.navigate('ClientProfile', {
+        clientId: returnToClientId,
+        initialTab: 'clinical',
+      });
+      return;
+    }
+
+    navigation.navigate('ProfessionalBilling');
+  }, [navigation, returnToClientId, sessionContext]);
+
   // ── Data loading ──
   const loadInitialData = useCallback(async () => {
     try {
@@ -230,6 +268,10 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
         email: c.user.email,
       }));
       setClients(mappedClients);
+
+      if (!invoiceId && sessionContext?.clientId) {
+        setSelectedClientId(sessionContext.clientId);
+      }
 
       // Pre-fill from config
       if (config.paymentConditions) {
@@ -279,11 +321,33 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
             setLineItems([{
               id: generateId(),
               concept: defaultTariff.name,
-              date: formatDateForDisplay(new Date()),
-              durationMinutes: defaultTariff.durationMinutes,
+              date: sessionContext?.sessionDate
+                ? formatDateForDisplay(new Date(sessionContext.sessionDate))
+                : formatDateForDisplay(new Date()),
+              durationMinutes: sessionContext?.sessionDuration || defaultTariff.durationMinutes,
               unitPrice: defaultTariff.price > 0 ? String(defaultTariff.price) : '',
             }]);
+          } else if (sessionContext) {
+            setLineItems([{
+              id: generateId(),
+              concept: STRINGS.defaultConcept,
+              date: sessionContext.sessionDate
+                ? formatDateForDisplay(new Date(sessionContext.sessionDate))
+                : formatDateForDisplay(new Date()),
+              durationMinutes: sessionContext.sessionDuration || 60,
+              unitPrice: '',
+            }]);
           }
+        } else if (sessionContext) {
+          setLineItems([{
+            id: generateId(),
+            concept: STRINGS.defaultConcept,
+            date: sessionContext.sessionDate
+              ? formatDateForDisplay(new Date(sessionContext.sessionDate))
+              : formatDateForDisplay(new Date()),
+            durationMinutes: sessionContext.sessionDuration || 60,
+            unitPrice: '',
+          }]);
         }
       }
     } catch (error) {
@@ -291,7 +355,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [invoiceId]);
+  }, [invoiceId, sessionContext]);
 
   useEffect(() => {
     loadInitialData();
@@ -390,6 +454,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
           // Create new invoice
           const createData: CreateInvoiceData = {
             clientId: selectedClientId,
+            sessionId: sessionContext?.sessionId || undefined,
             concept,
             subtotal: ivaIncluded ? ivaCalculation.baseImponible : totalAmount,
             vatRate,
@@ -408,13 +473,13 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
             await billingService.sendInvoice(invoice.id);
           } catch {
             Alert.alert('Aviso', STRINGS.successSentPartial);
-            navigation.navigate('ProfessionalBilling');
+            navigateAfterSave();
             return;
           }
         }
 
         Alert.alert('Éxito', andSend ? STRINGS.successSent : STRINGS.successDraft);
-        navigation.navigate('ProfessionalBilling');
+        navigateAfterSave();
       } catch (error) {
         const msg = error instanceof Error ? error.message : STRINGS.errorGeneric;
         Alert.alert('Error', msg);
@@ -422,7 +487,18 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
         setSaving(false);
       }
     },
-    [selectedClientId, lineItems, ivaIncluded, ivaCalculation, vatRate, navigation, isEditing, invoiceId],
+    [
+      selectedClientId,
+      lineItems,
+      ivaIncluded,
+      ivaCalculation,
+      vatRate,
+      isEditing,
+      invoiceId,
+      navigateAfterSave,
+      sessionContext,
+      internalNotes,
+    ],
   );
 
   // ── Loading state ──
@@ -446,12 +522,27 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
       <View style={styles.headerLeft}>
         <AnimatedPressable
           style={styles.backButton}
-          onPress={() => navigation.navigate('ProfessionalBilling')}
+          onPress={() => {
+            if (sessionContext && navigation.canGoBack()) {
+              navigation.goBack();
+              return;
+            }
+            if (returnToClientId) {
+              navigation.navigate('ClientProfile', {
+                clientId: returnToClientId,
+                initialTab: 'clinical',
+              });
+              return;
+            }
+            navigation.navigate('ProfessionalBilling');
+          }}
           hoverLift={false}
           pressScale={0.98}
         >
           <Ionicons name="arrow-back" size={20} color={theme.primary} />
-          <Text style={styles.backLabel}>{STRINGS.backLabel}</Text>
+          <Text style={styles.backLabel}>
+            {sessionContext || returnToClientId ? STRINGS.backToPatientLabel : STRINGS.backLabel}
+          </Text>
         </AnimatedPressable>
       </View>
       <View style={styles.headerRight}>
@@ -498,20 +589,34 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
     return (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>{STRINGS.clientSection}</Text>
-        <View style={{ zIndex: 1000 }}>
-          <SimpleDropdown
-            options={clientOptions}
-            value={selectedClientId}
-            onSelect={setSelectedClientId}
-            placeholder={STRINGS.clientPlaceholder}
-            maxHeight={250}
-          />
-        </View>
-        {selectedClient && (
+        {sessionContext ? (
           <View style={styles.selectedClientInfo}>
-            <Text style={styles.selectedClientName}>{selectedClient.name}</Text>
-            <Text style={styles.selectedClientEmail}>{selectedClient.email}</Text>
+            <Text style={styles.selectedClientName}>
+              {selectedClient?.name || 'Paciente de la sesión'}
+            </Text>
+            <Text style={styles.selectedClientEmail}>
+              {selectedClient?.email || STRINGS.clientLockedHint}
+            </Text>
+            <Text style={styles.clientLockedHint}>{STRINGS.clientLockedHint}</Text>
           </View>
+        ) : (
+          <>
+            <View style={{ zIndex: 1000 }}>
+              <SimpleDropdown
+                options={clientOptions}
+                value={selectedClientId}
+                onSelect={setSelectedClientId}
+                placeholder={STRINGS.clientPlaceholder}
+                maxHeight={250}
+              />
+            </View>
+            {selectedClient ? (
+              <View style={styles.selectedClientInfo}>
+                <Text style={styles.selectedClientName}>{selectedClient.name}</Text>
+                <Text style={styles.selectedClientEmail}>{selectedClient.email}</Text>
+              </View>
+            ) : null}
+          </>
         )}
       </View>
     );
@@ -961,6 +1066,12 @@ function createStyles(theme: Theme, isDark: boolean) {
     color: theme.textMuted,
     fontFamily: theme.fontSans,
     marginTop: 2,
+  },
+  clientLockedHint: {
+    marginTop: spacing.xs,
+    fontSize: typography.fontSizes.xs,
+    color: theme.textMuted,
+    fontFamily: theme.fontSansSemiBold,
   },
 
   // Line items table

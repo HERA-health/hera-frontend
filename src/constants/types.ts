@@ -61,7 +61,6 @@ export interface Session {
   duration: number; // in minutes
   status: 'scheduled' | 'completed' | 'cancelled';
   meetingLink?: string;
-  notes?: string;
   type: 'video' | 'audio' | 'chat';
 }
 
@@ -103,6 +102,7 @@ export type RootStackParamList = {
   Register: { userType: 'CLIENT' | 'PROFESSIONAL' };
   EmailSentVerification: { email: string; userType: 'CLIENT' | 'PROFESSIONAL' };
   EmailVerification: { token: string };
+  ClinicalConsent: { requestId: string; token: string };
   ForgotPassword: undefined;
   EmailSentPasswordReset: { email: string };
   ResetPassword: { token: string };
@@ -129,9 +129,19 @@ export type RootStackParamList = {
   ProfessionalSessions: undefined;
   ProfessionalProfile: undefined;
   ProfessionalBilling: undefined;
-  CreateInvoice: { invoiceId?: string };
+  CreateInvoice: {
+    invoiceId?: string;
+    clientId?: string;
+    sessionId?: string;
+    sessionDate?: string;
+    sessionDuration?: number;
+    returnToClientId?: string;
+  };
   ProfessionalAvailability: undefined;
-  ClientProfile: { clientId: string };
+  ClientProfile: {
+    clientId: string;
+    initialTab?: 'summary' | 'history' | 'clinical';
+  };
   AdminPanel: undefined;
   AdminSpecialistDetail: { specialist: string }; // JSON-serialized PendingSpecialist
   SpecialistDetailAdmin: { specialistId: string };
@@ -211,7 +221,6 @@ export interface Client {
   nextSession?: Date;
   totalSessions: number;
   status: 'active' | 'inactive' | 'pending';
-  notes?: string;
   startDate?: Date;
   tags?: string[];
 
@@ -246,7 +255,6 @@ export interface ProfessionalSession {
   duration: number; // in minutes
   status: 'scheduled' | 'completed' | 'cancelled' | 'pending';
   meetingLink?: string;
-  notes?: string;
   type: 'video' | 'audio' | 'chat';
   clientAvatar?: string;
 }

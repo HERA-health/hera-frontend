@@ -76,6 +76,10 @@ const EmailVerificationRoute = createDeferredRoute<'EmailVerification'>(
   () => require('../screens/auth/EmailVerificationScreen'),
   { displayName: 'EmailVerificationRoute', exportName: 'EmailVerificationScreen' }
 );
+const ClinicalConsentRoute = createDeferredRoute<'ClinicalConsent'>(
+  () => require('../screens/clinical/ClinicalConsentScreen'),
+  { displayName: 'ClinicalConsentRoute', exportName: 'ClinicalConsentScreen' }
+);
 const ForgotPasswordRoute = createDeferredRoute<'ForgotPassword'>(
   () => require('../screens/auth/ForgotPasswordScreen'),
   { displayName: 'ForgotPasswordRoute', exportName: 'ForgotPasswordScreen' }
@@ -249,6 +253,11 @@ export function RootNavigator() {
           component={PublicSpecialistProfileRoute}
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="ClinicalConsent"
+          component={ClinicalConsentRoute}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     );
   }
@@ -270,6 +279,11 @@ export function RootNavigator() {
         <Stack.Screen
           name="PublicSpecialistProfile"
           component={PublicSpecialistProfileRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ClinicalConsent"
+          component={ClinicalConsentRoute}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
@@ -379,6 +393,11 @@ export function RootNavigator() {
           component={PublicSpecialistProfileRoute}
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="ClinicalConsent"
+          component={ClinicalConsentRoute}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     );
   }
@@ -483,6 +502,11 @@ export function RootNavigator() {
       <Stack.Screen
         name="PublicSpecialistProfile"
         component={PublicSpecialistProfileRoute}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ClinicalConsent"
+        component={ClinicalConsentRoute}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

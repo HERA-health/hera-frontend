@@ -8,7 +8,8 @@ export default {
     icon: "./assets/main-logo.png",
     userInterfaceStyle: "automatic",
     plugins: [
-      "expo-font"
+      "expo-font",
+      "expo-secure-store"
     ],
     newArchEnabled: true,
     splash: {

@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { colors, spacing, typography, borderRadius } from '../../constants/colors';
-import { whyHERAFeatures } from '../../utils/mockData';
+import { whyHeraFeatures } from '../../constants/whyHeraFeatures';
 
 const ProfileCompletionScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -124,7 +124,7 @@ const ProfileCompletionScreen: React.FC = () => {
             <Text style={styles.whyTitle}>¿Por qué HERA?</Text>
 
             <View style={styles.whyGrid}>
-              {whyHERAFeatures.map((feature) => (
+              {whyHeraFeatures.map((feature) => (
                 <Card key={feature.id} style={styles.whyCard} padding="medium">
                   <View style={styles.whyIconContainer}>
                     <Ionicons

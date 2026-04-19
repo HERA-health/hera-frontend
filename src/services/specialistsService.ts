@@ -65,6 +65,7 @@ export interface SpecialistFilters {
 export interface MatchedSpecialistsResponse {
   specialists: SpecialistData[];
   hasCompletedQuestionnaire: boolean;
+  needsQuestionnaireRefresh?: boolean;
 }
 
 const matchedSpecialistsCache = new Map<string, CacheEntry<MatchedSpecialistsResponse>>();

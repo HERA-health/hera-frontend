@@ -40,6 +40,13 @@ const linking: LinkingOptions<RootStackParamList> = {
           token: (token: string) => token,
         },
       },
+      ClinicalConsent: {
+        path: 'clinical-consent/:requestId/:token',
+        parse: {
+          requestId: (requestId: string) => requestId,
+          token: (token: string) => token,
+        },
+      },
       ResetPassword: {
         path: 'reset',
         parse: {

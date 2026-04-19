@@ -1,10 +1,12 @@
-import api, { setAuthToken, removeAuthToken } from './api';
+import api, { logoutServerSession, setAuthSession } from './api';
 import { getErrorMessage, hasResponseData } from '../constants/errors';
 import { invalidateSpecialistsCache } from './specialistsService';
 import { buildImageFormData, type UploadAsset } from '../utils/multipartUpload';
+import { clearPersistedClinicalAccessSession } from './secureSessionStorage';
 
 export interface AuthResponse {
   token: string;
+  refreshToken: string;
   user: {
     id: string;
     email: string;
@@ -43,9 +45,9 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
     );
 
     if (response.data.success && response.data.data) {
-      const { token, user } = response.data.data;
-      await setAuthToken(token);
-      return { token, user };
+      const { token, refreshToken, user } = response.data.data;
+      await setAuthSession(token, refreshToken);
+      return { token, refreshToken, user };
     }
 
     throw new Error('Registration failed');
@@ -84,9 +86,9 @@ export const login = async (data: LoginData): Promise<AuthResponse> => {
     );
 
     if (response.data.success && response.data.data) {
-      const { token, user } = response.data.data;
-      await setAuthToken(token);
-      return { token, user };
+      const { token, refreshToken, user } = response.data.data;
+      await setAuthSession(token, refreshToken);
+      return { token, refreshToken, user };
     }
 
     throw new Error('Login failed');
@@ -148,9 +150,11 @@ export const getCurrentUser = async (): Promise<AuthResponse['user']> => {
  */
 export const logout = async (): Promise<void> => {
   try {
-    await removeAuthToken();
+    await logoutServerSession();
+    await clearPersistedClinicalAccessSession();
     invalidateSpecialistsCache();
   } catch (_error: unknown) {
+    await clearPersistedClinicalAccessSession();
     // Silently fail on logout errors - user should still be logged out locally
   }
 };

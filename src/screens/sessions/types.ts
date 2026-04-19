@@ -28,7 +28,6 @@ export interface ApiSession {
   status: SessionStatus;
   type: SessionType;
   meetingLink?: string;
-  notes?: string;
   hasReview?: boolean;
   specialist: {
     id: string;

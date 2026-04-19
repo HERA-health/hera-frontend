@@ -271,19 +271,6 @@ export function CalendarView({ sessions }: CalendarViewProps) {
                     </View>
                   </View>
 
-                  {/* Notes */}
-                  {session.notes && (
-                    <View style={styles.notesSection}>
-                      <Ionicons
-                        name="document-text-outline"
-                        size={14}
-                        color={heraLanding.textSecondary}
-                      />
-                      <Text style={styles.notesText} numberOfLines={2}>
-                        {session.notes}
-                      </Text>
-                    </View>
-                  )}
                 </View>
               ))}
             </View>
@@ -501,20 +488,5 @@ const styles = StyleSheet.create({
     backgroundColor: heraLanding.successBg,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  notesSection: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: heraLanding.successBg,
-    padding: spacing.sm,
-    borderRadius: 8,
-    marginTop: spacing.md,
-    gap: spacing.xs,
-  },
-  notesText: {
-    flex: 1,
-    fontSize: 13,
-    color: heraLanding.textPrimary,
-    lineHeight: 18,
   },
 });

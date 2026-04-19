@@ -1,17 +1,23 @@
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios, {
+  AxiosError,
+  AxiosHeaders,
+  type InternalAxiosRequestConfig,
+} from 'axios';
 import getEnvVars from '../config/api';
+import {
+  clearPersistedRefreshToken,
+  getPersistedRefreshToken,
+  persistRefreshToken,
+} from './secureSessionStorage';
 
-// Get API URL based on environment
 const { apiUrl } = getEnvVars();
 const API_BASE_URL = apiUrl;
-
-// Storage key for the auth token
-const TOKEN_KEY = '@hera_token';
 const API_DEBUG_LOGGING_ENABLED = __DEV__ && process.env.EXPO_PUBLIC_DEBUG_API === 'true';
 
 const logApiDebug = (message: string, meta?: Record<string, unknown>) => {
-  if (!API_DEBUG_LOGGING_ENABLED) return;
+  if (!API_DEBUG_LOGGING_ENABLED) {
+    return;
+  }
 
   if (meta) {
     console.log(`[api] ${message}`, meta);
@@ -21,7 +27,34 @@ const logApiDebug = (message: string, meta?: Record<string, unknown>) => {
   console.log(`[api] ${message}`);
 };
 
-// Create axios instance
+const buildSessionExpiredError = (): Error & { code: string } => {
+  const error = new Error('Tu sesión ha expirado. Inicia sesión de nuevo') as Error & {
+    code: string;
+  };
+  error.code = 'SESSION_EXPIRED';
+  return error;
+};
+
+const buildNetworkError = (): Error & { code: string } => {
+  const error = new Error('Error de conexión. Verifica tu internet') as Error & {
+    code: string;
+  };
+  error.code = 'NETWORK_ERROR';
+  return error;
+};
+
+let accessToken: string | null = null;
+let refreshPromise: Promise<string | null> | null = null;
+let sessionExpiredHandler: (() => void) | null = null;
+
+const publicApi = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
@@ -30,60 +63,128 @@ export const api = axios.create({
   },
 });
 
-/**
- * Set authentication token in AsyncStorage and axios headers
- */
-export const setAuthToken = async (token: string): Promise<void> => {
-  try {
-    await AsyncStorage.setItem(TOKEN_KEY, token);
-    api.defaults.headers.common.Authorization = `Bearer ${token}`;
-  } catch (_error: unknown) {
-    throw new Error('Failed to save authentication token');
+const isAuthEndpoint = (url = ''): boolean =>
+  url.includes('/auth/login') ||
+  url.includes('/auth/register') ||
+  url.includes('/auth/refresh') ||
+  url.includes('/auth/logout');
+
+const setAuthorizationHeader = (
+  config: InternalAxiosRequestConfig,
+  token: string
+): InternalAxiosRequestConfig => {
+  if (!config.headers) {
+    config.headers = new AxiosHeaders();
   }
+
+  const headers =
+    config.headers instanceof AxiosHeaders ? config.headers : new AxiosHeaders(config.headers);
+  headers.set('Authorization', `Bearer ${token}`);
+  config.headers = headers;
+
+  return config;
 };
 
-/**
- * Remove authentication token from AsyncStorage and axios headers
- */
-export const removeAuthToken = async (): Promise<void> => {
-  try {
-    await AsyncStorage.removeItem(TOKEN_KEY);
-    delete api.defaults.headers.common.Authorization;
-  } catch (_error: unknown) {
-    // Silently fail - user should still be logged out locally
+const normalizeMultipartHeaders = (
+  config: InternalAxiosRequestConfig
+): InternalAxiosRequestConfig => {
+  if (typeof FormData === 'undefined' || !(config.data instanceof FormData)) {
+    return config;
   }
+
+  if (!config.headers) {
+    config.headers = new AxiosHeaders();
+  }
+
+  const headers =
+    config.headers instanceof AxiosHeaders ? config.headers : new AxiosHeaders(config.headers);
+
+  // Let the runtime set the multipart boundary instead of inheriting the JSON default.
+  headers.delete('Content-Type');
+  config.headers = headers;
+
+  return config;
 };
 
-/**
- * Get stored token from AsyncStorage
- */
-export const getStoredToken = async (): Promise<string | null> => {
-  try {
-    return await AsyncStorage.getItem(TOKEN_KEY);
-  } catch (_error: unknown) {
-    return null;
-  }
+const clearAccessToken = () => {
+  accessToken = null;
 };
 
-/**
- * Initialize authentication by loading stored token
- */
-export const initializeAuth = async (): Promise<string | null> => {
-  try {
-    const token = await getStoredToken();
-    if (token) {
-      api.defaults.headers.common.Authorization = `Bearer ${token}`;
-      return token;
+export const setAuthSession = async (token: string, refreshToken: string): Promise<void> => {
+  accessToken = token;
+  await persistRefreshToken(refreshToken);
+};
+
+export const clearAuthSession = async (): Promise<void> => {
+  clearAccessToken();
+  await clearPersistedRefreshToken();
+};
+
+const refreshAccessToken = async (): Promise<string | null> => {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  refreshPromise = (async () => {
+    const refreshToken = await getPersistedRefreshToken();
+
+    if (!refreshToken) {
+      await clearAuthSession();
+      return null;
     }
-    return null;
-  } catch (_error: unknown) {
-    return null;
+
+    try {
+      const response = await publicApi.post<{
+        success: boolean;
+        data?: { token: string; refreshToken: string };
+      }>('/auth/refresh', { refreshToken });
+
+      if (!response.data.success || !response.data.data) {
+        await clearAuthSession();
+        return null;
+      }
+
+      await setAuthSession(response.data.data.token, response.data.data.refreshToken);
+      return response.data.data.token;
+    } catch {
+      await clearAuthSession();
+      return null;
+    }
+  })().finally(() => {
+    refreshPromise = null;
+  });
+
+  return refreshPromise;
+};
+
+export const initializeAuth = async (): Promise<string | null> => refreshAccessToken();
+
+export const registerSessionExpiredHandler = (handler: (() => void) | null): void => {
+  sessionExpiredHandler = handler;
+};
+
+export const logoutServerSession = async (): Promise<void> => {
+  const refreshToken = await getPersistedRefreshToken();
+
+  try {
+    if (refreshToken) {
+      await publicApi.post('/auth/logout', { refreshToken });
+    }
+  } catch {
+    // Ignore logout transport errors and clear local session regardless.
+  } finally {
+    await clearAuthSession();
   }
 };
 
-// Request interceptor
 api.interceptors.request.use(
   (config) => {
+    if (accessToken) {
+      setAuthorizationHeader(config, accessToken);
+    }
+
+    normalizeMultipartHeaders(config);
+
     logApiDebug('request', {
       method: config.method?.toUpperCase(),
       url: config.url,
@@ -101,7 +202,6 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor
 api.interceptors.response.use(
   (response) => {
     logApiDebug('response', {
@@ -111,7 +211,7 @@ api.interceptors.response.use(
 
     return response;
   },
-  async (error) => {
+  async (error: AxiosError) => {
     if (API_DEBUG_LOGGING_ENABLED) {
       console.error('[api] response error', {
         status: error.response?.status,
@@ -119,33 +219,33 @@ api.interceptors.response.use(
       });
     }
 
-    if (error.response) {
-      const status = error.response.status;
-      const url = error.config?.url || '';
+    if (!error.response) {
+      return Promise.reject(buildNetworkError());
+    }
 
-      if (status === 401) {
-        const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register');
+    const originalRequest = error.config as (InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    }) | null;
 
-        if (isAuthEndpoint) {
-          return Promise.reject(error);
-        }
+    if (
+      error.response.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !isAuthEndpoint(originalRequest.url)
+    ) {
+      originalRequest._retry = true;
+      const nextToken = await refreshAccessToken();
 
-        await removeAuthToken();
-        const sessionError = new Error('Tu sesión ha expirado. Inicia sesión de nuevo');
-        (sessionError as Error & { code: string }).code = 'SESSION_EXPIRED';
-        return Promise.reject(sessionError);
+      if (nextToken) {
+        setAuthorizationHeader(originalRequest, nextToken);
+        return api(originalRequest);
       }
 
-      return Promise.reject(error);
+      sessionExpiredHandler?.();
+      return Promise.reject(buildSessionExpiredError());
     }
 
-    if (error.request) {
-      const networkError = new Error('Error de conexión. Verifica tu internet');
-      (networkError as Error & { code: string }).code = 'NETWORK_ERROR';
-      return Promise.reject(networkError);
-    }
-
-    return Promise.reject(new Error('Error inesperado. Intenta de nuevo'));
+    return Promise.reject(error);
   }
 );
 

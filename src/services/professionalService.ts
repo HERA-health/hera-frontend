@@ -3,6 +3,22 @@ import { getErrorMessage } from '../constants/errors';
 import type { Specialist } from '../constants/types';
 import { buildImageFormData, type UploadAsset } from '../utils/multipartUpload';
 
+export type ClientSource = 'REGISTERED' | 'MANAGED';
+export type ClientLifecycleFilter = 'ACTIVE' | 'ARCHIVED' | 'ALL';
+export type ClinicalConsentStatus = 'PENDING' | 'GRANTED' | 'REVOKED';
+export type ClinicalConsentMethod = 'DIGITAL_SIGNATURE' | 'SPECIALIST_ATTESTATION';
+export type QuestionnaireAvailability = 'NOT_STARTED' | 'AVAILABLE' | 'REQUIRES_REFRESH';
+
+export interface QuestionnaireSummary {
+  concerns: string[];
+  therapeuticApproach: string | null;
+  sessionStyle: string | null;
+  preferredModality: string | null;
+  preferredAvailability: string | null;
+  budgetRange: string | null;
+  frequency: string | null;
+}
+
 export interface ProfessionalProfile {
   id: string;
   userId: string;
@@ -29,29 +45,51 @@ export interface Session {
   status: string;
   type: string;
   meetingLink?: string | null;
-  notes?: string;
   createdAt?: string;
   updatedAt?: string;
   client?: {
     id: string;
-    userId: string;
+    userId: string | null;
     user: {
       name: string;
       email: string;
       avatar?: string | null;
     };
   };
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    status: string;
+  } | null;
 }
 
 export interface Client {
   id: string;
-  userId: string;
+  userId: string | null;
+  source: ClientSource;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  primaryEmail?: string | null;
+  primaryPhone?: string | null;
+  displayName?: string;
+  initials?: string;
   completedQuestionnaire?: boolean;
+  questionnaireAvailability?: QuestionnaireAvailability;
   questionnaireAnswers?: unknown;
+  consentOnFile?: boolean;
+  consentDate?: string | null;
+  consentVersion?: string | null;
+  archivedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  homeAddress?: string | null;
+  homeCity?: string | null;
+  homePostalCode?: string | null;
+  homeCountry?: string | null;
   user: {
-    id: string;
+    id: string | null;
     email: string;
     name: string;
     userType: string;
@@ -64,6 +102,30 @@ export interface Client {
   sessions?: Session[];
 }
 
+const normalizeClient = (client: Client): Client => client;
+
+export interface CreateManagedClientInput {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  consentOnFile: true;
+  consentVersion?: string;
+}
+
+export interface UpdateManagedClientInput {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  archived?: boolean;
+}
+
+interface GetProfessionalClientsOptions {
+  source?: ClientSource | 'ALL';
+  lifecycle?: ClientLifecycleFilter;
+}
+
 export const getProfessionalProfile = async (): Promise<ProfessionalProfile | null> => {
   const response = await api.get('/specialists/me');
   return response.data.success ? response.data.data : null;
@@ -74,14 +136,48 @@ export const getProfessionalSessions = async (): Promise<Session[]> => {
   return response.data.success ? response.data.data : [];
 };
 
-export const getProfessionalClients = async (): Promise<Client[]> => {
-  const response = await api.get('/clients');
-  return response.data.success ? response.data.data : [];
+export const getProfessionalClients = async (
+  sourceOrOptions?: ClientSource | 'ALL' | GetProfessionalClientsOptions,
+  lifecycle: ClientLifecycleFilter = 'ACTIVE'
+): Promise<Client[]> => {
+  const options: GetProfessionalClientsOptions =
+    typeof sourceOrOptions === 'string' || sourceOrOptions === undefined
+      ? { source: sourceOrOptions, lifecycle }
+      : sourceOrOptions;
+
+  const response = await api.get('/clients', {
+    params: {
+      ...(options.source ? { source: options.source } : {}),
+      ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
+    },
+  });
+  return response.data.success ? response.data.data.map(normalizeClient) : [];
 };
 
 export const getProfessionalClientDetail = async (clientId: string): Promise<Client | null> => {
   const response = await api.get(`/clients/${clientId}`);
-  return response.data.success ? response.data.data : null;
+  return response.data.success ? normalizeClient(response.data.data) : null;
+};
+
+export const createManagedClient = async (data: CreateManagedClientInput): Promise<Client> => {
+  try {
+    const response = await api.post('/clients/managed', data);
+    return normalizeClient(response.data.data);
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo crear el paciente gestionado'));
+  }
+};
+
+export const updateManagedClient = async (
+  clientId: string,
+  data: UpdateManagedClientInput
+): Promise<Client> => {
+  try {
+    const response = await api.patch(`/clients/${clientId}/managed`, data);
+    return normalizeClient(response.data.data);
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo actualizar el paciente'));
+  }
 };
 
 /**

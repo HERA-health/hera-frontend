@@ -149,6 +149,26 @@ export function QuestionnaireScreen() {
       try {
         const response = await getMatchedSpecialists();
 
+        if (response.needsQuestionnaireRefresh) {
+          Alert.alert(
+            'Necesitamos actualizar tu cuestionario',
+            'Tu cuestionario anterior ya no se puede recuperar con detalle. Actualízalo ahora para volver a guardar tus respuestas y mejorar el matching.',
+            [
+              {
+                text: 'Actualizar respuestas',
+                onPress: () => setCheckingStatus(false),
+              },
+              {
+                text: 'Volver',
+                onPress: () => navigation.goBack(),
+                style: 'cancel',
+              },
+            ],
+            { cancelable: false }
+          );
+          return;
+        }
+
         if (response.hasCompletedQuestionnaire) {
           Alert.alert(
             'Cuestionario completado',
