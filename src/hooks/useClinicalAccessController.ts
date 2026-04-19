@@ -29,7 +29,12 @@ export function useClinicalAccessController({
   }, []);
 
   const updateSessionView = useCallback(
-    (session: clinicalService.ClinicalUnlockResponse | clinicalService.ClinicalAccessSessionStatus | null) => {
+    (
+      session:
+        | clinicalService.ClinicalUnlockResponse
+        | clinicalService.ClinicalAccessSessionStatus
+        | null
+    ) => {
       setAccessStatus((current) =>
         current
           ? {
@@ -118,64 +123,81 @@ export function useClinicalAccessController({
         updateSessionView(session);
         return session;
       } catch {
-        await clearAccessState(
-          silent ? undefined : 'El área clínica se ha bloqueado. Vuelve a desbloquearla para continuar.'
-        );
+        // Ignore transient failures while the browser/app is temporarily backgrounded
+        // (file pickers, native dialogs, tab switches). We only clear access on explicit
+        // foreground failures or when the server later reports the session is inactive.
+        if (!silent) {
+          await clearAccessState(
+            'El area clinica se ha bloqueado. Vuelve a desbloquearla para continuar.'
+          );
+        }
         return null;
       }
     },
     [clearAccessState, updateSessionView]
   );
 
-  const acceptDataProcessingAgreement = useCallback(async (version = 'v1') => {
-    setAccessSubmitting(true);
-    try {
-      await clinicalService.acceptDataProcessingAgreement(version);
-      await loadStatus();
-    } finally {
-      setAccessSubmitting(false);
-    }
-  }, [loadStatus]);
+  const acceptDataProcessingAgreement = useCallback(
+    async (version = 'v1') => {
+      setAccessSubmitting(true);
+      try {
+        await clinicalService.acceptDataProcessingAgreement(version);
+        await loadStatus();
+      } finally {
+        setAccessSubmitting(false);
+      }
+    },
+    [loadStatus]
+  );
 
-  const setupClinicalPin = useCallback(async (pin: string) => {
-    setAccessSubmitting(true);
-    try {
-      await clinicalService.setupClinicalPin(pin);
-      await loadStatus();
-    } finally {
-      setAccessSubmitting(false);
-    }
-  }, [loadStatus]);
+  const setupClinicalPin = useCallback(
+    async (pin: string) => {
+      setAccessSubmitting(true);
+      try {
+        await clinicalService.setupClinicalPin(pin);
+        await loadStatus();
+      } finally {
+        setAccessSubmitting(false);
+      }
+    },
+    [loadStatus]
+  );
 
-  const rotateClinicalPin = useCallback(async (currentPin: string, nextPin: string) => {
-    setAccessSubmitting(true);
-    try {
-      await clinicalService.rotateClinicalPin(currentPin, nextPin);
-      await clearAccessState();
-      await loadStatus();
-    } finally {
-      setAccessSubmitting(false);
-    }
-  }, [clearAccessState, loadStatus]);
+  const rotateClinicalPin = useCallback(
+    async (currentPin: string, nextPin: string) => {
+      setAccessSubmitting(true);
+      try {
+        await clinicalService.rotateClinicalPin(currentPin, nextPin);
+        await clearAccessState();
+        await loadStatus();
+      } finally {
+        setAccessSubmitting(false);
+      }
+    },
+    [clearAccessState, loadStatus]
+  );
 
-  const unlockClinicalArea = useCallback(async (pin: string) => {
-    setAccessSubmitting(true);
-    try {
-      const session = await clinicalService.unlockClinicalArea(pin);
-      syncToken(session.token);
-      updateSessionView({
-        active: true,
-        sessionId: session.sessionId,
-        createdAt: new Date().toISOString(),
-        absoluteExpiresAt: session.absoluteExpiresAt,
-        idleExpiresAt: session.idleExpiresAt,
-      });
-      await refreshStatus(session.token);
-      return session;
-    } finally {
-      setAccessSubmitting(false);
-    }
-  }, [refreshStatus, syncToken, updateSessionView]);
+  const unlockClinicalArea = useCallback(
+    async (pin: string) => {
+      setAccessSubmitting(true);
+      try {
+        const session = await clinicalService.unlockClinicalArea(pin);
+        syncToken(session.token);
+        updateSessionView({
+          active: true,
+          sessionId: session.sessionId,
+          createdAt: new Date().toISOString(),
+          absoluteExpiresAt: session.absoluteExpiresAt,
+          idleExpiresAt: session.idleExpiresAt,
+        });
+        await refreshStatus(session.token);
+        return session;
+      } finally {
+        setAccessSubmitting(false);
+      }
+    },
+    [refreshStatus, syncToken, updateSessionView]
+  );
 
   const lockClinicalArea = useCallback(async () => {
     setAccessSubmitting(true);

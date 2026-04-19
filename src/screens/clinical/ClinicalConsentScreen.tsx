@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
@@ -113,7 +113,11 @@ export function ClinicalConsentScreen() {
   const canRevoke = Boolean(resolution) && isGranted && !needsLogin;
 
   return (
-    <View style={[styles.screen, { backgroundColor: theme.bg }]}>
+    <ScrollView
+      style={[styles.screen, { backgroundColor: theme.bg }]}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator
+    >
       <Card variant="default" padding="large">
         <View style={styles.hero}>
           <View style={[styles.iconWrap, { backgroundColor: theme.primaryAlpha12 }]}>
@@ -251,15 +255,19 @@ export function ClinicalConsentScreen() {
           </Card>
         </View>
       ) : null}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+  },
+  scrollContent: {
     padding: spacing.lg,
     gap: spacing.lg,
+    paddingBottom: spacing.xxl,
+    flexGrow: 1,
   },
   hero: {
     flexDirection: 'row',

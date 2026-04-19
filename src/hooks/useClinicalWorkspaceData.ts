@@ -34,6 +34,30 @@ const mergeSessionFoldersById = (
   );
 };
 
+const ACCESS_LOSS_MESSAGE_MATCHERS = [
+  'debes desbloquear el area clinica',
+  'debes volver a desbloquear el area clinica',
+  'el expediente clinico ya no esta disponible',
+  'el area clinica se ha bloqueado',
+  'sesion clinica no valida',
+  'sesion clinica caducada',
+];
+
+const normalizeMessage = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+const isClinicalAccessLossError = (error: unknown) => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const normalizedMessage = normalizeMessage(error.message);
+  return ACCESS_LOSS_MESSAGE_MATCHERS.some((matcher) => normalizedMessage.includes(matcher));
+};
+
 export function useClinicalWorkspaceData({
   clientId,
   token,
@@ -54,7 +78,12 @@ export function useClinicalWorkspaceData({
 
   const handleAccessError = useCallback(
     (error: unknown) => {
-      const message = error instanceof Error ? error.message : 'El expediente clínico ya no está disponible.';
+      if (!isClinicalAccessLossError(error)) {
+        return;
+      }
+
+      const message =
+        error instanceof Error ? error.message : 'El expediente clínico ya no está disponible.';
       onAccessLost?.(message);
     },
     [onAccessLost]
@@ -286,13 +315,11 @@ export function useClinicalWorkspaceData({
         const result = await clinicalService.requestDigitalConsent(clientId, version);
         await Promise.all([loadRecord(), onRequestRefreshClient?.()]);
         return result;
-      } catch (error) {
-        throw error;
       } finally {
         setConsentSubmitting(false);
       }
     },
-    [clientId, handleAccessError, loadRecord, onRequestRefreshClient]
+    [clientId, loadRecord, onRequestRefreshClient]
   );
 
   const attestClinicalConsent = useCallback(
