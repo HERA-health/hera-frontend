@@ -43,6 +43,16 @@ const buildNetworkError = (): Error & { code: string } => {
   return error;
 };
 
+const buildTimeoutError = (): Error & { code: string } => {
+  const error = new Error(
+    'La solicitud ha tardado demasiado en completarse. Intenta de nuevo en unos segundos.'
+  ) as Error & {
+    code: string;
+  };
+  error.code = 'REQUEST_TIMEOUT';
+  return error;
+};
+
 let accessToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;
 let sessionExpiredHandler: (() => void) | null = null;
@@ -220,6 +230,10 @@ api.interceptors.response.use(
     }
 
     if (!error.response) {
+      if (error.code === 'ECONNABORTED') {
+        return Promise.reject(buildTimeoutError());
+      }
+
       return Promise.reject(buildNetworkError());
     }
 

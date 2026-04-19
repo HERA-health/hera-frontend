@@ -124,8 +124,15 @@ export function getErrorMessage(error: unknown, defaultMessage = 'Ha ocurrido un
   // Handle Axios response errors
   if (hasResponseData(error)) {
     const data = error.response.data;
-    if (data.message) return data.message;
+    if (
+      data.message &&
+      data.message !== 'Ha ocurrido un error. Intenta de nuevo más tarde.' &&
+      data.message !== 'Ha ocurrido un error. Intenta de nuevo mÃ¡s tarde.'
+    ) {
+      return data.message;
+    }
     if (data.error) return data.error;
+    if (data.message) return data.message;
   }
 
   // Handle validation errors

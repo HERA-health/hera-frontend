@@ -458,7 +458,11 @@ export const requestDigitalConsent = async (
   version: string = 'v1'
 ): Promise<ClinicalConsentRequestResult> => {
   try {
-    const response = await api.post(`/clinical/records/${clientId}/consent/request`, { version });
+    const response = await api.post(
+      `/clinical/records/${clientId}/consent/request`,
+      { version },
+      { timeout: 30000 }
+    );
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo solicitar el consentimiento digital'));
