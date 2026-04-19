@@ -287,7 +287,6 @@ export function useClinicalWorkspaceData({
         await Promise.all([loadRecord(), onRequestRefreshClient?.()]);
         return result;
       } catch (error) {
-        handleAccessError(error);
         throw error;
       } finally {
         setConsentSubmitting(false);
