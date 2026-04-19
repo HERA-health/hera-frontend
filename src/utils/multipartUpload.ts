@@ -2,6 +2,7 @@ export interface UploadAsset {
   uri: string;
   mimeType?: string | null;
   fileName?: string | null;
+  name?: string | null;
   file?: Blob | null;
 }
 
@@ -51,6 +52,7 @@ export const buildMultipartFormData = async (
       ? originalBlob
       : originalBlob.slice(0, originalBlob.size, mimeType);
   const fileName = asset.fileName
+    || asset.name
     || getFileNameFromUri(asset.uri)
     || `${fallbackBaseName}.${getFileExtension(mimeType)}`;
 

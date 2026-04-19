@@ -60,7 +60,13 @@ const pickClinicalAsset = async (): Promise<UploadAsset | null> => {
     return null;
   }
 
-  return result.assets[0] as UploadAsset;
+  const asset = result.assets[0] as DocumentPicker.DocumentPickerAsset & UploadAsset;
+
+  return {
+    ...asset,
+    fileName: asset.fileName || asset.name || null,
+    name: asset.name || asset.fileName || null,
+  };
 };
 
 export function ClinicalGeneralWorkspace({

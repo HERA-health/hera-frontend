@@ -210,6 +210,80 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
     }
   };
 
+  const handleRequestDigitalConsent = useCallback(async () => {
+    try {
+      const result = await workspaceData.requestDigitalConsent();
+      showBanner(
+        'success',
+        `Solicitud enviada. El enlace estara disponible hasta el ${formatDate(result.expiresAt)}.`
+      );
+    } catch (error) {
+      showBanner(
+        'error',
+        getErrorMessage(error, 'No se pudo solicitar el consentimiento digital.')
+      );
+    }
+  }, [showBanner, workspaceData]);
+
+  const handleAttestClinicalConsent = useCallback(
+    async (evidenceDocumentId?: string) => {
+      try {
+        await workspaceData.attestClinicalConsent('v1', evidenceDocumentId);
+        showBanner('success', 'Consentimiento registrado correctamente en el expediente.');
+      } catch (error) {
+        showBanner('error', getErrorMessage(error, 'No se pudo registrar el consentimiento.'));
+      }
+    },
+    [showBanner, workspaceData]
+  );
+
+  const handleCloseClinicalProcess = useCallback(async () => {
+    try {
+      await workspaceData.closeClinicalProcess();
+      showBanner('success', 'Proceso asistencial cerrado correctamente.');
+    } catch (error) {
+      showBanner('error', getErrorMessage(error, 'No se pudo cerrar el proceso asistencial.'));
+    }
+  }, [showBanner, workspaceData]);
+
+  const handleSaveClinicalNote = useCallback(
+    async (content: string, sessionId?: string) => {
+      try {
+        await workspaceData.saveClinicalNote(content, sessionId);
+      } catch (error) {
+        showBanner('error', getErrorMessage(error, 'No se pudo guardar la nota clinica.'));
+      }
+    },
+    [showBanner, workspaceData]
+  );
+
+  const handleUploadClinicalDocument = useCallback(
+    async (
+      file: Parameters<typeof workspaceData.uploadClinicalDocument>[0],
+      category: Parameters<typeof workspaceData.uploadClinicalDocument>[1],
+      sessionId?: string
+    ) => {
+      try {
+        return await workspaceData.uploadClinicalDocument(file, category, sessionId);
+      } catch (error) {
+        showBanner('error', getErrorMessage(error, 'No se pudo subir el documento clinico.'));
+        return null;
+      }
+    },
+    [showBanner, workspaceData]
+  );
+
+  const handleOpenClinicalDocument = useCallback(
+    async (document: Parameters<typeof workspaceData.openClinicalDocument>[0]) => {
+      try {
+        await workspaceData.openClinicalDocument(document);
+      } catch (error) {
+        showBanner('error', getErrorMessage(error, 'No se pudo abrir el documento clinico.'));
+      }
+    },
+    [showBanner, workspaceData]
+  );
+
   const hasAcceptedDpa = Boolean(access.accessStatus?.acceptedDataProcessingAgreementAt);
   const hasPin = Boolean(access.accessStatus?.hasPin);
   const hasActiveSession = Boolean(access.token && access.accessStatus?.session.active);
@@ -553,12 +627,12 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
               loadingMoreNotes={workspaceData.loadingMoreNotes}
               loadingMoreDocuments={workspaceData.loadingMoreDocuments}
               loadingMoreConsentEvents={workspaceData.loadingMoreConsentEvents}
-              onSaveNote={workspaceData.saveClinicalNote}
-              onOpenDocument={workspaceData.openClinicalDocument}
-              onUploadDocument={workspaceData.uploadClinicalDocument}
-              onRequestDigitalConsent={workspaceData.requestDigitalConsent}
-              onAttestClinicalConsent={workspaceData.attestClinicalConsent}
-              onCloseClinicalProcess={workspaceData.closeClinicalProcess}
+              onSaveNote={handleSaveClinicalNote}
+              onOpenDocument={handleOpenClinicalDocument}
+              onUploadDocument={handleUploadClinicalDocument}
+              onRequestDigitalConsent={handleRequestDigitalConsent}
+              onAttestClinicalConsent={handleAttestClinicalConsent}
+              onCloseClinicalProcess={handleCloseClinicalProcess}
               onLoadMoreNotes={workspaceData.loadMoreNotes}
               onLoadMoreDocuments={workspaceData.loadMoreDocuments}
               onLoadMoreConsentEvents={workspaceData.loadMoreConsentEvents}
@@ -575,9 +649,9 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
               noteSaving={workspaceData.noteSaving}
               documentUploading={workspaceData.documentUploading}
               openingDocumentId={workspaceData.openingDocumentId}
-              onOpenDocument={workspaceData.openClinicalDocument}
-              onSaveNote={workspaceData.saveClinicalNote}
-              onUploadDocument={workspaceData.uploadClinicalDocument}
+              onOpenDocument={handleOpenClinicalDocument}
+              onSaveNote={handleSaveClinicalNote}
+              onUploadDocument={handleUploadClinicalDocument}
               onLoadMore={workspaceData.loadMoreSessionFolders}
               onReloadWorkspace={workspaceData.loadRecord}
               onRequestRefreshClient={onRequestRefreshClient}
