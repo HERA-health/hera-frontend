@@ -33,6 +33,7 @@ interface LocationMapPreviewProps {
 }
 
 const hasGoogleMapsApiKey = GOOGLE_MAPS_API_KEY.length > 0;
+const MAP_LOAD_RETRY_DELAY_MS = 500;
 
 export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
   lat,
@@ -60,9 +61,17 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
     }
 
     let isCancelled = false;
+    setIsLoading(true);
+    setError(null);
 
-    void loadGoogleMaps()
-      .then((maps) => {
+    const initializeMap = async (attempt = 0): Promise<void> => {
+      try {
+        await new Promise<void>((resolve) => {
+          window.requestAnimationFrame(() => resolve());
+        });
+
+        const maps = await loadGoogleMaps();
+
         if (isCancelled || !mapContainerRef.current) {
           return;
         }
@@ -115,16 +124,25 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
 
         setError(null);
         setIsLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         if (isCancelled) {
+          return;
+        }
+
+        if (attempt === 0) {
+          window.setTimeout(() => {
+            void initializeMap(1);
+          }, MAP_LOAD_RETRY_DELAY_MS);
           return;
         }
 
         console.error('Error loading Google Maps:', err);
         setError('Error al cargar el mapa');
         setIsLoading(false);
-      });
+      }
+    };
+
+    void initializeMap();
 
     return () => {
       isCancelled = true;

@@ -3,6 +3,7 @@ import { getErrorMessage, hasResponseData } from '../constants/errors';
 import { invalidateSpecialistsCache } from './specialistsService';
 import { buildImageFormData, type UploadAsset } from '../utils/multipartUpload';
 import { clearPersistedClinicalAccessSession } from './secureSessionStorage';
+import { Platform } from 'react-native';
 
 export interface AuthResponse {
   token: string;
@@ -34,6 +35,8 @@ export interface LoginData {
   password: string;
 }
 
+const getClientPlatform = (): 'web' | 'mobile' => (Platform.OS === 'web' ? 'web' : 'mobile');
+
 /**
  * Register a new user
  */
@@ -41,7 +44,10 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
   try {
     const response = await api.post<{ success: boolean; data: AuthResponse }>(
       '/auth/register',
-      data
+      {
+        ...data,
+        platform: getClientPlatform(),
+      }
     );
 
     if (response.data.success && response.data.data) {
@@ -82,7 +88,10 @@ export const login = async (data: LoginData): Promise<AuthResponse> => {
   try {
     const response = await api.post<{ success: boolean; data: AuthResponse }>(
       '/auth/login',
-      data
+      {
+        ...data,
+        platform: getClientPlatform(),
+      }
     );
 
     if (response.data.success && response.data.data) {

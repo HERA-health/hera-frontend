@@ -1526,7 +1526,6 @@ export function SpecialistProfileScreen() {
                     lng={profileData.officeLng}
                     address={profileData.officeAddress}
                     city={profileData.officeCity}
-                    width={isMobile ? windowWidth - 80 : 350}
                     height={180}
                   />
                 </View>

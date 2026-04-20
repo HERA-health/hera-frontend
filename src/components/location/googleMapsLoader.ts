@@ -6,11 +6,12 @@ let googleMapsLoadPromise: Promise<typeof google.maps> | null = null;
 
 const GOOGLE_MAPS_SCRIPT_ID = 'hera-google-maps-sdk';
 const GOOGLE_MAPS_SCRIPT_BASE_URL = 'https://maps.googleapis.com/maps/api/js';
+const GOOGLE_MAPS_CALLBACK_NAME = '__heraGoogleMapsInit';
+const GOOGLE_MAPS_TIMEOUT_MS = 20000;
 
-const waitForGoogleMaps = (): Promise<typeof google.maps> =>
+const waitForGoogleMaps = (timeoutMs = GOOGLE_MAPS_TIMEOUT_MS): Promise<typeof google.maps> =>
   new Promise((resolve, reject) => {
     const startedAt = Date.now();
-    const timeoutMs = 10000;
 
     const checkGoogleMaps = () => {
       if (window.google?.maps) {
@@ -29,10 +30,16 @@ const waitForGoogleMaps = (): Promise<typeof google.maps> =>
     checkGoogleMaps();
   });
 
-const waitForPlacesLibrary = (): Promise<google.maps.PlacesLibrary> =>
-  new Promise((resolve, reject) => {
+const waitForPlacesLibrary = async (): Promise<google.maps.PlacesLibrary> => {
+  const maps = await loadGoogleMaps();
+
+  if (typeof maps.importLibrary === 'function') {
+    const placesLibrary = await maps.importLibrary('places');
+    return placesLibrary as google.maps.PlacesLibrary;
+  }
+
+  return new Promise((resolve, reject) => {
     const startedAt = Date.now();
-    const timeoutMs = 10000;
 
     const checkPlacesLibrary = () => {
       const placesNamespace = window.google?.maps?.places;
@@ -41,7 +48,7 @@ const waitForPlacesLibrary = (): Promise<google.maps.PlacesLibrary> =>
         return;
       }
 
-      if (Date.now() - startedAt >= timeoutMs) {
+      if (Date.now() - startedAt >= GOOGLE_MAPS_TIMEOUT_MS) {
         reject(new Error('Google Maps Places library did not become ready in time'));
         return;
       }
@@ -51,6 +58,7 @@ const waitForPlacesLibrary = (): Promise<google.maps.PlacesLibrary> =>
 
     checkPlacesLibrary();
   });
+};
 
 export const loadGoogleMaps = async (): Promise<typeof google.maps> => {
   if (Platform.OS !== 'web') {
@@ -71,21 +79,84 @@ export const loadGoogleMaps = async (): Promise<typeof google.maps> => {
 
   googleMapsLoadPromise = new Promise((resolve, reject) => {
     const existingScript = document.getElementById(GOOGLE_MAPS_SCRIPT_ID) as HTMLScriptElement | null;
+    let settled = false;
 
-    const resolveWhenReady = () => {
-      void waitForGoogleMaps().then(resolve).catch(reject);
+    const settleWithError = (error: Error) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      googleMapsLoadPromise = null;
+      reject(error);
     };
 
+    const settleWhenReady = () => {
+      if (settled) {
+        return;
+      }
+
+      void waitForGoogleMaps()
+        .then((maps) => {
+          if (settled) {
+            return;
+          }
+
+          settled = true;
+          resolve(maps);
+        })
+        .catch((error) => {
+          settleWithError(
+            error instanceof Error ? error : new Error('Google Maps SDK did not become ready in time')
+          );
+        });
+    };
+
+    const previousCallback = window[GOOGLE_MAPS_CALLBACK_NAME];
+    window[GOOGLE_MAPS_CALLBACK_NAME] = () => {
+      if (typeof previousCallback === 'function') {
+        previousCallback();
+      }
+
+      settleWhenReady();
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      settleWithError(new Error('Google Maps SDK timed out while loading'));
+    }, GOOGLE_MAPS_TIMEOUT_MS);
+
+    const cleanupAfterResolve = () => {
+      window.clearTimeout(timeoutId);
+    };
+
+    const originalResolve = resolve;
+    resolve = ((maps: typeof google.maps) => {
+      cleanupAfterResolve();
+      originalResolve(maps);
+    }) as typeof resolve;
+
+    const originalReject = reject;
+    reject = ((reason?: unknown) => {
+      cleanupAfterResolve();
+      originalReject(reason);
+    }) as typeof reject;
+
     if (existingScript) {
-      resolveWhenReady();
-      existingScript.addEventListener('error', () => {
-        reject(new Error('Failed to load Google Maps SDK'));
-      }, { once: true });
+      existingScript.addEventListener(
+        'error',
+        () => {
+          settleWithError(new Error('Failed to load Google Maps SDK'));
+        },
+        { once: true },
+      );
+
+      settleWhenReady();
       return;
     }
 
     const params = new URLSearchParams({
       key: GOOGLE_MAPS_API_KEY,
+      callback: GOOGLE_MAPS_CALLBACK_NAME,
       language: 'es',
       libraries: 'places',
       loading: 'async',
@@ -97,10 +168,8 @@ export const loadGoogleMaps = async (): Promise<typeof google.maps> => {
     script.src = `${GOOGLE_MAPS_SCRIPT_BASE_URL}?${params.toString()}`;
     script.async = true;
     script.defer = true;
-    script.onload = resolveWhenReady;
     script.onerror = () => {
-      googleMapsLoadPromise = null;
-      reject(new Error('Failed to load Google Maps SDK'));
+      settleWithError(new Error('Failed to load Google Maps SDK'));
     };
 
     document.head.appendChild(script);
@@ -109,7 +178,5 @@ export const loadGoogleMaps = async (): Promise<typeof google.maps> => {
   return googleMapsLoadPromise;
 };
 
-export const loadGoogleMapsPlacesLibrary = async (): Promise<google.maps.PlacesLibrary> => {
-  await loadGoogleMaps();
-  return waitForPlacesLibrary();
-};
+export const loadGoogleMapsPlacesLibrary = async (): Promise<google.maps.PlacesLibrary> =>
+  waitForPlacesLibrary();

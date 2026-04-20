@@ -5,8 +5,14 @@ import { Platform } from 'react-native';
 const REFRESH_TOKEN_KEY = '@hera_refresh_token';
 
 const isNativeSecureStoreAvailable = Platform.OS === 'ios' || Platform.OS === 'android';
+const isWebPlatform = Platform.OS === 'web';
 
 const setPersistentValue = async (key: string, value: string): Promise<void> => {
+  if (isWebPlatform) {
+    await AsyncStorage.removeItem(key);
+    return;
+  }
+
   if (isNativeSecureStoreAvailable) {
     await SecureStore.setItemAsync(key, value, {
       keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
@@ -18,6 +24,11 @@ const setPersistentValue = async (key: string, value: string): Promise<void> => 
 };
 
 const getPersistentValue = async (key: string): Promise<string | null> => {
+  if (isWebPlatform) {
+    await AsyncStorage.removeItem(key);
+    return null;
+  }
+
   if (isNativeSecureStoreAvailable) {
     return SecureStore.getItemAsync(key);
   }
@@ -26,6 +37,11 @@ const getPersistentValue = async (key: string): Promise<string | null> => {
 };
 
 const removePersistentValue = async (key: string): Promise<void> => {
+  if (isWebPlatform) {
+    await AsyncStorage.removeItem(key);
+    return;
+  }
+
   if (isNativeSecureStoreAvailable) {
     await SecureStore.deleteItemAsync(key);
     return;

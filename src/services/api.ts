@@ -3,6 +3,7 @@ import axios, {
   AxiosHeaders,
   type InternalAxiosRequestConfig,
 } from 'axios';
+import { Platform } from 'react-native';
 import getEnvVars from '../config/api';
 import {
   clearPersistedRefreshToken,
@@ -13,6 +14,7 @@ import {
 const { apiUrl } = getEnvVars();
 const API_BASE_URL = apiUrl;
 const API_DEBUG_LOGGING_ENABLED = __DEV__ && process.env.EXPO_PUBLIC_DEBUG_API === 'true';
+const IS_WEB_PLATFORM = Platform.OS === 'web';
 
 const logApiDebug = (message: string, meta?: Record<string, unknown>) => {
   if (!API_DEBUG_LOGGING_ENABLED) {
@@ -60,6 +62,7 @@ let sessionExpiredHandler: (() => void) | null = null;
 const publicApi = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
+  withCredentials: IS_WEB_PLATFORM,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -68,6 +71,7 @@ const publicApi = axios.create({
 export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
+  withCredentials: IS_WEB_PLATFORM,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -90,6 +94,21 @@ const setAuthorizationHeader = (
   const headers =
     config.headers instanceof AxiosHeaders ? config.headers : new AxiosHeaders(config.headers);
   headers.set('Authorization', `Bearer ${token}`);
+  config.headers = headers;
+
+  return config;
+};
+
+const clearAuthorizationHeader = (
+  config: InternalAxiosRequestConfig
+): InternalAxiosRequestConfig => {
+  if (!config.headers) {
+    return config;
+  }
+
+  const headers =
+    config.headers instanceof AxiosHeaders ? config.headers : new AxiosHeaders(config.headers);
+  headers.delete('Authorization');
   config.headers = headers;
 
   return config;
@@ -121,6 +140,12 @@ const clearAccessToken = () => {
 };
 
 export const setAuthSession = async (token: string, refreshToken: string): Promise<void> => {
+  if (IS_WEB_PLATFORM) {
+    clearAccessToken();
+    await clearPersistedRefreshToken();
+    return;
+  }
+
   accessToken = token;
   await persistRefreshToken(refreshToken);
 };
@@ -136,18 +161,21 @@ const refreshAccessToken = async (): Promise<string | null> => {
   }
 
   refreshPromise = (async () => {
-    const refreshToken = await getPersistedRefreshToken();
-
-    if (!refreshToken) {
-      await clearAuthSession();
-      return null;
-    }
-
     try {
+      const refreshToken = IS_WEB_PLATFORM ? null : await getPersistedRefreshToken();
+
+      if (!IS_WEB_PLATFORM && !refreshToken) {
+        await clearAuthSession();
+        return null;
+      }
+
       const response = await publicApi.post<{
         success: boolean;
         data?: { token: string; refreshToken: string };
-      }>('/auth/refresh', { refreshToken });
+      }>(
+        '/auth/refresh',
+        IS_WEB_PLATFORM ? {} : { refreshToken }
+      );
 
       if (!response.data.success || !response.data.data) {
         await clearAuthSession();
@@ -174,11 +202,14 @@ export const registerSessionExpiredHandler = (handler: (() => void) | null): voi
 };
 
 export const logoutServerSession = async (): Promise<void> => {
-  const refreshToken = await getPersistedRefreshToken();
-
   try {
-    if (refreshToken) {
-      await publicApi.post('/auth/logout', { refreshToken });
+    if (IS_WEB_PLATFORM) {
+      await publicApi.post('/auth/logout', {});
+    } else {
+      const refreshToken = await getPersistedRefreshToken();
+      if (refreshToken) {
+        await publicApi.post('/auth/logout', { refreshToken });
+      }
     }
   } catch {
     // Ignore logout transport errors and clear local session regardless.
@@ -189,8 +220,10 @@ export const logoutServerSession = async (): Promise<void> => {
 
 api.interceptors.request.use(
   (config) => {
-    if (accessToken) {
+    if (!IS_WEB_PLATFORM && accessToken) {
       setAuthorizationHeader(config, accessToken);
+    } else if (IS_WEB_PLATFORM) {
+      clearAuthorizationHeader(config);
     }
 
     normalizeMultipartHeaders(config);
@@ -251,7 +284,11 @@ api.interceptors.response.use(
       const nextToken = await refreshAccessToken();
 
       if (nextToken) {
-        setAuthorizationHeader(originalRequest, nextToken);
+        if (!IS_WEB_PLATFORM) {
+          setAuthorizationHeader(originalRequest, nextToken);
+        } else {
+          clearAuthorizationHeader(originalRequest);
+        }
         return api(originalRequest);
       }
 
