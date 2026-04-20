@@ -21,7 +21,7 @@ export interface SpecialistData {
   avatar: string | null;
   user: {
     name: string;
-    email: string;
+    avatar?: string | null;
   };
   affinity?: number;
   matchedAttributes?: string[];

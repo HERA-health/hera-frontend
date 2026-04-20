@@ -91,7 +91,7 @@ describe('QuestionnaireScreen', () => {
           pricePerSession: 50,
           firstVisitFree: true,
           avatar: null,
-          user: { name: 'Hera', email: 'hera@example.com' },
+          user: { name: 'Hera' },
         },
       ],
     });

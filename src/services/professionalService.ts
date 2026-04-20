@@ -84,9 +84,7 @@ export interface Client {
   archivedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
-  homeAddress?: string | null;
   homeCity?: string | null;
-  homePostalCode?: string | null;
   homeCountry?: string | null;
   user: {
     id: string | null;
