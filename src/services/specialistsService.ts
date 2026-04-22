@@ -3,6 +3,9 @@ import { getErrorMessage } from '../constants/errors';
 import type { Specialist } from '../screens/specialist-profile/types';
 
 const SPECIALISTS_CACHE_TTL_MS = 30_000;
+const LEGACY_DEFAULT_SPECIALIST_DESCRIPTION = 'new professional';
+const DEFAULT_SPECIALIST_DESCRIPTION = 'Nuevo especialista en HERA';
+const LEGACY_DEFAULT_LANGUAGE = 'english';
 
 interface CacheEntry<T> {
   data: T;
@@ -132,6 +135,40 @@ export const invalidateSpecialistsCache = (): void => {
   publicSpecialistsRequests.clear();
 };
 
+export const normalizeSpecialistDescription = (description?: string | null): string => {
+  const trimmedDescription = description?.trim();
+
+  if (!trimmedDescription) {
+    return DEFAULT_SPECIALIST_DESCRIPTION;
+  }
+
+  if (trimmedDescription.toLowerCase() === LEGACY_DEFAULT_SPECIALIST_DESCRIPTION) {
+    return DEFAULT_SPECIALIST_DESCRIPTION;
+  }
+
+  return trimmedDescription;
+};
+
+export const normalizeSpecialistLanguages = (languages: unknown): string[] => {
+  if (!Array.isArray(languages)) {
+    return [];
+  }
+
+  const cleanedLanguages = languages
+    .filter((language): language is string => typeof language === 'string')
+    .map((language) => language.trim())
+    .filter(Boolean);
+
+  if (
+    cleanedLanguages.length === 1
+    && cleanedLanguages[0].toLowerCase() === LEGACY_DEFAULT_LANGUAGE
+  ) {
+    return ['spanish'];
+  }
+
+  return cleanedLanguages;
+};
+
 /**
  * Maps a raw API SpecialistData response to the Specialist profile shape
  * used by the UI components. Pure function - no side effects.
@@ -143,7 +180,7 @@ export const mapSpecialistToProfile = (data: SpecialistData): Specialist => {
     name: data.user.name,
     title: data.specialization,
     avatar: data.avatar || undefined,
-    bio: data.description,
+    bio: normalizeSpecialistDescription(data.description),
     rating: data.rating,
     reviewCount: data.reviewCount,
     pricePerSession: data.pricePerSession,
@@ -152,7 +189,7 @@ export const mapSpecialistToProfile = (data: SpecialistData): Specialist => {
     therapeuticApproach: Array.isArray(mp?.therapeuticApproach)
       ? (mp.therapeuticApproach as string[]).join(', ')
       : (mp?.therapeuticApproach as string) || undefined,
-    languages: (mp?.language as string[]) || [],
+    languages: normalizeSpecialistLanguages(mp?.language),
     sessionTypes: (() => {
       const types: ('VIDEO_CALL' | 'IN_PERSON' | 'PHONE_CALL')[] = [];
       if (data.offersOnline !== false) types.push('VIDEO_CALL');

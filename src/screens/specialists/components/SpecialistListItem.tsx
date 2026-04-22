@@ -7,6 +7,7 @@ import { AnimatedPressable } from '../../../components/common/AnimatedPressable'
 import { Button } from '../../../components/common/Button';
 import { spacing } from '../../../constants/colors';
 import type { Theme } from '../../../constants/theme';
+import { getSpecialistDisplayTags } from '../../../utils/specialistTagLabels';
 
 interface SpecialistListItemProps {
   specialist: Specialist;
@@ -22,8 +23,9 @@ export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
 }) => {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
-  const displayTags = specialist.tags.slice(0, 3);
-  const remainingTags = specialist.tags.length > 3 ? specialist.tags.length - 3 : 0;
+  const allDisplayTags = getSpecialistDisplayTags(specialist);
+  const displayTags = allDisplayTags.slice(0, 3);
+  const remainingTags = allDisplayTags.length > 3 ? allDisplayTags.length - 3 : 0;
 
   return (
     <AnimatedPressable
@@ -77,8 +79,8 @@ export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
             </View>
             <View style={styles.metaPill}>
               <Ionicons name="cash-outline" size={13} color={theme.primary} />
-              <Text style={styles.metaStrong}>{specialist.pricePerSession}€</Text>
-              <Text style={styles.metaSoft}>/ sesión</Text>
+              <Text style={styles.metaStrong}>{`${specialist.pricePerSession}\u20ac`}</Text>
+              <Text style={styles.metaSoft}>{'/ sesi\u00f3n'}</Text>
             </View>
             {specialist.distance !== undefined ? (
               <View style={styles.metaPill}>

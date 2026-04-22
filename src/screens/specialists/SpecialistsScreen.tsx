@@ -151,7 +151,7 @@ const SpecialistsScreen: React.FC = () => {
               specialization: specialist.specialization,
               rating: specialist.rating,
               reviewCount: specialist.reviewCount,
-              description: specialist.description,
+              description: specialistsService.normalizeSpecialistDescription(specialist.description),
               affinityPercentage,
               tags: (specialist.matchedAttributes || [])
                 .map((attr) => attributeLabels[attr] || attr)
@@ -189,7 +189,7 @@ const SpecialistsScreen: React.FC = () => {
         specialization: specialist.specialization,
         rating: specialist.rating,
         reviewCount: specialist.reviewCount,
-        description: specialist.description,
+        description: specialistsService.normalizeSpecialistDescription(specialist.description),
         affinityPercentage: Math.round((specialist.rating / 5) * 100),
         tags: specialist.matchedAttributes || [],
         pricePerSession: specialist.pricePerSession,
@@ -338,7 +338,7 @@ const SpecialistsScreen: React.FC = () => {
       });
   }, [combinedSpecialists, searchQuery, selectedFilters, sortOption]);
 
-  const renderQuestionnaireBanner = () => (
+  const renderLegacyQuestionnaireBanner = () => (
     <AnimatedPressable
       onPress={() => navigation.navigate('Questionnaire')}
       style={styles.heroBanner}
@@ -363,7 +363,7 @@ const SpecialistsScreen: React.FC = () => {
     </AnimatedPressable>
   );
 
-  const renderRefineBanner = () => (
+  const renderLegacyRefineBanner = () => (
     <AnimatedPressable
       onPress={() => navigation.navigate('Questionnaire')}
       style={styles.refineBanner}
@@ -379,6 +379,82 @@ const SpecialistsScreen: React.FC = () => {
         <Text style={styles.refineActionText}>Refinar</Text>
         <Ionicons name="refresh" size={14} color={theme.primary} />
       </View>
+    </AnimatedPressable>
+  );
+
+  const renderQuestionnaireBanner = () => {
+    const hasQuestionnaire = hasCompletedQuestionnaire;
+
+    return (
+      <View style={styles.heroBanner}>
+        <LinearGradient
+          colors={[theme.primary, theme.primaryDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.heroBannerGradient, hasQuestionnaire ? styles.heroBannerGradientCompact : null]}
+        >
+          <View style={styles.heroBadge}>
+            <Ionicons
+              name={hasQuestionnaire ? 'refresh-circle-outline' : 'heart'}
+              size={22}
+              color={theme.textOnPrimary}
+            />
+          </View>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroTitle}>
+              {hasQuestionnaire ? 'Mantén tus matches al día' : 'Descubre tus mejores matches'}
+            </Text>
+            <Text style={styles.heroSubtitle}>
+              {hasQuestionnaire
+                ? 'Si han cambiado tus necesidades, repite el cuestionario para actualizar tus recomendaciones.'
+                : 'Completa el cuestionario para ver recomendaciones realmente personalizadas.'}
+            </Text>
+          </View>
+          <AnimatedPressable
+            onPress={() => navigation.navigate('Questionnaire')}
+            hoverLift={false}
+            style={[styles.heroAction, hasQuestionnaire ? styles.heroActionSecondary : null]}
+          >
+            <Text style={styles.heroActionText}>
+              {hasQuestionnaire ? 'Repetir cuestionario' : 'Empezar cuestionario'}
+            </Text>
+            <Ionicons
+              name={hasQuestionnaire ? 'refresh' : 'arrow-forward'}
+              size={15}
+              color={theme.textOnPrimary}
+            />
+          </AnimatedPressable>
+        </LinearGradient>
+      </View>
+    );
+  };
+
+  const renderQuestionnaireAction = (compact = false) => (
+    <AnimatedPressable
+      onPress={() => navigation.navigate('Questionnaire')}
+      hoverLift={false}
+      style={[
+        styles.questionnaireAction,
+        compact ? styles.questionnaireActionCompact : null,
+        hasCompletedQuestionnaire ? styles.questionnaireActionActive : null,
+      ]}
+      accessibilityLabel={hasCompletedQuestionnaire ? 'Repetir cuestionario' : 'Hacer cuestionario'}
+    >
+      <Ionicons
+        name={hasCompletedQuestionnaire ? 'refresh' : 'clipboard-outline'}
+        size={14}
+        color={hasCompletedQuestionnaire ? theme.primary : theme.textSecondary}
+      />
+      {!compact ? (
+        <Text
+          style={[
+            styles.questionnaireActionText,
+            hasCompletedQuestionnaire ? styles.questionnaireActionTextActive : null,
+          ]}
+        >
+          {hasCompletedQuestionnaire ? 'Repetir cuestionario' : 'Hacer cuestionario'}
+        </Text>
+      ) : null}
     </AnimatedPressable>
   );
 
@@ -468,6 +544,7 @@ const SpecialistsScreen: React.FC = () => {
             <View style={styles.searchWrap}>
               <SearchBar value={searchQuery} onChangeText={setSearchQuery} />
             </View>
+            {!isMobile && user?.type === 'client' ? renderQuestionnaireAction() : null}
             {!isMobile ? <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} /> : null}
           </View>
         </View>
@@ -475,6 +552,7 @@ const SpecialistsScreen: React.FC = () => {
         {isMobile ? (
           <View style={styles.mobileToolsRow}>
             <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+            {user?.type === 'client' ? renderQuestionnaireAction(true) : null}
           </View>
         ) : null}
 
@@ -514,6 +592,7 @@ const SpecialistsScreen: React.FC = () => {
                 }}
               />
             ) : null}
+
           </View>
 
           <View style={styles.filtersRail}>
@@ -533,9 +612,6 @@ const SpecialistsScreen: React.FC = () => {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {!loading && !hasCompletedQuestionnaire ? renderQuestionnaireBanner() : null}
-          {!loading && hasCompletedQuestionnaire ? renderRefineBanner() : null}
-
           <View style={styles.resultsHeader}>
             <Text style={styles.resultsTitle}>Especialistas disponibles</Text>
             {!loading ? (
@@ -643,6 +719,10 @@ function createStyles(theme: Theme, isDark: boolean) {
     mobileToolsRow: {
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.md,
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      gap: spacing.sm,
     },
     discoveryBar: {
       paddingHorizontal: spacing.lg,
@@ -753,6 +833,42 @@ function createStyles(theme: Theme, isDark: boolean) {
     tabTextActive: {
       color: theme.primaryDark,
     },
+    questionnaireAction: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      gap: 7,
+      minHeight: 42,
+      paddingHorizontal: 14,
+      paddingVertical: 9,
+      borderRadius: 999,
+      backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+    },
+    questionnaireActionCompact: {
+      width: 42,
+      minWidth: 42,
+      height: 42,
+      minHeight: 42,
+      justifyContent: 'center',
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+      gap: 0,
+      borderRadius: 14,
+    },
+    questionnaireActionActive: {
+      backgroundColor: theme.primaryAlpha12,
+      borderColor: theme.primaryMuted,
+    },
+    questionnaireActionText: {
+      fontSize: 12,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.textSecondary,
+    },
+    questionnaireActionTextActive: {
+      color: theme.primaryDark,
+    },
     scroll: {
       flex: 1,
     },
@@ -776,6 +892,11 @@ function createStyles(theme: Theme, isDark: boolean) {
       alignItems: 'center',
       gap: spacing.md,
       padding: spacing.lg,
+      justifyContent: 'space-between',
+      flexWrap: 'wrap',
+    },
+    heroBannerGradientCompact: {
+      paddingVertical: spacing.md,
     },
     heroBadge: {
       width: 48,
@@ -787,6 +908,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     },
     heroCopy: {
       flex: 1,
+      minWidth: 220,
     },
     heroTitle: {
       fontSize: 18,
@@ -799,6 +921,33 @@ function createStyles(theme: Theme, isDark: boolean) {
       fontFamily: theme.fontSans,
       color: 'rgba(255,255,255,0.86)',
       lineHeight: 20,
+    },
+    heroAction: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      alignSelf: 'flex-start',
+      gap: 8,
+      minHeight: 44,
+      paddingHorizontal: 16,
+      paddingVertical: 11,
+      borderRadius: 999,
+      backgroundColor: 'rgba(255,255,255,0.16)',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.24)',
+      shadowColor: 'rgba(26, 38, 28, 0.22)',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 1,
+      shadowRadius: 18,
+      elevation: 2,
+    },
+    heroActionSecondary: {
+      backgroundColor: 'rgba(255,255,255,0.12)',
+    },
+    heroActionText: {
+      fontSize: 13,
+      fontFamily: theme.fontSansBold,
+      color: theme.textOnPrimary,
     },
     refineBanner: {
       flexDirection: 'row',
@@ -871,11 +1020,13 @@ function createStyles(theme: Theme, isDark: boolean) {
     gridRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
+      alignItems: 'stretch',
       gap: spacing.md,
       marginBottom: spacing.md,
     },
     gridItem: {
       minWidth: 280,
+      alignSelf: 'stretch',
       flexGrow: 0,
       flexShrink: 0,
     },

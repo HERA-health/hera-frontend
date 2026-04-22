@@ -257,8 +257,10 @@ export default function HomeScreen() {
       <View style={styles.heroTop}>
         <View style={styles.heroTextBlock}>
           <Text style={[styles.heroDate, { color: theme.textMuted, fontFamily: theme.fontSans }]}>{getCurrentDate()}</Text>
-          <Text style={[styles.heroGreeting, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>{getGreeting()},</Text>
-          <Text style={[styles.heroName, { color: theme.primary, fontFamily: theme.fontDisplay }]}>{getFirstName()}</Text>
+          <View style={styles.heroHeadingRow}>
+            <Text style={[styles.heroGreeting, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>{getGreeting()},</Text>
+            <Text style={[styles.heroName, { color: theme.primary, fontFamily: theme.fontDisplay }]}>{getFirstName()}</Text>
+          </View>
         </View>
         <AnimatedPressable onPress={() => navigation.navigate('Profile')} hoverTranslateY={-2} pressScale={0.98}>
           <View style={styles.avatarWrapper}>
@@ -315,6 +317,13 @@ export default function HomeScreen() {
         {([
           { icon: 'calendar-outline', label: 'Sesiones', screen: 'Sessions', color: theme.secondary, bg: theme.secondary + '18' },
           { icon: 'search', label: 'Buscar', screen: hasCompletedQuestionnaire ? 'Specialists' : 'Questionnaire', color: theme.primary, bg: theme.primaryAlpha12 },
+          {
+            icon: hasCompletedQuestionnaire ? 'refresh' : 'clipboard-outline',
+            label: hasCompletedQuestionnaire ? 'Cuestionario' : 'Cuestionario',
+            screen: 'Questionnaire',
+            color: theme.textSecondary,
+            bg: theme.bgAlt,
+          },
           { icon: 'person-outline', label: 'Mi perfil', screen: 'Profile', color: theme.textSecondary, bg: theme.bgAlt },
         ] as Array<{ icon: React.ComponentProps<typeof Ionicons>['name']; label: string; screen: QuickActionScreen; color: string; bg: string }>).map(({ icon, label, screen, color, bg }) => (
           <AnimatedPressable
@@ -588,7 +597,7 @@ export default function HomeScreen() {
     return (
       <Animated.View style={[styles.section, animStyle(4)]}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>Recomendados</Text>
+          <Text style={[styles.sectionTitle, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>Especialistas recomendados</Text>
           <AnimatedPressable onPress={() => navigation.navigate('Specialists')} hoverLift={false} pressScale={0.98}>
             <Text style={[styles.sectionLink, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>Ver todos</Text>
           </AnimatedPressable>
@@ -702,7 +711,6 @@ export default function HomeScreen() {
             <View style={styles.colRight}>
               {renderStats()}
               {renderRecommendedSpecialists()}
-              {renderCTA()}
             </View>
           </View>
         ) : (
@@ -716,7 +724,6 @@ export default function HomeScreen() {
               3
             )}
             {renderRecommendedSpecialists()}
-            {renderCTA()}
           </>
         )}
 
@@ -789,6 +796,12 @@ const styles = StyleSheet.create({
   heroTextBlock: {
     flex: 1,
   },
+  heroHeadingRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
+    columnGap: 8,
+  },
   heroDate: {
     fontSize: 12,
     fontWeight: '500',
@@ -822,8 +835,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingVertical: 7,
-    paddingHorizontal: 13,
+    minHeight: 40,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     borderRadius: 20,
   },
   heroQuickPillText: {
@@ -1212,10 +1226,11 @@ const styles = StyleSheet.create({
   specialistsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    justifyContent: 'space-between',
+    rowGap: 10,
   },
   specialistCardCompact: {
-    width: '48%',
+    width: '49.2%',
     backgroundColor: 'rgba(255,255,255,0.88)',
     borderRadius: 14,
     padding: 12,

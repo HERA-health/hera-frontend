@@ -15,6 +15,7 @@ import { AnimatedPressable } from '../common/AnimatedPressable';
 import { Specialist } from '../../constants/types';
 import { spacing } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
+import { getSpecialistDisplayTags } from '../../utils/specialistTagLabels';
 
 interface SpecialistCardProps {
   specialist: Specialist;
@@ -23,80 +24,11 @@ interface SpecialistCardProps {
   position?: 1 | 2 | 3;
 }
 
-const APPROACH_LABELS: Record<string, string> = {
-  cbt: 'TCC',
-  'cognitive-behavioral': 'TCC',
-  act: 'ACT',
-  emdr: 'EMDR',
-  psychodynamic: 'Psicodinámico',
-  humanistic: 'Humanista',
-  systemic: 'Sistémico',
-  mindfulness: 'Mindfulness',
-  gestalt: 'Gestalt',
-};
-
-const TAG_LABELS: Record<string, string> = {
-  ansiedad: 'Ansiedad',
-  anxiety: 'Ansiedad',
-  depresion: 'Depresión',
-  depression: 'Depresión',
-  pareja: 'Pareja',
-  couples: 'Pareja',
-  trauma: 'Trauma',
-  estres: 'Estrés',
-  stress: 'Estrés',
-  autoestima: 'Autoestima',
-  self_esteem: 'Autoestima',
-  selfesteem: 'Autoestima',
-  duelo: 'Duelo',
-  grief: 'Duelo',
-  infantil: 'Infantil',
-  adolescentes: 'Adolescentes',
-  familia: 'Familia',
-  comunicacion: 'Comunicación',
-  conflictos: 'Conflictos',
-  adultos: 'Adultos',
-  mindfulness: 'Mindfulness',
-  emdr: 'EMDR',
-  tcc: 'TCC',
-};
-
-const prettifyTag = (value: string): string => {
-  const normalized = value.trim().toLowerCase().replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e').replace(/[íìï]/g, 'i').replace(/[óòö]/g, 'o').replace(/[úùü]/g, 'u').replace(/\s+/g, '_');
-  return (
-    TAG_LABELS[normalized] ??
-    value
-      .trim()
-      .replace(/[_-]+/g, ' ')
-      .replace(/\b\w/g, (letter) => letter.toUpperCase())
-  );
-};
-
-const getDisplayTags = (specialist: Specialist): string[] => {
-  const therapyTags = (specialist.matchingProfile?.therapeuticApproach ?? [])
-    .map((approach) => APPROACH_LABELS[approach.trim().toLowerCase()] ?? prettifyTag(approach))
-    .filter(Boolean);
-
-  const specialtyTags = (specialist.matchingProfile?.specialties ?? [])
-    .map((specialty) => prettifyTag(specialty))
-    .filter(Boolean);
-
-  const fallbackTags = (specialist.tags ?? [])
-    .map((tag) => prettifyTag(tag))
-    .filter((tag) =>
-      ![
-        'Especialidad Coincidente',
-        'Enfoque Terapéutico',
-        'Personalidad Compatible',
-        'Estilo De Sesión',
-        'Disponibilidad',
-        'Modalidad Compatible',
-        'Alta Experiencia',
-      ].includes(tag),
-    );
-
-  return Array.from(new Set([...therapyTags, ...specialtyTags, ...fallbackTags])).slice(0, 4);
-};
+const DESKTOP_CARD_HEIGHT = 274;
+const TABLET_CARD_HEIGHT = 286;
+const MOBILE_CARD_HEIGHT = 298;
+const DESCRIPTION_SLOT_HEIGHT = 40;
+const TAGS_SLOT_HEIGHT = 36;
 
 function AffinityRing({ pct, theme }: { pct: number; theme: Theme }) {
   const radius = 20;
@@ -148,8 +80,13 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
   const dynamicStyles = useMemo(() => createStyles(theme), [theme]);
   const { width } = useWindowDimensions();
   const isWideScreen = width > 768;
+  const cardHeight = width >= 1180
+    ? DESKTOP_CARD_HEIGHT
+    : width >= 768
+      ? TABLET_CARD_HEIGHT
+      : MOBILE_CARD_HEIGHT;
   const affinityPct = specialist.affinityPercentage ?? 0;
-  const visibleTags = getDisplayTags(specialist);
+  const visibleTags = getSpecialistDisplayTags(specialist).slice(0, 4);
 
   const medalGradients: Record<number, [string, string]> = {
     1: theme.medals.gold,
@@ -166,6 +103,7 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
       hoverLift
       style={[
         dynamicStyles.card,
+        { height: cardHeight },
         position ? { borderColor: `${medalGradients[position][0]}55`, borderWidth: 1.5 } : null,
         style,
       ]}
@@ -249,7 +187,7 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
                 </Text>
               </View>
               <Text style={[styles.reviewCount, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
-                ({specialist.reviewCount} reseñas)
+                {`(${specialist.reviewCount} rese\u00f1as)`}
               </Text>
             </View>
           </View>
@@ -300,10 +238,10 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
       <View style={[styles.footer, { borderTopColor: theme.border }]}>
         <View style={styles.priceRow}>
           <Text style={[styles.price, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>
-            €{specialist.pricePerSession}
+            {`${specialist.pricePerSession}\u20ac`}
           </Text>
           <Text style={[styles.priceLabel, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
-            / sesión
+            {'/ sesi\u00f3n'}
           </Text>
           {specialist.firstVisitFree ? (
             <View style={[styles.pricePerkBadge, { backgroundColor: theme.secondaryAlpha12 }]}>
@@ -339,6 +277,7 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
 function createStyles(theme: Theme) {
   return StyleSheet.create({
     card: {
+      flex: 1,
       borderRadius: 18,
       padding: spacing.lg,
       marginBottom: spacing.md,
@@ -475,12 +414,14 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 14,
     lineHeight: 20,
+    minHeight: DESCRIPTION_SLOT_HEIGHT,
     marginBottom: spacing.md,
   },
   tags: {
     flexDirection: 'row',
     flexWrap: 'nowrap',
     gap: 6,
+    minHeight: TAGS_SLOT_HEIGHT,
     marginBottom: spacing.md,
   },
   tag: {
