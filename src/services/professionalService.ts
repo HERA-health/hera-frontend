@@ -1,4 +1,4 @@
-import { api } from './api';
+﻿import { api } from './api';
 import { getErrorMessage } from '../constants/errors';
 import type { Specialist } from '../constants/types';
 import { buildImageFormData, type UploadAsset } from '../utils/multipartUpload';
@@ -440,6 +440,12 @@ export interface VerificationStatusResponse {
   rejectionReason?: string;
 }
 
+const getVerificationSubmissionErrorMessage = (error: unknown): string =>
+  getErrorMessage(
+    error,
+    'No hemos podido enviar tu verificación. Inténtalo de nuevo en un momento.'
+  );
+
 export const getVerificationStatus = async (): Promise<VerificationStatusResponse> => {
   try {
     const response = await api.get('/specialists/me/verification');
@@ -480,7 +486,7 @@ export const submitVerification = async (data: VerificationData): Promise<Verifi
 
     throw new Error('Error al enviar la verificación');
   } catch (error: unknown) {
-    throw new Error(getErrorMessage(error, 'Error al enviar la verificación. Intenta de nuevo.'));
+    throw new Error(getVerificationSubmissionErrorMessage(error));
   }
 };
 
@@ -511,3 +517,4 @@ export const deleteGalleryPhoto = async (url: string): Promise<void> => {
     throw new Error(getErrorMessage(error, 'No se pudo eliminar la foto de la galería'));
   }
 };
+

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ProfessionalVerificationScreen - Professional Identity Verification
  * Shown after specialist registration to collect colegiado number and carnet de colegiado photo.
  * Follows the exact same visual design as RegisterScreen for a seamless flow.
@@ -184,24 +184,29 @@ export function ProfessionalVerificationScreen() {
     );
   };
 
+  const getFriendlyVerificationErrorMessage = (error: unknown): string =>
+    getErrorMessage(
+      error,
+      'No hemos podido enviar tu verificación. Inténtalo de nuevo en un momento.'
+    );
+
   const handleSubmit = async () => {
     setLocalError('');
 
-    // Validation
     if (!colegiadoNumber.trim()) {
-      setLocalError('Por favor, ingresa tu número de colegiado');
+      setLocalError('Introduce tu número de colegiado para continuar.');
       triggerShake();
       return;
     }
 
     if (!dniImage) {
-      setLocalError('Por favor, sube una foto de tu carnet de colegiado');
+      setLocalError('Añade una foto de tu carnet de colegiado para continuar.');
       triggerShake();
       return;
     }
 
     if (!consentAccepted) {
-      setLocalError('Debes aceptar el tratamiento de datos para continuar');
+      setLocalError('Necesitamos tu consentimiento para poder revisar esta verificación.');
       triggerShake();
       return;
     }
@@ -211,41 +216,36 @@ export function ProfessionalVerificationScreen() {
     try {
       await professionalService.submitVerification({
         colegiadoNumber: colegiadoNumber.trim(),
-        dniImage: dniImage,
+        dniImage,
       });
 
       analyticsService.track('verification_submitted');
-
-      // Mark verification as submitted so the navigation gate opens
       markVerificationSubmitted();
 
-      // After verification submission, proceed to email verification
-      // Send verification email to the user
       if (user?.email) {
         try {
           await authService.sendVerificationEmail(user.email);
         } catch (_emailError: unknown) {
-          // If sending email fails, still proceed
+          // If sending email fails, still proceed.
         }
 
-        // Navigate to email verification screen
         navigation.reset({
           index: 0,
-          routes: [{
-            name: 'EmailSentVerification',
-            params: { email: user.email, userType: 'PROFESSIONAL' },
-          }],
+          routes: [
+            {
+              name: 'EmailSentVerification',
+              params: { email: user.email, userType: 'PROFESSIONAL' },
+            },
+          ],
         });
       } else {
-        // Fallback: go directly to home if email not available
         navigation.reset({
           index: 0,
           routes: [{ name: 'ProfessionalHome' }],
         });
       }
     } catch (error: unknown) {
-      const errorMessage = getErrorMessage(error, 'Error al enviar la verificación');
-      setLocalError(errorMessage);
+      setLocalError(getFriendlyVerificationErrorMessage(error));
       triggerShake();
     } finally {
       setIsLoading(false);
@@ -867,3 +867,4 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
+

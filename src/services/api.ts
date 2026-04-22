@@ -30,32 +30,31 @@ const logApiDebug = (message: string, meta?: Record<string, unknown>) => {
 };
 
 const buildSessionExpiredError = (): Error & { code: string } => {
-  const error = new Error('Tu sesión ha expirado. Inicia sesión de nuevo') as Error & {
-    code: string;
-  };
+  const error = new Error(
+    'Tu sesión ya no está activa. Vuelve a iniciar sesión para continuar.'
+  ) as Error & { code: string };
   error.code = 'SESSION_EXPIRED';
   return error;
 };
 
 const buildNetworkError = (): Error & { code: string } => {
-  const error = new Error('Error de conexión. Verifica tu internet') as Error & {
-    code: string;
-  };
+  const error = new Error(
+    'No hemos podido conectar con HERA. Revisa tu conexión e inténtalo de nuevo.'
+  ) as Error & { code: string };
   error.code = 'NETWORK_ERROR';
   return error;
 };
 
 const buildTimeoutError = (): Error & { code: string } => {
   const error = new Error(
-    'La solicitud ha tardado demasiado en completarse. Intenta de nuevo en unos segundos.'
-  ) as Error & {
-    code: string;
-  };
+    'La operación está tardando más de lo normal. Inténtalo de nuevo en unos segundos.'
+  ) as Error & { code: string };
   error.code = 'REQUEST_TIMEOUT';
   return error;
 };
 
 let accessToken: string | null = null;
+let webRefreshToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;
 let sessionExpiredHandler: (() => void) | null = null;
 
@@ -139,19 +138,26 @@ const clearAccessToken = () => {
   accessToken = null;
 };
 
+const clearWebRefreshToken = () => {
+  webRefreshToken = null;
+};
+
 export const setAuthSession = async (token: string, refreshToken: string): Promise<void> => {
+  accessToken = token;
+
   if (IS_WEB_PLATFORM) {
-    clearAccessToken();
+    webRefreshToken = refreshToken;
     await clearPersistedRefreshToken();
     return;
   }
 
-  accessToken = token;
+  clearWebRefreshToken();
   await persistRefreshToken(refreshToken);
 };
 
 export const clearAuthSession = async (): Promise<void> => {
   clearAccessToken();
+  clearWebRefreshToken();
   await clearPersistedRefreshToken();
 };
 
@@ -162,7 +168,7 @@ const refreshAccessToken = async (): Promise<string | null> => {
 
   refreshPromise = (async () => {
     try {
-      const refreshToken = IS_WEB_PLATFORM ? null : await getPersistedRefreshToken();
+      const refreshToken = IS_WEB_PLATFORM ? webRefreshToken : await getPersistedRefreshToken();
 
       if (!IS_WEB_PLATFORM && !refreshToken) {
         await clearAuthSession();
@@ -174,7 +180,7 @@ const refreshAccessToken = async (): Promise<string | null> => {
         data?: { token: string; refreshToken: string };
       }>(
         '/auth/refresh',
-        IS_WEB_PLATFORM ? {} : { refreshToken }
+        refreshToken ? { refreshToken } : {}
       );
 
       if (!response.data.success || !response.data.data) {
@@ -203,13 +209,12 @@ export const registerSessionExpiredHandler = (handler: (() => void) | null): voi
 
 export const logoutServerSession = async (): Promise<void> => {
   try {
-    if (IS_WEB_PLATFORM) {
+    const refreshToken = IS_WEB_PLATFORM ? webRefreshToken : await getPersistedRefreshToken();
+
+    if (refreshToken) {
+      await publicApi.post('/auth/logout', { refreshToken });
+    } else if (IS_WEB_PLATFORM) {
       await publicApi.post('/auth/logout', {});
-    } else {
-      const refreshToken = await getPersistedRefreshToken();
-      if (refreshToken) {
-        await publicApi.post('/auth/logout', { refreshToken });
-      }
     }
   } catch {
     // Ignore logout transport errors and clear local session regardless.
@@ -220,9 +225,9 @@ export const logoutServerSession = async (): Promise<void> => {
 
 api.interceptors.request.use(
   (config) => {
-    if (!IS_WEB_PLATFORM && accessToken) {
+    if (accessToken) {
       setAuthorizationHeader(config, accessToken);
-    } else if (IS_WEB_PLATFORM) {
+    } else {
       clearAuthorizationHeader(config);
     }
 
@@ -284,11 +289,7 @@ api.interceptors.response.use(
       const nextToken = await refreshAccessToken();
 
       if (nextToken) {
-        if (!IS_WEB_PLATFORM) {
-          setAuthorizationHeader(originalRequest, nextToken);
-        } else {
-          clearAuthorizationHeader(originalRequest);
-        }
+        setAuthorizationHeader(originalRequest, nextToken);
         return api(originalRequest);
       }
 

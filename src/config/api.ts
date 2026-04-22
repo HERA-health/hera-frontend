@@ -1,29 +1,33 @@
-// API Configuration for different environments
-// This file handles environment-based API URL switching
+const DEFAULT_DEV_API_URL = 'http://localhost:3000/api';
+const DEFAULT_PROD_API_URL = 'https://api.health-hera.com/api';
 
-// Environment configurations
+const readEnvUrl = (key: string, fallback: string): string => {
+  const rawValue = process.env[key];
+  if (typeof rawValue !== 'string') {
+    return fallback;
+  }
+
+  const value = rawValue.trim();
+  return value.length > 0 ? value : fallback;
+};
+
 const ENV = {
   dev: {
-    apiUrl: 'http://localhost:3000/api',
+    apiUrl: readEnvUrl('EXPO_PUBLIC_API_URL_DEV', DEFAULT_DEV_API_URL),
   },
   prod: {
-    apiUrl: 'https://web-production-d125.up.railway.app/api',
+    apiUrl: readEnvUrl('EXPO_PUBLIC_API_URL', DEFAULT_PROD_API_URL),
   },
 };
 
-// Get current environment configuration
+const isLocalWebHostname = (hostname: string): boolean =>
+  hostname === 'localhost' || hostname === '127.0.0.1';
+
 const getEnvVars = () => {
-  // Check if running in browser (web)
   if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    // If on localhost, use dev, otherwise use prod
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return ENV.dev;
-    }
-    return ENV.prod;
+    return isLocalWebHostname(window.location.hostname) ? ENV.dev : ENV.prod;
   }
 
-  // For native (React Native)
   const isDev = process.env.NODE_ENV !== 'production';
   return isDev ? ENV.dev : ENV.prod;
 };
