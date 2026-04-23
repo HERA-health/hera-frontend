@@ -9,6 +9,12 @@ The frontend must feel premium, calm, trustworthy and easy to evolve. We optimiz
 - **Services Own API Access**: Screens and components should call domain services in `src/services/`, not raw API clients directly.
 - **Single Responsibility**: Keep render logic, mapping logic and side effects separated whenever practical.
 - **Strict TypeScript**: No `any`, no `@ts-ignore`, no untyped navigation payloads.
+- **Encoding Standard**: All frontend source, config and documentation files must be saved as **UTF-8 without BOM**. Never save `ts`, `tsx`, `js`, `jsx`, `json`, `md`, `css`, `html` or similar text files as ANSI/Windows-1252 or after lossy editor conversions.
+
+### Encoding Guardrail
+- If text shows classic mojibake markers from a UTF-8/Windows-1252 mix-up, treat it as file corruption, not as a harmless terminal display issue.
+- Before editing a frontend file with Spanish text, verify the decoded content first and repair the file to valid UTF-8 before making product changes.
+- After any encoding-related fix, re-open the affected file and verify representative Spanish strings directly in source.
 
 ## 3. Design System Standards
 - **Theme First**: Use shared theme tokens as the source of truth for colors, spacing and typography.

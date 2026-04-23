@@ -55,6 +55,7 @@ const linking: LinkingOptions<RootStackParamList> = {
       },
       PublicSpecialistProfile: {
         path: 'especialista/:specialistId',
+        alias: ['e/:specialistId'],
         parse: {
           specialistId: (specialistId: string) => specialistId,
         },

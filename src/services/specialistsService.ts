@@ -194,9 +194,6 @@ export const mapSpecialistToProfile = (data: SpecialistData): Specialist => {
       const types: ('VIDEO_CALL' | 'IN_PERSON' | 'PHONE_CALL')[] = [];
       if (data.offersOnline !== false) types.push('VIDEO_CALL');
       if (data.offersInPerson === true) types.push('IN_PERSON');
-      const formats = (mp?.format as string[]) || [];
-      if (formats.includes('in-person') && !types.includes('IN_PERSON')) types.push('IN_PERSON');
-      if (formats.includes('hybrid') && !types.includes('IN_PERSON')) types.push('IN_PERSON');
       return types.length > 0 ? types : ['VIDEO_CALL'];
     })(),
     education: data.education ?? [],

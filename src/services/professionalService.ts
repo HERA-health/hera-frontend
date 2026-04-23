@@ -1,7 +1,9 @@
 ﻿import { api } from './api';
 import { getErrorMessage } from '../constants/errors';
 import type { Specialist } from '../constants/types';
-import { buildImageFormData, type UploadAsset } from '../utils/multipartUpload';
+import { Platform } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { buildImageFormData, buildMultipartFormData, type UploadAsset } from '../utils/multipartUpload';
 
 export type ClientSource = 'REGISTERED' | 'MANAGED';
 export type ClientLifecycleFilter = 'ACTIVE' | 'ARCHIVED' | 'ALL';
@@ -34,6 +36,16 @@ export interface ProfessionalProfile {
     name: string;
     userType: string;
   };
+}
+
+export interface SpecialistCertificate {
+  id: string;
+  name: string;
+  issuer: string;
+  validUntil: string | null;
+  hasDocument?: boolean;
+  documentUploadedAt?: string | null;
+  mimeType?: string | null;
 }
 
 export interface Session {
@@ -255,12 +267,11 @@ export interface SpecialistProfileData {
   // Verification
   identityVerified: boolean;
   insuranceUploaded: boolean;
-  certificates: {
-    id: string;
-    name: string;
-    issuer: string;
-    validUntil: string | null;
-  }[];
+  insuranceReviewStatus: 'NOT_UPLOADED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  insuranceReviewedAt: string | null;
+  insuranceRejectedReason: string | null;
+  locationVisibleToPatients: boolean;
+  certificates: SpecialistCertificate[];
 
   // Pricing
   priceStandard: number;
@@ -515,6 +526,139 @@ export const deleteGalleryPhoto = async (url: string): Promise<void> => {
     await api.delete('/specialists/me/gallery', { data: { url } });
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo eliminar la foto de la galería'));
+  }
+};
+
+const openBlobDocument = async (blobData: BlobPart, mimeType: string): Promise<void> => {
+  const blob = new Blob([blobData], { type: mimeType || 'application/octet-stream' });
+
+  if (Platform.OS === 'web') {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onloadend = async () => {
+    const dataUrl = reader.result as string;
+    await WebBrowser.openBrowserAsync(dataUrl);
+  };
+  reader.readAsDataURL(blob);
+};
+
+export const uploadInsuranceDocument = async (file: UploadAsset): Promise<{
+  insuranceUploaded: boolean;
+  insuranceReviewStatus: 'NOT_UPLOADED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+}> => {
+  try {
+    const formData = await buildMultipartFormData('document', file, {}, 'poliza-seguro');
+    const response = await api.post('/specialists/me/insurance/document', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 30000,
+    });
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo subir la póliza.'));
+  }
+};
+
+export const openInsuranceDocument = async (): Promise<void> => {
+  try {
+    const response = await api.get('/specialists/me/insurance/document', {
+      responseType: 'blob',
+      timeout: 30000,
+    });
+
+    const mimeType =
+      typeof response.headers['content-type'] === 'string'
+        ? response.headers['content-type']
+        : 'application/pdf';
+
+    await openBlobDocument(response.data, mimeType);
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo abrir la póliza.'));
+  }
+};
+
+export const deleteInsuranceDocument = async (): Promise<{
+  insuranceUploaded: boolean;
+  insuranceReviewStatus: 'NOT_UPLOADED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  offersInPerson: boolean;
+}> => {
+  try {
+    const response = await api.delete('/specialists/me/insurance/document');
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo eliminar la póliza.'));
+  }
+};
+
+export const uploadCertificateDocument = async (input: {
+  file: UploadAsset;
+  name: string;
+  issuer: string;
+  validUntil?: string | null;
+}): Promise<SpecialistCertificate> => {
+  try {
+    const formData = await buildMultipartFormData(
+      'document',
+      input.file,
+      {
+        name: input.name,
+        issuer: input.issuer,
+        ...(input.validUntil ? { validUntil: input.validUntil } : {}),
+      },
+      'certificado'
+    );
+
+    const response = await api.post('/specialists/me/certificates', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 30000,
+    });
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo subir el certificado.'));
+  }
+};
+
+export const openCertificateDocument = async (
+  certificateId: string,
+  mimeType?: string | null
+): Promise<void> => {
+  try {
+    const response = await api.get(`/specialists/me/certificates/${certificateId}/document`, {
+      responseType: 'blob',
+      timeout: 30000,
+    });
+
+    const contentType =
+      typeof response.headers['content-type'] === 'string'
+        ? response.headers['content-type']
+        : mimeType || 'application/octet-stream';
+
+    await openBlobDocument(response.data, contentType);
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo abrir el certificado.'));
+  }
+};
+
+export const deleteCertificateDocument = async (certificateId: string): Promise<{ certificateId: string }> => {
+  try {
+    const response = await api.delete(`/specialists/me/certificates/${certificateId}`);
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo eliminar el certificado.'));
   }
 };
 

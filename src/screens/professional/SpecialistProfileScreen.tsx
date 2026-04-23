@@ -19,7 +19,7 @@
  * - Responsive for all devices
  */
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -35,12 +35,12 @@ import {
   Pressable,
   Image,
   Share,
-  Animated,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
+import * as DocumentPicker from 'expo-document-picker';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -49,7 +49,12 @@ import { shadows, spacing, borderRadius, typography } from '../../constants/colo
 import type { Theme } from '../../constants/theme';
 import * as professionalService from '../../services/professionalService';
 import * as authService from '../../services/authService';
-import { SpecialistProfileData as ServiceProfileData, VerificationStatus, VerificationStatusResponse } from '../../services/professionalService';
+import {
+  SpecialistCertificate as ServiceCertificate,
+  SpecialistProfileData as ServiceProfileData,
+  VerificationStatus,
+  VerificationStatusResponse,
+} from '../../services/professionalService';
 import { AddressAutocomplete, LocationMapPreview } from '../../components/location';
 import type { AppNavigationProp } from '../../constants/types';
 import { getWebAppUrl } from '../../config/api';
@@ -79,12 +84,7 @@ interface Experience {
   current: boolean;
 }
 
-interface Certificate {
-  id: string;
-  name: string;
-  issuer: string;
-  validUntil: string | null;
-}
+interface Certificate extends ServiceCertificate {}
 
 interface SpecialistProfileData {
   // Basic Info
@@ -103,6 +103,10 @@ interface SpecialistProfileData {
   // Verification
   identityVerified: boolean;
   insuranceUploaded: boolean;
+  insuranceReviewStatus: 'NOT_UPLOADED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  insuranceReviewedAt: string | null;
+  insuranceRejectedReason: string | null;
+  locationVisibleToPatients: boolean;
   certificates: Certificate[];
 
   // Pricing
@@ -297,6 +301,100 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+interface CertificateDraft {
+  name: string;
+  issuer: string;
+  validUntil: string;
+}
+
+const pickProfessionalDocument = async (
+  type: string | string[]
+): Promise<UploadAsset | null> => {
+  const result = await DocumentPicker.getDocumentAsync({
+    type,
+    copyToCacheDirectory: true,
+    multiple: false,
+  });
+
+  if (result.canceled || !result.assets?.length) {
+    return null;
+  }
+
+  const asset = result.assets[0] as DocumentPicker.DocumentPickerAsset & UploadAsset;
+
+  return {
+    ...asset,
+    fileName: asset.fileName || asset.name || null,
+    name: asset.name || asset.fileName || null,
+  };
+};
+
+const formatDocumentDate = (value?: string | null): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+const getInsuranceReviewCopy = (
+  status: SpecialistProfileData['insuranceReviewStatus'],
+  reviewedAt?: string | null,
+  rejectionReason?: string | null
+): {
+  icon: IconName;
+  tone: 'success' | 'info' | 'warning';
+  title: string;
+  description: string;
+} => {
+  const reviewedOn = formatDocumentDate(reviewedAt);
+
+  switch (status) {
+    case 'APPROVED':
+      return {
+        icon: 'checkmark-circle',
+        tone: 'success',
+        title: 'Póliza aprobada',
+        description: reviewedOn
+          ? `Tu cobertura presencial está aprobada desde el ${reviewedOn}. Los pacientes ya pueden ver tu ubicación si tienes activado presencial.`
+          : 'Tu cobertura presencial está aprobada. Los pacientes ya pueden ver tu ubicación si tienes activado presencial.',
+      };
+    case 'REJECTED':
+      return {
+        icon: 'close-circle',
+        tone: 'warning',
+        title: 'Póliza rechazada',
+        description: rejectionReason
+          ? `Hemos rechazado la póliza. Motivo: ${rejectionReason}. Mientras no la revisemos de nuevo, los pacientes no verán tu ubicación.`
+          : 'Hemos rechazado la póliza. Mientras no la revisemos de nuevo, los pacientes no verán tu ubicación.',
+      };
+    case 'PENDING':
+      return {
+        icon: 'time-outline',
+        tone: 'info',
+        title: 'Póliza en revisión',
+        description: 'Ya has subido la póliza. Hasta que la aprobemos, los pacientes no podrán ver tu ubicación ni reservar presencial.',
+      };
+    case 'NOT_UPLOADED':
+    default:
+      return {
+        icon: 'alert-circle',
+        tone: 'warning',
+        title: 'Póliza pendiente',
+        description: 'Sube tu póliza para que podamos revisar la cobertura presencial. Sin ella no mostraremos la ubicación a los pacientes.',
+      };
+  }
+};
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -325,8 +423,17 @@ export function SpecialistProfileScreen() {
 
   // Share profile state
   const [specialistId, setSpecialistId] = useState<string | null>(null);
-  const [showCopiedToast, setShowCopiedToast] = useState(false);
-  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const [isShareModalVisible, setIsShareModalVisible] = useState(false);
+  const [hasCopiedShareUrl, setHasCopiedShareUrl] = useState(false);
+  const [isCertificateModalVisible, setIsCertificateModalVisible] = useState(false);
+  const [certificateDraft, setCertificateDraft] = useState<CertificateDraft>({
+    name: '',
+    issuer: '',
+    validUntil: '',
+  });
+  const [isUploadingInsurance, setIsUploadingInsurance] = useState(false);
+  const [isUploadingCertificate, setIsUploadingCertificate] = useState(false);
+  const [openingCredentialKey, setOpeningCredentialKey] = useState<string | null>(null);
 
   // Verification status state
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatusResponse>({
@@ -354,6 +461,10 @@ export function SpecialistProfileScreen() {
     // Verification
     identityVerified: false,
     insuranceUploaded: false,
+    insuranceReviewStatus: 'NOT_UPLOADED',
+    insuranceReviewedAt: null,
+    insuranceRejectedReason: null,
+    locationVisibleToPatients: false,
     certificates: [],
 
     // Pricing
@@ -409,23 +520,50 @@ export function SpecialistProfileScreen() {
   const [originalData, setOriginalData] = useState<SpecialistProfileData>(profileData);
 
   // Calculate profile completion percentage
-  const profileCompletion = useMemo(() => {
-    let completed = 0;
-    let total = 10;
+  const verificationCompletion = useMemo(() => {
+    const professionalVerificationProgress =
+      verificationStatus.verificationStatus === 'VERIFIED'
+        ? 100
+        : verificationStatus.verificationStatus === 'PENDING'
+          ? 50
+          : 0;
 
-    if (profileData.fullName) completed++;
-    if (profileData.professionalTitle) completed++;
-    if (verificationStatus.colegiadoNumber) completed++;
-    if (profileData.bio && profileData.bio.length >= 150) completed++;
-    if (profileData.specialties.length > 0) completed++;
-    if (profileData.therapeuticApproaches.length > 0) completed++;
-    if (profileData.education.length > 0) completed++;
-    if (profileData.experience.length > 0) completed++;
-    if (profileData.priceStandard) completed++;
-    if (profileData.bankIban) completed++;
+    const insuranceProgress =
+      profileData.insuranceReviewStatus === 'APPROVED'
+        ? 100
+        : profileData.insuranceReviewStatus === 'PENDING'
+          ? 50
+          : 0;
 
-    return Math.round((completed / total) * 100);
-  }, [profileData, verificationStatus]);
+    return Math.round(
+      (
+        professionalVerificationProgress
+        + professionalVerificationProgress
+        + insuranceProgress
+      ) / 3
+    );
+  }, [profileData.insuranceReviewStatus, verificationStatus.verificationStatus]);
+
+  const insuranceReviewCopy = useMemo(
+    () => getInsuranceReviewCopy(
+      profileData.insuranceReviewStatus,
+      profileData.insuranceReviewedAt,
+      profileData.insuranceRejectedReason
+    ),
+    [
+      profileData.insuranceReviewStatus,
+      profileData.insuranceReviewedAt,
+      profileData.insuranceRejectedReason,
+    ]
+  );
+
+  const shareProfileUrl = useMemo(() => {
+    if (!specialistId) {
+      return '';
+    }
+
+    return `${getWebAppUrl()}/e/${specialistId}`;
+  }, [specialistId]);
 
   // Check for changes
   useEffect(() => {
@@ -457,6 +595,10 @@ export function SpecialistProfileScreen() {
           // Verification
           identityVerified: profile.identityVerified || false,
           insuranceUploaded: profile.insuranceUploaded || false,
+          insuranceReviewStatus: profile.insuranceReviewStatus || 'NOT_UPLOADED',
+          insuranceReviewedAt: profile.insuranceReviewedAt ?? null,
+          insuranceRejectedReason: profile.insuranceRejectedReason ?? null,
+          locationVisibleToPatients: profile.locationVisibleToPatients ?? false,
           certificates: (profile.certificates as Certificate[]) || [],
 
           // Pricing
@@ -581,6 +723,14 @@ export function SpecialistProfileScreen() {
   const handleSave = useCallback(async () => {
     if (!hasChanges) return;
 
+    if (profileData.offersInPerson && !profileData.insuranceUploaded) {
+      Alert.alert(
+        'Falta la póliza',
+        'Para activar las sesiones presenciales necesitamos una póliza de responsabilidad civil subida y guardada en HERA.'
+      );
+      return;
+    }
+
     setIsSaving(true);
     try {
       // Transform local state to API format
@@ -692,30 +842,247 @@ export function SpecialistProfileScreen() {
   }, [specialistId, navigation]);
 
   // Share profile handler
-  const handleShareProfile = useCallback(async () => {
+  const closeShareModal = useCallback(() => {
+    setIsShareModalVisible(false);
+    setHasCopiedShareUrl(false);
+  }, []);
+
+  const handleShareProfile = useCallback(() => {
     if (!specialistId) return;
 
-    const shareUrl = `${getWebAppUrl()}/especialista/${specialistId}`;
+    setHasCopiedShareUrl(false);
+    setIsShareModalVisible(true);
+  }, [specialistId]);
+
+  const handleCopyShareUrl = useCallback(async () => {
+    if (!shareProfileUrl) return;
+
+    await Clipboard.setStringAsync(shareProfileUrl);
+    setHasCopiedShareUrl(true);
+  }, [shareProfileUrl]);
+
+  const handleNativeShareSheet = useCallback(async () => {
+    if (!shareProfileUrl) return;
+
+    try {
+      await Share.share({
+        message: `Reserva tu sesion conmigo en HERA: ${shareProfileUrl}`,
+        url: shareProfileUrl,
+      });
+    } catch (err) {
+      // User cancelled share
+    }
+  }, [shareProfileUrl]);
+
+  const resetCertificateDraft = useCallback(() => {
+    setCertificateDraft({
+      name: '',
+      issuer: '',
+      validUntil: '',
+    });
+  }, []);
+
+  const closeCertificateModal = useCallback(() => {
+    if (isUploadingCertificate) {
+      return;
+    }
+
+    setIsCertificateModalVisible(false);
+    resetCertificateDraft();
+  }, [isUploadingCertificate, resetCertificateDraft]);
+
+  const handleUploadInsuranceDocument = useCallback(async () => {
+    if (isUploadingInsurance) {
+      return;
+    }
+
+    try {
+      const asset = await pickProfessionalDocument('application/pdf');
+      if (!asset) {
+        return;
+      }
+
+      setIsUploadingInsurance(true);
+      const result = await professionalService.uploadInsuranceDocument(asset);
+
+      setProfileData(prev => ({
+        ...prev,
+        insuranceUploaded: true,
+        insuranceReviewStatus: result.insuranceReviewStatus,
+        insuranceReviewedAt: null,
+        insuranceRejectedReason: null,
+        locationVisibleToPatients: false,
+      }));
+      setOriginalData(prev => ({
+        ...prev,
+        insuranceUploaded: true,
+        insuranceReviewStatus: result.insuranceReviewStatus,
+        insuranceReviewedAt: null,
+        insuranceRejectedReason: null,
+        locationVisibleToPatients: false,
+      }));
+    } catch (error: unknown) {
+      Alert.alert('Error', getErrorMessage(error, 'No se pudo subir la póliza.'));
+    } finally {
+      setIsUploadingInsurance(false);
+    }
+  }, [isUploadingInsurance]);
+
+  const handleOpenInsuranceDocument = useCallback(async () => {
+    if (openingCredentialKey === 'insurance') {
+      return;
+    }
+
+    try {
+      setOpeningCredentialKey('insurance');
+      await professionalService.openInsuranceDocument();
+    } catch (error: unknown) {
+      Alert.alert('Error', getErrorMessage(error, 'No se pudo abrir la póliza.'));
+    } finally {
+      setOpeningCredentialKey(null);
+    }
+  }, [openingCredentialKey]);
+
+  const handleDeleteInsuranceDocument = useCallback(() => {
+    const doDelete = async () => {
+      try {
+        const result = await professionalService.deleteInsuranceDocument();
+
+        setProfileData(prev => ({
+          ...prev,
+          insuranceUploaded: result.insuranceUploaded,
+          insuranceReviewStatus: result.insuranceReviewStatus,
+          insuranceReviewedAt: null,
+          insuranceRejectedReason: null,
+          locationVisibleToPatients: false,
+          offersInPerson: result.offersInPerson,
+        }));
+        setOriginalData(prev => ({
+          ...prev,
+          insuranceUploaded: result.insuranceUploaded,
+          insuranceReviewStatus: result.insuranceReviewStatus,
+          insuranceReviewedAt: null,
+          insuranceRejectedReason: null,
+          locationVisibleToPatients: false,
+          offersInPerson: result.offersInPerson,
+        }));
+      } catch (error: unknown) {
+        Alert.alert('Error', getErrorMessage(error, 'No se pudo eliminar la póliza.'));
+      }
+    };
 
     if (Platform.OS === 'web') {
-      await Clipboard.setStringAsync(shareUrl);
-      setShowCopiedToast(true);
-      Animated.sequence([
-        Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.delay(2000),
-        Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-      ]).start(() => setShowCopiedToast(false));
-    } else {
-      try {
-        await Share.share({
-          message: `Reserva tu sesión conmigo en HERA: ${shareUrl}`,
-          url: shareUrl,
-        });
-      } catch (err) {
-        // User cancelled share
+      if (window.confirm('¿Eliminar la póliza de seguro? Esto desactivará las sesiones presenciales.')) {
+        void doDelete();
       }
+      return;
     }
-  }, [specialistId, toastOpacity]);
+
+    Alert.alert(
+      'Eliminar póliza',
+      'Si eliminas la póliza, desactivaremos las sesiones presenciales hasta que subas una nueva.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => void doDelete() },
+      ]
+    );
+  }, []);
+
+  const handleCreateCertificate = useCallback(async () => {
+    if (isUploadingCertificate) {
+      return;
+    }
+
+    const trimmedName = certificateDraft.name.trim();
+    const trimmedIssuer = certificateDraft.issuer.trim();
+    const trimmedValidUntil = certificateDraft.validUntil.trim();
+
+    if (!trimmedName || !trimmedIssuer) {
+      Alert.alert('Completa los datos', 'Añade al menos el nombre del certificado y la entidad emisora.');
+      return;
+    }
+
+    try {
+      const asset = await pickProfessionalDocument(['application/pdf', 'image/*']);
+      if (!asset) {
+        return;
+      }
+
+      setIsUploadingCertificate(true);
+      const certificate = await professionalService.uploadCertificateDocument({
+        file: asset,
+        name: trimmedName,
+        issuer: trimmedIssuer,
+        validUntil: trimmedValidUntil || null,
+      });
+
+      setProfileData(prev => ({
+        ...prev,
+        certificates: [certificate, ...prev.certificates],
+      }));
+      setOriginalData(prev => ({
+        ...prev,
+        certificates: [certificate, ...prev.certificates],
+      }));
+      setIsCertificateModalVisible(false);
+      resetCertificateDraft();
+    } catch (error: unknown) {
+      Alert.alert('Error', getErrorMessage(error, 'No se pudo subir el certificado.'));
+    } finally {
+      setIsUploadingCertificate(false);
+    }
+  }, [certificateDraft, isUploadingCertificate, resetCertificateDraft]);
+
+  const handleOpenCertificate = useCallback(async (certificate: Certificate) => {
+    const key = `certificate:${certificate.id}`;
+    if (openingCredentialKey === key) {
+      return;
+    }
+
+    try {
+      setOpeningCredentialKey(key);
+      await professionalService.openCertificateDocument(certificate.id, certificate.mimeType);
+    } catch (error: unknown) {
+      Alert.alert('Error', getErrorMessage(error, 'No se pudo abrir el certificado.'));
+    } finally {
+      setOpeningCredentialKey(null);
+    }
+  }, [openingCredentialKey]);
+
+  const handleDeleteCertificate = useCallback((certificateId: string) => {
+    const doDelete = async () => {
+      try {
+        await professionalService.deleteCertificateDocument(certificateId);
+        setProfileData(prev => ({
+          ...prev,
+          certificates: prev.certificates.filter(cert => cert.id !== certificateId),
+        }));
+        setOriginalData(prev => ({
+          ...prev,
+          certificates: prev.certificates.filter(cert => cert.id !== certificateId),
+        }));
+      } catch (error: unknown) {
+        Alert.alert('Error', getErrorMessage(error, 'No se pudo eliminar el certificado.'));
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('¿Eliminar este certificado?')) {
+        void doDelete();
+      }
+      return;
+    }
+
+    Alert.alert(
+      'Eliminar certificado',
+      'Borraremos el documento privado y su referencia del perfil.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => void doDelete() },
+      ]
+    );
+  }, []);
+
 
   const addEducation = useCallback(() => {
     const newEducation: Education = {
@@ -855,12 +1222,6 @@ export function SpecialistProfileScreen() {
         ))}
       </ScrollView>
 
-      {showCopiedToast ? (
-        <Animated.View style={[styles.copiedToast, { opacity: toastOpacity }]}>
-          <Ionicons name="checkmark-circle" size={16} color={palette.success} />
-          <Text style={styles.copiedToastText}>Enlace copiado al portapapeles</Text>
-        </Animated.View>
-      ) : null}
     </View>
   );
 
@@ -1434,12 +1795,12 @@ export function SpecialistProfileScreen() {
 
       {/* Location & Modality Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Ubicacion y modalidad</Text>
+        <Text style={styles.sectionTitle}>Ubicación y modalidad</Text>
         <View style={styles.formCard}>
           {/* Modality Options */}
           <View style={styles.formField}>
             <Text style={styles.fieldLabel}>Modalidad de sesiones</Text>
-            <Text style={styles.fieldHelper}>Selecciona como ofreces tus sesiones</Text>
+            <Text style={styles.fieldHelper}>Selecciona cómo ofreces tus sesiones</Text>
             <View style={styles.modalityOptions}>
               <TouchableOpacity
                 style={[
@@ -1475,17 +1836,50 @@ export function SpecialistProfileScreen() {
                 <Text style={styles.modalityText}>Sesiones presenciales</Text>
               </TouchableOpacity>
             </View>
+
+            {profileData.offersInPerson ? (
+              <View
+                style={[
+                  styles.presentialStatusCard,
+                  insuranceReviewCopy.tone === 'success'
+                    ? styles.presentialStatusCardSuccess
+                    : insuranceReviewCopy.tone === 'info'
+                      ? styles.presentialStatusCardInfo
+                      : styles.presentialStatusCardWarning,
+                ]}
+              >
+                <Ionicons
+                  name={insuranceReviewCopy.icon}
+                  size={18}
+                  color={
+                    insuranceReviewCopy.tone === 'success'
+                      ? palette.success
+                      : insuranceReviewCopy.tone === 'info'
+                        ? palette.info
+                        : palette.warningAmber
+                  }
+                />
+                <View style={styles.presentialStatusCopy}>
+                  <Text style={styles.presentialStatusTitle}>{insuranceReviewCopy.title}</Text>
+                  <Text style={styles.presentialStatusText}>{insuranceReviewCopy.description}</Text>
+                </View>
+              </View>
+            ) : null}
           </View>
 
           {/* Office Location (only if in-person is offered) */}
           {profileData.offersInPerson && (
             <>
               <View style={styles.formField}>
-                <Text style={styles.fieldLabel}>Direccion de la consulta</Text>
-                <Text style={styles.fieldHelper}>Esta direccion sera visible para los clientes que reserven sesiones presenciales</Text>
+                <Text style={styles.fieldLabel}>Dirección de la consulta</Text>
+                <Text style={styles.fieldHelper}>
+                  {profileData.locationVisibleToPatients
+                    ? 'Esta dirección ya es visible para los clientes que reserven sesiones presenciales'
+                    : 'Guardaremos esta dirección, pero no la mostraremos a los pacientes hasta aprobar la póliza'}
+                </Text>
                 <AddressAutocomplete
                   value={profileData.officeAddress}
-                  placeholder="Buscar direccion..."
+                  placeholder="Buscar dirección..."
                   onAddressSelect={(details) => {
                     updateField('officeAddress', details.address);
                     updateField('officeCity', details.city);
@@ -1520,7 +1914,11 @@ export function SpecialistProfileScreen() {
               {profileData.officeLat && profileData.officeLng && (
                 <View style={styles.mapPreviewContainer}>
                   <Text style={styles.fieldLabel}>Vista previa del mapa</Text>
-                  <Text style={styles.fieldHelper}>Asi veran los clientes la ubicacion de tu consulta</Text>
+                  <Text style={styles.fieldHelper}>
+                    {profileData.locationVisibleToPatients
+                      ? 'Así ven ya los clientes la ubicación de tu consulta'
+                      : 'Esta vista previa es interna hasta que aprobemos tu cobertura presencial'}
+                  </Text>
                   <LocationMapPreview
                     lat={profileData.officeLat}
                     lng={profileData.officeLng}
@@ -1894,16 +2292,34 @@ export function SpecialistProfileScreen() {
               </Text>
             </View>
           </View>
-          <View style={styles.verificationItem}>
+          <View style={[styles.verificationItem, styles.verificationItemLast]}>
             <Ionicons
-              name={profileData.insuranceUploaded ? 'checkmark-circle' : 'alert-circle'}
+              name={
+                profileData.insuranceReviewStatus === 'APPROVED'
+                  ? 'checkmark-circle'
+                  : profileData.insuranceReviewStatus === 'PENDING'
+                    ? 'time'
+                    : 'alert-circle'
+              }
               size={24}
-              color={profileData.insuranceUploaded ? palette.success : palette.warning}
+              color={
+                profileData.insuranceReviewStatus === 'APPROVED'
+                  ? palette.success
+                  : profileData.insuranceReviewStatus === 'PENDING'
+                    ? palette.info
+                    : palette.warning
+              }
             />
             <View style={styles.verificationItemContent}>
               <Text style={styles.verificationItemTitle}>Seguro profesional</Text>
               <Text style={styles.verificationItemStatus}>
-                {profileData.insuranceUploaded ? 'Subido' : 'Pendiente de subir'}
+                {profileData.insuranceReviewStatus === 'APPROVED'
+                  ? 'Aprobado'
+                  : profileData.insuranceReviewStatus === 'PENDING'
+                    ? 'En revisión'
+                    : profileData.insuranceReviewStatus === 'REJECTED'
+                      ? 'Rechazado'
+                      : 'Pendiente de subir'}
               </Text>
             </View>
           </View>
@@ -1911,11 +2327,11 @@ export function SpecialistProfileScreen() {
           {/* Profile Completion Bar */}
           <View style={styles.completionSection}>
             <View style={styles.completionHeader}>
-              <Text style={styles.completionLabel}>Perfil completado</Text>
-              <Text style={styles.completionValue}>{profileCompletion}%</Text>
+              <Text style={styles.completionLabel}>Verificación completada</Text>
+              <Text style={styles.completionValue}>{verificationCompletion}%</Text>
             </View>
             <View style={styles.completionBar}>
-              <View style={[styles.completionFill, { width: `${profileCompletion}%` }]} />
+              <View style={[styles.completionFill, { width: `${verificationCompletion}%` }]} />
             </View>
           </View>
         </View>
@@ -1961,6 +2377,38 @@ export function SpecialistProfileScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Seguro de responsabilidad civil</Text>
         <View style={styles.formCard}>
+          <View style={styles.credentialsHintCard}>
+            <Ionicons name="lock-closed-outline" size={18} color={palette.primary} />
+            <Text style={styles.credentialsHintText}>
+              Este archivo queda en almacenamiento privado y no se enseña al paciente. Nos sirve para validar la cobertura necesaria para sesiones presenciales.
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.insuranceStatusCard,
+              insuranceReviewCopy.tone === 'success'
+                ? styles.insuranceStatusCardSuccess
+                : insuranceReviewCopy.tone === 'info'
+                  ? styles.insuranceStatusCardInfo
+                  : styles.insuranceStatusCardWarning,
+            ]}
+          >
+            <Ionicons
+              name={insuranceReviewCopy.icon}
+              size={18}
+              color={
+                insuranceReviewCopy.tone === 'success'
+                  ? palette.success
+                  : insuranceReviewCopy.tone === 'info'
+                    ? palette.info
+                    : palette.warningAmber
+              }
+            />
+            <View style={styles.insuranceStatusCopy}>
+              <Text style={styles.insuranceStatusTitle}>{insuranceReviewCopy.title}</Text>
+              <Text style={styles.insuranceStatusText}>{insuranceReviewCopy.description}</Text>
+            </View>
+          </View>
           {profileData.insuranceUploaded ? (
             <View style={styles.documentCard}>
               <View style={styles.documentIcon}>
@@ -1968,13 +2416,29 @@ export function SpecialistProfileScreen() {
               </View>
               <View style={styles.documentContent}>
                 <Text style={styles.documentTitle}>Póliza de seguro</Text>
-                <Text style={styles.documentMeta}>Subido el 15 Nov 2024</Text>
+                <Text style={styles.documentMeta}>
+                  {profileData.locationVisibleToPatients
+                    ? 'Aprobada para sesiones presenciales y visible para pacientes'
+                    : 'Documento privado pendiente de aprobación para mostrar presencial'}
+                </Text>
               </View>
               <View style={styles.documentActions}>
-                <TouchableOpacity style={styles.documentAction} activeOpacity={0.7}>
-                  <Ionicons name="eye-outline" size={20} color={palette.primary} />
+                <TouchableOpacity
+                  style={styles.documentAction}
+                  activeOpacity={0.7}
+                  onPress={() => void handleOpenInsuranceDocument()}
+                >
+                  {openingCredentialKey === 'insurance' ? (
+                    <ActivityIndicator size="small" color={palette.primary} />
+                  ) : (
+                    <Ionicons name="eye-outline" size={20} color={palette.primary} />
+                  )}
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.documentAction} activeOpacity={0.7}>
+                <TouchableOpacity
+                  style={styles.documentAction}
+                  activeOpacity={0.7}
+                  onPress={handleDeleteInsuranceDocument}
+                >
                   <Ionicons name="trash-outline" size={20} color={palette.warning} />
                 </TouchableOpacity>
               </View>
@@ -1989,12 +2453,13 @@ export function SpecialistProfileScreen() {
               <Button
                 variant="primary"
                 size="small"
-                onPress={() => {}}
+                onPress={() => void handleUploadInsuranceDocument()}
+                loading={isUploadingInsurance}
                 icon={<Ionicons name="add" size={18} color={palette.textOnCard} />}
                 style={styles.uploadButton}
                 textStyle={{ ...styles.uploadButtonText }}
               >
-                Subir documento
+                Subir PDF
               </Button>
             </View>
           )}
@@ -2008,7 +2473,7 @@ export function SpecialistProfileScreen() {
           <Button
             variant="outline"
             size="small"
-            onPress={() => {}}
+            onPress={() => setIsCertificateModalVisible(true)}
             icon={<Ionicons name="add" size={18} color={palette.primary} />}
             style={{ ...styles.addButton }}
             textStyle={{ ...styles.addButtonText }}
@@ -2022,7 +2487,7 @@ export function SpecialistProfileScreen() {
             <Ionicons name="ribbon-outline" size={40} color={palette.textMuted} />
             <Text style={styles.emptyStateTitle}>No has añadido certificados</Text>
             <Text style={styles.emptyStateDescription}>
-              Añade tus certificaciones profesionales para aumentar la confianza.
+              Añade certificaciones privadas para revisión interna y para poder mostrar acreditaciones de forma controlada.
             </Text>
           </View>
         ) : (
@@ -2038,12 +2503,29 @@ export function SpecialistProfileScreen() {
                   {cert.validUntil && (
                     <Text style={styles.documentMeta}>Válido hasta: {cert.validUntil}</Text>
                   )}
+                  {formatDocumentDate(cert.documentUploadedAt) && (
+                    <Text style={styles.documentMeta}>
+                      Documento subido el {formatDocumentDate(cert.documentUploadedAt)}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.documentActions}>
-                  <TouchableOpacity style={styles.documentAction} activeOpacity={0.7}>
-                    <Ionicons name="create-outline" size={20} color={palette.primary} />
+                  <TouchableOpacity
+                    style={styles.documentAction}
+                    activeOpacity={0.7}
+                    onPress={() => void handleOpenCertificate(cert)}
+                  >
+                    {openingCredentialKey === `certificate:${cert.id}` ? (
+                      <ActivityIndicator size="small" color={palette.primary} />
+                    ) : (
+                      <Ionicons name="eye-outline" size={20} color={palette.primary} />
+                    )}
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.documentAction} activeOpacity={0.7}>
+                  <TouchableOpacity
+                    style={styles.documentAction}
+                    activeOpacity={0.7}
+                    onPress={() => handleDeleteCertificate(cert.id)}
+                  >
                     <Ionicons name="trash-outline" size={20} color={palette.warning} />
                   </TouchableOpacity>
                 </View>
@@ -2568,6 +3050,179 @@ export function SpecialistProfileScreen() {
       {/* Save Button */}
       {renderSaveButton()}
 
+      <Modal
+        visible={isCertificateModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeCertificateModal}
+      >
+        <Pressable style={styles.shareModalOverlay} onPress={closeCertificateModal}>
+          <Pressable style={styles.documentModalContent} onPress={e => e.stopPropagation()}>
+            <View style={styles.shareModalHeader}>
+              <View style={styles.shareModalHeaderCopy}>
+                <View style={styles.shareModalBadge}>
+                  <Ionicons name="ribbon-outline" size={14} color={palette.primary} />
+                  <Text style={styles.shareModalBadgeText}>Documento privado</Text>
+                </View>
+                <Text style={styles.shareModalTitle}>Añadir certificado</Text>
+                <Text style={styles.shareModalSubtitle}>
+                  El paciente no verá el archivo. Guardaremos el documento en privado para revisión interna y futuras verificaciones.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={closeCertificateModal}
+                activeOpacity={0.7}
+                style={styles.shareModalCloseButton}
+              >
+                <Ionicons name="close" size={22} color={palette.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.documentModalFields}>
+              <View style={styles.formField}>
+                <Text style={styles.fieldLabel}>Nombre del certificado</Text>
+                <TextInput
+                  value={certificateDraft.name}
+                  onChangeText={(text) => setCertificateDraft(prev => ({ ...prev, name: text }))}
+                  placeholder="Ej: EMDR Nivel I"
+                  placeholderTextColor={palette.textMuted}
+                  style={styles.fieldInput}
+                />
+              </View>
+
+              <View style={styles.formField}>
+                <Text style={styles.fieldLabel}>Entidad emisora</Text>
+                <TextInput
+                  value={certificateDraft.issuer}
+                  onChangeText={(text) => setCertificateDraft(prev => ({ ...prev, issuer: text }))}
+                  placeholder="Ej: Asociación EMDR España"
+                  placeholderTextColor={palette.textMuted}
+                  style={styles.fieldInput}
+                />
+              </View>
+
+              <View style={styles.formField}>
+                <Text style={styles.fieldLabel}>Válido hasta</Text>
+                <TextInput
+                  value={certificateDraft.validUntil}
+                  onChangeText={(text) => setCertificateDraft(prev => ({ ...prev, validUntil: text }))}
+                  placeholder="YYYY-MM-DD (opcional)"
+                  placeholderTextColor={palette.textMuted}
+                  style={styles.fieldInput}
+                />
+                <Text style={styles.fieldHint}>
+                  Al continuar te pediremos el PDF o la imagen del certificado.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.shareModalActions}>
+              <Button
+                variant="outline"
+                size="medium"
+                onPress={closeCertificateModal}
+                fullWidth={isMobile}
+                style={styles.shareModalSecondaryAction}
+                textStyle={styles.shareModalSecondaryActionText}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                size="medium"
+                onPress={() => void handleCreateCertificate()}
+                loading={isUploadingCertificate}
+                fullWidth={isMobile}
+                style={styles.shareModalPrimaryAction}
+                icon={<Ionicons name="cloud-upload-outline" size={16} color={palette.textOnCard} />}
+              >
+                Seleccionar archivo
+              </Button>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={isShareModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeShareModal}
+      >
+        <Pressable style={styles.shareModalOverlay} onPress={closeShareModal}>
+          <Pressable style={styles.shareModalContent} onPress={e => e.stopPropagation()}>
+            <View style={styles.shareModalHeader}>
+              <View style={styles.shareModalHeaderCopy}>
+                <View style={styles.shareModalBadge}>
+                  <Ionicons name="link-outline" size={14} color={palette.primary} />
+                  <Text style={styles.shareModalBadgeText}>Enlace publico</Text>
+                </View>
+                <Text style={styles.shareModalTitle}>Compartir perfil</Text>
+                <Text style={styles.shareModalSubtitle}>
+                  Muestra este enlace, copialo o compartelo. La nueva version usa una ruta mas corta y limpia.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={closeShareModal}
+                activeOpacity={0.7}
+                style={styles.shareModalCloseButton}
+              >
+                <Ionicons name="close" size={22} color={palette.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.shareUrlCard}>
+              <Text style={styles.shareUrlLabel}>Tu enlace para pacientes</Text>
+              <TextInput
+                value={shareProfileUrl}
+                editable={false}
+                selectTextOnFocus
+                style={styles.shareUrlInput}
+              />
+              <Text style={styles.shareUrlHint}>
+                El enlace queda visible para que tambien se pueda copiar manualmente.
+              </Text>
+            </View>
+
+            {hasCopiedShareUrl ? (
+              <View style={styles.shareCopiedBanner}>
+                <Ionicons name="checkmark-circle" size={16} color={palette.success} />
+                <Text style={styles.shareCopiedBannerText}>Enlace copiado al portapapeles</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.shareModalActions}>
+              <Button
+                variant="primary"
+                size="medium"
+                onPress={handleCopyShareUrl}
+                fullWidth={isMobile}
+                style={styles.shareModalPrimaryAction}
+                icon={<Ionicons name={hasCopiedShareUrl ? 'checkmark' : 'copy-outline'} size={16} color={palette.textOnCard} />}
+              >
+                {hasCopiedShareUrl ? 'Copiado' : 'Copiar enlace'}
+              </Button>
+
+              {Platform.OS !== 'web' ? (
+                <Button
+                  variant="outline"
+                  size="medium"
+                  onPress={handleNativeShareSheet}
+                  fullWidth={isMobile}
+                  style={styles.shareModalSecondaryAction}
+                  textStyle={styles.shareModalSecondaryActionText}
+                  icon={<Ionicons name="share-social-outline" size={16} color={palette.primary} />}
+                >
+                  Compartir...
+                </Button>
+              ) : null}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Mobile Preview Modal */}
       {isMobile && showPreview && (
         <Modal
@@ -2671,6 +3326,143 @@ function createStyles(
   topBarActionText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  shareModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(12, 18, 15, 0.52)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  shareModalContent: {
+    width: '100%',
+    maxWidth: 560,
+    backgroundColor: palette.cardBg,
+    borderRadius: borderRadius.xl,
+    padding: isMobile ? spacing.lg : spacing.xl,
+    borderWidth: 1,
+    borderColor: palette.border,
+    gap: spacing.lg,
+    ...shadows.lg,
+  },
+  documentModalContent: {
+    width: '100%',
+    maxWidth: 560,
+    backgroundColor: palette.cardBg,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: palette.border,
+    gap: spacing.lg,
+    ...shadows.lg,
+  },
+  shareModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  shareModalHeaderCopy: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  shareModalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
+    backgroundColor: palette.primaryAlpha12,
+    borderWidth: 1,
+    borderColor: palette.primaryMuted,
+  },
+  shareModalBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: palette.primary,
+  },
+  shareModalCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.backgroundMuted,
+  },
+  shareModalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: palette.textPrimary,
+  },
+  shareModalSubtitle: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: palette.textSecondary,
+  },
+  shareUrlCard: {
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.backgroundMuted,
+    gap: spacing.sm,
+  },
+  shareUrlLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: palette.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  shareUrlInput: {
+    borderWidth: 1,
+    borderColor: palette.primaryMuted,
+    borderRadius: borderRadius.md,
+    backgroundColor: palette.cardBg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    fontSize: isMobile ? 14 : 15,
+    lineHeight: 22,
+    color: palette.textPrimary,
+  },
+  shareUrlHint: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: palette.textMuted,
+  },
+  shareCopiedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: palette.successLight,
+    borderWidth: 1,
+    borderColor: palette.success,
+  },
+  shareCopiedBannerText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: palette.success,
+  },
+  shareModalActions: {
+    flexDirection: isMobile ? 'column' : 'row',
+    gap: spacing.sm,
+  },
+  documentModalFields: {
+    gap: spacing.md,
+  },
+  shareModalPrimaryAction: {
+    flex: isMobile ? undefined : 1,
+  },
+  shareModalSecondaryAction: {
+    flex: isMobile ? undefined : 1,
+  },
+  shareModalSecondaryActionText: {
+    color: palette.primary,
   },
   tabsMobile: {
     paddingHorizontal: spacing.md,
@@ -3258,6 +4050,9 @@ function createStyles(
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
+  verificationItemLast: {
+    borderBottomWidth: 0,
+  },
   verificationItemContent: {
     flex: 1,
   },
@@ -3271,8 +4066,8 @@ function createStyles(
     color: palette.textSecondary,
   },
   completionSection: {
-    marginTop: spacing.lg,
-    paddingTop: spacing.lg,
+    marginTop: spacing.sm,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: palette.border,
   },
@@ -3368,6 +4163,56 @@ function createStyles(
   },
   documentMeta: {
     fontSize: 13,
+    color: palette.textSecondary,
+  },
+  credentialsHintCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: palette.primaryAlpha12,
+    marginBottom: spacing.md,
+  },
+  credentialsHintText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 20,
+    color: palette.textSecondary,
+  },
+  insuranceStatusCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    marginBottom: spacing.md,
+  },
+  insuranceStatusCardSuccess: {
+    backgroundColor: palette.successLight,
+    borderColor: palette.success,
+  },
+  insuranceStatusCardInfo: {
+    backgroundColor: palette.primaryAlpha12,
+    borderColor: palette.info,
+  },
+  insuranceStatusCardWarning: {
+    backgroundColor: palette.warningLight,
+    borderColor: palette.warningAmber,
+  },
+  insuranceStatusCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  insuranceStatusTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: palette.textPrimary,
+  },
+  insuranceStatusText: {
+    fontSize: 13,
+    lineHeight: 20,
     color: palette.textSecondary,
   },
   documentActions: {
@@ -3697,6 +4542,41 @@ function createStyles(
     color: palette.textPrimary,
     fontWeight: '500',
   },
+  presentialStatusCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  presentialStatusCardSuccess: {
+    backgroundColor: palette.successLight,
+    borderColor: palette.success,
+  },
+  presentialStatusCardInfo: {
+    backgroundColor: palette.primaryAlpha12,
+    borderColor: palette.info,
+  },
+  presentialStatusCardWarning: {
+    backgroundColor: palette.warningLight,
+    borderColor: palette.warningAmber,
+  },
+  presentialStatusCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  presentialStatusTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: palette.textPrimary,
+  },
+  presentialStatusText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: palette.textSecondary,
+  },
   formRow: {
     flexDirection: 'row',
     gap: spacing.md,
@@ -3806,19 +4686,6 @@ function createStyles(
     color: '#FFFFFF',
   },
 
-  copiedToast: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-    paddingHorizontal: isDesktop ? spacing.xl : spacing.md,
-  },
-  copiedToastText: {
-    fontSize: 13,
-    color: palette.success,
-    fontWeight: '500',
-  },
   });
 }
 

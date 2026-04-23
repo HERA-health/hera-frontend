@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { api } from './api';
 
 // ============================================================================
@@ -27,6 +29,17 @@ export interface PendingSpecialist {
 
 export type VerificationStatusType = 'PENDING' | 'VERIFIED' | 'REJECTED';
 export type AccountStatusType = 'ACTIVE' | 'SUSPENDED' | 'DELETED';
+export type InsuranceReviewStatus = 'NOT_UPLOADED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface SpecialistAdminCertificate {
+  id: string;
+  name: string;
+  issuer: string;
+  validUntil: string | null;
+  hasDocument: boolean;
+  documentUploadedAt: string | null;
+  mimeType: string | null;
+}
 
 export interface SpecialistListItem {
   id: string;
@@ -76,6 +89,11 @@ export interface SpecialistFullDetail {
   verificationStatus: VerificationStatusType;
   verificationSubmittedAt: string | null;
   verificationResolvedAt: string | null;
+  insuranceUploaded: boolean;
+  insuranceReviewStatus: InsuranceReviewStatus;
+  insuranceReviewedAt: string | null;
+  insuranceRejectedReason: string | null;
+  certificates: SpecialistAdminCertificate[];
   profileVisible: boolean;
   offersOnline: boolean;
   offersInPerson: boolean;
@@ -100,6 +118,28 @@ export interface SpecialistFullDetail {
     upcoming: number;
   };
 }
+
+const openBlobDocument = async (blobData: BlobPart, mimeType: string): Promise<void> => {
+  const blob = new Blob([blobData], { type: mimeType || 'application/octet-stream' });
+
+  if (Platform.OS === 'web') {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onloadend = async () => {
+    const dataUrl = reader.result as string;
+    await WebBrowser.openBrowserAsync(dataUrl);
+  };
+  reader.readAsDataURL(blob);
+};
 
 // ============================================================================
 // EXISTING FUNCTIONS (Verification)
@@ -133,6 +173,52 @@ export const getSpecialistDetail = async (
 ): Promise<SpecialistFullDetail> => {
   const response = await api.get(`/admin/specialists/${specialistId}`);
   return response.data.data;
+};
+
+export const openSpecialistInsuranceDocument = async (specialistId: string): Promise<void> => {
+  const response = await api.get(`/admin/specialists/${specialistId}/insurance/document`, {
+    responseType: 'blob',
+    timeout: 30000,
+  });
+
+  const mimeType =
+    typeof response.headers['content-type'] === 'string'
+      ? response.headers['content-type']
+      : 'application/pdf';
+
+  await openBlobDocument(response.data, mimeType);
+};
+
+export const openSpecialistCertificateDocument = async (
+  specialistId: string,
+  certificateId: string,
+  mimeType?: string | null
+): Promise<void> => {
+  const response = await api.get(
+    `/admin/specialists/${specialistId}/certificates/${certificateId}/document`,
+    {
+      responseType: 'blob',
+      timeout: 30000,
+    }
+  );
+
+  const contentType =
+    typeof response.headers['content-type'] === 'string'
+      ? response.headers['content-type']
+      : mimeType || 'application/octet-stream';
+
+  await openBlobDocument(response.data, contentType);
+};
+
+export const reviewSpecialistInsuranceDocument = async (
+  specialistId: string,
+  status: 'APPROVED' | 'REJECTED',
+  rejectionReason?: string | null
+): Promise<void> => {
+  await api.post(`/admin/specialists/${specialistId}/insurance/review`, {
+    status,
+    rejectionReason,
+  });
 };
 
 export const suspendSpecialist = async (

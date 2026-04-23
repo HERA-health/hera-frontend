@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,20 @@ import { heraLanding, spacing, borderRadius, typography, shadows } from '../../c
 import { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import { useAuth } from '../../contexts/AuthContext';
 import * as adminService from '../../services/adminService';
-import type { PendingSpecialist } from '../../services/adminService';
+import type { PendingSpecialist, SpecialistFullDetail } from '../../services/adminService';
+
+const getInsuranceStatusBadge = (status: SpecialistFullDetail['insuranceReviewStatus']) => {
+  switch (status) {
+    case 'APPROVED':
+      return { label: 'Aprobada', color: heraLanding.success, bg: heraLanding.successLight };
+    case 'PENDING':
+      return { label: 'Pendiente', color: heraLanding.status.pending.text, bg: heraLanding.status.pending.bg };
+    case 'REJECTED':
+      return { label: 'Rechazada', color: heraLanding.status.cancelled.text, bg: heraLanding.status.cancelled.bg };
+    default:
+      return { label: 'No subida', color: heraLanding.textMuted, bg: heraLanding.backgroundMuted };
+  }
+};
 
 const { width: screenWidth } = Dimensions.get('window');
 const isDesktop = screenWidth > 1024;
@@ -32,6 +45,9 @@ export function AdminSpecialistDetailScreen() {
 
   const [processing, setProcessing] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [detail, setDetail] = useState<SpecialistFullDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(true);
+  const [openingDocumentKey, setOpeningDocumentKey] = useState<string | null>(null);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   // Parse specialist data from navigation params
@@ -42,6 +58,39 @@ export function AdminSpecialistDetailScreen() {
       return null;
     }
   }, [route.params.specialist]);
+
+  useEffect(() => {
+    if (!specialist?.id) {
+      setDetailLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadDetail = async () => {
+      try {
+        setDetailLoading(true);
+        const result = await adminService.getSpecialistDetail(specialist.id);
+        if (isMounted) {
+          setDetail(result);
+        }
+      } catch {
+        if (isMounted) {
+          setDetail(null);
+        }
+      } finally {
+        if (isMounted) {
+          setDetailLoading(false);
+        }
+      }
+    };
+
+    void loadDetail();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [specialist?.id]);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'Sin fecha';
@@ -54,6 +103,112 @@ export function AdminSpecialistDetailScreen() {
       minute: '2-digit',
     });
   };
+
+  const formatShortDate = (dateStr: string | null) => {
+    if (!dateStr) return 'Sin fecha';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const handleOpenInsurance = useCallback(async () => {
+    if (!specialist || openingDocumentKey === 'insurance') {
+      return;
+    }
+
+    try {
+      setOpeningDocumentKey('insurance');
+      await adminService.openSpecialistInsuranceDocument(specialist.id);
+    } catch {
+      if (Platform.OS === 'web') {
+        window.alert('No se pudo abrir la póliza del especialista.');
+      } else {
+        Alert.alert('Error', 'No se pudo abrir la póliza del especialista.');
+      }
+    } finally {
+      setOpeningDocumentKey(null);
+    }
+  }, [openingDocumentKey, specialist]);
+
+  const handleOpenCertificate = useCallback(async (
+    certificateId: string,
+    mimeType?: string | null
+  ) => {
+    if (!specialist) {
+      return;
+    }
+
+    const documentKey = `certificate:${certificateId}`;
+    if (openingDocumentKey === documentKey) {
+      return;
+    }
+
+    try {
+      setOpeningDocumentKey(documentKey);
+      await adminService.openSpecialistCertificateDocument(specialist.id, certificateId, mimeType);
+    } catch {
+      if (Platform.OS === 'web') {
+        window.alert('No se pudo abrir el certificado.');
+      } else {
+        Alert.alert('Error', 'No se pudo abrir el certificado.');
+      }
+    } finally {
+      setOpeningDocumentKey(null);
+    }
+  }, [openingDocumentKey, specialist]);
+
+  const handleReviewInsurance = useCallback(async (status: 'APPROVED' | 'REJECTED') => {
+    if (!specialist || !detail?.insuranceUploaded) {
+      return;
+    }
+
+    const actionLabel = status === 'APPROVED' ? 'aprobar' : 'rechazar';
+
+    const executeReview = async () => {
+      try {
+        setProcessing(true);
+        await adminService.reviewSpecialistInsuranceDocument(specialist.id, status);
+        const refreshedDetail = await adminService.getSpecialistDetail(specialist.id);
+        setDetail(refreshedDetail);
+
+        if (Platform.OS === 'web') {
+          window.alert(`La póliza ha quedado ${status === 'APPROVED' ? 'aprobada' : 'rechazada'}.`);
+        } else {
+          Alert.alert(
+            'Revisión completada',
+            `La póliza ha quedado ${status === 'APPROVED' ? 'aprobada' : 'rechazada'}.`
+          );
+        }
+      } catch {
+        if (Platform.OS === 'web') {
+          window.alert(`No se pudo ${actionLabel} la póliza.`);
+        } else {
+          Alert.alert('Error', `No se pudo ${actionLabel} la póliza.`);
+        }
+      } finally {
+        setProcessing(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`¿Quieres ${actionLabel} esta póliza?`)) {
+        void executeReview();
+      }
+      return;
+    }
+
+    Alert.alert(
+      status === 'APPROVED' ? 'Aprobar póliza' : 'Rechazar póliza',
+      `¿Quieres ${actionLabel} esta póliza?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: status === 'APPROVED' ? 'Aprobar' : 'Rechazar', onPress: () => void executeReview() },
+      ]
+    );
+  }, [detail?.insuranceUploaded, specialist]);
 
   const handleResolve = useCallback(async (status: 'VERIFIED' | 'REJECTED') => {
     if (!specialist) return;
@@ -224,6 +379,145 @@ export function AdminSpecialistDetailScreen() {
               <Ionicons name="image-outline" size={48} color={heraLanding.textMuted} />
               <Text style={styles.noPhotoText}>No hay foto del carnet de colegiado disponible</Text>
             </View>
+          )}
+        </View>
+
+        <View style={styles.photoSection}>
+          <Text style={styles.sectionTitle}>Documentación privada adicional</Text>
+
+          {detailLoading ? (
+            <View style={styles.noPhotoContainer}>
+              <ActivityIndicator size="small" color={heraLanding.primary} />
+              <Text style={styles.noPhotoText}>Cargando credenciales privadas...</Text>
+            </View>
+          ) : (
+            <>
+              {detail ? (
+                <View style={styles.insuranceReviewSummary}>
+                  <Text style={styles.insuranceReviewSummaryLabel}>Cobertura presencial</Text>
+                  <View
+                    style={[
+                      styles.insuranceReviewBadge,
+                      { backgroundColor: getInsuranceStatusBadge(detail.insuranceReviewStatus).bg },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.insuranceReviewBadgeText,
+                        { color: getInsuranceStatusBadge(detail.insuranceReviewStatus).color },
+                      ]}
+                    >
+                      {getInsuranceStatusBadge(detail.insuranceReviewStatus).label}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+              <View style={styles.credentialCard}>
+                <View style={styles.credentialCardHeader}>
+                  <View style={styles.credentialCardIcon}>
+                    <Ionicons name="shield-checkmark-outline" size={18} color={heraLanding.primary} />
+                  </View>
+                  <View style={styles.credentialCardCopy}>
+                    <Text style={styles.credentialCardTitle}>Póliza de responsabilidad civil</Text>
+                    <Text style={styles.credentialCardDescription}>
+                      {detail?.insuranceUploaded
+                        ? detail.insuranceReviewStatus === 'APPROVED'
+                          ? 'Aprobada. El especialista ya puede mostrar presencial.'
+                          : detail.insuranceReviewStatus === 'REJECTED'
+                            ? 'Rechazada. El especialista no muestra presencial al paciente.'
+                            : 'Pendiente de revisión. La ubicación sigue oculta al paciente.'
+                        : 'No hay póliza subida actualmente.'}
+                    </Text>
+                    {detail?.insuranceRejectedReason ? (
+                      <Text style={styles.credentialCardMeta}>Motivo: {detail.insuranceRejectedReason}</Text>
+                    ) : null}
+                  </View>
+                </View>
+
+                {detail?.insuranceUploaded ? (
+                  <View style={styles.reviewDocumentActions}>
+                    <TouchableOpacity
+                      style={styles.reviewDocumentButton}
+                      onPress={() => void handleOpenInsurance()}
+                      activeOpacity={0.8}
+                    >
+                      {openingDocumentKey === 'insurance' ? (
+                        <ActivityIndicator size="small" color={heraLanding.primary} />
+                      ) : (
+                        <Ionicons name="eye-outline" size={18} color={heraLanding.primary} />
+                      )}
+                      <Text style={styles.reviewDocumentButtonText}>Abrir póliza</Text>
+                    </TouchableOpacity>
+                    <View style={styles.reviewDecisionRow}>
+                      <TouchableOpacity
+                        style={[styles.insuranceDecisionButton, styles.insuranceDecisionReject]}
+                        onPress={() => void handleReviewInsurance('REJECTED')}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.insuranceDecisionRejectText}>Rechazar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.insuranceDecisionButton, styles.insuranceDecisionApprove]}
+                        onPress={() => void handleReviewInsurance('APPROVED')}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.insuranceDecisionApproveText}>Aprobar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+
+              <View style={styles.credentialCard}>
+                <View style={styles.credentialCardHeader}>
+                  <View style={styles.credentialCardIcon}>
+                    <Ionicons name="ribbon-outline" size={18} color={heraLanding.primary} />
+                  </View>
+                  <View style={styles.credentialCardCopy}>
+                    <Text style={styles.credentialCardTitle}>Certificados y acreditaciones</Text>
+                    <Text style={styles.credentialCardDescription}>
+                      {detail?.certificates?.length
+                        ? `${detail.certificates.length} documento(s) privado(s) disponible(s) para revisión.`
+                        : 'No hay certificados privados asociados.'}
+                    </Text>
+                  </View>
+                </View>
+
+                {detail?.certificates?.length ? (
+                  <View style={styles.certificateList}>
+                    {detail.certificates.map((certificate) => (
+                      <View key={certificate.id} style={styles.certificateRow}>
+                        <View style={styles.certificateRowCopy}>
+                          <Text style={styles.certificateName}>{certificate.name}</Text>
+                          <Text style={styles.certificateMeta}>{certificate.issuer}</Text>
+                          {certificate.validUntil ? (
+                            <Text style={styles.certificateMeta}>
+                              Válido hasta: {certificate.validUntil}
+                            </Text>
+                          ) : null}
+                          {certificate.documentUploadedAt ? (
+                            <Text style={styles.certificateMeta}>
+                              Subido: {formatShortDate(certificate.documentUploadedAt)}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <TouchableOpacity
+                          style={styles.certificateAction}
+                          onPress={() => void handleOpenCertificate(certificate.id, certificate.mimeType)}
+                          activeOpacity={0.8}
+                        >
+                          {openingDocumentKey === `certificate:${certificate.id}` ? (
+                            <ActivityIndicator size="small" color={heraLanding.primary} />
+                          ) : (
+                            <Ionicons name="eye-outline" size={18} color={heraLanding.primary} />
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            </>
           )}
         </View>
       </ScrollView>
@@ -512,6 +806,143 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.sm,
     color: heraLanding.textMuted,
     marginTop: spacing.sm,
+  },
+  insuranceReviewSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  insuranceReviewSummaryLabel: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
+    color: heraLanding.textPrimary,
+  },
+  insuranceReviewBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
+  },
+  insuranceReviewBadgeText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  credentialCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    gap: spacing.md,
+    marginBottom: spacing.md,
+    ...shadows.sm,
+  },
+  credentialCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  credentialCardIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
+    backgroundColor: heraLanding.primaryMuted,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  credentialCardCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  credentialCardTitle: {
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
+    color: heraLanding.textPrimary,
+  },
+  credentialCardDescription: {
+    fontSize: typography.fontSizes.sm,
+    color: heraLanding.textSecondary,
+    lineHeight: 20,
+  },
+  credentialCardMeta: {
+    fontSize: typography.fontSizes.xs,
+    color: heraLanding.textSecondary,
+  },
+  reviewDocumentActions: {
+    gap: spacing.sm,
+    alignSelf: 'flex-start',
+  },
+  reviewDocumentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: heraLanding.primary,
+    alignSelf: 'flex-start',
+  },
+  reviewDocumentButtonText: {
+    fontSize: typography.fontSizes.sm,
+    color: heraLanding.primary,
+    fontWeight: typography.fontWeights.medium,
+  },
+  reviewDecisionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  insuranceDecisionButton: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+  },
+  insuranceDecisionApprove: {
+    backgroundColor: heraLanding.successLight,
+  },
+  insuranceDecisionReject: {
+    backgroundColor: heraLanding.status.cancelled.bg,
+  },
+  insuranceDecisionApproveText: {
+    fontSize: typography.fontSizes.sm,
+    color: heraLanding.success,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  insuranceDecisionRejectText: {
+    fontSize: typography.fontSizes.sm,
+    color: heraLanding.status.cancelled.text,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  certificateList: {
+    gap: spacing.sm,
+  },
+  certificateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: heraLanding.backgroundMuted,
+  },
+  certificateRowCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  certificateName: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
+    color: heraLanding.textPrimary,
+  },
+  certificateMeta: {
+    fontSize: typography.fontSizes.xs,
+    color: heraLanding.textSecondary,
+  },
+  certificateAction: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
   },
 
   // Action Bar - absolutely positioned to avoid ScrollView touch interception on web
