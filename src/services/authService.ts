@@ -20,6 +20,10 @@ export interface AuthResponse {
     avatar?: string | null;
     emailVerified?: boolean;
     isAdmin?: boolean;
+    specialist?: {
+      verificationStatus?: 'PENDING' | 'VERIFIED' | 'REJECTED' | null;
+      verificationSubmittedAt?: string | null;
+    };
   };
 }
 
@@ -145,6 +149,12 @@ export const getCurrentUser = async (): Promise<AuthResponse['user']> => {
         avatar: response.data.data.avatar,
         emailVerified: response.data.data.emailVerified,
         isAdmin: response.data.data.isAdmin,
+        specialist: response.data.data.specialist
+          ? {
+              verificationStatus: response.data.data.specialist.verificationStatus,
+              verificationSubmittedAt: response.data.data.specialist.verificationSubmittedAt,
+            }
+          : undefined,
       };
     }
 

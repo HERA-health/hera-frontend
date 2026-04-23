@@ -39,6 +39,12 @@ const managedClientSchema = z.object({
       message: 'Introduce un email válido',
     }),
   phone: z.string().trim().optional().transform((value) => value || ''),
+  billingFullName: z.string().trim().optional().transform((value) => value || ''),
+  billingTaxId: z.string().trim().optional().transform((value) => value || ''),
+  billingAddress: z.string().trim().optional().transform((value) => value || ''),
+  billingPostalCode: z.string().trim().optional().transform((value) => value || ''),
+  billingCity: z.string().trim().optional().transform((value) => value || ''),
+  billingCountry: z.string().trim().optional().transform((value) => value || 'Spain'),
   consentOnFile: z.boolean().refine((value) => value === true, {
     message: 'Debes confirmar que dispones del consentimiento informado',
   }),
@@ -63,6 +69,12 @@ const emptyForm: ManagedClientForm = {
   lastName: '',
   email: '',
   phone: '',
+  billingFullName: '',
+  billingTaxId: '',
+  billingAddress: '',
+  billingPostalCode: '',
+  billingCity: '',
+  billingCountry: 'Spain',
   consentOnFile: false,
 };
 
@@ -602,6 +614,82 @@ export function ProfessionalClientsScreen() {
                     <Text style={[stylesForTheme.fieldError, { color: theme.error }]}>{formErrors.phone}</Text>
                   ) : null}
                 </View>
+
+                <View style={[stylesForTheme.field, { flexBasis: '100%' }]}>
+                  <Text style={[stylesForTheme.fieldLabel, { color: theme.textSecondary }]}>
+                    Datos fiscales para factura completa
+                  </Text>
+                  <Text style={[stylesForTheme.fieldHint, { color: theme.textMuted }]}>
+                    Opcional. Puedes dejarlo preparado ahora o completarlo más adelante desde la ficha del paciente.
+                  </Text>
+                </View>
+
+                <View style={stylesForTheme.field}>
+                  <Text style={[stylesForTheme.fieldLabel, { color: theme.textSecondary }]}>Nombre fiscal</Text>
+                  <TextInput
+                    value={form.billingFullName}
+                    onChangeText={(value) => updateFormField('billingFullName', value)}
+                    style={[stylesForTheme.input, { color: theme.textPrimary, borderColor: theme.border }]}
+                    placeholder="Nombre y apellidos"
+                    placeholderTextColor={theme.textMuted}
+                  />
+                </View>
+
+                <View style={stylesForTheme.field}>
+                  <Text style={[stylesForTheme.fieldLabel, { color: theme.textSecondary }]}>NIF/NIE</Text>
+                  <TextInput
+                    value={form.billingTaxId}
+                    onChangeText={(value) => updateFormField('billingTaxId', value)}
+                    style={[stylesForTheme.input, { color: theme.textPrimary, borderColor: theme.border }]}
+                    placeholder="12345678A"
+                    autoCapitalize="characters"
+                    placeholderTextColor={theme.textMuted}
+                  />
+                </View>
+
+                <View style={[stylesForTheme.field, { flexBasis: '100%' }]}>
+                  <Text style={[stylesForTheme.fieldLabel, { color: theme.textSecondary }]}>Dirección fiscal</Text>
+                  <TextInput
+                    value={form.billingAddress}
+                    onChangeText={(value) => updateFormField('billingAddress', value)}
+                    style={[stylesForTheme.input, { color: theme.textPrimary, borderColor: theme.border }]}
+                    placeholder="Calle, número, piso..."
+                    placeholderTextColor={theme.textMuted}
+                  />
+                </View>
+
+                <View style={stylesForTheme.field}>
+                  <Text style={[stylesForTheme.fieldLabel, { color: theme.textSecondary }]}>Código postal</Text>
+                  <TextInput
+                    value={form.billingPostalCode}
+                    onChangeText={(value) => updateFormField('billingPostalCode', value)}
+                    style={[stylesForTheme.input, { color: theme.textPrimary, borderColor: theme.border }]}
+                    placeholder="28001"
+                    placeholderTextColor={theme.textMuted}
+                  />
+                </View>
+
+                <View style={stylesForTheme.field}>
+                  <Text style={[stylesForTheme.fieldLabel, { color: theme.textSecondary }]}>Ciudad</Text>
+                  <TextInput
+                    value={form.billingCity}
+                    onChangeText={(value) => updateFormField('billingCity', value)}
+                    style={[stylesForTheme.input, { color: theme.textPrimary, borderColor: theme.border }]}
+                    placeholder="Madrid"
+                    placeholderTextColor={theme.textMuted}
+                  />
+                </View>
+
+                <View style={stylesForTheme.field}>
+                  <Text style={[stylesForTheme.fieldLabel, { color: theme.textSecondary }]}>País</Text>
+                  <TextInput
+                    value={form.billingCountry}
+                    onChangeText={(value) => updateFormField('billingCountry', value)}
+                    style={[stylesForTheme.input, { color: theme.textPrimary, borderColor: theme.border }]}
+                    placeholder="Spain"
+                    placeholderTextColor={theme.textMuted}
+                  />
+                </View>
               </View>
 
               <View style={[stylesForTheme.consentPanel, { backgroundColor: theme.bgMuted, borderColor: theme.border }]}>
@@ -991,6 +1079,10 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     fieldLabel: {
       ...textStyles.caption,
       fontWeight: '700',
+    },
+    fieldHint: {
+      ...textStyles.bodySmall,
+      lineHeight: 20,
     },
     input: {
       minHeight: 50,

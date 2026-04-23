@@ -20,6 +20,7 @@ export interface Invoice {
   clientId: string;
   sessionId: string | null;
   invoiceNumber: string;
+  invoiceKind: InvoiceKind;
   subtotal: number;
   vatRate: number;
   vatAmount: number;
@@ -37,8 +38,18 @@ export interface Invoice {
   updatedAt: string;
   client: {
     id: string;
-    user: { name: string; email: string };
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    billingFullName?: string | null;
+    billingTaxId?: string | null;
+    billingAddress?: string | null;
+    billingPostalCode?: string | null;
+    billingCity?: string | null;
+    billingCountry?: string | null;
+    user: { name: string; email: string } | null;
   };
+  recipientFiscalName?: string | null;
   session?: {
     id: string;
     date: string;
@@ -46,11 +57,14 @@ export interface Invoice {
   } | null;
 }
 
+export type InvoiceKind = 'SIMPLIFIED' | 'FULL';
+
 export interface SessionInvoiceSummary {
   id: string;
   clientId: string;
   sessionId: string | null;
   invoiceNumber: string;
+  invoiceKind: InvoiceKind;
   status: InvoiceStatus;
 }
 
@@ -59,6 +73,7 @@ export interface AttachableInvoiceSummary {
   clientId: string;
   sessionId: string | null;
   invoiceNumber: string;
+  invoiceKind: InvoiceKind;
   status: InvoiceStatus;
   total: number;
   concept: string;
@@ -71,6 +86,7 @@ export type InvoiceStatus = 'DRAFT' | 'SENT' | 'PAID' | 'CANCELLED';
 
 export interface InvoiceFilters {
   status?: InvoiceStatus;
+  invoiceKind?: InvoiceKind;
   month?: number;
   year?: number;
   clientId?: string;
@@ -89,6 +105,7 @@ export interface PaginatedInvoices {
 export interface CreateInvoiceData {
   clientId: string;
   sessionId?: string;
+  invoiceKind?: InvoiceKind;
   concept: string;
   subtotal: number;
   vatRate?: number;
@@ -102,6 +119,7 @@ export interface CreateInvoiceData {
 
 export interface UpdateInvoiceData {
   clientId?: string;
+  invoiceKind?: InvoiceKind;
   concept?: string;
   subtotal?: number;
   vatRate?: number;
@@ -116,6 +134,10 @@ export interface UpdateInvoiceData {
 export interface BillingConfig {
   invoicePrefix?: string;
   invoiceNextNumber?: number;
+  simplifiedInvoicePrefix?: string;
+  simplifiedInvoiceNextNumber?: number;
+  fullInvoicePrefix?: string;
+  fullInvoiceNextNumber?: number;
   vatRate?: number;
   vatExemptReason?: string | null;
   invoiceLogoUrl?: string | null;
@@ -156,6 +178,10 @@ export interface SpecialistBillingData {
   id: string;
   invoicePrefix: string | null;
   invoiceNextNumber: number;
+  simplifiedInvoicePrefix: string | null;
+  simplifiedInvoiceNextNumber: number;
+  fullInvoicePrefix: string | null;
+  fullInvoiceNextNumber: number;
   vatRate: number | null;
   applyVat: boolean;
   vatExemptReason: string | null;
@@ -182,6 +208,10 @@ export interface FullBillingConfig {
   tariffs: TariffItem[] | null;
   invoicePrefix: string | null;
   invoiceNextNumber: number;
+  simplifiedInvoicePrefix: string | null;
+  simplifiedInvoiceNextNumber: number;
+  fullInvoicePrefix: string | null;
+  fullInvoiceNextNumber: number;
   vatRate: number | null;
   applyVat: boolean;
   vatExemptReason: string | null;
@@ -219,6 +249,7 @@ export const billingService = {
     try {
       const params = new URLSearchParams();
       if (filters?.status) params.append('status', filters.status);
+      if (filters?.invoiceKind) params.append('invoiceKind', filters.invoiceKind);
       if (filters?.month) params.append('month', String(filters.month));
       if (filters?.year) params.append('year', String(filters.year));
       if (filters?.clientId) params.append('clientId', filters.clientId);

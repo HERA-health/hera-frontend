@@ -28,6 +28,10 @@ interface User {
   avatar?: string | null;
   emailVerified?: boolean;
   isAdmin?: boolean;
+  specialist?: {
+    verificationStatus?: 'PENDING' | 'VERIFIED' | 'REJECTED' | null;
+    verificationSubmittedAt?: string | null;
+  };
 }
 
 interface AuthContextType {
@@ -66,7 +70,29 @@ const mapAuthUser = (userData: AuthResponse['user']): User => {
     avatar: userData.avatar,
     emailVerified: userData.emailVerified,
     isAdmin: userData.isAdmin ?? false,
+    specialist: userData.specialist,
   };
+};
+
+const deriveKnownVerificationSubmission = (user: User): boolean | null => {
+  if (user.type !== 'professional') {
+    return null;
+  }
+
+  const snapshot = user.specialist;
+  if (!snapshot?.verificationStatus) {
+    return null;
+  }
+
+  if (snapshot.verificationStatus === 'VERIFIED' || snapshot.verificationStatus === 'REJECTED') {
+    return true;
+  }
+
+  if (snapshot.verificationStatus === 'PENDING') {
+    return Boolean(snapshot.verificationSubmittedAt);
+  }
+
+  return null;
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -77,22 +103,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // null = not yet checked, true = submitted, false = not submitted
   const [verificationSubmitted, setVerificationSubmitted] = useState<boolean | null>(null);
 
-  const checkVerificationStatus = useCallback(async (userType: UserType) => {
-    if (userType !== 'professional') {
+  const checkVerificationStatus = useCallback(async (mappedUser: User) => {
+    if (mappedUser.type !== 'professional') {
       setVerificationSubmitted(null);
+      return;
+    }
+
+    const knownVerificationState = deriveKnownVerificationSubmission(mappedUser);
+    if (knownVerificationState !== null) {
+      setVerificationSubmitted(knownVerificationState);
       return;
     }
 
     try {
       const status = await professionalService.getVerificationStatus();
-      const submittedAt =
-        status.submittedAt ??
-        (status as unknown as { verificationSubmittedAt?: string | null }).verificationSubmittedAt ??
-        null;
-      setVerificationSubmitted(Boolean(submittedAt));
+      setVerificationSubmitted(status.verificationStatus !== 'NOT_SUBMITTED');
     } catch (_err: unknown) {
-      // If the check fails, assume not submitted to be safe
-      setVerificationSubmitted(false);
+      // Keep the status unresolved instead of forcing professionals
+      // through verification on transient API failures.
+      setVerificationSubmitted(null);
     }
   }, []);
 
@@ -109,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // silently ignore analytics errors
     }
 
-    await checkVerificationStatus(mappedUser.type);
+    await checkVerificationStatus(mappedUser);
     return mappedUser;
   }, [checkVerificationStatus]);
 
@@ -164,7 +193,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
 
       const response = await authService.login({ email, password });
-      await syncUserState(response.user);
+
+      try {
+        await refreshCurrentUser();
+      } catch {
+        await syncUserState(response.user);
+      }
 
       return response;
     } catch (err: unknown) {

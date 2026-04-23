@@ -141,6 +141,7 @@ export type RootStackParamList = {
   ClientProfile: {
     clientId: string;
     initialTab?: 'summary' | 'history' | 'clinical';
+    focusBillingEditor?: boolean;
   };
   AdminPanel: undefined;
   AdminSpecialistDetail: { specialist: string }; // JSON-serialized PendingSpecialist

@@ -4,11 +4,14 @@ import {
   ActivityIndicator,
   Image,
   Linking,
+  Alert,
+  Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -171,7 +174,7 @@ const getTimelineStatusColor = (
 export function ClientProfileScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<AppRouteProp<'ClientProfile'>>();
-  const { clientId, initialTab } = route.params;
+  const { clientId, initialTab, focusBillingEditor } = route.params;
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
 
@@ -179,14 +182,29 @@ export function ClientProfileScreen() {
   const [client, setClient] = useState<professionalService.Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshingClient, setRefreshingClient] = useState(false);
+  const [billingModalVisible, setBillingModalVisible] = useState(false);
+  const [savingBilling, setSavingBilling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [visibleHistoryItems, setVisibleHistoryItems] = useState(5);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [keepClinicalMounted, setKeepClinicalMounted] = useState(false);
+  const [billingForm, setBillingForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    billingFullName: '',
+    billingTaxId: '',
+    billingAddress: '',
+    billingPostalCode: '',
+    billingCity: '',
+    billingCountry: 'Spain',
+  });
   const hasLoadedClientRef = useRef(false);
   const loadClientPromiseRef = useRef<Promise<void> | null>(null);
+  const autoOpenedBillingRef = useRef(false);
 
   const isDesktop = width >= 1180;
   const isTablet = width >= 860;
@@ -254,7 +272,34 @@ export function ClientProfileScreen() {
     loadClientPromiseRef.current = null;
     setRefreshingClient(false);
     setKeepClinicalMounted(false);
+    autoOpenedBillingRef.current = false;
   }, [clientId]);
+
+  useEffect(() => {
+    if (!client) {
+      return;
+    }
+
+    setBillingForm({
+      firstName: client.firstName || '',
+      lastName: client.lastName || '',
+      email: client.email || client.primaryEmail || '',
+      phone: client.phone || client.primaryPhone || '',
+      billingFullName: client.billingFullName || '',
+      billingTaxId: client.billingTaxId || '',
+      billingAddress: client.billingAddress || '',
+      billingPostalCode: client.billingPostalCode || '',
+      billingCity: client.billingCity || '',
+      billingCountry: client.billingCountry || 'Spain',
+    });
+  }, [client]);
+
+  useEffect(() => {
+    if (focusBillingEditor && client && !autoOpenedBillingRef.current) {
+      autoOpenedBillingRef.current = true;
+      setBillingModalVisible(true);
+    }
+  }, [client, focusBillingEditor]);
 
   useEffect(() => {
     if (activeTab === 'clinical') {
@@ -305,6 +350,92 @@ export function ClientProfileScreen() {
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     setScrollOffset(event.nativeEvent.contentOffset.y);
   }, []);
+
+  const updateBillingField = useCallback(
+    (field: keyof typeof billingForm, value: string) => {
+      setBillingForm((current) => ({ ...current, [field]: value }));
+    },
+    [],
+  );
+
+  const handleSaveBilling = useCallback(async () => {
+    if (!client) {
+      return;
+    }
+
+    try {
+      setSavingBilling(true);
+
+      const trimmedBilling = {
+        billingFullName: billingForm.billingFullName.trim(),
+        billingTaxId: billingForm.billingTaxId.trim().toUpperCase(),
+        billingAddress: billingForm.billingAddress.trim(),
+        billingPostalCode: billingForm.billingPostalCode.trim(),
+        billingCity: billingForm.billingCity.trim(),
+        billingCountry: billingForm.billingCountry.trim(),
+      };
+
+      const billingFieldsChanged =
+        trimmedBilling.billingFullName !== (client.billingFullName || '') ||
+        trimmedBilling.billingTaxId !== (client.billingTaxId || '') ||
+        trimmedBilling.billingAddress !== (client.billingAddress || '') ||
+        trimmedBilling.billingPostalCode !== (client.billingPostalCode || '') ||
+        trimmedBilling.billingCity !== (client.billingCity || '') ||
+        trimmedBilling.billingCountry !== (client.billingCountry || 'Spain');
+
+      const hasVisibleBillingInput = Boolean(
+        trimmedBilling.billingFullName ||
+          trimmedBilling.billingTaxId ||
+          trimmedBilling.billingAddress ||
+          trimmedBilling.billingPostalCode ||
+          trimmedBilling.billingCity
+      );
+
+      const hasCompleteBillingInput = Boolean(
+        trimmedBilling.billingFullName &&
+          trimmedBilling.billingTaxId &&
+          trimmedBilling.billingAddress &&
+          trimmedBilling.billingPostalCode &&
+          trimmedBilling.billingCity &&
+          trimmedBilling.billingCountry
+      );
+
+      if (billingFieldsChanged && hasVisibleBillingInput && !hasCompleteBillingInput) {
+        Alert.alert('Error', 'Completa todos los datos fiscales para guardar la ficha de facturación.');
+        return;
+      }
+
+      const billingPayload = {
+        ...trimmedBilling,
+      };
+
+      const updatedClient =
+        client.source === 'MANAGED'
+          ? await professionalService.updateManagedClient(client.id, {
+              firstName: billingForm.firstName.trim() || undefined,
+              lastName: billingForm.lastName.trim() || undefined,
+              email: billingForm.email.trim(),
+              phone: billingForm.phone.trim(),
+              ...(billingFieldsChanged ? billingPayload : {}),
+            })
+          : billingFieldsChanged
+            ? await professionalService.updateClientBilling(client.id, billingPayload)
+            : client;
+
+      setClient(updatedClient);
+      setBillingModalVisible(false);
+      Alert.alert(
+        'Éxito',
+        client.source === 'MANAGED'
+          ? 'La ficha del paciente se ha actualizado.'
+          : 'Los datos fiscales del paciente se han actualizado.'
+      );
+    } catch (saveError: unknown) {
+      Alert.alert('Error', getErrorMessage(saveError, 'No se pudieron guardar los datos del paciente.'));
+    } finally {
+      setSavingBilling(false);
+    }
+  }, [billingForm, client]);
 
   if (loading && !client) {
     return (
@@ -362,6 +493,12 @@ export function ClientProfileScreen() {
           <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Ubicación</Text>
           <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
             {client.homeCity || client.homeCountry || 'Sin información'}
+          </Text>
+        </View>
+        <View style={[styles.infoBlock, isMobile && styles.infoBlockStack]}>
+          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Facturación</Text>
+          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
+            {client.billingFullName && client.billingTaxId ? 'Datos fiscales completos' : 'Pendiente de completar'}
           </Text>
         </View>
       </View>
@@ -522,6 +659,14 @@ export function ClientProfileScreen() {
               ]}
             >
               <Button
+                variant="outline"
+                size="medium"
+                onPress={() => setBillingModalVisible(true)}
+              >
+                Editar paciente
+              </Button>
+
+              <Button
                 variant="secondary"
                 size="medium"
                 onPress={() =>
@@ -662,6 +807,168 @@ export function ClientProfileScreen() {
         </View>
       ) : null}
       </ScrollView>
+
+      <Modal
+        visible={billingModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setBillingModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Card
+            variant="default"
+            padding="large"
+            style={[styles.modalCard, { backgroundColor: theme.bgCard, borderColor: theme.border }]}
+          >
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.modalHeader}>
+                <View style={styles.modalHeaderCopy}>
+                  <Text style={[textStyles.section, { color: theme.textPrimary }, sectionTitleStyle]}>
+                    Editar paciente
+                  </Text>
+                  <Text style={[textStyles.body, { color: theme.textSecondary }]}>
+                    {client.source === 'MANAGED'
+                      ? 'Puedes actualizar datos de contacto y datos fiscales para la factura completa.'
+                      : 'Completa los datos fiscales necesarios para emitir facturas completas a este paciente.'}
+                  </Text>
+                </View>
+                <AnimatedPressable
+                  onPress={() => setBillingModalVisible(false)}
+                  hoverLift={false}
+                  pressScale={0.96}
+                  style={[styles.closeButton, { backgroundColor: theme.bgMuted }]}
+                >
+                  <Ionicons name="close" size={18} color={theme.textSecondary} />
+                </AnimatedPressable>
+              </View>
+
+              {client.source === 'MANAGED' ? (
+                <View style={styles.modalGrid}>
+                  <View style={styles.modalField}>
+                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Nombre</Text>
+                    <TextInput
+                      value={billingForm.firstName}
+                      onChangeText={(value) => updateBillingField('firstName', value)}
+                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      placeholder="Nombre"
+                      placeholderTextColor={theme.textMuted}
+                    />
+                  </View>
+                  <View style={styles.modalField}>
+                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Apellidos</Text>
+                    <TextInput
+                      value={billingForm.lastName}
+                      onChangeText={(value) => updateBillingField('lastName', value)}
+                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      placeholder="Apellidos"
+                      placeholderTextColor={theme.textMuted}
+                    />
+                  </View>
+                  <View style={styles.modalField}>
+                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Email</Text>
+                    <TextInput
+                      value={billingForm.email}
+                      onChangeText={(value) => updateBillingField('email', value)}
+                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      placeholder="email@paciente.com"
+                      placeholderTextColor={theme.textMuted}
+                      autoCapitalize="none"
+                    />
+                  </View>
+                  <View style={styles.modalField}>
+                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Teléfono</Text>
+                    <TextInput
+                      value={billingForm.phone}
+                      onChangeText={(value) => updateBillingField('phone', value)}
+                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      placeholder="600 000 000"
+                      placeholderTextColor={theme.textMuted}
+                    />
+                  </View>
+                </View>
+              ) : null}
+
+              <View style={styles.modalSection}>
+                <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
+                  Datos fiscales para factura completa
+                </Text>
+                <View style={styles.modalGrid}>
+                  <View style={styles.modalField}>
+                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Nombre fiscal</Text>
+                    <TextInput
+                      value={billingForm.billingFullName}
+                      onChangeText={(value) => updateBillingField('billingFullName', value)}
+                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      placeholder="Nombre y apellidos"
+                      placeholderTextColor={theme.textMuted}
+                    />
+                  </View>
+                  <View style={styles.modalField}>
+                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>NIF/NIE</Text>
+                    <TextInput
+                      value={billingForm.billingTaxId}
+                      onChangeText={(value) => updateBillingField('billingTaxId', value)}
+                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      placeholder="12345678A"
+                      placeholderTextColor={theme.textMuted}
+                      autoCapitalize="characters"
+                    />
+                  </View>
+                  <View style={[styles.modalField, styles.modalFieldFull]}>
+                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Dirección fiscal</Text>
+                    <TextInput
+                      value={billingForm.billingAddress}
+                      onChangeText={(value) => updateBillingField('billingAddress', value)}
+                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      placeholder="Calle, número, piso..."
+                      placeholderTextColor={theme.textMuted}
+                    />
+                  </View>
+                  <View style={styles.modalField}>
+                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Código postal</Text>
+                    <TextInput
+                      value={billingForm.billingPostalCode}
+                      onChangeText={(value) => updateBillingField('billingPostalCode', value)}
+                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      placeholder="28001"
+                      placeholderTextColor={theme.textMuted}
+                    />
+                  </View>
+                  <View style={styles.modalField}>
+                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Ciudad</Text>
+                    <TextInput
+                      value={billingForm.billingCity}
+                      onChangeText={(value) => updateBillingField('billingCity', value)}
+                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      placeholder="Madrid"
+                      placeholderTextColor={theme.textMuted}
+                    />
+                  </View>
+                  <View style={styles.modalField}>
+                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>País</Text>
+                    <TextInput
+                      value={billingForm.billingCountry}
+                      onChangeText={(value) => updateBillingField('billingCountry', value)}
+                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      placeholder="Spain"
+                      placeholderTextColor={theme.textMuted}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.modalActions}>
+                <Button variant="ghost" size="medium" onPress={() => setBillingModalVisible(false)}>
+                  Cancelar
+                </Button>
+                <Button variant="primary" size="medium" onPress={handleSaveBilling} loading={savingBilling}>
+                  Guardar cambios
+                </Button>
+              </View>
+            </ScrollView>
+          </Card>
+        </View>
+      </Modal>
 
       {showScrollCue ? (
         <View pointerEvents="none" style={styles.scrollCueWrap}>
@@ -1105,6 +1412,72 @@ const styles = StyleSheet.create({
   },
   scrollCueText: {
     ...textStyles.caption,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.38)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 780,
+    maxHeight: '88%',
+    borderWidth: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    alignItems: 'flex-start',
+    marginBottom: spacing.lg,
+  },
+  modalHeaderCopy: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  modalField: {
+    minWidth: 220,
+    flex: 1,
+    gap: spacing.xs,
+  },
+  modalFieldFull: {
+    flexBasis: '100%',
+  },
+  modalLabel: {
+    ...textStyles.caption,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: typography.fontSizes.sm,
+    backgroundColor: 'transparent',
+  },
+  modalSection: {
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  modalActions: {
+    marginTop: spacing.xl,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
   },
   mobileSurfaceCard: {
     shadowOpacity: 0,

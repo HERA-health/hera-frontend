@@ -11,7 +11,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { NavigationProp, RouteProp } from '@react-navigation/native';
+import { NavigationProp, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../constants/types';
 import {
   spacing,
@@ -30,6 +30,7 @@ import {
   CreateInvoiceData,
   UpdateInvoiceData,
   Invoice,
+  InvoiceKind,
 } from '../../services/billingService';
 import { getProfessionalClients, Client } from '../../services/professionalService';
 
@@ -50,6 +51,11 @@ interface LineItem {
   unitPrice: string;
 }
 
+type InvoiceClientOption = Client & {
+  name: string;
+  email: string;
+};
+
 // ============================================================================
 // STRINGS
 // ============================================================================
@@ -65,7 +71,18 @@ const STRINGS = {
   saveDraft: 'Guardar borrador',
   confirmSend: 'Confirmar y enviar',
   clientSection: 'Paciente',
+  invoiceTypeSection: 'Tipo de factura',
+  simplifiedLabel: 'Simplificada',
+  simplifiedHint: 'Más ágil para importes de hasta 400 € IVA incluido',
+  fullLabel: 'Completa',
+  fullHint: 'Incluye los datos fiscales completos del paciente',
   clientPlaceholder: 'Seleccionar cliente...',
+  clientBillingReady: 'Datos fiscales listos para factura completa',
+  clientBillingMissing: 'Faltan datos fiscales del paciente para emitir una factura completa',
+  completePatientBilling: 'Completar datos fiscales',
+  clientBillingSummary: 'Datos fiscales del destinatario',
+  specialistBillingMissing:
+    'Te faltan el nombre fiscal, el NIF o la dirección fiscal para emitir facturas completas.',
   clientLockedHint: 'Paciente fijado por la sesión seleccionada',
   conceptSection: 'Concepto',
   conceptHeader: 'Concepto',
@@ -80,9 +97,9 @@ const STRINGS = {
   internalNotesHint: 'Solo visible para ti',
   paymentConditions: 'Condiciones de pago',
   summaryTitle: 'Resumen',
-  invoiceNumber: 'N.º Factura',
-  issueDate: 'Fecha emisión',
-  subtotalLines: 'Subtotal líneas',
+  invoiceNumber: 'N.º de factura',
+  issueDate: 'Fecha de emisión',
+  subtotalLines: 'Subtotal de líneas',
   ivaIncluded: 'IVA incluido en el precio',
   exemption: 'Exención',
   exemptionArticle: 'Art. 20 Ley 37/1992',
@@ -92,8 +109,12 @@ const STRINGS = {
   ivaConfigNote: 'IVA configurado en Datos fiscales',
   changeConfig: 'Cambiar configuración →',
   tariffSection: 'Aplicar tarifa',
+  simplifiedLimitNote: 'Las facturas simplificadas solo pueden emitirse hasta 400 € IVA incluido.',
   validationNoClient: 'Selecciona un cliente',
-  validationNoAmount: 'Al menos una línea debe tener un importe mayor que 0',
+  validationNoAmount: 'Al menos una línea debe tener un importe superior a 0',
+  validationFullInvoiceClientData: 'Completa antes los datos fiscales del paciente para emitir una factura completa',
+  validationFullInvoiceSpecialistData: 'Completa tus datos fiscales antes de emitir una factura completa',
+  validationSimplifiedLimit: 'Con este importe debes emitir una factura completa o ajustar el total',
   successDraft: 'Factura guardada como borrador',
   successSent: 'Factura creada y enviada',
   successSentPartial: 'Factura creada pero no se pudo enviar. Puedes enviarla desde el historial.',
@@ -123,6 +144,39 @@ const formatDateForDisplay = (date: Date): string => {
   const yyyy = date.getFullYear();
   return `${dd}/${mm}/${yyyy}`;
 };
+
+const getClientDisplayName = (client?: InvoiceClientOption | Client | null): string => {
+  const namedClient = client as InvoiceClientOption | null | undefined;
+  return (
+    client?.displayName ||
+    namedClient?.name ||
+    client?.user?.name ||
+    [client?.firstName, client?.lastName].filter(Boolean).join(' ') ||
+    'Paciente'
+  );
+};
+
+const getClientEmail = (client?: InvoiceClientOption | Client | null): string =>
+  client?.primaryEmail || client?.user?.email || client?.email || '';
+
+const formatRecipientAddress = (client?: InvoiceClientOption | Client | null): string => {
+  const location = [client?.billingPostalCode, client?.billingCity, client?.billingCountry]
+    .filter(Boolean)
+    .join(' ');
+
+  return [client?.billingAddress, location].filter(Boolean).join(', ');
+};
+
+const hasCompleteBillingData = (client?: InvoiceClientOption | Client | null): boolean =>
+  client?.billingDataComplete ??
+  Boolean(
+    client?.billingFullName &&
+      client?.billingTaxId &&
+      client?.billingAddress &&
+      client?.billingPostalCode &&
+      client?.billingCity &&
+      client?.billingCountry
+  );
 
 const createDefaultLineItem = (): LineItem => ({
   id: generateId(),
@@ -170,8 +224,9 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [billingConfig, setBillingConfig] = useState<FullBillingConfig | null>(null);
-  const [clients, setClients] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [clients, setClients] = useState<InvoiceClientOption[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [invoiceKind, setInvoiceKind] = useState<InvoiceKind>('SIMPLIFIED');
   const [lineItems, setLineItems] = useState<LineItem[]>([createDefaultLineItem()]);
   const [internalNotes, setInternalNotes] = useState('');
   const [paymentConditions, setPaymentConditions] = useState('');
@@ -189,6 +244,26 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
     if (!billingConfig?.tariffs) return [];
     return billingConfig.tariffs.filter((t) => t.isActive);
   }, [billingConfig]);
+
+  const selectedClient = useMemo(
+    () => clients.find((client) => client.id === selectedClientId) ?? null,
+    [clients, selectedClientId],
+  );
+
+  const specialistBillingReady = useMemo(
+    () =>
+      Boolean(
+        billingConfig?.fiscalName?.trim() &&
+          billingConfig?.fiscalNif?.trim() &&
+          billingConfig?.fiscalAddress?.trim()
+      ),
+    [billingConfig],
+  );
+
+  const clientBillingReady = useMemo(
+    () => hasCompleteBillingData(selectedClient),
+    [selectedClient],
+  );
 
   const subtotalLines = useMemo(() => {
     return lineItems.reduce((sum, item) => {
@@ -230,11 +305,6 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
     }
   }, [subtotalLines, vatRate, ivaIncluded]);
 
-  const selectedClient = useMemo(
-    () => clients.find((c) => c.id === selectedClientId),
-    [clients, selectedClientId],
-  );
-
   const navigateAfterSave = useCallback(() => {
     if (sessionContext && navigation.canGoBack()) {
       navigation.goBack();
@@ -252,22 +322,44 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
     navigation.navigate('ProfessionalBilling');
   }, [navigation, returnToClientId, sessionContext]);
 
+  const invoiceNumberForKind = useCallback(
+    (kind: InvoiceKind, config: FullBillingConfig) => {
+      const year = new Date().getFullYear();
+      const prefix =
+        kind === 'FULL'
+          ? config.fullInvoicePrefix || config.invoicePrefix || 'F'
+          : config.simplifiedInvoicePrefix || 'FS';
+      const nextNumber =
+        kind === 'FULL'
+          ? config.fullInvoiceNextNumber || config.invoiceNextNumber || 1
+          : config.simplifiedInvoiceNextNumber || 1;
+
+      return `${prefix}-${year}-${String(nextNumber).padStart(3, '0')}`;
+    },
+    [],
+  );
+
+  const loadClientsOnly = useCallback(async () => {
+    const clientsData = await getProfessionalClients();
+    const mappedClients = clientsData.map((client) => ({
+      ...client,
+      name: getClientDisplayName(client),
+      email: getClientEmail(client),
+    }));
+    setClients(mappedClients);
+    return mappedClients;
+  }, []);
+
   // ── Data loading ──
   const loadInitialData = useCallback(async () => {
     try {
       setLoading(true);
-      const [config, clientsData] = await Promise.all([
+      const [config] = await Promise.all([
         billingService.getConfig(),
-        getProfessionalClients(),
+        loadClientsOnly(),
       ]);
 
       setBillingConfig(config);
-      const mappedClients = clientsData.map((c: Client) => ({
-        id: c.id,
-        name: c.user.name,
-        email: c.user.email,
-      }));
-      setClients(mappedClients);
 
       if (!invoiceId && sessionContext?.clientId) {
         setSelectedClientId(sessionContext.clientId);
@@ -284,6 +376,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
           const existing = await billingService.getInvoice(invoiceId);
           setSelectedClientId(existing.clientId);
           setIvaIncluded(existing.ivaIncluded);
+          setInvoiceKind(existing.invoiceKind);
           setInvoiceNumberPreview(existing.invoiceNumber);
 
           // Build line item from existing data
@@ -309,10 +402,8 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
         }
       } else {
         // New invoice — build preview number
-        const prefix = config.invoicePrefix || 'F';
-        const year = new Date().getFullYear();
-        const nextNum = String(config.invoiceNextNumber || 1).padStart(3, '0');
-        setInvoiceNumberPreview(`${prefix}-${year}-${nextNum}`);
+        setInvoiceKind('SIMPLIFIED');
+        setInvoiceNumberPreview(invoiceNumberForKind('SIMPLIFIED', config));
 
         // Auto-fill first line item with default tariff
         if (config.tariffs && Array.isArray(config.tariffs)) {
@@ -355,11 +446,30 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [invoiceId, sessionContext]);
+  }, [invoiceId, invoiceNumberForKind, loadClientsOnly, sessionContext]);
 
   useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
+
+  useEffect(() => {
+    if (!billingConfig || isEditing) {
+      return;
+    }
+
+    setInvoiceNumberPreview(invoiceNumberForKind(invoiceKind, billingConfig));
+  }, [billingConfig, invoiceKind, invoiceNumberForKind, isEditing]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (loading) {
+        return undefined;
+      }
+
+      void loadClientsOnly();
+      return undefined;
+    }, [loadClientsOnly, loading]),
+  );
 
   // ── Line item handlers ──
   const updateLineItem = useCallback((id: string, field: keyof LineItem, value: string | number) => {
@@ -409,6 +519,21 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
         return;
       }
 
+      if (invoiceKind === 'FULL' && !specialistBillingReady) {
+        Alert.alert('Error', STRINGS.validationFullInvoiceSpecialistData);
+        return;
+      }
+
+      if (invoiceKind === 'FULL' && !clientBillingReady) {
+        Alert.alert('Error', STRINGS.validationFullInvoiceClientData);
+        return;
+      }
+
+      if (invoiceKind === 'SIMPLIFIED' && ivaCalculation.total > 400) {
+        Alert.alert('Error', STRINGS.validationSimplifiedLimit);
+        return;
+      }
+
       try {
         setSaving(true);
 
@@ -439,6 +564,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
           // Update existing draft
           const updateData: UpdateInvoiceData = {
             clientId: selectedClientId,
+            invoiceKind,
             concept,
             subtotal: ivaIncluded ? ivaCalculation.baseImponible : totalAmount,
             vatRate,
@@ -455,6 +581,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
           const createData: CreateInvoiceData = {
             clientId: selectedClientId,
             sessionId: sessionContext?.sessionId || undefined,
+            invoiceKind,
             concept,
             subtotal: ivaIncluded ? ivaCalculation.baseImponible : totalAmount,
             vatRate,
@@ -498,10 +625,77 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
       navigateAfterSave,
       sessionContext,
       internalNotes,
+      invoiceKind,
+      specialistBillingReady,
+      clientBillingReady,
     ],
   );
 
   // ── Loading state ──
+  const openClientBillingEditor = useCallback(() => {
+    if (!selectedClientId) {
+      return;
+    }
+
+    navigation.navigate('ClientProfile', {
+      clientId: selectedClientId,
+      initialTab: 'summary',
+      focusBillingEditor: true,
+    });
+  }, [navigation, selectedClientId]);
+
+  const renderInvoiceKindSection = () => (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>{STRINGS.invoiceTypeSection}</Text>
+      <View style={styles.kindGrid}>
+        {[
+          {
+            value: 'SIMPLIFIED' as InvoiceKind,
+            label: STRINGS.simplifiedLabel,
+            hint: STRINGS.simplifiedHint,
+            icon: 'receipt-outline' as const,
+          },
+          {
+            value: 'FULL' as InvoiceKind,
+            label: STRINGS.fullLabel,
+            hint: STRINGS.fullHint,
+            icon: 'document-text-outline' as const,
+          },
+        ].map((option) => {
+          const active = invoiceKind === option.value;
+          return (
+            <AnimatedPressable
+              key={option.value}
+              style={[styles.kindCard, active && styles.kindCardActive]}
+              onPress={() => setInvoiceKind(option.value)}
+              hoverLift={false}
+              pressScale={0.98}
+            >
+              <View style={styles.kindHeader}>
+                <Ionicons
+                  name={option.icon}
+                  size={18}
+                  color={active ? theme.primary : theme.textMuted}
+                />
+                <Text style={[styles.kindTitle, active && styles.kindTitleActive]}>{option.label}</Text>
+              </View>
+              <Text style={styles.kindHint}>{option.hint}</Text>
+            </AnimatedPressable>
+          );
+        })}
+      </View>
+      {invoiceKind === 'SIMPLIFIED' ? (
+        <Text style={styles.kindNote}>{STRINGS.simplifiedLimitNote}</Text>
+      ) : null}
+      {invoiceKind === 'FULL' && !specialistBillingReady ? (
+        <View style={styles.warningBox}>
+          <Ionicons name="alert-circle-outline" size={16} color={theme.warning} />
+          <Text style={styles.warningText}>{STRINGS.specialistBillingMissing}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -581,10 +775,20 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
 
   const renderClientSection = () => {
     const clientOptions: DropdownOption<string>[] = clients.map((c) => ({
-      label: c.name,
+      label: getClientDisplayName(c),
       value: c.id,
-      subtitle: c.email,
+      subtitle: getClientEmail(c),
     }));
+    const billingStatusLabel = clientBillingReady ? 'Datos completos' : 'Pendientes';
+    const billingHeadline = clientBillingReady
+      ? 'Paciente listo para factura completa'
+      : 'Faltan datos fiscales del paciente';
+    const billingHint = clientBillingReady
+      ? 'Los datos fiscales ya están completos y esta factura puede emitirse como factura completa.'
+      : 'Completa los datos fiscales del destinatario para poder emitir esta factura como factura completa.';
+    const billingActionLabel = clientBillingReady
+      ? 'Editar datos fiscales'
+      : STRINGS.completePatientBilling;
 
     return (
       <View style={styles.card}>
@@ -618,6 +822,59 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
             ) : null}
           </>
         )}
+        {invoiceKind === 'FULL' && selectedClient ? (
+          <View
+            style={[
+              styles.billingInfoPanel,
+              clientBillingReady ? styles.billingInfoPanelReady : styles.billingInfoPanelMissing,
+            ]}
+          >
+            <View style={styles.billingStatusRow}>
+              <View
+                style={[
+                  styles.billingStatusBadge,
+                  clientBillingReady
+                    ? styles.billingStatusBadgeReady
+                    : styles.billingStatusBadgeMissing,
+                ]}
+              >
+                <Ionicons
+                  name={clientBillingReady ? 'checkmark-circle' : 'alert-circle'}
+                  size={16}
+                  color={clientBillingReady ? theme.success : theme.warning}
+                />
+                <Text
+                  style={[
+                    styles.billingStatusBadgeText,
+                    { color: clientBillingReady ? theme.success : theme.warning },
+                  ]}
+                >
+                  {billingStatusLabel}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.billingInfoHeader}>
+              <View style={styles.billingInfoCopy}>
+                <Text style={styles.billingInfoTitle}>{billingHeadline}</Text>
+                <Text style={styles.billingInfoSubtitle}>{billingHint}</Text>
+              </View>
+              <Button
+                variant={clientBillingReady ? 'secondary' : 'outline'}
+                size="small"
+                onPress={openClientBillingEditor}
+                icon={
+                  <Ionicons
+                    name={clientBillingReady ? 'create-outline' : 'add-circle-outline'}
+                    size={14}
+                    color={clientBillingReady ? theme.secondaryDark : theme.primary}
+                  />
+                }
+              >
+                {billingActionLabel}
+              </Button>
+            </View>
+          </View>
+        ) : null}
       </View>
     );
   };
@@ -745,6 +1002,13 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{STRINGS.summaryTitle}</Text>
 
+      <View style={styles.summaryRow}>
+        <Text style={styles.summaryLabel}>{STRINGS.invoiceTypeSection}</Text>
+        <Text style={styles.summaryValue}>
+          {invoiceKind === 'FULL' ? STRINGS.fullLabel : STRINGS.simplifiedLabel}
+        </Text>
+      </View>
+
       {/* Invoice number */}
       <View style={styles.summaryRow}>
         <Text style={styles.summaryLabel}>{STRINGS.invoiceNumber}</Text>
@@ -834,6 +1098,9 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
       <Text style={styles.ivaNote}>
         {STRINGS.ivaConfigNote} ({vatRate}%)
       </Text>
+      {invoiceKind === 'SIMPLIFIED' ? (
+        <Text style={styles.ivaNote}>{STRINGS.simplifiedLimitNote}</Text>
+      ) : null}
       <AnimatedPressable
         onPress={() => navigation.navigate('ProfessionalBilling')}
         hoverLift={false}
@@ -885,9 +1152,12 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
             {/* Left column — main content */}
             <View style={styles.leftColumn}>
               <View style={{ zIndex: 1000, overflow: 'visible' as const }}>
-                {renderClientSection()}
+                {renderInvoiceKindSection()}
               </View>
               <View style={{ zIndex: 999, overflow: 'visible' as const }}>
+                {renderClientSection()}
+              </View>
+              <View style={{ zIndex: 998, overflow: 'visible' as const }}>
                 {renderLineItems()}
               </View>
               {renderNotesSection()}
@@ -902,11 +1172,14 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
         ) : (
           <View style={styles.singleColumnLayout}>
             <View style={{ zIndex: 1000, overflow: 'visible' as const }}>
+              {renderInvoiceKindSection()}
+            </View>
+            <View style={{ zIndex: 999, overflow: 'visible' as const }}>
               {renderClientSection()}
             </View>
             {renderSummaryCard()}
             {renderTariffCard()}
-            <View style={{ zIndex: 999, overflow: 'visible' as const }}>
+            <View style={{ zIndex: 998, overflow: 'visible' as const }}>
               {renderLineItems()}
             </View>
             {renderNotesSection()}
@@ -1049,6 +1322,68 @@ function createStyles(theme: Theme, isDark: boolean) {
     marginBottom: spacing.md,
   },
 
+  // Invoice kind
+  kindGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  kindCard: {
+    flex: 1,
+    minWidth: 220,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  kindCardActive: {
+    borderColor: theme.primary,
+    backgroundColor: theme.primaryAlpha12,
+  },
+  kindHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  kindTitle: {
+    fontSize: typography.fontSizes.sm,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
+  },
+  kindTitleActive: {
+    color: theme.primary,
+  },
+  kindHint: {
+    fontSize: typography.fontSizes.xs,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
+  },
+  kindNote: {
+    marginTop: spacing.sm,
+    fontSize: typography.fontSizes.xs,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
+  },
+  warningBox: {
+    marginTop: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.warning + '55',
+    backgroundColor: theme.warning + '10',
+    padding: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: typography.fontSizes.xs,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSansMedium,
+  },
+
   // Client section
   selectedClientInfo: {
     marginTop: spacing.sm,
@@ -1072,6 +1407,110 @@ function createStyles(theme: Theme, isDark: boolean) {
     fontSize: typography.fontSizes.xs,
     color: theme.textMuted,
     fontFamily: theme.fontSansSemiBold,
+  },
+  billingInfoPanel: {
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+    backgroundColor: theme.bgMuted,
+  },
+  billingInfoPanelReady: {
+    backgroundColor: theme.successBg,
+    borderColor: theme.success + '35',
+  },
+  billingInfoPanelMissing: {
+    backgroundColor: theme.warningBg,
+    borderColor: theme.warning + '35',
+  },
+  billingStatusRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+  },
+  billingStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  billingStatusBadgeReady: {
+    backgroundColor: theme.successLight,
+    borderColor: theme.success + '33',
+  },
+  billingStatusBadgeMissing: {
+    backgroundColor: theme.bgCard,
+    borderColor: theme.warning + '33',
+  },
+  billingStatusBadgeText: {
+    fontSize: typography.fontSizes.xs,
+    fontFamily: theme.fontSansSemiBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  billingInfoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+  },
+  billingInfoCopy: {
+    flex: 1,
+    minWidth: 220,
+    gap: 4,
+  },
+  billingInfoTitle: {
+    fontSize: typography.fontSizes.md,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
+  },
+  billingInfoSubtitle: {
+    fontSize: typography.fontSizes.sm,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSans,
+    lineHeight: 22,
+  },
+  billingSummaryList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  billingSummaryItem: {
+    minWidth: 190,
+    flex: 1,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: theme.bgCard,
+    borderWidth: 1,
+    borderColor: theme.border,
+    gap: 4,
+  },
+  billingSummaryItemFull: {
+    minWidth: '100%',
+    flexBasis: '100%',
+  },
+  billingSummaryLabel: {
+    fontSize: typography.fontSizes.xs,
+    color: theme.textMuted,
+    fontFamily: theme.fontSansSemiBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  billingSummaryValue: {
+    fontSize: typography.fontSizes.sm,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
+  },
+  billingSummaryMuted: {
+    fontSize: typography.fontSizes.sm,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSans,
+    lineHeight: 21,
   },
 
   // Line items table

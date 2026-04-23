@@ -297,6 +297,17 @@ api.interceptors.response.use(
       return Promise.reject(buildSessionExpiredError());
     }
 
+    if (
+      error.response.status === 401 &&
+      originalRequest &&
+      originalRequest._retry &&
+      !isAuthEndpoint(originalRequest.url)
+    ) {
+      await clearAuthSession();
+      sessionExpiredHandler?.();
+      return Promise.reject(buildSessionExpiredError());
+    }
+
     return Promise.reject(error);
   }
 );

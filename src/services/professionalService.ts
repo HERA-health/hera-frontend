@@ -98,6 +98,13 @@ export interface Client {
   updatedAt?: string;
   homeCity?: string | null;
   homeCountry?: string | null;
+  billingDataComplete?: boolean;
+  billingFullName?: string | null;
+  billingTaxId?: string | null;
+  billingAddress?: string | null;
+  billingPostalCode?: string | null;
+  billingCity?: string | null;
+  billingCountry?: string | null;
   user: {
     id: string | null;
     email: string;
@@ -119,6 +126,12 @@ export interface CreateManagedClientInput {
   lastName: string;
   email?: string;
   phone?: string;
+  billingFullName?: string;
+  billingTaxId?: string;
+  billingAddress?: string;
+  billingPostalCode?: string;
+  billingCity?: string;
+  billingCountry?: string;
   consentOnFile: true;
   consentVersion?: string;
 }
@@ -128,7 +141,22 @@ export interface UpdateManagedClientInput {
   lastName?: string;
   email?: string;
   phone?: string;
+  billingFullName?: string;
+  billingTaxId?: string;
+  billingAddress?: string;
+  billingPostalCode?: string;
+  billingCity?: string;
+  billingCountry?: string;
   archived?: boolean;
+}
+
+export interface UpdateClientBillingInput {
+  billingFullName: string;
+  billingTaxId: string;
+  billingAddress: string;
+  billingPostalCode: string;
+  billingCity: string;
+  billingCountry: string;
 }
 
 interface GetProfessionalClientsOptions {
@@ -187,6 +215,18 @@ export const updateManagedClient = async (
     return normalizeClient(response.data.data);
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo actualizar el paciente'));
+  }
+};
+
+export const updateClientBilling = async (
+  clientId: string,
+  data: UpdateClientBillingInput
+): Promise<Client> => {
+  try {
+    const response = await api.patch(`/clients/${clientId}/billing`, data);
+    return normalizeClient(response.data.data);
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudieron actualizar los datos fiscales del paciente'));
   }
 };
 
@@ -451,6 +491,16 @@ export interface VerificationStatusResponse {
   rejectionReason?: string;
 }
 
+interface VerificationStatusApiResponse {
+  verificationStatus: VerificationStatus;
+  colegiadoNumber?: string | null;
+  submittedAt?: string | null;
+  reviewedAt?: string | null;
+  verificationSubmittedAt?: string | null;
+  verificationResolvedAt?: string | null;
+  rejectionReason?: string | null;
+}
+
 const getVerificationSubmissionErrorMessage = (error: unknown): string =>
   getErrorMessage(
     error,
@@ -461,12 +511,37 @@ export const getVerificationStatus = async (): Promise<VerificationStatusRespons
   try {
     const response = await api.get('/specialists/me/verification');
     if (response.data.success && response.data.data) {
-      return response.data.data;
+      const data = response.data.data as VerificationStatusApiResponse;
+      const submittedAt = data.submittedAt ?? data.verificationSubmittedAt ?? undefined;
+      const reviewedAt = data.reviewedAt ?? data.verificationResolvedAt ?? undefined;
+      const verificationStatus =
+        data.verificationStatus === 'PENDING' && !submittedAt
+          ? 'NOT_SUBMITTED'
+          : data.verificationStatus;
+
+      return {
+        verificationStatus,
+        colegiadoNumber: data.colegiadoNumber ?? undefined,
+        submittedAt,
+        reviewedAt,
+        rejectionReason: data.rejectionReason ?? undefined,
+      };
     }
     return { verificationStatus: 'NOT_SUBMITTED' };
   } catch (error: unknown) {
-    // If the endpoint returns 404, the specialist hasn't submitted verification yet
-    return { verificationStatus: 'NOT_SUBMITTED' };
+    const status =
+      typeof error === 'object' &&
+      error !== null &&
+      'response' in error &&
+      typeof (error as { response?: { status?: unknown } }).response?.status === 'number'
+        ? ((error as { response?: { status?: number } }).response?.status ?? null)
+        : null;
+
+    if (status === 404) {
+      return { verificationStatus: 'NOT_SUBMITTED' };
+    }
+
+    throw error;
   }
 };
 

@@ -107,6 +107,13 @@ const STRINGS = {
   deleteConfirm2Msg: '¿Estás seguro? La factura {number} desaparecerá del historial.',
   deleteConfirm2Btn: 'Eliminar definitivamente',
   continueBtn: 'Continuar',
+  cancelDraftAction: 'Cancelar borrador',
+  cancelInvoiceAction: 'Cancelar factura',
+  cancelConfirmTitleSafe: '\u00bfCancelar factura?',
+  cancelConfirmMsgSafe: 'La factura {number} pasar\u00e1 a estado cancelada y seguir\u00e1 visible en el historial.',
+  cancelConfirm2TitleSafe: 'Confirmar cancelaci\u00f3n',
+  cancelConfirm2MsgSafe: 'Si contin\u00faas, la factura {number} ya no podr\u00e1 enviarse ni marcarse como pagada.',
+  cancelConfirm2BtnSafe: 'Cancelar factura',
   resendConfirmMsg: '¿Reenviar factura {number} a {client}?',
   resendBtn: 'Reenviar',
   resendSuccess: 'Factura reenviada correctamente',
@@ -160,6 +167,9 @@ const formatDateShort = (dateStr: string): string => {
     year: 'numeric',
   });
 };
+
+const normalizeInvoicePrefixInput = (value: string): string =>
+  value.toUpperCase().replace(/\s+/g, '').replace(/[^A-Z0-9._/-]/g, '').slice(0, 10);
 
 // ============================================================================
 // SUB-COMPONENTS
@@ -243,7 +253,12 @@ export function BillingScreen() {
   const [tempTariffItems, setTempTariffItems] = useState<TariffItem[]>([]);
   const [tempFirstVisitFree, setTempFirstVisitFree] = useState(false);
   const [tempFiscal, setTempFiscal] = useState<BillingConfig>({});
-  const [tempNumbering, setTempNumbering] = useState({ invoicePrefix: 'F', invoiceNextNumber: 1 });
+  const [tempNumbering, setTempNumbering] = useState({
+    simplifiedInvoicePrefix: 'FS',
+    simplifiedInvoiceNextNumber: 1,
+    fullInvoicePrefix: 'F',
+    fullInvoiceNextNumber: 1,
+  });
 
   const navigation = useNavigation<AppNavigationProp>();
 
@@ -334,6 +349,10 @@ export function BillingScreen() {
       const config: BillingConfig = {
         invoicePrefix: s.invoicePrefix || 'F',
         invoiceNextNumber: s.invoiceNextNumber || 1,
+        simplifiedInvoicePrefix: s.simplifiedInvoicePrefix || 'FS',
+        simplifiedInvoiceNextNumber: s.simplifiedInvoiceNextNumber || 1,
+        fullInvoicePrefix: s.fullInvoicePrefix || 'F',
+        fullInvoiceNextNumber: s.fullInvoiceNextNumber || 1,
         vatRate: s.vatRate ?? 21,
         applyVat: s.applyVat ?? false,
         vatExemptReason: s.vatExemptReason || null,
@@ -350,8 +369,10 @@ export function BillingScreen() {
       setBillingConfig(config);
       setTempFiscal(config);
       setTempNumbering({
-        invoicePrefix: config.invoicePrefix || 'F',
-        invoiceNextNumber: config.invoiceNextNumber || 1,
+        simplifiedInvoicePrefix: config.simplifiedInvoicePrefix || 'FS',
+        simplifiedInvoiceNextNumber: config.simplifiedInvoiceNextNumber || 1,
+        fullInvoicePrefix: config.fullInvoicePrefix || 'F',
+        fullInvoiceNextNumber: config.fullInvoiceNextNumber || 1,
       });
 
       // Parse tariffs: use JSON array if available, otherwise build from scalar fields
@@ -540,10 +561,10 @@ export function BillingScreen() {
     }
   };
 
-  const handleDeleteInvoice = (invoice: Invoice) => {
+  const handleCancelInvoice = (invoice: Invoice) => {
     setOpenMenuId(null);
-    const msg1 = STRINGS.deleteConfirmMsg.replace('{number}', invoice.invoiceNumber);
-    const msg2 = STRINGS.deleteConfirm2Msg.replace('{number}', invoice.invoiceNumber);
+    const msg1 = STRINGS.cancelConfirmMsgSafe.replace('{number}', invoice.invoiceNumber);
+    const msg2 = STRINGS.cancelConfirm2MsgSafe.replace('{number}', invoice.invoiceNumber);
 
     const executeDelete = async () => {
       try {
@@ -551,7 +572,7 @@ export function BillingScreen() {
         await loadInvoices(currentPage, activeFilter, debouncedSearch);
         billingService.getSummary().then(setSummary).catch(() => {});
       } catch (error) {
-        const errMsg = error instanceof Error ? error.message : 'Error al eliminar';
+        const errMsg = error instanceof Error ? error.message : 'Error al cancelar';
         if (Platform.OS === 'web') {
           window.alert(errMsg);
         } else {
@@ -568,7 +589,7 @@ export function BillingScreen() {
       }
     } else {
       Alert.alert(
-        STRINGS.deleteConfirmTitle,
+        STRINGS.cancelConfirmTitleSafe,
         msg1,
         [
           { text: STRINGS.cancel, style: 'cancel' },
@@ -576,11 +597,11 @@ export function BillingScreen() {
             text: STRINGS.continueBtn,
             onPress: () => {
               Alert.alert(
-                STRINGS.deleteConfirm2Title,
+                STRINGS.cancelConfirm2TitleSafe,
                 msg2,
                 [
                   { text: STRINGS.cancel, style: 'cancel' },
-                  { text: STRINGS.deleteConfirm2Btn, style: 'destructive', onPress: executeDelete },
+                  { text: STRINGS.cancelConfirm2BtnSafe, style: 'destructive', onPress: executeDelete },
                 ],
               );
             },
@@ -632,10 +653,16 @@ export function BillingScreen() {
   const handleSaveNumbering = async () => {
     try {
       setSavingConfig(true);
-      await billingService.updateBillingConfig(tempNumbering);
-      setBillingConfig((prev) => ({ ...prev, ...tempNumbering }));
+      const normalizedNumbering = {
+        ...tempNumbering,
+        simplifiedInvoicePrefix: normalizeInvoicePrefixInput(tempNumbering.simplifiedInvoicePrefix || 'FS'),
+        fullInvoicePrefix: normalizeInvoicePrefixInput(tempNumbering.fullInvoicePrefix || 'F'),
+      };
+      await billingService.updateBillingConfig(normalizedNumbering);
+      setTempNumbering(normalizedNumbering);
+      setBillingConfig((prev) => ({ ...prev, ...normalizedNumbering }));
       setEditingNumbering(false);
-      Alert.alert('Éxito', 'Numeración actualizada');
+      Alert.alert('\u00c9xito', 'Numeraci\u00f3n actualizada');
     } catch (error) {
       Alert.alert('Error', error instanceof Error ? error.message : 'Error al guardar');
     } finally {
@@ -739,11 +766,9 @@ export function BillingScreen() {
       options.push({ label: STRINGS.markAsPaid, onPress: () => handleMarkAsPaid(invoice) });
     }
     if (invoice.status === 'DRAFT') {
-      options.push({ label: STRINGS.deleteDraft, onPress: () => handleDeleteInvoice(invoice), danger: true });
+      options.push({ label: STRINGS.cancelDraftAction, onPress: () => handleCancelInvoice(invoice), danger: true });
     } else if (invoice.status === 'SENT') {
-      options.push({ label: STRINGS.deleteInvoice, onPress: () => handleDeleteInvoice(invoice), danger: true });
-    } else if (invoice.status === 'CANCELLED') {
-      options.push({ label: STRINGS.deleteInvoice, onPress: () => handleDeleteInvoice(invoice), danger: true });
+      options.push({ label: STRINGS.cancelInvoiceAction, onPress: () => handleCancelInvoice(invoice), danger: true });
     }
     return options;
   };
@@ -773,7 +798,15 @@ export function BillingScreen() {
           onPress={() => handleInvoiceRowPress(invoice)}
         >
           <Text style={styles.invoiceNumber}>{invoice.invoiceNumber}</Text>
-          <Text style={styles.invoiceClient} numberOfLines={1}>{invoice.client.user.name}</Text>
+          <Text style={styles.invoiceClient} numberOfLines={1}>
+            {invoice.recipientFiscalName ||
+              invoice.client.user?.name ||
+              [invoice.client.firstName, invoice.client.lastName].filter(Boolean).join(' ') ||
+              'Paciente'}
+          </Text>
+          <Text style={styles.invoiceDate}>
+            {invoice.invoiceKind === 'FULL' ? 'Factura completa' : 'Factura simplificada'}
+          </Text>
           <Text style={styles.invoiceDate}>{formatDateShort(invoice.createdAt)}</Text>
         </Pressable>
         <View style={styles.invoiceRight}>
@@ -1094,33 +1127,76 @@ export function BillingScreen() {
   );
 
   const renderNumberingCard = () => {
-    const prefix = billingConfig.invoicePrefix || 'F';
-    const nextNum = billingConfig.invoiceNextNumber || 1;
+    const simplifiedPrefix = billingConfig.simplifiedInvoicePrefix || 'FS';
+    const simplifiedNext = billingConfig.simplifiedInvoiceNextNumber || 1;
+    const fullPrefix = billingConfig.fullInvoicePrefix || billingConfig.invoicePrefix || 'F';
+    const fullNext = billingConfig.fullInvoiceNextNumber || billingConfig.invoiceNextNumber || 1;
     const year = new Date().getFullYear();
-    const preview = `${prefix}-${year}-${String(nextNum).padStart(3, '0')}`;
+    const simplifiedPreview = `${simplifiedPrefix}-${year}-${String(simplifiedNext).padStart(3, '0')}`;
+    const fullPreview = `${fullPrefix}-${year}-${String(fullNext).padStart(3, '0')}`;
 
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>{STRINGS.numbering}</Text>
-          <TouchableOpacity onPress={() => { setTempNumbering({ invoicePrefix: prefix, invoiceNextNumber: nextNum }); setEditingNumbering(!editingNumbering); }}>
+          <TouchableOpacity
+            onPress={() => {
+              setTempNumbering({
+                simplifiedInvoicePrefix: simplifiedPrefix,
+                simplifiedInvoiceNextNumber: simplifiedNext,
+                fullInvoicePrefix: fullPrefix,
+                fullInvoiceNextNumber: fullNext,
+              });
+              setEditingNumbering(!editingNumbering);
+            }}
+          >
             <Text style={styles.editBtn}>{editingNumbering ? STRINGS.cancel : STRINGS.edit}</Text>
           </TouchableOpacity>
         </View>
         {editingNumbering ? (
           <View style={styles.editForm}>
-            <Text style={styles.fieldLabel}>{STRINGS.invoicePrefix}</Text>
+            <Text style={styles.fieldLabel}>Serie simplificada · prefijo</Text>
             <TextInput
               style={[styles.input, { maxWidth: 100 }]}
-              value={tempNumbering.invoicePrefix}
-              onChangeText={(v) => setTempNumbering((n) => ({ ...n, invoicePrefix: v }))}
+              value={tempNumbering.simplifiedInvoicePrefix}
+              onChangeText={(v) =>
+                setTempNumbering((n) => ({
+                  ...n,
+                  simplifiedInvoicePrefix: normalizeInvoicePrefixInput(v),
+                }))
+              }
               maxLength={10}
+              autoCapitalize="characters"
             />
-            <Text style={styles.fieldLabel}>{STRINGS.nextNumber}</Text>
+            <Text style={styles.fieldLabel}>Serie simplificada · siguiente número</Text>
             <TextInput
               style={[styles.input, { maxWidth: 120 }]}
-              value={String(tempNumbering.invoiceNextNumber)}
-              onChangeText={(v) => setTempNumbering((n) => ({ ...n, invoiceNextNumber: parseInt(v) || 1 }))}
+              value={String(tempNumbering.simplifiedInvoiceNextNumber)}
+              onChangeText={(v) =>
+                setTempNumbering((n) => ({ ...n, simplifiedInvoiceNextNumber: parseInt(v, 10) || 1 }))
+              }
+              keyboardType="numeric"
+            />
+            <Text style={styles.fieldLabel}>Serie completa · prefijo</Text>
+            <TextInput
+              style={[styles.input, { maxWidth: 100 }]}
+              value={tempNumbering.fullInvoicePrefix}
+              onChangeText={(v) =>
+                setTempNumbering((n) => ({
+                  ...n,
+                  fullInvoicePrefix: normalizeInvoicePrefixInput(v),
+                }))
+              }
+              maxLength={10}
+              autoCapitalize="characters"
+            />
+            <Text style={styles.fieldLabel}>Serie completa · siguiente número</Text>
+            <TextInput
+              style={[styles.input, { maxWidth: 120 }]}
+              value={String(tempNumbering.fullInvoiceNextNumber)}
+              onChangeText={(v) =>
+                setTempNumbering((n) => ({ ...n, fullInvoiceNextNumber: parseInt(v, 10) || 1 }))
+              }
               keyboardType="numeric"
             />
             <Text style={styles.configHint}>{STRINGS.adjustNote}</Text>
@@ -1132,7 +1208,8 @@ export function BillingScreen() {
           </View>
         ) : (
           <View>
-            <Text style={styles.configValue}>{STRINGS.previewFormat}{preview}</Text>
+            <Text style={styles.configValue}>Simplificada: {simplifiedPreview}</Text>
+            <Text style={styles.configDetail}>Completa: {fullPreview}</Text>
           </View>
         )}
       </View>

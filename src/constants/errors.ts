@@ -124,6 +124,9 @@ export function getErrorMessage(error: unknown, defaultMessage = 'Ha ocurrido un
   // Handle Axios response errors
   if (hasResponseData(error)) {
     const data = error.response.data;
+    if (data.error === 'Invalid or expired token' || data.error === 'No token provided') {
+      return 'Tu sesión ya no está activa. Vuelve a iniciar sesión para continuar.';
+    }
     if (
       data.message &&
       data.message !== 'Ha ocurrido un error. Intenta de nuevo más tarde.' &&
@@ -147,6 +150,9 @@ export function getErrorMessage(error: unknown, defaultMessage = 'Ha ocurrido un
 
   // Handle standard Error objects
   if (error instanceof Error) {
+    if (error.message === 'Invalid or expired token' || error.message === 'No token provided') {
+      return 'Tu sesión ya no está activa. Vuelve a iniciar sesión para continuar.';
+    }
     return error.message;
   }
 
