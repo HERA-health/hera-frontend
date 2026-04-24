@@ -223,8 +223,8 @@ export function BillingScreen() {
   const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const isDesktop = width >= 768;
+  const styles = useMemo(() => createStyles(theme, isDark, isDesktop), [theme, isDark, isDesktop]);
 
   // Data state
   const [summary, setSummary] = useState<BillingSummary | null>(null);
@@ -1467,7 +1467,7 @@ export function BillingScreen() {
 // - Always use spacing constants, never hardcoded values
 // - All interactive UI must connect to backend — no decorative-only controls
 
-function createStyles(theme: Theme, isDark: boolean) {
+function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean) {
   return StyleSheet.create({
   container: {
     flex: 1,
@@ -1697,14 +1697,16 @@ function createStyles(theme: Theme, isDark: boolean) {
   invoiceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: isDesktop ? 'center' : 'flex-start',
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.borderLight,
     minHeight: touchTarget.minHeight,
+    gap: spacing.sm,
   },
   invoiceInfo: {
     flex: 1,
+    minWidth: 0,
     gap: spacing.xs,
   },
   invoiceNumber: {
@@ -1723,9 +1725,11 @@ function createStyles(theme: Theme, isDark: boolean) {
     fontFamily: theme.fontSans,
   },
   invoiceRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    flexDirection: isDesktop ? 'row' : 'column',
+    alignItems: 'flex-end',
+    gap: isDesktop ? spacing.sm : spacing.xs,
+    flexShrink: 0,
+    minWidth: isDesktop ? undefined : 96,
   },
   invoiceAmount: {
     fontSize: typography.fontSizes.sm,
@@ -1736,11 +1740,13 @@ function createStyles(theme: Theme, isDark: boolean) {
     flexDirection: 'row',
     gap: spacing.xs,
     alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexWrap: 'nowrap',
   },
   iconBtn: {
-    padding: spacing.xs,
-    minWidth: touchTarget.minWidth - 8,
-    minHeight: touchTarget.minHeight - 8,
+    padding: isDesktop ? spacing.xs : 2,
+    minWidth: isDesktop ? touchTarget.minWidth - 8 : 28,
+    minHeight: isDesktop ? touchTarget.minHeight - 8 : 28,
     justifyContent: 'center',
     alignItems: 'center',
   },
