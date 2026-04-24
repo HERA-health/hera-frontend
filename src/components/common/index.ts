@@ -22,3 +22,13 @@ export { AnimatedPressable } from './AnimatedPressable';
 export { GlassCard } from './GlassCard';
 export { AmbientBackground } from './AmbientBackground';
 export { ThemeToggleButton } from './ThemeToggleButton';
+export { AlertProvider, useAppAlert } from './alert';
+export type {
+  AppAlertAction,
+  AppAlertActionRole,
+  AppAlertApi,
+  AppAlertBaseOptions,
+  AppAlertChoiceOptions,
+  AppAlertConfirmOptions,
+  AppAlertTone,
+} from './alert';

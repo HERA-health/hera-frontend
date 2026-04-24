@@ -1,3 +1,4 @@
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 /**
  * PublicSpecialistProfileScreen - Shareable public specialist profile
  *
@@ -14,7 +15,6 @@ import {
   StyleSheet,
   useWindowDimensions,
   Platform,
-  Alert,
   Modal,
   Pressable,
   NativeSyntheticEvent,
@@ -51,6 +51,7 @@ const TABLET_BREAKPOINT = 768;
 export const PublicSpecialistProfileScreen: React.FC = () => {
   const route = useRoute<AppRouteProp<'PublicSpecialistProfile'>>();
   const navigation = useNavigation<AppNavigationProp>();
+  const appAlert = useAppAlert();
   const { isAuthenticated, user } = useAuth();
   const { theme, isDark } = useTheme();
   const { specialistId } = route.params || {};
@@ -124,7 +125,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     }
 
     if (user?.type === 'professional') {
-      Alert.alert('Información', 'No puedes reservar tu propia sesión');
+      showAppAlert(appAlert, 'Información', 'No puedes reservar tu propia sesión');
       return;
     }
 

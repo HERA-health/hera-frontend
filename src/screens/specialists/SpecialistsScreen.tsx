@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,6 +7,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -92,6 +92,7 @@ const attributeLabels: Record<string, string> = {
 const SpecialistsScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const { user } = useAuth();
+  const appAlert = useAppAlert();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const { width } = useWindowDimensions();
@@ -262,12 +263,12 @@ const SpecialistsScreen: React.FC = () => {
     }
 
     options.push({ text: 'Cancelar', style: 'cancel' });
-    Alert.alert('Ordenar por', 'Selecciona un criterio de ordenación', options);
+    showAppAlert(appAlert, 'Ordenar por', 'Selecciona un criterio de ordenación', options);
   };
 
   const toggleProximity = () => {
     if (!clientLocation.hasLocation) {
-      Alert.alert(
+      showAppAlert(appAlert, 
         'Ubicación no configurada',
         'Añade tu ubicación en el perfil para usar este filtro.',
         [

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -20,6 +19,7 @@ import * as clientService from '../../services/clientService';
 import { resendVerificationEmailWithRefresh } from '../../services/emailVerificationService';
 import type { UploadAsset } from '../../utils/multipartUpload';
 import type { AddressDetails } from '../../components/location/AddressAutocomplete';
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import ProfileDatePickerModal from './components/ProfileDatePickerModal';
 import ProfileInformationSection from './components/ProfileInformationSection';
 import ProfilePaymentSection from './components/ProfilePaymentSection';
@@ -63,6 +63,7 @@ const buildLocationData = (): ProfileLocationData => ({
 
 const ProfileScreen: React.FC = () => {
   const { user, updateUser, refreshCurrentUser } = useAuth();
+  const appAlert = useAppAlert();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const { width: windowWidth } = useWindowDimensions();
@@ -140,10 +141,10 @@ const ProfileScreen: React.FC = () => {
       try {
         const updatedUser = await authService.uploadAvatar(image);
         updateUser({ avatar: updatedUser.avatar });
-        Alert.alert('Foto actualizada', 'Tu foto de perfil se ha guardado correctamente.');
+        showAppAlert(appAlert, 'Foto actualizada', 'Tu foto de perfil se ha guardado correctamente.');
       } catch (error) {
         const message = error instanceof Error ? error.message : 'No se pudo subir la foto.';
-        Alert.alert('Error', message);
+        showAppAlert(appAlert, 'Error', message);
       } finally {
         setIsUploadingAvatar(false);
       }
@@ -155,7 +156,7 @@ const ProfileScreen: React.FC = () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería para cambiar la foto de perfil.');
+        showAppAlert(appAlert, 'Permiso requerido', 'Necesitamos acceso a tu galería para cambiar la foto de perfil.');
         return;
       }
 
@@ -175,7 +176,7 @@ const ProfileScreen: React.FC = () => {
         });
       }
     } catch {
-      Alert.alert('Error', 'No se pudo seleccionar la imagen.');
+      showAppAlert(appAlert, 'Error', 'No se pudo seleccionar la imagen.');
     }
   }, [uploadAvatar]);
 
@@ -183,7 +184,7 @@ const ProfileScreen: React.FC = () => {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permiso requerido', 'Necesitamos acceso a tu cámara para tomar una foto.');
+        showAppAlert(appAlert, 'Permiso requerido', 'Necesitamos acceso a tu cámara para tomar una foto.');
         return;
       }
 
@@ -202,7 +203,7 @@ const ProfileScreen: React.FC = () => {
         });
       }
     } catch {
-      Alert.alert('Error', 'No se pudo tomar la foto.');
+      showAppAlert(appAlert, 'Error', 'No se pudo tomar la foto.');
     }
   }, [uploadAvatar]);
 
@@ -216,7 +217,7 @@ const ProfileScreen: React.FC = () => {
       return;
     }
 
-    Alert.alert('Cambiar foto de perfil', 'Selecciona una opción', [
+    showAppAlert(appAlert, 'Cambiar foto de perfil', 'Selecciona una opción', [
       { text: 'Tomar foto', onPress: takePhoto },
       { text: 'Elegir de galería', onPress: pickImageFromLibrary },
       { text: 'Cancelar', style: 'cancel' },
@@ -248,10 +249,10 @@ const ProfileScreen: React.FC = () => {
       });
 
       setOriginalData({ ...formData });
-      Alert.alert('Cambios guardados', 'Tu perfil ha sido actualizado correctamente.');
+      showAppAlert(appAlert, 'Cambios guardados', 'Tu perfil ha sido actualizado correctamente.');
     } catch (error) {
       console.error('Error saving profile:', error);
-      Alert.alert('Error', 'No se pudo actualizar el perfil. Intenta de nuevo.');
+      showAppAlert(appAlert, 'Error', 'No se pudo actualizar el perfil. Intenta de nuevo.');
     } finally {
       setIsSaving(false);
     }
@@ -273,9 +274,9 @@ const ProfileScreen: React.FC = () => {
     analyticsService.track('resend_verification_clicked');
     try {
       const result = await resendVerificationEmailWithRefresh(user.email, refreshCurrentUser);
-      Alert.alert(result.outcome === 'sent' ? 'Email enviado' : 'Email actualizado', result.message);
+      showAppAlert(appAlert, result.outcome === 'sent' ? 'Email enviado' : 'Email actualizado', result.message);
     } catch {
-      Alert.alert('Error', 'No se pudo enviar el email de verificación. Inténtalo de nuevo.');
+      showAppAlert(appAlert, 'Error', 'No se pudo enviar el email de verificación. Inténtalo de nuevo.');
     } finally {
       setIsVerifyingEmail(false);
     }
@@ -304,18 +305,18 @@ const ProfileScreen: React.FC = () => {
         homeLng: details.lng,
       });
 
-      Alert.alert('Ubicación guardada', 'Tu ubicación se ha actualizado correctamente.');
+      showAppAlert(appAlert, 'Ubicación guardada', 'Tu ubicación se ha actualizado correctamente.');
     } catch (error) {
       console.error('Error saving location:', error);
       setLocationError('No se pudo guardar la ubicación. Intenta de nuevo.');
-      Alert.alert('Error', 'No se pudo guardar la ubicación. Intenta de nuevo.');
+      showAppAlert(appAlert, 'Error', 'No se pudo guardar la ubicación. Intenta de nuevo.');
     } finally {
       setIsSavingLocation(false);
     }
   }, []);
 
   const handleClearLocation = useCallback(() => {
-    Alert.alert('Eliminar ubicación', '¿Estás seguro de que quieres eliminar tu ubicación?', [
+    showAppAlert(appAlert, 'Eliminar ubicación', '¿Estás seguro de que quieres eliminar tu ubicación?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',
@@ -325,10 +326,10 @@ const ProfileScreen: React.FC = () => {
           try {
             await clientService.clearClientLocation();
             setLocationData(buildLocationData());
-            Alert.alert('Ubicación eliminada', 'Tu ubicación ha sido eliminada.');
+            showAppAlert(appAlert, 'Ubicación eliminada', 'Tu ubicación ha sido eliminada.');
           } catch (error) {
             console.error('Error clearing location:', error);
-            Alert.alert('Error', 'No se pudo eliminar la ubicación.');
+            showAppAlert(appAlert, 'Error', 'No se pudo eliminar la ubicación.');
           } finally {
             setIsSavingLocation(false);
           }
@@ -373,7 +374,7 @@ const ProfileScreen: React.FC = () => {
   const handleSaveCard = useCallback(() => {
     const normalizedNumber = cardForm.number.replace(/\s/g, '');
     if (normalizedNumber.length < 16 || !cardForm.expiry || !cardForm.cvv || !cardForm.name) {
-      Alert.alert('Error', 'Por favor, completa todos los campos de la tarjeta.');
+      showAppAlert(appAlert, 'Error', 'Por favor, completa todos los campos de la tarjeta.');
       return;
     }
 
@@ -390,18 +391,18 @@ const ProfileScreen: React.FC = () => {
     setPaymentMethod(newCard);
     setIsAddingCard(false);
     setCardForm(initialCardForm);
-    Alert.alert('Tarjeta añadida', 'Tu método de pago se ha guardado correctamente.');
+    showAppAlert(appAlert, 'Tarjeta añadida', 'Tu método de pago se ha guardado correctamente.');
   }, [cardForm]);
 
   const handleRemoveCard = useCallback(() => {
-    Alert.alert('Eliminar tarjeta', '¿Estás seguro de que quieres eliminar este método de pago?', [
+    showAppAlert(appAlert, 'Eliminar tarjeta', '¿Estás seguro de que quieres eliminar este método de pago?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',
         style: 'destructive',
         onPress: () => {
           setPaymentMethod(null);
-          Alert.alert('Tarjeta eliminada', 'Tu método de pago ha sido eliminado.');
+          showAppAlert(appAlert, 'Tarjeta eliminada', 'Tu método de pago ha sido eliminado.');
         },
       },
     ]);

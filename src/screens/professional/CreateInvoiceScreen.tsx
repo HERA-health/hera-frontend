@@ -6,12 +6,12 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
-  Alert,
   Platform,
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { NavigationProp, RouteProp, useFocusEffect } from '@react-navigation/native';
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import { RootStackParamList } from '../../constants/types';
 import {
   spacing,
@@ -194,6 +194,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   route,
   navigation,
 }) => {
+  const appAlert = useAppAlert();
   const {
     invoiceId,
     clientId: presetClientId,
@@ -398,7 +399,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
             setIssueDate(formatDateForDisplay(new Date(existing.createdAt)));
           }
         } catch {
-          Alert.alert('Error', 'No se pudo cargar la factura');
+          showAppAlert(appAlert, 'Error', 'No se pudo cargar la factura');
         }
       } else {
         // New invoice — build preview number
@@ -442,7 +443,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los datos');
+      showAppAlert(appAlert, 'Error', 'No se pudieron cargar los datos');
     } finally {
       setLoading(false);
     }
@@ -509,28 +510,28 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   const handleSave = useCallback(
     async (andSend: boolean) => {
       if (!selectedClientId) {
-        Alert.alert('Error', STRINGS.validationNoClient);
+        showAppAlert(appAlert, 'Error', STRINGS.validationNoClient);
         return;
       }
 
       const validLines = lineItems.filter((l) => (parseFloat(l.unitPrice) || 0) > 0);
       if (validLines.length === 0) {
-        Alert.alert('Error', STRINGS.validationNoAmount);
+        showAppAlert(appAlert, 'Error', STRINGS.validationNoAmount);
         return;
       }
 
       if (invoiceKind === 'FULL' && !specialistBillingReady) {
-        Alert.alert('Error', STRINGS.validationFullInvoiceSpecialistData);
+        showAppAlert(appAlert, 'Error', STRINGS.validationFullInvoiceSpecialistData);
         return;
       }
 
       if (invoiceKind === 'FULL' && !clientBillingReady) {
-        Alert.alert('Error', STRINGS.validationFullInvoiceClientData);
+        showAppAlert(appAlert, 'Error', STRINGS.validationFullInvoiceClientData);
         return;
       }
 
       if (invoiceKind === 'SIMPLIFIED' && ivaCalculation.total > 400) {
-        Alert.alert('Error', STRINGS.validationSimplifiedLimit);
+        showAppAlert(appAlert, 'Error', STRINGS.validationSimplifiedLimit);
         return;
       }
 
@@ -599,17 +600,17 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
           try {
             await billingService.sendInvoice(invoice.id);
           } catch {
-            Alert.alert('Aviso', STRINGS.successSentPartial);
+            showAppAlert(appAlert, 'Aviso', STRINGS.successSentPartial);
             navigateAfterSave();
             return;
           }
         }
 
-        Alert.alert('Éxito', andSend ? STRINGS.successSent : STRINGS.successDraft);
+        showAppAlert(appAlert, 'Éxito', andSend ? STRINGS.successSent : STRINGS.successDraft);
         navigateAfterSave();
       } catch (error) {
         const msg = error instanceof Error ? error.message : STRINGS.errorGeneric;
-        Alert.alert('Error', msg);
+        showAppAlert(appAlert, 'Error', msg);
       } finally {
         setSaving(false);
       }

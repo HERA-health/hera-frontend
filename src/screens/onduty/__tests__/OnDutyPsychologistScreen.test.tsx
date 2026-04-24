@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react-native';
 import { darkTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
+import { AlertProvider } from '../../../components/common/alert';
 import OnDutyPsychologistScreen from '../OnDutyPsychologistScreen';
 
 jest.mock('../../../contexts/ThemeContext', () => ({
@@ -43,7 +44,11 @@ describe('OnDutyPsychologistScreen', () => {
   });
 
   it('renders the screen as an honest demo and avoids fake immediate-operational copy', () => {
-    render(<OnDutyPsychologistScreen />);
+    render(
+      <AlertProvider>
+        <OnDutyPsychologistScreen />
+      </AlertProvider>,
+    );
 
     expect(screen.getByText('Vista previa informativa')).toBeTruthy();
     expect(screen.getByText('Demo del servicio, no canal operativo 24/7')).toBeTruthy();

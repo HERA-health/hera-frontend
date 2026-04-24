@@ -1,3 +1,4 @@
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
@@ -5,9 +6,7 @@ import {
   Image,
   ScrollView,
   StyleSheet,
-  Alert,
   useWindowDimensions,
-  Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { spacing, borderRadius } from '../../constants/colors';
@@ -42,16 +41,16 @@ const BREAKPOINTS = {
   desktop: 1200,
 };
 
-const showBookingMessage = (title: string, message: string) => {
-  if (Platform.OS === 'web') {
-    window.alert(message);
-    return;
-  }
-
-  Alert.alert(title, message);
+const showBookingMessage = (
+  appAlert: ReturnType<typeof useAppAlert>,
+  title: string,
+  message: string,
+) => {
+  showAppAlert(appAlert, title, message);
 };
 
 export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation }) => {
+  const appAlert = useAppAlert();
   const {
     specialistId,
     specialistName,
@@ -123,13 +122,13 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
           error instanceof Error
             ? error.message
             : 'No se pudieron cargar los horarios disponibles';
-        showBookingMessage('Error', message);
+        showBookingMessage(appAlert, 'Error', message);
         setAvailableSlots([]);
       } finally {
         setLoadingSlots(false);
       }
     },
-    [specialistId],
+    [appAlert, specialistId],
   );
 
   const handleDateSelect = useCallback(
@@ -158,7 +157,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
 
   const handleConfirmBooking = useCallback(async () => {
     if (!selectedDate || !selectedSlot) {
-      showBookingMessage('Error', 'Por favor selecciona fecha y hora');
+      showBookingMessage(appAlert, 'Error', 'Por favor selecciona fecha y hora');
       return;
     }
 
@@ -202,6 +201,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
               : 'Llamada';
 
         showBookingMessage(
+          appAlert,
           'Reserva confirmada',
           `Tu ${sessionTypeText.toLowerCase()} con ${specialistName} ha sido solicitada.\n\nEstado: Pendiente de confirmacion\nFecha: ${formattedDate}\nHora: ${selectedSlot.startTime}\nTipo: ${sessionTypeText}`,
         );
@@ -211,13 +211,14 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
         error instanceof Error
           ? error.message
           : 'No se pudo crear la cita. Intenta de nuevo.';
-      showBookingMessage('Error', message);
+      showBookingMessage(appAlert, 'Error', message);
     } finally {
       setLoading(false);
     }
   }, [
     selectedDate,
     selectedSlot,
+    appAlert,
     specialistId,
     specialistName,
     slotDuration,

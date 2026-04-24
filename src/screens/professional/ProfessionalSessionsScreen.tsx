@@ -1,7 +1,7 @@
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   ScrollView,
   StyleSheet,
@@ -54,6 +54,7 @@ function formatTime(date: Date) {
 
 export function ProfessionalSessionsScreen() {
   const navigation = useNavigation<AppNavigationProp>();
+  const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
@@ -110,7 +111,7 @@ export function ProfessionalSessionsScreen() {
 
       setSessions(mappedSessions);
     } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar las sesiones');
+      showAppAlert(appAlert, 'Error', 'No se pudieron cargar las sesiones');
     } finally {
       setLoading(false);
     }
@@ -305,10 +306,10 @@ export function ProfessionalSessionsScreen() {
       try {
         setProcessingSessionId(sessionId);
         await professionalService.updateSessionStatus(sessionId, 'CONFIRMED');
-        Alert.alert('Sesión confirmada', `Sesión con ${clientName} confirmada correctamente`);
+        showAppAlert(appAlert, 'Sesión confirmada', `Sesión con ${clientName} confirmada correctamente`);
         await loadSessions();
       } catch {
-        Alert.alert('Error', 'No se pudo confirmar la sesión');
+        showAppAlert(appAlert, 'Error', 'No se pudo confirmar la sesión');
       } finally {
         setProcessingSessionId(null);
       }
@@ -319,7 +320,7 @@ export function ProfessionalSessionsScreen() {
   const handleRejectSession = useCallback(
     async (sessionId: string, clientName: string) => {
       if (processingSessionId) return;
-      Alert.alert('Rechazar sesión', `¿Seguro que quieres rechazar la sesión con ${clientName}?`, [
+      showAppAlert(appAlert, 'Rechazar sesión', `¿Seguro que quieres rechazar la sesión con ${clientName}?`, [
         { text: 'No', style: 'cancel' },
         {
           text: 'Sí, rechazar',
@@ -330,7 +331,7 @@ export function ProfessionalSessionsScreen() {
               await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
               await loadSessions();
             } catch {
-              Alert.alert('Error', 'No se pudo rechazar la sesión');
+              showAppAlert(appAlert, 'Error', 'No se pudo rechazar la sesión');
             } finally {
               setProcessingSessionId(null);
             }
@@ -347,10 +348,10 @@ export function ProfessionalSessionsScreen() {
       try {
         setProcessingSessionId(sessionId);
         await professionalService.updateSessionStatus(sessionId, 'COMPLETED');
-        Alert.alert('Sesión completada', `La sesión con ${clientName} se ha marcado como completada`);
+        showAppAlert(appAlert, 'Sesión completada', `La sesión con ${clientName} se ha marcado como completada`);
         await loadSessions();
       } catch {
-        Alert.alert('Error', 'No se pudo completar la sesión');
+        showAppAlert(appAlert, 'Error', 'No se pudo completar la sesión');
       } finally {
         setProcessingSessionId(null);
       }
@@ -362,7 +363,7 @@ export function ProfessionalSessionsScreen() {
     try {
       const meetingData = await professionalService.getMeetingLink(sessionId);
       if (!meetingData.canJoin) {
-        Alert.alert('Aún no es el momento', meetingData.message);
+        showAppAlert(appAlert, 'Aún no es el momento', meetingData.message);
         return;
       }
       if (meetingData.meetingLink) {
@@ -372,7 +373,7 @@ export function ProfessionalSessionsScreen() {
         }
       }
     } catch {
-      Alert.alert('Error', 'Hubo un problema al unirte a la sesión');
+      showAppAlert(appAlert, 'Error', 'Hubo un problema al unirte a la sesión');
     }
   }, []);
 

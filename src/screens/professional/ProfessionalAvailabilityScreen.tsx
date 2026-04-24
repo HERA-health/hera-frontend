@@ -1,5 +1,6 @@
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { borderRadius, shadows, spacing } from '../../constants/colors';
@@ -172,6 +173,7 @@ const calculateWeeklySummary = (weeklySlots: WeeklySlots) => {
 };
 
 export function ProfessionalAvailabilityScreen({ navigation }: Props) {
+  const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark, width), [theme, isDark, width]);
@@ -209,7 +211,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
       setExceptions(exceptionsData);
       setBufferTime(savedBufferTime);
     } catch (error: unknown) {
-      Alert.alert('Error', getErrorMessage(error, 'No se pudo cargar la disponibilidad'));
+      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo cargar la disponibilidad'));
     } finally {
       setLoading(false);
     }
@@ -284,9 +286,9 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
       setHasChanges(false);
       const totalSlots = Object.values(weeklySlots).reduce((sum, daySlots) => sum + Object.values(daySlots).filter((slot) => slot.available).length, 0);
       analyticsService.track('availability_updated', { slotsCount: totalSlots });
-      Alert.alert('Éxito', 'Disponibilidad actualizada correctamente');
+      showAppAlert(appAlert, 'Éxito', 'Disponibilidad actualizada correctamente');
     } catch (error: unknown) {
-      Alert.alert('Error', getErrorMessage(error, 'No se pudo guardar'));
+      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo guardar'));
     } finally {
       setSaving(false);
     }
@@ -301,19 +303,19 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
       setShowExceptionModal(false);
       setSelectedExceptionDate('');
     } catch (error: unknown) {
-      Alert.alert('Error', getErrorMessage(error, 'No se pudo añadir la excepción'));
+      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo añadir la excepción'));
     }
   }, [loadData, selectedExceptionDate, selectedExceptionType]);
 
   const handleRemoveException = useCallback((date: string) => {
-    Alert.alert('Eliminar excepción', '¿Quieres eliminar esta excepción?', [
+    showAppAlert(appAlert, 'Eliminar excepción', '¿Quieres eliminar esta excepción?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: async () => {
         try {
           await availabilityService.removeException(date.split('T')[0]);
           await loadData();
         } catch (error: unknown) {
-          Alert.alert('Error', getErrorMessage(error, 'No se pudo eliminar la excepción'));
+          showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo eliminar la excepción'));
         }
       } },
     ]);

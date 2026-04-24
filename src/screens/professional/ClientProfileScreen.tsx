@@ -1,10 +1,9 @@
-﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRef } from 'react';
 import {
   ActivityIndicator,
   Image,
   Linking,
-  Alert,
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -25,6 +24,7 @@ import { getErrorMessage } from '../../constants/errors';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as professionalService from '../../services/professionalService';
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 
 type TabKey = 'summary' | 'history' | 'clinical';
 
@@ -174,6 +174,7 @@ const getTimelineStatusColor = (
 export function ClientProfileScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<AppRouteProp<'ClientProfile'>>();
+  const appAlert = useAppAlert();
   const { clientId, initialTab, focusBillingEditor } = route.params;
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
@@ -401,7 +402,7 @@ export function ClientProfileScreen() {
       );
 
       if (billingFieldsChanged && hasVisibleBillingInput && !hasCompleteBillingInput) {
-        Alert.alert('Error', 'Completa todos los datos fiscales para guardar la ficha de facturación.');
+        showAppAlert(appAlert, 'Error', 'Completa todos los datos fiscales para guardar la ficha de facturación.');
         return;
       }
 
@@ -424,14 +425,14 @@ export function ClientProfileScreen() {
 
       setClient(updatedClient);
       setBillingModalVisible(false);
-      Alert.alert(
+      showAppAlert(appAlert, 
         'Éxito',
         client.source === 'MANAGED'
           ? 'La ficha del paciente se ha actualizado.'
           : 'Los datos fiscales del paciente se han actualizado.'
       );
     } catch (saveError: unknown) {
-      Alert.alert('Error', getErrorMessage(saveError, 'No se pudieron guardar los datos del paciente.'));
+      showAppAlert(appAlert, 'Error', getErrorMessage(saveError, 'No se pudieron guardar los datos del paciente.'));
     } finally {
       setSavingBilling(false);
     }

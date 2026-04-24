@@ -7,10 +7,8 @@ import {
   Image,
   TouchableOpacity,
   Pressable,
-  Alert,
   ActivityIndicator,
   Dimensions,
-  Platform,
   useWindowDimensions,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -20,6 +18,7 @@ import { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import { useAuth } from '../../contexts/AuthContext';
 import * as adminService from '../../services/adminService';
 import type { PendingSpecialist, SpecialistFullDetail } from '../../services/adminService';
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 
 const getInsuranceStatusBadge = (status: SpecialistFullDetail['insuranceReviewStatus']) => {
   switch (status) {
@@ -41,6 +40,7 @@ export function AdminSpecialistDetailScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<AppRouteProp<'AdminSpecialistDetail'>>();
   const { user } = useAuth();
+  const appAlert = useAppAlert();
   const isAdmin = user?.isAdmin ?? false;
 
   const [processing, setProcessing] = useState(false);
@@ -123,11 +123,7 @@ export function AdminSpecialistDetailScreen() {
       setOpeningDocumentKey('insurance');
       await adminService.openSpecialistInsuranceDocument(specialist.id);
     } catch {
-      if (Platform.OS === 'web') {
-        window.alert('No se pudo abrir la póliza del especialista.');
-      } else {
-        Alert.alert('Error', 'No se pudo abrir la póliza del especialista.');
-      }
+      showAppAlert(appAlert, 'Error', 'No se pudo abrir la póliza del especialista.');
     } finally {
       setOpeningDocumentKey(null);
     }
@@ -150,11 +146,7 @@ export function AdminSpecialistDetailScreen() {
       setOpeningDocumentKey(documentKey);
       await adminService.openSpecialistCertificateDocument(specialist.id, certificateId, mimeType);
     } catch {
-      if (Platform.OS === 'web') {
-        window.alert('No se pudo abrir el certificado.');
-      } else {
-        Alert.alert('Error', 'No se pudo abrir el certificado.');
-      }
+      showAppAlert(appAlert, 'Error', 'No se pudo abrir el certificado.');
     } finally {
       setOpeningDocumentKey(null);
     }
@@ -174,33 +166,19 @@ export function AdminSpecialistDetailScreen() {
         const refreshedDetail = await adminService.getSpecialistDetail(specialist.id);
         setDetail(refreshedDetail);
 
-        if (Platform.OS === 'web') {
-          window.alert(`La póliza ha quedado ${status === 'APPROVED' ? 'aprobada' : 'rechazada'}.`);
-        } else {
-          Alert.alert(
-            'Revisión completada',
-            `La póliza ha quedado ${status === 'APPROVED' ? 'aprobada' : 'rechazada'}.`
-          );
-        }
+        showAppAlert(
+          appAlert,
+          'Revisión completada',
+          `La póliza ha quedado ${status === 'APPROVED' ? 'aprobada' : 'rechazada'}.`,
+        );
       } catch {
-        if (Platform.OS === 'web') {
-          window.alert(`No se pudo ${actionLabel} la póliza.`);
-        } else {
-          Alert.alert('Error', `No se pudo ${actionLabel} la póliza.`);
-        }
+        showAppAlert(appAlert, 'Error', `No se pudo ${actionLabel} la póliza.`);
       } finally {
         setProcessing(false);
       }
     };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm(`¿Quieres ${actionLabel} esta póliza?`)) {
-        void executeReview();
-      }
-      return;
-    }
-
-    Alert.alert(
+    showAppAlert(appAlert,
       status === 'APPROVED' ? 'Aprobar póliza' : 'Rechazar póliza',
       `¿Quieres ${actionLabel} esta póliza?`,
       [
@@ -223,46 +201,30 @@ export function AdminSpecialistDetailScreen() {
       try {
         setProcessing(true);
         await adminService.resolveVerification(specialist.id, status);
-        if (Platform.OS === 'web') {
-          window.alert(`El especialista ha sido ${actionPast} correctamente.`);
-          navigation.goBack();
-        } else {
-          Alert.alert(
-            'Acción completada',
-            `El especialista ha sido ${actionPast} correctamente.`,
-            [{ text: 'OK', onPress: () => navigation.goBack() }]
-          );
-        }
+        showAppAlert(appAlert,
+          'Acción completada',
+          `El especialista ha sido ${actionPast} correctamente.`,
+          [{ text: 'OK', onPress: () => navigation.goBack() }],
+        );
       } catch (_err: unknown) {
-        if (Platform.OS === 'web') {
-          window.alert(`No se pudo ${actionLabel} al especialista. Inténtalo de nuevo.`);
-        } else {
-          Alert.alert('Error', `No se pudo ${actionLabel} al especialista. Inténtalo de nuevo.`);
-        }
+        showAppAlert(appAlert, 'Error', `No se pudo ${actionLabel} al especialista. Inténtalo de nuevo.`);
       } finally {
         setProcessing(false);
       }
     };
 
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm(message);
-      if (confirmed) {
-        executeResolve();
-      }
-    } else {
-      Alert.alert(
-        `${status === 'VERIFIED' ? 'Verificar' : 'Rechazar'} especialista`,
-        message,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: status === 'VERIFIED' ? 'Verificar' : 'Rechazar',
-            style: status === 'REJECTED' ? 'destructive' : 'default',
-            onPress: executeResolve,
-          },
-        ]
-      );
-    }
+    showAppAlert(appAlert,
+      `${status === 'VERIFIED' ? 'Verificar' : 'Rechazar'} especialista`,
+      message,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: status === 'VERIFIED' ? 'Verificar' : 'Rechazar',
+          style: status === 'REJECTED' ? 'destructive' : 'default',
+          onPress: executeResolve,
+        },
+      ],
+    );
   }, [specialist, navigation]);
 
   // Guard: only admins

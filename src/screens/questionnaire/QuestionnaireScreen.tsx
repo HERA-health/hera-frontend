@@ -1,3 +1,4 @@
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
@@ -5,7 +6,6 @@ import {
   StyleSheet,
   ScrollView,
   useWindowDimensions,
-  Alert,
   ActivityIndicator,
   Animated,
   Platform,
@@ -110,6 +110,7 @@ const mapSpecialistToMatchResult = (specialistData: SpecialistData): MatchResult
 
 export function QuestionnaireScreen() {
   const navigation = useNavigation<QuestionnaireNavigationProp>();
+  const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const palette = useMemo(() => getQuestionnairePalette(theme, isDark), [theme, isDark]);
@@ -150,7 +151,7 @@ export function QuestionnaireScreen() {
         const response = await getMatchedSpecialists();
 
         if (response.needsQuestionnaireRefresh) {
-          Alert.alert(
+          showAppAlert(appAlert, 
             'Necesitamos actualizar tu cuestionario',
             'Tu cuestionario anterior ya no se puede recuperar con detalle. Actualízalo ahora para volver a guardar tus respuestas y mejorar el matching.',
             [
@@ -170,7 +171,7 @@ export function QuestionnaireScreen() {
         }
 
         if (response.hasCompletedQuestionnaire) {
-          Alert.alert(
+          showAppAlert(appAlert, 
             'Cuestionario completado',
             'Ya completaste este cuestionario. ¿Qué quieres hacer ahora?',
             [
@@ -294,7 +295,7 @@ export function QuestionnaireScreen() {
         navigation.navigate('QuestionnaireResults', { results });
       } catch (error) {
         console.error('Error submitting questionnaire:', error);
-        Alert.alert(
+        showAppAlert(appAlert, 
           'No se pudo completar',
           'No pudimos guardar tus respuestas. Inténtalo de nuevo en unos segundos.'
         );

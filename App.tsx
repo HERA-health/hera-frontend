@@ -25,6 +25,7 @@ import { AuthProvider } from './src/contexts/AuthContext';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { ErrorBoundary } from './src/components/common/ErrorBoundary';
+import { AlertProvider } from './src/components/common/alert';
 import type { RootStackParamList } from './src/constants/types';
 
 // Deep linking configuration
@@ -160,10 +161,12 @@ function ThemedApp() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <AuthProvider>
-          <NavigationContainer linking={linking}>
-            <StatusBar style={isDark ? 'light' : 'dark'} />
-            <RootNavigator />
-          </NavigationContainer>
+          <AlertProvider>
+            <NavigationContainer linking={linking}>
+              <StatusBar style={isDark ? 'light' : 'dark'} />
+              <RootNavigator />
+            </NavigationContainer>
+          </AlertProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </ErrorBoundary>

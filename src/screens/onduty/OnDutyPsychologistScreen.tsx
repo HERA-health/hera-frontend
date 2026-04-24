@@ -1,10 +1,10 @@
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import React, { useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
-  Alert,
   Linking,
   Animated,
   useWindowDimensions,
@@ -379,6 +379,7 @@ const WhatToExpectSection: React.FC = () => {
 
 const CrisisResourcesSection: React.FC = () => {
   const { palette, styles } = useOnDutyUi();
+  const appAlert = useAppAlert();
 
   const handleCallResource = (phone: string) => {
     const phoneUrl = `tel:${phone.replace(/\s/g, '')}`;
@@ -386,7 +387,7 @@ const CrisisResourcesSection: React.FC = () => {
       if (supported) {
         Linking.openURL(phoneUrl);
       } else {
-        Alert.alert('No disponible', `No se puede iniciar la llamada al ${phone}.`);
+        showAppAlert(appAlert, 'No disponible', `No se puede iniciar la llamada al ${phone}.`);
       }
     });
   };

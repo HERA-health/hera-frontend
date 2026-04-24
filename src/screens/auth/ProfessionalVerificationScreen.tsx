@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ProfessionalVerificationScreen - Professional Identity Verification
  * Shown after specialist registration to collect colegiado number and carnet de colegiado photo.
  * Follows the exact same visual design as RegisterScreen for a seamless flow.
@@ -18,7 +18,6 @@ import {
   ActivityIndicator,
   TextInput,
   Image,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -32,9 +31,11 @@ import { getErrorMessage } from '../../constants/errors';
 import * as analyticsService from '../../services/analyticsService';
 import type { AppNavigationProp } from '../../constants/types';
 import type { UploadAsset } from '../../utils/multipartUpload';
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 
 export function ProfessionalVerificationScreen() {
   const navigation = useNavigation<AppNavigationProp>();
+  const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
   const { user, markVerificationSubmitted } = useAuth();
 
@@ -99,7 +100,7 @@ export function ProfessionalVerificationScreen() {
       // Request permissions
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
+        showAppAlert(appAlert, 
           'Permiso requerido',
           'Necesitamos acceso a tu galería para subir la foto del carnet de colegiado.'
         );
@@ -125,7 +126,7 @@ export function ProfessionalVerificationScreen() {
         analyticsService.track('verification_photo_selected');
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo seleccionar la imagen. Intenta de nuevo.');
+      showAppAlert(appAlert, 'Error', 'No se pudo seleccionar la imagen. Intenta de nuevo.');
     } finally {
       setIsUploadingImage(false);
     }
@@ -136,7 +137,7 @@ export function ProfessionalVerificationScreen() {
       // Request camera permissions
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
+        showAppAlert(appAlert, 
           'Permiso requerido',
           'Necesitamos acceso a tu cámara para tomar una foto del carnet de colegiado.'
         );
@@ -160,7 +161,7 @@ export function ProfessionalVerificationScreen() {
         setDniImageUri(asset.uri);
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo tomar la foto. Intenta de nuevo.');
+      showAppAlert(appAlert, 'Error', 'No se pudo tomar la foto. Intenta de nuevo.');
     } finally {
       setIsUploadingImage(false);
     }
@@ -173,7 +174,7 @@ export function ProfessionalVerificationScreen() {
       return;
     }
 
-    Alert.alert(
+    showAppAlert(appAlert, 
       'Foto del carnet de colegiado',
       'Selecciona cómo quieres añadir la foto',
       [

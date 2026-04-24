@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   Image,
   Switch,
   Platform,
@@ -21,6 +20,7 @@ import { colors, spacing, borderRadius, typography, shadows, touchTarget } from 
 import { Theme } from '../../constants/theme';
 import { AppNavigationProp } from '../../constants/types';
 import { AnimatedPressable, Button } from '../../components/common';
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -111,10 +111,10 @@ const STRINGS = {
   continueBtn: 'Continuar',
   cancelDraftAction: 'Cancelar borrador',
   cancelInvoiceAction: 'Cancelar factura',
-  cancelConfirmTitleSafe: '\u00bfCancelar factura?',
-  cancelConfirmMsgSafe: 'La factura {number} pasar\u00e1 a estado cancelada y seguir\u00e1 visible en el historial.',
-  cancelConfirm2TitleSafe: 'Confirmar cancelaci\u00f3n',
-  cancelConfirm2MsgSafe: 'Si contin\u00faas, la factura {number} ya no podr\u00e1 enviarse ni marcarse como pagada.',
+  cancelConfirmTitleSafe: '¿Cancelar factura?',
+  cancelConfirmMsgSafe: 'La factura {number} pasará a estado cancelada y seguirá visible en el historial.',
+  cancelConfirm2TitleSafe: 'Confirmar cancelación',
+  cancelConfirm2MsgSafe: 'Si continúas, la factura {number} ya no podrá enviarse ni marcarse como pagada.',
   cancelConfirm2BtnSafe: 'Cancelar factura',
   resendConfirmMsg: '¿Reenviar factura {number} a {client}?',
   resendBtn: 'Reenviar',
@@ -220,6 +220,7 @@ const InvoiceStatusBadge: React.FC<StatusBadgeProps> = ({ status, styles, theme 
 
 export function BillingScreen() {
   const { user } = useAuth();
+  const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
@@ -299,7 +300,7 @@ export function BillingScreen() {
       setTotalInvoices(result.total);
       setCurrentPage(result.page);
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Error al cargar facturas');
+      showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al cargar facturas');
     } finally {
       setInvoicesLoading(false);
     }
@@ -315,7 +316,7 @@ export function BillingScreen() {
       ]);
       setSummary(summaryData);
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Error al cargar datos');
+      showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al cargar datos');
     } finally {
       setLoading(false);
     }
@@ -431,7 +432,7 @@ export function BillingScreen() {
   }, []);
 
   // ── Actions ──────────────────────────────────────────────────
-  const handleSendInvoice = (invoiceId: string) => {
+  const handleSendInvoice = async (invoiceId: string) => {
     const invoice = invoices.find((inv) => inv.id === invoiceId);
     const clientName = invoice?.client?.user?.name || 'el cliente';
     const invoiceNumber = invoice?.invoiceNumber || '';
@@ -441,36 +442,22 @@ export function BillingScreen() {
         setSendingId(invoiceId);
         await billingService.sendInvoice(invoiceId);
         await loadInvoices(currentPage, activeFilter, debouncedSearch);
-        if (Platform.OS === 'web') {
-          window.alert('Factura enviada correctamente');
-        } else {
-          Alert.alert('Éxito', 'Factura enviada correctamente');
-        }
+        showAppAlert(appAlert, 'Éxito', 'Factura enviada correctamente');
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Error al enviar la factura';
-        if (Platform.OS === 'web') {
-          window.alert(msg);
-        } else {
-          Alert.alert('Error', msg);
-        }
+        showAppAlert(appAlert, 'Error', msg);
       } finally {
         setSendingId(null);
       }
     };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Se enviará la factura ${invoiceNumber} a ${clientName}. ¿Continuar?`)) {
-        executeSend();
-      }
-    } else {
-      Alert.alert(
-        '¿Enviar factura?',
-        `Se enviará la factura ${invoiceNumber} a ${clientName}. ¿Continuar?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Enviar', onPress: executeSend },
-        ],
-      );
+    const confirmed = await appAlert.confirm({
+      title: '¿Enviar factura?',
+      message: `Se enviará la factura ${invoiceNumber} a ${clientName}. ¿Continuar?`,
+      confirmLabel: 'Enviar',
+    });
+    if (confirmed) {
+      void executeSend();
     }
   };
 
@@ -479,15 +466,11 @@ export function BillingScreen() {
       await billingService.downloadInvoice(invoiceId, invoiceNumber);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Error al descargar';
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Error', msg);
-      }
+      showAppAlert(appAlert, 'Error', msg);
     }
   };
 
-  const handleResendInvoice = (invoice: Invoice) => {
+  const handleResendInvoice = async (invoice: Invoice) => {
     setOpenMenuId(null);
     const clientName = invoice.client?.user?.name || 'el cliente';
     const confirmMsg = STRINGS.resendConfirmMsg
@@ -500,40 +483,26 @@ export function BillingScreen() {
         await billingService.sendInvoice(invoice.id);
         await loadInvoices(currentPage, activeFilter, debouncedSearch);
         billingService.getSummary().then(setSummary).catch(() => {});
-        if (Platform.OS === 'web') {
-          window.alert(STRINGS.resendSuccess);
-        } else {
-          Alert.alert('Éxito', STRINGS.resendSuccess);
-        }
+        showAppAlert(appAlert, 'Éxito', STRINGS.resendSuccess);
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Error al reenviar';
-        if (Platform.OS === 'web') {
-          window.alert(msg);
-        } else {
-          Alert.alert('Error', msg);
-        }
+        showAppAlert(appAlert, 'Error', msg);
       } finally {
         setSendingId(null);
       }
     };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm(confirmMsg)) {
-        executeResend();
-      }
-    } else {
-      Alert.alert(
-        STRINGS.resend,
-        confirmMsg,
-        [
-          { text: STRINGS.cancel, style: 'cancel' },
-          { text: STRINGS.resendBtn, onPress: executeResend },
-        ],
-      );
+    const confirmed = await appAlert.confirm({
+      title: STRINGS.resend,
+      message: confirmMsg,
+      confirmLabel: STRINGS.resendBtn,
+    });
+    if (confirmed) {
+      void executeResend();
     }
   };
 
-  const handleMarkAsPaid = (invoice: Invoice) => {
+  const handleMarkAsPaid = async (invoice: Invoice) => {
     setOpenMenuId(null);
 
     const executeMark = async () => {
@@ -542,40 +511,26 @@ export function BillingScreen() {
         await billingService.markInvoiceAsPaid(invoice.id);
         await loadInvoices(currentPage, activeFilter, debouncedSearch);
         billingService.getSummary().then(setSummary).catch(() => {});
-        if (Platform.OS === 'web') {
-          window.alert(STRINGS.markAsPaidSuccess);
-        } else {
-          Alert.alert('Éxito', STRINGS.markAsPaidSuccess);
-        }
+        showAppAlert(appAlert, 'Éxito', STRINGS.markAsPaidSuccess);
       } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : 'Error al marcar como pagada';
-        if (Platform.OS === 'web') {
-          window.alert(msg);
-        } else {
-          Alert.alert('Error', msg);
-        }
+        showAppAlert(appAlert, 'Error', msg);
       } finally {
         setSendingId(null);
       }
     };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm(STRINGS.markAsPaidConfirm)) {
-        executeMark();
-      }
-    } else {
-      Alert.alert(
-        STRINGS.markAsPaid,
-        STRINGS.markAsPaidConfirm,
-        [
-          { text: STRINGS.cancel, style: 'cancel' },
-          { text: 'Confirmar', onPress: executeMark },
-        ],
-      );
+    const confirmed = await appAlert.confirm({
+      title: STRINGS.markAsPaid,
+      message: STRINGS.markAsPaidConfirm,
+      confirmLabel: 'Confirmar',
+    });
+    if (confirmed) {
+      void executeMark();
     }
   };
 
-  const handleCancelInvoice = (invoice: Invoice) => {
+  const handleCancelInvoice = async (invoice: Invoice) => {
     setOpenMenuId(null);
     const msg1 = STRINGS.cancelConfirmMsgSafe.replace('{number}', invoice.invoiceNumber);
     const msg2 = STRINGS.cancelConfirm2MsgSafe.replace('{number}', invoice.invoiceNumber);
@@ -587,53 +542,38 @@ export function BillingScreen() {
         billingService.getSummary().then(setSummary).catch(() => {});
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : 'Error al cancelar';
-        if (Platform.OS === 'web') {
-          window.alert(errMsg);
-        } else {
-          Alert.alert('Error', errMsg);
-        }
+        showAppAlert(appAlert, 'Error', errMsg);
       }
     };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm(msg1)) {
-        if (window.confirm(msg2)) {
-          executeDelete();
-        }
-      }
-    } else {
-      Alert.alert(
-        STRINGS.cancelConfirmTitleSafe,
-        msg1,
-        [
-          { text: STRINGS.cancel, style: 'cancel' },
-          {
-            text: STRINGS.continueBtn,
-            onPress: () => {
-              Alert.alert(
-                STRINGS.cancelConfirm2TitleSafe,
-                msg2,
-                [
-                  { text: STRINGS.cancel, style: 'cancel' },
-                  { text: STRINGS.cancelConfirm2BtnSafe, style: 'destructive', onPress: executeDelete },
-                ],
-              );
-            },
-          },
-        ],
-      );
+    const firstConfirmed = await appAlert.confirm({
+      title: STRINGS.cancelConfirmTitleSafe,
+      message: msg1,
+      confirmLabel: STRINGS.continueBtn,
+      tone: 'warning',
+    });
+    if (!firstConfirmed) return;
+
+    const secondConfirmed = await appAlert.confirm({
+      title: STRINGS.cancelConfirm2TitleSafe,
+      message: msg2,
+      confirmLabel: STRINGS.cancelConfirm2BtnSafe,
+      destructive: true,
+    });
+    if (secondConfirmed) {
+      void executeDelete();
     }
   };
 
   const handleSaveTariffs = async () => {
     const defaults = tempTariffItems.filter((t) => t.isDefault);
     if (defaults.length !== 1) {
-      Alert.alert('Error', 'Debe haber exactamente una tarifa por defecto');
+      showAppAlert(appAlert, 'Error', 'Debe haber exactamente una tarifa por defecto');
       return;
     }
     const actives = tempTariffItems.filter((t) => t.isActive);
     if (actives.length === 0) {
-      Alert.alert('Error', 'Debe haber al menos una tarifa activa');
+      showAppAlert(appAlert, 'Error', 'Debe haber al menos una tarifa activa');
       return;
     }
     try {
@@ -642,9 +582,9 @@ export function BillingScreen() {
       setTariffItems(tempTariffItems);
       setFirstVisitFree(tempFirstVisitFree);
       setEditingTariffs(false);
-      Alert.alert('Éxito', 'Tarifas actualizadas');
+      showAppAlert(appAlert, 'Éxito', 'Tarifas actualizadas');
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Error al guardar');
+      showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al guardar');
     } finally {
       setSavingConfig(false);
     }
@@ -656,9 +596,9 @@ export function BillingScreen() {
       await billingService.updateBillingConfig(tempFiscal);
       setBillingConfig((prev) => ({ ...prev, ...tempFiscal }));
       setEditingFiscal(false);
-      Alert.alert('Éxito', 'Datos fiscales actualizados');
+      showAppAlert(appAlert, 'Éxito', 'Datos fiscales actualizados');
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Error al guardar');
+      showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al guardar');
     } finally {
       setSavingConfig(false);
     }
@@ -668,7 +608,7 @@ export function BillingScreen() {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permiso necesario', 'Necesitamos acceso a tus imágenes para seleccionar el logo.');
+        showAppAlert(appAlert, 'Permiso necesario', 'Necesitamos acceso a tus imágenes para seleccionar el logo.');
         return;
       }
 
@@ -695,9 +635,9 @@ export function BillingScreen() {
         invoiceLogoUrl: updated.invoiceLogoUrl,
         invoiceAccentColor: updated.invoiceAccentColor || prev.invoiceAccentColor || DEFAULT_INVOICE_ACCENT_COLOR,
       }));
-      Alert.alert('Éxito', 'Logo de factura actualizado');
+      showAppAlert(appAlert, 'Éxito', 'Logo de factura actualizado');
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo subir el logo');
+      showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'No se pudo subir el logo');
     } finally {
       setUploadingInvoiceLogo(false);
     }
@@ -706,7 +646,7 @@ export function BillingScreen() {
   const handleSaveInvoiceDesign = async () => {
     const normalizedColor = normalizeInvoiceAccentInput(tempInvoiceAccentColor);
     if (!INVOICE_ACCENT_COLOR_REGEX.test(normalizedColor)) {
-      Alert.alert('Color no válido', 'Introduce un color HEX de 6 dígitos, por ejemplo #8B9D83.');
+      showAppAlert(appAlert, 'Color no válido', 'Introduce un color HEX de 6 dígitos, por ejemplo #8B9D83.');
       return;
     }
 
@@ -718,9 +658,9 @@ export function BillingScreen() {
         invoiceAccentColor: updated.invoiceAccentColor || normalizedColor,
       }));
       setTempInvoiceAccentColor(updated.invoiceAccentColor || normalizedColor);
-      Alert.alert('Éxito', 'Diseño de factura actualizado');
+      showAppAlert(appAlert, 'Éxito', 'Diseño de factura actualizado');
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Error al guardar');
+      showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al guardar');
     } finally {
       setSavingInvoiceDesign(false);
     }
@@ -743,11 +683,11 @@ export function BillingScreen() {
       setTempNumbering(normalizedNumbering);
       setBillingConfig((prev) => ({ ...prev, ...normalizedNumbering }));
       setEditingNumbering(false);
-      Alert.alert('\u00c9xito', 'Numeraci\u00f3n actualizada');
+      showAppAlert(appAlert, 'Éxito', 'Numeración actualizada');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al guardar';
       setNumberingError(message);
-      Alert.alert('Error', message);
+      showAppAlert(appAlert, 'Error', message);
     } finally {
       setSavingConfig(false);
     }
@@ -761,7 +701,7 @@ export function BillingScreen() {
     } catch (error) {
       // Revert on error
       setBillingConfig((c) => ({ ...c, [field]: prev }));
-      Alert.alert('Error', error instanceof Error ? error.message : 'Error al guardar');
+      showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al guardar');
     }
   };
 
@@ -773,7 +713,7 @@ export function BillingScreen() {
       await billingService.updateBillingConfig({ sendInvoiceCopyTo: email });
     } catch (error) {
       setBillingConfig((c) => ({ ...c, sendInvoiceCopyTo: prev }));
-      Alert.alert('Error', error instanceof Error ? error.message : 'Error al guardar');
+      showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al guardar');
     }
   };
 
@@ -1044,7 +984,7 @@ export function BillingScreen() {
 
   const handleDeleteTempTariff = (id: string) => {
     if (tempTariffItems.length <= 1) {
-      Alert.alert('Error', 'Debe haber al menos una tarifa');
+      showAppAlert(appAlert, 'Error', 'Debe haber al menos una tarifa');
       return;
     }
     setTempTariffItems((prev) => prev.filter((t) => t.id !== id));

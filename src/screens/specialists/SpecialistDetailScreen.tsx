@@ -1,3 +1,4 @@
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 /**
  * SpecialistDetailScreen - Specialist Profile Detail
  * Two-column layout on desktop, single column on mobile
@@ -17,7 +18,6 @@ import {
   ScrollView,
   StyleSheet,
   useWindowDimensions,
-  Alert,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Platform,
@@ -61,6 +61,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
   route,
   navigation,
 }) => {
+  const appAlert = useAppAlert();
   const { specialistId, affinity } = route?.params || {};
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
@@ -107,7 +108,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'No se pudo cargar el perfil del especialista';
-      Alert.alert('Error', errorMessage);
+      showAppAlert(appAlert, 'Error', errorMessage);
       navigation.goBack();
     } finally {
       setLoading(false);

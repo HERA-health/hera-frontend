@@ -1,3 +1,4 @@
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 /**
  * ProfessionalHomeScreen - Calendar-based Professional Dashboard
  * Three-column layout: sidebar (via MainLayout) | calendar | right panel
@@ -7,7 +8,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   ScrollView,
   StyleSheet,
@@ -192,6 +192,7 @@ function getSessionStatusTone(theme: Theme, status: string) {
 
 export function ProfessionalHomeScreen() {
   const { user } = useAuth();
+  const appAlert = useAppAlert();
   const navigation = useNavigation<AppNavigationProp>();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
@@ -325,10 +326,10 @@ export function ProfessionalHomeScreen() {
     try {
       setProcessingSessionId(sessionId);
       await professionalService.updateSessionStatus(sessionId, 'CONFIRMED');
-      Alert.alert('Sesión confirmada', `Sesión con ${clientName} confirmada correctamente`);
+      showAppAlert(appAlert, 'Sesión confirmada', `Sesión con ${clientName} confirmada correctamente`);
       await loadData();
     } catch {
-      Alert.alert('Error', 'No se pudo confirmar la sesión');
+      showAppAlert(appAlert, 'Error', 'No se pudo confirmar la sesión');
     } finally {
       setProcessingSessionId(null);
     }
@@ -339,7 +340,7 @@ export function ProfessionalHomeScreen() {
     const request = pendingRequests.find((item) => item.id === sessionId);
     const clientName = request?.clientName || 'Cliente';
 
-    Alert.alert(
+    showAppAlert(appAlert, 
       'Rechazar sesión',
       `¿Estás seguro de que deseas rechazar la sesión con ${clientName}?`,
       [
@@ -351,10 +352,10 @@ export function ProfessionalHomeScreen() {
             try {
               setProcessingSessionId(sessionId);
               await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
-              Alert.alert('Sesión rechazada', `La sesión con ${clientName} ha sido rechazada`);
+              showAppAlert(appAlert, 'Sesión rechazada', `La sesión con ${clientName} ha sido rechazada`);
               await loadData();
             } catch {
-              Alert.alert('Error', 'No se pudo rechazar la sesión');
+              showAppAlert(appAlert, 'Error', 'No se pudo rechazar la sesión');
             } finally {
               setProcessingSessionId(null);
             }

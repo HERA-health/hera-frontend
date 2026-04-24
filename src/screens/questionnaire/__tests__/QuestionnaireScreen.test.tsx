@@ -1,10 +1,10 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { darkTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
+import { AlertProvider } from '../../../components/common/alert';
 import { getMatchedSpecialists } from '../../../services/specialistsService';
 import { submitQuestionnaire } from '../../../services/questionnaireService';
 import { QuestionnaireScreen } from '../QuestionnaireScreen';
@@ -96,7 +96,6 @@ describe('QuestionnaireScreen', () => {
       ],
     });
 
-    jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
   });
 
   afterEach(() => {
@@ -104,7 +103,11 @@ describe('QuestionnaireScreen', () => {
   });
 
   it('delegates submission to the questionnaire service and navigates to results', async () => {
-    render(<QuestionnaireScreen />);
+    render(
+      <AlertProvider>
+        <QuestionnaireScreen />
+      </AlertProvider>,
+    );
 
     await waitFor(() => {
       expect(screen.queryByText('Verificando tu cuestionario...')).toBeNull();

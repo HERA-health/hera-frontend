@@ -1,6 +1,6 @@
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   Linking,
   RefreshControl,
@@ -42,6 +42,7 @@ const TABLET_BREAKPOINT = 860;
 const SessionsScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<SessionsRouteProp>();
+  const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark, width), [theme, isDark, width]);
@@ -63,7 +64,7 @@ const SessionsScreen: React.FC = () => {
       const data = await sessionsService.getMySessions();
       setSessions(data as ApiSession[]);
     } catch {
-      Alert.alert('Error', 'No se pudieron cargar tus sesiones');
+      showAppAlert(appAlert, 'Error', 'No se pudieron cargar tus sesiones');
     } finally {
       setLoading(false);
     }
@@ -93,14 +94,14 @@ const SessionsScreen: React.FC = () => {
       const data = await sessionsService.getMySessions();
       setSessions(data as ApiSession[]);
     } catch {
-      Alert.alert('Error', 'No se pudieron actualizar tus sesiones');
+      showAppAlert(appAlert, 'Error', 'No se pudieron actualizar tus sesiones');
     } finally {
       setRefreshing(false);
     }
   }, []);
 
   const handleCancelSession = useCallback(async (sessionId: string) => {
-    Alert.alert(
+    showAppAlert(appAlert, 
       'Cancelar sesión',
       '¿Seguro que quieres cancelar esta sesión?',
       [
@@ -112,11 +113,11 @@ const SessionsScreen: React.FC = () => {
             try {
               await sessionsService.cancelSession(sessionId);
               analyticsService.track('session_cancelled', { sessionId });
-              Alert.alert('Sesión cancelada', 'La sesión se ha cancelado correctamente.');
+              showAppAlert(appAlert, 'Sesión cancelada', 'La sesión se ha cancelado correctamente.');
               await loadSessions();
             } catch (error: unknown) {
               const message = error instanceof Error ? error.message : 'No se pudo cancelar la sesión';
-              Alert.alert('Error', message);
+              showAppAlert(appAlert, 'Error', message);
             }
           },
         },
@@ -129,25 +130,25 @@ const SessionsScreen: React.FC = () => {
       const meetingData = await sessionsService.getMeetingLink(sessionId);
 
       if (!meetingData.canJoin) {
-        Alert.alert('Todavía no', meetingData.message);
+        showAppAlert(appAlert, 'Todavía no', meetingData.message);
         return;
       }
 
       if (!meetingData.meetingLink) {
-        Alert.alert('Error', 'No se pudo obtener el enlace de la videollamada.');
+        showAppAlert(appAlert, 'Error', 'No se pudo obtener el enlace de la videollamada.');
         return;
       }
 
       const supported = await Linking.canOpenURL(meetingData.meetingLink);
       if (!supported) {
-        Alert.alert('Error', 'No se pudo abrir el enlace de la videollamada.');
+        showAppAlert(appAlert, 'Error', 'No se pudo abrir el enlace de la videollamada.');
         return;
       }
 
       await Linking.openURL(meetingData.meetingLink);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Hubo un problema al unirte a la sesión.';
-      Alert.alert('Error', message);
+      showAppAlert(appAlert, 'Error', message);
     }
   }, []);
 
@@ -170,7 +171,7 @@ const SessionsScreen: React.FC = () => {
       ))
     );
     setReviewSession(null);
-    Alert.alert('Gracias', 'Tu reseña se ha enviado correctamente.');
+    showAppAlert(appAlert, 'Gracias', 'Tu reseña se ha enviado correctamente.');
   }, [reviewSession]);
 
   const stats = useMemo(() => {

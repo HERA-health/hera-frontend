@@ -27,7 +27,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   Platform,
   useWindowDimensions,
   ActivityIndicator,
@@ -41,6 +40,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -401,6 +401,7 @@ const getInsuranceReviewCopy = (
 
 export function SpecialistProfileScreen() {
   const { user, updateUser } = useAuth();
+  const appAlert = useAppAlert();
   const { theme, isDark } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
   const isDesktop = windowWidth >= 1024;
@@ -724,7 +725,7 @@ export function SpecialistProfileScreen() {
     if (!hasChanges) return;
 
     if (profileData.offersInPerson && !profileData.insuranceUploaded) {
-      Alert.alert(
+      showAppAlert(appAlert, 
         'Falta la póliza',
         'Para activar las sesiones presenciales necesitamos una póliza de responsabilidad civil subida y guardada en HERA.'
       );
@@ -791,10 +792,10 @@ export function SpecialistProfileScreen() {
       await professionalService.updateComprehensiveProfile(updateData);
 
       setOriginalData(profileData);
-      Alert.alert('Cambios guardados', 'Tu perfil ha sido actualizado correctamente');
+      showAppAlert(appAlert, 'Cambios guardados', 'Tu perfil ha sido actualizado correctamente');
     } catch (error: unknown) {
       console.error('Error saving profile:', error);
-      Alert.alert('Error', getErrorMessage(error, 'No se pudo guardar el perfil. Intenta de nuevo.'));
+      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo guardar el perfil. Intenta de nuevo.'));
     } finally {
       setIsSaving(false);
     }
@@ -822,20 +823,20 @@ export function SpecialistProfileScreen() {
           updateUser({ avatar: updatedUser.avatar ?? undefined });
           updateField('avatar', updatedUser.avatar ?? null);
         } catch (uploadError: unknown) {
-          Alert.alert('Error', getErrorMessage(uploadError, 'No se pudo subir la foto'));
+          showAppAlert(appAlert, 'Error', getErrorMessage(uploadError, 'No se pudo subir la foto'));
         } finally {
           setIsUploadingAvatar(false);
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo seleccionar la imagen');
+      showAppAlert(appAlert, 'Error', 'No se pudo seleccionar la imagen');
     }
   }, [updateField, updateUser, isUploadingAvatar]);
 
   // Navigate to own public profile (as patients see it)
   const handleViewPublicProfile = useCallback(() => {
     if (!specialistId) {
-      Alert.alert('Error', 'No se pudo cargar el perfil');
+      showAppAlert(appAlert, 'Error', 'No se pudo cargar el perfil');
       return;
     }
     navigation.navigate('SpecialistDetail', { specialistId });
@@ -922,7 +923,7 @@ export function SpecialistProfileScreen() {
         locationVisibleToPatients: false,
       }));
     } catch (error: unknown) {
-      Alert.alert('Error', getErrorMessage(error, 'No se pudo subir la póliza.'));
+      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo subir la póliza.'));
     } finally {
       setIsUploadingInsurance(false);
     }
@@ -937,7 +938,7 @@ export function SpecialistProfileScreen() {
       setOpeningCredentialKey('insurance');
       await professionalService.openInsuranceDocument();
     } catch (error: unknown) {
-      Alert.alert('Error', getErrorMessage(error, 'No se pudo abrir la póliza.'));
+      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo abrir la póliza.'));
     } finally {
       setOpeningCredentialKey(null);
     }
@@ -967,18 +968,11 @@ export function SpecialistProfileScreen() {
           offersInPerson: result.offersInPerson,
         }));
       } catch (error: unknown) {
-        Alert.alert('Error', getErrorMessage(error, 'No se pudo eliminar la póliza.'));
+        showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo eliminar la póliza.'));
       }
     };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm('¿Eliminar la póliza de seguro? Esto desactivará las sesiones presenciales.')) {
-        void doDelete();
-      }
-      return;
-    }
-
-    Alert.alert(
+    showAppAlert(appAlert,
       'Eliminar póliza',
       'Si eliminas la póliza, desactivaremos las sesiones presenciales hasta que subas una nueva.',
       [
@@ -998,7 +992,7 @@ export function SpecialistProfileScreen() {
     const trimmedValidUntil = certificateDraft.validUntil.trim();
 
     if (!trimmedName || !trimmedIssuer) {
-      Alert.alert('Completa los datos', 'Añade al menos el nombre del certificado y la entidad emisora.');
+      showAppAlert(appAlert, 'Completa los datos', 'Añade al menos el nombre del certificado y la entidad emisora.');
       return;
     }
 
@@ -1027,7 +1021,7 @@ export function SpecialistProfileScreen() {
       setIsCertificateModalVisible(false);
       resetCertificateDraft();
     } catch (error: unknown) {
-      Alert.alert('Error', getErrorMessage(error, 'No se pudo subir el certificado.'));
+      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo subir el certificado.'));
     } finally {
       setIsUploadingCertificate(false);
     }
@@ -1043,7 +1037,7 @@ export function SpecialistProfileScreen() {
       setOpeningCredentialKey(key);
       await professionalService.openCertificateDocument(certificate.id, certificate.mimeType);
     } catch (error: unknown) {
-      Alert.alert('Error', getErrorMessage(error, 'No se pudo abrir el certificado.'));
+      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo abrir el certificado.'));
     } finally {
       setOpeningCredentialKey(null);
     }
@@ -1062,18 +1056,11 @@ export function SpecialistProfileScreen() {
           certificates: prev.certificates.filter(cert => cert.id !== certificateId),
         }));
       } catch (error: unknown) {
-        Alert.alert('Error', getErrorMessage(error, 'No se pudo eliminar el certificado.'));
+        showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo eliminar el certificado.'));
       }
     };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm('¿Eliminar este certificado?')) {
-        void doDelete();
-      }
-      return;
-    }
-
-    Alert.alert(
+    showAppAlert(appAlert,
       'Eliminar certificado',
       'Borraremos el documento privado y su referencia del perfil.',
       [
@@ -1503,13 +1490,13 @@ export function SpecialistProfileScreen() {
           updateField('photoGallery', [...profileData.photoGallery, response.url]);
         } catch (uploadError: unknown) {
           const message = uploadError instanceof Error ? uploadError.message : 'No se pudo subir la foto';
-          Alert.alert('Error', message);
+          showAppAlert(appAlert, 'Error', message);
         } finally {
           setIsUploadingGalleryPhoto(false);
         }
       }
     } catch {
-      Alert.alert('Error', 'No se pudo seleccionar la imagen');
+      showAppAlert(appAlert, 'Error', 'No se pudo seleccionar la imagen');
     }
   }, [isUploadingGalleryPhoto, profileData.photoGallery, updateField]);
 
@@ -1520,24 +1507,18 @@ export function SpecialistProfileScreen() {
         updateField('photoGallery', profileData.photoGallery.filter(u => u !== url));
       } catch (deleteError: unknown) {
         const message = deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar la foto';
-        Alert.alert('Error', message);
+        showAppAlert(appAlert, 'Error', message);
       }
     };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm(STRINGS.miEspacio.galleryDeleteConfirm)) {
-        doDelete();
-      }
-    } else {
-      Alert.alert(
-        STRINGS.miEspacio.galleryDeleteConfirm,
-        undefined,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Eliminar', style: 'destructive', onPress: doDelete },
-        ]
-      );
-    }
+    showAppAlert(appAlert,
+      STRINGS.miEspacio.galleryDeleteConfirm,
+      undefined,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: doDelete },
+      ],
+    );
   }, [profileData.photoGallery, updateField]);
 
   // ============================================================================
