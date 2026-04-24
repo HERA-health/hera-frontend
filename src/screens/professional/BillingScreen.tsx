@@ -8,12 +8,14 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Image,
   Switch,
   Platform,
   Pressable,
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, borderRadius, typography, shadows, touchTarget } from '../../constants/colors';
 import { Theme } from '../../constants/theme';
@@ -144,6 +146,9 @@ const getStatusColors = (theme: Theme): Record<InvoiceStatus, { bg: string; text
 
 const INVOICES_PER_PAGE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
+const DEFAULT_INVOICE_ACCENT_COLOR = '#8B9D83';
+const INVOICE_ACCENT_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
+const INVOICE_ACCENT_OPTIONS = ['#8B9D83', '#4F7C8A', '#8A6F4F', '#7B6EA8', '#A56565'];
 
 type FilterTab = 'all' | InvoiceStatus;
 
@@ -170,6 +175,9 @@ const formatDateShort = (dateStr: string): string => {
 
 const normalizeInvoicePrefixInput = (value: string): string =>
   value.toUpperCase().replace(/\s+/g, '').replace(/[^A-Z0-9._/-]/g, '').slice(0, 10);
+
+const normalizeInvoiceAccentInput = (value: string): string =>
+  value.trim().toUpperCase();
 
 // ============================================================================
 // SUB-COMPONENTS
@@ -249,10 +257,14 @@ export function BillingScreen() {
   const [editingTariffs, setEditingTariffs] = useState(false);
   const [editingFiscal, setEditingFiscal] = useState(false);
   const [editingNumbering, setEditingNumbering] = useState(false);
+  const [uploadingInvoiceLogo, setUploadingInvoiceLogo] = useState(false);
+  const [savingInvoiceDesign, setSavingInvoiceDesign] = useState(false);
+  const [numberingError, setNumberingError] = useState<string | null>(null);
   // Temp edit values
   const [tempTariffItems, setTempTariffItems] = useState<TariffItem[]>([]);
   const [tempFirstVisitFree, setTempFirstVisitFree] = useState(false);
   const [tempFiscal, setTempFiscal] = useState<BillingConfig>({});
+  const [tempInvoiceAccentColor, setTempInvoiceAccentColor] = useState(DEFAULT_INVOICE_ACCENT_COLOR);
   const [tempNumbering, setTempNumbering] = useState({
     simplifiedInvoicePrefix: 'FS',
     simplifiedInvoiceNextNumber: 1,
@@ -357,6 +369,7 @@ export function BillingScreen() {
         applyVat: s.applyVat ?? false,
         vatExemptReason: s.vatExemptReason || null,
         invoiceLogoUrl: s.invoiceLogoUrl || null,
+        invoiceAccentColor: s.invoiceAccentColor || DEFAULT_INVOICE_ACCENT_COLOR,
         bankIban: s.bankIban || '',
         paymentConditions: s.paymentConditions || '',
         fiscalName: s.fiscalName || '',
@@ -368,6 +381,7 @@ export function BillingScreen() {
       };
       setBillingConfig(config);
       setTempFiscal(config);
+      setTempInvoiceAccentColor(config.invoiceAccentColor || DEFAULT_INVOICE_ACCENT_COLOR);
       setTempNumbering({
         simplifiedInvoicePrefix: config.simplifiedInvoicePrefix || 'FS',
         simplifiedInvoiceNextNumber: config.simplifiedInvoiceNextNumber || 1,
@@ -650,21 +664,90 @@ export function BillingScreen() {
     }
   };
 
+  const handlePickInvoiceLogo = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permiso necesario', 'Necesitamos acceso a tus imágenes para seleccionar el logo.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.9,
+      });
+
+      if (result.canceled || result.assets.length === 0) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      setUploadingInvoiceLogo(true);
+      const updated = await billingService.uploadInvoiceLogo({
+        uri: asset.uri,
+        mimeType: asset.mimeType,
+        fileName: asset.fileName,
+        file: asset.file ?? null,
+      });
+      setBillingConfig((prev) => ({
+        ...prev,
+        invoiceLogoUrl: updated.invoiceLogoUrl,
+        invoiceAccentColor: updated.invoiceAccentColor || prev.invoiceAccentColor || DEFAULT_INVOICE_ACCENT_COLOR,
+      }));
+      Alert.alert('Éxito', 'Logo de factura actualizado');
+    } catch (error) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo subir el logo');
+    } finally {
+      setUploadingInvoiceLogo(false);
+    }
+  };
+
+  const handleSaveInvoiceDesign = async () => {
+    const normalizedColor = normalizeInvoiceAccentInput(tempInvoiceAccentColor);
+    if (!INVOICE_ACCENT_COLOR_REGEX.test(normalizedColor)) {
+      Alert.alert('Color no válido', 'Introduce un color HEX de 6 dígitos, por ejemplo #8B9D83.');
+      return;
+    }
+
+    try {
+      setSavingInvoiceDesign(true);
+      const updated = await billingService.updateBillingConfig({ invoiceAccentColor: normalizedColor });
+      setBillingConfig((prev) => ({
+        ...prev,
+        invoiceAccentColor: updated.invoiceAccentColor || normalizedColor,
+      }));
+      setTempInvoiceAccentColor(updated.invoiceAccentColor || normalizedColor);
+      Alert.alert('Éxito', 'Diseño de factura actualizado');
+    } catch (error) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Error al guardar');
+    } finally {
+      setSavingInvoiceDesign(false);
+    }
+  };
+
   const handleSaveNumbering = async () => {
     try {
       setSavingConfig(true);
+      setNumberingError(null);
       const normalizedNumbering = {
         ...tempNumbering,
         simplifiedInvoicePrefix: normalizeInvoicePrefixInput(tempNumbering.simplifiedInvoicePrefix || 'FS'),
         fullInvoicePrefix: normalizeInvoicePrefixInput(tempNumbering.fullInvoicePrefix || 'F'),
       };
+      if (normalizedNumbering.simplifiedInvoicePrefix === normalizedNumbering.fullInvoicePrefix) {
+        setNumberingError('Las facturas completas y simplificadas deben usar prefijos distintos.');
+        return;
+      }
       await billingService.updateBillingConfig(normalizedNumbering);
       setTempNumbering(normalizedNumbering);
       setBillingConfig((prev) => ({ ...prev, ...normalizedNumbering }));
       setEditingNumbering(false);
       Alert.alert('\u00c9xito', 'Numeraci\u00f3n actualizada');
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Error al guardar');
+      const message = error instanceof Error ? error.message : 'Error al guardar';
+      setNumberingError(message);
+      Alert.alert('Error', message);
     } finally {
       setSavingConfig(false);
     }
@@ -1079,6 +1162,80 @@ export function BillingScreen() {
     </View>
   );
 
+  const renderInvoiceDesignCard = () => {
+    const currentAccent = billingConfig.invoiceAccentColor || DEFAULT_INVOICE_ACCENT_COLOR;
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Diseño de factura</Text>
+          <View style={[styles.invoiceAccentPreview, { backgroundColor: currentAccent }]} />
+        </View>
+
+        <View style={styles.invoiceLogoRow}>
+          <View style={styles.invoiceLogoFrame}>
+            {billingConfig.invoiceLogoUrl ? (
+              <Image
+                source={{ uri: billingConfig.invoiceLogoUrl }}
+                style={styles.invoiceLogoPreview}
+                resizeMode="contain"
+              />
+            ) : (
+              <Ionicons name="image-outline" size={28} color={theme.textMuted} />
+            )}
+          </View>
+          <Button
+            variant="outline"
+            size="small"
+            onPress={handlePickInvoiceLogo}
+            loading={uploadingInvoiceLogo}
+            icon={<Ionicons name="cloud-upload-outline" size={16} color={theme.primary} />}
+          >
+            {billingConfig.invoiceLogoUrl ? 'Cambiar logo' : 'Subir logo'}
+          </Button>
+        </View>
+
+        <Text style={styles.fieldLabel}>Color de detalle</Text>
+        <View style={styles.invoiceColorSwatches}>
+          {INVOICE_ACCENT_OPTIONS.map((option) => {
+            const selected = tempInvoiceAccentColor.toUpperCase() === option;
+            return (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.invoiceColorSwatch,
+                  { backgroundColor: option },
+                  selected && styles.invoiceColorSwatchSelected,
+                ]}
+                onPress={() => setTempInvoiceAccentColor(option)}
+                accessibilityRole="button"
+                accessibilityLabel={`Color ${option}`}
+              />
+            );
+          })}
+        </View>
+        <TextInput
+          style={styles.input}
+          value={tempInvoiceAccentColor}
+          onChangeText={setTempInvoiceAccentColor}
+          placeholder={DEFAULT_INVOICE_ACCENT_COLOR}
+          placeholderTextColor={theme.textMuted}
+          autoCapitalize="characters"
+          maxLength={7}
+        />
+        <TouchableOpacity
+          style={[styles.saveBtn, savingInvoiceDesign && styles.saveBtnDisabled]}
+          onPress={handleSaveInvoiceDesign}
+          disabled={savingInvoiceDesign}
+        >
+          {savingInvoiceDesign ? <ActivityIndicator size="small" color={theme.textOnPrimary} /> : (
+            <Text style={styles.saveBtnText}>{STRINGS.save}</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   const renderFiscalCard = () => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
@@ -1134,6 +1291,13 @@ export function BillingScreen() {
     const year = new Date().getFullYear();
     const simplifiedPreview = `${simplifiedPrefix}-${year}-${String(simplifiedNext).padStart(3, '0')}`;
     const fullPreview = `${fullPrefix}-${year}-${String(fullNext).padStart(3, '0')}`;
+    const editingSimplifiedPrefix = normalizeInvoicePrefixInput(tempNumbering.simplifiedInvoicePrefix || 'FS');
+    const editingFullPrefix = normalizeInvoicePrefixInput(tempNumbering.fullInvoicePrefix || 'F');
+    const hasDuplicatedSeries = editingNumbering && editingSimplifiedPrefix === editingFullPrefix;
+    const visibleNumberingError = hasDuplicatedSeries
+      ? 'Las facturas completas y simplificadas deben usar prefijos distintos.'
+      : numberingError;
+    const isNumberingSaveDisabled = savingConfig || hasDuplicatedSeries;
 
     return (
       <View style={styles.card}>
@@ -1147,6 +1311,7 @@ export function BillingScreen() {
                 fullInvoicePrefix: fullPrefix,
                 fullInvoiceNextNumber: fullNext,
               });
+              setNumberingError(null);
               setEditingNumbering(!editingNumbering);
             }}
           >
@@ -1157,7 +1322,7 @@ export function BillingScreen() {
           <View style={styles.editForm}>
             <Text style={styles.fieldLabel}>Serie simplificada · prefijo</Text>
             <TextInput
-              style={[styles.input, { maxWidth: 100 }]}
+              style={[styles.input, hasDuplicatedSeries && styles.inputError, { maxWidth: 100 }]}
               value={tempNumbering.simplifiedInvoicePrefix}
               onChangeText={(v) =>
                 setTempNumbering((n) => ({
@@ -1179,7 +1344,7 @@ export function BillingScreen() {
             />
             <Text style={styles.fieldLabel}>Serie completa · prefijo</Text>
             <TextInput
-              style={[styles.input, { maxWidth: 100 }]}
+              style={[styles.input, hasDuplicatedSeries && styles.inputError, { maxWidth: 100 }]}
               value={tempNumbering.fullInvoicePrefix}
               onChangeText={(v) =>
                 setTempNumbering((n) => ({
@@ -1200,7 +1365,14 @@ export function BillingScreen() {
               keyboardType="numeric"
             />
             <Text style={styles.configHint}>{STRINGS.adjustNote}</Text>
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveNumbering} disabled={savingConfig}>
+            {visibleNumberingError ? (
+              <Text style={styles.inlineError}>{visibleNumberingError}</Text>
+            ) : null}
+            <TouchableOpacity
+              style={[styles.saveBtn, isNumberingSaveDisabled && styles.saveBtnDisabled]}
+              onPress={handleSaveNumbering}
+              disabled={isNumberingSaveDisabled}
+            >
               {savingConfig ? <ActivityIndicator size="small" color={colors.neutral.white} /> : (
                 <Text style={styles.saveBtnText}>{STRINGS.save}</Text>
               )}
@@ -1304,6 +1476,7 @@ export function BillingScreen() {
             <View style={styles.sideColumn}>
               {renderTariffsCard()}
               {renderFiscalCard()}
+              {renderInvoiceDesignCard()}
               {renderNumberingCard()}
               {renderAutomationCard()}
             </View>
@@ -1313,6 +1486,7 @@ export function BillingScreen() {
             {renderInvoiceList()}
             {renderTariffsCard()}
             {renderFiscalCard()}
+            {renderInvoiceDesignCard()}
             {renderNumberingCard()}
             {renderAutomationCard()}
           </>
@@ -1722,6 +1896,15 @@ function createStyles(theme: Theme, isDark: boolean) {
     fontSize: typography.fontSizes.sm,
     color: theme.textPrimary,
   },
+  inputError: {
+    borderColor: theme.error,
+  },
+  inlineError: {
+    color: theme.error,
+    fontSize: typography.fontSizes.xs,
+    fontFamily: theme.fontSansMedium,
+    marginTop: spacing.sm,
+  },
   chipRow: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -1763,10 +1946,57 @@ function createStyles(theme: Theme, isDark: boolean) {
     minHeight: touchTarget.minHeight,
     marginTop: spacing.sm,
   },
+  saveBtnDisabled: {
+    opacity: 0.65,
+  },
   saveBtnText: {
     color: theme.textOnPrimary,
     fontSize: typography.fontSizes.sm,
     fontFamily: theme.fontSansBold,
+  },
+  invoiceAccentPreview: {
+    width: 24,
+    height: 24,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  invoiceLogoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  invoiceLogoFrame: {
+    width: 112,
+    height: 64,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden' as const,
+  },
+  invoiceLogoPreview: {
+    width: '100%',
+    height: '100%',
+  },
+  invoiceColorSwatches: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  invoiceColorSwatch: {
+    width: 34,
+    height: 34,
+    borderRadius: borderRadius.md,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  invoiceColorSwatchSelected: {
+    borderColor: theme.textPrimary,
   },
 
   // Automation

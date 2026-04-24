@@ -2,6 +2,7 @@ import { api } from './api';
 import { getErrorMessage } from '../constants/errors';
 import { Platform, Linking } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import { buildImageFormData, type UploadAsset } from '../utils/multipartUpload';
 
 // ============================================================================
 // TYPES
@@ -141,6 +142,7 @@ export interface BillingConfig {
   vatRate?: number;
   vatExemptReason?: string | null;
   invoiceLogoUrl?: string | null;
+  invoiceAccentColor?: string | null;
   bankIban?: string;
   paymentConditions?: string;
   fiscalName?: string;
@@ -186,6 +188,7 @@ export interface SpecialistBillingData {
   applyVat: boolean;
   vatExemptReason: string | null;
   invoiceLogoUrl: string | null;
+  invoiceAccentColor: string | null;
   bankIban: string | null;
   paymentConditions: string | null;
   fiscalName: string | null;
@@ -216,6 +219,7 @@ export interface FullBillingConfig {
   applyVat: boolean;
   vatExemptReason: string | null;
   invoiceLogoUrl: string | null;
+  invoiceAccentColor: string | null;
   bankIban: string | null;
   paymentConditions: string | null;
   fiscalName: string | null;
@@ -422,21 +426,13 @@ export const billingService = {
     }
   },
 
-  async uploadInvoiceLogo(imageUri: string): Promise<string> {
+  async uploadInvoiceLogo(image: UploadAsset): Promise<Pick<SpecialistBillingData, 'id' | 'invoiceLogoUrl' | 'invoiceAccentColor'>> {
     try {
-      // Convert URI to base64 for upload through the config endpoint
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
+      const formData = await buildImageFormData('image', image, {}, 'invoice-logo');
+      const response = await api.post('/billing/config/logo', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-
-      const updateResponse = await api.put('/billing/config', {
-        invoiceLogoUrl: base64,
-      });
-      return updateResponse.data.data.invoiceLogoUrl;
+      return response.data.data;
     } catch (error: unknown) {
       throw new Error(getErrorMessage(error, 'No se pudo subir el logo'));
     }
