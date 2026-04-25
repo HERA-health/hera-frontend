@@ -1,39 +1,42 @@
-import React, { useState } from 'react';
+import React, { ComponentProps, useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { heraLanding, spacing, borderRadius, typography } from '../../constants/colors';
+import { AnimatedPressable } from '../../components/common';
+import { spacing, borderRadius, typography } from '../../constants/colors';
+import type { Theme } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { AdminPanelScreen } from './AdminPanelScreen';
 import { SpecialistManagementScreen } from './SpecialistManagementScreen';
 
-const { width: screenWidth } = Dimensions.get('window');
-const isDesktop = screenWidth > 1024;
-
 type TabKey = 'verifications' | 'management';
+type IconName = ComponentProps<typeof Ionicons>['name'];
 
 interface Tab {
   key: TabKey;
   label: string;
-  icon: string;
-  iconActive: string;
+  compactLabel: string;
+  icon: IconName;
+  iconActive: IconName;
 }
 
 const TABS: Tab[] = [
   {
     key: 'verifications',
-    label: 'Verificaciones Pendientes',
+    label: 'Verificaciones pendientes',
+    compactLabel: 'Verificaciones',
     icon: 'shield-checkmark-outline',
     iconActive: 'shield-checkmark',
   },
   {
     key: 'management',
-    label: 'Gestión de Especialistas',
+    label: 'Gestión de especialistas',
+    compactLabel: 'Especialistas',
     icon: 'people-outline',
     iconActive: 'people',
   },
@@ -41,51 +44,66 @@ const TABS: Tab[] = [
 
 export function AdminPanelTabbedScreen() {
   const { user } = useAuth();
+  const { theme, isDark } = useTheme();
+  const { width } = useWindowDimensions();
   const isAdmin = user?.isAdmin ?? false;
+  const isDesktop = width >= 1024;
+  const styles = useMemo(() => createStyles(theme, isDark, isDesktop), [theme, isDark, isDesktop]);
   const [activeTab, setActiveTab] = useState<TabKey>('verifications');
 
   if (!isAdmin) {
     return (
       <View style={styles.centered}>
-        <Ionicons name="lock-closed-outline" size={48} color={heraLanding.textMuted} />
-        <Text style={styles.noAccessText}>Acceso restringido a administradores</Text>
+        <View style={styles.accessIcon}>
+          <Ionicons name="lock-closed-outline" size={30} color={theme.primary} />
+        </View>
+        <Text style={styles.noAccessTitle}>Acceso restringido</Text>
+        <Text style={styles.noAccessText}>Esta zona está reservada al equipo administrador de HERA.</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Panel de Administración</Text>
+        <View style={styles.headerEyebrow}>
+          <Ionicons name="business-outline" size={14} color={theme.primary} />
+          <Text style={styles.headerEyebrowText}>Panel interno</Text>
+        </View>
+        <Text style={styles.headerTitle}>Administración</Text>
+        <Text style={styles.headerSubtitle}>
+          Revisión operativa de especialistas y solicitudes de verificación.
+        </Text>
       </View>
 
-      {/* Tab Bar */}
-      <View style={styles.tabBar}>
+      <View style={styles.tabBar} accessibilityRole="tablist">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key;
+          const label = isDesktop ? tab.label : tab.compactLabel;
+
           return (
-            <TouchableOpacity
+            <AnimatedPressable
               key={tab.key}
               style={[styles.tab, isActive && styles.tabActive]}
               onPress={() => setActiveTab(tab.key)}
-              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`${tab.label}${isActive ? ', seleccionada' : ''}`}
+              hoverLift={isDesktop}
+              pressScale={0.98}
             >
               <Ionicons
-                name={(isActive ? tab.iconActive : tab.icon) as any}
+                name={isActive ? tab.iconActive : tab.icon}
                 size={18}
-                color={isActive ? heraLanding.primary : heraLanding.textSecondary}
+                color={isActive ? theme.primary : theme.textSecondary}
               />
-              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
-                {tab.label}
+              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]} numberOfLines={1}>
+                {label}
               </Text>
-              {isActive && <View style={styles.tabIndicator} />}
-            </TouchableOpacity>
+            </AnimatedPressable>
           );
         })}
       </View>
 
-      {/* Tab Content */}
       <View style={styles.content}>
         {activeTab === 'verifications' && <AdminPanelScreen />}
         {activeTab === 'management' && <SpecialistManagementScreen />}
@@ -94,73 +112,115 @@ export function AdminPanelTabbedScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: heraLanding.background,
+    backgroundColor: theme.bg,
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: heraLanding.background,
+    backgroundColor: theme.bg,
     padding: spacing.xl,
   },
+  accessIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.primaryAlpha12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    marginBottom: spacing.lg,
+  },
+  noAccessTitle: {
+    fontSize: typography.fontSizes.xl,
+    fontWeight: typography.fontWeights.bold,
+    color: theme.textPrimary,
+    marginBottom: spacing.xs,
+  },
   noAccessText: {
-    marginTop: spacing.md,
-    fontSize: typography.fontSizes.md,
-    color: heraLanding.textSecondary,
+    maxWidth: 360,
+    fontSize: typography.fontSizes.sm,
+    color: theme.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   header: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
-    maxWidth: isDesktop ? 800 : undefined,
-    alignSelf: isDesktop ? 'center' : undefined,
-    width: isDesktop ? '100%' : undefined,
+    paddingTop: isDesktop ? spacing.xl : spacing.lg,
+    paddingBottom: spacing.md,
+    maxWidth: isDesktop ? 1040 : undefined,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  headerEyebrow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.primaryAlpha12,
+    borderWidth: 1,
+    borderColor: theme.primaryAlpha20,
+    marginBottom: spacing.sm,
+  },
+  headerEyebrowText: {
+    color: theme.primary,
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.semibold,
   },
   headerTitle: {
-    fontSize: typography.fontSizes.xxl,
+    fontSize: isDesktop ? typography.fontSizes.xxxl : typography.fontSizes.xxl,
     fontWeight: typography.fontWeights.bold,
-    color: heraLanding.textPrimary,
-    textAlign: 'center',
+    color: theme.textPrimary,
+    letterSpacing: 0,
+  },
+  headerSubtitle: {
+    marginTop: spacing.xs,
+    maxWidth: 620,
+    fontSize: typography.fontSizes.sm,
+    lineHeight: 21,
+    color: theme.textSecondary,
   },
   tabBar: {
     flexDirection: 'row',
+    gap: spacing.xs,
     paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-    maxWidth: isDesktop ? 800 : undefined,
-    alignSelf: isDesktop ? 'center' : undefined,
-    width: isDesktop ? '100%' : undefined,
-    borderBottomWidth: 1,
-    borderBottomColor: heraLanding.borderLight,
+    paddingBottom: spacing.md,
+    maxWidth: isDesktop ? 1040 : undefined,
+    alignSelf: 'center',
+    width: '100%',
   },
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.xs,
+    minHeight: 42,
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    position: 'relative',
+    paddingHorizontal: isDesktop ? spacing.lg : spacing.md,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: isDark ? theme.bgElevated : theme.bgCard,
   },
-  tabActive: {},
+  tabActive: {
+    backgroundColor: theme.primaryAlpha12,
+    borderColor: theme.primaryAlpha20,
+  },
   tabLabel: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.medium,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
   },
   tabLabelActive: {
-    color: heraLanding.primary,
+    color: theme.primary,
     fontWeight: typography.fontWeights.semibold,
-  },
-  tabIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: heraLanding.primary,
-    borderRadius: 1,
   },
   content: {
     flex: 1,

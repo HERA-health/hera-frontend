@@ -95,6 +95,8 @@ export interface Feature {
 /**
  * Navigation types for type-safe navigation
  */
+import type { LegalDocumentKey } from './legal';
+
 export type RootStackParamList = {
   Landing: undefined;
   Welcome: undefined;
@@ -103,6 +105,8 @@ export type RootStackParamList = {
   EmailSentVerification: { email: string; userType: 'CLIENT' | 'PROFESSIONAL' };
   EmailVerification: { token: string };
   ClinicalConsent: { requestId: string; token: string };
+  LegalDocument: { documentKey: LegalDocumentKey };
+  RequiredLegalAcceptance: undefined;
   ForgotPassword: undefined;
   EmailSentPasswordReset: { email: string };
   ResetPassword: { token: string };

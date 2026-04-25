@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import {
   createNativeStackNavigator,
   type NativeStackScreenProps,
@@ -7,6 +8,11 @@ import { RootStackParamList } from '../constants/types';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingScreen from '../screens/LoadingScreen';
 import { LandingPage } from '../screens/landing';
+import { LegalDocumentScreen } from '../screens/legal/LegalDocumentScreen';
+import { RequiredLegalAcceptanceScreen } from '../screens/legal/RequiredLegalAcceptanceScreen';
+import { getLegalStatus, type LegalAcceptanceStatus } from '../services/legalService';
+import { Button } from '../components/common/Button';
+import { useTheme } from '../contexts/ThemeContext';
 import {
   createDeferredComponent,
   type DeferredComponentModule,
@@ -216,8 +222,79 @@ const PublicSpecialistProfileRoute = createDeferredRoute<'PublicSpecialistProfil
   }
 );
 
+interface LegalStatusUnavailableScreenProps {
+  loading: boolean;
+  onRetry: () => void;
+}
+
+function LegalStatusUnavailableScreen({
+  loading,
+  onRetry,
+}: LegalStatusUnavailableScreenProps) {
+  const { theme } = useTheme();
+
+  return (
+    <View style={[styles.legalErrorScreen, { backgroundColor: theme.bg }]}>
+      <View
+        style={[
+          styles.legalErrorCard,
+          {
+            backgroundColor: theme.bgCard,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <Text style={[styles.legalErrorTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>
+          No hemos podido verificar tus condiciones
+        </Text>
+        <Text style={[styles.legalErrorText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+          Por seguridad, necesitamos comprobar que has aceptado las versiones legales vigentes antes de abrir tu área privada.
+        </Text>
+        <Button
+          variant="primary"
+          size="medium"
+          onPress={onRetry}
+          loading={loading}
+        >
+          Reintentar
+        </Button>
+      </View>
+    </View>
+  );
+}
+
 export function RootNavigator() {
   const { isAuthenticated, isInitialized, user, verificationSubmitted } = useAuth();
+  const [legalStatus, setLegalStatus] = useState<LegalAcceptanceStatus | null>(null);
+  const [legalLoading, setLegalLoading] = useState(false);
+  const [legalStatusError, setLegalStatusError] = useState(false);
+
+  const refreshLegalStatus = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLegalStatus(null);
+      return;
+    }
+
+    setLegalLoading(true);
+    try {
+      const nextStatus = await getLegalStatus();
+      setLegalStatus(nextStatus);
+      setLegalStatusError(false);
+    } catch {
+      setLegalStatus(null);
+      setLegalStatusError(true);
+    } finally {
+      setLegalLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isInitialized) {
+      return;
+    }
+
+    void refreshLegalStatus();
+  }, [isInitialized, refreshLegalStatus, user?.id]);
 
   if (!isInitialized) {
     return <LoadingScreen />;
@@ -258,6 +335,47 @@ export function RootNavigator() {
           component={ClinicalConsentRoute}
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="LegalDocument"
+          component={LegalDocumentScreen}
+          options={{ headerShown: false }}
+        />
+      </Stack.Navigator>
+    );
+  }
+
+  if (legalLoading && !legalStatus) {
+    return <LoadingScreen />;
+  }
+
+  if (legalStatusError) {
+    return (
+      <LegalStatusUnavailableScreen
+        loading={legalLoading}
+        onRetry={() => void refreshLegalStatus()}
+      />
+    );
+  }
+
+  if (legalStatus?.requiresAcceptance) {
+    const RequiredLegalAcceptanceRoute = () => (
+      <RequiredLegalAcceptanceScreen
+        requiredDocumentKeys={legalStatus.missingDocumentKeys}
+        onAccepted={() => void refreshLegalStatus()}
+      />
+    );
+
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen
+          name="RequiredLegalAcceptance"
+          component={RequiredLegalAcceptanceRoute}
+        />
+        <Stack.Screen
+          name="LegalDocument"
+          component={LegalDocumentScreen}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     );
   }
@@ -284,6 +402,11 @@ export function RootNavigator() {
         <Stack.Screen
           name="ClinicalConsent"
           component={ClinicalConsentRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="LegalDocument"
+          component={LegalDocumentScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
@@ -398,6 +521,11 @@ export function RootNavigator() {
           component={ClinicalConsentRoute}
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="LegalDocument"
+          component={LegalDocumentScreen}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     );
   }
@@ -509,6 +637,36 @@ export function RootNavigator() {
         component={ClinicalConsentRoute}
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="LegalDocument"
+        component={LegalDocumentScreen}
+        options={{ headerShown: false }}
+      />
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  legalErrorScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  legalErrorCard: {
+    width: '100%',
+    maxWidth: 520,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 24,
+    gap: 16,
+  },
+  legalErrorTitle: {
+    fontSize: 28,
+    lineHeight: 34,
+  },
+  legalErrorText: {
+    fontSize: 15,
+    lineHeight: 23,
+  },
+});

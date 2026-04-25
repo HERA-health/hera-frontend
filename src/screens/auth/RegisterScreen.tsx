@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as authService from '../../services/authService';
@@ -12,6 +12,7 @@ import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing } from '../../constants/colors';
+import { getRequiredRegistrationDocumentKeys } from '../../constants/legal';
 import { AuthSplitLayout } from '../../components/auth';
 
 type RegisterRouteParams = AppRouteProp<'Register'>;
@@ -107,17 +108,15 @@ export function RegisterScreen() {
   };
 
   const openTerms = () => {
-    const placeholderUrl = 'https://hera-app.com/terms';
-    Linking.openURL(placeholderUrl).catch(() => {
-      setLocalError('No se pudo abrir los términos.');
-    });
+    navigation.navigate('LegalDocument', { documentKey: 'TERMS_OF_SERVICE' });
   };
 
   const openPrivacy = () => {
-    const placeholderUrl = 'https://hera-app.com/privacy';
-    Linking.openURL(placeholderUrl).catch(() => {
-      setLocalError('No se pudo abrir la política de privacidad.');
-    });
+    navigation.navigate('LegalDocument', { documentKey: 'PRIVACY_POLICY' });
+  };
+
+  const openProfessionalTerms = () => {
+    navigation.navigate('LegalDocument', { documentKey: 'PROFESSIONAL_DATA_PROCESSING_TERMS' });
   };
 
   const handleRegister = async () => {
@@ -150,7 +149,7 @@ export function RegisterScreen() {
     }
 
     if (!termsAccepted) {
-      setLocalError('Debes aceptar los términos y la política de privacidad.');
+      setLocalError('Debes aceptar la documentación legal aplicable.');
       return;
     }
 
@@ -159,7 +158,10 @@ export function RegisterScreen() {
         userType: userType === 'client' ? 'CLIENT' : 'PROFESSIONAL',
       });
 
-      await register(email, password, name, userType);
+      const backendUserType = userType === 'client' ? 'CLIENT' : 'PROFESSIONAL';
+      const acceptedLegalDocumentKeys = getRequiredRegistrationDocumentKeys(backendUserType);
+
+      await register(email, password, name, userType, acceptedLegalDocumentKeys);
 
       if (userType === 'professional') {
         navigation.navigate('ProfessionalVerification');
@@ -424,14 +426,22 @@ export function RegisterScreen() {
               {termsAccepted && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
             </View>
             <Text style={[styles.termsText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-              Acepto los{' '}
-              <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openTerms}>
-                términos
-              </Text>
-              {' '}y la{' '}
+              Acepto la{' '}
               <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openPrivacy}>
                 política de privacidad
               </Text>
+              {userType === 'professional' ? ', los ' : ' y los '}
+              <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openTerms}>
+                términos
+              </Text>
+              {userType === 'professional' ? (
+                <>
+                  {' '}y las{' '}
+                  <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openProfessionalTerms}>
+                    condiciones profesionales
+                  </Text>
+                </>
+              ) : null}
               .
             </Text>
           </AnimatedPressable>

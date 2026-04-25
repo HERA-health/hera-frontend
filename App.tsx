@@ -27,6 +27,11 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 import { ErrorBoundary } from './src/components/common/ErrorBoundary';
 import { AlertProvider } from './src/components/common/alert';
 import type { RootStackParamList } from './src/constants/types';
+import {
+  getLegalDocumentKeyFromSlug,
+  LEGAL_DOCUMENT_SLUGS,
+  type LegalDocumentKey,
+} from './src/constants/legal';
 
 // Deep linking configuration
 const prefix = Linking.createURL('/');
@@ -46,6 +51,15 @@ const linking: LinkingOptions<RootStackParamList> = {
         parse: {
           requestId: (requestId: string) => requestId,
           token: (token: string) => token,
+        },
+      },
+      LegalDocument: {
+        path: 'legal/:documentKey',
+        parse: {
+          documentKey: (slug: string) => getLegalDocumentKeyFromSlug(slug),
+        },
+        stringify: {
+          documentKey: (documentKey) => LEGAL_DOCUMENT_SLUGS[documentKey as LegalDocumentKey],
         },
       },
       ResetPassword: {

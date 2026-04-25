@@ -1,30 +1,62 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { ComponentProps, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   RefreshControl,
-  TouchableOpacity,
   ActivityIndicator,
   Image,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { heraLanding, spacing, borderRadius, typography, shadows } from '../../constants/colors';
+import { AnimatedPressable, Button } from '../../components/common';
+import { spacing, borderRadius, typography, shadows } from '../../constants/colors';
+import type { Theme } from '../../constants/theme';
 import { AppNavigationProp } from '../../constants/types';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import * as adminService from '../../services/adminService';
 import type { PendingSpecialist } from '../../services/adminService';
 
-const { width: screenWidth } = Dimensions.get('window');
-const isDesktop = screenWidth > 1024;
+type AdminPanelStyles = ReturnType<typeof createStyles>;
+type IconName = ComponentProps<typeof Ionicons>['name'];
+
+const getInitials = (name: string) => {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('');
+
+  return initials || '?';
+};
+
+const formatDate = (dateStr: string | null) => {
+  if (!dateStr) return 'Sin fecha';
+
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return 'Fecha no válida';
+
+  return new Intl.DateTimeFormat('es-ES', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+};
 
 export function AdminPanelScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const { user } = useAuth();
+  const { theme, isDark } = useTheme();
+  const { width } = useWindowDimensions();
   const isAdmin = user?.isAdmin ?? false;
+  const isDesktop = width >= 1024;
+  const styles = useMemo(() => createStyles(theme, isDark, isDesktop), [theme, isDark, isDesktop]);
 
   const [specialists, setSpecialists] = useState<PendingSpecialist[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +64,13 @@ export function AdminPanelScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const loadSpecialists = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      setSpecialists([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     try {
       setError(null);
       const data = await adminService.getPendingSpecialists();
@@ -60,22 +98,10 @@ export function AdminPanelScreen() {
     });
   }, [navigation]);
 
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return 'Sin fecha';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('es-ES', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={heraLanding.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
         <Text style={styles.loadingText}>Cargando verificaciones...</Text>
       </View>
     );
@@ -84,11 +110,11 @@ export function AdminPanelScreen() {
   if (error) {
     return (
       <View style={styles.centered}>
-        <Ionicons name="alert-circle-outline" size={48} color={heraLanding.warning} />
+        <StateIcon name="alert-circle-outline" styles={styles} color={theme.warning} />
         <Text style={styles.emptyTitle}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadSpecialists}>
-          <Text style={styles.retryButtonText}>Reintentar</Text>
-        </TouchableOpacity>
+        <Button variant="primary" size="medium" onPress={loadSpecialists} style={styles.retryButton}>
+          Reintentar
+        </Button>
       </View>
     );
   }
@@ -101,40 +127,52 @@ export function AdminPanelScreen() {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          tintColor={heraLanding.primary}
-          colors={[heraLanding.primary]}
+          tintColor={theme.primary}
+          colors={[theme.primary]}
         />
       }
     >
-      {/* Summary */}
-      <Text style={styles.summaryText}>
-        {specialists.length === 0
-          ? 'No hay verificaciones pendientes'
-          : `${specialists.length} verificación${specialists.length !== 1 ? 'es' : ''} pendiente${specialists.length !== 1 ? 's' : ''}`}
-      </Text>
+      <View style={styles.summaryCard}>
+        <View>
+          <Text style={styles.summaryLabel}>Verificación profesional</Text>
+          <Text style={styles.summaryText}>
+            {specialists.length === 0
+              ? 'No hay solicitudes pendientes'
+              : `${specialists.length} solicitud${specialists.length !== 1 ? 'es' : ''} pendiente${specialists.length !== 1 ? 's' : ''}`}
+          </Text>
+        </View>
+        <View style={styles.summaryBadge}>
+          <Ionicons name="shield-checkmark-outline" size={16} color={theme.primary} />
+          <Text style={styles.summaryBadgeText}>Control manual</Text>
+        </View>
+      </View>
 
-      {/* Empty State */}
       {specialists.length === 0 && (
         <View style={styles.emptyContainer}>
-          <View style={styles.emptyIconContainer}>
-            <Ionicons name="shield-checkmark-outline" size={64} color={heraLanding.primaryMuted} />
-          </View>
+          <StateIcon name="shield-checkmark-outline" styles={styles} color={theme.success} />
           <Text style={styles.emptyTitle}>Todo al día</Text>
-          <Text style={styles.emptySubtitle}>No hay verificaciones pendientes de revisión</Text>
+          <Text style={styles.emptySubtitle}>No hay verificaciones pendientes de revisión.</Text>
         </View>
       )}
 
-      {/* Specialist Cards */}
       <View style={styles.cardsContainer}>
         {specialists.map((specialist) => (
-          <TouchableOpacity
+          <AnimatedPressable
             key={specialist.id}
             style={styles.card}
             onPress={() => handleSpecialistPress(specialist)}
-            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`Revisar solicitud de ${specialist.user.name}`}
+            hoverLift={isDesktop}
+            pressScale={0.98}
           >
             <View style={styles.cardHeader}>
-              <SpecialistAvatar name={specialist.user.name} avatarUrl={specialist.user.avatar} size={44} />
+              <SpecialistAvatar
+                name={specialist.user.name}
+                avatarUrl={specialist.user.avatar}
+                size={46}
+                styles={styles}
+              />
               <View style={styles.cardInfo}>
                 <Text style={styles.cardName} numberOfLines={1}>
                   {specialist.user.name}
@@ -149,36 +187,72 @@ export function AdminPanelScreen() {
             </View>
 
             <View style={styles.cardDetails}>
-              <View style={styles.cardDetailRow}>
-                <Ionicons name="briefcase-outline" size={14} color={heraLanding.textSecondary} />
-                <Text style={styles.cardDetailText}>{specialist.specialization}</Text>
-              </View>
+              <DetailRow icon="briefcase-outline" text={specialist.specialization} styles={styles} theme={theme} />
               {specialist.colegiadoNumber && (
-                <View style={styles.cardDetailRow}>
-                  <Ionicons name="document-text-outline" size={14} color={heraLanding.textSecondary} />
-                  <Text style={styles.cardDetailText}>N° {specialist.colegiadoNumber}</Text>
-                </View>
+                <DetailRow
+                  icon="document-text-outline"
+                  text={`N.º ${specialist.colegiadoNumber}`}
+                  styles={styles}
+                  theme={theme}
+                />
               )}
-              <View style={styles.cardDetailRow}>
-                <Ionicons name="time-outline" size={14} color={heraLanding.textSecondary} />
-                <Text style={styles.cardDetailText}>
-                  {formatDate(specialist.verificationSubmittedAt)}
-                </Text>
-              </View>
+              <DetailRow
+                icon="time-outline"
+                text={formatDate(specialist.verificationSubmittedAt)}
+                styles={styles}
+                theme={theme}
+              />
             </View>
 
             <View style={styles.cardFooter}>
-              <Text style={styles.cardFooterText}>Ver detalles</Text>
-              <Ionicons name="chevron-forward" size={16} color={heraLanding.primary} />
+              <Text style={styles.cardFooterText}>Revisar solicitud</Text>
+              <Ionicons name="chevron-forward" size={16} color={theme.primary} />
             </View>
-          </TouchableOpacity>
+          </AnimatedPressable>
         ))}
       </View>
     </ScrollView>
   );
 }
 
-function SpecialistAvatar({ name, avatarUrl, size }: { name: string; avatarUrl: string | null; size: number }) {
+function DetailRow({
+  icon,
+  text,
+  styles,
+  theme,
+}: {
+  icon: IconName;
+  text: string;
+  styles: AdminPanelStyles;
+  theme: Theme;
+}) {
+  return (
+    <View style={styles.cardDetailRow}>
+      <Ionicons name={icon} size={14} color={theme.textSecondary} />
+      <Text style={styles.cardDetailText} numberOfLines={1}>{text}</Text>
+    </View>
+  );
+}
+
+function StateIcon({ name, styles, color }: { name: IconName; styles: AdminPanelStyles; color: string }) {
+  return (
+    <View style={styles.stateIconContainer}>
+      <Ionicons name={name} size={42} color={color} />
+    </View>
+  );
+}
+
+function SpecialistAvatar({
+  name,
+  avatarUrl,
+  size,
+  styles,
+}: {
+  name: string;
+  avatarUrl: string | null;
+  size: number;
+  styles: AdminPanelStyles;
+}) {
   const [imageError, setImageError] = useState(false);
 
   if (avatarUrl && !imageError) {
@@ -193,95 +267,120 @@ function SpecialistAvatar({ name, avatarUrl, size }: { name: string; avatarUrl: 
 
   return (
     <View style={[styles.cardAvatar, { width: size, height: size, borderRadius: size / 2 }]}>
-      <Text style={styles.cardAvatarText}>
-        {name.charAt(0).toUpperCase()}
-      </Text>
+      <Text style={styles.cardAvatarText}>{getInitials(name)}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: heraLanding.background,
+    backgroundColor: theme.bg,
   },
   contentContainer: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxxl,
-    maxWidth: isDesktop ? 800 : undefined,
-    alignSelf: isDesktop ? 'center' : undefined,
-    width: isDesktop ? '100%' : undefined,
+    gap: spacing.md,
+    maxWidth: isDesktop ? 1040 : undefined,
+    alignSelf: 'center',
+    width: '100%',
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: heraLanding.background,
+    backgroundColor: theme.bg,
     padding: spacing.xl,
   },
   loadingText: {
     marginTop: spacing.md,
     fontSize: typography.fontSizes.md,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
   },
-
-  // Summary
+  summaryCard: {
+    flexDirection: isDesktop ? 'row' : 'column',
+    justifyContent: 'space-between',
+    alignItems: isDesktop ? 'center' : 'flex-start',
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    backgroundColor: theme.bgCard,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...(isDark ? {} : shadows.sm),
+  },
+  summaryLabel: {
+    fontSize: typography.fontSizes.xs,
+    color: theme.textMuted,
+    fontWeight: typography.fontWeights.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+    marginBottom: 4,
+  },
   summaryText: {
-    fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
-    marginBottom: spacing.lg,
+    fontSize: typography.fontSizes.xl,
+    lineHeight: 28,
+    color: theme.textPrimary,
+    fontWeight: typography.fontWeights.bold,
   },
-
-  // Empty State
+  summaryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 7,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.primaryAlpha12,
+    borderWidth: 1,
+    borderColor: theme.primaryAlpha20,
+  },
+  summaryBadgeText: {
+    fontSize: typography.fontSizes.xs,
+    color: theme.primary,
+    fontWeight: typography.fontWeights.semibold,
+  },
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: spacing.xxxl,
+    paddingHorizontal: spacing.lg,
   },
-  emptyIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: heraLanding.successLight,
+  stateIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: theme.primaryAlpha12,
+    borderWidth: 1,
+    borderColor: theme.border,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   emptyTitle: {
     fontSize: typography.fontSizes.lg,
     fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
-    marginTop: spacing.md,
+    color: theme.textPrimary,
+    textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     marginTop: spacing.xs,
     textAlign: 'center',
+    lineHeight: 20,
   },
-
-  // Retry
   retryButton: {
     marginTop: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm,
-    backgroundColor: heraLanding.primary,
-    borderRadius: borderRadius.lg,
   },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
-  },
-
-  // Cards
   cardsContainer: {
     gap: spacing.md,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
-    ...shadows.md,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...(isDark ? {} : shadows.sm),
   },
   cardHeader: {
     flexDirection: 'row',
@@ -289,43 +388,44 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   cardAvatar: {
-    backgroundColor: heraLanding.primaryMuted,
+    backgroundColor: theme.primaryAlpha12,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.primaryAlpha20,
   },
   cardAvatarText: {
-    fontSize: typography.fontSizes.lg,
+    fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.bold,
-    color: heraLanding.primaryDark,
+    color: theme.primary,
   },
   cardInfo: {
     flex: 1,
+    minWidth: 0,
   },
   cardName: {
     fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
   },
   cardEmail: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textSecondary,
-    marginTop: 1,
+    color: theme.textSecondary,
+    marginTop: 2,
   },
   pendingBadge: {
-    backgroundColor: heraLanding.status.pending.bg,
+    backgroundColor: theme.status.pending.bg,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.md,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: heraLanding.status.pending.border,
+    borderColor: theme.status.pending.border,
   },
   pendingBadgeText: {
     fontSize: typography.fontSizes.xs,
     fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.status.pending.text,
+    color: theme.status.pending.text,
   },
-
-  // Card Details
   cardDetails: {
     marginTop: spacing.md,
     gap: spacing.xs,
@@ -336,11 +436,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   cardDetailText: {
+    flex: 1,
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
   },
-
-  // Card Footer
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -348,13 +447,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: heraLanding.borderLight,
+    borderTopColor: theme.borderLight,
     gap: spacing.xs,
   },
   cardFooterText: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.medium,
-    color: heraLanding.primary,
+    color: theme.primary,
   },
 });
 

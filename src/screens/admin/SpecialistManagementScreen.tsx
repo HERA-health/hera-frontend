@@ -1,21 +1,23 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   RefreshControl,
-  TouchableOpacity,
   ActivityIndicator,
   TextInput,
   Image,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { heraLanding, spacing, borderRadius, typography, shadows } from '../../constants/colors';
+import { AnimatedPressable, Button } from '../../components/common';
+import { spacing, borderRadius, typography, shadows } from '../../constants/colors';
+import type { Theme } from '../../constants/theme';
 import { AppNavigationProp } from '../../constants/types';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import * as adminService from '../../services/adminService';
 import type {
   SpecialistListItem,
@@ -24,13 +26,22 @@ import type {
   AccountStatusType,
 } from '../../services/adminService';
 
-const { width: screenWidth } = Dimensions.get('window');
-const isDesktop = screenWidth > 1024;
-
 type SortOption = {
   label: string;
   sortBy: 'createdAt' | 'name';
   sortOrder: 'asc' | 'desc';
+};
+
+type VerificationFilter = VerificationStatusType | 'ALL';
+type AccountFilter = AccountStatusType | 'ALL';
+type IconName = ComponentProps<typeof Ionicons>['name'];
+type SpecialistManagementStyles = ReturnType<typeof createStyles>;
+
+type BadgeTone = {
+  label: string;
+  backgroundColor: string;
+  borderColor: string;
+  textColor: string;
 };
 
 const SORT_OPTIONS: SortOption[] = [
@@ -40,9 +51,6 @@ const SORT_OPTIONS: SortOption[] = [
   { label: 'Nombre Z-A', sortBy: 'name', sortOrder: 'desc' },
 ];
 
-type VerificationFilter = VerificationStatusType | 'ALL';
-type AccountFilter = AccountStatusType | 'ALL';
-
 const VERIFICATION_FILTERS: { label: string; value: VerificationFilter }[] = [
   { label: 'Todos', value: 'ALL' },
   { label: 'Verificados', value: 'VERIFIED' },
@@ -51,14 +59,83 @@ const VERIFICATION_FILTERS: { label: string; value: VerificationFilter }[] = [
 ];
 
 const ACCOUNT_FILTERS: { label: string; value: AccountFilter }[] = [
+  { label: 'Todos', value: 'ALL' },
   { label: 'Activos', value: 'ACTIVE' },
   { label: 'Suspendidos', value: 'SUSPENDED' },
 ];
 
+const getInitials = (name: string) => {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('');
+
+  return initials || '?';
+};
+
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return 'Fecha no válida';
+  return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
+};
+
+const getVerificationBadge = (status: VerificationStatusType, theme: Theme): BadgeTone => {
+  switch (status) {
+    case 'VERIFIED':
+      return {
+        label: 'Verificado',
+        backgroundColor: theme.status.confirmed.bg,
+        borderColor: theme.status.confirmed.border,
+        textColor: theme.status.confirmed.text,
+      };
+    case 'PENDING':
+      return {
+        label: 'Pendiente',
+        backgroundColor: theme.status.pending.bg,
+        borderColor: theme.status.pending.border,
+        textColor: theme.status.pending.text,
+      };
+    case 'REJECTED':
+      return {
+        label: 'Rechazado',
+        backgroundColor: theme.status.cancelled.bg,
+        borderColor: theme.status.cancelled.border,
+        textColor: theme.status.cancelled.text,
+      };
+  }
+};
+
+const getAccountBadge = (status: AccountStatusType, theme: Theme): BadgeTone | null => {
+  switch (status) {
+    case 'ACTIVE':
+      return null;
+    case 'SUSPENDED':
+      return {
+        label: 'Suspendido',
+        backgroundColor: theme.warningBg,
+        borderColor: theme.warning,
+        textColor: theme.warning,
+      };
+    case 'DELETED':
+      return {
+        label: 'Eliminado',
+        backgroundColor: theme.status.cancelled.bg,
+        borderColor: theme.status.cancelled.border,
+        textColor: theme.status.cancelled.text,
+      };
+  }
+};
+
 export function SpecialistManagementScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const { user } = useAuth();
+  const { theme, isDark } = useTheme();
+  const { width } = useWindowDimensions();
   const isAdmin = user?.isAdmin ?? false;
+  const isDesktop = width >= 1024;
+  const styles = useMemo(() => createStyles(theme, isDark, isDesktop), [theme, isDark, isDesktop]);
 
   const [specialists, setSpecialists] = useState<SpecialistListItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -68,15 +145,12 @@ export function SpecialistManagementScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters
   const [search, setSearch] = useState('');
   const [verificationFilter, setVerificationFilter] = useState<VerificationFilter>('ALL');
   const [accountFilter, setAccountFilter] = useState<AccountFilter>('ALL');
   const [sortIndex, setSortIndex] = useState(0);
-
-  // Debounce search
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -84,21 +158,32 @@ export function SpecialistManagementScreen() {
       setDebouncedSearch(search);
       setPage(1);
     }, 300);
+
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [search]);
 
   const loadSpecialists = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      setSpecialists([]);
+      setTotal(0);
+      setTotalPages(0);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     try {
       setError(null);
+      const sortOption = SORT_OPTIONS[sortIndex];
       const params: SpecialistListParams = {
         page,
         limit: 10,
-        sortBy: SORT_OPTIONS[sortIndex].sortBy,
-        sortOrder: SORT_OPTIONS[sortIndex].sortOrder,
+        sortBy: sortOption.sortBy,
+        sortOrder: sortOption.sortOrder,
       };
+
       if (verificationFilter !== 'ALL') params.verificationStatus = verificationFilter;
       if (accountFilter !== 'ALL') params.accountStatus = accountFilter;
       if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
@@ -129,52 +214,15 @@ export function SpecialistManagementScreen() {
     navigation.navigate('SpecialistDetailAdmin', { specialistId: specialist.id });
   }, [navigation]);
 
-  const handleVerificationFilter = useCallback((value: VerificationFilter) => {
-    setVerificationFilter(value);
-    setPage(1);
-  }, []);
-
-  const handleAccountFilter = useCallback((value: AccountFilter) => {
-    setAccountFilter(value);
-    setPage(1);
-  }, []);
-
   const cycleSortOption = useCallback(() => {
     setSortIndex((prev) => (prev + 1) % SORT_OPTIONS.length);
     setPage(1);
   }, []);
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
-  };
-
-  const getVerificationBadge = (status: VerificationStatusType) => {
-    switch (status) {
-      case 'VERIFIED':
-        return { label: 'Verificado', style: styles.badgeVerified };
-      case 'PENDING':
-        return { label: 'Pendiente', style: styles.badgePending };
-      case 'REJECTED':
-        return { label: 'Rechazado', style: styles.badgeRejected };
-    }
-  };
-
-  const getAccountBadge = (status: AccountStatusType) => {
-    switch (status) {
-      case 'ACTIVE':
-        return null;
-      case 'SUSPENDED':
-        return { label: 'Suspendido', style: styles.badgeSuspended };
-      case 'DELETED':
-        return { label: 'Eliminado', style: styles.badgeDeleted };
-    }
-  };
-
   if (loading && specialists.length === 0) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={heraLanding.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
         <Text style={styles.loadingText}>Cargando especialistas...</Text>
       </View>
     );
@@ -183,11 +231,11 @@ export function SpecialistManagementScreen() {
   if (error) {
     return (
       <View style={styles.centered}>
-        <Ionicons name="alert-circle-outline" size={48} color={heraLanding.warning} />
+        <StateIcon name="alert-circle-outline" styles={styles} color={theme.warning} />
         <Text style={styles.emptyTitle}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadSpecialists}>
-          <Text style={styles.retryButtonText}>Reintentar</Text>
-        </TouchableOpacity>
+        <Button variant="primary" size="medium" onPress={loadSpecialists} style={styles.retryButton}>
+          Reintentar
+        </Button>
       </View>
     );
   }
@@ -200,124 +248,128 @@ export function SpecialistManagementScreen() {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          tintColor={heraLanding.primary}
-          colors={[heraLanding.primary]}
+          tintColor={theme.primary}
+          colors={[theme.primary]}
         />
       }
     >
-      {/* Summary */}
-      <Text style={styles.summaryText}>
-        {total} especialista{total !== 1 ? 's' : ''} registrado{total !== 1 ? 's' : ''}
-      </Text>
+      <View style={styles.summaryCard}>
+        <View>
+          <Text style={styles.summaryLabel}>Directorio profesional</Text>
+          <Text style={styles.summaryText}>
+            {total} especialista{total !== 1 ? 's' : ''} registrado{total !== 1 ? 's' : ''}
+          </Text>
+        </View>
+        <AnimatedPressable
+          style={styles.sortButton}
+          onPress={cycleSortOption}
+          accessibilityRole="button"
+          accessibilityLabel={`Ordenar por ${SORT_OPTIONS[sortIndex].label}`}
+          hoverLift={isDesktop}
+          pressScale={0.98}
+        >
+          <Ionicons name="swap-vertical-outline" size={16} color={theme.primary} />
+          <Text style={styles.sortButtonText}>{SORT_OPTIONS[sortIndex].label}</Text>
+        </AnimatedPressable>
+      </View>
 
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <Ionicons name="search-outline" size={18} color={heraLanding.textMuted} />
+        <Ionicons name="search-outline" size={18} color={theme.textMuted} />
         <TextInput
           style={styles.searchInput}
           placeholder="Buscar por nombre o email..."
-          placeholderTextColor={heraLanding.textMuted}
+          placeholderTextColor={theme.textMuted}
           value={search}
           onChangeText={setSearch}
           autoCapitalize="none"
           autoCorrect={false}
         />
         {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Ionicons name="close-circle" size={18} color={heraLanding.textMuted} />
-          </TouchableOpacity>
+          <AnimatedPressable
+            onPress={() => setSearch('')}
+            accessibilityRole="button"
+            accessibilityLabel="Limpiar búsqueda"
+            style={styles.clearButton}
+            pressScale={0.95}
+          >
+            <Ionicons name="close-circle" size={18} color={theme.textMuted} />
+          </AnimatedPressable>
         )}
       </View>
 
-      {/* Filter Chips */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.filtersRow}
         contentContainerStyle={styles.filtersContent}
       >
-        {VERIFICATION_FILTERS.map((f) => (
-          <TouchableOpacity
-            key={f.value}
-            style={[
-              styles.filterChip,
-              verificationFilter === f.value && styles.filterChipActive,
-            ]}
-            onPress={() => handleVerificationFilter(f.value)}
-          >
-            <Text
-              style={[
-                styles.filterChipText,
-                verificationFilter === f.value && styles.filterChipTextActive,
-              ]}
-            >
-              {f.label}
-            </Text>
-          </TouchableOpacity>
+        {VERIFICATION_FILTERS.map((filter) => (
+          <FilterChip
+            key={filter.value}
+            label={filter.label}
+            active={verificationFilter === filter.value}
+            onPress={() => {
+              setVerificationFilter(filter.value);
+              setPage(1);
+            }}
+            styles={styles}
+          />
         ))}
         <View style={styles.filterDivider} />
-        {ACCOUNT_FILTERS.map((f) => (
-          <TouchableOpacity
-            key={f.value}
-            style={[
-              styles.filterChip,
-              accountFilter === f.value && styles.filterChipActive,
-            ]}
-            onPress={() => handleAccountFilter(f.value)}
-          >
-            <Text
-              style={[
-                styles.filterChipText,
-                accountFilter === f.value && styles.filterChipTextActive,
-              ]}
-            >
-              {f.label}
-            </Text>
-          </TouchableOpacity>
+        {ACCOUNT_FILTERS.map((filter) => (
+          <FilterChip
+            key={filter.value}
+            label={filter.label}
+            active={accountFilter === filter.value}
+            onPress={() => {
+              setAccountFilter(filter.value);
+              setPage(1);
+            }}
+            styles={styles}
+          />
         ))}
       </ScrollView>
 
-      {/* Sort Toggle */}
-      <TouchableOpacity style={styles.sortButton} onPress={cycleSortOption}>
-        <Ionicons name="swap-vertical-outline" size={16} color={heraLanding.primary} />
-        <Text style={styles.sortButtonText}>{SORT_OPTIONS[sortIndex].label}</Text>
-      </TouchableOpacity>
-
-      {/* Loading overlay for filter changes */}
       {loading && specialists.length > 0 && (
         <ActivityIndicator
           size="small"
-          color={heraLanding.primary}
-          style={{ marginVertical: spacing.sm }}
+          color={theme.primary}
+          style={styles.inlineLoader}
         />
       )}
 
-      {/* Empty State */}
       {specialists.length === 0 && !loading && (
         <View style={styles.emptyContainer}>
-          <Ionicons name="search-outline" size={64} color={heraLanding.primaryMuted} />
+          <StateIcon name="search-outline" styles={styles} color={theme.primary} />
           <Text style={styles.emptyTitle}>Sin resultados</Text>
           <Text style={styles.emptySubtitle}>
-            No se encontraron especialistas con esos criterios
+            No se encontraron especialistas con esos criterios.
           </Text>
         </View>
       )}
 
-      {/* Specialist Cards */}
       <View style={styles.cardsContainer}>
         {specialists.map((specialist) => {
-          const vBadge = getVerificationBadge(specialist.verificationStatus);
-          const aBadge = getAccountBadge(specialist.user.accountStatus);
+          const verificationBadge = getVerificationBadge(specialist.verificationStatus, theme);
+          const accountBadge = getAccountBadge(specialist.user.accountStatus, theme);
 
           return (
-            <TouchableOpacity
+            <AnimatedPressable
               key={specialist.id}
               style={styles.card}
               onPress={() => handleSpecialistPress(specialist)}
-              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Abrir ficha de ${specialist.user.name}`}
+              hoverLift={isDesktop}
+              pressScale={0.98}
             >
               <View style={styles.cardHeader}>
-                <SpecialistAvatar name={specialist.user.name} avatarUrl={specialist.user.avatar} size={44} />
+                <SpecialistAvatar
+                  name={specialist.user.name}
+                  avatarUrl={specialist.user.avatar}
+                  size={46}
+                  styles={styles}
+                />
                 <View style={styles.cardInfo}>
                   <Text style={styles.cardName} numberOfLines={1}>
                     {specialist.user.name}
@@ -327,80 +379,145 @@ export function SpecialistManagementScreen() {
                   </Text>
                 </View>
                 <View style={styles.badgesColumn}>
-                  <View style={[styles.badge, vBadge.style]}>
-                    <Text style={styles.badgeText}>{vBadge.label}</Text>
-                  </View>
-                  {aBadge && (
-                    <View style={[styles.badge, aBadge.style]}>
-                      <Text style={styles.badgeText}>{aBadge.label}</Text>
-                    </View>
-                  )}
+                  <Badge tone={verificationBadge} styles={styles} />
+                  {accountBadge && <Badge tone={accountBadge} styles={styles} />}
                 </View>
               </View>
 
               <View style={styles.cardDetails}>
-                <View style={styles.cardDetailRow}>
-                  <Ionicons name="briefcase-outline" size={14} color={heraLanding.textSecondary} />
-                  <Text style={styles.cardDetailText}>{specialist.specialization}</Text>
-                </View>
-                <View style={styles.cardDetailRow}>
-                  <Ionicons name="calendar-outline" size={14} color={heraLanding.textSecondary} />
-                  <Text style={styles.cardDetailText}>
-                    Registro: {formatDate(specialist.createdAt)}
-                  </Text>
-                </View>
-                <View style={styles.cardDetailRow}>
-                  <Ionicons name="videocam-outline" size={14} color={heraLanding.textSecondary} />
-                  <Text style={styles.cardDetailText}>
-                    {specialist.sessionCount} sesion{specialist.sessionCount !== 1 ? 'es' : ''}
-                  </Text>
-                </View>
+                <DetailRow icon="briefcase-outline" text={specialist.specialization} styles={styles} theme={theme} />
+                <DetailRow
+                  icon="calendar-outline"
+                  text={`Registro: ${formatDate(specialist.createdAt)}`}
+                  styles={styles}
+                  theme={theme}
+                />
+                <DetailRow
+                  icon="videocam-outline"
+                  text={`${specialist.sessionCount} sesión${specialist.sessionCount !== 1 ? 'es' : ''}`}
+                  styles={styles}
+                  theme={theme}
+                />
               </View>
 
               <View style={styles.cardFooter}>
                 <Text style={styles.cardFooterText}>Ver detalles</Text>
-                <Ionicons name="chevron-forward" size={16} color={heraLanding.primary} />
+                <Ionicons name="chevron-forward" size={16} color={theme.primary} />
               </View>
-            </TouchableOpacity>
+            </AnimatedPressable>
           );
         })}
       </View>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <View style={styles.pagination}>
-          <TouchableOpacity
+          <AnimatedPressable
             style={[styles.pageButton, page <= 1 && styles.pageButtonDisabled]}
-            onPress={() => setPage((p) => Math.max(1, p - 1))}
+            onPress={() => setPage((current) => Math.max(1, current - 1))}
             disabled={page <= 1}
+            accessibilityRole="button"
+            accessibilityLabel="Página anterior"
+            pressScale={0.95}
           >
             <Ionicons
               name="chevron-back"
               size={18}
-              color={page <= 1 ? heraLanding.textMuted : heraLanding.primary}
+              color={page <= 1 ? theme.textMuted : theme.primary}
             />
-          </TouchableOpacity>
+          </AnimatedPressable>
           <Text style={styles.pageText}>
             Página {page} de {totalPages}
           </Text>
-          <TouchableOpacity
+          <AnimatedPressable
             style={[styles.pageButton, page >= totalPages && styles.pageButtonDisabled]}
-            onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onPress={() => setPage((current) => Math.min(totalPages, current + 1))}
             disabled={page >= totalPages}
+            accessibilityRole="button"
+            accessibilityLabel="Página siguiente"
+            pressScale={0.95}
           >
             <Ionicons
               name="chevron-forward"
               size={18}
-              color={page >= totalPages ? heraLanding.textMuted : heraLanding.primary}
+              color={page >= totalPages ? theme.textMuted : theme.primary}
             />
-          </TouchableOpacity>
+          </AnimatedPressable>
         </View>
       )}
     </ScrollView>
   );
 }
 
-function SpecialistAvatar({ name, avatarUrl, size }: { name: string; avatarUrl: string | null; size: number }) {
+function FilterChip({
+  label,
+  active,
+  onPress,
+  styles,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  styles: SpecialistManagementStyles;
+}) {
+  return (
+    <AnimatedPressable
+      style={[styles.filterChip, active && styles.filterChipActive]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}${active ? ', seleccionado' : ''}`}
+      pressScale={0.97}
+    >
+      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</Text>
+    </AnimatedPressable>
+  );
+}
+
+function Badge({ tone, styles }: { tone: BadgeTone; styles: SpecialistManagementStyles }) {
+  return (
+    <View style={[styles.badge, { backgroundColor: tone.backgroundColor, borderColor: tone.borderColor }]}>
+      <Text style={[styles.badgeText, { color: tone.textColor }]}>{tone.label}</Text>
+    </View>
+  );
+}
+
+function DetailRow({
+  icon,
+  text,
+  styles,
+  theme,
+}: {
+  icon: IconName;
+  text: string;
+  styles: SpecialistManagementStyles;
+  theme: Theme;
+}) {
+  return (
+    <View style={styles.cardDetailRow}>
+      <Ionicons name={icon} size={14} color={theme.textSecondary} />
+      <Text style={styles.cardDetailText} numberOfLines={1}>{text}</Text>
+    </View>
+  );
+}
+
+function StateIcon({ name, styles, color }: { name: IconName; styles: SpecialistManagementStyles; color: string }) {
+  return (
+    <View style={styles.stateIconContainer}>
+      <Ionicons name={name} size={42} color={color} />
+    </View>
+  );
+}
+
+function SpecialistAvatar({
+  name,
+  avatarUrl,
+  size,
+  styles,
+}: {
+  name: string;
+  avatarUrl: string | null;
+  size: number;
+  styles: SpecialistManagementStyles;
+}) {
   const [imageError, setImageError] = useState(false);
 
   if (avatarUrl && !imageError) {
@@ -415,157 +532,182 @@ function SpecialistAvatar({ name, avatarUrl, size }: { name: string; avatarUrl: 
 
   return (
     <View style={[styles.cardAvatar, { width: size, height: size, borderRadius: size / 2 }]}>
-      <Text style={styles.cardAvatarText}>
-        {name.charAt(0).toUpperCase()}
-      </Text>
+      <Text style={styles.cardAvatarText}>{getInitials(name)}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: heraLanding.background,
+    backgroundColor: theme.bg,
   },
   contentContainer: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxxl,
-    maxWidth: isDesktop ? 800 : undefined,
-    alignSelf: isDesktop ? 'center' : undefined,
-    width: isDesktop ? '100%' : undefined,
+    gap: spacing.md,
+    maxWidth: isDesktop ? 1040 : undefined,
+    alignSelf: 'center',
+    width: '100%',
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: heraLanding.background,
+    backgroundColor: theme.bg,
     padding: spacing.xl,
   },
   loadingText: {
     marginTop: spacing.md,
     fontSize: typography.fontSizes.md,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
   },
-
-  // Summary
+  summaryCard: {
+    flexDirection: isDesktop ? 'row' : 'column',
+    justifyContent: 'space-between',
+    alignItems: isDesktop ? 'center' : 'flex-start',
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    backgroundColor: theme.bgCard,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...(isDark ? {} : shadows.sm),
+  },
+  summaryLabel: {
+    fontSize: typography.fontSizes.xs,
+    color: theme.textMuted,
+    fontWeight: typography.fontWeights.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+    marginBottom: 4,
+  },
   summaryText: {
-    fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
-    marginBottom: spacing.md,
+    fontSize: typography.fontSizes.xl,
+    lineHeight: 28,
+    color: theme.textPrimary,
+    fontWeight: typography.fontWeights.bold,
   },
-
-  // Search
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    marginBottom: spacing.md,
     gap: spacing.sm,
     borderWidth: 1,
-    borderColor: heraLanding.borderLight,
+    borderColor: theme.border,
   },
   searchInput: {
     flex: 1,
+    minHeight: 28,
     fontSize: typography.fontSizes.md,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     paddingVertical: 2,
   },
-
-  // Filters
+  clearButton: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   filtersRow: {
-    marginBottom: spacing.md,
     maxHeight: 44,
   },
   filtersContent: {
     gap: spacing.xs,
     alignItems: 'center',
+    paddingRight: spacing.lg,
   },
   filterChip: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
+    paddingVertical: 8,
     borderRadius: borderRadius.full,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.bgCard,
     borderWidth: 1,
-    borderColor: heraLanding.borderLight,
+    borderColor: theme.border,
   },
   filterChipActive: {
-    backgroundColor: heraLanding.primary,
-    borderColor: heraLanding.primary,
+    backgroundColor: theme.primaryAlpha12,
+    borderColor: theme.primaryAlpha20,
   },
   filterChipText: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     fontWeight: typography.fontWeights.medium,
   },
   filterChipTextActive: {
-    color: '#FFFFFF',
+    color: theme.primary,
+    fontWeight: typography.fontWeights.semibold,
   },
   filterDivider: {
     width: 1,
-    height: 20,
-    backgroundColor: heraLanding.borderLight,
+    height: 22,
+    backgroundColor: theme.border,
     marginHorizontal: spacing.xs,
   },
-
-  // Sort
   sortButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
     gap: spacing.xs,
-    marginBottom: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+    borderRadius: borderRadius.full,
+    backgroundColor: theme.primaryAlpha12,
+    borderWidth: 1,
+    borderColor: theme.primaryAlpha20,
   },
   sortButtonText: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.primary,
-    fontWeight: typography.fontWeights.medium,
+    color: theme.primary,
+    fontWeight: typography.fontWeights.semibold,
   },
-
-  // Empty
+  inlineLoader: {
+    marginVertical: spacing.sm,
+  },
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: spacing.xxxl,
+    paddingHorizontal: spacing.lg,
+  },
+  stateIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: theme.primaryAlpha12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
   },
   emptyTitle: {
     fontSize: typography.fontSizes.lg,
     fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
-    marginTop: spacing.md,
+    color: theme.textPrimary,
+    textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     marginTop: spacing.xs,
     textAlign: 'center',
+    lineHeight: 20,
   },
-
-  // Retry
   retryButton: {
     marginTop: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm,
-    backgroundColor: heraLanding.primary,
-    borderRadius: borderRadius.lg,
   },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
-  },
-
-  // Cards
   cardsContainer: {
     gap: spacing.md,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
-    ...shadows.md,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...(isDark ? {} : shadows.sm),
   },
   cardHeader: {
     flexDirection: 'row',
@@ -573,64 +715,45 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   cardAvatar: {
-    backgroundColor: heraLanding.primaryMuted,
+    backgroundColor: theme.primaryAlpha12,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.primaryAlpha20,
   },
   cardAvatarText: {
-    fontSize: typography.fontSizes.lg,
+    fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.bold,
-    color: heraLanding.primaryDark,
+    color: theme.primary,
   },
   cardInfo: {
     flex: 1,
+    minWidth: 0,
   },
   cardName: {
     fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
   },
   cardEmail: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textSecondary,
-    marginTop: 1,
+    color: theme.textSecondary,
+    marginTop: 2,
   },
   badgesColumn: {
     alignItems: 'flex-end',
-    gap: 4,
+    gap: 5,
   },
   badge: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.md,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
     borderWidth: 1,
   },
   badgeText: {
     fontSize: typography.fontSizes.xs,
     fontWeight: typography.fontWeights.semibold,
   },
-  badgeVerified: {
-    backgroundColor: heraLanding.status.confirmed.bg,
-    borderColor: heraLanding.status.confirmed.border,
-  },
-  badgePending: {
-    backgroundColor: heraLanding.status.pending.bg,
-    borderColor: heraLanding.status.pending.border,
-  },
-  badgeRejected: {
-    backgroundColor: heraLanding.status.cancelled.bg,
-    borderColor: heraLanding.status.cancelled.border,
-  },
-  badgeSuspended: {
-    backgroundColor: '#FFF3E0',
-    borderColor: '#FFB74D',
-  },
-  badgeDeleted: {
-    backgroundColor: heraLanding.status.cancelled.bg,
-    borderColor: heraLanding.status.cancelled.border,
-  },
-
-  // Card details
   cardDetails: {
     marginTop: spacing.md,
     gap: spacing.xs,
@@ -641,11 +764,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   cardDetailText: {
+    flex: 1,
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
   },
-
-  // Card footer
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -653,39 +775,37 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: heraLanding.borderLight,
+    borderTopColor: theme.borderLight,
     gap: spacing.xs,
   },
   cardFooterText: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.medium,
-    color: heraLanding.primary,
+    color: theme.primary,
   },
-
-  // Pagination
   pagination: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.xl,
+    marginTop: spacing.lg,
     gap: spacing.lg,
   },
   pageButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: theme.bgCard,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: heraLanding.borderLight,
+    borderColor: theme.border,
   },
   pageButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.45,
   },
   pageText: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     fontWeight: typography.fontWeights.medium,
   },
 });

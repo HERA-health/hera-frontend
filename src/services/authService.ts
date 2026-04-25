@@ -4,6 +4,7 @@ import { invalidateSpecialistsCache } from './specialistsService';
 import { buildImageFormData, type UploadAsset } from '../utils/multipartUpload';
 import { clearPersistedClinicalAccessSession } from './secureSessionStorage';
 import { Platform } from 'react-native';
+import type { LegalDocumentKey } from '../constants/legal';
 
 export interface AuthResponse {
   token: string;
@@ -32,6 +33,7 @@ export interface RegisterData {
   password: string;
   name: string;
   userType: 'CLIENT' | 'PROFESSIONAL';
+  acceptedLegalDocumentKeys: LegalDocumentKey[];
 }
 
 export interface LoginData {
@@ -73,6 +75,9 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
           break;
         case 'INVALID_CREDENTIALS':
           errorMessage = 'Datos de registro inválidos';
+          break;
+        case 'LEGAL_ACCEPTANCE_REQUIRED':
+          errorMessage = 'Debes aceptar las condiciones legales vigentes para crear la cuenta';
           break;
         default:
           errorMessage = getErrorMessage(error, errorMessage);

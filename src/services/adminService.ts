@@ -234,10 +234,12 @@ export const reactivateSpecialist = async (
   await api.post(`/admin/specialists/${specialistId}/reactivate`);
 };
 
-export const deleteSpecialist = async (
+export const blockSpecialistForLegalRetention = async (
   specialistId: string
 ): Promise<void> => {
   await api.delete(`/admin/specialists/${specialistId}/delete`, {
     data: { confirmDelete: true },
   });
 };
+
+export const deleteSpecialist = blockSpecialistForLegalRetention;

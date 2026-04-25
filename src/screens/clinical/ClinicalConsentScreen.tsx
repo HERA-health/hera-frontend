@@ -3,7 +3,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View, useWindowDimensi
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
-import { Button, Card } from '../../components/common';
+import { AnimatedPressable, Button, Card } from '../../components/common';
 import { borderRadius, spacing, typography } from '../../constants/colors';
 import { getErrorMessage } from '../../constants/errors';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
@@ -60,6 +60,7 @@ export function ClinicalConsentScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [consentDocumentAccepted, setConsentDocumentAccepted] = useState(false);
 
   const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontDisplayBold }), [theme]);
   const emphasisStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
@@ -100,7 +101,7 @@ export function ClinicalConsentScreen() {
       setSubmitting(true);
       const nextResolution = await clinicalService.revokeDigitalConsent(requestId, token);
       setResolution(nextResolution);
-      setSuccessMessage('Has retirado tu consentimiento clinico.');
+      setSuccessMessage('Has retirado tu consentimiento clínico.');
     } catch (submitError: unknown) {
       setError(getErrorMessage(submitError, 'No se pudo retirar el consentimiento'));
     } finally {
@@ -127,14 +128,14 @@ export function ClinicalConsentScreen() {
           </View>
           <View style={styles.heroCopy}>
             <Text style={[textStyles.eyebrow, { color: theme.textMuted }, labelStyle]}>
-              Consentimiento clinico
+              Consentimiento clínico
             </Text>
             <Text style={[textStyles.title, { color: theme.textPrimary }, displayTitleStyle]}>
-              Confirma tu autorizacion en HERA
+              Confirma tu autorización en HERA
             </Text>
             <Text style={[textStyles.subtitle, { color: theme.textSecondary }]}>
-              Este paso deja constancia de tu autorizacion para que tu especialista pueda trabajar
-              con tu expediente clinico dentro de HERA.
+              Este paso deja constancia de tu autorización para que tu especialista pueda trabajar
+              con tu expediente clínico dentro de HERA.
             </Text>
           </View>
         </View>
@@ -203,7 +204,7 @@ export function ClinicalConsentScreen() {
               <View style={styles.metaRow}>
                 <Text style={[textStyles.label, { color: theme.textMuted }, labelStyle]}>Acceso</Text>
                 <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
-                  {resolution.requiresLogin ? 'Requiere iniciar sesion' : 'Disponible'}
+                  {resolution.requiresLogin ? 'Requiere iniciar sesión' : 'Disponible'}
                 </Text>
               </View>
             </View>
@@ -212,26 +213,57 @@ export function ClinicalConsentScreen() {
           <Card variant="default" padding="large">
             <View style={styles.contentStack}>
               <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
-                Que estas confirmando
+                Qué estás confirmando
               </Text>
               <Text style={[textStyles.body, { color: theme.textSecondary }]}>
-                Autorizas el tratamiento de tus datos clinicos dentro de HERA para tu atencion
-                profesional. Podras retirar este consentimiento mas adelante.
+                Autorizas el tratamiento de tus datos clínicos dentro de HERA para tu atención
+                profesional. Podrás retirar este consentimiento más adelante.
               </Text>
 
               {canConfirm ? (
-                <Button
-                  variant="primary"
-                  size="large"
-                  onPress={() => void handleAccept()}
-                  loading={submitting}
-                >
-                  Confirmar consentimiento
-                </Button>
+                <View style={styles.contentStack}>
+                  <AnimatedPressable
+                    onPress={() => setConsentDocumentAccepted((value) => !value)}
+                    hoverLift={false}
+                    pressScale={0.99}
+                    style={styles.acceptRow}
+                  >
+                    <View
+                      style={[
+                        styles.checkbox,
+                        {
+                          backgroundColor: consentDocumentAccepted ? theme.primary : theme.bgCard,
+                          borderColor: consentDocumentAccepted ? theme.primary : theme.border,
+                        },
+                      ]}
+                    >
+                      {consentDocumentAccepted && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                    </View>
+                    <Text style={[textStyles.body, { color: theme.textSecondary, flex: 1 }]}>
+                      He leído y acepto el{' '}
+                      <Text
+                        style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold }}
+                        onPress={() => navigation.navigate('LegalDocument', { documentKey: 'CLINICAL_PATIENT_CONSENT' })}
+                      >
+                        consentimiento clínico del paciente
+                      </Text>
+                      .
+                    </Text>
+                  </AnimatedPressable>
+                  <Button
+                    variant="primary"
+                    size="large"
+                    onPress={() => void handleAccept()}
+                    loading={submitting}
+                    disabled={!consentDocumentAccepted}
+                  >
+                    Confirmar consentimiento
+                  </Button>
+                </View>
               ) : canRevoke ? (
                 <View style={styles.contentStack}>
                   <Text style={[textStyles.body, { color: theme.textSecondary }]}>
-                    Tu consentimiento ya esta activo. Si necesitas retirarlo, puedes hacerlo desde aqui.
+                    Tu consentimiento ya está activo. Si necesitas retirarlo, puedes hacerlo desde aquí.
                   </Text>
                   <Button
                     variant="secondary"
@@ -244,12 +276,12 @@ export function ClinicalConsentScreen() {
                 </View>
               ) : isGranted ? (
                 <Text style={[textStyles.body, { color: theme.textSecondary }]}>
-                  Tu consentimiento ya consta como vigente. Si necesitas retirarlo, inicia sesion
+                  Tu consentimiento ya consta como vigente. Si necesitas retirarlo, inicia sesión
                   en tu cuenta de paciente y vuelve a este enlace.
                 </Text>
               ) : (
                 <Text style={[textStyles.body, { color: theme.textSecondary }]}>
-                  Esta solicitud ya no se puede utilizar. Si necesitas una nueva, pidela a tu especialista.
+                  Esta solicitud ya no se puede utilizar. Si necesitas una nueva, pídela a tu especialista.
                 </Text>
               )}
 
@@ -315,5 +347,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     alignItems: 'center',
+  },
+  acceptRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
   },
 });

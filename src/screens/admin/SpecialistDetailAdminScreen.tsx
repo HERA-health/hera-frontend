@@ -1,56 +1,181 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { ComponentProps, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  TouchableOpacity,
   ActivityIndicator,
-  TextInput,
-  Modal,
   Image,
+  Modal,
   Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
   useWindowDimensions,
 } from 'react-native';
 import { NavigationProp, RouteProp } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { heraLanding, spacing, borderRadius, typography, shadows } from '../../constants/colors';
+import { AnimatedPressable, Button } from '../../components/common';
+import { useAppAlert } from '../../components/common/alert';
+import { borderRadius, shadows, spacing, typography } from '../../constants/colors';
+import type { Theme } from '../../constants/theme';
 import { RootStackParamList } from '../../constants/types';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import * as adminService from '../../services/adminService';
-import type { SpecialistFullDetail, AccountStatusType } from '../../services/adminService';
+import type { AccountStatusType, SpecialistFullDetail } from '../../services/adminService';
 
-const getInsuranceStatusBadge = (status: SpecialistFullDetail['insuranceReviewStatus']) => {
-  switch (status) {
-    case 'APPROVED':
-      return { label: 'Aprobada', color: heraLanding.success, bg: heraLanding.successLight };
-    case 'PENDING':
-      return { label: 'Pendiente', color: heraLanding.status.pending.text, bg: heraLanding.status.pending.bg };
-    case 'REJECTED':
-      return { label: 'Rechazada', color: heraLanding.status.cancelled.text, bg: heraLanding.status.cancelled.bg };
-    default:
-      return { label: 'No subida', color: heraLanding.textMuted, bg: heraLanding.backgroundMuted };
-  }
-};
+type IconName = ComponentProps<typeof Ionicons>['name'];
+type DetailStyles = ReturnType<typeof createStyles>;
 
 interface Props {
   route: RouteProp<RootStackParamList, 'SpecialistDetailAdmin'>;
   navigation: NavigationProp<RootStackParamList, 'SpecialistDetailAdmin'>;
 }
 
-// ============================================================================
-// MAIN SCREEN
-// ============================================================================
+interface BadgeTone {
+  label: string;
+  icon: IconName;
+  bg: string;
+  text: string;
+  border: string;
+}
+
+const getInitials = (name: string) => {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('');
+
+  return initials || '?';
+};
+
+const formatDate = (dateStr: string | null, long = true) => {
+  if (!dateStr) return 'N/A';
+
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return 'Fecha no válida';
+
+  return new Intl.DateTimeFormat('es-ES', {
+    day: 'numeric',
+    month: long ? 'long' : 'short',
+    year: 'numeric',
+  }).format(date);
+};
+
+const getInsuranceStatusBadge = (
+  status: SpecialistFullDetail['insuranceReviewStatus'],
+  theme: Theme,
+): Omit<BadgeTone, 'icon'> => {
+  switch (status) {
+    case 'APPROVED':
+      return {
+        label: 'Aprobada',
+        bg: theme.status.confirmed.bg,
+        text: theme.status.confirmed.text,
+        border: theme.status.confirmed.border,
+      };
+    case 'PENDING':
+      return {
+        label: 'Pendiente',
+        bg: theme.status.pending.bg,
+        text: theme.status.pending.text,
+        border: theme.status.pending.border,
+      };
+    case 'REJECTED':
+      return {
+        label: 'Rechazada',
+        bg: theme.status.cancelled.bg,
+        text: theme.status.cancelled.text,
+        border: theme.status.cancelled.border,
+      };
+    default:
+      return {
+        label: 'No subida',
+        bg: theme.bgMuted,
+        text: theme.textMuted,
+        border: theme.border,
+      };
+  }
+};
+
+const getVerificationBadge = (status: string, theme: Theme): BadgeTone => {
+  switch (status) {
+    case 'VERIFIED':
+      return {
+        bg: theme.status.confirmed.bg,
+        text: theme.status.confirmed.text,
+        border: theme.status.confirmed.border,
+        label: 'Verificado',
+        icon: 'shield-checkmark',
+      };
+    case 'PENDING':
+      return {
+        bg: theme.status.pending.bg,
+        text: theme.status.pending.text,
+        border: theme.status.pending.border,
+        label: 'Pendiente',
+        icon: 'time',
+      };
+    case 'REJECTED':
+      return {
+        bg: theme.status.cancelled.bg,
+        text: theme.status.cancelled.text,
+        border: theme.status.cancelled.border,
+        label: 'Rechazado',
+        icon: 'close-circle',
+      };
+    default:
+      return {
+        bg: theme.bgMuted,
+        text: theme.textSecondary,
+        border: theme.border,
+        label: status,
+        icon: 'help-circle',
+      };
+  }
+};
+
+const getAccountBadge = (status: AccountStatusType, theme: Theme): BadgeTone => {
+  switch (status) {
+    case 'ACTIVE':
+      return {
+        bg: theme.status.confirmed.bg,
+        text: theme.status.confirmed.text,
+        border: theme.status.confirmed.border,
+        label: 'Activa',
+        icon: 'checkmark-circle',
+      };
+    case 'SUSPENDED':
+      return {
+        bg: theme.warningBg,
+        text: theme.warning,
+        border: theme.warning,
+        label: 'Suspendida',
+        icon: 'pause-circle',
+      };
+    case 'DELETED':
+      return {
+        bg: theme.status.cancelled.bg,
+        text: theme.status.cancelled.text,
+        border: theme.status.cancelled.border,
+        label: 'Bloqueada',
+        icon: 'trash',
+      };
+  }
+};
 
 export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
   const { user } = useAuth();
-  const isAdmin = user?.isAdmin ?? false;
-  const { specialistId } = route.params;
+  const { theme, isDark } = useTheme();
+  const appAlert = useAppAlert();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-
+  const { specialistId } = route.params;
+  const isAdmin = user?.isAdmin ?? false;
   const isTwoCol = windowWidth >= 768;
   const isWide = windowWidth >= 1024;
+  const styles = useMemo(() => createStyles(theme, isDark, isTwoCol, isWide), [theme, isDark, isTwoCol, isWide]);
 
   const [specialist, setSpecialist] = useState<SpecialistFullDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,8 +184,6 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
   const [processingLabel, setProcessingLabel] = useState('Procesando...');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  // Modal states
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [suspendReason, setSuspendReason] = useState('');
   const [showDeleteStep1, setShowDeleteStep1] = useState(false);
@@ -71,6 +194,12 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
   const [openingDocumentKey, setOpeningDocumentKey] = useState<string | null>(null);
 
   const loadSpecialist = useCallback(async () => {
+    if (!isAdmin) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     try {
       setError(null);
       const data = await adminService.getSpecialistDetail(specialistId);
@@ -81,7 +210,7 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [specialistId]);
+  }, [isAdmin, specialistId]);
 
   useEffect(() => {
     loadSpecialist();
@@ -92,15 +221,13 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
     loadSpecialist();
   }, [loadSpecialist]);
 
-  const showSuccess = (msg: string) => {
+  const showSuccess = useCallback((msg: string) => {
     setSuccessMessage(msg);
     setTimeout(() => setSuccessMessage(null), 3000);
-  };
+  }, []);
 
   const handleOpenInsurance = useCallback(async () => {
-    if (!specialist || openingDocumentKey === 'insurance') {
-      return;
-    }
+    if (!specialist || openingDocumentKey === 'insurance') return;
 
     try {
       setOpeningDocumentKey('insurance');
@@ -114,16 +241,12 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
 
   const handleOpenCertificate = useCallback(async (
     certificateId: string,
-    mimeType?: string | null
+    mimeType?: string | null,
   ) => {
-    if (!specialist) {
-      return;
-    }
+    if (!specialist) return;
 
     const key = `certificate:${certificateId}`;
-    if (openingDocumentKey === key) {
-      return;
-    }
+    if (openingDocumentKey === key) return;
 
     try {
       setOpeningDocumentKey(key);
@@ -136,9 +259,22 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
   }, [openingDocumentKey, specialist]);
 
   const handleReviewInsurance = useCallback(async (status: 'APPROVED' | 'REJECTED') => {
-    if (!specialist || !specialist.insuranceUploaded) {
-      return;
-    }
+    if (!specialist || !specialist.insuranceUploaded) return;
+
+    const approving = status === 'APPROVED';
+    const confirmed = await appAlert.confirm({
+      title: approving ? '¿Aprobar póliza?' : '¿Rechazar póliza?',
+      message: approving
+        ? 'La cobertura presencial quedará aprobada y el especialista podrá mostrar modalidad presencial cuando el resto de condiciones lo permita.'
+        : 'La cobertura presencial quedará rechazada y la ubicación presencial seguirá oculta al paciente.',
+      confirmLabel: approving ? 'Aprobar' : 'Rechazar',
+      cancelLabel: 'Cancelar',
+      tone: approving ? 'success' : 'danger',
+      destructive: !approving,
+      dismissible: true,
+    });
+
+    if (!confirmed) return;
 
     setProcessingLabel(status === 'APPROVED' ? 'Aprobando póliza...' : 'Rechazando póliza...');
     setProcessing(true);
@@ -151,16 +287,29 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
     } finally {
       setProcessing(false);
     }
-  }, [loadSpecialist, specialist]);
+  }, [appAlert, loadSpecialist, showSuccess, specialist]);
 
-  // ---- SUSPEND ----
   const handleSuspend = useCallback(async () => {
-    if (!specialist || suspendReason.length < 10) return;
+    if (!specialist || suspendReason.trim().length < 10) return;
+
+    const reason = suspendReason.trim();
+    const confirmed = await appAlert.confirm({
+      title: '¿Suspender cuenta?',
+      message: `El perfil dejará de ser visible y el especialista no podrá acceder a la plataforma hasta su reactivación.\n\nMotivo registrado: ${reason}`,
+      confirmLabel: 'Suspender',
+      cancelLabel: 'Cancelar',
+      tone: 'warning',
+      destructive: true,
+      dismissible: true,
+    });
+
+    if (!confirmed) return;
+
     setShowSuspendModal(false);
     setProcessingLabel('Suspendiendo cuenta...');
     setProcessing(true);
     try {
-      await adminService.suspendSpecialist(specialist.id, suspendReason);
+      await adminService.suspendSpecialist(specialist.id, reason);
       setSuspendReason('');
       await loadSpecialist();
       showSuccess('Cuenta suspendida correctamente');
@@ -169,11 +318,22 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
     } finally {
       setProcessing(false);
     }
-  }, [specialist, suspendReason, loadSpecialist]);
+  }, [appAlert, loadSpecialist, showSuccess, specialist, suspendReason]);
 
-  // ---- REACTIVATE ----
   const handleReactivate = useCallback(async () => {
     if (!specialist) return;
+
+    const confirmed = await appAlert.confirm({
+      title: '¿Reactivar cuenta?',
+      message: 'El especialista volverá a poder acceder a la plataforma y su perfil podrá mostrarse de nuevo según su configuración actual.',
+      confirmLabel: 'Reactivar',
+      cancelLabel: 'Cancelar',
+      tone: 'success',
+      dismissible: true,
+    });
+
+    if (!confirmed) return;
+
     setShowReactivateModal(false);
     setProcessingLabel('Reactivando cuenta...');
     setProcessing(true);
@@ -186,73 +346,58 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
     } finally {
       setProcessing(false);
     }
-  }, [specialist, loadSpecialist]);
+  }, [appAlert, loadSpecialist, showSuccess, specialist]);
 
-  // ---- DELETE ----
   const handleDelete = useCallback(async () => {
-    if (!specialist || deleteConfirmText !== 'ELIMINAR') return;
+    if (!specialist || deleteConfirmText !== 'BLOQUEAR') return;
+
+    const confirmed = await appAlert.confirm({
+      title: 'Confirmar bloqueo legal',
+      message: 'Esta acción revocará el acceso, ocultará el perfil, cancelará sesiones futuras, minimizará datos no necesarios y conservará bloqueados solo los datos sujetos a obligación legal, fiscal o reclamaciones.',
+      confirmLabel: 'Bloquear',
+      cancelLabel: 'Cancelar',
+      tone: 'danger',
+      destructive: true,
+      dismissible: true,
+    });
+
+    if (!confirmed) return;
+
     setShowDeleteStep2(false);
     setDeleteConfirmText('');
-    setProcessingLabel('Eliminando cuenta...');
+    setProcessingLabel('Bloqueando cuenta...');
     setProcessing(true);
     try {
-      await adminService.deleteSpecialist(specialist.id);
+      await adminService.blockSpecialistForLegalRetention(specialist.id);
       await loadSpecialist();
-      showSuccess('Cuenta eliminada correctamente');
+      showSuccess('Cuenta bloqueada correctamente');
     } catch (_err: unknown) {
-      setError('Error al eliminar la cuenta. Inténtalo de nuevo.');
+      setError('Error al bloquear la cuenta. Inténtalo de nuevo.');
     } finally {
       setProcessing(false);
     }
-  }, [specialist, deleteConfirmText, loadSpecialist]);
+  }, [appAlert, deleteConfirmText, loadSpecialist, showSuccess, specialist]);
 
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return 'N/A';
-    return new Date(dateStr).toLocaleDateString('es-ES', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
+  const requestDeleteFlow = useCallback(async () => {
+    const confirmed = await appAlert.confirm({
+      title: '¿Iniciar bloqueo legal?',
+      message: 'Vas a iniciar un flujo irreversible a nivel operativo. Se desactivará el acceso y se bloquearán los datos necesarios para obligaciones legales, fiscales o reclamaciones.',
+      confirmLabel: 'Iniciar',
+      cancelLabel: 'Cancelar',
+      tone: 'danger',
+      destructive: true,
+      dismissible: true,
     });
-  };
 
-  const formatDateShort = (dateStr: string | null) => {
-    if (!dateStr) return 'N/A';
-    return new Date(dateStr).toLocaleDateString('es-ES', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
-  const getVerificationBadge = (status: string) => {
-    switch (status) {
-      case 'VERIFIED':
-        return { bg: heraLanding.status.confirmed.bg, text: heraLanding.status.confirmed.text, border: heraLanding.status.confirmed.border, label: 'Verificado', icon: 'shield-checkmark' as const };
-      case 'PENDING':
-        return { bg: heraLanding.status.pending.bg, text: heraLanding.status.pending.text, border: heraLanding.status.pending.border, label: 'Pendiente', icon: 'time' as const };
-      case 'REJECTED':
-        return { bg: heraLanding.status.cancelled.bg, text: heraLanding.status.cancelled.text, border: heraLanding.status.cancelled.border, label: 'Rechazado', icon: 'close-circle' as const };
-      default:
-        return { bg: '#F5F5F5', text: '#666', border: '#DDD', label: status, icon: 'help-circle' as const };
+    if (confirmed) {
+      setShowDeleteStep1(true);
     }
-  };
+  }, [appAlert]);
 
-  const getAccountBadge = (status: AccountStatusType) => {
-    switch (status) {
-      case 'ACTIVE':
-        return { bg: heraLanding.status.confirmed.bg, text: heraLanding.success, border: heraLanding.status.confirmed.border, label: 'Activa', icon: 'checkmark-circle' as const };
-      case 'SUSPENDED':
-        return { bg: '#FFF3E0', text: '#F57C00', border: '#FFE082', label: 'Suspendida', icon: 'pause-circle' as const };
-      case 'DELETED':
-        return { bg: heraLanding.status.cancelled.bg, text: heraLanding.status.cancelled.text, border: heraLanding.status.cancelled.border, label: 'Eliminada', icon: 'trash' as const };
-    }
-  };
-
-  // ---- GUARDS ----
   if (!isAdmin) {
     return (
       <View style={styles.centered}>
-        <Ionicons name="shield-outline" size={48} color={heraLanding.textMuted} />
+        <StateIcon icon="shield-outline" styles={styles} color={theme.textMuted} />
         <Text style={styles.guardText}>Acceso denegado</Text>
       </View>
     );
@@ -261,7 +406,7 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={heraLanding.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
         <Text style={styles.guardText}>Cargando datos del especialista...</Text>
       </View>
     );
@@ -270,49 +415,40 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
   if (error && !specialist) {
     return (
       <View style={styles.centered}>
-        <Ionicons name="alert-circle-outline" size={48} color={heraLanding.warning} />
+        <StateIcon icon="alert-circle-outline" styles={styles} color={theme.warning} />
         <Text style={styles.guardText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadSpecialist}>
-          <Text style={styles.retryButtonText}>Reintentar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={16} color={heraLanding.primary} />
+        <Button variant="primary" size="medium" onPress={loadSpecialist}>
+          Reintentar
+        </Button>
+        <AnimatedPressable style={styles.backLink} onPress={() => navigation.goBack()} pressScale={0.98}>
+          <Ionicons name="arrow-back" size={16} color={theme.primary} />
           <Text style={styles.backLinkText}>Volver</Text>
-        </TouchableOpacity>
+        </AnimatedPressable>
       </View>
     );
   }
 
   if (!specialist) return null;
 
-  const vBadge = getVerificationBadge(specialist.verificationStatus);
-  const aBadge = getAccountBadge(specialist.user.accountStatus);
-
-  // ============================================================
-  // SECTION RENDERERS (shared between layouts)
-  // ============================================================
+  const verificationBadge = getVerificationBadge(specialist.verificationStatus, theme);
+  const accountBadge = getAccountBadge(specialist.user.accountStatus, theme);
+  const insuranceBadge = getInsuranceStatusBadge(specialist.insuranceReviewStatus, theme);
 
   const renderHeaderCard = () => (
     <View style={styles.headerCard}>
       <SpecialistAvatar
         name={specialist.user.name}
         avatarUrl={specialist.user.avatar}
-        size={isTwoCol ? 96 : 88}
+        size={isTwoCol ? 92 : 82}
+        styles={styles}
+        theme={theme}
       />
       <Text style={styles.headerName}>{specialist.user.name}</Text>
       <Text style={styles.headerEmail}>{specialist.user.email}</Text>
-      {specialist.user.phone && (
-        <Text style={styles.headerPhone}>{specialist.user.phone}</Text>
-      )}
+      {specialist.user.phone ? <Text style={styles.headerPhone}>{specialist.user.phone}</Text> : null}
       <View style={styles.badgeRow}>
-        <View style={[styles.badge, { backgroundColor: vBadge.bg, borderColor: vBadge.border }]}>
-          <Ionicons name={vBadge.icon} size={14} color={vBadge.text} />
-          <Text style={[styles.badgeText, { color: vBadge.text }]}>{vBadge.label}</Text>
-        </View>
-        <View style={[styles.badge, { backgroundColor: aBadge.bg, borderColor: aBadge.border }]}>
-          <Ionicons name={aBadge.icon} size={14} color={aBadge.text} />
-          <Text style={[styles.badgeText, { color: aBadge.text }]}>{aBadge.label}</Text>
-        </View>
+        <StatusBadge tone={verificationBadge} styles={styles} />
+        <StatusBadge tone={accountBadge} styles={styles} />
       </View>
       <Text style={styles.headerJoinDate}>
         Miembro desde: {formatDate(specialist.user.createdAt)}
@@ -322,24 +458,24 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
 
   const renderProfessionalInfo = () => (
     <>
-      <Text style={styles.sectionTitle}>Información Profesional</Text>
+      <Text style={styles.sectionTitle}>Información profesional</Text>
       {specialist.description ? (
         <View style={styles.bioCard}>
-          <Ionicons name="document-text-outline" size={20} color={heraLanding.primary} />
+          <Ionicons name="document-text-outline" size={20} color={theme.primary} />
           <Text style={styles.bioText}>{specialist.description}</Text>
         </View>
       ) : (
         <View style={styles.emptyCard}>
-          <Ionicons name="document-text-outline" size={20} color={heraLanding.textMuted} />
+          <Ionicons name="document-text-outline" size={20} color={theme.textMuted} />
           <Text style={styles.emptyCardText}>Sin descripción profesional</Text>
         </View>
       )}
       <View style={styles.infoGrid}>
-        <InfoCard icon="briefcase-outline" label="Especialización" value={specialist.specialization} />
-        {specialist.professionalTitle && (
-          <InfoCard icon="school-outline" label="Título" value={specialist.professionalTitle} />
-        )}
-        <InfoCard icon="cash-outline" label="Precio / sesión" value={`${specialist.pricePerSession}€`} />
+        <InfoCard icon="briefcase-outline" label="Especialización" value={specialist.specialization} styles={styles} theme={theme} />
+        {specialist.professionalTitle ? (
+          <InfoCard icon="school-outline" label="Título" value={specialist.professionalTitle} styles={styles} theme={theme} />
+        ) : null}
+        <InfoCard icon="cash-outline" label="Precio / sesión" value={`${specialist.pricePerSession}€`} styles={styles} theme={theme} />
         <InfoCard
           icon="globe-outline"
           label="Modalidades"
@@ -347,11 +483,13 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
             specialist.offersOnline ? 'Online' : null,
             specialist.offersInPerson ? 'Presencial' : null,
           ].filter(Boolean).join(' / ') || 'No especificado'}
+          styles={styles}
+          theme={theme}
         />
-        {specialist.officeCity && (
-          <InfoCard icon="location-outline" label="Ciudad" value={specialist.officeCity} />
-        )}
-        <InfoCard icon="eye-outline" label="Perfil visible" value={specialist.profileVisible ? 'Sí' : 'No'} />
+        {specialist.officeCity ? (
+          <InfoCard icon="location-outline" label="Ciudad" value={specialist.officeCity} styles={styles} theme={theme} />
+        ) : null}
+        <InfoCard icon="eye-outline" label="Perfil visible" value={specialist.profileVisible ? 'Sí' : 'No'} styles={styles} theme={theme} />
       </View>
     </>
   );
@@ -360,10 +498,10 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
     <>
       <Text style={styles.sectionTitle}>Estadísticas</Text>
       <View style={styles.statsGrid}>
-        <StatCard label="Total" value={specialist.sessionStats.total} icon="layers-outline" color={heraLanding.primary} bgColor={heraLanding.primaryMuted} />
-        <StatCard label="Completadas" value={specialist.sessionStats.completed} icon="checkmark-circle-outline" color={heraLanding.success} bgColor={heraLanding.successLight} />
-        <StatCard label="Canceladas" value={specialist.sessionStats.cancelled} icon="close-circle-outline" color={heraLanding.status.cancelled.text} bgColor={heraLanding.status.cancelled.bg} />
-        <StatCard label="Próximas" value={specialist.sessionStats.upcoming} icon="time-outline" color={heraLanding.status.pending.text} bgColor={heraLanding.status.pending.bg} />
+        <StatCard label="Total" value={specialist.sessionStats.total} icon="layers-outline" color={theme.primary} bgColor={theme.primaryAlpha12} styles={styles} />
+        <StatCard label="Completadas" value={specialist.sessionStats.completed} icon="checkmark-circle-outline" color={theme.success} bgColor={theme.successBg} styles={styles} />
+        <StatCard label="Canceladas" value={specialist.sessionStats.cancelled} icon="close-circle-outline" color={theme.status.cancelled.text} bgColor={theme.status.cancelled.bg} styles={styles} />
+        <StatCard label="Próximas" value={specialist.sessionStats.upcoming} icon="time-outline" color={theme.status.pending.text} bgColor={theme.status.pending.bg} styles={styles} />
       </View>
       <View style={styles.ratingCard}>
         <View style={styles.ratingLeft}>
@@ -374,7 +512,7 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
                 key={star}
                 name={star <= Math.round(specialist.rating) ? 'star' : 'star-outline'}
                 size={16}
-                color={heraLanding.starRating}
+                color={theme.starRating}
               />
             ))}
           </View>
@@ -392,48 +530,41 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
       <Text style={styles.sectionTitle}>Verificación</Text>
       <View style={styles.sectionCard}>
         <View style={styles.verificationHeader}>
-          <View style={[styles.verificationStatusBig, { backgroundColor: vBadge.bg }]}>
-            <Ionicons name={vBadge.icon} size={24} color={vBadge.text} />
-            <Text style={[styles.verificationStatusText, { color: vBadge.text }]}>{vBadge.label}</Text>
-          </View>
+          <StatusBadge tone={verificationBadge} styles={styles} large />
         </View>
-        {specialist.colegiadoNumber && (
+        {specialist.colegiadoNumber ? (
           <View style={styles.colegiadoBox}>
-            <Text style={styles.colegiadoLabel}>N° Colegiado</Text>
+            <Text style={styles.colegiadoLabel}>N.º colegiado</Text>
             <Text style={styles.colegiadoValue}>{specialist.colegiadoNumber}</Text>
           </View>
-        )}
+        ) : null}
         <View style={styles.timelineColumn}>
-          <TimelineRow icon="mail-outline" label="Email" value={specialist.user.emailVerified === true ? 'Verificado' : 'No verificado'} color={specialist.user.emailVerified === true ? heraLanding.success : heraLanding.status.cancelled.text} />
-          <TimelineRow icon="paper-plane-outline" label="Enviado" value={formatDateShort(specialist.verificationSubmittedAt)} />
-          <TimelineRow icon="checkmark-done-outline" label="Resuelto" value={formatDateShort(specialist.verificationResolvedAt)} />
+          <TimelineRow
+            icon="mail-outline"
+            label="Email"
+            value={specialist.user.emailVerified === true ? 'Verificado' : 'No verificado'}
+            color={specialist.user.emailVerified === true ? theme.success : theme.status.cancelled.text}
+            styles={styles}
+            theme={theme}
+          />
+          <TimelineRow icon="paper-plane-outline" label="Enviado" value={formatDate(specialist.verificationSubmittedAt, false)} styles={styles} theme={theme} />
+          <TimelineRow icon="checkmark-done-outline" label="Resuelto" value={formatDate(specialist.verificationResolvedAt, false)} styles={styles} theme={theme} />
         </View>
-        {specialist.dniPhotoUrl && (
-          <TouchableOpacity style={styles.viewPhotoButton} onPress={() => setShowDniModal(true)}>
-            <Ionicons name="image-outline" size={18} color={heraLanding.primary} />
+        {specialist.dniPhotoUrl ? (
+          <AnimatedPressable style={styles.viewPhotoButton} onPress={() => setShowDniModal(true)} pressScale={0.98}>
+            <Ionicons name="image-outline" size={18} color={theme.primary} />
             <Text style={styles.viewPhotoButtonText}>Ver carnet de colegiado</Text>
-            <Ionicons name="chevron-forward" size={16} color={heraLanding.primary} />
-          </TouchableOpacity>
-        )}
+            <Ionicons name="chevron-forward" size={16} color={theme.primary} />
+          </AnimatedPressable>
+        ) : null}
 
         <View style={styles.credentialReviewBox}>
           <Text style={styles.credentialReviewTitle}>Documentación privada</Text>
-
           <View style={styles.insuranceReviewSummary}>
             <Text style={styles.insuranceReviewSummaryLabel}>Cobertura presencial</Text>
-            <View
-              style={[
-                styles.insuranceReviewBadge,
-                { backgroundColor: getInsuranceStatusBadge(specialist.insuranceReviewStatus).bg },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.insuranceReviewBadgeText,
-                  { color: getInsuranceStatusBadge(specialist.insuranceReviewStatus).color },
-                ]}
-              >
-                {getInsuranceStatusBadge(specialist.insuranceReviewStatus).label}
+            <View style={[styles.insuranceReviewBadge, { backgroundColor: insuranceBadge.bg, borderColor: insuranceBadge.border }]}>
+              <Text style={[styles.insuranceReviewBadgeText, { color: insuranceBadge.text }]}>
+                {insuranceBadge.label}
               </Text>
             </View>
           </View>
@@ -456,32 +587,17 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
             </View>
             {specialist.insuranceUploaded ? (
               <View style={styles.credentialReviewActions}>
-                <TouchableOpacity
-                  style={styles.credentialReviewAction}
+                <IconButton
+                  icon="eye-outline"
+                  label="Abrir póliza"
+                  loading={openingDocumentKey === 'insurance'}
                   onPress={() => void handleOpenInsurance()}
-                  activeOpacity={0.7}
-                >
-                  {openingDocumentKey === 'insurance' ? (
-                    <ActivityIndicator size="small" color={heraLanding.primary} />
-                  ) : (
-                    <Ionicons name="eye-outline" size={18} color={heraLanding.primary} />
-                  )}
-                </TouchableOpacity>
+                  styles={styles}
+                  theme={theme}
+                />
                 <View style={styles.credentialReviewDecisionRow}>
-                  <TouchableOpacity
-                    style={[styles.insuranceDecisionButton, styles.insuranceDecisionReject]}
-                    onPress={() => void handleReviewInsurance('REJECTED')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.insuranceDecisionRejectText}>Rechazar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.insuranceDecisionButton, styles.insuranceDecisionApprove]}
-                    onPress={() => void handleReviewInsurance('APPROVED')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.insuranceDecisionApproveText}>Aprobar</Text>
-                  </TouchableOpacity>
+                  <PillAction label="Rechazar" tone="danger" onPress={() => void handleReviewInsurance('REJECTED')} styles={styles} theme={theme} />
+                  <PillAction label="Aprobar" tone="success" onPress={() => void handleReviewInsurance('APPROVED')} styles={styles} theme={theme} />
                 </View>
               </View>
             ) : null}
@@ -495,27 +611,22 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
                     <Text style={styles.credentialReviewLabel}>{certificate.name}</Text>
                     <Text style={styles.credentialReviewMeta}>{certificate.issuer}</Text>
                     {certificate.validUntil ? (
-                      <Text style={styles.credentialReviewMeta}>
-                        Válido hasta: {certificate.validUntil}
-                      </Text>
+                      <Text style={styles.credentialReviewMeta}>Válido hasta: {certificate.validUntil}</Text>
                     ) : null}
                     {certificate.documentUploadedAt ? (
                       <Text style={styles.credentialReviewMeta}>
-                        Subido: {formatDateShort(certificate.documentUploadedAt)}
+                        Subido: {formatDate(certificate.documentUploadedAt, false)}
                       </Text>
                     ) : null}
                   </View>
-                  <TouchableOpacity
-                    style={styles.credentialReviewAction}
+                  <IconButton
+                    icon="eye-outline"
+                    label="Abrir certificado"
+                    loading={openingDocumentKey === `certificate:${certificate.id}`}
                     onPress={() => void handleOpenCertificate(certificate.id, certificate.mimeType)}
-                    activeOpacity={0.7}
-                  >
-                    {openingDocumentKey === `certificate:${certificate.id}` ? (
-                      <ActivityIndicator size="small" color={heraLanding.primary} />
-                    ) : (
-                      <Ionicons name="eye-outline" size={18} color={heraLanding.primary} />
-                    )}
-                  </TouchableOpacity>
+                    styles={styles}
+                    theme={theme}
+                  />
                 </View>
               ))}
             </View>
@@ -529,45 +640,35 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
 
   const renderActions = () => (
     <>
-      <Text style={styles.sectionTitle}>Acciones de Cuenta</Text>
+      <Text style={styles.sectionTitle}>Acciones de cuenta</Text>
       <View style={styles.sectionCard}>
-        {specialist.user.accountStatus === 'ACTIVE' && (
-          <TouchableOpacity style={styles.actionButtonWarning} onPress={() => setShowSuspendModal(true)} activeOpacity={0.7}>
-            <Ionicons name="pause-circle-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.actionButtonWhiteText}>Suspender cuenta</Text>
-          </TouchableOpacity>
-        )}
-        {specialist.user.accountStatus === 'SUSPENDED' && (
+        {specialist.user.accountStatus === 'ACTIVE' ? (
+          <AccountAction icon="pause-circle-outline" label="Suspender cuenta" tone="warning" onPress={() => setShowSuspendModal(true)} styles={styles} theme={theme} />
+        ) : null}
+        {specialist.user.accountStatus === 'SUSPENDED' ? (
           <>
             <View style={styles.suspensionBox}>
               <View style={styles.suspensionBoxHeader}>
-                <Ionicons name="information-circle" size={18} color="#F57C00" />
+                <Ionicons name="information-circle" size={18} color={theme.warning} />
                 <Text style={styles.suspensionBoxTitle}>Cuenta suspendida</Text>
               </View>
               <Text style={styles.suspensionBoxReason}>
                 {specialist.user.suspensionReason || 'Sin razón registrada'}
               </Text>
             </View>
-            <TouchableOpacity style={styles.actionButtonSuccess} onPress={() => setShowReactivateModal(true)} activeOpacity={0.7}>
-              <Ionicons name="play-circle-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.actionButtonWhiteText}>Reactivar cuenta</Text>
-            </TouchableOpacity>
+            <AccountAction icon="play-circle-outline" label="Reactivar cuenta" tone="success" onPress={() => setShowReactivateModal(true)} styles={styles} theme={theme} />
           </>
-        )}
-        {specialist.user.accountStatus !== 'DELETED' && (
+        ) : null}
+        {specialist.user.accountStatus !== 'DELETED' ? (
           <View style={styles.dangerZone}>
             <View style={styles.dangerDivider} />
-            <TouchableOpacity style={styles.actionButtonDanger} onPress={() => setShowDeleteStep1(true)} activeOpacity={0.7}>
-              <Ionicons name="trash-outline" size={18} color={heraLanding.status.cancelled.text} />
-              <Text style={styles.actionButtonDangerText}>Eliminar cuenta permanentemente</Text>
-            </TouchableOpacity>
+            <AccountAction icon="trash-outline" label="Bloquear cuenta legalmente" tone="danger" onPress={() => void requestDeleteFlow()} styles={styles} theme={theme} />
           </View>
-        )}
-        {specialist.user.accountStatus === 'DELETED' && (
+        ) : (
           <View style={styles.deletedNotice}>
-            <Ionicons name="warning-outline" size={20} color={heraLanding.status.cancelled.text} />
+            <Ionicons name="warning-outline" size={20} color={theme.status.cancelled.text} />
             <Text style={styles.deletedNoticeText}>
-              Esta cuenta fue eliminada el {formatDate(specialist.user.deletedAt)}
+              Esta cuenta fue bloqueada el {formatDate(specialist.user.deletedAt)}. Solo deben conservarse datos sujetos a obligación legal, fiscal o reclamaciones.
             </Text>
           </View>
         )}
@@ -575,77 +676,60 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
     </>
   );
 
-  // ============================================================
-  // RENDER
-  // ============================================================
-
   return (
     <View style={styles.container}>
-      {/* Processing overlay */}
-      {processing && (
+      {processing ? (
         <View style={styles.overlay}>
           <View style={styles.overlayCard}>
-            <ActivityIndicator size="large" color={heraLanding.primary} />
+            <ActivityIndicator size="large" color={theme.primary} />
             <Text style={styles.overlayText}>{processingLabel}</Text>
           </View>
         </View>
-      )}
+      ) : null}
 
-      {/* Success toast */}
-      {successMessage && (
-        <View style={[styles.successToast, isWide && { maxWidth: 500 }]}>
-          <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+      {successMessage ? (
+        <View style={styles.successToast}>
+          <Ionicons name="checkmark-circle" size={20} color={theme.textOnPrimary} />
           <Text style={styles.successToastText}>{successMessage}</Text>
         </View>
-      )}
+      ) : null}
 
-      {/* Error banner */}
-      {error && specialist && (
-        <TouchableOpacity style={styles.errorBanner} onPress={() => setError(null)}>
-          <Ionicons name="alert-circle" size={18} color={heraLanding.status.cancelled.text} />
+      {error && specialist ? (
+        <AnimatedPressable style={styles.errorBanner} onPress={() => setError(null)} pressScale={0.99}>
+          <Ionicons name="alert-circle" size={18} color={theme.status.cancelled.text} />
           <Text style={styles.errorBannerText}>{error}</Text>
-          <Ionicons name="close" size={16} color={heraLanding.status.cancelled.text} />
-        </TouchableOpacity>
-      )}
+          <Ionicons name="close" size={16} color={theme.status.cancelled.text} />
+        </AnimatedPressable>
+      ) : null}
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[
-          styles.contentContainer,
-          isWide && { maxWidth: 1100, alignSelf: 'center' as const, width: '100%' as any },
-          isTwoCol && !isWide && { maxWidth: 900, alignSelf: 'center' as const, width: '100%' as any },
-        ]}
+        contentContainerStyle={styles.contentContainer}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={heraLanding.primary}
-            colors={[heraLanding.primary]}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
           />
         }
       >
-        {/* Back header (always full width) */}
-        <TouchableOpacity
+        <AnimatedPressable
           style={styles.backHeader}
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          pressScale={0.98}
         >
-          <Ionicons name="arrow-back" size={20} color={heraLanding.primary} />
-          <Text style={styles.backHeaderText}>Gestión de Especialistas</Text>
-        </TouchableOpacity>
+          <Ionicons name="arrow-back" size={20} color={theme.primary} />
+          <Text style={styles.backHeaderText}>Gestión de especialistas</Text>
+        </AnimatedPressable>
 
         {isTwoCol ? (
-          /* ======================================================== */
-          /* TWO-COLUMN LAYOUT (tablet/desktop)                       */
-          /* ======================================================== */
           <View style={styles.twoColWrapper}>
-            {/* LEFT COLUMN - 60% */}
             <View style={styles.leftColumn}>
               {renderHeaderCard()}
               {renderProfessionalInfo()}
             </View>
-
-            {/* RIGHT COLUMN - 40% */}
             <View style={styles.rightColumn}>
               {renderStats()}
               {renderVerification()}
@@ -653,9 +737,6 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
             </View>
           </View>
         ) : (
-          /* ======================================================== */
-          /* SINGLE-COLUMN LAYOUT (mobile)                            */
-          /* ======================================================== */
           <>
             {renderHeaderCard()}
             {renderStats()}
@@ -664,178 +745,76 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
             {renderActions()}
           </>
         )}
-
-        <View style={{ height: spacing.xxxl }} />
       </ScrollView>
 
-      {/* ============================================================ */}
-      {/* MODALS (unchanged)                                           */}
-      {/* ============================================================ */}
+      <SuspendModal
+        visible={showSuspendModal}
+        specialistName={specialist.user.name}
+        suspendReason={suspendReason}
+        setSuspendReason={setSuspendReason}
+        onCancel={() => {
+          setShowSuspendModal(false);
+          setSuspendReason('');
+        }}
+        onConfirm={handleSuspend}
+        styles={styles}
+        theme={theme}
+      />
 
-      {/* SUSPEND MODAL */}
-      <Modal visible={showSuspendModal} transparent animationType="fade" onRequestClose={() => setShowSuspendModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalIconRow}>
-              <View style={[styles.modalIconCircle, { backgroundColor: '#FFF3E0' }]}>
-                <Ionicons name="pause-circle" size={28} color="#F57C00" />
-              </View>
-            </View>
-            <Text style={styles.modalTitle}>Suspender cuenta de {specialist.user.name}</Text>
-            <Text style={styles.modalDescription}>
-              Su perfil dejará de ser visible y no podrá acceder a la plataforma hasta que se reactive.
-            </Text>
-            <Text style={styles.modalLabel}>Motivo de suspensión (mínimo 10 caracteres)</Text>
-            <TextInput
-              style={styles.modalInputMultiline}
-              placeholder="Describe la razón de la suspensión..."
-              placeholderTextColor={heraLanding.textMuted}
-              value={suspendReason}
-              onChangeText={setSuspendReason}
-              multiline
-              numberOfLines={3}
-              maxLength={500}
-            />
-            <Text style={styles.modalCharCount}>
-              {suspendReason.length}/500
-              {suspendReason.length > 0 && suspendReason.length < 10 && (
-                <Text style={{ color: heraLanding.warning }}> — mínimo 10 caracteres</Text>
-              )}
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalButtonCancel} onPress={() => { setShowSuspendModal(false); setSuspendReason(''); }}>
-                <Text style={styles.modalButtonCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButtonWarning, suspendReason.length < 10 && styles.modalButtonDisabled]}
-                onPress={handleSuspend}
-                disabled={suspendReason.length < 10}
-              >
-                <Text style={styles.modalButtonWhiteText}>Confirmar suspensión</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <ConfirmModal
+        visible={showReactivateModal}
+        icon="play-circle"
+        title={`Reactivar cuenta de ${specialist.user.name}`}
+        description="Su perfil volverá a ser visible y podrá acceder a la plataforma con normalidad."
+        contextLabel={specialist.user.suspensionReason ? 'Razón de suspensión:' : undefined}
+        contextText={specialist.user.suspensionReason ?? undefined}
+        confirmLabel="Reactivar"
+        tone="success"
+        onCancel={() => setShowReactivateModal(false)}
+        onConfirm={handleReactivate}
+        styles={styles}
+        theme={theme}
+      />
 
-      {/* REACTIVATE MODAL */}
-      <Modal visible={showReactivateModal} transparent animationType="fade" onRequestClose={() => setShowReactivateModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalIconRow}>
-              <View style={[styles.modalIconCircle, { backgroundColor: heraLanding.successLight }]}>
-                <Ionicons name="play-circle" size={28} color={heraLanding.success} />
-              </View>
-            </View>
-            <Text style={styles.modalTitle}>Reactivar cuenta de {specialist.user.name}</Text>
-            {specialist.user.suspensionReason && (
-              <View style={styles.modalContextBox}>
-                <Text style={styles.modalContextLabel}>Razón de suspensión:</Text>
-                <Text style={styles.modalContextText}>{specialist.user.suspensionReason}</Text>
-              </View>
-            )}
-            <Text style={styles.modalDescription}>
-              Su perfil volverá a ser visible y podrá acceder a la plataforma con normalidad.
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalButtonCancel} onPress={() => setShowReactivateModal(false)}>
-                <Text style={styles.modalButtonCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalButtonSuccess} onPress={handleReactivate}>
-                <Text style={styles.modalButtonWhiteText}>Reactivar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <DeleteStepOneModal
+        visible={showDeleteStep1}
+        specialistName={specialist.user.name}
+        onCancel={() => setShowDeleteStep1(false)}
+        onContinue={() => {
+          setShowDeleteStep1(false);
+          setShowDeleteStep2(true);
+        }}
+        styles={styles}
+        theme={theme}
+      />
 
-      {/* DELETE STEP 1 MODAL */}
-      <Modal visible={showDeleteStep1} transparent animationType="fade" onRequestClose={() => setShowDeleteStep1(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalIconRow}>
-              <View style={[styles.modalIconCircle, { backgroundColor: heraLanding.status.cancelled.bg }]}>
-                <Ionicons name="warning" size={28} color={heraLanding.status.cancelled.text} />
-              </View>
-            </View>
-            <Text style={[styles.modalTitle, { textAlign: 'center' }]}>Eliminar cuenta de {specialist.user.name}</Text>
-            <View style={styles.dangerBanner}>
-              <Ionicons name="alert-circle" size={16} color={heraLanding.status.cancelled.text} />
-              <Text style={styles.dangerBannerText}>Esta acción NO se puede deshacer</Text>
-            </View>
-            <Text style={styles.modalDescription}>Consecuencias:</Text>
-            <View style={styles.consequenceList}>
-              <ConsequenceItem text="Se cancelarán todas sus sesiones futuras" />
-              <ConsequenceItem text="Los clientes afectados serán notificados" />
-              <ConsequenceItem text="Su perfil dejará de ser visible" />
-              <ConsequenceItem text="La cuenta se marcará como eliminada" />
-            </View>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalButtonCancel} onPress={() => setShowDeleteStep1(false)}>
-                <Text style={styles.modalButtonCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalButtonDanger} onPress={() => { setShowDeleteStep1(false); setShowDeleteStep2(true); }}>
-                <Text style={styles.modalButtonWhiteText}>Continuar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <DeleteStepTwoModal
+        visible={showDeleteStep2}
+        deleteConfirmText={deleteConfirmText}
+        setDeleteConfirmText={setDeleteConfirmText}
+        onCancel={() => {
+          setShowDeleteStep2(false);
+          setDeleteConfirmText('');
+        }}
+        onConfirm={handleDelete}
+        styles={styles}
+        theme={theme}
+      />
 
-      {/* DELETE STEP 2 MODAL */}
-      <Modal visible={showDeleteStep2} transparent animationType="fade" onRequestClose={() => { setShowDeleteStep2(false); setDeleteConfirmText(''); }}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalIconRow}>
-              <View style={[styles.modalIconCircle, { backgroundColor: heraLanding.status.cancelled.bg }]}>
-                <Ionicons name="trash" size={28} color={heraLanding.status.cancelled.text} />
-              </View>
-            </View>
-            <Text style={[styles.modalTitle, { textAlign: 'center' }]}>Confirmación final</Text>
-            <Text style={styles.modalDescription}>
-              Escribe <Text style={{ fontWeight: typography.fontWeights.bold }}>ELIMINAR</Text> para confirmar la eliminación permanente de esta cuenta.
-            </Text>
-            <TextInput
-              style={styles.modalInputSingle}
-              placeholder="Escribe ELIMINAR para confirmar"
-              placeholderTextColor={heraLanding.textMuted}
-              value={deleteConfirmText}
-              onChangeText={setDeleteConfirmText}
-              autoCapitalize="characters"
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalButtonCancel} onPress={() => { setShowDeleteStep2(false); setDeleteConfirmText(''); }}>
-                <Text style={styles.modalButtonCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButtonDanger, deleteConfirmText !== 'ELIMINAR' && styles.modalButtonDisabled]}
-                onPress={handleDelete}
-                disabled={deleteConfirmText !== 'ELIMINAR'}
-              >
-                <Text style={styles.modalButtonWhiteText}>Eliminar permanentemente</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* DNI PHOTO - fullscreen dark overlay */}
-      {showDniModal && specialist.dniPhotoUrl && (
-        <Pressable
-          style={styles.dniModalOverlay}
-          onPress={() => setShowDniModal(false)}
-        >
+      {showDniModal && specialist.dniPhotoUrl ? (
+        <Pressable style={styles.dniModalOverlay} onPress={() => setShowDniModal(false)}>
           <View style={styles.dniModalTopBar}>
-            <Text style={styles.dniModalTitle}>Carnet de Colegiado</Text>
-            <TouchableOpacity
+            <Text style={styles.dniModalTitle}>Carnet de colegiado</Text>
+            <AnimatedPressable
               onPress={() => setShowDniModal(false)}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={styles.dniModalCloseButton}
+              pressScale={0.95}
             >
               <Ionicons name="close" size={28} color="#FFFFFF" />
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
-          <Pressable onPress={(e) => e.stopPropagation()}>
+          <Pressable onPress={(event) => event.stopPropagation()}>
             <Image
               source={{ uri: specialist.dniPhotoUrl }}
               style={{
@@ -846,16 +825,24 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
             />
           </Pressable>
         </Pressable>
-      )}
+      ) : null}
     </View>
   );
 }
 
-// ============================================================================
-// SUB-COMPONENTS
-// ============================================================================
-
-function SpecialistAvatar({ name, avatarUrl, size }: { name: string; avatarUrl: string | null; size: number }) {
+function SpecialistAvatar({
+  name,
+  avatarUrl,
+  size,
+  styles,
+  theme,
+}: {
+  name: string;
+  avatarUrl: string | null;
+  size: number;
+  styles: DetailStyles;
+  theme: Theme;
+}) {
   const [imageError, setImageError] = useState(false);
 
   if (avatarUrl && !imageError) {
@@ -867,7 +854,7 @@ function SpecialistAvatar({ name, avatarUrl, size }: { name: string; avatarUrl: 
           height: size,
           borderRadius: size / 2,
           borderWidth: 3,
-          borderColor: heraLanding.primaryMuted,
+          borderColor: theme.primaryAlpha20,
         }}
         onError={() => setImageError(true)}
       />
@@ -876,18 +863,25 @@ function SpecialistAvatar({ name, avatarUrl, size }: { name: string; avatarUrl: 
 
   return (
     <View style={[styles.avatarFallback, { width: size, height: size, borderRadius: size / 2 }]}>
-      <Text style={[styles.avatarFallbackText, { fontSize: size * 0.38 }]}>
-        {name.charAt(0).toUpperCase()}
-      </Text>
+      <Text style={[styles.avatarFallbackText, { fontSize: size * 0.34 }]}>{getInitials(name)}</Text>
     </View>
   );
 }
 
-function InfoCard({ icon, label, value }: { icon: string; label: string; value: string }) {
+function StatusBadge({ tone, styles, large = false }: { tone: BadgeTone; styles: DetailStyles; large?: boolean }) {
+  return (
+    <View style={[styles.badge, large && styles.badgeLarge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
+      <Ionicons name={tone.icon} size={large ? 20 : 14} color={tone.text} />
+      <Text style={[styles.badgeText, large && styles.badgeTextLarge, { color: tone.text }]}>{tone.label}</Text>
+    </View>
+  );
+}
+
+function InfoCard({ icon, label, value, styles, theme }: { icon: IconName; label: string; value: string; styles: DetailStyles; theme: Theme }) {
   return (
     <View style={styles.infoCard}>
       <View style={styles.infoCardIcon}>
-        <Ionicons name={icon as any} size={20} color={heraLanding.primary} />
+        <Ionicons name={icon} size={20} color={theme.primary} />
       </View>
       <Text style={styles.infoCardLabel}>{label}</Text>
       <Text style={styles.infoCardValue} numberOfLines={2}>{value}</Text>
@@ -895,11 +889,25 @@ function InfoCard({ icon, label, value }: { icon: string; label: string; value: 
   );
 }
 
-function StatCard({ label, value, icon, color, bgColor }: { label: string; value: number; icon: string; color: string; bgColor: string }) {
+function StatCard({
+  label,
+  value,
+  icon,
+  color,
+  bgColor,
+  styles,
+}: {
+  label: string;
+  value: number;
+  icon: IconName;
+  color: string;
+  bgColor: string;
+  styles: DetailStyles;
+}) {
   return (
     <View style={styles.statCard}>
       <View style={[styles.statIconCircle, { backgroundColor: bgColor }]}>
-        <Ionicons name={icon as any} size={22} color={color} />
+        <Ionicons name={icon} size={22} color={color} />
       </View>
       <Text style={[styles.statValue, { color }]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
@@ -907,38 +915,386 @@ function StatCard({ label, value, icon, color, bgColor }: { label: string; value
   );
 }
 
-function TimelineRow({ icon, label, value, color }: { icon: string; label: string; value: string; color?: string }) {
+function TimelineRow({
+  icon,
+  label,
+  value,
+  color,
+  styles,
+  theme,
+}: {
+  icon: IconName;
+  label: string;
+  value: string;
+  color?: string;
+  styles: DetailStyles;
+  theme: Theme;
+}) {
   return (
     <View style={styles.timelineRowItem}>
-      <Ionicons name={icon as any} size={16} color={color || heraLanding.textSecondary} />
+      <Ionicons name={icon} size={16} color={color || theme.textSecondary} />
       <Text style={styles.timelineRowLabel}>{label}</Text>
       <Text style={[styles.timelineRowValue, color ? { color } : undefined]}>{value}</Text>
     </View>
   );
 }
 
-function ConsequenceItem({ text }: { text: string }) {
+function IconButton({
+  icon,
+  label,
+  loading,
+  onPress,
+  styles,
+  theme,
+}: {
+  icon: IconName;
+  label: string;
+  loading?: boolean;
+  onPress: () => void;
+  styles: DetailStyles;
+  theme: Theme;
+}) {
   return (
-    <View style={styles.consequenceItem}>
-      <Ionicons name="remove-circle" size={16} color={heraLanding.status.cancelled.text} />
-      <Text style={styles.consequenceText}>{text}</Text>
+    <AnimatedPressable style={styles.iconAction} onPress={onPress} accessibilityLabel={label} pressScale={0.95}>
+      {loading ? (
+        <ActivityIndicator size="small" color={theme.primary} />
+      ) : (
+        <Ionicons name={icon} size={18} color={theme.primary} />
+      )}
+    </AnimatedPressable>
+  );
+}
+
+function PillAction({
+  label,
+  tone,
+  onPress,
+  styles,
+  theme,
+}: {
+  label: string;
+  tone: 'success' | 'danger';
+  onPress: () => void;
+  styles: DetailStyles;
+  theme: Theme;
+}) {
+  const isDanger = tone === 'danger';
+  return (
+    <AnimatedPressable
+      style={[styles.pillAction, isDanger ? styles.pillActionDanger : styles.pillActionSuccess]}
+      onPress={onPress}
+      pressScale={0.97}
+    >
+      <Text style={[styles.pillActionText, { color: isDanger ? theme.status.cancelled.text : theme.status.confirmed.text }]}>
+        {label}
+      </Text>
+    </AnimatedPressable>
+  );
+}
+
+function AccountAction({
+  icon,
+  label,
+  tone,
+  onPress,
+  styles,
+  theme,
+}: {
+  icon: IconName;
+  label: string;
+  tone: 'warning' | 'success' | 'danger';
+  onPress: () => void;
+  styles: DetailStyles;
+  theme: Theme;
+}) {
+  const isDanger = tone === 'danger';
+  const backgroundColor = tone === 'success' ? theme.success : tone === 'warning' ? theme.warningAmber : 'transparent';
+  const borderColor = isDanger ? theme.status.cancelled.border : backgroundColor;
+  const textColor = isDanger ? theme.status.cancelled.text : theme.textOnPrimary;
+
+  return (
+    <AnimatedPressable
+      style={[styles.accountAction, { backgroundColor, borderColor }]}
+      onPress={onPress}
+      pressScale={0.98}
+    >
+      <Ionicons name={icon} size={18} color={textColor} />
+      <Text style={[styles.accountActionText, { color: textColor }]}>{label}</Text>
+    </AnimatedPressable>
+  );
+}
+
+function StateIcon({ icon, styles, color }: { icon: IconName; styles: DetailStyles; color: string }) {
+  return (
+    <View style={styles.stateIconContainer}>
+      <Ionicons name={icon} size={42} color={color} />
     </View>
   );
 }
 
-// ============================================================================
-// STYLES
-// ============================================================================
+function ModalFrame({
+  visible,
+  children,
+  onRequestClose,
+  styles,
+}: {
+  visible: boolean;
+  children: React.ReactNode;
+  onRequestClose: () => void;
+  styles: DetailStyles;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onRequestClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>{children}</View>
+      </View>
+    </Modal>
+  );
+}
 
-const styles = StyleSheet.create({
+function SuspendModal({
+  visible,
+  specialistName,
+  suspendReason,
+  setSuspendReason,
+  onCancel,
+  onConfirm,
+  styles,
+  theme,
+}: {
+  visible: boolean;
+  specialistName: string;
+  suspendReason: string;
+  setSuspendReason: (value: string) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+  styles: DetailStyles;
+  theme: Theme;
+}) {
+  const isValid = suspendReason.trim().length >= 10;
+  return (
+    <ModalFrame visible={visible} onRequestClose={onCancel} styles={styles}>
+      <View style={styles.modalIconRow}>
+        <View style={[styles.modalIconCircle, { backgroundColor: theme.warningBg }]}>
+          <Ionicons name="pause-circle" size={28} color={theme.warning} />
+        </View>
+      </View>
+      <Text style={styles.modalTitle}>Suspender cuenta de {specialistName}</Text>
+      <Text style={styles.modalDescription}>
+        Su perfil dejará de ser visible y no podrá acceder a la plataforma hasta que se reactive.
+      </Text>
+      <Text style={styles.modalLabel}>Motivo de suspensión (mínimo 10 caracteres)</Text>
+      <TextInput
+        style={styles.modalInputMultiline}
+        placeholder="Describe la razón de la suspensión..."
+        placeholderTextColor={theme.textMuted}
+        value={suspendReason}
+        onChangeText={setSuspendReason}
+        multiline
+        numberOfLines={3}
+        maxLength={500}
+      />
+      <Text style={styles.modalCharCount}>
+        {suspendReason.length}/500
+        {suspendReason.length > 0 && !isValid ? (
+          <Text style={{ color: theme.warning }}> - mínimo 10 caracteres</Text>
+        ) : null}
+      </Text>
+      <View style={styles.modalButtons}>
+        <ModalButton label="Cancelar" tone="neutral" onPress={onCancel} styles={styles} theme={theme} />
+        <ModalButton label="Confirmar suspensión" tone="warning" onPress={onConfirm} disabled={!isValid} styles={styles} theme={theme} />
+      </View>
+    </ModalFrame>
+  );
+}
+
+function ConfirmModal({
+  visible,
+  icon,
+  title,
+  description,
+  contextLabel,
+  contextText,
+  confirmLabel,
+  tone,
+  onCancel,
+  onConfirm,
+  styles,
+  theme,
+}: {
+  visible: boolean;
+  icon: IconName;
+  title: string;
+  description: string;
+  contextLabel?: string;
+  contextText?: string;
+  confirmLabel: string;
+  tone: 'success' | 'warning' | 'danger';
+  onCancel: () => void;
+  onConfirm: () => void;
+  styles: DetailStyles;
+  theme: Theme;
+}) {
+  const color = tone === 'success' ? theme.success : tone === 'warning' ? theme.warning : theme.status.cancelled.text;
+  const bg = tone === 'success' ? theme.successBg : tone === 'warning' ? theme.warningBg : theme.status.cancelled.bg;
+
+  return (
+    <ModalFrame visible={visible} onRequestClose={onCancel} styles={styles}>
+      <View style={styles.modalIconRow}>
+        <View style={[styles.modalIconCircle, { backgroundColor: bg }]}>
+          <Ionicons name={icon} size={28} color={color} />
+        </View>
+      </View>
+      <Text style={styles.modalTitle}>{title}</Text>
+      {contextLabel && contextText ? (
+        <View style={styles.modalContextBox}>
+          <Text style={styles.modalContextLabel}>{contextLabel}</Text>
+          <Text style={styles.modalContextText}>{contextText}</Text>
+        </View>
+      ) : null}
+      <Text style={styles.modalDescription}>{description}</Text>
+      <View style={styles.modalButtons}>
+        <ModalButton label="Cancelar" tone="neutral" onPress={onCancel} styles={styles} theme={theme} />
+        <ModalButton label={confirmLabel} tone={tone} onPress={onConfirm} styles={styles} theme={theme} />
+      </View>
+    </ModalFrame>
+  );
+}
+
+function DeleteStepOneModal({
+  visible,
+  specialistName,
+  onCancel,
+  onContinue,
+  styles,
+  theme,
+}: {
+  visible: boolean;
+  specialistName: string;
+  onCancel: () => void;
+  onContinue: () => void;
+  styles: DetailStyles;
+  theme: Theme;
+}) {
+  return (
+    <ConfirmModal
+      visible={visible}
+      icon="warning"
+      title={`Bloquear cuenta de ${specialistName}`}
+      description="Consecuencias: se cancelarán todas sus sesiones futuras, los clientes afectados serán notificados, su perfil dejará de ser visible, el acceso quedará revocado y los datos necesarios quedarán bloqueados por obligación legal."
+      confirmLabel="Continuar"
+      tone="danger"
+      onCancel={onCancel}
+      onConfirm={onContinue}
+      styles={styles}
+      theme={theme}
+    />
+  );
+}
+
+function DeleteStepTwoModal({
+  visible,
+  deleteConfirmText,
+  setDeleteConfirmText,
+  onCancel,
+  onConfirm,
+  styles,
+  theme,
+}: {
+  visible: boolean;
+  deleteConfirmText: string;
+  setDeleteConfirmText: (value: string) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+  styles: DetailStyles;
+  theme: Theme;
+}) {
+  return (
+    <ModalFrame visible={visible} onRequestClose={onCancel} styles={styles}>
+      <View style={styles.modalIconRow}>
+        <View style={[styles.modalIconCircle, { backgroundColor: theme.status.cancelled.bg }]}>
+          <Ionicons name="trash" size={28} color={theme.status.cancelled.text} />
+        </View>
+      </View>
+      <Text style={styles.modalTitle}>Confirmación final</Text>
+      <Text style={styles.modalDescription}>
+        Escribe <Text style={styles.modalStrong}>BLOQUEAR</Text> para confirmar el bloqueo legal de esta cuenta.
+      </Text>
+      <TextInput
+        style={styles.modalInputSingle}
+        placeholder="Escribe BLOQUEAR para confirmar"
+        placeholderTextColor={theme.textMuted}
+        value={deleteConfirmText}
+        onChangeText={setDeleteConfirmText}
+        autoCapitalize="characters"
+      />
+      <View style={styles.modalButtons}>
+        <ModalButton label="Cancelar" tone="neutral" onPress={onCancel} styles={styles} theme={theme} />
+        <ModalButton
+          label="Bloquear legalmente"
+          tone="danger"
+          onPress={onConfirm}
+          disabled={deleteConfirmText !== 'BLOQUEAR'}
+          styles={styles}
+          theme={theme}
+        />
+      </View>
+    </ModalFrame>
+  );
+}
+
+function ModalButton({
+  label,
+  tone,
+  onPress,
+  disabled = false,
+  styles,
+  theme,
+}: {
+  label: string;
+  tone: 'neutral' | 'success' | 'warning' | 'danger';
+  onPress: () => void;
+  disabled?: boolean;
+  styles: DetailStyles;
+  theme: Theme;
+}) {
+  const backgroundColor =
+    tone === 'success'
+      ? theme.success
+      : tone === 'warning'
+        ? theme.warningAmber
+        : tone === 'danger'
+          ? theme.status.cancelled.text
+          : 'transparent';
+  const borderColor = tone === 'neutral' ? theme.border : backgroundColor;
+  const color = tone === 'neutral' ? theme.textSecondary : theme.textOnPrimary;
+
+  return (
+    <AnimatedPressable
+      style={[styles.modalButton, { backgroundColor, borderColor }, disabled && styles.disabled]}
+      onPress={onPress}
+      disabled={disabled}
+      pressScale={0.98}
+    >
+      <Text style={[styles.modalButtonText, { color }]}>{label}</Text>
+    </AnimatedPressable>
+  );
+}
+
+const cardShadow = (isDark: boolean) => (isDark ? {} : shadows.sm);
+
+const createStyles = (theme: Theme, isDark: boolean, isTwoCol: boolean, isWide: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: heraLanding.background,
+    backgroundColor: theme.bg,
   },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
+    width: '100%',
+    maxWidth: isWide ? 1100 : isTwoCol ? 900 : undefined,
+    alignSelf: 'center',
     padding: spacing.lg,
     paddingBottom: spacing.xxxl * 2,
   },
@@ -946,25 +1302,24 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: heraLanding.background,
+    backgroundColor: theme.bg,
     padding: spacing.xl,
     gap: spacing.md,
   },
+  stateIconContainer: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: theme.primaryAlpha12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   guardText: {
     fontSize: typography.fontSizes.md,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     textAlign: 'center',
-  },
-  retryButton: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm,
-    backgroundColor: heraLanding.primary,
-    borderRadius: borderRadius.lg,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
   },
   backLink: {
     flexDirection: 'row',
@@ -974,69 +1329,63 @@ const styles = StyleSheet.create({
   },
   backLinkText: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.primary,
+    color: theme.primary,
     fontWeight: typography.fontWeights.medium,
   },
-
-  // Back header
   backHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: spacing.xs,
+    minHeight: 44,
     marginBottom: spacing.lg,
     paddingVertical: spacing.xs,
-    minHeight: 44,
   },
   backHeaderText: {
     fontSize: typography.fontSizes.md,
-    color: heraLanding.primary,
-    fontWeight: typography.fontWeights.medium,
+    color: theme.primary,
+    fontWeight: typography.fontWeights.semibold,
   },
-
-  // ============================================================
-  // TWO-COLUMN LAYOUT
-  // ============================================================
   twoColWrapper: {
     flexDirection: 'row',
     gap: spacing.xl,
     alignItems: 'flex-start',
   },
   leftColumn: {
-    flex: 6, // 60%
+    flex: 6,
   },
   rightColumn: {
-    flex: 4, // 40%
+    flex: 4,
   },
-
-  // Processing overlay
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: theme.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 100,
   },
   overlayCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.bgElevated,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
     alignItems: 'center',
     gap: spacing.md,
-    ...shadows.lg,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...cardShadow(isDark),
   },
   overlayText: {
     fontSize: typography.fontSizes.md,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     fontWeight: typography.fontWeights.medium,
   },
-
-  // Success toast
   successToast: {
     position: 'absolute',
     top: spacing.lg,
     left: spacing.lg,
     right: spacing.lg,
-    backgroundColor: heraLanding.success,
+    maxWidth: 500,
+    backgroundColor: theme.success,
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
@@ -1045,70 +1394,66 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     zIndex: 99,
     alignSelf: 'center',
-    ...shadows.md,
+    ...cardShadow(isDark),
   },
   successToastText: {
-    color: '#FFFFFF',
+    color: theme.textOnPrimary,
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.semibold,
     flex: 1,
   },
-
-  // Error banner
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: heraLanding.status.cancelled.bg,
+    backgroundColor: theme.status.cancelled.bg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: heraLanding.status.cancelled.border,
+    borderBottomColor: theme.status.cancelled.border,
   },
   errorBannerText: {
     flex: 1,
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.status.cancelled.text,
+    color: theme.status.cancelled.text,
     fontWeight: typography.fontWeights.medium,
   },
-
-  // ============================================================
-  // HEADER CARD
-  // ============================================================
   headerCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
     alignItems: 'center',
     marginBottom: spacing.xl,
-    ...shadows.md,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...cardShadow(isDark),
   },
   avatarFallback: {
-    backgroundColor: heraLanding.primaryMuted,
+    backgroundColor: theme.primaryAlpha12,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: heraLanding.primaryMuted,
+    borderColor: theme.primaryAlpha20,
   },
   avatarFallbackText: {
     fontWeight: typography.fontWeights.bold,
-    color: heraLanding.primaryDark,
+    color: theme.primary,
   },
   headerName: {
     fontSize: typography.fontSizes.xxl,
     fontWeight: typography.fontWeights.bold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     textAlign: 'center',
     marginTop: spacing.md,
   },
   headerEmail: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     marginTop: spacing.xs,
   },
   headerPhone: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
     marginTop: 2,
   },
   badgeRow: {
@@ -1122,24 +1467,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.md,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
     borderWidth: 1,
     gap: 4,
+  },
+  badgeLarge: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   badgeText: {
     fontSize: typography.fontSizes.xs,
     fontWeight: typography.fontWeights.semibold,
   },
+  badgeTextLarge: {
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.bold,
+  },
   headerJoinDate: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
     marginTop: spacing.md,
   },
-
-  // ============================================================
-  // STATS
-  // ============================================================
+  sectionTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: theme.textPrimary,
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
+  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1149,13 +1506,16 @@ const styles = StyleSheet.create({
   statCard: {
     flexGrow: 1,
     flexShrink: 0,
-    flexBasis: '45%' as any,
-    backgroundColor: '#FFFFFF',
+    width: '48%',
+    minWidth: 140,
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
     padding: spacing.md,
     alignItems: 'center',
     gap: spacing.xs,
-    ...shadows.sm,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...cardShadow(isDark),
   },
   statIconCircle: {
     width: 40,
@@ -1170,14 +1530,12 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     fontWeight: typography.fontWeights.medium,
     textAlign: 'center',
   },
-
-  // Rating card
   ratingCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     flexDirection: 'row',
@@ -1185,7 +1543,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.xl,
     marginBottom: spacing.xl,
-    ...shadows.sm,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...cardShadow(isDark),
   },
   ratingLeft: {
     alignItems: 'center',
@@ -1194,7 +1554,7 @@ const styles = StyleSheet.create({
   ratingValue: {
     fontSize: typography.fontSizes.xxxxl,
     fontWeight: typography.fontWeights.bold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
   },
   starsRow: {
     flexDirection: 'row',
@@ -1206,45 +1566,45 @@ const styles = StyleSheet.create({
   ratingCount: {
     fontSize: typography.fontSizes.xxl,
     fontWeight: typography.fontWeights.bold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
   },
   ratingLabel: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
   },
-
-  // ============================================================
-  // PROFESSIONAL INFO
-  // ============================================================
   bioCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.sm,
     marginBottom: spacing.md,
-    ...shadows.sm,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...cardShadow(isDark),
   },
   bioText: {
     flex: 1,
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     lineHeight: 20,
   },
   emptyCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     marginBottom: spacing.md,
-    ...shadows.sm,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...cardShadow(isDark),
   },
   emptyCardText: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
     fontStyle: 'italic',
   },
   infoGrid: {
@@ -1256,91 +1616,69 @@ const styles = StyleSheet.create({
   infoCard: {
     flexGrow: 1,
     flexShrink: 0,
-    flexBasis: '45%' as any,
-    backgroundColor: '#FFFFFF',
+    width: '48%',
+    minWidth: 180,
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
-    ...shadows.sm,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...cardShadow(isDark),
   },
   infoCardIcon: {
     width: 36,
     height: 36,
     borderRadius: borderRadius.md,
-    backgroundColor: heraLanding.primaryMuted,
+    backgroundColor: theme.primaryAlpha12,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.xs,
   },
   infoCardLabel: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   infoCardValue: {
     fontSize: typography.fontSizes.md,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     fontWeight: typography.fontWeights.semibold,
     marginTop: 2,
   },
-
-  // ============================================================
-  // SECTIONS
-  // ============================================================
-  sectionTitle: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
-    marginBottom: spacing.md,
-    marginTop: spacing.sm,
-  },
   sectionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     marginBottom: spacing.xl,
     gap: spacing.md,
-    ...shadows.md,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...cardShadow(isDark),
   },
-
-  // ============================================================
-  // VERIFICATION
-  // ============================================================
   verificationHeader: {
     alignItems: 'center',
   },
-  verificationStatusBig: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-  },
-  verificationStatusText: {
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.bold,
-  },
   colegiadoBox: {
-    backgroundColor: heraLanding.backgroundMuted,
+    backgroundColor: theme.bgMuted,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.borderLight,
   },
   colegiadoLabel: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   colegiadoValue: {
     fontSize: typography.fontSizes.xl,
     fontWeight: typography.fontWeights.bold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     marginTop: spacing.xs,
-    letterSpacing: 1,
   },
-  // Vertical timeline (works better in narrow right column)
   timelineColumn: {
     gap: spacing.sm,
   },
@@ -1351,13 +1689,13 @@ const styles = StyleSheet.create({
   },
   timelineRowLabel: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
     width: 60,
   },
   timelineRowValue: {
     flex: 1,
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     fontWeight: typography.fontWeights.semibold,
   },
   viewPhotoButton: {
@@ -1367,13 +1705,13 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
-    borderColor: heraLanding.primary,
+    borderColor: theme.primaryAlpha20,
     borderRadius: borderRadius.lg,
-    alignSelf: 'center',
+    backgroundColor: theme.primaryAlpha12,
   },
   viewPhotoButtonText: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.primary,
+    color: theme.primary,
     fontWeight: typography.fontWeights.medium,
     flex: 1,
   },
@@ -1383,23 +1721,25 @@ const styles = StyleSheet.create({
   credentialReviewTitle: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     marginTop: spacing.xs,
   },
   insuranceReviewSummary: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   insuranceReviewSummaryLabel: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
   },
   insuranceReviewBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
     borderRadius: borderRadius.full,
+    borderWidth: 1,
   },
   insuranceReviewBadgeText: {
     fontSize: typography.fontSizes.xs,
@@ -1414,7 +1754,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    backgroundColor: heraLanding.backgroundMuted,
+    backgroundColor: theme.bgMuted,
+    borderWidth: 1,
+    borderColor: theme.borderLight,
   },
   credentialReviewCopy: {
     flex: 1,
@@ -1423,116 +1765,87 @@ const styles = StyleSheet.create({
   credentialReviewLabel: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
   },
   credentialReviewValue: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
   },
   credentialReviewMeta: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
   },
-  credentialReviewAction: {
+  credentialReviewActions: {
+    gap: spacing.sm,
+    alignItems: 'flex-end',
+  },
+  credentialReviewDecisionRow: {
+    gap: spacing.sm,
+  },
+  iconAction: {
     width: 40,
     height: 40,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.bgCard,
+    borderWidth: 1,
+    borderColor: theme.border,
   },
-  credentialReviewActions: {
-    gap: spacing.sm,
-  },
-  credentialReviewDecisionRow: {
-    gap: spacing.sm,
-  },
-  insuranceDecisionButton: {
+  pillAction: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    alignItems: 'center',
   },
-  insuranceDecisionApprove: {
-    backgroundColor: heraLanding.successLight,
+  pillActionSuccess: {
+    backgroundColor: theme.status.confirmed.bg,
+    borderColor: theme.status.confirmed.border,
   },
-  insuranceDecisionReject: {
-    backgroundColor: heraLanding.status.cancelled.bg,
+  pillActionDanger: {
+    backgroundColor: theme.status.cancelled.bg,
+    borderColor: theme.status.cancelled.border,
   },
-  insuranceDecisionApproveText: {
+  pillActionText: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.success,
-    fontWeight: typography.fontWeights.semibold,
-  },
-  insuranceDecisionRejectText: {
-    fontSize: typography.fontSizes.sm,
-    color: heraLanding.status.cancelled.text,
     fontWeight: typography.fontWeights.semibold,
   },
   credentialReviewEmpty: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
   },
-
-  // ============================================================
-  // ACCOUNT ACTIONS
-  // ============================================================
-  actionButtonWarning: {
+  accountAction: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: '#F57C00',
     paddingVertical: 14,
+    paddingHorizontal: spacing.md,
     borderRadius: borderRadius.lg,
     minHeight: 48,
+    borderWidth: 1,
   },
-  actionButtonSuccess: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: heraLanding.success,
-    paddingVertical: 14,
-    borderRadius: borderRadius.lg,
-    minHeight: 48,
-  },
-  actionButtonWhiteText: {
-    color: '#FFFFFF',
-    fontSize: typography.fontSizes.md,
+  accountActionText: {
+    fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.semibold,
+    textAlign: 'center',
   },
   dangerZone: {
     marginTop: spacing.sm,
   },
   dangerDivider: {
     height: 1,
-    backgroundColor: heraLanding.borderLight,
+    backgroundColor: theme.borderLight,
     marginBottom: spacing.md,
   },
-  actionButtonDanger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: 'transparent',
-    paddingVertical: 12,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: heraLanding.status.cancelled.border,
-    minHeight: 48,
-  },
-  actionButtonDangerText: {
-    color: heraLanding.status.cancelled.text,
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.medium,
-  },
   suspensionBox: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: theme.warningBg,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     gap: spacing.xs,
     borderWidth: 1,
-    borderColor: '#FFE082',
+    borderColor: theme.warning,
   },
   suspensionBoxHeader: {
     flexDirection: 'row',
@@ -1542,48 +1855,45 @@ const styles = StyleSheet.create({
   suspensionBoxTitle: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.semibold,
-    color: '#F57C00',
+    color: theme.warning,
   },
   suspensionBoxReason: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     lineHeight: 20,
-    marginLeft: spacing.xl + spacing.xs,
   },
   deletedNotice: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: heraLanding.status.cancelled.bg,
+    backgroundColor: theme.status.cancelled.bg,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: heraLanding.status.cancelled.border,
+    borderColor: theme.status.cancelled.border,
   },
   deletedNoticeText: {
     flex: 1,
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.status.cancelled.text,
+    color: theme.status.cancelled.text,
     fontWeight: typography.fontWeights.medium,
   },
-
-  // ============================================================
-  // MODALS
-  // ============================================================
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: theme.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.bgElevated,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
     width: '100%',
     maxWidth: 440,
-    ...shadows.lg,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...cardShadow(isDark),
   },
   modalIconRow: {
     alignItems: 'center',
@@ -1599,67 +1909,75 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: typography.fontSizes.lg,
     fontWeight: typography.fontWeights.bold,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     marginBottom: spacing.sm,
+    textAlign: 'center',
   },
   modalDescription: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     marginBottom: spacing.md,
     lineHeight: 20,
+    textAlign: 'center',
+  },
+  modalStrong: {
+    fontWeight: typography.fontWeights.bold,
+    color: theme.textPrimary,
   },
   modalLabel: {
     fontSize: typography.fontSizes.xs,
     fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.textSecondary,
+    color: theme.textSecondary,
     marginBottom: spacing.xs,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   modalInputMultiline: {
     borderWidth: 1,
-    borderColor: heraLanding.border,
+    borderColor: theme.border,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     fontSize: typography.fontSizes.md,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    backgroundColor: theme.bgCard,
     minHeight: 80,
     textAlignVertical: 'top',
   },
   modalInputSingle: {
     borderWidth: 1,
-    borderColor: heraLanding.border,
+    borderColor: theme.border,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     fontSize: typography.fontSizes.md,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
+    backgroundColor: theme.bgCard,
     textAlign: 'center',
     letterSpacing: 2,
     fontWeight: typography.fontWeights.bold,
   },
   modalCharCount: {
     fontSize: typography.fontSizes.xs,
-    color: heraLanding.textMuted,
+    color: theme.textMuted,
     textAlign: 'right',
     marginTop: spacing.xs,
   },
   modalContextBox: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: theme.warningBg,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: '#FFE082',
+    borderColor: theme.warning,
   },
   modalContextLabel: {
     fontSize: typography.fontSizes.xs,
     fontWeight: typography.fontWeights.semibold,
-    color: '#F57C00',
+    color: theme.warning,
     marginBottom: spacing.xs,
   },
   modalContextText: {
     fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
+    color: theme.textPrimary,
     lineHeight: 20,
   },
   modalButtons: {
@@ -1667,90 +1985,24 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginTop: spacing.lg,
   },
-  modalButtonCancel: {
+  modalButton: {
     flex: 1,
     paddingVertical: 14,
+    paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderColor: heraLanding.border,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
   },
-  modalButtonCancelText: {
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.medium,
-    color: heraLanding.textSecondary,
-  },
-  modalButtonWarning: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: borderRadius.lg,
-    backgroundColor: '#F57C00',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  modalButtonSuccess: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: borderRadius.lg,
-    backgroundColor: heraLanding.success,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  modalButtonDanger: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: borderRadius.lg,
-    backgroundColor: heraLanding.status.cancelled.text,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  modalButtonWhiteText: {
+  modalButtonText: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.semibold,
-    color: '#FFFFFF',
+    textAlign: 'center',
   },
-  modalButtonDisabled: {
-    opacity: 0.4,
+  disabled: {
+    opacity: 0.45,
   },
-
-  // Danger banner (delete step 1)
-  dangerBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: heraLanding.status.cancelled.bg,
-    borderRadius: borderRadius.md,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: heraLanding.status.cancelled.border,
-  },
-  dangerBannerText: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
-    color: heraLanding.status.cancelled.text,
-  },
-  consequenceList: {
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  consequenceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  consequenceText: {
-    fontSize: typography.fontSizes.sm,
-    color: heraLanding.textPrimary,
-    flex: 1,
-  },
-
-  // DNI fullscreen overlay
   dniModalOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.92)',

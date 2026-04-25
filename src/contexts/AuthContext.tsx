@@ -13,6 +13,7 @@ import { getErrorMessage } from '../constants/errors';
 import * as analyticsService from '../services/analyticsService';
 import type { AuthResponse } from '../services/authService';
 import { clearPersistedClinicalAccessSession } from '../services/secureSessionStorage';
+import type { LegalDocumentKey } from '../constants/legal';
 
 export type UserType = 'client' | 'professional';
 
@@ -45,7 +46,13 @@ interface AuthContextType {
   /** Mark verification as submitted (called after successful submission) */
   markVerificationSubmitted: () => void;
   login: (email: string, password: string) => Promise<AuthResponse>;
-  register: (email: string, password: string, name: string, userType: UserType) => Promise<AuthResponse>;
+  register: (
+    email: string,
+    password: string,
+    name: string,
+    userType: UserType,
+    acceptedLegalDocumentKeys: LegalDocumentKey[]
+  ) => Promise<AuthResponse>;
   logout: () => Promise<void>;
   setUserType: (type: UserType) => void;
   updateUser: (updates: Partial<User>) => void;
@@ -202,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return response;
     } catch (err: unknown) {
-      const errorMessage = getErrorMessage(err, 'Error al iniciar sesiÃ³n');
+      const errorMessage = getErrorMessage(err, 'Error al iniciar sesión');
       setError(errorMessage);
       throw err;
     } finally {
@@ -210,7 +217,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (email: string, password: string, name: string, userType: UserType) => {
+  const register = async (
+    email: string,
+    password: string,
+    name: string,
+    userType: UserType,
+    acceptedLegalDocumentKeys: LegalDocumentKey[]
+  ) => {
     try {
       setLoading(true);
       setError(null);
@@ -222,6 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         name,
         userType: backendUserType,
+        acceptedLegalDocumentKeys,
       });
 
       const mappedUser: User = {

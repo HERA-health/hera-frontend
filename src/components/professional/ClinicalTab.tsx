@@ -7,7 +7,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { AnimatedPressable, Button, Card } from '../common';
 import { PinCodeInput } from './PinCodeInput';
 import { ClinicalGeneralWorkspace } from './ClinicalGeneralWorkspace';
@@ -18,6 +18,9 @@ import type { Client } from '../../services/professionalService';
 import { getErrorMessage } from '../../constants/errors';
 import { useClinicalAccessController } from '../../hooks/useClinicalAccessController';
 import { useClinicalWorkspaceData } from '../../hooks/useClinicalWorkspaceData';
+import { LEGAL_DOCUMENT_VERSION } from '../../constants/legal';
+import { acceptLegalDocuments, getLegalStatus } from '../../services/legalService';
+import type { AppNavigationProp } from '../../constants/types';
 
 interface ClinicalTabProps {
   clientId: string;
@@ -86,6 +89,7 @@ const getBannerStyles = (
 
 export function ClinicalTab({ clientId, client, onRequestRefreshClient }: ClinicalTabProps) {
   const { theme } = useTheme();
+  const navigation = useNavigation<AppNavigationProp>();
   const { width } = useWindowDimensions();
   const isTablet = width >= 920;
 
@@ -96,6 +100,8 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
   const [setupPinConfirm, setSetupPinConfirm] = useState('');
   const [showPin, setShowPin] = useState(false);
   const [showSetupPin, setShowSetupPin] = useState(false);
+  const [clinicalTermsAccepted, setClinicalTermsAccepted] = useState<boolean | null>(null);
+  const [clinicalTermsLoading, setClinicalTermsLoading] = useState(true);
 
   const showBanner = useCallback((tone: BannerTone, message: string) => {
     setBanner({ tone, message });
@@ -111,6 +117,27 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
   const access = useClinicalAccessController({
     onAccessLost: handleAccessLostBanner,
   });
+
+  const loadClinicalTermsStatus = useCallback(async () => {
+    try {
+      setClinicalTermsLoading(true);
+      const status = await getLegalStatus();
+      const hasAcceptedCurrentClinicalTerms = status.acceptedDocuments.some(
+        (document) =>
+          document.documentKey === 'CLINICAL_MODULE_TERMS'
+          && document.version === LEGAL_DOCUMENT_VERSION
+      );
+      setClinicalTermsAccepted(hasAcceptedCurrentClinicalTerms);
+    } catch (error) {
+      setClinicalTermsAccepted(false);
+      showBanner(
+        'error',
+        getErrorMessage(error, 'No se pudo comprobar la aceptación del módulo clínico.')
+      );
+    } finally {
+      setClinicalTermsLoading(false);
+    }
+  }, [showBanner]);
 
   const handleWorkspaceAccessLost = useCallback(
     (message: string) => {
@@ -139,6 +166,10 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
   }, [banner]);
 
   useEffect(() => {
+    void loadClinicalTermsStatus();
+  }, [loadClinicalTermsStatus]);
+
+  useEffect(() => {
     setWorkspace('general');
     setPin('');
     setSetupPin('');
@@ -159,15 +190,31 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
   const handleAcceptDpa = async () => {
     try {
       await access.acceptDataProcessingAgreement();
-      showBanner('success', 'Encargo de tratamiento aceptado. Ya puedes configurar el acceso clinico.');
+      showBanner('success', 'Encargo de tratamiento aceptado. Ya puedes configurar el acceso clínico.');
     } catch (error) {
       showBanner('error', getErrorMessage(error, 'No se pudo aceptar el encargo de tratamiento.'));
     }
   };
 
+  const handleAcceptClinicalTerms = async () => {
+    try {
+      setClinicalTermsLoading(true);
+      await acceptLegalDocuments(['CLINICAL_MODULE_TERMS'], 'clinical-module');
+      setClinicalTermsAccepted(true);
+      showBanner('success', 'Condiciones del módulo clínico aceptadas.');
+    } catch (error) {
+      showBanner(
+        'error',
+        getErrorMessage(error, 'No se pudo registrar la aceptación del módulo clínico.')
+      );
+    } finally {
+      setClinicalTermsLoading(false);
+    }
+  };
+
   const handleSetupPin = async () => {
     if (!isValidPin(setupPin)) {
-      showBanner('warning', 'El PIN clinico debe tener 6 digitos.');
+      showBanner('warning', 'El PIN clínico debe tener 6 dígitos.');
       return;
     }
 
@@ -180,33 +227,33 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
       await access.setupClinicalPin(setupPin);
       setSetupPin('');
       setSetupPinConfirm('');
-      showBanner('success', 'PIN clinico configurado. Ya puedes abrir el expediente.');
+      showBanner('success', 'PIN clínico configurado. Ya puedes abrir el expediente.');
     } catch (error) {
-      showBanner('error', getErrorMessage(error, 'No se pudo configurar el PIN clinico.'));
+      showBanner('error', getErrorMessage(error, 'No se pudo configurar el PIN clínico.'));
     }
   };
 
   const handleUnlock = async () => {
     if (!isValidPin(pin)) {
-      showBanner('warning', 'Introduce un PIN clinico valido de 6 digitos.');
+      showBanner('warning', 'Introduce un PIN clínico válido de 6 dígitos.');
       return;
     }
 
     try {
       await access.unlockClinicalArea(pin);
       setPin('');
-      showBanner('success', 'Area clinica abierta. Puedes trabajar con el expediente desde aqui.');
+      showBanner('success', 'Área clínica abierta. Puedes trabajar con el expediente desde aquí.');
     } catch (error) {
-      showBanner('error', getErrorMessage(error, 'No se pudo desbloquear el area clinica.'));
+      showBanner('error', getErrorMessage(error, 'No se pudo desbloquear el área clínica.'));
     }
   };
 
   const handleLock = async () => {
     try {
       await access.lockClinicalArea();
-      showBanner('info', 'Area clinica cerrada.');
+      showBanner('info', 'Área clínica cerrada.');
     } catch (error) {
-      showBanner('error', getErrorMessage(error, 'No se pudo bloquear el area clinica.'));
+      showBanner('error', getErrorMessage(error, 'No se pudo bloquear el área clínica.'));
     }
   };
 
@@ -251,7 +298,7 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
       try {
         await workspaceData.saveClinicalNote(content, sessionId);
       } catch (error) {
-        showBanner('error', getErrorMessage(error, 'No se pudo guardar la nota clinica.'));
+        showBanner('error', getErrorMessage(error, 'No se pudo guardar la nota clínica.'));
       }
     },
     [showBanner, workspaceData]
@@ -266,7 +313,7 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
       try {
         return await workspaceData.uploadClinicalDocument(file, category, sessionId);
       } catch (error) {
-        showBanner('error', getErrorMessage(error, 'No se pudo subir el documento clinico.'));
+        showBanner('error', getErrorMessage(error, 'No se pudo subir el documento clínico.'));
         return null;
       }
     },
@@ -278,7 +325,7 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
       try {
         await workspaceData.openClinicalDocument(document);
       } catch (error) {
-        showBanner('error', getErrorMessage(error, 'No se pudo abrir el documento clinico.'));
+        showBanner('error', getErrorMessage(error, 'No se pudo abrir el documento clínico.'));
       }
     },
     [showBanner, workspaceData]
@@ -406,13 +453,50 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
         </View>
       ) : null}
 
-      {access.statusLoading ? (
+      {access.statusLoading || clinicalTermsLoading || clinicalTermsAccepted === null ? (
         <Card variant="default" padding="large">
           <View style={styles.centeredState}>
             <ActivityIndicator size="small" color={theme.primary} />
             <Text style={[styles.centeredText, { color: theme.textSecondary }]}>
-              Preparando el acceso clinico...
+              Preparando el acceso clínico...
             </Text>
+          </View>
+        </Card>
+      ) : !clinicalTermsAccepted ? (
+        <Card variant="default" padding="large">
+          <View style={[styles.singlePanel, styles.focusPanel]}>
+            <View style={styles.stateCopy}>
+              <View style={[styles.eyebrowPill, { backgroundColor: theme.primaryAlpha12 }]}>
+                <Ionicons name="document-text-outline" size={14} color={theme.primary} />
+                <Text style={[styles.eyebrowPillText, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
+                  Módulo clínico
+                </Text>
+              </View>
+              <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplayBold }]}>
+                Acepta las condiciones clínicas
+              </Text>
+              <Text style={[styles.stateDescription, { color: theme.textSecondary }]}>
+                Antes de configurar el PIN o abrir expedientes, debes aceptar las condiciones vigentes del módulo clínico.
+              </Text>
+              <AnimatedPressable
+                onPress={() => navigation.navigate('LegalDocument', { documentKey: 'CLINICAL_MODULE_TERMS' })}
+                hoverLift={false}
+                pressScale={0.98}
+              >
+                <Text style={[styles.inlineLegalLink, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
+                  Ver condiciones del módulo clínico
+                </Text>
+              </AnimatedPressable>
+            </View>
+
+            <Button
+              variant="primary"
+              size="small"
+              onPress={handleAcceptClinicalTerms}
+              loading={clinicalTermsLoading}
+            >
+              Aceptar condiciones clínicas
+            </Button>
           </View>
         </Card>
       ) : !hasAcceptedDpa ? (
@@ -422,14 +506,14 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
               <View style={[styles.eyebrowPill, { backgroundColor: theme.primaryAlpha12 }]}>
                 <Ionicons name="shield-checkmark-outline" size={14} color={theme.primary} />
                 <Text style={[styles.eyebrowPillText, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
-                  Area clinica protegida
+                  Área clínica protegida
                 </Text>
               </View>
               <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplayBold }]}>
                 Activa el encargo de tratamiento
               </Text>
               <Text style={[styles.stateDescription, { color: theme.textSecondary }]}>
-                Antes de abrir historias clinicas debes aceptar la version vigente del encargo de tratamiento.
+                Antes de abrir historias clínicas debes aceptar la versión vigente del encargo de tratamiento.
               </Text>
             </View>
 
@@ -450,14 +534,14 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
               <View style={[styles.eyebrowPill, { backgroundColor: theme.primaryAlpha12 }]}>
                 <Ionicons name="shield-checkmark-outline" size={14} color={theme.primary} />
                 <Text style={[styles.eyebrowPillText, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
-                  Primer acceso clinico
+                  Primer acceso clínico
                 </Text>
               </View>
               <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplayBold }]}>
-                Configura tu PIN clinico
+                Configura tu PIN clínico
               </Text>
               <Text style={[styles.stateDescription, { color: theme.textSecondary }]}>
-                Usa un codigo de 6 digitos para proteger la entrada al expediente.
+                Usa un código de 6 dígitos para proteger la entrada al expediente.
               </Text>
             </View>
 
@@ -467,7 +551,7 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
                 onChange={setSetupPin}
                 masked={!showSetupPin}
                 label="Crea tu PIN"
-                hint="6 digitos"
+                hint="6 dígitos"
               />
               <PinCodeInput
                 value={setupPinConfirm}
@@ -504,7 +588,7 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
               <View style={[styles.eyebrowPill, { backgroundColor: theme.primaryAlpha12 }]}>
                 <Ionicons name="shield-checkmark-outline" size={14} color={theme.primary} />
                 <Text style={[styles.eyebrowPillText, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
-                  Area clinica protegida
+                  Área clínica protegida
                 </Text>
               </View>
               <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplayBold }]}>
@@ -518,8 +602,8 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
                 value={pin}
                 onChange={setPin}
                 masked={!showPin}
-                label="PIN clinico"
-                hint="Solo tu puedes abrir este expediente"
+                label="PIN clínico"
+                hint="Solo tú puedes abrir este expediente"
               />
 
               <View style={styles.stateActions}>
@@ -545,7 +629,7 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
           <View style={styles.centeredState}>
             <ActivityIndicator size="small" color={theme.primary} />
             <Text style={[styles.centeredText, { color: theme.textSecondary }]}>
-              Cargando expediente clinico...
+              Cargando expediente clínico...
             </Text>
           </View>
         </Card>
@@ -557,14 +641,14 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
                 <View style={[styles.eyebrowPill, { backgroundColor: theme.primaryAlpha12 }]}>
                   <Ionicons name="shield-checkmark-outline" size={14} color={theme.primary} />
                   <Text style={[styles.eyebrowPillText, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
-                    Area clinica disponible
+                    Área clínica disponible
                   </Text>
                 </View>
                 <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplayBold }]}>
                   Expediente abierto
                 </Text>
                 <Text style={[styles.stateDescription, { color: theme.textSecondary }]}>
-                  Todo el contenido clinico del paciente esta listo para trabajar desde aqui.
+                  Todo el contenido clínico del paciente está listo para trabajar desde aquí.
                 </Text>
               </View>
 
@@ -723,6 +807,10 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.sm,
     lineHeight: 22,
     maxWidth: 620,
+  },
+  inlineLegalLink: {
+    fontSize: typography.fontSizes.sm,
+    lineHeight: 22,
   },
   pinSetupGrid: {
     gap: spacing.sm,
