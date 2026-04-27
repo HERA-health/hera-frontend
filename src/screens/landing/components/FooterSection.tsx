@@ -5,7 +5,7 @@
  * the dominant narrative and leaving patient access visible but secondary.
  */
 
-import React from 'react';
+import React, { type CSSProperties } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,16 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   Linking,
+  Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyledLogo } from '../../../components/common/StyledLogo';
+import { getLegalDocumentUrl } from '../../../constants/legal';
+
+const webAnchorStyle: CSSProperties = {
+  display: 'block',
+  textDecoration: 'none',
+};
 
 interface FooterLink {
   label: string;
@@ -63,10 +70,9 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
     {
       title: 'Legal',
       links: [
-        { label: 'Política de Privacidad', href: '#privacidad' },
-        { label: 'Términos de Uso', href: '#terminos' },
-        { label: 'Política de Cookies', href: '#cookies' },
-        { label: 'Contacto', href: 'mailto:contacto@hera.com' },
+        { label: 'Política de privacidad', href: getLegalDocumentUrl('PRIVACY_POLICY') },
+        { label: 'Términos y condiciones', href: getLegalDocumentUrl('TERMS_OF_SERVICE') },
+        { label: 'Contacto', href: 'mailto:herahealthtech@gmail.com' },
       ],
     },
   ];
@@ -86,6 +92,30 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
 
   const handleSocialPress = (href: string) => {
     Linking.openURL(href).catch(() => {});
+  };
+
+  const renderFooterLink = (link: FooterLink) => {
+    if (Platform.OS === 'web' && link.href && !link.onPress) {
+      return React.createElement(
+        'a',
+        {
+          key: link.label,
+          href: link.href,
+          style: webAnchorStyle,
+        },
+        <Text style={styles.columnLink}>{link.label}</Text>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        key={link.label}
+        onPress={() => handleLinkPress(link)}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.columnLink}>{link.label}</Text>
+      </TouchableOpacity>
+    );
   };
 
   return (
@@ -136,15 +166,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                 style={[styles.column, isDesktop && styles.columnDesktop]}
               >
                 <Text style={styles.columnTitle}>{column.title}</Text>
-                {column.links.map((link) => (
-                  <TouchableOpacity
-                    key={link.label}
-                    onPress={() => handleLinkPress(link)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.columnLink}>{link.label}</Text>
-                  </TouchableOpacity>
-                ))}
+                {column.links.map((link) => renderFooterLink(link))}
               </View>
             ))}
           </View>
