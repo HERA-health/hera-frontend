@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing } from '../../constants/colors';
 
@@ -34,6 +34,7 @@ declare global {
               shape?: 'rectangular' | 'pill' | 'circle' | 'square';
               width?: number;
               locale?: string;
+              logo_alignment?: 'left' | 'center';
             }
           ) => void;
         };
@@ -45,6 +46,9 @@ declare global {
 const GOOGLE_SCRIPT_ID = 'google-identity-services';
 const GOOGLE_SCRIPT_SRC = 'https://accounts.google.com/gsi/client';
 const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_AUTH_CLIENT_ID;
+const BUTTON_HEIGHT = 54;
+const GOOGLE_BUTTON_HEIGHT = 40;
+const GOOGLE_BUTTON_SCALE = BUTTON_HEIGHT / GOOGLE_BUTTON_HEIGHT;
 
 const loadGoogleIdentityScript = (): Promise<void> => {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -80,9 +84,11 @@ export function GoogleAuthButton({ onCredential, disabled = false }: GoogleAuthB
   const { width } = useWindowDimensions();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
   const fallbackWidth = Math.min(440, Math.max(240, Math.floor(width - spacing.lg * 2)));
-  const googleButtonWidth = Math.max(240, Math.floor(containerWidth || fallbackWidth));
+  const visualButtonWidth = Math.max(240, Math.floor(containerWidth || fallbackWidth));
+  const googleButtonWidth = Math.max(240, Math.floor(visualButtonWidth / GOOGLE_BUTTON_SCALE));
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !containerRef.current) {
@@ -91,7 +97,7 @@ export function GoogleAuthButton({ onCredential, disabled = false }: GoogleAuthB
 
     const element = containerRef.current;
     const updateContainerWidth = () => {
-      setContainerWidth(Math.floor(element.getBoundingClientRect().width));
+      setContainerWidth(Math.floor(element.offsetWidth));
     };
 
     updateContainerWidth();
@@ -121,6 +127,7 @@ export function GoogleAuthButton({ onCredential, disabled = false }: GoogleAuthB
         }
 
         containerRef.current.innerHTML = '';
+        setIsReady(false);
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: (response) => {
@@ -141,7 +148,9 @@ export function GoogleAuthButton({ onCredential, disabled = false }: GoogleAuthB
           shape: 'pill',
           width: googleButtonWidth,
           locale: 'es',
+          logo_alignment: 'left',
         });
+        setIsReady(true);
       })
       .catch(() => {
         if (!cancelled) {
@@ -190,15 +199,28 @@ export function GoogleAuthButton({ onCredential, disabled = false }: GoogleAuthB
         disabled ? styles.disabled : null,
       ]}
     >
+      {!isReady ? (
+        <View style={styles.loadingState}>
+          <ActivityIndicator color={theme.primary} size="small" />
+          <Text style={[styles.loadingText, { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold }]}>
+            Preparando Google
+          </Text>
+        </View>
+      ) : null}
       <div
         ref={containerRef}
         style={{
           width: '100%',
+          height: BUTTON_HEIGHT,
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          minHeight: 44,
+          minHeight: BUTTON_HEIGHT,
+          opacity: isReady ? 1 : 0,
           textAlign: 'center',
+          transform: `scale(${GOOGLE_BUTTON_SCALE})`,
+          transformOrigin: 'center',
+          transition: 'opacity 160ms ease',
         }}
       />
     </View>
@@ -209,10 +231,22 @@ const styles = StyleSheet.create({
   wrapper: {
     width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: spacing.md,
+    minHeight: BUTTON_HEIGHT,
   },
   disabled: {
     opacity: 0.6,
+  },
+  loadingState: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: 14,
   },
   fallback: {
     borderWidth: 1,
