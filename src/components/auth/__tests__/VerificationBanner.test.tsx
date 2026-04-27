@@ -47,6 +47,7 @@ describe('VerificationBanner', () => {
     verificationSubmitted: null,
     markVerificationSubmitted: jest.fn(),
     login: jest.fn(),
+    authenticateWithGoogle: jest.fn(),
     register: jest.fn(),
     logout: jest.fn(),
     setUserType: jest.fn(),

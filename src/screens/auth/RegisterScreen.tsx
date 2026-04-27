@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -13,7 +13,7 @@ import { Input } from '../../components/common/Input';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing } from '../../constants/colors';
 import { getRequiredRegistrationDocumentKeys } from '../../constants/legal';
-import { AuthSplitLayout } from '../../components/auth';
+import { AuthSplitLayout, GoogleAuthButton } from '../../components/auth';
 
 type RegisterRouteParams = AppRouteProp<'Register'>;
 type PasswordStrength = 'weak' | 'medium' | 'strong';
@@ -22,7 +22,7 @@ export function RegisterScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<RegisterRouteParams>();
   const { theme } = useTheme();
-  const { register, loading: authLoading, clearError } = useAuth();
+  const { register, authenticateWithGoogle, loading: authLoading, clearError } = useAuth();
 
   const initialUserType: UserType = route.params.userType === 'PROFESSIONAL'
     ? 'professional'
@@ -183,6 +183,38 @@ export function RegisterScreen() {
     }
   };
 
+  const handleGoogleCredential = useCallback(async (idToken: string) => {
+    setLocalError('');
+    clearError();
+
+    if (!termsAccepted) {
+      setLocalError('Debes aceptar la documentación legal aplicable.');
+      return;
+    }
+
+    const backendUserType = userType === 'client' ? 'CLIENT' : 'PROFESSIONAL';
+    const acceptedLegalDocumentKeys = getRequiredRegistrationDocumentKeys(backendUserType);
+
+    try {
+      analyticsService.track('google_register_submitted', { userType: backendUserType });
+      await authenticateWithGoogle({
+        idToken,
+        userType: backendUserType,
+        expectedUserType: backendUserType,
+        acceptedLegalDocumentKeys,
+      });
+
+      if (userType === 'professional') {
+        navigation.navigate('ProfessionalVerification');
+        return;
+      }
+
+      navigation.navigate('MainStack');
+    } catch (error: unknown) {
+      setLocalError(getErrorMessage(error, 'No se pudo continuar con Google.'));
+    }
+  }, [authenticateWithGoogle, clearError, navigation, termsAccepted, userType]);
+
   return (
     <AuthSplitLayout
       eyebrow={introCopy.eyebrow}
@@ -314,6 +346,57 @@ export function RegisterScreen() {
             </AnimatedPressable>
           </View>
 
+          <AnimatedPressable
+            onPress={() => setTermsAccepted((value) => !value)}
+            hoverLift={false}
+            pressScale={0.99}
+            style={styles.termsRow}
+          >
+            <View
+              style={[
+                styles.checkbox,
+                {
+                  backgroundColor: termsAccepted ? theme.primary : theme.bgCard,
+                  borderColor: termsAccepted ? theme.primary : theme.border,
+                },
+              ]}
+            >
+              {termsAccepted && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+            </View>
+            <Text style={[styles.termsText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+              Acepto la{' '}
+              <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openPrivacy}>
+                política de privacidad
+              </Text>
+              {userType === 'professional' ? ', los ' : ' y los '}
+              <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openTerms}>
+                términos
+              </Text>
+              {userType === 'professional' ? (
+                <>
+                  {' '}y las{' '}
+                  <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openProfessionalTerms}>
+                    condiciones profesionales
+                  </Text>
+                </>
+              ) : null}
+              .
+            </Text>
+          </AnimatedPressable>
+
+          <GoogleAuthButton
+            onCredential={handleGoogleCredential}
+            disabled={authLoading}
+          />
+
+          <View style={styles.authDivider}>
+            <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
+            <Text style={[styles.authDividerText, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>
+              o crea tu cuenta con email
+            </Text>
+            <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
+          </View>
+
           <Input
             label="Nombre completo"
             placeholder="Tu nombre y apellidos"
@@ -408,44 +491,6 @@ export function RegisterScreen() {
             )}
           />
 
-          <AnimatedPressable
-            onPress={() => setTermsAccepted((value) => !value)}
-            hoverLift={false}
-            pressScale={0.99}
-            style={styles.termsRow}
-          >
-            <View
-              style={[
-                styles.checkbox,
-                {
-                  backgroundColor: termsAccepted ? theme.primary : theme.bgCard,
-                  borderColor: termsAccepted ? theme.primary : theme.border,
-                },
-              ]}
-            >
-              {termsAccepted && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
-            </View>
-            <Text style={[styles.termsText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-              Acepto la{' '}
-              <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openPrivacy}>
-                política de privacidad
-              </Text>
-              {userType === 'professional' ? ', los ' : ' y los '}
-              <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openTerms}>
-                términos
-              </Text>
-              {userType === 'professional' ? (
-                <>
-                  {' '}y las{' '}
-                  <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openProfessionalTerms}>
-                    condiciones profesionales
-                  </Text>
-                </>
-              ) : null}
-              .
-            </Text>
-          </AnimatedPressable>
-
           <Button
             onPress={handleRegister}
             variant="primary"
@@ -528,7 +573,7 @@ const styles = StyleSheet.create({
   },
   userTypeRow: {
     gap: spacing.sm,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   userTypeCard: {
     borderWidth: 1,
@@ -609,6 +654,21 @@ const styles = StyleSheet.create({
   divider: {
     borderTopWidth: 1,
     marginVertical: spacing.md,
+  },
+  authDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+  },
+  authDividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  authDividerText: {
+    fontSize: 12,
+    textTransform: 'uppercase',
   },
   footerRow: {
     flexDirection: 'row',

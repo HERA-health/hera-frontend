@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -9,7 +9,7 @@ import { Input } from '../../components/common/Input';
 import { useTheme } from '../../contexts/ThemeContext';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import { spacing } from '../../constants/colors';
-import { AuthSplitLayout } from '../../components/auth';
+import { AuthSplitLayout, GoogleAuthButton } from '../../components/auth';
 import * as analyticsService from '../../services/analyticsService';
 
 type LoginRouteParams = AppRouteProp<'Login'>;
@@ -18,7 +18,7 @@ export function LoginScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<LoginRouteParams>();
   const { theme } = useTheme();
-  const { login, logout, loading: authLoading, error: authError, clearError } = useAuth();
+  const { login, authenticateWithGoogle, logout, loading: authLoading, error: authError, clearError } = useAuth();
 
   const expectedUserType = route.params?.userType;
 
@@ -106,6 +106,30 @@ export function LoginScreen() {
     }
   };
 
+  const handleGoogleCredential = useCallback(async (idToken: string) => {
+    setLocalError('');
+    clearError();
+
+    try {
+      analyticsService.track('google_login_attempted', { userType: expectedUserType || 'unknown' });
+      const response = await authenticateWithGoogle({
+        idToken,
+        expectedUserType,
+      });
+      analyticsService.track('google_login_success', { userType: response.user.userType });
+    } catch (error: unknown) {
+      const reason = error instanceof Error ? error.message : 'No se pudo iniciar sesión con Google.';
+      analyticsService.track('google_login_failed', { reason: reason.slice(0, 50) });
+
+      if (reason.includes('Completa el registro')) {
+        navigation.navigate('Register', { userType: expectedUserType ?? 'CLIENT' });
+        return;
+      }
+
+      setLocalError(reason);
+    }
+  }, [authenticateWithGoogle, clearError, expectedUserType, navigation]);
+
   return (
     <AuthSplitLayout
       eyebrow={introCopy.eyebrow}
@@ -161,6 +185,19 @@ export function LoginScreen() {
               </Text>
             </View>
           ) : null}
+
+          <GoogleAuthButton
+            onCredential={handleGoogleCredential}
+            disabled={authLoading}
+          />
+
+          <View style={styles.authDivider}>
+            <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
+            <Text style={[styles.authDividerText, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>
+              o accede con email
+            </Text>
+            <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
+          </View>
 
           <Input
             label="Email"
@@ -283,6 +320,21 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     lineHeight: 20,
+  },
+  authDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+  },
+  authDividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  authDividerText: {
+    fontSize: 12,
+    textTransform: 'uppercase',
   },
   iconButton: {
     width: 28,

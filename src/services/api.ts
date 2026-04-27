@@ -79,6 +79,7 @@ export const api = axios.create({
 const isAuthEndpoint = (url = ''): boolean =>
   url.includes('/auth/login') ||
   url.includes('/auth/register') ||
+  url.includes('/auth/google') ||
   url.includes('/auth/refresh') ||
   url.includes('/auth/logout');
 

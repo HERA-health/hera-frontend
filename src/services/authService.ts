@@ -41,6 +41,13 @@ export interface LoginData {
   password: string;
 }
 
+export interface GoogleAuthData {
+  idToken: string;
+  userType?: 'CLIENT' | 'PROFESSIONAL';
+  expectedUserType?: 'CLIENT' | 'PROFESSIONAL';
+  acceptedLegalDocumentKeys?: LegalDocumentKey[];
+}
+
 const getClientPlatform = (): 'web' | 'mobile' => (Platform.OS === 'web' ? 'web' : 'mobile');
 
 /**
@@ -180,6 +187,57 @@ export const logout = async (): Promise<void> => {
   } catch (_error: unknown) {
     await clearPersistedClinicalAccessSession();
     // Silently fail on logout errors - user should still be logged out locally
+  }
+};
+
+/**
+ * Login or register a user with Google identity.
+ */
+export const authenticateWithGoogle = async (data: GoogleAuthData): Promise<AuthResponse> => {
+  try {
+    const response = await api.post<{ success: boolean; data: AuthResponse }>(
+      '/auth/google',
+      {
+        ...data,
+        platform: getClientPlatform(),
+      }
+    );
+
+    if (response.data.success && response.data.data) {
+      const { token, refreshToken, user } = response.data.data;
+      await setAuthSession(token, refreshToken);
+      return { token, refreshToken, user };
+    }
+
+    throw new Error('Google authentication failed');
+  } catch (error: unknown) {
+    if (hasResponseData(error)) {
+      const errorCode = error.response.data?.code as string | undefined;
+      let errorMessage = 'No se pudo iniciar sesión con Google';
+
+      switch (errorCode) {
+        case 'REGISTRATION_REQUIRED':
+          errorMessage = 'Completa el registro para continuar con Google';
+          break;
+        case 'USER_TYPE_MISMATCH':
+          errorMessage = data.expectedUserType === 'PROFESSIONAL'
+            ? 'Esta cuenta de Google está registrada como paciente. Entra desde "Busco ayuda" o usa otra cuenta de Google para acceder como profesional.'
+            : 'Esta cuenta de Google está registrada como profesional. Entra desde "Soy especialista" o usa otra cuenta de Google para acceder como paciente.';
+          break;
+        case 'GOOGLE_ACCOUNT_CONFLICT':
+          errorMessage = 'Este correo ya está vinculado a otra cuenta de Google';
+          break;
+        case 'GOOGLE_AUTH_FAILED':
+          errorMessage = 'No se pudo verificar tu cuenta de Google';
+          break;
+        default:
+          errorMessage = getErrorMessage(error, errorMessage);
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    throw new Error(getErrorMessage(error, 'No se pudo iniciar sesión con Google'));
   }
 };
 

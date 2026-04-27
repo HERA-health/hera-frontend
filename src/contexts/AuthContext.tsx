@@ -46,6 +46,7 @@ interface AuthContextType {
   /** Mark verification as submitted (called after successful submission) */
   markVerificationSubmitted: () => void;
   login: (email: string, password: string) => Promise<AuthResponse>;
+  authenticateWithGoogle: (data: authService.GoogleAuthData) => Promise<AuthResponse>;
   register: (
     email: string,
     password: string,
@@ -217,6 +218,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const authenticateWithGoogle = async (data: authService.GoogleAuthData) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await authService.authenticateWithGoogle(data);
+
+      try {
+        await refreshCurrentUser();
+      } catch {
+        await syncUserState(response.user);
+      }
+
+      return response;
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err, 'No se pudo iniciar sesión con Google');
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const register = async (
     email: string,
     password: string,
@@ -320,6 +344,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         verificationSubmitted,
         markVerificationSubmitted,
         login,
+        authenticateWithGoogle,
         register,
         logout,
         setUserType,

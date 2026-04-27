@@ -5,7 +5,7 @@ export type LegalDocumentKey =
   | 'CLINICAL_MODULE_TERMS'
   | 'CLINICAL_PATIENT_CONSENT';
 
-export const LEGAL_DOCUMENT_VERSION = '2026-04-25';
+export const LEGAL_DOCUMENT_VERSION = '2026-04-26';
 
 export const LEGAL_ENTITY = {
   responsibleName: 'Sara Herrer Fernández',
@@ -112,13 +112,14 @@ export const LEGAL_DOCUMENTS: Record<LegalDocumentKey, LegalDocumentContent> = {
         title: 'Datos que tratamos',
         body: [
           'Tratamos datos de cuenta, contacto, perfil profesional, agenda, sesiones, facturación, cuestionarios, consentimientos, documentos y registros de seguridad.',
+          'Si eliges acceder con Google, tratamos los datos mínimos necesarios para verificar tu identidad: identificador interno de Google, correo verificado, nombre y, si Google la facilita, imagen de perfil para usarla como avatar.',
           'Algunos datos pueden revelar información de salud o bienestar psicológico y se tratan con protección reforzada.',
         ],
       },
       {
         title: 'Finalidades',
         body: [
-          'Usamos los datos para crear cuentas, prestar la herramienta, gestionar sesiones, permitir seguimiento profesional, verificar especialistas, emitir facturas, enviar comunicaciones necesarias y proteger la seguridad.',
+          'Usamos los datos para crear cuentas, permitir el acceso con email o Google, prestar la herramienta, gestionar sesiones, permitir seguimiento profesional, verificar especialistas, emitir facturas, enviar comunicaciones necesarias y proteger la seguridad.',
           'No se deben usar datos clínicos para analítica, publicidad o finalidades incompatibles.',
         ],
       },
@@ -127,6 +128,13 @@ export const LEGAL_DOCUMENTS: Record<LegalDocumentKey, LegalDocumentContent> = {
         body: [
           'Según el caso, tratamos datos por ejecución del servicio, cumplimiento de obligaciones legales, consentimiento explícito e interés legítimo en seguridad.',
           'Los datos clínicos y de salud requieren una base reforzada y consentimiento o legitimación adecuada según el contexto profesional.',
+        ],
+      },
+      {
+        title: 'Proveedores e inicio de sesión externo',
+        body: [
+          'Cuando usas el acceso con Google, Google actúa como proveedor de identidad y nos confirma los datos mínimos necesarios para autenticarte. No guardamos tokens de acceso de Google ni solicitamos permisos de Calendar, Meet u otros servicios en esta fase.',
+          'También podemos usar proveedores tecnológicos para hosting, base de datos, almacenamiento privado, email transaccional, medios, seguridad y soporte, siempre con criterios de minimización y contratos adecuados cuando actúen como encargados del tratamiento.',
         ],
       },
       {
