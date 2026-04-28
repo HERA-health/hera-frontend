@@ -6,6 +6,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 interface SpecialistCardGridProps {
   specialist: Specialist;
   onPress: () => void;
+  onToggleFavorite?: () => void;
   position?: 1 | 2 | 3;
   animationDelay?: number;
 }
@@ -13,6 +14,7 @@ interface SpecialistCardGridProps {
 export const SpecialistCardGrid: React.FC<SpecialistCardGridProps> = ({
   specialist,
   onPress,
+  onToggleFavorite,
   position,
 }) => {
   const { theme, isDark } = useTheme();
@@ -22,6 +24,7 @@ export const SpecialistCardGrid: React.FC<SpecialistCardGridProps> = ({
       key={`${specialist.id}-${isDark ? 'dark' : 'light'}`}
       specialist={specialist}
       onPress={onPress}
+      onToggleFavorite={onToggleFavorite}
       position={position}
       style={{
         backgroundColor: theme.bgCard,

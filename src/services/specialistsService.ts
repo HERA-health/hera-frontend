@@ -71,6 +71,24 @@ export interface MatchedSpecialistsResponse {
   needsQuestionnaireRefresh?: boolean;
 }
 
+export interface PrimarySpecialistSessionContext {
+  id: string;
+  date: string;
+  status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+  type: 'VIDEO_CALL' | 'PHONE_CALL' | 'IN_PERSON';
+}
+
+export interface PrimarySpecialistResponse {
+  specialist: SpecialistData;
+  session: PrimarySpecialistSessionContext;
+}
+
+export interface SpecialistPersonalizationResponse {
+  primarySpecialist: PrimarySpecialistResponse | null;
+  favoriteSpecialists: SpecialistData[];
+  favoriteSpecialistIds: string[];
+}
+
 const matchedSpecialistsCache = new Map<string, CacheEntry<MatchedSpecialistsResponse>>();
 const matchedSpecialistsRequests = new Map<string, Promise<MatchedSpecialistsResponse>>();
 const publicSpecialistsCache = new Map<string, CacheEntry<SpecialistData[]>>();
@@ -298,5 +316,34 @@ export const getSpecialistDetails = async (specialistId: string): Promise<Specia
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'Error al cargar detalles del especialista'));
+  }
+};
+
+export const getSpecialistPersonalization = async (): Promise<SpecialistPersonalizationResponse> => {
+  try {
+    const response = await api.get<{ success: boolean; data: SpecialistPersonalizationResponse }>(
+      '/specialists/me/personalization'
+    );
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'Error al cargar tus especialistas'));
+  }
+};
+
+export const addFavoriteSpecialist = async (specialistId: string): Promise<void> => {
+  try {
+    await api.post(`/specialists/${specialistId}/favorite`);
+    invalidateSpecialistsCache();
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo guardar el favorito'));
+  }
+};
+
+export const removeFavoriteSpecialist = async (specialistId: string): Promise<void> => {
+  try {
+    await api.delete(`/specialists/${specialistId}/favorite`);
+    invalidateSpecialistsCache();
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo quitar el favorito'));
   }
 };

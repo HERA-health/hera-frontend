@@ -20,6 +20,7 @@ import { getSpecialistDisplayTags } from '../../utils/specialistTagLabels';
 interface SpecialistCardProps {
   specialist: Specialist;
   onPress: () => void;
+  onToggleFavorite?: () => void;
   style?: ViewStyle;
   position?: 1 | 2 | 3;
 }
@@ -75,7 +76,7 @@ function AffinityRing({ pct, theme }: { pct: number; theme: Theme }) {
   );
 }
 
-export function SpecialistCard({ specialist, onPress, style, position }: SpecialistCardProps) {
+export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, position }: SpecialistCardProps) {
   const { theme, isDark } = useTheme();
   const dynamicStyles = useMemo(() => createStyles(theme), [theme]);
   const { width } = useWindowDimensions();
@@ -117,6 +118,28 @@ export function SpecialistCard({ specialist, onPress, style, position }: Special
         >
           <Text style={styles.medalNumber}>#{position}</Text>
         </LinearGradient>
+      ) : null}
+
+      {onToggleFavorite ? (
+        <AnimatedPressable
+          onPress={onToggleFavorite}
+          hoverLift={false}
+          pressScale={0.92}
+          style={[
+            styles.favoriteButton,
+            {
+              backgroundColor: specialist.isFavorite ? theme.secondaryAlpha12 : theme.bgCard,
+              borderColor: specialist.isFavorite ? theme.secondary : theme.borderLight,
+            },
+          ]}
+          accessibilityLabel={specialist.isFavorite ? 'Quitar de favoritos' : 'Guardar como favorito'}
+        >
+          <Ionicons
+            name={specialist.isFavorite ? 'heart' : 'heart-outline'}
+            size={18}
+            color={specialist.isFavorite ? theme.secondary : theme.textMuted}
+          />
+        </AnimatedPressable>
       ) : null}
 
       <View style={[styles.mainContent, { flexDirection: isWideScreen ? 'row' : 'column' }]}>
@@ -488,6 +511,18 @@ const styles = StyleSheet.create({
   ctaText: {
     fontSize: 14,
     color: '#FFFFFF',
+  },
+  favoriteButton: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    zIndex: 3,
   },
 });
 

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
+  Image,
   StyleSheet,
   Text,
   View,
@@ -78,6 +79,40 @@ const buildMatchingProfile = (matchingProfile?: Record<string, unknown>) => ({
   format: Array.isArray(matchingProfile?.format) ? (matchingProfile.format as string[]) : [],
 });
 
+const mapSpecialistDataToCard = (
+  specialist: specialistsService.SpecialistData,
+  favoriteIds: Set<string>,
+  affinityOverride?: number
+): Specialist => {
+  const name = specialist.user.name;
+
+  return {
+    id: specialist.id,
+    name,
+    avatar: specialist.avatar || undefined,
+    initial: name.charAt(0).toUpperCase(),
+    specialization: specialist.specialization,
+    rating: specialist.rating,
+    reviewCount: specialist.reviewCount,
+    description: specialistsService.normalizeSpecialistDescription(specialist.description),
+    affinityPercentage: affinityOverride ?? (
+      specialist.affinity
+        ? Math.round((specialist.affinity / 130) * 100)
+        : Math.round((specialist.rating / 5) * 100)
+    ),
+    tags: specialist.matchedAttributes || [],
+    pricePerSession: specialist.pricePerSession,
+    firstVisitFree: specialist.firstVisitFree,
+    verified: true,
+    matchingProfile: buildMatchingProfile(specialist.matchingProfile),
+    offersInPerson: specialist.offersInPerson,
+    offersOnline: specialist.offersOnline,
+    officeCity: specialist.officeCity,
+    distance: specialist.distance,
+    isFavorite: favoriteIds.has(specialist.id),
+  };
+};
+
 const attributeLabels: Record<string, string> = {
   specialty: 'Especialidad coincidente',
   approach: 'Enfoque terapéutico',
@@ -94,12 +129,12 @@ const SpecialistsScreen: React.FC = () => {
   const { user } = useAuth();
   const appAlert = useAppAlert();
   const { theme, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const { width } = useWindowDimensions();
 
   const isDesktop = width >= 1180;
   const isTablet = width >= 768 && width < 1180;
   const isMobile = width < 768;
+  const styles = useMemo(() => createStyles(theme, isDark, isMobile), [theme, isDark, isMobile]);
   const gridColumns = isDesktop ? 3 : isTablet ? 2 : 1;
   const gridItemWidth = isDesktop ? '31.8%' : isTablet ? '48.6%' : '100%';
 
@@ -108,8 +143,13 @@ const SpecialistsScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'specialists' | 'posts'>('specialists');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
+  const [showAllSpecialists, setShowAllSpecialists] = useState(false);
   const [matchedSpecialists, setMatchedSpecialists] = useState<Specialist[]>([]);
   const [allSpecialists, setAllSpecialists] = useState<Specialist[]>([]);
+  const [primarySpecialist, setPrimarySpecialist] = useState<Specialist | null>(null);
+  const [primarySession, setPrimarySession] = useState<specialistsService.PrimarySpecialistSessionContext | null>(null);
+  const [favoriteSpecialists, setFavoriteSpecialists] = useState<Specialist[]>([]);
+  const [favoriteSpecialistIds, setFavoriteSpecialistIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasCompletedQuestionnaire, setHasCompletedQuestionnaire] = useState(false);
@@ -134,6 +174,17 @@ const SpecialistsScreen: React.FC = () => {
 
       let matchedData: Specialist[] = [];
       let hasQuestionnaire = false;
+      let favoriteIds = new Set<string>();
+      let personalization: specialistsService.SpecialistPersonalizationResponse | null = null;
+
+      if (user?.type === 'client') {
+        try {
+          personalization = await specialistsService.getSpecialistPersonalization();
+          favoriteIds = new Set(personalization.favoriteSpecialistIds);
+        } catch {
+          // Personalization is private enhancement. The marketplace should still render.
+        }
+      }
 
       try {
         const matchedResponse = await specialistsService.getMatchedSpecialists();
@@ -141,26 +192,14 @@ const SpecialistsScreen: React.FC = () => {
 
         if (hasQuestionnaire && matchedResponse.specialists.length > 0) {
           matchedData = matchedResponse.specialists.map((specialist) => {
-            const name = specialist.user.name;
             const affinityPercentage = specialist.affinity ? Math.round((specialist.affinity / 130) * 100) : 0;
+            const mapped = mapSpecialistDataToCard(specialist, favoriteIds, affinityPercentage);
 
             return {
-              id: specialist.id,
-              name,
-              avatar: specialist.avatar || undefined,
-              initial: name.charAt(0).toUpperCase(),
-              specialization: specialist.specialization,
-              rating: specialist.rating,
-              reviewCount: specialist.reviewCount,
-              description: specialistsService.normalizeSpecialistDescription(specialist.description),
-              affinityPercentage,
+              ...mapped,
               tags: (specialist.matchedAttributes || [])
                 .map((attr) => attributeLabels[attr] || attr)
                 .filter(Boolean),
-              pricePerSession: specialist.pricePerSession,
-              firstVisitFree: specialist.firstVisitFree,
-              verified: true,
-              matchingProfile: buildMatchingProfile(specialist.matchingProfile),
             };
           });
         }
@@ -182,36 +221,31 @@ const SpecialistsScreen: React.FC = () => {
       }
 
       const allSpecialistsData = await specialistsService.getAllSpecialists(filters);
-      const mappedAllSpecialists = allSpecialistsData.map((specialist) => ({
-        id: specialist.id,
-        name: specialist.user.name,
-        avatar: specialist.avatar || undefined,
-        initial: specialist.user.name.charAt(0).toUpperCase(),
-        specialization: specialist.specialization,
-        rating: specialist.rating,
-        reviewCount: specialist.reviewCount,
-        description: specialistsService.normalizeSpecialistDescription(specialist.description),
-        affinityPercentage: Math.round((specialist.rating / 5) * 100),
-        tags: specialist.matchedAttributes || [],
-        pricePerSession: specialist.pricePerSession,
-        firstVisitFree: specialist.firstVisitFree,
-        verified: true,
-        matchingProfile: buildMatchingProfile(specialist.matchingProfile),
-        offersInPerson: specialist.offersInPerson,
-        offersOnline: specialist.offersOnline,
-        officeCity: specialist.officeCity,
-        distance: specialist.distance,
-      }));
+      const mappedAllSpecialists = allSpecialistsData.map((specialist) =>
+        mapSpecialistDataToCard(specialist, favoriteIds)
+      );
 
       setMatchedSpecialists(matchedData);
       setAllSpecialists(mappedAllSpecialists);
+      setFavoriteSpecialistIds(Array.from(favoriteIds));
+      setFavoriteSpecialists(
+        personalization?.favoriteSpecialists.map((specialist) =>
+          mapSpecialistDataToCard(specialist, favoriteIds)
+        ) ?? []
+      );
+      setPrimarySpecialist(
+        personalization?.primarySpecialist
+          ? mapSpecialistDataToCard(personalization.primarySpecialist.specialist, favoriteIds)
+          : null
+      );
+      setPrimarySession(personalization?.primarySpecialist?.session ?? null);
       setHasCompletedQuestionnaire(hasQuestionnaire);
     } catch (fetchError: unknown) {
       setError(fetchError instanceof Error ? fetchError.message : 'Error al cargar especialistas');
     } finally {
       setLoading(false);
     }
-  }, [attributeLabels, clientLocation.hasLocation, clientLocation.lat, clientLocation.lng, maxDistance, proximityEnabled]);
+  }, [attributeLabels, clientLocation.hasLocation, clientLocation.lat, clientLocation.lng, maxDistance, proximityEnabled, user?.type]);
 
   useEffect(() => {
     analyticsService.trackScreen('specialists_list');
@@ -242,6 +276,12 @@ const SpecialistsScreen: React.FC = () => {
     void fetchSpecialists();
   }, [user?.type]);
 
+  useEffect(() => {
+    if (searchQuery || selectedFilters.length > 0 || proximityEnabled) {
+      setShowAllSpecialists(true);
+    }
+  }, [proximityEnabled, searchQuery, selectedFilters.length]);
+
   const handleSpecialistPress = useCallback((specialistId: string) => {
     const specialist = matchedSpecialists.find((item) => item.id === specialistId)
       || allSpecialists.find((item) => item.id === specialistId);
@@ -249,6 +289,60 @@ const SpecialistsScreen: React.FC = () => {
 
     navigation.navigate('SpecialistDetail', { specialistId, affinity });
   }, [allSpecialists, matchedSpecialists, navigation]);
+
+  const applyFavoriteState = useCallback((specialistId: string, isFavorite: boolean) => {
+    const update = (items: Specialist[]) =>
+      items.map((item) => (item.id === specialistId ? { ...item, isFavorite } : item));
+
+    setMatchedSpecialists(update);
+    setAllSpecialists(update);
+    setFavoriteSpecialists((items) => {
+      const updated = update(items);
+      if (!isFavorite) {
+        return updated.filter((item) => item.id !== specialistId);
+      }
+
+      if (updated.some((item) => item.id === specialistId)) {
+        return updated;
+      }
+
+      const source = allSpecialists.find((item) => item.id === specialistId)
+        || matchedSpecialists.find((item) => item.id === specialistId)
+        || primarySpecialist;
+
+      return source ? [{ ...source, isFavorite: true }, ...updated] : updated;
+    });
+    setPrimarySpecialist((current) =>
+      current?.id === specialistId ? { ...current, isFavorite } : current
+    );
+    setFavoriteSpecialistIds((ids) => (
+      isFavorite
+        ? Array.from(new Set([specialistId, ...ids]))
+        : ids.filter((id) => id !== specialistId)
+    ));
+  }, [allSpecialists, matchedSpecialists, primarySpecialist]);
+
+  const handleToggleFavorite = useCallback(async (specialistId: string) => {
+    if (user?.type !== 'client') return;
+
+    const isFavorite = favoriteSpecialistIds.includes(specialistId);
+    applyFavoriteState(specialistId, !isFavorite);
+
+    try {
+      if (isFavorite) {
+        await specialistsService.removeFavoriteSpecialist(specialistId);
+      } else {
+        await specialistsService.addFavoriteSpecialist(specialistId);
+      }
+    } catch (favoriteError: unknown) {
+      applyFavoriteState(specialistId, isFavorite);
+      showAppAlert(
+        appAlert,
+        'No se pudo actualizar',
+        favoriteError instanceof Error ? favoriteError.message : 'Inténtalo de nuevo en unos segundos.'
+      );
+    }
+  }, [appAlert, applyFavoriteState, favoriteSpecialistIds, user?.type]);
 
   const handleSort = () => {
     const options: { text: string; onPress?: () => void; style?: 'cancel' }[] = [
@@ -459,6 +553,132 @@ const SpecialistsScreen: React.FC = () => {
     </AnimatedPressable>
   );
 
+  const renderFavoriteButton = (specialist: Specialist, compact = false) => (
+    <AnimatedPressable
+      onPress={() => handleToggleFavorite(specialist.id)}
+      hoverLift={false}
+      pressScale={0.92}
+      style={[
+        compact ? styles.favoriteIconButtonCompact : styles.favoriteIconButton,
+        {
+          backgroundColor: specialist.isFavorite ? theme.secondaryAlpha12 : theme.bgAlt,
+          borderColor: specialist.isFavorite ? theme.secondary : theme.borderLight,
+        },
+      ]}
+      accessibilityLabel={specialist.isFavorite ? 'Quitar de favoritos' : 'Guardar como favorito'}
+    >
+      <Ionicons
+        name={specialist.isFavorite ? 'heart' : 'heart-outline'}
+        size={compact ? 17 : 19}
+        color={specialist.isFavorite ? theme.secondary : theme.textMuted}
+      />
+    </AnimatedPressable>
+  );
+
+  const renderPrimarySpecialist = () => {
+    if (!primarySpecialist) return null;
+    const isActiveSession = primarySession?.status === 'PENDING' || primarySession?.status === 'CONFIRMED';
+    const sessionLabel = isActiveSession ? 'Cita en curso' : 'Última sesión';
+
+    return (
+      <View style={styles.primarySection}>
+        <View style={styles.primaryHeader}>
+          <View>
+            <Text style={styles.primaryEyebrow}>Tu especialista</Text>
+            <Text style={styles.primaryTitle}>Continúa con {primarySpecialist.name}</Text>
+          </View>
+          {user?.type === 'client' ? renderFavoriteButton(primarySpecialist) : null}
+        </View>
+        <AnimatedPressable
+          onPress={() => handleSpecialistPress(primarySpecialist.id)}
+          pressScale={0.985}
+          style={styles.primaryCard}
+        >
+          <LinearGradient
+            colors={isDark ? [theme.bgElevated, theme.bgCard] : [theme.bgCard, theme.primaryAlpha12]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.primaryCardInner}
+          >
+            <View style={styles.primaryAvatar}>
+              {primarySpecialist.avatar ? (
+                <Image source={{ uri: primarySpecialist.avatar }} style={styles.primaryAvatarImage} />
+              ) : (
+                <Text style={styles.primaryAvatarInitial}>{primarySpecialist.initial}</Text>
+              )}
+            </View>
+            <View style={styles.primaryCopy}>
+              <View style={styles.primaryPillsRow}>
+                <View style={styles.primaryPill}>
+                  <Ionicons name="calendar-outline" size={13} color={theme.primary} />
+                  <Text style={styles.primaryPillText}>{sessionLabel}</Text>
+                </View>
+                <View style={styles.primaryPill}>
+                  <Ionicons name="star" size={13} color={theme.starRating} />
+                  <Text style={styles.primaryPillText}>{primarySpecialist.rating.toFixed(1)}</Text>
+                </View>
+              </View>
+              <Text style={styles.primaryName}>{primarySpecialist.name}</Text>
+              <Text style={styles.primarySpecialization}>{primarySpecialist.specialization}</Text>
+              <Text style={styles.primaryDescription} numberOfLines={2}>
+                {primarySpecialist.description}
+              </Text>
+            </View>
+            <View style={styles.primaryActions}>
+              <Button
+                variant="primary"
+                size="medium"
+                onPress={() => handleSpecialistPress(primarySpecialist.id)}
+                icon={<Ionicons name="arrow-forward" size={16} color={theme.textOnPrimary} />}
+                iconPosition="right"
+              >
+                Ver perfil
+              </Button>
+            </View>
+          </LinearGradient>
+        </AnimatedPressable>
+      </View>
+    );
+  };
+
+  const renderFavoritesSection = () => {
+    if (favoriteSpecialists.length === 0) return null;
+
+    return (
+      <View style={styles.favoriteSection}>
+        <View style={styles.resultsHeader}>
+          <Text style={styles.resultsTitle}>Favoritos</Text>
+          <Text style={styles.resultsMeta}>Privado para ti</Text>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.favoritesRail}
+        >
+          {favoriteSpecialists.map((specialist) => (
+            <AnimatedPressable
+              key={`favorite-${specialist.id}`}
+              onPress={() => handleSpecialistPress(specialist.id)}
+              style={styles.favoriteCard}
+              pressScale={0.98}
+            >
+              {renderFavoriteButton(specialist, true)}
+              <View style={styles.favoriteAvatar}>
+                {specialist.avatar ? (
+                  <Image source={{ uri: specialist.avatar }} style={styles.favoriteAvatarImage} />
+                ) : (
+                  <Text style={styles.favoriteAvatarInitial}>{specialist.initial}</Text>
+                )}
+              </View>
+              <Text style={styles.favoriteName} numberOfLines={1}>{specialist.name}</Text>
+              <Text style={styles.favoriteSpec} numberOfLines={2}>{specialist.specialization}</Text>
+            </AnimatedPressable>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <View style={styles.stateIconWrap}>
@@ -517,6 +737,7 @@ const SpecialistsScreen: React.FC = () => {
                 specialist={specialist}
                 position={i + index < 3 ? (i + index + 1) as 1 | 2 | 3 : undefined}
                 onPress={() => handleSpecialistPress(specialist.id)}
+                onToggleFavorite={user?.type === 'client' ? () => handleToggleFavorite(specialist.id) : undefined}
               />
             </View>
           ))}
@@ -613,29 +834,55 @@ const SpecialistsScreen: React.FC = () => {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.resultsHeader}>
-            <Text style={styles.resultsTitle}>Especialistas disponibles</Text>
-            {!loading ? (
-              <Text style={styles.resultsMeta}>
-                {filteredSpecialists.length} resultado{filteredSpecialists.length !== 1 ? 's' : ''}
-              </Text>
-            ) : null}
-          </View>
+          {!loading ? renderPrimarySpecialist() : null}
+          {!loading ? renderFavoritesSection() : null}
 
-          {loading ? <SpecialistsLoadingState count={6} viewMode={viewMode} /> : null}
-          {!loading && filteredSpecialists.length === 0 ? renderEmptyState() : null}
-          {!loading && filteredSpecialists.length > 0 && viewMode === 'grid' ? renderGrid() : null}
-          {!loading && filteredSpecialists.length > 0 && viewMode === 'list' ? (
-            <View style={styles.listWrap}>
-              {filteredSpecialists.map((specialist, index) => (
-                <SpecialistListItem
-                  key={specialist.id}
-                  specialist={specialist}
-                  position={index < 3 ? (index + 1) as 1 | 2 | 3 : undefined}
-                  onPress={() => handleSpecialistPress(specialist.id)}
-                />
-              ))}
+          {primarySpecialist && !showAllSpecialists && !loading ? (
+            <View style={styles.revealListCard}>
+              <View style={styles.revealCopy}>
+                <Text style={styles.revealTitle}>También puedes explorar otros especialistas</Text>
+                <Text style={styles.revealSubtitle}>
+                  Tu especialista aparece primero, pero la lista completa sigue disponible cuando quieras comparar.
+                </Text>
+              </View>
+              <Button
+                variant="outline"
+                onPress={() => setShowAllSpecialists(true)}
+                icon={<Ionicons name="list-outline" size={16} color={theme.primary} />}
+              >
+                Ver todos los especialistas
+              </Button>
             </View>
+          ) : null}
+
+          {(!primarySpecialist || showAllSpecialists) ? (
+            <>
+              <View style={styles.resultsHeader}>
+                <Text style={styles.resultsTitle}>Especialistas disponibles</Text>
+                {!loading ? (
+                  <Text style={styles.resultsMeta}>
+                    {filteredSpecialists.length} resultado{filteredSpecialists.length !== 1 ? 's' : ''}
+                  </Text>
+                ) : null}
+              </View>
+
+              {loading ? <SpecialistsLoadingState count={6} viewMode={viewMode} /> : null}
+              {!loading && filteredSpecialists.length === 0 ? renderEmptyState() : null}
+              {!loading && filteredSpecialists.length > 0 && viewMode === 'grid' ? renderGrid() : null}
+              {!loading && filteredSpecialists.length > 0 && viewMode === 'list' ? (
+                <View style={styles.listWrap}>
+                  {filteredSpecialists.map((specialist, index) => (
+                    <SpecialistListItem
+                      key={specialist.id}
+                      specialist={specialist}
+                      position={index < 3 ? (index + 1) as 1 | 2 | 3 : undefined}
+                      onPress={() => handleSpecialistPress(specialist.id)}
+                      onToggleFavorite={user?.type === 'client' ? () => handleToggleFavorite(specialist.id) : undefined}
+                    />
+                  ))}
+                </View>
+              ) : null}
+            </>
           ) : null}
         </ScrollView>
       ) : (
@@ -664,7 +911,7 @@ function getSortLabel(sortOption: SortOption) {
   }
 }
 
-function createStyles(theme: Theme, isDark: boolean) {
+function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
   return StyleSheet.create({
     screen: {
       flex: 1,
@@ -1033,6 +1280,210 @@ function createStyles(theme: Theme, isDark: boolean) {
     },
     listWrap: {
       gap: spacing.md,
+    },
+    primarySection: {
+      gap: spacing.md,
+    },
+    primaryHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: spacing.md,
+    },
+    primaryEyebrow: {
+      fontSize: 12,
+      fontFamily: theme.fontSansBold,
+      color: theme.primary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+    },
+    primaryTitle: {
+      marginTop: 3,
+      fontSize: 24,
+      fontFamily: theme.fontDisplay,
+      color: theme.textPrimary,
+    },
+    primaryCard: {
+      borderRadius: 22,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: theme.primaryMuted,
+      shadowColor: theme.shadowCard,
+      shadowOffset: { width: 0, height: 14 },
+      shadowOpacity: 0.8,
+      shadowRadius: 28,
+      elevation: 4,
+    },
+    primaryCardInner: {
+      padding: spacing.lg,
+      flexDirection: isMobile ? 'column' : 'row',
+      alignItems: isMobile ? 'flex-start' : 'center',
+      gap: spacing.lg,
+    },
+    primaryAvatar: {
+      width: 86,
+      height: 86,
+      borderRadius: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      backgroundColor: theme.primary,
+    },
+    primaryAvatarImage: {
+      width: 86,
+      height: 86,
+    },
+    primaryAvatarInitial: {
+      fontSize: 34,
+      fontFamily: theme.fontDisplay,
+      color: theme.textOnPrimary,
+    },
+    primaryCopy: {
+      flex: 1,
+      minWidth: 0,
+      gap: 6,
+    },
+    primaryPillsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    primaryPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+      borderRadius: 999,
+      backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+    },
+    primaryPillText: {
+      fontSize: 12,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.textSecondary,
+    },
+    primaryName: {
+      fontSize: 25,
+      fontFamily: theme.fontDisplay,
+      color: theme.textPrimary,
+    },
+    primarySpecialization: {
+      fontSize: 14,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.primary,
+    },
+    primaryDescription: {
+      fontSize: 14,
+      lineHeight: 20,
+      fontFamily: theme.fontSans,
+      color: theme.textSecondary,
+    },
+    primaryActions: {
+      alignSelf: isMobile ? 'stretch' : 'center',
+    },
+    favoriteIconButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+    },
+    favoriteIconButtonCompact: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      zIndex: 2,
+    },
+    favoriteSection: {
+      gap: spacing.md,
+    },
+    favoritesRail: {
+      gap: spacing.md,
+      paddingRight: spacing.lg,
+    },
+    favoriteCard: {
+      width: 164,
+      minHeight: 180,
+      padding: spacing.md,
+      borderRadius: 18,
+      backgroundColor: theme.bgCard,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+      shadowColor: theme.shadowCard,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.6,
+      shadowRadius: 18,
+      elevation: 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    favoriteAvatar: {
+      width: 58,
+      height: 58,
+      borderRadius: 29,
+      overflow: 'hidden',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.primary,
+    },
+    favoriteAvatarImage: {
+      width: 58,
+      height: 58,
+    },
+    favoriteAvatarInitial: {
+      fontSize: 22,
+      fontFamily: theme.fontDisplay,
+      color: theme.textOnPrimary,
+    },
+    favoriteName: {
+      fontSize: 14,
+      fontFamily: theme.fontSansBold,
+      color: theme.textPrimary,
+      textAlign: 'center',
+      width: '100%',
+    },
+    favoriteSpec: {
+      fontSize: 12,
+      lineHeight: 16,
+      fontFamily: theme.fontSans,
+      color: theme.textSecondary,
+      textAlign: 'center',
+    },
+    revealListCard: {
+      padding: spacing.lg,
+      borderRadius: 20,
+      backgroundColor: theme.bgCard,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+      flexDirection: isMobile ? 'column' : 'row',
+      alignItems: isMobile ? 'stretch' : 'center',
+      justifyContent: 'space-between',
+      gap: spacing.md,
+    },
+    revealCopy: {
+      flex: 1,
+      gap: 4,
+    },
+    revealTitle: {
+      fontSize: 17,
+      fontFamily: theme.fontSansBold,
+      color: theme.textPrimary,
+    },
+    revealSubtitle: {
+      fontSize: 13,
+      lineHeight: 19,
+      fontFamily: theme.fontSans,
+      color: theme.textSecondary,
     },
     emptyState: {
       minHeight: 360,

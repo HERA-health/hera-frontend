@@ -20,6 +20,7 @@ export interface Specialist {
   pricePerSession: number;
   firstVisitFree?: boolean;
   verified: boolean;
+  isFavorite?: boolean;
 
   // User information from backend (includes avatar)
   user?: {

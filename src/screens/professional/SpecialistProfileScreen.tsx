@@ -65,7 +65,7 @@ import type { UploadAsset } from '../../utils/multipartUpload';
 // TYPE DEFINITIONS
 // ============================================================================
 
-type ProfileTab = 'mi-espacio' | 'information' | 'credentials' | 'pricing' | 'account';
+type ProfileTab = 'mi-espacio' | 'information' | 'credentials' | 'pricing' | 'privacy' | 'account';
 
 interface Education {
   id: string;
@@ -1141,10 +1141,26 @@ export function SpecialistProfileScreen() {
     { id: 'mi-espacio', label: STRINGS.miEspacio.tabLabel, icon: 'sparkles-outline' },
     { id: 'credentials', label: 'Credenciales', icon: 'shield-checkmark-outline' },
     { id: 'pricing', label: 'Tarifas y Pagos', icon: 'card-outline' },
+    { id: 'privacy', label: 'Privacidad', icon: 'eye-outline' },
     { id: 'account', label: 'Cuenta', icon: 'settings-outline' },
   ];
 
   const canShareProfile = verificationStatus.verificationStatus === 'VERIFIED' && Boolean(specialistId);
+  const visibilityCopy = profileData.profileVisible
+    ? {
+        icon: 'earth-outline' as IconName,
+        label: 'Perfil público',
+        description: 'Apareces en búsquedas y recomendaciones de HERA.',
+        badgeStyle: styles.visibilityBadgePublic,
+        badgeTextStyle: styles.visibilityBadgeTextPublic,
+      }
+    : {
+        icon: 'link-outline' as IconName,
+        label: 'Perfil privado',
+        description: 'No apareces en búsquedas. Tus pacientes y quien tenga tu enlace pueden acceder.',
+        badgeStyle: styles.visibilityBadgePrivate,
+        badgeTextStyle: styles.visibilityBadgeTextPrivate,
+      };
 
   const renderTabNavigation = () => (
     <View style={[styles.tabsContainer, isDesktop && styles.tabsContainerDesktop]}>
@@ -1156,18 +1172,30 @@ export function SpecialistProfileScreen() {
           </Text>
         </View>
 
-        {canShareProfile ? (
+        {specialistId ? (
           <View style={styles.topBarActions}>
-            <Button
-              variant="outline"
-              size="small"
-              onPress={handleShareProfile}
-              icon={<Ionicons name="link-outline" size={16} color={palette.primary} />}
-              style={{ ...styles.topBarActionButton }}
-              textStyle={{ ...styles.topBarActionText }}
-            >
-              Compartir perfil
-            </Button>
+            <View style={[styles.visibilityBadge, visibilityCopy.badgeStyle]}>
+              <Ionicons
+                name={visibilityCopy.icon}
+                size={14}
+                color={profileData.profileVisible ? palette.success : palette.primary}
+              />
+              <Text style={[styles.visibilityBadgeText, visibilityCopy.badgeTextStyle]}>
+                {visibilityCopy.label}
+              </Text>
+            </View>
+            {canShareProfile ? (
+              <Button
+                variant="outline"
+                size="small"
+                onPress={handleShareProfile}
+                icon={<Ionicons name="link-outline" size={16} color={palette.primary} />}
+                style={{ ...styles.topBarActionButton }}
+                textStyle={{ ...styles.topBarActionText }}
+              >
+                Compartir perfil
+              </Button>
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -2868,14 +2896,56 @@ export function SpecialistProfileScreen() {
         </View>
       </View>
 
-      {/* Privacy Settings */}
+      {/* Account Actions */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Acciones de cuenta</Text>
+        <View style={styles.formCard}>
+          <TouchableOpacity style={styles.accountLink} activeOpacity={0.7}>
+            <Ionicons name="download-outline" size={20} color={palette.textSecondary} />
+            <Text style={styles.accountLinkText}>Descargar mis datos</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.accountLink} activeOpacity={0.7}>
+            <Ionicons name="pause-circle-outline" size={20} color={palette.warningAmber} />
+            <Text style={styles.accountLinkText}>Pausar cuenta temporalmente</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.accountLink, styles.accountLinkDanger]} activeOpacity={0.7}>
+            <Ionicons name="trash-outline" size={20} color={palette.warning} />
+            <Text style={[styles.accountLinkText, styles.accountLinkTextDanger]}>Eliminar cuenta</Text>
+          </TouchableOpacity>
+          <Text style={styles.accountWarning}>
+            Las acciones permanentes requieren confirmación
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  // ============================================================================
+  // RENDER: TAB 5 - PRIVACIDAD
+  // ============================================================================
+
+  const renderPrivacyTab = () => (
+    <View style={styles.tabContent}>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Privacidad</Text>
         <View style={styles.formCard}>
+          <View style={styles.visibilitySummary}>
+            <View style={styles.visibilitySummaryIcon}>
+              <Ionicons name={visibilityCopy.icon} size={20} color={palette.primary} />
+            </View>
+            <View style={styles.visibilitySummaryCopy}>
+              <Text style={styles.visibilitySummaryTitle}>{visibilityCopy.label}</Text>
+              <Text style={styles.visibilitySummaryText}>{visibilityCopy.description}</Text>
+            </View>
+          </View>
+
           <View style={styles.privacySection}>
-            <Text style={styles.privacyLabel}>Perfil público</Text>
+            <Text style={styles.privacyLabel}>Visibilidad del perfil</Text>
             <TouchableOpacity
-              style={styles.radioOption}
+              style={[
+                styles.visibilityOption,
+                profileData.profileVisible && styles.visibilityOptionSelected,
+              ]}
               onPress={() => updateField('profileVisible', true)}
               activeOpacity={0.7}
             >
@@ -2884,10 +2954,18 @@ export function SpecialistProfileScreen() {
                 size={20}
                 color={palette.primary}
               />
-              <Text style={styles.radioText}>Visible (aparecer en búsquedas)</Text>
+              <View style={styles.visibilityOptionCopy}>
+                <Text style={styles.visibilityOptionTitle}>Público en HERA</Text>
+                <Text style={styles.visibilityOptionText}>
+                  Se muestra en la lista de especialistas, búsquedas y recomendaciones.
+                </Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.radioOption}
+              style={[
+                styles.visibilityOption,
+                !profileData.profileVisible && styles.visibilityOptionSelected,
+              ]}
               onPress={() => updateField('profileVisible', false)}
               activeOpacity={0.7}
             >
@@ -2896,7 +2974,12 @@ export function SpecialistProfileScreen() {
                 size={20}
                 color={palette.primary}
               />
-              <Text style={styles.radioText}>Oculto (solo enlace directo)</Text>
+              <View style={styles.visibilityOptionCopy}>
+                <Text style={styles.visibilityOptionTitle}>Privado con enlace</Text>
+                <Text style={styles.visibilityOptionText}>
+                  No aparece en discovery. Sigue disponible para tus pacientes y para quien reciba tu enlace.
+                </Text>
+              </View>
             </TouchableOpacity>
           </View>
 
@@ -2928,28 +3011,6 @@ export function SpecialistProfileScreen() {
               <Text style={styles.toggleText}>Mostrar última conexión</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
-
-      {/* Account Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Acciones de cuenta</Text>
-        <View style={styles.formCard}>
-          <TouchableOpacity style={styles.accountLink} activeOpacity={0.7}>
-            <Ionicons name="download-outline" size={20} color={palette.textSecondary} />
-            <Text style={styles.accountLinkText}>Descargar mis datos</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.accountLink} activeOpacity={0.7}>
-            <Ionicons name="pause-circle-outline" size={20} color={palette.warningAmber} />
-            <Text style={styles.accountLinkText}>Pausar cuenta temporalmente</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.accountLink, styles.accountLinkDanger]} activeOpacity={0.7}>
-            <Ionicons name="trash-outline" size={20} color={palette.warning} />
-            <Text style={[styles.accountLinkText, styles.accountLinkTextDanger]}>Eliminar cuenta</Text>
-          </TouchableOpacity>
-          <Text style={styles.accountWarning}>
-            Las acciones permanentes requieren confirmación
-          </Text>
         </View>
       </View>
     </View>
@@ -3006,6 +3067,7 @@ export function SpecialistProfileScreen() {
           {activeTab === 'information' && renderInformationTab()}
           {activeTab === 'credentials' && renderCredentialsTab()}
           {activeTab === 'pricing' && renderPricingTab()}
+          {activeTab === 'privacy' && renderPrivacyTab()}
           {activeTab === 'account' && renderAccountTab()}
 
           {/* Spacer for save button */}
@@ -3300,6 +3362,8 @@ function createStyles(
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: isMobile ? 'flex-start' : 'flex-end',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
   },
   topBarActionButton: {
     minWidth: isMobile ? 0 : 172,
@@ -3307,6 +3371,33 @@ function createStyles(
   topBarActionText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  visibilityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+  },
+  visibilityBadgePublic: {
+    backgroundColor: palette.successLight,
+    borderColor: palette.success,
+  },
+  visibilityBadgePrivate: {
+    backgroundColor: palette.primaryAlpha12,
+    borderColor: palette.primaryMuted,
+  },
+  visibilityBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  visibilityBadgeTextPublic: {
+    color: palette.success,
+  },
+  visibilityBadgeTextPrivate: {
+    color: palette.primary,
   },
   shareModalOverlay: {
     flex: 1,
@@ -4437,6 +4528,66 @@ function createStyles(
     fontWeight: '600',
     color: palette.textSecondary,
     marginBottom: spacing.sm,
+  },
+  visibilitySummary: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    paddingBottom: spacing.lg,
+    marginBottom: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+  },
+  visibilitySummaryIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.primaryAlpha12,
+  },
+  visibilitySummaryCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  visibilitySummaryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: palette.textPrimary,
+  },
+  visibilitySummaryText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: palette.textSecondary,
+  },
+  visibilityOption: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    marginBottom: spacing.sm,
+    backgroundColor: palette.cardBg,
+  },
+  visibilityOptionSelected: {
+    borderColor: palette.primary,
+    backgroundColor: palette.primaryAlpha12,
+  },
+  visibilityOptionCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  visibilityOptionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: palette.textPrimary,
+  },
+  visibilityOptionText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: palette.textSecondary,
   },
   accountLink: {
     flexDirection: 'row',

@@ -25,7 +25,12 @@ import { AnimatedPressable } from '../../components/common/AnimatedPressable';
 import { Button } from '../../components/common/Button';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { getMatchedSpecialists, SpecialistData } from '../../services/specialistsService';
+import {
+  getMatchedSpecialists,
+  getSpecialistPersonalization,
+  PrimarySpecialistResponse,
+  SpecialistData,
+} from '../../services/specialistsService';
 import { getMySessions } from '../../services/sessionsService';
 import { useAuth } from '../../contexts/AuthContext';
 import { VerificationBanner } from '../../components/auth';
@@ -99,6 +104,7 @@ export default function HomeScreen() {
   // ── State ──────────────────────────────────────────────────────────────────
   const [sessions, setSessions] = useState<ApiSession[]>([]);
   const [topSpecialists, setTopSpecialists] = useState<SpecialistData[]>([]);
+  const [primarySpecialist, setPrimarySpecialist] = useState<PrimarySpecialistResponse | null>(null);
   const [hasCompletedQuestionnaire, setHasCompletedQuestionnaire] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedMood, setSelectedMood] = useState<number | null>(null);
@@ -150,11 +156,18 @@ export default function HomeScreen() {
   // ── Data fetching ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) { setLoading(false); return; }
-    Promise.allSettled([getMySessions(), getMatchedSpecialists()]).then(([sessRes, specRes]) => {
+    Promise.allSettled([
+      getMySessions(),
+      getMatchedSpecialists(),
+      user.type === 'client' ? getSpecialistPersonalization() : Promise.resolve(null),
+    ]).then(([sessRes, specRes, personalizationRes]) => {
       if (sessRes.status === 'fulfilled') setSessions(sessRes.value);
       if (specRes.status === 'fulfilled') {
         setHasCompletedQuestionnaire(specRes.value.hasCompletedQuestionnaire);
         setTopSpecialists(specRes.value.specialists.slice(0, 4));
+      }
+      if (personalizationRes.status === 'fulfilled') {
+        setPrimarySpecialist(personalizationRes.value?.primarySpecialist ?? null);
       }
       setLoading(false);
     });
@@ -592,8 +605,74 @@ export default function HomeScreen() {
     </AnimatedPressable>
   );
 
+  const renderPrimarySpecialist = () => {
+    if (!primarySpecialist) return null;
+
+    const specialist = primarySpecialist.specialist;
+    const isActiveSession =
+      primarySpecialist.session.status === 'PENDING'
+      || primarySpecialist.session.status === 'CONFIRMED';
+
+    return (
+      <Animated.View style={[styles.section, animStyle(4)]}>
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>Tu especialista</Text>
+          <AnimatedPressable onPress={() => navigation.navigate('Specialists')} hoverLift={false} pressScale={0.98}>
+            <Text style={[styles.sectionLink, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>Ver especialistas</Text>
+          </AnimatedPressable>
+        </View>
+        <AnimatedPressable
+          style={[styles.primarySpecialistCard, { backgroundColor: theme.bgCard, borderColor: theme.primaryMuted, shadowColor: theme.shadowNeutral }]}
+          onPress={() => navigation.navigate('SpecialistDetail', { specialistId: specialist.id })}
+          pressScale={0.985}
+        >
+          <View style={styles.primarySpecialistTop}>
+            <View style={styles.primarySpecialistAvatar}>
+              {specialist.avatar ? (
+                <Image source={{ uri: specialist.avatar }} style={styles.primarySpecialistAvatarImage} />
+              ) : (
+                <LinearGradient
+                  colors={[theme.primary, theme.secondary]}
+                  style={styles.primarySpecialistAvatarImage}
+                >
+                  <Text style={styles.primarySpecialistAvatarInitial}>{specialist.user.name.charAt(0).toUpperCase()}</Text>
+                </LinearGradient>
+              )}
+            </View>
+            <View style={styles.primarySpecialistCopy}>
+              <View style={[styles.primarySpecialistPill, { backgroundColor: theme.primaryAlpha12 }]}>
+                <Ionicons name="calendar-outline" size={13} color={theme.primary} />
+                <Text style={[styles.primarySpecialistPillText, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
+                  {isActiveSession ? 'Cita activa' : 'Última sesión'}
+                </Text>
+              </View>
+              <Text style={[styles.primarySpecialistName, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]} numberOfLines={1}>
+                {specialist.user.name}
+              </Text>
+              <Text style={[styles.primarySpecialistSpec, { color: theme.textSecondary, fontFamily: theme.fontSans }]} numberOfLines={1}>
+                {specialist.specialization}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.primarySpecialistFooter}>
+            <Text style={[styles.primarySpecialistMeta, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
+              {getDateLabel(primarySpecialist.session.date)} · {formatTime(primarySpecialist.session.date)}
+            </Text>
+            <View style={[styles.viewProfileBtn, { backgroundColor: theme.primaryAlpha12, borderColor: theme.border }]}>
+              <Text style={[styles.viewProfileText, { color: theme.primaryDark, fontFamily: theme.fontSansSemiBold }]}>Ver perfil</Text>
+            </View>
+          </View>
+        </AnimatedPressable>
+      </Animated.View>
+    );
+  };
+
   const renderRecommendedSpecialists = () => {
-    if (!hasCompletedQuestionnaire || topSpecialists.length === 0) return null;
+    const visibleSpecialists = primarySpecialist
+      ? topSpecialists.filter((specialist) => specialist.id !== primarySpecialist.specialist.id)
+      : topSpecialists;
+
+    if (!hasCompletedQuestionnaire || visibleSpecialists.length === 0) return null;
     return (
       <Animated.View style={[styles.section, animStyle(4)]}>
         <View style={styles.sectionHeader}>
@@ -604,11 +683,11 @@ export default function HomeScreen() {
         </View>
         {isDesktop ? (
           <View style={styles.specialistsGrid}>
-            {topSpecialists.map(s => renderSpecialistItem(s, true))}
+            {visibleSpecialists.map(s => renderSpecialistItem(s, true))}
           </View>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.specialistsScroll}>
-            {topSpecialists.map(s => renderSpecialistItem(s, false))}
+            {visibleSpecialists.map(s => renderSpecialistItem(s, false))}
           </ScrollView>
         )}
       </Animated.View>
@@ -710,6 +789,7 @@ export default function HomeScreen() {
             </View>
             <View style={styles.colRight}>
               {renderStats()}
+              {renderPrimarySpecialist()}
               {renderRecommendedSpecialists()}
             </View>
           </View>
@@ -723,6 +803,7 @@ export default function HomeScreen() {
               upcomingList.length > 0 ? 'Próximas sesiones' : 'Sesiones recientes',
               3
             )}
+            {renderPrimarySpecialist()}
             {renderRecommendedSpecialists()}
           </>
         )}
@@ -1311,6 +1392,69 @@ const styles = StyleSheet.create({
   specialistPrice: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  primarySpecialistCard: {
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    gap: 14,
+    ...shadows.md,
+  },
+  primarySpecialistTop: {
+    flexDirection: 'row',
+    gap: 14,
+    alignItems: 'center',
+  },
+  primarySpecialistAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  primarySpecialistAvatarImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primarySpecialistAvatarInitial: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  primarySpecialistCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  primarySpecialistPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  primarySpecialistPillText: {
+    fontSize: 11,
+  },
+  primarySpecialistName: {
+    fontSize: 21,
+  },
+  primarySpecialistSpec: {
+    fontSize: 13,
+  },
+  primarySpecialistFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  primarySpecialistMeta: {
+    fontSize: 12,
+    flex: 1,
   },
   viewProfileBtn: {
     borderWidth: 1.5,

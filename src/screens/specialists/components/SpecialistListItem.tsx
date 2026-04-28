@@ -12,6 +12,7 @@ import { getSpecialistDisplayTags } from '../../../utils/specialistTagLabels';
 interface SpecialistListItemProps {
   specialist: Specialist;
   onPress: () => void;
+  onToggleFavorite?: () => void;
   position?: 1 | 2 | 3;
   animationDelay?: number;
 }
@@ -19,6 +20,7 @@ interface SpecialistListItemProps {
 export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
   specialist,
   onPress,
+  onToggleFavorite,
   position,
 }) => {
   const { theme, isDark } = useTheme();
@@ -126,6 +128,27 @@ export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
       </View>
 
       <View style={styles.ctaWrap}>
+        {onToggleFavorite ? (
+          <AnimatedPressable
+            onPress={onToggleFavorite}
+            hoverLift={false}
+            pressScale={0.92}
+            style={[
+              styles.favoriteButton,
+              {
+                backgroundColor: specialist.isFavorite ? theme.secondaryAlpha12 : theme.bgAlt,
+                borderColor: specialist.isFavorite ? theme.secondary : theme.borderLight,
+              },
+            ]}
+            accessibilityLabel={specialist.isFavorite ? 'Quitar de favoritos' : 'Guardar como favorito'}
+          >
+            <Ionicons
+              name={specialist.isFavorite ? 'heart' : 'heart-outline'}
+              size={18}
+              color={specialist.isFavorite ? theme.secondary : theme.textMuted}
+            />
+          </AnimatedPressable>
+        ) : null}
         <Button
           variant="outline"
           size="medium"
@@ -326,6 +349,15 @@ function createStyles(theme: Theme, isDark: boolean) {
     },
     ctaWrap: {
       alignItems: 'flex-end',
+      gap: spacing.sm,
+    },
+    favoriteButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
     },
   });
 }
