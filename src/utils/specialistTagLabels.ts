@@ -1,14 +1,14 @@
 import { Specialist } from '../constants/types';
 
 const APPROACH_LABELS: Record<string, string> = {
-  cbt: 'TCC',
-  'cognitive-behavioral': 'TCC',
-  act: 'ACT',
+  cbt: 'Terapia cognitiva',
+  'cognitive-behavioral': 'Terapia cognitiva',
+  act: 'Aceptación y compromiso',
   emdr: 'EMDR',
-  psychodynamic: 'Psicodin\u00e1mico',
+  psychodynamic: 'Psicodinámica',
   humanistic: 'Humanista',
-  systemic: 'Sist\u00e9mico',
-  mindfulness: 'Atenci\u00f3n plena',
+  systemic: 'Sistémica',
+  mindfulness: 'Mindfulness',
   gestalt: 'Gestalt',
 };
 
@@ -75,17 +75,39 @@ export const prettifySpecialistTag = (value: string): string => {
 };
 
 export const getSpecialistDisplayTags = (specialist: Specialist): string[] => {
-  const therapyTags = (specialist.matchingProfile?.therapeuticApproach ?? [])
-    .map((approach) => APPROACH_LABELS[normalizeTagKey(approach)] ?? prettifySpecialistTag(approach))
-    .filter(Boolean);
-
   const specialtyTags = (specialist.matchingProfile?.specialties ?? [])
     .map((specialty) => prettifySpecialistTag(specialty))
+    .filter(Boolean);
+
+  const therapyTags = (specialist.matchingProfile?.therapeuticApproach ?? [])
+    .map((approach) => APPROACH_LABELS[normalizeTagKey(approach)] ?? prettifySpecialistTag(approach))
     .filter(Boolean);
 
   const fallbackTags = (specialist.tags ?? [])
     .map((tag) => prettifySpecialistTag(tag))
     .filter((tag) => !NON_DISPLAY_MATCH_LABELS.has(tag));
 
-  return Array.from(new Set([...therapyTags, ...specialtyTags, ...fallbackTags]));
+  return Array.from(new Set([...specialtyTags, ...fallbackTags, ...therapyTags]));
+};
+
+const GENERIC_SPECIALIZATIONS = new Set([
+  'general',
+  'psicologia_general',
+  'psicologia',
+]);
+
+export const getSpecialistFocusSummary = (
+  specialist: Specialist,
+): { primaryFocus: string; supportingTags: string[] } => {
+  const displayTags = getSpecialistDisplayTags(specialist);
+  const specialization = specialist.specialization.trim();
+  const isGenericSpecialization = GENERIC_SPECIALIZATIONS.has(normalizeTagKey(specialization));
+  const primaryFocus = isGenericSpecialization
+    ? displayTags[0] ?? 'Psicología general'
+    : specialization;
+  const supportingTags = isGenericSpecialization
+    ? displayTags.filter((tag) => tag !== primaryFocus)
+    : displayTags;
+
+  return { primaryFocus, supportingTags };
 };

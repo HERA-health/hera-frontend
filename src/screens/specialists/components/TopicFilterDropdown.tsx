@@ -18,6 +18,12 @@ interface TopicFilterDropdownProps {
   filters: FilterOption[];
   selectedFilters: string[];
   onFilterChange: (selectedIds: string[]) => void;
+  triggerLabel?: string;
+  panelTitle?: string;
+  panelSubtitle?: string;
+  allLabel?: string;
+  allCaption?: string;
+  groups?: Array<{ title: string; ids: string[] }>;
 }
 
 const FILTER_GROUPS = [
@@ -35,6 +41,12 @@ export function TopicFilterDropdown({
   filters,
   selectedFilters,
   onFilterChange,
+  triggerLabel = 'Motivo de consulta',
+  panelTitle = 'Motivo de consulta',
+  panelSubtitle = 'Selecciona las áreas en las que quieres encontrar ayuda.',
+  allLabel = 'Todas las áreas',
+  allCaption = 'Sin limitar por especialidad o tipo de apoyo.',
+  groups = FILTER_GROUPS,
 }: TopicFilterDropdownProps) {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
@@ -47,21 +59,21 @@ export function TopicFilterDropdown({
 
   const groupedFilters = useMemo(
     () =>
-      FILTER_GROUPS.map((group) => ({
+      groups.map((group) => ({
         ...group,
         items: group.ids
           .map((id) => filtersById[id])
           .filter(Boolean),
       })).filter((group) => group.items.length > 0),
-    [filtersById],
+    [filtersById, groups],
   );
 
   const selectedLabels = filters
     .filter((filter) => selectedFilters.includes(filter.id))
     .map((filter) => filter.label);
 
-  const triggerLabel = selectedLabels.length === 0
-    ? 'Todas las áreas'
+  const triggerValueLabel = selectedLabels.length === 0
+    ? allLabel
     : selectedLabels.length === 1
       ? selectedLabels[0]
       : `${selectedLabels[0]} +${selectedLabels.length - 1}`;
@@ -84,9 +96,9 @@ export function TopicFilterDropdown({
         style={styles.trigger}
       >
         <View style={styles.triggerCopy}>
-          <Text style={styles.triggerLabel}>Motivo de consulta</Text>
+          <Text style={styles.triggerLabel}>{triggerLabel}</Text>
           <Text style={styles.triggerValue} numberOfLines={1}>
-            {triggerLabel}
+            {triggerValueLabel}
           </Text>
         </View>
         {selectedFilters.length > 0 ? (
@@ -107,9 +119,9 @@ export function TopicFilterDropdown({
           <Pressable style={styles.panel} onPress={() => undefined}>
             <View style={styles.panelHeader}>
               <View>
-                <Text style={styles.panelTitle}>Motivo de consulta</Text>
+                <Text style={styles.panelTitle}>{panelTitle}</Text>
                 <Text style={styles.panelSubtitle}>
-                  Selecciona las áreas en las que quieres encontrar ayuda.
+                  {panelSubtitle}
                 </Text>
               </View>
               <AnimatedPressable
@@ -135,8 +147,8 @@ export function TopicFilterDropdown({
                   ) : null}
                 </View>
                 <View>
-                  <Text style={styles.optionTitle}>Todas las áreas</Text>
-                  <Text style={styles.optionCaption}>Sin limitar por especialidad o tipo de apoyo.</Text>
+                  <Text style={styles.optionTitle}>{allLabel}</Text>
+                  <Text style={styles.optionCaption}>{allCaption}</Text>
                 </View>
               </View>
             </AnimatedPressable>

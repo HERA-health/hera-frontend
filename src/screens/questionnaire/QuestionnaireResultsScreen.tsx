@@ -99,7 +99,7 @@ export function QuestionnaireResultsScreen() {
         color={palette.success}
       />
       <Text style={[styles.matchBadgeText, prominent ? styles.matchBadgeTextProminent : null]}>
-        {percentage}% match
+        {percentage}% compatible
       </Text>
     </View>
   );

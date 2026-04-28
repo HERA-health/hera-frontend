@@ -60,6 +60,11 @@ import type { AppNavigationProp } from '../../constants/types';
 import { getWebAppUrl } from '../../config/api';
 import { AnimatedPressable, Button } from '../../components/common';
 import type { UploadAsset } from '../../utils/multipartUpload';
+import {
+  getProfessionalTypeLabel,
+  PROFESSIONAL_TYPE_OPTIONS,
+  type ProfessionalType,
+} from '../../constants/professionalTypes';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -90,6 +95,7 @@ interface SpecialistProfileData {
   // Basic Info
   fullName: string;
   professionalTitle: string;
+  professionalType: ProfessionalType | null;
   bio: string;
   avatar: string | null;
 
@@ -448,7 +454,8 @@ export function SpecialistProfileScreen() {
   const [profileData, setProfileData] = useState<SpecialistProfileData>({
     // Basic Info
     fullName: user?.name || '',
-    professionalTitle: 'Psicóloga Clínica',
+    professionalTitle: '',
+    professionalType: null,
     bio: '',
     avatar: user?.avatar || null,
 
@@ -582,7 +589,8 @@ export function SpecialistProfileScreen() {
         const mappedData: SpecialistProfileData = {
           // Basic Info
           fullName: profile.fullName || '',
-          professionalTitle: profile.professionalTitle || 'Psicóloga Clínica',
+          professionalTitle: profile.professionalTitle || '',
+          professionalType: profile.professionalType || null,
           bio: profile.bio || '',
           avatar: profile.avatar || null,
 
@@ -732,12 +740,22 @@ export function SpecialistProfileScreen() {
       return;
     }
 
+    if (!profileData.professionalType) {
+      showAppAlert(
+        appAlert,
+        'Falta el tipo profesional',
+        'Selecciona tu tipo profesional regulado para guardar el perfil.'
+      );
+      return;
+    }
+
     setIsSaving(true);
     try {
       // Transform local state to API format
       const updateData: Partial<ServiceProfileData> = {
         fullName: profileData.fullName,
         professionalTitle: profileData.professionalTitle,
+        professionalType: profileData.professionalType,
         bio: profileData.bio,
         avatar: profileData.avatar,
 
@@ -1274,7 +1292,7 @@ export function SpecialistProfileScreen() {
             {profileData.fullName || 'Tu nombre'}
           </Text>
           <Text style={styles.previewTitle2} numberOfLines={1}>
-            {profileData.professionalTitle || 'Título profesional'}
+            {getProfessionalTypeLabel(profileData.professionalType)}
           </Text>
         </View>
 
@@ -1760,8 +1778,13 @@ export function SpecialistProfileScreen() {
             'Título profesional',
             profileData.professionalTitle,
             (text) => updateField('professionalTitle', text),
-            { placeholder: 'Psicóloga Clínica', required: true }
+            {
+              placeholder: 'Ej: Psicóloga infantojuvenil',
+              required: false,
+              helperText: `Opcional. El tipo oficial actual es: ${getProfessionalTypeLabel(profileData.professionalType)}.`,
+            }
           )}
+          {renderProfessionalTypeSelector()}
           {/* Colegiado number - read-only, sourced from verification flow */}
           {renderFormField(
             'Número de colegiado',
@@ -2920,6 +2943,47 @@ export function SpecialistProfileScreen() {
     </View>
   );
 
+  const renderProfessionalTypeSelector = () => (
+    <View style={styles.formField}>
+      <Text style={styles.fieldLabel}>
+        Tipo profesional <Text style={styles.required}>*</Text>
+      </Text>
+      <Text style={styles.fieldHelper}>
+        Es la categoría regulada que verán los pacientes y podrán usar para filtrar.
+      </Text>
+      <View style={styles.chipContainer}>
+        {PROFESSIONAL_TYPE_OPTIONS.map((option) => {
+          const isSelected = profileData.professionalType === option.id;
+
+          return (
+            <AnimatedPressable
+              key={option.id}
+              style={{
+                ...styles.chip,
+                ...(isSelected ? styles.chipSelected : {}),
+              }}
+              onPress={() => updateField('professionalType', option.id)}
+              hoverLift={false}
+              pressScale={0.985}
+            >
+              <Ionicons
+                name={isSelected ? 'checkmark' : option.icon}
+                size={14}
+                color={isSelected ? palette.textOnCard : palette.textMuted}
+              />
+              <Text style={[
+                styles.chipText,
+                isSelected ? styles.chipTextSelected : null,
+              ]}>
+                {option.label}
+              </Text>
+            </AnimatedPressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+
   // ============================================================================
   // RENDER: TAB 5 - PRIVACIDAD
   // ============================================================================
@@ -3199,11 +3263,11 @@ export function SpecialistProfileScreen() {
               <View style={styles.shareModalHeaderCopy}>
                 <View style={styles.shareModalBadge}>
                   <Ionicons name="link-outline" size={14} color={palette.primary} />
-                  <Text style={styles.shareModalBadgeText}>Enlace publico</Text>
+                  <Text style={styles.shareModalBadgeText}>Enlace público</Text>
                 </View>
                 <Text style={styles.shareModalTitle}>Compartir perfil</Text>
                 <Text style={styles.shareModalSubtitle}>
-                  Muestra este enlace, copialo o compartelo. La nueva version usa una ruta mas corta y limpia.
+                  Muestra este enlace, cópialo o compártelo. La nueva versión usa una ruta más corta y limpia.
                 </Text>
               </View>
 

@@ -42,7 +42,7 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
 
   const slotGroups = useMemo(() => {
     const groups = [
-      { key: 'morning', label: 'Manana', icon: 'sunny-outline' as const, slots: [] as TimeSlot[] },
+      { key: 'morning', label: 'Mañana', icon: 'sunny-outline' as const, slots: [] as TimeSlot[] },
       { key: 'afternoon', label: 'Tarde', icon: 'partly-sunny-outline' as const, slots: [] as TimeSlot[] },
       { key: 'evening', label: 'Noche', icon: 'moon-outline' as const, slots: [] as TimeSlot[] },
     ];
@@ -103,7 +103,7 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
         {renderEmpty(
           'sad-outline',
           'No hay horas libres',
-          'Prueba con otra fecha para ver mas opciones.',
+          'Prueba con otra fecha para ver más opciones.',
         )}
       </View>
     );

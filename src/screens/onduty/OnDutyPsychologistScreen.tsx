@@ -428,7 +428,7 @@ const PrivacyNote: React.FC = () => {
     <View style={styles.privacyNote}>
       <Ionicons name="lock-closed" size={16} color={palette.textMuted} />
       <Text style={styles.privacyText}>
-        Tu privacidad esta protegida. Todas las conversaciones se tratan con confidencialidad y criterio profesional.
+        Tu privacidad está protegida. Todas las conversaciones se tratan con confidencialidad y criterio profesional.
       </Text>
     </View>
   );

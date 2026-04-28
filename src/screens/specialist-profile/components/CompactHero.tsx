@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CompactHeroProps } from '../types';
 import { heraLanding, spacing, borderRadius } from '../../../constants/colors';
+import { getProfessionalTypeLabel } from '../../../constants/professionalTypes';
 
 const STRINGS = {
   verified: 'Especialista verificada',
@@ -72,7 +73,7 @@ export const CompactHero: React.FC<CompactHeroProps> = ({
           {affinity != null && affinity > 0 && (
             <View style={styles.affinityBadge}>
               <Ionicons name="heart" size={12} color="#FFFFFF" />
-              <Text style={styles.affinityText}>{Math.round(affinity * 100)}% Match</Text>
+              <Text style={styles.affinityText}>{Math.round(affinity * 100)}% compatible</Text>
             </View>
           )}
 
@@ -103,7 +104,9 @@ export const CompactHero: React.FC<CompactHeroProps> = ({
 
             <View style={styles.infoContainer}>
               <Text style={styles.name}>{specialist.name}</Text>
-              <Text style={styles.title}>{specialist.title}</Text>
+              <Text style={styles.title}>
+                {getProfessionalTypeLabel(specialist.professionalType, specialist.professionalTypeLabel)}
+              </Text>
 
               {specialist.reviewCount > 0 && (
                 <TouchableOpacity

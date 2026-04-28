@@ -14,6 +14,7 @@ jest.mock('../api', () => ({
 import { api } from '../api';
 import {
   addFavoriteSpecialist,
+  getAllSpecialists,
   getSpecialistPersonalization,
   removeFavoriteSpecialist,
 } from '../specialistsService';
@@ -51,5 +52,18 @@ describe('specialistsService personalization', () => {
 
     expect(mockedApi.post).toHaveBeenCalledWith('/specialists/spec-1/favorite');
     expect(mockedApi.delete).toHaveBeenCalledWith('/specialists/spec-1/favorite');
+  });
+
+  it('sends professional type filters to the public specialists endpoint', async () => {
+    mockedApi.get.mockResolvedValue({
+      data: {
+        success: true,
+        data: [],
+      },
+    });
+
+    await expect(getAllSpecialists({ professionalType: 'PSYCHIATRIST' })).resolves.toEqual([]);
+
+    expect(mockedApi.get).toHaveBeenCalledWith('/specialists?professionalType=PSYCHIATRIST');
   });
 });

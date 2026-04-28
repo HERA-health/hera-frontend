@@ -1,6 +1,7 @@
-﻿import { api } from './api';
+import { api } from './api';
 import { getErrorMessage } from '../constants/errors';
 import type { Specialist } from '../constants/types';
+import type { ProfessionalType } from '../constants/professionalTypes';
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { buildImageFormData, buildMultipartFormData, type UploadAsset } from '../utils/multipartUpload';
@@ -281,6 +282,7 @@ export interface SpecialistProfileData {
   // Basic Info
   fullName: string;
   professionalTitle: string;
+  professionalType: ProfessionalType | null;
   bio: string;
   avatar: string | null;
 
@@ -394,6 +396,7 @@ export const updateComprehensiveProfile = async (
 
     if (data.fullName !== undefined) apiData.fullName = data.fullName;
     if (data.professionalTitle !== undefined) apiData.professionalTitle = data.professionalTitle;
+    if (data.professionalType !== undefined) apiData.professionalType = data.professionalType;
     if (data.bio !== undefined) apiData.bio = data.bio;
     if (data.avatar !== undefined) apiData.avatar = data.avatar;
 

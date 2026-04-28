@@ -9,13 +9,13 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AnimatedPressable } from '../common/AnimatedPressable';
 import { Specialist } from '../../constants/types';
 import { spacing } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
 import { getSpecialistDisplayTags } from '../../utils/specialistTagLabels';
+import { getProfessionalTypeLabel } from '../../constants/professionalTypes';
 
 interface SpecialistCardProps {
   specialist: Specialist;
@@ -31,51 +31,6 @@ const MOBILE_CARD_HEIGHT = 298;
 const DESCRIPTION_SLOT_HEIGHT = 40;
 const TAGS_SLOT_HEIGHT = 36;
 
-function AffinityRing({ pct, theme }: { pct: number; theme: Theme }) {
-  const radius = 20;
-  const stroke = 3;
-  const circumference = 2 * Math.PI * radius;
-  const progress = circumference - (pct / 100) * circumference;
-
-  const ringColor = pct >= 80
-    ? theme.success
-    : pct >= 60
-      ? theme.warningAmber
-      : theme.secondary;
-
-  return (
-    <View style={styles.affinityRingWrapper}>
-      <Svg width={50} height={50}>
-        <Circle
-          cx={25}
-          cy={25}
-          r={radius}
-          stroke={theme.border}
-          strokeWidth={stroke}
-          fill="none"
-        />
-        <Circle
-          cx={25}
-          cy={25}
-          r={radius}
-          stroke={ringColor}
-          strokeWidth={stroke}
-          strokeDasharray={`${circumference} ${circumference}`}
-          strokeDashoffset={progress}
-          strokeLinecap="round"
-          fill="none"
-          transform="rotate(-90, 25, 25)"
-        />
-      </Svg>
-      <View style={styles.affinityLabel}>
-        <Text style={[styles.affinityPct, { color: ringColor, fontFamily: theme.fontSansBold }]}>
-          {pct}%
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, position }: SpecialistCardProps) {
   const { theme, isDark } = useTheme();
   const dynamicStyles = useMemo(() => createStyles(theme), [theme]);
@@ -87,13 +42,13 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
       ? TABLET_CARD_HEIGHT
       : MOBILE_CARD_HEIGHT;
   const affinityPct = specialist.affinityPercentage ?? 0;
-  const visibleTags = getSpecialistDisplayTags(specialist).slice(0, 4);
-
-  const medalGradients: Record<number, [string, string]> = {
-    1: theme.medals.gold,
-    2: theme.medals.silver,
-    3: theme.medals.bronze,
-  };
+  const displayTags = getSpecialistDisplayTags(specialist);
+  const visibleTags = displayTags.slice(0, 2);
+  const remainingTags = Math.max(displayTags.length - visibleTags.length, 0);
+  const professionalTypeLabel = getProfessionalTypeLabel(
+    specialist.professionalType,
+    specialist.professionalTypeLabel,
+  );
 
   const avatarUri = specialist.user?.avatar || specialist.avatar;
 
@@ -105,21 +60,9 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
       style={[
         dynamicStyles.card,
         { height: cardHeight },
-        position ? { borderColor: `${medalGradients[position][0]}55`, borderWidth: 1.5 } : null,
         style,
       ]}
     >
-      {position ? (
-        <LinearGradient
-          colors={medalGradients[position]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.medalBadge}
-        >
-          <Text style={styles.medalNumber}>#{position}</Text>
-        </LinearGradient>
-      ) : null}
-
       {onToggleFavorite ? (
         <AnimatedPressable
           onPress={onToggleFavorite}
@@ -128,7 +71,7 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
           style={[
             styles.favoriteButton,
             {
-              backgroundColor: specialist.isFavorite ? theme.secondaryAlpha12 : theme.bgCard,
+              backgroundColor: specialist.isFavorite ? theme.secondaryAlpha12 : (isDark ? theme.bgElevated : theme.bgAlt),
               borderColor: specialist.isFavorite ? theme.secondary : theme.borderLight,
             },
           ]}
@@ -142,7 +85,7 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
         </AnimatedPressable>
       ) : null}
 
-      <View style={[styles.mainContent, { flexDirection: isWideScreen ? 'row' : 'column' }]}>
+      <View style={styles.mainContent}>
         <View style={[styles.leftSection, { flexDirection: isWideScreen ? 'row' : 'column' }]}>
           <View style={styles.avatarContainer}>
             {avatarUri ? (
@@ -170,7 +113,7 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
                   { backgroundColor: theme.primaryAlpha12, borderColor: theme.bgCard },
                 ]}
               >
-                <Ionicons name="shield-checkmark" size={13} color={theme.primary} />
+                <Ionicons name="checkmark" size={12} color={theme.primary} />
               </View>
             ) : null}
           </View>
@@ -194,13 +137,20 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
             <Text
               style={[
                 styles.specialization,
-                { color: theme.textSecondary, fontFamily: theme.fontSans },
+                { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
               ]}
               numberOfLines={1}
             >
-              {specialist.specialization}
+              {professionalTypeLabel}
             </Text>
             <View style={styles.ratingRow}>
+              {position ? (
+                <View style={[styles.rankPill, { backgroundColor: theme.primaryAlpha12, borderColor: theme.primaryMuted }]}>
+                  <Text style={[styles.rankText, { color: theme.primaryDark, fontFamily: theme.fontSansBold }]}>
+                    Top {position}
+                  </Text>
+                </View>
+              ) : null}
               <View style={[styles.ratingPill, { backgroundColor: `${theme.starRating}18` }]}>
                 <Ionicons name="star" size={14} color={theme.starRating} />
                 <Text
@@ -212,20 +162,13 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
               <Text style={[styles.reviewCount, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
                 {`(${specialist.reviewCount} rese\u00f1as)`}
               </Text>
+              {affinityPct > 0 ? (
+                <Text style={[styles.matchText, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
+                  {`${affinityPct}% compatible`}
+                </Text>
+              ) : null}
             </View>
           </View>
-        </View>
-
-        <View
-          style={[
-            styles.affinitySection,
-            { marginTop: isWideScreen ? 0 : spacing.md, marginLeft: isWideScreen ? spacing.md : 0 },
-          ]}
-        >
-          <AffinityRing pct={affinityPct} theme={theme} />
-          <Text style={[styles.matchLabel, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
-            match
-          </Text>
         </View>
       </View>
 
@@ -256,6 +199,25 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
             </Text>
           </View>
         ))}
+        {remainingTags > 0 ? (
+          <View
+            style={[
+              styles.tag,
+              styles.moreTag,
+              {
+                backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
+                borderColor: theme.borderLight,
+              },
+            ]}
+          >
+            <Text
+              style={[styles.tagText, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}
+              numberOfLines={1}
+            >
+              +{remainingTags}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={[styles.footer, { borderTopColor: theme.border }]}>
@@ -321,30 +283,8 @@ function createStyles(theme: Theme) {
 }
 
 const styles = StyleSheet.create({
-  medalBadge: {
-    position: 'absolute',
-    top: spacing.sm,
-    left: spacing.sm,
-    minWidth: 36,
-    height: 36,
-    borderRadius: 18,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  medalNumber: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    fontFamily: 'Inter-Bold',
-  },
   mainContent: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     alignItems: 'flex-start',
   },
   leftSection: {
@@ -373,11 +313,11 @@ const styles = StyleSheet.create({
   },
   verifiedBadge: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    bottom: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -388,6 +328,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 18,
     marginBottom: 2,
+    paddingRight: 36,
   },
   specialization: {
     fontSize: 14,
@@ -397,6 +338,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexWrap: 'wrap',
+  },
+  rankPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  rankText: {
+    fontSize: 11,
   },
   ratingPill: {
     flexDirection: 'row',
@@ -412,27 +363,8 @@ const styles = StyleSheet.create({
   reviewCount: {
     fontSize: 12,
   },
-  affinitySection: {
-    alignItems: 'center',
-  },
-  affinityRingWrapper: {
-    width: 50,
-    height: 50,
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  affinityLabel: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  affinityPct: {
-    fontSize: 11,
-  },
-  matchLabel: {
-    fontSize: 11,
-    marginTop: 2,
+  matchText: {
+    fontSize: 12,
   },
   description: {
     fontSize: 14,
@@ -448,14 +380,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   tag: {
-    flex: 1,
+    maxWidth: 150,
     minWidth: 0,
-    paddingHorizontal: 10,
+    paddingHorizontal: 11,
     paddingVertical: 6,
-    borderRadius: 10,
+    borderRadius: 999,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  moreTag: {
+    minWidth: 42,
   },
   tagText: {
     fontSize: 12,
@@ -516,9 +451,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: spacing.sm,
     right: spacing.sm,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,

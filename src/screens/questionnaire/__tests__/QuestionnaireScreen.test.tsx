@@ -85,6 +85,8 @@ describe('QuestionnaireScreen', () => {
           affinity: 90,
           matchedAttributes: ['specialty'],
           specialization: 'General',
+          professionalType: 'PSYCHOLOGIST_HEALTH',
+          professionalTypeLabel: 'Psicólogo/a sanitario/a',
           rating: 5,
           reviewCount: 2,
           description: 'Perfil compatible',

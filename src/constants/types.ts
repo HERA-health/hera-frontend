@@ -6,12 +6,16 @@
 /**
  * Represents a mental health specialist/psychologist
  */
+import type { ProfessionalType } from './professionalTypes';
+
 export interface Specialist {
   id: string;
   name: string;
   avatar?: string;
   initial: string;
   specialization: string;
+  professionalType?: ProfessionalType | null;
+  professionalTypeLabel?: string;
   rating: number;
   reviewCount: number;
   description: string;

@@ -31,6 +31,7 @@ import {
   PrimarySpecialistResponse,
   SpecialistData,
 } from '../../services/specialistsService';
+import { getProfessionalTypeLabel } from '../../constants/professionalTypes';
 import { getMySessions } from '../../services/sessionsService';
 import { useAuth } from '../../contexts/AuthContext';
 import { VerificationBanner } from '../../components/auth';
@@ -590,7 +591,7 @@ export default function HomeScreen() {
         {specialist.user.name}
       </Text>
       <Text style={[compact ? styles.specialistSpecSm : styles.specialistSpec, { color: theme.textSecondary, fontFamily: theme.fontSans }]} numberOfLines={compact ? 1 : 2}>
-        {specialist.specialization}
+        {getProfessionalTypeLabel(specialist.professionalType, specialist.professionalTypeLabel)}
       </Text>
       <View style={styles.ratingRow}>
         <Ionicons name="star" size={11} color={theme.starRating} />
@@ -650,7 +651,7 @@ export default function HomeScreen() {
                 {specialist.user.name}
               </Text>
               <Text style={[styles.primarySpecialistSpec, { color: theme.textSecondary, fontFamily: theme.fontSans }]} numberOfLines={1}>
-                {specialist.specialization}
+                {getProfessionalTypeLabel(specialist.professionalType, specialist.professionalTypeLabel)}
               </Text>
             </View>
           </View>

@@ -129,8 +129,7 @@ export function getErrorMessage(error: unknown, defaultMessage = 'Ha ocurrido un
     }
     if (
       data.message &&
-      data.message !== 'Ha ocurrido un error. Intenta de nuevo más tarde.' &&
-      data.message !== 'Ha ocurrido un error. Intenta de nuevo mÃ¡s tarde.'
+      data.message !== 'Ha ocurrido un error. Intenta de nuevo más tarde.'
     ) {
       return data.message;
     }

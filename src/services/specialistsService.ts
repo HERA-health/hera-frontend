@@ -1,6 +1,7 @@
 import { api } from './api';
 import { getErrorMessage } from '../constants/errors';
 import type { Specialist } from '../screens/specialist-profile/types';
+import type { ProfessionalType } from '../constants/professionalTypes';
 
 const SPECIALISTS_CACHE_TTL_MS = 30_000;
 const LEGACY_DEFAULT_SPECIALIST_DESCRIPTION = 'new professional';
@@ -16,6 +17,8 @@ export interface SpecialistData {
   id: string;
   userId: string;
   specialization: string;
+  professionalType: ProfessionalType | null;
+  professionalTypeLabel: string;
   description: string;
   pricePerSession: number;
   rating: number;
@@ -50,11 +53,13 @@ export interface SpecialistData {
   nextAvailable?: string | null;
   verificationStatus?: string;
   collegiateNumber?: string;
+  professionalTitle?: string | null;
   reviews?: Array<{ id: string; rating: number; text: string; authorName: string; date: string }>;
 }
 
 export interface SpecialistFilters {
   specialization?: string;
+  professionalType?: ProfessionalType;
   minRating?: number;
   maxPrice?: number;
   firstVisitFree?: boolean;
@@ -127,6 +132,7 @@ const buildSpecialistsQueryParams = (filters?: SpecialistFilters): URLSearchPara
   const params = new URLSearchParams();
 
   if (filters?.specialization) params.append('specialization', filters.specialization);
+  if (filters?.professionalType) params.append('professionalType', filters.professionalType);
   if (filters?.minRating) params.append('minRating', filters.minRating.toString());
   if (filters?.maxPrice) params.append('maxPrice', filters.maxPrice.toString());
   if (filters?.firstVisitFree !== undefined) params.append('firstVisitFree', filters.firstVisitFree.toString());
@@ -196,7 +202,9 @@ export const mapSpecialistToProfile = (data: SpecialistData): Specialist => {
   return {
     id: data.id,
     name: data.user.name,
-    title: data.specialization,
+    title: data.professionalTitle || data.specialization,
+    professionalType: data.professionalType,
+    professionalTypeLabel: data.professionalTypeLabel,
     avatar: data.avatar || undefined,
     bio: normalizeSpecialistDescription(data.description),
     rating: data.rating,

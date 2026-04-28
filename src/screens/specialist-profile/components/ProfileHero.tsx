@@ -15,6 +15,7 @@ import { spacing, borderRadius } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { Theme } from '../../../constants/theme';
 import { APPROACH_TRANSLATIONS } from './AboutSection';
+import { getProfessionalTypeLabel } from '../../../constants/professionalTypes';
 
 export const SPECIALTY_TRANSLATIONS: Record<string, string> = {
   anxiety: 'Ansiedad',
@@ -30,6 +31,8 @@ export const SPECIALTY_TRANSLATIONS: Record<string, string> = {
   addiction: 'Adicciones',
   eating: 'Trastornos alimentarios',
 };
+
+const translateSpecialty = (tag: string): string => SPECIALTY_TRANSLATIONS[tag.toLowerCase()] || tag;
 
 export const ProfileHero: React.FC<ProfileHeroProps> = ({
   specialist,
@@ -48,6 +51,11 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
   const avatarSize = isDesktop ? 120 : 96;
   const offersOnline = specialist.offersOnline ?? true;
   const offersInPerson = specialist.offersInPerson ?? false;
+  const translatedSpecializations = specialist.specializations.map(translateSpecialty);
+  const displayTitle = getProfessionalTypeLabel(
+    specialist.professionalType,
+    specialist.professionalTypeLabel,
+  );
 
   return (
     <View style={styles.cardContainer}>
@@ -88,7 +96,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
               )}
             </View>
 
-            <Text style={[styles.titleText, isMobile && styles.titleTextMobile]}>{specialist.title}</Text>
+            <Text style={[styles.titleText, isMobile && styles.titleTextMobile]}>{displayTitle}</Text>
 
             <View style={[styles.statsRow, isMobile && styles.statsRowMobile]}>
               {specialist.reviewCount > 0 && (
@@ -112,18 +120,16 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
           </View>
         </View>
 
-        {specialist.specializations.length > 0 && (
+        {translatedSpecializations.length > 0 && (
           <View style={[styles.tagsContainer, isMobile && styles.tagsContainerMobile]}>
-            {specialist.specializations.slice(0, 4).map((tag, index) => (
+            {translatedSpecializations.slice(0, 4).map((tag, index) => (
               <View key={`${tag}-${index}`} style={styles.tagBadge}>
-                <Text style={styles.tagText}>
-                  {SPECIALTY_TRANSLATIONS[tag.toLowerCase()] || tag}
-                </Text>
+                <Text style={styles.tagText}>{tag}</Text>
               </View>
             ))}
-            {specialist.specializations.length > 4 && (
+            {translatedSpecializations.length > 4 && (
               <View style={[styles.tagBadge, styles.tagBadgeMore]}>
-                <Text style={styles.tagTextMore}>+{specialist.specializations.length - 4} más</Text>
+                <Text style={styles.tagTextMore}>+{translatedSpecializations.length - 4} más</Text>
               </View>
             )}
           </View>

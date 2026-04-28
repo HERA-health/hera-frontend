@@ -3,10 +3,14 @@
  * Following SOLID principles - Single Responsibility
  */
 
+import type { ProfessionalType } from '../../constants/professionalTypes';
+
 export interface Specialist {
   id: string;
   name: string;
   title: string;
+  professionalType?: ProfessionalType | null;
+  professionalTypeLabel?: string;
   avatar?: string;
   bio: string;
   rating: number;

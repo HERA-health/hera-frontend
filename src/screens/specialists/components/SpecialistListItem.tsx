@@ -7,6 +7,7 @@ import { AnimatedPressable } from '../../../components/common/AnimatedPressable'
 import { Button } from '../../../components/common/Button';
 import { spacing } from '../../../constants/colors';
 import type { Theme } from '../../../constants/theme';
+import { getProfessionalTypeLabel } from '../../../constants/professionalTypes';
 import { getSpecialistDisplayTags } from '../../../utils/specialistTagLabels';
 
 interface SpecialistListItemProps {
@@ -26,8 +27,12 @@ export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const allDisplayTags = getSpecialistDisplayTags(specialist);
-  const displayTags = allDisplayTags.slice(0, 3);
-  const remainingTags = allDisplayTags.length > 3 ? allDisplayTags.length - 3 : 0;
+  const displayTags = allDisplayTags.slice(0, 2);
+  const remainingTags = Math.max(allDisplayTags.length - displayTags.length, 0);
+  const professionalTypeLabel = getProfessionalTypeLabel(
+    specialist.professionalType,
+    specialist.professionalTypeLabel,
+  );
 
   return (
     <AnimatedPressable
@@ -51,29 +56,28 @@ export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
             </View>
           ) : null}
 
-          {position ? (
-            <View style={styles.positionBadge}>
-              <Text style={styles.positionText}>#{position}</Text>
-            </View>
-          ) : null}
         </View>
 
         <View style={styles.content}>
           <View style={styles.headerRow}>
             <View style={styles.titleWrap}>
               <Text style={styles.name} numberOfLines={1}>{specialist.name}</Text>
-              <Text style={styles.specialization} numberOfLines={1}>{specialist.specialization}</Text>
+              <Text style={styles.specialization} numberOfLines={1}>{professionalTypeLabel}</Text>
             </View>
 
             {specialist.affinityPercentage > 0 ? (
               <View style={styles.affinityPill}>
-                <Ionicons name="heart" size={12} color={theme.secondary} />
-                <Text style={styles.affinityText}>{specialist.affinityPercentage}% match</Text>
+                <Text style={styles.affinityText}>{specialist.affinityPercentage}% compatible</Text>
               </View>
             ) : null}
           </View>
 
           <View style={styles.metaRow}>
+            {position ? (
+              <View style={styles.positionBadge}>
+                <Text style={styles.positionText}>Top {position}</Text>
+              </View>
+            ) : null}
             <View style={styles.metaPill}>
               <Ionicons name="star" size={13} color={theme.starRating} />
               <Text style={styles.metaStrong}>{specialist.rating.toFixed(1)}</Text>
@@ -112,9 +116,19 @@ export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
           </View>
 
           <View style={styles.footerRow}>
-            <View style={styles.availability}>
-              <Ionicons name="calendar-outline" size={14} color={theme.success} />
-              <Text style={styles.availabilityText}>Disponible hoy</Text>
+            <View style={styles.modalityRow}>
+              {specialist.offersOnline ? (
+                <View style={styles.modalityPill}>
+                  <Ionicons name="videocam-outline" size={13} color={theme.primary} />
+                  <Text style={styles.modalityText}>Online</Text>
+                </View>
+              ) : null}
+              {specialist.offersInPerson ? (
+                <View style={styles.modalityPill}>
+                  <Ionicons name="location-outline" size={13} color={theme.primary} />
+                  <Text style={styles.modalityText}>Presencial</Text>
+                </View>
+              ) : null}
             </View>
 
             {specialist.firstVisitFree ? (
@@ -167,17 +181,18 @@ function createStyles(theme: Theme, isDark: boolean) {
   return StyleSheet.create({
     card: {
       width: '100%',
+      minHeight: 186,
       padding: spacing.lg,
-      borderRadius: 20,
+      borderRadius: 18,
       backgroundColor: theme.bgCard,
       borderWidth: 1,
       borderColor: theme.borderLight,
       shadowColor: theme.shadowCard,
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.8,
-      shadowRadius: 24,
-      elevation: 3,
-      gap: spacing.lg,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.55,
+      shadowRadius: 18,
+      elevation: 2,
+      gap: spacing.md,
     },
     left: {
       flexDirection: 'row',
@@ -221,11 +236,8 @@ function createStyles(theme: Theme, isDark: boolean) {
       borderColor: theme.bgCard,
     },
     positionBadge: {
-      position: 'absolute',
-      top: -6,
-      left: -6,
       paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingVertical: 6,
       borderRadius: 999,
       backgroundColor: theme.primaryAlpha12,
       borderWidth: 1,
@@ -249,14 +261,14 @@ function createStyles(theme: Theme, isDark: boolean) {
       flex: 1,
     },
     name: {
-      fontSize: 21,
-      fontFamily: theme.fontDisplay,
+      fontSize: 20,
+      fontFamily: theme.fontSansBold,
       color: theme.textPrimary,
       marginBottom: 2,
     },
     specialization: {
       fontSize: 14,
-      fontFamily: theme.fontSans,
+      fontFamily: theme.fontSansSemiBold,
       color: theme.textSecondary,
     },
     affinityPill: {
@@ -264,15 +276,17 @@ function createStyles(theme: Theme, isDark: boolean) {
       alignItems: 'center',
       gap: 6,
       alignSelf: 'flex-start',
-      paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingHorizontal: 9,
+      paddingVertical: 7,
       borderRadius: 999,
-      backgroundColor: theme.secondaryAlpha12,
+      backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
     },
     affinityText: {
       fontSize: 12,
       fontFamily: theme.fontSansSemiBold,
-      color: theme.secondaryDark,
+      color: theme.textSecondary,
     },
     metaRow: {
       flexDirection: 'row',
@@ -323,14 +337,26 @@ function createStyles(theme: Theme, isDark: boolean) {
       gap: spacing.sm,
       alignItems: 'center',
     },
-    availability: {
+    modalityRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: spacing.xs,
+      flexWrap: 'wrap',
     },
-    availabilityText: {
-      fontSize: 13,
-      fontFamily: theme.fontSansMedium,
+    modalityPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 9,
+      paddingVertical: 7,
+      borderRadius: 999,
+      backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+    },
+    modalityText: {
+      fontSize: 12,
+      fontFamily: theme.fontSansSemiBold,
       color: theme.textSecondary,
     },
     freeVisitPill: {

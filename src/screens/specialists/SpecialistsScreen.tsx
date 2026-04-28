@@ -29,6 +29,11 @@ import { Button } from '../../components/common/Button';
 import { RootStackParamList, SortOption, Specialist } from '../../constants/types';
 import { spacing } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
+import {
+  getProfessionalTypeLabel,
+  PROFESSIONAL_TYPE_OPTIONS,
+  type ProfessionalType,
+} from '../../constants/professionalTypes';
 import * as specialistsService from '../../services/specialistsService';
 import * as clientService from '../../services/clientService';
 import * as analyticsService from '../../services/analyticsService';
@@ -50,6 +55,19 @@ const DISTANCE_OPTIONS = [
   { value: 15, label: '15 km' },
   { value: 25, label: '25 km' },
   { value: 50, label: '50 km' },
+];
+
+const PROFESSIONAL_TYPE_FILTERS: FilterOption[] = PROFESSIONAL_TYPE_OPTIONS.map((option) => ({
+  id: option.id,
+  label: option.label,
+  icon: option.icon,
+}));
+
+const PROFESSIONAL_TYPE_FILTER_GROUPS = [
+  {
+    title: 'Tipo profesional',
+    ids: PROFESSIONAL_TYPE_OPTIONS.map((option) => option.id),
+  },
 ];
 
 const buildMatchingProfile = (matchingProfile?: Record<string, unknown>) => ({
@@ -92,6 +110,8 @@ const mapSpecialistDataToCard = (
     avatar: specialist.avatar || undefined,
     initial: name.charAt(0).toUpperCase(),
     specialization: specialist.specialization,
+    professionalType: specialist.professionalType,
+    professionalTypeLabel: specialist.professionalTypeLabel,
     rating: specialist.rating,
     reviewCount: specialist.reviewCount,
     description: specialistsService.normalizeSpecialistDescription(specialist.description),
@@ -143,6 +163,7 @@ const SpecialistsScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'specialists' | 'posts'>('specialists');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
+  const [selectedProfessionalTypes, setSelectedProfessionalTypes] = useState<ProfessionalType[]>([]);
   const [showAllSpecialists, setShowAllSpecialists] = useState(false);
   const [matchedSpecialists, setMatchedSpecialists] = useState<Specialist[]>([]);
   const [allSpecialists, setAllSpecialists] = useState<Specialist[]>([]);
@@ -208,6 +229,9 @@ const SpecialistsScreen: React.FC = () => {
       }
 
       const filters: specialistsService.SpecialistFilters = {};
+      if (selectedProfessionalTypes.length === 1) {
+        filters.professionalType = selectedProfessionalTypes[0];
+      }
       if (
         useProximity
         && clientLocation.hasLocation
@@ -245,7 +269,16 @@ const SpecialistsScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [attributeLabels, clientLocation.hasLocation, clientLocation.lat, clientLocation.lng, maxDistance, proximityEnabled, user?.type]);
+  }, [
+    attributeLabels,
+    clientLocation.hasLocation,
+    clientLocation.lat,
+    clientLocation.lng,
+    maxDistance,
+    proximityEnabled,
+    selectedProfessionalTypes,
+    user?.type,
+  ]);
 
   useEffect(() => {
     analyticsService.trackScreen('specialists_list');
@@ -274,13 +307,13 @@ const SpecialistsScreen: React.FC = () => {
 
   useEffect(() => {
     void fetchSpecialists();
-  }, [user?.type]);
+  }, [fetchSpecialists]);
 
   useEffect(() => {
-    if (searchQuery || selectedFilters.length > 0 || proximityEnabled) {
+    if (searchQuery || selectedFilters.length > 0 || selectedProfessionalTypes.length > 0 || proximityEnabled) {
       setShowAllSpecialists(true);
     }
-  }, [proximityEnabled, searchQuery, selectedFilters.length]);
+  }, [proximityEnabled, searchQuery, selectedFilters.length, selectedProfessionalTypes.length]);
 
   const handleSpecialistPress = useCallback((specialistId: string) => {
     const specialist = matchedSpecialists.find((item) => item.id === specialistId)
@@ -399,13 +432,34 @@ const SpecialistsScreen: React.FC = () => {
           const matchesSearch =
             specialist.name.toLowerCase().includes(query)
             || specialist.specialization.toLowerCase().includes(query)
+            || getProfessionalTypeLabel(
+              specialist.professionalType,
+              specialist.professionalTypeLabel,
+            ).toLowerCase().includes(query)
+            || specialist.matchingProfile.therapeuticApproach.some((approach) =>
+              approach.toLowerCase().includes(query)
+            )
+            || specialist.matchingProfile.specialties.some((specialty) =>
+              specialty.toLowerCase().includes(query)
+            )
             || specialist.tags.some((tag) => tag.toLowerCase().includes(query));
           if (!matchesSearch) return false;
+        }
+
+        if (selectedProfessionalTypes.length > 0) {
+          if (!specialist.professionalType) return false;
+          if (!selectedProfessionalTypes.includes(specialist.professionalType)) return false;
         }
 
         if (selectedFilters.length > 0) {
           const matchesFilter = selectedFilters.some((filter) =>
             specialist.specialization.toLowerCase().includes(filter.toLowerCase())
+            || specialist.matchingProfile.specialties.some((specialty) =>
+              specialty.toLowerCase().includes(filter.toLowerCase())
+            )
+            || specialist.matchingProfile.therapeuticApproach.some((approach) =>
+              approach.toLowerCase().includes(filter.toLowerCase())
+            )
             || specialist.tags.some((tag) => tag.toLowerCase().includes(filter.toLowerCase())));
           if (!matchesFilter) return false;
         }
@@ -431,7 +485,7 @@ const SpecialistsScreen: React.FC = () => {
             return 0;
         }
       });
-  }, [combinedSpecialists, searchQuery, selectedFilters, sortOption]);
+  }, [combinedSpecialists, searchQuery, selectedFilters, selectedProfessionalTypes, sortOption]);
 
   const renderLegacyQuestionnaireBanner = () => (
     <AnimatedPressable
@@ -619,7 +673,12 @@ const SpecialistsScreen: React.FC = () => {
                 </View>
               </View>
               <Text style={styles.primaryName}>{primarySpecialist.name}</Text>
-              <Text style={styles.primarySpecialization}>{primarySpecialist.specialization}</Text>
+              <Text style={styles.primarySpecialization}>
+                {getProfessionalTypeLabel(
+                  primarySpecialist.professionalType,
+                  primarySpecialist.professionalTypeLabel,
+                )}
+              </Text>
               <Text style={styles.primaryDescription} numberOfLines={2}>
                 {primarySpecialist.description}
               </Text>
@@ -671,7 +730,9 @@ const SpecialistsScreen: React.FC = () => {
                 )}
               </View>
               <Text style={styles.favoriteName} numberOfLines={1}>{specialist.name}</Text>
-              <Text style={styles.favoriteSpec} numberOfLines={2}>{specialist.specialization}</Text>
+              <Text style={styles.favoriteSpec} numberOfLines={2}>
+                {getProfessionalTypeLabel(specialist.professionalType, specialist.professionalTypeLabel)}
+              </Text>
             </AnimatedPressable>
           ))}
         </ScrollView>
@@ -688,8 +749,15 @@ const SpecialistsScreen: React.FC = () => {
       <Text style={styles.stateDescription}>
         Prueba con otra búsqueda o ajusta los filtros para ampliar resultados.
       </Text>
-      {(searchQuery || selectedFilters.length > 0) ? (
-        <Button variant="outline" onPress={() => { setSearchQuery(''); setSelectedFilters([]); }}>
+      {(searchQuery || selectedFilters.length > 0 || selectedProfessionalTypes.length > 0) ? (
+        <Button
+          variant="outline"
+          onPress={() => {
+            setSearchQuery('');
+            setSelectedFilters([]);
+            setSelectedProfessionalTypes([]);
+          }}
+        >
           Limpiar filtros
         </Button>
       ) : null}
@@ -818,6 +886,17 @@ const SpecialistsScreen: React.FC = () => {
           </View>
 
           <View style={styles.filtersRail}>
+            <TopicFilterDropdown
+              filters={PROFESSIONAL_TYPE_FILTERS}
+              selectedFilters={selectedProfessionalTypes}
+              onFilterChange={(ids) => setSelectedProfessionalTypes(ids as ProfessionalType[])}
+              triggerLabel="Tipo profesional"
+              panelTitle="Tipo profesional"
+              panelSubtitle="Filtra por la profesión regulada del especialista."
+              allLabel="Todos los tipos"
+              allCaption="Sin limitar por profesión regulada."
+              groups={PROFESSIONAL_TYPE_FILTER_GROUPS}
+            />
             <TopicFilterDropdown
               filters={FILTER_OPTIONS}
               selectedFilters={selectedFilters}
