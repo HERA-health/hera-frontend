@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Platform,
   StyleSheet,
   TouchableWithoutFeedback,
   View,
@@ -9,7 +10,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigationState } from '@react-navigation/native';
-import { borderRadius, shadows, spacing } from '../../constants/colors';
+import { borderRadius, layout, shadows, spacing } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AmbientBackground } from '../common/AmbientBackground';
 import { AnimatedPressable } from '../common/AnimatedPressable';
@@ -29,6 +30,10 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
   const { width: windowWidth } = useWindowDimensions();
   const isLargeScreen = windowWidth >= 768;
+  const mobileSidebarWidth = Math.min(
+    SIDEBAR_THEME.width,
+    Math.max(layout.mobileDrawerMinWidth, windowWidth - spacing.xl),
+  );
   const { theme } = useTheme();
   const sidebarTheme = getSidebarTheme(theme);
 
@@ -77,6 +82,12 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
     }).start();
   }, [isCollapsed, isInitialized, sidebarWidth]);
 
+  useEffect(() => {
+    if (!mobileOpen) {
+      mobileSlide.setValue(-mobileSidebarWidth);
+    }
+  }, [mobileOpen, mobileSidebarWidth, mobileSlide]);
+
   const handleToggleCollapse = useCallback(() => {
     const nextValue = !isCollapsed;
     setIsCollapsed(nextValue);
@@ -102,7 +113,7 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
   const closeMobileSidebar = useCallback(() => {
     Animated.parallel([
       Animated.timing(mobileSlide, {
-        toValue: -SIDEBAR_THEME.width,
+        toValue: -mobileSidebarWidth,
         duration: SIDEBAR_ANIMATIONS.transitionDuration,
         useNativeDriver: true,
       }),
@@ -114,7 +125,7 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
     ]).start(() => {
       setMobileOpen(false);
     });
-  }, [mobileSlide, overlayOpacity]);
+  }, [mobileSidebarWidth, mobileSlide, overlayOpacity]);
 
   if (!isLargeScreen) {
     return (
@@ -148,8 +159,9 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
                     opacity: overlayOpacity,
                     backgroundColor: sidebarTheme.background.overlay,
                   },
-                ]}
-              />
+                Platform.OS === 'web' ? styles.webFixedFill : null,
+              ]}
+            />
             </TouchableWithoutFeedback>
 
             <Animated.View
@@ -159,7 +171,9 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
                   transform: [{ translateX: mobileSlide }],
                   backgroundColor: sidebarTheme.background.primary,
                   borderRightColor: sidebarTheme.border,
+                  width: mobileSidebarWidth,
                 },
+                Platform.OS === 'web' ? styles.webFixedSidebar : null,
               ]}
             >
               <CustomDrawerContent
@@ -206,6 +220,7 @@ const styles = StyleSheet.create({
   },
   mobileContainer: {
     flex: 1,
+    minHeight: Platform.OS === 'web' ? '100vh' as unknown as number : undefined,
   },
   sidebar: {
     borderRightWidth: 1,
@@ -220,8 +235,8 @@ const styles = StyleSheet.create({
     top: spacing.sm,
     left: spacing.sm,
     zIndex: 50,
-    width: 44,
-    height: 44,
+    width: layout.mobileNavButtonSize,
+    height: layout.mobileNavButtonSize,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     alignItems: 'center',
@@ -240,6 +255,13 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     ...shadows.xl,
     zIndex: 60,
+  },
+  webFixedFill: {
+    position: 'fixed' as unknown as 'absolute',
+  },
+  webFixedSidebar: {
+    position: 'fixed' as unknown as 'absolute',
+    height: '100vh' as unknown as number,
   },
 });
 

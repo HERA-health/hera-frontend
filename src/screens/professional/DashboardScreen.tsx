@@ -9,7 +9,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { BarChart, PieChart } from 'react-native-gifted-charts';
 import type { barDataItem } from 'react-native-gifted-charts';
-import { colors, spacing, borderRadius, typography, shadows } from '../../constants/colors';
+import { colors, spacing, borderRadius, typography, shadows, layout } from '../../constants/colors';
 import { Theme } from '../../constants/theme';
 import { AnimatedPressable } from '../../components/common';
 import { LoadingState } from '../../components/common/LoadingState';
@@ -285,7 +285,12 @@ const ReviewsCard: React.FC<ReviewsCardProps> = ({ metrics, styles, theme }) => 
 export function DashboardScreen() {
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const isCompactMobile = width < 430;
+  const isMobileShell = width < 768;
+  const styles = useMemo(
+    () => createStyles(theme, isDark, isCompactMobile, isMobileShell),
+    [theme, isDark, isCompactMobile, isMobileShell],
+  );
   const chartColors = useMemo(() => getChartColors(theme), [theme]);
   const kpiAccents = useMemo(() => getKpiAccents(theme), [theme]);
   const isDesktop = width >= 768;
@@ -463,8 +468,8 @@ export function DashboardScreen() {
                   <BarChart
                     data={monthlyIncomeBarData}
                     width={chartWidth}
-                    barWidth={Math.floor((chartWidth - 40) / 12) - 6}
-                    spacing={6}
+                    barWidth={Math.max(8, Math.floor((chartWidth - 40) / 12) - 6)}
+                    spacing={isCompactMobile ? 4 : 6}
                     height={160}
                     barBorderTopLeftRadius={borderRadius.sm}
                     barBorderTopRightRadius={borderRadius.sm}
@@ -576,7 +581,7 @@ const CONTENT_PH = 24;
 const CONTENT_PV = 20;
 const CONTENT_GAP = 14;
 
-function createStyles(theme: Theme, isDark: boolean) {
+function createStyles(theme: Theme, isDark: boolean, isCompactMobile: boolean, isMobileShell: boolean) {
   return StyleSheet.create({
   container: {
     flex: 1,
@@ -585,19 +590,20 @@ function createStyles(theme: Theme, isDark: boolean) {
   header: {
     backgroundColor: theme.bgCard,
     paddingHorizontal: spacing.lg,
+    paddingLeft: isMobileShell ? layout.mobileShellLeftInset : spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: isMobileShell ? 'flex-start' : 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: typography.fontSizes.xxxl,
+    fontSize: isCompactMobile ? typography.fontSizes.xxl : typography.fontSizes.xxxl,
     color: theme.textPrimary,
     fontFamily: theme.fontSansBold,
-    textAlign: 'center',
+    textAlign: isMobileShell ? 'left' : 'center',
   },
   screen: {
     flex: 1,
@@ -606,9 +612,9 @@ function createStyles(theme: Theme, isDark: boolean) {
     flexGrow: 1,
   },
   content: {
-    paddingHorizontal: CONTENT_PH,
-    paddingVertical: CONTENT_PV,
-    gap: CONTENT_GAP,
+    paddingHorizontal: isMobileShell ? spacing.md : CONTENT_PH,
+    paddingVertical: isMobileShell ? spacing.md : CONTENT_PV,
+    gap: isMobileShell ? spacing.md : CONTENT_GAP,
   },
   flex1: {
     flex: 1,
@@ -638,7 +644,7 @@ function createStyles(theme: Theme, isDark: boolean) {
   mobileKpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: KPI_GAP,
+    gap: isMobileShell ? spacing.sm : KPI_GAP,
   },
   mobileKpiCard: {
     width: '48.5%' as unknown as number,
@@ -666,8 +672,9 @@ function createStyles(theme: Theme, isDark: boolean) {
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: isMobileShell ? 'flex-start' : 'center',
     marginBottom: CARD_HEADER_MB,
+    gap: spacing.sm,
   },
   cardTitle: {
     fontSize: FONT_CARD_TITLE,
@@ -686,7 +693,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     borderRadius: borderRadius.lg,
     borderWidth: CARD_BORDER_WIDTH,
     borderColor: theme.border,
-    padding: 16,
+    padding: isMobileShell ? spacing.md : 16,
     ...shadows.sm,
   },
   kpiAccent: {
@@ -696,7 +703,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     marginBottom: KPI_ACCENT_MB,
   },
   kpiValue: {
-    fontSize: 26,
+    fontSize: isCompactMobile ? 25 : 26,
     color: theme.textPrimary,
     fontFamily: theme.fontSansBold,
   },
@@ -741,6 +748,7 @@ function createStyles(theme: Theme, isDark: boolean) {
   chartWrapper: {
     width: '100%' as unknown as number,
     overflow: 'hidden',
+    minHeight: 178,
   },
   axisText: {
     fontSize: FONT_AXIS,
@@ -876,7 +884,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     fontSize: 36,
     fontWeight: '800' as const,
     color: theme.textPrimary,
-    letterSpacing: -1,
+    letterSpacing: 0,
     lineHeight: 40,
   },
   reviewsStarsRow: {

@@ -13,6 +13,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import {
   borderRadius,
+  layout,
   shadows,
   spacing,
   typography,
@@ -52,16 +53,20 @@ function formatTime(date: Date) {
   return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 }
 
+function capitalizeFirst(value: string) {
+  return value.length ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
 export function ProfessionalSessionsScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const dayScrollRef = useRef<ScrollView | null>(null);
   const isDesktop = width >= 1180;
   const isTablet = width >= 768 && width < 1180;
   const isMobile = width < 768;
+  const styles = useMemo(() => createStyles(theme, isDark, isMobile), [theme, isDark, isMobile]);
 
   const [viewMode, setViewMode] = useState<SessionViewMode>(isMobile ? 'list' : 'day');
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -575,9 +580,9 @@ export function ProfessionalSessionsScreen() {
     const hasSessions = (date: Date) => sessions.some((session) => isSameDay(session.date, date));
 
     return (
-      <Card variant="default" padding="large" style={styles.sideCard}>
+      <Card variant="default" padding={isMobile ? 'medium' : 'large'} style={styles.sideCard}>
         <Text style={styles.sideCardTitle}>
-          {monthDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+          {capitalizeFirst(monthDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }))}
         </Text>
         <View style={styles.miniWeekdays}>
           {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => (
@@ -985,7 +990,7 @@ export function ProfessionalSessionsScreen() {
   );
 }
 
-function createStyles(theme: Theme, isDark: boolean) {
+function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -1005,6 +1010,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     },
     header: {
       paddingHorizontal: spacing.lg,
+      paddingLeft: isMobile ? layout.mobileShellLeftInset : spacing.lg,
       paddingTop: spacing.lg,
       paddingBottom: spacing.md,
       backgroundColor: theme.bgAlt,
@@ -1013,20 +1019,21 @@ function createStyles(theme: Theme, isDark: boolean) {
       gap: spacing.md,
     },
     headerTitle: {
-      fontSize: 30,
+      fontSize: isMobile ? 28 : 30,
       color: theme.textPrimary,
-      textAlign: 'center',
+      textAlign: isMobile ? 'left' : 'center',
       fontFamily: theme.fontSansBold,
     },
     kpiRow: {
       flexDirection: 'row',
-      gap: spacing.sm,
+      gap: isMobile ? spacing.xs : spacing.sm,
       flexWrap: 'wrap',
       justifyContent: 'center',
     },
     kpiCard: {
-      minWidth: 120,
-      paddingHorizontal: spacing.md,
+      minWidth: isMobile ? 104 : 120,
+      flexGrow: isMobile ? 1 : 0,
+      paddingHorizontal: isMobile ? spacing.sm : spacing.md,
       paddingVertical: spacing.sm,
       borderRadius: borderRadius.lg,
       backgroundColor: theme.bgCard,
@@ -1064,7 +1071,6 @@ function createStyles(theme: Theme, isDark: boolean) {
     sideCardTitle: {
       fontSize: typography.fontSizes.md,
       color: theme.textPrimary,
-      textTransform: 'capitalize',
       marginBottom: spacing.md,
       fontFamily: theme.fontSansBold,
     },
@@ -1085,11 +1091,12 @@ function createStyles(theme: Theme, isDark: boolean) {
     },
     miniDay: {
       width: '14.28%',
-      aspectRatio: 1,
+      aspectRatio: isMobile ? undefined : 1,
+      height: isMobile ? 36 : undefined,
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: borderRadius.full,
-      marginVertical: 2,
+      marginVertical: isMobile ? 1 : 2,
     },
     miniDayToday: {
       backgroundColor: theme.primaryAlpha12,
@@ -1098,7 +1105,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       backgroundColor: theme.primary,
     },
     miniDayText: {
-      fontSize: 13,
+      fontSize: isMobile ? 12 : 13,
       color: theme.textPrimary,
       fontFamily: theme.fontSans,
     },
@@ -1134,7 +1141,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       minWidth: 0,
     },
     toolbar: {
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: isMobile ? spacing.md : spacing.lg,
       paddingTop: spacing.md,
       gap: spacing.md,
     },
@@ -1172,9 +1179,9 @@ function createStyles(theme: Theme, isDark: boolean) {
     },
     dateBar: {
       marginTop: spacing.md,
-      marginHorizontal: spacing.lg,
+      marginHorizontal: isMobile ? spacing.md : spacing.lg,
       marginBottom: spacing.sm,
-      padding: spacing.md,
+      padding: isMobile ? spacing.sm : spacing.md,
       borderRadius: borderRadius.xl,
       backgroundColor: theme.bgCard,
       borderWidth: 1,
@@ -1185,7 +1192,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       ...shadows.sm,
     },
     dateActionsRow: {
-      marginHorizontal: spacing.lg,
+      marginHorizontal: isMobile ? spacing.md : spacing.lg,
       marginBottom: spacing.md,
       flexDirection: 'row',
       alignItems: 'center',
@@ -1193,9 +1200,9 @@ function createStyles(theme: Theme, isDark: boolean) {
       flexWrap: 'wrap',
     },
     dateNavButton: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
+      width: isMobile ? 44 : 42,
+      height: isMobile ? 44 : 42,
+      borderRadius: isMobile ? 22 : 21,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
@@ -1205,7 +1212,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     dateCenter: {
       flex: 1,
       alignItems: 'center',
-      paddingHorizontal: spacing.md,
+      paddingHorizontal: isMobile ? spacing.xs : spacing.md,
     },
     nextSessionHint: {
       fontSize: typography.fontSizes.sm,
@@ -1213,7 +1220,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       fontFamily: theme.fontSans,
     },
     dateTitle: {
-      fontSize: typography.fontSizes.lg,
+      fontSize: isMobile ? typography.fontSizes.md : typography.fontSizes.lg,
       color: theme.textPrimary,
       textAlign: 'center',
       textTransform: 'capitalize',
@@ -1229,7 +1236,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       flex: 1,
     },
     dayViewContent: {
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: isMobile ? spacing.md : spacing.lg,
       paddingBottom: spacing.xxxl,
       gap: spacing.sm,
     },
@@ -1381,7 +1388,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       fontFamily: theme.fontSansSemiBold,
     },
     weekStackContent: {
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: isMobile ? spacing.md : spacing.lg,
       paddingBottom: spacing.xxxl,
       gap: spacing.md,
     },
@@ -1411,7 +1418,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       fontFamily: theme.fontSans,
     },
     weekAgendaContent: {
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: isMobile ? spacing.md : spacing.lg,
       paddingBottom: spacing.xxxl,
     },
     weekAgendaShell: {
@@ -1535,7 +1542,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       fontFamily: theme.fontSans,
     },
     listContent: {
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: isMobile ? spacing.md : spacing.lg,
       paddingBottom: spacing.xxxl,
       gap: spacing.md,
     },

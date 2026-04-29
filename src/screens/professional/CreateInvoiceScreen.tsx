@@ -18,6 +18,7 @@ import {
   borderRadius,
   typography,
   shadows,
+  layout,
 } from '../../constants/colors';
 import { Theme } from '../../constants/theme';
 import { AnimatedPressable, Button } from '../../components/common';
@@ -206,8 +207,9 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   const isEditing = !!invoiceId;
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const isDesktop = width >= 768;
+  const isMobile = width < 768;
+  const styles = useMemo(() => createStyles(theme, isDark, isMobile), [theme, isDark, isMobile]);
   const sessionContext = useMemo(
     () =>
       !isEditing && presetSessionId
@@ -1195,7 +1197,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
 // STYLES
 // ============================================================================
 
-function createStyles(theme: Theme, isDark: boolean) {
+function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
   return StyleSheet.create({
   container: {
     flex: 1,
@@ -1210,10 +1212,11 @@ function createStyles(theme: Theme, isDark: boolean) {
 
   // Header
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: isMobile ? 'column' : 'row',
+    justifyContent: isMobile ? 'flex-start' : 'space-between',
+    alignItems: isMobile ? 'stretch' : 'center',
     paddingHorizontal: spacing.lg,
+    paddingLeft: isMobile ? layout.mobileShellLeftInset : spacing.lg,
     paddingVertical: spacing.md,
     backgroundColor: theme.bgCard,
     borderBottomWidth: 1,
@@ -1237,24 +1240,26 @@ function createStyles(theme: Theme, isDark: boolean) {
     fontFamily: theme.fontSansMedium,
   },
   headerTitleWrapper: {
-    position: 'absolute',
+    position: isMobile ? 'relative' : 'absolute',
     left: 0,
     right: 0,
     top: 0,
     bottom: 0,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: isMobile ? 'flex-start' : 'center',
   },
   headerTitle: {
-    fontSize: typography.fontSizes.xl,
+    fontSize: isMobile ? typography.fontSizes.lg : typography.fontSizes.xl,
     color: theme.textPrimary,
     fontFamily: theme.fontSansBold,
-    textAlign: 'center',
+    textAlign: isMobile ? 'left' : 'center',
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: spacing.sm,
+    width: isMobile ? '100%' as unknown as number : undefined,
   },
   statusBadge: {
     backgroundColor: theme.primaryAlpha12,
@@ -1269,13 +1274,17 @@ function createStyles(theme: Theme, isDark: boolean) {
   },
   headerActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
+    flex: isMobile ? 1 : undefined,
   },
   headerSecondaryAction: {
-    minWidth: 154,
+    minWidth: isMobile ? 132 : 154,
+    flex: isMobile ? 1 : undefined,
   },
   headerPrimaryAction: {
-    minWidth: 188,
+    minWidth: isMobile ? 150 : 188,
+    flex: isMobile ? 1 : undefined,
   },
 
   // Scroll
@@ -1283,7 +1292,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.lg,
+    padding: isMobile ? spacing.md : spacing.lg,
     paddingBottom: spacing.xxxl,
   },
 
@@ -1308,7 +1317,7 @@ function createStyles(theme: Theme, isDark: boolean) {
   card: {
     backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
-    padding: spacing.lg,
+    padding: isMobile ? spacing.md : spacing.lg,
     borderWidth: 1,
     borderColor: theme.border,
     ...shadows.sm,
@@ -1522,6 +1531,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
     marginBottom: spacing.sm,
+    display: isMobile ? 'none' : 'flex',
   },
   lineHeaderCell: {
     fontSize: typography.fontSizes.xs,
@@ -1530,23 +1540,28 @@ function createStyles(theme: Theme, isDark: boolean) {
     textTransform: 'uppercase',
   },
   lineConceptCol: {
-    flex: 3,
+    flex: isMobile ? 0 : 3,
+    flexBasis: isMobile ? '100%' as unknown as number : undefined,
     paddingRight: spacing.sm,
   },
   lineDateCol: {
-    flex: 2,
+    flex: isMobile ? 1 : 2,
+    flexBasis: isMobile ? '48%' as unknown as number : undefined,
     paddingRight: spacing.sm,
   },
   lineDurationCol: {
-    flex: 1.5,
+    flex: isMobile ? 1 : 1.5,
+    flexBasis: isMobile ? '48%' as unknown as number : undefined,
     paddingRight: spacing.sm,
   },
   linePriceCol: {
-    flex: 1.5,
+    flex: isMobile ? 1 : 1.5,
+    flexBasis: isMobile ? '48%' as unknown as number : undefined,
     paddingRight: spacing.sm,
   },
   lineTotalCol: {
-    flex: 1,
+    flex: isMobile ? 1 : 1,
+    flexBasis: isMobile ? '32%' as unknown as number : undefined,
     alignItems: 'flex-end',
   },
   lineDeleteCol: {
@@ -1555,7 +1570,9 @@ function createStyles(theme: Theme, isDark: boolean) {
   },
   lineRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: isMobile ? 'stretch' : 'center',
+    flexWrap: isMobile ? 'wrap' : 'nowrap',
+    gap: isMobile ? spacing.sm : 0,
     paddingVertical: spacing.sm,
   },
   lineRowBorder: {

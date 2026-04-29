@@ -19,7 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { AnimatedPressable, Button, Card } from '../../components/common';
 import { ClinicalTab } from '../../components/professional/ClinicalTab';
-import { borderRadius, spacing, typography } from '../../constants/colors';
+import { borderRadius, layout, spacing, typography } from '../../constants/colors';
 import { getErrorMessage } from '../../constants/errors';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -1027,6 +1027,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'stretch',
     gap: spacing.sm,
+    paddingLeft: layout.mobileShellCompactLeftInset,
   },
   topBarBadges: {
     flexDirection: 'row',

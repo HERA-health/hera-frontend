@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { borderRadius, shadows, spacing } from '../../constants/colors';
+import { borderRadius, layout, shadows, spacing } from '../../constants/colors';
 import { Theme } from '../../constants/theme';
 import type { ScreenProps } from '../../constants/types';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -177,7 +177,6 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark, width), [theme, isDark, width]);
-  const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
   const isMobile = width < 768;
   const useTwoColumns = width >= 1080;
@@ -354,11 +353,11 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     textDisabledColor: theme.textMuted,
     arrowColor: theme.primary,
     monthTextColor: theme.textPrimary,
-    textDayFontSize: 14,
-    textMonthFontSize: 16,
+    textDayFontSize: isMobile ? 15 : 14,
+    textMonthFontSize: isMobile ? 17 : 16,
     textDayFontWeight: '500' as const,
     textMonthFontWeight: '700' as const,
-  }), [theme]);
+  }), [isMobile, theme]);
 
   const renderSidebar = () => (
     <View style={[styles.sidebar, !useTwoColumns && styles.sidebarStacked]}>
@@ -530,11 +529,13 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
           <Text style={styles.pageSubtitle}>Define tu patrón semanal y las excepciones sin perder visibilidad de la agenda.</Text>
         </View>
         <View style={styles.headerActions}>
-          <View style={styles.headerButtonWrap}>
-            <Button variant="outline" size="medium" onPress={() => setShowPreviewModal(true)} icon={<Ionicons name="eye-outline" size={18} color={theme.primary} />} fullWidth>
-              {isMobile ? 'Vista' : 'Vista previa'}
-            </Button>
-          </View>
+          {!isMobile ? (
+            <View style={styles.headerButtonWrap}>
+              <Button variant="outline" size="medium" onPress={() => setShowPreviewModal(true)} icon={<Ionicons name="eye-outline" size={18} color={theme.primary} />} fullWidth>
+                Vista previa
+              </Button>
+            </View>
+          ) : null}
           <View style={styles.headerButtonWrap}>
             <Button variant="primary" size="medium" onPress={handleSave} disabled={!hasChanges || saving} loading={saving} icon={<Ionicons name="checkmark" size={18} color={theme.textOnPrimary} />} fullWidth>
               Guardar
@@ -693,7 +694,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
         </Pressable>
       </Modal>
 
-      <Modal visible={showPreviewModal} transparent animationType="slide" onRequestClose={() => setShowPreviewModal(false)}>
+      <Modal visible={!isMobile && showPreviewModal} transparent animationType="slide" onRequestClose={() => setShowPreviewModal(false)}>
         <View style={styles.previewOverlay}>
           <View style={styles.previewContent}>
             <View style={styles.previewHeader}>
@@ -709,17 +710,23 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
                 <Ionicons name="close" size={22} color={theme.textSecondary} />
               </AnimatedPressable>
             </View>
-            <ScrollView style={styles.previewBody} showsVerticalScrollIndicator={false}>
-              <View style={isMobile ? styles.previewMobileStack : styles.previewLayout}>
+            <ScrollView
+              style={styles.previewBody}
+              contentContainerStyle={styles.previewBodyContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.previewLayout}>
                 <View style={styles.previewCalendarPanel}>
                   <Text style={styles.previewSectionTitle}>Calendario visible</Text>
                   <Text style={styles.previewSectionCaption}>El cliente seleccionará el día y verá solo tus franjas activas.</Text>
-                  <View style={styles.previewCalendar}>
-                    <Calendar
-                      theme={calendarTheme}
-                      markedDates={previewMarkedDates}
-                      onDayPress={(day) => setPreviewSelectedDate(day.dateString)}
-                    />
+                  <View style={styles.previewCalendarShell}>
+                    <View style={styles.previewCalendar}>
+                      <Calendar
+                        theme={calendarTheme}
+                        markedDates={previewMarkedDates}
+                        onDayPress={(day) => setPreviewSelectedDate(day.dateString)}
+                      />
+                    </View>
                   </View>
                 </View>
 
@@ -790,6 +797,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       alignItems: isMobile ? 'stretch' : 'center',
       gap: spacing.md,
       paddingHorizontal: spacing.lg,
+      paddingLeft: isMobile ? layout.mobileShellLeftInset : spacing.lg,
       paddingVertical: spacing.md,
       backgroundColor: theme.bgCard,
       borderBottomWidth: 1,
@@ -822,6 +830,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       gap: spacing.sm,
       alignItems: 'center',
       justifyContent: 'flex-end',
+      width: isMobile ? '100%' as unknown as number : undefined,
     },
     headerButtonWrap: { minWidth: isMobile ? 0 : 144, flex: isMobile ? 1 : 0 },
     mainScroll: { flex: 1 },
@@ -832,7 +841,11 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     leftColumn: { flex: 1 },
     leftColumnDesktop: { flex: 0.62 },
-    leftColumnContent: { padding: spacing.lg, paddingBottom: 120, gap: spacing.lg },
+    leftColumnContent: {
+      padding: isMobile ? spacing.md : spacing.lg,
+      paddingBottom: 120,
+      gap: isMobile ? spacing.md : spacing.lg,
+    },
     rightColumn: { flex: 0.38, alignSelf: 'flex-start' },
     rightColumnContent: { padding: spacing.lg, paddingBottom: 120 },
     controlsCard: { borderWidth: 1, borderColor: theme.border },
@@ -1059,18 +1072,18 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     previewOverlay: {
       flex: 1,
       backgroundColor: theme.overlay,
-      justifyContent: isMobile ? 'flex-end' : 'center',
+      justifyContent: 'center',
       alignItems: 'center',
-      padding: isMobile ? 0 : spacing.lg,
+      padding: spacing.lg,
     },
     previewContent: {
       width: '100%',
-      maxWidth: isMobile ? undefined : 980,
-      maxHeight: isMobile ? '88%' : '92%',
+      maxWidth: 980,
+      maxHeight: '92%',
       borderTopLeftRadius: borderRadius.xl,
       borderTopRightRadius: borderRadius.xl,
-      borderBottomLeftRadius: isMobile ? 0 : borderRadius.xl,
-      borderBottomRightRadius: isMobile ? 0 : borderRadius.xl,
+      borderBottomLeftRadius: borderRadius.xl,
+      borderBottomRightRadius: borderRadius.xl,
       backgroundColor: theme.bgElevated,
       borderWidth: 1,
       borderColor: theme.border,
@@ -1078,13 +1091,13 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     previewHeader: {
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'space-between',
       padding: spacing.lg,
       borderBottomWidth: 1,
       borderBottomColor: theme.border,
     },
-    previewHeaderCopy: { flex: 1, gap: 8 },
+    previewHeaderCopy: { flex: 1, gap: spacing.sm, paddingRight: spacing.sm },
     previewBadge: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1099,27 +1112,30 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     previewBadgeText: { fontSize: 12, fontWeight: '700', color: theme.primary },
     previewTitle: { fontSize: 18, fontWeight: '800', color: theme.textPrimary },
-    previewSubtitle: { marginTop: 4, fontSize: 13, color: theme.textSecondary },
-    previewBody: { padding: spacing.lg },
-    previewLayout: {
-      flexDirection: isMobile ? 'column' : 'row',
-      gap: spacing.lg,
-      alignItems: 'stretch',
+    previewSubtitle: { marginTop: 2, fontSize: 13, lineHeight: 18, color: theme.textSecondary },
+    previewBody: {
+      flexShrink: 1,
     },
-    previewMobileStack: {
+    previewBodyContent: {
+      padding: spacing.lg,
+      paddingBottom: spacing.lg,
+    },
+    previewLayout: {
+      flexDirection: 'row',
       gap: spacing.lg,
       alignItems: 'stretch',
     },
     previewCalendarPanel: {
-      flex: isMobile ? 0 : 1,
+      flex: 1,
       width: '100%',
       flexShrink: 0,
-      marginBottom: isMobile ? spacing.lg : 0,
+      marginBottom: 0,
     },
     previewAside: {
-      width: isMobile ? '100%' : 300,
+      width: 300,
       gap: spacing.md,
       flexShrink: 0,
+      marginTop: 0,
     },
     previewSectionTitle: { fontSize: 15, fontWeight: '700', color: theme.textPrimary },
     previewSectionCaption: {
@@ -1129,15 +1145,17 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       lineHeight: 18,
       color: theme.textSecondary,
     },
-    previewCalendar: {
-      minHeight: isMobile ? 308 : undefined,
-      height: isMobile ? 308 : undefined,
+    previewCalendarShell: {
+      flexShrink: 0,
+      position: 'relative',
       borderRadius: borderRadius.lg,
       overflow: 'hidden',
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.bgElevated,
-      marginBottom: isMobile ? spacing.sm : 0,
+    },
+    previewCalendar: {
+      backgroundColor: theme.bgElevated,
     },
     previewInfoCard: {
       padding: spacing.md,
@@ -1150,7 +1168,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     previewInfoHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
     previewInfoCopy: { flex: 1, gap: 2 },
     previewInfoTitle: { fontSize: 14, fontWeight: '700', color: theme.textPrimary },
-    previewInfoText: { fontSize: 12, lineHeight: 18, color: theme.textSecondary },
+    previewInfoText: { fontSize: 12, lineHeight: 17, color: theme.textSecondary },
     previewSlots: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
     previewSlot: {
       paddingVertical: 8,
@@ -1161,7 +1179,14 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       borderColor: theme.primary,
     },
     previewSlotText: { fontSize: 13, fontWeight: '600', color: theme.primary },
-    previewFooter: { padding: spacing.lg, paddingTop: 0 },
+    previewFooter: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: theme.borderLight,
+      backgroundColor: theme.bgElevated,
+    },
   });
 };
 

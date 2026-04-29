@@ -42,6 +42,8 @@ export function AuthSplitLayout({
   const { theme, isDark } = useTheme();
   const isDesktop = width >= 768;
   const isLargeDesktop = width >= 1200;
+  const isMobile = width < 768;
+  const isCompactMobile = width < 420;
 
   const gradientColors = accent === 'primary'
     ? ([theme.primary, theme.primaryDark] as const)
@@ -64,17 +66,19 @@ export function AuthSplitLayout({
           style={[
             styles.brandSide,
             isDesktop ? styles.brandSideDesktop : styles.brandSideMobile,
+            isCompactMobile ? styles.brandSidePhone : null,
           ]}
         >
           <View style={[styles.decorCircle, styles.decorCircleOne]} />
           <View style={[styles.decorCircle, styles.decorCircleTwo]} />
           <View style={[styles.decorCircle, styles.decorCircleThree]} />
 
-          <View style={styles.brandContent}>
-            <View style={styles.logoRow}>
+          <View style={[styles.brandContent, !isDesktop ? styles.brandContentMobile : null]}>
+            <View style={[styles.logoRow, isMobile ? styles.logoRowMobile : null]}>
               <View
                 style={[
                   styles.logoBadge,
+                  isMobile ? styles.logoBadgeMobile : null,
                   {
                     backgroundColor: isDark ? 'rgba(20, 26, 21, 0.92)' : '#FFFFFF',
                   },
@@ -82,7 +86,7 @@ export function AuthSplitLayout({
               >
                 <Ionicons
                   name="heart"
-                  size={isDesktop ? 36 : 28}
+                  size={isDesktop ? 36 : isCompactMobile ? 24 : 26}
                   color={accent === 'primary' ? theme.primary : theme.secondary}
                 />
               </View>
@@ -91,6 +95,7 @@ export function AuthSplitLayout({
                   styles.logoText,
                   { fontFamily: theme.fontDisplayBold, color: '#FFFFFF' },
                   !isDesktop ? styles.logoTextMobile : null,
+                  isCompactMobile ? styles.logoTextCompactMobile : null,
                 ]}
               >
                 HERA
@@ -100,6 +105,7 @@ export function AuthSplitLayout({
             <Text
               style={[
                 styles.eyebrow,
+                isMobile ? styles.eyebrowMobile : null,
                 { fontFamily: theme.fontSansSemiBold, color: 'rgba(255,255,255,0.72)' },
               ]}
             >
@@ -108,6 +114,8 @@ export function AuthSplitLayout({
             <Text
               style={[
                 styles.brandTitle,
+                isMobile ? styles.brandTitleMobile : null,
+                isCompactMobile ? styles.brandTitleCompactMobile : null,
                 { fontFamily: theme.fontDisplayBold, color: '#FFFFFF' },
               ]}
             >
@@ -116,6 +124,7 @@ export function AuthSplitLayout({
             <Text
               style={[
                 styles.brandSubtitle,
+                isMobile ? styles.brandSubtitleMobile : null,
                 { fontFamily: theme.fontSans, color: 'rgba(255,255,255,0.9)' },
               ]}
             >
@@ -158,6 +167,7 @@ export function AuthSplitLayout({
             style={styles.formScroll}
             contentContainerStyle={[
               styles.formScrollContent,
+              isMobile ? styles.formScrollContentMobile : null,
               isLargeDesktop ? styles.formScrollContentLarge : null,
             ]}
             showsVerticalScrollIndicator={false}
@@ -201,12 +211,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 48,
   },
   brandSideMobile: {
-    paddingVertical: 32,
+    paddingVertical: 28,
     paddingHorizontal: 24,
     alignItems: 'center',
   },
+  brandSidePhone: {
+    paddingTop: 22,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
+    alignItems: 'stretch',
+  },
   brandContent: {
     zIndex: 1,
+  },
+  brandContentMobile: {
+    width: '100%',
   },
   decorCircle: {
     position: 'absolute',
@@ -236,6 +255,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 28,
   },
+  logoRowMobile: {
+    marginBottom: 20,
+  },
   logoBadge: {
     width: 56,
     height: 56,
@@ -244,6 +266,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  logoBadgeMobile: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
   logoText: {
     fontSize: 32,
     letterSpacing: 2,
@@ -251,22 +278,43 @@ const styles = StyleSheet.create({
   logoTextMobile: {
     fontSize: 28,
   },
+  logoTextCompactMobile: {
+    fontSize: 26,
+  },
   eyebrow: {
     fontSize: 12,
     letterSpacing: 1.3,
     textTransform: 'uppercase',
     marginBottom: 10,
   },
+  eyebrowMobile: {
+    fontSize: 11,
+    marginBottom: 8,
+  },
   brandTitle: {
     fontSize: 36,
     lineHeight: 44,
     marginBottom: 16,
+  },
+  brandTitleMobile: {
+    fontSize: 32,
+    lineHeight: 39,
+    marginBottom: 12,
+  },
+  brandTitleCompactMobile: {
+    fontSize: 30,
+    lineHeight: 37,
   },
   brandSubtitle: {
     fontSize: 17,
     lineHeight: 26,
     marginBottom: 40,
     maxWidth: 420,
+  },
+  brandSubtitleMobile: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 0,
   },
   featureList: {
     gap: 16,
@@ -303,6 +351,11 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 84,
     paddingBottom: 48,
+  },
+  formScrollContentMobile: {
+    justifyContent: 'flex-start',
+    paddingTop: 28,
+    paddingBottom: 36,
   },
   formScrollContentLarge: {
     paddingHorizontal: 40,

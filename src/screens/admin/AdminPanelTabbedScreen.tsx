@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable } from '../../components/common';
-import { spacing, borderRadius, typography } from '../../constants/colors';
+import { spacing, borderRadius, typography, layout } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -48,7 +48,11 @@ export function AdminPanelTabbedScreen() {
   const { width } = useWindowDimensions();
   const isAdmin = user?.isAdmin ?? false;
   const isDesktop = width >= 1024;
-  const styles = useMemo(() => createStyles(theme, isDark, isDesktop), [theme, isDark, isDesktop]);
+  const isMobileShell = width < 768;
+  const styles = useMemo(
+    () => createStyles(theme, isDark, isDesktop, isMobileShell),
+    [theme, isDark, isDesktop, isMobileShell],
+  );
   const [activeTab, setActiveTab] = useState<TabKey>('verifications');
 
   if (!isAdmin) {
@@ -112,7 +116,7 @@ export function AdminPanelTabbedScreen() {
   );
 }
 
-const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean) => StyleSheet.create({
+const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean, isMobileShell: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.bg,
@@ -150,6 +154,7 @@ const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean) => Styl
   },
   header: {
     paddingHorizontal: spacing.lg,
+    paddingLeft: isMobileShell ? layout.mobileShellLeftInset : spacing.lg,
     paddingTop: isDesktop ? spacing.xl : spacing.lg,
     paddingBottom: spacing.md,
     maxWidth: isDesktop ? 1040 : undefined,
@@ -189,6 +194,7 @@ const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean) => Styl
   },
   tabBar: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.xs,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,

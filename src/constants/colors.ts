@@ -356,4 +356,9 @@ export const layout = {
   calendarTimeColumnWidth: 36,         // Time labels column in week view
   mobilePanelHeight: 300,              // Right panel section height on mobile
   collapsedSidebarWidth: 52,           // Sidebar width when collapsed (icons only)
+  mobileDrawerMinWidth: 240,
+  mobileNavButtonSize: touchTarget.minWidth,
+  mobileShellLeftInset: touchTarget.minWidth + spacing.xxl,
+  mobileShellCompactLeftInset: touchTarget.minWidth + spacing.md,
+  mobileShellTopInset: touchTarget.minHeight + spacing.xxl,
 };

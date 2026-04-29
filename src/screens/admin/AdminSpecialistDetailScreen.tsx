@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { heraLanding, spacing, borderRadius, typography, shadows } from '../../constants/colors';
+import { heraLanding, spacing, borderRadius, typography, shadows, layout } from '../../constants/colors';
 import { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import { useAuth } from '../../contexts/AuthContext';
 import * as adminService from '../../services/adminService';
@@ -542,11 +542,19 @@ export function AdminSpecialistDetailScreen() {
   );
 }
 
-function DetailRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+function DetailRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+}) {
   return (
     <View style={styles.detailRow}>
       <View style={styles.detailRowIcon}>
-        <Ionicons name={icon as any} size={18} color={heraLanding.primary} />
+        <Ionicons name={icon} size={18} color={heraLanding.primary} />
       </View>
       <View style={styles.detailRowContent}>
         <Text style={styles.detailLabel}>{label}</Text>
@@ -566,6 +574,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: spacing.lg,
+    paddingTop: isDesktop ? spacing.lg : layout.mobileShellTopInset,
     paddingBottom: spacing.xxxl + 80, // space for action bar
     maxWidth: isDesktop ? 700 : undefined,
     alignSelf: isDesktop ? 'center' : undefined,

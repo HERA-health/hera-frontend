@@ -16,7 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { z } from 'zod';
 import { AnimatedPressable, Button, Card } from '../../components/common';
-import { borderRadius, shadows, spacing, typography } from '../../constants/colors';
+import { borderRadius, layout, shadows, spacing, typography } from '../../constants/colors';
 import type { RootStackParamList } from '../../constants/types';
 import type { Theme } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -438,8 +438,8 @@ export function ProfessionalClientsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={stylesForTheme.hero}>
-          <View style={stylesForTheme.heroTextBlock}>
+        <View style={[stylesForTheme.hero, isMobile ? stylesForTheme.heroMobile : null]}>
+          <View style={[stylesForTheme.heroTextBlock, isMobile ? stylesForTheme.heroMobileTextBlock : null]}>
             <Text style={[stylesForTheme.eyebrow, { color: theme.primary }]}>CRM clínico</Text>
             <Text style={[stylesForTheme.title, { color: theme.textPrimary }]}>Mis pacientes</Text>
           </View>
@@ -452,6 +452,7 @@ export function ProfessionalClientsScreen() {
               setModalVisible(true);
             }}
             icon={<Ionicons name="add" size={18} color={theme.textOnPrimary} />}
+            fullWidth={isMobile}
           >
             Nuevo paciente
           </Button>
@@ -807,10 +808,18 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       alignItems: 'flex-end',
       flexWrap: 'wrap',
     },
+    heroMobile: {
+      paddingLeft: layout.mobileShellCompactLeftInset,
+      alignItems: 'stretch',
+      gap: spacing.md,
+    },
     heroTextBlock: {
       flex: 1,
       minWidth: 280,
       gap: 8,
+    },
+    heroMobileTextBlock: {
+      minWidth: 0,
     },
     eyebrow: {
       ...textStyles.caption,

@@ -45,6 +45,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
+  const isMobile = width < 768;
+  const isCompactMobile = width < 420;
   const showFloatingDetails = width >= 900;
   const { theme, isDark } = useTheme();
 
@@ -74,7 +76,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   });
 
   return (
-    <View style={[styles.container, isDesktop && styles.containerDesktop]}>
+    <View style={[styles.container, isMobile && styles.containerMobile, isDesktop && styles.containerDesktop]}>
       <AmbientBackground variant="landing" />
 
       <View
@@ -84,7 +86,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           isTablet && styles.contentTablet,
         ]}
       >
-        <View style={[styles.textContainer, isDesktop && styles.textContainerDesktop]}>
+        <View style={[styles.textContainer, isMobile && styles.textContainerMobile, isDesktop && styles.textContainerDesktop]}>
           <MotionView entering="fadeInUp" delay={0} style={styles.badgeWrapper}>
             <GlassCard intensity={28} borderRadius={20} style={styles.badgePill}>
               <Ionicons name="briefcase-outline" size={14} color={theme.primary} />
@@ -104,10 +106,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               style={[
                 styles.headline,
                 isDesktop && styles.headlineDesktop,
+                isMobile && styles.headlineMobile,
+                isCompactMobile && styles.headlineCompactMobile,
                 { color: theme.textPrimary, fontFamily: theme.fontDisplay },
               ]}
             >
-              Tu consulta en un{'\n'}solo espacio para{'\n'}
+              {isDesktop ? 'Tu consulta en un\nsolo espacio para\n' : 'Tu consulta en un solo espacio para\n'}
               <Text
                 style={[
                   styles.headlineAccent,
@@ -123,6 +127,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <Text
               style={[
                 styles.subheadline,
+                isMobile && styles.subheadlineMobile,
                 isDesktop && styles.subheadlineDesktop,
                 { color: theme.textSecondary, fontFamily: theme.fontSans },
               ]}
@@ -138,6 +143,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             delay={300}
             style={[
               styles.ctaContainer,
+              ...(isCompactMobile ? [styles.ctaContainerCompactMobile] : []),
               ...(isDesktop ? [styles.ctaContainerDesktop] : []),
             ]}
           >
@@ -220,6 +226,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           damping={25}
           style={[
             styles.visualContainer,
+            ...(isMobile ? [styles.visualContainerMobile] : []),
+            ...(isCompactMobile ? [styles.visualContainerCompactMobile] : []),
             ...(isDesktop ? [styles.visualContainerDesktop] : []),
             ...(isTablet ? [styles.visualContainerTablet] : []),
           ]}
@@ -228,6 +236,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <View
               style={[
                 styles.illustrationContainer,
+                isMobile && styles.illustrationContainerMobile,
+                isCompactMobile && styles.illustrationContainerCompactMobile,
                 isDesktop && styles.illustrationContainerDesktop,
               ]}
             >
@@ -320,7 +330,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         </MotionView>
       </View>
 
-      {showScrollIndicator && (
+      {showScrollIndicator && !isMobile && (
         <AnimatedPressable
           onPress={onScrollIndicatorPress}
           hoverLift={false}
@@ -357,6 +367,11 @@ const styles = StyleSheet.create({
     minHeight: 580,
     overflow: 'hidden',
   },
+  containerMobile: {
+    paddingTop: 14,
+    paddingBottom: 24,
+    minHeight: 0,
+  },
   containerDesktop: {
     paddingTop: 40,
     paddingBottom: 60,
@@ -381,6 +396,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 40,
   },
+  textContainerMobile: {
+    marginBottom: 22,
+  },
   textContainerDesktop: {
     flex: 0.55,
     marginBottom: 0,
@@ -403,12 +421,20 @@ const styles = StyleSheet.create({
     fontSize: 40,
     lineHeight: 50,
     marginBottom: 20,
-    letterSpacing: -1,
+    letterSpacing: 0,
+  },
+  headlineMobile: {
+    fontSize: 38,
+    lineHeight: 47,
+  },
+  headlineCompactMobile: {
+    fontSize: 35,
+    lineHeight: 43,
   },
   headlineDesktop: {
     fontSize: 62,
     lineHeight: 72,
-    letterSpacing: -2,
+    letterSpacing: 0,
   },
   headlineAccent: {},
   subheadline: {
@@ -416,6 +442,11 @@ const styles = StyleSheet.create({
     lineHeight: 27,
     marginBottom: 32,
     maxWidth: 540,
+  },
+  subheadlineMobile: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 22,
   },
   subheadlineDesktop: {
     fontSize: 18,
@@ -426,6 +457,9 @@ const styles = StyleSheet.create({
     marginBottom: 28,
     width: '100%',
     maxWidth: 520,
+  },
+  ctaContainerCompactMobile: {
+    marginBottom: 18,
   },
   ctaContainerDesktop: {
     flexDirection: 'row',
@@ -445,7 +479,7 @@ const styles = StyleSheet.create({
   primaryCTAText: {
     fontSize: 16,
     color: '#FFFFFF',
-    letterSpacing: 0.2,
+    letterSpacing: 0,
   },
   secondaryCTA: {
     flexDirection: 'row',
@@ -478,6 +512,12 @@ const styles = StyleSheet.create({
     position: 'relative',
     minHeight: 320,
   },
+  visualContainerMobile: {
+    minHeight: 220,
+  },
+  visualContainerCompactMobile: {
+    minHeight: 196,
+  },
   visualContainerDesktop: {
     flex: 0.45,
     minHeight: 480,
@@ -497,6 +537,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+  },
+  illustrationContainerMobile: {
+    width: 220,
+    height: 220,
+  },
+  illustrationContainerCompactMobile: {
+    width: 196,
+    height: 196,
   },
   illustrationContainerDesktop: {
     width: 360,

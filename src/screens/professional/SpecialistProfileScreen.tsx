@@ -45,7 +45,7 @@ import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { shadows, spacing, borderRadius, typography } from '../../constants/colors';
+import { shadows, spacing, borderRadius, typography, layout } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
 import * as professionalService from '../../services/professionalService';
 import * as authService from '../../services/authService';
@@ -3404,6 +3404,7 @@ function createStyles(
   },
   topBarMobile: {
     paddingHorizontal: spacing.md,
+    paddingLeft: layout.mobileShellLeftInset,
     flexWrap: 'wrap',
   },
   topBarContent: {
@@ -3663,7 +3664,7 @@ function createStyles(
     flex: 0.6,
   },
   formContent: {
-    padding: spacing.lg,
+    padding: isMobile ? spacing.md : spacing.lg,
     paddingBottom: 120,
   },
 

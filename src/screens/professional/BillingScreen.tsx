@@ -16,7 +16,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { colors, spacing, borderRadius, typography, shadows, touchTarget } from '../../constants/colors';
+import { colors, spacing, borderRadius, typography, shadows, touchTarget, layout } from '../../constants/colors';
 import { Theme } from '../../constants/theme';
 import { AppNavigationProp } from '../../constants/types';
 import { AnimatedPressable, Button } from '../../components/common';
@@ -224,7 +224,11 @@ export function BillingScreen() {
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const isDesktop = width >= 768;
-  const styles = useMemo(() => createStyles(theme, isDark, isDesktop), [theme, isDark, isDesktop]);
+  const isMobile = width < 768;
+  const styles = useMemo(
+    () => createStyles(theme, isDark, isDesktop, isMobile),
+    [theme, isDark, isDesktop, isMobile],
+  );
 
   // Data state
   const [summary, setSummary] = useState<BillingSummary | null>(null);
@@ -1467,7 +1471,7 @@ export function BillingScreen() {
 // - Always use spacing constants, never hardcoded values
 // - All interactive UI must connect to backend — no decorative-only controls
 
-function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean) {
+function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean, isMobile: boolean) {
   return StyleSheet.create({
   container: {
     flex: 1,
@@ -1484,27 +1488,31 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean) {
   header: {
     backgroundColor: theme.bgCard,
     paddingHorizontal: spacing.lg,
+    paddingLeft: isDesktop ? spacing.lg : layout.mobileShellLeftInset,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: isDesktop ? 'row' : 'column',
+    justifyContent: isDesktop ? 'space-between' : 'flex-start',
+    alignItems: isDesktop ? 'center' : 'stretch',
+    gap: isDesktop ? 0 : spacing.md,
   },
   headerTitle: {
-    fontSize: typography.fontSizes.xxxl,
+    fontSize: isMobile ? typography.fontSizes.xxl : typography.fontSizes.xxxl,
     color: theme.textPrimary,
     fontFamily: theme.fontSansBold,
-    flex: 1,
-    textAlign: 'center',
+    flex: isDesktop ? 1 : undefined,
+    textAlign: isDesktop ? 'center' : 'left',
   },
   headerActions: {
     flexDirection: 'row',
     gap: spacing.sm,
+    width: isDesktop ? undefined : '100%' as unknown as number,
   },
   headerBtnWrap: {
-    minWidth: 204,
+    minWidth: isDesktop ? 204 : 0,
+    flex: isDesktop ? undefined : 1,
   },
   headerBtn: {
     flexDirection: 'row',
@@ -1528,7 +1536,7 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean) {
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.lg,
+    padding: isMobile ? spacing.md : spacing.lg,
     paddingBottom: spacing.xxxl,
     overflow: 'visible' as const,
   },
@@ -1539,29 +1547,34 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean) {
   // Stats
   statsRow: {
     flexDirection: 'row' as const,
-    flexWrap: Platform.OS === 'web' ? 'nowrap' as const : 'wrap' as const,
+    flexWrap: isDesktop ? 'nowrap' as const : 'wrap' as const,
     gap: spacing.sm,
     marginBottom: spacing.md,
   },
   statCard: {
-    ...(Platform.OS === 'web'
+    ...(isDesktop && Platform.OS === 'web'
       ? { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, overflow: 'hidden' as const }
-      : { width: '48%' as unknown as number }),
+      : {
+        flexGrow: 1,
+        flexShrink: 1,
+        flexBasis: isMobile ? '47%' as unknown as number : '23%' as unknown as number,
+        minWidth: isMobile ? 0 : 150,
+      }),
     backgroundColor: isDark ? theme.surfaceMuted : theme.bgCard,
     borderRadius: borderRadius.xl,
-    padding: spacing.md,
+    padding: isMobile ? spacing.sm : spacing.md,
     gap: spacing.xs,
     borderWidth: 1,
     borderColor: theme.border,
     ...shadows.sm,
   },
   statValue: {
-    fontSize: typography.fontSizes.xl,
+    fontSize: isMobile ? typography.fontSizes.lg : typography.fontSizes.xl,
     color: theme.textPrimary,
     fontFamily: theme.fontSansBold,
   },
   statLabel: {
-    fontSize: typography.fontSizes.sm,
+    fontSize: isMobile ? typography.fontSizes.xs : typography.fontSizes.sm,
     color: theme.textSecondary,
     fontFamily: theme.fontSans,
   },
@@ -1592,7 +1605,7 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean) {
   card: {
     backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
-    padding: spacing.xl,
+    padding: isMobile ? spacing.lg : spacing.xl,
     marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: theme.border,
@@ -1605,7 +1618,7 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean) {
     marginBottom: spacing.md,
   },
   cardTitle: {
-    fontSize: typography.fontSizes.lg,
+    fontSize: isMobile ? typography.fontSizes.md : typography.fontSizes.lg,
     color: theme.textPrimary,
     fontFamily: theme.fontSansBold,
     marginBottom: spacing.sm,
@@ -1654,12 +1667,12 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean) {
   // Filters
   filterRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: isMobile ? spacing.xs : spacing.sm,
     marginBottom: spacing.md,
     flexWrap: 'wrap',
   },
   filterChip: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: isMobile ? spacing.sm : spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
     backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
@@ -1698,11 +1711,11 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean) {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: isDesktop ? 'center' : 'flex-start',
-    paddingVertical: spacing.sm,
+    paddingVertical: isMobile ? spacing.md : spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.borderLight,
     minHeight: touchTarget.minHeight,
-    gap: spacing.sm,
+    gap: isMobile ? spacing.md : spacing.sm,
   },
   invoiceInfo: {
     flex: 1,
@@ -1729,7 +1742,7 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean) {
     alignItems: 'flex-end',
     gap: isDesktop ? spacing.sm : spacing.xs,
     flexShrink: 0,
-    minWidth: isDesktop ? undefined : 96,
+    minWidth: isDesktop ? undefined : 104,
   },
   invoiceAmount: {
     fontSize: typography.fontSizes.sm,

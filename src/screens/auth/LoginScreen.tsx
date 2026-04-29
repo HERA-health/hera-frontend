@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
@@ -17,10 +17,13 @@ type LoginRouteParams = AppRouteProp<'Login'>;
 export function LoginScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<LoginRouteParams>();
+  const { width } = useWindowDimensions();
   const { theme } = useTheme();
   const { login, authenticateWithGoogle, logout, loading: authLoading, error: authError, clearError } = useAuth();
 
   const expectedUserType = route.params?.userType;
+  const isMobile = width < 768;
+  const isCompactMobile = width < 420;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -139,7 +142,7 @@ export function LoginScreen() {
       features={introCopy.features}
       form={
         <View>
-          <View style={styles.header}>
+          <View style={[styles.header, isMobile ? styles.headerMobile : null]}>
             <AnimatedPressable
               onPress={handleGoBack}
               hoverLift={false}
@@ -157,7 +160,12 @@ export function LoginScreen() {
 
             <View style={styles.headerCopy}>
               <Text
-                style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}
+                style={[
+                  styles.title,
+                  isMobile ? styles.titleMobile : null,
+                  isCompactMobile ? styles.titleCompactMobile : null,
+                  { color: theme.textPrimary, fontFamily: theme.fontDisplay },
+                ]}
               >
                 {expectedUserType === 'PROFESSIONAL' ? 'Iniciar sesión profesional' : 'Iniciar sesión'}
               </Text>
@@ -287,6 +295,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: spacing.lg,
   },
+  headerMobile: {
+    marginBottom: spacing.md,
+  },
   backButton: {
     width: 40,
     height: 40,
@@ -303,6 +314,14 @@ const styles = StyleSheet.create({
     fontSize: 32,
     lineHeight: 38,
     marginBottom: 6,
+  },
+  titleMobile: {
+    fontSize: 29,
+    lineHeight: 35,
+  },
+  titleCompactMobile: {
+    fontSize: 27,
+    lineHeight: 33,
   },
   subtitle: {
     fontSize: 15,

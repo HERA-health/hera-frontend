@@ -196,8 +196,9 @@ export function ProfessionalHomeScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const isDesktop = width >= 768;
+  const isMobile = width < 768;
+  const styles = useMemo(() => createStyles(theme, isDark, isMobile), [theme, isDark, isMobile]);
 
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<professionalService.Session[]>([]);
@@ -814,7 +815,7 @@ export function ProfessionalHomeScreen() {
   );
 }
 
-function createStyles(theme: Theme, isDark: boolean) {
+function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -833,10 +834,11 @@ function createStyles(theme: Theme, isDark: boolean) {
       fontFamily: theme.fontSansMedium,
     },
     topBar: {
-      flexDirection: 'row',
+      flexDirection: isMobile ? 'column' : 'row',
       justifyContent: 'space-between',
-      alignItems: 'center',
+      alignItems: isMobile ? 'stretch' : 'center',
       paddingHorizontal: spacing.lg,
+      paddingLeft: isMobile ? layout.mobileShellLeftInset : spacing.lg,
       paddingVertical: spacing.md,
       backgroundColor: theme.bgAlt,
       borderBottomWidth: 1,
@@ -849,6 +851,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     greetingBlock: {
       gap: 4,
       paddingVertical: 2,
+      minWidth: 0,
     },
     greeting: {
       fontSize: typography.fontSizes.xl,
@@ -863,7 +866,10 @@ function createStyles(theme: Theme, isDark: boolean) {
     topBarRight: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: isMobile ? 'space-between' : 'flex-start',
+      flexWrap: 'wrap',
       gap: spacing.sm,
+      width: isMobile ? '100%' as unknown as number : undefined,
     },
     navArrows: {
       flexDirection: 'row',
@@ -894,7 +900,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     navLabel: {
       fontSize: typography.fontSizes.sm,
       color: theme.textPrimary,
-      minWidth: 124,
+      minWidth: isMobile ? 92 : 124,
       textAlign: 'center',
       fontFamily: theme.fontSansSemiBold,
     },
@@ -965,7 +971,8 @@ function createStyles(theme: Theme, isDark: boolean) {
       padding: spacing.md,
     },
     calendarPanelMobile: {
-      padding: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
     },
     rightPanel: {
       width: layout.rightPanelWidth,
@@ -1011,8 +1018,8 @@ function createStyles(theme: Theme, isDark: boolean) {
     },
     monthDayCell: {
       flex: 1,
-      minHeight: 80,
-      padding: spacing.xs,
+      minHeight: isMobile ? 72 : 80,
+      padding: isMobile ? 4 : spacing.xs,
       borderRightWidth: 1,
       borderRightColor: theme.borderLight,
     },
@@ -1050,7 +1057,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       borderWidth: 1,
     },
     eventPillText: {
-      fontSize: 10,
+      fontSize: isMobile ? 9 : 10,
       fontFamily: theme.fontSansMedium,
     },
     extraEventsText: {
@@ -1169,7 +1176,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     },
     rightPanelBlockMobile: {
       maxHeight: layout.mobilePanelHeight,
-      marginHorizontal: spacing.sm,
+      marginHorizontal: spacing.md,
       marginTop: spacing.md,
       backgroundColor: theme.bgCard,
       borderRadius: borderRadius.lg,
