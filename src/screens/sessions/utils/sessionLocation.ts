@@ -19,6 +19,8 @@ const isFiniteNumber = (value: unknown): value is number =>
 export const buildGoogleMapsSearchUrl = (query: string): string =>
   `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 
+const buildCoordinateQuery = (lat: number, lng: number): string => `${lat},${lng}`;
+
 export const getSessionOfficeLocation = (
   session: ApiSession
 ): SessionOfficeLocation | null => {
@@ -32,11 +34,16 @@ export const getSessionOfficeLocation = (
   const country = trimOptional(session.specialist.officeCountry);
   const lat = isFiniteNumber(session.specialist.officeLat) ? session.specialist.officeLat : null;
   const lng = isFiniteNumber(session.specialist.officeLng) ? session.specialist.officeLng : null;
-  const hasAddress = line1.length > 0;
   const hasCoordinates = lat !== null && lng !== null;
   const fullAddress = [line1, city, postalCode, country]
     .filter((part) => part.length > 0)
     .join(', ');
+  const hasAddress = fullAddress.length > 0;
+  const directionsQuery = hasAddress
+    ? fullAddress
+    : hasCoordinates
+      ? buildCoordinateQuery(lat, lng)
+      : null;
 
   return {
     hasAddress,
@@ -46,6 +53,6 @@ export const getSessionOfficeLocation = (
     fullAddress,
     lat,
     lng,
-    directionsUrl: hasAddress ? buildGoogleMapsSearchUrl(fullAddress) : null,
+    directionsUrl: directionsQuery ? buildGoogleMapsSearchUrl(directionsQuery) : null,
   };
 };

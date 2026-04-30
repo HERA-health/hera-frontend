@@ -69,17 +69,58 @@ describe('sessionLocation', () => {
     expect(location?.directionsUrl).toContain('google.com/maps/search');
   });
 
-  it('marks in-person sessions without street address as pending location', () => {
+  it('uses available city and country when the street address is missing', () => {
     const location = getSessionOfficeLocation(
       buildSession({
         specialist: {
           ...buildSession().specialist,
           officeAddress: null,
+          officeLat: null,
+          officeLng: null,
+        },
+      })
+    );
+
+    expect(location?.hasAddress).toBe(true);
+    expect(location?.fullAddress).toBe('Madrid, 28001, Spain');
+    expect(location?.directionsUrl).toBe(buildGoogleMapsSearchUrl('Madrid, 28001, Spain'));
+  });
+
+  it('keeps directions available from coordinates when textual address is missing', () => {
+    const location = getSessionOfficeLocation(
+      buildSession({
+        specialist: {
+          ...buildSession().specialist,
+          officeAddress: null,
+          officeCity: null,
+          officePostalCode: null,
+          officeCountry: null,
         },
       })
     );
 
     expect(location?.hasAddress).toBe(false);
+    expect(location?.hasCoordinates).toBe(true);
+    expect(location?.directionsUrl).toBe(buildGoogleMapsSearchUrl('40.425,-3.687'));
+  });
+
+  it('marks in-person sessions without address or coordinates as pending location', () => {
+    const location = getSessionOfficeLocation(
+      buildSession({
+        specialist: {
+          ...buildSession().specialist,
+          officeAddress: null,
+          officeCity: null,
+          officePostalCode: null,
+          officeCountry: null,
+          officeLat: null,
+          officeLng: null,
+        },
+      })
+    );
+
+    expect(location?.hasAddress).toBe(false);
+    expect(location?.hasCoordinates).toBe(false);
     expect(location?.directionsUrl).toBeNull();
   });
 });

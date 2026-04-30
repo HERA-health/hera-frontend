@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import {
   Linking,
-  Platform,
   StyleSheet,
   Text,
   View,
@@ -10,8 +9,6 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { AnimatedPressable } from '../../../components/common';
-import { LocationMapPreview } from '../../../components/location';
-import { GOOGLE_MAPS_API_KEY } from '../../../components/location/googleMapsLoader';
 import { borderRadius, spacing } from '../../../constants/colors';
 import type { Theme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -36,19 +33,13 @@ const SessionLocationBlock: React.FC<SessionLocationBlockProps> = ({ session }) 
     return null;
   }
 
-  const mapCoordinates =
-    Platform.OS === 'web' &&
-    GOOGLE_MAPS_API_KEY.length > 0 &&
-    location.hasAddress &&
-    location.hasCoordinates &&
-    location.lat !== null &&
-    location.lng !== null
-      ? { lat: location.lat, lng: location.lng }
-      : null;
   const showCompactAction = width >= 430;
+  const hasDirections = Boolean(location.directionsUrl);
   const addressText = location.hasAddress
     ? location.fullAddress
-    : 'Dirección pendiente de confirmar por el especialista';
+    : location.hasCoordinates
+      ? 'Ubicación de consulta guardada por el especialista'
+      : 'Dirección pendiente de confirmar por el especialista';
   const directionsUrl = location.directionsUrl;
 
   const directionsButton = directionsUrl ? (
@@ -66,38 +57,25 @@ const SessionLocationBlock: React.FC<SessionLocationBlockProps> = ({ session }) 
   ) : null;
 
   return (
-    <View style={[styles.block, !location.hasAddress && styles.blockMuted]}>
+    <View style={[styles.block, !hasDirections && styles.blockMuted]}>
       <View style={styles.headerRow}>
         <View style={styles.iconShell}>
           <Ionicons
-            name={location.hasAddress ? 'location-outline' : 'information-circle-outline'}
+            name={hasDirections ? 'location-outline' : 'information-circle-outline'}
             size={18}
-            color={location.hasAddress ? theme.primary : theme.textMuted}
+            color={hasDirections ? theme.primary : theme.textMuted}
           />
         </View>
 
         <View style={styles.copy}>
           <Text style={styles.title}>Consulta presencial</Text>
-          <Text style={styles.address} numberOfLines={location.hasAddress ? 2 : 3}>
+          <Text style={styles.address} numberOfLines={hasDirections ? 2 : 3}>
             {addressText}
           </Text>
         </View>
 
         {showCompactAction ? directionsButton : null}
       </View>
-
-      {mapCoordinates ? (
-        <LocationMapPreview
-          lat={mapCoordinates.lat}
-          lng={mapCoordinates.lng}
-          address={location.line1}
-          city={location.city}
-          height={width >= 520 ? 152 : 132}
-          interactive={false}
-          showDirectionsButton={false}
-          style={styles.mapPreview}
-        />
-      ) : null}
 
       {!showCompactAction ? directionsButton : null}
     </View>
@@ -164,12 +142,6 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) =>
       fontSize: 12,
       fontFamily: theme.fontSansSemiBold,
       color: theme.primary,
-    },
-    mapPreview: {
-      borderRadius: borderRadius.lg,
-      shadowOpacity: 0,
-      shadowRadius: 0,
-      elevation: 0,
     },
   });
 
