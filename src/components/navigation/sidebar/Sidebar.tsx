@@ -32,10 +32,7 @@ export function Sidebar({
     ? 'Operativa clínica y agenda'
     : 'Tu espacio de bienestar';
 
-  const headerEyebrow = userRole === 'PROFESSIONAL' ? 'Workspace' : 'Health Era';
-  const headerTagline = userRole === 'PROFESSIONAL'
-    ? 'Panel de terapia y seguimiento'
-    : 'Explora, agenda y cuida tu proceso';
+  const headerEyebrow = 'HEALTH ERA';
 
   const collapseButtonBase = {
     backgroundColor: sidebarTheme.background.subtle,
@@ -62,9 +59,7 @@ export function Sidebar({
           style={[
             logoStyles.headerBlock,
             {
-              backgroundColor: sidebarTheme.background.secondary,
               borderColor: sidebarTheme.border,
-              shadowColor: sidebarTheme.shadow,
             },
             isCollapsed ? styles.headerBlockCollapsed : null,
           ]}
@@ -93,7 +88,7 @@ export function Sidebar({
                 isCollapsed ? styles.logoWrapCollapsed : null,
               ]}
             >
-              <StyledLogo size={isCollapsed ? 32 : 38} />
+              <StyledLogo size={isCollapsed ? 30 : 34} />
             </View>
 
             {!isCollapsed && (
@@ -115,15 +110,6 @@ export function Sidebar({
                 >
                   HERA
                 </Text>
-                <Text
-                  style={[
-                    logoStyles.tagline,
-                    { color: sidebarTheme.text.secondary, fontFamily: theme.fontSans },
-                  ]}
-                  numberOfLines={2}
-                >
-                  {headerTagline}
-                </Text>
               </View>
             )}
 
@@ -143,27 +129,6 @@ export function Sidebar({
               </AnimatedPressable>
             )}
           </View>
-
-          {!isCollapsed && (
-            <View style={[logoStyles.mobileHint, { borderTopColor: sidebarTheme.border }]}>
-              <Text
-                style={[
-                  styles.subtitle,
-                  { color: sidebarTheme.text.primary, fontFamily: theme.fontSansSemiBold },
-                ]}
-              >
-                {subtitle}
-              </Text>
-              <Text
-                style={[
-                  styles.helperCopy,
-                  { color: sidebarTheme.text.muted, fontFamily: theme.fontSans },
-                ]}
-              >
-                Un panel claro, rápido y preparado para sesiones y seguimiento.
-              </Text>
-            </View>
-          )}
         </View>
 
         {sections.map((section, sectionIndex) => (
@@ -245,16 +210,16 @@ function NavigationSectionComponent({
 
 const styles = StyleSheet.create({
   headerBlockCollapsed: {
-    width: 58,
+    width: 48,
     paddingHorizontal: 0,
-    paddingVertical: 8,
+    paddingVertical: 0,
     alignItems: 'center',
-    borderRadius: 20,
+    borderBottomWidth: 0,
   },
   collapseButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -263,18 +228,9 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   logoWrapCollapsed: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-  },
-  subtitle: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  helperCopy: {
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 4,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
   },
 });
 

@@ -10,10 +10,11 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigationState } from '@react-navigation/native';
-import { borderRadius, layout, shadows, spacing } from '../../constants/colors';
+import { layout, shadows, spacing } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AmbientBackground } from '../common/AmbientBackground';
 import { AnimatedPressable } from '../common/AnimatedPressable';
+import { StyledLogo } from '../common/StyledLogo';
 import { CustomDrawerContent } from './CustomDrawerContent';
 import {
   SIDEBAR_ANIMATIONS,
@@ -132,10 +133,10 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
       <View style={[styles.mobileContainer, { backgroundColor: theme.bg }]}>
         <AnimatedPressable
           style={[
-            styles.hamburgerButton,
+            styles.mobileMenuButton,
             {
-              backgroundColor: theme.bgCard,
-              borderColor: theme.border,
+              backgroundColor: theme.glassBg,
+              borderColor: theme.glassBorder,
               shadowColor: theme.shadowCard,
             },
           ]}
@@ -144,7 +145,25 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
           pressScale={0.92}
           accessibilityLabel="Abrir menú"
         >
-          <Ionicons name="menu" size={22} color={theme.textPrimary} />
+          <View
+            style={[
+              styles.mobileLogoShell,
+              {
+                backgroundColor: theme.bgMuted,
+                borderColor: theme.borderLight,
+              },
+            ]}
+          >
+            <StyledLogo size={22} />
+          </View>
+          <View
+            style={[
+              styles.mobileMenuIconShell,
+              { backgroundColor: theme.primaryAlpha12 },
+            ]}
+          >
+            <Ionicons name="menu" size={18} color={theme.primary} />
+          </View>
         </AnimatedPressable>
 
         {children}
@@ -230,18 +249,39 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  hamburgerButton: {
+  mobileMenuButton: {
     position: 'absolute',
-    top: spacing.sm,
-    left: spacing.sm,
+    top: spacing.md,
+    left: spacing.md,
     zIndex: 50,
-    width: layout.mobileNavButtonSize,
-    height: layout.mobileNavButtonSize,
-    borderRadius: borderRadius.lg,
+    width: 78,
+    height: 46,
+    borderRadius: 17,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 5,
+  },
+  mobileLogoShell: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.sm,
+    overflow: 'hidden',
+  },
+  mobileMenuIconShell: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

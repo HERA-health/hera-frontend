@@ -158,8 +158,8 @@ export function getNavigationSections(
 }
 
 export const SIDEBAR_THEME: SidebarTheme = {
-  width: 272,
-  collapsedWidth: 78,
+  width: 252,
+  collapsedWidth: 72,
   background: {
     primary: '#FDFCFB',
     secondary: '#FFFFFF',
@@ -198,8 +198,8 @@ export const SIDEBAR_ANIMATIONS = {
 
 export function getSidebarTheme(theme: Theme): SidebarTheme {
   return {
-    width: 272,
-    collapsedWidth: 78,
+    width: 252,
+    collapsedWidth: 72,
     background: {
       primary: theme.bgAlt,
       secondary: theme.bgCard,
