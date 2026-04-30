@@ -3,6 +3,12 @@
  * Following Interface Segregation Principle - components receive only what they need
  */
 
+import type {
+  ClientSession,
+  SessionStatus as ClientSessionStatus,
+  SessionType as ClientSessionType,
+} from '../../services/sessionsService';
+
 /**
  * View modes for the sessions screen
  */
@@ -11,36 +17,17 @@ export type ViewMode = 'calendar' | 'list';
 /**
  * Session status from API
  */
-export type SessionStatus = 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+export type SessionStatus = ClientSessionStatus;
 
 /**
  * Session type from API
  */
-export type SessionType = 'VIDEO_CALL' | 'PHONE_CALL' | 'IN_PERSON';
+export type SessionType = ClientSessionType;
 
 /**
  * API Session interface - matches backend response
  */
-export interface ApiSession {
-  id: string;
-  date: string;
-  duration: number;
-  status: SessionStatus;
-  type: SessionType;
-  meetingLink?: string;
-  hasReview?: boolean;
-  specialist: {
-    id: string;
-    specialization: string;
-    pricePerSession: number;
-    avatar?: string;
-    user: {
-      name: string;
-      email: string;
-      avatar?: string;
-    };
-  };
-}
+export type ApiSession = ClientSession;
 
 /**
  * Props for ViewToggle component

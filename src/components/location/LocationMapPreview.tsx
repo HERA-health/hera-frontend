@@ -109,13 +109,25 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
           title: address,
         });
 
+        const infoWindowContent = document.createElement('div');
+        infoWindowContent.style.padding = '8px';
+        infoWindowContent.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+
+        const addressElement = document.createElement('strong');
+        addressElement.style.color = '#2d3748';
+        addressElement.style.fontSize = '14px';
+        addressElement.textContent = address;
+
+        const cityElement = document.createElement('p');
+        cityElement.style.color = '#718096';
+        cityElement.style.margin = '4px 0 0 0';
+        cityElement.style.fontSize = '12px';
+        cityElement.textContent = city;
+
+        infoWindowContent.append(addressElement, cityElement);
+
         const infoWindow = new maps.InfoWindow({
-          content: `
-            <div style="padding: 8px; font-family: system-ui, -apple-system, sans-serif;">
-              <strong style="color: #2d3748; font-size: 14px;">${address}</strong>
-              <p style="color: #718096; margin: 4px 0 0 0; font-size: 12px;">${city}</p>
-            </div>
-          `,
+          content: infoWindowContent,
         });
 
         markerRef.current.addListener('click', () => {

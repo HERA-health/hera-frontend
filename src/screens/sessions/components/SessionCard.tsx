@@ -20,6 +20,7 @@ import {
   getVideoCallButtonStyle,
   isVideoCallButtonClickable,
 } from '../../../utils/videoCallUtils';
+import SessionLocationBlock from './SessionLocationBlock';
 
 const SessionCard: React.FC<SessionCardProps> = ({
   session,
@@ -39,6 +40,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
   const isVideoCall = session.type === 'VIDEO_CALL';
   const isTodaySession = isToday(session.date);
   const canShowVideoButton = isVideoCall && !isCompleted && !isCancelled;
+  const avatarUri = session.specialist.user.avatar || session.specialist.avatar || undefined;
 
   const statusConfig = (() => {
     switch (session.status) {
@@ -93,9 +95,9 @@ const SessionCard: React.FC<SessionCardProps> = ({
 
       <View style={styles.profileRow}>
         <View style={styles.avatarWrap}>
-          {session.specialist.user.avatar || session.specialist.avatar ? (
+          {avatarUri ? (
             <Image
-              source={{ uri: session.specialist.user.avatar || session.specialist.avatar }}
+              source={{ uri: avatarUri }}
               style={styles.avatarImage}
             />
           ) : (
@@ -137,6 +139,8 @@ const SessionCard: React.FC<SessionCardProps> = ({
           <Text style={styles.detailChipText}>{session.specialist.pricePerSession} EUR</Text>
         </View>
       </View>
+
+      <SessionLocationBlock session={session} />
 
       {canShowVideoButton && buttonState && buttonMeta && buttonStyle ? (
         <View style={styles.videoActionBlock}>

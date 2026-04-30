@@ -118,6 +118,9 @@ const getConsentTone = (
     ? { backgroundColor: theme.success + '18', color: theme.success }
     : { backgroundColor: theme.warning + '18', color: theme.warning };
 
+const getSessionCountLabel = (count: number): string =>
+  count === 1 ? 'sesión' : 'sesiones';
+
 function SegmentedFilterGroup<T extends string>({
   label,
   options,
@@ -408,15 +411,19 @@ export function ProfessionalClientsScreen() {
 
   const renderClientCard = (client: professionalService.Client) => {
     const consentTone = getConsentTone(client, theme);
+    const sessionCount = client.sessions?.length || 0;
     const nextSession = client.sessions
       ?.filter((session) => new Date(session.date).getTime() > Date.now())
       .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())[0];
+    const nextSessionValue = nextSession
+      ? formatDate(nextSession.date, { day: 'numeric', month: 'short' })
+      : 'Sin cita';
 
     return (
       <Card
         key={client.id}
         variant="default"
-        padding="large"
+        padding="medium"
         hoverLift
         style={stylesForTheme.clientCard}
       >
@@ -425,7 +432,7 @@ export function ProfessionalClientsScreen() {
             {client.user?.avatar ? (
               <Image
                 source={{ uri: client.user.avatar }}
-                style={{ width: '100%', height: '100%', borderRadius: 18 }}
+                style={stylesForTheme.avatarImage}
               />
             ) : (
               <Text style={[stylesForTheme.avatarText, { color: theme.primary }]}>
@@ -453,7 +460,7 @@ export function ProfessionalClientsScreen() {
                 >
                   {client.source === 'MANAGED' ? 'Gestionado' : 'Registrado'}
                 </Text>
-                </View>
+              </View>
               {client.archivedAt ? (
                 <View
                   style={[
@@ -479,21 +486,38 @@ export function ProfessionalClientsScreen() {
             <Text style={[stylesForTheme.clientMeta, { color: theme.textSecondary }]}>
               {client.primaryEmail || 'Sin email registrado'}
             </Text>
-          </View>
-        </View>
 
-        <View style={stylesForTheme.statRow}>
-          <View style={stylesForTheme.statBlock}>
-            <Text style={[stylesForTheme.statLabel, { color: theme.textMuted }]}>Sesiones</Text>
-            <Text style={[stylesForTheme.statValue, { color: theme.textPrimary }]}>
-              {client.sessions?.length || 0}
-            </Text>
-          </View>
-          <View style={stylesForTheme.statBlock}>
-            <Text style={[stylesForTheme.statLabel, { color: theme.textMuted }]}>Próxima</Text>
-            <Text style={[stylesForTheme.statValue, { color: theme.textPrimary }]}>
-              {nextSession ? formatDate(nextSession.date, { day: 'numeric', month: 'short' }) : 'Sin cita'}
-            </Text>
+            <View style={stylesForTheme.quickFactsRow}>
+              <View
+                style={[
+                  stylesForTheme.quickFactPill,
+                  { backgroundColor: theme.bgMuted, borderColor: theme.border },
+                ]}
+              >
+                <Ionicons name="albums-outline" size={13} color={theme.textMuted} />
+                <Text style={[stylesForTheme.quickFactText, { color: theme.textSecondary }]} numberOfLines={1}>
+                  <Text style={[stylesForTheme.quickFactValue, { color: theme.textPrimary }]}>
+                    {sessionCount}
+                  </Text>
+                  {` ${getSessionCountLabel(sessionCount)}`}
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  stylesForTheme.quickFactPill,
+                  { backgroundColor: theme.bgMuted, borderColor: theme.border },
+                ]}
+              >
+                <Ionicons name="calendar-outline" size={13} color={theme.textMuted} />
+                <Text style={[stylesForTheme.quickFactText, { color: theme.textSecondary }]} numberOfLines={1}>
+                  {nextSession ? 'Próx. ' : ''}
+                  <Text style={[stylesForTheme.quickFactValue, { color: theme.textPrimary }]}>
+                    {nextSessionValue}
+                  </Text>
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -507,9 +531,10 @@ export function ProfessionalClientsScreen() {
         <View style={stylesForTheme.cardActions}>
           <View style={stylesForTheme.cardActionItem}>
             <Button
-              variant="ghost"
+              variant="outline"
               size="small"
               onPress={() => navigation.navigate('ClientProfile', { clientId: client.id })}
+              icon={<Ionicons name="person-circle-outline" size={16} color={theme.primary} />}
               fullWidth
             >
               Ver ficha
@@ -521,7 +546,7 @@ export function ProfessionalClientsScreen() {
                 variant="secondary"
                 size="small"
                 onPress={() => openSessionScheduler(client)}
-                icon={<Ionicons name="calendar-outline" size={16} color={theme.textPrimary} />}
+                icon={<Ionicons name="calendar-outline" size={16} color={theme.secondaryDark} />}
                 fullWidth
               >
                 Crear cita
@@ -564,7 +589,6 @@ export function ProfessionalClientsScreen() {
       >
         <View style={[stylesForTheme.hero, isMobile ? stylesForTheme.heroMobile : null]}>
           <View style={[stylesForTheme.heroTextBlock, isMobile ? stylesForTheme.heroMobileTextBlock : null]}>
-            <Text style={[stylesForTheme.eyebrow, { color: theme.primary }]}>CRM clínico</Text>
             <Text style={[stylesForTheme.title, { color: theme.textPrimary }]}>Mis pacientes</Text>
           </View>
 
@@ -959,6 +983,7 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     },
     content: {
       padding: spacing.lg,
+      paddingTop: spacing.md,
       gap: spacing.lg,
       paddingBottom: spacing.xxl,
       maxWidth: 1320,
@@ -984,16 +1009,9 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     heroTextBlock: {
       flex: 1,
       minWidth: 280,
-      gap: 8,
     },
     heroMobileTextBlock: {
       minWidth: 0,
-    },
-    eyebrow: {
-      ...textStyles.caption,
-      textTransform: 'uppercase',
-      letterSpacing: 1.2,
-      fontWeight: '700',
     },
     title: {
       ...textStyles.h1,
@@ -1034,26 +1052,6 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     },
     toolbarCard: {
       gap: spacing.md,
-    },
-    compactStatsRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
-    compactStat: {
-      borderRadius: borderRadius.lg,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-      minWidth: 110,
-      gap: 2,
-    },
-    compactStatLabel: {
-      ...textStyles.caption,
-      fontWeight: '700',
-    },
-    compactStatValue: {
-      ...textStyles.body,
-      fontWeight: '700',
     },
     searchRow: {
       flexDirection: 'row',
@@ -1135,19 +1133,19 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       alignSelf: 'stretch',
     },
     clientCard: {
-      gap: spacing.md,
+      gap: spacing.sm + 2,
       minWidth: 0,
       height: '100%',
     },
     clientHeader: {
       flexDirection: 'row',
-      gap: spacing.md,
+      gap: spacing.sm + 2,
       alignItems: 'flex-start',
     },
     avatar: {
-      width: 52,
-      height: 52,
-      borderRadius: 18,
+      width: 48,
+      height: 48,
+      borderRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
@@ -1155,7 +1153,7 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     avatarImage: {
       width: '100%',
       height: '100%',
-      borderRadius: 18,
+      borderRadius: 16,
     },
     avatarText: {
       ...textStyles.body,
@@ -1163,16 +1161,17 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     },
     clientHeaderInfo: {
       flex: 1,
-      gap: 6,
+      minWidth: 0,
+      gap: 5,
     },
     badgeRow: {
       flexDirection: 'row',
-      gap: spacing.xs,
+      gap: 6,
       flexWrap: 'wrap',
     },
     sourceBadge: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 6,
+      paddingHorizontal: 9,
+      paddingVertical: 5,
       borderRadius: 999,
     },
     sourceBadgeText: {
@@ -1180,8 +1179,8 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       fontWeight: '700',
     },
     consentBadge: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 6,
+      paddingHorizontal: 9,
+      paddingVertical: 5,
       borderRadius: 999,
     },
     consentBadgeText: {
@@ -1195,22 +1194,28 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     clientMeta: {
       ...textStyles.bodySmall,
     },
-    statRow: {
+    quickFactsRow: {
       flexDirection: 'row',
-      gap: spacing.sm,
+      flexWrap: 'wrap',
+      gap: 6,
+      marginTop: 2,
     },
-    statBlock: {
-      flex: 1,
-      borderRadius: borderRadius.lg,
-      padding: spacing.md,
-      backgroundColor: theme.bgMuted,
+    quickFactPill: {
+      minHeight: 28,
+      borderRadius: 999,
+      borderWidth: 1,
+      paddingHorizontal: 8,
+      paddingVertical: 5,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      maxWidth: '100%',
     },
-    statLabel: {
+    quickFactText: {
       ...textStyles.caption,
-      marginBottom: 4,
+      flexShrink: 1,
     },
-    statValue: {
-      ...textStyles.body,
+    quickFactValue: {
       fontWeight: '700',
     },
     infoRow: {
@@ -1226,7 +1231,7 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: spacing.sm,
-      marginTop: 'auto',
+      marginTop: spacing.xs,
     },
     cardActionItem: {
       flex: 1,
