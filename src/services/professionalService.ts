@@ -11,6 +11,7 @@ export type ClientLifecycleFilter = 'ACTIVE' | 'ARCHIVED' | 'ALL';
 export type ClinicalConsentStatus = 'PENDING' | 'GRANTED' | 'REVOKED';
 export type ClinicalConsentMethod = 'DIGITAL_SIGNATURE' | 'SPECIALIST_ATTESTATION';
 export type QuestionnaireAvailability = 'NOT_STARTED' | 'AVAILABLE' | 'REQUIRES_REFRESH';
+export type SessionType = 'VIDEO_CALL' | 'PHONE_CALL' | 'IN_PERSON';
 
 export interface QuestionnaireSummary {
   concerns: string[];
@@ -56,18 +57,25 @@ export interface Session {
   date: string;
   duration: number;
   status: string;
-  type: string;
+  type: SessionType | string;
   meetingLink?: string | null;
   createdAt?: string;
   updatedAt?: string;
   client?: {
     id: string;
     userId: string | null;
+    source?: ClientSource;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    primaryEmail?: string | null;
+    displayName?: string;
     user: {
       name: string;
       email: string;
       avatar?: string | null;
-    };
+    } | null;
   };
   invoice?: {
     id: string;
@@ -160,6 +168,13 @@ export interface UpdateClientBillingInput {
   billingCountry: string;
 }
 
+export interface CreateManagedClientSessionInput {
+  clientId: string;
+  date: string;
+  duration: number;
+  type: SessionType;
+}
+
 interface GetProfessionalClientsOptions {
   source?: ClientSource | 'ALL';
   lifecycle?: ClientLifecycleFilter;
@@ -199,11 +214,18 @@ export const getProfessionalClientDetail = async (clientId: string): Promise<Cli
 };
 
 export const createManagedClient = async (data: CreateManagedClientInput): Promise<Client> => {
+  const response = await api.post('/clients/managed', data);
+  return normalizeClient(response.data.data);
+};
+
+export const createManagedClientSession = async (
+  data: CreateManagedClientSessionInput
+): Promise<Session> => {
   try {
-    const response = await api.post('/clients/managed', data);
-    return normalizeClient(response.data.data);
+    const response = await api.post('/sessions/professional/managed', data);
+    return response.data.data;
   } catch (error: unknown) {
-    throw new Error(getErrorMessage(error, 'No se pudo crear el paciente gestionado'));
+    throw new Error(getErrorMessage(error, 'No se pudo crear la cita'));
   }
 };
 

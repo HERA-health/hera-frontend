@@ -15,12 +15,15 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { z } from 'zod';
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import { AnimatedPressable, Button, Card } from '../../components/common';
+import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
 import { borderRadius, layout, shadows, spacing, typography } from '../../constants/colors';
 import type { RootStackParamList } from '../../constants/types';
 import type { Theme } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getErrorCode, getErrorMessage } from '../../constants/errors';
+import * as clinicalService from '../../services/clinicalService';
 import * as professionalService from '../../services/professionalService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ProfessionalClients'>;
@@ -197,6 +200,7 @@ function MetricCard({
 
 export function ProfessionalClientsScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const stylesForTheme = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
@@ -212,6 +216,12 @@ export function ProfessionalClientsScreen() {
   const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleFilter>('ACTIVE');
   const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [sessionModalVisible, setSessionModalVisible] = useState(false);
+  const [sessionSaving, setSessionSaving] = useState(false);
+  const [selectedSessionClient, setSelectedSessionClient] = useState<professionalService.Client | null>(null);
+  const [hasAcceptedDpa, setHasAcceptedDpa] = useState<boolean | null>(null);
+  const [dpaStatusLoading, setDpaStatusLoading] = useState(true);
+  const [dpaSubmitting, setDpaSubmitting] = useState(false);
   const [form, setForm] = useState<ManagedClientForm>(emptyForm);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof ManagedClientForm, string>>>({});
 
@@ -231,9 +241,26 @@ export function ProfessionalClientsScreen() {
     }
   }, [lifecycleFilter, sourceFilter]);
 
+  const loadClinicalAccessStatus = useCallback(async () => {
+    try {
+      setDpaStatusLoading(true);
+      const status = await clinicalService.getClinicalAccessStatus();
+      setHasAcceptedDpa(clinicalService.hasAcceptedCurrentDataProcessingAgreement(status));
+    } catch (statusError: unknown) {
+      setHasAcceptedDpa(null);
+      setError(getErrorMessage(statusError, 'No se pudo comprobar el encargo de tratamiento'));
+    } finally {
+      setDpaStatusLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadClients();
   }, [loadClients]);
+
+  useEffect(() => {
+    void loadClinicalAccessStatus();
+  }, [loadClinicalAccessStatus]);
 
   const filteredClients = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -266,6 +293,44 @@ export function ProfessionalClientsScreen() {
     setFormErrors((current) => ({ ...current, [field]: undefined }));
   };
 
+  const handleAcceptDataProcessingAgreement = async () => {
+    try {
+      setDpaSubmitting(true);
+      setError(null);
+      await clinicalService.acceptDataProcessingAgreement();
+      setHasAcceptedDpa(true);
+      showAppAlert(
+        appAlert,
+        'Encargo aceptado',
+        'Ya puedes crear pacientes gestionados desde esta pantalla.'
+      );
+      await loadClinicalAccessStatus();
+    } catch (acceptError: unknown) {
+      setError(getErrorMessage(acceptError, 'No se pudo aceptar el encargo de tratamiento'));
+    } finally {
+      setDpaSubmitting(false);
+    }
+  };
+
+  const openManagedClientModal = () => {
+    if (dpaStatusLoading) {
+      setError('Estamos comprobando el estado del encargo de tratamiento. Inténtalo de nuevo en unos segundos.');
+      return;
+    }
+
+    if (hasAcceptedDpa !== true) {
+      setError(
+        hasAcceptedDpa === false
+          ? 'Acepta el encargo vigente desde la tarjeta de esta pantalla para poder crear pacientes gestionados.'
+          : 'No hemos podido confirmar el estado del encargo de tratamiento. Reintenta la comprobación antes de crear pacientes.'
+      );
+      return;
+    }
+
+    resetForm();
+    setModalVisible(true);
+  };
+
   const handleCreateManagedClient = async () => {
     try {
       setSaving(true);
@@ -296,7 +361,8 @@ export function ProfessionalClientsScreen() {
 
       const errorCode = getErrorCode(createError);
       if (errorCode === 'DATA_PROCESSING_AGREEMENT_REQUIRED') {
-        setError('Debes aceptar el encargo de tratamiento desde el Área clínica antes de crear pacientes gestionados.');
+        setHasAcceptedDpa(false);
+        setError('Acepta el encargo vigente desde la tarjeta de esta pantalla para poder crear pacientes gestionados.');
         setModalVisible(false);
         return;
       }
@@ -304,6 +370,39 @@ export function ProfessionalClientsScreen() {
       setError(getErrorMessage(createError, 'No se pudo crear el paciente gestionado'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openSessionScheduler = (client: professionalService.Client) => {
+    if (client.source !== 'MANAGED' || client.archivedAt) {
+      return;
+    }
+
+    setSelectedSessionClient(client);
+    setSessionModalVisible(true);
+  };
+
+  const closeSessionScheduler = () => {
+    if (sessionSaving) return;
+    setSessionModalVisible(false);
+    setSelectedSessionClient(null);
+  };
+
+  const handleCreateManagedSession = async (
+    input: professionalService.CreateManagedClientSessionInput
+  ) => {
+    try {
+      setSessionSaving(true);
+      await professionalService.createManagedClientSession(input);
+      setSessionModalVisible(false);
+      setSelectedSessionClient(null);
+      showAppAlert(appAlert, 'Cita creada', 'La cita se ha programado correctamente.');
+      await loadClients();
+    } catch (createError: unknown) {
+      const message = getErrorMessage(createError, 'No se pudo crear la cita');
+      showAppAlert(appAlert, 'No se pudo crear la cita', message);
+    } finally {
+      setSessionSaving(false);
     }
   };
 
@@ -320,7 +419,6 @@ export function ProfessionalClientsScreen() {
         padding="large"
         hoverLift
         style={stylesForTheme.clientCard}
-        onPress={() => navigation.navigate('ClientProfile', { clientId: client.id })}
       >
         <View style={stylesForTheme.clientHeader}>
           <View style={[stylesForTheme.avatar, { backgroundColor: theme.primary + '14' }]}>
@@ -405,6 +503,32 @@ export function ProfessionalClientsScreen() {
             {client.primaryPhone || 'Sin teléfono'}
           </Text>
         </View>
+
+        <View style={stylesForTheme.cardActions}>
+          <View style={stylesForTheme.cardActionItem}>
+            <Button
+              variant="ghost"
+              size="small"
+              onPress={() => navigation.navigate('ClientProfile', { clientId: client.id })}
+              fullWidth
+            >
+              Ver ficha
+            </Button>
+          </View>
+          {client.source === 'MANAGED' && !client.archivedAt ? (
+            <View style={stylesForTheme.cardActionItem}>
+              <Button
+                variant="secondary"
+                size="small"
+                onPress={() => openSessionScheduler(client)}
+                icon={<Ionicons name="calendar-outline" size={16} color={theme.textPrimary} />}
+                fullWidth
+              >
+                Crear cita
+              </Button>
+            </View>
+          ) : null}
+        </View>
       </Card>
     );
   };
@@ -447,16 +571,51 @@ export function ProfessionalClientsScreen() {
           <Button
             variant="primary"
             size="large"
-            onPress={() => {
-              resetForm();
-              setModalVisible(true);
-            }}
+            onPress={openManagedClientModal}
             icon={<Ionicons name="add" size={18} color={theme.textOnPrimary} />}
             fullWidth={isMobile}
+            disabled={dpaStatusLoading || hasAcceptedDpa !== true}
           >
             Nuevo paciente
           </Button>
         </View>
+
+        {!dpaStatusLoading && hasAcceptedDpa !== true ? (
+          <Card variant="default" padding="large" style={stylesForTheme.dpaCard}>
+            <View style={stylesForTheme.dpaRow}>
+              <View style={[stylesForTheme.dpaIcon, { backgroundColor: theme.primaryAlpha12 }]}>
+                <Ionicons name="shield-checkmark-outline" size={20} color={theme.primary} />
+              </View>
+              <View style={stylesForTheme.dpaCopy}>
+                <Text style={[stylesForTheme.dpaTitle, { color: theme.textPrimary }]}>
+                  {hasAcceptedDpa === false
+                    ? 'Encargo de tratamiento pendiente'
+                    : 'No se pudo comprobar el encargo'}
+                </Text>
+                <Text style={[stylesForTheme.dpaText, { color: theme.textSecondary }]}>
+                  {hasAcceptedDpa === false
+                    ? 'Para crear pacientes gestionados, HERA debe registrar que aceptas el encargo de tratamiento vigente.'
+                    : 'Antes de crear pacientes gestionados necesitamos confirmar el estado del encargo de tratamiento.'}
+                </Text>
+              </View>
+              <View style={stylesForTheme.dpaAction}>
+                <Button
+                  variant="primary"
+                  size="medium"
+                  onPress={
+                    hasAcceptedDpa === false
+                      ? handleAcceptDataProcessingAgreement
+                      : loadClinicalAccessStatus
+                  }
+                  loading={hasAcceptedDpa === false ? dpaSubmitting : dpaStatusLoading}
+                  fullWidth={isMobile}
+                >
+                  {hasAcceptedDpa === false ? 'Aceptar encargo' : 'Reintentar comprobación'}
+                </Button>
+              </View>
+            </View>
+          </Card>
+        ) : null}
 
         <Card variant="default" padding="large" style={stylesForTheme.toolbarCard}>
           <View style={stylesForTheme.searchRow}>
@@ -725,6 +884,15 @@ export function ProfessionalClientsScreen() {
           </Card>
         </View>
       </Modal>
+
+      <ManagedSessionSchedulerModal
+        visible={sessionModalVisible}
+        clients={selectedSessionClient ? [selectedSessionClient] : []}
+        initialClientId={selectedSessionClient?.id}
+        saving={sessionSaving}
+        onClose={closeSessionScheduler}
+        onSubmit={handleCreateManagedSession}
+      />
     </>
   );
 }
@@ -830,6 +998,39 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     title: {
       ...textStyles.h1,
       fontWeight: '700',
+    },
+    dpaCard: {
+      borderColor: theme.primary + '30',
+      backgroundColor: isDark ? theme.bgCard : '#FBFDFB',
+    },
+    dpaRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.md,
+      alignItems: 'center',
+    },
+    dpaIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dpaCopy: {
+      flex: 1,
+      minWidth: 220,
+      gap: 4,
+    },
+    dpaTitle: {
+      ...textStyles.body,
+      fontWeight: '700',
+    },
+    dpaText: {
+      ...textStyles.bodySmall,
+      lineHeight: 22,
+    },
+    dpaAction: {
+      minWidth: 180,
     },
     toolbarCard: {
       gap: spacing.md,
@@ -1020,6 +1221,16 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     infoText: {
       ...textStyles.bodySmall,
       flex: 1,
+    },
+    cardActions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+      marginTop: 'auto',
+    },
+    cardActionItem: {
+      flex: 1,
+      minWidth: 120,
     },
     modalBackdrop: {
       flex: 1,

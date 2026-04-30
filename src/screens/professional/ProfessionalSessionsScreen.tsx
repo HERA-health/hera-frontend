@@ -21,6 +21,7 @@ import {
 import { Theme } from '../../constants/theme';
 import { AppNavigationProp, ProfessionalSession, SessionViewMode } from '../../constants/types';
 import { AnimatedPressable, Button, Card } from '../../components/common';
+import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as analyticsService from '../../services/analyticsService';
 import * as professionalService from '../../services/professionalService';
@@ -57,6 +58,11 @@ function capitalizeFirst(value: string) {
   return value.length ? value.charAt(0).toUpperCase() + value.slice(1) : value;
 }
 
+function getSessionClientName(client?: professionalService.Session['client']): string {
+  const managedName = [client?.firstName, client?.lastName].filter(Boolean).join(' ').trim();
+  return client?.displayName || managedName || client?.user?.name || 'Cliente';
+}
+
 export function ProfessionalSessionsScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const appAlert = useAppAlert();
@@ -74,6 +80,10 @@ export function ProfessionalSessionsScreen() {
   const [sessions, setSessions] = useState<ProfessionalSession[]>([]);
   const [processingSessionId, setProcessingSessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [managedClients, setManagedClients] = useState<professionalService.Client[]>([]);
+  const [loadingManagedClients, setLoadingManagedClients] = useState(false);
+  const [schedulerVisible, setSchedulerVisible] = useState(false);
+  const [schedulerSaving, setSchedulerSaving] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -98,13 +108,20 @@ export function ProfessionalSessionsScreen() {
 
         const rawType = session.type?.toUpperCase?.() || 'VIDEO_CALL';
         const mappedType: ProfessionalSession['type'] =
-          rawType === 'PHONE_CALL' ? 'audio' : rawType === 'CHAT' ? 'chat' : 'video';
+          rawType === 'PHONE_CALL'
+            ? 'audio'
+            : rawType === 'CHAT'
+            ? 'chat'
+            : rawType === 'IN_PERSON'
+            ? 'in_person'
+            : 'video';
+        const clientName = getSessionClientName(session.client);
 
         return {
           id: session.id,
           clientId: session.clientId,
-          clientName: session.client?.user?.name || 'Cliente',
-          clientInitial: (session.client?.user?.name || 'C')[0].toUpperCase(),
+          clientName,
+          clientInitial: (clientName || 'C')[0].toUpperCase(),
           date: new Date(session.date),
           duration: session.duration || 60,
           status: mappedStatus,
@@ -121,6 +138,56 @@ export function ProfessionalSessionsScreen() {
       setLoading(false);
     }
   }, []);
+
+  const loadManagedClients = useCallback(async (): Promise<professionalService.Client[]> => {
+    try {
+      setLoadingManagedClients(true);
+      const clients = await professionalService.getProfessionalClients({
+        source: 'MANAGED',
+        lifecycle: 'ACTIVE',
+      });
+      setManagedClients(clients);
+      return clients;
+    } catch {
+      showAppAlert(appAlert, 'Error', 'No se pudieron cargar tus pacientes gestionados');
+      return [];
+    } finally {
+      setLoadingManagedClients(false);
+    }
+  }, [appAlert]);
+
+  const openManagedSessionScheduler = useCallback(async () => {
+    const clients = managedClients.length > 0 ? managedClients : await loadManagedClients();
+
+    if (clients.length === 0) {
+      showAppAlert(
+        appAlert,
+        'Sin pacientes gestionados',
+        'Primero crea o activa un paciente gestionado para poder programar una cita.'
+      );
+      return;
+    }
+
+    setSchedulerVisible(true);
+  }, [appAlert, loadManagedClients, managedClients]);
+
+  const handleCreateManagedSession = useCallback(
+    async (input: professionalService.CreateManagedClientSessionInput) => {
+      try {
+        setSchedulerSaving(true);
+        await professionalService.createManagedClientSession(input);
+        setSchedulerVisible(false);
+        showAppAlert(appAlert, 'Cita creada', 'La cita se ha programado correctamente.');
+        await loadSessions();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'No se pudo crear la cita';
+        showAppAlert(appAlert, 'No se pudo crear la cita', message);
+      } finally {
+        setSchedulerSaving(false);
+      }
+    },
+    [appAlert, loadSessions],
+  );
 
   useEffect(() => {
     analyticsService.trackScreen('professional_sessions');
@@ -347,6 +414,32 @@ export function ProfessionalSessionsScreen() {
     [loadSessions, processingSessionId],
   );
 
+  const handleCancelSession = useCallback(
+    async (sessionId: string, clientName: string) => {
+      if (processingSessionId) return;
+      showAppAlert(appAlert, 'Cancelar cita', `¿Seguro que quieres cancelar la cita con ${clientName}?`, [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setProcessingSessionId(sessionId);
+              await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
+              showAppAlert(appAlert, 'Cita cancelada', 'La cita se ha cancelado correctamente.');
+              await loadSessions();
+            } catch {
+              showAppAlert(appAlert, 'Error', 'No se pudo cancelar la cita');
+            } finally {
+              setProcessingSessionId(null);
+            }
+          },
+        },
+      ]);
+    },
+    [appAlert, loadSessions, processingSessionId],
+  );
+
   const handleCompleteSession = useCallback(
     async (sessionId: string, clientName: string) => {
       if (processingSessionId) return;
@@ -470,6 +563,19 @@ export function ProfessionalSessionsScreen() {
                   </Button>
                 </View>
               ) : null}
+              {!sessionEnded ? (
+                <View style={styles.actionHalf}>
+                  <Button
+                    variant="outline"
+                    size="small"
+                    onPress={() => handleCancelSession(session.id, session.clientName)}
+                    disabled={processingSessionId === session.id}
+                    fullWidth
+                  >
+                    Cancelar
+                  </Button>
+                </View>
+              ) : null}
               <View style={styles.actionHalf}>
                 <Button
                   variant="ghost"
@@ -504,6 +610,7 @@ export function ProfessionalSessionsScreen() {
       currentTime,
       handleCompleteSession,
       handleConfirmSession,
+      handleCancelSession,
       handleJoinSession,
       handleRejectSession,
       navigation,
@@ -891,9 +998,24 @@ export function ProfessionalSessionsScreen() {
   }
 
   return (
+    <>
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mis Sesiones</Text>
+        <View style={styles.headerTopRow}>
+          <Text style={styles.headerTitle}>Mis Sesiones</Text>
+          <View style={styles.headerActionWrap}>
+            <Button
+              variant="primary"
+              size="small"
+              onPress={openManagedSessionScheduler}
+              loading={loadingManagedClients}
+              fullWidth={isMobile}
+              icon={<Ionicons name="calendar-outline" size={16} color={theme.textOnPrimary} />}
+            >
+              Nueva cita
+            </Button>
+          </View>
+        </View>
         <View style={styles.kpiRow}>
           <View style={styles.kpiCard}>
             <Text style={styles.kpiValue}>{todaysSessions.length}</Text>
@@ -985,8 +1107,18 @@ export function ProfessionalSessionsScreen() {
           {viewMode === 'week' ? renderWeekView() : null}
           {viewMode === 'list' ? renderListView() : null}
         </View>
+        </View>
       </View>
-    </View>
+      <ManagedSessionSchedulerModal
+        visible={schedulerVisible}
+        clients={managedClients}
+        saving={schedulerSaving}
+        onClose={() => {
+          if (!schedulerSaving) setSchedulerVisible(false);
+        }}
+        onSubmit={handleCreateManagedSession}
+      />
+    </>
   );
 }
 
@@ -1018,11 +1150,23 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       borderBottomColor: theme.border,
       gap: spacing.md,
     },
+    headerTopRow: {
+      alignItems: isMobile ? 'stretch' : 'center',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+      justifyContent: 'space-between',
+    },
     headerTitle: {
+      flex: 1,
       fontSize: isMobile ? 28 : 30,
       color: theme.textPrimary,
-      textAlign: isMobile ? 'left' : 'center',
+      minWidth: 180,
+      textAlign: 'left',
       fontFamily: theme.fontSansBold,
+    },
+    headerActionWrap: {
+      width: isMobile ? '100%' : undefined,
     },
     kpiRow: {
       flexDirection: 'row',

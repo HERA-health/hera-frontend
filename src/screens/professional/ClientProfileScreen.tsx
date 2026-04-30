@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { AnimatedPressable, Button, Card } from '../../components/common';
 import { ClinicalTab } from '../../components/professional/ClinicalTab';
+import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
 import { borderRadius, layout, spacing, typography } from '../../constants/colors';
 import { getErrorMessage } from '../../constants/errors';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
@@ -185,6 +186,8 @@ export function ClientProfileScreen() {
   const [refreshingClient, setRefreshingClient] = useState(false);
   const [billingModalVisible, setBillingModalVisible] = useState(false);
   const [savingBilling, setSavingBilling] = useState(false);
+  const [sessionModalVisible, setSessionModalVisible] = useState(false);
+  const [sessionSaving, setSessionSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [visibleHistoryItems, setVisibleHistoryItems] = useState(5);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -438,6 +441,43 @@ export function ClientProfileScreen() {
     }
   }, [billingForm, client]);
 
+  const canScheduleManagedSession = Boolean(
+    client && client.source === 'MANAGED' && !client.archivedAt
+  );
+
+  const openSessionScheduler = useCallback(() => {
+    if (!canScheduleManagedSession) return;
+    setSessionModalVisible(true);
+  }, [canScheduleManagedSession]);
+
+  const closeSessionScheduler = useCallback(() => {
+    if (sessionSaving) return;
+    setSessionModalVisible(false);
+  }, [sessionSaving]);
+
+  const handleCreateManagedSession = useCallback(
+    async (input: professionalService.CreateManagedClientSessionInput) => {
+      if (!client) return;
+
+      try {
+        setSessionSaving(true);
+        await professionalService.createManagedClientSession(input);
+        setSessionModalVisible(false);
+        showAppAlert(appAlert, 'Cita creada', 'La cita se ha programado correctamente.');
+        await loadClient();
+      } catch (createError: unknown) {
+        showAppAlert(
+          appAlert,
+          'No se pudo crear la cita',
+          getErrorMessage(createError, 'No se pudo crear la cita')
+        );
+      } finally {
+        setSessionSaving(false);
+      }
+    },
+    [appAlert, client, loadClient],
+  );
+
   if (loading && !client) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.bg }]}>
@@ -556,9 +596,22 @@ export function ClientProfileScreen() {
           </Text>
         </View>
       ) : (
-        <Text style={[textStyles.body, { color: theme.textSecondary }]}>
-          No hay ninguna sesión futura programada.
-        </Text>
+        <View style={styles.sideStack}>
+          <Text style={[textStyles.body, { color: theme.textSecondary }]}>
+            No hay ninguna sesión futura programada.
+          </Text>
+          {canScheduleManagedSession ? (
+            <Button
+              variant="secondary"
+              size="small"
+              onPress={openSessionScheduler}
+              icon={<Ionicons name="calendar-outline" size={16} color={theme.textPrimary} />}
+              fullWidth
+            >
+              Crear cita
+            </Button>
+          ) : null}
+        </View>
       )}
     </Card>
   );
@@ -666,6 +719,17 @@ export function ClientProfileScreen() {
               >
                 Editar paciente
               </Button>
+
+              {canScheduleManagedSession ? (
+                <Button
+                  variant="primary"
+                  size="medium"
+                  onPress={openSessionScheduler}
+                  icon={<Ionicons name="calendar-outline" size={18} color={theme.textOnPrimary} />}
+                >
+                  Crear cita
+                </Button>
+              ) : null}
 
               <Button
                 variant="secondary"
@@ -970,6 +1034,15 @@ export function ClientProfileScreen() {
           </Card>
         </View>
       </Modal>
+
+      <ManagedSessionSchedulerModal
+        visible={sessionModalVisible}
+        clients={client ? [client] : []}
+        initialClientId={client?.id}
+        saving={sessionSaving}
+        onClose={closeSessionScheduler}
+        onSubmit={handleCreateManagedSession}
+      />
 
       {showScrollCue ? (
         <View pointerEvents="none" style={styles.scrollCueWrap}>

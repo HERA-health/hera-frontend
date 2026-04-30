@@ -18,6 +18,7 @@ import type { Client } from '../../services/professionalService';
 import { getErrorMessage } from '../../constants/errors';
 import { useClinicalAccessController } from '../../hooks/useClinicalAccessController';
 import { useClinicalWorkspaceData } from '../../hooks/useClinicalWorkspaceData';
+import { hasAcceptedCurrentDataProcessingAgreement } from '../../services/clinicalService';
 import { LEGAL_DOCUMENT_VERSION } from '../../constants/legal';
 import { acceptLegalDocuments, getLegalStatus } from '../../services/legalService';
 import type { AppNavigationProp } from '../../constants/types';
@@ -331,7 +332,9 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
     [showBanner, workspaceData]
   );
 
-  const hasAcceptedDpa = Boolean(access.accessStatus?.acceptedDataProcessingAgreementAt);
+  const hasAcceptedDpa = access.accessStatus
+    ? hasAcceptedCurrentDataProcessingAgreement(access.accessStatus)
+    : false;
   const hasPin = Boolean(access.accessStatus?.hasPin);
   const hasActiveSession = Boolean(access.token && access.accessStatus?.session.active);
   const record = workspaceData.record;
