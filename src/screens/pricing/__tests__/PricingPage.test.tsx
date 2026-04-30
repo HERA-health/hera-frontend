@@ -1,10 +1,10 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { lightTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { LandingPage } from '../LandingPage';
+import { PricingPage } from '../PricingPage';
 
 jest.mock('../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
@@ -46,21 +46,6 @@ jest.mock('expo-blur', () => ({
   BlurView: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
 }));
 
-jest.mock('../../../components/common/MotionView', () => ({
-  MotionView: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
-}));
-
-jest.mock('../../../components/common/GlassCard', () => ({
-  GlassCard: ({ children }: { children?: React.ReactNode }) => {
-    const { View: MockView } = require('react-native');
-    return <MockView>{children}</MockView>;
-  },
-}));
-
-jest.mock('../../../components/common/AmbientBackground', () => ({
-  AmbientBackground: () => null,
-}));
-
 jest.mock('../../../components/common/AnimatedPressable', () => ({
   AnimatedPressable: ({
     children,
@@ -91,9 +76,7 @@ jest.mock('../../../components/common/StyledLogo', () => ({
 const mockedUseTheme = jest.mocked(useTheme);
 const mockedUseNavigation = jest.mocked(useNavigation);
 
-describe('LandingPage', () => {
-  const navigate = jest.fn();
-
+describe('PricingPage', () => {
   beforeEach(() => {
     mockedUseTheme.mockReturnValue({
       theme: lightTheme,
@@ -103,7 +86,7 @@ describe('LandingPage', () => {
     } as unknown as ReturnType<typeof useTheme>);
 
     mockedUseNavigation.mockReturnValue({
-      navigate,
+      navigate: jest.fn(),
     } as ReturnType<typeof useNavigation>);
   });
 
@@ -111,33 +94,37 @@ describe('LandingPage', () => {
     jest.clearAllMocks();
   });
 
-  it('prioritizes the professional workspace while keeping patient access available', () => {
-    render(<LandingPage />);
+  it('renders the current monthly specialist plans', () => {
+    render(<PricingPage />);
 
-    expect(screen.getByText('Aplicación de gestión para especialistas en salud mental')).toBeTruthy();
-    expect(screen.getAllByText('Acceder como profesional').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Busco terapia').length).toBeGreaterThan(0);
-    expect(screen.getByText('Agenda y sesiones')).toBeTruthy();
-    expect(screen.getByText('Gestión de pacientes')).toBeTruthy();
-    expect(screen.getAllByText('Facturación').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('RGPD y LOPDGDD').length).toBeGreaterThan(0);
+    expect(screen.getByText('Basic')).toBeTruthy();
+    expect(screen.getByText('Pro')).toBeTruthy();
+    expect(screen.getByText('Diamond')).toBeTruthy();
+    expect(screen.getByText('29,99')).toBeTruthy();
+    expect(screen.getByText('49,99')).toBeTruthy();
+    expect(screen.getByText('89,99')).toBeTruthy();
+    expect(screen.getByText('20 pacientes activos')).toBeTruthy();
+    expect(screen.getByText('60 pacientes activos')).toBeTruthy();
+    expect(screen.getByText('Pacientes ilimitados')).toBeTruthy();
+    expect(screen.getAllByText('Facturación personalizada')).toHaveLength(3);
+    expect(screen.getByText('Soy especialista')).toBeTruthy();
   });
 
-  it('routes both primary and secondary hero actions to the right login flows', () => {
-    render(<LandingPage />);
+  it('uses specialist wording instead of consultation or professional wording', () => {
+    render(<PricingPage />);
 
-    fireEvent.press(screen.getAllByText('Acceder como profesional')[0]);
-    fireEvent.press(screen.getAllByText('Busco terapia')[0]);
-
-    expect(navigate).toHaveBeenCalledWith('Login', { userType: 'PROFESSIONAL' });
-    expect(navigate).toHaveBeenCalledWith('Login', { userType: 'CLIENT' });
+    expect(screen.queryByText(/consultas?/i)).toBeNull();
+    expect(screen.queryByText(/profesionales?/i)).toBeNull();
+    expect(screen.getAllByText(/especialistas?/i).length).toBeGreaterThan(0);
   });
 
-  it('opens the separate pricing screen from the landing top bar', () => {
-    render(<LandingPage />);
+  it('does not expose future red-table capabilities', () => {
+    render(<PricingPage />);
 
-    fireEvent.press(screen.getByText('Precios'));
-
-    expect(navigate).toHaveBeenCalledWith('Pricing');
+    expect(screen.queryByText(/whatsapp/i)).toBeNull();
+    expect(screen.queryByText(/sms/i)).toBeNull();
+    expect(screen.queryByText(/\bIA\b/i)).toBeNull();
+    expect(screen.queryByText(/transcripción/i)).toBeNull();
+    expect(screen.queryByText(/informes/i)).toBeNull();
   });
 });

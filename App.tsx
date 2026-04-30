@@ -75,6 +75,7 @@ const linking: LinkingOptions<RootStackParamList> = {
           specialistId: (specialistId: string) => specialistId,
         },
       },
+      Pricing: 'precios',
       Landing: '',
       Login: 'login',
       Register: 'register',

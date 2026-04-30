@@ -26,6 +26,9 @@ interface LandingHeaderProps {
   onFindSpecialist: () => void;
   onJoinAsProfessional: () => void;
   onScrollToSection?: (section: 'howItWorks' | 'specializations' | 'forSpecialists') => void;
+  onOpenPricing?: () => void;
+  onGoHome?: () => void;
+  activeRoute?: 'landing' | 'pricing';
 }
 
 const NAV_ITEMS = [
@@ -39,6 +42,9 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   onFindSpecialist,
   onJoinAsProfessional,
   onScrollToSection,
+  onOpenPricing,
+  onGoHome,
+  activeRoute = 'landing',
 }) => {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
@@ -105,7 +111,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           </Text>
         </View>
 
-        {isDesktop && (
+        {isDesktop && activeRoute === 'landing' && (
           <View style={styles.navLinks}>
             {NAV_ITEMS.map((item) => (
               <AnimatedPressable
@@ -125,6 +131,56 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
                 </Text>
               </AnimatedPressable>
             ))}
+            <AnimatedPressable
+              onPress={onOpenPricing}
+              hoverLift={false}
+              pressScale={0.96}
+              style={styles.navLink}
+            >
+              <Text
+                style={[
+                  styles.navLinkText,
+                  { color: theme.textSecondary, fontFamily: theme.fontSansMedium },
+                ]}
+              >
+                Precios
+              </Text>
+            </AnimatedPressable>
+          </View>
+        )}
+
+        {isDesktop && activeRoute === 'pricing' && (
+          <View style={styles.navLinks}>
+            <AnimatedPressable
+              onPress={onGoHome}
+              hoverLift={false}
+              pressScale={0.96}
+              style={styles.navLink}
+            >
+              <Text
+                style={[
+                  styles.navLinkText,
+                  { color: theme.textSecondary, fontFamily: theme.fontSansMedium },
+                ]}
+              >
+                Inicio
+              </Text>
+            </AnimatedPressable>
+            <AnimatedPressable
+              onPress={onOpenPricing}
+              hoverLift={false}
+              pressScale={0.96}
+              style={styles.navLink}
+            >
+              <Text
+                style={[
+                  styles.navLinkText,
+                  { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
+                ]}
+              >
+                Precios
+              </Text>
+            </AnimatedPressable>
           </View>
         )}
 
@@ -170,7 +226,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             ]}
           >
             <Text style={[styles.primaryCTAText, { fontFamily: theme.fontSansSemiBold }]}>
-              Soy profesional
+              Soy especialista
             </Text>
             <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
           </AnimatedPressable>

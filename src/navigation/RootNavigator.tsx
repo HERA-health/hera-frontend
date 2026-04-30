@@ -221,6 +221,10 @@ const PublicSpecialistProfileRoute = createDeferredRoute<'PublicSpecialistProfil
     exportName: 'PublicSpecialistProfileScreen',
   }
 );
+const PricingRoute = createDeferredRoute<'Pricing'>(
+  () => require('../screens/pricing/PricingPage'),
+  { displayName: 'PricingRoute', exportName: 'PricingPage' }
+);
 
 interface LegalStatusUnavailableScreenProps {
   loading: boolean;
@@ -307,6 +311,7 @@ export function RootNavigator() {
         screenOptions={{ headerShown: false }}
       >
         <Stack.Screen name="Landing" component={LandingPage} />
+        <Stack.Screen name="Pricing" component={PricingRoute} />
         <Stack.Screen name="Welcome" component={WelcomeRoute} />
         <Stack.Screen name="Login" component={LoginRoute} />
         <Stack.Screen name="Register" component={RegisterRoute} />
@@ -376,6 +381,11 @@ export function RootNavigator() {
           component={LegalDocumentScreen}
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="Pricing"
+          component={PricingRoute}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     );
   }
@@ -407,6 +417,11 @@ export function RootNavigator() {
         <Stack.Screen
           name="LegalDocument"
           component={LegalDocumentScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Pricing"
+          component={PricingRoute}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
@@ -640,6 +655,11 @@ export function RootNavigator() {
       <Stack.Screen
         name="LegalDocument"
         component={LegalDocumentScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Pricing"
+        component={PricingRoute}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

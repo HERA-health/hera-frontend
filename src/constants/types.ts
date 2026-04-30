@@ -104,6 +104,7 @@ import type { LegalDocumentKey } from './legal';
 
 export type RootStackParamList = {
   Landing: undefined;
+  Pricing: undefined;
   Welcome: undefined;
   Login: { userType: 'CLIENT' | 'PROFESSIONAL'; specialization?: string };
   Register: { userType: 'CLIENT' | 'PROFESSIONAL' };

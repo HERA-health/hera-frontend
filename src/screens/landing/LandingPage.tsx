@@ -217,6 +217,10 @@ export const LandingPage: React.FC = () => {
     navigation.navigate('Login', { userType: 'PROFESSIONAL' });
   }, [navigation]);
 
+  const handleOpenPricing = useCallback(() => {
+    navigation.navigate('Pricing');
+  }, [navigation]);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar
@@ -229,6 +233,7 @@ export const LandingPage: React.FC = () => {
         onFindSpecialist={handleFindSpecialist}
         onJoinAsProfessional={handleJoinAsProfessional}
         onScrollToSection={handleScrollToSection}
+        onOpenPricing={handleOpenPricing}
       />
 
       <ScrollView
