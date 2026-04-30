@@ -188,6 +188,7 @@ export function ClientProfileScreen() {
   const [savingBilling, setSavingBilling] = useState(false);
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
   const [sessionSaving, setSessionSaving] = useState(false);
+  const [archiveSubmitting, setArchiveSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [visibleHistoryItems, setVisibleHistoryItems] = useState(5);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -340,15 +341,30 @@ export function ClientProfileScreen() {
   const initials = client?.initials || (client?.displayName || client?.user.name || 'P').slice(0, 2).toUpperCase();
   const age = getClientAge(client?.user.birthDate);
   const genderLabel = getGenderLabel(client?.user.gender);
-  const heroSummary = [
-    age !== null ? `${age} años` : null,
-    genderLabel,
-    `Paciente desde ${formatNumericDate(client?.createdAt)}`,
-    `${sessions.length} sesiones`,
-    `${completedSessions} completadas`,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const isManagedClient = client?.source === 'MANAGED';
+  const isClientArchived = Boolean(client?.archivedAt);
+  const locationSummary = [client?.homeCity, client?.homeCountry].filter(Boolean).join(', ');
+  const hasCompleteBilling = Boolean(
+    client?.billingFullName &&
+      client?.billingTaxId &&
+      client?.billingAddress &&
+      client?.billingPostalCode &&
+      client?.billingCity &&
+      client?.billingCountry
+  );
+  const heroSummaryItems: Array<{ icon: keyof typeof Ionicons.glyphMap; label: string }> = [
+    ...(age !== null ? [{ icon: 'calendar-number-outline' as const, label: `${age} años` }] : []),
+    ...(genderLabel ? [{ icon: 'person-outline' as const, label: genderLabel }] : []),
+    { icon: 'time-outline', label: `Desde ${formatNumericDate(client?.createdAt)}` },
+    {
+      icon: 'chatbubbles-outline',
+      label: `${sessions.length} ${sessions.length === 1 ? 'sesión' : 'sesiones'}`,
+    },
+    {
+      icon: 'checkmark-circle-outline',
+      label: `${completedSessions} completadas`,
+    },
+  ];
   const showScrollCue = isMobile && contentHeight > viewportHeight + 48 && scrollOffset < 20;
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -439,10 +455,10 @@ export function ClientProfileScreen() {
     } finally {
       setSavingBilling(false);
     }
-  }, [billingForm, client]);
+  }, [appAlert, billingForm, client]);
 
   const canScheduleManagedSession = Boolean(
-    client && client.source === 'MANAGED' && !client.archivedAt
+    client && isManagedClient && !isClientArchived
   );
 
   const openSessionScheduler = useCallback(() => {
@@ -454,6 +470,67 @@ export function ClientProfileScreen() {
     if (sessionSaving) return;
     setSessionModalVisible(false);
   }, [sessionSaving]);
+
+  const handleToggleArchive = useCallback(() => {
+    if (!client || client.source !== 'MANAGED' || archiveSubmitting) {
+      return;
+    }
+
+    const shouldArchive = !client.archivedAt;
+
+    const applyArchiveChange = async () => {
+      try {
+        setArchiveSubmitting(true);
+        const updatedClient = await professionalService.updateManagedClient(client.id, {
+          archived: shouldArchive,
+        });
+        setClient(updatedClient);
+
+        showAppAlert(
+          appAlert,
+          'Éxito',
+          shouldArchive
+            ? 'Paciente archivado. La ficha se ha movido a archivados y no se podrán crear nuevas citas mientras permanezca archivada.'
+            : 'Paciente desarchivado. La ficha vuelve a estar activa y ya se pueden crear nuevas citas para este paciente.'
+        );
+      } catch (archiveError: unknown) {
+        showAppAlert(
+          appAlert,
+          shouldArchive ? 'No se pudo archivar' : 'No se pudo desarchivar',
+          getErrorMessage(
+            archiveError,
+            shouldArchive
+              ? 'No se pudo archivar el paciente.'
+              : 'No se pudo desarchivar el paciente.'
+          )
+        );
+      } finally {
+        setArchiveSubmitting(false);
+      }
+    };
+
+    if (shouldArchive) {
+      showAppAlert(
+        appAlert,
+        'Archivar paciente',
+        'El paciente pasará a archivados y no se podrán crear nuevas citas mientras esté archivado. Podrás desarchivarlo desde esta misma ficha.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Archivar',
+            style: 'destructive',
+            onPress: () => {
+              void applyArchiveChange();
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
+
+    void applyArchiveChange();
+  }, [appAlert, archiveSubmitting, client]);
 
   const handleCreateManagedSession = useCallback(
     async (input: professionalService.CreateManagedClientSessionInput) => {
@@ -504,6 +581,60 @@ export function ClientProfileScreen() {
   const mobileSurfaceCard = isMobile
     ? [styles.mobileSurfaceCard, { borderColor: theme.border }]
     : [];
+  const administrativeSections: Array<{
+    title: string;
+    items: Array<{
+      label: string;
+      value: string;
+      icon: keyof typeof Ionicons.glyphMap;
+      tone?: 'success' | 'warning';
+      wide?: boolean;
+    }>;
+  }> = [
+    {
+      title: 'Contacto',
+      items: [
+        {
+          label: 'Email',
+          value: client.primaryEmail || 'No registrado',
+          icon: 'mail-outline',
+          wide: true,
+        },
+        {
+          label: 'Teléfono',
+          value: client.primaryPhone || 'No registrado',
+          icon: 'call-outline',
+        },
+      ],
+    },
+    {
+      title: 'Datos personales',
+      items: [
+        {
+          label: 'Ocupación',
+          value: client.user.occupation || 'Sin información',
+          icon: 'briefcase-outline',
+        },
+        {
+          label: 'Ubicación',
+          value: locationSummary || 'Sin información',
+          icon: 'location-outline',
+        },
+      ],
+    },
+    {
+      title: 'Facturación',
+      items: [
+        {
+          label: 'Estado fiscal',
+          value: hasCompleteBilling ? 'Datos fiscales completos' : 'Pendiente de completar',
+          icon: hasCompleteBilling ? 'checkmark-circle-outline' : 'alert-circle-outline',
+          tone: hasCompleteBilling ? 'success' : 'warning',
+          wide: true,
+        },
+      ],
+    },
+  ];
 
   const administrativeCard = (
     <Card variant="default" padding="large" style={mobileSurfaceCard}>
@@ -511,37 +642,60 @@ export function ClientProfileScreen() {
         Información administrativa
       </Text>
 
-      <View style={[styles.infoGrid, isMobile && styles.infoGridStack]}>
-        <View style={[styles.infoBlock, isMobile && styles.infoBlockStack]}>
-          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Email</Text>
-          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
-            {client.primaryEmail || 'No registrado'}
-          </Text>
-        </View>
-        <View style={[styles.infoBlock, isMobile && styles.infoBlockStack]}>
-          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Teléfono</Text>
-          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
-            {client.primaryPhone || 'No registrado'}
-          </Text>
-        </View>
-        <View style={[styles.infoBlock, isMobile && styles.infoBlockStack]}>
-          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Ocupación</Text>
-          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
-            {client.user.occupation || 'Sin información'}
-          </Text>
-        </View>
-        <View style={[styles.infoBlock, isMobile && styles.infoBlockStack]}>
-          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Ubicación</Text>
-          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
-            {client.homeCity || client.homeCountry || 'Sin información'}
-          </Text>
-        </View>
-        <View style={[styles.infoBlock, isMobile && styles.infoBlockStack]}>
-          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Facturación</Text>
-          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
-            {client.billingFullName && client.billingTaxId ? 'Datos fiscales completos' : 'Pendiente de completar'}
-          </Text>
-        </View>
+      <View style={styles.adminSections}>
+        {administrativeSections.map((section) => (
+          <View key={section.title} style={styles.adminSection}>
+            <Text style={[styles.adminSectionTitle, labelStyle, { color: theme.textSecondary }]}>
+              {section.title}
+            </Text>
+            <View style={[styles.adminGrid, isMobile && styles.adminGridStack]}>
+              {section.items.map((item) => (
+                <View
+                  key={`${section.title}-${item.label}`}
+                  style={[
+                    styles.adminCell,
+                    item.wide && !isMobile ? styles.adminCellWide : null,
+                    { backgroundColor: theme.bgMuted, borderColor: theme.borderLight },
+                  ]}
+                >
+                  <View style={styles.adminCellHeader}>
+                    <Ionicons
+                      name={item.icon}
+                      size={14}
+                      color={
+                        item.tone === 'success'
+                          ? theme.success
+                          : item.tone === 'warning'
+                            ? theme.warning
+                            : theme.textMuted
+                      }
+                    />
+                    <Text style={[styles.adminCellLabel, labelStyle, { color: theme.textMuted }]}>
+                      {item.label}
+                    </Text>
+                  </View>
+                  <Text
+                    numberOfLines={item.wide ? 2 : 1}
+                    style={[
+                      styles.adminCellValue,
+                      emphasisStyle,
+                      {
+                        color:
+                          item.tone === 'success'
+                            ? theme.success
+                            : item.tone === 'warning'
+                              ? theme.warning
+                              : theme.textPrimary,
+                      },
+                    ]}
+                  >
+                    {item.value}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
       </View>
     </Card>
   );
@@ -668,6 +822,26 @@ export function ClientProfileScreen() {
               {client.source === 'MANAGED' ? 'Paciente gestionado' : 'Paciente HERA'}
             </Text>
           </View>
+          {isClientArchived ? (
+            <View
+              style={[
+                styles.topBadge,
+                isMobile && styles.topBadgeMobile,
+                { backgroundColor: theme.warningBg },
+              ]}
+            >
+              <Text
+                style={[
+                  textStyles.caption,
+                  styles.topBadgeText,
+                  isMobile && styles.topBadgeTextMobile,
+                  { color: theme.warning },
+                ]}
+              >
+                Archivado
+              </Text>
+            </View>
+          ) : null}
         </View>
       </View>
 
@@ -699,9 +873,25 @@ export function ClientProfileScreen() {
                   <Text style={[textStyles.title, { color: theme.textPrimary }, displayTitleStyle]}>
                     {client.displayName || client.user.name}
                   </Text>
-                  <Text style={[styles.heroSummary, { color: theme.textSecondary }, emphasisStyle]}>
-                    {heroSummary}
-                  </Text>
+                  <View style={styles.heroFactsRow}>
+                    {heroSummaryItems.map((item) => (
+                      <View
+                        key={item.label}
+                        style={[
+                          styles.heroFactPill,
+                          { backgroundColor: theme.bgCard, borderColor: theme.borderLight },
+                        ]}
+                      >
+                        <Ionicons name={item.icon} size={14} color={theme.textMuted} />
+                        <Text
+                          numberOfLines={1}
+                          style={[styles.heroFactText, labelStyle, { color: theme.textSecondary }]}
+                        >
+                          {item.label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
               </View>
 
@@ -714,18 +904,21 @@ export function ClientProfileScreen() {
             >
               <Button
                 variant="outline"
-                size="medium"
+                size="small"
                 onPress={() => setBillingModalVisible(true)}
+                icon={<Ionicons name="create-outline" size={16} color={theme.primary} />}
+                style={styles.heroActionButton}
               >
-                Editar paciente
+                Editar
               </Button>
 
               {canScheduleManagedSession ? (
                 <Button
                   variant="primary"
-                  size="medium"
+                  size="small"
                   onPress={openSessionScheduler}
-                  icon={<Ionicons name="calendar-outline" size={18} color={theme.textOnPrimary} />}
+                  icon={<Ionicons name="calendar-outline" size={16} color={theme.textOnPrimary} />}
+                  style={styles.heroActionButton}
                 >
                   Crear cita
                 </Button>
@@ -733,26 +926,34 @@ export function ClientProfileScreen() {
 
               <Button
                 variant="secondary"
-                size="medium"
+                size="small"
                 onPress={() =>
                   client.primaryEmail ? void Linking.openURL(`mailto:${client.primaryEmail}`) : undefined
                 }
                 disabled={!client.primaryEmail}
+                icon={<Ionicons name="mail-outline" size={16} color={theme.secondaryDark} />}
+                style={styles.heroActionButton}
               >
-                Enviar email
+                Email
               </Button>
 
-              {client.source === 'MANAGED' ? (
+              {isManagedClient ? (
                 <Button
-                  variant="ghost"
-                  size="medium"
-                  onPress={() => {
-                    void professionalService
-                      .updateManagedClient(client.id, { archived: true })
-                      .then(() => navigation.goBack());
-                  }}
+                  variant={isClientArchived ? 'outline' : 'ghost'}
+                  size="small"
+                  onPress={handleToggleArchive}
+                  loading={archiveSubmitting}
+                  icon={
+                    <Ionicons
+                      name={isClientArchived ? 'refresh-outline' : 'archive-outline'}
+                      size={16}
+                      color={isClientArchived ? theme.primary : theme.warning}
+                    />
+                  }
+                  style={styles.heroActionButton}
+                  textStyle={isClientArchived ? undefined : { color: theme.warning }}
                 >
-                  Archivar
+                  {isClientArchived ? 'Desarchivar' : 'Archivar'}
                 </Button>
               ) : null}
             </View>
@@ -1146,7 +1347,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   heroGradient: {
-    padding: spacing.lg,
+    padding: spacing.md,
   },
   heroGradientMobile: {
     padding: spacing.md,
@@ -1154,8 +1355,8 @@ const styles = StyleSheet.create({
   heroContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: spacing.lg,
-    alignItems: 'center',
+    gap: spacing.md,
+    alignItems: 'flex-start',
   },
   heroContentStack: {
     flexDirection: 'column',
@@ -1169,18 +1370,18 @@ const styles = StyleSheet.create({
     minWidth: 280,
   },
   heroIdentityStack: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   heroIdentityMobile: {
     minWidth: 0,
     width: '100%',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   avatarShell: {
-    width: 108,
-    height: 108,
-    borderRadius: 32,
+    width: 78,
+    height: 78,
+    borderRadius: 24,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1191,20 +1392,38 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   avatarText: {
-    fontSize: typography.fontSizes.xxxl,
-    lineHeight: 34,
+    fontSize: typography.fontSizes.xxl,
+    lineHeight: 30,
     fontWeight: '700',
   },
   heroCopy: {
     flex: 1,
-    gap: spacing.sm,
+    gap: spacing.xs,
+    minWidth: 0,
   },
   heroCopyMobile: {
     width: '100%',
   },
-  heroSummary: {
-    ...textStyles.body,
-    maxWidth: 560,
+  heroFactsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: 2,
+  },
+  heroFactPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    maxWidth: 220,
+  },
+  heroFactText: {
+    fontSize: typography.fontSizes.xs,
+    lineHeight: 16,
+    flexShrink: 1,
   },
   heroMetaGrid: {
     flexDirection: 'row',
@@ -1241,11 +1460,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   heroActions: {
-    flexDirection: 'column',
-    gap: spacing.sm,
-    alignItems: 'stretch',
-    justifyContent: 'center',
-    width: 220,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    maxWidth: 520,
+    flexShrink: 0,
   },
   heroActionsStack: {
     width: '100%',
@@ -1254,6 +1475,9 @@ const styles = StyleSheet.create({
   heroActionsMobile: {
     width: '100%',
     marginTop: spacing.xs,
+  },
+  heroActionButton: {
+    minWidth: 108,
   },
   heroRefreshRow: {
     flexDirection: 'row',
@@ -1367,28 +1591,52 @@ const styles = StyleSheet.create({
     minWidth: 0,
     width: '100%',
   },
-  infoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  adminSections: {
     gap: spacing.md,
     marginTop: spacing.md,
   },
-  infoGridStack: {
-    flexDirection: 'column',
-    flexWrap: 'nowrap',
+  adminSection: {
     gap: spacing.sm,
   },
-  infoBlock: {
-    minWidth: 180,
-    flex: 1,
-    gap: 4,
+  adminSectionTitle: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
-  infoBlockStack: {
+  adminGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  adminGridStack: {
+    flexDirection: 'column',
+    flexWrap: 'nowrap',
+  },
+  adminCell: {
+    minWidth: 190,
+    flexBasis: 190,
+    flexGrow: 1,
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: 6,
+  },
+  adminCellWide: {
+    minWidth: 260,
+    flexBasis: 300,
+  },
+  adminCellHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  adminCellLabel: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  adminCellValue: {
+    ...textStyles.strong,
     minWidth: 0,
-    width: '100%',
-    flexGrow: 0,
-    flexShrink: 1,
-    flexBasis: '100%',
   },
   questionnairePanel: {
     gap: spacing.md,
