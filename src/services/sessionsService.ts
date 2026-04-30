@@ -16,6 +16,48 @@ export interface TimeSlot {
  */
 export type SessionType = 'VIDEO_CALL' | 'PHONE_CALL' | 'IN_PERSON';
 
+export type SessionStatus = 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+
+export interface ClientSessionSpecialist {
+  id: string;
+  specialization: string;
+  pricePerSession: number;
+  avatar?: string | null;
+  officeAddress?: string | null;
+  officeCity?: string | null;
+  officePostalCode?: string | null;
+  officeCountry?: string | null;
+  officeLat?: number | null;
+  officeLng?: number | null;
+  user: {
+    name: string;
+    email: string;
+    avatar?: string | null;
+  };
+}
+
+export interface ClientSession {
+  id: string;
+  date: string;
+  duration: number;
+  status: SessionStatus;
+  type: SessionType;
+  meetingLink?: string | null;
+  hasReview?: boolean;
+  specialist: ClientSessionSpecialist;
+}
+
+interface ApiResponse<T> {
+  data?: T;
+}
+
+interface CreateSessionRequest {
+  specialistId: string;
+  date: string;
+  duration: number;
+  type: SessionType;
+}
+
 /**
  * Get available time slots for a specialist on a specific date
  */
@@ -36,12 +78,7 @@ export const getAvailableSlots = async (
 /**
  * Create a new session booking
  */
-export const createSession = async (sessionData: {
-  specialistId: string;
-  date: string; // ISO format with time (YYYY-MM-DDTHH:mm:ss)
-  duration: number;
-  type: SessionType;
-}): Promise<any> => {
+export const createSession = async (sessionData: CreateSessionRequest): Promise<unknown> => {
   try {
     const response = await api.post('/sessions', sessionData);
     return response.data.data;
@@ -53,9 +90,9 @@ export const createSession = async (sessionData: {
 /**
  * Get user's sessions (client perspective)
  */
-export const getMySessions = async (): Promise<any[]> => {
+export const getMySessions = async (): Promise<ClientSession[]> => {
   try {
-    const response = await api.get('/sessions/my-sessions');
+    const response = await api.get<ApiResponse<ClientSession[]>>('/sessions/my-sessions');
     return response.data.data || [];
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudieron cargar tus sesiones'));

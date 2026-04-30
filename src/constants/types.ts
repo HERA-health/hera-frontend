@@ -66,7 +66,7 @@ export interface Session {
   duration: number; // in minutes
   status: 'scheduled' | 'completed' | 'cancelled';
   meetingLink?: string;
-  type: 'video' | 'audio' | 'chat';
+  type: 'video' | 'audio' | 'chat' | 'in_person';
 }
 
 /**
@@ -266,7 +266,7 @@ export interface ProfessionalSession {
   duration: number; // in minutes
   status: 'scheduled' | 'completed' | 'cancelled' | 'pending';
   meetingLink?: string;
-  type: 'video' | 'audio' | 'chat';
+  type: 'video' | 'audio' | 'chat' | 'in_person';
   clientAvatar?: string;
 }
 

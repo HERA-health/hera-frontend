@@ -21,6 +21,7 @@ import {
 import { Theme } from '../../constants/theme';
 import { AppNavigationProp, ProfessionalSession, SessionViewMode } from '../../constants/types';
 import { AnimatedPressable, Button, Card } from '../../components/common';
+import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as analyticsService from '../../services/analyticsService';
 import * as professionalService from '../../services/professionalService';
@@ -34,6 +35,7 @@ import {
 const TIME_SLOTS = Array.from({ length: 15 }, (_, index) => index + 7);
 const WEEK_HOUR_HEIGHT = 72;
 const DAY_HOUR_HEIGHT = 72;
+const PENDING_VIDEO_MEETING_LINK = 'https://hera.local/pending-video-link';
 
 type SessionStatusTone = 'confirmed' | 'pending' | 'in_progress' | 'completed' | 'cancelled';
 
@@ -53,8 +55,48 @@ function formatTime(date: Date) {
   return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 }
 
+function getSessionEndDate(session: ProfessionalSession) {
+  return new Date(session.date.getTime() + session.duration * 60000);
+}
+
+function formatSessionTimeRange(session: ProfessionalSession) {
+  return `${formatTime(session.date)} - ${formatTime(getSessionEndDate(session))}`;
+}
+
+function getSessionTypeLabel(type: ProfessionalSession['type']): string {
+  switch (type) {
+    case 'video':
+      return 'Videollamada';
+    case 'audio':
+      return 'Teléfono';
+    case 'chat':
+      return 'Chat';
+    case 'in_person':
+      return 'Presencial';
+  }
+}
+
 function capitalizeFirst(value: string) {
   return value.length ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+function getSessionClientName(client?: professionalService.Session['client']): string {
+  const managedName = [client?.firstName, client?.lastName].filter(Boolean).join(' ').trim();
+  return client?.displayName || managedName || client?.user?.name || 'Cliente';
+}
+
+function isProfessionalVideoSession(session: ProfessionalSession): boolean {
+  return session.type === 'video' || Boolean(session.meetingLink);
+}
+
+function getProfessionalVideoCallSession(session: ProfessionalSession) {
+  return {
+    status: 'CONFIRMED',
+    type: 'VIDEO_CALL',
+    date: session.date,
+    duration: session.duration,
+    meetingLink: session.meetingLink || PENDING_VIDEO_MEETING_LINK,
+  };
 }
 
 export function ProfessionalSessionsScreen() {
@@ -74,6 +116,10 @@ export function ProfessionalSessionsScreen() {
   const [sessions, setSessions] = useState<ProfessionalSession[]>([]);
   const [processingSessionId, setProcessingSessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [managedClients, setManagedClients] = useState<professionalService.Client[]>([]);
+  const [loadingManagedClients, setLoadingManagedClients] = useState(false);
+  const [schedulerVisible, setSchedulerVisible] = useState(false);
+  const [schedulerSaving, setSchedulerSaving] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -98,13 +144,20 @@ export function ProfessionalSessionsScreen() {
 
         const rawType = session.type?.toUpperCase?.() || 'VIDEO_CALL';
         const mappedType: ProfessionalSession['type'] =
-          rawType === 'PHONE_CALL' ? 'audio' : rawType === 'CHAT' ? 'chat' : 'video';
+          rawType === 'PHONE_CALL'
+            ? 'audio'
+            : rawType === 'CHAT'
+            ? 'chat'
+            : rawType === 'IN_PERSON'
+            ? 'in_person'
+            : 'video';
+        const clientName = getSessionClientName(session.client);
 
         return {
           id: session.id,
           clientId: session.clientId,
-          clientName: session.client?.user?.name || 'Cliente',
-          clientInitial: (session.client?.user?.name || 'C')[0].toUpperCase(),
+          clientName,
+          clientInitial: (clientName || 'C')[0].toUpperCase(),
           date: new Date(session.date),
           duration: session.duration || 60,
           status: mappedStatus,
@@ -121,6 +174,56 @@ export function ProfessionalSessionsScreen() {
       setLoading(false);
     }
   }, []);
+
+  const loadManagedClients = useCallback(async (): Promise<professionalService.Client[]> => {
+    try {
+      setLoadingManagedClients(true);
+      const clients = await professionalService.getProfessionalClients({
+        source: 'MANAGED',
+        lifecycle: 'ACTIVE',
+      });
+      setManagedClients(clients);
+      return clients;
+    } catch {
+      showAppAlert(appAlert, 'Error', 'No se pudieron cargar tus pacientes gestionados');
+      return [];
+    } finally {
+      setLoadingManagedClients(false);
+    }
+  }, [appAlert]);
+
+  const openManagedSessionScheduler = useCallback(async () => {
+    const clients = managedClients.length > 0 ? managedClients : await loadManagedClients();
+
+    if (clients.length === 0) {
+      showAppAlert(
+        appAlert,
+        'Sin pacientes gestionados',
+        'Primero crea o activa un paciente gestionado para poder programar una cita.'
+      );
+      return;
+    }
+
+    setSchedulerVisible(true);
+  }, [appAlert, loadManagedClients, managedClients]);
+
+  const handleCreateManagedSession = useCallback(
+    async (input: professionalService.CreateManagedClientSessionInput) => {
+      try {
+        setSchedulerSaving(true);
+        await professionalService.createManagedClientSession(input);
+        setSchedulerVisible(false);
+        showAppAlert(appAlert, 'Cita creada', 'La cita se ha programado correctamente.');
+        await loadSessions();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'No se pudo crear la cita';
+        showAppAlert(appAlert, 'No se pudo crear la cita', message);
+      } finally {
+        setSchedulerSaving(false);
+      }
+    },
+    [appAlert, loadSessions],
+  );
 
   useEffect(() => {
     analyticsService.trackScreen('professional_sessions');
@@ -347,6 +450,32 @@ export function ProfessionalSessionsScreen() {
     [loadSessions, processingSessionId],
   );
 
+  const handleCancelSession = useCallback(
+    async (sessionId: string, clientName: string) => {
+      if (processingSessionId) return;
+      showAppAlert(appAlert, 'Cancelar cita', `¿Seguro que quieres cancelar la cita con ${clientName}?`, [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setProcessingSessionId(sessionId);
+              await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
+              showAppAlert(appAlert, 'Cita cancelada', 'La cita se ha cancelado correctamente.');
+              await loadSessions();
+            } catch {
+              showAppAlert(appAlert, 'Error', 'No se pudo cancelar la cita');
+            } finally {
+              setProcessingSessionId(null);
+            }
+          },
+        },
+      ]);
+    },
+    [appAlert, loadSessions, processingSessionId],
+  );
+
   const handleCompleteSession = useCallback(
     async (sessionId: string, clientName: string) => {
       if (processingSessionId) return;
@@ -371,16 +500,23 @@ export function ProfessionalSessionsScreen() {
         showAppAlert(appAlert, 'Aún no es el momento', meetingData.message);
         return;
       }
-      if (meetingData.meetingLink) {
-        const supported = await Linking.canOpenURL(meetingData.meetingLink);
-        if (supported) {
-          await Linking.openURL(meetingData.meetingLink);
-        }
+
+      if (!meetingData.meetingLink) {
+        showAppAlert(appAlert, 'Enlace no disponible', 'No se pudo preparar el enlace de la videollamada.');
+        return;
       }
+
+      const supported = await Linking.canOpenURL(meetingData.meetingLink);
+      if (!supported) {
+        showAppAlert(appAlert, 'No se pudo abrir', 'Tu dispositivo no pudo abrir el enlace de la videollamada.');
+        return;
+      }
+
+      await Linking.openURL(meetingData.meetingLink);
     } catch {
       showAppAlert(appAlert, 'Error', 'Hubo un problema al unirte a la sesión');
     }
-  }, []);
+  }, [appAlert]);
 
   const renderSessionActions = useCallback(
     (session: ProfessionalSession) => {
@@ -414,27 +550,17 @@ export function ProfessionalSessionsScreen() {
       }
 
       if (session.status === 'scheduled') {
-        const buttonState = getVideoCallButtonState({
-          status: 'CONFIRMED',
-          type: session.type,
-          date: session.date,
-          duration: session.duration,
-          meetingLink: session.meetingLink,
-        });
-        const buttonLabel = getVideoCallButtonLabel(buttonState, {
-          status: 'CONFIRMED',
-          type: session.type,
-          date: session.date,
-          duration: session.duration,
-          meetingLink: session.meetingLink,
-        });
+        const isVideoSession = isProfessionalVideoSession(session);
+        const videoCallSession = getProfessionalVideoCallSession(session);
+        const buttonState = getVideoCallButtonState(videoCallSession);
+        const buttonLabel = getVideoCallButtonLabel(buttonState, videoCallSession);
         const buttonStyle = getVideoCallButtonStyle(buttonState);
         const canJoin = isVideoCallButtonClickable(buttonState);
         const sessionEnded = session.date.getTime() + session.duration * 60 * 1000 < currentTime.getTime();
 
         return (
           <View style={styles.actionStack}>
-            {session.type === 'video' ? (
+            {isVideoSession ? (
               <AnimatedPressable
                 onPress={canJoin ? () => handleJoinSession(session.id) : undefined}
                 disabled={!canJoin}
@@ -470,11 +596,25 @@ export function ProfessionalSessionsScreen() {
                   </Button>
                 </View>
               ) : null}
+              {!sessionEnded ? (
+                <View style={styles.actionHalf}>
+                  <Button
+                    variant="outline"
+                    size="small"
+                    onPress={() => handleCancelSession(session.id, session.clientName)}
+                    disabled={processingSessionId === session.id}
+                    fullWidth
+                  >
+                    Cancelar
+                  </Button>
+                </View>
+              ) : null}
               <View style={styles.actionHalf}>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="small"
                   onPress={() => navigation.navigate('ClientProfile', { clientId: session.clientId })}
+                  icon={<Ionicons name="person-circle-outline" size={16} color={theme.primary} />}
                   fullWidth
                 >
                   Ver ficha
@@ -489,9 +629,10 @@ export function ProfessionalSessionsScreen() {
         <View style={styles.actionRow}>
           <View style={styles.actionHalf}>
             <Button
-              variant="ghost"
+              variant="outline"
               size="small"
               onPress={() => navigation.navigate('ClientProfile', { clientId: session.clientId })}
+              icon={<Ionicons name="person-circle-outline" size={16} color={theme.primary} />}
               fullWidth
             >
               Ver ficha
@@ -504,11 +645,13 @@ export function ProfessionalSessionsScreen() {
       currentTime,
       handleCompleteSession,
       handleConfirmSession,
+      handleCancelSession,
       handleJoinSession,
       handleRejectSession,
       navigation,
       processingSessionId,
       styles,
+      theme.primary,
     ],
   );
 
@@ -532,7 +675,7 @@ export function ProfessionalSessionsScreen() {
               <View style={styles.sessionClientInfo}>
                 <Text style={styles.sessionClientName}>{session.clientName}</Text>
                 <Text style={styles.sessionClientMeta}>
-                  {formatTime(session.date)} · {session.duration} min
+                  {formatSessionTimeRange(session)} · {session.duration} min · {getSessionTypeLabel(session.type)}
                 </Text>
               </View>
             </View>
@@ -580,7 +723,7 @@ export function ProfessionalSessionsScreen() {
     const hasSessions = (date: Date) => sessions.some((session) => isSameDay(session.date, date));
 
     return (
-      <Card variant="default" padding={isMobile ? 'medium' : 'large'} style={styles.sideCard}>
+      <Card variant="default" padding="medium" style={styles.sideCard}>
         <Text style={styles.sideCardTitle}>
           {capitalizeFirst(monthDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }))}
         </Text>
@@ -624,7 +767,7 @@ export function ProfessionalSessionsScreen() {
   };
 
   const renderLegend = () => (
-    <Card variant="default" padding="large" style={styles.sideCard}>
+    <Card variant="default" padding="medium" style={styles.sideCard}>
       <Text style={styles.sideCardTitle}>Estado</Text>
       {[
         ['Confirmada', getStatusColor('confirmed')],
@@ -664,7 +807,7 @@ export function ProfessionalSessionsScreen() {
                   pointerEvents="none"
                   style={[
                     styles.currentTimeLine,
-                    { top: `${(currentTime.getMinutes() / 60) * 100}%` },
+                    { top: (currentTime.getMinutes() / 60) * DAY_HOUR_HEIGHT },
                   ]}
                 >
                   <View style={styles.currentTimeDot} />
@@ -673,7 +816,21 @@ export function ProfessionalSessionsScreen() {
                 </View>
               ) : null}
               {items.length ? (
-                items.map((session) => renderSessionCard(session))
+                items.map((session, index) => (
+                  <View
+                    key={session.id}
+                    style={[
+                      styles.daySessionPlacement,
+                      {
+                        marginTop: index === 0
+                          ? (session.date.getMinutes() / 60) * DAY_HOUR_HEIGHT
+                          : spacing.sm,
+                      },
+                    ]}
+                  >
+                    {renderSessionCard(session)}
+                  </View>
+                ))
               ) : (
                 <View style={styles.hourEmptyLine} />
               )}
@@ -801,10 +958,10 @@ export function ProfessionalSessionsScreen() {
                         {session.clientName}
                       </Text>
                       <Text style={[styles.weekAgendaSessionTime, { color: accentColor }]} numberOfLines={1}>
-                        {formatTime(session.date)} - {formatTime(new Date(session.date.getTime() + session.duration * 60000))}
+                        {formatSessionTimeRange(session)}
                       </Text>
                       <Text style={styles.weekAgendaSessionMeta} numberOfLines={1}>
-                        {session.duration} min
+                        {session.duration} min · {getSessionTypeLabel(session.type)}
                       </Text>
                     </AnimatedPressable>
                   );
@@ -891,21 +1048,38 @@ export function ProfessionalSessionsScreen() {
   }
 
   return (
+    <>
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mis Sesiones</Text>
-        <View style={styles.kpiRow}>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiValue}>{todaysSessions.length}</Text>
-            <Text style={styles.kpiLabel}>hoy</Text>
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerTitleGroup}>
+            <Text style={styles.headerTitle}>Mis sesiones</Text>
+            <View style={styles.kpiRow}>
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiValue}>{todaysSessions.length}</Text>
+                <Text style={styles.kpiLabel}>hoy</Text>
+              </View>
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiValue}>{weekSessions.length}</Text>
+                <Text style={styles.kpiLabel}>semana</Text>
+              </View>
+              <View style={styles.kpiCard}>
+                <Text style={[styles.kpiValue, { color: theme.warningAmber }]}>{pendingSessions.length}</Text>
+                <Text style={styles.kpiLabel}>pendientes</Text>
+              </View>
+            </View>
           </View>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiValue}>{weekSessions.length}</Text>
-            <Text style={styles.kpiLabel}>esta semana</Text>
-          </View>
-          <View style={styles.kpiCard}>
-            <Text style={[styles.kpiValue, { color: theme.warningAmber }]}>{pendingSessions.length}</Text>
-            <Text style={styles.kpiLabel}>pendientes</Text>
+          <View style={styles.headerActionWrap}>
+            <Button
+              variant="primary"
+              size="small"
+              onPress={openManagedSessionScheduler}
+              loading={loadingManagedClients}
+              fullWidth={isMobile}
+              icon={<Ionicons name="calendar-outline" size={16} color={theme.textOnPrimary} />}
+            >
+              Nueva cita
+            </Button>
           </View>
         </View>
       </View>
@@ -920,25 +1094,45 @@ export function ProfessionalSessionsScreen() {
 
         <View style={styles.main}>
           <View style={styles.toolbar}>
-            <View style={styles.viewTabs}>
-              {VIEW_OPTIONS.filter((option) => !(isMobile && option.value === 'week')).map((option) => (
+            <View style={styles.toolbarTopRow}>
+              <View style={styles.viewTabs}>
+                {VIEW_OPTIONS.filter((option) => !(isMobile && option.value === 'week')).map((option) => (
+                  <AnimatedPressable
+                    key={option.value}
+                    onPress={() => setViewMode(option.value)}
+                    hoverLift={false}
+                    pressScale={0.98}
+                    style={viewMode === option.value ? [styles.viewTab, styles.viewTabActive] : styles.viewTab}
+                  >
+                    <Ionicons
+                      name={option.icon}
+                      size={18}
+                      color={viewMode === option.value ? theme.textOnPrimary : theme.textSecondary}
+                    />
+                    <Text style={viewMode === option.value ? [styles.viewTabText, styles.viewTabTextActive] : styles.viewTabText}>
+                      {option.label}
+                    </Text>
+                  </AnimatedPressable>
+                ))}
+              </View>
+
+              {nextUpcomingSession ? (
                 <AnimatedPressable
-                  key={option.value}
-                  onPress={() => setViewMode(option.value)}
+                  onPress={jumpToNextSession}
                   hoverLift={false}
                   pressScale={0.98}
-                  style={viewMode === option.value ? [styles.viewTab, styles.viewTabActive] : styles.viewTab}
+                  style={styles.nextSessionChip}
                 >
-                  <Ionicons
-                    name={option.icon}
-                    size={18}
-                    color={viewMode === option.value ? theme.textOnPrimary : theme.textSecondary}
-                  />
-                  <Text style={viewMode === option.value ? [styles.viewTabText, styles.viewTabTextActive] : styles.viewTabText}>
-                    {option.label}
+                  <Ionicons name="arrow-forward-circle-outline" size={16} color={theme.secondaryDark} />
+                  <Text style={styles.nextSessionChipText} numberOfLines={1}>
+                    Próxima · {nextUpcomingSession.date.toLocaleDateString('es-ES', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                    })} · {formatSessionTimeRange(nextUpcomingSession)}
                   </Text>
                 </AnimatedPressable>
-              ))}
+              ) : null}
             </View>
 
             {!isDesktop ? (
@@ -959,34 +1153,22 @@ export function ProfessionalSessionsScreen() {
             </AnimatedPressable>
           </View>
 
-          {nextUpcomingSession ? (
-            <View style={styles.dateActionsRow}>
-              <Button
-                variant="secondary"
-                size="small"
-                onPress={jumpToNextSession}
-                icon={<Ionicons name="arrow-forward-circle-outline" size={16} color={theme.textPrimary} />}
-              >
-                Ir a próxima sesión
-              </Button>
-              <Text style={styles.nextSessionHint}>
-                {nextUpcomingSession.date.toLocaleDateString('es-ES', {
-                  weekday: 'short',
-                  day: 'numeric',
-                  month: 'short',
-                })}
-                {' · '}
-                {formatTime(nextUpcomingSession.date)}
-              </Text>
-            </View>
-          ) : null}
-
           {viewMode === 'day' ? renderDayView() : null}
           {viewMode === 'week' ? renderWeekView() : null}
           {viewMode === 'list' ? renderListView() : null}
         </View>
+        </View>
       </View>
-    </View>
+      <ManagedSessionSchedulerModal
+        visible={schedulerVisible}
+        clients={managedClients}
+        saving={schedulerSaving}
+        onClose={() => {
+          if (!schedulerSaving) setSchedulerVisible(false);
+        }}
+        onSubmit={handleCreateManagedSession}
+      />
+    </>
   );
 }
 
@@ -1011,39 +1193,57 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     header: {
       paddingHorizontal: spacing.lg,
       paddingLeft: isMobile ? layout.mobileShellLeftInset : spacing.lg,
-      paddingTop: spacing.lg,
-      paddingBottom: spacing.md,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.sm,
       backgroundColor: theme.bgAlt,
       borderBottomWidth: 1,
       borderBottomColor: theme.border,
-      gap: spacing.md,
+      gap: spacing.sm,
+    },
+    headerTopRow: {
+      alignItems: isMobile ? 'stretch' : 'center',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+      justifyContent: 'space-between',
+    },
+    headerTitleGroup: {
+      flex: 1,
+      minWidth: isMobile ? 0 : 560,
+      flexDirection: isMobile ? 'column' : 'row',
+      alignItems: isMobile ? 'stretch' : 'center',
+      gap: isMobile ? spacing.sm : spacing.md,
     },
     headerTitle: {
-      fontSize: isMobile ? 28 : 30,
+      fontSize: isMobile ? 27 : 30,
       color: theme.textPrimary,
-      textAlign: isMobile ? 'left' : 'center',
+      minWidth: 180,
+      textAlign: 'left',
       fontFamily: theme.fontSansBold,
+    },
+    headerActionWrap: {
+      width: isMobile ? '100%' : undefined,
     },
     kpiRow: {
       flexDirection: 'row',
-      gap: isMobile ? spacing.xs : spacing.sm,
+      gap: spacing.xs,
       flexWrap: 'wrap',
-      justifyContent: 'center',
+      justifyContent: isMobile ? 'flex-start' : 'center',
     },
     kpiCard: {
-      minWidth: isMobile ? 104 : 120,
-      flexGrow: isMobile ? 1 : 0,
-      paddingHorizontal: isMobile ? spacing.sm : spacing.md,
-      paddingVertical: spacing.sm,
-      borderRadius: borderRadius.lg,
+      minHeight: 34,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+      borderRadius: borderRadius.full,
       backgroundColor: theme.bgCard,
       borderWidth: 1,
       borderColor: theme.border,
       alignItems: 'center',
-      ...shadows.sm,
+      flexDirection: 'row',
+      gap: 5,
     },
     kpiValue: {
-      fontSize: typography.fontSizes.xl,
+      fontSize: typography.fontSizes.md,
       color: theme.textPrimary,
       fontFamily: theme.fontSansBold,
     },
@@ -1058,9 +1258,9 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       flexDirection: 'row',
     },
     sideRail: {
-      width: 296,
-      padding: spacing.lg,
-      gap: spacing.lg,
+      width: 252,
+      padding: spacing.md,
+      gap: spacing.md,
       borderRightWidth: 1,
       borderRightColor: theme.border,
       backgroundColor: theme.bgAlt,
@@ -1142,20 +1342,27 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     },
     toolbar: {
       paddingHorizontal: isMobile ? spacing.md : spacing.lg,
-      paddingTop: spacing.md,
-      gap: spacing.md,
+      paddingTop: spacing.sm,
+      gap: spacing.sm,
+    },
+    toolbarTopRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
     },
     viewTabs: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: spacing.sm,
+      gap: spacing.xs,
     },
     viewTab: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.xs,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.sm + 2,
+      paddingVertical: 8,
       backgroundColor: theme.bgCard,
       borderRadius: borderRadius.lg,
       borderWidth: 1,
@@ -1177,11 +1384,31 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     inlineMiniCalendarWrap: {
       width: '100%',
     },
+    nextSessionChip: {
+      minHeight: 34,
+      maxWidth: isMobile ? '100%' : 360,
+      borderRadius: borderRadius.full,
+      borderWidth: 1,
+      borderColor: theme.secondaryLight,
+      backgroundColor: theme.secondaryAlpha12,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 7,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    nextSessionChipText: {
+      flexShrink: 1,
+      fontSize: typography.fontSizes.sm,
+      color: theme.secondaryDark,
+      fontFamily: theme.fontSansSemiBold,
+    },
     dateBar: {
-      marginTop: spacing.md,
+      marginTop: spacing.sm,
       marginHorizontal: isMobile ? spacing.md : spacing.lg,
       marginBottom: spacing.sm,
-      padding: isMobile ? spacing.sm : spacing.md,
+      paddingHorizontal: isMobile ? spacing.sm : spacing.md,
+      paddingVertical: spacing.sm,
       borderRadius: borderRadius.xl,
       backgroundColor: theme.bgCard,
       borderWidth: 1,
@@ -1191,18 +1418,10 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       gap: spacing.sm,
       ...shadows.sm,
     },
-    dateActionsRow: {
-      marginHorizontal: isMobile ? spacing.md : spacing.lg,
-      marginBottom: spacing.md,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      flexWrap: 'wrap',
-    },
     dateNavButton: {
-      width: isMobile ? 44 : 42,
-      height: isMobile ? 44 : 42,
-      borderRadius: isMobile ? 22 : 21,
+      width: isMobile ? 40 : 38,
+      height: isMobile ? 40 : 38,
+      borderRadius: isMobile ? 20 : 19,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
@@ -1213,11 +1432,6 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       flex: 1,
       alignItems: 'center',
       paddingHorizontal: isMobile ? spacing.xs : spacing.md,
-    },
-    nextSessionHint: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
     },
     dateTitle: {
       fontSize: isMobile ? typography.fontSizes.md : typography.fontSizes.lg,
@@ -1257,11 +1471,12 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     },
     hourContent: {
       flex: 1,
+      minHeight: DAY_HOUR_HEIGHT,
       position: 'relative',
       borderTopWidth: 1,
       borderTopColor: theme.borderLight,
-      paddingTop: spacing.sm,
-      paddingBottom: spacing.md,
+      paddingTop: 0,
+      paddingBottom: spacing.sm,
       gap: spacing.sm,
     },
     currentTimeLine: {
@@ -1298,6 +1513,9 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     },
     hourEmptyLine: {
       height: 24,
+    },
+    daySessionPlacement: {
+      width: '100%',
     },
     sessionCard: {
       borderRadius: borderRadius.lg,

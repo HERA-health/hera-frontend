@@ -62,7 +62,7 @@ const SessionsScreen: React.FC = () => {
     try {
       setLoading(true);
       const data = await sessionsService.getMySessions();
-      setSessions(data as ApiSession[]);
+      setSessions(data);
     } catch {
       showAppAlert(appAlert, 'Error', 'No se pudieron cargar tus sesiones');
     } finally {
@@ -92,7 +92,7 @@ const SessionsScreen: React.FC = () => {
     setRefreshing(true);
     try {
       const data = await sessionsService.getMySessions();
-      setSessions(data as ApiSession[]);
+      setSessions(data);
     } catch {
       showAppAlert(appAlert, 'Error', 'No se pudieron actualizar tus sesiones');
     } finally {
@@ -278,7 +278,7 @@ const SessionsScreen: React.FC = () => {
           visible={Boolean(reviewSession?.id)}
           sessionId={reviewSession?.id ?? ''}
           specialistName={reviewSession?.specialist.user.name ?? ''}
-          specialistAvatar={reviewSession?.specialist.user.avatar ?? reviewSession?.specialist.avatar}
+          specialistAvatar={reviewSession?.specialist.user.avatar ?? reviewSession?.specialist.avatar ?? undefined}
           onClose={() => setReviewSession(null)}
           onSuccess={handleReviewSuccess}
         />

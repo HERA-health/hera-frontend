@@ -116,11 +116,11 @@ export function NavItem({
         : sidebarTheme.badge.default);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isCollapsed ? styles.containerCollapsed : null]}>
       <AnimatedPressable
         onPress={handlePress}
         disabled={item.disabled}
-        hoverTranslateY={-2}
+        hoverLift={false}
         pressScale={0.985}
         style={item.disabled ? [styles.pressable, styles.disabled] : styles.pressable}
         accessibilityLabel={`Navegar a ${item.label}`}
@@ -129,28 +129,14 @@ export function NavItem({
           style={[
             styles.inner,
             {
-              shadowColor: sidebarTheme.shadow,
               backgroundColor: isActive
                 ? sidebarTheme.background.active
-                : sidebarTheme.background.secondary,
-              borderColor: isActive ? sidebarTheme.borderStrong : sidebarTheme.border,
+                : 'transparent',
+              borderColor: isActive ? sidebarTheme.borderStrong : 'transparent',
             },
             isCollapsed ? styles.innerCollapsed : null,
           ]}
         >
-          {isActive && !isCollapsed && (
-            <Animated.View
-              style={[
-                styles.activeGlow,
-                {
-                  backgroundColor: sidebarTheme.background.active,
-                  borderColor: sidebarTheme.borderStrong,
-                  borderWidth: 1,
-                },
-              ]}
-            />
-          )}
-
           {!isCollapsed && (
             <Animated.View
               style={[
@@ -169,7 +155,7 @@ export function NavItem({
               {
                 backgroundColor: isActive
                   ? sidebarTheme.background.hover
-                  : sidebarTheme.background.subtle,
+                  : 'transparent',
               },
               isCollapsed ? styles.iconShellCollapsed : null,
             ]}
@@ -195,20 +181,6 @@ export function NavItem({
               >
                 {item.label}
               </Text>
-              {isActive && (
-                <Text
-                  style={[
-                    styles.caption,
-                    {
-                      color: sidebarTheme.icon.active,
-                      fontFamily: theme.fontSans,
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  Pantalla actual
-                </Text>
-              )}
             </View>
           )}
 

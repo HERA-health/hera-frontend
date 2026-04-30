@@ -25,6 +25,8 @@ export interface ClinicalAccessStatus {
   pinUpdatedAt: string | null;
   acceptedDataProcessingAgreementAt: string | null;
   dataProcessingAgreementVersion: string | null;
+  currentDataProcessingAgreementVersion?: string;
+  requiresDataProcessingAgreementAcceptance?: boolean;
   session: ClinicalAccessSessionStatus;
 }
 
@@ -164,6 +166,26 @@ const buildClinicalHeaders = (clinicalAccessToken?: string) =>
 
 const mapPage = <T>(payload: { items: T[]; pageInfo: ClinicalPageInfo }) => payload;
 
+export const hasAcceptedCurrentDataProcessingAgreement = (
+  status: ClinicalAccessStatus
+): boolean => {
+  if (typeof status.requiresDataProcessingAgreementAcceptance === 'boolean') {
+    return Boolean(
+      status.acceptedDataProcessingAgreementAt
+        && !status.requiresDataProcessingAgreementAcceptance
+    );
+  }
+
+  if (status.currentDataProcessingAgreementVersion) {
+    return Boolean(
+      status.acceptedDataProcessingAgreementAt
+        && status.dataProcessingAgreementVersion === status.currentDataProcessingAgreementVersion
+    );
+  }
+
+  return Boolean(status.acceptedDataProcessingAgreementAt);
+};
+
 export const getClinicalAccessStatus = async (
   clinicalAccessToken?: string | null
 ): Promise<ClinicalAccessStatus> => {
@@ -177,9 +199,9 @@ export const getClinicalAccessStatus = async (
   }
 };
 
-export const acceptDataProcessingAgreement = async (version: string = 'v1'): Promise<void> => {
+export const acceptDataProcessingAgreement = async (version?: string): Promise<void> => {
   try {
-    await api.post('/clinical/access/dpa/accept', { version });
+    await api.post('/clinical/access/dpa/accept', version ? { version } : {});
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo aceptar el encargo de tratamiento'));
   }

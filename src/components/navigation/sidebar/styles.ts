@@ -1,5 +1,5 @@
-import { Platform, StyleSheet } from 'react-native';
-import { borderRadius, spacing } from '../../../constants/colors';
+import { StyleSheet } from 'react-native';
+import { spacing } from '../../../constants/colors';
 
 export const containerStyles = StyleSheet.create({
   sidebar: {
@@ -11,23 +11,23 @@ export const containerStyles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingHorizontal: 12,
+    paddingTop: 14,
+    paddingBottom: spacing.lg,
   },
   scrollContentCollapsed: {
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingTop: spacing.md,
+    paddingHorizontal: 6,
+    paddingTop: 12,
   },
 });
 
 export const logoStyles = StyleSheet.create({
   headerBlock: {
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    overflow: 'hidden',
+    paddingHorizontal: 2,
+    paddingTop: 2,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
   },
   headerRow: {
     flexDirection: 'row',
@@ -39,41 +39,31 @@ export const logoStyles = StyleSheet.create({
     gap: 8,
   },
   logoWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   brandCopy: {
     flex: 1,
-    marginLeft: spacing.sm,
+    marginLeft: 10,
   },
   eyebrow: {
     fontSize: 11,
-    letterSpacing: 1.1,
+    lineHeight: 14,
+    letterSpacing: 0,
     textTransform: 'uppercase',
   },
   brandName: {
-    fontSize: 20,
-    lineHeight: 24,
-    marginTop: 2,
-  },
-  tagline: {
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 2,
-  },
-  mobileHint: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
+    fontSize: 19,
+    lineHeight: 22,
   },
 });
 
 export const sectionStyles = StyleSheet.create({
   container: {
-    marginTop: spacing.lg,
+    marginTop: 14,
   },
   containerCollapsed: {
     alignItems: 'center',
@@ -83,90 +73,81 @@ export const sectionStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
-    marginBottom: spacing.sm,
+    paddingHorizontal: 8,
+    marginBottom: 6,
   },
   header: {
     fontSize: 11,
-    letterSpacing: 1,
+    lineHeight: 14,
+    letterSpacing: 0,
     textTransform: 'uppercase',
   },
   divider: {
     height: 1,
-    marginHorizontal: spacing.sm,
-    marginBottom: spacing.md,
+    marginHorizontal: 8,
+    marginBottom: 10,
   },
 });
 
 export const navItemStyles = StyleSheet.create({
   container: {
-    marginBottom: 8,
+    marginBottom: 4,
     width: '100%',
-    paddingHorizontal: 2,
+  },
+  containerCollapsed: {
+    alignItems: 'center',
   },
   pressable: {
-    borderRadius: borderRadius.lg,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   inner: {
-    minHeight: 56,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
     position: 'relative',
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 1,
+    borderRadius: 12,
   },
   innerCollapsed: {
-    width: 58,
-    minHeight: 58,
-    borderRadius: 18,
+    width: 48,
+    minHeight: 48,
+    borderRadius: 14,
     justifyContent: 'center',
     paddingHorizontal: 0,
     paddingVertical: 0,
   },
-  activeGlow: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: Platform.OS === 'web' ? 1 : 0.92,
-  },
   indicator: {
     position: 'absolute',
-    left: 10,
-    top: 12,
-    bottom: 12,
-    width: 4,
+    left: 5,
+    top: 10,
+    bottom: 10,
+    width: 3,
     borderRadius: 8,
   },
   iconShell: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.sm,
+    marginRight: 10,
   },
   iconShellCollapsed: {
     marginRight: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 14,
+    width: 34,
+    height: 34,
+    borderRadius: 12,
   },
   labelWrap: {
     flex: 1,
     minWidth: 0,
   },
   label: {
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  caption: {
-    fontSize: 12,
-    lineHeight: 16,
-    marginTop: 1,
+    fontSize: 14,
+    lineHeight: 18,
   },
   disabled: {
     opacity: 0.5,
@@ -175,29 +156,29 @@ export const navItemStyles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   badge: {
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 999,
   },
   badgeText: {
     fontSize: 10,
-    letterSpacing: 0.4,
+    letterSpacing: 0,
   },
 });
 
 export const userSectionStyles = StyleSheet.create({
   container: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
     paddingTop: spacing.sm,
   },
   panel: {
-    borderRadius: borderRadius.xl,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: spacing.md,
+    padding: 10,
   },
   panelCollapsed: {
-    width: 58,
+    width: 48,
     paddingHorizontal: 0,
     paddingVertical: 8,
     alignItems: 'center',
@@ -211,27 +192,27 @@ export const userSectionStyles = StyleSheet.create({
     alignItems: 'center',
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.sm,
+    marginRight: 10,
   },
   avatarImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
-    marginRight: spacing.sm,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    marginRight: 10,
   },
   avatarCollapsed: {
     marginRight: 0,
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+    width: 34,
+    height: 34,
+    borderRadius: 12,
   },
   avatarText: {
-    fontSize: 15,
+    fontSize: 14,
   },
   infoContainer: {
     flex: 1,
@@ -242,15 +223,15 @@ export const userSectionStyles = StyleSheet.create({
     lineHeight: 18,
   },
   userSubtitle: {
-    fontSize: 12,
-    lineHeight: 16,
-    marginTop: 2,
+    fontSize: 11,
+    lineHeight: 14,
+    marginTop: 1,
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: spacing.md,
+    marginTop: 10,
   },
   iconButton: {
     width: 38,

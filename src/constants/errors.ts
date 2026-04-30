@@ -169,7 +169,14 @@ export function getErrorMessage(error: unknown, defaultMessage = 'Ha ocurrido un
  */
 export function getErrorCode(error: unknown): string | undefined {
   if (hasResponseData(error)) {
-    return error.response.data?.code;
+    const { code, error: responseError } = error.response.data;
+    if (code) {
+      return code;
+    }
+
+    if (responseError && /^[A-Z0-9_]+$/.test(responseError)) {
+      return responseError;
+    }
   }
 
   if (typeof error === 'object' && error !== null && 'code' in error) {

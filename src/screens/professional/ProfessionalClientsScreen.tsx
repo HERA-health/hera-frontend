@@ -15,12 +15,15 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { z } from 'zod';
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import { AnimatedPressable, Button, Card } from '../../components/common';
+import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
 import { borderRadius, layout, shadows, spacing, typography } from '../../constants/colors';
 import type { RootStackParamList } from '../../constants/types';
 import type { Theme } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getErrorCode, getErrorMessage } from '../../constants/errors';
+import * as clinicalService from '../../services/clinicalService';
 import * as professionalService from '../../services/professionalService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ProfessionalClients'>;
@@ -115,6 +118,9 @@ const getConsentTone = (
     ? { backgroundColor: theme.success + '18', color: theme.success }
     : { backgroundColor: theme.warning + '18', color: theme.warning };
 
+const getSessionCountLabel = (count: number): string =>
+  count === 1 ? 'sesión' : 'sesiones';
+
 function SegmentedFilterGroup<T extends string>({
   label,
   options,
@@ -197,6 +203,7 @@ function MetricCard({
 
 export function ProfessionalClientsScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const stylesForTheme = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
@@ -212,6 +219,12 @@ export function ProfessionalClientsScreen() {
   const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleFilter>('ACTIVE');
   const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [sessionModalVisible, setSessionModalVisible] = useState(false);
+  const [sessionSaving, setSessionSaving] = useState(false);
+  const [selectedSessionClient, setSelectedSessionClient] = useState<professionalService.Client | null>(null);
+  const [hasAcceptedDpa, setHasAcceptedDpa] = useState<boolean | null>(null);
+  const [dpaStatusLoading, setDpaStatusLoading] = useState(true);
+  const [dpaSubmitting, setDpaSubmitting] = useState(false);
   const [form, setForm] = useState<ManagedClientForm>(emptyForm);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof ManagedClientForm, string>>>({});
 
@@ -231,9 +244,26 @@ export function ProfessionalClientsScreen() {
     }
   }, [lifecycleFilter, sourceFilter]);
 
+  const loadClinicalAccessStatus = useCallback(async () => {
+    try {
+      setDpaStatusLoading(true);
+      const status = await clinicalService.getClinicalAccessStatus();
+      setHasAcceptedDpa(clinicalService.hasAcceptedCurrentDataProcessingAgreement(status));
+    } catch (statusError: unknown) {
+      setHasAcceptedDpa(null);
+      setError(getErrorMessage(statusError, 'No se pudo comprobar el encargo de tratamiento'));
+    } finally {
+      setDpaStatusLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadClients();
   }, [loadClients]);
+
+  useEffect(() => {
+    void loadClinicalAccessStatus();
+  }, [loadClinicalAccessStatus]);
 
   const filteredClients = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -266,6 +296,44 @@ export function ProfessionalClientsScreen() {
     setFormErrors((current) => ({ ...current, [field]: undefined }));
   };
 
+  const handleAcceptDataProcessingAgreement = async () => {
+    try {
+      setDpaSubmitting(true);
+      setError(null);
+      await clinicalService.acceptDataProcessingAgreement();
+      setHasAcceptedDpa(true);
+      showAppAlert(
+        appAlert,
+        'Encargo aceptado',
+        'Ya puedes crear pacientes gestionados desde esta pantalla.'
+      );
+      await loadClinicalAccessStatus();
+    } catch (acceptError: unknown) {
+      setError(getErrorMessage(acceptError, 'No se pudo aceptar el encargo de tratamiento'));
+    } finally {
+      setDpaSubmitting(false);
+    }
+  };
+
+  const openManagedClientModal = () => {
+    if (dpaStatusLoading) {
+      setError('Estamos comprobando el estado del encargo de tratamiento. Inténtalo de nuevo en unos segundos.');
+      return;
+    }
+
+    if (hasAcceptedDpa !== true) {
+      setError(
+        hasAcceptedDpa === false
+          ? 'Acepta el encargo vigente desde la tarjeta de esta pantalla para poder crear pacientes gestionados.'
+          : 'No hemos podido confirmar el estado del encargo de tratamiento. Reintenta la comprobación antes de crear pacientes.'
+      );
+      return;
+    }
+
+    resetForm();
+    setModalVisible(true);
+  };
+
   const handleCreateManagedClient = async () => {
     try {
       setSaving(true);
@@ -296,7 +364,8 @@ export function ProfessionalClientsScreen() {
 
       const errorCode = getErrorCode(createError);
       if (errorCode === 'DATA_PROCESSING_AGREEMENT_REQUIRED') {
-        setError('Debes aceptar el encargo de tratamiento desde el Área clínica antes de crear pacientes gestionados.');
+        setHasAcceptedDpa(false);
+        setError('Acepta el encargo vigente desde la tarjeta de esta pantalla para poder crear pacientes gestionados.');
         setModalVisible(false);
         return;
       }
@@ -307,27 +376,63 @@ export function ProfessionalClientsScreen() {
     }
   };
 
+  const openSessionScheduler = (client: professionalService.Client) => {
+    if (client.source !== 'MANAGED' || client.archivedAt) {
+      return;
+    }
+
+    setSelectedSessionClient(client);
+    setSessionModalVisible(true);
+  };
+
+  const closeSessionScheduler = () => {
+    if (sessionSaving) return;
+    setSessionModalVisible(false);
+    setSelectedSessionClient(null);
+  };
+
+  const handleCreateManagedSession = async (
+    input: professionalService.CreateManagedClientSessionInput
+  ) => {
+    try {
+      setSessionSaving(true);
+      await professionalService.createManagedClientSession(input);
+      setSessionModalVisible(false);
+      setSelectedSessionClient(null);
+      showAppAlert(appAlert, 'Cita creada', 'La cita se ha programado correctamente.');
+      await loadClients();
+    } catch (createError: unknown) {
+      const message = getErrorMessage(createError, 'No se pudo crear la cita');
+      showAppAlert(appAlert, 'No se pudo crear la cita', message);
+    } finally {
+      setSessionSaving(false);
+    }
+  };
+
   const renderClientCard = (client: professionalService.Client) => {
     const consentTone = getConsentTone(client, theme);
+    const sessionCount = client.sessions?.length || 0;
     const nextSession = client.sessions
       ?.filter((session) => new Date(session.date).getTime() > Date.now())
       .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())[0];
+    const nextSessionValue = nextSession
+      ? formatDate(nextSession.date, { day: 'numeric', month: 'short' })
+      : 'Sin cita';
 
     return (
       <Card
         key={client.id}
         variant="default"
-        padding="large"
+        padding="medium"
         hoverLift
         style={stylesForTheme.clientCard}
-        onPress={() => navigation.navigate('ClientProfile', { clientId: client.id })}
       >
         <View style={stylesForTheme.clientHeader}>
           <View style={[stylesForTheme.avatar, { backgroundColor: theme.primary + '14' }]}>
             {client.user?.avatar ? (
               <Image
                 source={{ uri: client.user.avatar }}
-                style={{ width: '100%', height: '100%', borderRadius: 18 }}
+                style={stylesForTheme.avatarImage}
               />
             ) : (
               <Text style={[stylesForTheme.avatarText, { color: theme.primary }]}>
@@ -355,7 +460,7 @@ export function ProfessionalClientsScreen() {
                 >
                   {client.source === 'MANAGED' ? 'Gestionado' : 'Registrado'}
                 </Text>
-                </View>
+              </View>
               {client.archivedAt ? (
                 <View
                   style={[
@@ -381,21 +486,38 @@ export function ProfessionalClientsScreen() {
             <Text style={[stylesForTheme.clientMeta, { color: theme.textSecondary }]}>
               {client.primaryEmail || 'Sin email registrado'}
             </Text>
-          </View>
-        </View>
 
-        <View style={stylesForTheme.statRow}>
-          <View style={stylesForTheme.statBlock}>
-            <Text style={[stylesForTheme.statLabel, { color: theme.textMuted }]}>Sesiones</Text>
-            <Text style={[stylesForTheme.statValue, { color: theme.textPrimary }]}>
-              {client.sessions?.length || 0}
-            </Text>
-          </View>
-          <View style={stylesForTheme.statBlock}>
-            <Text style={[stylesForTheme.statLabel, { color: theme.textMuted }]}>Próxima</Text>
-            <Text style={[stylesForTheme.statValue, { color: theme.textPrimary }]}>
-              {nextSession ? formatDate(nextSession.date, { day: 'numeric', month: 'short' }) : 'Sin cita'}
-            </Text>
+            <View style={stylesForTheme.quickFactsRow}>
+              <View
+                style={[
+                  stylesForTheme.quickFactPill,
+                  { backgroundColor: theme.bgMuted, borderColor: theme.border },
+                ]}
+              >
+                <Ionicons name="albums-outline" size={13} color={theme.textMuted} />
+                <Text style={[stylesForTheme.quickFactText, { color: theme.textSecondary }]} numberOfLines={1}>
+                  <Text style={[stylesForTheme.quickFactValue, { color: theme.textPrimary }]}>
+                    {sessionCount}
+                  </Text>
+                  {` ${getSessionCountLabel(sessionCount)}`}
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  stylesForTheme.quickFactPill,
+                  { backgroundColor: theme.bgMuted, borderColor: theme.border },
+                ]}
+              >
+                <Ionicons name="calendar-outline" size={13} color={theme.textMuted} />
+                <Text style={[stylesForTheme.quickFactText, { color: theme.textSecondary }]} numberOfLines={1}>
+                  {nextSession ? 'Próx. ' : ''}
+                  <Text style={[stylesForTheme.quickFactValue, { color: theme.textPrimary }]}>
+                    {nextSessionValue}
+                  </Text>
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -404,6 +526,33 @@ export function ProfessionalClientsScreen() {
           <Text style={[stylesForTheme.infoText, { color: theme.textSecondary }]}>
             {client.primaryPhone || 'Sin teléfono'}
           </Text>
+        </View>
+
+        <View style={stylesForTheme.cardActions}>
+          <View style={stylesForTheme.cardActionItem}>
+            <Button
+              variant="outline"
+              size="small"
+              onPress={() => navigation.navigate('ClientProfile', { clientId: client.id })}
+              icon={<Ionicons name="person-circle-outline" size={16} color={theme.primary} />}
+              fullWidth
+            >
+              Ver ficha
+            </Button>
+          </View>
+          {client.source === 'MANAGED' && !client.archivedAt ? (
+            <View style={stylesForTheme.cardActionItem}>
+              <Button
+                variant="secondary"
+                size="small"
+                onPress={() => openSessionScheduler(client)}
+                icon={<Ionicons name="calendar-outline" size={16} color={theme.secondaryDark} />}
+                fullWidth
+              >
+                Crear cita
+              </Button>
+            </View>
+          ) : null}
         </View>
       </Card>
     );
@@ -440,23 +589,57 @@ export function ProfessionalClientsScreen() {
       >
         <View style={[stylesForTheme.hero, isMobile ? stylesForTheme.heroMobile : null]}>
           <View style={[stylesForTheme.heroTextBlock, isMobile ? stylesForTheme.heroMobileTextBlock : null]}>
-            <Text style={[stylesForTheme.eyebrow, { color: theme.primary }]}>CRM clínico</Text>
             <Text style={[stylesForTheme.title, { color: theme.textPrimary }]}>Mis pacientes</Text>
           </View>
 
           <Button
             variant="primary"
             size="large"
-            onPress={() => {
-              resetForm();
-              setModalVisible(true);
-            }}
+            onPress={openManagedClientModal}
             icon={<Ionicons name="add" size={18} color={theme.textOnPrimary} />}
             fullWidth={isMobile}
+            disabled={dpaStatusLoading || hasAcceptedDpa !== true}
           >
             Nuevo paciente
           </Button>
         </View>
+
+        {!dpaStatusLoading && hasAcceptedDpa !== true ? (
+          <Card variant="default" padding="large" style={stylesForTheme.dpaCard}>
+            <View style={stylesForTheme.dpaRow}>
+              <View style={[stylesForTheme.dpaIcon, { backgroundColor: theme.primaryAlpha12 }]}>
+                <Ionicons name="shield-checkmark-outline" size={20} color={theme.primary} />
+              </View>
+              <View style={stylesForTheme.dpaCopy}>
+                <Text style={[stylesForTheme.dpaTitle, { color: theme.textPrimary }]}>
+                  {hasAcceptedDpa === false
+                    ? 'Encargo de tratamiento pendiente'
+                    : 'No se pudo comprobar el encargo'}
+                </Text>
+                <Text style={[stylesForTheme.dpaText, { color: theme.textSecondary }]}>
+                  {hasAcceptedDpa === false
+                    ? 'Para crear pacientes gestionados, HERA debe registrar que aceptas el encargo de tratamiento vigente.'
+                    : 'Antes de crear pacientes gestionados necesitamos confirmar el estado del encargo de tratamiento.'}
+                </Text>
+              </View>
+              <View style={stylesForTheme.dpaAction}>
+                <Button
+                  variant="primary"
+                  size="medium"
+                  onPress={
+                    hasAcceptedDpa === false
+                      ? handleAcceptDataProcessingAgreement
+                      : loadClinicalAccessStatus
+                  }
+                  loading={hasAcceptedDpa === false ? dpaSubmitting : dpaStatusLoading}
+                  fullWidth={isMobile}
+                >
+                  {hasAcceptedDpa === false ? 'Aceptar encargo' : 'Reintentar comprobación'}
+                </Button>
+              </View>
+            </View>
+          </Card>
+        ) : null}
 
         <Card variant="default" padding="large" style={stylesForTheme.toolbarCard}>
           <View style={stylesForTheme.searchRow}>
@@ -725,6 +908,15 @@ export function ProfessionalClientsScreen() {
           </Card>
         </View>
       </Modal>
+
+      <ManagedSessionSchedulerModal
+        visible={sessionModalVisible}
+        clients={selectedSessionClient ? [selectedSessionClient] : []}
+        initialClientId={selectedSessionClient?.id}
+        saving={sessionSaving}
+        onClose={closeSessionScheduler}
+        onSubmit={handleCreateManagedSession}
+      />
     </>
   );
 }
@@ -791,6 +983,7 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     },
     content: {
       padding: spacing.lg,
+      paddingTop: spacing.md,
       gap: spacing.lg,
       paddingBottom: spacing.xxl,
       maxWidth: 1320,
@@ -816,43 +1009,49 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     heroTextBlock: {
       flex: 1,
       minWidth: 280,
-      gap: 8,
     },
     heroMobileTextBlock: {
       minWidth: 0,
-    },
-    eyebrow: {
-      ...textStyles.caption,
-      textTransform: 'uppercase',
-      letterSpacing: 1.2,
-      fontWeight: '700',
     },
     title: {
       ...textStyles.h1,
       fontWeight: '700',
     },
-    toolbarCard: {
-      gap: spacing.md,
+    dpaCard: {
+      borderColor: theme.primary + '30',
+      backgroundColor: isDark ? theme.bgCard : '#FBFDFB',
     },
-    compactStatsRow: {
+    dpaRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: spacing.sm,
+      gap: spacing.md,
+      alignItems: 'center',
     },
-    compactStat: {
-      borderRadius: borderRadius.lg,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-      minWidth: 110,
-      gap: 2,
+    dpaIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    compactStatLabel: {
-      ...textStyles.caption,
-      fontWeight: '700',
+    dpaCopy: {
+      flex: 1,
+      minWidth: 220,
+      gap: 4,
     },
-    compactStatValue: {
+    dpaTitle: {
       ...textStyles.body,
       fontWeight: '700',
+    },
+    dpaText: {
+      ...textStyles.bodySmall,
+      lineHeight: 22,
+    },
+    dpaAction: {
+      minWidth: 180,
+    },
+    toolbarCard: {
+      gap: spacing.md,
     },
     searchRow: {
       flexDirection: 'row',
@@ -934,19 +1133,19 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       alignSelf: 'stretch',
     },
     clientCard: {
-      gap: spacing.md,
+      gap: spacing.sm + 2,
       minWidth: 0,
       height: '100%',
     },
     clientHeader: {
       flexDirection: 'row',
-      gap: spacing.md,
+      gap: spacing.sm + 2,
       alignItems: 'flex-start',
     },
     avatar: {
-      width: 52,
-      height: 52,
-      borderRadius: 18,
+      width: 48,
+      height: 48,
+      borderRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
@@ -954,7 +1153,7 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     avatarImage: {
       width: '100%',
       height: '100%',
-      borderRadius: 18,
+      borderRadius: 16,
     },
     avatarText: {
       ...textStyles.body,
@@ -962,16 +1161,17 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     },
     clientHeaderInfo: {
       flex: 1,
-      gap: 6,
+      minWidth: 0,
+      gap: 5,
     },
     badgeRow: {
       flexDirection: 'row',
-      gap: spacing.xs,
+      gap: 6,
       flexWrap: 'wrap',
     },
     sourceBadge: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 6,
+      paddingHorizontal: 9,
+      paddingVertical: 5,
       borderRadius: 999,
     },
     sourceBadgeText: {
@@ -979,8 +1179,8 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       fontWeight: '700',
     },
     consentBadge: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 6,
+      paddingHorizontal: 9,
+      paddingVertical: 5,
       borderRadius: 999,
     },
     consentBadgeText: {
@@ -994,22 +1194,28 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     clientMeta: {
       ...textStyles.bodySmall,
     },
-    statRow: {
+    quickFactsRow: {
       flexDirection: 'row',
-      gap: spacing.sm,
+      flexWrap: 'wrap',
+      gap: 6,
+      marginTop: 2,
     },
-    statBlock: {
-      flex: 1,
-      borderRadius: borderRadius.lg,
-      padding: spacing.md,
-      backgroundColor: theme.bgMuted,
+    quickFactPill: {
+      minHeight: 28,
+      borderRadius: 999,
+      borderWidth: 1,
+      paddingHorizontal: 8,
+      paddingVertical: 5,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      maxWidth: '100%',
     },
-    statLabel: {
+    quickFactText: {
       ...textStyles.caption,
-      marginBottom: 4,
+      flexShrink: 1,
     },
-    statValue: {
-      ...textStyles.body,
+    quickFactValue: {
       fontWeight: '700',
     },
     infoRow: {
@@ -1020,6 +1226,16 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     infoText: {
       ...textStyles.bodySmall,
       flex: 1,
+    },
+    cardActions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+      marginTop: spacing.xs,
+    },
+    cardActionItem: {
+      flex: 1,
+      minWidth: 120,
     },
     modalBackdrop: {
       flex: 1,

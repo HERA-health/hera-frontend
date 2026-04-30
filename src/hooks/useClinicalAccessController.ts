@@ -138,7 +138,7 @@ export function useClinicalAccessController({
   );
 
   const acceptDataProcessingAgreement = useCallback(
-    async (version = 'v1') => {
+    async (version?: string) => {
       setAccessSubmitting(true);
       try {
         await clinicalService.acceptDataProcessingAgreement(version);
