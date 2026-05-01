@@ -248,10 +248,13 @@ export function ProfessionalClientsScreen() {
     try {
       setDpaStatusLoading(true);
       const status = await clinicalService.getClinicalAccessStatus();
-      setHasAcceptedDpa(clinicalService.hasAcceptedCurrentDataProcessingAgreement(status));
+      const accepted = clinicalService.hasAcceptedCurrentDataProcessingAgreement(status);
+      setHasAcceptedDpa(accepted);
+      return accepted;
     } catch (statusError: unknown) {
       setHasAcceptedDpa(null);
       setError(getErrorMessage(statusError, 'No se pudo comprobar el encargo de tratamiento'));
+      return null;
     } finally {
       setDpaStatusLoading(false);
     }
@@ -291,47 +294,113 @@ export function ProfessionalClientsScreen() {
     setFormErrors({});
   };
 
+  const openManagedClientForm = (options: { reset?: boolean } = {}) => {
+    if (options.reset !== false) {
+      resetForm();
+    }
+    setModalVisible(true);
+  };
+
   const updateFormField = <K extends keyof ManagedClientForm>(field: K, value: ManagedClientForm[K]) => {
     setForm((current) => ({ ...current, [field]: value }));
     setFormErrors((current) => ({ ...current, [field]: undefined }));
   };
 
-  const handleAcceptDataProcessingAgreement = async () => {
+  const handleAcceptDataProcessingAgreement = async (
+    options: { openFormAfterAccept?: boolean; resetFormBeforeOpen?: boolean } = {}
+  ) => {
     try {
       setDpaSubmitting(true);
       setError(null);
       await clinicalService.acceptDataProcessingAgreement();
       setHasAcceptedDpa(true);
+
+      if (options.openFormAfterAccept) {
+        openManagedClientForm({ reset: options.resetFormBeforeOpen });
+        return;
+      }
+
+      showAppAlert(appAlert, 'Encargo aceptado', 'Ya puedes crear pacientes gestionados desde esta pantalla.');
+    } catch (acceptError: unknown) {
       showAppAlert(
         appAlert,
-        'Encargo aceptado',
-        'Ya puedes crear pacientes gestionados desde esta pantalla.'
+        'No se pudo aceptar el encargo',
+        getErrorMessage(acceptError, 'No se pudo aceptar el encargo de tratamiento')
       );
-      await loadClinicalAccessStatus();
-    } catch (acceptError: unknown) {
-      setError(getErrorMessage(acceptError, 'No se pudo aceptar el encargo de tratamiento'));
     } finally {
       setDpaSubmitting(false);
     }
   };
 
+  const promptDataProcessingAgreement = async (
+    options: { openFormAfterAccept?: boolean; resetFormBeforeOpen?: boolean } = {}
+  ) => {
+    const action = await appAlert.choose<'accept' | 'cancel'>({
+      title: 'Encargo de tratamiento',
+      tone: 'info',
+      dismissible: true,
+      message:
+        'Antes de crear pacientes gestionados, HERA necesita registrar que aceptas el encargo de tratamiento vigente.\n\n' +
+        'Este acuerdo permite que HERA trate los datos que introduzcas siguiendo tus instrucciones como profesional, con medidas de seguridad y confidencialidad. No sustituye al consentimiento informado del paciente ni te obliga a crear una historia clínica; solo habilita el uso seguro de pacientes gestionados en HERA.',
+      actions: [
+        { label: 'Ahora no', value: 'cancel', role: 'cancel' },
+        { label: 'Aceptar y continuar', value: 'accept', role: 'confirm' },
+      ],
+    });
+
+    if (action === 'accept') {
+      await handleAcceptDataProcessingAgreement(options);
+    }
+  };
+
+  const promptDataProcessingStatusRetry = async () => {
+    const action = await appAlert.choose<'retry' | 'cancel'>({
+      title: 'Comprobación pendiente',
+      tone: 'warning',
+      dismissible: true,
+      message:
+        'Antes de crear pacientes gestionados tenemos que comprobar si ya aceptaste el encargo de tratamiento vigente. Si la conexión falló hace un momento, puedes reintentarlo ahora.',
+      actions: [
+        { label: 'Cancelar', value: 'cancel', role: 'cancel' },
+        { label: 'Reintentar', value: 'retry', role: 'confirm' },
+      ],
+    });
+
+    if (action !== 'retry') {
+      return;
+    }
+
+    const accepted = await loadClinicalAccessStatus();
+    if (accepted === true) {
+      openManagedClientForm();
+      return;
+    }
+
+    if (accepted === false) {
+      await promptDataProcessingAgreement({ openFormAfterAccept: true });
+    }
+  };
+
   const openManagedClientModal = () => {
     if (dpaStatusLoading) {
-      setError('Estamos comprobando el estado del encargo de tratamiento. Inténtalo de nuevo en unos segundos.');
+      void appAlert.info({
+        title: 'Comprobando encargo',
+        message: 'Estamos comprobando el estado del encargo de tratamiento. Inténtalo de nuevo en unos segundos.',
+      });
       return;
     }
 
-    if (hasAcceptedDpa !== true) {
-      setError(
-        hasAcceptedDpa === false
-          ? 'Acepta el encargo vigente desde la tarjeta de esta pantalla para poder crear pacientes gestionados.'
-          : 'No hemos podido confirmar el estado del encargo de tratamiento. Reintenta la comprobación antes de crear pacientes.'
-      );
+    if (hasAcceptedDpa === false) {
+      void promptDataProcessingAgreement({ openFormAfterAccept: true });
       return;
     }
 
-    resetForm();
-    setModalVisible(true);
+    if (hasAcceptedDpa === null) {
+      void promptDataProcessingStatusRetry();
+      return;
+    }
+
+    openManagedClientForm();
   };
 
   const handleCreateManagedClient = async () => {
@@ -365,8 +434,11 @@ export function ProfessionalClientsScreen() {
       const errorCode = getErrorCode(createError);
       if (errorCode === 'DATA_PROCESSING_AGREEMENT_REQUIRED') {
         setHasAcceptedDpa(false);
-        setError('Acepta el encargo vigente desde la tarjeta de esta pantalla para poder crear pacientes gestionados.');
         setModalVisible(false);
+        void promptDataProcessingAgreement({
+          openFormAfterAccept: true,
+          resetFormBeforeOpen: false,
+        });
         return;
       }
 
@@ -598,48 +670,12 @@ export function ProfessionalClientsScreen() {
             onPress={openManagedClientModal}
             icon={<Ionicons name="add" size={18} color={theme.textOnPrimary} />}
             fullWidth={isMobile}
-            disabled={dpaStatusLoading || hasAcceptedDpa !== true}
+            disabled={dpaSubmitting}
+            loading={dpaSubmitting}
           >
             Nuevo paciente
           </Button>
         </View>
-
-        {!dpaStatusLoading && hasAcceptedDpa !== true ? (
-          <Card variant="default" padding="large" style={stylesForTheme.dpaCard}>
-            <View style={stylesForTheme.dpaRow}>
-              <View style={[stylesForTheme.dpaIcon, { backgroundColor: theme.primaryAlpha12 }]}>
-                <Ionicons name="shield-checkmark-outline" size={20} color={theme.primary} />
-              </View>
-              <View style={stylesForTheme.dpaCopy}>
-                <Text style={[stylesForTheme.dpaTitle, { color: theme.textPrimary }]}>
-                  {hasAcceptedDpa === false
-                    ? 'Encargo de tratamiento pendiente'
-                    : 'No se pudo comprobar el encargo'}
-                </Text>
-                <Text style={[stylesForTheme.dpaText, { color: theme.textSecondary }]}>
-                  {hasAcceptedDpa === false
-                    ? 'Para crear pacientes gestionados, HERA debe registrar que aceptas el encargo de tratamiento vigente.'
-                    : 'Antes de crear pacientes gestionados necesitamos confirmar el estado del encargo de tratamiento.'}
-                </Text>
-              </View>
-              <View style={stylesForTheme.dpaAction}>
-                <Button
-                  variant="primary"
-                  size="medium"
-                  onPress={
-                    hasAcceptedDpa === false
-                      ? handleAcceptDataProcessingAgreement
-                      : loadClinicalAccessStatus
-                  }
-                  loading={hasAcceptedDpa === false ? dpaSubmitting : dpaStatusLoading}
-                  fullWidth={isMobile}
-                >
-                  {hasAcceptedDpa === false ? 'Aceptar encargo' : 'Reintentar comprobación'}
-                </Button>
-              </View>
-            </View>
-          </Card>
-        ) : null}
 
         <Card variant="default" padding="large" style={stylesForTheme.toolbarCard}>
           <View style={stylesForTheme.searchRow}>
@@ -1016,39 +1052,6 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     title: {
       ...textStyles.h1,
       fontWeight: '700',
-    },
-    dpaCard: {
-      borderColor: theme.primary + '30',
-      backgroundColor: isDark ? theme.bgCard : '#FBFDFB',
-    },
-    dpaRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.md,
-      alignItems: 'center',
-    },
-    dpaIcon: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    dpaCopy: {
-      flex: 1,
-      minWidth: 220,
-      gap: 4,
-    },
-    dpaTitle: {
-      ...textStyles.body,
-      fontWeight: '700',
-    },
-    dpaText: {
-      ...textStyles.bodySmall,
-      lineHeight: 22,
-    },
-    dpaAction: {
-      minWidth: 180,
     },
     toolbarCard: {
       gap: spacing.md,
