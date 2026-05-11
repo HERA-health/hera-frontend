@@ -76,6 +76,7 @@ const linking: LinkingOptions<RootStackParamList> = {
         },
       },
       Pricing: 'precios',
+      ProfessionalSubscription: 'especialista/suscripcion',
       Landing: '',
       Login: 'login',
       Register: 'register',

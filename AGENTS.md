@@ -7,6 +7,7 @@ The frontend must feel premium, calm, trustworthy and easy to evolve. We optimiz
 - **Screen as Container**: Screens orchestrate data loading, navigation and high-level state.
 - **UI in Components**: Reusable visual sections belong in `src/components/` or local feature subcomponents, not inline in giant screens.
 - **Services Own API Access**: Screens and components should call domain services in `src/services/`, not raw API clients directly.
+- **Minimal API Contracts**: Frontend services should request and render only the fields needed by the current screen or action. Do not depend on broad backend model shapes when a small DTO is enough.
 - **Single Responsibility**: Keep render logic, mapping logic and side effects separated whenever practical.
 - **Strict TypeScript**: No `any`, no `@ts-ignore`, no untyped navigation payloads.
 - **Encoding Standard**: All frontend source, config and documentation files must be saved as **UTF-8 without BOM**. Never save `ts`, `tsx`, `js`, `jsx`, `json`, `md`, `css`, `html` or similar text files as ANSI/Windows-1252 or after lossy editor conversions.
@@ -49,6 +50,7 @@ The frontend must feel premium, calm, trustworthy and easy to evolve. We optimiz
 ## 7. Safety & Privacy
 - **Sensitive Context**: Never expose unnecessary patient or specialist data in UI, logs or helper text.
 - **Minimal Data Rendering**: Render only the information required for the current screen or action.
+- **Backend Data Reality**: The local backend may point at the Supabase production database. Treat local UI flows that create, update or delete records as production-affecting unless the environment has been explicitly reconfigured.
 - **Respect Existing Navigation Context**: Do not break sidebars, back navigation or escape routes when modernizing screens.
 
 ## 8. Release Bar

@@ -22,6 +22,7 @@ import { AppNavigationProp } from '../../constants/types';
 import { AnimatedPressable, Button } from '../../components/common';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
+import { getErrorCode, getErrorMessage } from '../../constants/errors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
@@ -34,6 +35,7 @@ import {
   TariffsConfig,
   TariffItem,
 } from '../../services/billingService';
+import { getProfessionalSubscriptionStatus } from '../../services/professionalSubscriptionService';
 import * as analyticsService from '../../services/analyticsService';
 
 // ============================================================================
@@ -149,6 +151,8 @@ const SEARCH_DEBOUNCE_MS = 300;
 const DEFAULT_INVOICE_ACCENT_COLOR = '#8B9D83';
 const INVOICE_ACCENT_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
 const INVOICE_ACCENT_OPTIONS = ['#8B9D83', '#4F7C8A', '#8A6F4F', '#7B6EA8', '#A56565'];
+const BILLING_SUBSCRIPTION_REQUIRED_MESSAGE =
+  'Activa un plan HERA o empieza los 14 días gratis para crear, editar o enviar facturas.';
 
 type FilterTab = 'all' | InvoiceStatus;
 
@@ -178,6 +182,11 @@ const normalizeInvoicePrefixInput = (value: string): string =>
 
 const normalizeInvoiceAccentInput = (value: string): string =>
   value.trim().toUpperCase();
+
+const isProfessionalSubscriptionRequiredError = (error: unknown): boolean => {
+  const code = getErrorCode(error);
+  return Boolean(code?.startsWith('PROFESSIONAL_SUBSCRIPTION_REQUIRED'));
+};
 
 // ============================================================================
 // SUB-COMPONENTS
@@ -235,6 +244,7 @@ export function BillingScreen() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [billingSubscriptionRequired, setBillingSubscriptionRequired] = useState<string | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -283,6 +293,29 @@ export function BillingScreen() {
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [savingConfig, setSavingConfig] = useState(false);
 
+  const handleBillingSubscriptionRequiredAction = useCallback(() => {
+    showAppAlert(
+      appAlert,
+      'Prueba HERA 14 días gratis',
+      billingSubscriptionRequired || BILLING_SUBSCRIPTION_REQUIRED_MESSAGE,
+      [
+        { text: 'Ahora no', style: 'cancel' },
+        {
+          text: 'Ver planes',
+          onPress: () => navigation.navigate('ProfessionalSubscription'),
+        },
+      ]
+    );
+  }, [appAlert, billingSubscriptionRequired, navigation]);
+
+  const ensureBillingActionAllowed = useCallback(() => {
+    if (!billingSubscriptionRequired) {
+      return true;
+    }
+
+    handleBillingSubscriptionRequiredAction();
+    return false;
+  }, [billingSubscriptionRequired, handleBillingSubscriptionRequiredAction]);
 
   // ── Load invoices (paginated) ────────────────────────────────
   const loadInvoices = useCallback(async (page: number, filter: FilterTab, clientName: string) => {
@@ -303,8 +336,20 @@ export function BillingScreen() {
       setTotalPages(result.totalPages);
       setTotalInvoices(result.total);
       setCurrentPage(result.page);
+      return false;
     } catch (error) {
+      if (isProfessionalSubscriptionRequiredError(error)) {
+        setBillingSubscriptionRequired(
+          getErrorMessage(error, BILLING_SUBSCRIPTION_REQUIRED_MESSAGE)
+        );
+        setInvoices([]);
+        setTotalPages(1);
+        setTotalInvoices(0);
+        return true;
+      }
+
       showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al cargar facturas');
+      return false;
     } finally {
       setInvoicesLoading(false);
     }
@@ -314,12 +359,26 @@ export function BillingScreen() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [summaryData] = await Promise.all([
+      const [subscriptionStatus, summaryData, invoicesSubscriptionRequired] = await Promise.all([
+        getProfessionalSubscriptionStatus().catch(() => null),
         billingService.getSummary(),
         loadInvoices(1, 'all', ''),
       ]);
       setSummary(summaryData);
+      if (invoicesSubscriptionRequired) {
+        setBillingSubscriptionRequired(BILLING_SUBSCRIPTION_REQUIRED_MESSAGE);
+      } else if (subscriptionStatus) {
+        setBillingSubscriptionRequired(subscriptionStatus.canUseBilling ? null : BILLING_SUBSCRIPTION_REQUIRED_MESSAGE);
+      }
     } catch (error) {
+      if (isProfessionalSubscriptionRequiredError(error)) {
+        setBillingSubscriptionRequired(
+          getErrorMessage(error, BILLING_SUBSCRIPTION_REQUIRED_MESSAGE)
+        );
+        setSummary(null);
+        return;
+      }
+
       showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al cargar datos');
     } finally {
       setLoading(false);
@@ -437,6 +496,10 @@ export function BillingScreen() {
 
   // ── Actions ──────────────────────────────────────────────────
   const handleSendInvoice = async (invoiceId: string) => {
+    if (!ensureBillingActionAllowed()) {
+      return;
+    }
+
     const invoice = invoices.find((inv) => inv.id === invoiceId);
     const clientName = invoice?.client?.user?.name || 'el cliente';
     const invoiceNumber = invoice?.invoiceNumber || '';
@@ -476,6 +539,10 @@ export function BillingScreen() {
 
   const handleResendInvoice = async (invoice: Invoice) => {
     setOpenMenuId(null);
+    if (!ensureBillingActionAllowed()) {
+      return;
+    }
+
     const clientName = invoice.client?.user?.name || 'el cliente';
     const confirmMsg = STRINGS.resendConfirmMsg
       .replace('{number}', invoice.invoiceNumber)
@@ -508,6 +575,9 @@ export function BillingScreen() {
 
   const handleMarkAsPaid = async (invoice: Invoice) => {
     setOpenMenuId(null);
+    if (!ensureBillingActionAllowed()) {
+      return;
+    }
 
     const executeMark = async () => {
       try {
@@ -536,6 +606,10 @@ export function BillingScreen() {
 
   const handleCancelInvoice = async (invoice: Invoice) => {
     setOpenMenuId(null);
+    if (!ensureBillingActionAllowed()) {
+      return;
+    }
+
     const msg1 = STRINGS.cancelConfirmMsgSafe.replace('{number}', invoice.invoiceNumber);
     const msg2 = STRINGS.cancelConfirm2MsgSafe.replace('{number}', invoice.invoiceNumber);
 
@@ -570,6 +644,10 @@ export function BillingScreen() {
   };
 
   const handleSaveTariffs = async () => {
+    if (!ensureBillingActionAllowed()) {
+      return;
+    }
+
     const defaults = tempTariffItems.filter((t) => t.isDefault);
     if (defaults.length !== 1) {
       showAppAlert(appAlert, 'Error', 'Debe haber exactamente una tarifa por defecto');
@@ -595,6 +673,10 @@ export function BillingScreen() {
   };
 
   const handleSaveFiscal = async () => {
+    if (!ensureBillingActionAllowed()) {
+      return;
+    }
+
     try {
       setSavingConfig(true);
       await billingService.updateBillingConfig(tempFiscal);
@@ -609,6 +691,10 @@ export function BillingScreen() {
   };
 
   const handlePickInvoiceLogo = async () => {
+    if (!ensureBillingActionAllowed()) {
+      return;
+    }
+
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
@@ -648,6 +734,10 @@ export function BillingScreen() {
   };
 
   const handleSaveInvoiceDesign = async () => {
+    if (!ensureBillingActionAllowed()) {
+      return;
+    }
+
     const normalizedColor = normalizeInvoiceAccentInput(tempInvoiceAccentColor);
     if (!INVOICE_ACCENT_COLOR_REGEX.test(normalizedColor)) {
       showAppAlert(appAlert, 'Color no válido', 'Introduce un color HEX de 6 dígitos, por ejemplo #8B9D83.');
@@ -671,6 +761,10 @@ export function BillingScreen() {
   };
 
   const handleSaveNumbering = async () => {
+    if (!ensureBillingActionAllowed()) {
+      return;
+    }
+
     try {
       setSavingConfig(true);
       setNumberingError(null);
@@ -698,6 +792,10 @@ export function BillingScreen() {
   };
 
   const handleToggleAutomation = async (field: keyof BillingConfig, value: boolean) => {
+    if (!ensureBillingActionAllowed()) {
+      return;
+    }
+
     const prev = billingConfig[field];
     setBillingConfig((c) => ({ ...c, [field]: value }));
     try {
@@ -710,6 +808,10 @@ export function BillingScreen() {
   };
 
   const handleToggleEmailCopy = async (enabled: boolean) => {
+    if (!ensureBillingActionAllowed()) {
+      return;
+    }
+
     const email = enabled ? (user?.email || null) : null;
     const prev = billingConfig.sendInvoiceCopyTo;
     setBillingConfig((c) => ({ ...c, sendInvoiceCopyTo: email }));
@@ -749,6 +851,39 @@ export function BillingScreen() {
     );
   };
 
+  const renderBillingSubscriptionBanner = () => {
+    if (!billingSubscriptionRequired) {
+      return null;
+    }
+
+    return (
+      <View style={styles.billingLockedCard}>
+        <View style={styles.billingLockedIcon}>
+          <Ionicons name="receipt-outline" size={24} color={theme.primary} />
+        </View>
+        <View style={styles.billingLockedCopy}>
+          <Text style={styles.billingLockedEyebrow}>Modo lectura</Text>
+          <Text style={styles.billingLockedTitle}>Prueba la facturación 14 días gratis</Text>
+          <Text style={styles.billingLockedText}>
+            Puedes consultar y descargar facturas existentes. Para crear, editar o enviar facturas,
+            empieza el trial o activa una suscripción.
+          </Text>
+        </View>
+        <View style={styles.billingLockedActions}>
+          <Button
+            variant="primary"
+            size="medium"
+            onPress={() => navigation.navigate('ProfessionalSubscription')}
+            icon={<Ionicons name="sparkles-outline" size={18} color={theme.textOnPrimary} />}
+            fullWidth={isMobile}
+          >
+            Empezar 14 días gratis
+          </Button>
+        </View>
+      </View>
+    );
+  };
+
   const renderFilterChips = () => {
     const filters: Array<{ key: FilterTab; label: string }> = [
       { key: 'all', label: STRINGS.all },
@@ -778,6 +913,10 @@ export function BillingScreen() {
 
   const handleInvoiceRowPress = (invoice: Invoice) => {
     if (invoice.status === 'DRAFT') {
+      if (!ensureBillingActionAllowed()) {
+        return;
+      }
+
       navigation.navigate('CreateInvoice', { invoiceId: invoice.id });
     } else {
       handleDownload(invoice.id, invoice.invoiceNumber);
@@ -786,6 +925,10 @@ export function BillingScreen() {
 
   const getMenuOptions = (invoice: Invoice): Array<{ label: string; onPress: () => void; danger?: boolean }> => {
     const options: Array<{ label: string; onPress: () => void; danger?: boolean }> = [];
+    if (billingSubscriptionRequired) {
+      return options;
+    }
+
     if (invoice.status === 'SENT' || (invoice.status === 'DRAFT' && invoice.sentAt)) {
       options.push({ label: STRINGS.resend, onPress: () => handleResendInvoice(invoice) });
     }
@@ -999,6 +1142,10 @@ export function BillingScreen() {
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{STRINGS.tariffs}</Text>
         <TouchableOpacity onPress={() => {
+          if (!ensureBillingActionAllowed()) {
+            return;
+          }
+
           setTempTariffItems(tariffItems);
           setTempFirstVisitFree(firstVisitFree);
           setEditingTariffs(!editingTariffs);
@@ -1184,7 +1331,14 @@ export function BillingScreen() {
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{STRINGS.fiscalData}</Text>
-        <TouchableOpacity onPress={() => { setTempFiscal(billingConfig); setEditingFiscal(!editingFiscal); }}>
+        <TouchableOpacity onPress={() => {
+          if (!ensureBillingActionAllowed()) {
+            return;
+          }
+
+          setTempFiscal(billingConfig);
+          setEditingFiscal(!editingFiscal);
+        }}>
           <Text style={styles.editBtn}>{editingFiscal ? STRINGS.cancel : STRINGS.edit}</Text>
         </TouchableOpacity>
       </View>
@@ -1249,6 +1403,10 @@ export function BillingScreen() {
           <Text style={styles.cardTitle}>{STRINGS.numbering}</Text>
           <TouchableOpacity
             onPress={() => {
+              if (!ensureBillingActionAllowed()) {
+                return;
+              }
+
               setTempNumbering({
                 simplifiedInvoicePrefix: simplifiedPrefix,
                 simplifiedInvoiceNextNumber: simplifiedNext,
@@ -1390,11 +1548,23 @@ export function BillingScreen() {
             <Button
               variant="primary"
               size="large"
-              onPress={() => navigation.navigate('CreateInvoice', {})}
-              icon={<Ionicons name="add" size={18} color={theme.textOnPrimary} />}
+              onPress={() => {
+                if (!ensureBillingActionAllowed()) {
+                  return;
+                }
+
+                navigation.navigate('CreateInvoice', {});
+              }}
+              icon={
+                <Ionicons
+                  name={billingSubscriptionRequired ? 'sparkles-outline' : 'add'}
+                  size={18}
+                  color={theme.textOnPrimary}
+                />
+              }
               fullWidth
             >
-              Nueva factura
+              {billingSubscriptionRequired ? 'Activar facturación' : 'Nueva factura'}
             </Button>
           </View>
         </View>
@@ -1408,6 +1578,8 @@ export function BillingScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {renderBillingSubscriptionBanner()}
+
         {/* Stats */}
         {renderStats()}
 
@@ -1827,6 +1999,62 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean, isMobil
     fontFamily: theme.fontSans,
     textAlign: 'center',
     maxWidth: 300,
+  },
+  billingLockedCard: {
+    backgroundColor: theme.bgCard,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: theme.border,
+    padding: isMobile ? spacing.xl : spacing.xxl,
+    maxWidth: 720,
+    alignSelf: 'center',
+    width: '100%',
+    alignItems: 'center',
+    gap: spacing.md,
+    ...shadows.sm,
+  },
+  billingLockedIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: borderRadius.full,
+    backgroundColor: isDark ? theme.surfaceMuted : theme.primaryMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  billingLockedCopy: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    width: '100%',
+  },
+  billingLockedEyebrow: {
+    fontSize: typography.fontSizes.xs,
+    color: theme.textMuted,
+    fontFamily: theme.fontSansSemiBold,
+    textTransform: 'uppercase',
+  },
+  billingLockedTitle: {
+    fontSize: isMobile ? typography.fontSizes.xl : typography.fontSizes.xxl,
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansBold,
+    textAlign: 'center',
+  },
+  billingLockedText: {
+    fontSize: typography.fontSizes.md,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSans,
+    textAlign: 'center',
+    lineHeight: 24,
+    maxWidth: 560,
+  },
+  billingLockedActions: {
+    flexDirection: isMobile ? 'column' : 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    width: isMobile ? '100%' as unknown as number : undefined,
+    marginTop: spacing.sm,
   },
 
   // Edit form

@@ -1,5 +1,5 @@
 import { api } from './api';
-import { getErrorMessage } from '../constants/errors';
+import { getErrorCode, getErrorMessage } from '../constants/errors';
 import type { Specialist } from '../constants/types';
 import type { ProfessionalType } from '../constants/professionalTypes';
 import { Platform } from 'react-native';
@@ -130,6 +130,15 @@ export interface Client {
 
 const normalizeClient = (client: Client): Client => client;
 
+const buildServiceError = (error: unknown, fallback: string): Error & { code?: string } => {
+  const nextError = new Error(getErrorMessage(error, fallback)) as Error & { code?: string };
+  const code = getErrorCode(error);
+  if (code) {
+    nextError.code = code;
+  }
+  return nextError;
+};
+
 export interface CreateManagedClientInput {
   firstName: string;
   lastName: string;
@@ -214,8 +223,12 @@ export const getProfessionalClientDetail = async (clientId: string): Promise<Cli
 };
 
 export const createManagedClient = async (data: CreateManagedClientInput): Promise<Client> => {
-  const response = await api.post('/clients/managed', data);
-  return normalizeClient(response.data.data);
+  try {
+    const response = await api.post('/clients/managed', data);
+    return normalizeClient(response.data.data);
+  } catch (error: unknown) {
+    throw buildServiceError(error, 'No se pudo crear el paciente gestionado');
+  }
 };
 
 export const createManagedClientSession = async (
@@ -225,7 +238,7 @@ export const createManagedClientSession = async (
     const response = await api.post('/sessions/professional/managed', data);
     return response.data.data;
   } catch (error: unknown) {
-    throw new Error(getErrorMessage(error, 'No se pudo crear la cita'));
+    throw buildServiceError(error, 'No se pudo crear la cita');
   }
 };
 
@@ -237,7 +250,7 @@ export const updateManagedClient = async (
     const response = await api.patch(`/clients/${clientId}/managed`, data);
     return normalizeClient(response.data.data);
   } catch (error: unknown) {
-    throw new Error(getErrorMessage(error, 'No se pudo actualizar el paciente'));
+    throw buildServiceError(error, 'No se pudo actualizar el paciente');
   }
 };
 

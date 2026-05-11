@@ -20,6 +20,7 @@ import {
 } from '../../constants/colors';
 import { Theme } from '../../constants/theme';
 import { AppNavigationProp, ProfessionalSession, SessionViewMode } from '../../constants/types';
+import { getErrorCode, getErrorMessage } from '../../constants/errors';
 import { AnimatedPressable, Button, Card } from '../../components/common';
 import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -216,6 +217,24 @@ export function ProfessionalSessionsScreen() {
         showAppAlert(appAlert, 'Cita creada', 'La cita se ha programado correctamente.');
         await loadSessions();
       } catch (error) {
+        const errorCode = getErrorCode(error);
+        if (errorCode?.startsWith('PROFESSIONAL_SUBSCRIPTION_REQUIRED')) {
+          setSchedulerVisible(false);
+          showAppAlert(
+            appAlert,
+            'Prueba HERA 14 días gratis',
+            getErrorMessage(error, 'Activa un plan HERA para crear nuevas citas.'),
+            [
+              { text: 'Ahora no', style: 'cancel' },
+              {
+                text: 'Ver planes',
+                onPress: () => navigation.navigate('ProfessionalSubscription'),
+              },
+            ]
+          );
+          return;
+        }
+
         const message = error instanceof Error ? error.message : 'No se pudo crear la cita';
         showAppAlert(appAlert, 'No se pudo crear la cita', message);
       } finally {

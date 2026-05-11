@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   createNativeStackNavigator,
@@ -12,7 +12,14 @@ import { LegalDocumentScreen } from '../screens/legal/LegalDocumentScreen';
 import { RequiredLegalAcceptanceScreen } from '../screens/legal/RequiredLegalAcceptanceScreen';
 import { getLegalStatus, type LegalAcceptanceStatus } from '../services/legalService';
 import { Button } from '../components/common/Button';
+import { showAppAlert, useAppAlert } from '../components/common/alert';
 import { useTheme } from '../contexts/ThemeContext';
+import {
+  clearPendingProfessionalPlan,
+  createProfessionalCheckoutSession,
+  getPendingProfessionalPlan,
+  redirectToStripeUrl,
+} from '../services/professionalSubscriptionService';
 import {
   createDeferredComponent,
   type DeferredComponentModule,
@@ -162,6 +169,13 @@ const ProfessionalDashboardRoute = createDeferredLayoutRoute<'ProfessionalDashbo
   () => require('../screens/professional/DashboardScreen'),
   { displayName: 'ProfessionalDashboardRoute', exportName: 'DashboardScreen' }
 );
+const ProfessionalSubscriptionRoute = createDeferredLayoutRoute<'ProfessionalSubscription'>(
+  () => require('../screens/professional/ProfessionalSubscriptionScreen'),
+  {
+    displayName: 'ProfessionalSubscriptionRoute',
+    exportName: 'ProfessionalSubscriptionScreen',
+  }
+);
 const ProfessionalClientsRoute = createDeferredLayoutRoute<'ProfessionalClients'>(
   () => require('../screens/professional/ProfessionalClientsScreen'),
   { displayName: 'ProfessionalClientsRoute', exportName: 'ProfessionalClientsScreen' }
@@ -269,9 +283,11 @@ function LegalStatusUnavailableScreen({
 
 export function RootNavigator() {
   const { isAuthenticated, isInitialized, user, verificationSubmitted } = useAuth();
+  const appAlert = useAppAlert();
   const [legalStatus, setLegalStatus] = useState<LegalAcceptanceStatus | null>(null);
   const [legalLoading, setLegalLoading] = useState(false);
   const [legalStatusError, setLegalStatusError] = useState(false);
+  const pendingCheckoutRunningRef = useRef(false);
 
   const refreshLegalStatus = useCallback(async () => {
     if (!isAuthenticated) {
@@ -299,6 +315,63 @@ export function RootNavigator() {
 
     void refreshLegalStatus();
   }, [isInitialized, refreshLegalStatus, user?.id]);
+
+  useEffect(() => {
+    if (
+      !isInitialized ||
+      !isAuthenticated ||
+      user?.type !== 'professional' ||
+      verificationSubmitted !== true ||
+      !legalStatus ||
+      legalStatus.requiresAcceptance ||
+      legalStatusError ||
+      pendingCheckoutRunningRef.current
+    ) {
+      return;
+    }
+
+    let mounted = true;
+    pendingCheckoutRunningRef.current = true;
+
+    const resumePendingCheckout = async () => {
+      const pendingPlan = await getPendingProfessionalPlan();
+      if (!pendingPlan) {
+        return;
+      }
+
+      try {
+        const session = await createProfessionalCheckoutSession(pendingPlan);
+        await clearPendingProfessionalPlan();
+        await redirectToStripeUrl(session.url);
+      } catch (error: unknown) {
+        await clearPendingProfessionalPlan();
+        if (!mounted) {
+          return;
+        }
+
+        const message = error instanceof Error
+          ? error.message
+          : 'No hemos podido retomar el checkout. Vuelve a elegir tu plan cuando quieras.';
+        showAppAlert(appAlert, 'Checkout no disponible', message);
+      }
+    };
+
+    void resumePendingCheckout().finally(() => {
+      pendingCheckoutRunningRef.current = false;
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, [
+    appAlert,
+    isAuthenticated,
+    isInitialized,
+    legalStatus,
+    legalStatusError,
+    user?.type,
+    verificationSubmitted,
+  ]);
 
   if (!isInitialized) {
     return <LoadingScreen />;
@@ -446,6 +519,11 @@ export function RootNavigator() {
           options={{ headerTitle: 'Dashboard' }}
         />
         <Stack.Screen
+          name="ProfessionalSubscription"
+          component={ProfessionalSubscriptionRoute}
+          options={{ headerTitle: 'Suscripción' }}
+        />
+        <Stack.Screen
           name="ProfessionalClients"
           component={ProfessionalClientsRoute}
           options={{ headerTitle: 'Mis Clientes' }}
@@ -539,6 +617,11 @@ export function RootNavigator() {
         <Stack.Screen
           name="LegalDocument"
           component={LegalDocumentScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Pricing"
+          component={PricingRoute}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

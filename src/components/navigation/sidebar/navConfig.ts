@@ -106,6 +106,14 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         roles: ['PROFESSIONAL'],
       },
       {
+        id: 'subscription',
+        label: 'Suscripción',
+        icon: 'card-outline',
+        iconActive: 'card',
+        route: 'ProfessionalSubscription',
+        roles: ['PROFESSIONAL'],
+      },
+      {
         id: 'dashboard',
         label: 'Dashboard',
         icon: 'grid-outline',

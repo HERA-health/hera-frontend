@@ -135,6 +135,10 @@ export type RootStackParamList = {
   QuestionnaireResults: { results: any[] };
   ProfessionalHome: undefined;
   ProfessionalDashboard: undefined;
+  ProfessionalSubscription: {
+    checkout?: 'success' | 'cancelled';
+    session_id?: string;
+  } | undefined;
   ProfessionalClients: undefined;
   ProfessionalSessions: undefined;
   ProfessionalProfile: undefined;

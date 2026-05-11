@@ -32,6 +32,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as analyticsService from '../../services/analyticsService';
 import * as professionalService from '../../services/professionalService';
+import {
+  getProfessionalSubscriptionStatus,
+  type ProfessionalSubscriptionStatusDto,
+} from '../../services/professionalSubscriptionService';
 import { formatTime, getDateLabel } from '../sessions/utils/sessionHelpers';
 
 type CalendarView = 'month' | 'week';
@@ -203,6 +207,8 @@ export function ProfessionalHomeScreen() {
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<professionalService.Session[]>([]);
   const [profile, setProfile] = useState<professionalService.ProfessionalProfile | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] =
+    useState<ProfessionalSubscriptionStatusDto | null>(null);
   const [processingSessionId, setProcessingSessionId] = useState<string | null>(null);
 
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -222,12 +228,14 @@ export function ProfessionalHomeScreen() {
 
   const loadData = useCallback(async () => {
     try {
-      const [sessionsData, profileData] = await Promise.all([
+      const [sessionsData, profileData, nextSubscriptionStatus] = await Promise.all([
         professionalService.getProfessionalSessions(),
         professionalService.getProfessionalProfile(),
+        getProfessionalSubscriptionStatus().catch(() => null),
       ]);
       setSessions(sessionsData);
       setProfile(profileData);
+      setSubscriptionStatus(nextSubscriptionStatus);
     } catch (error) {
       console.error('Error loading professional home data:', error);
     } finally {
@@ -475,6 +483,36 @@ export function ProfessionalHomeScreen() {
       </View>
     </Animated.View>
   );
+
+  const renderSubscriptionInvite = () => {
+    if (!subscriptionStatus || subscriptionStatus.subscriptionAccessAllowed) {
+      return null;
+    }
+
+    return (
+      <View style={styles.subscriptionBanner}>
+        <View style={styles.subscriptionBannerIcon}>
+          <Ionicons name="sparkles-outline" size={18} color={theme.primary} />
+        </View>
+        <View style={styles.subscriptionBannerCopy}>
+          <Text style={styles.subscriptionBannerTitle}>Prueba HERA 14 días gratis</Text>
+          <Text style={styles.subscriptionBannerText}>
+            Activa tu plan para publicar el perfil, recibir reservas y crear nuevos pacientes.
+          </Text>
+        </View>
+        <View style={styles.subscriptionBannerAction}>
+          <Button
+            variant="primary"
+            size="small"
+            onPress={() => navigation.navigate('Pricing')}
+            fullWidth={isMobile}
+          >
+            Ver planes
+          </Button>
+        </View>
+      </View>
+    );
+  };
 
   const renderMonthView = () => (
     <View style={styles.calendarGrid}>
@@ -783,6 +821,7 @@ export function ProfessionalHomeScreen() {
     <View style={styles.container}>
       <VerificationBanner />
       {renderTopBar()}
+      {renderSubscriptionInvite()}
 
       {isDesktop ? (
         <View style={styles.bodyRow}>
@@ -870,6 +909,51 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       flexWrap: 'wrap',
       gap: spacing.sm,
       width: isMobile ? '100%' as unknown as number : undefined,
+    },
+    subscriptionBanner: {
+      marginHorizontal: isMobile ? spacing.md : spacing.lg,
+      marginTop: spacing.md,
+      padding: spacing.md,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1,
+      borderColor: isDark ? theme.secondaryMuted : theme.secondary,
+      backgroundColor: isDark ? theme.secondaryAlpha12 : theme.bgCard,
+      flexDirection: isMobile ? 'column' : 'row',
+      alignItems: isMobile ? 'stretch' : 'center',
+      gap: spacing.md,
+      shadowColor: theme.shadowCard,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 1,
+      shadowRadius: 14,
+      elevation: 2,
+    },
+    subscriptionBannerIcon: {
+      width: 38,
+      height: 38,
+      borderRadius: borderRadius.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.primaryAlpha12,
+    },
+    subscriptionBannerCopy: {
+      flex: 1,
+      gap: 3,
+      minWidth: 0,
+    },
+    subscriptionBannerTitle: {
+      fontSize: typography.fontSizes.md,
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansBold,
+    },
+    subscriptionBannerText: {
+      fontSize: typography.fontSizes.sm,
+      lineHeight: 21,
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+    },
+    subscriptionBannerAction: {
+      minWidth: isMobile ? undefined : 132,
+      alignSelf: isMobile ? 'stretch' : 'center',
     },
     navArrows: {
       flexDirection: 'row',

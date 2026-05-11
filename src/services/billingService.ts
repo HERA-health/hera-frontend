@@ -1,5 +1,5 @@
 import { api } from './api';
-import { getErrorMessage } from '../constants/errors';
+import { getErrorCode, getErrorMessage } from '../constants/errors';
 import { Platform, Linking } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { buildImageFormData, type UploadAsset } from '../utils/multipartUpload';
@@ -203,6 +203,15 @@ export interface SpecialistBillingData {
 // API CALLS
 // ============================================================================
 
+const buildBillingServiceError = (error: unknown, fallbackMessage: string): Error & { code?: string } => {
+  const nextError = new Error(getErrorMessage(error, fallbackMessage)) as Error & { code?: string };
+  const code = getErrorCode(error);
+  if (code) {
+    nextError.code = code;
+  }
+  return nextError;
+};
+
 export interface FullBillingConfig {
   id: string;
   pricePerSession: number;
@@ -236,7 +245,7 @@ export const billingService = {
       const response = await api.get('/billing/config');
       return response.data.data;
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudo cargar la configuraci\u00F3n'));
+      throw buildBillingServiceError(error, 'No se pudo cargar la configuraci\u00F3n');
     }
   },
 
@@ -245,7 +254,7 @@ export const billingService = {
       const response = await api.get('/billing/summary');
       return response.data.data;
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudo cargar el resumen de facturación'));
+      throw buildBillingServiceError(error, 'No se pudo cargar el resumen de facturación');
     }
   },
 
@@ -272,7 +281,7 @@ export const billingService = {
         totalPages: data.totalPages ?? 1,
       };
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudieron cargar las facturas'));
+      throw buildBillingServiceError(error, 'No se pudieron cargar las facturas');
     }
   },
 
@@ -281,7 +290,7 @@ export const billingService = {
       const response = await api.post('/billing/invoices', data);
       return response.data.data;
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudo crear la factura'));
+      throw buildBillingServiceError(error, 'No se pudo crear la factura');
     }
   },
 
@@ -290,7 +299,7 @@ export const billingService = {
       const response = await api.get(`/billing/invoices/${invoiceId}`);
       return response.data.data;
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudo cargar la factura'));
+      throw buildBillingServiceError(error, 'No se pudo cargar la factura');
     }
   },
 
@@ -299,7 +308,7 @@ export const billingService = {
       const response = await api.put(`/billing/invoices/${invoiceId}`, data);
       return response.data.data;
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudo actualizar la factura'));
+      throw buildBillingServiceError(error, 'No se pudo actualizar la factura');
     }
   },
 
@@ -308,7 +317,7 @@ export const billingService = {
       const response = await api.post(`/billing/invoices/${invoiceId}/send`);
       return response.data.data;
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudo enviar la factura'));
+      throw buildBillingServiceError(error, 'No se pudo enviar la factura');
     }
   },
 
@@ -317,7 +326,7 @@ export const billingService = {
       const response = await api.delete(`/billing/invoices/${invoiceId}`);
       return response.data.data;
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudo cancelar la factura'));
+      throw buildBillingServiceError(error, 'No se pudo cancelar la factura');
     }
   },
 
@@ -326,7 +335,7 @@ export const billingService = {
       const response = await api.patch(`/billing/invoices/${invoiceId}/paid`);
       return response.data.data;
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudo marcar la factura como pagada'));
+      throw buildBillingServiceError(error, 'No se pudo marcar la factura como pagada');
     }
   },
 
@@ -361,7 +370,7 @@ export const billingService = {
         reader.readAsDataURL(blob);
       }
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudo descargar la factura'));
+      throw buildBillingServiceError(error, 'No se pudo descargar la factura');
     }
   },
 
@@ -370,7 +379,7 @@ export const billingService = {
       const response = await api.put('/billing/config', config);
       return response.data.data;
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudo actualizar la configuración'));
+      throw buildBillingServiceError(error, 'No se pudo actualizar la configuración');
     }
   },
 
@@ -379,7 +388,7 @@ export const billingService = {
       const response = await api.put('/billing/tariffs', data);
       return response.data.data;
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudieron actualizar las tarifas'));
+      throw buildBillingServiceError(error, 'No se pudieron actualizar las tarifas');
     }
   },
 
@@ -388,7 +397,7 @@ export const billingService = {
       const response = await api.get(`/billing/sessions-without-invoice?clientId=${clientId}`);
       return response.data.data || [];
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudieron cargar las sesiones'));
+      throw buildBillingServiceError(error, 'No se pudieron cargar las sesiones');
     }
   },
 
@@ -397,7 +406,7 @@ export const billingService = {
       const response = await api.post(`/billing/sessions/${sessionId}/invoice`);
       return response.data.data;
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudo generar la factura de la sesión'));
+      throw buildBillingServiceError(error, 'No se pudo generar la factura de la sesión');
     }
   },
 
@@ -406,7 +415,7 @@ export const billingService = {
       const response = await api.get(`/billing/sessions/${sessionId}/attachable-invoices`);
       return response.data.data ?? [];
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudieron cargar las facturas disponibles'));
+      throw buildBillingServiceError(error, 'No se pudieron cargar las facturas disponibles');
     }
   },
 
@@ -422,7 +431,7 @@ export const billingService = {
       });
       return response.data.data;
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudo enlazar la factura a la sesión'));
+      throw buildBillingServiceError(error, 'No se pudo enlazar la factura a la sesión');
     }
   },
 
@@ -434,7 +443,7 @@ export const billingService = {
       });
       return response.data.data;
     } catch (error: unknown) {
-      throw new Error(getErrorMessage(error, 'No se pudo subir el logo'));
+      throw buildBillingServiceError(error, 'No se pudo subir el logo');
     }
   },
 };

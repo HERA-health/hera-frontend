@@ -432,6 +432,23 @@ export function ProfessionalClientsScreen() {
       }
 
       const errorCode = getErrorCode(createError);
+      if (errorCode?.startsWith('PROFESSIONAL_SUBSCRIPTION_REQUIRED')) {
+        setModalVisible(false);
+        showAppAlert(
+          appAlert,
+          'Prueba HERA 14 días gratis',
+          getErrorMessage(createError, 'Activa un plan HERA para crear nuevos pacientes.'),
+          [
+            { text: 'Ahora no', style: 'cancel' },
+            {
+              text: 'Ver planes',
+              onPress: () => navigation.navigate('ProfessionalSubscription'),
+            },
+          ]
+        );
+        return;
+      }
+
       if (errorCode === 'DATA_PROCESSING_AGREEMENT_REQUIRED') {
         setHasAcceptedDpa(false);
         setModalVisible(false);
@@ -474,6 +491,24 @@ export function ProfessionalClientsScreen() {
       showAppAlert(appAlert, 'Cita creada', 'La cita se ha programado correctamente.');
       await loadClients();
     } catch (createError: unknown) {
+      const errorCode = getErrorCode(createError);
+      if (errorCode?.startsWith('PROFESSIONAL_SUBSCRIPTION_REQUIRED')) {
+        setSessionModalVisible(false);
+        showAppAlert(
+          appAlert,
+          'Prueba HERA 14 días gratis',
+          getErrorMessage(createError, 'Activa un plan HERA para crear nuevas citas.'),
+          [
+            { text: 'Ahora no', style: 'cancel' },
+            {
+              text: 'Ver planes',
+              onPress: () => navigation.navigate('ProfessionalSubscription'),
+            },
+          ]
+        );
+        return;
+      }
+
       const message = getErrorMessage(createError, 'No se pudo crear la cita');
       showAppAlert(appAlert, 'No se pudo crear la cita', message);
     } finally {
