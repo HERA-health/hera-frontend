@@ -37,7 +37,6 @@ export interface Specialist {
   offersInPerson?: boolean;
   // New profile fields
   gradientId?: string;
-  personalMotto?: string | null;
   photoGallery?: string[];
   presentationVideoUrl?: string | null;
   yearsInPractice?: number | null;
@@ -119,7 +118,6 @@ export interface ProfileHeroProps {
   gradientColors: [string, string];
   onSharePress?: () => void;
   bio?: string | null;
-  personalMotto?: string | null;
   therapeuticApproach?: string;
 }
 
@@ -157,12 +155,14 @@ export interface StickyBookingBarProps {
   pricePerSession: number;
   onBookPress: () => void;
   visible: boolean;
+  canBook?: boolean;
 }
 
 export interface BookingSidebarProps {
   specialist: Specialist;
   onBookPress: () => void;
   gradientColors: [string, string];
+  canBook?: boolean;
 }
 
 export interface CompactHeroProps {

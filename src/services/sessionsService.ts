@@ -40,6 +40,11 @@ export interface ClientSession {
   id: string;
   date: string;
   duration: number;
+  bookedPrice?: number | null;
+  bookedCurrency?: string | null;
+  bookedTariffId?: string | null;
+  bookedTariffName?: string | null;
+  bookedDuration?: number | null;
   status: SessionStatus;
   type: SessionType;
   meetingLink?: string | null;
@@ -56,6 +61,27 @@ interface CreateSessionRequest {
   date: string;
   duration: number;
   type: SessionType;
+}
+
+export interface CreatedSession {
+  id: string;
+  bookedPrice?: number | null;
+  bookedCurrency?: string | null;
+  bookedTariffId?: string | null;
+  bookedTariffName?: string | null;
+  bookedDuration?: number | null;
+}
+
+export interface BookingQuote {
+  specialistId: string;
+  duration: number;
+  currency: string;
+  price: number;
+  basePrice: number;
+  tariffId: string | null;
+  tariffName: string | null;
+  baseTariffName: string | null;
+  firstVisitFreeApplied: boolean;
 }
 
 /**
@@ -78,12 +104,39 @@ export const getAvailableSlots = async (
 /**
  * Create a new session booking
  */
-export const createSession = async (sessionData: CreateSessionRequest): Promise<unknown> => {
+export const createSession = async (sessionData: CreateSessionRequest): Promise<CreatedSession> => {
   try {
-    const response = await api.post('/sessions', sessionData);
+    const response = await api.post<ApiResponse<CreatedSession>>('/sessions', sessionData);
+    if (!response.data.data) {
+      throw new Error('No se pudo crear la cita');
+    }
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo crear la cita'));
+  }
+};
+
+export const getBookingQuote = async (
+  specialistId: string,
+  type: Exclude<SessionType, 'PHONE_CALL'>,
+  duration: number
+): Promise<BookingQuote> => {
+  try {
+    const response = await api.get<ApiResponse<BookingQuote>>('/sessions/booking-quote', {
+      params: {
+        specialistId,
+        type,
+        duration,
+      },
+    });
+
+    if (!response.data.data) {
+      throw new Error('No se pudo calcular el precio de la reserva');
+    }
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo calcular el precio de la reserva'));
   }
 };
 

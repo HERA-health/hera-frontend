@@ -45,6 +45,7 @@ import {
   formatTime,
   getDateLabel,
 } from '../sessions/utils/sessionHelpers';
+import { formatSessionDisplayPrice } from './sessionPrice';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -414,7 +415,7 @@ export default function HomeScreen() {
                 <Text style={styles.nextSessionDateTime}>
                   {getDateLabel(nextSession.date)} · {formatTime(nextSession.date)}
                 </Text>
-                <Text style={styles.nextSessionPrice}>€{nextSession.specialist.pricePerSession}</Text>
+                <Text style={styles.nextSessionPrice}>{formatSessionDisplayPrice(nextSession)}</Text>
               </View>
               <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
                 <View style={styles.joinButton}>
@@ -545,7 +546,9 @@ export default function HomeScreen() {
                       {getStatusLabel(session.status)}
                     </Text>
                   </View>
-                  <Text style={[styles.sessionPrice, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>€{session.specialist.pricePerSession}</Text>
+                  <Text style={[styles.sessionPrice, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>
+                    {formatSessionDisplayPrice(session)}
+                  </Text>
                 </View>
               </AnimatedPressable>
             );

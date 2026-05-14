@@ -129,6 +129,11 @@ export type RootStackParamList = {
     specialistName: string;
     pricePerSession: number;
     avatar?: string;
+    title?: string;
+    specializations?: string[];
+    slotDuration?: number;
+    offersOnline?: boolean;
+    offersInPerson?: boolean;
   };
   Questionnaire: undefined;
   QuestionnaireResults: { results: any[] };

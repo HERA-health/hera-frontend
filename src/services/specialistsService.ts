@@ -41,7 +41,6 @@ export interface SpecialistData {
   matchingProfile?: Record<string, unknown>;
   distance?: number;
   gradientId?: string;
-  personalMotto?: string | null;
   photoGallery?: string[];
   presentationVideoUrl?: string | null;
   yearsInPractice?: number | null;
@@ -220,7 +219,7 @@ export const mapSpecialistToProfile = (data: SpecialistData): Specialist => {
       const types: ('VIDEO_CALL' | 'IN_PERSON' | 'PHONE_CALL')[] = [];
       if (data.offersOnline !== false) types.push('VIDEO_CALL');
       if (data.offersInPerson === true) types.push('IN_PERSON');
-      return types.length > 0 ? types : ['VIDEO_CALL'];
+      return types;
     })(),
     education: data.education ?? [],
     experience: data.experience ?? [],
@@ -237,7 +236,6 @@ export const mapSpecialistToProfile = (data: SpecialistData): Specialist => {
     offersOnline: data.offersOnline ?? true,
     offersInPerson: data.offersInPerson ?? false,
     gradientId: data.gradientId || undefined,
-    personalMotto: data.personalMotto || null,
     photoGallery: data.photoGallery || [],
     presentationVideoUrl: data.presentationVideoUrl || null,
     yearsInPractice: data.yearsInPractice ?? null,

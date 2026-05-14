@@ -9,6 +9,7 @@ import type { ScreenProps } from '../../constants/types';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as analyticsService from '../../services/analyticsService';
 import * as availabilityService from '../../services/availabilityService';
+import { billingService, type FullBillingConfig } from '../../services/billingService';
 import { AnimatedPressable, Button, Card } from '../../components/common';
 
 type Props = ScreenProps<'ProfessionalAvailability'>;
@@ -60,11 +61,11 @@ const BUFFER_OPTIONS = [
   { value: 30, label: '30 min' },
 ];
 
-const SESSION_DURATIONS = [
-  { value: 45, label: '45 min' },
-  { value: 60, label: '60 min' },
-  { value: 90, label: '90 min' },
-];
+const formatCurrency = (amount: number): string =>
+  amount.toLocaleString('es-ES', {
+    style: 'currency',
+    currency: 'EUR',
+  });
 
 const createEmptyDaySlots = (): DaySlots => {
   const slots: DaySlots = {};
@@ -93,6 +94,17 @@ const createDefaultEnabledDays = (): EnabledDays => ({
 });
 
 const getErrorMessage = (error: unknown, fallback: string): string => error instanceof Error ? error.message : fallback;
+
+const getSettledValue = <T,>(
+  result: PromiseSettledResult<T>,
+  fallbackMessage: string
+): T => {
+  if (result.status === 'fulfilled') {
+    return result.value;
+  }
+
+  throw result.reason instanceof Error ? result.reason : new Error(fallbackMessage);
+};
 
 const getExceptionToneColor = (theme: Theme, type: ExceptionType): string => {
   switch (type.tone) {
@@ -193,28 +205,61 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   const [selectedExceptionType, setSelectedExceptionType] = useState('vacation');
   const [previewSelectedDate, setPreviewSelectedDate] = useState('');
   const [bufferTime, setBufferTime] = useState(15);
-  const [sessionDurations, setSessionDurations] = useState<number[]>([60]);
+  const [billingConfig, setBillingConfig] = useState<FullBillingConfig | null>(null);
+  const [billingConfigError, setBillingConfigError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [scheduleData, exceptionsData, savedBufferTime] = await Promise.all([
+      setBillingConfigError(null);
+      const [scheduleResult, exceptionsResult, bufferResult, billingConfigResult] = await Promise.allSettled([
         availabilityService.getMyWeeklySchedule(),
         availabilityService.getMyExceptions(),
         availabilityService.getMyBufferTime(),
+        billingService.getConfig(),
       ]);
+      const scheduleData = getSettledValue(scheduleResult, 'No se pudo cargar el horario semanal');
+      const exceptionsData = getSettledValue(exceptionsResult, 'No se pudieron cargar las excepciones');
+      const savedBufferTime = getSettledValue(bufferResult, 'No se pudo cargar el descanso entre sesiones');
       setWeeklySlots(convertScheduleToSlots(scheduleData));
       const nextEnabledDays = createDefaultEnabledDays();
       DAYS.forEach((day) => { nextEnabledDays[day.name] = scheduleData[day.name] !== null; });
       setEnabledDays(nextEnabledDays);
       setExceptions(exceptionsData);
       setBufferTime(savedBufferTime);
+
+      if (billingConfigResult.status === 'fulfilled') {
+        setBillingConfig(billingConfigResult.value);
+        setBillingConfigError(null);
+      } else {
+        setBillingConfig(null);
+        setBillingConfigError(getErrorMessage(
+          billingConfigResult.reason,
+          'No se pudo cargar la configuración de facturación'
+        ));
+      }
     } catch (error: unknown) {
       showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo cargar la disponibilidad'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [appAlert]);
+
+  const defaultTariff = useMemo(
+    () =>
+      billingConfig?.tariffs?.find((tariff) => tariff.isDefault && tariff.isActive)
+      ?? billingConfig?.tariffs?.find((tariff) => tariff.isActive)
+      ?? null,
+    [billingConfig]
+  );
+
+  const billingDuration = defaultTariff?.durationMinutes ?? billingConfig?.slotDuration ?? 60;
+  const billingPrice = defaultTariff?.price ?? billingConfig?.pricePerSession ?? 0;
+  const billingDurationText = billingConfigError
+    ? 'No disponible'
+    : `${billingDuration} min · ${formatCurrency(billingPrice)}`;
+  const billingDurationHint = billingConfigError
+    ?? 'Las reservas públicas usan la tarifa por defecto de Facturación.';
 
   useEffect(() => { analyticsService.trackScreen('availability'); }, []);
   useEffect(() => { void loadData(); }, [loadData]);
@@ -474,28 +519,29 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
           </View>
         </View>
         <View style={styles.settingRowLast}>
-          <Text style={styles.settingLabel}>Duración de sesión</Text>
-          <View style={styles.settingOptions}>
-            {SESSION_DURATIONS.map((duration) => {
-              const isActive = sessionDurations.includes(duration.value);
-              return (
-                <AnimatedPressable
-                  key={duration.value}
-                  style={isActive ? [styles.settingOption, styles.settingOptionActive] : styles.settingOption}
-                  onPress={() => {
-                    if (isActive && sessionDurations.length > 1) {
-                      setSessionDurations((prev) => prev.filter((item) => item !== duration.value));
-                    } else if (!isActive) {
-                      setSessionDurations((prev) => [...prev, duration.value]);
-                    }
-                    setHasChanges(true);
-                  }}
-                  hoverLift={false}
-                >
-                  <Text style={[styles.settingOptionText, isActive && styles.settingOptionTextActive]}>{duration.label}</Text>
-                </AnimatedPressable>
-              );
-            })}
+          <Text style={styles.settingLabel}>Duración pública de sesión</Text>
+          <View style={styles.billingDurationCard}>
+            <View style={styles.billingDurationIcon}>
+              <Ionicons name="card-outline" size={18} color={theme.primary} />
+            </View>
+            <View style={styles.billingDurationCopy}>
+              <Text style={styles.billingDurationValue}>
+                {billingDurationText}
+              </Text>
+              <Text style={[
+                styles.billingDurationHint,
+                billingConfigError ? styles.billingDurationHintError : null,
+              ]}>
+                {billingDurationHint}
+              </Text>
+            </View>
+            <Button
+              variant="secondary"
+              size="small"
+              onPress={() => navigation.navigate('ProfessionalBilling')}
+            >
+              Facturación
+            </Button>
           </View>
         </View>
       </Card>
@@ -1024,6 +1070,41 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     settingOptionActive: { borderColor: theme.primary, backgroundColor: theme.primaryAlpha12 },
     settingOptionText: { fontSize: 12, fontWeight: '600', color: theme.textSecondary },
     settingOptionTextActive: { color: theme.primary },
+    billingDurationCard: {
+      flexDirection: isMobile ? 'column' : 'row',
+      alignItems: isMobile ? 'stretch' : 'center',
+      gap: spacing.sm,
+      padding: spacing.md,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    },
+    billingDurationIcon: {
+      width: 34,
+      height: 34,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.primaryAlpha12,
+    },
+    billingDurationCopy: {
+      flex: 1,
+      gap: 2,
+    },
+    billingDurationValue: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: theme.textPrimary,
+    },
+    billingDurationHint: {
+      fontSize: 12,
+      lineHeight: 17,
+      color: theme.textSecondary,
+    },
+    billingDurationHintError: {
+      color: theme.warning,
+    },
     modalOverlay: {
       flex: 1,
       backgroundColor: theme.overlay,

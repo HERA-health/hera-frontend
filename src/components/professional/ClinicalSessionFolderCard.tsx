@@ -10,6 +10,10 @@ interface ClinicalSessionFolderCardSession {
   id: string;
   date: string;
   duration: number;
+  bookedPrice?: number | null;
+  bookedCurrency?: string | null;
+  bookedTariffName?: string | null;
+  bookedDuration?: number | null;
   status: string;
   type: string;
   invoice: {
@@ -119,6 +123,7 @@ export function ClinicalSessionFolderCard({
   const emphasisStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const [visibleNotesCount, setVisibleNotesCount] = useState(SESSION_NOTES_PREVIEW_COUNT);
+  const sessionDuration = session.bookedDuration ?? session.duration;
   const [visibleExercisesCount, setVisibleExercisesCount] = useState(SESSION_MATERIAL_PREVIEW_COUNT);
   const [visibleAttachmentsCount, setVisibleAttachmentsCount] = useState(
     SESSION_MATERIAL_PREVIEW_COUNT
@@ -178,7 +183,7 @@ export function ClinicalSessionFolderCard({
             {formatDate(session.date, false)}
           </Text>
           <Text style={[styles.folderSubtitle, { color: theme.textSecondary }]}>
-            {session.duration} min · {SESSION_TYPE_LABELS[session.type] || session.type}
+            {sessionDuration} min · {SESSION_TYPE_LABELS[session.type] || session.type}
           </Text>
         </View>
 

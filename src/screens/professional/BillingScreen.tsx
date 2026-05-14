@@ -575,6 +575,10 @@ export function BillingScreen() {
       showAppAlert(appAlert, 'Error', 'Debe haber exactamente una tarifa por defecto');
       return;
     }
+    if (!defaults[0].isActive) {
+      showAppAlert(appAlert, 'Error', 'La tarifa por defecto debe estar activa');
+      return;
+    }
     const actives = tempTariffItems.filter((t) => t.isActive);
     if (actives.length === 0) {
       showAppAlert(appAlert, 'Error', 'Debe haber al menos una tarifa activa');

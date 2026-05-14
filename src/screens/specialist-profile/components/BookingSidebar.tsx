@@ -25,6 +25,8 @@ const STRINGS = {
   videoCall: 'Videollamada disponible',
   inPerson: 'Consulta presencial',
   bookSession: 'Reservar sesión',
+  noPublicBooking: 'No acepta reservas ahora',
+  noPublicBookingHint: 'Este perfil no tiene modalidades de reserva pública activas.',
   locationLabel: 'UBICACIÓN DE CONSULTA',
   howToGet: 'Cómo llegar',
 };
@@ -37,6 +39,7 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
   specialist,
   onBookPress,
   gradientColors,
+  canBook = true,
 }) => {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
@@ -126,9 +129,20 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
       <SectionDivider color={theme.borderLight} />
 
       <View style={styles.ctaSection}>
-        <Button variant="primary" size="large" fullWidth onPress={onBookPress}>
-          {STRINGS.bookSession}
+        <Button
+          variant="primary"
+          size="large"
+          fullWidth
+          onPress={onBookPress}
+          disabled={!canBook}
+        >
+          {canBook ? STRINGS.bookSession : STRINGS.noPublicBooking}
         </Button>
+        {!canBook ? (
+          <Text style={styles.ctaUnavailableText}>
+            {STRINGS.noPublicBookingHint}
+          </Text>
+        ) : null}
       </View>
 
       {showLocation && address && (
@@ -260,6 +274,12 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   ctaSection: {
     padding: spacing.md,
     gap: 10,
+  },
+  ctaUnavailableText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: theme.textSecondary,
+    textAlign: 'center',
   },
   locationSection: {
     padding: spacing.md,

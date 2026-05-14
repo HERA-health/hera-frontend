@@ -14,9 +14,14 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { AnimatedPressable } from '../../components/common/AnimatedPressable';
 import { Button } from '../../components/common/Button';
 import * as sessionsService from '../../services/sessionsService';
-import { SessionType, TimeSlot } from '../../services/sessionsService';
+import { BookingQuote, SessionType, TimeSlot } from '../../services/sessionsService';
 import { ProfessionalInfoColumn, CompactCalendarColumn, TimeSlotsColumn } from './components';
 import * as analyticsService from '../../services/analyticsService';
+import {
+  getAvailableBookingSessionTypes,
+  getDefaultBookingSessionType,
+  isBookingSessionTypeAvailable,
+} from './bookingModalities';
 
 interface BookingScreenProps {
   route: {
@@ -28,6 +33,8 @@ interface BookingScreenProps {
       title?: string;
       specializations?: string[];
       slotDuration?: number;
+      offersOnline?: boolean;
+      offersInPerson?: boolean;
     };
   };
   navigation: {
@@ -49,6 +56,9 @@ const showBookingMessage = (
   showAppAlert(appAlert, title, message);
 };
 
+const formatBookingAmount = (amount: number): string =>
+  `${amount.toLocaleString('es-ES', { maximumFractionDigits: 2 })}€`;
+
 export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation }) => {
   const appAlert = useAppAlert();
   const {
@@ -59,6 +69,8 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
     title,
     specializations,
     slotDuration: paramSlotDuration,
+    offersOnline,
+    offersInPerson,
   } = route.params;
   const slotDuration = paramSlotDuration ?? 60;
   const { width } = useWindowDimensions();
@@ -70,6 +82,18 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
   const isMobile = width < BREAKPOINTS.tablet;
 
   const bookingCompletedRef = useRef(false);
+  const modalityFlags = useMemo(
+    () => ({
+      offersOnline,
+      offersInPerson,
+    }),
+    [offersInPerson, offersOnline],
+  );
+  const availableSessionTypes = useMemo(
+    () => getAvailableBookingSessionTypes(modalityFlags),
+    [modalityFlags],
+  );
+  const defaultSessionType = getDefaultBookingSessionType(modalityFlags);
 
   useEffect(() => {
     analyticsService.trackScreen('booking', { specialistId });
@@ -83,9 +107,89 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
-  const [sessionType, setSessionType] = useState<SessionType>('VIDEO_CALL');
+  const [sessionType, setSessionType] = useState<SessionType>(defaultSessionType ?? 'VIDEO_CALL');
   const [loading, setLoading] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [bookingQuote, setBookingQuote] = useState<BookingQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!defaultSessionType) {
+      return;
+    }
+
+    if (!isBookingSessionTypeAvailable(sessionType, modalityFlags)) {
+      setSessionType(defaultSessionType);
+    }
+  }, [defaultSessionType, modalityFlags, sessionType]);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    if (!isBookingSessionTypeAvailable(sessionType, modalityFlags) || sessionType === 'PHONE_CALL') {
+      setBookingQuote(null);
+      setQuoteLoading(false);
+      setQuoteError(
+        availableSessionTypes.length === 0
+          ? 'Este especialista no tiene modalidades de reserva activas.'
+          : 'Esta modalidad no está disponible para este especialista.'
+      );
+      return () => {
+        isCurrent = false;
+      };
+    }
+
+    setQuoteLoading(true);
+    setQuoteError(null);
+
+    sessionsService.getBookingQuote(specialistId, sessionType, slotDuration)
+      .then((quote) => {
+        if (!isCurrent) {
+          return;
+        }
+
+        setBookingQuote(quote);
+      })
+      .catch((error: unknown) => {
+        if (!isCurrent) {
+          return;
+        }
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'No se pudo calcular el precio de la reserva.';
+        setBookingQuote(null);
+        setQuoteError(message);
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setQuoteLoading(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [availableSessionTypes.length, modalityFlags, sessionType, slotDuration, specialistId]);
+
+  const canConfirmBooking =
+    Boolean(bookingQuote)
+    && !quoteLoading
+    && !quoteError
+    && availableSessionTypes.length > 0;
+  const displayPrice = bookingQuote?.price ?? pricePerSession;
+  const mobileTotalText = quoteLoading
+    ? 'Calculando...'
+    : quoteError
+      ? 'Precio no disponible'
+      : bookingQuote
+        ? formatBookingAmount(displayPrice)
+        : 'Calculando...';
+  const mobileSpecialistPriceText = bookingQuote
+    ? `${mobileTotalText} / sesión`
+    : mobileTotalText;
 
   const specialist = useMemo(
     () => ({
@@ -96,8 +200,20 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
       pricePerSession,
       specializations: specializations || [],
       sessionDuration: slotDuration,
+      offersOnline: offersOnline ?? true,
+      offersInPerson: offersInPerson ?? false,
     }),
-    [specialistId, specialistName, title, avatar, pricePerSession, specializations, slotDuration],
+    [
+      specialistId,
+      specialistName,
+      title,
+      avatar,
+      pricePerSession,
+      specializations,
+      slotDuration,
+      offersOnline,
+      offersInPerson,
+    ],
   );
 
   const bookingState = useMemo(
@@ -161,6 +277,20 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
       return;
     }
 
+    if (!isBookingSessionTypeAvailable(sessionType, modalityFlags)) {
+      showBookingMessage(appAlert, 'Error', 'Esta modalidad no esta disponible para este especialista');
+      return;
+    }
+
+    if (!canConfirmBooking || !bookingQuote) {
+      showBookingMessage(
+        appAlert,
+        'Precio no disponible',
+        quoteError || 'No se pudo calcular el precio de la reserva. Intenta de nuevo.'
+      );
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -173,7 +303,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
 
       const dateTime = dateObj.toISOString();
 
-      await sessionsService.createSession({
+      const createdSession = await sessionsService.createSession({
         specialistId,
         date: dateTime,
         duration: slotDuration,
@@ -181,7 +311,11 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
       });
 
       bookingCompletedRef.current = true;
-      analyticsService.track('session_booked', { specialistId, price: pricePerSession });
+      analyticsService.track('session_booked', {
+        specialistId,
+        price: createdSession.bookedPrice ?? bookingQuote.price,
+        currency: createdSession.bookedCurrency ?? bookingQuote.currency,
+      });
 
       navigation.navigate('Sessions', { refresh: true, showSuccess: true });
 
@@ -224,7 +358,11 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
     slotDuration,
     sessionType,
     pricePerSession,
+    bookingQuote,
+    canConfirmBooking,
+    quoteError,
     navigation,
+    modalityFlags,
   ]);
 
   const renderDesktopLayout = () => (
@@ -235,6 +373,11 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
           booking={bookingState}
           onConfirm={handleConfirmBooking}
           onSessionTypeChange={setSessionType}
+          availableSessionTypes={availableSessionTypes}
+          bookingQuote={bookingQuote}
+          quoteLoading={quoteLoading}
+          quoteError={quoteError}
+          canConfirm={canConfirmBooking}
           loading={loading}
         />
 
@@ -263,6 +406,11 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
             booking={bookingState}
             onConfirm={handleConfirmBooking}
             onSessionTypeChange={setSessionType}
+            availableSessionTypes={availableSessionTypes}
+            bookingQuote={bookingQuote}
+            quoteLoading={quoteLoading}
+            quoteError={quoteError}
+            canConfirm={canConfirmBooking}
             loading={loading}
           />
         </View>
@@ -315,7 +463,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
             <View style={styles.mobileSpecialistInfo}>
               <Text style={styles.mobileSpecialistName}>{specialistName}</Text>
               <Text style={styles.mobileSpecialistPrice}>
-                {pricePerSession}€ / sesion
+                {mobileSpecialistPriceText}
               </Text>
             </View>
           </View>
@@ -326,6 +474,11 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
           booking={bookingState}
           onConfirm={handleConfirmBooking}
           onSessionTypeChange={setSessionType}
+          availableSessionTypes={availableSessionTypes}
+          bookingQuote={bookingQuote}
+          quoteLoading={quoteLoading}
+          quoteError={quoteError}
+          canConfirm={canConfirmBooking}
           loading={loading}
           showConfirmButton={false}
           showSummary={false}
@@ -370,7 +523,9 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
 
           <View style={styles.mobileFooterPill}>
             <Text style={styles.mobileFooterPillLabel}>Total</Text>
-            <Text style={styles.mobileFooterPillValueStrong}>{pricePerSession}€</Text>
+            <Text style={styles.mobileFooterPillValueStrong}>
+              {mobileTotalText}
+            </Text>
           </View>
         </View>
 
@@ -378,7 +533,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
           variant="primary"
           size="medium"
           onPress={handleConfirmBooking}
-          disabled={!selectedDate || !selectedSlot || loading}
+          disabled={!selectedDate || !selectedSlot || loading || !canConfirmBooking}
           loading={loading}
           fullWidth
         >

@@ -11,6 +11,7 @@ export const StickyBookingBar: React.FC<StickyBookingBarProps> = ({
   pricePerSession,
   onBookPress,
   visible,
+  canBook = true,
 }) => {
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
@@ -21,12 +22,16 @@ export const StickyBookingBar: React.FC<StickyBookingBarProps> = ({
 
   useEffect(() => {
     Animated.spring(translateY, {
-      toValue: visible ? 0 : 100,
+      toValue: visible && canBook ? 0 : 100,
       useNativeDriver: true,
       friction: 8,
       tension: 65,
     }).start();
-  }, [visible, translateY]);
+  }, [canBook, visible, translateY]);
+
+  if (!canBook) {
+    return null;
+  }
 
   return (
     <Animated.View style={[styles.container, { transform: [{ translateY }] }]}>

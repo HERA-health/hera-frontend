@@ -77,6 +77,9 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [showStickyBar, setShowStickyBar] = useState(false);
+  const canBook = specialist
+    ? specialist.offersOnline !== false || specialist.offersInPerson === true
+    : false;
 
   useFocusEffect(
     useCallback(() => {
@@ -119,6 +122,15 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
   const handleBookSession = useCallback(() => {
     if (!specialist) return;
 
+    if (!canBook) {
+      showAppAlert(
+        appAlert,
+        'Reserva no disponible',
+        'Este especialista no tiene modalidades de reserva activas en este momento.'
+      );
+      return;
+    }
+
     analyticsService.track('booking_initiated', { specialistId: specialist.id });
     navigation.navigate('Booking', {
       specialistId: specialist.id,
@@ -128,8 +140,10 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       title: specialist.title,
       specializations: specialist.specializations,
       slotDuration: specialist.slotDuration ?? 60,
+      offersOnline: specialist.offersOnline ?? true,
+      offersInPerson: specialist.offersInPerson ?? false,
     });
-  }, [specialist, navigation]);
+  }, [appAlert, canBook, specialist, navigation]);
 
   const handleGoBack = useCallback(() => {
     navigation.goBack();
@@ -180,7 +194,6 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
           onRatingPress={handleScrollToReviews}
           gradientColors={gradientColors}
           bio={specialist.bio}
-          personalMotto={specialist.personalMotto}
           therapeuticApproach={specialist.therapeuticApproach}
         />
       )}
@@ -271,7 +284,6 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
                   onRatingPress={handleScrollToReviews}
                   gradientColors={gradientColors}
                   bio={specialist.bio}
-                  personalMotto={specialist.personalMotto}
                   therapeuticApproach={specialist.therapeuticApproach}
                 />
                 {renderMainContent(heroRenderedAbove)}
@@ -287,6 +299,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
                   specialist={specialist}
                   onBookPress={handleBookSession}
                   gradientColors={gradientColors}
+                  canBook={canBook}
                 />
                 {specialist.photoGallery && specialist.photoGallery.length > 0 && (
                   <View style={styles.rightColumnGallery}>
@@ -336,6 +349,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
               specialist={specialist}
               onBookPress={handleBookSession}
               gradientColors={gradientColors}
+              canBook={canBook}
             />
           </View>
           {specialist.photoGallery && specialist.photoGallery.length > 0 && (
@@ -356,6 +370,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
         pricePerSession={specialist.pricePerSession}
         onBookPress={handleBookSession}
         visible={showStickyBar}
+        canBook={canBook}
       />
     </View>
   );

@@ -14,6 +14,7 @@ import type { Client } from '../../services/professionalService';
 import type { AttachableInvoiceSummary } from '../../services/billingService';
 import { billingService } from '../../services/billingService';
 import type { ClinicalDocument, ClinicalSessionFolder } from '../../services/clinicalService';
+import { getErrorMessage } from '../../constants/errors';
 
 interface ClinicalSessionsWorkspaceProps {
   clientId: string;
@@ -155,20 +156,28 @@ export function ClinicalSessionsWorkspace({
     }
   };
 
-  const handleCreateInvoice = () => {
+  const handleCreateInvoice = async () => {
     if (!invoiceSheetSession) {
       return;
     }
 
-    setInvoiceSheetSession(null);
-    setAttachableInvoices([]);
-    navigation.navigate('CreateInvoice', {
-      clientId,
-      sessionId: invoiceSheetSession.id,
-      sessionDate: invoiceSheetSession.date,
-      sessionDuration: invoiceSheetSession.duration,
-      returnToClientId: clientId,
-    });
+    try {
+      setInvoiceAttaching(true);
+      const invoice = await billingService.generateInvoiceFromSession(invoiceSheetSession.id);
+      setInvoiceSheetSession(null);
+      setAttachableInvoices([]);
+      navigation.navigate('CreateInvoice', {
+        invoiceId: invoice.id,
+        returnToClientId: clientId,
+      });
+      Promise.all([onReloadWorkspace(), onRequestRefreshClient?.()]).catch((refreshError) => {
+        console.warn('No se pudo refrescar el espacio clínico tras crear factura:', refreshError);
+      });
+    } catch (error: unknown) {
+      Alert.alert('Error', getErrorMessage(error, 'No se pudo preparar la factura de la sesión'));
+    } finally {
+      setInvoiceAttaching(false);
+    }
   };
 
   const handleOpenInvoice = async (session: ClinicalSessionFolder['session']) => {
@@ -303,6 +312,10 @@ export function ClinicalSessionsWorkspace({
               specialistId: client.user.id || '',
               date: invoiceSheetSession.date,
               duration: invoiceSheetSession.duration,
+              bookedPrice: invoiceSheetSession.bookedPrice,
+              bookedCurrency: invoiceSheetSession.bookedCurrency,
+              bookedTariffName: invoiceSheetSession.bookedTariffName,
+              bookedDuration: invoiceSheetSession.bookedDuration,
               status: invoiceSheetSession.status,
               type: invoiceSheetSession.type,
               invoice: invoiceSheetSession.invoice

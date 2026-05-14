@@ -1,6 +1,7 @@
 jest.mock('../api', () => ({
   api: {
     get: jest.fn(),
+    put: jest.fn(),
   },
 }));
 
@@ -18,7 +19,7 @@ jest.mock('react-native', () => ({
 }));
 
 import { api } from '../api';
-import { getVerificationStatus } from '../professionalService';
+import { getVerificationStatus, updateComprehensiveProfile } from '../professionalService';
 
 const mockedApi = api as jest.Mocked<typeof api>;
 
@@ -93,5 +94,39 @@ describe('professionalService.getVerificationStatus', () => {
     mockedApi.get.mockRejectedValue(error);
 
     await expect(getVerificationStatus()).rejects.toBe(error);
+  });
+});
+
+describe('professionalService.updateComprehensiveProfile', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('does not send billing-owned fields through the profile endpoint', async () => {
+    mockedApi.put.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          fullName: 'Dra. Prueba',
+        },
+      },
+    });
+
+    await updateComprehensiveProfile({
+      fullName: 'Dra. Prueba',
+      priceStandard: 95,
+      bankIban: 'ES00 0000 0000 0000 0000 0000',
+      taxId: '12345678Z',
+      applyVat: true,
+      showReviewCount: false,
+      showLastOnline: true,
+      personalMotto: 'Campo eliminado',
+    } as Parameters<typeof updateComprehensiveProfile>[0] & {
+      personalMotto: string;
+    });
+
+    expect(mockedApi.put).toHaveBeenCalledWith('/specialists/me/profile', {
+      fullName: 'Dra. Prueba',
+    });
   });
 });

@@ -39,7 +39,6 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
   onRatingPress,
   gradientColors,
   bio,
-  personalMotto,
   therapeuticApproach,
 }) => {
   const { width } = useWindowDimensions();
@@ -160,19 +159,16 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
           )}
         </View>
 
-        {(bio || personalMotto) ? (
+        {bio ? (
           <>
             <View style={styles.bioDivider} />
             <View style={styles.bioSection}>
               <Text style={styles.bioTitle}>Sobre mí</Text>
-              {personalMotto ? <Text style={styles.mottoText}>"{personalMotto}"</Text> : null}
-              {bio ? (
-                <View style={styles.bioContent}>
-                  {bio.split('\n\n').map((paragraph, index) => (
-                    <Text key={index} style={styles.bioText}>{paragraph}</Text>
-                  ))}
-                </View>
-              ) : null}
+              <View style={styles.bioContent}>
+                {bio.split('\n\n').map((paragraph, index) => (
+                  <Text key={index} style={styles.bioText}>{paragraph}</Text>
+                ))}
+              </View>
               {therapeuticApproach ? (
                 <View style={styles.approachContainer}>
                   <Text style={styles.approachLabel}>Enfoque terapéutico</Text>
@@ -425,14 +421,6 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     fontWeight: '600',
     color: theme.textPrimary,
     marginBottom: spacing.sm,
-  },
-  mottoText: {
-    fontSize: 15,
-    fontStyle: 'italic',
-    color: theme.textSecondary,
-    marginBottom: spacing.md,
-    lineHeight: 22,
-    flexShrink: 1,
   },
   bioContent: {
     gap: spacing.sm,

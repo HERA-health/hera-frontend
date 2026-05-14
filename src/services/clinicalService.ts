@@ -94,6 +94,11 @@ export interface ClinicalSessionFolder {
     id: string;
     date: string;
     duration: number;
+    bookedPrice?: number | null;
+    bookedCurrency?: string | null;
+    bookedTariffId?: string | null;
+    bookedTariffName?: string | null;
+    bookedDuration?: number | null;
     status: string;
     type: string;
     invoice: {

@@ -117,11 +117,6 @@ export const getVideoCallButtonState = (session: VideoCallSession): VideoCallBut
     return 'COMPLETED';
   }
 
-  // Session is confirmed, check meeting link
-  if (isConfirmed && !session.meetingLink) {
-    return 'NO_LINK';
-  }
-
   if (!isConfirmed) {
     return 'PENDING';
   }

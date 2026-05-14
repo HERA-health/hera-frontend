@@ -56,6 +56,11 @@ export interface Session {
   specialistId: string;
   date: string;
   duration: number;
+  bookedPrice?: number | null;
+  bookedCurrency?: string | null;
+  bookedTariffId?: string | null;
+  bookedTariffName?: string | null;
+  bookedDuration?: number | null;
   status: string;
   type: SessionType | string;
   meetingLink?: string | null;
@@ -339,24 +344,24 @@ export interface SpecialistProfileData {
 
   // Pricing
   priceStandard: number;
-  priceExtended: number | null;
-  priceFirstSession: number | null;
-  offerExtended: boolean;
-  offerFirstSessionDiscount: boolean;
-  sessionTypes: string[];
-  modalityOnline: number;
-  modalityInPerson: number;
+  priceExtended?: number | null;
+  priceFirstSession?: number | null;
+  offerExtended?: boolean;
+  offerFirstSessionDiscount?: boolean;
+  sessionTypes?: string[];
+  modalityOnline?: number;
+  modalityInPerson?: number;
 
-  // Payment
-  bankIban: string;
-  bankHolder: string;
-  bankVerified: boolean;
-  taxId: string;
-  taxAddress: string;
-  taxCity: string;
-  applyVat: boolean;
-  vatRate: number;
-  applyIrpf: boolean;
+  // Legacy billing fields may be absent because billing data lives in Facturacion.
+  bankIban?: string;
+  bankHolder?: string;
+  bankVerified?: boolean;
+  taxId?: string;
+  taxAddress?: string;
+  taxCity?: string;
+  applyVat?: boolean;
+  vatRate?: number;
+  applyIrpf?: boolean;
 
   // Account
   email: string;
@@ -374,7 +379,6 @@ export interface SpecialistProfileData {
 
   // Mi Espacio
   gradientId?: string;
-  personalMotto?: string;
   photoGallery?: string[];
   presentationVideoUrl?: string;
   yearsInPractice?: number;
@@ -427,34 +431,12 @@ export const updateComprehensiveProfile = async (
     if (data.languages !== undefined) apiData.languages = data.languages;
     if (data.education !== undefined) apiData.education = data.education;
     if (data.experience !== undefined) apiData.experience = data.experience;
-    if (data.certificates !== undefined) apiData.certificates = data.certificates;
-
-    if (data.priceStandard !== undefined) apiData.priceStandard = data.priceStandard;
-    if (data.priceExtended !== undefined) apiData.priceExtended = data.priceExtended;
-    if (data.priceFirstSession !== undefined) apiData.priceFirstSession = data.priceFirstSession;
-    if (data.offerExtended !== undefined) apiData.offerExtended = data.offerExtended;
-    if (data.offerFirstSessionDiscount !== undefined) apiData.offerFirstSessionDiscount = data.offerFirstSessionDiscount;
-    if (data.sessionTypes !== undefined) apiData.sessionTypes = data.sessionTypes;
-    if (data.modalityOnline !== undefined) apiData.modalityOnline = data.modalityOnline;
-    if (data.modalityInPerson !== undefined) apiData.modalityInPerson = data.modalityInPerson;
-
-    if (data.bankIban !== undefined) apiData.bankIban = data.bankIban;
-    if (data.bankHolder !== undefined) apiData.bankHolder = data.bankHolder;
-    if (data.taxId !== undefined) apiData.taxId = data.taxId;
-    if (data.taxAddress !== undefined) apiData.taxAddress = data.taxAddress;
-    if (data.taxCity !== undefined) apiData.taxCity = data.taxCity;
-    if (data.applyVat !== undefined) apiData.applyVat = data.applyVat;
-    if (data.vatRate !== undefined) apiData.vatRate = data.vatRate;
-    if (data.applyIrpf !== undefined) apiData.applyIrpf = data.applyIrpf;
 
     if (data.phone !== undefined) apiData.phone = data.phone;
     if (data.profileVisible !== undefined) apiData.profileVisible = data.profileVisible;
-    if (data.showReviewCount !== undefined) apiData.showReviewCount = data.showReviewCount;
-    if (data.showLastOnline !== undefined) apiData.showLastOnline = data.showLastOnline;
 
     // Mi Espacio
     if (data.gradientId !== undefined) apiData.gradientId = data.gradientId;
-    if (data.personalMotto !== undefined) apiData.personalMotto = data.personalMotto;
     if (data.photoGallery !== undefined) apiData.photoGallery = data.photoGallery;
     if (data.presentationVideoUrl !== undefined) apiData.presentationVideoUrl = data.presentationVideoUrl;
     if (data.yearsInPractice !== undefined) apiData.yearsInPractice = data.yearsInPractice;

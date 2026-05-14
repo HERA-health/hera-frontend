@@ -84,6 +84,8 @@ export function ClinicalSessionInvoiceSheet({
     return null;
   }
 
+  const sessionDuration = session.bookedDuration ?? session.duration;
+
   return (
     <Modal
       visible={visible}
@@ -107,7 +109,7 @@ export function ClinicalSessionInvoiceSheet({
                   Elige cómo quieres facturar esta sesión
                 </Text>
                 <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-                  {formatSessionDate(session.date)} · {session.duration} min
+                  {formatSessionDate(session.date)} · {sessionDuration} min
                 </Text>
               </View>
 
@@ -127,7 +129,13 @@ export function ClinicalSessionInvoiceSheet({
                 <Text style={[styles.pathBody, { color: theme.textSecondary }]}>
                   Abre el editor de facturas con esta sesión ya preparada, para revisar importe, concepto y envío.
                 </Text>
-                <Button variant="primary" size="small" onPress={onCreateNew}>
+                <Button
+                  variant="primary"
+                  size="small"
+                  onPress={onCreateNew}
+                  disabled={attaching}
+                  loading={attaching}
+                >
                   Crear desde la sesión
                 </Button>
               </View>

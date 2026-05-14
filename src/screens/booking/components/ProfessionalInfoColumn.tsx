@@ -13,7 +13,7 @@ import { spacing, borderRadius } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { Button } from '../../../components/common/Button';
-import { SessionType } from '../../../services/sessionsService';
+import { BookingQuote, SessionType } from '../../../services/sessionsService';
 
 interface SpecialistInfo {
   id: string;
@@ -23,6 +23,8 @@ interface SpecialistInfo {
   pricePerSession: number;
   specializations?: string[];
   sessionDuration?: number;
+  offersOnline?: boolean;
+  offersInPerson?: boolean;
 }
 
 interface BookingState {
@@ -36,6 +38,11 @@ interface ProfessionalInfoColumnProps {
   booking: BookingState;
   onConfirm: () => void;
   onSessionTypeChange: (type: SessionType) => void;
+  availableSessionTypes: SessionType[];
+  bookingQuote?: BookingQuote | null;
+  quoteLoading?: boolean;
+  quoteError?: string | null;
+  canConfirm?: boolean;
   loading?: boolean;
   showConfirmButton?: boolean;
   showSummary?: boolean;
@@ -96,11 +103,19 @@ const formatDate = (dateString: string): string =>
     month: 'short',
   });
 
+const formatAmount = (amount: number): string =>
+  `${amount.toLocaleString('es-ES', { maximumFractionDigits: 2 })}€`;
+
 export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
   specialist,
   booking,
   onConfirm,
   onSessionTypeChange,
+  availableSessionTypes,
+  bookingQuote = null,
+  quoteLoading = false,
+  quoteError = null,
+  canConfirm = true,
   loading = false,
   showConfirmButton = true,
   showSummary = true,
@@ -110,8 +125,22 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
   const isCompact = width < 1024;
   const styles = useMemo(() => createStyles(theme, isDark, isCompact), [theme, isDark, isCompact]);
   const isComplete = Boolean(booking.selectedDate && booking.selectedTime);
+  const sessionOptions = useMemo(
+    () => SESSION_OPTIONS.filter((option) => availableSessionTypes.includes(option.type)),
+    [availableSessionTypes],
+  );
   const activeType =
-    SESSION_OPTIONS.find((option) => option.type === booking.sessionType) ?? SESSION_OPTIONS[0];
+    sessionOptions.find((option) => option.type === booking.sessionType) ?? sessionOptions[0];
+  const priceText = quoteLoading
+    ? 'Calculando...'
+    : quoteError
+      ? 'Precio no disponible'
+      : bookingQuote
+        ? formatAmount(bookingQuote.price)
+        : 'Calculando...';
+  const totalCaption = bookingQuote?.firstVisitFreeApplied
+    ? `Primera sesión gratuita aplicada. Tarifa habitual ${formatAmount(bookingQuote.basePrice)}`
+    : quoteError ?? (bookingQuote ? 'Pago seguro al confirmar la reserva' : 'Calculando precio final...');
 
   return (
     <View style={styles.container}>
@@ -141,7 +170,16 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
           <View style={styles.metricsRow}>
             <View style={styles.metricCard}>
               <Text style={styles.metricLabel}>PRECIO</Text>
-              <Text style={styles.metricValue}>{specialist.pricePerSession}€ / sesión</Text>
+              <Text style={styles.metricValue}>{priceText} / sesión</Text>
+              {bookingQuote?.firstVisitFreeApplied ? (
+                <View style={styles.promoBadge}>
+                  <Ionicons name="gift-outline" size={12} color={theme.success} />
+                  <Text style={styles.promoBadgeText}>Primera sesión gratis</Text>
+                </View>
+              ) : null}
+              {quoteError ? (
+                <Text style={styles.quoteErrorText}>{quoteError}</Text>
+              ) : null}
             </View>
             <View style={styles.metricCard}>
               <Text style={styles.metricLabel}>DURACIÓN</Text>
@@ -164,55 +202,64 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
           <Text style={styles.cardTitle}>Tipo de sesion</Text>
           <Text style={styles.cardSubtitle}>Elige como prefieres tener este encuentro.</Text>
 
-          <View style={styles.sessionList}>
-            {SESSION_OPTIONS.map((option) => {
-              const selected = booking.sessionType === option.type;
+          {sessionOptions.length > 0 ? (
+            <View style={styles.sessionList}>
+              {sessionOptions.map((option) => {
+                const selected = booking.sessionType === option.type;
 
-              return (
-                <AnimatedPressable
-                  key={option.type}
-                  onPress={() => onSessionTypeChange(option.type)}
-                  style={[styles.sessionItem, selected ? styles.sessionItemSelected : null]}
-                >
-                  <View
-                    style={[
-                      styles.sessionIconShell,
-                      selected ? styles.sessionIconShellSelected : null,
-                    ]}
+                return (
+                  <AnimatedPressable
+                    key={option.type}
+                    onPress={() => onSessionTypeChange(option.type)}
+                    style={[styles.sessionItem, selected ? styles.sessionItemSelected : null]}
                   >
-                    <Ionicons
-                      name={option.icon}
-                      size={16}
-                      color={selected ? theme.textOnPrimary : theme.primary}
-                    />
-                  </View>
-
-                  <View style={styles.sessionTextBlock}>
-                    <Text
+                    <View
                       style={[
-                        styles.sessionLabel,
-                        selected ? styles.sessionLabelSelected : null,
+                        styles.sessionIconShell,
+                        selected ? styles.sessionIconShellSelected : null,
                       ]}
                     >
-                      {option.label}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.sessionDescription,
-                        selected ? styles.sessionDescriptionSelected : null,
-                      ]}
-                    >
-                      {option.description}
-                    </Text>
-                  </View>
+                      <Ionicons
+                        name={option.icon}
+                        size={16}
+                        color={selected ? theme.textOnPrimary : theme.primary}
+                      />
+                    </View>
 
-                  {selected && (
-                    <Ionicons name="checkmark-circle" size={18} color={theme.textOnPrimary} />
-                  )}
-                </AnimatedPressable>
-              );
-            })}
-          </View>
+                    <View style={styles.sessionTextBlock}>
+                      <Text
+                        style={[
+                          styles.sessionLabel,
+                          selected ? styles.sessionLabelSelected : null,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.sessionDescription,
+                          selected ? styles.sessionDescriptionSelected : null,
+                        ]}
+                      >
+                        {option.description}
+                      </Text>
+                    </View>
+
+                    {selected && (
+                      <Ionicons name="checkmark-circle" size={18} color={theme.textOnPrimary} />
+                    )}
+                  </AnimatedPressable>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={styles.unavailableBox}>
+              <Ionicons name="alert-circle-outline" size={18} color={theme.warningAmber} />
+              <Text style={styles.unavailableText}>
+                Este especialista no tiene modalidades de reserva activas.
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -227,8 +274,14 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
               <Text style={styles.infoText}>Cancelacion gratis 24 h antes.</Text>
             </View>
             <View style={styles.infoRow}>
-              <Ionicons name={activeType.icon} size={14} color={theme.textSecondary} />
-              <Text style={styles.infoText}>{activeType.description}</Text>
+              <Ionicons
+                name={activeType?.icon ?? 'calendar-outline'}
+                size={14}
+                color={theme.textSecondary}
+              />
+              <Text style={styles.infoText}>
+                {activeType?.description ?? 'Reserva disponible cuando el especialista active una modalidad.'}
+              </Text>
             </View>
           </View>
         </View>
@@ -237,9 +290,11 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
           <View style={styles.card}>
             <View style={styles.summaryHeader}>
               <Text style={styles.cardTitle}>Resumen de tu reserva</Text>
-              <View style={styles.summaryBadge}>
-                <Text style={styles.summaryBadgeText}>{activeType.label}</Text>
-              </View>
+              {activeType ? (
+                <View style={styles.summaryBadge}>
+                  <Text style={styles.summaryBadgeText}>{activeType.label}</Text>
+                </View>
+              ) : null}
             </View>
 
             <View style={styles.summaryItem}>
@@ -277,19 +332,21 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
             <View style={styles.totalRow}>
               <View>
                 <Text style={styles.totalLabel}>TOTAL ESTIMADO</Text>
-                <Text style={styles.totalCaption}>Pago seguro al confirmar la reserva</Text>
+                <Text style={[styles.totalCaption, quoteError ? styles.totalCaptionError : null]}>
+                  {totalCaption}
+                </Text>
               </View>
-              <Text style={styles.totalValue}>{specialist.pricePerSession}€</Text>
+              <Text style={styles.totalValue}>{priceText}</Text>
             </View>
 
             {showConfirmButton && (
-              <Button
-                variant="primary"
-                size="medium"
-                onPress={onConfirm}
-                disabled={!isComplete || loading}
-                loading={loading}
-                fullWidth
+            <Button
+              variant="primary"
+              size="medium"
+              onPress={onConfirm}
+              disabled={!isComplete || loading || sessionOptions.length === 0 || quoteLoading || !canConfirm}
+              loading={loading}
+              fullWidth
                 icon={
                   !loading ? (
                     <Ionicons
@@ -411,6 +468,29 @@ const createStyles = (
       fontFamily: theme.fontSansSemiBold,
       color: theme.textPrimary,
     },
+    promoBadge: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: borderRadius.sm,
+      backgroundColor: theme.successBg,
+    },
+    promoBadgeText: {
+      fontSize: 11,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.success,
+    },
+    quoteErrorText: {
+      marginTop: 4,
+      fontSize: 11,
+      lineHeight: 15,
+      fontFamily: theme.fontSansMedium,
+      color: theme.error,
+    },
     tagsRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -443,6 +523,23 @@ const createStyles = (
     },
     sessionList: {
       gap: spacing.sm,
+    },
+    unavailableBox: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+      padding: spacing.md,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.warningAmber,
+      backgroundColor: theme.warningBg,
+    },
+    unavailableText: {
+      flex: 1,
+      fontSize: 13,
+      lineHeight: 18,
+      fontFamily: theme.fontSansMedium,
+      color: theme.textPrimary,
     },
     sessionItem: {
       flexDirection: 'row',
@@ -565,6 +662,10 @@ const createStyles = (
       fontSize: 11,
       fontFamily: theme.fontSans,
       color: theme.textSecondary,
+    },
+    totalCaptionError: {
+      color: theme.error,
+      fontFamily: theme.fontSansMedium,
     },
     totalValue: {
       fontSize: 28,

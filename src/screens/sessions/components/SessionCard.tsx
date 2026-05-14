@@ -22,6 +22,9 @@ import {
 } from '../../../utils/videoCallUtils';
 import SessionLocationBlock from './SessionLocationBlock';
 
+const formatSessionAmount = (amount: number, currency?: string | null): string =>
+  `${amount.toLocaleString('es-ES', { maximumFractionDigits: 2 })} ${currency || 'EUR'}`;
+
 const SessionCard: React.FC<SessionCardProps> = ({
   session,
   onPress,
@@ -34,6 +37,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark, width), [theme, isDark, width]);
+  const sessionPrice = session.bookedPrice ?? session.specialist.pricePerSession;
 
   const isCompleted = session.status === 'COMPLETED';
   const isCancelled = session.status === 'CANCELLED';
@@ -136,7 +140,9 @@ const SessionCard: React.FC<SessionCardProps> = ({
         </View>
         <View style={styles.detailChip}>
           <Ionicons name="wallet-outline" size={14} color={theme.textSecondary} />
-          <Text style={styles.detailChipText}>{session.specialist.pricePerSession} EUR</Text>
+          <Text style={styles.detailChipText}>
+            {formatSessionAmount(sessionPrice, session.bookedCurrency)}
+          </Text>
         </View>
       </View>
 

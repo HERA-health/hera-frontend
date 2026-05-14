@@ -123,11 +123,6 @@ export const CompactHero: React.FC<CompactHeroProps> = ({
             </View>
           </View>
 
-          {/* Personal motto */}
-          {specialist.personalMotto ? (
-            <Text style={styles.motto}>{specialist.personalMotto}</Text>
-          ) : null}
-
           {/* Tags */}
           {specialtyTags.length > 0 && (
             <ScrollView
@@ -279,17 +274,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: heraLanding.whiteAlpha80,
   },
-
-  // Motto
-  motto: {
-    fontSize: 13,
-    color: heraLanding.whiteAlpha80,
-    fontStyle: 'italic',
-    lineHeight: 20,
-    maxWidth: 500,
-    marginBottom: spacing.sm,
-  },
-
   // Tags
   tagsScroll: {
     flexGrow: 0,

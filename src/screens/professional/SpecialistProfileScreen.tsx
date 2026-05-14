@@ -49,6 +49,7 @@ import { shadows, spacing, borderRadius, typography, layout } from '../../consta
 import type { Theme } from '../../constants/theme';
 import * as professionalService from '../../services/professionalService';
 import * as authService from '../../services/authService';
+import { billingService, type FullBillingConfig, type TariffItem } from '../../services/billingService';
 import {
   SpecialistCertificate as ServiceCertificate,
   SpecialistProfileData as ServiceProfileData,
@@ -148,7 +149,6 @@ interface SpecialistProfileData {
 
   // Mi Espacio
   gradientId: string;
-  personalMotto: string;
   photoGallery: string[];
   presentationVideoUrl: string;
   yearsInPractice: number;
@@ -262,10 +262,6 @@ const STRINGS = {
     tabLabel: 'Mi Espacio',
     gradientTitle: 'Apariencia del perfil',
     gradientSubtitle: 'Elige el gradiente de fondo que verán tus pacientes',
-    mottoLabel: 'Tu frase',
-    mottoSubtitle: 'Una frase que refleje tu enfoque terapéutico (máx. 200 caracteres)',
-    mottoPlaceholder: 'Ej: Creo en el poder de la conexión terapéutica...',
-    mottoCounter: (count: number) => `${count} / 200 caracteres`,
     galleryLabel: 'Galería',
     gallerySubtitle: 'Añade fotos de tu consulta o de ti misma. Máximo 6 fotos.',
     galleryDeleteConfirm: '¿Eliminar esta foto?',
@@ -351,6 +347,69 @@ const formatDocumentDate = (value?: string | null): string | null => {
     year: 'numeric',
   });
 };
+
+const formatBillingAmount = (amount?: number | null): string =>
+  typeof amount === 'number'
+    ? `${amount.toLocaleString('es-ES', { maximumFractionDigits: 2 })} €`
+    : 'Pendiente';
+
+const mapServiceProfileToFormData = (profile: ServiceProfileData): SpecialistProfileData => ({
+  fullName: profile.fullName || '',
+  professionalTitle: profile.professionalTitle || '',
+  professionalType: profile.professionalType || null,
+  bio: profile.bio || '',
+  avatar: profile.avatar || null,
+  specialties: profile.specialties || [],
+  therapeuticApproaches: profile.therapeuticApproaches || [],
+  languages: profile.languages || ['spanish'],
+  education: (profile.education as Education[]) || [],
+  experience: (profile.experience as Experience[]) || [],
+  identityVerified: profile.identityVerified || false,
+  insuranceUploaded: profile.insuranceUploaded || false,
+  insuranceReviewStatus: profile.insuranceReviewStatus || 'NOT_UPLOADED',
+  insuranceReviewedAt: profile.insuranceReviewedAt ?? null,
+  insuranceRejectedReason: profile.insuranceRejectedReason ?? null,
+  locationVisibleToPatients: profile.locationVisibleToPatients ?? false,
+  certificates: (profile.certificates as Certificate[]) || [],
+  priceStandard: profile.priceStandard?.toString() || '65',
+  priceExtended: profile.priceExtended?.toString() || '95',
+  priceFirstSession: profile.priceFirstSession?.toString() || '60',
+  offerExtended: profile.offerExtended || false,
+  offerFirstSessionDiscount: profile.offerFirstSessionDiscount || false,
+  sessionTypes: profile.sessionTypes || ['individual'],
+  modalityOnline: profile.modalityOnline?.toString() || '65',
+  modalityInPerson: profile.modalityInPerson?.toString() || '70',
+  bankIban: profile.bankIban || '',
+  bankHolder: profile.bankHolder || '',
+  bankVerified: profile.bankVerified || false,
+  taxId: profile.taxId || '',
+  taxAddress: profile.taxAddress || '',
+  taxCity: profile.taxCity || '',
+  applyVat: profile.applyVat || false,
+  vatRate: profile.vatRate?.toString() || '21',
+  applyIrpf: profile.applyIrpf ?? true,
+  email: profile.email || '',
+  emailVerified: profile.emailVerified,
+  phone: profile.phone || '',
+  phoneVerified: profile.phoneVerified || false,
+  twoFactorEnabled: profile.twoFactorEnabled || false,
+  profileVisible: profile.profileVisible ?? true,
+  showReviewCount: profile.showReviewCount ?? true,
+  showLastOnline: profile.showLastOnline || false,
+  gradientId: profile.gradientId ?? 'salvia-lavanda',
+  photoGallery: profile.photoGallery ?? [],
+  presentationVideoUrl: profile.presentationVideoUrl ?? '',
+  yearsInPractice: profile.yearsInPractice ?? 0,
+  languagesSpoken: profile.languagesSpoken ?? [],
+  officeAddress: profile.officeAddress || '',
+  officeCity: profile.officeCity || '',
+  officePostalCode: profile.officePostalCode || '',
+  officeCountry: profile.officeCountry || 'Spain',
+  officeLat: profile.officeLat ?? null,
+  officeLng: profile.officeLng ?? null,
+  offersOnline: profile.offersOnline ?? true,
+  offersInPerson: profile.offersInPerson ?? false,
+});
 
 const getInsuranceReviewCopy = (
   status: SpecialistProfileData['insuranceReviewStatus'],
@@ -449,6 +508,8 @@ export function SpecialistProfileScreen() {
 
   // Read-only stats from API (not editable)
   const [specialistStats, setSpecialistStats] = useState({ rating: 0, reviewCount: 0 });
+  const [billingConfig, setBillingConfig] = useState<FullBillingConfig | null>(null);
+  const [isBillingConfigLoading, setIsBillingConfigLoading] = useState(false);
 
   // Profile data state
   const [profileData, setProfileData] = useState<SpecialistProfileData>({
@@ -508,7 +569,6 @@ export function SpecialistProfileScreen() {
 
     // Mi Espacio
     gradientId: 'salvia-lavanda',
-    personalMotto: '',
     photoGallery: [],
     presentationVideoUrl: '',
     yearsInPractice: 0,
@@ -572,6 +632,37 @@ export function SpecialistProfileScreen() {
 
     return `${getWebAppUrl()}/e/${specialistId}`;
   }, [specialistId]);
+  const isProfessionalVerified = verificationStatus.verificationStatus === 'VERIFIED';
+  const canOpenPublicProfile =
+    isProfessionalVerified && Boolean(specialistId);
+
+  const activeBillingTariffs = useMemo<TariffItem[]>(
+    () => billingConfig?.tariffs?.filter((tariff) => tariff.isActive) ?? [],
+    [billingConfig]
+  );
+
+  const defaultBillingTariff = useMemo<TariffItem | null>(
+    () =>
+      activeBillingTariffs.find((tariff) => tariff.isDefault)
+      ?? activeBillingTariffs[0]
+      ?? null,
+    [activeBillingTariffs]
+  );
+
+  const billingFiscalReady = useMemo(
+    () =>
+      Boolean(
+        billingConfig?.fiscalName?.trim()
+        && billingConfig?.fiscalNif?.trim()
+        && billingConfig?.fiscalAddress?.trim()
+      ),
+    [billingConfig]
+  );
+
+  const billingBankReady = Boolean(billingConfig?.bankIban?.trim());
+  const parsedProfilePrice = Number(profileData.priceStandard);
+  const publicSessionPrice =
+    billingConfig?.pricePerSession ?? (Number.isFinite(parsedProfilePrice) ? parsedProfilePrice : null);
 
   // Check for changes
   useEffect(() => {
@@ -585,79 +676,9 @@ export function SpecialistProfileScreen() {
       setIsLoading(true);
       const profile = await professionalService.getComprehensiveProfile();
       if (profile) {
-        // Map API data to local state
-        const mappedData: SpecialistProfileData = {
-          // Basic Info
-          fullName: profile.fullName || '',
-          professionalTitle: profile.professionalTitle || '',
-          professionalType: profile.professionalType || null,
-          bio: profile.bio || '',
-          avatar: profile.avatar || null,
-
-          // Professional Details
-          specialties: profile.specialties || [],
-          therapeuticApproaches: profile.therapeuticApproaches || [],
-          languages: profile.languages || ['spanish'],
-          education: (profile.education as Education[]) || [],
-          experience: (profile.experience as Experience[]) || [],
-
-          // Verification
-          identityVerified: profile.identityVerified || false,
-          insuranceUploaded: profile.insuranceUploaded || false,
-          insuranceReviewStatus: profile.insuranceReviewStatus || 'NOT_UPLOADED',
-          insuranceReviewedAt: profile.insuranceReviewedAt ?? null,
-          insuranceRejectedReason: profile.insuranceRejectedReason ?? null,
-          locationVisibleToPatients: profile.locationVisibleToPatients ?? false,
-          certificates: (profile.certificates as Certificate[]) || [],
-
-          // Pricing
-          priceStandard: profile.priceStandard?.toString() || '65',
-          priceExtended: profile.priceExtended?.toString() || '95',
-          priceFirstSession: profile.priceFirstSession?.toString() || '60',
-          offerExtended: profile.offerExtended || false,
-          offerFirstSessionDiscount: profile.offerFirstSessionDiscount || false,
-          sessionTypes: profile.sessionTypes || ['individual'],
-          modalityOnline: profile.modalityOnline?.toString() || '65',
-          modalityInPerson: profile.modalityInPerson?.toString() || '70',
-
-          // Payment
-          bankIban: profile.bankIban || '',
-          bankHolder: profile.bankHolder || '',
-          bankVerified: profile.bankVerified || false,
-          taxId: profile.taxId || '',
-          taxAddress: profile.taxAddress || '',
-          taxCity: profile.taxCity || '',
-          applyVat: profile.applyVat || false,
-          vatRate: profile.vatRate?.toString() || '21',
-          applyIrpf: profile.applyIrpf ?? true,
-
-          // Account
-          email: profile.email || '',
-          emailVerified: profile.emailVerified,
-          phone: profile.phone || '',
-          phoneVerified: profile.phoneVerified || false,
-          twoFactorEnabled: profile.twoFactorEnabled || false,
-          profileVisible: profile.profileVisible ?? true,
-          showReviewCount: profile.showReviewCount ?? true,
-          showLastOnline: profile.showLastOnline || false,
-
-          // Mi Espacio
-          gradientId: profile.gradientId ?? 'salvia-lavanda',
-          personalMotto: profile.personalMotto ?? '',
-          photoGallery: profile.photoGallery ?? [],
-          presentationVideoUrl: profile.presentationVideoUrl ?? '',
-          yearsInPractice: profile.yearsInPractice ?? 0,
-          languagesSpoken: profile.languagesSpoken ?? [],
-
-          // Location & Service Modality
-          officeAddress: profile.officeAddress || '',
-          officeCity: profile.officeCity || '',
-          officePostalCode: profile.officePostalCode || '',
-          officeCountry: profile.officeCountry || 'Spain',
-          officeLat: profile.officeLat ?? null,
-          officeLng: profile.officeLng ?? null,
-          offersOnline: profile.offersOnline ?? true,
-          offersInPerson: profile.offersInPerson ?? false,
+        const mappedData = {
+          ...mapServiceProfileToFormData(profile),
+          avatar: profile.avatar ?? user?.avatar ?? null,
         };
 
         setProfileData(mappedData);
@@ -673,12 +694,26 @@ export function SpecialistProfileScreen() {
     } finally {
       setIsLoading(false);
     }
+  }, [user?.avatar]);
+
+  const loadBillingConfig = useCallback(async () => {
+    try {
+      setIsBillingConfigLoading(true);
+      const config = await billingService.getConfig();
+      setBillingConfig(config);
+    } catch (error) {
+      console.error('Error loading billing config:', error);
+      setBillingConfig(null);
+    } finally {
+      setIsBillingConfigLoading(false);
+    }
   }, []);
 
   // Reload both profile data and verification status on every screen focus
   useFocusEffect(
     useCallback(() => {
       loadProfile();
+      loadBillingConfig();
       const loadVerificationStatus = async () => {
         try {
           const status = await professionalService.getVerificationStatus();
@@ -701,7 +736,7 @@ export function SpecialistProfileScreen() {
         }
       };
       loadSpecialistId();
-    }, [loadProfile])
+    }, [loadBillingConfig, loadProfile])
   );
 
   // ============================================================================
@@ -751,65 +786,55 @@ export function SpecialistProfileScreen() {
 
     setIsSaving(true);
     try {
-      // Transform local state to API format
       const updateData: Partial<ServiceProfileData> = {
-        fullName: profileData.fullName,
-        professionalTitle: profileData.professionalTitle,
-        professionalType: profileData.professionalType,
-        bio: profileData.bio,
-        avatar: profileData.avatar,
-
-        specialties: profileData.specialties,
-        therapeuticApproaches: profileData.therapeuticApproaches,
-        languages: profileData.languages,
-        education: profileData.education,
-        experience: profileData.experience,
-
-        priceStandard: parseFloat(profileData.priceStandard) || 65,
-        priceExtended: profileData.offerExtended ? (parseFloat(profileData.priceExtended) || null) : null,
-        priceFirstSession: profileData.offerFirstSessionDiscount ? (parseFloat(profileData.priceFirstSession) || null) : null,
-        offerExtended: profileData.offerExtended,
-        offerFirstSessionDiscount: profileData.offerFirstSessionDiscount,
-        sessionTypes: profileData.sessionTypes,
-        modalityOnline: parseFloat(profileData.modalityOnline) || 65,
-        modalityInPerson: parseFloat(profileData.modalityInPerson) || 70,
-
-        bankIban: profileData.bankIban,
-        bankHolder: profileData.bankHolder,
-        taxId: profileData.taxId,
-        taxAddress: profileData.taxAddress,
-        taxCity: profileData.taxCity,
-        applyVat: profileData.applyVat,
-        vatRate: parseFloat(profileData.vatRate) || 21,
-        applyIrpf: profileData.applyIrpf,
-
-        phone: profileData.phone,
-        profileVisible: profileData.profileVisible,
-        showReviewCount: profileData.showReviewCount,
-        showLastOnline: profileData.showLastOnline,
-
-        // Mi Espacio
-        gradientId: profileData.gradientId,
-        personalMotto: profileData.personalMotto,
-        photoGallery: profileData.photoGallery,
-        presentationVideoUrl: profileData.presentationVideoUrl,
-        yearsInPractice: profileData.yearsInPractice,
-        languagesSpoken: profileData.languagesSpoken,
-
-        // Location & Service Modality
-        officeAddress: profileData.officeAddress,
-        officeCity: profileData.officeCity,
-        officePostalCode: profileData.officePostalCode,
-        officeCountry: profileData.officeCountry,
-        officeLat: profileData.officeLat,
-        officeLng: profileData.officeLng,
-        offersOnline: profileData.offersOnline,
-        offersInPerson: profileData.offersInPerson,
+      };
+      const hasFieldChanged = <K extends keyof SpecialistProfileData>(field: K) =>
+        JSON.stringify(profileData[field]) !== JSON.stringify(originalData[field]);
+      const assignIfChanged = <K extends keyof SpecialistProfileData, T extends keyof ServiceProfileData>(
+        localField: K,
+        apiField: T,
+        value: ServiceProfileData[T]
+      ) => {
+        if (hasFieldChanged(localField)) {
+          updateData[apiField] = value;
+        }
       };
 
-      await professionalService.updateComprehensiveProfile(updateData);
+      assignIfChanged('fullName', 'fullName', profileData.fullName);
+      assignIfChanged('professionalTitle', 'professionalTitle', profileData.professionalTitle);
+      assignIfChanged('professionalType', 'professionalType', profileData.professionalType);
+      assignIfChanged('bio', 'bio', profileData.bio);
+      assignIfChanged('avatar', 'avatar', profileData.avatar);
+      assignIfChanged('specialties', 'specialties', profileData.specialties);
+      assignIfChanged('therapeuticApproaches', 'therapeuticApproaches', profileData.therapeuticApproaches);
+      assignIfChanged('languages', 'languages', profileData.languages);
+      assignIfChanged('education', 'education', profileData.education);
+      assignIfChanged('experience', 'experience', profileData.experience);
+      assignIfChanged('phone', 'phone', profileData.phone);
+      assignIfChanged('profileVisible', 'profileVisible', profileData.profileVisible);
+      assignIfChanged('gradientId', 'gradientId', profileData.gradientId);
+      assignIfChanged('photoGallery', 'photoGallery', profileData.photoGallery);
+      assignIfChanged('presentationVideoUrl', 'presentationVideoUrl', profileData.presentationVideoUrl);
+      assignIfChanged('yearsInPractice', 'yearsInPractice', profileData.yearsInPractice);
+      assignIfChanged('languagesSpoken', 'languagesSpoken', profileData.languagesSpoken);
+      assignIfChanged('officeAddress', 'officeAddress', profileData.officeAddress);
+      assignIfChanged('officeCity', 'officeCity', profileData.officeCity);
+      assignIfChanged('officePostalCode', 'officePostalCode', profileData.officePostalCode);
+      assignIfChanged('officeCountry', 'officeCountry', profileData.officeCountry);
+      assignIfChanged('officeLat', 'officeLat', profileData.officeLat);
+      assignIfChanged('officeLng', 'officeLng', profileData.officeLng);
+      assignIfChanged('offersOnline', 'offersOnline', profileData.offersOnline);
+      assignIfChanged('offersInPerson', 'offersInPerson', profileData.offersInPerson);
 
-      setOriginalData(profileData);
+      const result = await professionalService.updateComprehensiveProfile(updateData);
+      const mappedData = mapServiceProfileToFormData(result);
+
+      setProfileData(mappedData);
+      setOriginalData(mappedData);
+      setSpecialistStats({
+        rating: result.rating ?? 0,
+        reviewCount: result.reviewCount ?? 0,
+      });
       showAppAlert(appAlert, 'Cambios guardados', 'Tu perfil ha sido actualizado correctamente');
     } catch (error: unknown) {
       console.error('Error saving profile:', error);
@@ -817,7 +842,7 @@ export function SpecialistProfileScreen() {
     } finally {
       setIsSaving(false);
     }
-  }, [hasChanges, profileData]);
+  }, [hasChanges, originalData, profileData]);
 
   const handleImagePick = useCallback(async () => {
     if (isUploadingAvatar) return;
@@ -857,8 +882,18 @@ export function SpecialistProfileScreen() {
       showAppAlert(appAlert, 'Error', 'No se pudo cargar el perfil');
       return;
     }
+
+    if (!canOpenPublicProfile) {
+      showAppAlert(
+        appAlert,
+        'Perfil público no disponible',
+        'Tu perfil completo estará disponible cuando HERA apruebe tu verificación profesional.'
+      );
+      return;
+    }
+
     navigation.navigate('SpecialistDetail', { specialistId });
-  }, [specialistId, navigation]);
+  }, [appAlert, canOpenPublicProfile, specialistId, navigation]);
 
   // Share profile handler
   const closeShareModal = useCallback(() => {
@@ -892,6 +927,10 @@ export function SpecialistProfileScreen() {
       // User cancelled share
     }
   }, [shareProfileUrl]);
+
+  const handleOpenBilling = useCallback(() => {
+    navigation.navigate('ProfessionalBilling');
+  }, [navigation]);
 
   const resetCertificateDraft = useCallback(() => {
     setCertificateDraft({
@@ -1158,13 +1197,32 @@ export function SpecialistProfileScreen() {
     { id: 'information', label: 'Información Profesional', icon: 'person-outline' },
     { id: 'mi-espacio', label: STRINGS.miEspacio.tabLabel, icon: 'sparkles-outline' },
     { id: 'credentials', label: 'Credenciales', icon: 'shield-checkmark-outline' },
-    { id: 'pricing', label: 'Tarifas y Pagos', icon: 'card-outline' },
+    { id: 'pricing', label: 'Facturación', icon: 'card-outline' },
     { id: 'privacy', label: 'Privacidad', icon: 'eye-outline' },
     { id: 'account', label: 'Cuenta', icon: 'settings-outline' },
   ];
 
-  const canShareProfile = verificationStatus.verificationStatus === 'VERIFIED' && Boolean(specialistId);
-  const visibilityCopy = profileData.profileVisible
+  const canShareProfile = isProfessionalVerified && Boolean(specialistId);
+  const publicProfileUnavailableCopy = !specialistId
+    ? {
+        title: 'Perfil público cargando',
+        description: 'Estamos preparando el enlace de tu perfil. Vuelve a intentarlo en unos segundos.',
+      }
+    : !isProfessionalVerified
+      ? {
+          title: 'Pendiente de verificación',
+          description: 'Cuando HERA apruebe tu verificación profesional, podrás abrir y compartir tu perfil completo.',
+        }
+      : null;
+  const visibilityCopy = !isProfessionalVerified
+    ? {
+        icon: 'time-outline' as IconName,
+        label: 'Pendiente de verificación',
+        description: 'Tu perfil se publicará cuando HERA apruebe tu verificación profesional.',
+        badgeStyle: styles.visibilityBadgePending,
+        badgeTextStyle: styles.visibilityBadgeTextPending,
+      }
+    : profileData.profileVisible
     ? {
         icon: 'earth-outline' as IconName,
         label: 'Perfil público',
@@ -1179,6 +1237,11 @@ export function SpecialistProfileScreen() {
         badgeStyle: styles.visibilityBadgePrivate,
         badgeTextStyle: styles.visibilityBadgeTextPrivate,
       };
+  const visibilityBadgeIconColor = !isProfessionalVerified
+    ? palette.warningAmber
+    : profileData.profileVisible
+      ? palette.success
+      : palette.primary;
 
   const renderTabNavigation = () => (
     <View style={[styles.tabsContainer, isDesktop && styles.tabsContainerDesktop]}>
@@ -1196,7 +1259,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={visibilityCopy.icon}
                 size={14}
-                color={profileData.profileVisible ? palette.success : palette.primary}
+                color={visibilityBadgeIconColor}
               />
               <Text style={[styles.visibilityBadgeText, visibilityCopy.badgeTextStyle]}>
                 {visibilityCopy.label}
@@ -1310,7 +1373,7 @@ export function SpecialistProfileScreen() {
           </View>
           <View style={styles.previewStatDivider} />
           <View style={styles.previewStat}>
-            <Text style={styles.previewStatValue}>€{profileData.priceStandard || '65'}</Text>
+            <Text style={styles.previewStatValue}>{formatBillingAmount(publicSessionPrice)}</Text>
             <Text style={styles.previewStatLabel}>/ sesión</Text>
           </View>
         </View>
@@ -1362,17 +1425,34 @@ export function SpecialistProfileScreen() {
         </View>
 
         {/* View Full Profile Button */}
+        {publicProfileUnavailableCopy ? (
+          <View style={styles.previewUnavailableNotice}>
+            <View style={styles.previewUnavailableIcon}>
+              <Ionicons name="time-outline" size={18} color={palette.warningAmber} />
+            </View>
+            <View style={styles.previewUnavailableCopy}>
+              <Text style={styles.previewUnavailableTitle}>
+                {publicProfileUnavailableCopy.title}
+              </Text>
+              <Text style={styles.previewUnavailableText}>
+                {publicProfileUnavailableCopy.description}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <Button
           variant="outline"
           size="medium"
           onPress={handleViewPublicProfile}
+          disabled={!canOpenPublicProfile}
           fullWidth
           icon={<Ionicons name="arrow-forward" size={16} color={palette.primary} />}
           iconPosition="right"
           style={styles.previewButton}
           textStyle={styles.previewButtonText}
         >
-          Ver perfil completo
+          {canOpenPublicProfile ? 'Ver perfil completo' : 'Perfil completo pendiente'}
         </Button>
       </ScrollView>
     </View>
@@ -1615,25 +1695,7 @@ export function SpecialistProfileScreen() {
         </View>
       </View>
 
-      {/* Section 2: Personal Motto */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{STRINGS.miEspacio.mottoLabel}</Text>
-        <Text style={miEspacioStyles.subtitle}>{STRINGS.miEspacio.mottoSubtitle}</Text>
-        <TextInput
-          style={[styles.fieldInput, styles.fieldInputMultiline, { minHeight: 100 }]}
-          value={profileData.personalMotto}
-          onChangeText={(text) => updateField('personalMotto', text)}
-          placeholder={STRINGS.miEspacio.mottoPlaceholder}
-          placeholderTextColor={palette.textMuted}
-          multiline
-          maxLength={200}
-        />
-        <Text style={styles.characterCount}>
-          {STRINGS.miEspacio.mottoCounter(profileData.personalMotto.length)}
-        </Text>
-      </View>
-
-      {/* Section 3: Photo Gallery */}
+      {/* Section 2: Photo Gallery */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{STRINGS.miEspacio.galleryLabel}</Text>
         <Text style={miEspacioStyles.subtitle}>{STRINGS.miEspacio.gallerySubtitle}</Text>
@@ -1672,7 +1734,7 @@ export function SpecialistProfileScreen() {
         </ScrollView>
       </View>
 
-      {/* Section 4: Presentation Video */}
+      {/* Section 3: Presentation Video */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{STRINGS.miEspacio.videoLabel}</Text>
         <Text style={miEspacioStyles.subtitle}>{STRINGS.miEspacio.videoSubtitle}</Text>
@@ -2575,204 +2637,82 @@ export function SpecialistProfileScreen() {
 
   const renderPricingTab = () => (
     <View style={styles.tabContent}>
-      {/* Session Pricing */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Tarifas de sesión</Text>
+        <Text style={styles.sectionTitle}>Resumen de facturación</Text>
         <View style={styles.formCard}>
-          <View style={styles.priceRow}>
-            {renderFormField(
-              '60 minutos (estándar)',
-              profileData.priceStandard,
-              (text) => updateField('priceStandard', text.replace(/[^0-9]/g, '')),
-              { placeholder: '65', keyboardType: 'numeric', required: true }
-            )}
-            <Text style={styles.priceCurrency}>€ / sesión</Text>
-          </View>
-
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              style={styles.toggle}
-              onPress={() => updateField('offerExtended', !profileData.offerExtended)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={profileData.offerExtended ? 'checkbox' : 'square-outline'}
-                size={22}
-                color={palette.primary}
-              />
-              <Text style={styles.toggleText}>Ofrecer sesión de 90 minutos</Text>
-            </TouchableOpacity>
-          </View>
-
-          {profileData.offerExtended && (
-            <View style={styles.priceRow}>
-              {renderFormField(
-                '90 minutos (extendida)',
-                profileData.priceExtended,
-                (text) => updateField('priceExtended', text.replace(/[^0-9]/g, '')),
-                { placeholder: '95', keyboardType: 'numeric' }
-              )}
-              <Text style={styles.priceCurrency}>€ / sesión</Text>
+          <View style={styles.billingSummaryHeader}>
+            <View style={styles.billingSummaryIcon}>
+              <Ionicons name="card-outline" size={22} color={palette.primary} />
             </View>
-          )}
-
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              style={styles.toggle}
-              onPress={() => updateField('offerFirstSessionDiscount', !profileData.offerFirstSessionDiscount)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={profileData.offerFirstSessionDiscount ? 'checkbox' : 'square-outline'}
-                size={22}
-                color={palette.primary}
-              />
-              <Text style={styles.toggleText}>Precio especial primera sesión</Text>
-            </TouchableOpacity>
-          </View>
-
-          {profileData.offerFirstSessionDiscount && (
-            <View style={styles.priceRow}>
-              {renderFormField(
-                'Primera sesión',
-                profileData.priceFirstSession,
-                (text) => updateField('priceFirstSession', text.replace(/[^0-9]/g, '')),
-                { placeholder: '60', keyboardType: 'numeric' }
-              )}
-              <Text style={styles.priceCurrency}>€ / sesión</Text>
+            <View style={styles.billingSummaryCopy}>
+              <Text style={styles.billingSummaryTitle}>La facturación se gestiona desde su pantalla dedicada</Text>
+              <Text style={styles.billingSummaryText}>
+                Las tarifas públicas, datos fiscales, IBAN, IVA y numeración de facturas se guardan en Facturación.
+              </Text>
             </View>
-          )}
-        </View>
-      </View>
-
-      {/* Session Types */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Tipos de sesión</Text>
-        <View style={styles.formCard}>
-          {renderChipSelector(
-            'Tipos de sesión que ofreces',
-            SESSION_TYPES,
-            profileData.sessionTypes,
-            'sessionTypes'
-          )}
-        </View>
-      </View>
-
-      {/* Modality Pricing */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Precios por modalidad</Text>
-        <View style={styles.formCard}>
-          <View style={styles.priceRow}>
-            {renderFormField(
-              'Videollamada',
-              profileData.modalityOnline,
-              (text) => updateField('modalityOnline', text.replace(/[^0-9]/g, '')),
-              { placeholder: '65', keyboardType: 'numeric' }
-            )}
-            <Text style={styles.priceCurrency}>€</Text>
-          </View>
-          <View style={styles.priceRow}>
-            {renderFormField(
-              'Presencial',
-              profileData.modalityInPerson,
-              (text) => updateField('modalityInPerson', text.replace(/[^0-9]/g, '')),
-              { placeholder: '70', keyboardType: 'numeric' }
-            )}
-            <Text style={styles.priceCurrency}>€</Text>
-          </View>
-          <Text style={styles.fieldHint}>
-            Puedes cobrar diferente según la modalidad de la sesión
-          </Text>
-        </View>
-      </View>
-
-      {/* Bank Account */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Cuenta bancaria</Text>
-        <View style={styles.formCard}>
-          {renderFormField(
-            'IBAN',
-            profileData.bankIban,
-            (text) => updateField('bankIban', text.toUpperCase()),
-            {
-              placeholder: 'ES00 0000 0000 0000 0000 0000',
-              verified: profileData.bankVerified,
-            }
-          )}
-          {renderFormField(
-            'Titular de la cuenta',
-            profileData.bankHolder,
-            (text) => updateField('bankHolder', text),
-            { placeholder: 'Elena Rodríguez García' }
-          )}
-        </View>
-      </View>
-
-      {/* Tax Settings */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Datos fiscales</Text>
-        <View style={styles.formCard}>
-          {renderFormField(
-            'NIF/CIF',
-            profileData.taxId,
-            (text) => updateField('taxId', text.toUpperCase()),
-            { placeholder: '12345678X' }
-          )}
-          {renderFormField(
-            'Dirección fiscal',
-            profileData.taxAddress,
-            (text) => updateField('taxAddress', text),
-            { placeholder: 'Calle Principal 123' }
-          )}
-          {renderFormField(
-            'Ciudad y código postal',
-            profileData.taxCity,
-            (text) => updateField('taxCity', text),
-            { placeholder: '28001 Madrid' }
-          )}
-
-          <View style={styles.taxSection}>
-            <Text style={styles.taxLabel}>IVA</Text>
-            <TouchableOpacity
-              style={styles.radioOption}
-              onPress={() => updateField('applyVat', false)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={!profileData.applyVat ? 'radio-button-on' : 'radio-button-off'}
-                size={20}
-                color={palette.primary}
-              />
-              <Text style={styles.radioText}>No aplicar IVA (profesional exento)</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.radioOption}
-              onPress={() => updateField('applyVat', true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={profileData.applyVat ? 'radio-button-on' : 'radio-button-off'}
-                size={20}
-                color={palette.primary}
-              />
-              <Text style={styles.radioText}>Aplicar 21% IVA</Text>
-            </TouchableOpacity>
           </View>
 
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              style={styles.toggle}
-              onPress={() => updateField('applyIrpf', !profileData.applyIrpf)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={profileData.applyIrpf ? 'checkbox' : 'square-outline'}
-                size={22}
-                color={palette.primary}
-              />
-              <Text style={styles.toggleText}>Retención del 15% IRPF en facturas</Text>
-            </TouchableOpacity>
-          </View>
+          {isBillingConfigLoading ? (
+            <View style={styles.billingLoadingRow}>
+              <ActivityIndicator size="small" color={palette.primary} />
+              <Text style={styles.billingSummaryText}>Cargando configuración...</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.billingMetricsGrid}>
+                <View style={styles.billingMetricCard}>
+                  <Text style={styles.billingMetricLabel}>Tarifa pública</Text>
+                  <Text style={styles.billingMetricValue}>
+                    {formatBillingAmount(defaultBillingTariff?.price ?? billingConfig?.pricePerSession)}
+                  </Text>
+                  <Text style={styles.billingMetricHint}>
+                    {defaultBillingTariff
+                      ? `${defaultBillingTariff.name} · ${defaultBillingTariff.durationMinutes} min`
+                      : 'Sin tarifa por defecto'}
+                  </Text>
+                </View>
+                <View style={styles.billingMetricCard}>
+                  <Text style={styles.billingMetricLabel}>Tarifas activas</Text>
+                  <Text style={styles.billingMetricValue}>{activeBillingTariffs.length}</Text>
+                  <Text style={styles.billingMetricHint}>Gestionadas en Facturación</Text>
+                </View>
+              </View>
+
+              <View style={styles.billingStatusList}>
+                <View style={styles.billingStatusRow}>
+                  <Ionicons
+                    name={billingFiscalReady ? 'checkmark-circle' : 'alert-circle-outline'}
+                    size={18}
+                    color={billingFiscalReady ? palette.success : palette.warningAmber}
+                  />
+                  <Text style={styles.billingStatusText}>
+                    {billingFiscalReady ? 'Datos fiscales completos' : 'Faltan datos fiscales para facturas completas'}
+                  </Text>
+                </View>
+                <View style={styles.billingStatusRow}>
+                  <Ionicons
+                    name={billingBankReady ? 'checkmark-circle' : 'information-circle-outline'}
+                    size={18}
+                    color={billingBankReady ? palette.success : palette.textSecondary}
+                  />
+                  <Text style={styles.billingStatusText}>
+                    {billingBankReady ? 'IBAN configurado' : 'IBAN pendiente en Facturación'}
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
+
+          <Button
+            variant="primary"
+            size="medium"
+            onPress={handleOpenBilling}
+            style={styles.billingCta}
+            icon={<Ionicons name="open-outline" size={18} color={palette.textOnCard} />}
+            iconPosition="right"
+          >
+            Abrir Facturación
+          </Button>
         </View>
       </View>
     </View>
@@ -2808,74 +2748,6 @@ export function SpecialistProfileScreen() {
               verified: profileData.phoneVerified,
             }
           )}
-          <View style={styles.accountActions}>
-            <Button
-              variant="outline"
-              size="small"
-              onPress={() => {}}
-              style={{ ...styles.accountAction }}
-              textStyle={{ ...styles.accountActionText }}
-            >
-              Cambiar email
-            </Button>
-            <Button
-              variant="outline"
-              size="small"
-              onPress={() => {}}
-              style={{ ...styles.accountAction }}
-              textStyle={{ ...styles.accountActionText }}
-            >
-              Cambiar teléfono
-            </Button>
-          </View>
-        </View>
-      </View>
-
-      {/* Password & Security */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Contraseña y seguridad</Text>
-        <View style={styles.formCard}>
-          <View style={styles.passwordRow}>
-            <View style={styles.passwordInfo}>
-              <Text style={styles.passwordLabel}>Contraseña</Text>
-              <Text style={styles.passwordValue}>••••••••••••</Text>
-              <Text style={styles.passwordMeta}>Última actualización: Hace 3 meses</Text>
-            </View>
-            <Button
-              variant="outline"
-              size="small"
-              onPress={() => {}}
-              style={{ ...styles.changePasswordButton }}
-              textStyle={{ ...styles.changePasswordText }}
-            >
-              Cambiar
-            </Button>
-          </View>
-
-          <View style={styles.securityRow}>
-            <View style={styles.securityInfo}>
-              <Ionicons
-                name={profileData.twoFactorEnabled ? 'shield-checkmark' : 'shield'}
-                size={24}
-                color={profileData.twoFactorEnabled ? palette.success : palette.textSecondary}
-              />
-              <View>
-                <Text style={styles.securityLabel}>Autenticación de dos factores</Text>
-                <Text style={styles.securityStatus}>
-                  {profileData.twoFactorEnabled ? 'Activada' : 'No activada'}
-                </Text>
-              </View>
-            </View>
-            <Button
-              variant="outline"
-              size="small"
-              onPress={() => {}}
-              style={{ ...styles.securityButton }}
-              textStyle={{ ...styles.securityButtonText }}
-            >
-              {profileData.twoFactorEnabled ? 'Gestionar' : 'Activar'}
-            </Button>
-          </View>
         </View>
       </View>
       <View style={styles.section}>
@@ -2916,28 +2788,6 @@ export function SpecialistProfileScreen() {
               Cuando exista configuración real por canal, aparecerá aquí en lugar de estos avisos informativos.
             </Text>
           </View>
-        </View>
-      </View>
-
-      {/* Account Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Acciones de cuenta</Text>
-        <View style={styles.formCard}>
-          <TouchableOpacity style={styles.accountLink} activeOpacity={0.7}>
-            <Ionicons name="download-outline" size={20} color={palette.textSecondary} />
-            <Text style={styles.accountLinkText}>Descargar mis datos</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.accountLink} activeOpacity={0.7}>
-            <Ionicons name="pause-circle-outline" size={20} color={palette.warningAmber} />
-            <Text style={styles.accountLinkText}>Pausar cuenta temporalmente</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.accountLink, styles.accountLinkDanger]} activeOpacity={0.7}>
-            <Ionicons name="trash-outline" size={20} color={palette.warning} />
-            <Text style={[styles.accountLinkText, styles.accountLinkTextDanger]}>Eliminar cuenta</Text>
-          </TouchableOpacity>
-          <Text style={styles.accountWarning}>
-            Las acciones permanentes requieren confirmación
-          </Text>
         </View>
       </View>
     </View>
@@ -2995,7 +2845,7 @@ export function SpecialistProfileScreen() {
         <View style={styles.formCard}>
           <View style={styles.visibilitySummary}>
             <View style={styles.visibilitySummaryIcon}>
-              <Ionicons name={visibilityCopy.icon} size={20} color={palette.primary} />
+              <Ionicons name={visibilityCopy.icon} size={20} color={visibilityBadgeIconColor} />
             </View>
             <View style={styles.visibilitySummaryCopy}>
               <Text style={styles.visibilitySummaryTitle}>{visibilityCopy.label}</Text>
@@ -3047,34 +2897,6 @@ export function SpecialistProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              style={styles.toggle}
-              onPress={() => updateField('showReviewCount', !profileData.showReviewCount)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={profileData.showReviewCount ? 'checkbox' : 'square-outline'}
-                size={22}
-                color={palette.primary}
-              />
-              <Text style={styles.toggleText}>Mostrar número de reseñas</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              style={styles.toggle}
-              onPress={() => updateField('showLastOnline', !profileData.showLastOnline)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={profileData.showLastOnline ? 'checkbox' : 'square-outline'}
-                size={22}
-                color={palette.primary}
-              />
-              <Text style={styles.toggleText}>Mostrar última conexión</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </View>
     </View>
@@ -3454,6 +3276,10 @@ function createStyles(
     backgroundColor: palette.primaryAlpha12,
     borderColor: palette.primaryMuted,
   },
+  visibilityBadgePending: {
+    backgroundColor: palette.warningLight,
+    borderColor: palette.warningAmber,
+  },
   visibilityBadgeText: {
     fontSize: 12,
     fontWeight: '700',
@@ -3463,6 +3289,9 @@ function createStyles(
   },
   visibilityBadgeTextPrivate: {
     color: palette.primary,
+  },
+  visibilityBadgeTextPending: {
+    color: palette.warningAmber,
   },
   shareModalOverlay: {
     flex: 1,
@@ -3798,6 +3627,39 @@ function createStyles(
     fontSize: 13,
     color: palette.success,
     fontWeight: '500',
+  },
+  previewUnavailableNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: palette.warningAmber,
+    backgroundColor: palette.warningLight,
+  },
+  previewUnavailableIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.cardBg,
+  },
+  previewUnavailableCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  previewUnavailableTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: palette.textPrimary,
+  },
+  previewUnavailableText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: palette.textSecondary,
   },
   previewButton: {
     flexDirection: 'row',
@@ -4434,6 +4296,91 @@ function createStyles(
   radioText: {
     fontSize: 15,
     color: palette.textPrimary,
+  },
+  billingSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    paddingBottom: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+    marginBottom: spacing.lg,
+  },
+  billingSummaryIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.primaryAlpha12,
+  },
+  billingSummaryCopy: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  billingSummaryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: palette.textPrimary,
+  },
+  billingSummaryText: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: palette.textSecondary,
+  },
+  billingLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  billingMetricsGrid: {
+    flexDirection: isMobile ? 'column' : 'row',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  billingMetricCard: {
+    flex: 1,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.backgroundMuted,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  billingMetricLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: palette.textMuted,
+    textTransform: 'uppercase',
+  },
+  billingMetricValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: palette.textPrimary,
+  },
+  billingMetricHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: palette.textSecondary,
+  },
+  billingStatusList: {
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  billingStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  billingStatusText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    color: palette.textPrimary,
+  },
+  billingCta: {
+    alignSelf: 'flex-start',
   },
 
   // ===== ACCOUNT =====

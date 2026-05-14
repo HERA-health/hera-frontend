@@ -236,6 +236,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   const [issueDate, setIssueDate] = useState(formatDateForDisplay(new Date()));
   const [ivaIncluded, setIvaIncluded] = useState(true);
   const [invoiceNumberPreview, setInvoiceNumberPreview] = useState('');
+  const [allowsZeroTotal, setAllowsZeroTotal] = useState(false);
 
   // ── Derived ──
   const vatRate = useMemo(() => {
@@ -381,6 +382,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
           setIvaIncluded(existing.ivaIncluded);
           setInvoiceKind(existing.invoiceKind);
           setInvoiceNumberPreview(existing.invoiceNumber);
+          setAllowsZeroTotal(existing.total === 0);
 
           // Build line item from existing data
           const dateStr = existing.sessionDate
@@ -404,6 +406,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
           showAppAlert(appAlert, 'Error', 'No se pudo cargar la factura');
         }
       } else {
+        setAllowsZeroTotal(false);
         // New invoice — build preview number
         setInvoiceKind('SIMPLIFIED');
         setInvoiceNumberPreview(invoiceNumberForKind('SIMPLIFIED', config));
@@ -516,7 +519,22 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
         return;
       }
 
-      const validLines = lineItems.filter((l) => (parseFloat(l.unitPrice) || 0) > 0);
+      const hasNegativeLine = lineItems.some((line) => {
+        const unitPrice = parseFloat(line.unitPrice);
+        return Number.isFinite(unitPrice) && unitPrice < 0;
+      });
+      if (hasNegativeLine) {
+        showAppAlert(appAlert, 'Error', 'No se permiten importes negativos');
+        return;
+      }
+
+      const pricedLines = lineItems.filter((line) => {
+        const unitPrice = parseFloat(line.unitPrice);
+        return line.concept.trim().length > 0 && Number.isFinite(unitPrice) && unitPrice >= 0;
+      });
+      const validLines = allowsZeroTotal
+        ? pricedLines
+        : pricedLines.filter((line) => (parseFloat(line.unitPrice) || 0) > 0);
       if (validLines.length === 0) {
         showAppAlert(appAlert, 'Error', STRINGS.validationNoAmount);
         return;
@@ -631,6 +649,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
       invoiceKind,
       specialistBillingReady,
       clientBillingReady,
+      allowsZeroTotal,
     ],
   );
 

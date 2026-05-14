@@ -16,7 +16,9 @@ import {
   addFavoriteSpecialist,
   getAllSpecialists,
   getSpecialistPersonalization,
+  mapSpecialistToProfile,
   removeFavoriteSpecialist,
+  type SpecialistData,
 } from '../specialistsService';
 
 const mockedApi = api as jest.Mocked<typeof api>;
@@ -65,5 +67,27 @@ describe('specialistsService personalization', () => {
     await expect(getAllSpecialists({ professionalType: 'PSYCHIATRIST' })).resolves.toEqual([]);
 
     expect(mockedApi.get).toHaveBeenCalledWith('/specialists?professionalType=PSYCHIATRIST');
+  });
+
+  it('does not invent an online modality when the public profile exposes none', () => {
+    const specialist = mapSpecialistToProfile({
+      id: 'specialist-1',
+      userId: 'user-1',
+      specialization: 'Psicología sanitaria',
+      professionalType: 'PSYCHOLOGIST_HEALTH',
+      professionalTypeLabel: 'Psicólogo/a sanitario/a',
+      description: 'Bio profesional',
+      pricePerSession: 80,
+      rating: 4.9,
+      reviewCount: 12,
+      firstVisitFree: false,
+      avatar: null,
+      user: { name: 'Dra. Elena' },
+      offersOnline: false,
+      offersInPerson: false,
+      matchingProfile: {},
+    } satisfies SpecialistData);
+
+    expect(specialist.sessionTypes).toEqual([]);
   });
 });
