@@ -2891,7 +2891,7 @@ export function SpecialistProfileScreen() {
               <View style={styles.visibilityOptionCopy}>
                 <Text style={styles.visibilityOptionTitle}>Privado con enlace</Text>
                 <Text style={styles.visibilityOptionText}>
-                  No aparece en discovery. Sigue disponible para tus pacientes y para quien reciba tu enlace.
+                  No aparece en búsquedas ni recomendaciones. Sigue disponible para tus pacientes y para quien reciba tu enlace.
                 </Text>
               </View>
             </TouchableOpacity>
