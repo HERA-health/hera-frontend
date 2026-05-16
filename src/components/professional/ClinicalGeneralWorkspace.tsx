@@ -3,6 +3,7 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button, Card } from '../common';
+import { TourTarget } from '../onboarding/TourTarget';
 import { ClinicalQuestionnairePanel } from './ClinicalQuestionnairePanel';
 import { ClinicalConsentPanel } from './ClinicalConsentPanel';
 import { ClinicalDocumentsPanel } from './ClinicalDocumentsPanel';
@@ -36,6 +37,7 @@ interface ClinicalGeneralWorkspaceProps {
   onLoadMoreNotes: () => void;
   onLoadMoreDocuments: () => void;
   onLoadMoreConsentEvents: () => void;
+  tourTargetsActive?: boolean;
 }
 
 const formatDate = (value?: string | Date | null) =>
@@ -90,6 +92,7 @@ export function ClinicalGeneralWorkspace({
   onLoadMoreNotes,
   onLoadMoreDocuments,
   onLoadMoreConsentEvents,
+  tourTargetsActive = true,
 }: ClinicalGeneralWorkspaceProps) {
   const { theme } = useTheme();
   const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontDisplayBold }), [theme]);
@@ -110,6 +113,21 @@ export function ClinicalGeneralWorkspace({
     [record.documents]
   );
   const latestConsentEvidenceDocumentId = consentEvidenceDocuments[0]?.id;
+  const consentDocumentsCopy = client.source === 'REGISTERED'
+    ? {
+        description: 'El consentimiento principal lo firma el paciente desde su cuenta HERA. Aquí puedes conservar documentos de apoyo si los necesitas.',
+        emptyDescription: 'Si necesitas conservar documentación de apoyo, adjúntala aquí sin sustituir la firma digital HERA.',
+        emptyTitle: 'Sin evidencias adjuntas',
+        title: 'Evidencias de consentimiento',
+        uploadLabel: 'Adjuntar evidencia',
+      }
+    : {
+        description: 'Para pacientes sin cuenta HERA, guarda aquí el PDF o documento firmado que acredita la autorización clínica.',
+        emptyDescription: 'Adjunta aquí el PDF o documento firmado antes de registrar el consentimiento manual.',
+        emptyTitle: 'No hay consentimiento firmado',
+        title: 'Consentimiento firmado externo',
+        uploadLabel: 'Adjuntar consentimiento',
+      };
 
   const handleUpload = async (category: 'GENERAL' | 'CONSENT_EVIDENCE' | 'MEDICAL_REPORT') => {
     const asset = await pickClinicalAsset();
@@ -133,6 +151,12 @@ export function ClinicalGeneralWorkspace({
   const noteColumn = (
     <View style={[styles.columnStack, isTablet && styles.columnStackDesktop]}>
       <Card variant="default" padding="large">
+        <TourTarget
+          id="professional.clinical.notes"
+          active={tourTargetsActive}
+          fill
+          style={styles.fullWidthTourTarget}
+        >
         <View style={styles.sectionHeader}>
           <View style={styles.sectionCopy}>
             <Text style={[styles.sectionTitle, { color: theme.textPrimary }, displayTitleStyle]}>
@@ -148,6 +172,7 @@ export function ClinicalGeneralWorkspace({
             </Text>
           </View>
         </View>
+        </TourTarget>
 
         <TextInput
           multiline
@@ -183,6 +208,12 @@ export function ClinicalGeneralWorkspace({
       </Card>
 
       <Card variant="default" padding="large">
+        <TourTarget
+          id="professional.clinical.timeline"
+          active={tourTargetsActive}
+          fill
+          style={styles.fullWidthTourTarget}
+        >
         <View style={styles.sectionHeader}>
           <View style={styles.sectionCopy}>
             <Text style={[styles.sectionTitle, { color: theme.textPrimary }, displayTitleStyle]}>
@@ -193,6 +224,7 @@ export function ClinicalGeneralWorkspace({
             </Text>
           </View>
         </View>
+        </TourTarget>
 
         {record.notes.length === 0 ? (
           <View style={[styles.emptyState, { backgroundColor: theme.bgMuted, borderColor: theme.border }]}>
@@ -244,6 +276,8 @@ export function ClinicalGeneralWorkspace({
         questionnaireAvailability={record.client.questionnaireAvailability}
         summary={record.client.questionnaireSummary}
         answers={record.client.questionnaireAnswers}
+        tourTargetId="professional.clinical.questionnaire"
+        tourTargetsActive={tourTargetsActive}
       />
 
       <ClinicalConsentPanel
@@ -258,20 +292,24 @@ export function ClinicalGeneralWorkspace({
         onAttestClinicalConsent={onAttestClinicalConsent}
         onCloseClinicalProcess={onCloseClinicalProcess}
         onLoadMoreConsentEvents={onLoadMoreConsentEvents}
+        tourTargetId="professional.clinical.consent"
+        tourTargetsActive={tourTargetsActive}
       />
 
       <ClinicalDocumentsPanel
         isTablet={isTablet}
-        title="Consentimiento y evidencias"
-        description="Aquí se guardan consentimientos firmados y evidencias necesarias para habilitar el expediente."
+        title={consentDocumentsCopy.title}
+        description={consentDocumentsCopy.description}
         documents={consentEvidenceDocuments}
         openingDocumentId={openingDocumentId}
-        uploadLabel="Adjuntar evidencia"
+        uploadLabel={consentDocumentsCopy.uploadLabel}
         uploading={documentUploading}
-        emptyTitle="No hay consentimientos adjuntos"
-        emptyDescription="Adjunta aquí el consentimiento firmado o la evidencia que habilita el expediente clínico."
+        emptyTitle={consentDocumentsCopy.emptyTitle}
+        emptyDescription={consentDocumentsCopy.emptyDescription}
         onUpload={() => void handleUpload('CONSENT_EVIDENCE')}
         onOpenDocument={(document) => void onOpenDocument(document)}
+        tourTargetId="professional.clinical.consent-documents"
+        tourTargetsActive={tourTargetsActive}
       />
 
       <ClinicalDocumentsPanel
@@ -286,6 +324,8 @@ export function ClinicalGeneralWorkspace({
         emptyDescription="Sube aquí los informes relevantes que acompañan al proceso terapéutico."
         onUpload={() => void handleUpload('MEDICAL_REPORT')}
         onOpenDocument={(document) => void onOpenDocument(document)}
+        tourTargetId="professional.clinical.reports"
+        tourTargetsActive={tourTargetsActive}
       />
 
       <ClinicalDocumentsPanel
@@ -300,6 +340,8 @@ export function ClinicalGeneralWorkspace({
         emptyDescription="Puedes dejar aquí información complementaria que convenga tener accesible en la carpeta general."
         onUpload={() => void handleUpload('GENERAL')}
         onOpenDocument={(document) => void onOpenDocument(document)}
+        tourTargetId="professional.clinical.documents"
+        tourTargetsActive={tourTargetsActive}
       />
 
       {record.pagination.documents.hasMore ? (
@@ -330,6 +372,9 @@ const styles = StyleSheet.create({
   workspaceGridDesktop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+  },
+  fullWidthTourTarget: {
+    width: '100%',
   },
   columnStack: {
     gap: spacing.lg,

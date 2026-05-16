@@ -1,4 +1,4 @@
-import { showAppAlert, useAppAlert } from '../../components/common/alert';
+import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
 /**
  * ProfessionalHomeScreen - Calendar-based Professional Dashboard
  * Three-column layout: sidebar (via MainLayout) | calendar | right panel
@@ -28,6 +28,12 @@ import { Theme } from '../../constants/theme';
 import { AppNavigationProp } from '../../constants/types';
 import { VerificationBanner } from '../../components/auth';
 import { AnimatedPressable, Button } from '../../components/common';
+import { TourTarget } from '../../components/onboarding/TourTarget';
+import {
+  useProfessionalTourAutoStart,
+  useProfessionalTourStepPreparation,
+} from '../../components/onboarding/professionalTourContext';
+import { useProfessionalTourScrollPreparation } from '../../components/onboarding/useProfessionalTourScrollPreparation';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as analyticsService from '../../services/analyticsService';
@@ -193,6 +199,7 @@ function getSessionStatusTone(theme: Theme, status: string) {
 export function ProfessionalHomeScreen() {
   const { user } = useAuth();
   const appAlert = useAppAlert();
+  const { isVisible: isAppAlertVisible } = useAppAlertState();
   const navigation = useNavigation<AppNavigationProp>();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
@@ -201,6 +208,7 @@ export function ProfessionalHomeScreen() {
   const styles = useMemo(() => createStyles(theme, isDark, isMobile), [theme, isDark, isMobile]);
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [sessions, setSessions] = useState<professionalService.Session[]>([]);
   const [profile, setProfile] = useState<professionalService.ProfessionalProfile | null>(null);
   const [processingSessionId, setProcessingSessionId] = useState<string | null>(null);
@@ -222,6 +230,7 @@ export function ProfessionalHomeScreen() {
 
   const loadData = useCallback(async () => {
     try {
+      setLoadError(false);
       const [sessionsData, profileData] = await Promise.all([
         professionalService.getProfessionalSessions(),
         professionalService.getProfessionalProfile(),
@@ -230,6 +239,7 @@ export function ProfessionalHomeScreen() {
       setProfile(profileData);
     } catch (error) {
       console.error('Error loading professional home data:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -238,6 +248,38 @@ export function ProfessionalHomeScreen() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useProfessionalTourAutoStart('professional_home_v1', !loading && !loadError && !isAppAlertVisible);
+
+  const homeTourScroll = useProfessionalTourScrollPreparation();
+  const prepareHomeCalendarStep = useCallback(() => {
+    if (!isDesktop) {
+      homeTourScroll.scrollToTop();
+    }
+  }, [homeTourScroll, isDesktop]);
+  const prepareHomePendingStep = useCallback(async () => {
+    if (!isDesktop) {
+      await homeTourScroll.prepareTarget('professional.home.pending-requests');
+    }
+  }, [homeTourScroll, isDesktop]);
+  const prepareHomeUpcomingStep = useCallback(async () => {
+    if (!isDesktop) {
+      await homeTourScroll.prepareTarget('professional.home.upcoming-sessions');
+    }
+  }, [homeTourScroll, isDesktop]);
+
+  useProfessionalTourStepPreparation(
+    'professional.home.calendar',
+    prepareHomeCalendarStep,
+  );
+  useProfessionalTourStepPreparation(
+    'professional.home.pending-requests',
+    prepareHomePendingStep,
+  );
+  useProfessionalTourStepPreparation(
+    'professional.home.upcoming-sessions',
+    prepareHomeUpcomingStep,
+  );
 
   const mappedSessions = useMemo(() => sessions.map(mapSession), [sessions]);
 
@@ -382,97 +424,99 @@ export function ProfessionalHomeScreen() {
         </Text>
       </View>
 
-      <View style={styles.topBarRight}>
-        <View style={styles.navArrows}>
-          <AnimatedPressable
-            onPress={handleNavigatePrev}
-            style={styles.navArrowButton}
-            hoverLift={false}
-            pressScale={0.96}
-          >
-            <Ionicons name="chevron-back" size={18} color={theme.textPrimary} />
-          </AnimatedPressable>
-          <Text style={styles.navLabel}>{navLabel}</Text>
-          <AnimatedPressable
-            onPress={handleNavigateNext}
-            style={styles.navArrowButton}
-            hoverLift={false}
-            pressScale={0.96}
-          >
-            <Ionicons name="chevron-forward" size={18} color={theme.textPrimary} />
-          </AnimatedPressable>
-        </View>
+      <TourTarget id="professional.home.calendar" fill>
+        <View style={styles.topBarRight}>
+          <View style={styles.navArrows}>
+            <AnimatedPressable
+              onPress={handleNavigatePrev}
+              style={styles.navArrowButton}
+              hoverLift={false}
+              pressScale={0.96}
+            >
+              <Ionicons name="chevron-back" size={18} color={theme.textPrimary} />
+            </AnimatedPressable>
+            <Text style={styles.navLabel}>{navLabel}</Text>
+            <AnimatedPressable
+              onPress={handleNavigateNext}
+              style={styles.navArrowButton}
+              hoverLift={false}
+              pressScale={0.96}
+            >
+              <Ionicons name="chevron-forward" size={18} color={theme.textPrimary} />
+            </AnimatedPressable>
+          </View>
 
-        <View style={styles.viewSelectorContainer}>
-          <AnimatedPressable
-            style={styles.viewSelectorButton}
-            onPress={() => setShowViewDropdown((prev) => !prev)}
-            hoverLift={false}
-            pressScale={0.98}
-          >
-            <Text style={styles.viewSelectorText}>
-              {viewMode === 'month' ? 'Vista mensual' : 'Vista semanal'}
-            </Text>
-            <Ionicons
-              name={showViewDropdown ? 'chevron-up' : 'chevron-down'}
-              size={14}
-              color={theme.textSecondary}
-            />
-          </AnimatedPressable>
+          <View style={styles.viewSelectorContainer}>
+            <AnimatedPressable
+              style={styles.viewSelectorButton}
+              onPress={() => setShowViewDropdown((prev) => !prev)}
+              hoverLift={false}
+              pressScale={0.98}
+            >
+              <Text style={styles.viewSelectorText}>
+                {viewMode === 'month' ? 'Vista mensual' : 'Vista semanal'}
+              </Text>
+              <Ionicons
+                name={showViewDropdown ? 'chevron-up' : 'chevron-down'}
+                size={14}
+                color={theme.textSecondary}
+              />
+            </AnimatedPressable>
 
-          {showViewDropdown && (
-            <View style={styles.viewDropdown}>
-              <AnimatedPressable
-                style={
-                  viewMode === 'month'
-                    ? [styles.viewDropdownItem, styles.viewDropdownItemActive]
-                    : styles.viewDropdownItem
-                }
-                onPress={() => {
-                  setViewMode('month');
-                  setShowViewDropdown(false);
-                }}
-                hoverLift={false}
-                pressScale={0.99}
-              >
-                <Text
+            {showViewDropdown && (
+              <View style={styles.viewDropdown}>
+                <AnimatedPressable
                   style={
                     viewMode === 'month'
-                      ? [styles.viewDropdownText, styles.viewDropdownTextActive]
-                      : styles.viewDropdownText
+                      ? [styles.viewDropdownItem, styles.viewDropdownItemActive]
+                      : styles.viewDropdownItem
                   }
+                  onPress={() => {
+                    setViewMode('month');
+                    setShowViewDropdown(false);
+                  }}
+                  hoverLift={false}
+                  pressScale={0.99}
                 >
-                  Vista mensual
-                </Text>
-              </AnimatedPressable>
+                  <Text
+                    style={
+                      viewMode === 'month'
+                        ? [styles.viewDropdownText, styles.viewDropdownTextActive]
+                        : styles.viewDropdownText
+                    }
+                  >
+                    Vista mensual
+                  </Text>
+                </AnimatedPressable>
 
-              <AnimatedPressable
-                style={
-                  viewMode === 'week'
-                    ? [styles.viewDropdownItem, styles.viewDropdownItemActive]
-                    : styles.viewDropdownItem
-                }
-                onPress={() => {
-                  setViewMode('week');
-                  setShowViewDropdown(false);
-                }}
-                hoverLift={false}
-                pressScale={0.99}
-              >
-                <Text
+                <AnimatedPressable
                   style={
                     viewMode === 'week'
-                      ? [styles.viewDropdownText, styles.viewDropdownTextActive]
-                      : styles.viewDropdownText
+                      ? [styles.viewDropdownItem, styles.viewDropdownItemActive]
+                      : styles.viewDropdownItem
                   }
+                  onPress={() => {
+                    setViewMode('week');
+                    setShowViewDropdown(false);
+                  }}
+                  hoverLift={false}
+                  pressScale={0.99}
                 >
-                  Vista semanal
-                </Text>
-              </AnimatedPressable>
-            </View>
-          )}
+                  <Text
+                    style={
+                      viewMode === 'week'
+                        ? [styles.viewDropdownText, styles.viewDropdownTextActive]
+                        : styles.viewDropdownText
+                    }
+                  >
+                    Vista semanal
+                  </Text>
+                </AnimatedPressable>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
+      </TourTarget>
     </Animated.View>
   );
 
@@ -672,7 +716,15 @@ export function ProfessionalHomeScreen() {
   };
 
   const renderPendingRequests = () => (
-    <View style={[styles.rightPanelBlock, !isDesktop && styles.rightPanelBlockMobile]}>
+    <TourTarget
+      id="professional.home.pending-requests"
+      fill
+      style={[
+        styles.rightPanelBlock,
+        !isDesktop && styles.rightPanelBlockMobile,
+      ]}
+    >
+      <View style={styles.rightPanelBlockContent}>
       <View style={styles.rightPanelHeader}>
         <Text style={styles.rightPanelTitle}>Solicitudes pendientes</Text>
         <View style={styles.badgeLavender}>
@@ -723,17 +775,21 @@ export function ProfessionalHomeScreen() {
           <Text style={styles.emptyText}>Sin solicitudes pendientes</Text>
         )}
       </ScrollView>
-    </View>
+      </View>
+    </TourTarget>
   );
 
   const renderUpcomingSessions = () => (
-    <View
+    <TourTarget
+      id="professional.home.upcoming-sessions"
+      fill
       style={[
         styles.rightPanelBlock,
         styles.rightPanelBlockBottom,
         !isDesktop && styles.rightPanelBlockMobile,
       ]}
     >
+      <View style={styles.rightPanelBlockContent}>
       <View style={styles.rightPanelHeader}>
         <Text style={styles.rightPanelTitle}>Próximas sesiones</Text>
         <View style={styles.badgeGreen}>
@@ -767,7 +823,8 @@ export function ProfessionalHomeScreen() {
           <Text style={styles.emptyText}>No hay sesiones próximas</Text>
         )}
       </ScrollView>
-    </View>
+      </View>
+    </TourTarget>
   );
 
   if (loading) {
@@ -799,7 +856,12 @@ export function ProfessionalHomeScreen() {
         </View>
       ) : (
         <ScrollView
+          ref={homeTourScroll.scrollRef}
           style={styles.mobileScroll}
+          onContentSizeChange={homeTourScroll.scrollProps.onContentSizeChange}
+          onLayout={homeTourScroll.scrollProps.onLayout}
+          onScroll={homeTourScroll.scrollProps.onScroll}
+          scrollEventThrottle={homeTourScroll.scrollProps.scrollEventThrottle}
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
         >
@@ -965,6 +1027,13 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     bodyRow: {
       flex: 1,
       flexDirection: 'row',
+    },
+    calendarTourTarget: {
+      flex: 1,
+      minWidth: 0,
+    },
+    calendarTourTargetMobile: {
+      alignSelf: 'stretch',
     },
     calendarPanel: {
       flex: 1,
@@ -1170,6 +1239,9 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       maxHeight: '50%',
       borderBottomWidth: 1,
       borderBottomColor: theme.border,
+    },
+    rightPanelBlockContent: {
+      flex: 1,
     },
     rightPanelBlockBottom: {
       borderBottomWidth: 0,

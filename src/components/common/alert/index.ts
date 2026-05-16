@@ -1,4 +1,4 @@
-export { AlertProvider, useAppAlert } from './AppAlertContext';
+export { AlertProvider, useAppAlert, useAppAlertState } from './AppAlertContext';
 export { showAppAlert } from './alertCompatibility';
 export type { NativeAlertButtonLike } from './alertCompatibility';
 export type {
@@ -8,5 +8,6 @@ export type {
   AppAlertBaseOptions,
   AppAlertChoiceOptions,
   AppAlertConfirmOptions,
+  AppAlertState,
   AppAlertTone,
 } from './types';

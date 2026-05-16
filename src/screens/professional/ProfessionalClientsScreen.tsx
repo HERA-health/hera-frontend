@@ -15,8 +15,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { z } from 'zod';
-import { showAppAlert, useAppAlert } from '../../components/common/alert';
+import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
 import { AnimatedPressable, Button, Card } from '../../components/common';
+import { TourTarget } from '../../components/onboarding/TourTarget';
+import { useProfessionalTourAutoStart } from '../../components/onboarding/professionalTourContext';
 import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
 import { borderRadius, layout, shadows, spacing, typography } from '../../constants/colors';
 import type { RootStackParamList } from '../../constants/types';
@@ -204,6 +206,7 @@ function MetricCard({
 export function ProfessionalClientsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const appAlert = useAppAlert();
+  const { isVisible: isAppAlertVisible } = useAppAlertState();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const stylesForTheme = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
@@ -267,6 +270,11 @@ export function ProfessionalClientsScreen() {
   useEffect(() => {
     void loadClinicalAccessStatus();
   }, [loadClinicalAccessStatus]);
+
+  useProfessionalTourAutoStart(
+    'professional_clients_v1',
+    !loading && !error && !modalVisible && !sessionModalVisible && !isAppAlertVisible,
+  );
 
   const filteredClients = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -664,20 +672,27 @@ export function ProfessionalClientsScreen() {
             <Text style={[stylesForTheme.title, { color: theme.textPrimary }]}>Mis pacientes</Text>
           </View>
 
-          <Button
-            variant="primary"
-            size="large"
-            onPress={openManagedClientModal}
-            icon={<Ionicons name="add" size={18} color={theme.textOnPrimary} />}
-            fullWidth={isMobile}
-            disabled={dpaSubmitting}
-            loading={dpaSubmitting}
+          <TourTarget
+            id="professional.clients.new-patient"
+            fill
+            style={isMobile ? stylesForTheme.fullWidthTourTarget : undefined}
           >
-            Nuevo paciente
-          </Button>
+            <Button
+              variant="primary"
+              size="large"
+              onPress={openManagedClientModal}
+              icon={<Ionicons name="add" size={18} color={theme.textOnPrimary} />}
+              fullWidth={isMobile}
+              disabled={dpaSubmitting}
+              loading={dpaSubmitting}
+            >
+              Nuevo paciente
+            </Button>
+          </TourTarget>
         </View>
 
-        <Card variant="default" padding="large" style={stylesForTheme.toolbarCard}>
+        <TourTarget id="professional.clients.filters" fill style={stylesForTheme.fullWidthTourTarget}>
+          <Card variant="default" padding="large" style={stylesForTheme.toolbarCard}>
           <View style={stylesForTheme.searchRow}>
             <View style={[stylesForTheme.searchField, { borderColor: theme.border, backgroundColor: theme.bgMuted }]}>
               <Ionicons name="search-outline" size={18} color={theme.textMuted} />
@@ -707,7 +722,8 @@ export function ProfessionalClientsScreen() {
               theme={theme}
             />
           </View>
-        </Card>
+          </Card>
+        </TourTarget>
 
         {error ? (
           <Card variant="outlined" padding="large" style={stylesForTheme.errorCard}>
@@ -718,28 +734,30 @@ export function ProfessionalClientsScreen() {
           </Card>
         ) : null}
 
-        {loading ? (
-          <View style={stylesForTheme.loadingState}>
-            <ActivityIndicator size="large" color={theme.primary} />
-            <Text style={[stylesForTheme.loadingText, { color: theme.textSecondary }]}>
-              Cargando pacientes...
-            </Text>
-          </View>
-        ) : filteredClients.length === 0 ? (
-          <Card variant="outlined" padding="large" style={stylesForTheme.emptyCard}>
-              <Ionicons name="people-outline" size={28} color={theme.textMuted} />
-            <Text style={[stylesForTheme.emptyTitle, { color: theme.textPrimary }]}>
-              No hay pacientes para este filtro
-            </Text>
-            <Text style={[stylesForTheme.emptyText, { color: theme.textSecondary }]}>
-              {lifecycleFilter === 'ARCHIVED'
-                ? 'Todavía no tienes pacientes archivados con este filtro.'
-                : 'Puedes crear un paciente gestionado o cambiar los filtros para ver tu base completa.'}
-            </Text>
-          </Card>
-        ) : (
-          <View style={stylesForTheme.clientsGrid}>{renderClientGrid()}</View>
-        )}
+        <TourTarget id="professional.clients.grid" fill style={stylesForTheme.fullWidthTourTarget}>
+          {loading ? (
+            <View style={stylesForTheme.loadingState}>
+              <ActivityIndicator size="large" color={theme.primary} />
+              <Text style={[stylesForTheme.loadingText, { color: theme.textSecondary }]}>
+                Cargando pacientes...
+              </Text>
+            </View>
+          ) : filteredClients.length === 0 ? (
+            <Card variant="outlined" padding="large" style={stylesForTheme.emptyCard}>
+                <Ionicons name="people-outline" size={28} color={theme.textMuted} />
+              <Text style={[stylesForTheme.emptyTitle, { color: theme.textPrimary }]}>
+                No hay pacientes para este filtro
+              </Text>
+              <Text style={[stylesForTheme.emptyText, { color: theme.textSecondary }]}>
+                {lifecycleFilter === 'ARCHIVED'
+                  ? 'Todavía no tienes pacientes archivados con este filtro.'
+                  : 'Puedes crear un paciente gestionado o cambiar los filtros para ver tu base completa.'}
+              </Text>
+            </Card>
+          ) : (
+            <View style={stylesForTheme.clientsGrid}>{renderClientGrid()}</View>
+          )}
+        </TourTarget>
       </ScrollView>
 
       <Modal
@@ -1055,6 +1073,9 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     },
     toolbarCard: {
       gap: spacing.md,
+    },
+    fullWidthTourTarget: {
+      width: '100%',
     },
     searchRow: {
       flexDirection: 'row',

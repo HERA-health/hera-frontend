@@ -2,10 +2,12 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button, Card } from '../common';
+import { TourTarget } from '../onboarding/TourTarget';
 import { borderRadius, spacing, typography } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import type { Client } from '../../services/professionalService';
 import type { ClinicalConsentEvent, ClinicalRecord } from '../../services/clinicalService';
+import type { ProfessionalTourTargetId } from '../onboarding/professionalTourTypes';
 
 interface ClinicalConsentPanelProps {
   isTablet: boolean;
@@ -19,6 +21,8 @@ interface ClinicalConsentPanelProps {
   onAttestClinicalConsent: (evidenceDocumentId?: string) => Promise<unknown>;
   onCloseClinicalProcess: () => Promise<void>;
   onLoadMoreConsentEvents: () => void;
+  tourTargetId?: ProfessionalTourTargetId;
+  tourTargetsActive?: boolean;
 }
 
 const formatDate = (value?: string | Date | null) =>
@@ -32,11 +36,11 @@ const formatDate = (value?: string | Date | null) =>
 
 const getMethodLabel = (method: ClinicalRecord['consentMethod']) => {
   if (method === 'DIGITAL_SIGNATURE') {
-    return 'Firma digital';
+    return 'Firma digital HERA';
   }
 
   if (method === 'SPECIALIST_ATTESTATION') {
-    return 'Consentimiento en poder del profesional';
+    return 'Documento firmado externo';
   }
 
   return 'Pendiente';
@@ -68,6 +72,8 @@ export function ClinicalConsentPanel({
   onAttestClinicalConsent,
   onCloseClinicalProcess,
   onLoadMoreConsentEvents,
+  tourTargetId,
+  tourTargetsActive = true,
 }: ClinicalConsentPanelProps) {
   const { theme } = useTheme();
   const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontDisplayBold }), [theme]);
@@ -95,41 +101,56 @@ export function ClinicalConsentPanel({
     client.source === 'REGISTERED' &&
     record.activeConsentRequest &&
     record.activeConsentRequest.status === 'PENDING';
+  const consentDescription = client.source === 'REGISTERED'
+    ? 'Para pacientes con cuenta HERA, envía una solicitud para que firmen el consentimiento digital desde su cuenta.'
+    : 'Para pacientes sin cuenta HERA, registra el consentimiento cuando tengas el documento firmado adjunto en el expediente.';
+  const header = (
+    <View style={[styles.header, !isTablet && styles.headerMobile]}>
+      <View style={styles.copy}>
+        <Text style={[styles.title, { color: theme.textPrimary }, displayTitleStyle]}>
+          Consentimiento clínico
+        </Text>
+        <Text style={[styles.description, { color: theme.textSecondary }]}>
+          {consentDescription}
+        </Text>
+      </View>
+      <View
+        style={[
+          styles.statusPill,
+          {
+            backgroundColor: `${consentTone}14`,
+            borderColor: `${consentTone}28`,
+          },
+        ]}
+      >
+        <Text style={[styles.statusPillText, { color: consentTone }, labelStyle]}>
+          {record.consentStatus === 'GRANTED'
+            ? 'Vigente'
+            : record.consentStatus === 'REVOKED'
+              ? 'Retirado'
+              : 'Pendiente'}
+        </Text>
+      </View>
+    </View>
+  );
 
   return (
     <Card variant="default" padding="large">
-      <View style={[styles.header, !isTablet && styles.headerMobile]}>
-        <View style={styles.copy}>
-          <Text style={[styles.title, { color: theme.textPrimary }, displayTitleStyle]}>
-            Consentimiento
-          </Text>
-          <Text style={[styles.description, { color: theme.textSecondary }]}>
-            Gestiona la autorización clínica del paciente y revisa su historial de cambios.
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.statusPill,
-            {
-              backgroundColor: `${consentTone}14`,
-              borderColor: `${consentTone}28`,
-            },
-          ]}
+      {tourTargetId ? (
+        <TourTarget
+          id={tourTargetId}
+          active={tourTargetsActive}
+          fill
+          style={styles.tourTarget}
         >
-          <Text style={[styles.statusPillText, { color: consentTone }, labelStyle]}>
-            {record.consentStatus === 'GRANTED'
-              ? 'Vigente'
-              : record.consentStatus === 'REVOKED'
-                ? 'Retirado'
-                : 'Pendiente'}
-          </Text>
-        </View>
-      </View>
+          {header}
+        </TourTarget>
+      ) : header}
 
       <View style={[styles.detailGrid, !isTablet && styles.detailGridMobile]}>
         <View style={[styles.detailItem, !isTablet && styles.detailItemMobile]}>
           <Text style={[styles.detailLabel, { color: theme.textMuted }, labelStyle]}>
-            Método
+            Tipo
           </Text>
           <Text style={[styles.detailValue, { color: theme.textPrimary }, emphasisStyle]}>
             {getMethodLabel(record.consentMethod)}
@@ -192,7 +213,7 @@ export function ClinicalConsentPanel({
       <View style={styles.actions}>
         {canRequestDigitalConsent ? (
           <Button variant="secondary" size="small" onPress={onRequestDigitalConsent} loading={consentSubmitting}>
-            Solicitar consentimiento digital
+            Solicitar firma digital HERA
           </Button>
         ) : null}
 
@@ -204,7 +225,7 @@ export function ClinicalConsentPanel({
             loading={consentSubmitting}
             disabled={!latestConsentEvidenceDocumentId}
           >
-            Registrar consentimiento firmado
+            Registrar documento firmado
           </Button>
         ) : null}
 
@@ -222,7 +243,7 @@ export function ClinicalConsentPanel({
 
       {canAttestConsent && !latestConsentEvidenceDocumentId ? (
         <Text style={[styles.helperText, { color: theme.textMuted }]}>
-          Antes de registrar el consentimiento, adjunta el documento firmado en la carpeta general.
+          Adjunta primero el PDF o documento firmado en "Consentimiento firmado externo".
         </Text>
       ) : null}
 
@@ -291,6 +312,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.md,
     marginBottom: spacing.md,
+  },
+  tourTarget: {
+    width: '100%',
   },
   headerMobile: {
     flexDirection: 'column',

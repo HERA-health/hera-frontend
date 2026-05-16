@@ -42,12 +42,7 @@ export interface AvailabilityException {
  */
 export const getMyWeeklySchedule = async (): Promise<WeeklySchedule> => {
   try {
-    // First get my profile to get specialist ID
-    const profileResponse = await api.get('/specialists/me');
-    const specialistId = profileResponse.data.data.id;
-
-    // Then get the schedule
-    const response = await api.get(`/availability/schedule/${specialistId}`);
+    const response = await api.get('/availability/schedule/me');
     return response.data.data.schedule;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo cargar el horario'));
@@ -75,12 +70,7 @@ export const getMyExceptions = async (
   endDate?: string
 ): Promise<AvailabilityException[]> => {
   try {
-    // First get my profile to get specialist ID
-    const profileResponse = await api.get('/specialists/me');
-    const specialistId = profileResponse.data.data.id;
-
-    // Build query params
-    let url = `/availability/exceptions/${specialistId}`;
+    let url = '/availability/exceptions/me';
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);

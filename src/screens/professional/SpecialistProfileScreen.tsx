@@ -19,7 +19,7 @@
  * - Responsive for all devices
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -40,7 +40,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
-import { showAppAlert, useAppAlert } from '../../components/common/alert';
+import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -60,6 +60,11 @@ import { AddressAutocomplete, LocationMapPreview } from '../../components/locati
 import type { AppNavigationProp } from '../../constants/types';
 import { getWebAppUrl } from '../../config/api';
 import { AnimatedPressable, Button } from '../../components/common';
+import { TourTarget } from '../../components/onboarding/TourTarget';
+import {
+  useProfessionalTourAutoStart,
+  useProfessionalTourStepPreparation,
+} from '../../components/onboarding/professionalTourContext';
 import type { UploadAsset } from '../../utils/multipartUpload';
 import {
   getProfessionalTypeLabel,
@@ -467,6 +472,7 @@ const getInsuranceReviewCopy = (
 export function SpecialistProfileScreen() {
   const { user, updateUser } = useAuth();
   const appAlert = useAppAlert();
+  const { isVisible: isAppAlertVisible } = useAppAlertState();
   const { theme, isDark } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
   const isDesktop = windowWidth >= 1024;
@@ -481,8 +487,10 @@ export function SpecialistProfileScreen() {
   const [hasChanges, setHasChanges] = useState(false);
   const [showPreview, setShowPreview] = useState(!isMobile);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const styles = useMemo(() => createStyles(palette, isDesktop, isMobile, showPreview), [palette, isDesktop, isMobile, showPreview]);
   const miEspacioStyles = useMemo(() => createMiEspacioStyles(palette), [palette]);
+  const formScrollRef = useRef<ScrollView | null>(null);
 
   // Navigation
   const navigation = useNavigation<AppNavigationProp>();
@@ -500,6 +508,35 @@ export function SpecialistProfileScreen() {
   const [isUploadingInsurance, setIsUploadingInsurance] = useState(false);
   const [isUploadingCertificate, setIsUploadingCertificate] = useState(false);
   const [openingCredentialKey, setOpeningCredentialKey] = useState<string | null>(null);
+
+  useProfessionalTourAutoStart(
+    'professional_profile_v1',
+    !isLoading
+      && !loadError
+      && !isShareModalVisible
+      && !isCertificateModalVisible
+      && !(isMobile && showPreview)
+      && !isUploadingAvatar
+      && !isUploadingGalleryPhoto
+      && !isUploadingInsurance
+      && !isUploadingCertificate
+      && openingCredentialKey === null
+      && !isAppAlertVisible,
+  );
+
+  const prepareProfileTopStep = useCallback(() => {
+    formScrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, []);
+
+  const prepareProfilePreviewStep = useCallback(() => {
+    if (isDesktop && !showPreview) {
+      setShowPreview(true);
+    }
+  }, [isDesktop, showPreview]);
+
+  useProfessionalTourStepPreparation('professional.profile.tabs', prepareProfileTopStep);
+  useProfessionalTourStepPreparation('professional.profile.preview', prepareProfilePreviewStep);
+  useProfessionalTourStepPreparation('professional.profile.save', prepareProfileTopStep);
 
   // Verification status state
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatusResponse>({
@@ -674,6 +711,7 @@ export function SpecialistProfileScreen() {
   const loadProfile = useCallback(async () => {
     try {
       setIsLoading(true);
+      setLoadError(false);
       const profile = await professionalService.getComprehensiveProfile();
       if (profile) {
         const mappedData = {
@@ -690,6 +728,7 @@ export function SpecialistProfileScreen() {
       }
     } catch (error) {
       console.error('Error loading profile:', error);
+      setLoadError(true);
       // Keep default values on error
     } finally {
       setIsLoading(false);
@@ -920,7 +959,7 @@ export function SpecialistProfileScreen() {
 
     try {
       await Share.share({
-        message: `Reserva tu sesion conmigo en HERA: ${shareProfileUrl}`,
+        message: `Reserva tu sesión conmigo en HERA: ${shareProfileUrl}`,
         url: shareProfileUrl,
       });
     } catch (err) {
@@ -1244,7 +1283,8 @@ export function SpecialistProfileScreen() {
       : palette.primary;
 
   const renderTabNavigation = () => (
-    <View style={[styles.tabsContainer, isDesktop && styles.tabsContainerDesktop]}>
+    <TourTarget id="professional.profile.tabs" fill style={styles.fullWidthTourTarget}>
+      <View style={[styles.tabsContainer, isDesktop && styles.tabsContainerDesktop]}>
       <View style={[styles.topBar, isDesktop ? styles.topBarDesktop : styles.topBarMobile]}>
         <View style={styles.topBarContent}>
           <Text style={styles.topBarTitle}>Editar perfil</Text>
@@ -1254,7 +1294,8 @@ export function SpecialistProfileScreen() {
         </View>
 
         {specialistId ? (
-          <View style={styles.topBarActions}>
+            <TourTarget id="professional.profile.visibility" fill>
+              <View style={styles.topBarActions}>
             <View style={[styles.visibilityBadge, visibilityCopy.badgeStyle]}>
               <Ionicons
                 name={visibilityCopy.icon}
@@ -1277,7 +1318,8 @@ export function SpecialistProfileScreen() {
                 Compartir perfil
               </Button>
             ) : null}
-          </View>
+              </View>
+            </TourTarget>
         ) : null}
       </View>
 
@@ -1317,8 +1359,8 @@ export function SpecialistProfileScreen() {
           </AnimatedPressable>
         ))}
       </ScrollView>
-
-    </View>
+      </View>
+    </TourTarget>
   );
 
   // ============================================================================
@@ -1327,10 +1369,12 @@ export function SpecialistProfileScreen() {
 
   const renderProfilePreview = () => (
     <View style={styles.previewContainer}>
-      <View style={styles.previewHeader}>
-        <Ionicons name="eye-outline" size={18} color={palette.textSecondary} />
-        <Text style={styles.previewTitle}>Vista previa pública</Text>
-      </View>
+      <TourTarget id="professional.profile.preview" fill style={styles.previewHeaderTourTarget}>
+        <View style={styles.previewHeader}>
+          <Ionicons name="eye-outline" size={18} color={palette.textSecondary} />
+          <Text style={styles.previewTitle}>Vista previa pública</Text>
+        </View>
+      </TourTarget>
 
       <ScrollView
         style={styles.previewScroll}
@@ -2715,7 +2759,7 @@ export function SpecialistProfileScreen() {
           </Button>
         </View>
       </View>
-    </View>
+      </View>
   );
 
   // ============================================================================
@@ -2907,7 +2951,12 @@ export function SpecialistProfileScreen() {
   // ============================================================================
 
   const renderSaveButton = () => (
-    <View style={[styles.saveButtonContainer, isDesktop && styles.saveButtonContainerDesktop]}>
+    <TourTarget
+      id="professional.profile.save"
+      fill
+      style={[styles.saveButtonContainer, isDesktop && styles.saveButtonContainerDesktop]}
+    >
+      <View style={styles.saveButtonInner}>
       <Button
         variant="primary"
         size="medium"
@@ -2920,7 +2969,8 @@ export function SpecialistProfileScreen() {
       >
         Guardar cambios
       </Button>
-    </View>
+      </View>
+    </TourTarget>
   );
 
   // ============================================================================
@@ -2945,6 +2995,7 @@ export function SpecialistProfileScreen() {
       <View style={styles.mainArea}>
         {/* Form Content */}
         <ScrollView
+          ref={formScrollRef}
           style={[styles.formArea, isDesktop && showPreview && styles.formAreaWithPreview]}
           contentContainerStyle={styles.formContent}
           showsVerticalScrollIndicator={true}
@@ -3205,6 +3256,9 @@ function createStyles(
   },
 
   // ===== TAB NAVIGATION =====
+  fullWidthTourTarget: {
+    width: '100%',
+  },
   tabsContainer: {
     backgroundColor: palette.cardBg,
     borderBottomWidth: 1,
@@ -3504,6 +3558,9 @@ function createStyles(
     borderLeftWidth: 1,
     borderLeftColor: palette.border,
     maxWidth: 380,
+  },
+  previewHeaderTourTarget: {
+    width: '100%',
   },
   previewHeader: {
     flexDirection: 'row',
@@ -4641,6 +4698,10 @@ function createStyles(
   },
   saveButtonContainerDesktop: {
     right: 380, // Account for preview sidebar
+  },
+  saveButtonInner: {
+    width: '100%',
+    alignItems: 'center',
   },
   saveButton: {
     width: '100%',

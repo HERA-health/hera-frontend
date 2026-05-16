@@ -2,9 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable, Button, Card } from '../common';
+import { TourTarget } from '../onboarding/TourTarget';
 import { borderRadius, spacing, typography } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import type { ClinicalQuestionnaireAnswers } from '../../services/clinicalService';
+import type { ProfessionalTourTargetId } from '../onboarding/professionalTourTypes';
 import type {
   QuestionnaireAvailability,
   QuestionnaireSummary,
@@ -17,6 +19,8 @@ interface ClinicalQuestionnairePanelProps {
   questionnaireAvailability?: QuestionnaireAvailability;
   summary?: QuestionnaireSummary | null;
   answers?: ClinicalQuestionnaireAnswers | null;
+  tourTargetId?: ProfessionalTourTargetId;
+  tourTargetsActive?: boolean;
 }
 
 const ANSWER_PAGE_SIZE = 5;
@@ -45,6 +49,8 @@ export function ClinicalQuestionnairePanel({
   questionnaireAvailability,
   summary,
   answers,
+  tourTargetId,
+  tourTargetsActive = true,
 }: ClinicalQuestionnairePanelProps) {
   const { theme } = useTheme();
   const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontDisplayBold }), [theme]);
@@ -91,28 +97,40 @@ export function ClinicalQuestionnairePanel({
     reviewItems.length > 0
       ? `${reviewItems.length} ${reviewItems.length === 1 ? 'bloque de respuestas disponible' : 'bloques de respuestas disponibles'}. Ábrelo solo cuando necesites revisar el detalle.`
       : 'Mantén este bloque cerrado para consultar primero el resto del expediente.';
+  const header = (
+    <View style={styles.header}>
+      <View style={styles.copy}>
+        <Text style={[styles.title, { color: theme.textPrimary }, displayTitleStyle]}>
+          Cuestionario inicial
+        </Text>
+        <Text style={[styles.description, { color: theme.textSecondary }]}>
+          Recoge lo que el paciente compartió antes de empezar. Úsalo como contexto para la
+          primera valoración y el seguimiento.
+        </Text>
+      </View>
+      {reviewItems.length > 0 ? (
+        <View style={[styles.statusPill, { backgroundColor: theme.primaryAlpha12 }]}>
+          <Ionicons name="document-text-outline" size={14} color={theme.primary} />
+          <Text style={[styles.statusPillText, { color: theme.primary }, labelStyle]}>
+            {reviewItems.length} {reviewItems.length === 1 ? 'respuesta' : 'respuestas'}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
 
   return (
     <Card variant="default" padding="large">
-      <View style={styles.header}>
-        <View style={styles.copy}>
-          <Text style={[styles.title, { color: theme.textPrimary }, displayTitleStyle]}>
-            Cuestionario inicial
-          </Text>
-          <Text style={[styles.description, { color: theme.textSecondary }]}>
-            Recoge lo que el paciente compartió antes de empezar. Úsalo como contexto para la
-            primera valoración y el seguimiento.
-          </Text>
-        </View>
-        {reviewItems.length > 0 ? (
-          <View style={[styles.statusPill, { backgroundColor: theme.primaryAlpha12 }]}>
-            <Ionicons name="document-text-outline" size={14} color={theme.primary} />
-            <Text style={[styles.statusPillText, { color: theme.primary }, labelStyle]}>
-              {reviewItems.length} {reviewItems.length === 1 ? 'respuesta' : 'respuestas'}
-            </Text>
-          </View>
-        ) : null}
-      </View>
+      {tourTargetId ? (
+        <TourTarget
+          id={tourTargetId}
+          active={tourTargetsActive}
+          fill
+          style={styles.tourTarget}
+        >
+          {header}
+        </TourTarget>
+      ) : header}
 
       {!completedQuestionnaire || questionnaireAvailability === 'NOT_STARTED' ? (
         <View style={[styles.emptyState, { backgroundColor: theme.bgMuted, borderColor: theme.border }]}>
@@ -290,6 +308,9 @@ const styles = StyleSheet.create({
   header: {
     gap: spacing.md,
     marginBottom: spacing.md,
+  },
+  tourTarget: {
+    width: '100%',
   },
   copy: {
     gap: spacing.sm,

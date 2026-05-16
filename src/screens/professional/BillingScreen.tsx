@@ -20,7 +20,13 @@ import { colors, spacing, borderRadius, typography, shadows, touchTarget, layout
 import { Theme } from '../../constants/theme';
 import { AppNavigationProp } from '../../constants/types';
 import { AnimatedPressable, Button } from '../../components/common';
-import { showAppAlert, useAppAlert } from '../../components/common/alert';
+import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
+import { TourTarget } from '../../components/onboarding/TourTarget';
+import {
+  useProfessionalTourAutoStart,
+  useProfessionalTourStepPreparation,
+} from '../../components/onboarding/professionalTourContext';
+import { useProfessionalTourScrollPreparation } from '../../components/onboarding/useProfessionalTourScrollPreparation';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -221,6 +227,7 @@ const InvoiceStatusBadge: React.FC<StatusBadgeProps> = ({ status, styles, theme 
 export function BillingScreen() {
   const { user } = useAuth();
   const appAlert = useAppAlert();
+  const { isVisible: isAppAlertVisible } = useAppAlertState();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const isDesktop = width >= 768;
@@ -234,6 +241,7 @@ export function BillingScreen() {
   const [summary, setSummary] = useState<BillingSummary | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
 
   // Pagination state
@@ -252,6 +260,7 @@ export function BillingScreen() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const invoiceListRef = useRef<View>(null);
+  const billingTourScroll = useProfessionalTourScrollPreparation();
 
   // Menu state (portal pattern — window-relative coordinates)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -314,12 +323,14 @@ export function BillingScreen() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       const [summaryData] = await Promise.all([
         billingService.getSummary(),
         loadInvoices(1, 'all', ''),
       ]);
       setSummary(summaryData);
     } catch (error) {
+      setLoadError(true);
       showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al cargar datos');
     } finally {
       setLoading(false);
@@ -331,6 +342,45 @@ export function BillingScreen() {
       loadData();
       analyticsService.trackScreen('billing');
     }, [loadData])
+  );
+
+  useProfessionalTourAutoStart(
+    'professional_billing_v1',
+    !loading && !loadError && !openMenuId && !isAppAlertVisible,
+  );
+
+  const prepareBillingInvoiceListStep = useCallback(
+    () => billingTourScroll.prepareTarget('professional.billing.invoice-list'),
+    [billingTourScroll],
+  );
+  const prepareBillingTariffsStep = useCallback(
+    () => billingTourScroll.prepareTarget('professional.billing.tariffs'),
+    [billingTourScroll],
+  );
+  const prepareBillingFiscalStep = useCallback(
+    () => billingTourScroll.prepareTarget('professional.billing.fiscal'),
+    [billingTourScroll],
+  );
+  const prepareBillingAutomationStep = useCallback(
+    () => billingTourScroll.prepareTarget('professional.billing.automation'),
+    [billingTourScroll],
+  );
+
+  useProfessionalTourStepPreparation(
+    'professional.billing.invoice-list',
+    prepareBillingInvoiceListStep,
+  );
+  useProfessionalTourStepPreparation(
+    'professional.billing.tariffs',
+    prepareBillingTariffsStep,
+  );
+  useProfessionalTourStepPreparation(
+    'professional.billing.fiscal',
+    prepareBillingFiscalStep,
+  );
+  useProfessionalTourStepPreparation(
+    'professional.billing.automation',
+    prepareBillingAutomationStep,
   );
 
   // ── Debounced search ───────────────────────────────────────
@@ -938,7 +988,8 @@ export function BillingScreen() {
   };
 
   const renderInvoiceList = () => (
-    <View style={styles.card}>
+    <TourTarget id="professional.billing.invoice-list" fill style={styles.fullWidthTourTarget}>
+      <View style={styles.card}>
       <Text style={styles.cardTitle}>{STRINGS.invoiceHistory}</Text>
       {renderFilterChips()}
       <TextInput
@@ -965,7 +1016,8 @@ export function BillingScreen() {
         )}
       </View>
       {renderPagination()}
-    </View>
+      </View>
+    </TourTarget>
   );
 
   const handleAddTariff = () => {
@@ -999,7 +1051,8 @@ export function BillingScreen() {
   };
 
   const renderTariffsCard = () => (
-    <View style={[styles.card, { zIndex: 10, overflow: 'visible' as const }]}>
+    <TourTarget id="professional.billing.tariffs" fill style={styles.fullWidthTourTarget}>
+      <View style={[styles.card, { zIndex: 10, overflow: 'visible' as const }]}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{STRINGS.tariffs}</Text>
         <TouchableOpacity onPress={() => {
@@ -1107,7 +1160,8 @@ export function BillingScreen() {
           )}
         </View>
       )}
-    </View>
+      </View>
+    </TourTarget>
   );
 
   const renderInvoiceDesignCard = () => {
@@ -1185,7 +1239,8 @@ export function BillingScreen() {
   };
 
   const renderFiscalCard = () => (
-    <View style={styles.card}>
+    <TourTarget id="professional.billing.fiscal" fill style={styles.fullWidthTourTarget}>
+      <View style={styles.card}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{STRINGS.fiscalData}</Text>
         <TouchableOpacity onPress={() => { setTempFiscal(billingConfig); setEditingFiscal(!editingFiscal); }}>
@@ -1228,7 +1283,8 @@ export function BillingScreen() {
           )}
         </View>
       )}
-    </View>
+      </View>
+    </TourTarget>
   );
 
   const renderNumberingCard = () => {
@@ -1337,7 +1393,8 @@ export function BillingScreen() {
   };
 
   const renderAutomationCard = () => (
-    <View style={styles.card}>
+    <TourTarget id="professional.billing.automation" fill style={styles.fullWidthTourTarget}>
+      <View style={styles.card}>
       <Text style={styles.cardTitle}>{STRINGS.automation}</Text>
       <View style={styles.automationItem}>
         <View style={styles.automationText}>
@@ -1375,7 +1432,8 @@ export function BillingScreen() {
           thumbColor={billingConfig.sendInvoiceCopyTo ? theme.primary : colors.neutral.gray400}
         />
       </View>
-    </View>
+      </View>
+    </TourTarget>
   );
 
 
@@ -1391,25 +1449,32 @@ export function BillingScreen() {
         <Text style={styles.headerTitle}>{STRINGS.title}</Text>
         <View style={styles.headerActions}>
           <View style={styles.headerBtnWrap}>
-            <Button
-              variant="primary"
-              size="large"
-              onPress={() => navigation.navigate('CreateInvoice', {})}
-              icon={<Ionicons name="add" size={18} color={theme.textOnPrimary} />}
-              fullWidth
-            >
-              Nueva factura
-            </Button>
+            <TourTarget id="professional.billing.new-invoice" fill style={styles.fullWidthTourTarget}>
+              <Button
+                variant="primary"
+                size="large"
+                onPress={() => navigation.navigate('CreateInvoice', {})}
+                icon={<Ionicons name="add" size={18} color={theme.textOnPrimary} />}
+                fullWidth
+              >
+                Nueva factura
+              </Button>
+            </TourTarget>
           </View>
         </View>
       </View>
 
       <ScrollView
+        ref={billingTourScroll.scrollRef}
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
           isDesktop && styles.scrollContentDesktop,
         ]}
+        onContentSizeChange={billingTourScroll.scrollProps.onContentSizeChange}
+        onLayout={billingTourScroll.scrollProps.onLayout}
+        onScroll={billingTourScroll.scrollProps.onScroll}
+        scrollEventThrottle={billingTourScroll.scrollProps.scrollEventThrottle}
         showsVerticalScrollIndicator={false}
       >
         {/* Stats */}
@@ -1517,6 +1582,9 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean, isMobil
   headerBtnWrap: {
     minWidth: isDesktop ? 204 : 0,
     flex: isDesktop ? undefined : 1,
+  },
+  fullWidthTourTarget: {
+    width: '100%',
   },
   headerBtn: {
     flexDirection: 'row',

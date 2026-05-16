@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Text, Pressable, View } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
-import { AlertProvider, useAppAlert } from '../AppAlertContext';
+import { AlertProvider, useAppAlert, useAppAlertState } from '../AppAlertContext';
 
 jest.mock('../../../../contexts/ThemeContext', () => {
   const { lightTheme } = jest.requireActual('../../../../constants/theme');
@@ -18,6 +18,7 @@ jest.mock('../../../../contexts/ThemeContext', () => {
 
 function AlertHarness() {
   const alert = useAppAlert();
+  const alertState = useAppAlertState();
   const [result, setResult] = useState('idle');
 
   return (
@@ -69,6 +70,7 @@ function AlertHarness() {
       </Pressable>
 
       <Text testID="result">{result}</Text>
+      <Text testID="alert-visible">{alertState.isVisible ? 'visible' : 'hidden'}</Text>
     </View>
   );
 }
@@ -89,6 +91,7 @@ describe('AlertProvider', () => {
 
     expect(await screen.findByText('Guardado')).toBeTruthy();
     expect(screen.getByText('Los cambios se han guardado.')).toBeTruthy();
+    expect(screen.getByTestId('alert-visible')).toHaveTextContent('visible');
 
     await act(async () => {
       fireEvent.press(screen.getByText('Aceptar'));
@@ -96,6 +99,7 @@ describe('AlertProvider', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Guardado')).toBeNull();
+      expect(screen.getByTestId('alert-visible')).toHaveTextContent('hidden');
     });
   });
 
@@ -141,6 +145,7 @@ describe('AlertProvider', () => {
       fireEvent.press(screen.getByText('Aceptar'));
     });
 
+    expect(screen.getByTestId('alert-visible')).toHaveTextContent('visible');
     expect(await screen.findByText('Segundo')).toBeTruthy();
   });
 

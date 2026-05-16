@@ -2,9 +2,11 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable, Button, Card } from '../common';
+import { TourTarget } from '../onboarding/TourTarget';
 import { borderRadius, spacing, typography } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import type { ClinicalDocument } from '../../services/clinicalService';
+import type { ProfessionalTourTargetId } from '../onboarding/professionalTourTypes';
 
 interface ClinicalDocumentsPanelProps {
   isTablet: boolean;
@@ -18,6 +20,8 @@ interface ClinicalDocumentsPanelProps {
   emptyDescription: string;
   onUpload?: () => void;
   onOpenDocument: (document: ClinicalDocument) => void;
+  tourTargetId?: ProfessionalTourTargetId;
+  tourTargetsActive?: boolean;
 }
 
 const formatDate = (value?: string | Date | null) =>
@@ -65,29 +69,43 @@ export function ClinicalDocumentsPanel({
   emptyDescription,
   onUpload,
   onOpenDocument,
+  tourTargetId,
+  tourTargetsActive = true,
 }: ClinicalDocumentsPanelProps) {
   const { theme } = useTheme();
   const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontDisplayBold }), [theme]);
   const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const emphasisStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
+  const header = (
+    <View style={[styles.header, !isTablet && styles.headerMobile]}>
+      <View style={styles.copy}>
+        <Text style={[styles.title, { color: theme.textPrimary }, displayTitleStyle]}>
+          {title}
+        </Text>
+        <Text style={[styles.description, { color: theme.textSecondary }]}>
+          {description}
+        </Text>
+      </View>
+      {onUpload ? (
+        <Button variant="outline" size="small" onPress={onUpload} loading={uploading}>
+          {uploadLabel}
+        </Button>
+      ) : null}
+    </View>
+  );
 
   return (
     <Card variant="default" padding="large">
-      <View style={[styles.header, !isTablet && styles.headerMobile]}>
-        <View style={styles.copy}>
-          <Text style={[styles.title, { color: theme.textPrimary }, displayTitleStyle]}>
-            {title}
-          </Text>
-          <Text style={[styles.description, { color: theme.textSecondary }]}>
-            {description}
-          </Text>
-        </View>
-        {onUpload ? (
-          <Button variant="outline" size="small" onPress={onUpload} loading={uploading}>
-            {uploadLabel}
-          </Button>
-        ) : null}
-      </View>
+      {tourTargetId ? (
+        <TourTarget
+          id={tourTargetId}
+          active={tourTargetsActive}
+          fill
+          style={styles.tourTarget}
+        >
+          {header}
+        </TourTarget>
+      ) : header}
 
       {documents.length === 0 ? (
         <View style={[styles.emptyState, { backgroundColor: theme.bgMuted, borderColor: theme.border }]}>
@@ -153,6 +171,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.md,
     marginBottom: spacing.md,
+  },
+  tourTarget: {
+    width: '100%',
   },
   headerMobile: {
     flexDirection: 'column',

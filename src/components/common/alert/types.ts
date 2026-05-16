@@ -39,6 +39,10 @@ export interface AppAlertApi {
   ) => Promise<TValue | null>;
 }
 
+export interface AppAlertState {
+  isVisible: boolean;
+}
+
 export interface AppAlertProviderProps {
   children: React.ReactNode;
 }

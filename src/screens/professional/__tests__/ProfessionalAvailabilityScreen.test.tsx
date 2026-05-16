@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react-native';
 import { showAppAlert, useAppAlert } from '../../../components/common/alert';
+import { useProfessionalTourAutoStart } from '../../../components/onboarding/professionalTourContext';
 import { lightTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import * as availabilityService from '../../../services/availabilityService';
@@ -18,6 +19,13 @@ jest.mock('react-native-calendars', () => ({
 jest.mock('../../../components/common/alert', () => ({
   showAppAlert: jest.fn(),
   useAppAlert: jest.fn(),
+  useAppAlertState: jest.fn(),
+}));
+
+jest.mock('../../../components/onboarding/professionalTourContext', () => ({
+  useOptionalProfessionalTour: jest.fn(() => null),
+  useProfessionalTourAutoStart: jest.fn(),
+  useProfessionalTourStepPreparation: jest.fn(),
 }));
 
 jest.mock('../../../contexts/ThemeContext', () => ({
@@ -44,6 +52,9 @@ jest.mock('../../../services/billingService', () => ({
 
 const mockedUseTheme = jest.mocked(useTheme);
 const mockedUseAppAlert = jest.mocked(useAppAlert);
+const mockedUseAppAlertState = jest.requireMock('../../../components/common/alert')
+  .useAppAlertState as jest.Mock;
+const mockedUseProfessionalTourAutoStart = jest.mocked(useProfessionalTourAutoStart);
 const mockedShowAppAlert = jest.mocked(showAppAlert);
 const mockedAvailabilityService = jest.mocked(availabilityService);
 const mockedBillingService = jest.mocked(billingService);
@@ -67,6 +78,7 @@ describe('ProfessionalAvailabilityScreen', () => {
       setMode: jest.fn(),
     } as unknown as ReturnType<typeof useTheme>);
     mockedUseAppAlert.mockReturnValue({} as ReturnType<typeof useAppAlert>);
+    mockedUseAppAlertState.mockReturnValue({ isVisible: false });
     mockedAvailabilityService.getMyWeeklySchedule.mockResolvedValue(emptyWeeklySchedule);
     mockedAvailabilityService.getMyExceptions.mockResolvedValue([]);
     mockedAvailabilityService.getMyBufferTime.mockResolvedValue(15);
@@ -92,5 +104,23 @@ describe('ProfessionalAvailabilityScreen', () => {
       expect(mockedAvailabilityService.getMyWeeklySchedule).toHaveBeenCalled();
     });
     expect(mockedShowAppAlert).not.toHaveBeenCalled();
+  });
+
+  it('keeps auto-start disabled while a global alert is visible', async () => {
+    mockedUseAppAlertState.mockReturnValue({ isVisible: true });
+    const props = {
+      navigation: { navigate: jest.fn() },
+    } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
+
+    render(<ProfessionalAvailabilityScreen {...props} />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('No disponible').length).toBeGreaterThan(0);
+    });
+
+    expect(mockedUseProfessionalTourAutoStart).toHaveBeenLastCalledWith(
+      'professional_availability_v1',
+      false,
+    );
   });
 });

@@ -17,6 +17,7 @@ export function Sidebar({
   onNavigate,
   user,
   onLogout,
+  onGuideStart,
   isAdmin,
   isCollapsed = false,
   onToggleCollapse,
@@ -147,6 +148,7 @@ export function Sidebar({
         user={user}
         subtitle={subtitle}
         onLogout={onLogout}
+        onGuideStart={onGuideStart}
         isCollapsed={isCollapsed}
       />
     </View>

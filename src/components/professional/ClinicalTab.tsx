@@ -9,6 +9,13 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { AnimatedPressable, Button, Card } from '../common';
+import { useAppAlertState } from '../common/alert';
+import { TourTarget } from '../onboarding/TourTarget';
+import {
+  useProfessionalTourAutoStart,
+  useProfessionalTourRoutePreference,
+  useProfessionalTourStepPreparation,
+} from '../onboarding/professionalTourContext';
 import { PinCodeInput } from './PinCodeInput';
 import { ClinicalGeneralWorkspace } from './ClinicalGeneralWorkspace';
 import { ClinicalSessionsWorkspace } from './ClinicalSessionsWorkspace';
@@ -22,11 +29,14 @@ import { hasAcceptedCurrentDataProcessingAgreement } from '../../services/clinic
 import { LEGAL_DOCUMENT_VERSION } from '../../constants/legal';
 import { acceptLegalDocuments, getLegalStatus } from '../../services/legalService';
 import type { AppNavigationProp } from '../../constants/types';
+import type { ProfessionalTourTargetId } from '../onboarding/professionalTourTypes';
 
 interface ClinicalTabProps {
   clientId: string;
   client: Client;
+  onPrepareClinicalTourStep?: (targetId: ProfessionalTourTargetId) => Promise<void> | void;
   onRequestRefreshClient?: () => Promise<void>;
+  tourTargetsActive?: boolean;
 }
 
 type ClinicalWorkspaceKey = 'general' | 'sessions';
@@ -88,8 +98,15 @@ const getBannerStyles = (
   }
 };
 
-export function ClinicalTab({ clientId, client, onRequestRefreshClient }: ClinicalTabProps) {
+export function ClinicalTab({
+  clientId,
+  client,
+  onPrepareClinicalTourStep,
+  onRequestRefreshClient,
+  tourTargetsActive = true,
+}: ClinicalTabProps) {
   const { theme } = useTheme();
+  const { isVisible: isAppAlertVisible } = useAppAlertState();
   const navigation = useNavigation<AppNavigationProp>();
   const { width } = useWindowDimensions();
   const isTablet = width >= 920;
@@ -339,6 +356,74 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
   const hasActiveSession = Boolean(access.token && access.accessStatus?.session.active);
   const record = workspaceData.record;
   const recordLoading = workspaceData.recordLoading;
+  const hasBlockingBanner = banner?.tone === 'warning' || banner?.tone === 'error';
+  const shouldAutoStartClinicalTour =
+    tourTargetsActive
+    && hasActiveSession
+    && record !== null
+    && !recordLoading
+    && !access.accessSubmitting
+    && !isAppAlertVisible
+    && workspace === 'general'
+    && !hasBlockingBanner;
+  const canPreferClinicalTour =
+    tourTargetsActive
+    && hasActiveSession
+    && record !== null
+    && !recordLoading
+    && workspace === 'general'
+    && !hasBlockingBanner;
+
+  useProfessionalTourAutoStart('professional_clinical_area_v1', shouldAutoStartClinicalTour);
+  useProfessionalTourRoutePreference('professional_clinical_area_v1', canPreferClinicalTour);
+
+  const prepareClinicalTourStep = useCallback(
+    async (targetId: ProfessionalTourTargetId) => {
+      if (workspace !== 'general') {
+        setWorkspace('general');
+      }
+
+      await onPrepareClinicalTourStep?.(targetId);
+    },
+    [onPrepareClinicalTourStep, workspace],
+  );
+
+  useProfessionalTourStepPreparation(
+    'professional.clinical.hero',
+    () => prepareClinicalTourStep('professional.clinical.hero'),
+  );
+  useProfessionalTourStepPreparation(
+    'professional.clinical.workspace-tabs',
+    () => prepareClinicalTourStep('professional.clinical.workspace-tabs'),
+  );
+  useProfessionalTourStepPreparation(
+    'professional.clinical.notes',
+    () => prepareClinicalTourStep('professional.clinical.notes'),
+  );
+  useProfessionalTourStepPreparation(
+    'professional.clinical.timeline',
+    () => prepareClinicalTourStep('professional.clinical.timeline'),
+  );
+  useProfessionalTourStepPreparation(
+    'professional.clinical.questionnaire',
+    () => prepareClinicalTourStep('professional.clinical.questionnaire'),
+  );
+  useProfessionalTourStepPreparation(
+    'professional.clinical.consent',
+    () => prepareClinicalTourStep('professional.clinical.consent'),
+  );
+  useProfessionalTourStepPreparation(
+    'professional.clinical.consent-documents',
+    () => prepareClinicalTourStep('professional.clinical.consent-documents'),
+  );
+  useProfessionalTourStepPreparation(
+    'professional.clinical.reports',
+    () => prepareClinicalTourStep('professional.clinical.reports'),
+  );
+  useProfessionalTourStepPreparation(
+    'professional.clinical.documents',
+    () => prepareClinicalTourStep('professional.clinical.documents'),
+  );
 
   const consentLabel = record
     ? record.consentStatus === 'GRANTED'
@@ -361,7 +446,7 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
     ? [
         { label: 'Consentimiento', value: consentLabel, color: consentColor },
         {
-          label: 'Retencion',
+          label: 'Retención',
           value: record?.retentionUntil ? formatDate(record.retentionUntil) : 'Abierta',
           color: theme.textPrimary,
         },
@@ -638,6 +723,12 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
         </Card>
       ) : (
         <View style={styles.workspaceStack}>
+          <TourTarget
+            id="professional.clinical.hero"
+            active={tourTargetsActive}
+            fill
+            style={styles.fullWidthTourTarget}
+          >
           <Card variant="default" padding="large">
             <View style={[styles.heroPanel, !isTablet && styles.heroPanelStack]}>
               <View style={styles.heroMain}>
@@ -658,7 +749,14 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
               {renderSidebar(sidebarRows, true)}
             </View>
           </Card>
+          </TourTarget>
 
+          <TourTarget
+            id="professional.clinical.workspace-tabs"
+            active={tourTargetsActive}
+            fill
+            style={styles.fullWidthTourTarget}
+          >
           <View style={styles.segmentedWrap}>
             {[
               { key: 'general' as const, label: 'General', icon: 'folder-open-outline' as const },
@@ -683,13 +781,13 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
                   <Ionicons
                     name={item.icon}
                     size={16}
-                    color={active ? '#FFFFFF' : theme.textSecondary}
+                    color={active ? theme.textOnPrimary : theme.textSecondary}
                   />
                   <Text
                     style={[
                       styles.segmentedText,
                       {
-                        color: active ? '#FFFFFF' : theme.textSecondary,
+                        color: active ? theme.textOnPrimary : theme.textSecondary,
                         fontFamily: theme.fontSansSemiBold,
                       },
                     ]}
@@ -700,6 +798,7 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
               );
             })}
           </View>
+          </TourTarget>
 
           {workspace === 'general' ? (
             <ClinicalGeneralWorkspace
@@ -723,6 +822,7 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
               onLoadMoreNotes={workspaceData.loadMoreNotes}
               onLoadMoreDocuments={workspaceData.loadMoreDocuments}
               onLoadMoreConsentEvents={workspaceData.loadMoreConsentEvents}
+              tourTargetsActive={tourTargetsActive}
             />
           ) : (
             <ClinicalSessionsWorkspace
@@ -753,6 +853,9 @@ export function ClinicalTab({ clientId, client, onRequestRefreshClient }: Clinic
 const styles = StyleSheet.create({
   screen: {
     gap: spacing.lg,
+  },
+  fullWidthTourTarget: {
+    width: '100%',
   },
   banner: {
     borderWidth: 1,

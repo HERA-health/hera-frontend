@@ -12,10 +12,18 @@ import type { barDataItem } from 'react-native-gifted-charts';
 import { colors, spacing, borderRadius, typography, shadows, layout } from '../../constants/colors';
 import { Theme } from '../../constants/theme';
 import { AnimatedPressable } from '../../components/common';
+import { useAppAlertState } from '../../components/common/alert';
 import { LoadingState } from '../../components/common/LoadingState';
 import { EmptyState } from '../../components/common/EmptyState';
+import { TourTarget } from '../../components/onboarding/TourTarget';
+import {
+  useProfessionalTourAutoStart,
+  useProfessionalTourStepPreparation,
+} from '../../components/onboarding/professionalTourContext';
+import { useProfessionalTourScrollPreparation } from '../../components/onboarding/useProfessionalTourScrollPreparation';
 import { useTheme } from '../../contexts/ThemeContext';
 import { dashboardService, DashboardData, ReviewsMetrics } from '../../services/dashboardService';
+import type { ProfessionalTourTargetId } from '../../components/onboarding/professionalTourTypes';
 
 // ============================================================================
 // CONSTANTS
@@ -205,19 +213,22 @@ interface ReviewsCardProps {
   metrics: ReviewsMetrics;
   styles: ReturnType<typeof createStyles>;
   theme: Theme;
+  tourTargetId?: ProfessionalTourTargetId;
 }
 
-const ReviewsCard: React.FC<ReviewsCardProps> = ({ metrics, styles, theme }) => {
+const ReviewsCard: React.FC<ReviewsCardProps> = ({ metrics, styles, theme, tourTargetId }) => {
   const { averageRating, totalReviews, ratingBreakdown } = metrics;
   const maxCount = Math.max(...ratingBreakdown.map((r) => r.count), 1);
   const starBarColors = getStarBarColors(theme);
-
-  return (
-    <View style={[styles.card, styles.flex1, styles.bottomCardHeight]}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>Valoraciones</Text>
-        <Text style={styles.cardSub}>Reseñas de pacientes</Text>
-      </View>
+  const header = (
+    <View style={styles.cardHeader}>
+      <Text style={styles.cardTitle}>Valoraciones</Text>
+      <Text style={styles.cardSub}>Reseñas de pacientes</Text>
+    </View>
+  );
+  const cardContent = (
+    <>
+      {header}
 
       {totalReviews === 0 ? (
         <View style={styles.reviewsEmptyContainer}>
@@ -274,6 +285,16 @@ const ReviewsCard: React.FC<ReviewsCardProps> = ({ metrics, styles, theme }) => 
           </View>
         </View>
       )}
+    </>
+  );
+
+  return (
+    <View style={[styles.card, styles.flex1, styles.bottomCardHeight]}>
+      {tourTargetId ? (
+        <TourTarget id={tourTargetId} fill style={styles.fullWidthTourTarget}>
+          <View style={styles.fullWidthTourTarget}>{cardContent}</View>
+        </TourTarget>
+      ) : cardContent}
     </View>
   );
 };
@@ -285,6 +306,8 @@ const ReviewsCard: React.FC<ReviewsCardProps> = ({ metrics, styles, theme }) => 
 export function DashboardScreen() {
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
+  const { isVisible: isAppAlertVisible } = useAppAlertState();
+  const dashboardTourScroll = useProfessionalTourScrollPreparation();
   const isCompactMobile = width < 430;
   const isMobileShell = width < 768;
   const styles = useMemo(
@@ -318,6 +341,37 @@ export function DashboardScreen() {
     useCallback(() => {
       loadData();
     }, [loadData])
+  );
+
+  useProfessionalTourAutoStart(
+    'professional_dashboard_v1',
+    !loading && !error && data !== null && !isAppAlertVisible,
+  );
+
+  const prepareDashboardIncomeStep = useCallback(
+    () => dashboardTourScroll.prepareTarget('professional.dashboard.income-chart'),
+    [dashboardTourScroll],
+  );
+  const prepareDashboardKpisStep = useCallback(
+    () => dashboardTourScroll.prepareTarget('professional.dashboard.kpis'),
+    [dashboardTourScroll],
+  );
+  const prepareDashboardDetailStep = useCallback(
+    () => dashboardTourScroll.prepareTarget('professional.dashboard.detail-charts'),
+    [dashboardTourScroll],
+  );
+
+  useProfessionalTourStepPreparation(
+    'professional.dashboard.income-chart',
+    prepareDashboardIncomeStep,
+  );
+  useProfessionalTourStepPreparation(
+    'professional.dashboard.kpis',
+    prepareDashboardKpisStep,
+  );
+  useProfessionalTourStepPreparation(
+    'professional.dashboard.detail-charts',
+    prepareDashboardDetailStep,
   );
 
   // Earliest year with data — used to clamp backward navigation
@@ -396,6 +450,65 @@ export function DashboardScreen() {
     : [...charts.sessionsByDayOfWeek, { day: 5, label: 'Sáb', count: 0 }];
   const maxDayCount = Math.max(...sessionsByDayWithSat.map((item) => item.count), 1);
 
+  const renderBottomCharts = (reviewsTourTargetId?: ProfessionalTourTargetId) => (
+    <>
+      <ReviewsCard
+        metrics={charts.reviewsMetrics}
+        styles={styles}
+        theme={theme}
+        tourTargetId={reviewsTourTargetId}
+      />
+
+      <View style={[styles.card, styles.flex1, styles.bottomCardHeight]}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>{STRINGS.donutTitle}</Text>
+          <Text style={styles.cardSub}>{STRINGS.donutSubtitle}</Text>
+        </View>
+        {allSessionsZero ? (
+          <Text style={styles.emptyText}>{STRINGS.donutEmpty}</Text>
+        ) : (
+          <View style={styles.donutContainer}>
+            <PieChart
+              data={donutData}
+              donut
+              radius={54}
+              innerRadius={38}
+              innerCircleColor={theme.bgCard}
+              innerCircleBorderWidth={6}
+              innerCircleBorderColor={theme.bgCard}
+              strokeColor={theme.bgCard}
+              strokeWidth={2}
+              centerLabelComponent={() => (
+                <View style={styles.donutCenter}>
+                  <Text style={styles.donutCenterValue}>{totalSessions}</Text>
+                  <Text style={styles.donutCenterLabel}>{STRINGS.donutCenterLabel}</Text>
+                </View>
+              )}
+              isAnimated
+            />
+            <View style={styles.legendContainer}>
+              <LegendRow color={chartColors.completed} label={STRINGS.legendCompleted} count={completed} isLast={false} styles={styles} />
+              <LegendRow color={chartColors.cancelled} label={STRINGS.legendCancelled} count={cancelled} isLast={false} styles={styles} />
+              <LegendRow color={chartColors.pending} label={STRINGS.legendPending} count={pending} isLast styles={styles} />
+            </View>
+          </View>
+        )}
+      </View>
+
+      <View style={[styles.card, styles.flex1, styles.bottomCardHeight]}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>{STRINGS.dayChartTitle}</Text>
+          <Text style={styles.cardSub}>{STRINGS.dayChartSubtitle}</Text>
+        </View>
+        <View style={styles.hbarContainer}>
+          {sessionsByDayWithSat.map((item) => (
+            <HBarRow key={item.day} label={item.label} count={item.count} maxValue={maxDayCount} styles={styles} fillColor={chartColors.dayBars} />
+          ))}
+        </View>
+      </View>
+    </>
+  );
+
 
   // ── Render ─────────────────────────────────────────────────────
   return (
@@ -405,167 +518,148 @@ export function DashboardScreen() {
         <Text style={styles.headerTitle}>{STRINGS.title}</Text>
       </View>
 
-      <ScrollView style={styles.screen} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={dashboardTourScroll.scrollRef}
+        style={styles.screen}
+        contentContainerStyle={styles.scrollContent}
+        onContentSizeChange={dashboardTourScroll.scrollProps.onContentSizeChange}
+        onLayout={dashboardTourScroll.scrollProps.onLayout}
+        onScroll={dashboardTourScroll.scrollProps.onScroll}
+        scrollEventThrottle={dashboardTourScroll.scrollProps.scrollEventThrottle}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.content}>
 
         {/* ── MOBILE: KPI cards above chart ─────────────────────── */}
         {!isDesktop && (
-          <View style={styles.mobileKpiGrid}>
-            <View style={[styles.kpiCard, styles.mobileKpiCard]}>
-              <KpiCard value={formatCurrency(kpis.incomeThisMonth)} label={STRINGS.incomeLabel} sublabel={getCurrentMonthLabel()} accentColor={kpiAccents.income} valueColor={theme.primary} styles={styles} />
+          <TourTarget id="professional.dashboard.kpis" fill style={styles.fullWidthTourTarget}>
+            <View style={styles.mobileKpiGrid}>
+              <View style={[styles.kpiCard, styles.mobileKpiCard]}>
+                <KpiCard value={formatCurrency(kpis.incomeThisMonth)} label={STRINGS.incomeLabel} sublabel={getCurrentMonthLabel()} accentColor={kpiAccents.income} valueColor={theme.primary} styles={styles} />
+              </View>
+              <View style={[styles.kpiCard, styles.mobileKpiCard]}>
+                <KpiCard value={String(kpis.sessionsThisMonth.total)} label={STRINGS.sessionsLabel} sublabel={`${kpis.sessionsThisMonth.completed} comp. · ${kpis.sessionsThisMonth.cancelled} canc.`} accentColor={kpiAccents.sessions} styles={styles} />
+              </View>
+              <View style={[styles.kpiCard, styles.mobileKpiCard]}>
+                <KpiCard value={String(kpis.activePatients)} label={STRINGS.patientsLabel} sublabel={STRINGS.patientsSubLabel} accentColor={kpiAccents.patients} styles={styles} />
+              </View>
+              <View style={[styles.kpiCard, styles.mobileKpiCard]}>
+                <KpiCard value={String(kpis.upcomingThisWeek)} label={STRINGS.upcomingLabel} sublabel={STRINGS.upcomingSubLabel} accentColor={kpiAccents.upcoming} styles={styles} />
+              </View>
             </View>
-            <View style={[styles.kpiCard, styles.mobileKpiCard]}>
-              <KpiCard value={String(kpis.sessionsThisMonth.total)} label={STRINGS.sessionsLabel} sublabel={`${kpis.sessionsThisMonth.completed} comp. · ${kpis.sessionsThisMonth.cancelled} canc.`} accentColor={kpiAccents.sessions} styles={styles} />
-            </View>
-            <View style={[styles.kpiCard, styles.mobileKpiCard]}>
-              <KpiCard value={String(kpis.activePatients)} label={STRINGS.patientsLabel} sublabel={STRINGS.patientsSubLabel} accentColor={kpiAccents.patients} styles={styles} />
-            </View>
-            <View style={[styles.kpiCard, styles.mobileKpiCard]}>
-              <KpiCard value={String(kpis.upcomingThisWeek)} label={STRINGS.upcomingLabel} sublabel={STRINGS.upcomingSubLabel} accentColor={kpiAccents.upcoming} styles={styles} />
-            </View>
-          </View>
+          </TourTarget>
         )}
 
         {/* ── TOP ROW ──────────────────────────────────────────── */}
         <View style={isDesktop ? styles.topRow : undefined}>
           {/* LEFT: Bar chart card */}
           <View style={[styles.card, isDesktop && styles.flex1]}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>{STRINGS.incomeChartTitle}</Text>
-            </View>
-            {/* Year pagination */}
-            <View style={styles.yearNavRow}>
-              <AnimatedPressable
-                onPress={() => setChartYear((y) => y - 1)}
-                disabled={chartYear <= earliestAvailableYear}
-                style={chartYear <= earliestAvailableYear ? [styles.yearNavButton, styles.yearNavDisabled] : styles.yearNavButton}
-                hoverLift={false}
-                pressScale={0.98}
-              >
-                <Text style={styles.yearNavArrow}>{'‹'}</Text>
-              </AnimatedPressable>
-              <Text style={styles.yearNavLabel}>
-                {chartYear}
-              </Text>
-              <AnimatedPressable
-                onPress={() => setChartYear((y) => y + 1)}
-                disabled={chartYear >= new Date().getFullYear()}
-                style={chartYear >= new Date().getFullYear() ? [styles.yearNavButton, styles.yearNavDisabled] : styles.yearNavButton}
-                hoverLift={false}
-                pressScale={0.98}
-              >
-                <Text style={styles.yearNavArrow}>{'›'}</Text>
-              </AnimatedPressable>
-            </View>
-            {allIncomeZero ? (
-              <Text style={styles.emptyText}>{STRINGS.incomeEmpty}</Text>
-            ) : (
-              <View
-                style={styles.chartWrapper}
-                onLayout={(e) => setChartWidth(e.nativeEvent.layout.width)}
-              >
-                {chartWidth > 0 && (
-                  <BarChart
-                    data={monthlyIncomeBarData}
-                    width={chartWidth}
-                    barWidth={Math.max(8, Math.floor((chartWidth - 40) / 12) - 6)}
-                    spacing={isCompactMobile ? 4 : 6}
-                    height={160}
-                    barBorderTopLeftRadius={borderRadius.sm}
-                    barBorderTopRightRadius={borderRadius.sm}
-                    xAxisLabelTextStyle={{ fontSize: 9, color: theme.textMuted }}
-                    hideYAxisText
-                    hideRules={false}
-                    rulesColor={theme.borderLight}
-                    xAxisColor={theme.border}
-                    yAxisColor={'transparent'}
-                    noOfSections={4}
-                    isAnimated
-                    animationDuration={600}
-                  />
+            <TourTarget id="professional.dashboard.income-chart" fill style={styles.fullWidthTourTarget}>
+              <View style={styles.fullWidthTourTarget}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>{STRINGS.incomeChartTitle}</Text>
+                </View>
+                {/* Year pagination */}
+                <View style={styles.yearNavRow}>
+                  <AnimatedPressable
+                    onPress={() => setChartYear((y) => y - 1)}
+                    disabled={chartYear <= earliestAvailableYear}
+                    style={chartYear <= earliestAvailableYear ? [styles.yearNavButton, styles.yearNavDisabled] : styles.yearNavButton}
+                    hoverLift={false}
+                    pressScale={0.98}
+                  >
+                    <Text style={styles.yearNavArrow}>{'‹'}</Text>
+                  </AnimatedPressable>
+                  <Text style={styles.yearNavLabel}>
+                    {chartYear}
+                  </Text>
+                  <AnimatedPressable
+                    onPress={() => setChartYear((y) => y + 1)}
+                    disabled={chartYear >= new Date().getFullYear()}
+                    style={chartYear >= new Date().getFullYear() ? [styles.yearNavButton, styles.yearNavDisabled] : styles.yearNavButton}
+                    hoverLift={false}
+                    pressScale={0.98}
+                  >
+                    <Text style={styles.yearNavArrow}>{'›'}</Text>
+                  </AnimatedPressable>
+                </View>
+                {allIncomeZero ? (
+                  <Text style={styles.emptyText}>{STRINGS.incomeEmpty}</Text>
+                ) : (
+                  <View
+                    style={styles.chartWrapper}
+                    onLayout={(e) => setChartWidth(e.nativeEvent.layout.width)}
+                  >
+                    {chartWidth > 0 && (
+                      <BarChart
+                        data={monthlyIncomeBarData}
+                        width={chartWidth}
+                        barWidth={Math.max(8, Math.floor((chartWidth - 40) / 12) - 6)}
+                        spacing={isCompactMobile ? 4 : 6}
+                        height={160}
+                        barBorderTopLeftRadius={borderRadius.sm}
+                        barBorderTopRightRadius={borderRadius.sm}
+                        xAxisLabelTextStyle={{ fontSize: 9, color: theme.textMuted }}
+                        hideYAxisText
+                        hideRules={false}
+                        rulesColor={theme.borderLight}
+                        xAxisColor={theme.border}
+                        yAxisColor={'transparent'}
+                        noOfSections={4}
+                        isAnimated
+                        animationDuration={600}
+                      />
+                    )}
+                  </View>
                 )}
               </View>
-            )}
+            </TourTarget>
           </View>
 
           {/* RIGHT: 2x2 KPI grid (desktop only) */}
           {isDesktop && (
             <View style={styles.desktopKpiColumn}>
-              <View style={styles.desktopKpiRow}>
-                <View style={[styles.kpiCard, styles.flex1]}>
-                  <KpiCard value={formatCurrency(kpis.incomeThisMonth)} label={STRINGS.incomeLabel} sublabel={getCurrentMonthLabel()} accentColor={kpiAccents.income} valueColor={theme.primary} styles={styles} />
+              <TourTarget
+                id="professional.dashboard.kpis"
+                fill
+                spotlightStyle={styles.fillSpotlightTarget}
+                style={styles.kpiGroupTourTarget}
+              >
+                <View style={styles.desktopKpiTourAnchor}>
+                  <View style={styles.desktopKpiRow}>
+                    <View style={[styles.kpiCard, styles.flex1]}>
+                      <KpiCard value={formatCurrency(kpis.incomeThisMonth)} label={STRINGS.incomeLabel} sublabel={getCurrentMonthLabel()} accentColor={kpiAccents.income} valueColor={theme.primary} styles={styles} />
+                    </View>
+                    <View style={[styles.kpiCard, styles.flex1]}>
+                      <KpiCard value={String(kpis.sessionsThisMonth.total)} label={STRINGS.sessionsLabel} sublabel={`${kpis.sessionsThisMonth.completed} comp. · ${kpis.sessionsThisMonth.cancelled} canc.`} accentColor={kpiAccents.sessions} styles={styles} />
+                    </View>
+                  </View>
+                  <View style={styles.desktopKpiRow}>
+                    <View style={[styles.kpiCard, styles.flex1]}>
+                      <KpiCard value={String(kpis.activePatients)} label={STRINGS.patientsLabel} sublabel={STRINGS.patientsSubLabel} accentColor={kpiAccents.patients} styles={styles} />
+                    </View>
+                    <View style={[styles.kpiCard, styles.flex1]}>
+                      <KpiCard value={String(kpis.upcomingThisWeek)} label={STRINGS.upcomingLabel} sublabel={STRINGS.upcomingSubLabel} accentColor={kpiAccents.upcoming} styles={styles} />
+                    </View>
+                  </View>
                 </View>
-                <View style={[styles.kpiCard, styles.flex1]}>
-                  <KpiCard value={String(kpis.sessionsThisMonth.total)} label={STRINGS.sessionsLabel} sublabel={`${kpis.sessionsThisMonth.completed} comp. · ${kpis.sessionsThisMonth.cancelled} canc.`} accentColor={kpiAccents.sessions} styles={styles} />
-                </View>
-              </View>
-              <View style={styles.desktopKpiRow}>
-                <View style={[styles.kpiCard, styles.flex1]}>
-                  <KpiCard value={String(kpis.activePatients)} label={STRINGS.patientsLabel} sublabel={STRINGS.patientsSubLabel} accentColor={kpiAccents.patients} styles={styles} />
-                </View>
-                <View style={[styles.kpiCard, styles.flex1]}>
-                  <KpiCard value={String(kpis.upcomingThisWeek)} label={STRINGS.upcomingLabel} sublabel={STRINGS.upcomingSubLabel} accentColor={kpiAccents.upcoming} styles={styles} />
-                </View>
-              </View>
+              </TourTarget>
             </View>
           )}
         </View>
 
         {/* ── BOTTOM ROW ───────────────────────────────────────── */}
-        <View style={[styles.bottomRow, { flexDirection: isDesktop ? 'row' : 'column' }]}>
-          {/* LEFT: Reviews metrics */}
-          <ReviewsCard metrics={charts.reviewsMetrics} styles={styles} theme={theme} />
-
-          {/* MIDDLE: Donut chart */}
-          <View style={[styles.card, styles.flex1, styles.bottomCardHeight]}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>{STRINGS.donutTitle}</Text>
-              <Text style={styles.cardSub}>{STRINGS.donutSubtitle}</Text>
+        {isDesktop ? (
+          <TourTarget id="professional.dashboard.detail-charts" fill style={styles.fullWidthTourTarget}>
+            <View style={[styles.bottomRow, styles.bottomRowDesktop]}>
+              {renderBottomCharts()}
             </View>
-            {allSessionsZero ? (
-              <Text style={styles.emptyText}>{STRINGS.donutEmpty}</Text>
-            ) : (
-              <View style={styles.donutContainer}>
-                <PieChart
-                  data={donutData}
-                  donut
-                  radius={54}
-                  innerRadius={38}
-                  innerCircleColor={theme.bgCard}
-                  innerCircleBorderWidth={6}
-                  innerCircleBorderColor={theme.bgCard}
-                  strokeColor={theme.bgCard}
-                  strokeWidth={2}
-                  centerLabelComponent={() => (
-                    <View style={styles.donutCenter}>
-                      <Text style={styles.donutCenterValue}>{totalSessions}</Text>
-                      <Text style={styles.donutCenterLabel}>{STRINGS.donutCenterLabel}</Text>
-                    </View>
-                  )}
-                  isAnimated
-                />
-                <View style={styles.legendContainer}>
-                  <LegendRow color={chartColors.completed} label={STRINGS.legendCompleted} count={completed} isLast={false} styles={styles} />
-                  <LegendRow color={chartColors.cancelled} label={STRINGS.legendCancelled} count={cancelled} isLast={false} styles={styles} />
-                  <LegendRow color={chartColors.pending} label={STRINGS.legendPending} count={pending} isLast styles={styles} />
-                </View>
-              </View>
-            )}
+          </TourTarget>
+        ) : (
+          <View style={[styles.bottomRow, styles.bottomRowMobile]}>
+            {renderBottomCharts('professional.dashboard.detail-charts')}
           </View>
-
-          {/* RIGHT: Sessions by day */}
-          <View style={[styles.card, styles.flex1, styles.bottomCardHeight]}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>{STRINGS.dayChartTitle}</Text>
-              <Text style={styles.cardSub}>{STRINGS.dayChartSubtitle}</Text>
-            </View>
-            <View style={styles.hbarContainer}>
-              {sessionsByDayWithSat.map((item) => (
-                <HBarRow key={item.day} label={item.label} count={item.count} maxValue={maxDayCount} styles={styles} fillColor={chartColors.dayBars} />
-              ))}
-            </View>
-          </View>
-        </View>
+        )}
 
       </View>
     </ScrollView>
@@ -619,6 +713,13 @@ function createStyles(theme: Theme, isDark: boolean, isCompactMobile: boolean, i
   flex1: {
     flex: 1,
   },
+  fullWidthTourTarget: {
+    width: '100%',
+  },
+  fillSpotlightTarget: {
+    flex: 1,
+    width: '100%',
+  },
 
   // ── TOP ROW ──────────────────────────────────────────────────
   topRow: {
@@ -639,6 +740,15 @@ function createStyles(theme: Theme, isDark: boolean, isCompactMobile: boolean, i
     gap: KPI_GAP,
     flex: 1,
   },
+  kpiGroupTourTarget: {
+    flex: 1,
+    width: '100%',
+  },
+  desktopKpiTourAnchor: {
+    flex: 1,
+    gap: KPI_GAP,
+    width: '100%',
+  },
 
   // ── Mobile KPI grid ──────────────────────────────────────────
   mobileKpiGrid: {
@@ -655,6 +765,12 @@ function createStyles(theme: Theme, isDark: boolean, isCompactMobile: boolean, i
   // ── BOTTOM ROW ───────────────────────────────────────────────
   bottomRow: {
     gap: CARD_GAP,
+  },
+  bottomRowDesktop: {
+    flexDirection: 'row',
+  },
+  bottomRowMobile: {
+    flexDirection: 'column',
   },
   bottomCardHeight: {
     minHeight: BOTTOM_CARD_MIN_HEIGHT,

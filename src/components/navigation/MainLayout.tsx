@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Platform,
+  Pressable,
   StyleSheet,
-  TouchableWithoutFeedback,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -11,10 +11,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigationState } from '@react-navigation/native';
 import { layout, shadows, spacing } from '../../constants/colors';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AmbientBackground } from '../common/AmbientBackground';
 import { AnimatedPressable } from '../common/AnimatedPressable';
 import { StyledLogo } from '../common/StyledLogo';
+import { ProfessionalTourProvider } from '../onboarding/ProfessionalTourProvider';
+import { TourTarget } from '../onboarding/TourTarget';
 import { CustomDrawerContent } from './CustomDrawerContent';
 import {
   SIDEBAR_ANIMATIONS,
@@ -36,6 +39,8 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
     Math.max(layout.mobileDrawerMinWidth, windowWidth - spacing.xl),
   );
   const { theme } = useTheme();
+  const { user } = useAuth();
+  const isProfessional = user?.type === 'professional';
   const sidebarTheme = getSidebarTheme(theme);
 
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -111,25 +116,31 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
     ]).start();
   }, [mobileSlide, overlayOpacity]);
 
-  const closeMobileSidebar = useCallback(() => {
-    Animated.parallel([
-      Animated.timing(mobileSlide, {
-        toValue: -mobileSidebarWidth,
-        duration: SIDEBAR_ANIMATIONS.transitionDuration,
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 0,
-        duration: SIDEBAR_ANIMATIONS.transitionDuration,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setMobileOpen(false);
-    });
-  }, [mobileSidebarWidth, mobileSlide, overlayOpacity]);
+  const closeMobileSidebar = useCallback((): Promise<void> => {
+    if (!mobileOpen) {
+      return Promise.resolve();
+    }
 
-  if (!isLargeScreen) {
-    return (
+    return new Promise((resolve) => {
+      Animated.parallel([
+        Animated.timing(mobileSlide, {
+          toValue: -mobileSidebarWidth,
+          duration: SIDEBAR_ANIMATIONS.transitionDuration,
+          useNativeDriver: true,
+        }),
+        Animated.timing(overlayOpacity, {
+          toValue: 0,
+          duration: SIDEBAR_ANIMATIONS.transitionDuration,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setMobileOpen(false);
+        resolve();
+      });
+    });
+  }, [mobileOpen, mobileSidebarWidth, mobileSlide, overlayOpacity]);
+
+  const layoutContent = !isLargeScreen ? (
       <View style={[styles.mobileContainer, { backgroundColor: theme.bg }]}>
         <AnimatedPressable
           style={[
@@ -145,32 +156,40 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
           pressScale={0.92}
           accessibilityLabel="Abrir menú"
         >
-          <View
-            style={[
-              styles.mobileLogoShell,
-              {
-                backgroundColor: theme.bgMuted,
-                borderColor: theme.borderLight,
-              },
-            ]}
-          >
-            <StyledLogo size={22} />
-          </View>
-          <View
-            style={[
-              styles.mobileMenuIconShell,
-              { backgroundColor: theme.primaryAlpha12 },
-            ]}
-          >
-            <Ionicons name="menu" size={18} color={theme.primary} />
-          </View>
+          <TourTarget id="professional.nav.mobile-menu" fill style={styles.mobileMenuTarget}>
+            <View style={styles.mobileMenuTargetContent}>
+              <View
+                style={[
+                  styles.mobileLogoShell,
+                  {
+                    backgroundColor: theme.bgMuted,
+                    borderColor: theme.borderLight,
+                  },
+                ]}
+              >
+                <StyledLogo size={22} />
+              </View>
+              <View
+                style={[
+                  styles.mobileMenuIconShell,
+                  { backgroundColor: theme.primaryAlpha12 },
+                ]}
+              >
+                <Ionicons name="menu" size={18} color={theme.primary} />
+              </View>
+            </View>
+          </TourTarget>
         </AnimatedPressable>
 
         {children}
 
         {mobileOpen && (
-          <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-            <TouchableWithoutFeedback onPress={closeMobileSidebar}>
+          <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+            <Pressable
+              accessibilityLabel="Cerrar menú"
+              onPress={() => { void closeMobileSidebar(); }}
+              style={[StyleSheet.absoluteFill, Platform.OS === 'web' ? styles.webFixedFill : null]}
+            >
               <Animated.View
                 style={[
                   styles.overlay,
@@ -178,10 +197,9 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
                     opacity: overlayOpacity,
                     backgroundColor: sidebarTheme.background.overlay,
                   },
-                Platform.OS === 'web' ? styles.webFixedFill : null,
-              ]}
-            />
-            </TouchableWithoutFeedback>
+                ]}
+              />
+            </Pressable>
 
             <Animated.View
               style={[
@@ -198,16 +216,14 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
               <CustomDrawerContent
                 currentRoute={currentRoute}
                 isCollapsed={false}
+                onGuideStart={closeMobileSidebar}
                 onToggleCollapse={closeMobileSidebar}
               />
             </Animated.View>
           </View>
         )}
       </View>
-    );
-  }
-
-  return (
+    ) : (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <AmbientBackground variant="subtle" />
 
@@ -229,6 +245,16 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
       </Animated.View>
       <View style={[styles.content, { backgroundColor: theme.bg }]}>{children}</View>
     </View>
+  );
+
+  if (!isProfessional) {
+    return layoutContent;
+  }
+
+  return (
+    <ProfessionalTourProvider currentRouteName={currentRoute}>
+      {layoutContent}
+    </ProfessionalTourProvider>
   );
 }
 
@@ -282,6 +308,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  mobileMenuTarget: {
+    alignSelf: 'stretch',
+  },
+  mobileMenuTargetContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

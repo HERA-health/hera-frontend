@@ -101,6 +101,9 @@ export const navItemStyles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
   },
+  tourTarget: {
+    alignSelf: 'stretch',
+  },
   inner: {
     minHeight: 44,
     flexDirection: 'row',
@@ -232,6 +235,30 @@ export const userSectionStyles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginTop: 10,
+  },
+  guideButton: {
+    minHeight: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  guideButtonCollapsed: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guideButtonText: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   iconButton: {
     width: 38,

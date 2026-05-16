@@ -24,6 +24,7 @@ import { UserRole, SidebarUser } from './sidebar/types';
 interface CustomDrawerContentProps {
   currentRoute?: string;
   isCollapsed?: boolean;
+  onGuideStart?: () => Promise<void> | void;
   onToggleCollapse?: () => void;
 }
 
@@ -38,6 +39,7 @@ interface CustomDrawerContentProps {
 export function CustomDrawerContent({
   currentRoute = 'Home',
   isCollapsed = false,
+  onGuideStart,
   onToggleCollapse,
 }: CustomDrawerContentProps): React.ReactElement {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
@@ -75,6 +77,7 @@ export function CustomDrawerContent({
         onNavigate={handleNavigate}
         user={sidebarUser}
         onLogout={handleLogout}
+        onGuideStart={onGuideStart}
         isAdmin={user?.isAdmin}
         isCollapsed={isCollapsed}
         onToggleCollapse={onToggleCollapse}

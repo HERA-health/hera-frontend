@@ -18,6 +18,9 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { AnimatedPressable, Button, Card } from '../../components/common';
+import { TourTarget } from '../../components/onboarding/TourTarget';
+import { useOptionalProfessionalTour } from '../../components/onboarding/professionalTourContext';
+import type { ProfessionalTourTargetId } from '../../components/onboarding/professionalTourTypes';
 import { ClinicalTab } from '../../components/professional/ClinicalTab';
 import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
 import { borderRadius, layout, spacing, typography } from '../../constants/colors';
@@ -72,6 +75,14 @@ const SESSION_STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pendiente',
   CANCELLED: 'Cancelada',
 };
+
+type MeasurableNativeRef = {
+  measureInWindow: (
+    callback: (x: number, y: number, width: number, height: number) => void,
+  ) => void;
+};
+
+const MEASURE_SCROLL_VIEWPORT_TIMEOUT_MS = 80;
 
 const formatDate = (value?: string | Date | null, withTime = false) =>
   value
@@ -177,8 +188,9 @@ export function ClientProfileScreen() {
   const route = useRoute<AppRouteProp<'ClientProfile'>>();
   const appAlert = useAppAlert();
   const { clientId, initialTab, focusBillingEditor } = route.params;
-  const { width } = useWindowDimensions();
-  const { theme, isDark } = useTheme();
+  const { height, width } = useWindowDimensions();
+  const { theme } = useTheme();
+  const tour = useOptionalProfessionalTour();
 
   const [activeTab, setActiveTab] = useState<TabKey>(resolveInitialTab(initialTab));
   const [client, setClient] = useState<professionalService.Client | null>(null);
@@ -210,6 +222,7 @@ export function ClientProfileScreen() {
   const hasLoadedClientRef = useRef(false);
   const loadClientPromiseRef = useRef<Promise<void> | null>(null);
   const autoOpenedBillingRef = useRef(false);
+  const tourScrollRef = useRef<ScrollView>(null);
 
   const isDesktop = width >= 1180;
   const isTablet = width >= 860;
@@ -370,6 +383,80 @@ export function ClientProfileScreen() {
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     setScrollOffset(event.nativeEvent.contentOffset.y);
   }, []);
+
+  const measureScrollViewport = useCallback(async () => {
+    const scrollRef = tourScrollRef.current as unknown as MeasurableNativeRef | null;
+
+    if (!scrollRef || typeof scrollRef.measureInWindow !== 'function') {
+      return null;
+    }
+
+    return new Promise<{ height: number; y: number } | null>((resolve) => {
+      let hasResolved = false;
+      const timeout = setTimeout(() => {
+        if (!hasResolved) {
+          hasResolved = true;
+          resolve(null);
+        }
+      }, MEASURE_SCROLL_VIEWPORT_TIMEOUT_MS);
+
+      scrollRef.measureInWindow((_x, y, _width, measuredHeight) => {
+        if (hasResolved) {
+          return;
+        }
+
+        hasResolved = true;
+        clearTimeout(timeout);
+        resolve({ height: measuredHeight, y });
+      });
+    });
+  }, []);
+
+  const prepareClinicalTourStep = useCallback(
+    async (targetId: ProfessionalTourTargetId) => {
+      const targetLayout = await tour?.measureTarget(targetId);
+
+      if (!targetLayout) {
+        return;
+      }
+
+      const scrollViewport = await measureScrollViewport();
+      const viewportTop = scrollViewport?.y ?? 0;
+      const visibleHeight = scrollViewport?.height || viewportHeight || height;
+
+      if (visibleHeight <= 0) {
+        return;
+      }
+
+      const targetCenter = targetLayout.y + targetLayout.height / 2;
+      const viewportCenter = viewportTop + visibleHeight / 2;
+      const nextScrollOffset = Math.max(
+        0,
+        Math.min(
+          Math.max(0, contentHeight - visibleHeight),
+          scrollOffset + targetCenter - viewportCenter,
+        ),
+      );
+
+      if (Math.abs(nextScrollOffset - scrollOffset) < 1) {
+        return;
+      }
+
+      setScrollOffset(nextScrollOffset);
+      tourScrollRef.current?.scrollTo({
+        animated: false,
+        y: nextScrollOffset,
+      });
+    },
+    [
+      contentHeight,
+      height,
+      measureScrollViewport,
+      scrollOffset,
+      tour,
+      viewportHeight,
+    ],
+  );
 
   const updateBillingField = useCallback(
     (field: keyof typeof billingForm, value: string) => {
@@ -575,9 +662,7 @@ export function ClientProfileScreen() {
     );
   }
 
-  const heroGradient: [string, string] = isDark
-    ? ['rgba(183,166,216,0.18)', 'rgba(14,17,16,0.94)']
-    : ['rgba(139,157,131,0.12)', 'rgba(255,255,255,0.98)'];
+  const heroGradient: [string, string] = [theme.primaryAlpha12, theme.bgCard];
   const mobileSurfaceCard = isMobile
     ? [styles.mobileSurfaceCard, { borderColor: theme.border }]
     : [];
@@ -773,6 +858,7 @@ export function ClientProfileScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
       <ScrollView
+        ref={tourScrollRef}
         style={{ flex: 1, backgroundColor: theme.bg }}
         contentContainerStyle={[
           styles.container,
@@ -845,7 +931,8 @@ export function ClientProfileScreen() {
         </View>
       </View>
 
-       <Card variant="default" padding="none" style={styles.heroCard}>
+       <TourTarget id="professional.client-profile.hero" fill style={styles.fullWidthTourTarget}>
+        <Card variant="default" padding="none" style={styles.heroCard}>
          <LinearGradient colors={heroGradient} style={[styles.heroGradient, isMobile && styles.heroGradientMobile]}>
           <View style={[styles.heroContent, !isTablet && styles.heroContentStack]}>
             <View
@@ -895,13 +982,14 @@ export function ClientProfileScreen() {
                 </View>
               </View>
 
-            <View
-              style={[
-                styles.heroActions,
-                !isTablet && styles.heroActionsStack,
-                isMobile && styles.heroActionsMobile,
-              ]}
-            >
+            <TourTarget id="professional.client-profile.actions" fill>
+              <View
+                style={[
+                  styles.heroActions,
+                  !isTablet && styles.heroActionsStack,
+                  isMobile && styles.heroActionsMobile,
+                ]}
+              >
               <Button
                 variant="outline"
                 size="small"
@@ -956,7 +1044,8 @@ export function ClientProfileScreen() {
                   {isClientArchived ? 'Desarchivar' : 'Archivar'}
                 </Button>
               ) : null}
-            </View>
+              </View>
+            </TourTarget>
           </View>
 
           {refreshingClient ? (
@@ -968,41 +1057,44 @@ export function ClientProfileScreen() {
             </View>
           ) : null}
         </LinearGradient>
-      </Card>
+        </Card>
+      </TourTarget>
 
-      <View style={[styles.tabs, isMobile && styles.tabsMobile]}>
-        {TABS.map((tab) => (
-          <AnimatedPressable
-            key={tab.key}
-            onPress={() => setActiveTab(tab.key)}
-            hoverLift={false}
-            pressScale={0.98}
-            style={[
-              styles.tab,
-              isMobile && styles.tabMobile,
-              {
-                backgroundColor: activeTab === tab.key ? theme.primary : theme.bgCard,
-                borderColor: activeTab === tab.key ? theme.primary : theme.border,
-              },
-            ]}
-          >
-            <Ionicons
-              name={tab.icon}
-              size={16}
-              color={activeTab === tab.key ? theme.textOnPrimary : theme.textSecondary}
-            />
-            <Text
+      <TourTarget id="professional.client-profile.tabs" fill style={styles.fullWidthTourTarget}>
+        <View style={[styles.tabs, isMobile && styles.tabsMobile]}>
+          {TABS.map((tab) => (
+            <AnimatedPressable
+              key={tab.key}
+              onPress={() => setActiveTab(tab.key)}
+              hoverLift={false}
+              pressScale={0.98}
               style={[
-                styles.tabText,
-                labelStyle,
-                { color: activeTab === tab.key ? theme.textOnPrimary : theme.textSecondary },
+                styles.tab,
+                isMobile && styles.tabMobile,
+                {
+                  backgroundColor: activeTab === tab.key ? theme.primary : theme.bgCard,
+                  borderColor: activeTab === tab.key ? theme.primary : theme.border,
+                },
               ]}
             >
-              {tab.label}
-            </Text>
-          </AnimatedPressable>
-        ))}
-      </View>
+              <Ionicons
+                name={tab.icon}
+                size={16}
+                color={activeTab === tab.key ? theme.textOnPrimary : theme.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  labelStyle,
+                  { color: activeTab === tab.key ? theme.textOnPrimary : theme.textSecondary },
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </AnimatedPressable>
+          ))}
+        </View>
+      </TourTarget>
 
       {activeTab === 'summary' ? (
         isMobile ? (
@@ -1069,7 +1161,13 @@ export function ClientProfileScreen() {
 
       {keepClinicalMounted ? (
         <View style={activeTab === 'clinical' ? undefined : styles.hiddenTabContent}>
-          <ClinicalTab clientId={client.id} client={client} onRequestRefreshClient={loadClient} />
+          <ClinicalTab
+            clientId={client.id}
+            client={client}
+            onPrepareClinicalTourStep={prepareClinicalTourStep}
+            onRequestRefreshClient={loadClient}
+            tourTargetsActive={activeTab === 'clinical'}
+          />
         </View>
       ) : null}
       </ScrollView>
@@ -1080,7 +1178,7 @@ export function ClientProfileScreen() {
         animationType="fade"
         onRequestClose={() => setBillingModalVisible(false)}
       >
-        <View style={styles.modalBackdrop}>
+        <View style={[styles.modalBackdrop, { backgroundColor: theme.overlay }]}>
           <Card
             variant="default"
             padding="large"
@@ -1289,6 +1387,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingBottom: spacing.xxl,
     gap: spacing.lg,
+  },
+  fullWidthTourTarget: {
+    width: '100%',
   },
   topBar: {
     flexDirection: 'row',
@@ -1738,7 +1839,6 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.38)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,

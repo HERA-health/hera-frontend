@@ -5,7 +5,7 @@
  * theme-aware visual token factory for the sidebar module.
  */
 
-import { Theme } from '../../../constants/theme';
+import { lightTheme, type Theme } from '../../../constants/theme';
 import { NavigationSection, SidebarTheme } from './types';
 
 export const CLIENT_SECTIONS: NavigationSection[] = [
@@ -80,6 +80,7 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         iconActive: 'home',
         route: 'ProfessionalHome',
         roles: ['PROFESSIONAL'],
+        tourTargetId: 'professional.nav.home',
       },
       {
         id: 'clients',
@@ -88,6 +89,7 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         iconActive: 'people',
         route: 'ProfessionalClients',
         roles: ['PROFESSIONAL'],
+        tourTargetId: 'professional.nav.clients',
       },
       {
         id: 'sessions',
@@ -96,6 +98,7 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         iconActive: 'calendar',
         route: 'ProfessionalSessions',
         roles: ['PROFESSIONAL'],
+        tourTargetId: 'professional.nav.sessions',
       },
       {
         id: 'billing',
@@ -104,6 +107,7 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         iconActive: 'receipt',
         route: 'ProfessionalBilling',
         roles: ['PROFESSIONAL'],
+        tourTargetId: 'professional.nav.billing',
       },
       {
         id: 'dashboard',
@@ -112,6 +116,7 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         iconActive: 'grid',
         route: 'ProfessionalDashboard',
         roles: ['PROFESSIONAL'],
+        tourTargetId: 'professional.nav.dashboard',
       },
       {
         id: 'availability',
@@ -120,6 +125,7 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         iconActive: 'time',
         route: 'ProfessionalAvailability',
         roles: ['PROFESSIONAL'],
+        tourTargetId: 'professional.nav.availability',
       },
       {
         id: 'profile',
@@ -128,6 +134,7 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         iconActive: 'create',
         route: 'ProfessionalProfile',
         roles: ['PROFESSIONAL'],
+        tourTargetId: 'professional.nav.profile',
       },
     ],
   },
@@ -161,31 +168,31 @@ export const SIDEBAR_THEME: SidebarTheme = {
   width: 252,
   collapsedWidth: 72,
   background: {
-    primary: '#FDFCFB',
-    secondary: '#FFFFFF',
-    subtle: '#F7F9F7',
-    hover: 'rgba(139, 157, 131, 0.10)',
-    active: 'rgba(139, 157, 131, 0.16)',
-    overlay: 'rgba(0, 0, 0, 0.48)',
+    primary: lightTheme.bgAlt,
+    secondary: lightTheme.bgCard,
+    subtle: lightTheme.bgMuted,
+    hover: lightTheme.primaryAlpha12,
+    active: lightTheme.primaryAlpha20,
+    overlay: lightTheme.overlay,
   },
   text: {
-    primary: '#2C3E2C',
-    secondary: '#6B7B6B',
-    muted: '#95A395',
-    active: '#2C3E2C',
+    primary: lightTheme.textPrimary,
+    secondary: lightTheme.textSecondary,
+    muted: lightTheme.textMuted,
+    active: lightTheme.textPrimary,
   },
   icon: {
-    inactive: '#6B7B6B',
-    active: '#8B9D83',
+    inactive: lightTheme.textSecondary,
+    active: lightTheme.primary,
   },
-  activeIndicator: '#8B9D83',
-  border: '#E2E8E2',
-  borderStrong: '#CDD8CD',
-  shadow: 'rgba(44, 62, 44, 0.10)',
+  activeIndicator: lightTheme.primary,
+  border: lightTheme.border,
+  borderStrong: lightTheme.borderStrong,
+  shadow: lightTheme.shadowNeutral,
   badge: {
-    default: ['#8B9D83', '#A8B8A0'],
-    urgent: ['#E89D88', '#D4826E'],
-    info: ['#B8A8D9', '#D4C9E8'],
+    default: [lightTheme.primary, lightTheme.primaryLight],
+    urgent: [lightTheme.warning, lightTheme.error],
+    info: [lightTheme.secondary, lightTheme.secondaryLight],
   },
 };
 
@@ -224,7 +231,7 @@ export function getSidebarTheme(theme: Theme): SidebarTheme {
     shadow: theme.shadowCard,
     badge: {
       default: [theme.primary, theme.primaryLight],
-      urgent: ['#E89D88', '#D4826E'],
+      urgent: [theme.warning, theme.error],
       info: [theme.secondary, theme.secondaryLight],
     },
   };

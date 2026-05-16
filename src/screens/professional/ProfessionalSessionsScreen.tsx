@@ -1,4 +1,4 @@
-import { showAppAlert, useAppAlert } from '../../components/common/alert';
+import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,6 +21,11 @@ import {
 import { Theme } from '../../constants/theme';
 import { AppNavigationProp, ProfessionalSession, SessionViewMode } from '../../constants/types';
 import { AnimatedPressable, Button, Card } from '../../components/common';
+import { TourTarget } from '../../components/onboarding/TourTarget';
+import {
+  useProfessionalTourAutoStart,
+  useProfessionalTourStepPreparation,
+} from '../../components/onboarding/professionalTourContext';
 import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as analyticsService from '../../services/analyticsService';
@@ -102,6 +107,7 @@ function getProfessionalVideoCallSession(session: ProfessionalSession) {
 export function ProfessionalSessionsScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const appAlert = useAppAlert();
+  const { isVisible: isAppAlertVisible } = useAppAlertState();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const dayScrollRef = useRef<ScrollView | null>(null);
@@ -113,6 +119,7 @@ export function ProfessionalSessionsScreen() {
   const [viewMode, setViewMode] = useState<SessionViewMode>(isMobile ? 'list' : 'day');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [sessions, setSessions] = useState<ProfessionalSession[]>([]);
   const [processingSessionId, setProcessingSessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -168,7 +175,9 @@ export function ProfessionalSessionsScreen() {
       });
 
       setSessions(mappedSessions);
+      setLoadError(false);
     } catch (error) {
+      setLoadError(true);
       showAppAlert(appAlert, 'Error', 'No se pudieron cargar las sesiones');
     } finally {
       setLoading(false);
@@ -229,6 +238,20 @@ export function ProfessionalSessionsScreen() {
     analyticsService.trackScreen('professional_sessions');
     loadSessions();
   }, [loadSessions]);
+
+  useProfessionalTourAutoStart(
+    'professional_sessions_v1',
+    !loading && !loadError && !schedulerVisible && !isAppAlertVisible,
+  );
+
+  const prepareSessionsListStep = useCallback(() => {
+    dayScrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, []);
+
+  useProfessionalTourStepPreparation(
+    'professional.sessions.list',
+    prepareSessionsListStep,
+  );
 
   useEffect(() => {
     if (isMobile && viewMode === 'week') {
@@ -1070,16 +1093,18 @@ export function ProfessionalSessionsScreen() {
             </View>
           </View>
           <View style={styles.headerActionWrap}>
-            <Button
-              variant="primary"
-              size="small"
-              onPress={openManagedSessionScheduler}
-              loading={loadingManagedClients}
-              fullWidth={isMobile}
-              icon={<Ionicons name="calendar-outline" size={16} color={theme.textOnPrimary} />}
-            >
-              Nueva cita
-            </Button>
+            <TourTarget id="professional.sessions.new-session" fill style={styles.fullWidthTourTarget}>
+              <Button
+                variant="primary"
+                size="small"
+                onPress={openManagedSessionScheduler}
+                loading={loadingManagedClients}
+                fullWidth={isMobile}
+                icon={<Ionicons name="calendar-outline" size={16} color={theme.textOnPrimary} />}
+              >
+                Nueva cita
+              </Button>
+            </TourTarget>
           </View>
         </View>
       </View>
@@ -1095,26 +1120,28 @@ export function ProfessionalSessionsScreen() {
         <View style={styles.main}>
           <View style={styles.toolbar}>
             <View style={styles.toolbarTopRow}>
-              <View style={styles.viewTabs}>
-                {VIEW_OPTIONS.filter((option) => !(isMobile && option.value === 'week')).map((option) => (
-                  <AnimatedPressable
-                    key={option.value}
-                    onPress={() => setViewMode(option.value)}
-                    hoverLift={false}
-                    pressScale={0.98}
-                    style={viewMode === option.value ? [styles.viewTab, styles.viewTabActive] : styles.viewTab}
-                  >
-                    <Ionicons
-                      name={option.icon}
-                      size={18}
-                      color={viewMode === option.value ? theme.textOnPrimary : theme.textSecondary}
-                    />
-                    <Text style={viewMode === option.value ? [styles.viewTabText, styles.viewTabTextActive] : styles.viewTabText}>
-                      {option.label}
-                    </Text>
-                  </AnimatedPressable>
-                ))}
-              </View>
+              <TourTarget id="professional.sessions.view-tabs" fill>
+                <View style={styles.viewTabs}>
+                  {VIEW_OPTIONS.filter((option) => !(isMobile && option.value === 'week')).map((option) => (
+                    <AnimatedPressable
+                      key={option.value}
+                      onPress={() => setViewMode(option.value)}
+                      hoverLift={false}
+                      pressScale={0.98}
+                      style={viewMode === option.value ? [styles.viewTab, styles.viewTabActive] : styles.viewTab}
+                    >
+                      <Ionicons
+                        name={option.icon}
+                        size={18}
+                        color={viewMode === option.value ? theme.textOnPrimary : theme.textSecondary}
+                      />
+                      <Text style={viewMode === option.value ? [styles.viewTabText, styles.viewTabTextActive] : styles.viewTabText}>
+                        {option.label}
+                      </Text>
+                    </AnimatedPressable>
+                  ))}
+                </View>
+              </TourTarget>
 
               {nextUpcomingSession ? (
                 <AnimatedPressable
@@ -1140,22 +1167,34 @@ export function ProfessionalSessionsScreen() {
             ) : null}
           </View>
 
-          <View style={styles.dateBar}>
-            <AnimatedPressable onPress={() => navigateDate(-1)} style={styles.dateNavButton} hoverLift={false} pressScale={0.98}>
-              <Ionicons name="chevron-back" size={22} color={theme.textPrimary} />
-            </AnimatedPressable>
-            <AnimatedPressable onPress={goToToday} style={styles.dateCenter} hoverLift={false} pressScale={0.99}>
-              <Text style={styles.dateTitle}>{getDateHeader()}</Text>
-              {!isToday(selectedDate) ? <Text style={styles.dateTodayLink}>Ir a hoy</Text> : null}
-            </AnimatedPressable>
-            <AnimatedPressable onPress={() => navigateDate(1)} style={styles.dateNavButton} hoverLift={false} pressScale={0.98}>
-              <Ionicons name="chevron-forward" size={22} color={theme.textPrimary} />
-            </AnimatedPressable>
-          </View>
+          <TourTarget id="professional.sessions.date-controls" fill>
+            <View style={styles.dateBar}>
+              <AnimatedPressable onPress={() => navigateDate(-1)} style={styles.dateNavButton} hoverLift={false} pressScale={0.98}>
+                <Ionicons name="chevron-back" size={22} color={theme.textPrimary} />
+              </AnimatedPressable>
+              <AnimatedPressable onPress={goToToday} style={styles.dateCenter} hoverLift={false} pressScale={0.99}>
+                <Text style={styles.dateTitle}>{getDateHeader()}</Text>
+                {!isToday(selectedDate) ? <Text style={styles.dateTodayLink}>Ir a hoy</Text> : null}
+              </AnimatedPressable>
+              <AnimatedPressable onPress={() => navigateDate(1)} style={styles.dateNavButton} hoverLift={false} pressScale={0.98}>
+                <Ionicons name="chevron-forward" size={22} color={theme.textPrimary} />
+              </AnimatedPressable>
+            </View>
+          </TourTarget>
 
-          {viewMode === 'day' ? renderDayView() : null}
-          {viewMode === 'week' ? renderWeekView() : null}
-          {viewMode === 'list' ? renderListView() : null}
+          <View style={styles.sessionListTourContent}>
+            <TourTarget
+              id="professional.sessions.list"
+              fill
+              pointerEvents="none"
+              style={styles.sessionListTourAnchorTarget}
+            >
+              <View style={styles.sessionListTourAnchor} />
+            </TourTarget>
+              {viewMode === 'day' ? renderDayView() : null}
+              {viewMode === 'week' ? renderWeekView() : null}
+              {viewMode === 'list' ? renderListView() : null}
+          </View>
         </View>
         </View>
       </View>
@@ -1223,6 +1262,9 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     },
     headerActionWrap: {
       width: isMobile ? '100%' : undefined,
+    },
+    fullWidthTourTarget: {
+      width: '100%',
     },
     kpiRow: {
       flexDirection: 'row',
@@ -1339,6 +1381,22 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     main: {
       flex: 1,
       minWidth: 0,
+    },
+    sessionListTourContent: {
+      flex: 1,
+      minHeight: 0,
+      position: 'relative',
+    },
+    sessionListTourAnchorTarget: {
+      position: 'absolute',
+      top: 0,
+      left: isMobile ? spacing.md : spacing.lg,
+      right: isMobile ? spacing.md : spacing.lg,
+      height: isMobile ? 88 : 112,
+      opacity: 0,
+    },
+    sessionListTourAnchor: {
+      flex: 1,
     },
     toolbar: {
       paddingHorizontal: isMobile ? spacing.md : spacing.lg,

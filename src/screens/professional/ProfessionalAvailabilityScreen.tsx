@@ -1,4 +1,4 @@
-import { showAppAlert, useAppAlert } from '../../components/common/alert';
+import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Calendar } from 'react-native-calendars';
@@ -11,6 +11,12 @@ import * as analyticsService from '../../services/analyticsService';
 import * as availabilityService from '../../services/availabilityService';
 import { billingService, type FullBillingConfig } from '../../services/billingService';
 import { AnimatedPressable, Button, Card } from '../../components/common';
+import { TourTarget } from '../../components/onboarding/TourTarget';
+import {
+  useProfessionalTourAutoStart,
+  useProfessionalTourStepPreparation,
+} from '../../components/onboarding/professionalTourContext';
+import { useProfessionalTourScrollPreparation } from '../../components/onboarding/useProfessionalTourScrollPreparation';
 
 type Props = ScreenProps<'ProfessionalAvailability'>;
 type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
@@ -186,14 +192,17 @@ const calculateWeeklySummary = (weeklySlots: WeeklySlots) => {
 
 export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   const appAlert = useAppAlert();
+  const { isVisible: isAppAlertVisible } = useAppAlertState();
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark, width), [theme, isDark, width]);
   const isTablet = width >= 768 && width < 1024;
   const isMobile = width < 768;
   const useTwoColumns = width >= 1080;
+  const availabilityTourScroll = useProfessionalTourScrollPreparation();
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [weeklySlots, setWeeklySlots] = useState<WeeklySlots>(createEmptyWeeklySlots());
   const [enabledDays, setEnabledDays] = useState<EnabledDays>(createDefaultEnabledDays());
@@ -211,6 +220,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       setBillingConfigError(null);
       const [scheduleResult, exceptionsResult, bufferResult, billingConfigResult] = await Promise.allSettled([
         availabilityService.getMyWeeklySchedule(),
@@ -239,6 +249,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
         ));
       }
     } catch (error: unknown) {
+      setLoadError(true);
       showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo cargar la disponibilidad'));
     } finally {
       setLoading(false);
@@ -263,6 +274,51 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
 
   useEffect(() => { analyticsService.trackScreen('availability'); }, []);
   useEffect(() => { void loadData(); }, [loadData]);
+  useProfessionalTourAutoStart(
+    'professional_availability_v1',
+    !loading && !loadError && !showExceptionModal && !showPreviewModal && !isAppAlertVisible,
+  );
+
+  const prepareAvailabilityPresetsStep = useCallback(
+    () => availabilityTourScroll.scrollToTop(),
+    [availabilityTourScroll],
+  );
+  const prepareAvailabilityGridStep = useCallback(
+    () => availabilityTourScroll.prepareTarget('professional.availability.weekly-grid'),
+    [availabilityTourScroll],
+  );
+  const prepareAvailabilitySidebarStep = useCallback(
+    () => availabilityTourScroll.prepareTarget('professional.availability.sidebar'),
+    [availabilityTourScroll],
+  );
+  const prepareAvailabilitySaveStep = useCallback(
+    () => availabilityTourScroll.scrollToTop(),
+    [availabilityTourScroll],
+  );
+
+  useProfessionalTourStepPreparation(
+    'professional.availability.presets',
+    prepareAvailabilityPresetsStep,
+  );
+  useProfessionalTourStepPreparation(
+    'professional.availability.weekly-grid',
+    prepareAvailabilityGridStep,
+  );
+  useProfessionalTourStepPreparation(
+    'professional.availability.sidebar',
+    prepareAvailabilitySidebarStep,
+  );
+  useProfessionalTourStepPreparation(
+    'professional.availability.save',
+    prepareAvailabilitySaveStep,
+  );
+
+  useEffect(() => {
+    if (isMobile && showPreviewModal) {
+      setShowPreviewModal(false);
+    }
+  }, [isMobile, showPreviewModal]);
+
   useEffect(() => {
     if (showPreviewModal) {
       setPreviewSelectedDate(getInitialPreviewDate(enabledDays));
@@ -405,7 +461,8 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   }), [isMobile, theme]);
 
   const renderSidebar = () => (
-    <View style={[styles.sidebar, !useTwoColumns && styles.sidebarStacked]}>
+    <TourTarget id="professional.availability.sidebar" fill style={styles.sidebarTourTarget}>
+      <View style={[styles.sidebar, !useTwoColumns && styles.sidebarStacked]}>
       <Card variant="default" padding="large" style={styles.sidebarCard}>
         <View style={styles.cardHeader}>
           <View style={[styles.iconShell, { backgroundColor: theme.primaryAlpha12 }]}>
@@ -545,7 +602,8 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
           </View>
         </View>
       </Card>
-    </View>
+      </View>
+    </TourTarget>
   );
 
   if (loading) {
@@ -583,18 +641,30 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
             </View>
           ) : null}
           <View style={styles.headerButtonWrap}>
-            <Button variant="primary" size="medium" onPress={handleSave} disabled={!hasChanges || saving} loading={saving} icon={<Ionicons name="checkmark" size={18} color={theme.textOnPrimary} />} fullWidth>
-              Guardar
-            </Button>
+            <TourTarget id="professional.availability.save" fill style={styles.fullWidthTourTarget}>
+              <Button variant="primary" size="medium" onPress={handleSave} disabled={!hasChanges || saving} loading={saving} icon={<Ionicons name="checkmark" size={18} color={theme.textOnPrimary} />} fullWidth>
+                Guardar
+              </Button>
+            </TourTarget>
           </View>
         </View>
       </View>
 
-      <ScrollView style={styles.mainScroll} contentContainerStyle={styles.mainScrollContent} showsVerticalScrollIndicator>
+      <ScrollView
+        ref={availabilityTourScroll.scrollRef}
+        style={styles.mainScroll}
+        contentContainerStyle={styles.mainScrollContent}
+        onContentSizeChange={availabilityTourScroll.scrollProps.onContentSizeChange}
+        onLayout={availabilityTourScroll.scrollProps.onLayout}
+        onScroll={availabilityTourScroll.scrollProps.onScroll}
+        scrollEventThrottle={availabilityTourScroll.scrollProps.scrollEventThrottle}
+        showsVerticalScrollIndicator
+      >
         <View style={styles.mainContent}>
           <View style={[styles.leftColumn, useTwoColumns && styles.leftColumnDesktop]}>
             <View style={styles.leftColumnContent}>
-          <Card variant="default" padding="large" style={styles.controlsCard}>
+          <TourTarget id="professional.availability.presets" fill style={styles.fullWidthTourTarget}>
+            <Card variant="default" padding="large" style={styles.controlsCard}>
             <View style={styles.controlsHeader}>
               <View>
                 <Text style={styles.controlsTitle}>Patrones rápidos</Text>
@@ -612,13 +682,16 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
                 <Text style={styles.copyBtnText}>Copiar lunes</Text>
               </AnimatedPressable>
             </View>
-          </Card>
+            </Card>
+          </TourTarget>
 
           <Card variant="default" padding="none" style={styles.gridCard}>
-            <View style={styles.gridIntro}>
-              <Text style={styles.gridTitle}>Disponibilidad semanal</Text>
-              <Text style={styles.gridSubtitle}>Activa días y pulsa en las franjas para marcar cuándo ofreces sesiones.</Text>
-            </View>
+            <TourTarget id="professional.availability.weekly-grid" fill style={styles.fullWidthTourTarget}>
+              <View style={styles.gridIntro}>
+                <Text style={styles.gridTitle}>Disponibilidad semanal</Text>
+                <Text style={styles.gridSubtitle}>Activa días y pulsa en las franjas para marcar cuándo ofreces sesiones.</Text>
+              </View>
+            </TourTarget>
             <View style={styles.gridHeader}>
               <View style={styles.timeCol} />
               {DAYS.map((day) => (
@@ -879,6 +952,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       width: isMobile ? '100%' as unknown as number : undefined,
     },
     headerButtonWrap: { minWidth: isMobile ? 0 : 144, flex: isMobile ? 1 : 0 },
+    fullWidthTourTarget: { width: '100%' },
     mainScroll: { flex: 1 },
     mainScrollContent: { paddingBottom: 120 },
     mainContent: {
@@ -975,6 +1049,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     legendAvailable: { backgroundColor: theme.successLight },
     legendUnavailable: { backgroundColor: theme.bgCard },
     legendText: { fontSize: 12, color: theme.textSecondary },
+    sidebarTourTarget: { width: '100%' },
     sidebar: { gap: spacing.lg },
     sidebarStacked: { marginTop: spacing.xs },
     sidebarCard: { borderWidth: 1, borderColor: theme.border },

@@ -6,6 +6,7 @@
  */
 
 import { RootStackParamList } from '../../../constants/types';
+import type { ProfessionalTourTargetId } from '../../onboarding/professionalTourTypes';
 
 /**
  * User roles within the HERA platform
@@ -72,6 +73,8 @@ export interface NavigationItem {
   disabled?: boolean;
   /** Custom badge colors (optional) */
   badgeColors?: [string, string];
+  /** Optional onboarding tour target bound to this item */
+  tourTargetId?: ProfessionalTourTargetId;
 }
 
 /**
@@ -127,6 +130,8 @@ export interface UserSectionProps {
   subtitle: string;
   /** Callback when logout is pressed */
   onLogout: () => void;
+  /** Optional callback before starting the current screen guide */
+  onGuideStart?: () => Promise<void> | void;
   /** Whether the sidebar is in collapsed state */
   isCollapsed?: boolean;
 }
@@ -146,6 +151,8 @@ export interface SidebarProps {
   user: SidebarUser;
   /** Callback when user logs out */
   onLogout: () => void;
+  /** Optional callback before starting the current screen guide */
+  onGuideStart?: () => Promise<void> | void;
   /** Whether the user is an admin */
   isAdmin?: boolean;
   /** Whether the sidebar is in collapsed state */

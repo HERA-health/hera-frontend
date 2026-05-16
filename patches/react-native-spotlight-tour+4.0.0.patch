@@ -1,0 +1,98 @@
+diff --git a/node_modules/react-native-spotlight-tour/dist/lib/components/tour-overlay/TourOverlay.component.js b/node_modules/react-native-spotlight-tour/dist/lib/components/tour-overlay/TourOverlay.component.js
+index 0fbbd87..c13a723 100644
+--- a/node_modules/react-native-spotlight-tour/dist/lib/components/tour-overlay/TourOverlay.component.js
++++ b/node_modules/react-native-spotlight-tour/dist/lib/components/tour-overlay/TourOverlay.component.js
+@@ -51,8 +51,9 @@ export const TourOverlay = forwardRef((props, ref) => {
+             case "rectangle": return RectShape;
+         }
+     }, [shapeOptions]);
++    const backdropPressHandler = tourStep.onBackdropPress ?? onBackdropPress;
+     const handleBackdropPress = useCallback(() => {
+-        const handler = tourStep.onBackdropPress ?? onBackdropPress;
++        const handler = backdropPressHandler;
+         if (handler !== undefined && current !== undefined) {
+             switch (handler) {
+                 case "continue":
+@@ -63,7 +64,20 @@ export const TourOverlay = forwardRef((props, ref) => {
+                     return handler({ current, goTo, next, pause, previous, resume, start, status: "running", stop });
+             }
+         }
+-    }, [tourStep, onBackdropPress, current, goTo, next, previous, start, stop, pause, resume]);
++    }, [backdropPressHandler, current, goTo, next, previous, start, stop, pause, resume]);
++    const svgPressProps = useMemo(() => {
++        return Platform.OS === "web" || backdropPressHandler === undefined
++            ? {}
++            : { onPress: handleBackdropPress };
++    }, [backdropPressHandler, handleBackdropPress]);
++    const svgNativeRenderProps = useMemo(() => {
++        return Platform.OS === "web"
++            ? {}
++            : {
++                renderToHardwareTextureAndroid: true,
++                shouldRasterizeIOS: true,
++            };
++    }, []);
+     useEffect(() => {
+         const { height, width } = spot;
+         if ([height, width].every(value => value > 0)) {
+@@ -93,7 +107,7 @@ export const TourOverlay = forwardRef((props, ref) => {
+             });
+         },
+     }), [current, useNativeDriver]);
+-    return (_jsx(Modal, { animationType: "fade", presentationStyle: "overFullScreen", supportedOrientations: ["portrait", "landscape", "landscape-left", "landscape-right", "portrait-upside-down"], transparent: true, visible: current !== undefined, children: _jsxs(View, { testID: "Overlay View", style: Css.overlayView, children: [_jsxs(Svg, { testID: "Spot Svg", height: vh(100), width: vw(100), viewBox: `0 0 ${vw(100)} ${vh(100)}`, onPress: handleBackdropPress, shouldRasterizeIOS: true, renderToHardwareTextureAndroid: true, children: [_jsx(Defs, { children: _jsxs(Mask, { id: "mask", x: 0, y: 0, height: "100%", width: "100%", children: [_jsx(Rect, { height: vh(100), width: vw(100), fill: "#fff" }), _jsx(ShapeMask, { spot: spot, setReference: refs.setReference, motion: stepMotion, padding: shapeOptions.padding, useNativeDriver: useNativeDriver })] }) }), _jsx(Rect, { height: vh(100), width: vw(100), fill: color, mask: "url(#mask)", opacity: backdropOpacity })] }), current !== undefined && (_jsxs(Animated.View, { ref: refs.setFloating, testID: "Tooltip View", style: { ...floatingStyles, opacity: tooltipOpacity.current }, children: [_jsx(tourStep.render, { current: current, isFirst: current === 0, isLast: current === steps.length - 1, next: next, previous: previous, stop: stop, pause: pause, resume: resume, goTo: goTo }), floating.arrow !== false && (_jsx(View, { style: [
++    return (_jsx(Modal, { animationType: "fade", presentationStyle: "overFullScreen", supportedOrientations: ["portrait", "landscape", "landscape-left", "landscape-right", "portrait-upside-down"], transparent: true, visible: current !== undefined, children: _jsxs(View, { testID: "Overlay View", style: Css.overlayView, children: [_jsxs(Svg, { testID: "Spot Svg", height: vh(100), width: vw(100), viewBox: `0 0 ${vw(100)} ${vh(100)}`, ...svgPressProps, ...svgNativeRenderProps, children: [_jsx(Defs, { children: _jsxs(Mask, { id: "mask", x: 0, y: 0, height: "100%", width: "100%", children: [_jsx(Rect, { height: vh(100), width: vw(100), fill: "#fff" }), _jsx(ShapeMask, { spot: spot, setReference: refs.setReference, motion: stepMotion, padding: shapeOptions.padding, useNativeDriver: useNativeDriver })] }) }), _jsx(Rect, { height: vh(100), width: vw(100), fill: color, mask: "url(#mask)", opacity: backdropOpacity })] }), current !== undefined && (_jsxs(Animated.View, { ref: refs.setFloating, testID: "Tooltip View", style: { ...floatingStyles, opacity: tooltipOpacity.current }, children: [_jsx(tourStep.render, { current: current, isFirst: current === 0, isLast: current === steps.length - 1, next: next, previous: previous, stop: stop, pause: pause, resume: resume, goTo: goTo }), floating.arrow !== false && (_jsx(View, { style: [
+                                 Css.tooltipArrow,
+                                 arrowCss({
+                                     arrow: typeof floating.arrow !== "boolean"
+diff --git a/node_modules/react-native-spotlight-tour/src/lib/components/tour-overlay/TourOverlay.component.tsx b/node_modules/react-native-spotlight-tour/src/lib/components/tour-overlay/TourOverlay.component.tsx
+index 127c1d6..103a9c9 100644
+--- a/node_modules/react-native-spotlight-tour/src/lib/components/tour-overlay/TourOverlay.component.tsx
++++ b/node_modules/react-native-spotlight-tour/src/lib/components/tour-overlay/TourOverlay.component.tsx
+@@ -132,8 +132,10 @@ export const TourOverlay = forwardRef<TourOverlayRef, TourOverlayProps>((props,
+     }
+   }, [shapeOptions]);
+ 
++  const backdropPressHandler = tourStep.onBackdropPress ?? onBackdropPress;
++
+   const handleBackdropPress = useCallback((): void => {
+-    const handler = tourStep.onBackdropPress ?? onBackdropPress;
++    const handler = backdropPressHandler;
+ 
+     if (handler !== undefined && current !== undefined) {
+       switch (handler) {
+@@ -147,7 +149,22 @@ export const TourOverlay = forwardRef<TourOverlayRef, TourOverlayProps>((props,
+           return handler({ current, goTo, next, pause, previous, resume, start, status: "running", stop });
+       }
+     }
+-  }, [tourStep, onBackdropPress, current, goTo, next, previous, start, stop, pause, resume]);
++  }, [backdropPressHandler, current, goTo, next, previous, start, stop, pause, resume]);
++
++  const svgPressProps = useMemo(() => {
++    return Platform.OS === "web" || backdropPressHandler === undefined
++      ? {}
++      : { onPress: handleBackdropPress };
++  }, [backdropPressHandler, handleBackdropPress]);
++
++  const svgNativeRenderProps = useMemo(() => {
++    return Platform.OS === "web"
++      ? {}
++      : {
++        renderToHardwareTextureAndroid: true,
++        shouldRasterizeIOS: true,
++      };
++  }, []);
+ 
+   useEffect(() => {
+     const { height, width } = spot;
+@@ -194,9 +211,8 @@ export const TourOverlay = forwardRef<TourOverlayRef, TourOverlayProps>((props,
+           height={vh(100)}
+           width={vw(100)}
+           viewBox={`0 0 ${vw(100)} ${vh(100)}`}
+-          onPress={handleBackdropPress}
+-          shouldRasterizeIOS={true}
+-          renderToHardwareTextureAndroid={true}
++          {...svgPressProps}
++          {...svgNativeRenderProps}
+         >
+           <Defs>
+             <Mask id="mask" x={0} y={0} height="100%" width="100%">

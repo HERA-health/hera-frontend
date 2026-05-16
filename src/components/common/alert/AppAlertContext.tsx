@@ -15,9 +15,11 @@ import type {
   AppAlertConfirmOptions,
   AppAlertProviderProps,
   AppAlertRequest,
+  AppAlertState,
 } from './types';
 
 const AppAlertContext = createContext<AppAlertApi | null>(null);
+const AppAlertStateContext = createContext<AppAlertState | null>(null);
 
 const DEFAULT_CONFIRM_LABEL = 'Aceptar';
 const DEFAULT_CANCEL_LABEL = 'Cancelar';
@@ -116,26 +118,32 @@ export function AlertProvider({ children }: AppAlertProviderProps) {
     };
   }, [enqueue]);
 
+  const state = useMemo<AppAlertState>(() => ({
+    isVisible: current !== null || queue.current.length > 0,
+  }), [current]);
+
   return (
     <AppAlertContext.Provider value={api}>
-      {children}
-      <AppAlertModal
-        request={current}
-        onAction={(action) => {
-          if (action.role === 'cancel') {
-            resolveCurrent(current?.kind === 'confirm' ? false : action.value);
-            return;
-          }
-          if (current?.kind === 'confirm' && (action.role === 'confirm' || action.role === 'destructive')) {
-            resolveCurrent(true);
-            return;
-          }
-          resolveCurrent(action.value);
-        }}
-        onDismiss={() => {
-          if (current?.dismissible) resolveCurrent(null);
-        }}
-      />
+      <AppAlertStateContext.Provider value={state}>
+        {children}
+        <AppAlertModal
+          request={current}
+          onAction={(action) => {
+            if (action.role === 'cancel') {
+              resolveCurrent(current?.kind === 'confirm' ? false : action.value);
+              return;
+            }
+            if (current?.kind === 'confirm' && (action.role === 'confirm' || action.role === 'destructive')) {
+              resolveCurrent(true);
+              return;
+            }
+            resolveCurrent(action.value);
+          }}
+          onDismiss={() => {
+            if (current?.dismissible) resolveCurrent(null);
+          }}
+        />
+      </AppAlertStateContext.Provider>
     </AppAlertContext.Provider>
   );
 }
@@ -144,6 +152,14 @@ export function useAppAlert(): AppAlertApi {
   const context = useContext(AppAlertContext);
   if (!context) {
     throw new Error('useAppAlert must be used inside AlertProvider');
+  }
+  return context;
+}
+
+export function useAppAlertState(): AppAlertState {
+  const context = useContext(AppAlertStateContext);
+  if (!context) {
+    throw new Error('useAppAlertState must be used inside AlertProvider');
   }
   return context;
 }

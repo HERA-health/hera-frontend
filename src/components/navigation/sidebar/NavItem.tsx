@@ -11,6 +11,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { AnimatedPressable } from '../../common/AnimatedPressable';
+import { TourTarget } from '../../onboarding/TourTarget';
 import { getSidebarTheme } from './navConfig';
 import { navItemStyles as styles } from './styles';
 import { NavItemProps } from './types';
@@ -115,6 +116,77 @@ export function NavItem({
         ? sidebarTheme.badge.info
         : sidebarTheme.badge.default);
 
+  const innerContent = (
+    <View
+      style={[
+        styles.inner,
+        {
+          backgroundColor: isActive
+            ? sidebarTheme.background.active
+            : 'transparent',
+          borderColor: isActive ? sidebarTheme.borderStrong : 'transparent',
+        },
+        isCollapsed ? styles.innerCollapsed : null,
+      ]}
+    >
+      {!isCollapsed && (
+        <Animated.View
+          style={[
+            styles.indicator,
+            {
+              backgroundColor: sidebarTheme.activeIndicator,
+            },
+            indicatorStyle,
+          ]}
+        />
+      )}
+
+      <View
+        style={[
+          styles.iconShell,
+          {
+            backgroundColor: isActive
+              ? sidebarTheme.background.hover
+              : 'transparent',
+          },
+          isCollapsed ? styles.iconShellCollapsed : null,
+        ]}
+      >
+        <Ionicons
+          name={iconName}
+          size={18}
+          color={isActive ? sidebarTheme.icon.active : sidebarTheme.icon.inactive}
+        />
+      </View>
+
+      {!isCollapsed && (
+        <View style={styles.labelWrap}>
+          <Text
+            style={[
+              styles.label,
+              {
+                color: isActive ? sidebarTheme.text.active : sidebarTheme.text.primary,
+                fontFamily: isActive ? theme.fontSansSemiBold : theme.fontSansMedium,
+              },
+            ]}
+            numberOfLines={1}
+          >
+            {item.label}
+          </Text>
+        </View>
+      )}
+
+      {!isCollapsed && item.badge && (
+        <PulsingBadge
+          colors={badgeColors}
+          text={item.badge}
+          isUrgent={item.badgeVariant === 'urgent'}
+          textColor={theme.textOnPrimary}
+        />
+      )}
+    </View>
+  );
+
   return (
     <View style={[styles.container, isCollapsed ? styles.containerCollapsed : null]}>
       <AnimatedPressable
@@ -125,74 +197,13 @@ export function NavItem({
         style={item.disabled ? [styles.pressable, styles.disabled] : styles.pressable}
         accessibilityLabel={`Navegar a ${item.label}`}
       >
-        <View
-          style={[
-            styles.inner,
-            {
-              backgroundColor: isActive
-                ? sidebarTheme.background.active
-                : 'transparent',
-              borderColor: isActive ? sidebarTheme.borderStrong : 'transparent',
-            },
-            isCollapsed ? styles.innerCollapsed : null,
-          ]}
-        >
-          {!isCollapsed && (
-            <Animated.View
-              style={[
-                styles.indicator,
-                {
-                  backgroundColor: sidebarTheme.activeIndicator,
-                },
-                indicatorStyle,
-              ]}
-            />
-          )}
-
-          <View
-            style={[
-              styles.iconShell,
-              {
-                backgroundColor: isActive
-                  ? sidebarTheme.background.hover
-                  : 'transparent',
-              },
-              isCollapsed ? styles.iconShellCollapsed : null,
-            ]}
-          >
-            <Ionicons
-              name={iconName}
-              size={18}
-              color={isActive ? sidebarTheme.icon.active : sidebarTheme.icon.inactive}
-            />
-          </View>
-
-          {!isCollapsed && (
-            <View style={styles.labelWrap}>
-              <Text
-                style={[
-                  styles.label,
-                  {
-                    color: isActive ? sidebarTheme.text.active : sidebarTheme.text.primary,
-                    fontFamily: isActive ? theme.fontSansSemiBold : theme.fontSansMedium,
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {item.label}
-              </Text>
-            </View>
-          )}
-
-          {!isCollapsed && item.badge && (
-            <PulsingBadge
-              colors={badgeColors}
-              text={item.badge}
-              isUrgent={item.badgeVariant === 'urgent'}
-              textColor={theme.textOnPrimary}
-            />
-          )}
-        </View>
+        {item.tourTargetId ? (
+          <TourTarget id={item.tourTargetId} fill style={styles.tourTarget}>
+            {innerContent}
+          </TourTarget>
+        ) : (
+          innerContent
+        )}
       </AnimatedPressable>
     </View>
   );
