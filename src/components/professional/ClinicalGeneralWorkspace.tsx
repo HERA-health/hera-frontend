@@ -115,18 +115,18 @@ export function ClinicalGeneralWorkspace({
   const latestConsentEvidenceDocumentId = consentEvidenceDocuments[0]?.id;
   const consentDocumentsCopy = client.source === 'REGISTERED'
     ? {
-        description: 'El consentimiento principal lo firma el paciente desde su cuenta HERA. Aquí puedes conservar documentos de apoyo si los necesitas.',
-        emptyDescription: 'Si necesitas conservar documentación de apoyo, adjúntala aquí sin sustituir la firma digital HERA.',
-        emptyTitle: 'Sin evidencias adjuntas',
-        title: 'Evidencias de consentimiento',
-        uploadLabel: 'Adjuntar evidencia',
+        description: 'Si el paciente te entrega un consentimiento clínico firmado fuera de HERA, adjúntalo aquí para conservarlo en su expediente.',
+        emptyDescription: 'Adjunta aquí el PDF o imagen del consentimiento clínico firmado cuando lo tengas.',
+        emptyTitle: 'No hay documento de consentimiento clínico',
+        title: 'Documento de consentimiento clínico',
+        uploadLabel: 'Adjuntar documento',
       }
     : {
-        description: 'Para pacientes sin cuenta HERA, guarda aquí el PDF o documento firmado que acredita la autorización clínica.',
-        emptyDescription: 'Adjunta aquí el PDF o documento firmado antes de registrar el consentimiento manual.',
-        emptyTitle: 'No hay consentimiento firmado',
-        title: 'Consentimiento firmado externo',
-        uploadLabel: 'Adjuntar consentimiento',
+        description: 'Sube aquí el PDF o imagen del consentimiento clínico firmado. Después pulsa "Registrar consentimiento firmado" para dejarlo vigente y habilitar el tratamiento de sus datos clínicos.',
+        emptyDescription: 'Adjunta aquí el PDF o imagen del consentimiento clínico firmado antes de registrarlo.',
+        emptyTitle: 'No hay documento de consentimiento clínico',
+        title: 'Documento de consentimiento clínico',
+        uploadLabel: 'Adjuntar documento',
       };
 
   const handleUpload = async (category: 'GENERAL' | 'CONSENT_EVIDENCE' | 'MEDICAL_REPORT') => {

@@ -322,15 +322,15 @@ export const PROFESSIONAL_TOUR_DEFINITIONS: Record<
       {
         id: 'consent',
         targetId: 'professional.clinical.consent',
-        title: 'Consentimiento digital o manual',
-        body: 'Si el paciente tiene cuenta HERA, solicita la firma digital. Si es un paciente gestionado, registra el consentimiento cuando hayas adjuntado el documento firmado.',
+        title: 'Dos vías de consentimiento clínico',
+        body: 'Firma digital de consentimiento clínico: para pacientes con cuenta HERA. Documento de consentimiento clínico: para pacientes gestionados sin cuenta. Cuando se completa cualquiera de las dos vías, el consentimiento queda vigente.',
         placement: 'bottom',
       },
       {
         id: 'consent-documents',
         targetId: 'professional.clinical.consent-documents',
-        title: 'Consentimiento firmado externo',
-        body: 'Para pacientes sin cuenta HERA, adjunta aquí el PDF o documento firmado que acredita la autorización clínica. También puedes guardar evidencias de apoyo.',
+        title: 'Documento de consentimiento clínico',
+        body: 'Para pacientes gestionados, sube aquí el consentimiento clínico firmado por el paciente y regístralo. Es la vía que habilita el tratamiento de datos clínicos cuando el paciente no tiene cuenta HERA.',
         placement: 'bottom',
       },
       {

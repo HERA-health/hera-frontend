@@ -68,9 +68,10 @@ describe('professionalTourDefinitions', () => {
     expect(allCopy).toContain('año');
     expect(allCopy).toContain('área clínica');
     expect(allCopy).toContain('Sesiones organiza cada cita');
-    expect(allCopy).toContain('firma digital');
-    expect(allCopy).toContain('pacientes sin cuenta HERA');
-    expect(allCopy).toContain('Consentimiento firmado externo');
+    expect(allCopy).toContain('Firma digital de consentimiento clínico');
+    expect(allCopy).toContain('Documento de consentimiento clínico');
+    expect(allCopy).toContain('habilita el tratamiento de datos clínicos');
+    expect(allCopy).toContain('paciente no tiene cuenta HERA');
     expect(allCopy).not.toMatch(/\b(facturacion|movil|automaticamente|Evolucion|ano)\b/);
   });
 });

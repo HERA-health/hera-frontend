@@ -36,11 +36,11 @@ const formatDate = (value?: string | Date | null) =>
 
 const getMethodLabel = (method: ClinicalRecord['consentMethod']) => {
   if (method === 'DIGITAL_SIGNATURE') {
-    return 'Firma digital HERA';
+    return 'Firma digital de consentimiento clínico';
   }
 
   if (method === 'SPECIALIST_ATTESTATION') {
-    return 'Documento firmado externo';
+    return 'Documento de consentimiento clínico';
   }
 
   return 'Pendiente';
@@ -102,8 +102,8 @@ export function ClinicalConsentPanel({
     record.activeConsentRequest &&
     record.activeConsentRequest.status === 'PENDING';
   const consentDescription = client.source === 'REGISTERED'
-    ? 'Para pacientes con cuenta HERA, envía una solicitud para que firmen el consentimiento digital desde su cuenta.'
-    : 'Para pacientes sin cuenta HERA, registra el consentimiento cuando tengas el documento firmado adjunto en el expediente.';
+    ? 'Firma digital de consentimiento clínico: el paciente la acepta desde su cuenta HERA. Al firmarla, el consentimiento queda vigente y se habilita el tratamiento de sus datos clínicos.'
+    : 'Documento de consentimiento clínico: adjunta el consentimiento firmado por el paciente y regístralo aquí. Al registrarlo, queda vigente y se habilita el tratamiento de sus datos clínicos.';
   const header = (
     <View style={[styles.header, !isTablet && styles.headerMobile]}>
       <View style={styles.copy}>
@@ -213,7 +213,7 @@ export function ClinicalConsentPanel({
       <View style={styles.actions}>
         {canRequestDigitalConsent ? (
           <Button variant="secondary" size="small" onPress={onRequestDigitalConsent} loading={consentSubmitting}>
-            Solicitar firma digital HERA
+            Solicitar firma digital
           </Button>
         ) : null}
 
@@ -225,7 +225,7 @@ export function ClinicalConsentPanel({
             loading={consentSubmitting}
             disabled={!latestConsentEvidenceDocumentId}
           >
-            Registrar documento firmado
+            Registrar consentimiento firmado
           </Button>
         ) : null}
 
@@ -243,7 +243,7 @@ export function ClinicalConsentPanel({
 
       {canAttestConsent && !latestConsentEvidenceDocumentId ? (
         <Text style={[styles.helperText, { color: theme.textMuted }]}>
-          Adjunta primero el PDF o documento firmado en "Consentimiento firmado externo".
+          Primero adjunta el consentimiento firmado en la sección "Documento de consentimiento clínico".
         </Text>
       ) : null}
 

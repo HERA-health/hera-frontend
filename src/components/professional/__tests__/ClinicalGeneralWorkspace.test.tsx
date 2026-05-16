@@ -161,11 +161,11 @@ describe('ClinicalGeneralWorkspace', () => {
     );
 
     expect(screen.getByText('Consentimiento clínico')).toBeTruthy();
-    expect(screen.getByText('Firma digital HERA')).toBeTruthy();
-    expect(screen.getByText('Evidencias de consentimiento')).toBeTruthy();
+    expect(screen.getByText('Firma digital de consentimiento clínico')).toBeTruthy();
+    expect(screen.getByText('Documento de consentimiento clínico')).toBeTruthy();
     expect(
       screen.getByText(
-        'El consentimiento principal lo firma el paciente desde su cuenta HERA. Aquí puedes conservar documentos de apoyo si los necesitas.',
+        'Si el paciente te entrega un consentimiento clínico firmado fuera de HERA, adjúntalo aquí para conservarlo en su expediente.',
       ),
     ).toBeTruthy();
 
@@ -194,10 +194,10 @@ describe('ClinicalGeneralWorkspace', () => {
       />,
     );
 
-    expect(screen.getByText('Consentimiento firmado externo')).toBeTruthy();
+    expect(screen.getByText('Documento de consentimiento clínico')).toBeTruthy();
     expect(
       screen.getByText(
-        'Para pacientes sin cuenta HERA, guarda aquí el PDF o documento firmado que acredita la autorización clínica.',
+        'Sube aquí el PDF o imagen del consentimiento clínico firmado. Después pulsa "Registrar consentimiento firmado" para dejarlo vigente y habilitar el tratamiento de sus datos clínicos.',
       ),
     ).toBeTruthy();
   });
