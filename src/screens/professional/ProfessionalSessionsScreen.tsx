@@ -1187,6 +1187,7 @@ export function ProfessionalSessionsScreen() {
               id="professional.sessions.list"
               fill
               pointerEvents="none"
+              spotlightStyle={styles.sessionListTourAnchorTargetFill}
               style={styles.sessionListTourAnchorTarget}
             >
               <View style={styles.sessionListTourAnchor} />
@@ -1393,10 +1394,15 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       left: isMobile ? spacing.md : spacing.lg,
       right: isMobile ? spacing.md : spacing.lg,
       height: isMobile ? 88 : 112,
-      opacity: 0,
+    },
+    sessionListTourAnchorTargetFill: {
+      width: '100%',
+      height: '100%',
     },
     sessionListTourAnchor: {
       flex: 1,
+      width: '100%',
+      height: '100%',
     },
     toolbar: {
       paddingHorizontal: isMobile ? spacing.md : spacing.lg,
