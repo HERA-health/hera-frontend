@@ -112,22 +112,6 @@ export function ClinicalGeneralWorkspace({
     () => record.documents.filter((document) => document.category === 'GENERAL'),
     [record.documents]
   );
-  const latestConsentEvidenceDocumentId = consentEvidenceDocuments[0]?.id;
-  const consentDocumentsCopy = client.source === 'REGISTERED'
-    ? {
-        description: 'Si el paciente te entrega un consentimiento clínico firmado fuera de HERA, adjúntalo aquí para conservarlo en su expediente.',
-        emptyDescription: 'Adjunta aquí el PDF o imagen del consentimiento clínico firmado cuando lo tengas.',
-        emptyTitle: 'No hay documento de consentimiento clínico',
-        title: 'Documento de consentimiento clínico',
-        uploadLabel: 'Adjuntar documento',
-      }
-    : {
-        description: 'Sube aquí el PDF o imagen del consentimiento clínico firmado. Después pulsa "Registrar consentimiento firmado" para dejarlo vigente y habilitar el tratamiento de sus datos clínicos.',
-        emptyDescription: 'Adjunta aquí el PDF o imagen del consentimiento clínico firmado antes de registrarlo.',
-        emptyTitle: 'No hay documento de consentimiento clínico',
-        title: 'Documento de consentimiento clínico',
-        uploadLabel: 'Adjuntar documento',
-      };
 
   const handleUpload = async (category: 'GENERAL' | 'CONSENT_EVIDENCE' | 'MEDICAL_REPORT') => {
     const asset = await pickClinicalAsset();
@@ -148,17 +132,16 @@ export function ClinicalGeneralWorkspace({
     setNoteDraft('');
   };
 
-  const noteColumn = (
-    <View style={[styles.columnStack, isTablet && styles.columnStackDesktop]}>
-      <Card variant="default" padding="large">
-        <TourTarget
-          id="professional.clinical.notes"
-          active={tourTargetsActive}
-          fill
-          style={styles.fullWidthTourTarget}
-        >
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionCopy}>
+  const notesPanel = (
+    <Card variant="default" padding="large" style={isTablet ? styles.stretchPanel : undefined}>
+      <TourTarget
+        id="professional.clinical.notes"
+        active={tourTargetsActive}
+        fill
+        style={styles.fullWidthTourTarget}
+      >
+        <View style={[styles.sectionHeader, !isTablet && styles.sectionHeaderMobile]}>
+          <View style={[styles.sectionCopy, !isTablet && styles.sectionCopyMobile]}>
             <Text style={[styles.sectionTitle, { color: theme.textPrimary }, displayTitleStyle]}>
               Notas generales
             </Text>
@@ -172,50 +155,53 @@ export function ClinicalGeneralWorkspace({
             </Text>
           </View>
         </View>
-        </TourTarget>
+      </TourTarget>
 
-        <TextInput
-          multiline
-          value={noteDraft}
-          onChangeText={setNoteDraft}
-          placeholder="Escribe aquí una nota general del expediente..."
-          placeholderTextColor={theme.textMuted}
-          style={[
-            styles.noteInput,
-            {
-              color: theme.textPrimary,
-              backgroundColor: theme.bgMuted,
-              borderColor: theme.border,
-              fontFamily: theme.fontSans,
-            },
-          ]}
-        />
+      <TextInput
+        multiline
+        value={noteDraft}
+        onChangeText={setNoteDraft}
+        placeholder="Escribe aquí una nota general del expediente..."
+        placeholderTextColor={theme.textMuted}
+        style={[
+          styles.noteInput,
+          !isTablet && styles.noteInputMobile,
+          {
+            color: theme.textPrimary,
+            backgroundColor: theme.bgMuted,
+            borderColor: theme.border,
+            fontFamily: theme.fontSans,
+          },
+        ]}
+      />
 
-        <View style={[styles.noteFooter, !isTablet && styles.noteFooterMobile]}>
-          <Text style={[styles.noteHint, { color: theme.textMuted }]}>
-            Solo estará disponible dentro del área clínica desbloqueada.
-          </Text>
-          <Button
-            variant="secondary"
-            size="small"
-            onPress={handleSaveNote}
-            loading={noteSaving}
-            disabled={!noteDraft.trim()}
-          >
-            Guardar nota
-          </Button>
-        </View>
-      </Card>
-
-      <Card variant="default" padding="large">
-        <TourTarget
-          id="professional.clinical.timeline"
-          active={tourTargetsActive}
-          fill
-          style={styles.fullWidthTourTarget}
+      <View style={[styles.noteFooter, !isTablet && styles.noteFooterMobile]}>
+        <Text style={[styles.noteHint, { color: theme.textMuted }]}>
+          Solo estará disponible dentro del área clínica desbloqueada.
+        </Text>
+        <Button
+          variant="secondary"
+          size="small"
+          onPress={handleSaveNote}
+          loading={noteSaving}
+          disabled={!noteDraft.trim()}
         >
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionCopy}>
+          Guardar nota
+        </Button>
+      </View>
+    </Card>
+  );
+
+  const timelinePanel = (
+    <Card variant="default" padding="large">
+      <TourTarget
+        id="professional.clinical.timeline"
+        active={tourTargetsActive}
+        fill
+        style={styles.fullWidthTourTarget}
+      >
+        <View style={[styles.sectionHeader, !isTablet && styles.sectionHeaderMobile]}>
+          <View style={[styles.sectionCopy, !isTablet && styles.sectionCopyMobile]}>
             <Text style={[styles.sectionTitle, { color: theme.textPrimary }, displayTitleStyle]}>
               Timeline general
             </Text>
@@ -224,154 +210,196 @@ export function ClinicalGeneralWorkspace({
             </Text>
           </View>
         </View>
-        </TourTarget>
+      </TourTarget>
 
-        {record.notes.length === 0 ? (
-          <View style={[styles.emptyState, { backgroundColor: theme.bgMuted, borderColor: theme.border }]}>
-            <Ionicons name="document-text-outline" size={22} color={theme.textMuted} />
-            <Text style={[styles.emptyTitle, { color: theme.textPrimary }, emphasisStyle]}>
-              Todavía no hay notas generales
-            </Text>
-            <Text style={[styles.emptyDescription, { color: theme.textSecondary }]}>
-              Las notas generales aparecerán aquí para que el seguimiento del proceso sea fácil de revisar.
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.timelineStack}>
-            {record.notes.map((note) => (
-              <View
-                key={note.id}
-                style={[styles.timelineRow, { backgroundColor: theme.bgMuted, borderColor: theme.border }]}
-              >
-                <View style={styles.timelineDotWrap}>
-                  <Ionicons name="ellipse" size={10} color={theme.primary} />
-                </View>
-                <View style={styles.timelineCopy}>
-                  <Text style={[styles.timelineDate, { color: theme.textPrimary }, emphasisStyle]}>
-                    {formatDate(note.updatedAt)}
-                  </Text>
-                  <Text style={[styles.timelineBody, { color: theme.textSecondary }]}>
-                    {note.content}
-                  </Text>
-                </View>
+      {record.notes.length === 0 ? (
+        <View style={[styles.emptyState, { backgroundColor: theme.bgMuted, borderColor: theme.border }]}>
+          <Ionicons name="document-text-outline" size={22} color={theme.textMuted} />
+          <Text style={[styles.emptyTitle, { color: theme.textPrimary }, emphasisStyle]}>
+            Todavía no hay notas generales
+          </Text>
+          <Text style={[styles.emptyDescription, { color: theme.textSecondary }]}>
+            Las notas generales aparecerán aquí para que el seguimiento del proceso sea fácil de revisar.
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.timelineStack}>
+          {record.notes.map((note) => (
+            <View
+              key={note.id}
+              style={[styles.timelineRow, { backgroundColor: theme.bgMuted, borderColor: theme.border }]}
+            >
+              <View style={styles.timelineDotWrap}>
+                <Ionicons name="ellipse" size={10} color={theme.primary} />
               </View>
-            ))}
-          </View>
-        )}
+              <View style={styles.timelineCopy}>
+                <Text style={[styles.timelineDate, { color: theme.textPrimary }, emphasisStyle]}>
+                  {formatDate(note.updatedAt)}
+                </Text>
+                <Text style={[styles.timelineBody, { color: theme.textSecondary }]}>
+                  {note.content}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
 
-        {record.pagination.notes.hasMore ? (
-          <Button variant="ghost" size="small" onPress={onLoadMoreNotes} loading={loadingMoreNotes}>
-            Ver más notas
-          </Button>
-        ) : null}
-      </Card>
+      {record.pagination.notes.hasMore ? (
+        <Button variant="ghost" size="small" onPress={onLoadMoreNotes} loading={loadingMoreNotes}>
+          Ver más notas
+        </Button>
+      ) : null}
+    </Card>
+  );
+
+  const questionnairePanel = (
+    <ClinicalQuestionnairePanel
+      isTablet={isTablet}
+      completedQuestionnaire={record.client.completedQuestionnaire}
+      questionnaireAvailability={record.client.questionnaireAvailability}
+      summary={record.client.questionnaireSummary}
+      answers={record.client.questionnaireAnswers}
+      tourTargetId="professional.clinical.questionnaire"
+      tourTargetsActive={tourTargetsActive}
+      style={isTablet ? styles.stretchPanel : undefined}
+    />
+  );
+
+  const consentPanel = (
+    <ClinicalConsentPanel
+      isTablet={isTablet}
+      client={client}
+      record={record}
+      consentEvidenceDocuments={consentEvidenceDocuments}
+      openingDocumentId={openingDocumentId}
+      documentUploading={documentUploading}
+      consentSubmitting={consentSubmitting}
+      closingProcess={closingProcess}
+      loadingMoreConsentEvents={loadingMoreConsentEvents}
+      onUploadConsentDocument={() => void handleUpload('CONSENT_EVIDENCE')}
+      onOpenConsentDocument={(document) => void onOpenDocument(document)}
+      onRequestDigitalConsent={onRequestDigitalConsent}
+      onAttestClinicalConsent={onAttestClinicalConsent}
+      onCloseClinicalProcess={onCloseClinicalProcess}
+      onLoadMoreConsentEvents={onLoadMoreConsentEvents}
+      tourTargetId="professional.clinical.consent"
+      consentDocumentTourTargetId="professional.clinical.consent-documents"
+      tourTargetsActive={tourTargetsActive}
+    />
+  );
+
+  const medicalReportsPanel = (
+    <ClinicalDocumentsPanel
+      isTablet={isTablet}
+      title="Informes médicos"
+      description="Reúne informes de derivación, diagnósticos y documentación clínica de apoyo."
+      documents={medicalReports}
+      openingDocumentId={openingDocumentId}
+      uploadLabel="Añadir informe"
+      uploading={documentUploading}
+      emptyTitle="No hay informes médicos cargados"
+      emptyDescription="Sube aquí los informes relevantes que acompañan al proceso terapéutico."
+      onUpload={() => void handleUpload('MEDICAL_REPORT')}
+      onOpenDocument={(document) => void onOpenDocument(document)}
+      tourTargetId="professional.clinical.reports"
+      tourTargetsActive={tourTargetsActive}
+      style={isTablet ? styles.stretchPanel : undefined}
+    />
+  );
+
+  const generalDocumentsPanel = (
+    <ClinicalDocumentsPanel
+      isTablet={isTablet}
+      title="Documentación general"
+      description="Espacio para documentación fija del paciente no vinculada a una sesión concreta."
+      documents={generalDocuments}
+      openingDocumentId={openingDocumentId}
+      uploadLabel="Añadir documento"
+      uploading={documentUploading}
+      emptyTitle="No hay documentos generales"
+      emptyDescription="Puedes dejar aquí información complementaria que convenga tener accesible en la carpeta general."
+      onUpload={() => void handleUpload('GENERAL')}
+      onOpenDocument={(document) => void onOpenDocument(document)}
+      tourTargetId="professional.clinical.documents"
+      tourTargetsActive={tourTargetsActive}
+      style={isTablet ? styles.stretchPanel : undefined}
+    />
+  );
+
+  const documentsPagination = record.pagination.documents.hasMore ? (
+    <Button
+      variant="ghost"
+      size="small"
+      onPress={onLoadMoreDocuments}
+      loading={loadingMoreDocuments}
+    >
+      Ver más documentos
+    </Button>
+  ) : null;
+
+  const contextBand = isTablet ? (
+    <View style={styles.balancedRow}>
+      <View style={styles.balancedColumn}>
+        {questionnairePanel}
+      </View>
+      <View style={styles.balancedColumn}>
+        {notesPanel}
+      </View>
+    </View>
+  ) : (
+    <View style={styles.columnStack}>
+      {questionnairePanel}
+      {notesPanel}
     </View>
   );
 
-  const documentColumn = (
-    <View style={[styles.columnStack, isTablet && styles.columnStackDesktop]}>
-      <ClinicalQuestionnairePanel
-        isTablet={isTablet}
-        completedQuestionnaire={record.client.completedQuestionnaire}
-        questionnaireAvailability={record.client.questionnaireAvailability}
-        summary={record.client.questionnaireSummary}
-        answers={record.client.questionnaireAnswers}
-        tourTargetId="professional.clinical.questionnaire"
-        tourTargetsActive={tourTargetsActive}
-      />
-
-      <ClinicalConsentPanel
-        isTablet={isTablet}
-        client={client}
-        record={record}
-        consentSubmitting={consentSubmitting}
-        closingProcess={closingProcess}
-        latestConsentEvidenceDocumentId={latestConsentEvidenceDocumentId}
-        loadingMoreConsentEvents={loadingMoreConsentEvents}
-        onRequestDigitalConsent={onRequestDigitalConsent}
-        onAttestClinicalConsent={onAttestClinicalConsent}
-        onCloseClinicalProcess={onCloseClinicalProcess}
-        onLoadMoreConsentEvents={onLoadMoreConsentEvents}
-        tourTargetId="professional.clinical.consent"
-        tourTargetsActive={tourTargetsActive}
-      />
-
-      <ClinicalDocumentsPanel
-        isTablet={isTablet}
-        title={consentDocumentsCopy.title}
-        description={consentDocumentsCopy.description}
-        documents={consentEvidenceDocuments}
-        openingDocumentId={openingDocumentId}
-        uploadLabel={consentDocumentsCopy.uploadLabel}
-        uploading={documentUploading}
-        emptyTitle={consentDocumentsCopy.emptyTitle}
-        emptyDescription={consentDocumentsCopy.emptyDescription}
-        onUpload={() => void handleUpload('CONSENT_EVIDENCE')}
-        onOpenDocument={(document) => void onOpenDocument(document)}
-        tourTargetId="professional.clinical.consent-documents"
-        tourTargetsActive={tourTargetsActive}
-      />
-
-      <ClinicalDocumentsPanel
-        isTablet={isTablet}
-        title="Informes médicos"
-        description="Reúne informes de derivación, diagnósticos y documentación clínica de apoyo."
-        documents={medicalReports}
-        openingDocumentId={openingDocumentId}
-        uploadLabel="Añadir informe"
-        uploading={documentUploading}
-        emptyTitle="No hay informes médicos cargados"
-        emptyDescription="Sube aquí los informes relevantes que acompañan al proceso terapéutico."
-        onUpload={() => void handleUpload('MEDICAL_REPORT')}
-        onOpenDocument={(document) => void onOpenDocument(document)}
-        tourTargetId="professional.clinical.reports"
-        tourTargetsActive={tourTargetsActive}
-      />
-
-      <ClinicalDocumentsPanel
-        isTablet={isTablet}
-        title="Documentación general"
-        description="Espacio para documentación fija del paciente no vinculada a una sesión concreta."
-        documents={generalDocuments}
-        openingDocumentId={openingDocumentId}
-        uploadLabel="Añadir documento"
-        uploading={documentUploading}
-        emptyTitle="No hay documentos generales"
-        emptyDescription="Puedes dejar aquí información complementaria que convenga tener accesible en la carpeta general."
-        onUpload={() => void handleUpload('GENERAL')}
-        onOpenDocument={(document) => void onOpenDocument(document)}
-        tourTargetId="professional.clinical.documents"
-        tourTargetsActive={tourTargetsActive}
-      />
-
-      {record.pagination.documents.hasMore ? (
-        <Button
-          variant="ghost"
-          size="small"
-          onPress={onLoadMoreDocuments}
-          loading={loadingMoreDocuments}
-        >
-          Ver más documentos
-        </Button>
-      ) : null}
+  const documentationBand = isTablet ? (
+    <View style={styles.balancedRow}>
+      <View style={styles.balancedColumn}>
+        {medicalReportsPanel}
+      </View>
+      <View style={styles.balancedColumn}>
+        {generalDocumentsPanel}
+      </View>
+    </View>
+  ) : (
+    <View style={styles.columnStack}>
+      {medicalReportsPanel}
+      {generalDocumentsPanel}
     </View>
   );
 
   return (
-    <View style={[styles.workspaceGrid, isTablet && styles.workspaceGridDesktop]}>
-      {noteColumn}
-      {documentColumn}
+    <View style={styles.workspaceStack}>
+      <View style={styles.fullWidthBand}>
+        {consentPanel}
+      </View>
+      {contextBand}
+      <View style={styles.fullWidthBand}>
+        {timelinePanel}
+      </View>
+      {documentationBand}
+      {documentsPagination}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  workspaceGrid: {
+  workspaceStack: {
     gap: spacing.lg,
   },
-  workspaceGridDesktop: {
+  balancedRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
+    gap: spacing.lg,
+  },
+  balancedColumn: {
+    flex: 1,
+    minWidth: 0,
+  },
+  fullWidthBand: {
+    width: '100%',
   },
   fullWidthTourTarget: {
     width: '100%',
@@ -379,7 +407,7 @@ const styles = StyleSheet.create({
   columnStack: {
     gap: spacing.lg,
   },
-  columnStackDesktop: {
+  stretchPanel: {
     flex: 1,
   },
   sectionHeader: {
@@ -390,9 +418,16 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.md,
   },
+  sectionHeaderMobile: {
+    flexDirection: 'column',
+    gap: spacing.sm,
+  },
   sectionCopy: {
     flex: 1,
     gap: spacing.sm,
+  },
+  sectionCopyMobile: {
+    width: '100%',
   },
   sectionTitle: {
     fontSize: typography.fontSizes.xxl,
@@ -421,6 +456,12 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.md,
     lineHeight: 24,
     textAlignVertical: 'top',
+  },
+  noteInputMobile: {
+    minHeight: 120,
+    padding: spacing.sm,
+    fontSize: typography.fontSizes.sm,
+    lineHeight: 22,
   },
   noteFooter: {
     marginTop: spacing.md,

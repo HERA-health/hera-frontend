@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable, Button, Card } from '../common';
 import { TourTarget } from '../onboarding/TourTarget';
@@ -21,6 +21,7 @@ interface ClinicalQuestionnairePanelProps {
   answers?: ClinicalQuestionnaireAnswers | null;
   tourTargetId?: ProfessionalTourTargetId;
   tourTargetsActive?: boolean;
+  style?: ViewStyle | ViewStyle[];
 }
 
 const ANSWER_PAGE_SIZE = 5;
@@ -51,6 +52,7 @@ export function ClinicalQuestionnairePanel({
   answers,
   tourTargetId,
   tourTargetsActive = true,
+  style,
 }: ClinicalQuestionnairePanelProps) {
   const { theme } = useTheme();
   const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontDisplayBold }), [theme]);
@@ -120,7 +122,7 @@ export function ClinicalQuestionnairePanel({
   );
 
   return (
-    <Card variant="default" padding="large">
+    <Card variant="default" padding="large" style={style}>
       {tourTargetId ? (
         <TourTarget
           id={tourTargetId}

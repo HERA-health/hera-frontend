@@ -45,11 +45,11 @@ describe('professionalTourDefinitions', () => {
     ).toEqual([
       'professional.clinical.hero',
       'professional.clinical.workspace-tabs',
-      'professional.clinical.notes',
-      'professional.clinical.timeline',
-      'professional.clinical.questionnaire',
       'professional.clinical.consent',
       'professional.clinical.consent-documents',
+      'professional.clinical.questionnaire',
+      'professional.clinical.notes',
+      'professional.clinical.timeline',
       'professional.clinical.reports',
       'professional.clinical.documents',
     ]);
@@ -70,8 +70,8 @@ describe('professionalTourDefinitions', () => {
     expect(allCopy).toContain('Sesiones organiza cada cita');
     expect(allCopy).toContain('Firma digital de consentimiento clínico');
     expect(allCopy).toContain('Documento de consentimiento clínico');
-    expect(allCopy).toContain('habilita el tratamiento de datos clínicos');
-    expect(allCopy).toContain('paciente no tiene cuenta HERA');
+    expect(allCopy).toContain('habilitar el tratamiento de datos clínicos');
+    expect(allCopy).toContain('pacientes gestionados sin cuenta');
     expect(allCopy).not.toMatch(/\b(facturacion|movil|automaticamente|Evolucion|ano)\b/);
   });
 });

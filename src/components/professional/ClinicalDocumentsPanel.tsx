@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable, Button, Card } from '../common';
 import { TourTarget } from '../onboarding/TourTarget';
@@ -22,6 +22,7 @@ interface ClinicalDocumentsPanelProps {
   onOpenDocument: (document: ClinicalDocument) => void;
   tourTargetId?: ProfessionalTourTargetId;
   tourTargetsActive?: boolean;
+  style?: ViewStyle | ViewStyle[];
 }
 
 const formatDate = (value?: string | Date | null) =>
@@ -71,6 +72,7 @@ export function ClinicalDocumentsPanel({
   onOpenDocument,
   tourTargetId,
   tourTargetsActive = true,
+  style,
 }: ClinicalDocumentsPanelProps) {
   const { theme } = useTheme();
   const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontDisplayBold }), [theme]);
@@ -95,7 +97,7 @@ export function ClinicalDocumentsPanel({
   );
 
   return (
-    <Card variant="default" padding="large">
+    <Card variant="default" padding="large" style={style}>
       {tourTargetId ? (
         <TourTarget
           id={tourTargetId}
@@ -108,12 +110,12 @@ export function ClinicalDocumentsPanel({
       ) : header}
 
       {documents.length === 0 ? (
-        <View style={[styles.emptyState, { backgroundColor: theme.bgMuted, borderColor: theme.border }]}>
+        <View style={[styles.emptyState, !isTablet && styles.emptyStateMobile, { backgroundColor: theme.bgMuted, borderColor: theme.border }]}>
           <Ionicons name="folder-open-outline" size={22} color={theme.textMuted} />
-          <Text style={[styles.emptyTitle, { color: theme.textPrimary }, emphasisStyle]}>
+          <Text style={[styles.emptyTitle, !isTablet && styles.emptyTitleMobile, { color: theme.textPrimary }, emphasisStyle]}>
             {emptyTitle}
           </Text>
-          <Text style={[styles.emptyDescription, { color: theme.textSecondary }]}>
+          <Text style={[styles.emptyDescription, !isTablet && styles.emptyDescriptionMobile, { color: theme.textSecondary }]}>
             {emptyDescription}
           </Text>
         </View>
@@ -199,15 +201,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
+  emptyStateMobile: {
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
   emptyTitle: {
     fontSize: typography.fontSizes.md,
     lineHeight: 24,
     textAlign: 'center',
   },
+  emptyTitleMobile: {
+    fontSize: typography.fontSizes.sm,
+    lineHeight: 20,
+  },
   emptyDescription: {
     fontSize: typography.fontSizes.sm,
     lineHeight: 22,
     textAlign: 'center',
+  },
+  emptyDescriptionMobile: {
+    fontSize: typography.fontSizes.xs,
+    lineHeight: 18,
   },
   list: {
     gap: spacing.md,

@@ -82,6 +82,25 @@ const record = {
   },
 };
 
+const consentDocument = {
+  id: 'consent-document-1',
+  sessionId: null,
+  category: 'CONSENT_EVIDENCE',
+  fileName: 'consentimiento-firmado.pdf',
+  mimeType: 'application/pdf',
+  uploadedAt: '2026-04-19T10:00:00.000Z',
+  sizeBytes: 218000,
+};
+
+const pendingManagedRecord = {
+  ...record,
+  documents: [consentDocument],
+  consentStatus: 'PENDING',
+  consentMethod: null,
+  consentGivenAt: null,
+  consentEvents: [],
+};
+
 describe('ClinicalGeneralWorkspace', () => {
   beforeEach(() => {
     mockedUseTheme.mockReturnValue({
@@ -96,8 +115,8 @@ describe('ClinicalGeneralWorkspace', () => {
     jest.clearAllMocks();
   });
 
-  it('anchors clinical tour targets to compact section headers', () => {
-    render(
+  it('anchors clinical tour targets to the unified clinical bands', () => {
+    const rendered = render(
       <ClinicalGeneralWorkspace
         client={client as never}
         record={record as never}
@@ -126,15 +145,79 @@ describe('ClinicalGeneralWorkspace', () => {
     expect(within(timelineTarget).getByText('Timeline general')).toBeTruthy();
     expect(within(timelineTarget).queryByText('Hola desde una nota clínica')).toBeNull();
 
+    const consentTarget = screen.getByTestId('tour-target-professional.clinical.consent');
+    const consentDocumentsTarget = screen.getByTestId('tour-target-professional.clinical.consent-documents');
+    expect(within(consentTarget).getByText('Consentimiento clínico')).toBeTruthy();
+    expect(within(consentTarget).queryByText('Firma digital de consentimiento clínico')).toBeNull();
+    expect(within(consentDocumentsTarget).getByText('Documento de consentimiento clínico')).toBeTruthy();
     expect(screen.getByTestId('tour-target-professional.clinical.notes')).toBeTruthy();
     expect(screen.getByTestId('tour-target-professional.clinical.questionnaire')).toBeTruthy();
-    expect(screen.getByTestId('tour-target-professional.clinical.consent')).toBeTruthy();
-    expect(screen.getByTestId('tour-target-professional.clinical.consent-documents')).toBeTruthy();
     expect(screen.getByTestId('tour-target-professional.clinical.reports')).toBeTruthy();
     expect(screen.getByTestId('tour-target-professional.clinical.documents')).toBeTruthy();
+
+    const renderedTree = JSON.stringify(rendered.toJSON());
+    const targetIndex = (targetId: string) =>
+      renderedTree.indexOf(`tour-target-${targetId}`);
+
+    expect(targetIndex('professional.clinical.consent')).toBeLessThan(
+      targetIndex('professional.clinical.notes'),
+    );
+    expect(targetIndex('professional.clinical.consent')).toBeLessThan(
+      targetIndex('professional.clinical.questionnaire'),
+    );
+    expect(targetIndex('professional.clinical.consent')).toBeLessThan(
+      targetIndex('professional.clinical.consent-documents'),
+    );
+    expect(targetIndex('professional.clinical.consent-documents')).toBeLessThan(
+      targetIndex('professional.clinical.questionnaire'),
+    );
   });
 
-  it('clarifies consent evidence copy for registered and managed patients', () => {
+  it('orders mobile clinical blocks by consent-first priority', () => {
+    const rendered = render(
+      <ClinicalGeneralWorkspace
+        client={client as never}
+        record={record as never}
+        isTablet={false}
+        noteSaving={false}
+        documentUploading={false}
+        consentSubmitting={false}
+        closingProcess={false}
+        openingDocumentId={null}
+        loadingMoreNotes={false}
+        loadingMoreDocuments={false}
+        loadingMoreConsentEvents={false}
+        onSaveNote={jest.fn()}
+        onOpenDocument={jest.fn()}
+        onUploadDocument={jest.fn()}
+        onRequestDigitalConsent={jest.fn()}
+        onAttestClinicalConsent={jest.fn()}
+        onCloseClinicalProcess={jest.fn()}
+        onLoadMoreNotes={jest.fn()}
+        onLoadMoreDocuments={jest.fn()}
+        onLoadMoreConsentEvents={jest.fn()}
+      />,
+    );
+
+    const renderedTree = JSON.stringify(rendered.toJSON());
+    const orderedTargets = [
+      'professional.clinical.consent',
+      'professional.clinical.consent-documents',
+      'professional.clinical.questionnaire',
+      'professional.clinical.notes',
+      'professional.clinical.timeline',
+      'professional.clinical.reports',
+      'professional.clinical.documents',
+    ];
+    const targetIndexes = orderedTargets.map((targetId) =>
+      renderedTree.indexOf(`tour-target-${targetId}`),
+    );
+
+    expect(targetIndexes.every((index) => index >= 0)).toBe(true);
+    expect(targetIndexes).toEqual([...targetIndexes].sort((left, right) => left - right));
+  });
+
+  it('renders the two consent routes inside the same clinical consent module', () => {
     const { rerender } = render(
       <ClinicalGeneralWorkspace
         client={client as never}
@@ -161,18 +244,28 @@ describe('ClinicalGeneralWorkspace', () => {
     );
 
     expect(screen.getByText('Consentimiento clínico')).toBeTruthy();
-    expect(screen.getByText('Firma digital de consentimiento clínico')).toBeTruthy();
-    expect(screen.getByText('Documento de consentimiento clínico')).toBeTruthy();
+    expect(screen.getAllByText('Firma digital de consentimiento clínico').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Documento de consentimiento clínico').length).toBeGreaterThan(0);
     expect(
       screen.getByText(
-        'Si el paciente te entrega un consentimiento clínico firmado fuera de HERA, adjúntalo aquí para conservarlo en su expediente.',
+        'Dos vías según el tipo de paciente. Ambas dejan el consentimiento vigente cuando se completa la vía que corresponde.',
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Vía para pacientes con cuenta HERA. Al firmar desde su cuenta, el consentimiento queda vigente y se habilita el tratamiento de sus datos clínicos.',
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Vía para pacientes gestionados sin cuenta HERA. Al registrar el documento firmado, el consentimiento queda vigente y se habilita el tratamiento de sus datos clínicos.',
       ),
     ).toBeTruthy();
 
     rerender(
       <ClinicalGeneralWorkspace
         client={managedClient as never}
-        record={record as never}
+        record={pendingManagedRecord as never}
         isTablet
         noteSaving={false}
         documentUploading={false}
@@ -194,11 +287,9 @@ describe('ClinicalGeneralWorkspace', () => {
       />,
     );
 
-    expect(screen.getByText('Documento de consentimiento clínico')).toBeTruthy();
-    expect(
-      screen.getByText(
-        'Sube aquí el PDF o imagen del consentimiento clínico firmado. Después pulsa "Registrar consentimiento firmado" para dejarlo vigente y habilitar el tratamiento de sus datos clínicos.',
-      ),
-    ).toBeTruthy();
+    expect(screen.getAllByText('Documento de consentimiento clínico').length).toBeGreaterThan(0);
+    expect(screen.getByText('consentimiento-firmado.pdf')).toBeTruthy();
+    expect(screen.getByText('Adjuntar documento')).toBeTruthy();
+    expect(screen.getByText('Registrar consentimiento firmado')).toBeTruthy();
   });
 });
