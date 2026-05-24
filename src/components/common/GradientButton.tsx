@@ -1,7 +1,14 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing, branding } from '../../constants/colors';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TextStyle,
+  TouchableOpacity,
+  ViewStyle,
+} from 'react-native';
+import { useTheme } from '../../contexts/ThemeContext';
+import { borderRadius, spacing } from '../../constants/colors';
 
 interface GradientButtonProps {
   title?: string;
@@ -26,91 +33,82 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
   textStyle,
   size = 'large',
 }) => {
-  const buttonStyles = [
-    styles.button,
-    size === 'small' && styles.buttonSmall,
-    size === 'medium' && styles.buttonMedium,
-    size === 'large' && styles.buttonLarge,
-    style,
-  ];
-
-  const textStyles = [
-    styles.text,
-    size === 'small' && styles.textSmall,
-    size === 'medium' && styles.textMedium,
-    size === 'large' && styles.textLarge,
-    textStyle,
-  ];
+  const { theme } = useTheme();
+  const isDisabled = disabled || loading;
 
   return (
     <TouchableOpacity
       onPress={onPress}
-      disabled={disabled || loading}
-      activeOpacity={0.8}
-      style={styles.touchable}
+      disabled={isDisabled}
+      activeOpacity={0.84}
+      style={[
+        styles.button,
+        styles[`button_${size}`],
+        {
+          backgroundColor: isDisabled ? theme.border : theme.actionPrimary,
+          borderColor: isDisabled ? theme.border : theme.actionPrimary,
+          shadowColor: theme.shadowSecondary,
+          opacity: isDisabled ? 0.64 : 1,
+        },
+        style,
+      ]}
     >
-      <LinearGradient
-        colors={disabled ? ['#9E9E9E', '#757575'] : [branding.accent, branding.accentLight]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={buttonStyles}
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" size="small" />
-        ) : (
-          <>
-            {icon}
-            {title && <Text style={textStyles}>{title}</Text>}
-            {children}
-          </>
-        )}
-      </LinearGradient>
+      {loading ? (
+        <ActivityIndicator color={theme.actionPrimaryText} size="small" />
+      ) : (
+        <>
+          {icon}
+          {title ? (
+            <Text style={[styles.text, styles[`text_${size}`], { color: theme.actionPrimaryText }, textStyle]}>
+              {title}
+            </Text>
+          ) : null}
+          {children}
+        </>
+      )}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  touchable: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: branding.accent,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
   button: {
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 4,
     gap: spacing.xs,
   },
-  buttonSmall: {
+  button_small: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
-    borderRadius: 8,
+    minHeight: 36,
   },
-  buttonMedium: {
+  button_medium: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
-    borderRadius: 10,
+    minHeight: 44,
   },
-  buttonLarge: {
+  button_large: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
-    borderRadius: 12,
+    minHeight: 52,
   },
   text: {
-    color: colors.neutral.white,
     fontWeight: '700',
+    letterSpacing: 0,
   },
-  textSmall: {
+  text_small: {
     fontSize: 14,
   },
-  textMedium: {
+  text_medium: {
     fontSize: 15,
   },
-  textLarge: {
+  text_large: {
     fontSize: 16,
   },
 });

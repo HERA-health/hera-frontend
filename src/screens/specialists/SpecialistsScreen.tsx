@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -492,12 +491,7 @@ const SpecialistsScreen: React.FC = () => {
       onPress={() => navigation.navigate('Questionnaire')}
       style={styles.heroBanner}
     >
-      <LinearGradient
-        colors={[theme.primary, theme.primaryDark]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.heroBannerGradient}
-      >
+      <View style={[styles.heroBannerSurface, { backgroundColor: theme.primary }]}>
         <View style={styles.heroBadge}>
           <Ionicons name="heart" size={22} color={theme.textOnPrimary} />
         </View>
@@ -508,7 +502,7 @@ const SpecialistsScreen: React.FC = () => {
           </Text>
         </View>
         <Ionicons name="arrow-forward" size={18} color={theme.textOnPrimary} />
-      </LinearGradient>
+      </View>
     </AnimatedPressable>
   );
 
@@ -536,12 +530,7 @@ const SpecialistsScreen: React.FC = () => {
 
     return (
       <View style={styles.heroBanner}>
-        <LinearGradient
-          colors={[theme.primary, theme.primaryDark]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.heroBannerGradient, hasQuestionnaire ? styles.heroBannerGradientCompact : null]}
-        >
+        <View style={[styles.heroBannerSurface, hasQuestionnaire ? styles.heroBannerSurfaceCompact : null, { backgroundColor: theme.primary }]}>
           <View style={styles.heroBadge}>
             <Ionicons
               name={hasQuestionnaire ? 'refresh-circle-outline' : 'heart'}
@@ -573,7 +562,7 @@ const SpecialistsScreen: React.FC = () => {
               color={theme.textOnPrimary}
             />
           </AnimatedPressable>
-        </LinearGradient>
+        </View>
       </View>
     );
   };
@@ -648,12 +637,7 @@ const SpecialistsScreen: React.FC = () => {
           pressScale={0.985}
           style={styles.primaryCard}
         >
-          <LinearGradient
-            colors={isDark ? [theme.bgElevated, theme.bgCard] : [theme.bgCard, theme.primaryAlpha12]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.primaryCardInner}
-          >
+          <View style={[styles.primaryCardInner, { backgroundColor: isDark ? theme.bgElevated : theme.bgCard }]}>
             <View style={styles.primaryAvatar}>
               {primarySpecialist.avatar ? (
                 <Image source={{ uri: primarySpecialist.avatar }} style={styles.primaryAvatarImage} />
@@ -694,7 +678,7 @@ const SpecialistsScreen: React.FC = () => {
                 Ver perfil
               </Button>
             </View>
-          </LinearGradient>
+          </View>
         </AnimatedPressable>
       </View>
     );
@@ -1214,7 +1198,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       shadowRadius: 24,
       elevation: 3,
     },
-    heroBannerGradient: {
+    heroBannerSurface: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
@@ -1222,7 +1206,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       justifyContent: 'space-between',
       flexWrap: 'wrap',
     },
-    heroBannerGradientCompact: {
+    heroBannerSurfaceCompact: {
       paddingVertical: spacing.md,
     },
     heroBadge: {

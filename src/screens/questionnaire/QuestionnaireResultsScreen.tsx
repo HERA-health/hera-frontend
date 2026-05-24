@@ -13,7 +13,6 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { spacing, borderRadius } from '../../constants/colors';
 import type { RootStackParamList } from '../../constants/types';
@@ -141,14 +140,11 @@ export function QuestionnaireResultsScreen() {
               {specialist.avatar ? (
                 <Image source={{ uri: specialist.avatar }} style={styles.avatar} />
               ) : (
-                <LinearGradient
-                  colors={[palette.accent, palette.secondary]}
-                  style={styles.avatar}
-                >
+                <View style={[styles.avatar, { backgroundColor: palette.accent }]}>
                   <Text style={styles.avatarText}>
                     {specialist.initial || specialist.name.charAt(0)}
                   </Text>
-                </LinearGradient>
+                </View>
               )}
               {specialist.firstVisitFree ? (
                 <View style={styles.freeBadge}>

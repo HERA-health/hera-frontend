@@ -15,7 +15,6 @@ import {
   Image,
   Animated,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { shadows, spacing } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
@@ -148,8 +147,6 @@ export default function HomeScreen() {
   const statScaleAnims = useRef([0, 1, 2].map(() => new Animated.Value(0.72))).current;
   // Pulse for imminent session join button
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  // Breathing decoration on hero card
-  const breatheAnim = useRef(new Animated.Value(0)).current;
   // Avatar ring breathing
   const ringAnim = useRef(new Animated.Value(0)).current;
   // Mood emoji springs
@@ -189,22 +186,14 @@ export default function HomeScreen() {
   }, [nextSession?.date]);
 
   // ── Animations ─────────────────────────────────────────────────────────────
-  const runBreatheAnimation = useCallback(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(breatheAnim, { toValue: 1, duration: 3500, useNativeDriver: true }),
-        Animated.timing(breatheAnim, { toValue: 0, duration: 3500, useNativeDriver: true }),
-      ])
-    ).start();
-
-    // Avatar ring: slightly faster, offset phase
+  const runAvatarRingAnimation = useCallback(() => {
     Animated.loop(
       Animated.sequence([
         Animated.timing(ringAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
         Animated.timing(ringAnim, { toValue: 0.3, duration: 2000, useNativeDriver: true }),
       ])
     ).start();
-  }, [breatheAnim, ringAnim]);
+  }, [ringAnim]);
 
   useEffect(() => {
     if (!loading) {
@@ -218,10 +207,10 @@ export default function HomeScreen() {
         Animated.stagger(100, statScaleAnims.map(anim =>
           Animated.spring(anim, { toValue: 1, friction: 5, tension: 90, useNativeDriver: true })
         )).start();
-        runBreatheAnimation();
+        runAvatarRingAnimation();
       });
     }
-  }, [loading]);
+  }, [loading, runAvatarRingAnimation, sectionAnims, statScaleAnims]);
 
   // Pulse join button when session is imminent
   const isImminent = useMemo(() => {
@@ -258,8 +247,6 @@ export default function HomeScreen() {
     transform: [{ translateY: sectionAnims[i].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
   });
 
-  const breatheScale = breatheAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] });
-  const breatheOpacity = breatheAnim.interpolate({ inputRange: [0, 1], outputRange: [0.07, 0.17] });
   const ringOpacity = ringAnim.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.6] });
   const ringScale = ringAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] });
 
@@ -285,12 +272,9 @@ export default function HomeScreen() {
             {user?.avatar ? (
               <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
             ) : (
-              <LinearGradient
-                colors={[theme.primary, theme.secondary]}
-                style={styles.avatarGradient}
-              >
+              <View style={[styles.avatarSurface, { backgroundColor: theme.primary }]}>
                 <Text style={[styles.avatarInitial, { fontFamily: theme.fontSansBold }]}>{getFirstName().charAt(0).toUpperCase()}</Text>
-              </LinearGradient>
+              </View>
             )}
           </View>
         </AnimatedPressable>
@@ -361,15 +345,7 @@ export default function HomeScreen() {
     <Animated.View style={animStyle(1)}>
       {nextSession ? (
         <AnimatedPressable onPress={() => navigation.navigate('Sessions')} style={styles.nextSessionPressable} pressScale={0.985}>
-          <LinearGradient
-            colors={[theme.primary, theme.secondary]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.nextSessionCard}
-          >
-            <Animated.View style={[styles.decorCircle, styles.decorCircle1, { transform: [{ scale: breatheScale }], opacity: breatheOpacity }]} />
-            <Animated.View style={[styles.decorCircle, styles.decorCircle2, { transform: [{ scale: breatheScale }], opacity: breatheOpacity }]} />
-
+          <View style={[styles.nextSessionCard, { backgroundColor: theme.primary }]}>
             <View style={styles.nextSessionTopRow}>
               <Text style={styles.nextSessionLabel}>Próxima sesión</Text>
               <View style={[styles.countdownBadge, countdownUrgent && styles.countdownBadgeUrgent]}>
@@ -386,14 +362,11 @@ export default function HomeScreen() {
                     style={styles.nextSessionAvatar}
                   />
                 ) : (
-                  <LinearGradient
-                    colors={['rgba(255,255,255,0.35)', 'rgba(255,255,255,0.15)']}
-                    style={styles.nextSessionAvatar}
-                  >
+                  <View style={[styles.nextSessionAvatar, { backgroundColor: 'rgba(255,255,255,0.24)' }]}>
                     <Text style={styles.nextSessionAvatarInitial}>
                       {nextSession.specialist.user.name.charAt(0).toUpperCase()}
                     </Text>
-                  </LinearGradient>
+                  </View>
                 )}
               </View>
               <View style={styles.nextSessionInfo}>
@@ -428,7 +401,7 @@ export default function HomeScreen() {
                 </View>
               </Animated.View>
             </View>
-          </LinearGradient>
+          </View>
         </AnimatedPressable>
       ) : (
         <View style={[styles.noSessionCard, { backgroundColor: theme.bgCard, shadowColor: theme.shadowNeutral }]}>
@@ -460,11 +433,11 @@ export default function HomeScreen() {
       label: string;
       value: number;
       icon: React.ComponentProps<typeof Ionicons>['name'];
-      colors: [string, string];
+      color: string;
     }> = [
-      { label: 'Sesiones', value: stats.completed, icon: 'checkmark-circle', colors: [theme.primary, theme.primaryDark] },
-      { label: 'Horas', value: stats.hours, icon: 'time', colors: [theme.secondary, theme.secondaryDark] },
-      { label: 'Especialistas', value: stats.specialists, icon: 'people', colors: [theme.info, '#6B88A4'] },
+      { label: 'Sesiones', value: stats.completed, icon: 'checkmark-circle', color: theme.primary },
+      { label: 'Horas', value: stats.hours, icon: 'time', color: theme.secondaryDark },
+      { label: 'Especialistas', value: stats.specialists, icon: 'people', color: theme.info },
     ];
     return (
       <Animated.View style={[styles.statsRow, animStyle(2)]}>
@@ -473,9 +446,9 @@ export default function HomeScreen() {
             key={stat.label}
             style={[styles.statCard, { backgroundColor: theme.bgCard, shadowColor: theme.shadowNeutral, transform: [{ scale: statScaleAnims[i] }] }]}
           >
-            <LinearGradient colors={stat.colors} style={styles.statIconCircle}>
+            <View style={[styles.statIconCircle, { backgroundColor: stat.color }]}>
               <Ionicons name={stat.icon} size={17} color="#FFFFFF" />
-            </LinearGradient>
+            </View>
             <Text style={[styles.statValue, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{stat.value}</Text>
             <Text style={[styles.statLabel, { color: theme.textMuted, fontFamily: theme.fontSans }]}>{stat.label}</Text>
           </Animated.View>
@@ -512,14 +485,11 @@ export default function HomeScreen() {
                       style={styles.sessionAvatar}
                     />
                   ) : (
-                    <LinearGradient
-                      colors={[theme.primary, theme.primaryDark]}
-                      style={styles.sessionAvatar}
-                    >
+                    <View style={[styles.sessionAvatar, { backgroundColor: theme.primary }]}>
                       <Text style={styles.sessionAvatarInitial}>
                         {session.specialist.user.name.charAt(0).toUpperCase()}
                       </Text>
-                    </LinearGradient>
+                    </View>
                   )}
                 </View>
                 <View style={styles.sessionInfo}>
@@ -570,14 +540,11 @@ export default function HomeScreen() {
         {specialist.avatar ? (
           <Image source={{ uri: specialist.avatar }} style={compact ? styles.specialistAvatarSm : styles.specialistAvatar} />
         ) : (
-          <LinearGradient
-            colors={[theme.secondary, theme.secondaryDark]}
-            style={compact ? styles.specialistAvatarSm : styles.specialistAvatar}
-          >
+          <View style={[compact ? styles.specialistAvatarSm : styles.specialistAvatar, { backgroundColor: theme.secondaryDark }]}>
             <Text style={compact ? styles.specialistAvatarInitialSm : styles.specialistAvatarInitial}>
               {specialist.user.name.charAt(0).toUpperCase()}
             </Text>
-          </LinearGradient>
+          </View>
         )}
         {specialist.affinity != null && (
           <View style={[styles.affinityBadge, { backgroundColor: getAffinityColor(specialist.affinity, theme) }]}>
@@ -635,12 +602,9 @@ export default function HomeScreen() {
               {specialist.avatar ? (
                 <Image source={{ uri: specialist.avatar }} style={styles.primarySpecialistAvatarImage} />
               ) : (
-                <LinearGradient
-                  colors={[theme.primary, theme.secondary]}
-                  style={styles.primarySpecialistAvatarImage}
-                >
+                <View style={[styles.primarySpecialistAvatarImage, { backgroundColor: theme.primary }]}>
                   <Text style={styles.primarySpecialistAvatarInitial}>{specialist.user.name.charAt(0).toUpperCase()}</Text>
-                </LinearGradient>
+                </View>
               )}
             </View>
             <View style={styles.primarySpecialistCopy}>
@@ -702,14 +666,7 @@ export default function HomeScreen() {
   const renderCTA = () => (
     <Animated.View style={[styles.section, animStyle(5)]}>
       {!hasCompletedQuestionnaire ? (
-        <LinearGradient
-          colors={[theme.primary, theme.secondary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.ctaCard}
-        >
-          <View style={[styles.decorCircle, styles.ctaCircle1]} />
-          <View style={[styles.decorCircle, styles.ctaCircle2]} />
+        <View style={[styles.ctaCard, { backgroundColor: theme.primary }]}>
           <View style={styles.ctaIconWrap}>
             <Ionicons name="heart" size={26} color="#FFFFFF" />
           </View>
@@ -732,7 +689,7 @@ export default function HomeScreen() {
             <Ionicons name="time-outline" size={12} color="rgba(255,255,255,0.8)" />
             <Text style={[styles.ctaInfoText, { fontFamily: theme.fontSans }]}>Solo 5 minutos · Gratuito</Text>
           </View>
-        </LinearGradient>
+        </View>
       ) : (
         <AnimatedPressable
           style={[styles.refineCard, { backgroundColor: theme.bgCard, shadowColor: theme.shadowNeutral, borderColor: theme.border }]}
@@ -950,7 +907,7 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 26,
   },
-  avatarGradient: {
+  avatarSurface: {
     width: 52,
     height: 52,
     borderRadius: 26,
@@ -1001,23 +958,6 @@ const styles = StyleSheet.create({
   },
   nextSessionPressable: {
     borderRadius: 20,
-  },
-  decorCircle: {
-    position: 'absolute',
-    borderRadius: 9999,
-    backgroundColor: '#FFFFFF',
-  },
-  decorCircle1: {
-    width: 240,
-    height: 240,
-    top: -90,
-    right: -70,
-  },
-  decorCircle2: {
-    width: 170,
-    height: 170,
-    bottom: -55,
-    right: 50,
   },
   nextSessionTopRow: {
     flexDirection: 'row',
@@ -1480,20 +1420,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     gap: 8,
     ...shadows.md,
-  },
-  ctaCircle1: {
-    width: 180,
-    height: 180,
-    top: -60,
-    right: -40,
-    opacity: 0.1,
-  },
-  ctaCircle2: {
-    width: 120,
-    height: 120,
-    bottom: -30,
-    right: 50,
-    opacity: 0.08,
   },
   ctaIconWrap: {
     width: 48,

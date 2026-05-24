@@ -3,7 +3,7 @@
  *
  * Migrated to:
  * - useTheme() for dark mode
- * - AmbientBackground gradient blobs
+ * - AmbientBackground calm brand wash
  * - GlassCard feature pills
  * - AnimatedPressable CTAs
  * - Fraunces for hero title + CTA header
@@ -111,10 +111,6 @@ export function WelcomeScreen() {
           <View style={styles.logoContainer}>
             <StyledLogo size={160} />
           </View>
-
-          <Text style={[styles.appName, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>
-            HERA
-          </Text>
 
           <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
             Tu bienestar emocional es nuestra prioridad
@@ -309,12 +305,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   logoContainer: {
-    marginBottom: spacing.xs,
-  },
-  appName: {
-    fontSize: 52,
-    letterSpacing: 1,
-    marginTop: spacing.xs,
     marginBottom: spacing.xs,
   },
   subtitle: {

@@ -15,7 +15,6 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { AnimatedPressable, Button, Card } from '../../components/common';
 import { TourTarget } from '../../components/onboarding/TourTarget';
@@ -662,7 +661,7 @@ export function ClientProfileScreen() {
     );
   }
 
-  const heroGradient: [string, string] = [theme.primaryAlpha12, theme.bgCard];
+  const heroSurface: [string, string] = [theme.primaryAlpha12, theme.bgCard];
   const mobileSurfaceCard = isMobile
     ? [styles.mobileSurfaceCard, { borderColor: theme.border }]
     : [];
@@ -933,7 +932,7 @@ export function ClientProfileScreen() {
 
        <TourTarget id="professional.client-profile.hero" fill style={styles.fullWidthTourTarget}>
         <Card variant="default" padding="none" style={styles.heroCard}>
-         <LinearGradient colors={heroGradient} style={[styles.heroGradient, isMobile && styles.heroGradientMobile]}>
+         <View style={[styles.heroSurface, isMobile && styles.heroSurfaceMobile, { backgroundColor: heroSurface[0] }]}>
           <View style={[styles.heroContent, !isTablet && styles.heroContentStack]}>
             <View
               style={[
@@ -1056,7 +1055,7 @@ export function ClientProfileScreen() {
               </Text>
             </View>
           ) : null}
-        </LinearGradient>
+        </View>
         </Card>
       </TourTarget>
 
@@ -1345,10 +1344,7 @@ export function ClientProfileScreen() {
 
       {showScrollCue ? (
         <View pointerEvents="none" style={styles.scrollCueWrap}>
-          <LinearGradient
-            colors={[`${theme.bg}00`, theme.bg]}
-            style={styles.scrollCueGradient}
-          >
+          <View style={[styles.scrollCueSurface, { backgroundColor: theme.bg }]}>
             <View
               style={[
                 styles.scrollCuePill,
@@ -1363,7 +1359,7 @@ export function ClientProfileScreen() {
               </Text>
               <Ionicons name="chevron-down" size={16} color={theme.textSecondary} />
             </View>
-          </LinearGradient>
+          </View>
         </View>
       ) : null}
     </View>
@@ -1447,10 +1443,10 @@ const styles = StyleSheet.create({
   heroCard: {
     overflow: 'hidden',
   },
-  heroGradient: {
+  heroSurface: {
     padding: spacing.md,
   },
-  heroGradientMobile: {
+  heroSurfaceMobile: {
     padding: spacing.md,
   },
   heroContent: {
@@ -1819,7 +1815,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  scrollCueGradient: {
+  scrollCueSurface: {
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
     paddingHorizontal: spacing.md,

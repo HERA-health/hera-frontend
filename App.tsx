@@ -24,6 +24,7 @@ import { setPostHogClient } from './src/services/analyticsService';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { getDocumentTitleForRoute } from './src/navigation/documentTitles';
 import { ErrorBoundary } from './src/components/common/ErrorBoundary';
 import { AlertProvider } from './src/components/common/alert';
 import type { RootStackParamList } from './src/constants/types';
@@ -32,6 +33,7 @@ import {
   LEGAL_DOCUMENT_SLUGS,
   type LegalDocumentKey,
 } from './src/constants/legal';
+import { darkTheme, lightTheme } from './src/constants/theme';
 
 // Deep linking configuration
 const prefix = Linking.createURL('/');
@@ -94,20 +96,21 @@ const injectWebStyles = (isDark: boolean) => {
   const style = document.createElement('style');
   style.id = styleId;
 
-  const track = isDark ? '#131519' : '#F5F7F5';
-  const thumb = isDark ? '#343848' : '#C5CFC5';
-  const thumbHover = isDark ? '#B7A6D8' : '#8B9D83';
+  const webTheme = isDark ? darkTheme : lightTheme;
+  const track = webTheme.scrollbarTrack;
+  const thumb = webTheme.scrollbarThumb;
+  const thumbHover = webTheme.scrollbarThumbHover;
 
   style.textContent = `
-    /* HERA Design System — Global Web Styles */
+    /* HERA Design System - Global Web Styles */
 
     /* CSS custom properties for dark mode */
     :root {
-      --bg: ${isDark ? '#0A0D0B' : '#F5F7F5'};
-      --bg-card: ${isDark ? '#131519' : '#FFFFFF'};
-      --text-primary: ${isDark ? '#E8F0E8' : '#2C3E2C'};
-      --primary: ${isDark ? '#B7A6D8' : '#8B9D83'};
-      --border: ${isDark ? '#2A2C34' : '#E2E8E2'};
+      --bg: ${webTheme.bg};
+      --bg-card: ${webTheme.bgCard};
+      --text-primary: ${webTheme.textPrimary};
+      --primary: ${webTheme.primary};
+      --border: ${webTheme.border};
     }
 
     /* Custom Scrollbar */
@@ -176,7 +179,13 @@ function ThemedApp() {
       <SafeAreaProvider>
         <AuthProvider>
           <AlertProvider>
-            <NavigationContainer linking={linking}>
+            <NavigationContainer
+              linking={linking}
+              documentTitle={{
+                formatter: (_options, route) =>
+                  getDocumentTitleForRoute(route?.name, route?.params),
+              }}
+            >
               <StatusBar style={isDark ? 'light' : 'dark'} />
               <RootNavigator />
             </NavigationContainer>
@@ -212,9 +221,9 @@ export default function App() {
     'Fraunces-Black': Fraunces_900Black,
   });
 
-  // Wait for fonts — show blank white/dark while loading
+  // Wait for fonts before rendering themed UI.
   if (!fontsLoaded && !fontError) {
-    return <View style={{ flex: 1, backgroundColor: '#F5F7F5' }} />;
+    return <View style={{ flex: 1, backgroundColor: lightTheme.bg }} />;
   }
 
   return (

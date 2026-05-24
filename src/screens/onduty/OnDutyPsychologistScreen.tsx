@@ -9,7 +9,6 @@ import {
   Animated,
   useWindowDimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -43,10 +42,10 @@ const CRISIS_RESOURCES = [
   },
 ] as const;
 
-const getOnDutyPalette = (theme: Theme, isDark: boolean) => ({
-  accent: isDark ? '#C7B3F2' : '#A88BE0',
-  accentDark: isDark ? '#AA8DDD' : '#8F71CF',
-  accentLight: isDark ? 'rgba(199, 179, 242, 0.14)' : 'rgba(168, 139, 224, 0.12)',
+const getOnDutyPalette = (theme: Theme) => ({
+  accent: theme.actionPrimary,
+  accentDark: theme.secondaryDark,
+  accentLight: theme.primaryMuted,
   sage: theme.secondary,
   sageLight: theme.primaryLight,
   background: theme.bg,
@@ -59,14 +58,14 @@ const getOnDutyPalette = (theme: Theme, isDark: boolean) => ({
   borderLight: theme.borderLight,
   successBg: theme.successBg,
   successLight: theme.successLight,
-  surfaceMuted: isDark ? theme.surfaceMuted : theme.bgMuted,
+  surfaceMuted: theme.bgMuted,
 });
 
 type OnDutyPalette = ReturnType<typeof getOnDutyPalette>;
 
 const useOnDutyUi = () => {
   const { theme, isDark } = useTheme();
-  const palette = useMemo(() => getOnDutyPalette(theme, isDark), [theme, isDark]);
+  const palette = useMemo(() => getOnDutyPalette(theme), [theme]);
   const styles = useMemo(() => createStyles(theme, isDark, palette), [theme, isDark, palette]);
   return { theme, isDark, palette, styles };
 };
@@ -123,9 +122,9 @@ const HeroSection: React.FC<{
   return (
     <View style={styles.heroSection}>
       <View style={styles.heroIconContainer}>
-        <LinearGradient colors={[palette.accent, palette.accentDark]} style={styles.heroIcon}>
+        <View style={[styles.heroIcon, { backgroundColor: palette.accent }]}>
           <Ionicons name="shield-checkmark" size={38} color="#FFFFFF" />
-        </LinearGradient>
+        </View>
       </View>
 
       <Text style={styles.heroEyebrow}>Vista previa informativa</Text>

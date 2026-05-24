@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, StyleSheet, TextStyle, StyleProp } from 'react-native';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface BrandTextProps {
   children: React.ReactNode;
@@ -7,8 +8,10 @@ interface BrandTextProps {
 }
 
 export const BrandText: React.FC<BrandTextProps> = ({ children, style }) => {
+  const { theme } = useTheme();
+
   return (
-    <Text style={[styles.brandText, style]}>
+    <Text style={[styles.brandText, { color: theme.primary }, style]}>
       {children}
     </Text>
   );
@@ -16,7 +19,6 @@ export const BrandText: React.FC<BrandTextProps> = ({ children, style }) => {
 
 const styles = StyleSheet.create({
   brandText: {
-    color: '#2196F3', // Primary brand blue
     fontWeight: 'bold',
   },
 });

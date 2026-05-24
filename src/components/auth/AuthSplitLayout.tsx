@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ThemeToggleButton } from '../common/ThemeToggleButton';
 import { spacing } from '../../constants/colors';
@@ -45,9 +44,9 @@ export function AuthSplitLayout({
   const isMobile = width < 768;
   const isCompactMobile = width < 420;
 
-  const gradientColors = accent === 'primary'
-    ? ([theme.primary, theme.primaryDark] as const)
-    : ([theme.secondary, theme.secondaryDark] as const);
+  const brandSideColor = accent === 'primary'
+    ? (isDark ? theme.primaryMuted : theme.primary)
+    : (isDark ? theme.secondaryMuted : theme.secondaryDark);
 
   return (
     <KeyboardAvoidingView
@@ -59,20 +58,14 @@ export function AuthSplitLayout({
       </View>
 
       <View style={[styles.content, isDesktop ? styles.contentDesktop : null]}>
-        <LinearGradient
-          colors={gradientColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        <View
           style={[
             styles.brandSide,
             isDesktop ? styles.brandSideDesktop : styles.brandSideMobile,
             isCompactMobile ? styles.brandSidePhone : null,
+            { backgroundColor: brandSideColor },
           ]}
         >
-          <View style={[styles.decorCircle, styles.decorCircleOne]} />
-          <View style={[styles.decorCircle, styles.decorCircleTwo]} />
-          <View style={[styles.decorCircle, styles.decorCircleThree]} />
-
           <View style={[styles.brandContent, !isDesktop ? styles.brandContentMobile : null]}>
             <View style={[styles.logoRow, isMobile ? styles.logoRowMobile : null]}>
               <View
@@ -80,14 +73,14 @@ export function AuthSplitLayout({
                   styles.logoBadge,
                   isMobile ? styles.logoBadgeMobile : null,
                   {
-                    backgroundColor: isDark ? 'rgba(20, 26, 21, 0.92)' : '#FFFFFF',
+                    backgroundColor: isDark ? theme.bgElevated : theme.bgCard,
                   },
                 ]}
               >
                 <Ionicons
                   name="heart"
                   size={isDesktop ? 36 : isCompactMobile ? 24 : 26}
-                  color={accent === 'primary' ? theme.primary : theme.secondary}
+                  color={accent === 'primary' ? theme.primary : theme.secondaryDark}
                 />
               </View>
               <Text
@@ -151,7 +144,7 @@ export function AuthSplitLayout({
               </View>
             )}
           </View>
-        </LinearGradient>
+        </View>
 
         <View
           style={[
@@ -227,29 +220,6 @@ const styles = StyleSheet.create({
   brandContentMobile: {
     width: '100%',
   },
-  decorCircle: {
-    position: 'absolute',
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  decorCircleOne: {
-    width: 300,
-    height: 300,
-    top: -100,
-    right: -100,
-  },
-  decorCircleTwo: {
-    width: 200,
-    height: 200,
-    bottom: 50,
-    left: -80,
-  },
-  decorCircleThree: {
-    width: 150,
-    height: 150,
-    top: '50%',
-    right: 20,
-  },
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -273,7 +243,7 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontSize: 32,
-    letterSpacing: 2,
+    letterSpacing: 0,
   },
   logoTextMobile: {
     fontSize: 28,
@@ -283,7 +253,7 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     fontSize: 12,
-    letterSpacing: 1.3,
+    letterSpacing: 0,
     textTransform: 'uppercase',
     marginBottom: 10,
   },

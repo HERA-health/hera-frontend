@@ -1,23 +1,18 @@
-/**
- * BookingSidebar - Single card sidebar
- */
-
 import React, { useMemo } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
   Linking,
   Platform,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { BookingSidebarProps } from '../types';
-import { spacing, borderRadius, shadows } from '../../../constants/colors';
+import { AnimatedPressable, Button } from '../../../components/common';
 import { LocationMapPreview } from '../../../components/location';
+import { borderRadius, shadows, spacing } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { Theme } from '../../../constants/theme';
-import { AnimatedPressable, Button } from '../../../components/common';
+import { BookingSidebarProps } from '../types';
 
 const STRINGS = {
   perSession: '/sesión',
@@ -31,6 +26,8 @@ const STRINGS = {
   howToGet: 'Cómo llegar',
 };
 
+const SOFT_HEADER_COLORS = new Set(['#97B2A6', '#BDD7FF', '#DFD8CD']);
+
 const SectionDivider: React.FC<{ color: string }> = ({ color }) => (
   <View style={{ height: 0.5, backgroundColor: color }} />
 );
@@ -43,6 +40,10 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
 }) => {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const headerColor = gradientColors[0] || theme.primary;
+  const softHeader = SOFT_HEADER_COLORS.has(headerColor.toUpperCase());
+  const headerTextColor = softHeader ? theme.textPrimary : theme.textOnPrimary;
+  const headerMutedColor = softHeader ? theme.textSecondary : 'rgba(255,255,255,0.85)';
 
   const offersOnline = specialist.offersOnline ?? true;
   const offersInPerson = specialist.offersInPerson ?? false;
@@ -84,18 +85,19 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
 
   return (
     <View style={styles.sidebarCard}>
-      <LinearGradient
-        colors={gradientColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.priceHeader}
-      >
+      <View style={[styles.priceHeader, { backgroundColor: headerColor }]}>
         <View style={styles.priceRow}>
-          <Text style={styles.priceAmount}>{specialist.pricePerSession}€</Text>
-          <Text style={styles.priceLabel}>{STRINGS.perSession}</Text>
+          <Text style={[styles.priceAmount, { color: headerTextColor }]}>
+            {specialist.pricePerSession}€
+          </Text>
+          <Text style={[styles.priceLabel, { color: headerMutedColor }]}>
+            {STRINGS.perSession}
+          </Text>
         </View>
-        <Text style={styles.priceDuration}>{sessionDurationText}</Text>
-      </LinearGradient>
+        <Text style={[styles.priceDuration, { color: headerMutedColor }]}>
+          {sessionDurationText}
+        </Text>
+      </View>
 
       <View style={styles.infoSection}>
         <View style={styles.availabilityRow}>
@@ -112,18 +114,18 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
 
         <View style={styles.internalDivider} />
 
-        {offersOnline && (
+        {offersOnline ? (
           <View style={styles.modalityRow}>
             <Ionicons name="videocam-outline" size={16} color={theme.textSecondary} />
             <Text style={styles.modalityText}>{STRINGS.videoCall}</Text>
           </View>
-        )}
-        {offersInPerson && (
+        ) : null}
+        {offersInPerson ? (
           <View style={styles.modalityRow}>
             <Ionicons name="business-outline" size={16} color={theme.textSecondary} />
             <Text style={styles.modalityText}>{STRINGS.inPerson}</Text>
           </View>
-        )}
+        ) : null}
       </View>
 
       <SectionDivider color={theme.borderLight} />
@@ -145,7 +147,7 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
         ) : null}
       </View>
 
-      {showLocation && address && (
+      {showLocation && address ? (
         <>
           <SectionDivider color={theme.borderLight} />
           <View style={styles.locationSection}>
@@ -159,7 +161,7 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
               </View>
             </View>
 
-            {hasCoordinates && (
+            {hasCoordinates ? (
               <View style={styles.mapWrapper}>
                 <LocationMapPreview
                   lat={address.latitude!}
@@ -171,7 +173,7 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
                   height={140}
                 />
               </View>
-            )}
+            ) : null}
 
             <AnimatedPressable
               style={styles.mapLink}
@@ -184,7 +186,7 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
             </AnimatedPressable>
           </View>
         </>
-      )}
+      ) : null}
     </View>
   );
 };
@@ -210,16 +212,13 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   priceAmount: {
     fontSize: 32,
     fontWeight: '700',
-    color: theme.textOnPrimary,
   },
   priceLabel: {
     fontSize: 16,
     fontWeight: '400',
-    color: 'rgba(255,255,255,0.85)',
   },
   priceDuration: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.8)',
   },
   infoSection: {
     padding: spacing.md,
@@ -289,7 +288,7 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: theme.textSecondary,
-    letterSpacing: 0.5,
+    letterSpacing: 0,
     marginBottom: 10,
     ...(Platform.OS === 'web' ? { textTransform: 'uppercase' } as Record<string, string> : {}),
   },

@@ -1013,7 +1013,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       paddingHorizontal: spacing.md,
     },
     viewDropdownItemActive: {
-      backgroundColor: theme.primaryAlpha12,
+      backgroundColor: theme.secondaryMuted,
     },
     viewDropdownText: {
       fontSize: typography.fontSizes.sm,
@@ -1021,7 +1021,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       fontFamily: theme.fontSans,
     },
     viewDropdownTextActive: {
-      color: theme.primary,
+      color: theme.selection,
       fontFamily: theme.fontSansSemiBold,
     },
     bodyRow: {
@@ -1104,7 +1104,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       marginBottom: 4,
     },
     dayNumberToday: {
-      backgroundColor: theme.primary,
+      backgroundColor: theme.selection,
     },
     dayNumber: {
       fontSize: typography.fontSizes.xs,
@@ -1112,7 +1112,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       fontFamily: theme.fontSansMedium,
     },
     dayNumberTodayText: {
-      color: theme.textOnPrimary,
+      color: theme.actionPrimaryText,
       fontFamily: theme.fontSansBold,
     },
     dayNumberMuted: {
@@ -1163,7 +1163,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       paddingVertical: spacing.sm,
     },
     weekDayHeaderToday: {
-      backgroundColor: theme.primaryAlpha12,
+      backgroundColor: theme.secondaryMuted,
     },
     weekDayHeaderLabel: {
       fontSize: typography.fontSizes.xs,
@@ -1176,7 +1176,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       fontFamily: theme.fontSansBold,
     },
     weekDayHeaderNumberToday: {
-      color: theme.primary,
+      color: theme.selection,
     },
     weekBody: {
       flexDirection: 'row',
@@ -1207,7 +1207,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       borderBottomColor: theme.borderLight,
     },
     weekDayCellToday: {
-      backgroundColor: theme.primaryAlpha12,
+      backgroundColor: theme.secondaryAlpha12,
     },
     weekSessionBlock: {
       borderRadius: borderRadius.sm,
@@ -1289,7 +1289,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       fontFamily: theme.fontSansBold,
     },
     badgeGreen: {
-      backgroundColor: theme.primaryAlpha12,
+      backgroundColor: theme.primaryMuted,
       borderWidth: 1,
       borderColor: theme.primaryMuted,
       paddingHorizontal: spacing.sm,
@@ -1339,16 +1339,16 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       paddingVertical: spacing.xs,
       paddingHorizontal: spacing.xs,
       borderRadius: borderRadius.md,
-      backgroundColor: theme.primaryAlpha12,
+      backgroundColor: theme.secondaryMuted,
     },
     upcomingDayLabel: {
       fontSize: 10,
-      color: theme.primary,
+      color: theme.selection,
       fontFamily: theme.fontSansSemiBold,
     },
     upcomingTime: {
       fontSize: typography.fontSizes.xs,
-      color: theme.primary,
+      color: theme.selection,
       fontFamily: theme.fontSansBold,
     },
     upcomingInfo: {

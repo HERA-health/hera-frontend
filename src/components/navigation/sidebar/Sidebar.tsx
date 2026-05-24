@@ -33,8 +33,6 @@ export function Sidebar({
     ? 'Operativa clínica y agenda'
     : 'Tu espacio de bienestar';
 
-  const headerEyebrow = 'HEALTH ERA';
-
   const collapseButtonBase = {
     backgroundColor: sidebarTheme.background.subtle,
     borderColor: sidebarTheme.border,
@@ -65,7 +63,13 @@ export function Sidebar({
             isCollapsed ? styles.headerBlockCollapsed : null,
           ]}
         >
-          <View style={[logoStyles.headerRow, isCollapsed ? logoStyles.headerCollapsed : null]}>
+          <View
+            style={[
+              logoStyles.headerRow,
+              !isCollapsed ? styles.headerRowExpanded : null,
+              isCollapsed ? logoStyles.headerCollapsed : null,
+            ]}
+          >
             {isCollapsed && onToggleCollapse && (
               <AnimatedPressable
                 onPress={onToggleCollapse}
@@ -85,41 +89,26 @@ export function Sidebar({
             <View
               style={[
                 logoStyles.logoWrap,
-                { backgroundColor: sidebarTheme.background.subtle },
-                isCollapsed ? styles.logoWrapCollapsed : null,
+                {
+                  backgroundColor: isCollapsed
+                    ? sidebarTheme.background.subtle
+                    : 'transparent',
+                },
+                isCollapsed ? styles.logoWrapCollapsed : styles.logoWrapExpanded,
               ]}
             >
-              <StyledLogo size={isCollapsed ? 30 : 34} />
+              <StyledLogo
+                size={isCollapsed ? 30 : 44}
+                variant={isCollapsed ? 'mark' : 'wordmark'}
+              />
             </View>
-
-            {!isCollapsed && (
-              <View style={logoStyles.brandCopy}>
-                <Text
-                  style={[
-                    logoStyles.eyebrow,
-                    { color: sidebarTheme.text.muted, fontFamily: theme.fontSansSemiBold },
-                  ]}
-                >
-                  {headerEyebrow}
-                </Text>
-                <Text
-                  style={[
-                    logoStyles.brandName,
-                    { color: sidebarTheme.text.primary, fontFamily: theme.fontDisplayBold },
-                  ]}
-                  numberOfLines={1}
-                >
-                  HERA
-                </Text>
-              </View>
-            )}
 
             {!isCollapsed && onToggleCollapse && (
               <AnimatedPressable
                 onPress={onToggleCollapse}
                 hoverLift={false}
                 pressScale={0.92}
-                style={[styles.collapseButton, collapseButtonBase]}
+                style={[styles.collapseButton, styles.collapseButtonExpanded, collapseButtonBase]}
                 accessibilityLabel="Colapsar menú"
               >
                 <Ionicons
@@ -218,6 +207,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: 0,
   },
+  headerRowExpanded: {
+    minHeight: 56,
+    justifyContent: 'center',
+    position: 'relative',
+  },
   collapseButton: {
     width: 32,
     height: 32,
@@ -226,8 +220,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
   },
+  collapseButtonExpanded: {
+    position: 'absolute',
+    right: 0,
+    top: 12,
+  },
   collapseButtonCollapsed: {
     marginBottom: 2,
+  },
+  logoWrapExpanded: {
+    width: 132,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logoWrapCollapsed: {
     width: 38,

@@ -167,7 +167,7 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
                   },
                 ]}
               >
-                <StyledLogo size={22} />
+                <StyledLogo size={22} variant="mark" />
               </View>
               <View
                 style={[

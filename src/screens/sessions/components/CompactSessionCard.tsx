@@ -11,6 +11,7 @@ import { CompactSessionCardProps } from '../types';
 import { heraLanding, colors, spacing, borderRadius } from '../../../constants/colors';
 import {
   formatTime,
+  getStatusColor,
   getSessionTypeIcon,
   getStatusLabel,
 } from '../utils/sessionHelpers';
@@ -32,18 +33,7 @@ const CompactSessionCard: React.FC<CompactSessionCardProps> = ({
   const canShowJoin = isVideoCall && !isCompleted && !isCancelled;
 
   const getStatusStyle = () => {
-    switch (session.status) {
-      case 'CONFIRMED':
-        return { dotColor: '#7BA377' };
-      case 'PENDING':
-        return { dotColor: '#D9A84F' };
-      case 'COMPLETED':
-        return { dotColor: '#9BA39B' };
-      case 'CANCELLED':
-        return { dotColor: '#E89D88' };
-      default:
-        return { dotColor: '#6B7B6B' };
-    }
+    return { dotColor: getStatusColor(session.status) };
   };
 
   const statusStyle = getStatusStyle();

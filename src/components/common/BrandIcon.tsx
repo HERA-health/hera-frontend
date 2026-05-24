@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { branding } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface BrandIconProps {
   name: keyof typeof Ionicons.glyphMap;
@@ -15,27 +14,28 @@ export const BrandIcon: React.FC<BrandIconProps> = ({
   size = 24,
   withBackground = false,
 }) => {
+  const { theme } = useTheme();
+
   if (!withBackground) {
-    // Just colored icon without background
-    return <Ionicons name={name} size={size} color={branding.accent} />;
+    return <Ionicons name={name} size={size} color={theme.primary} />;
   }
 
-  // Icon with gradient background circle
   const circleSize = size + 16;
 
   return (
-    <LinearGradient
-      colors={[branding.accent, branding.accentLight]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.circle, {
-        width: circleSize,
-        height: circleSize,
-        borderRadius: circleSize / 2,
-      }]}
+    <View
+      style={[
+        styles.circle,
+        {
+          width: circleSize,
+          height: circleSize,
+          borderRadius: circleSize / 2,
+          backgroundColor: theme.primary,
+        },
+      ]}
     >
-      <Ionicons name={name} size={size} color="#fff" />
-    </LinearGradient>
+      <Ionicons name={name} size={size} color={theme.textOnPrimary} />
+    </View>
   );
 };
 

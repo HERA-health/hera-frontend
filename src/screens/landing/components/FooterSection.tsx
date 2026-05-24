@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyledLogo } from '../../../components/common/StyledLogo';
+import { heraLanding } from '../../../constants/colors';
 import { getLegalDocumentUrl } from '../../../constants/legal';
 
 const webAnchorStyle: CSSProperties = {
@@ -130,8 +131,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
         >
           <View style={[styles.brandColumn, isDesktop && styles.brandColumnDesktop]}>
             <View style={styles.logoRow}>
-              <StyledLogo size={48} />
-              <Text style={styles.brandName}>HERA</Text>
+              <StyledLogo size={52} />
             </View>
             <Text style={styles.tagline}>Workspace para salud mental</Text>
             <Text style={styles.brandDescription}>
@@ -179,7 +179,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
             (c) {new Date().getFullYear()} HERA - Workspace para especialistas y pacientes
           </Text>
           <Text style={styles.madeWith}>
-            Hecho con <Ionicons name="heart" size={12} color="#D9A84F" /> en España
+            Hecho con <Ionicons name="heart" size={12} color={heraLanding.gold} /> en España
           </Text>
         </View>
       </View>
@@ -189,7 +189,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#2C3E2C',
+    backgroundColor: heraLanding.secondaryDark,
     paddingTop: 60,
     paddingBottom: 32,
     paddingHorizontal: 20,
@@ -220,14 +220,7 @@ const styles = StyleSheet.create({
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
     marginBottom: 8,
-  },
-  brandName: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 1,
   },
   tagline: {
     fontSize: 14,

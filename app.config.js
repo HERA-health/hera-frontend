@@ -5,7 +5,7 @@ export default {
     version: "1.0.0",
     scheme: "hera",
     orientation: "portrait",
-    icon: "./assets/main-logo.png",
+    icon: "./assets/icon.png",
     userInterfaceStyle: "automatic",
     plugins: [
       "expo-font",
@@ -13,9 +13,9 @@ export default {
     ],
     newArchEnabled: true,
     splash: {
-      image: "./assets/main-logo.png",
+      image: "./assets/splash-icon.png",
       resizeMode: "contain",
-      backgroundColor: "#F4EDE4"
+      backgroundColor: "#FAF8F3"
     },
     ios: {
       supportsTablet: true,
@@ -26,8 +26,8 @@ export default {
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/main-logo.png",
-        backgroundColor: "#F4EDE4"
+        foregroundImage: "./assets/adaptive-icon.png",
+        backgroundColor: "#FAF8F3"
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
@@ -51,7 +51,7 @@ export default {
       }
     },
     web: {
-      favicon: "./assets/main-logo.png",
+      favicon: "./assets/favicon.png",
       bundler: "metro"
     },
     extra: {

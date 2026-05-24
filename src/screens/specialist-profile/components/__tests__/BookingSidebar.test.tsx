@@ -58,7 +58,7 @@ describe('BookingSidebar', () => {
       <BookingSidebar
         specialist={specialist as never}
         onBookPress={jest.fn()}
-        gradientColors={['#8B9D83', '#B8A7C9']}
+        gradientColors={['#006884', '#006884']}
         canBook={false}
       />
     );

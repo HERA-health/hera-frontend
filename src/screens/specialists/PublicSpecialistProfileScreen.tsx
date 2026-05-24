@@ -181,8 +181,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         hoverLift={false}
         pressScale={0.985}
       >
-        <StyledLogo size={32} />
-        <Text style={styles.heraLogoText}>HERA</Text>
+        <StyledLogo size={36} />
       </AnimatedPressable>
 
       {!isAuthenticated && (
@@ -505,14 +504,7 @@ const createStyles = (
   heraLogoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
     minHeight: 44,
-  },
-  heraLogoText: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: theme.textPrimary,
-    letterSpacing: 0.8,
   },
   heraHeaderActions: {
     flexDirection: 'row',

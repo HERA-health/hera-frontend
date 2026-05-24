@@ -11,100 +11,100 @@ exports[`session email templates renders client_session_confirmed with video cal
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Tu cita ya está confirmada</title>
       </head>
-      <body style="margin: 0; padding: 0; background: #F5F7F5; font-family: Arial, Helvetica, sans-serif; color: #2C3E2C;">
+      <body style="margin: 0; padding: 0; background: #F5F0E8; font-family: Arial, Helvetica, sans-serif; color: #3E5C4F;">
         <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">
           Tu cita ya está confirmada · domingo, 10 de mayo de 2026
         </div>
 
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background: #F5F7F5; padding: 24px 12px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background: #F5F0E8; padding: 24px 12px;">
           <tr>
             <td align="center">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 640px;">
                 <tr>
-                  <td style="padding-bottom: 14px; color: #9BA89B; font-size: 12px; letter-spacing: 0.8px; text-transform: uppercase;">
+                  <td style="padding-bottom: 14px; color: #8D948E; font-size: 12px; letter-spacing: 0; text-transform: uppercase;">
                     HERA
                   </td>
                 </tr>
                 <tr>
-                  <td style="background: #FFFFFF; border: 1px solid #E2E8E2; border-radius: 24px; padding: 28px;">
-                    <div style="display: inline-block; padding: 6px 12px; border-radius: 999px; background: #D4DED0; color: #8B9D83; font-size: 12px; font-weight: 700; letter-spacing: 0.3px;">
+                  <td style="background: #FFFFFF; border: 1px solid #DFD8CD; border-radius: 24px; padding: 28px;">
+                    <div style="display: inline-block; padding: 6px 12px; border-radius: 999px; background: #D8E8EA; color: #006884; font-size: 12px; font-weight: 700; letter-spacing: 0;">
                       Cita confirmada
                     </div>
 
-                    <h1 style="margin: 18px 0 10px; font-size: 30px; line-height: 1.2; color: #2C3E2C;">
+                    <h1 style="margin: 18px 0 10px; font-size: 30px; line-height: 1.2; color: #3E5C4F;">
                       Tu cita ya está confirmada
                     </h1>
 
-                    <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.7; color: #6B7B6B;">
+                    <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.7; color: #65746D;">
                       Dra. Elena Martín ha confirmado tu cita. Aquí tienes el resumen actualizado para que llegues con todo claro.
                     </p>
 
-                    <div style="display: inline-block; margin-bottom: 22px; padding: 8px 14px; border-radius: 999px; background: #F0F7F0; color: #7BA377; border: 1px solid #7BA377; font-size: 13px; font-weight: 700;">
+                    <div style="display: inline-block; margin-bottom: 22px; padding: 8px 14px; border-radius: 999px; background: #E4EDE8; color: #3E5C4F; border: 1px solid #3E5C4F; font-size: 13px; font-weight: 700;">
                       Confirmada
                     </div>
 
-                    <div style="border: 1px solid #E2E8E2; border-radius: 18px; background: #FCFDFC; padding: 18px 20px;">
+                    <div style="border: 1px solid #DFD8CD; border-radius: 18px; background: #FFFCF7; padding: 18px 20px;">
                       <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                         
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Especialista
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Dra. Elena Martín
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Fecha
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             domingo, 10 de mayo de 2026
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Hora
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             11:30
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Duración
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             60 minutos
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Modalidad
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Videollamada
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Estado
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Confirmada
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Zona horaria
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Europe/Madrid
           </td>
         </tr>
@@ -115,7 +115,7 @@ exports[`session email templates renders client_session_confirmed with video cal
                     <div style="margin-top: 24px;">
                       <a
                         href="https://www.health-hera.com/sessions/session-123"
-                        style="display: inline-block; background: #8B9D83; color: #FFFFFF; padding: 14px 20px; border-radius: 999px; font-size: 14px; font-weight: 700; text-decoration: none;"
+                        style="display: inline-block; background: #006884; color: #FFFFFF; padding: 14px 20px; border-radius: 999px; font-size: 14px; font-weight: 700; text-decoration: none;"
                       >
                         Ver detalles de la cita
                       </a>
@@ -126,7 +126,7 @@ exports[`session email templates renders client_session_confirmed with video cal
       
             <a
               href="https://meet.hera.app/session-123"
-              style="display: inline-block; margin-right: 12px; margin-bottom: 10px; color: #B8A8D9; font-size: 13px; font-weight: 600; text-decoration: none;"
+              style="display: inline-block; margin-right: 12px; margin-bottom: 10px; color: #3E5C4F; font-size: 13px; font-weight: 600; text-decoration: none;"
             >
               Abrir videollamada
             </a>
@@ -134,8 +134,8 @@ exports[`session email templates renders client_session_confirmed with video cal
     </div>
   
 
-                    <div style="margin-top: 28px; padding-top: 18px; border-top: 1px solid #E2E8E2;">
-                      <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #9BA89B;">
+                    <div style="margin-top: 28px; padding-top: 18px; border-top: 1px solid #DFD8CD;">
+                      <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #8D948E;">
                         Todos los horarios están expresados en Europe/Madrid. Si la cita cambia de estado o de hora, HERA enviará un nuevo aviso.
                       </p>
                     </div>
@@ -183,100 +183,100 @@ exports[`session email templates renders client_session_reminder_24h with a stab
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Mañana tienes una cita en HERA</title>
       </head>
-      <body style="margin: 0; padding: 0; background: #F5F7F5; font-family: Arial, Helvetica, sans-serif; color: #2C3E2C;">
+      <body style="margin: 0; padding: 0; background: #F5F0E8; font-family: Arial, Helvetica, sans-serif; color: #3E5C4F;">
         <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">
           Mañana tienes una cita en HERA · domingo, 10 de mayo de 2026
         </div>
 
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background: #F5F7F5; padding: 24px 12px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background: #F5F0E8; padding: 24px 12px;">
           <tr>
             <td align="center">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 640px;">
                 <tr>
-                  <td style="padding-bottom: 14px; color: #9BA89B; font-size: 12px; letter-spacing: 0.8px; text-transform: uppercase;">
+                  <td style="padding-bottom: 14px; color: #8D948E; font-size: 12px; letter-spacing: 0; text-transform: uppercase;">
                     HERA
                   </td>
                 </tr>
                 <tr>
-                  <td style="background: #FFFFFF; border: 1px solid #E2E8E2; border-radius: 24px; padding: 28px;">
-                    <div style="display: inline-block; padding: 6px 12px; border-radius: 999px; background: #D4DED0; color: #8B9D83; font-size: 12px; font-weight: 700; letter-spacing: 0.3px;">
+                  <td style="background: #FFFFFF; border: 1px solid #DFD8CD; border-radius: 24px; padding: 28px;">
+                    <div style="display: inline-block; padding: 6px 12px; border-radius: 999px; background: #D8E8EA; color: #006884; font-size: 12px; font-weight: 700; letter-spacing: 0;">
                       Recordatorio 24h
                     </div>
 
-                    <h1 style="margin: 18px 0 10px; font-size: 30px; line-height: 1.2; color: #2C3E2C;">
+                    <h1 style="margin: 18px 0 10px; font-size: 30px; line-height: 1.2; color: #3E5C4F;">
                       Mañana tienes una cita en HERA
                     </h1>
 
-                    <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.7; color: #6B7B6B;">
+                    <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.7; color: #65746D;">
                       Te recordamos que tu cita con Dra. Elena Martín está próxima. Revisa la hora, la modalidad y los accesos necesarios con antelación.
                     </p>
 
-                    <div style="display: inline-block; margin-bottom: 22px; padding: 8px 14px; border-radius: 999px; background: #D4DED0; color: #2C3E2C; border: 1px solid #8B9D83; font-size: 13px; font-weight: 700;">
+                    <div style="display: inline-block; margin-bottom: 22px; padding: 8px 14px; border-radius: 999px; background: #D8E8EA; color: #3E5C4F; border: 1px solid #006884; font-size: 13px; font-weight: 700;">
                       Confirmada
                     </div>
 
-                    <div style="border: 1px solid #E2E8E2; border-radius: 18px; background: #FCFDFC; padding: 18px 20px;">
+                    <div style="border: 1px solid #DFD8CD; border-radius: 18px; background: #FFFCF7; padding: 18px 20px;">
                       <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                         
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Especialista
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Dra. Elena Martín
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Fecha
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             domingo, 10 de mayo de 2026
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Hora
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             11:30
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Duración
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             60 minutos
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Modalidad
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Videollamada
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Estado
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Confirmada
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Zona horaria
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Europe/Madrid
           </td>
         </tr>
@@ -287,7 +287,7 @@ exports[`session email templates renders client_session_reminder_24h with a stab
                     <div style="margin-top: 24px;">
                       <a
                         href="https://www.health-hera.com/sessions/session-123"
-                        style="display: inline-block; background: #8B9D83; color: #FFFFFF; padding: 14px 20px; border-radius: 999px; font-size: 14px; font-weight: 700; text-decoration: none;"
+                        style="display: inline-block; background: #006884; color: #FFFFFF; padding: 14px 20px; border-radius: 999px; font-size: 14px; font-weight: 700; text-decoration: none;"
                       >
                         Ver detalles de la cita
                       </a>
@@ -298,7 +298,7 @@ exports[`session email templates renders client_session_reminder_24h with a stab
       
             <a
               href="https://meet.hera.app/session-123"
-              style="display: inline-block; margin-right: 12px; margin-bottom: 10px; color: #B8A8D9; font-size: 13px; font-weight: 600; text-decoration: none;"
+              style="display: inline-block; margin-right: 12px; margin-bottom: 10px; color: #3E5C4F; font-size: 13px; font-weight: 600; text-decoration: none;"
             >
               Abrir videollamada
             </a>
@@ -306,8 +306,8 @@ exports[`session email templates renders client_session_reminder_24h with a stab
     </div>
   
 
-                    <div style="margin-top: 28px; padding-top: 18px; border-top: 1px solid #E2E8E2;">
-                      <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #9BA89B;">
+                    <div style="margin-top: 28px; padding-top: 18px; border-top: 1px solid #DFD8CD;">
+                      <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #8D948E;">
                         Todos los horarios están expresados en Europe/Madrid. Si la cita cambia de estado o de hora, HERA enviará un nuevo aviso.
                       </p>
                     </div>
@@ -355,100 +355,100 @@ exports[`session email templates renders specialist_session_cancelled without fa
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Se ha cancelado una cita</title>
       </head>
-      <body style="margin: 0; padding: 0; background: #F5F7F5; font-family: Arial, Helvetica, sans-serif; color: #2C3E2C;">
+      <body style="margin: 0; padding: 0; background: #F5F0E8; font-family: Arial, Helvetica, sans-serif; color: #3E5C4F;">
         <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">
           Se ha cancelado una cita · domingo, 10 de mayo de 2026
         </div>
 
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background: #F5F7F5; padding: 24px 12px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background: #F5F0E8; padding: 24px 12px;">
           <tr>
             <td align="center">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 640px;">
                 <tr>
-                  <td style="padding-bottom: 14px; color: #9BA89B; font-size: 12px; letter-spacing: 0.8px; text-transform: uppercase;">
+                  <td style="padding-bottom: 14px; color: #8D948E; font-size: 12px; letter-spacing: 0; text-transform: uppercase;">
                     HERA
                   </td>
                 </tr>
                 <tr>
-                  <td style="background: #FFFFFF; border: 1px solid #E2E8E2; border-radius: 24px; padding: 28px;">
-                    <div style="display: inline-block; padding: 6px 12px; border-radius: 999px; background: #D4DED0; color: #8B9D83; font-size: 12px; font-weight: 700; letter-spacing: 0.3px;">
+                  <td style="background: #FFFFFF; border: 1px solid #DFD8CD; border-radius: 24px; padding: 28px;">
+                    <div style="display: inline-block; padding: 6px 12px; border-radius: 999px; background: #D8E8EA; color: #006884; font-size: 12px; font-weight: 700; letter-spacing: 0;">
                       Agenda actualizada
                     </div>
 
-                    <h1 style="margin: 18px 0 10px; font-size: 30px; line-height: 1.2; color: #2C3E2C;">
+                    <h1 style="margin: 18px 0 10px; font-size: 30px; line-height: 1.2; color: #3E5C4F;">
                       Se ha cancelado una cita
                     </h1>
 
-                    <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.7; color: #6B7B6B;">
+                    <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.7; color: #65746D;">
                       Lucía Gómez ya no asistirá a la cita programada. Tu agenda se ha actualizado para que puedas reorganizar ese hueco.
                     </p>
 
-                    <div style="display: inline-block; margin-bottom: 22px; padding: 8px 14px; border-radius: 999px; background: #FCEEEA; color: #E89D88; border: 1px solid #E89D88; font-size: 13px; font-weight: 700;">
+                    <div style="display: inline-block; margin-bottom: 22px; padding: 8px 14px; border-radius: 999px; background: #F1E7D8; color: #A66F48; border: 1px solid #A66F48; font-size: 13px; font-weight: 700;">
                       Cancelada
                     </div>
 
-                    <div style="border: 1px solid #E2E8E2; border-radius: 18px; background: #FCFDFC; padding: 18px 20px;">
+                    <div style="border: 1px solid #DFD8CD; border-radius: 18px; background: #FFFCF7; padding: 18px 20px;">
                       <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                         
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Paciente
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Lucía Gómez
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Fecha
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             domingo, 10 de mayo de 2026
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Hora
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             11:30
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Duración
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             60 minutos
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Modalidad
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Llamada telefónica
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Estado
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Cancelada
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Zona horaria
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Europe/Madrid
           </td>
         </tr>
@@ -459,7 +459,7 @@ exports[`session email templates renders specialist_session_cancelled without fa
                     <div style="margin-top: 24px;">
                       <a
                         href="https://www.health-hera.com/sessions/session-123"
-                        style="display: inline-block; background: #8B9D83; color: #FFFFFF; padding: 14px 20px; border-radius: 999px; font-size: 14px; font-weight: 700; text-decoration: none;"
+                        style="display: inline-block; background: #006884; color: #FFFFFF; padding: 14px 20px; border-radius: 999px; font-size: 14px; font-weight: 700; text-decoration: none;"
                       >
                         Ver agenda
                       </a>
@@ -467,8 +467,8 @@ exports[`session email templates renders specialist_session_cancelled without fa
 
                     
 
-                    <div style="margin-top: 28px; padding-top: 18px; border-top: 1px solid #E2E8E2;">
-                      <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #9BA89B;">
+                    <div style="margin-top: 28px; padding-top: 18px; border-top: 1px solid #DFD8CD;">
+                      <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #8D948E;">
                         Todos los horarios están expresados en Europe/Madrid. Si la cita cambia de estado o de hora, HERA enviará un nuevo aviso.
                       </p>
                     </div>
@@ -513,109 +513,109 @@ exports[`session email templates renders specialist_session_requested with in-pe
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Tienes una nueva solicitud de cita</title>
       </head>
-      <body style="margin: 0; padding: 0; background: #F5F7F5; font-family: Arial, Helvetica, sans-serif; color: #2C3E2C;">
+      <body style="margin: 0; padding: 0; background: #F5F0E8; font-family: Arial, Helvetica, sans-serif; color: #3E5C4F;">
         <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">
           Tienes una nueva solicitud de cita · domingo, 10 de mayo de 2026
         </div>
 
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background: #F5F7F5; padding: 24px 12px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background: #F5F0E8; padding: 24px 12px;">
           <tr>
             <td align="center">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 640px;">
                 <tr>
-                  <td style="padding-bottom: 14px; color: #9BA89B; font-size: 12px; letter-spacing: 0.8px; text-transform: uppercase;">
+                  <td style="padding-bottom: 14px; color: #8D948E; font-size: 12px; letter-spacing: 0; text-transform: uppercase;">
                     HERA
                   </td>
                 </tr>
                 <tr>
-                  <td style="background: #FFFFFF; border: 1px solid #E2E8E2; border-radius: 24px; padding: 28px;">
-                    <div style="display: inline-block; padding: 6px 12px; border-radius: 999px; background: #D4DED0; color: #8B9D83; font-size: 12px; font-weight: 700; letter-spacing: 0.3px;">
+                  <td style="background: #FFFFFF; border: 1px solid #DFD8CD; border-radius: 24px; padding: 28px;">
+                    <div style="display: inline-block; padding: 6px 12px; border-radius: 999px; background: #D8E8EA; color: #006884; font-size: 12px; font-weight: 700; letter-spacing: 0;">
                       Nueva reserva
                     </div>
 
-                    <h1 style="margin: 18px 0 10px; font-size: 30px; line-height: 1.2; color: #2C3E2C;">
+                    <h1 style="margin: 18px 0 10px; font-size: 30px; line-height: 1.2; color: #3E5C4F;">
                       Tienes una nueva solicitud de cita
                     </h1>
 
-                    <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.7; color: #6B7B6B;">
+                    <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.7; color: #65746D;">
                       Lucía Gómez ha solicitado una cita contigo en HERA. Revisa la agenda para confirmar o gestionar la solicitud.
                     </p>
 
-                    <div style="display: inline-block; margin-bottom: 22px; padding: 8px 14px; border-radius: 999px; background: #D4DED0; color: #2C3E2C; border: 1px solid #8B9D83; font-size: 13px; font-weight: 700;">
+                    <div style="display: inline-block; margin-bottom: 22px; padding: 8px 14px; border-radius: 999px; background: #D8E8EA; color: #3E5C4F; border: 1px solid #006884; font-size: 13px; font-weight: 700;">
                       Pendiente de confirmación
                     </div>
 
-                    <div style="border: 1px solid #E2E8E2; border-radius: 18px; background: #FCFDFC; padding: 18px 20px;">
+                    <div style="border: 1px solid #DFD8CD; border-radius: 18px; background: #FFFCF7; padding: 18px 20px;">
                       <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                         
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Paciente
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Lucía Gómez
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Fecha
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             domingo, 10 de mayo de 2026
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Hora
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             11:30
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Duración
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             60 minutos
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Modalidad
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Consulta presencial
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Estado
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Pendiente de confirmación
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Zona horaria
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Europe/Madrid
           </td>
         </tr>
       
         <tr>
-          <td style="padding: 10px 0; color: #6B7B6B; font-size: 13px; width: 34%; vertical-align: top;">
+          <td style="padding: 10px 0; color: #65746D; font-size: 13px; width: 34%; vertical-align: top;">
             Ubicación
           </td>
-          <td style="padding: 10px 0; color: #2C3E2C; font-size: 14px; font-weight: 600; vertical-align: top;">
+          <td style="padding: 10px 0; color: #3E5C4F; font-size: 14px; font-weight: 600; vertical-align: top;">
             Calle Alcalá 14, Madrid, 28014, España
           </td>
         </tr>
@@ -626,7 +626,7 @@ exports[`session email templates renders specialist_session_requested with in-pe
                     <div style="margin-top: 24px;">
                       <a
                         href="https://www.health-hera.com/sessions/session-123"
-                        style="display: inline-block; background: #8B9D83; color: #FFFFFF; padding: 14px 20px; border-radius: 999px; font-size: 14px; font-weight: 700; text-decoration: none;"
+                        style="display: inline-block; background: #006884; color: #FFFFFF; padding: 14px 20px; border-radius: 999px; font-size: 14px; font-weight: 700; text-decoration: none;"
                       >
                         Revisar solicitud
                       </a>
@@ -637,7 +637,7 @@ exports[`session email templates renders specialist_session_requested with in-pe
       
             <a
               href="https://maps.google.com/?q=Calle+Alcala+14+Madrid"
-              style="display: inline-block; margin-right: 12px; margin-bottom: 10px; color: #B8A8D9; font-size: 13px; font-weight: 600; text-decoration: none;"
+              style="display: inline-block; margin-right: 12px; margin-bottom: 10px; color: #3E5C4F; font-size: 13px; font-weight: 600; text-decoration: none;"
             >
               Abrir indicaciones
             </a>
@@ -645,8 +645,8 @@ exports[`session email templates renders specialist_session_requested with in-pe
     </div>
   
 
-                    <div style="margin-top: 28px; padding-top: 18px; border-top: 1px solid #E2E8E2;">
-                      <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #9BA89B;">
+                    <div style="margin-top: 28px; padding-top: 18px; border-top: 1px solid #DFD8CD;">
+                      <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #8D948E;">
                         Todos los horarios están expresados en Europe/Madrid. Si la cita cambia de estado o de hora, HERA enviará un nuevo aviso.
                       </p>
                     </div>

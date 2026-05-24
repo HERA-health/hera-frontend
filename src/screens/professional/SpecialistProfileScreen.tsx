@@ -36,7 +36,6 @@ import {
   Share,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
@@ -218,7 +217,7 @@ const SESSION_TYPES = [
 // MI ESPACIO CONSTANTS
 // ============================================================================
 
-interface GradientOption {
+interface ProfileColorOption {
   id: string;
   name: string;
   colors: [string, string];
@@ -251,22 +250,22 @@ interface ProfilePalette {
   textSecondary: string;
 }
 
-const GRADIENTS: GradientOption[] = [
-  { id: 'salvia-lavanda', name: 'Salvia & Lavanda', colors: ['#8B9D83', '#B8A8D9'] },
-  { id: 'menta-rosa', name: 'Menta & Rosa', colors: ['#A8C4B8', '#D4A5C9'] },
-  { id: 'cielo-lila', name: 'Cielo & Lila', colors: ['#B8C9E8', '#C8B8D9'] },
-  { id: 'melocoton-rosa', name: 'Melocotón & Rosa', colors: ['#E8C4A8', '#D4A5C9'] },
-  { id: 'oceano-salvia', name: 'Océano & Salvia', colors: ['#9DB8C8', '#8B9D83'] },
-  { id: 'prado-azul', name: 'Prado & Azul', colors: ['#C8D8B8', '#A8C4D8'] },
-  { id: 'arena-tostado', name: 'Arena & Tostado', colors: ['#E8D4C8', '#C8B8A8'] },
-  { id: 'amatista-coral', name: 'Amatista & Coral', colors: ['#D4C8E8', '#E8C4C8'] },
+const PROFILE_COLORS: ProfileColorOption[] = [
+  { id: 'salvia-lavanda', name: 'Mente', colors: ['#006884', '#006884'] },
+  { id: 'menta-rosa', name: 'Camino', colors: ['#97B2A6', '#97B2A6'] },
+  { id: 'cielo-lila', name: 'Innovación', colors: ['#BDD7FF', '#BDD7FF'] },
+  { id: 'melocoton-rosa', name: 'Confianza', colors: ['#DFD8CD', '#DFD8CD'] },
+  { id: 'oceano-salvia', name: 'Mente Profunda', colors: ['#006884', '#006884'] },
+  { id: 'prado-azul', name: 'Camino Claro', colors: ['#97B2A6', '#97B2A6'] },
+  { id: 'arena-tostado', name: 'Emociones', colors: ['#F5F0E8', '#F5F0E8'] },
+  { id: 'amatista-coral', name: 'Crecimiento', colors: ['#3E5C4F', '#3E5C4F'] },
 ];
 
 const STRINGS = {
   miEspacio: {
     tabLabel: 'Mi Espacio',
-    gradientTitle: 'Apariencia del perfil',
-    gradientSubtitle: 'Elige el gradiente de fondo que verán tus pacientes',
+    profileColorTitle: 'Apariencia del perfil',
+    profileColorSubtitle: 'Elige el color de fondo que verán tus pacientes',
     galleryLabel: 'Galería',
     gallerySubtitle: 'Añade fotos de tu consulta o de ti misma. Máximo 6 fotos.',
     galleryDeleteConfirm: '¿Eliminar esta foto?',
@@ -1386,14 +1385,11 @@ export function SpecialistProfileScreen() {
           {profileData.avatar ? (
             <Image source={{ uri: profileData.avatar }} style={styles.previewAvatar} />
           ) : (
-            <LinearGradient
-              colors={[palette.primary, palette.primaryDark]}
-              style={styles.previewAvatar}
-            >
+            <View style={[styles.previewAvatar, { backgroundColor: palette.primary }]}>
               <Text style={styles.previewAvatarText}>
                 {profileData.fullName.charAt(0).toUpperCase() || 'P'}
               </Text>
-            </LinearGradient>
+            </View>
           )}
           <Text style={styles.previewName} numberOfLines={1}>
             {profileData.fullName || 'Tu nombre'}
@@ -1697,41 +1693,36 @@ export function SpecialistProfileScreen() {
 
   const renderMiEspacioTab = () => (
     <View style={styles.tabContent}>
-      {/* Section 1: Gradient Picker */}
+      {/* Section 1: Profile color picker */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{STRINGS.miEspacio.gradientTitle}</Text>
-        <Text style={miEspacioStyles.subtitle}>{STRINGS.miEspacio.gradientSubtitle}</Text>
-        <View style={miEspacioStyles.gradientGrid}>
-          {GRADIENTS.map((gradient) => {
-            const isSelected = profileData.gradientId === gradient.id;
+        <Text style={styles.sectionTitle}>{STRINGS.miEspacio.profileColorTitle}</Text>
+        <Text style={miEspacioStyles.subtitle}>{STRINGS.miEspacio.profileColorSubtitle}</Text>
+        <View style={miEspacioStyles.colorGrid}>
+          {PROFILE_COLORS.map((profileColor) => {
+            const isSelected = profileData.gradientId === profileColor.id;
             return (
               <TouchableOpacity
-                key={gradient.id}
+                key={profileColor.id}
                 style={[
-                  miEspacioStyles.gradientCard,
-                  isSelected && miEspacioStyles.gradientCardSelected,
+                  miEspacioStyles.colorCard,
+                  isSelected && miEspacioStyles.colorCardSelected,
                   { width: isMobile ? '48%' as unknown as number : 160 },
                 ]}
-                onPress={() => updateField('gradientId', gradient.id)}
+                onPress={() => updateField('gradientId', profileColor.id)}
                 activeOpacity={0.7}
               >
-                <LinearGradient
-                  colors={gradient.colors}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={miEspacioStyles.gradientPreview}
-                >
+                <View style={[miEspacioStyles.colorPreview, { backgroundColor: profileColor.colors[0] }]}>
                   {isSelected && (
-                    <View style={miEspacioStyles.gradientCheck}>
+                    <View style={miEspacioStyles.colorCheck}>
                       <Ionicons name="checkmark" size={16} color={palette.textOnCard} />
                     </View>
                   )}
-                </LinearGradient>
+                </View>
                 <Text style={[
-                  miEspacioStyles.gradientName,
-                  isSelected && miEspacioStyles.gradientNameSelected,
+                  miEspacioStyles.colorName,
+                  isSelected && miEspacioStyles.colorNameSelected,
                 ]} numberOfLines={1}>
-                  {gradient.name}
+                  {profileColor.name}
                 </Text>
               </TouchableOpacity>
             );
@@ -1824,14 +1815,11 @@ export function SpecialistProfileScreen() {
             {profileData.avatar ? (
               <Image source={{ uri: profileData.avatar }} style={styles.avatarLarge} />
             ) : (
-              <LinearGradient
-                colors={[palette.primary, palette.primaryDark]}
-                style={styles.avatarLarge}
-              >
+              <View style={[styles.avatarLarge, { backgroundColor: palette.primary }]}>
                 <Text style={styles.avatarLargeText}>
                   {profileData.fullName.charAt(0).toUpperCase() || 'P'}
                 </Text>
-              </LinearGradient>
+              </View>
             )}
             {isUploadingAvatar && (
               <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 60 }}>
@@ -3241,7 +3229,7 @@ function createStyles(
   return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: palette.background, // #F5F7F5 - THE ABSOLUTE TRUTH
+    backgroundColor: palette.background,
   },
   loadingContainer: {
     flex: 1,
@@ -4906,13 +4894,13 @@ function createMiEspacioStyles(palette: ProfilePalette) {
     marginBottom: spacing.md,
     },
 
-  // Gradient grid
-    gradientGrid: {
+  // Profile color grid
+    colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
     },
-    gradientCard: {
+    colorCard: {
     borderWidth: 0.5,
     borderColor: palette.border,
     borderRadius: borderRadius.md,
@@ -4920,18 +4908,18 @@ function createMiEspacioStyles(palette: ProfilePalette) {
     alignItems: 'center',
     minHeight: 44,
     },
-    gradientCardSelected: {
+    colorCardSelected: {
     borderWidth: 2,
     borderColor: palette.primary,
     },
-    gradientPreview: {
+    colorPreview: {
     width: '100%',
     height: 70,
     borderRadius: borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
     },
-    gradientCheck: {
+    colorCheck: {
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -4939,13 +4927,13 @@ function createMiEspacioStyles(palette: ProfilePalette) {
     justifyContent: 'center',
     alignItems: 'center',
     },
-    gradientName: {
+    colorName: {
     fontSize: typography.fontSizes.xs,
     color: palette.textSecondary,
     marginTop: spacing.xs,
     textAlign: 'center',
     },
-    gradientNameSelected: {
+    colorNameSelected: {
     color: palette.primary,
     fontWeight: typography.fontWeights.semibold,
     },

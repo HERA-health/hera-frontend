@@ -8,7 +8,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { AnimatedPressable } from '../../common/AnimatedPressable';
 import { TourTarget } from '../../onboarding/TourTarget';
@@ -70,14 +69,9 @@ function PulsingBadge({
           ]}
         />
       )}
-      <LinearGradient
-        colors={colors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.badge}
-      >
+      <View style={[styles.badge, { backgroundColor: colors[0] }]}>
         <Text style={[styles.badgeText, { color: textColor }]}>{text}</Text>
-      </LinearGradient>
+      </View>
     </View>
   );
 }

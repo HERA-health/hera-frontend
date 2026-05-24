@@ -8,7 +8,6 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AnimatedPressable } from '../common/AnimatedPressable';
 import { Specialist } from '../../constants/types';
@@ -94,16 +93,11 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
                 style={[styles.avatarImage, { borderColor: theme.primaryMuted }]}
               />
             ) : (
-              <LinearGradient
-                colors={[theme.primary, theme.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.avatar}
-              >
+              <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
                 <Text style={[styles.avatarText, { fontFamily: theme.fontSansBold }]}>
                   {specialist.initial}
                 </Text>
-              </LinearGradient>
+              </View>
             )}
 
             {specialist.verified ? (
@@ -243,16 +237,20 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
           ) : null}
         </View>
 
-        <View pointerEvents="none" style={[styles.ctaWrapper, { overflow: 'hidden' }]}>
-          <LinearGradient
-            colors={[theme.primary, theme.primaryDark]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.ctaGradient}
-          >
+        <View
+          pointerEvents="none"
+          style={[
+            styles.ctaWrapper,
+            {
+              backgroundColor: theme.primary,
+              shadowColor: theme.shadowPrimary,
+            },
+          ]}
+        >
+          <View style={styles.ctaSurface}>
             <Text style={[styles.ctaText, { fontFamily: theme.fontSansBold }]}>Ver perfil</Text>
             <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
-          </LinearGradient>
+          </View>
         </View>
       </View>
     </AnimatedPressable>
@@ -429,13 +427,12 @@ const styles = StyleSheet.create({
   },
   ctaWrapper: {
     borderRadius: 12,
-    shadowColor: 'rgba(139, 157, 131, 0.25)',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 1,
     shadowRadius: 8,
     elevation: 3,
   },
-  ctaGradient: {
+  ctaSurface: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

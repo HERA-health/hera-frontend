@@ -4,6 +4,15 @@
  */
 
 import { ApiSession, SessionStatus } from '../types';
+import { lightTheme } from '../../../constants/theme';
+
+const SELECTED_DATE_COLOR = lightTheme.selection;
+const STATUS_DOT_COLORS: Record<SessionStatus, string> = {
+  CONFIRMED: lightTheme.status.confirmed.text,
+  PENDING: lightTheme.warning,
+  COMPLETED: lightTheme.secondary,
+  CANCELLED: lightTheme.error,
+};
 
 /**
  * Gets the date string in YYYY-MM-DD format
@@ -48,11 +57,11 @@ export const createMarkedDates = (
   // Add selected date styling
   if (marked[selectedDate]) {
     marked[selectedDate].selected = true;
-    marked[selectedDate].selectedColor = '#8B9D83'; // Sage green
+    marked[selectedDate].selectedColor = SELECTED_DATE_COLOR;
   } else {
     marked[selectedDate] = {
       selected: true,
-      selectedColor: '#8B9D83',
+      selectedColor: SELECTED_DATE_COLOR,
       dots: [],
     };
   }
@@ -64,18 +73,7 @@ export const createMarkedDates = (
  * Gets dot color based on session status
  */
 export const getStatusDotColor = (status: SessionStatus): string => {
-  switch (status) {
-    case 'CONFIRMED':
-      return '#7BA377'; // Sage/Success green
-    case 'PENDING':
-      return '#D9A84F'; // Warning orange
-    case 'COMPLETED':
-      return '#9BA39B'; // Muted gray
-    case 'CANCELLED':
-      return '#E89D88'; // Coral/Error
-    default:
-      return '#6B7B6B';
-  }
+  return STATUS_DOT_COLORS[status] ?? lightTheme.textSecondary;
 };
 
 /**

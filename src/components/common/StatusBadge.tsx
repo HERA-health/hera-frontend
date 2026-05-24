@@ -1,47 +1,35 @@
 import React from 'react';
-import { Text, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, branding } from '../../constants/colors';
+import { StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface StatusBadgeProps {
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'scheduled';
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
-  const config = {
-    pending: {
-      gradientColors: [branding.accent, branding.accentLight] as const,
-      text: 'Pendiente',
-    },
-    confirmed: {
-      gradientColors: [branding.primary, branding.primaryLight] as const,
-      text: 'Confirmada',
-    },
-    scheduled: {
-      gradientColors: [branding.accent, branding.accentLight] as const,
-      text: 'Programada',
-    },
-    completed: {
-      gradientColors: [branding.primary, branding.primaryLight] as const,
-      text: 'Completada',
-    },
-    cancelled: {
-      gradientColors: ['#9E9E9E', '#BDBDBD'] as const,
-      text: 'Cancelada',
-    },
+  const { theme } = useTheme();
+  const normalizedStatus = status === 'scheduled' ? 'pending' : status;
+  const statusTone = theme.status[normalizedStatus];
+  const labelMap: Record<StatusBadgeProps['status'], string> = {
+    pending: 'Pendiente',
+    confirmed: 'Confirmada',
+    scheduled: 'Programada',
+    completed: 'Completada',
+    cancelled: 'Cancelada',
   };
 
-  const { gradientColors, text } = config[status];
-
   return (
-    <LinearGradient
-      colors={gradientColors}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0 }}
-      style={styles.badge}
+    <View
+      style={[
+        styles.badge,
+        {
+          backgroundColor: statusTone.bg,
+          borderColor: statusTone.border,
+        },
+      ]}
     >
-      <Text style={styles.text}>{text}</Text>
-    </LinearGradient>
+      <Text style={[styles.text, { color: statusTone.text }]}>{labelMap[status]}</Text>
+    </View>
   );
 };
 
@@ -50,11 +38,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
+    borderWidth: 1,
     alignSelf: 'flex-start',
   },
   text: {
-    color: colors.neutral.white,
     fontSize: 12,
     fontWeight: '600',
+    letterSpacing: 0,
   },
 });

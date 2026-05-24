@@ -1,20 +1,15 @@
 /**
- * ThemeContext — HERA Design System v5.0
+ * ThemeContext - HERA Design System v5.0
  *
  * Provides light/dark theme tokens to the entire component tree.
  * Persists user preference via AsyncStorage.
  * Respects system preference when mode = 'system'.
- *
- * Usage:
- *   const { theme, isDark, setMode } = useTheme();
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { lightTheme, darkTheme, Theme } from '../constants/theme';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -25,8 +20,6 @@ interface ThemeContextValue {
   setMode: (mode: ThemeMode) => void;
 }
 
-// ─── Context ──────────────────────────────────────────────────────────────────
-
 const ThemeContext = createContext<ThemeContextValue>({
   theme: lightTheme,
   mode: 'system',
@@ -35,8 +28,6 @@ const ThemeContext = createContext<ThemeContextValue>({
 });
 
 const THEME_STORAGE_KEY = 'hera_theme_mode';
-
-// ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme();
@@ -54,10 +45,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setIsReady(true));
   }, []);
 
-  const setMode = (m: ThemeMode) => {
+  const setMode = useCallback((m: ThemeMode) => {
     setModeState(m);
-    AsyncStorage.setItem(THEME_STORAGE_KEY, m);
-  };
+    void AsyncStorage.setItem(THEME_STORAGE_KEY, m).catch(() => undefined);
+  }, []);
 
   const isDark =
     mode === 'dark' || (mode === 'system' && systemScheme === 'dark');
@@ -73,7 +64,5 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     </ThemeContext.Provider>
   );
 }
-
-// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export const useTheme = (): ThemeContextValue => useContext(ThemeContext);

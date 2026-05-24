@@ -1,8 +1,7 @@
 import React from 'react';
-import { StyleSheet, ViewStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { StyleSheet, View, ViewStyle } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { branding } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface GradientIconCircleProps {
   iconName: keyof typeof Ionicons.glyphMap;
@@ -17,19 +16,24 @@ export const GradientIconCircle: React.FC<GradientIconCircleProps> = ({
   iconSize = 24,
   style,
 }) => {
+  const { theme } = useTheme();
+
   return (
-    <LinearGradient
-      colors={[branding.accent, branding.accentLight]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+    <View
       style={[
         styles.circle,
-        { width: size, height: size, borderRadius: size / 2 },
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: theme.primary,
+          shadowColor: theme.shadowPrimary,
+        },
         style,
       ]}
     >
-      <Ionicons name={iconName} size={iconSize} color="#fff" />
-    </LinearGradient>
+      <Ionicons name={iconName} size={iconSize} color={theme.textOnPrimary} />
+    </View>
   );
 };
 
@@ -37,10 +41,9 @@ const styles = StyleSheet.create({
   circle: {
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: branding.accent,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
     elevation: 3,
   },
 });

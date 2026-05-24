@@ -31,7 +31,7 @@ describe('loading surfaces', () => {
     render(<LoadingScreen />);
 
     expect(screen.getByText('Preparando tu espacio')).toBeTruthy();
-    expect(screen.getByText('HERA')).toBeTruthy();
+    expect(screen.getByText(/Estamos cargando tu experiencia/i)).toBeTruthy();
     expect(screen.getByText(/Cargando tu espacio seguro/i)).toBeTruthy();
   });
 

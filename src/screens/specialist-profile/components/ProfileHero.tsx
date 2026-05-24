@@ -8,7 +8,6 @@ import {
   Platform,
   Pressable,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ProfileHeroProps } from '../types';
 import { spacing, borderRadius } from '../../../constants/colors';
@@ -58,12 +57,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
 
   return (
     <View style={styles.cardContainer}>
-      <LinearGradient
-        colors={gradientColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
-      />
+      <View style={[styles.headerSurface, { backgroundColor: gradientColors[0] }]} />
 
       <View style={styles.contentContainer}>
         <View style={[styles.mainRow, isMobile && styles.mainRowMobile]}>
@@ -72,7 +66,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
               {specialist.avatar ? (
                 <Image source={{ uri: specialist.avatar }} style={styles.avatarImage} />
               ) : (
-                <View style={[styles.avatarPlaceholder, { backgroundColor: gradientColors[0] }]}>
+                <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary }]}>
                   <Text style={styles.avatarInitial}>{specialist.name[0]}</Text>
                 </View>
               )}
@@ -205,7 +199,7 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     shadowRadius: 24,
     elevation: 3,
   },
-  headerGradient: {
+  headerSurface: {
     height: 110,
     width: '100%',
   },

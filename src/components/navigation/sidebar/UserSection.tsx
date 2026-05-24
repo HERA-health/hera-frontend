@@ -59,7 +59,7 @@ export function UserSection({
               style={[
                 styles.avatar,
                 {
-                  backgroundColor: theme.primaryAlpha20,
+                  backgroundColor: theme.secondaryMuted,
                 },
                 isCollapsed ? styles.avatarCollapsed : null,
               ]}
@@ -68,7 +68,7 @@ export function UserSection({
                 style={[
                   styles.avatarText,
                   {
-                    color: theme.primaryDark,
+                    color: theme.selection,
                     fontFamily: theme.fontSansBold,
                   },
                 ]}
@@ -119,7 +119,7 @@ export function UserSection({
               showLabel
               style={{
                 flex: 1,
-                justifyContent: 'flex-start',
+                justifyContent: 'center',
               }}
             />
             <AnimatedPressable

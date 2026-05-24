@@ -7,6 +7,8 @@
  * - Open/Closed: Easy to add new states without modifying existing code
  */
 
+import { lightTheme } from '../constants/theme';
+
 // Time constants (in milliseconds)
 const TIME_CONSTANTS = {
   MINUTE: 60 * 1000,
@@ -56,6 +58,20 @@ export interface VideoCallButtonStyle {
   borderColor?: string;
   disabled: boolean;
 }
+
+const VIDEO_CALL_BUTTON_COLORS = {
+  pendingBg: lightTheme.bgAlt,
+  pendingText: lightTheme.textSecondary,
+  earlyBg: lightTheme.secondaryMuted,
+  earlyText: lightTheme.secondaryDark,
+  earlyBorder: lightTheme.secondary,
+  activeBg: lightTheme.actionPrimary,
+  activeText: lightTheme.actionPrimaryText,
+  completedBg: lightTheme.successBg,
+  completedText: lightTheme.success,
+  warningBg: lightTheme.status.pending.bg,
+  warningText: lightTheme.warning,
+} as const;
 
 /**
  * Calculates time difference in a human-readable Spanish format
@@ -209,65 +225,47 @@ export const getVideoCallButtonLabel = (
  * Uses HERA branding colors
  */
 export const getVideoCallButtonStyle = (state: VideoCallButtonState): VideoCallButtonStyle => {
-  // HERA color palette
-  const colors = {
-    sageGreen: '#8B9D83',
-    sageGreenLight: '#E8EDE6',
-    lavender: '#B8A8D9',
-    lavenderLight: '#EDE8F5',
-    grayLight: '#F0F2F0',
-    grayMedium: '#9CA3AF',
-    grayDark: '#6B7280',
-    white: '#FFFFFF',
-    successLight: '#D4EDD0',
-    successDark: '#7BA377',
-    errorLight: '#FEE2E2',
-    errorDark: '#DC2626',
-    warningLight: '#FEF3C7',
-    warningDark: '#D97706',
-  };
-
   switch (state) {
     case 'PENDING':
       return {
-        backgroundColor: colors.grayLight,
-        textColor: colors.grayDark,
+        backgroundColor: VIDEO_CALL_BUTTON_COLORS.pendingBg,
+        textColor: VIDEO_CALL_BUTTON_COLORS.pendingText,
         disabled: true,
       };
 
     case 'CONFIRMED_EARLY':
       return {
-        backgroundColor: colors.lavenderLight,
-        textColor: colors.lavender,
-        borderColor: colors.lavender,
+        backgroundColor: VIDEO_CALL_BUTTON_COLORS.earlyBg,
+        textColor: VIDEO_CALL_BUTTON_COLORS.earlyText,
+        borderColor: VIDEO_CALL_BUTTON_COLORS.earlyBorder,
         disabled: true,
       };
 
     case 'READY':
       return {
-        backgroundColor: colors.sageGreen,
-        textColor: colors.white,
+        backgroundColor: VIDEO_CALL_BUTTON_COLORS.activeBg,
+        textColor: VIDEO_CALL_BUTTON_COLORS.activeText,
         disabled: false,
       };
 
     case 'IN_PROGRESS':
       return {
-        backgroundColor: colors.sageGreen,
-        textColor: colors.white,
+        backgroundColor: VIDEO_CALL_BUTTON_COLORS.activeBg,
+        textColor: VIDEO_CALL_BUTTON_COLORS.activeText,
         disabled: false,
       };
 
     case 'COMPLETED':
       return {
-        backgroundColor: colors.successLight,
-        textColor: colors.successDark,
+        backgroundColor: VIDEO_CALL_BUTTON_COLORS.completedBg,
+        textColor: VIDEO_CALL_BUTTON_COLORS.completedText,
         disabled: true,
       };
 
     case 'NO_LINK':
       return {
-        backgroundColor: colors.warningLight,
-        textColor: colors.warningDark,
+        backgroundColor: VIDEO_CALL_BUTTON_COLORS.warningBg,
+        textColor: VIDEO_CALL_BUTTON_COLORS.warningText,
         disabled: true,
       };
   }

@@ -7,7 +7,6 @@ import {
   Image,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { Button, AnimatedPressable, Card } from '../../../components/common';
 import { spacing, borderRadius, shadows } from '../../../constants/colors';
@@ -79,11 +78,11 @@ export const ProfileInformationSection: React.FC<ProfileInformationSectionProps>
           ) : user?.avatar ? (
             <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
           ) : (
-            <LinearGradient colors={[theme.secondary, theme.primary]} style={styles.avatarShell}>
+            <View style={[styles.avatarShell, { backgroundColor: theme.primary }]}>
               <Text style={styles.avatarText}>
                 {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
               </Text>
-            </LinearGradient>
+            </View>
           )}
         </View>
 

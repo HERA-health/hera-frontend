@@ -168,11 +168,11 @@ export const SIDEBAR_THEME: SidebarTheme = {
   width: 252,
   collapsedWidth: 72,
   background: {
-    primary: lightTheme.bgAlt,
+    primary: lightTheme.bgCard,
     secondary: lightTheme.bgCard,
     subtle: lightTheme.bgMuted,
-    hover: lightTheme.primaryAlpha12,
-    active: lightTheme.primaryAlpha20,
+    hover: lightTheme.secondaryAlpha12,
+    active: lightTheme.secondaryMuted,
     overlay: lightTheme.overlay,
   },
   text: {
@@ -187,7 +187,7 @@ export const SIDEBAR_THEME: SidebarTheme = {
   },
   activeIndicator: lightTheme.primary,
   border: lightTheme.border,
-  borderStrong: lightTheme.borderStrong,
+  borderStrong: lightTheme.secondaryLight,
   shadow: lightTheme.shadowNeutral,
   badge: {
     default: [lightTheme.primary, lightTheme.primaryLight],
@@ -211,8 +211,8 @@ export function getSidebarTheme(theme: Theme): SidebarTheme {
       primary: theme.bgAlt,
       secondary: theme.bgCard,
       subtle: theme.bgMuted,
-      hover: theme.primaryAlpha12,
-      active: theme.primaryAlpha20,
+      hover: theme.secondaryAlpha12,
+      active: theme.secondaryMuted,
       overlay: theme.overlayLight,
     },
     text: {
@@ -223,14 +223,14 @@ export function getSidebarTheme(theme: Theme): SidebarTheme {
     },
     icon: {
       inactive: theme.textSecondary,
-      active: theme.primary,
+      active: theme.selection,
     },
-    activeIndicator: theme.primary,
+    activeIndicator: theme.selection,
     border: theme.border,
     borderStrong: theme.borderStrong,
     shadow: theme.shadowCard,
     badge: {
-      default: [theme.primary, theme.primaryLight],
+      default: [theme.actionPrimary, theme.actionPrimary],
       urgent: [theme.warning, theme.error],
       info: [theme.secondary, theme.secondaryLight],
     },

@@ -160,8 +160,8 @@ function SegmentedFilterGroup<T extends string>({
               style={[
                 styles.segmentedOption,
                 active && {
-                  backgroundColor: theme.bgCard,
-                  borderColor: theme.border,
+                  backgroundColor: theme.secondaryMuted,
+                  borderColor: theme.borderStrong,
                 },
               ]}
             >
@@ -681,7 +681,7 @@ export function ProfessionalClientsScreen() {
               variant="primary"
               size="large"
               onPress={openManagedClientModal}
-              icon={<Ionicons name="add" size={18} color={theme.textOnPrimary} />}
+              icon={<Ionicons name="add" size={18} color={theme.actionPrimaryText} />}
               fullWidth={isMobile}
               disabled={dpaSubmitting}
               loading={dpaSubmitting}
@@ -942,8 +942,8 @@ export function ProfessionalClientsScreen() {
                 <Switch
                   value={form.consentOnFile}
                   onValueChange={(value) => updateFormField('consentOnFile', value)}
-                  trackColor={{ false: theme.border, true: theme.primary }}
-                  thumbColor={theme.textOnPrimary}
+                  trackColor={{ false: theme.border, true: theme.secondaryMuted }}
+                  thumbColor={form.consentOnFile ? theme.selection : theme.textMuted}
                 />
               </View>
               {formErrors.consentOnFile ? (
@@ -1111,7 +1111,7 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     },
     errorCard: {
       borderColor: theme.warning + '35',
-      backgroundColor: isDark ? theme.bgMuted : '#FFF7EC',
+      backgroundColor: isDark ? theme.bgMuted : theme.warningBg,
     },
     errorRow: {
       flexDirection: 'row',

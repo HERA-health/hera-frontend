@@ -59,13 +59,13 @@ export const Input: React.FC<InputProps> = ({
   const animatedContainerStyle = useAnimatedStyle(() => {
     const borderColor = hasError
       ? theme.error
-      : interpolateColor(focusAnim.value, [0, 1], [theme.border, theme.primary]);
+      : interpolateColor(focusAnim.value, [0, 1], [theme.border, theme.focus]);
 
     const glowOpacity = hasError ? 0 : focusAnim.value * 0.18;
 
     return {
       borderColor,
-      shadowColor: hasError ? theme.error : theme.primary,
+      shadowColor: hasError ? theme.error : theme.focus,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: hasError ? 0.15 : glowOpacity,
       shadowRadius: 8,

@@ -17,7 +17,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, borderRadius, typography, shadows, touchTarget, layout } from '../../constants/colors';
-import { Theme } from '../../constants/theme';
+import { lightTheme, Theme } from '../../constants/theme';
 import { AppNavigationProp } from '../../constants/types';
 import { AnimatedPressable, Button } from '../../components/common';
 import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
@@ -152,9 +152,15 @@ const getStatusColors = (theme: Theme): Record<InvoiceStatus, { bg: string; text
 
 const INVOICES_PER_PAGE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
-const DEFAULT_INVOICE_ACCENT_COLOR = '#8B9D83';
+const DEFAULT_INVOICE_ACCENT_COLOR = lightTheme.primary;
 const INVOICE_ACCENT_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
-const INVOICE_ACCENT_OPTIONS = ['#8B9D83', '#4F7C8A', '#8A6F4F', '#7B6EA8', '#A56565'];
+const INVOICE_ACCENT_OPTIONS = [
+  lightTheme.primary,
+  lightTheme.secondary,
+  lightTheme.secondaryDark,
+  lightTheme.bgAlt,
+  colors.secondary.blue,
+];
 
 type FilterTab = 'all' | InvoiceStatus;
 
@@ -324,11 +330,9 @@ export function BillingScreen() {
     try {
       setLoading(true);
       setLoadError(false);
-      const [summaryData] = await Promise.all([
-        billingService.getSummary(),
-        loadInvoices(1, 'all', ''),
-      ]);
+      const summaryData = await billingService.getSummary();
       setSummary(summaryData);
+      await loadInvoices(1, 'all', '');
     } catch (error) {
       setLoadError(true);
       showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al cargar datos');
@@ -704,7 +708,7 @@ export function BillingScreen() {
   const handleSaveInvoiceDesign = async () => {
     const normalizedColor = normalizeInvoiceAccentInput(tempInvoiceAccentColor);
     if (!INVOICE_ACCENT_COLOR_REGEX.test(normalizedColor)) {
-      showAppAlert(appAlert, 'Color no válido', 'Introduce un color HEX de 6 dígitos, por ejemplo #8B9D83.');
+      showAppAlert(appAlert, 'Color no válido', 'Introduce un color HEX de 6 dígitos, por ejemplo #006884.');
       return;
     }
 

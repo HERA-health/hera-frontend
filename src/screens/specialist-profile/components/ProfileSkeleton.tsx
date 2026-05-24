@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, DimensionValue, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ProfileSkeletonProps } from '../types';
 import { spacing } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -44,18 +43,15 @@ const Block: React.FC<BlockProps> = ({ width = '100%', height, radius = 10 }) =>
 
   return (
     <View style={[styles.block, { width, height, borderRadius: radius }]}>
-      <Animated.View style={[styles.shimmer, { transform: [{ translateX }] }]}>
-        <LinearGradient
-          colors={[
-            'rgba(255,255,255,0)',
-            isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.42)',
-            'rgba(255,255,255,0)',
-          ]}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-          style={StyleSheet.absoluteFill}
-        />
-      </Animated.View>
+      <Animated.View
+        style={[
+          styles.shimmer,
+          {
+            backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.42)',
+            transform: [{ translateX }],
+          },
+        ]}
+      />
     </View>
   );
 };

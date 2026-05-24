@@ -34,21 +34,22 @@ export function GlassCard({
   borderRadius = 16,
   borderOpacity = 1,
 }: GlassCardProps) {
-  const { isDark } = useTheme();
+  const { theme, isDark } = useTheme();
 
   const resolvedTint = tint ?? (isDark ? 'dark' : 'light');
   const borderColor = isDark
-    ? `rgba(154, 175, 145, ${0.12 * borderOpacity})`
+    ? borderOpacity === 1
+      ? theme.glassBorder
+      : `rgba(189, 177, 153, ${0.16 * borderOpacity})`
     : `rgba(255, 255, 255, ${0.48 * borderOpacity})`;
-  const backgroundColor = isDark
-    ? 'rgba(20, 28, 22, 0.58)'
-    : 'rgba(255, 255, 255, 0.78)';
+  const backgroundColor = isDark ? theme.glassBg : 'rgba(255, 255, 255, 0.78)';
 
   if (Platform.OS === 'web') {
     const blurPx = Math.max(10, Math.round(intensity * 0.28));
+    const saturation = isDark ? 112 : 160;
     const webBackdropStyle = {
-      backdropFilter: `blur(${blurPx}px) saturate(180%)`,
-      WebkitBackdropFilter: `blur(${blurPx}px) saturate(180%)`,
+      backdropFilter: `blur(${blurPx}px) saturate(${saturation}%)`,
+      WebkitBackdropFilter: `blur(${blurPx}px) saturate(${saturation}%)`,
     } as unknown as ViewStyle;
 
     return (
@@ -59,6 +60,7 @@ export function GlassCard({
             borderRadius,
             backgroundColor,
             borderColor,
+            shadowColor: isDark ? 'rgba(18, 18, 16, 0.30)' : 'rgba(44, 62, 44, 0.08)',
           },
           webBackdropStyle,
           style,

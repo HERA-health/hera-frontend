@@ -1,22 +1,15 @@
-/**
- * CompactHero - Compact gradient hero for two-column layout
- * Used in left column on desktop, shows basic info without CTA
- */
-
 import React from 'react';
 import {
-  View,
-  Text,
   Image,
-  TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Platform,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CompactHeroProps } from '../types';
-import { heraLanding, spacing, borderRadius } from '../../../constants/colors';
+import { borderRadius, heraLanding, spacing } from '../../../constants/colors';
 import { getProfessionalTypeLabel } from '../../../constants/professionalTypes';
 
 const STRINGS = {
@@ -24,12 +17,21 @@ const STRINGS = {
   reviews: 'reseñas',
 };
 
+const SOFT_HERO_COLORS = new Set(['#97B2A6', '#BDD7FF', '#DFD8CD']);
+
 export const CompactHero: React.FC<CompactHeroProps> = ({
   specialist,
   affinity,
   onRatingPress,
   gradientColors,
 }) => {
+  const heroColor = gradientColors[0] || heraLanding.primary;
+  const softHero = SOFT_HERO_COLORS.has(heroColor.toUpperCase());
+  const heroTextColor = softHero ? heraLanding.textPrimary : heraLanding.textOnPrimary;
+  const heroTextMuted = softHero ? heraLanding.textSecondary : heraLanding.whiteAlpha85;
+  const heroPillBg = softHero ? heraLanding.whiteAlpha80 : heraLanding.whiteAlpha25;
+  const heroPillBorder = softHero ? heraLanding.whiteAlpha90 : heraLanding.whiteAlpha40;
+
   const getModalityTags = (): string[] => {
     const types = specialist.sessionTypes || [];
     const tags: string[] = [];
@@ -60,71 +62,76 @@ export const CompactHero: React.FC<CompactHeroProps> = ({
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={gradientColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gradient}
-      >
-        <View style={styles.darkOverlay} />
+      <View style={[styles.hero, { backgroundColor: heroColor }]}>
+        <View style={[styles.toneOverlay, softHero ? styles.softOverlay : null]} />
 
         <View style={styles.content}>
-          {/* Affinity Badge */}
-          {affinity != null && affinity > 0 && (
-            <View style={styles.affinityBadge}>
-              <Ionicons name="heart" size={12} color="#FFFFFF" />
-              <Text style={styles.affinityText}>{Math.round(affinity * 100)}% compatible</Text>
+          {affinity != null && affinity > 0 ? (
+            <View
+              style={[
+                styles.affinityBadge,
+                { backgroundColor: heroPillBg, borderColor: heroPillBorder },
+              ]}
+            >
+              <Ionicons name="heart" size={12} color={heroTextColor} />
+              <Text style={[styles.affinityText, { color: heroTextColor }]}>
+                {Math.round(affinity * 100)}% compatible
+              </Text>
             </View>
-          )}
+          ) : null}
 
-          {/* Verified badge */}
-          {specialist.verificationStatus === 'VERIFIED' && (
-            <View style={styles.verifiedPill}>
-              <Text style={styles.verifiedText}>
-                ✓ {STRINGS.verified}
+          {specialist.verificationStatus === 'VERIFIED' ? (
+            <View
+              style={[
+                styles.verifiedPill,
+                { backgroundColor: heroPillBg, borderColor: heroPillBorder },
+              ]}
+            >
+              <Text style={[styles.verifiedText, { color: heroTextColor }]}>
+                {'\u2713'} {STRINGS.verified}
                 {specialist.collegiateNumber ? ` · Col. ${specialist.collegiateNumber}` : ''}
               </Text>
             </View>
-          )}
+          ) : null}
 
-          {/* Avatar + Info row */}
           <View style={styles.avatarInfoRow}>
             <View style={styles.avatarContainer}>
-              <View style={styles.avatarWrapper}>
+              <View style={[styles.avatarWrapper, { borderColor: heroPillBorder }]}>
                 {specialist.avatar ? (
                   <Image source={{ uri: specialist.avatar }} style={styles.avatarImage} />
                 ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarInitial}>{specialist.name[0]}</Text>
+                  <View style={[styles.avatarPlaceholder, { backgroundColor: heroPillBg }]}>
+                    <Text style={[styles.avatarInitial, { color: heroTextColor }]}>
+                      {specialist.name[0]}
+                    </Text>
                   </View>
                 )}
               </View>
-              {specialist.isOnline && <View style={styles.onlineIndicator} />}
+              {specialist.isOnline ? <View style={styles.onlineIndicator} /> : null}
             </View>
 
             <View style={styles.infoContainer}>
-              <Text style={styles.name}>{specialist.name}</Text>
-              <Text style={styles.title}>
+              <Text style={[styles.name, { color: heroTextColor }]}>{specialist.name}</Text>
+              <Text style={[styles.title, { color: heroTextMuted }]}>
                 {getProfessionalTypeLabel(specialist.professionalType, specialist.professionalTypeLabel)}
               </Text>
 
-              {specialist.reviewCount > 0 && (
+              {specialist.reviewCount > 0 ? (
                 <TouchableOpacity
                   style={styles.ratingRow}
                   onPress={onRatingPress}
                   activeOpacity={0.7}
                 >
                   <View style={styles.starsRow}>{renderStars(specialist.rating)}</View>
-                  <Text style={styles.ratingText}>
+                  <Text style={[styles.ratingText, { color: heroTextMuted }]}>
                     {specialist.rating.toFixed(1)} · {specialist.reviewCount} {STRINGS.reviews}
                   </Text>
                 </TouchableOpacity>
-              )}
+              ) : null}
             </View>
           </View>
 
-          {/* Tags */}
-          {specialtyTags.length > 0 && (
+          {specialtyTags.length > 0 ? (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -132,14 +139,17 @@ export const CompactHero: React.FC<CompactHeroProps> = ({
               contentContainerStyle={styles.tagsContainer}
             >
               {specialtyTags.map((tag, index) => (
-                <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
+                <View
+                  key={`${tag}-${index}`}
+                  style={[styles.tag, { backgroundColor: heroPillBg, borderColor: heroPillBorder }]}
+                >
+                  <Text style={[styles.tagText, { color: heroTextColor }]}>{tag}</Text>
                 </View>
               ))}
             </ScrollView>
-          )}
+          ) : null}
         </View>
-      </LinearGradient>
+      </View>
     </View>
   );
 };
@@ -149,13 +159,16 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
   },
-  gradient: {
+  hero: {
     minHeight: 220,
     position: 'relative',
   },
-  darkOverlay: {
+  toneOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+  softOverlay: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   content: {
     flex: 1,
@@ -163,32 +176,25 @@ const styles = StyleSheet.create({
     zIndex: 1,
     justifyContent: 'center',
   },
-
-  // Affinity
   affinityBadge: {
     position: 'absolute',
     top: spacing.sm,
     right: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: heraLanding.whiteAlpha25,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: 20,
+    borderWidth: 1,
     gap: 4,
     zIndex: 2,
   },
   affinityText: {
     fontSize: 11,
     fontWeight: '600',
-    color: heraLanding.textOnPrimary,
   },
-
-  // Verified
   verifiedPill: {
-    backgroundColor: heraLanding.whiteAlpha25,
     borderWidth: 1,
-    borderColor: heraLanding.whiteAlpha40,
     borderRadius: 20,
     paddingVertical: 4,
     paddingHorizontal: spacing.sm + 4,
@@ -197,11 +203,8 @@ const styles = StyleSheet.create({
   },
   verifiedText: {
     fontSize: 11,
-    color: heraLanding.textOnPrimary,
     fontWeight: '500',
   },
-
-  // Avatar + Info
   avatarInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -216,7 +219,6 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     borderWidth: 3,
-    borderColor: heraLanding.whiteAlpha80,
     overflow: 'hidden',
   },
   avatarImage: {
@@ -226,14 +228,12 @@ const styles = StyleSheet.create({
   avatarPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: heraLanding.whiteAlpha30,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitial: {
     fontSize: 28,
     fontWeight: '700',
-    color: heraLanding.textOnPrimary,
   },
   onlineIndicator: {
     position: 'absolute',
@@ -246,19 +246,16 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: heraLanding.textOnPrimary,
   },
-
   infoContainer: {
     flex: 1,
   },
   name: {
     fontSize: 22,
     fontWeight: '500',
-    color: heraLanding.textOnPrimary,
     marginBottom: 2,
   },
   title: {
     fontSize: 13,
-    color: heraLanding.whiteAlpha85,
     marginBottom: spacing.xs,
   },
   ratingRow: {
@@ -272,9 +269,7 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 12,
-    color: heraLanding.whiteAlpha80,
   },
-  // Tags
   tagsScroll: {
     flexGrow: 0,
     marginTop: spacing.xs,
@@ -284,16 +279,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   tag: {
-    backgroundColor: heraLanding.whiteAlpha20,
     borderWidth: 1,
-    borderColor: heraLanding.whiteAlpha30,
     borderRadius: 20,
     paddingVertical: 3,
     paddingHorizontal: spacing.sm + 2,
   },
   tagText: {
     fontSize: 11,
-    color: heraLanding.textOnPrimary,
   },
 });
 

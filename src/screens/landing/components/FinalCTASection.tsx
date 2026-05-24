@@ -1,18 +1,11 @@
-/**
- * FinalCTASection
- *
- * Specialist-first closing CTA with a discreet secondary route for patients.
- */
-
 import React from 'react';
 import {
-  View,
-  Text,
   StyleSheet,
+  Text,
   TouchableOpacity,
   useWindowDimensions,
+  View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
 
@@ -26,8 +19,11 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
   onJoinAsProfessional,
 }) => {
   const { width } = useWindowDimensions();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const isDesktop = width >= 1024;
+  const foregroundColor = theme.textOnPrimary;
+  const foregroundMutedColor = isDark ? 'rgba(16, 23, 20, 0.74)' : 'rgba(255, 255, 255, 0.9)';
+  const ctaTextColor = isDark ? theme.bg : theme.primaryDark;
 
   const benefits = [
     { icon: 'checkmark-circle' as const, text: 'Agenda y seguimiento' },
@@ -36,22 +32,9 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
   ];
 
   return (
-    <LinearGradient
-      colors={[theme.primary, theme.primaryDark]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.container, isDesktop && styles.containerDesktop]}
-    >
-      <View style={[styles.decorCircle, styles.decorCircle1]} />
-      <View style={[styles.decorCircle, styles.decorCircle2]} />
-
+    <View style={[styles.container, isDesktop && styles.containerDesktop, { backgroundColor: theme.primary }]}>
       <View style={styles.content}>
-        <Text
-          style={[
-            styles.eyebrow,
-            { fontFamily: theme.fontSansSemiBold },
-          ]}
-        >
+        <Text style={[styles.eyebrow, { color: foregroundMutedColor, fontFamily: theme.fontSansSemiBold }]}>
           ESPACIO PROFESIONAL
         </Text>
 
@@ -59,7 +42,7 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
           style={[
             styles.title,
             isDesktop && styles.titleDesktop,
-            { fontFamily: theme.fontDisplay },
+            { color: foregroundColor, fontFamily: theme.fontDisplay },
           ]}
         >
           Centraliza tu consulta de salud mental en un solo lugar
@@ -69,11 +52,10 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
           style={[
             styles.subtitle,
             isDesktop && styles.subtitleDesktop,
-            { fontFamily: theme.fontSans },
+            { color: foregroundMutedColor, fontFamily: theme.fontSans },
           ]}
         >
-          Organiza agenda, pacientes, sesiones, disponibilidad y negocio
-          con una experiencia más clara y más coherente para el trabajo diario en salud mental.
+          Organiza agenda, pacientes, sesiones, disponibilidad y negocio con una experiencia más clara y más coherente para el trabajo diario en salud mental.
         </Text>
 
         <TouchableOpacity
@@ -81,17 +63,17 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
           onPress={onJoinAsProfessional ?? onFindSpecialist}
           activeOpacity={0.9}
         >
-          <Text style={[styles.ctaText, { color: theme.primaryDark, fontFamily: theme.fontSansBold }]}>
+          <Text style={[styles.ctaText, { color: ctaTextColor, fontFamily: theme.fontSansBold }]}>
             Entrar como profesional
           </Text>
-          <Ionicons name="arrow-forward" size={20} color={theme.primaryDark} />
+          <Ionicons name="arrow-forward" size={20} color={ctaTextColor} />
         </TouchableOpacity>
 
         <View style={[styles.benefits, isDesktop && styles.benefitsDesktop]}>
           {benefits.map((benefit) => (
             <View key={benefit.text} style={styles.benefitItem}>
-              <Ionicons name={benefit.icon} size={18} color="#FFFFFF" />
-              <Text style={[styles.benefitText, { fontFamily: theme.fontSansMedium }]}>
+              <Ionicons name={benefit.icon} size={18} color={foregroundColor} />
+              <Text style={[styles.benefitText, { color: foregroundColor, fontFamily: theme.fontSansMedium }]}>
                 {benefit.text}
               </Text>
             </View>
@@ -99,12 +81,12 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
         </View>
 
         <TouchableOpacity onPress={onFindSpecialist} activeOpacity={0.8}>
-          <Text style={[styles.secondaryLink, { fontFamily: theme.fontSansSemiBold }]}>
+          <Text style={[styles.secondaryLink, { color: foregroundMutedColor, fontFamily: theme.fontSansSemiBold }]}>
             ¿Buscas terapia? Encuentra especialistas aquí.
           </Text>
         </TouchableOpacity>
       </View>
-    </LinearGradient>
+    </View>
   );
 };
 
@@ -124,45 +106,24 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
     alignItems: 'center',
-    zIndex: 1,
-  },
-  decorCircle: {
-    position: 'absolute',
-    borderRadius: 999,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  decorCircle1: {
-    width: 400,
-    height: 400,
-    top: -200,
-    right: -100,
-  },
-  decorCircle2: {
-    width: 300,
-    height: 300,
-    bottom: -150,
-    left: -100,
   },
   eyebrow: {
     fontSize: 12,
-    letterSpacing: 2,
+    letterSpacing: 0,
     textTransform: 'uppercase',
-    color: 'rgba(255, 255, 255, 0.85)',
     marginBottom: 16,
   },
   title: {
     fontSize: 32,
-    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 16,
-    letterSpacing: -0.5,
+    letterSpacing: 0,
   },
   titleDesktop: {
     fontSize: 44,
   },
   subtitle: {
     fontSize: 17,
-    color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
     lineHeight: 26,
     marginBottom: 36,
@@ -180,7 +141,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 36,
     borderRadius: 14,
     gap: 10,
-    shadowColor: 'rgba(44, 62, 44, 0.20)',
+    shadowColor: 'rgba(62, 92, 79, 0.20)',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 1,
     shadowRadius: 24,
@@ -192,7 +153,7 @@ const styles = StyleSheet.create({
   },
   ctaText: {
     fontSize: 17,
-    letterSpacing: 0.3,
+    letterSpacing: 0,
   },
   benefits: {
     flexDirection: 'row',
@@ -212,11 +173,9 @@ const styles = StyleSheet.create({
   },
   benefitText: {
     fontSize: 14,
-    color: '#FFFFFF',
   },
   secondaryLink: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.88)',
     textDecorationLine: 'underline',
     textAlign: 'center',
   },

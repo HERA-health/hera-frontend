@@ -12,7 +12,6 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
@@ -59,12 +58,9 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
             ]}
           >
             <View style={styles.illustrationWrapper}>
-              <LinearGradient
-                colors={[theme.secondary, theme.secondaryDark]}
-                style={styles.centralIcon}
-              >
+              <View style={[styles.centralIcon, { backgroundColor: theme.secondaryDark }]}>
                 <Ionicons name="briefcase-outline" size={46} color="#FFFFFF" />
-              </LinearGradient>
+              </View>
 
               <View style={[styles.floatingBadge, styles.badge1, { backgroundColor: theme.bgCard }]}>
                 <Ionicons name="calendar-outline" size={20} color={theme.secondary} />
@@ -75,9 +71,6 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
               <View style={[styles.floatingBadge, styles.badge3, { backgroundColor: theme.bgCard }]}>
                 <Ionicons name="stats-chart-outline" size={20} color={theme.primary} />
               </View>
-
-              <View style={[styles.bgCircle1, { backgroundColor: theme.secondaryAlpha12 }]} />
-              <View style={[styles.bgCircle2, { backgroundColor: theme.primaryAlpha12 }]} />
             </View>
           </View>
         )}
@@ -214,7 +207,7 @@ const styles = StyleSheet.create({
   centralIcon: {
     width: 110,
     height: 110,
-    borderRadius: 55,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     shadowOffset: { width: 0, height: 10 },
@@ -245,22 +238,6 @@ const styles = StyleSheet.create({
   badge3: {
     top: 102,
     left: 18,
-  },
-  bgCircle1: {
-    position: 'absolute',
-    width: 210,
-    height: 210,
-    borderRadius: 105,
-    zIndex: -1,
-  },
-  bgCircle2: {
-    position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    top: -18,
-    right: -8,
-    zIndex: -1,
   },
   textContainer: {
     alignItems: 'flex-start',

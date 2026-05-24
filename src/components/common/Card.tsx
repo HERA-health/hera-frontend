@@ -54,7 +54,7 @@ export const Card: React.FC<CardProps> = ({
   hoverLift,
   pressScale = 0.98,
 }) => {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const normalizedStyle = Array.isArray(style) ? style : style ? [style] : [];
 
   const pad = PADDING_MAP[padding];
@@ -90,6 +90,10 @@ export const Card: React.FC<CardProps> = ({
     padding: pad,
     backgroundColor: theme.bgCard,
     overflow: 'hidden',
+    ...(isDark && variant !== 'outlined' && {
+      borderWidth: 1,
+      borderColor: theme.border,
+    }),
     ...(variant === 'default' && {
       shadowColor: theme.shadowCard,
       shadowOffset: { width: 0, height: 2 },

@@ -1,5 +1,5 @@
 /**
- * HERA Global CSS — Web only
+ * HERA Global CSS - Web only
  *
  * Static fallback styles. The dynamic version (dark-mode-aware) is injected
  * at runtime by App.tsx via injectWebStyles(isDark).
@@ -7,46 +7,45 @@
  * These rules provide a baseline before React mounts (prevents flash).
  */
 
-/* ─── Custom Scrollbar (light mode default) ─────────────────────────────── */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: #F5F7F5; border-radius: 4px; }
-::-webkit-scrollbar-thumb { background: #C5CFC5; border-radius: 4px; border: 1px solid #F5F7F5; }
-::-webkit-scrollbar-thumb:hover { background: #8B9D83; }
-::-webkit-scrollbar-corner { background: #F5F7F5; }
-* { scrollbar-width: thin; scrollbar-color: #C5CFC5 #F5F7F5; }
-
-/* ─── Dark mode scrollbar override (system preference) ──────────────────── */
-@media (prefers-color-scheme: dark) {
-  ::-webkit-scrollbar-track { background: #131519; }
-  ::-webkit-scrollbar-thumb { background: #343848; border-color: #131519; }
-  ::-webkit-scrollbar-thumb:hover { background: #B7A6D8; }
-  ::-webkit-scrollbar-corner { background: #131519; }
-  * { scrollbar-color: #343848 #131519; }
+:root {
+  --hera-scrollbar-track: #FAF8F3;
+  --hera-scrollbar-thumb: #C7CDC5;
+  --hera-scrollbar-thumb-hover: #3E5C4F;
 }
 
-/* ─── Smooth scrolling ───────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --hera-scrollbar-track: #24251F;
+    --hera-scrollbar-thumb: #494B40;
+    --hera-scrollbar-thumb-hover: #9F9688;
+  }
+}
+
+/* Custom Scrollbar (light mode default) */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--hera-scrollbar-track); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: var(--hera-scrollbar-thumb); border-radius: 4px; border: 1px solid var(--hera-scrollbar-track); }
+::-webkit-scrollbar-thumb:hover { background: var(--hera-scrollbar-thumb-hover); }
+::-webkit-scrollbar-corner { background: var(--hera-scrollbar-track); }
+* { scrollbar-width: thin; scrollbar-color: var(--hera-scrollbar-thumb) var(--hera-scrollbar-track); }
+
+/* Smooth scrolling */
 html { scroll-behavior: smooth; }
 
-/* ─── Interactive element cursors ────────────────────────────────────────── */
+/* Interactive element cursors */
 [role="button"], button { cursor: pointer; }
 [role="button"] { user-select: none; -webkit-user-select: none; }
 
-/* ─── Remove tap highlight on mobile web ─────────────────────────────────── */
+/* Remove tap highlight on mobile web */
 * { -webkit-tap-highlight-color: transparent; }
 
-/* ─── React Native Web ScrollView ────────────────────────────────────────── */
+/* React Native Web ScrollView */
 [data-testid="scrollview"]::-webkit-scrollbar { width: 8px; height: 8px; }
-[data-testid="scrollview"]::-webkit-scrollbar-track { background: #F5F7F5; border-radius: 4px; }
-[data-testid="scrollview"]::-webkit-scrollbar-thumb { background: #C5CFC5; border-radius: 4px; }
-[data-testid="scrollview"]::-webkit-scrollbar-thumb:hover { background: #8B9D83; }
+[data-testid="scrollview"]::-webkit-scrollbar-track { background: var(--hera-scrollbar-track); border-radius: 4px; }
+[data-testid="scrollview"]::-webkit-scrollbar-thumb { background: var(--hera-scrollbar-thumb); border-radius: 4px; }
+[data-testid="scrollview"]::-webkit-scrollbar-thumb:hover { background: var(--hera-scrollbar-thumb-hover); }
 
-@media (prefers-color-scheme: dark) {
-  [data-testid="scrollview"]::-webkit-scrollbar-track { background: #131519; }
-  [data-testid="scrollview"]::-webkit-scrollbar-thumb { background: #343848; border-radius: 4px; }
-  [data-testid="scrollview"]::-webkit-scrollbar-thumb:hover { background: #B7A6D8; }
-}
-
-/* ─── Backdrop filter support ────────────────────────────────────────────── */
+/* Backdrop filter support */
 @supports (backdrop-filter: blur(1px)) {
   .hera-glass {
     backdrop-filter: blur(20px) saturate(180%);

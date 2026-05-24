@@ -59,11 +59,11 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
 
     return {
       backgroundColor: isDark
-        ? `rgba(15, 20, 16, ${bgOpacity})`
-        : `rgba(245, 247, 245, ${bgOpacity})`,
+        ? `rgba(39, 40, 33, ${bgOpacity})`
+        : `rgba(245, 240, 232, ${bgOpacity})`,
       borderBottomColor: isDark
-        ? `rgba(42, 58, 42, ${borderOpacity})`
-        : `rgba(226, 232, 226, ${borderOpacity})`,
+        ? `rgba(71, 73, 62, ${borderOpacity})`
+        : `rgba(223, 216, 205, ${borderOpacity})`,
     };
   });
 
@@ -93,16 +93,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         ]}
       >
         <View style={styles.logoContainer}>
-          <StyledLogo size={isScrolled ? 32 : 36} />
-          <Text
-            style={[
-              styles.brandName,
-              isMobile && styles.brandNameMobile,
-              { color: theme.textPrimary, fontFamily: theme.fontDisplayBold },
-            ]}
-          >
-            HERA
-          </Text>
+          <StyledLogo size={isScrolled ? 42 : 46} />
         </View>
 
         {isDesktop && (
@@ -139,20 +130,27 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
               style={[
                 styles.secondaryCTA,
                 {
-                  backgroundColor: theme.secondaryAlpha12,
-                  borderColor: theme.secondaryAlpha12,
+                  backgroundColor: isDark ? theme.bgMuted : theme.secondaryAlpha12,
+                  borderColor: isDark ? theme.border : theme.secondaryAlpha12,
                 },
               ]}
             >
               <Text
                 style={[
                   styles.secondaryCTAText,
-                  { color: theme.secondaryDark, fontFamily: theme.fontSansSemiBold },
+                  {
+                    color: isDark ? theme.textSecondary : theme.secondaryDark,
+                    fontFamily: theme.fontSansSemiBold,
+                  },
                 ]}
               >
                 Busco terapia
               </Text>
-              <Ionicons name="arrow-forward" size={16} color={theme.secondaryDark} />
+              <Ionicons
+                name="arrow-forward"
+                size={16}
+                color={isDark ? theme.textSecondary : theme.secondaryDark}
+              />
             </AnimatedPressable>
           )}
 
@@ -164,15 +162,20 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
               styles.primaryCTA,
               ...(isMobile ? [styles.primaryCTAMobile] : []),
               {
-                backgroundColor: theme.primary,
-                shadowColor: theme.shadowPrimary,
+                backgroundColor: theme.actionPrimary,
+                shadowColor: theme.shadowSecondary,
               },
             ]}
           >
-            <Text style={[styles.primaryCTAText, { fontFamily: theme.fontSansSemiBold }]}>
+            <Text
+              style={[
+                styles.primaryCTAText,
+                { color: theme.actionPrimaryText, fontFamily: theme.fontSansSemiBold },
+              ]}
+            >
               Soy profesional
             </Text>
-            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+            <Ionicons name="arrow-forward" size={16} color={theme.actionPrimaryText} />
           </AnimatedPressable>
         </View>
       </View>
@@ -212,16 +215,7 @@ const styles = StyleSheet.create({
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
     flexShrink: 1,
-  },
-  brandName: {
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  brandNameMobile: {
-    fontSize: 20,
   },
   navLinks: {
     flexDirection: 'row',
@@ -263,7 +257,6 @@ const styles = StyleSheet.create({
   primaryCTAText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   secondaryCTA: {
     flexDirection: 'row',

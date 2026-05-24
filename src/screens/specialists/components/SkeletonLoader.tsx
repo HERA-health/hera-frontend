@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, DimensionValue, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { spacing } from '../../../constants/colors';
 import type { Theme } from '../../../constants/theme';
@@ -43,18 +42,16 @@ const Block: React.FC<BlockProps> = ({ width, height, radius = 8 }) => {
 
   return (
     <View style={[styles.block, { width, height, borderRadius: radius }]}>
-      <Animated.View style={[styles.shimmerWrap, { transform: [{ translateX }] }]}>
-        <LinearGradient
-          colors={[
-            'rgba(255,255,255,0)',
-            isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.44)',
-            'rgba(255,255,255,0)',
-          ]}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-          style={StyleSheet.absoluteFill}
-        />
-      </Animated.View>
+      <Animated.View
+        style={[
+          styles.shimmerWrap,
+          styles.shimmerBar,
+          {
+            backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.44)',
+            transform: [{ translateX }],
+          },
+        ]}
+      />
     </View>
   );
 };
@@ -157,6 +154,9 @@ function createStyles(theme: Theme, isDark: boolean) {
     shimmerWrap: {
       ...StyleSheet.absoluteFillObject,
       width: 140,
+    },
+    shimmerBar: {
+      opacity: 0.7,
     },
     gridCard: {
       minHeight: 360,

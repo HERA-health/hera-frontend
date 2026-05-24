@@ -1,8 +1,7 @@
 import React, { useCallback } from 'react';
-import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../contexts/ThemeContext';
-import { AnimatedPressable } from './AnimatedPressable';
 
 type ToggleSize = 'sm' | 'md';
 
@@ -44,14 +43,14 @@ export function ThemeToggleButton({
     setMode(isDark ? 'light' : 'dark');
   }, [isDark, setMode]);
 
-  const label = isDark ? 'Modo claro' : 'Modo oscuro';
+  const label = isDark ? 'Modo día' : 'Modo noche';
 
   return (
-    <AnimatedPressable
+    <Pressable
       onPress={handleToggle}
-      hoverLift={false}
-      pressScale={0.94}
       accessibilityLabel={label}
+      accessibilityRole="button"
+      accessibilityState={{ selected: isDark }}
       style={[
         styles.button,
         {
@@ -78,7 +77,7 @@ export function ThemeToggleButton({
         <Ionicons
           name={isDark ? 'sunny-outline' : 'moon-outline'}
           size={tokens.icon}
-          color={theme.primary}
+          color={theme.link}
         />
       </View>
       {showLabel && (
@@ -95,7 +94,7 @@ export function ThemeToggleButton({
           {label}
         </Text>
       )}
-    </AnimatedPressable>
+    </Pressable>
   );
 }
 

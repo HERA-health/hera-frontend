@@ -13,7 +13,6 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { GlassCard } from '../../../components/common/GlassCard';
 import { MotionView } from '../../../components/common/MotionView';
@@ -51,9 +50,9 @@ const STEPS: Step[] = [
 ];
 
 const STEP_ACCENT_COLORS = [
-  (theme: Theme) => [theme.primary, theme.primaryDark] as [string, string],
-  (theme: Theme) => [theme.secondary, theme.secondaryDark] as [string, string],
-  (theme: Theme) => [theme.success, theme.primaryDark] as [string, string],
+  (theme: Theme) => theme.primary,
+  (theme: Theme) => theme.secondaryDark,
+  (theme: Theme) => theme.success,
 ];
 
 export const HowItWorksSection: React.FC = () => {
@@ -136,7 +135,8 @@ interface StepCardProps {
 }
 
 function StepCard({ step, index, theme, large = false }: StepCardProps) {
-  const gradientColors = STEP_ACCENT_COLORS[index](theme);
+  const accentColor = STEP_ACCENT_COLORS[index](theme);
+  const iconColor = accentColor === theme.primary ? theme.textOnPrimary : '#FFFFFF';
 
   return (
     <GlassCard
@@ -155,14 +155,9 @@ function StepCard({ step, index, theme, large = false }: StepCardProps) {
       </Text>
 
       <View style={styles.iconWrapper}>
-        <LinearGradient
-          colors={gradientColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.iconGradient}
-        >
-          <Ionicons name={step.icon} size={large ? 32 : 26} color="#FFFFFF" />
-        </LinearGradient>
+        <View style={[styles.iconSurface, { backgroundColor: accentColor }]}>
+          <Ionicons name={step.icon} size={large ? 32 : 26} color={iconColor} />
+        </View>
       </View>
 
       <Text
@@ -206,7 +201,7 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     fontSize: 12,
-    letterSpacing: 2,
+    letterSpacing: 0,
     textTransform: 'uppercase',
     marginBottom: 12,
   },
@@ -214,11 +209,11 @@ const styles = StyleSheet.create({
     fontSize: 32,
     textAlign: 'center',
     marginBottom: 12,
-    letterSpacing: -0.5,
+    letterSpacing: 0,
   },
   titleDesktop: {
     fontSize: 44,
-    letterSpacing: -1,
+    letterSpacing: 0,
   },
   subtitle: {
     fontSize: 17,
@@ -270,7 +265,7 @@ const styles = StyleSheet.create({
   iconWrapper: {
     marginBottom: 20,
   },
-  iconGradient: {
+  iconSurface: {
     width: 56,
     height: 56,
     borderRadius: 16,

@@ -58,12 +58,12 @@ export const Badge: React.FC<BadgeProps> = ({
       case 'warning':
         return {
           ...baseStyle,
-          backgroundColor: '#FEF3C7', // Light yellow
+          backgroundColor: colors.background.warning,
         };
       case 'error':
         return {
           ...baseStyle,
-          backgroundColor: '#FEE2E2', // Light red
+          backgroundColor: colors.background.error,
         };
       case 'info':
         return {
@@ -78,12 +78,12 @@ export const Badge: React.FC<BadgeProps> = ({
       case 'purple':
         return {
           ...baseStyle,
-          backgroundColor: '#F3E8FF', // Light purple
+          backgroundColor: colors.background.purple,
         };
       case 'pink':
         return {
           ...baseStyle,
-          backgroundColor: '#FCE7F3', // Light pink
+          backgroundColor: colors.background.pink,
         };
       default:
         return baseStyle;

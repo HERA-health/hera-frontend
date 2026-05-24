@@ -14,7 +14,6 @@ import {
   Animated as RNAnimated,
   Platform,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { MotionView } from '../../../components/common/MotionView';
@@ -89,11 +88,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         <View style={[styles.textContainer, isMobile && styles.textContainerMobile, isDesktop && styles.textContainerDesktop]}>
           <MotionView entering="fadeInUp" delay={0} style={styles.badgeWrapper}>
             <GlassCard intensity={28} borderRadius={20} style={styles.badgePill}>
-              <Ionicons name="briefcase-outline" size={14} color={theme.primary} />
+              <Ionicons name="briefcase-outline" size={14} color={isDark ? theme.logoTint : theme.primary} />
               <Text
                 style={[
                   styles.badgeText,
-                  { color: theme.primaryDark, fontFamily: theme.fontSansSemiBold },
+                  {
+                    color: isDark ? theme.textSecondary : theme.primaryDark,
+                    fontFamily: theme.fontSansSemiBold,
+                  },
                 ]}
               >
                 Aplicación de gestión para especialistas en salud mental
@@ -115,7 +117,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <Text
                 style={[
                   styles.headlineAccent,
-                  { color: theme.primary, fontFamily: theme.fontDisplayItalic },
+                  { color: isDark ? theme.link : theme.primary, fontFamily: theme.fontDisplayItalic },
                 ]}
               >
                 gestionar mejor
@@ -154,8 +156,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               style={[
                 styles.primaryCTAWrapper,
                 {
-                  backgroundColor: theme.primaryDark,
-                  shadowColor: theme.shadowPrimary,
+                  backgroundColor: theme.actionPrimary,
+                  shadowColor: theme.shadowSecondary,
                   shadowOffset: { width: 0, height: 8 },
                   shadowOpacity: 1,
                   shadowRadius: 18,
@@ -165,17 +167,17 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 },
               ]}
             >
-              <LinearGradient
-                colors={[theme.primary, theme.primaryDark]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.primaryCTAGradient}
-              >
-                <Text style={[styles.primaryCTAText, { fontFamily: theme.fontSansBold }]}>
+              <View style={[styles.primaryCTASurface, { backgroundColor: theme.actionPrimary }]}>
+                <Text
+                  style={[
+                    styles.primaryCTAText,
+                    { color: theme.actionPrimaryText, fontFamily: theme.fontSansBold },
+                  ]}
+                >
                   Acceder como profesional
                 </Text>
-                <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-              </LinearGradient>
+                <Ionicons name="arrow-forward" size={20} color={theme.actionPrimaryText} />
+              </View>
             </AnimatedPressable>
 
             <AnimatedPressable
@@ -185,27 +187,38 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               style={[
                 styles.secondaryCTA,
                 {
-                  borderColor: isDark ? theme.secondaryDark : theme.secondaryAlpha12,
-                  backgroundColor: isDark ? theme.secondaryMuted : theme.secondaryAlpha12,
+                  borderColor: isDark ? theme.borderStrong : theme.secondaryAlpha12,
+                  backgroundColor: isDark ? theme.bgMuted : theme.secondaryAlpha12,
                 },
               ]}
             >
               <Text
                 style={[
                   styles.secondaryCTAText,
-                  { color: theme.secondaryDark, fontFamily: theme.fontSansSemiBold },
+                  {
+                    color: isDark ? theme.textSecondary : theme.secondaryDark,
+                    fontFamily: theme.fontSansSemiBold,
+                  },
                 ]}
               >
                 Busco terapia
               </Text>
-              <Ionicons name="search-outline" size={18} color={theme.secondaryDark} />
+              <Ionicons
+                name="search-outline"
+                size={18}
+                color={isDark ? theme.textMuted : theme.secondaryDark}
+              />
             </AnimatedPressable>
           </MotionView>
 
           <MotionView entering="fadeIn" delay={400}>
             <View style={styles.trustIndicator}>
               <View style={styles.trustPill}>
-                <Ionicons name="calendar-clear-outline" size={14} color={theme.primary} />
+                <Ionicons
+                  name="calendar-clear-outline"
+                  size={14}
+                  color={isDark ? theme.textMuted : theme.primary}
+                />
                 <Text
                 style={[
                   styles.trustPillText,
@@ -241,35 +254,20 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 isDesktop && styles.illustrationContainerDesktop,
               ]}
             >
-              <View
-                style={[
-                  styles.glowRing,
-                  {
-                    borderColor: theme.primaryAlpha20,
-                    shadowColor: theme.primary,
-                  },
-                ]}
-              />
-
-              <GlassCard intensity={70} borderRadius={60} style={styles.centralOrb}>
-                <LinearGradient
-                  colors={[theme.primary, theme.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.centralOrbGradient}
-                >
-                  <Ionicons name="grid-outline" size={42} color="#FFFFFF" />
-                </LinearGradient>
+              <GlassCard intensity={70} borderRadius={24} style={styles.centralPanel}>
+                <View style={[styles.centralPanelSurface, { backgroundColor: theme.actionPrimary }]}>
+                  <Ionicons name="grid-outline" size={42} color={theme.actionPrimaryText} />
+                </View>
               </GlassCard>
 
-              <GlassCard intensity={26} borderRadius={24} style={[styles.orbitElement, styles.orbit1]}>
-                <Ionicons name="calendar-outline" size={22} color={theme.primary} />
+              <GlassCard intensity={26} borderRadius={24} style={[styles.featureBadge, styles.badgePosition1]}>
+                <Ionicons name="calendar-outline" size={22} color={isDark ? theme.textMuted : theme.primary} />
               </GlassCard>
-              <GlassCard intensity={26} borderRadius={24} style={[styles.orbitElement, styles.orbit2]}>
+              <GlassCard intensity={26} borderRadius={24} style={[styles.featureBadge, styles.badgePosition2]}>
                 <Ionicons name="people-outline" size={22} color={theme.secondary} />
               </GlassCard>
               {showFloatingDetails && (
-                <GlassCard intensity={26} borderRadius={24} style={[styles.orbitElement, styles.orbit3]}>
+                <GlassCard intensity={26} borderRadius={24} style={[styles.featureBadge, styles.badgePosition3]}>
                   <Ionicons name="stats-chart-outline" size={22} color={theme.success} />
                 </GlassCard>
               )}
@@ -279,7 +277,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           {showFloatingDetails && (
             <>
               <GlassCard intensity={24} borderRadius={12} style={[styles.floatingCard, styles.floatingCard1]}>
-                <Ionicons name={FLOATING_FEATURES[0].icon} size={18} color={theme.primary} />
+                <Ionicons
+                  name={FLOATING_FEATURES[0].icon}
+                  size={18}
+                  color={isDark ? theme.textMuted : theme.primary}
+                />
                 <Text
                   style={[
                     styles.floatingCardText,
@@ -315,7 +317,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               </GlassCard>
 
               <GlassCard intensity={24} borderRadius={12} style={[styles.floatingCard, styles.floatingCard4]}>
-                <Ionicons name={FLOATING_FEATURES[3].icon} size={18} color={theme.primaryDark} />
+                <Ionicons
+                  name={FLOATING_FEATURES[3].icon}
+                  size={18}
+                  color={isDark ? theme.textMuted : theme.primaryDark}
+                />
                 <Text
                   style={[
                     styles.floatingCardText,
@@ -351,7 +357,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             >
               Descubre las herramientas
             </Text>
-            <Ionicons name="chevron-down" size={20} color={theme.primary} />
+            <Ionicons name="chevron-down" size={20} color={isDark ? theme.textMuted : theme.primary} />
           </RNAnimated.View>
         </AnimatedPressable>
       )}
@@ -466,7 +472,7 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   primaryCTAWrapper: {},
-  primaryCTAGradient: {
+  primaryCTASurface: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -478,7 +484,6 @@ const styles = StyleSheet.create({
   },
   primaryCTAText: {
     fontSize: 16,
-    color: '#FFFFFF',
     letterSpacing: 0,
   },
   secondaryCTA: {
@@ -550,45 +555,34 @@ const styles = StyleSheet.create({
     width: 360,
     height: 360,
   },
-  glowRing: {
-    position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
-    elevation: 0,
-  },
-  centralOrb: {
+  centralPanel: {
     width: 120,
     height: 120,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: 'rgba(139, 157, 131, 0.35)',
+    shadowColor: 'rgba(62, 92, 79, 0.18)',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
     shadowRadius: 20,
     elevation: 8,
   },
-  centralOrbGradient: {
+  centralPanelSurface: {
     width: 120,
     height: 120,
-    borderRadius: 60,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  orbitElement: {
+  featureBadge: {
     position: 'absolute',
     width: 50,
     height: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  orbit1: { top: 20, right: 40 },
-  orbit2: { bottom: 30, left: 30 },
-  orbit3: { top: 84, left: 18 },
+  badgePosition1: { top: 20, right: 40 },
+  badgePosition2: { bottom: 30, left: 30 },
+  badgePosition3: { top: 84, left: 18 },
   floatingCard: {
     position: 'absolute',
     flexDirection: 'row',

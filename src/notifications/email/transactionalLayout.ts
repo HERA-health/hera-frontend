@@ -23,19 +23,20 @@ interface TransactionalEmailLayoutProps {
 }
 
 const brand = {
-  pageBg: '#F5F7F5',
+  pageBg: '#F5F0E8',
   cardBg: '#FFFFFF',
-  border: '#E2E8E2',
-  textPrimary: '#2C3E2C',
-  textSecondary: '#6B7B6B',
-  textMuted: '#9BA89B',
-  primary: '#8B9D83',
-  primaryLight: '#D4DED0',
-  secondary: '#B8A8D9',
-  success: '#7BA377',
-  successBg: '#F0F7F0',
-  warning: '#E89D88',
-  warningBg: '#FCEEEA',
+  summaryBg: '#FFFCF7',
+  border: '#DFD8CD',
+  textPrimary: '#3E5C4F',
+  textSecondary: '#65746D',
+  textMuted: '#8D948E',
+  primary: '#006884',
+  primaryLight: '#D8E8EA',
+  secondary: '#3E5C4F',
+  success: '#3E5C4F',
+  successBg: '#E4EDE8',
+  warning: '#A66F48',
+  warningBg: '#F1E7D8',
 };
 
 const toneMap: Record<
@@ -139,13 +140,13 @@ export const buildTransactionalEmailHtml = ({
             <td align="center">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 640px;">
                 <tr>
-                  <td style="padding-bottom: 14px; color: ${brand.textMuted}; font-size: 12px; letter-spacing: 0.8px; text-transform: uppercase;">
+                  <td style="padding-bottom: 14px; color: ${brand.textMuted}; font-size: 12px; letter-spacing: 0; text-transform: uppercase;">
                     HERA
                   </td>
                 </tr>
                 <tr>
                   <td style="background: ${brand.cardBg}; border: 1px solid ${brand.border}; border-radius: 24px; padding: 28px;">
-                    <div style="display: inline-block; padding: 6px 12px; border-radius: 999px; background: ${brand.primaryLight}; color: ${brand.primary}; font-size: 12px; font-weight: 700; letter-spacing: 0.3px;">
+                    <div style="display: inline-block; padding: 6px 12px; border-radius: 999px; background: ${brand.primaryLight}; color: ${brand.primary}; font-size: 12px; font-weight: 700; letter-spacing: 0;">
                       ${escapeHtml(eyebrow)}
                     </div>
 
@@ -161,7 +162,7 @@ export const buildTransactionalEmailHtml = ({
                       ${escapeHtml(statusLabel)}
                     </div>
 
-                    <div style="border: 1px solid ${brand.border}; border-radius: 18px; background: #FCFDFC; padding: 18px 20px;">
+                    <div style="border: 1px solid ${brand.border}; border-radius: 18px; background: ${brand.summaryBg}; padding: 18px 20px;">
                       <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                         ${renderSummaryRows(summaryRows)}
                       </table>

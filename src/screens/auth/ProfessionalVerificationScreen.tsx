@@ -19,7 +19,6 @@ import {
   TextInput,
   Image,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { heraLanding, spacing, shadows } from '../../constants/colors';
@@ -255,21 +254,14 @@ export function ProfessionalVerificationScreen() {
 
   // Brand Side Content
   const renderBrandSide = () => (
-    <LinearGradient
-      colors={[heraLanding.primary, heraLanding.primaryDark]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+    <View
       style={[
         styles.brandSide,
         isDesktop && styles.brandSideDesktop,
         !isDesktop && styles.brandSideMobile,
+        { backgroundColor: heraLanding.primary },
       ]}
     >
-      {/* Decorative circles */}
-      <View style={[styles.decorCircle, styles.decorCircle1]} />
-      <View style={[styles.decorCircle, styles.decorCircle2]} />
-      <View style={[styles.decorCircle, styles.decorCircle3]} />
-
       <Animated.View
         style={[
           styles.brandContent,
@@ -319,7 +311,7 @@ export function ProfessionalVerificationScreen() {
           </View>
         )}
       </Animated.View>
-    </LinearGradient>
+    </View>
   );
 
   // Form Side Content
@@ -460,12 +452,7 @@ export function ProfessionalVerificationScreen() {
             disabled={isLoading || !consentAccepted}
             activeOpacity={0.85}
           >
-            <LinearGradient
-              colors={[heraLanding.primary, heraLanding.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.primaryButtonGradient}
-            >
+            <View style={[styles.primaryButtonSurface, { backgroundColor: heraLanding.primary }]}>
               <View style={styles.primaryButtonContent}>
               {isLoading ? (
                 <>
@@ -479,7 +466,7 @@ export function ProfessionalVerificationScreen() {
                 </>
               )}
               </View>
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
 
           {/* Info Notice */}
@@ -537,29 +524,6 @@ const styles = StyleSheet.create({
   },
   brandContent: {
     zIndex: 1,
-  },
-  decorCircle: {
-    position: 'absolute',
-    borderRadius: 999,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  decorCircle1: {
-    width: 300,
-    height: 300,
-    top: -100,
-    right: -100,
-  },
-  decorCircle2: {
-    width: 200,
-    height: 200,
-    bottom: 50,
-    left: -80,
-  },
-  decorCircle3: {
-    width: 150,
-    height: 150,
-    top: '50%',
-    right: 20,
   },
   logoContainer: {
     flexDirection: 'row',
@@ -832,7 +796,7 @@ const styles = StyleSheet.create({
   primaryButtonDisabled: {
     opacity: 0.6,
   },
-  primaryButtonGradient: {
+  primaryButtonSurface: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,

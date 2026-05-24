@@ -82,7 +82,7 @@ const ProfileCompletionScreen: React.FC = () => {
             <View style={styles.stepConnector} />
 
             <View style={styles.stepItem}>
-              <View style={[styles.stepIcon, { backgroundColor: '#F3E8FF' }]}>
+              <View style={[styles.stepIcon, { backgroundColor: colors.background.purple }]}>
                 <Ionicons name="analytics" size={24} color={colors.secondary.purple} />
               </View>
               <View style={styles.stepContent}>

@@ -4,6 +4,14 @@
  */
 
 import { ApiSession, SessionStatus, SessionType, GroupedSessions, StatusBadgeVariant } from '../types';
+import { lightTheme } from '../../../constants/theme';
+
+const STATUS_COLORS: Record<SessionStatus, string> = {
+  CONFIRMED: lightTheme.status.confirmed.text,
+  PENDING: lightTheme.warning,
+  COMPLETED: lightTheme.secondary,
+  CANCELLED: lightTheme.error,
+};
 
 /**
  * Time constants for session calculations
@@ -212,16 +220,5 @@ export const getDateLabel = (dateString: string): string => {
  * Gets status color for calendar indicators
  */
 export const getStatusColor = (status: SessionStatus): string => {
-  switch (status) {
-    case 'CONFIRMED':
-      return '#7BA377'; // Sage green
-    case 'PENDING':
-      return '#D9A84F'; // Warning yellow
-    case 'COMPLETED':
-      return '#9BA39B'; // Muted gray
-    case 'CANCELLED':
-      return '#E89D88'; // Coral
-    default:
-      return '#6B7B6B';
-  }
+  return STATUS_COLORS[status] ?? lightTheme.textSecondary;
 };

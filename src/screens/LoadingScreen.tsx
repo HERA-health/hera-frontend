@@ -8,7 +8,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { StyledLogo } from '../components/common/StyledLogo';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -16,9 +15,6 @@ const LoadingScreen = () => {
   const { theme, isDark } = useTheme();
   const shimmer = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0.96)).current;
-  const backgroundGradient: readonly [string, string, string] = isDark
-    ? ['rgba(183, 166, 216, 0.10)', 'rgba(138, 152, 127, 0.06)', 'rgba(10, 13, 11, 0)']
-    : ['rgba(184, 168, 217, 0.16)', 'rgba(139, 157, 131, 0.10)', 'rgba(245, 247, 245, 0)'];
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
 
   useEffect(() => {
@@ -64,13 +60,6 @@ const LoadingScreen = () => {
 
   return (
     <View style={styles.screen}>
-      <LinearGradient
-        colors={backgroundGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.backgroundGlow}
-      />
-
       <Animated.View style={[styles.panelWrap, { transform: [{ scale: pulse }] }]}>
         <View style={styles.panel}>
           <View style={styles.badge}>
@@ -79,7 +68,7 @@ const LoadingScreen = () => {
           </View>
 
           <View style={styles.logoShell}>
-            <StyledLogo size={74} />
+            <StyledLogo size={72} />
             <Animated.View
               pointerEvents="none"
               style={[
@@ -91,7 +80,6 @@ const LoadingScreen = () => {
             />
           </View>
 
-          <Text style={styles.wordmark}>HERA</Text>
           <Text style={styles.message}>
             Estamos cargando tu experiencia con la configuración más reciente.
           </Text>
@@ -118,13 +106,6 @@ const createStyles = (
       justifyContent: 'center',
       paddingHorizontal: 24,
     },
-    backgroundGlow: {
-      position: 'absolute',
-      width: 420,
-      height: 420,
-      borderRadius: 210,
-      opacity: isDark ? 0.9 : 1,
-    },
     panelWrap: {
       width: '100%',
       maxWidth: 460,
@@ -133,15 +114,15 @@ const createStyles = (
       backgroundColor: theme.bgCard,
       borderWidth: 1,
       borderColor: theme.border,
-      borderRadius: 30,
+      borderRadius: 24,
       paddingHorizontal: 28,
       paddingVertical: 30,
       alignItems: 'center',
-      shadowColor: isDark ? '#000000' : theme.primary,
-      shadowOpacity: isDark ? 0.32 : 0.10,
-      shadowRadius: 26,
+      shadowColor: isDark ? theme.shadowStrong : theme.shadowNeutral,
+      shadowOpacity: isDark ? 0.32 : 1,
+      shadowRadius: 24,
       shadowOffset: { width: 0, height: 18 },
-      elevation: 12,
+      elevation: 10,
       overflow: 'hidden',
     },
     badge: {
@@ -151,7 +132,9 @@ const createStyles = (
       paddingHorizontal: 12,
       paddingVertical: 8,
       borderRadius: 999,
-      backgroundColor: isDark ? theme.primaryAlpha12 : theme.secondaryAlpha12,
+      backgroundColor: isDark ? theme.secondaryMuted : theme.secondaryMuted,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
       marginBottom: 22,
     },
     badgeDot: {
@@ -164,18 +147,18 @@ const createStyles = (
       color: theme.textSecondary,
       fontSize: 13,
       fontFamily: theme.fontSansSemiBold,
-      letterSpacing: 0.2,
+      letterSpacing: 0,
     },
     logoShell: {
-      width: 100,
-      height: 100,
-      borderRadius: 28,
+      width: 218,
+      height: 104,
+      borderRadius: 18,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
       borderWidth: 1,
       borderColor: theme.borderLight,
-      marginBottom: 18,
+      marginBottom: 20,
       overflow: 'hidden',
     },
     logoShimmer: {
@@ -183,13 +166,6 @@ const createStyles = (
       width: 42,
       height: 140,
       backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.42)',
-    },
-    wordmark: {
-      fontSize: 34,
-      lineHeight: 38,
-      fontFamily: theme.fontDisplayBold,
-      color: theme.textPrimary,
-      marginBottom: 12,
     },
     message: {
       color: theme.textSecondary,
@@ -208,6 +184,8 @@ const createStyles = (
       paddingVertical: 10,
       borderRadius: 999,
       backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
     },
     loaderText: {
       color: theme.textMuted,
