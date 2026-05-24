@@ -23,7 +23,9 @@ import { UserRole, SidebarUser } from './sidebar/types';
 
 interface CustomDrawerContentProps {
   currentRoute?: string;
+  isUserSectionScrollable?: boolean;
   isCollapsed?: boolean;
+  onNavigateComplete?: () => Promise<void> | void;
   onGuideStart?: () => Promise<void> | void;
   onToggleCollapse?: () => void;
 }
@@ -38,7 +40,9 @@ interface CustomDrawerContentProps {
  */
 export function CustomDrawerContent({
   currentRoute = 'Home',
+  isUserSectionScrollable = false,
   isCollapsed = false,
+  onNavigateComplete,
   onGuideStart,
   onToggleCollapse,
 }: CustomDrawerContentProps): React.ReactElement {
@@ -60,8 +64,9 @@ export function CustomDrawerContent({
   const handleNavigate = useCallback(
     (route: string) => {
       navigation.navigate(route);
+      void Promise.resolve(onNavigateComplete?.()).catch(() => undefined);
     },
-    [navigation]
+    [navigation, onNavigateComplete]
   );
 
   // Logout handler - delegates to auth context
@@ -79,6 +84,7 @@ export function CustomDrawerContent({
         onLogout={handleLogout}
         onGuideStart={onGuideStart}
         isAdmin={user?.isAdmin}
+        isUserSectionScrollable={isUserSectionScrollable}
         isCollapsed={isCollapsed}
         onToggleCollapse={onToggleCollapse}
       />

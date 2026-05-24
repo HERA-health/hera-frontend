@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { RootStackParamList } from '../../../constants/types';
@@ -19,6 +19,7 @@ export function Sidebar({
   onLogout,
   onGuideStart,
   isAdmin,
+  isUserSectionScrollable = false,
   isCollapsed = false,
   onToggleCollapse,
 }: SidebarProps): React.ReactElement {
@@ -28,15 +29,31 @@ export function Sidebar({
     () => getNavigationSections(userRole, isAdmin),
     [isAdmin, userRole],
   );
+  const profileRoute: keyof RootStackParamList = userRole === 'PROFESSIONAL'
+    ? 'ProfessionalProfile'
+    : 'Profile';
+  const handleProfilePress = useCallback(() => {
+    onNavigate(profileRoute);
+  }, [onNavigate, profileRoute]);
 
   const subtitle = userRole === 'PROFESSIONAL'
-    ? 'Operativa clínica y agenda'
+    ? ''
     : 'Tu espacio de bienestar';
 
   const collapseButtonBase = {
     backgroundColor: sidebarTheme.background.subtle,
     borderColor: sidebarTheme.border,
   };
+  const userSection = (
+    <UserSection
+      user={user}
+      subtitle={subtitle}
+      onProfilePress={handleProfilePress}
+      onLogout={onLogout}
+      onGuideStart={onGuideStart}
+      isCollapsed={isCollapsed}
+    />
+  );
 
   return (
     <View
@@ -131,15 +148,15 @@ export function Sidebar({
             isCollapsed={isCollapsed}
           />
         ))}
+
+        {isUserSectionScrollable ? (
+          <View style={styles.userSectionInScroll}>
+            {userSection}
+          </View>
+        ) : null}
       </ScrollView>
 
-      <UserSection
-        user={user}
-        subtitle={subtitle}
-        onLogout={onLogout}
-        onGuideStart={onGuideStart}
-        isCollapsed={isCollapsed}
-      />
+      {!isUserSectionScrollable ? userSection : null}
     </View>
   );
 }
@@ -238,6 +255,9 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
+  },
+  userSectionInScroll: {
+    marginTop: 10,
   },
 });
 

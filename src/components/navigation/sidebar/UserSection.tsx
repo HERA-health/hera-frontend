@@ -12,6 +12,7 @@ import { UserSectionProps } from './types';
 export function UserSection({
   user,
   subtitle,
+  onProfilePress,
   onLogout,
   onGuideStart,
   isCollapsed = false,
@@ -22,6 +23,10 @@ export function UserSection({
   const handleLogout = useCallback(() => {
     onLogout();
   }, [onLogout]);
+
+  const handleProfilePress = useCallback(() => {
+    onProfilePress?.();
+  }, [onProfilePress]);
 
   const getInitials = (name: string): string => {
     const parts = name.trim().split(' ').filter(Boolean);
@@ -37,90 +42,121 @@ export function UserSection({
         style={[
           styles.panel,
           {
-            backgroundColor: sidebarTheme.background.secondary,
-            borderColor: sidebarTheme.border,
-            shadowColor: sidebarTheme.shadow,
+            backgroundColor: 'transparent',
+            borderColor: 'transparent',
           },
           isCollapsed ? styles.panelCollapsed : null,
         ]}
       >
-        <View style={[styles.topRow, isCollapsed ? styles.topRowCollapsed : null]}>
-          {user.avatarUrl ? (
-            <Image
-              source={{ uri: user.avatarUrl }}
-              style={[
-                styles.avatarImage,
-                isCollapsed ? styles.avatarCollapsed : null,
-              ]}
-              accessibilityLabel={`${user.name} avatar`}
-            />
-          ) : (
-            <View
-              style={[
-                styles.avatar,
-                {
-                  backgroundColor: theme.secondaryMuted,
-                },
-                isCollapsed ? styles.avatarCollapsed : null,
-              ]}
-            >
-              <Text
+        <AnimatedPressable
+          onPress={handleProfilePress}
+          hoverLift={false}
+          pressScale={0.96}
+          style={[
+            styles.profileButton,
+            {
+              backgroundColor: sidebarTheme.background.subtle,
+              borderColor: sidebarTheme.border,
+            },
+            isCollapsed ? styles.profileButtonCollapsed : null,
+          ]}
+          accessibilityLabel={`Abrir perfil de ${user.name}`}
+        >
+          <View style={[styles.topRow, isCollapsed ? styles.topRowCollapsed : null]}>
+            {user.avatarUrl ? (
+              <Image
+                source={{ uri: user.avatarUrl }}
                 style={[
-                  styles.avatarText,
+                  styles.avatarImage,
+                  isCollapsed ? styles.avatarCollapsed : null,
+                ]}
+              />
+            ) : (
+              <View
+                style={[
+                  styles.avatar,
                   {
-                    color: theme.selection,
-                    fontFamily: theme.fontSansBold,
+                    backgroundColor: theme.secondaryMuted,
                   },
+                  isCollapsed ? styles.avatarCollapsed : null,
                 ]}
               >
-                {getInitials(user.name)}
-              </Text>
-            </View>
-          )}
+                <Text
+                  style={[
+                    styles.avatarText,
+                    {
+                      color: theme.selection,
+                      fontFamily: theme.fontSansBold,
+                    },
+                  ]}
+                >
+                  {getInitials(user.name)}
+                </Text>
+              </View>
+            )}
 
-          {!isCollapsed && (
-            <View style={styles.infoContainer}>
-              <Text
-                style={[
-                  styles.userName,
-                  {
-                    color: sidebarTheme.text.primary,
-                    fontFamily: theme.fontSansSemiBold,
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {user.name}
-              </Text>
-              <Text
-                style={[
-                  styles.userSubtitle,
-                  {
-                    color: sidebarTheme.text.muted,
-                    fontFamily: theme.fontSans,
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {subtitle}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {!isCollapsed && user.role === 'PROFESSIONAL' ? (
-          <ProfessionalGuideButton onGuideStart={onGuideStart} />
-        ) : null}
+            {!isCollapsed && (
+              <>
+                <View style={styles.infoContainer}>
+                  <Text
+                    style={[
+                      styles.userName,
+                      {
+                        color: sidebarTheme.text.primary,
+                        fontFamily: theme.fontSansSemiBold,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {user.name}
+                  </Text>
+                  {subtitle ? (
+                    <Text
+                      style={[
+                        styles.userSubtitle,
+                        {
+                          color: sidebarTheme.text.muted,
+                          fontFamily: theme.fontSans,
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {subtitle}
+                    </Text>
+                  ) : null}
+                </View>
+                <View
+                  style={[
+                    styles.profileArrow,
+                    { backgroundColor: sidebarTheme.background.subtle },
+                  ]}
+                >
+                  <Ionicons
+                    name="chevron-forward"
+                    size={14}
+                    color={sidebarTheme.text.secondary}
+                  />
+                </View>
+              </>
+            )}
+          </View>
+        </AnimatedPressable>
 
         {!isCollapsed && (
           <View style={styles.actionRow}>
+            {user.role === 'PROFESSIONAL' ? (
+              <ProfessionalGuideButton onGuideStart={onGuideStart} />
+            ) : null}
             <ThemeToggleButton
               size="sm"
-              showLabel
-              style={{
-                flex: 1,
-                justifyContent: 'center',
-              }}
+              style={[
+                styles.quickIconButton,
+                {
+                  backgroundColor: sidebarTheme.background.subtle,
+                  borderColor: sidebarTheme.border,
+                  shadowColor: 'transparent',
+                },
+              ]}
             />
             <AnimatedPressable
               onPress={handleLogout}

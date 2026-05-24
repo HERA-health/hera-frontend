@@ -215,7 +215,9 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
             >
               <CustomDrawerContent
                 currentRoute={currentRoute}
+                isUserSectionScrollable
                 isCollapsed={false}
+                onNavigateComplete={closeMobileSidebar}
                 onGuideStart={closeMobileSidebar}
                 onToggleCollapse={closeMobileSidebar}
               />

@@ -321,7 +321,7 @@ export const layout = {
   calendarTimeColumnWidth: 36,
   mobilePanelHeight: 300,
   collapsedSidebarWidth: 52,
-  mobileDrawerMinWidth: 240,
+  mobileDrawerMinWidth: 224,
   mobileNavButtonSize: touchTarget.minWidth,
   mobileShellLeftInset: touchTarget.minWidth + spacing.xxl,
   mobileShellCompactLeftInset: touchTarget.minWidth + spacing.md,

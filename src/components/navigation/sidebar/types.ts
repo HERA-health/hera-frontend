@@ -128,6 +128,8 @@ export interface UserSectionProps {
   user: SidebarUser;
   /** Subtitle text to display */
   subtitle: string;
+  /** Callback when the profile summary is pressed */
+  onProfilePress?: () => void;
   /** Callback when logout is pressed */
   onLogout: () => void;
   /** Optional callback before starting the current screen guide */
@@ -155,6 +157,8 @@ export interface SidebarProps {
   onGuideStart?: () => Promise<void> | void;
   /** Whether the user is an admin */
   isAdmin?: boolean;
+  /** Whether the user/profile section should scroll with navigation content */
+  isUserSectionScrollable?: boolean;
   /** Whether the sidebar is in collapsed state */
   isCollapsed?: boolean;
   /** Callback to toggle collapse state */
