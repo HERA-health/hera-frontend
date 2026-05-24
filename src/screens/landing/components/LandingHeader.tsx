@@ -34,6 +34,8 @@ const NAV_ITEMS = [
   { id: 'specializations' as const, label: 'Especialidades' },
 ];
 
+const WEB_SCROLLBAR_GUTTER = 16;
+
 export const LandingHeader: React.FC<LandingHeaderProps> = ({
   isScrolled,
   onFindSpecialist,
@@ -76,7 +78,14 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
       : undefined;
 
   return (
-    <Animated.View style={[styles.container, containerAnimStyle, webGlassStyle]}>
+    <Animated.View
+      style={[
+        styles.container,
+        Platform.OS === 'web' && !isMobile && styles.containerWeb,
+        containerAnimStyle,
+        webGlassStyle,
+      ]}
+    >
       {Platform.OS !== 'web' && isScrolled && (
         <BlurView
           intensity={55}
@@ -192,6 +201,9 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     borderBottomWidth: 1,
     borderBottomColor: 'transparent',
+  },
+  containerWeb: {
+    right: WEB_SCROLLBAR_GUTTER,
   },
   content: {
     flexDirection: 'row',
