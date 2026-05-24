@@ -95,10 +95,18 @@ describe('LandingPage', () => {
     expect(screen.getByText('Aplicación de gestión para especialistas en salud mental')).toBeTruthy();
     expect(screen.getAllByText('Acceder como profesional').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Busco terapia').length).toBeGreaterThan(0);
+    expect(screen.getByText('Agenda')).toBeTruthy();
+    expect(screen.getByText('Organiza tu agenda de manera sencilla.')).toBeTruthy();
+    expect(screen.getByText('Pacientes y sesiones')).toBeTruthy();
+    expect(screen.getByText('Historial, citas y seguimiento en un solo lugar.')).toBeTruthy();
+    expect(screen.getByText('Gestión clínica segura')).toBeTruthy();
+    expect(screen.getByText('Documentos y consentimientos cifrados para trabajar con seguridad.')).toBeTruthy();
+    expect(screen.getByText('Crea, gestiona y envía tus facturas.')).toBeTruthy();
+    expect(screen.getByText('Privacidad y cumplimiento alineados con la normativa.')).toBeTruthy();
     expect(screen.getByText('Agenda y sesiones')).toBeTruthy();
     expect(screen.getByText('Gestión de pacientes')).toBeTruthy();
-    expect(screen.getByText('Facturación')).toBeTruthy();
-    expect(screen.getByText('RGPD y LOPDGDD')).toBeTruthy();
+    expect(screen.getAllByText('Facturación').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('RGPD y LOPDGDD').length).toBeGreaterThan(0);
   });
 
   it('routes both primary and secondary hero actions to the right login flows', () => {

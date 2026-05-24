@@ -13,6 +13,7 @@ import {
   useWindowDimensions,
   Animated as RNAnimated,
   Platform,
+  type ViewStyle,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -20,6 +21,7 @@ import { MotionView } from '../../../components/common/MotionView';
 import { GlassCard } from '../../../components/common/GlassCard';
 import { AmbientBackground } from '../../../components/common/AmbientBackground';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
+import { StyledLogo } from '../../../components/common/StyledLogo';
 
 interface HeroSectionProps {
   onFindSpecialist: () => void;
@@ -28,11 +30,38 @@ interface HeroSectionProps {
   onScrollIndicatorPress?: () => void;
 }
 
-const FLOATING_FEATURES = [
-  { icon: 'calendar-outline' as const, label: 'Agenda clara' },
-  { icon: 'people-outline' as const, label: 'Pacientes y sesiones' },
-  { icon: 'receipt-outline' as const, label: 'Facturación' },
-  { icon: 'shield-checkmark-outline' as const, label: 'RGPD y LOPDGDD' },
+type HeroHubFeature = {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  title: string;
+  description: string;
+};
+
+const HERO_HUB_FEATURES: HeroHubFeature[] = [
+  {
+    icon: 'calendar-outline',
+    title: 'Agenda',
+    description: 'Organiza tu agenda de manera sencilla.',
+  },
+  {
+    icon: 'people-outline',
+    title: 'Pacientes y sesiones',
+    description: 'Historial, citas y seguimiento en un solo lugar.',
+  },
+  {
+    icon: 'receipt-outline',
+    title: 'Facturación',
+    description: 'Crea, gestiona y envía tus facturas.',
+  },
+  {
+    icon: 'document-text-outline',
+    title: 'Gestión clínica segura',
+    description: 'Documentos y consentimientos cifrados para trabajar con seguridad.',
+  },
+  {
+    icon: 'shield-checkmark-outline',
+    title: 'RGPD y LOPDGDD',
+    description: 'Privacidad y cumplimiento alineados con la normativa.',
+  },
 ];
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
@@ -46,7 +75,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   const isTablet = width >= 768 && width < 1024;
   const isMobile = width < 768;
   const isCompactMobile = width < 420;
-  const showFloatingDetails = width >= 900;
+  const showOrbitalLayout = width >= 1200;
   const { theme, isDark } = useTheme();
 
   const bounceAnim = useRef(new RNAnimated.Value(0)).current;
@@ -73,6 +102,79 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     inputRange: [0, 1],
     outputRange: [0, 8],
   });
+
+  const hubCardPositions = [
+    styles.hubCardAgenda,
+    styles.hubCardPatients,
+    styles.hubCardBilling,
+    styles.hubCardClinical,
+    styles.hubCardCompliance,
+  ];
+  const hubFeatureCardWebShadow = Platform.OS === 'web'
+    ? ({
+        boxShadow: isDark
+          ? `0 18px 34px ${theme.shadowStrong}, 0 6px 16px ${theme.shadowNeutral}`
+          : `0 18px 34px ${theme.shadowSecondary}, 0 6px 16px ${theme.shadowNeutral}`,
+      } as ViewStyle)
+    : null;
+
+  const renderHubFeature = (feature: HeroHubFeature, index: number) => (
+    <View
+      key={feature.title}
+      style={[
+        styles.hubFeatureCard,
+        showOrbitalLayout ? hubCardPositions[index] : styles.hubFeatureCardInline,
+        isTablet && styles.hubFeatureCardTablet,
+        isMobile && styles.hubFeatureCardMobile,
+        {
+          backgroundColor: isDark ? theme.bgCard : theme.bgElevated,
+          borderColor: isDark ? theme.border : theme.borderLight,
+          shadowColor: isDark ? theme.shadowNeutral : theme.shadowSecondary,
+        },
+        hubFeatureCardWebShadow,
+      ]}
+    >
+      <View
+        style={[
+          styles.hubFeatureIcon,
+          {
+            backgroundColor: isDark ? theme.secondaryMuted : theme.secondaryAlpha12,
+            borderColor: isDark ? theme.border : theme.borderStrong,
+          },
+        ]}
+      >
+        <Ionicons
+          name={feature.icon}
+          size={17}
+          color={isDark ? theme.logoTint : theme.secondaryDark}
+        />
+      </View>
+      <View style={styles.hubFeatureCopy}>
+        <Text
+          style={[
+            styles.hubFeatureTitle,
+            {
+              color: theme.textPrimary,
+              fontFamily: theme.fontSansBold,
+            },
+          ]}
+        >
+          {feature.title}
+        </Text>
+        <Text
+          style={[
+            styles.hubFeatureDescription,
+            {
+              color: theme.textSecondary,
+              fontFamily: theme.fontSans,
+            },
+          ]}
+        >
+          {feature.description}
+        </Text>
+      </View>
+    </View>
+  );
 
   return (
     <View style={[styles.container, isMobile && styles.containerMobile, isDesktop && styles.containerDesktop]}>
@@ -245,94 +347,49 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             ...(isTablet ? [styles.visualContainerTablet] : []),
           ]}
         >
-          <View style={styles.illustrationWrapper}>
+          <View
+            style={[
+              styles.hubStage,
+              ...(isMobile ? [styles.hubStageMobile] : []),
+              ...(isCompactMobile ? [styles.hubStageCompactMobile] : []),
+              ...(isTablet ? [styles.hubStageTablet] : []),
+              ...(showOrbitalLayout ? [styles.hubStageDesktop] : []),
+            ]}
+          >
             <View
               style={[
-                styles.illustrationContainer,
-                isMobile && styles.illustrationContainerMobile,
-                isCompactMobile && styles.illustrationContainerCompactMobile,
-                isDesktop && styles.illustrationContainerDesktop,
+                styles.hubOrbit,
+                ...(isMobile ? [styles.hubOrbitMobile] : []),
+                ...(showOrbitalLayout ? [styles.hubOrbitDesktop] : []),
               ]}
             >
-              <GlassCard intensity={70} borderRadius={24} style={styles.centralPanel}>
-                <View style={[styles.centralPanelSurface, { backgroundColor: theme.actionPrimary }]}>
-                  <Ionicons name="grid-outline" size={42} color={theme.actionPrimaryText} />
-                </View>
-              </GlassCard>
+              <View
+                style={[
+                  styles.hubCenter,
+                  showOrbitalLayout && styles.hubCenterDesktop,
+                  {
+                    backgroundColor: isDark ? theme.bgCard : theme.primary,
+                    shadowColor: theme.shadowSecondary,
+                  },
+                ]}
+              >
+                <StyledLogo
+                  variant="mark"
+                  size={showOrbitalLayout ? 58 : 48}
+                  tone={isDark ? 'beigeLight' : 'beigeLight'}
+                  tintColor={isDark ? theme.logoTint : theme.surfaceWarm}
+                />
+              </View>
 
-              <GlassCard intensity={26} borderRadius={24} style={[styles.featureBadge, styles.badgePosition1]}>
-                <Ionicons name="calendar-outline" size={22} color={isDark ? theme.textMuted : theme.primary} />
-              </GlassCard>
-              <GlassCard intensity={26} borderRadius={24} style={[styles.featureBadge, styles.badgePosition2]}>
-                <Ionicons name="people-outline" size={22} color={theme.secondary} />
-              </GlassCard>
-              {showFloatingDetails && (
-                <GlassCard intensity={26} borderRadius={24} style={[styles.featureBadge, styles.badgePosition3]}>
-                  <Ionicons name="stats-chart-outline" size={22} color={theme.success} />
-                </GlassCard>
-              )}
+              {showOrbitalLayout ? HERO_HUB_FEATURES.map(renderHubFeature) : null}
             </View>
+
+            {!showOrbitalLayout ? (
+              <View style={[styles.hubFeatureGrid, isMobile && styles.hubFeatureGridMobile]}>
+                {HERO_HUB_FEATURES.map(renderHubFeature)}
+              </View>
+            ) : null}
           </View>
-
-          {showFloatingDetails && (
-            <>
-              <GlassCard intensity={24} borderRadius={12} style={[styles.floatingCard, styles.floatingCard1]}>
-                <Ionicons
-                  name={FLOATING_FEATURES[0].icon}
-                  size={18}
-                  color={isDark ? theme.textMuted : theme.primary}
-                />
-                <Text
-                  style={[
-                    styles.floatingCardText,
-                    { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
-                  ]}
-                >
-                  {FLOATING_FEATURES[0].label}
-                </Text>
-              </GlassCard>
-
-              <GlassCard intensity={24} borderRadius={12} style={[styles.floatingCard, styles.floatingCard2]}>
-                <Ionicons name={FLOATING_FEATURES[1].icon} size={18} color={theme.secondary} />
-                <Text
-                  style={[
-                    styles.floatingCardText,
-                    { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
-                  ]}
-                >
-                  {FLOATING_FEATURES[1].label}
-                </Text>
-              </GlassCard>
-
-              <GlassCard intensity={24} borderRadius={12} style={[styles.floatingCard, styles.floatingCard3]}>
-                <Ionicons name={FLOATING_FEATURES[2].icon} size={18} color={theme.success} />
-                <Text
-                  style={[
-                    styles.floatingCardText,
-                    { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
-                  ]}
-                >
-                  {FLOATING_FEATURES[2].label}
-                </Text>
-              </GlassCard>
-
-              <GlassCard intensity={24} borderRadius={12} style={[styles.floatingCard, styles.floatingCard4]}>
-                <Ionicons
-                  name={FLOATING_FEATURES[3].icon}
-                  size={18}
-                  color={isDark ? theme.textMuted : theme.primaryDark}
-                />
-                <Text
-                  style={[
-                    styles.floatingCardText,
-                    { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
-                  ]}
-                >
-                  {FLOATING_FEATURES[3].label}
-                </Text>
-              </GlassCard>
-            </>
-          )}
         </MotionView>
       </View>
 
@@ -516,92 +573,158 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
     minHeight: 320,
+    width: '100%',
   },
   visualContainerMobile: {
-    minHeight: 220,
+    minHeight: 0,
   },
   visualContainerCompactMobile: {
-    minHeight: 196,
+    minHeight: 0,
   },
   visualContainerDesktop: {
     flex: 0.45,
-    minHeight: 480,
+    minHeight: 500,
   },
   visualContainerTablet: {
-    flex: 0.5,
-    minHeight: 350,
+    flexBasis: '100%',
+    minHeight: 0,
+    marginTop: 18,
   },
-  illustrationWrapper: {
+  hubStage: {
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
+    maxWidth: 560,
   },
-  illustrationContainer: {
-    width: 280,
-    height: 280,
+  hubStageDesktop: {
+    maxWidth: 680,
+    minHeight: 470,
+  },
+  hubStageTablet: {
+    maxWidth: 680,
+    alignSelf: 'center',
+  },
+  hubStageMobile: {
+    maxWidth: 430,
+  },
+  hubStageCompactMobile: {
+    maxWidth: 360,
+  },
+  hubOrbit: {
+    width: 240,
+    height: 240,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    marginBottom: 18,
   },
-  illustrationContainerMobile: {
-    width: 220,
-    height: 220,
+  hubOrbitMobile: {
+    width: 210,
+    height: 210,
+    marginBottom: 14,
   },
-  illustrationContainerCompactMobile: {
-    width: 196,
-    height: 196,
+  hubOrbitDesktop: {
+    width: 680,
+    height: 470,
+    marginBottom: 0,
   },
-  illustrationContainerDesktop: {
-    width: 360,
-    height: 360,
-  },
-  centralPanel: {
-    width: 120,
-    height: 120,
+  hubCenter: {
+    width: 104,
+    height: 104,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: 'rgba(62, 92, 79, 0.18)',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 14 },
     shadowOpacity: 1,
-    shadowRadius: 20,
+    shadowRadius: 24,
     elevation: 8,
   },
-  centralPanelSurface: {
-    width: 120,
-    height: 120,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+  hubCenterDesktop: {
+    width: 118,
+    height: 118,
+    borderRadius: 30,
   },
-  featureBadge: {
-    position: 'absolute',
-    width: 50,
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgePosition1: { top: 20, right: 40 },
-  badgePosition2: { bottom: 30, left: 30 },
-  badgePosition3: { top: 84, left: 18 },
-  floatingCard: {
-    position: 'absolute',
+  hubFeatureGrid: {
+    width: '100%',
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
-    shadowColor: 'rgba(44,62,44,0.12)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 4,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
   },
-  floatingCard1: { top: 18, right: 4 },
-  floatingCard2: { bottom: 32, left: -2 },
-  floatingCard3: { top: 110, left: -18 },
-  floatingCard4: { bottom: 108, right: -8 },
-  floatingCardText: {
-    fontSize: 13,
+  hubFeatureGridMobile: {
+    gap: 8,
+  },
+  hubFeatureCard: {
+    position: 'absolute',
+    width: 230,
+    minHeight: 80,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderWidth: 1,
+    borderRadius: 12,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 1,
+    shadowRadius: 22,
+    elevation: 7,
+  },
+  hubFeatureCardInline: {
+    position: 'relative',
+    width: '48%',
+  },
+  hubFeatureCardTablet: {
+    width: '48%',
+  },
+  hubFeatureCardMobile: {
+    width: '100%',
+    minHeight: 0,
+  },
+  hubCardAgenda: {
+    top: 18,
+    right: 112,
+  },
+  hubCardPatients: {
+    bottom: 8,
+    left: 54,
+  },
+  hubCardBilling: {
+    top: 150,
+    left: -4,
+  },
+  hubCardClinical: {
+    top: 165,
+    right: -6,
+  },
+  hubCardCompliance: {
+    right: 68,
+    bottom: 30,
+  },
+  hubFeatureIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  hubFeatureCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  hubFeatureTitle: {
+    fontSize: 14,
+    lineHeight: 18,
+    letterSpacing: 0,
+  },
+  hubFeatureDescription: {
+    marginTop: 3,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0,
   },
   scrollIndicatorContainer: {
     alignItems: 'center',
