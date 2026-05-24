@@ -105,6 +105,8 @@ describe('LandingPage', () => {
     expect(screen.getByText('Privacidad y cumplimiento alineados con la normativa.')).toBeTruthy();
     expect(screen.getByText('Agenda y sesiones')).toBeTruthy();
     expect(screen.getByText('Gestión de pacientes')).toBeTruthy();
+    expect(screen.getByText('Disponibilidad conectada con tus reservas')).toBeTruthy();
+    expect(screen.getByText('Documentos y consentimientos protegidos')).toBeTruthy();
     expect(screen.getAllByText('Facturación').length).toBeGreaterThan(0);
     expect(screen.getAllByText('RGPD y LOPDGDD').length).toBeGreaterThan(0);
   });

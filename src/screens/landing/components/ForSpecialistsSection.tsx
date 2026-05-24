@@ -24,6 +24,8 @@ const BENEFITS = [
   { icon: 'calendar-outline' as const, text: 'Agenda semanal y sesiones en un mismo panel' },
   { icon: 'people-outline' as const, text: 'Vista más clara de pacientes y seguimiento' },
   { icon: 'receipt-outline' as const, text: 'Facturación y configuración administrativa' },
+  { icon: 'time-outline' as const, text: 'Disponibilidad conectada con tus reservas' },
+  { icon: 'document-lock-outline' as const, text: 'Documentos y consentimientos protegidos' },
   { icon: 'stats-chart-outline' as const, text: 'Métricas para entender tu actividad' },
 ];
 
@@ -114,6 +116,7 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
                 key={benefit.text}
                 style={[
                   styles.benefitItem,
+                  (isDesktop || isTablet) && styles.benefitItemTwoColumn,
                   {
                     backgroundColor: theme.bgCard,
                     borderColor: theme.border,
@@ -283,6 +286,7 @@ const styles = StyleSheet.create({
   benefitItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    width: '100%',
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
@@ -292,6 +296,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 10,
     elevation: 2,
+  },
+  benefitItemTwoColumn: {
+    width: '48%',
   },
   benefitIcon: {
     width: 28,
