@@ -280,6 +280,9 @@ function ProfessionalProfileMobileTargets(): React.ReactElement {
       <TourTarget id="professional.profile.visibility" fill>
         <View testID="professional-profile-visibility-target" />
       </TourTarget>
+      <TourTarget id="professional.profile.preview" fill>
+        <View testID="professional-profile-preview-target" />
+      </TourTarget>
       <TourTarget id="professional.profile.save" fill>
         <View testID="professional-profile-save-target" />
       </TourTarget>
@@ -744,18 +747,18 @@ describe('ProfessionalTourProvider', () => {
     fireEvent.press(screen.getByText('start profile tour'));
 
     await waitFor(() => {
-      expect(getSpotlightTourTestState().props?.steps.length).toBe(3);
+      expect(getSpotlightTourTestState().props?.steps.length).toBe(4);
     });
 
     const placements = getSpotlightTourTestState().props?.steps.map((step) => step.placement);
 
-    expect(placements).toEqual(['bottom', 'bottom', 'top']);
+    expect(placements).toEqual(['bottom', 'bottom', 'bottom', 'bottom']);
     expect(getSpotlightTourTestState().props?.steps[0].flip).toEqual({
       fallbackPlacements: ['top', 'bottom'],
       padding: 18,
     });
-    expect(getSpotlightTourTestState().props?.steps[2].flip).toEqual({
-      fallbackPlacements: ['bottom', 'top'],
+    expect(getSpotlightTourTestState().props?.steps[3].flip).toEqual({
+      fallbackPlacements: ['top', 'bottom'],
       padding: 18,
     });
     expect(getSpotlightTourTestState().props?.steps[0].shift).toEqual({

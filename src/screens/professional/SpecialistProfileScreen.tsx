@@ -5,15 +5,17 @@
  * Designed to feel like LinkedIn meets Stripe Dashboard - professional, trustworthy,
  * and easy to maintain.
  *
- * Four Essential Tabs:
+ * Six Essential Tabs:
  * 1. Información Profesional - Public profile info (what clients see)
- * 2. Credenciales y Verificación - Verification status and trust badges
- * 3. Tarifas y Pagos - Pricing and payment configuration
- * 4. Cuenta y Seguridad - Account settings and security
+ * 2. Mi Espacio - Public personalization
+ * 3. Credenciales y Verificación - Verification status and trust badges
+ * 4. Facturación - Pricing and payment configuration
+ * 5. Privacidad - Public visibility controls
+ * 6. Cuenta - Account settings and security
  *
  * Features:
- * - Two-column layout: Form (60%) + Live Preview (40%)
- * - Real-time preview updates as specialist types
+ * - Full-width tab workspace for faster profile editing
+ * - Header actions for public preview, sharing and saving
  * - Verification badges and progress indicators
  * - Professional-grade form design
  * - Responsive for all devices
@@ -485,7 +487,6 @@ export function SpecialistProfileScreen() {
   const { theme, isDark } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
   const isDesktop = windowWidth >= 1024;
-  const isTablet = windowWidth >= 768 && windowWidth < 1024;
   const isMobile = windowWidth < 768;
   const palette = useMemo(() => createProfilePalette(theme, isDark), [theme, isDark]);
 
@@ -494,10 +495,9 @@ export function SpecialistProfileScreen() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isUploadingGalleryPhoto, setIsUploadingGalleryPhoto] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [showPreview, setShowPreview] = useState(!isMobile);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const styles = useMemo(() => createStyles(palette, isDesktop, isMobile, showPreview), [palette, isDesktop, isMobile, showPreview]);
+  const styles = useMemo(() => createStyles(palette, isDesktop, isMobile), [palette, isDesktop, isMobile]);
   const miEspacioStyles = useMemo(() => createMiEspacioStyles(palette), [palette]);
   const formScrollRef = useRef<ScrollView | null>(null);
 
@@ -524,7 +524,6 @@ export function SpecialistProfileScreen() {
       && !loadError
       && !isShareModalVisible
       && !isCertificateModalVisible
-      && !(isMobile && showPreview)
       && !isUploadingAvatar
       && !isUploadingGalleryPhoto
       && !isUploadingInsurance
@@ -537,14 +536,8 @@ export function SpecialistProfileScreen() {
     formScrollRef.current?.scrollTo({ y: 0, animated: false });
   }, []);
 
-  const prepareProfilePreviewStep = useCallback(() => {
-    if (isDesktop && !showPreview) {
-      setShowPreview(true);
-    }
-  }, [isDesktop, showPreview]);
-
   useProfessionalTourStepPreparation('professional.profile.tabs', prepareProfileTopStep);
-  useProfessionalTourStepPreparation('professional.profile.preview', prepareProfilePreviewStep);
+  useProfessionalTourStepPreparation('professional.profile.preview', prepareProfileTopStep);
   useProfessionalTourStepPreparation('professional.profile.save', prepareProfileTopStep);
 
   // Verification status state
@@ -552,8 +545,6 @@ export function SpecialistProfileScreen() {
     verificationStatus: 'NOT_SUBMITTED',
   });
 
-  // Read-only stats from API (not editable)
-  const [specialistStats, setSpecialistStats] = useState({ rating: 0, reviewCount: 0 });
   const [billingConfig, setBillingConfig] = useState<FullBillingConfig | null>(null);
   const [isBillingConfigLoading, setIsBillingConfigLoading] = useState(false);
 
@@ -730,10 +721,6 @@ export function SpecialistProfileScreen() {
 
         setProfileData(mappedData);
         setOriginalData(mappedData);
-        setSpecialistStats({
-          rating: profile.rating ?? 0,
-          reviewCount: profile.reviewCount ?? 0,
-        });
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -879,10 +866,6 @@ export function SpecialistProfileScreen() {
 
       setProfileData(mappedData);
       setOriginalData(mappedData);
-      setSpecialistStats({
-        rating: result.rating ?? 0,
-        reviewCount: result.reviewCount ?? 0,
-      });
       showAppAlert(appAlert, 'Cambios guardados', 'Tu perfil ha sido actualizado correctamente');
     } catch (error: unknown) {
       console.error('Error saving profile:', error);
@@ -1251,17 +1234,6 @@ export function SpecialistProfileScreen() {
   ];
 
   const canShareProfile = isProfessionalVerified && Boolean(specialistId);
-  const publicProfileUnavailableCopy = !specialistId
-    ? {
-        title: 'Perfil público cargando',
-        description: 'Estamos preparando el enlace de tu perfil. Vuelve a intentarlo en unos segundos.',
-      }
-    : !isProfessionalVerified
-      ? {
-          title: 'Pendiente de verificación',
-          description: 'Cuando HERA apruebe tu verificación profesional, podrás abrir y compartir tu perfil completo.',
-        }
-      : null;
   const visibilityCopy = !isProfessionalVerified
     ? {
         icon: 'time-outline' as IconName,
@@ -1294,27 +1266,43 @@ export function SpecialistProfileScreen() {
   const renderTabNavigation = () => (
     <TourTarget id="professional.profile.tabs" fill style={styles.fullWidthTourTarget}>
       <View style={[styles.tabsContainer, isDesktop && styles.tabsContainerDesktop]}>
-      <View style={[styles.topBar, isDesktop ? styles.topBarDesktop : styles.topBarMobile]}>
-        <View style={styles.topBarContent}>
-          <Text style={styles.topBarTitle}>Editar perfil</Text>
-          <Text style={styles.topBarSubtitle}>
-            Ajusta tu ficha pública, credenciales y condiciones de trabajo.
-          </Text>
-        </View>
+        <View style={[styles.topBar, isDesktop ? styles.topBarDesktop : styles.topBarMobile]}>
+          <View style={styles.topBarContent}>
+            <Text style={styles.topBarTitle}>Editar perfil</Text>
+            <Text style={styles.topBarSubtitle}>
+              Ajusta tu ficha pública, credenciales y condiciones de trabajo.
+            </Text>
+          </View>
 
-        {specialistId ? (
-            <TourTarget id="professional.profile.visibility" fill>
-              <View style={styles.topBarActions}>
-            <View style={[styles.visibilityBadge, visibilityCopy.badgeStyle]}>
-              <Ionicons
-                name={visibilityCopy.icon}
-                size={14}
-                color={visibilityBadgeIconColor}
-              />
-              <Text style={[styles.visibilityBadgeText, visibilityCopy.badgeTextStyle]}>
-                {visibilityCopy.label}
-              </Text>
-            </View>
+          <View style={styles.topBarActions}>
+            {specialistId ? (
+              <TourTarget id="professional.profile.visibility" fill>
+                <View style={[styles.visibilityBadge, visibilityCopy.badgeStyle]}>
+                  <Ionicons
+                    name={visibilityCopy.icon}
+                    size={14}
+                    color={visibilityBadgeIconColor}
+                  />
+                  <Text style={[styles.visibilityBadgeText, visibilityCopy.badgeTextStyle]}>
+                    {visibilityCopy.label}
+                  </Text>
+                </View>
+              </TourTarget>
+            ) : null}
+
+            <TourTarget id="professional.profile.preview" fill>
+              <Button
+                variant="outline"
+                size="small"
+                onPress={handleViewPublicProfile}
+                icon={<Ionicons name="eye-outline" size={16} color={palette.primary} />}
+                style={{ ...styles.topBarActionButton }}
+                textStyle={{ ...styles.topBarActionText }}
+              >
+                {isMobile ? 'Vista' : 'Vista previa'}
+              </Button>
+            </TourTarget>
+
             {canShareProfile ? (
               <Button
                 variant="outline"
@@ -1324,188 +1312,79 @@ export function SpecialistProfileScreen() {
                 style={{ ...styles.topBarActionButton }}
                 textStyle={{ ...styles.topBarActionText }}
               >
-                Compartir perfil
+                {isMobile ? 'Compartir' : 'Compartir perfil'}
               </Button>
             ) : null}
-              </View>
-            </TourTarget>
-        ) : null}
-      </View>
 
-      <ScrollView
-        horizontal={!isDesktop}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={isDesktop ? styles.tabsDesktop : styles.tabsMobile}
-      >
-        {tabs.map((tab) => (
-          <AnimatedPressable
-            key={tab.id}
-            style={{
-              ...styles.tab,
-              ...(isDesktop ? styles.tabDesktop : {}),
-              ...(activeTab === tab.id ? styles.tabActive : {}),
-              ...(isDesktop && activeTab === tab.id ? styles.tabActiveDesktop : {}),
-            }}
-            onPress={() => setActiveTab(tab.id)}
-            hoverLift={false}
-            pressScale={0.985}
-          >
-            <Ionicons
-              name={tab.icon}
-              size={isDesktop ? 20 : 18}
-              color={activeTab === tab.id ? palette.primary : palette.textSecondary}
-            />
-            <Text
-              style={[
-                styles.tabText,
-                isDesktop ? styles.tabTextDesktop : {},
-                activeTab === tab.id ? styles.tabTextActive : {},
-              ]}
-              numberOfLines={1}
+            <TourTarget id="professional.profile.save" fill>
+              <Button
+                variant="primary"
+                size="small"
+                onPress={handleSave}
+                disabled={!hasChanges || isSaving}
+                loading={isSaving}
+                icon={(
+                  <Ionicons
+                    name="checkmark-circle-outline"
+                    size={16}
+                    color={hasChanges ? palette.textOnCard : palette.textMuted}
+                  />
+                )}
+                style={{
+                  ...styles.topBarActionButton,
+                  ...styles.topBarSaveButton,
+                  ...(!hasChanges ? styles.topBarSaveButtonDisabled : {}),
+                }}
+                textStyle={{
+                  ...styles.topBarActionText,
+                  ...styles.topBarSaveText,
+                  ...(!hasChanges ? styles.topBarSaveTextDisabled : {}),
+                }}
+              >
+                {isMobile ? 'Guardar' : 'Guardar cambios'}
+              </Button>
+            </TourTarget>
+          </View>
+        </View>
+
+        <ScrollView
+          horizontal={!isDesktop}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={isDesktop ? styles.tabsDesktop : styles.tabsMobile}
+        >
+          {tabs.map((tab) => (
+            <AnimatedPressable
+              key={tab.id}
+              style={{
+                ...styles.tab,
+                ...(isDesktop ? styles.tabDesktop : {}),
+                ...(activeTab === tab.id ? styles.tabActive : {}),
+                ...(isDesktop && activeTab === tab.id ? styles.tabActiveDesktop : {}),
+              }}
+              onPress={() => setActiveTab(tab.id)}
+              hoverLift={false}
+              pressScale={0.985}
             >
-              {tab.label}
-            </Text>
-          </AnimatedPressable>
-        ))}
-      </ScrollView>
+              <Ionicons
+                name={tab.icon}
+                size={isDesktop ? 20 : 18}
+                color={activeTab === tab.id ? palette.primary : palette.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  isDesktop ? styles.tabTextDesktop : {},
+                  activeTab === tab.id ? styles.tabTextActive : {},
+                ]}
+                numberOfLines={1}
+              >
+                {tab.label}
+              </Text>
+            </AnimatedPressable>
+          ))}
+        </ScrollView>
       </View>
     </TourTarget>
-  );
-
-  // ============================================================================
-  // RENDER: PROFILE PREVIEW SIDEBAR
-  // ============================================================================
-
-  const renderProfilePreview = () => (
-    <View style={styles.previewContainer}>
-      <TourTarget id="professional.profile.preview" fill style={styles.previewHeaderTourTarget}>
-        <View style={styles.previewHeader}>
-          <Ionicons name="eye-outline" size={18} color={palette.textSecondary} />
-          <Text style={styles.previewTitle}>Vista previa pública</Text>
-        </View>
-      </TourTarget>
-
-      <ScrollView
-        style={styles.previewScroll}
-        showsVerticalScrollIndicator={true}
-        contentContainerStyle={styles.previewContent}
-      >
-        {/* Avatar & Name */}
-        <View style={styles.previewAvatarSection}>
-          {profileData.avatar ? (
-            <Image source={{ uri: profileData.avatar }} style={styles.previewAvatar} />
-          ) : (
-            <View style={[styles.previewAvatar, { backgroundColor: palette.primary }]}>
-              <Text style={styles.previewAvatarText}>
-                {profileData.fullName.charAt(0).toUpperCase() || 'P'}
-              </Text>
-            </View>
-          )}
-          <Text style={styles.previewName} numberOfLines={1}>
-            {profileData.fullName || 'Tu nombre'}
-          </Text>
-          <Text style={styles.previewTitle2} numberOfLines={1}>
-            {getProfessionalTypeLabel(profileData.professionalType)}
-          </Text>
-        </View>
-
-        {/* Rating & Price */}
-        <View style={styles.previewStats}>
-          <View style={styles.previewStat}>
-            <Text style={styles.previewStatValue}>
-              {specialistStats.reviewCount > 0 ? `⭐ ${specialistStats.rating.toFixed(1)}` : '⭐ —'}
-            </Text>
-            <Text style={styles.previewStatLabel}>
-              {specialistStats.reviewCount > 0
-                ? `(${specialistStats.reviewCount} ${specialistStats.reviewCount === 1 ? 'reseña' : 'reseñas'})`
-                : 'Sin reseñas aún'}
-            </Text>
-          </View>
-          <View style={styles.previewStatDivider} />
-          <View style={styles.previewStat}>
-            <Text style={styles.previewStatValue}>{formatBillingAmount(publicSessionPrice)}</Text>
-            <Text style={styles.previewStatLabel}>/ sesión</Text>
-          </View>
-        </View>
-
-        {/* Specialties */}
-        {profileData.specialties.length > 0 && (
-          <View style={styles.previewSection}>
-            <View style={styles.previewTags}>
-              {profileData.specialties.slice(0, 3).map((specialty) => {
-                const label = SPECIALTIES.find(s => s.value === specialty)?.label || specialty;
-                return (
-                  <View key={specialty} style={styles.previewTag}>
-                    <Text style={styles.previewTagText} numberOfLines={1}>{label}</Text>
-                  </View>
-                );
-              })}
-              {profileData.specialties.length > 3 && (
-                <View style={[styles.previewTag, styles.previewTagMore]}>
-                  <Text style={styles.previewTagText}>+{profileData.specialties.length - 3}</Text>
-                </View>
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* Bio Preview */}
-        {profileData.bio && (
-          <View style={styles.previewSection}>
-            <Text style={styles.previewBio} numberOfLines={3}>
-              "{profileData.bio}"
-            </Text>
-          </View>
-        )}
-
-        {/* Verification Badges */}
-        <View style={styles.previewBadges}>
-          {verificationStatus.verificationStatus === 'VERIFIED' && (
-            <>
-              <View style={styles.previewBadge}>
-                <Ionicons name="checkmark-circle" size={14} color={palette.success} />
-                <Text style={styles.previewBadgeText}>Colegiado verificado</Text>
-              </View>
-              <View style={styles.previewBadge}>
-                <Ionicons name="checkmark-circle" size={14} color={palette.success} />
-                <Text style={styles.previewBadgeText}>Identidad verificada</Text>
-              </View>
-            </>
-          )}
-        </View>
-
-        {/* View Full Profile Button */}
-        {publicProfileUnavailableCopy ? (
-          <View style={styles.previewUnavailableNotice}>
-            <View style={styles.previewUnavailableIcon}>
-              <Ionicons name="time-outline" size={18} color={palette.warningAmber} />
-            </View>
-            <View style={styles.previewUnavailableCopy}>
-              <Text style={styles.previewUnavailableTitle}>
-                {publicProfileUnavailableCopy.title}
-              </Text>
-              <Text style={styles.previewUnavailableText}>
-                {publicProfileUnavailableCopy.description}
-              </Text>
-            </View>
-          </View>
-        ) : null}
-
-        <Button
-          variant="outline"
-          size="medium"
-          onPress={handleViewPublicProfile}
-          disabled={!canOpenPublicProfile}
-          fullWidth
-          icon={<Ionicons name="arrow-forward" size={16} color={palette.primary} />}
-          iconPosition="right"
-          style={styles.previewButton}
-          textStyle={styles.previewButtonText}
-        >
-          {canOpenPublicProfile ? 'Ver perfil completo' : 'Perfil completo pendiente'}
-        </Button>
-      </ScrollView>
-    </View>
   );
 
   // ============================================================================
@@ -1817,238 +1696,257 @@ export function SpecialistProfileScreen() {
 
   const renderInformationTab = () => (
     <View style={styles.tabContent}>
-      {/* Profile Photo Section */}
+      {/* Public Identity Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Foto de perfil</Text>
-        <View style={styles.photoSection}>
-          <View style={styles.avatarContainer}>
-            {profileData.avatar ? (
-              <Image source={{ uri: profileData.avatar }} style={styles.avatarLarge} />
-            ) : (
-              <View style={[styles.avatarLarge, { backgroundColor: palette.primary }]}>
-                <Text style={styles.avatarLargeText}>
-                  {profileData.fullName.charAt(0).toUpperCase() || 'P'}
+        <Text style={styles.sectionTitle}>Identidad pública</Text>
+        <View style={[styles.formCard, styles.informationCard]}>
+          <View style={styles.identityCardLayout}>
+            <View style={styles.photoPanel}>
+              <Text style={styles.panelTitle}>Foto de perfil</Text>
+              <View style={styles.photoSection}>
+                <View style={styles.avatarContainer}>
+                  {profileData.avatar ? (
+                    <Image source={{ uri: profileData.avatar }} style={styles.avatarLarge} />
+                  ) : (
+                    <View style={[styles.avatarLarge, { backgroundColor: palette.primary }]}>
+                      <Text style={styles.avatarLargeText}>
+                        {profileData.fullName.charAt(0).toUpperCase() || 'P'}
+                      </Text>
+                    </View>
+                  )}
+                  {isUploadingAvatar && (
+                    <View style={styles.avatarUploadOverlay}>
+                      <ActivityIndicator size="large" color={palette.textOnCard} />
+                    </View>
+                  )}
+                </View>
+                <View style={styles.photoActions}>
+                  <Button
+                    variant="outline"
+                    size="small"
+                    onPress={handleImagePick}
+                    disabled={isUploadingAvatar}
+                    icon={<Ionicons name="camera-outline" size={18} color={palette.primary} />}
+                    style={{ ...styles.photoButton }}
+                    textStyle={{ ...styles.photoButtonText }}
+                  >
+                    {isUploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
+                  </Button>
+                  {profileData.avatar && (
+                    <Button
+                      variant="ghost"
+                      size="small"
+                      onPress={() => updateField('avatar', null)}
+                      icon={<Ionicons name="trash-outline" size={18} color={palette.warning} />}
+                      style={{ ...styles.photoButton, ...styles.photoButtonDanger }}
+                      textStyle={{ ...styles.photoButtonText, ...styles.photoButtonTextDanger }}
+                    >
+                      Eliminar
+                    </Button>
+                  )}
+                </View>
+                <Text style={styles.photoHint}>
+                  Foto profesional, buena iluminación y fondo neutro.
                 </Text>
               </View>
-            )}
-            {isUploadingAvatar && (
-              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 60 }}>
-                <ActivityIndicator size="large" color="#fff" />
-              </View>
-            )}
-          </View>
-          <View style={styles.photoActions}>
-            <Button
-              variant="outline"
-              size="small"
-              onPress={handleImagePick}
-              disabled={isUploadingAvatar}
-              icon={<Ionicons name="camera-outline" size={18} color={palette.primary} />}
-              style={{ ...styles.photoButton }}
-              textStyle={{ ...styles.photoButtonText }}
-            >
-              {isUploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
-            </Button>
-            {profileData.avatar && (
-              <Button
-                variant="ghost"
-                size="small"
-                onPress={() => updateField('avatar', null)}
-                icon={<Ionicons name="trash-outline" size={18} color={palette.warning} />}
-                style={{ ...styles.photoButton, ...styles.photoButtonDanger }}
-                textStyle={{ ...styles.photoButtonText, ...styles.photoButtonTextDanger }}
-              >
-                Eliminar
-              </Button>
-            )}
-          </View>
-          <Text style={styles.photoHint}>
-            Recomendado: Foto profesional, buena iluminación, fondo neutro
-          </Text>
-        </View>
-      </View>
-
-      {/* Basic Info Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Información básica</Text>
-        <View style={styles.formCard}>
-          {renderFormField(
-            'Nombre completo',
-            profileData.fullName,
-            (text) => updateField('fullName', text),
-            { placeholder: 'Elena Rodríguez García', required: true }
-          )}
-          {renderFormField(
-            'Título profesional',
-            profileData.professionalTitle,
-            (text) => updateField('professionalTitle', text),
-            {
-              placeholder: 'Ej: Psicóloga infantojuvenil',
-              required: false,
-              helperText: `Opcional. El tipo oficial actual es: ${getProfessionalTypeLabel(profileData.professionalType)}.`,
-            }
-          )}
-          {renderProfessionalTypeSelector()}
-          {/* Colegiado number - read-only, sourced from verification flow */}
-          {renderFormField(
-            'Número de colegiado',
-            verificationStatus.colegiadoNumber || '',
-            () => {},
-            {
-              placeholder: verificationStatus.verificationStatus === 'VERIFIED'
-                ? ''
-                : verificationStatus.verificationStatus === 'PENDING'
-                  ? 'En revisión'
-                  : 'Se completa mediante la verificación profesional',
-              required: false,
-              verified: verificationStatus.verificationStatus === 'VERIFIED',
-              disabled: true,
-            }
-          )}
-        </View>
-      </View>
-
-      {/* Professional Bio Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Descripción profesional</Text>
-        <View style={styles.formCard}>
-          {renderFormField(
-            'Sobre ti',
-            profileData.bio,
-            (text) => updateField('bio', text),
-            {
-              placeholder: 'Cuéntales a los clientes sobre tu enfoque, experiencia y filosofía terapéutica...',
-              multiline: true,
-              numberOfLines: 6,
-              required: true,
-              maxLength: 500,
-              characterCount: true,
-              helperText: 'Mínimo 150 caracteres para aparecer en búsquedas',
-            }
-          )}
-        </View>
-      </View>
-
-      {/* Location & Modality Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Ubicación y modalidad</Text>
-        <View style={styles.formCard}>
-          {/* Modality Options */}
-          <View style={styles.formField}>
-            <Text style={styles.fieldLabel}>Modalidad de sesiones</Text>
-            <Text style={styles.fieldHelper}>Selecciona cómo ofreces tus sesiones</Text>
-            <View style={styles.modalityOptions}>
-              <TouchableOpacity
-                style={[
-                  styles.modalityOption,
-                  profileData.offersOnline && styles.modalityOptionSelected,
-                ]}
-                onPress={() => updateField('offersOnline', !profileData.offersOnline)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={profileData.offersOnline ? 'checkbox' : 'square-outline'}
-                  size={22}
-                  color={profileData.offersOnline ? palette.primary : palette.textMuted}
-                />
-                <Ionicons name="videocam-outline" size={20} color={palette.textPrimary} />
-                <Text style={styles.modalityText}>Sesiones online</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.modalityOption,
-                  profileData.offersInPerson && styles.modalityOptionSelected,
-                ]}
-                onPress={() => updateField('offersInPerson', !profileData.offersInPerson)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={profileData.offersInPerson ? 'checkbox' : 'square-outline'}
-                  size={22}
-                  color={profileData.offersInPerson ? palette.primary : palette.textMuted}
-                />
-                <Ionicons name="business-outline" size={20} color={palette.textPrimary} />
-                <Text style={styles.modalityText}>Sesiones presenciales</Text>
-              </TouchableOpacity>
             </View>
 
-            {profileData.offersInPerson ? (
-              <View
-                style={[
-                  styles.presentialStatusCard,
-                  insuranceReviewCopy.tone === 'success'
-                    ? styles.presentialStatusCardSuccess
-                    : insuranceReviewCopy.tone === 'info'
-                      ? styles.presentialStatusCardInfo
-                      : styles.presentialStatusCardWarning,
-                ]}
-              >
-                <Ionicons
-                  name={insuranceReviewCopy.icon}
-                  size={18}
-                  color={
-                    insuranceReviewCopy.tone === 'success'
-                      ? palette.success
-                      : insuranceReviewCopy.tone === 'info'
-                        ? palette.info
-                        : palette.warningAmber
-                  }
-                />
-                <View style={styles.presentialStatusCopy}>
-                  <Text style={styles.presentialStatusTitle}>{insuranceReviewCopy.title}</Text>
-                  <Text style={styles.presentialStatusText}>{insuranceReviewCopy.description}</Text>
-                </View>
-              </View>
-            ) : null}
-          </View>
-
-          {/* Office Location (only if in-person is offered) */}
-          {profileData.offersInPerson && (
-            <>
-              <View style={styles.formField}>
-                <Text style={styles.fieldLabel}>Dirección de la consulta</Text>
-                <Text style={styles.fieldHelper}>
-                  {profileData.locationVisibleToPatients
-                    ? 'Esta dirección ya es visible para los clientes que reserven sesiones presenciales'
-                    : 'Guardaremos esta dirección, pero no la mostraremos a los pacientes hasta aprobar la póliza'}
-                </Text>
-                <AddressAutocomplete
-                  value={profileData.officeAddress}
-                  placeholder="Buscar dirección..."
-                  onAddressSelect={(details) => {
-                    updateField('officeAddress', details.address);
-                    updateField('officeCity', details.city);
-                    updateField('officePostalCode', details.postalCode);
-                    updateField('officeCountry', details.country);
-                    updateField('officeLat', details.lat);
-                    updateField('officeLng', details.lng);
-                  }}
-                />
-              </View>
-
+            <View style={styles.identityFields}>
+              <Text style={styles.panelTitle}>Información básica</Text>
               <View style={styles.formRow}>
                 <View style={styles.formFieldHalf}>
                   {renderFormField(
-                    'Ciudad',
-                    profileData.officeCity,
-                    (text) => updateField('officeCity', text),
-                    { placeholder: 'Madrid' }
+                    'Nombre completo',
+                    profileData.fullName,
+                    (text) => updateField('fullName', text),
+                    { placeholder: 'Elena Rodríguez García', required: true }
                   )}
                 </View>
                 <View style={styles.formFieldHalf}>
                   {renderFormField(
-                    'Codigo postal',
-                    profileData.officePostalCode,
-                    (text) => updateField('officePostalCode', text),
-                    { placeholder: '28001', keyboardType: 'numeric' }
+                    'Título profesional',
+                    profileData.professionalTitle,
+                    (text) => updateField('professionalTitle', text),
+                    {
+                      placeholder: 'Ej: Psicóloga infantojuvenil',
+                      required: false,
+                      helperText: `Opcional. El tipo oficial actual es: ${getProfessionalTypeLabel(profileData.professionalType)}.`,
+                    }
                   )}
+                </View>
+              </View>
+              {renderProfessionalTypeSelector()}
+              {/* Colegiado number - read-only, sourced from verification flow */}
+              {renderFormField(
+                'Número de colegiado',
+                verificationStatus.colegiadoNumber || '',
+                () => {},
+                {
+                  placeholder: verificationStatus.verificationStatus === 'VERIFIED'
+                    ? ''
+                    : verificationStatus.verificationStatus === 'PENDING'
+                      ? 'En revisión'
+                      : 'Se completa mediante la verificación profesional',
+                  required: false,
+                  verified: verificationStatus.verificationStatus === 'VERIFIED',
+                  disabled: true,
+                }
+              )}
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.informationSplitGrid}>
+        {/* Professional Bio Section */}
+        <View style={[styles.section, styles.descriptionSection]}>
+          <Text style={styles.sectionTitle}>Descripción profesional</Text>
+          <View style={[styles.formCard, styles.informationCard, styles.splitEqualCard]}>
+            <View style={styles.descriptionPane}>
+              {renderFormField(
+                'Sobre ti',
+                profileData.bio,
+                (text) => updateField('bio', text),
+                {
+                  placeholder: 'Cuéntales a los clientes sobre tu enfoque, experiencia y filosofía terapéutica...',
+                  multiline: true,
+                  numberOfLines: 4,
+                  required: true,
+                  maxLength: 500,
+                  characterCount: true,
+                  helperText: 'Mínimo 150 caracteres para aparecer en búsquedas',
+                }
+              )}
+            </View>
+          </View>
+        </View>
+
+        {/* Modality Section */}
+        <View style={[styles.section, styles.modalitySection]}>
+          <Text style={styles.sectionTitle}>Modalidad de sesiones</Text>
+          <View style={[styles.formCard, styles.informationCard, styles.splitEqualCard]}>
+            <View style={styles.formField}>
+              <Text style={styles.fieldHelper}>Selecciona cómo ofreces tus sesiones</Text>
+              <View style={styles.modalityOptions}>
+                <TouchableOpacity
+                  style={[
+                    styles.modalityOption,
+                    profileData.offersOnline && styles.modalityOptionSelected,
+                  ]}
+                  onPress={() => updateField('offersOnline', !profileData.offersOnline)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={profileData.offersOnline ? 'checkbox' : 'square-outline'}
+                    size={22}
+                    color={profileData.offersOnline ? palette.primary : palette.textMuted}
+                  />
+                  <Ionicons name="videocam-outline" size={20} color={palette.textPrimary} />
+                  <Text style={styles.modalityText}>Sesiones online</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.modalityOption,
+                    profileData.offersInPerson && styles.modalityOptionSelected,
+                  ]}
+                  onPress={() => updateField('offersInPerson', !profileData.offersInPerson)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={profileData.offersInPerson ? 'checkbox' : 'square-outline'}
+                    size={22}
+                    color={profileData.offersInPerson ? palette.primary : palette.textMuted}
+                  />
+                  <Ionicons name="business-outline" size={20} color={palette.textPrimary} />
+                  <Text style={styles.modalityText}>Sesiones presenciales</Text>
+                </TouchableOpacity>
+              </View>
+
+              {profileData.offersInPerson ? (
+                <View
+                  style={[
+                    styles.presentialStatusCard,
+                    insuranceReviewCopy.tone === 'success'
+                      ? styles.presentialStatusCardSuccess
+                      : insuranceReviewCopy.tone === 'info'
+                        ? styles.presentialStatusCardInfo
+                        : styles.presentialStatusCardWarning,
+                  ]}
+                >
+                  <Ionicons
+                    name={insuranceReviewCopy.icon}
+                    size={18}
+                    color={
+                      insuranceReviewCopy.tone === 'success'
+                        ? palette.success
+                        : insuranceReviewCopy.tone === 'info'
+                          ? palette.info
+                          : palette.warningAmber
+                    }
+                  />
+                  <View style={styles.presentialStatusCopy}>
+                    <Text style={styles.presentialStatusTitle}>{insuranceReviewCopy.title}</Text>
+                    <Text style={styles.presentialStatusText}>{insuranceReviewCopy.description}</Text>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Office Location (only if in-person is offered) */}
+      {profileData.offersInPerson && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Ubicación presencial</Text>
+          <View style={[styles.formCard, styles.informationCard, styles.locationCard]}>
+            <View style={styles.locationLayout}>
+              <View style={styles.locationFieldsPane}>
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>Dirección de la consulta</Text>
+                  <Text style={styles.fieldHelper}>
+                    {profileData.locationVisibleToPatients
+                      ? 'Visible para clientes que reserven sesiones presenciales'
+                      : 'No se mostrará hasta aprobar la póliza'}
+                  </Text>
+                  <AddressAutocomplete
+                    value={profileData.officeAddress}
+                    placeholder="Buscar dirección..."
+                    onAddressSelect={(details) => {
+                      updateField('officeAddress', details.address);
+                      updateField('officeCity', details.city);
+                      updateField('officePostalCode', details.postalCode);
+                      updateField('officeCountry', details.country);
+                      updateField('officeLat', details.lat);
+                      updateField('officeLng', details.lng);
+                    }}
+                  />
+                </View>
+
+                <View style={styles.formRow}>
+                  <View style={styles.formFieldHalf}>
+                    {renderFormField(
+                      'Ciudad',
+                      profileData.officeCity,
+                      (text) => updateField('officeCity', text),
+                      { placeholder: 'Madrid' }
+                    )}
+                  </View>
+                  <View style={styles.formFieldHalf}>
+                    {renderFormField(
+                      'Código postal',
+                      profileData.officePostalCode,
+                      (text) => updateField('officePostalCode', text),
+                      { placeholder: '28001', keyboardType: 'numeric' }
+                    )}
+                  </View>
                 </View>
               </View>
 
               {/* Map Preview */}
               {profileData.officeLat && profileData.officeLng && (
-                <View style={styles.mapPreviewContainer}>
+                <View style={styles.locationMapPane}>
                   <Text style={styles.fieldLabel}>Vista previa del mapa</Text>
                   <Text style={styles.fieldHelper}>
                     {profileData.locationVisibleToPatients
@@ -2064,13 +1962,13 @@ export function SpecialistProfileScreen() {
                   />
                 </View>
               )}
-            </>
-          )}
+            </View>
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Specialties Section */}
-      <View style={styles.section}>
+      <View style={[styles.section, styles.informationFullSection]}>
         <Text style={styles.sectionTitle}>Especialidades y enfoques</Text>
         <View style={styles.formCard}>
           {renderChipSelector(
@@ -2095,184 +1993,186 @@ export function SpecialistProfileScreen() {
         </View>
       </View>
 
-      {/* Education Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Formación académica</Text>
-          <Button
-            variant="outline"
-            size="small"
-            onPress={addEducation}
-            icon={<Ionicons name="add" size={18} color={palette.primary} />}
-            style={{ ...styles.addButton }}
-            textStyle={{ ...styles.addButtonText }}
-          >
-            Añadir título
-          </Button>
-        </View>
-
-        {profileData.education.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="school-outline" size={40} color={palette.textMuted} />
-            <Text style={styles.emptyStateTitle}>No has añadido formación</Text>
-            <Text style={styles.emptyStateDescription}>
-              Comparte tus títulos y certificaciones para que los clientes conozcan tu preparación.
-            </Text>
+      <View style={styles.informationLowerGrid}>
+        {/* Education Section */}
+        <View style={[styles.section, styles.informationHalfSection]}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Formación académica</Text>
+            <Button
+              variant="outline"
+              size="small"
+              onPress={addEducation}
+              icon={<Ionicons name="add" size={18} color={palette.primary} />}
+              style={{ ...styles.addButton }}
+              textStyle={{ ...styles.addButtonText }}
+            >
+              Añadir título
+            </Button>
           </View>
-        ) : (
-          <View style={styles.itemsList}>
-            {profileData.education.map((edu) => (
-              <View key={edu.id} style={styles.itemCard}>
-                <View style={styles.itemIcon}>
-                  <Ionicons name="school" size={20} color={palette.primary} />
-                </View>
-                <View style={styles.itemContent}>
-                  <TextInput
-                    style={styles.itemInput}
-                    value={edu.degree}
-                    onChangeText={(text) => updateEducation(edu.id, 'degree', text)}
-                    placeholder="Título (ej: Máster en Psicología Clínica)"
-                    placeholderTextColor={palette.textMuted}
-                  />
-                  <TextInput
-                    style={styles.itemInputSmall}
-                    value={edu.institution}
-                    onChangeText={(text) => updateEducation(edu.id, 'institution', text)}
-                    placeholder="Institución"
-                    placeholderTextColor={palette.textMuted}
-                  />
-                  <View style={styles.itemRow}>
-                    <TextInput
-                      style={[styles.itemInputSmall, styles.itemInputYear]}
-                      value={edu.startYear}
-                      onChangeText={(text) => updateEducation(edu.id, 'startYear', text)}
-                      placeholder="Año inicio"
-                      placeholderTextColor={palette.textMuted}
-                      keyboardType="numeric"
-                      maxLength={4}
-                    />
-                    <Text style={styles.itemSeparator}>-</Text>
-                    <TextInput
-                      style={[styles.itemInputSmall, styles.itemInputYear]}
-                      value={edu.endYear}
-                      onChangeText={(text) => updateEducation(edu.id, 'endYear', text)}
-                      placeholder="Año fin"
-                      placeholderTextColor={palette.textMuted}
-                      keyboardType="numeric"
-                      maxLength={4}
-                    />
+
+          {profileData.education.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="school-outline" size={40} color={palette.textMuted} />
+              <Text style={styles.emptyStateTitle}>No has añadido formación</Text>
+              <Text style={styles.emptyStateDescription}>
+                Comparte tus títulos y certificaciones para que los clientes conozcan tu preparación.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.itemsList}>
+              {profileData.education.map((edu) => (
+                <View key={edu.id} style={styles.itemCard}>
+                  <View style={styles.itemIcon}>
+                    <Ionicons name="school" size={20} color={palette.primary} />
                   </View>
-                </View>
-                <TouchableOpacity
-                  style={styles.itemRemove}
-                  onPress={() => removeEducation(edu.id)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="close-circle" size={22} color={palette.warning} />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-
-      {/* Experience Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Experiencia profesional</Text>
-          <Button
-            variant="outline"
-            size="small"
-            onPress={addExperience}
-            icon={<Ionicons name="add" size={18} color={palette.primary} />}
-            style={{ ...styles.addButton }}
-            textStyle={{ ...styles.addButtonText }}
-          >
-            Añadir experiencia
-          </Button>
-        </View>
-
-        {profileData.experience.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="briefcase-outline" size={40} color={palette.textMuted} />
-            <Text style={styles.emptyStateTitle}>No has añadido experiencia</Text>
-            <Text style={styles.emptyStateDescription}>
-              Añade tu experiencia para que los clientes conozcan tu trayectoria.
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.itemsList}>
-            {profileData.experience.map((exp) => (
-              <View key={exp.id} style={styles.itemCard}>
-                <View style={styles.itemIcon}>
-                  <Ionicons name="briefcase" size={20} color={palette.primary} />
-                </View>
-                <View style={styles.itemContent}>
-                  <TextInput
-                    style={styles.itemInput}
-                    value={exp.position}
-                    onChangeText={(text) => updateExperience(exp.id, 'position', text)}
-                    placeholder="Puesto (ej: Psicóloga Clínica)"
-                    placeholderTextColor={palette.textMuted}
-                  />
-                  <TextInput
-                    style={styles.itemInputSmall}
-                    value={exp.organization}
-                    onChangeText={(text) => updateExperience(exp.id, 'organization', text)}
-                    placeholder="Organización"
-                    placeholderTextColor={palette.textMuted}
-                  />
-                  <View style={styles.itemRow}>
+                  <View style={styles.itemContent}>
                     <TextInput
-                      style={[styles.itemInputSmall, styles.itemInputYear]}
-                      value={exp.startYear}
-                      onChangeText={(text) => updateExperience(exp.id, 'startYear', text)}
-                      placeholder="Inicio"
+                      style={styles.itemInput}
+                      value={edu.degree}
+                      onChangeText={(text) => updateEducation(edu.id, 'degree', text)}
+                      placeholder="Título (ej: Máster en Psicología Clínica)"
                       placeholderTextColor={palette.textMuted}
-                      keyboardType="numeric"
-                      maxLength={4}
                     />
-                    <Text style={styles.itemSeparator}>-</Text>
-                    {exp.current ? (
-                      <View style={styles.currentBadge}>
-                        <Text style={styles.currentBadgeText}>Presente</Text>
-                      </View>
-                    ) : (
+                    <TextInput
+                      style={styles.itemInputSmall}
+                      value={edu.institution}
+                      onChangeText={(text) => updateEducation(edu.id, 'institution', text)}
+                      placeholder="Institución"
+                      placeholderTextColor={palette.textMuted}
+                    />
+                    <View style={styles.itemRow}>
                       <TextInput
                         style={[styles.itemInputSmall, styles.itemInputYear]}
-                        value={exp.endYear || ''}
-                        onChangeText={(text) => updateExperience(exp.id, 'endYear', text)}
-                        placeholder="Fin"
+                        value={edu.startYear}
+                        onChangeText={(text) => updateEducation(edu.id, 'startYear', text)}
+                        placeholder="Año inicio"
                         placeholderTextColor={palette.textMuted}
                         keyboardType="numeric"
                         maxLength={4}
                       />
-                    )}
-                    <TouchableOpacity
-                      style={styles.currentToggle}
-                      onPress={() => updateExperience(exp.id, 'current', !exp.current)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name={exp.current ? 'checkbox' : 'square-outline'}
-                        size={18}
-                        color={palette.primary}
+                      <Text style={styles.itemSeparator}>-</Text>
+                      <TextInput
+                        style={[styles.itemInputSmall, styles.itemInputYear]}
+                        value={edu.endYear}
+                        onChangeText={(text) => updateEducation(edu.id, 'endYear', text)}
+                        placeholder="Año fin"
+                        placeholderTextColor={palette.textMuted}
+                        keyboardType="numeric"
+                        maxLength={4}
                       />
-                      <Text style={styles.currentToggleText}>Actual</Text>
-                    </TouchableOpacity>
+                    </View>
                   </View>
+                  <TouchableOpacity
+                    style={styles.itemRemove}
+                    onPress={() => removeEducation(edu.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="close-circle" size={22} color={palette.warning} />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  style={styles.itemRemove}
-                  onPress={() => removeExperience(exp.id)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="close-circle" size={22} color={palette.warning} />
-                </TouchableOpacity>
-              </View>
-            ))}
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Experience Section */}
+        <View style={[styles.section, styles.informationHalfSection]}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Experiencia profesional</Text>
+            <Button
+              variant="outline"
+              size="small"
+              onPress={addExperience}
+              icon={<Ionicons name="add" size={18} color={palette.primary} />}
+              style={{ ...styles.addButton }}
+              textStyle={{ ...styles.addButtonText }}
+            >
+              Añadir experiencia
+            </Button>
           </View>
-        )}
+
+          {profileData.experience.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="briefcase-outline" size={40} color={palette.textMuted} />
+              <Text style={styles.emptyStateTitle}>No has añadido experiencia</Text>
+              <Text style={styles.emptyStateDescription}>
+                Añade tu experiencia para que los clientes conozcan tu trayectoria.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.itemsList}>
+              {profileData.experience.map((exp) => (
+                <View key={exp.id} style={styles.itemCard}>
+                  <View style={styles.itemIcon}>
+                    <Ionicons name="briefcase" size={20} color={palette.primary} />
+                  </View>
+                  <View style={styles.itemContent}>
+                    <TextInput
+                      style={styles.itemInput}
+                      value={exp.position}
+                      onChangeText={(text) => updateExperience(exp.id, 'position', text)}
+                      placeholder="Puesto (ej: Psicóloga Clínica)"
+                      placeholderTextColor={palette.textMuted}
+                    />
+                    <TextInput
+                      style={styles.itemInputSmall}
+                      value={exp.organization}
+                      onChangeText={(text) => updateExperience(exp.id, 'organization', text)}
+                      placeholder="Organización"
+                      placeholderTextColor={palette.textMuted}
+                    />
+                    <View style={styles.itemRow}>
+                      <TextInput
+                        style={[styles.itemInputSmall, styles.itemInputYear]}
+                        value={exp.startYear}
+                        onChangeText={(text) => updateExperience(exp.id, 'startYear', text)}
+                        placeholder="Inicio"
+                        placeholderTextColor={palette.textMuted}
+                        keyboardType="numeric"
+                        maxLength={4}
+                      />
+                      <Text style={styles.itemSeparator}>-</Text>
+                      {exp.current ? (
+                        <View style={styles.currentBadge}>
+                          <Text style={styles.currentBadgeText}>Presente</Text>
+                        </View>
+                      ) : (
+                        <TextInput
+                          style={[styles.itemInputSmall, styles.itemInputYear]}
+                          value={exp.endYear || ''}
+                          onChangeText={(text) => updateExperience(exp.id, 'endYear', text)}
+                          placeholder="Fin"
+                          placeholderTextColor={palette.textMuted}
+                          keyboardType="numeric"
+                          maxLength={4}
+                        />
+                      )}
+                      <TouchableOpacity
+                        style={styles.currentToggle}
+                        onPress={() => updateExperience(exp.id, 'current', !exp.current)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name={exp.current ? 'checkbox' : 'square-outline'}
+                          size={18}
+                          color={palette.primary}
+                        />
+                        <Text style={styles.currentToggleText}>Actual</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.itemRemove}
+                    onPress={() => removeExperience(exp.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="close-circle" size={22} color={palette.warning} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -2945,33 +2845,6 @@ export function SpecialistProfileScreen() {
   );
 
   // ============================================================================
-  // RENDER: SAVE BUTTON (Fixed at bottom)
-  // ============================================================================
-
-  const renderSaveButton = () => (
-    <TourTarget
-      id="professional.profile.save"
-      fill
-      style={[styles.saveButtonContainer, isDesktop && styles.saveButtonContainerDesktop]}
-    >
-      <View style={styles.saveButtonInner}>
-      <Button
-        variant="primary"
-        size="medium"
-        onPress={handleSave}
-        disabled={!hasChanges || isSaving}
-        loading={isSaving}
-        style={{ ...styles.saveButton, ...(!hasChanges ? styles.saveButtonDisabled : {}) }}
-        textStyle={{ ...styles.saveButtonText, ...(!hasChanges ? styles.saveButtonTextDisabled : {}) }}
-        icon={<Ionicons name="checkmark-circle-outline" size={20} color={hasChanges ? palette.textOnCard : palette.textMuted} />}
-      >
-        Guardar cambios
-      </Button>
-      </View>
-    </TourTarget>
-  );
-
-  // ============================================================================
   // MAIN RENDER
   // ============================================================================
 
@@ -2994,7 +2867,7 @@ export function SpecialistProfileScreen() {
         {/* Form Content */}
         <ScrollView
           ref={formScrollRef}
-          style={[styles.formArea, isDesktop && showPreview && styles.formAreaWithPreview]}
+          style={styles.formArea}
           contentContainerStyle={styles.formContent}
           showsVerticalScrollIndicator={true}
         >
@@ -3004,29 +2877,8 @@ export function SpecialistProfileScreen() {
           {activeTab === 'pricing' && renderPricingTab()}
           {activeTab === 'privacy' && renderPrivacyTab()}
           {activeTab === 'account' && renderAccountTab()}
-
-          {/* Spacer for save button */}
-          <View style={{ height: 100 }} />
         </ScrollView>
-
-        {/* Preview Sidebar (Desktop only) */}
-        {isDesktop && showPreview && renderProfilePreview()}
-
-        {/* Mobile Preview Toggle */}
-        {isMobile && (
-          <AnimatedPressable
-            style={styles.previewToggle}
-            onPress={() => setShowPreview(!showPreview)}
-            hoverLift={false}
-            pressScale={0.97}
-          >
-            <Ionicons name="eye-outline" size={20} color={palette.textOnCard} />
-          </AnimatedPressable>
-        )}
       </View>
-
-      {/* Save Button */}
-      {renderSaveButton()}
 
       <Modal
         visible={isCertificateModalVisible}
@@ -3201,27 +3053,6 @@ export function SpecialistProfileScreen() {
         </Pressable>
       </Modal>
 
-      {/* Mobile Preview Modal */}
-      {isMobile && showPreview && (
-        <Modal
-          visible={showPreview}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowPreview(false)}
-        >
-          <Pressable style={styles.previewModal} onPress={() => setShowPreview(false)}>
-            <Pressable style={styles.previewModalContent} onPress={e => e.stopPropagation()}>
-              <View style={styles.previewModalHeader}>
-                <Text style={styles.previewModalTitle}>Vista previa</Text>
-                <TouchableOpacity onPress={() => setShowPreview(false)} activeOpacity={0.7}>
-                  <Ionicons name="close" size={24} color={palette.textPrimary} />
-                </TouchableOpacity>
-              </View>
-              {renderProfilePreview()}
-            </Pressable>
-          </Pressable>
-        </Modal>
-      )}
     </View>
   );
 }
@@ -3234,7 +3065,6 @@ function createStyles(
   palette: ProfilePalette,
   isDesktop: boolean,
   isMobile: boolean,
-  showPreview: boolean,
 ) {
   return StyleSheet.create({
   container: {
@@ -3306,14 +3136,31 @@ function createStyles(
     justifyContent: isMobile ? 'flex-start' : 'flex-end',
     gap: spacing.sm,
     flexWrap: 'wrap',
+    flexShrink: 1,
+    maxWidth: isMobile ? '100%' : '64%',
+    width: isMobile ? '100%' : undefined,
   },
   topBarActionButton: {
-    minWidth: isMobile ? 0 : 172,
+    minWidth: isMobile ? 0 : 148,
   },
   topBarActionText: {
-    fontSize: 14,
+    fontSize: isMobile ? 13 : 14,
     fontWeight: '600',
     fontFamily: palette.fontSansSemiBold,
+  },
+  topBarSaveButton: {
+    minWidth: isMobile ? 0 : 156,
+  },
+  topBarSaveButtonDisabled: {
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  topBarSaveText: {
+    color: palette.textOnCard,
+  },
+  topBarSaveTextDisabled: {
+    color: palette.textMuted,
   },
   visibilityBadge: {
     flexDirection: 'row',
@@ -3555,256 +3402,104 @@ function createStyles(
   formArea: {
     flex: 1,
   },
-  formAreaWithPreview: {
-    flex: 0.6,
-  },
   formContent: {
     padding: isMobile ? spacing.md : spacing.lg,
-    paddingBottom: 120,
-  },
-
-  // ===== PREVIEW SIDEBAR =====
-  previewContainer: {
-    flex: 0.4,
-    backgroundColor: palette.cardBg,
-    borderLeftWidth: 1,
-    borderLeftColor: palette.border,
-    maxWidth: 380,
-  },
-  previewHeaderTourTarget: {
-    width: '100%',
-  },
-  previewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: palette.border,
-  },
-  previewTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  previewScroll: {
-    flex: 1,
-  },
-  previewContent: {
-    padding: spacing.lg,
-  },
-  previewAvatarSection: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  previewAvatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-    ...shadows.md,
-  },
-  previewAvatarText: {
-    fontSize: 40,
-    fontWeight: '700',
-    fontFamily: palette.fontSansBold,
-    color: palette.textOnCard,
-  },
-  previewName: {
-    fontSize: 20,
-    fontWeight: '700',
-    fontFamily: palette.fontHeading,
-    color: palette.textPrimary,
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  previewTitle2: {
-    fontSize: 15,
-    fontFamily: palette.fontSans,
-    color: palette.textSecondary,
-    textAlign: 'center',
-  },
-  previewStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: palette.background,
-    borderRadius: borderRadius.lg,
-  },
-  previewStat: {
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-  },
-  previewStatValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: palette.fontHeading,
-    color: palette.textPrimary,
-  },
-  previewStatLabel: {
-    fontSize: 12,
-    fontFamily: palette.fontSans,
-    color: palette.textSecondary,
-  },
-  previewStatDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: palette.border,
-  },
-  previewSection: {
-    marginBottom: spacing.md,
-  },
-  previewTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    justifyContent: 'center',
-  },
-  previewTag: {
-    backgroundColor: palette.primaryMuted,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.md,
-  },
-  previewTagMore: {
-    backgroundColor: palette.border,
-  },
-  previewTagText: {
-    fontSize: 12,
-    fontWeight: '500',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.primary,
-  },
-  previewBio: {
-    fontSize: 14,
-    fontFamily: palette.fontSans,
-    color: palette.textSecondary,
-    fontStyle: 'italic',
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  previewBadges: {
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  previewBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    justifyContent: 'center',
-  },
-  previewBadgeText: {
-    fontSize: 13,
-    color: palette.success,
-    fontWeight: '500',
-    fontFamily: palette.fontSansSemiBold,
-  },
-  previewUnavailableNotice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: palette.warningAmber,
-    backgroundColor: palette.warningLight,
-  },
-  previewUnavailableIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.cardBg,
-  },
-  previewUnavailableCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  previewUnavailableTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    fontFamily: palette.fontHeading,
-    color: palette.textPrimary,
-  },
-  previewUnavailableText: {
-    fontSize: 12,
-    fontFamily: palette.fontSans,
-    lineHeight: 17,
-    color: palette.textSecondary,
-  },
-  previewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-    borderWidth: 2,
-    borderColor: palette.border,
-    borderRadius: borderRadius.md,
-  },
-  previewButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.primary,
-  },
-
-  // ===== MOBILE PREVIEW =====
-  previewToggle: {
-    position: 'absolute',
-    bottom: 100,
-    right: spacing.lg,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: palette.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.lg,
-  },
-  previewModal: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  previewModalContent: {
-    backgroundColor: palette.cardBg,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    maxHeight: '80%',
-  },
-  previewModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: palette.border,
-  },
-  previewModalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    fontFamily: palette.fontHeading,
-    color: palette.textPrimary,
+    paddingBottom: spacing.xl,
   },
 
   // ===== TAB CONTENT =====
   tabContent: {
+    gap: isMobile ? spacing.md : spacing.lg,
+  },
+  informationCard: {
+    padding: isMobile ? spacing.md : isDesktop ? spacing.md : spacing.lg,
+  },
+  identityCardLayout: {
+    flexDirection: isDesktop ? 'row' : 'column',
+    alignItems: isDesktop ? 'stretch' : 'center',
     gap: spacing.lg,
+  },
+  photoPanel: {
+    width: isDesktop ? 260 : '100%',
+    flexShrink: 0,
+    paddingRight: isDesktop ? spacing.lg : 0,
+    borderRightWidth: isDesktop ? 1 : 0,
+    borderRightColor: palette.border,
+  },
+  identityFields: {
+    flex: isDesktop ? 1 : undefined,
+    minWidth: 0,
+    width: isDesktop ? undefined : '100%',
+  },
+  panelTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: palette.fontHeading,
+    color: palette.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  informationSplitGrid: {
+    flexDirection: isDesktop ? 'row' : 'column',
+    alignItems: isDesktop ? 'stretch' : 'flex-start',
+    gap: isMobile ? spacing.md : spacing.lg,
+  },
+  descriptionSection: {
+    flex: isDesktop ? 1.45 : undefined,
+    minWidth: 0,
+    width: isDesktop ? undefined : '100%',
+    alignSelf: isDesktop ? 'stretch' : undefined,
+    marginBottom: 0,
+  },
+  modalitySection: {
+    flex: isDesktop ? 1 : undefined,
+    minWidth: isDesktop ? 360 : undefined,
+    width: isDesktop ? undefined : '100%',
+    alignSelf: isDesktop ? 'stretch' : undefined,
+    marginBottom: 0,
+  },
+  splitEqualCard: {
+    flex: isDesktop ? 1 : undefined,
+  },
+  descriptionPane: {
+    width: '100%',
+  },
+  locationCard: {
+    marginTop: 0,
+  },
+  locationLayout: {
+    flexDirection: isDesktop ? 'row' : 'column',
+    alignItems: 'flex-start',
+    gap: isMobile ? spacing.md : spacing.lg,
+  },
+  locationFieldsPane: {
+    flex: isDesktop ? 0.95 : undefined,
+    minWidth: isDesktop ? 360 : undefined,
+    width: isDesktop ? undefined : '100%',
+  },
+  locationMapPane: {
+    flex: isDesktop ? 1.15 : undefined,
+    minWidth: 0,
+    width: isDesktop ? undefined : '100%',
+  },
+  informationLowerGrid: {
+    flexDirection: isDesktop ? 'row' : 'column',
+    alignItems: 'flex-start',
+    gap: isMobile ? spacing.md : spacing.lg,
+  },
+  informationHalfSection: {
+    flex: isDesktop ? 1 : undefined,
+    minWidth: 0,
+    width: isDesktop ? undefined : '100%',
+    marginBottom: 0,
+  },
+  informationFullSection: {
+    width: '100%',
+    marginBottom: 0,
   },
 
   // ===== SECTIONS =====
   section: {
-    marginBottom: spacing.lg,
+    marginBottom: isMobile ? spacing.md : spacing.lg,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -3956,31 +3651,41 @@ function createStyles(
   // ===== PHOTO SECTION =====
   photoSection: {
     alignItems: 'center',
-    padding: spacing.lg,
-    backgroundColor: palette.cardBg,
-    borderRadius: borderRadius.lg,
-    ...shadows.md,
+    padding: 0,
   },
   avatarContainer: {
-    marginBottom: spacing.md,
+    marginBottom: isDesktop ? spacing.sm : spacing.md,
   },
   avatarLarge: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: isDesktop ? 96 : 120,
+    height: isDesktop ? 96 : 120,
+    borderRadius: isDesktop ? 48 : 60,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.lg,
   },
   avatarLargeText: {
-    fontSize: 48,
+    fontSize: isDesktop ? 38 : 48,
     fontWeight: '700',
     fontFamily: palette.fontSansBold,
     color: palette.textOnCard,
   },
+  avatarUploadOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: palette.overlay,
+    borderRadius: isDesktop ? 48 : 60,
+  },
   photoActions: {
     flexDirection: 'row',
-    gap: spacing.md,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.sm,
     marginBottom: spacing.sm,
   },
   photoButton: {
@@ -4772,46 +4477,6 @@ function createStyles(
     fontStyle: 'italic',
   },
 
-  // ===== SAVE BUTTON =====
-  saveButtonContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: spacing.lg,
-    backgroundColor: palette.cardBg,
-    borderTopWidth: 1,
-    borderTopColor: palette.border,
-    alignItems: 'center',
-    ...shadows.lg,
-  },
-  saveButtonContainerDesktop: {
-    right: 380, // Account for preview sidebar
-  },
-  saveButtonInner: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  saveButton: {
-    width: '100%',
-    maxWidth: 320,
-    alignSelf: 'center',
-  },
-  saveButtonDisabled: {
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: palette.fontSansSemiBold,
-    color: palette.textOnCard,
-  },
-  saveButtonTextDisabled: {
-    color: palette.textMuted,
-  },
-
   // ===== LOCATION & MODALITY =====
   modalityOptions: {
     gap: spacing.sm,
@@ -4876,14 +4541,12 @@ function createStyles(
     color: palette.textSecondary,
   },
   formRow: {
-    flexDirection: 'row',
+    flexDirection: isMobile ? 'column' : 'row',
     gap: spacing.md,
   },
   formFieldHalf: {
-    flex: 1,
-  },
-  mapPreviewContainer: {
-    marginTop: spacing.md,
+    flex: isMobile ? undefined : 1,
+    width: isMobile ? '100%' : undefined,
   },
   fieldHelper: {
     fontSize: 13,
