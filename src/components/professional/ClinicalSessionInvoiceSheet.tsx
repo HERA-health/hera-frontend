@@ -105,7 +105,7 @@ export function ClinicalSessionInvoiceSheet({
                     Facturación de sesión
                   </Text>
                 </View>
-                <Text style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontDisplayBold }]}>
+                <Text style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>
                   Elige cómo quieres facturar esta sesión
                 </Text>
                 <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
@@ -209,7 +209,7 @@ export function ClinicalSessionInvoiceSheet({
                             <Text
                               style={[
                                 styles.invoiceNumber,
-                                { color: theme.textPrimary, fontFamily: theme.fontDisplayBold },
+                                { color: theme.textPrimary, fontFamily: theme.fontHeading },
                               ]}
                             >
                               {invoice.invoiceNumber}

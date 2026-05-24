@@ -1000,6 +1000,7 @@ function createStyles(theme: Theme, isDark: boolean, isCompactMobile: boolean, i
     fontSize: 36,
     fontWeight: '800' as const,
     color: theme.textPrimary,
+    fontFamily: theme.fontHeading,
     letterSpacing: 0,
     lineHeight: 40,
   },
@@ -1066,6 +1067,7 @@ function createStyles(theme: Theme, isDark: boolean, isCompactMobile: boolean, i
     fontSize: 13,
     fontWeight: '600' as const,
     color: theme.textMuted,
+    fontFamily: theme.fontSansSemiBold,
   },
   reviewsEmptyDesc: {
     fontSize: 11,

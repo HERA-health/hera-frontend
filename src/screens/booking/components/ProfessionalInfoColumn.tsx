@@ -424,7 +424,7 @@ const createStyles = (
     },
     avatarLetter: {
       fontSize: 24,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
       color: theme.primary,
     },
     profileText: {
@@ -434,7 +434,7 @@ const createStyles = (
     name: {
       fontSize: 24,
       lineHeight: 28,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
     },
     title: {
@@ -511,7 +511,7 @@ const createStyles = (
     },
     cardTitle: {
       fontSize: 16,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
     },
     cardSubtitle: {
@@ -669,7 +669,7 @@ const createStyles = (
     },
     totalValue: {
       fontSize: 28,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
     },
   });

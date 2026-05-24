@@ -288,7 +288,7 @@ const createStyles = (
     avatarText: {
       fontSize: 44,
       color: '#FFFFFF',
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
     },
     photoAction: {
       flexDirection: 'row',

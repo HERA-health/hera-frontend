@@ -523,7 +523,7 @@ const createStyles = (
     sidebarTitle: {
       color: theme.textPrimary,
       fontSize: 24,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
     },
     contentArea: {
       flex: 1,

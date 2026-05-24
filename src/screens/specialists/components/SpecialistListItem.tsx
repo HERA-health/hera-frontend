@@ -219,7 +219,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     },
     avatarInitial: {
       fontSize: 26,
-      fontFamily: theme.fontDisplay,
+      fontFamily: theme.fontHeading,
       color: theme.textOnPrimary,
     },
     verifiedBadge: {

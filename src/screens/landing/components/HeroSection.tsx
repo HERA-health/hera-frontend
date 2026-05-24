@@ -117,7 +117,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <Text
                 style={[
                   styles.headlineAccent,
-                  { color: isDark ? theme.link : theme.primary, fontFamily: theme.fontDisplayItalic },
+                  { color: isDark ? theme.link : theme.primary, fontFamily: theme.fontDisplay },
                 ]}
               >
                 gestionar mejor

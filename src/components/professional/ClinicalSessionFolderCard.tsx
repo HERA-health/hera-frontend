@@ -119,7 +119,7 @@ export function ClinicalSessionFolderCard({
 }: ClinicalSessionFolderCardProps) {
   const { theme } = useTheme();
 
-  const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontDisplayBold }), [theme]);
+  const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontHeading }), [theme]);
   const emphasisStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const [visibleNotesCount, setVisibleNotesCount] = useState(SESSION_NOTES_PREVIEW_COUNT);

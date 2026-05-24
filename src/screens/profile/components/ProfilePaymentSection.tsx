@@ -287,7 +287,7 @@ const createStyles = (
     cardNumber: {
       color: theme.textPrimary,
       fontSize: 22,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
       letterSpacing: 1.2,
     },
     cardExpiry: {
@@ -432,7 +432,7 @@ const createStyles = (
     transactionAmount: {
       color: theme.textPrimary,
       fontSize: 18,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
     },
     receiptLink: {
       flexDirection: 'row',

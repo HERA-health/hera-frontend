@@ -695,7 +695,7 @@ const createStyles = (theme: ReturnType<typeof useTheme>['theme'], isDark: boole
     },
     mobileAvatarInitial: {
       fontSize: 18,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
       color: theme.primary,
     },
     mobileSpecialistInfo: {
@@ -705,7 +705,7 @@ const createStyles = (theme: ReturnType<typeof useTheme>['theme'], isDark: boole
     mobileSpecialistName: {
       fontSize: 20,
       lineHeight: 24,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
     },
     mobileSpecialistPrice: {
@@ -754,7 +754,7 @@ const createStyles = (theme: ReturnType<typeof useTheme>['theme'], isDark: boole
     },
     mobileFooterPillValueStrong: {
       fontSize: 16,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
     },
     mobileFooterSpacer: {

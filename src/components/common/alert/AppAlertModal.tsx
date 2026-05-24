@@ -228,7 +228,7 @@ function createStyles(theme: Theme, isDark: boolean, isCompact: boolean) {
     },
     title: {
       color: theme.textPrimary,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
       fontSize: isCompact ? 22 : 25,
       lineHeight: isCompact ? 28 : 32,
       letterSpacing: 0,

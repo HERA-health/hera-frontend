@@ -248,6 +248,11 @@ interface ProfilePalette {
   textOnPrimary: string;
   textPrimary: string;
   textSecondary: string;
+  fontHeading: string;
+  fontSans: string;
+  fontSansMedium: string;
+  fontSansSemiBold: string;
+  fontSansBold: string;
 }
 
 const PROFILE_COLORS: ProfileColorOption[] = [
@@ -300,6 +305,11 @@ function createProfilePalette(theme: Theme, isDark: boolean): ProfilePalette {
     textOnPrimary: theme.textOnPrimary,
     textPrimary: theme.textPrimary,
     textSecondary: theme.textSecondary,
+    fontHeading: theme.fontHeading,
+    fontSans: theme.fontSans,
+    fontSansMedium: theme.fontSansMedium,
+    fontSansSemiBold: theme.fontSansSemiBold,
+    fontSansBold: theme.fontSansBold,
   };
 }
 
@@ -3240,6 +3250,7 @@ function createStyles(
   loadingText: {
     marginTop: spacing.md,
     fontSize: 16,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
   },
 
@@ -3279,11 +3290,13 @@ function createStyles(
     fontSize: isDesktop ? 28 : 24,
     lineHeight: isDesktop ? 34 : 30,
     fontWeight: '800',
+    fontFamily: palette.fontHeading,
     color: palette.textPrimary,
   },
   topBarSubtitle: {
     marginTop: spacing.xs,
     fontSize: 14,
+    fontFamily: palette.fontSans,
     lineHeight: 20,
     color: palette.textSecondary,
   },
@@ -3300,6 +3313,7 @@ function createStyles(
   topBarActionText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
   },
   visibilityBadge: {
     flexDirection: 'row',
@@ -3325,6 +3339,7 @@ function createStyles(
   visibilityBadgeText: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: palette.fontSansBold,
   },
   visibilityBadgeTextPublic: {
     color: palette.success,
@@ -3389,6 +3404,7 @@ function createStyles(
   shareModalBadgeText: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: palette.fontHeading,
     color: palette.primary,
   },
   shareModalCloseButton: {
@@ -3402,10 +3418,12 @@ function createStyles(
   shareModalTitle: {
     fontSize: 22,
     fontWeight: '800',
+    fontFamily: palette.fontHeading,
     color: palette.textPrimary,
   },
   shareModalSubtitle: {
     fontSize: 14,
+    fontFamily: palette.fontSans,
     lineHeight: 21,
     color: palette.textSecondary,
   },
@@ -3420,6 +3438,7 @@ function createStyles(
   shareUrlLabel: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: palette.fontSansBold,
     color: palette.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
@@ -3432,11 +3451,13 @@ function createStyles(
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     fontSize: isMobile ? 14 : 15,
+    fontFamily: palette.fontSans,
     lineHeight: 22,
     color: palette.textPrimary,
   },
   shareUrlHint: {
     fontSize: 13,
+    fontFamily: palette.fontSans,
     lineHeight: 19,
     color: palette.textMuted,
   },
@@ -3454,6 +3475,7 @@ function createStyles(
   shareCopiedBannerText: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.success,
   },
   shareModalActions: {
@@ -3513,10 +3535,12 @@ function createStyles(
   tabText: {
     fontSize: 13,
     fontWeight: '500',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textSecondary,
   },
   tabTextDesktop: {
     fontSize: 15,
+    fontFamily: palette.fontSans,
   },
   tabTextActive: {
     color: palette.textPrimary,
@@ -3561,6 +3585,7 @@ function createStyles(
   previewTitle: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -3587,17 +3612,20 @@ function createStyles(
   previewAvatarText: {
     fontSize: 40,
     fontWeight: '700',
+    fontFamily: palette.fontSansBold,
     color: palette.textOnCard,
   },
   previewName: {
     fontSize: 20,
     fontWeight: '700',
+    fontFamily: palette.fontHeading,
     color: palette.textPrimary,
     marginBottom: spacing.xs,
     textAlign: 'center',
   },
   previewTitle2: {
     fontSize: 15,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
     textAlign: 'center',
   },
@@ -3617,10 +3645,12 @@ function createStyles(
   previewStatValue: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: palette.fontHeading,
     color: palette.textPrimary,
   },
   previewStatLabel: {
     fontSize: 12,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
   },
   previewStatDivider: {
@@ -3649,10 +3679,12 @@ function createStyles(
   previewTagText: {
     fontSize: 12,
     fontWeight: '500',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.primary,
   },
   previewBio: {
     fontSize: 14,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
     fontStyle: 'italic',
     lineHeight: 20,
@@ -3672,6 +3704,7 @@ function createStyles(
     fontSize: 13,
     color: palette.success,
     fontWeight: '500',
+    fontFamily: palette.fontSansSemiBold,
   },
   previewUnavailableNotice: {
     flexDirection: 'row',
@@ -3699,10 +3732,12 @@ function createStyles(
   previewUnavailableTitle: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: palette.fontHeading,
     color: palette.textPrimary,
   },
   previewUnavailableText: {
     fontSize: 12,
+    fontFamily: palette.fontSans,
     lineHeight: 17,
     color: palette.textSecondary,
   },
@@ -3719,6 +3754,7 @@ function createStyles(
   previewButtonText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.primary,
   },
 
@@ -3757,6 +3793,7 @@ function createStyles(
   previewModalTitle: {
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: palette.fontHeading,
     color: palette.textPrimary,
   },
 
@@ -3778,6 +3815,7 @@ function createStyles(
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: palette.fontHeading,
     color: palette.textPrimary,
     marginBottom: spacing.md,
   },
@@ -3803,11 +3841,13 @@ function createStyles(
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textSecondary,
   },
   fieldHint: {
     fontSize: 12,
     fontWeight: '400',
+    fontFamily: palette.fontSans,
     color: palette.textMuted,
   },
   required: {
@@ -3821,6 +3861,7 @@ function createStyles(
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 4,
     fontSize: 16,
+    fontFamily: palette.fontSans,
     color: palette.textPrimary,
     minHeight: 48,
   },
@@ -3839,11 +3880,13 @@ function createStyles(
   },
   helperText: {
     fontSize: 12,
+    fontFamily: palette.fontSans,
     color: palette.textMuted,
     fontStyle: 'italic',
   },
   characterCount: {
     fontSize: 12,
+    fontFamily: palette.fontSans,
     color: palette.textMuted,
   },
   verifiedBadge: {
@@ -3863,6 +3906,7 @@ function createStyles(
   verifiedText: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
   },
   verifiedTextSuccess: {
     color: palette.success,
@@ -3899,6 +3943,7 @@ function createStyles(
   chipText: {
     fontSize: 14,
     fontWeight: '500',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textSecondary,
   },
   chipTextSelected: {
@@ -3930,6 +3975,7 @@ function createStyles(
   avatarLargeText: {
     fontSize: 48,
     fontWeight: '700',
+    fontFamily: palette.fontSansBold,
     color: palette.textOnCard,
   },
   photoActions: {
@@ -3953,6 +3999,7 @@ function createStyles(
   photoButtonText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.primary,
   },
   photoButtonTextDanger: {
@@ -3960,6 +4007,7 @@ function createStyles(
   },
   photoHint: {
     fontSize: 12,
+    fontFamily: palette.fontSans,
     color: palette.textMuted,
     textAlign: 'center',
   },
@@ -3975,12 +4023,14 @@ function createStyles(
   emptyStateTitle: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textPrimary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
   emptyStateDescription: {
     fontSize: 14,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
@@ -3997,6 +4047,7 @@ function createStyles(
   addButtonText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.primary,
   },
 
@@ -4026,6 +4077,7 @@ function createStyles(
   itemInput: {
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textPrimary,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
@@ -4034,6 +4086,7 @@ function createStyles(
   },
   itemInputSmall: {
     fontSize: 14,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
@@ -4052,6 +4105,7 @@ function createStyles(
   },
   itemSeparator: {
     fontSize: 14,
+    fontFamily: palette.fontSans,
     color: palette.textMuted,
   },
   itemRemove: {
@@ -4066,6 +4120,7 @@ function createStyles(
   currentBadgeText: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.primary,
   },
   currentToggle: {
@@ -4076,6 +4131,7 @@ function createStyles(
   },
   currentToggleText: {
     fontSize: 13,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
   },
 
@@ -4103,10 +4159,12 @@ function createStyles(
   verificationItemTitle: {
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textPrimary,
   },
   verificationItemStatus: {
     fontSize: 13,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
   },
   completionSection: {
@@ -4123,11 +4181,13 @@ function createStyles(
   completionLabel: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textSecondary,
   },
   completionValue: {
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: palette.fontHeading,
     color: palette.primary,
   },
   completionBar: {
@@ -4162,10 +4222,12 @@ function createStyles(
   verificationCardTitle: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textPrimary,
   },
   verificationCardStatus: {
     fontSize: 13,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
   },
   verificationCardButton: {
@@ -4177,6 +4239,7 @@ function createStyles(
   verificationCardButtonText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textOnCard,
   },
 
@@ -4203,10 +4266,12 @@ function createStyles(
   documentTitle: {
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textPrimary,
   },
   documentMeta: {
     fontSize: 13,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
   },
   credentialsHintCard: {
@@ -4221,6 +4286,7 @@ function createStyles(
   credentialsHintText: {
     flex: 1,
     fontSize: 13,
+    fontFamily: palette.fontSans,
     lineHeight: 20,
     color: palette.textSecondary,
   },
@@ -4252,10 +4318,12 @@ function createStyles(
   insuranceStatusTitle: {
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: palette.fontHeading,
     color: palette.textPrimary,
   },
   insuranceStatusText: {
     fontSize: 13,
+    fontFamily: palette.fontSans,
     lineHeight: 20,
     color: palette.textSecondary,
   },
@@ -4279,12 +4347,14 @@ function createStyles(
   uploadTitle: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textPrimary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
   uploadDescription: {
     fontSize: 14,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.md,
@@ -4296,6 +4366,7 @@ function createStyles(
   uploadButtonText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textOnCard,
   },
 
@@ -4308,6 +4379,7 @@ function createStyles(
   priceCurrency: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textSecondary,
     paddingBottom: spacing.md + 4,
   },
@@ -4321,6 +4393,7 @@ function createStyles(
   },
   toggleText: {
     fontSize: 15,
+    fontFamily: palette.fontSans,
     color: palette.textPrimary,
   },
   taxSection: {
@@ -4329,6 +4402,7 @@ function createStyles(
   taxLabel: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textSecondary,
     marginBottom: spacing.sm,
   },
@@ -4340,6 +4414,7 @@ function createStyles(
   },
   radioText: {
     fontSize: 15,
+    fontFamily: palette.fontSans,
     color: palette.textPrimary,
   },
   billingSummaryHeader: {
@@ -4366,10 +4441,12 @@ function createStyles(
   billingSummaryTitle: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: palette.fontHeading,
     color: palette.textPrimary,
   },
   billingSummaryText: {
     fontSize: 14,
+    fontFamily: palette.fontSans,
     lineHeight: 21,
     color: palette.textSecondary,
   },
@@ -4396,16 +4473,19 @@ function createStyles(
   billingMetricLabel: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: palette.fontHeading,
     color: palette.textMuted,
     textTransform: 'uppercase',
   },
   billingMetricValue: {
     fontSize: 24,
     fontWeight: '800',
+    fontFamily: palette.fontHeading,
     color: palette.textPrimary,
   },
   billingMetricHint: {
     fontSize: 13,
+    fontFamily: palette.fontSans,
     lineHeight: 18,
     color: palette.textSecondary,
   },
@@ -4421,6 +4501,7 @@ function createStyles(
   billingStatusText: {
     flex: 1,
     fontSize: 14,
+    fontFamily: palette.fontSans,
     lineHeight: 20,
     color: palette.textPrimary,
   },
@@ -4440,6 +4521,7 @@ function createStyles(
   accountActionText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.primary,
   },
   passwordRow: {
@@ -4455,17 +4537,20 @@ function createStyles(
   passwordLabel: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textSecondary,
     marginBottom: spacing.xs,
   },
   passwordValue: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textPrimary,
     marginBottom: spacing.xs,
   },
   passwordMeta: {
     fontSize: 12,
+    fontFamily: palette.fontSans,
     color: palette.textMuted,
   },
   changePasswordButton: {
@@ -4478,6 +4563,7 @@ function createStyles(
   changePasswordText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textSecondary,
   },
   securityRow: {
@@ -4493,10 +4579,12 @@ function createStyles(
   securityLabel: {
     fontSize: 15,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textPrimary,
   },
   securityStatus: {
     fontSize: 13,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
   },
   securityButton: {
@@ -4508,6 +4596,7 @@ function createStyles(
   securityButtonText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textOnCard,
   },
   notificationInfoCard: {
@@ -4538,10 +4627,12 @@ function createStyles(
   notificationInfoTitle: {
     fontSize: 15,
     fontWeight: '700',
+    fontFamily: palette.fontHeading,
     color: palette.textPrimary,
   },
   notificationInfoDescription: {
     fontSize: 14,
+    fontFamily: palette.fontSans,
     lineHeight: 21,
     color: palette.textSecondary,
   },
@@ -4556,6 +4647,7 @@ function createStyles(
   notificationStatusText: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: palette.fontSansBold,
     color: palette.primary,
   },
   notificationInfoList: {
@@ -4569,11 +4661,13 @@ function createStyles(
   notificationInfoRowText: {
     flex: 1,
     fontSize: 14,
+    fontFamily: palette.fontSans,
     color: palette.textPrimary,
     lineHeight: 20,
   },
   notificationInfoHint: {
     fontSize: 13,
+    fontFamily: palette.fontSans,
     lineHeight: 19,
     color: palette.textMuted,
   },
@@ -4583,6 +4677,7 @@ function createStyles(
   privacyLabel: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textSecondary,
     marginBottom: spacing.sm,
   },
@@ -4610,10 +4705,12 @@ function createStyles(
   visibilitySummaryTitle: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: palette.fontHeading,
     color: palette.textPrimary,
   },
   visibilitySummaryText: {
     fontSize: 14,
+    fontFamily: palette.fontSans,
     lineHeight: 20,
     color: palette.textSecondary,
   },
@@ -4639,10 +4736,12 @@ function createStyles(
   visibilityOptionTitle: {
     fontSize: 15,
     fontWeight: '700',
+    fontFamily: palette.fontHeading,
     color: palette.textPrimary,
   },
   visibilityOptionText: {
     fontSize: 13,
+    fontFamily: palette.fontSans,
     lineHeight: 19,
     color: palette.textSecondary,
   },
@@ -4659,6 +4758,7 @@ function createStyles(
   },
   accountLinkText: {
     fontSize: 15,
+    fontFamily: palette.fontSans,
     color: palette.textPrimary,
   },
   accountLinkTextDanger: {
@@ -4666,6 +4766,7 @@ function createStyles(
   },
   accountWarning: {
     fontSize: 12,
+    fontFamily: palette.fontSans,
     color: palette.textMuted,
     marginTop: spacing.md,
     fontStyle: 'italic',
@@ -4704,6 +4805,7 @@ function createStyles(
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: palette.textOnCard,
   },
   saveButtonTextDisabled: {
@@ -4734,6 +4836,7 @@ function createStyles(
     fontSize: 15,
     color: palette.textPrimary,
     fontWeight: '500',
+    fontFamily: palette.fontSansSemiBold,
   },
   presentialStatusCard: {
     flexDirection: 'row',
@@ -4763,10 +4866,12 @@ function createStyles(
   presentialStatusTitle: {
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: palette.fontHeading,
     color: palette.textPrimary,
   },
   presentialStatusText: {
     fontSize: 13,
+    fontFamily: palette.fontSans,
     lineHeight: 20,
     color: palette.textSecondary,
   },
@@ -4782,6 +4887,7 @@ function createStyles(
   },
   fieldHelper: {
     fontSize: 13,
+    fontFamily: palette.fontSans,
     color: palette.textMuted,
     marginBottom: spacing.sm,
   },
@@ -4830,6 +4936,7 @@ function createStyles(
   verificationBannerTitle: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: palette.fontHeading,
     marginBottom: spacing.xs,
   },
   verificationBannerTitleVerified: {
@@ -4846,6 +4953,7 @@ function createStyles(
   },
   verificationBannerText: {
     fontSize: 14,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
     lineHeight: 20,
   },
@@ -4876,6 +4984,7 @@ function createStyles(
   verificationResubmitButtonText: {
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
     color: '#FFFFFF',
   },
 
@@ -4890,6 +4999,7 @@ function createMiEspacioStyles(palette: ProfilePalette) {
   return StyleSheet.create({
     subtitle: {
     fontSize: typography.fontSizes.sm,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
     marginBottom: spacing.md,
     },
@@ -4929,6 +5039,7 @@ function createMiEspacioStyles(palette: ProfilePalette) {
     },
     colorName: {
     fontSize: typography.fontSizes.xs,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
     marginTop: spacing.xs,
     textAlign: 'center',
@@ -4967,6 +5078,7 @@ function createMiEspacioStyles(palette: ProfilePalette) {
     color: palette.textOnCard,
     fontSize: 12,
     fontWeight: typography.fontWeights.bold,
+    fontFamily: palette.fontSansBold,
     lineHeight: 14,
     },
     galleryAddBtn: {
@@ -5003,6 +5115,7 @@ function createMiEspacioStyles(palette: ProfilePalette) {
     videoUrl: {
     flex: 1,
     fontSize: typography.fontSizes.sm,
+    fontFamily: palette.fontSans,
     color: palette.textSecondary,
     },
   });

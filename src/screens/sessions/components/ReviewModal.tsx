@@ -414,7 +414,7 @@ const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean) =>
     title: {
       fontSize: 22,
       lineHeight: 28,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
     },
     subtitle: {
@@ -591,7 +591,7 @@ const createSuccessStyles = (theme: Theme) =>
     },
     successTitle: {
       fontSize: 24,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
       textAlign: 'center',
     },
     successSubtitle: {

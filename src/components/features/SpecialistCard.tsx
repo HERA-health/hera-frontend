@@ -216,7 +216,7 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
 
       <View style={[styles.footer, { borderTopColor: theme.border }]}>
         <View style={styles.priceRow}>
-          <Text style={[styles.price, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>
+          <Text style={[styles.price, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>
             {`${specialist.pricePerSession}\u20ac`}
           </Text>
           <Text style={[styles.priceLabel, { color: theme.textMuted, fontFamily: theme.fontSans }]}>

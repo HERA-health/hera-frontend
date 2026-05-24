@@ -182,7 +182,7 @@ const createStyles = (
     },
     title: {
       fontSize: 16,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
     },
     subtitle: {
@@ -263,7 +263,7 @@ const createStyles = (
     },
     emptyTitle: {
       fontSize: 16,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
       textAlign: 'center',
     },

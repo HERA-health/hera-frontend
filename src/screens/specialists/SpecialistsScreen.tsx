@@ -1003,7 +1003,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     },
     title: {
       fontSize: 30,
-      fontFamily: theme.fontDisplay,
+      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
     },
     subtitle: {
@@ -1320,7 +1320,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     },
     resultsTitle: {
       fontSize: 20,
-      fontFamily: theme.fontDisplay,
+      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
     },
     resultsMeta: {
@@ -1363,7 +1363,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     primaryTitle: {
       marginTop: 3,
       fontSize: 24,
-      fontFamily: theme.fontDisplay,
+      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
     },
     primaryCard: {
@@ -1398,7 +1398,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     },
     primaryAvatarInitial: {
       fontSize: 34,
-      fontFamily: theme.fontDisplay,
+      fontFamily: theme.fontHeading,
       color: theme.textOnPrimary,
     },
     primaryCopy: {
@@ -1429,7 +1429,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     },
     primaryName: {
       fontSize: 25,
-      fontFamily: theme.fontDisplay,
+      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
     },
     primarySpecialization: {
@@ -1505,7 +1505,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     },
     favoriteAvatarInitial: {
       fontSize: 22,
-      fontFamily: theme.fontDisplay,
+      fontFamily: theme.fontHeading,
       color: theme.textOnPrimary,
     },
     favoriteName: {
@@ -1567,7 +1567,7 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     },
     stateTitle: {
       fontSize: 22,
-      fontFamily: theme.fontDisplay,
+      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
       textAlign: 'center',
     },

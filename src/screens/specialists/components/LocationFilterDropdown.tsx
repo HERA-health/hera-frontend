@@ -254,7 +254,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     panelTitle: {
       fontSize: 20,
       color: theme.textPrimary,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
     },
     panelSubtitle: {
       marginTop: 4,

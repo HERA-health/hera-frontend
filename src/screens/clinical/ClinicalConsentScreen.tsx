@@ -62,7 +62,7 @@ export function ClinicalConsentScreen() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [consentDocumentAccepted, setConsentDocumentAccepted] = useState(false);
 
-  const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontDisplayBold }), [theme]);
+  const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontHeading }), [theme]);
   const emphasisStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
 

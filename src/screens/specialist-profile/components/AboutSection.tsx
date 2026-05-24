@@ -76,7 +76,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     },
     title: {
       fontSize: 24,
-      fontFamily: theme.fontDisplay,
+      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
       marginBottom: spacing.md,
     },

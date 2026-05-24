@@ -501,7 +501,7 @@ export function ClinicalTab({
             <Text
               style={[
                 styles.heroAsideValue,
-                { color: item.color, fontFamily: theme.fontDisplayBold },
+                { color: item.color, fontFamily: theme.fontHeading },
               ]}
             >
               {item.value}
@@ -560,7 +560,7 @@ export function ClinicalTab({
                   Módulo clínico
                 </Text>
               </View>
-              <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplayBold }]}>
+              <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>
                 Acepta las condiciones clínicas
               </Text>
               <Text style={[styles.stateDescription, { color: theme.textSecondary }]}>
@@ -597,7 +597,7 @@ export function ClinicalTab({
                   Área clínica protegida
                 </Text>
               </View>
-              <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplayBold }]}>
+              <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>
                 Activa el encargo de tratamiento
               </Text>
               <Text style={[styles.stateDescription, { color: theme.textSecondary }]}>
@@ -625,7 +625,7 @@ export function ClinicalTab({
                   Primer acceso clínico
                 </Text>
               </View>
-              <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplayBold }]}>
+              <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>
                 Configura tu PIN clínico
               </Text>
               <Text style={[styles.stateDescription, { color: theme.textSecondary }]}>
@@ -679,7 +679,7 @@ export function ClinicalTab({
                   Área clínica protegida
                 </Text>
               </View>
-              <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplayBold }]}>
+              <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>
                 Desbloquear expediente
               </Text>
               <Text style={[styles.stateDescription, { color: theme.textSecondary }]}>
@@ -738,7 +738,7 @@ export function ClinicalTab({
                     Área clínica disponible
                   </Text>
                 </View>
-                <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplayBold }]}>
+                <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>
                   Expediente abierto
                 </Text>
                 <Text style={[styles.stateDescription, { color: theme.textSecondary }]}>

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
@@ -173,7 +173,7 @@ export function ManagedSessionSchedulerModal({
         >
           <View style={[styles.header, { borderBottomColor: theme.border }]}>
             <View style={styles.headerTitleWrap}>
-              <Text style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontDisplayBold }]}>
+              <Text style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>
                 {title}
               </Text>
               <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>

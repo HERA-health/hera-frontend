@@ -125,7 +125,7 @@ export function ClinicalConsentPanel({
   style,
 }: ClinicalConsentPanelProps) {
   const { theme } = useTheme();
-  const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontDisplayBold }), [theme]);
+  const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontHeading }), [theme]);
   const emphasisStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const latestConsentEvidenceDocumentId = consentEvidenceDocuments[0]?.id;

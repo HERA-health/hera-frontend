@@ -138,7 +138,9 @@ function SegmentedFilterGroup<T extends string>({
 }) {
   return (
     <View style={styles.segmentedGroup}>
-      <Text style={[styles.segmentedLabel, { color: theme.textMuted }]}>{label}</Text>
+      <Text style={[styles.segmentedLabel, { color: theme.textMuted, fontFamily: theme.fontSansBold }]}>
+        {label}
+      </Text>
       <View
         style={[
           styles.segmentedTrack,
@@ -168,7 +170,10 @@ function SegmentedFilterGroup<T extends string>({
               <Text
                 style={[
                   styles.segmentedOptionText,
-                  { color: active ? theme.textPrimary : theme.textSecondary },
+                  {
+                    color: active ? theme.textPrimary : theme.textSecondary,
+                    fontFamily: theme.fontSansBold,
+                  },
                 ]}
               >
                 {option.label}
@@ -197,8 +202,12 @@ function MetricCard({
       <View style={[styles.metricIconWrap, { backgroundColor: theme.primary + '16' }]}>
         <Ionicons name={icon} size={18} color={theme.primary} />
       </View>
-      <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>{label}</Text>
-      <Text style={[styles.metricValue, { color: theme.textPrimary }]}>{value}</Text>
+      <Text style={[styles.metricLabel, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+        {label}
+      </Text>
+      <Text style={[styles.metricValue, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>
+        {value}
+      </Text>
     </Card>
   );
 }
@@ -1070,6 +1079,7 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     title: {
       ...textStyles.h1,
       fontWeight: '700',
+      fontFamily: theme.fontHeading,
     },
     toolbarCard: {
       gap: spacing.md,
@@ -1096,6 +1106,7 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     searchInput: {
       flex: 1,
       ...textStyles.body,
+      fontFamily: theme.fontSans,
       minHeight: 44,
     },
     filterRow: {
@@ -1120,6 +1131,7 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     },
     errorText: {
       ...textStyles.body,
+      fontFamily: theme.fontSans,
       flex: 1,
     },
     loadingState: {
@@ -1130,6 +1142,7 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     },
     loadingText: {
       ...textStyles.body,
+      fontFamily: theme.fontSans,
     },
     emptyCard: {
       alignItems: 'center',
@@ -1139,9 +1152,11 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     emptyTitle: {
       ...textStyles.h4,
       fontWeight: '700',
+      fontFamily: theme.fontHeading,
     },
     emptyText: {
       ...textStyles.body,
+      fontFamily: theme.fontSans,
       maxWidth: 520,
       textAlign: 'center',
     },
@@ -1182,6 +1197,7 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     avatarText: {
       ...textStyles.body,
       fontWeight: '700',
+      fontFamily: theme.fontSansBold,
     },
     clientHeaderInfo: {
       flex: 1,
@@ -1201,6 +1217,7 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     sourceBadgeText: {
       ...textStyles.caption,
       fontWeight: '700',
+      fontFamily: theme.fontSansBold,
     },
     consentBadge: {
       paddingHorizontal: 9,
@@ -1210,13 +1227,16 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     consentBadgeText: {
       ...textStyles.caption,
       fontWeight: '700',
+      fontFamily: theme.fontSansBold,
     },
     clientName: {
       ...textStyles.h4,
       fontWeight: '700',
+      fontFamily: theme.fontHeading,
     },
     clientMeta: {
       ...textStyles.bodySmall,
+      fontFamily: theme.fontSans,
     },
     quickFactsRow: {
       flexDirection: 'row',
@@ -1237,10 +1257,12 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     },
     quickFactText: {
       ...textStyles.caption,
+      fontFamily: theme.fontSans,
       flexShrink: 1,
     },
     quickFactValue: {
       fontWeight: '700',
+      fontFamily: theme.fontSansBold,
     },
     infoRow: {
       flexDirection: 'row',
@@ -1249,6 +1271,7 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     },
     infoText: {
       ...textStyles.bodySmall,
+      fontFamily: theme.fontSans,
       flex: 1,
     },
     cardActions: {
@@ -1298,10 +1321,12 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     modalTitle: {
       ...textStyles.h3,
       fontWeight: '700',
+      fontFamily: theme.fontHeading,
       marginBottom: 6,
     },
     modalSubtitle: {
       ...textStyles.bodySmall,
+      fontFamily: theme.fontSans,
       lineHeight: 22,
       maxWidth: 560,
     },
@@ -1328,9 +1353,11 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     fieldLabel: {
       ...textStyles.caption,
       fontWeight: '700',
+      fontFamily: theme.fontSansBold,
     },
     fieldHint: {
       ...textStyles.bodySmall,
+      fontFamily: theme.fontSans,
       lineHeight: 20,
     },
     input: {
@@ -1340,10 +1367,12 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       paddingHorizontal: spacing.md,
       backgroundColor: theme.bgMuted,
       ...textStyles.body,
+      fontFamily: theme.fontSans,
     },
     fieldError: {
       ...textStyles.caption,
       fontWeight: '600',
+      fontFamily: theme.fontSansSemiBold,
     },
     consentPanel: {
       borderRadius: borderRadius.xl,
@@ -1360,9 +1389,11 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     consentPanelTitle: {
       ...textStyles.body,
       fontWeight: '700',
+      fontFamily: theme.fontSansBold,
     },
     consentPanelText: {
       ...textStyles.bodySmall,
+      fontFamily: theme.fontSans,
       lineHeight: 22,
     },
     modalActions: {

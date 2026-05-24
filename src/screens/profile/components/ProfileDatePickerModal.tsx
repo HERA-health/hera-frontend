@@ -228,7 +228,7 @@ const createStyles = (
     title: {
       color: theme.textPrimary,
       fontSize: 24,
-      fontFamily: theme.fontDisplayBold,
+      fontFamily: theme.fontHeading,
     },
     subtitle: {
       color: theme.textSecondary,

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from
 import { Calendar, DateData } from 'react-native-calendars';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { heraLanding, colors, spacing, shadows } from '../../constants/colors';
+import { lightTheme } from '../../constants/theme';
 import { ProfessionalSession } from '../../constants/types';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -171,9 +172,9 @@ export function CalendarView({ sessions }: CalendarViewProps) {
               arrowColor: heraLanding.primary,
               monthTextColor: heraLanding.textPrimary,
               indicatorColor: heraLanding.primary,
-              textDayFontFamily: 'System',
-              textMonthFontFamily: 'System',
-              textDayHeaderFontFamily: 'System',
+              textDayFontFamily: lightTheme.fontSans,
+              textMonthFontFamily: lightTheme.fontHeading,
+              textDayHeaderFontFamily: lightTheme.fontBodyStrong,
               textDayFontWeight: '500',
               textMonthFontWeight: '700',
               textDayHeaderFontWeight: '600',
@@ -327,6 +328,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: heraLanding.textSecondary,
     fontWeight: '500',
+    fontFamily: lightTheme.fontSans,
   },
   sessionsSection: {
     paddingHorizontal: screenWidth > 768 ? spacing.xxxl * 2 : spacing.lg,
@@ -342,6 +344,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: heraLanding.textPrimary,
+    fontFamily: lightTheme.fontHeading,
     textTransform: 'capitalize',
     flex: 1,
   },
@@ -357,6 +360,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: heraLanding.cardBg,
+    fontFamily: lightTheme.fontSansBold,
   },
   emptyState: {
     alignItems: 'center',
@@ -379,11 +383,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: heraLanding.textPrimary,
+    fontFamily: lightTheme.fontHeading,
     marginBottom: spacing.xs,
   },
   emptyDescription: {
     fontSize: 14,
     color: heraLanding.textSecondary,
+    fontFamily: lightTheme.fontSans,
     textAlign: 'center',
   },
   sessionsList: {
@@ -414,6 +420,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: heraLanding.textPrimary,
+    fontFamily: lightTheme.fontHeading,
     marginBottom: spacing.xs,
   },
   sessionStatusDot: {
@@ -462,6 +469,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: heraLanding.primary,
+    fontFamily: lightTheme.fontSansBold,
   },
   clientInfo: {
     flex: 1,
@@ -470,6 +478,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: heraLanding.textPrimary,
+    fontFamily: lightTheme.fontSansSemiBold,
     marginBottom: spacing.xs,
   },
   sessionMeta: {
@@ -480,6 +489,7 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 13,
     color: heraLanding.textSecondary,
+    fontFamily: lightTheme.fontSans,
   },
   actionButton: {
     width: 36,

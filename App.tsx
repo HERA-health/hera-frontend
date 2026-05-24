@@ -9,15 +9,7 @@ import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { useFonts } from 'expo-font';
-import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
-import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
-import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
-import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
-import { Fraunces_400Regular } from '@expo-google-fonts/fraunces/400Regular';
-import { Fraunces_400Regular_Italic } from '@expo-google-fonts/fraunces/400Regular_Italic';
-import { Fraunces_700Bold } from '@expo-google-fonts/fraunces/700Bold';
-import { Fraunces_900Black } from '@expo-google-fonts/fraunces/900Black';
+import { FontDisplay, useFonts, type FontSource } from 'expo-font';
 import { PostHogProvider, usePostHog } from 'posthog-react-native';
 import { POSTHOG_API_KEY, POSTHOG_HOST, ANALYTICS_ENABLED } from './src/config/analytics';
 import { setPostHogClient } from './src/services/analyticsService';
@@ -34,6 +26,21 @@ import {
   type LegalDocumentKey,
 } from './src/constants/legal';
 import { darkTheme, lightTheme } from './src/constants/theme';
+
+const heraFonts: Record<string, FontSource> = {
+  HeraDisplay: {
+    uri: require('./assets/fonts/Lustria-Regular.ttf'),
+    display: FontDisplay.SWAP,
+  },
+  HeraSans: {
+    uri: require('./assets/fonts/GlacialIndifference-Regular.otf'),
+    display: FontDisplay.SWAP,
+  },
+  'HeraSans-Bold': {
+    uri: require('./assets/fonts/GlacialIndifference-Bold.otf'),
+    display: FontDisplay.SWAP,
+  },
+};
 
 // Deep linking configuration
 const prefix = Linking.createURL('/');
@@ -210,19 +217,10 @@ function ThemedApp() {
 }
 
 export default function App() {
-  const [fontsLoaded, fontError] = useFonts({
-    'Inter': Inter_400Regular,
-    'Inter-Medium': Inter_500Medium,
-    'Inter-SemiBold': Inter_600SemiBold,
-    'Inter-Bold': Inter_700Bold,
-    'Fraunces': Fraunces_400Regular,
-    'Fraunces-Italic': Fraunces_400Regular_Italic,
-    'Fraunces-Bold': Fraunces_700Bold,
-    'Fraunces-Black': Fraunces_900Black,
-  });
+  const [fontsLoaded, fontError] = useFonts(heraFonts);
+  const shouldWaitForFonts = Platform.OS !== 'web' && !fontsLoaded && !fontError;
 
-  // Wait for fonts before rendering themed UI.
-  if (!fontsLoaded && !fontError) {
+  if (shouldWaitForFonts) {
     return <View style={{ flex: 1, backgroundColor: lightTheme.bg }} />;
   }
 

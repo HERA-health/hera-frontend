@@ -76,7 +76,7 @@ export function ProfessionalTourTooltip({
         </Text>
       </View>
 
-      <Text style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontDisplayBold }]}>
+      <Text style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>
         {step.title}
       </Text>
       <ScrollView

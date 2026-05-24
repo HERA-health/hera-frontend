@@ -261,7 +261,7 @@ export default function HomeScreen() {
           <Text style={[styles.heroDate, { color: theme.textMuted, fontFamily: theme.fontSans }]}>{getCurrentDate()}</Text>
           <View style={styles.heroHeadingRow}>
             <Text style={[styles.heroGreeting, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>{getGreeting()},</Text>
-            <Text style={[styles.heroName, { color: theme.primary, fontFamily: theme.fontDisplay }]}>{getFirstName()}</Text>
+            <Text style={[styles.heroName, { color: theme.primary, fontFamily: theme.fontHeading }]}>{getFirstName()}</Text>
           </View>
         </View>
         <AnimatedPressable onPress={() => navigation.navigate('Profile')} hoverTranslateY={-2} pressScale={0.98}>
@@ -449,7 +449,7 @@ export default function HomeScreen() {
             <View style={[styles.statIconCircle, { backgroundColor: stat.color }]}>
               <Ionicons name={stat.icon} size={17} color="#FFFFFF" />
             </View>
-            <Text style={[styles.statValue, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{stat.value}</Text>
+            <Text style={[styles.statValue, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>{stat.value}</Text>
             <Text style={[styles.statLabel, { color: theme.textMuted, fontFamily: theme.fontSans }]}>{stat.label}</Text>
           </Animated.View>
         ))}
@@ -567,7 +567,7 @@ export default function HomeScreen() {
         <Ionicons name="star" size={11} color={theme.starRating} />
         <Text style={[styles.ratingText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{specialist.rating} ({specialist.reviewCount})</Text>
       </View>
-      <Text style={[styles.specialistPrice, { color: theme.primary, fontFamily: theme.fontDisplay }]}>€{specialist.pricePerSession}/ses.</Text>
+      <Text style={[styles.specialistPrice, { color: theme.primary, fontFamily: theme.fontHeading }]}>€{specialist.pricePerSession}/ses.</Text>
       {!compact && (
         <View style={[styles.viewProfileBtn, { backgroundColor: theme.primaryAlpha12, borderColor: theme.border }]}>
           <Text style={[styles.viewProfileText, { color: theme.primaryDark, fontFamily: theme.fontSansSemiBold }]}>Ver perfil</Text>
@@ -614,7 +614,7 @@ export default function HomeScreen() {
                   {isActiveSession ? 'Cita activa' : 'Última sesión'}
                 </Text>
               </View>
-              <Text style={[styles.primarySpecialistName, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]} numberOfLines={1}>
+              <Text style={[styles.primarySpecialistName, { color: theme.textPrimary, fontFamily: theme.fontHeading }]} numberOfLines={1}>
                 {specialist.user.name}
               </Text>
               <Text style={[styles.primarySpecialistSpec, { color: theme.textSecondary, fontFamily: theme.fontSans }]} numberOfLines={1}>
@@ -670,7 +670,7 @@ export default function HomeScreen() {
           <View style={styles.ctaIconWrap}>
             <Ionicons name="heart" size={26} color="#FFFFFF" />
           </View>
-          <Text style={[styles.ctaTitle, { fontFamily: theme.fontDisplay }]}>Encuentra tu match perfecto</Text>
+          <Text style={[styles.ctaTitle, { fontFamily: theme.fontHeading }]}>Encuentra tu match perfecto</Text>
           <Text style={[styles.ctaDesc, { fontFamily: theme.fontSans }]}>
             Completa nuestro cuestionario de 5 minutos y te conectaremos con el especialista ideal para ti.
           </Text>

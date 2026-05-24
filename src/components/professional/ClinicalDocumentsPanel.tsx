@@ -75,7 +75,7 @@ export function ClinicalDocumentsPanel({
   style,
 }: ClinicalDocumentsPanelProps) {
   const { theme } = useTheme();
-  const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontDisplayBold }), [theme]);
+  const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontHeading }), [theme]);
   const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const emphasisStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const header = (

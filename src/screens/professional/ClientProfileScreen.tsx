@@ -24,6 +24,7 @@ import { ClinicalTab } from '../../components/professional/ClinicalTab';
 import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
 import { borderRadius, layout, spacing, typography } from '../../constants/colors';
 import { getErrorMessage } from '../../constants/errors';
+import { lightTheme } from '../../constants/theme';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as professionalService from '../../services/professionalService';
@@ -50,15 +51,16 @@ const textStyles = {
     fontSize: typography.fontSizes.xs,
     lineHeight: 18,
     fontWeight: '700' as const,
+    fontFamily: lightTheme.fontSansBold,
     letterSpacing: 1.1,
     textTransform: 'uppercase' as const,
   },
-  title: { fontSize: typography.fontSizes.xxxl, lineHeight: 36, fontWeight: '700' as const },
-  section: { fontSize: typography.fontSizes.xxl, lineHeight: 30, fontWeight: '700' as const },
-  body: { fontSize: typography.fontSizes.sm, lineHeight: 22 },
-  strong: { fontSize: typography.fontSizes.sm, lineHeight: 22, fontWeight: '700' as const },
-  metric: { fontSize: typography.fontSizes.xxl, lineHeight: 30, fontWeight: '700' as const },
-  caption: { fontSize: typography.fontSizes.xs, lineHeight: 18, fontWeight: '700' as const },
+  title: { fontSize: typography.fontSizes.xxxl, lineHeight: 36, fontWeight: '700' as const, fontFamily: lightTheme.fontHeading },
+  section: { fontSize: typography.fontSizes.xxl, lineHeight: 30, fontWeight: '700' as const, fontFamily: lightTheme.fontHeading },
+  body: { fontSize: typography.fontSizes.sm, lineHeight: 22, fontFamily: lightTheme.fontSans },
+  strong: { fontSize: typography.fontSizes.sm, lineHeight: 22, fontWeight: '700' as const, fontFamily: lightTheme.fontSansBold },
+  metric: { fontSize: typography.fontSizes.xxl, lineHeight: 30, fontWeight: '700' as const, fontFamily: lightTheme.fontHeading },
+  caption: { fontSize: typography.fontSizes.xs, lineHeight: 18, fontWeight: '700' as const, fontFamily: lightTheme.fontSansBold },
 };
 
 const SESSION_TYPE_LABELS: Record<string, string> = {
@@ -226,10 +228,11 @@ export function ClientProfileScreen() {
   const isDesktop = width >= 1180;
   const isTablet = width >= 860;
   const isMobile = width < 720;
-  const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontDisplayBold }), [theme]);
-  const sectionTitleStyle = useMemo(() => ({ fontFamily: theme.fontDisplayBold }), [theme]);
+  const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontHeading }), [theme]);
+  const sectionTitleStyle = useMemo(() => ({ fontFamily: theme.fontHeading }), [theme]);
   const emphasisStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
+  const inputTextStyle = useMemo(() => ({ fontFamily: theme.fontSans }), [theme]);
 
   const loadClient = useCallback(async () => {
     if (loadClientPromiseRef.current) {
@@ -901,6 +904,7 @@ export function ClientProfileScreen() {
                 textStyles.caption,
                 styles.topBadgeText,
                 isMobile && styles.topBadgeTextMobile,
+                labelStyle,
                 { color: client.source === 'MANAGED' ? theme.secondary : theme.primary },
               ]}
             >
@@ -920,6 +924,7 @@ export function ClientProfileScreen() {
                   textStyles.caption,
                   styles.topBadgeText,
                   isMobile && styles.topBadgeTextMobile,
+                  labelStyle,
                   { color: theme.warning },
                 ]}
               >
@@ -950,12 +955,12 @@ export function ClientProfileScreen() {
                 {client.user.avatar ? (
                   <Image source={{ uri: client.user.avatar }} style={styles.avatarImage} />
                 ) : (
-                  <Text style={[styles.avatarText, { color: theme.primary }]}>{initials}</Text>
+                  <Text style={[styles.avatarText, { color: theme.primary, fontFamily: theme.fontHeading }]}>{initials}</Text>
                 )}
               </View>
 
                 <View style={[styles.heroCopy, isMobile && styles.heroCopyMobile]}>
-                  <Text style={[textStyles.eyebrow, { color: theme.textMuted }]}>Ficha del paciente</Text>
+                  <Text style={[textStyles.eyebrow, labelStyle, { color: theme.textMuted }]}>Ficha del paciente</Text>
                   <Text style={[textStyles.title, { color: theme.textPrimary }, displayTitleStyle]}>
                     {client.displayName || client.user.name}
                   </Text>
@@ -1212,7 +1217,7 @@ export function ClientProfileScreen() {
                     <TextInput
                       value={billingForm.firstName}
                       onChangeText={(value) => updateBillingField('firstName', value)}
-                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
                       placeholder="Nombre"
                       placeholderTextColor={theme.textMuted}
                     />
@@ -1222,7 +1227,7 @@ export function ClientProfileScreen() {
                     <TextInput
                       value={billingForm.lastName}
                       onChangeText={(value) => updateBillingField('lastName', value)}
-                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
                       placeholder="Apellidos"
                       placeholderTextColor={theme.textMuted}
                     />
@@ -1232,7 +1237,7 @@ export function ClientProfileScreen() {
                     <TextInput
                       value={billingForm.email}
                       onChangeText={(value) => updateBillingField('email', value)}
-                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
                       placeholder="email@paciente.com"
                       placeholderTextColor={theme.textMuted}
                       autoCapitalize="none"
@@ -1243,7 +1248,7 @@ export function ClientProfileScreen() {
                     <TextInput
                       value={billingForm.phone}
                       onChangeText={(value) => updateBillingField('phone', value)}
-                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
                       placeholder="600 000 000"
                       placeholderTextColor={theme.textMuted}
                     />
@@ -1261,7 +1266,7 @@ export function ClientProfileScreen() {
                     <TextInput
                       value={billingForm.billingFullName}
                       onChangeText={(value) => updateBillingField('billingFullName', value)}
-                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
                       placeholder="Nombre y apellidos"
                       placeholderTextColor={theme.textMuted}
                     />
@@ -1271,7 +1276,7 @@ export function ClientProfileScreen() {
                     <TextInput
                       value={billingForm.billingTaxId}
                       onChangeText={(value) => updateBillingField('billingTaxId', value)}
-                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
                       placeholder="12345678A"
                       placeholderTextColor={theme.textMuted}
                       autoCapitalize="characters"
@@ -1282,7 +1287,7 @@ export function ClientProfileScreen() {
                     <TextInput
                       value={billingForm.billingAddress}
                       onChangeText={(value) => updateBillingField('billingAddress', value)}
-                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
                       placeholder="Calle, número, piso..."
                       placeholderTextColor={theme.textMuted}
                     />
@@ -1292,7 +1297,7 @@ export function ClientProfileScreen() {
                     <TextInput
                       value={billingForm.billingPostalCode}
                       onChangeText={(value) => updateBillingField('billingPostalCode', value)}
-                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
                       placeholder="28001"
                       placeholderTextColor={theme.textMuted}
                     />
@@ -1302,7 +1307,7 @@ export function ClientProfileScreen() {
                     <TextInput
                       value={billingForm.billingCity}
                       onChangeText={(value) => updateBillingField('billingCity', value)}
-                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
                       placeholder="Madrid"
                       placeholderTextColor={theme.textMuted}
                     />
@@ -1312,7 +1317,7 @@ export function ClientProfileScreen() {
                     <TextInput
                       value={billingForm.billingCountry}
                       onChangeText={(value) => updateBillingField('billingCountry', value)}
-                      style={[styles.modalInput, { color: theme.textPrimary, borderColor: theme.border }]}
+                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
                       placeholder="Spain"
                       placeholderTextColor={theme.textMuted}
                     />
@@ -1434,10 +1439,12 @@ const styles = StyleSheet.create({
   },
   topBadgeText: {
     fontWeight: '700',
+    fontFamily: lightTheme.fontSansBold,
   },
   topBadgeTextMobile: {
     fontSize: 12,
     lineHeight: 15,
+    fontFamily: lightTheme.fontSansBold,
     letterSpacing: 0.2,
   },
   heroCard: {
@@ -1492,6 +1499,7 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.xxl,
     lineHeight: 30,
     fontWeight: '700',
+    fontFamily: lightTheme.fontHeading,
   },
   heroCopy: {
     flex: 1,
@@ -1520,6 +1528,7 @@ const styles = StyleSheet.create({
   heroFactText: {
     fontSize: typography.fontSizes.xs,
     lineHeight: 16,
+    fontFamily: lightTheme.fontSans,
     flexShrink: 1,
   },
   heroMetaGrid: {
@@ -1585,6 +1594,7 @@ const styles = StyleSheet.create({
   heroRefreshText: {
     fontSize: typography.fontSizes.xs,
     lineHeight: 18,
+    fontFamily: lightTheme.fontSans,
   },
   summaryStatsRow: {
     flexDirection: 'row',
@@ -1606,12 +1616,14 @@ const styles = StyleSheet.create({
   summaryStatLabel: {
     fontSize: typography.fontSizes.xs,
     lineHeight: 16,
+    fontFamily: lightTheme.fontSans,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   summaryStatValue: {
     fontSize: typography.fontSizes.md,
     lineHeight: 22,
+    fontFamily: lightTheme.fontSansBold,
   },
   tabs: {
     flexDirection: 'row',
@@ -1885,6 +1897,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     fontSize: typography.fontSizes.sm,
+    fontFamily: lightTheme.fontSans,
     backgroundColor: 'transparent',
   },
   modalSection: {

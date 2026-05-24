@@ -244,7 +244,7 @@ function LegalStatusUnavailableScreen({
           },
         ]}
       >
-        <Text style={[styles.legalErrorTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>
+        <Text style={[styles.legalErrorTitle, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>
           No hemos podido verificar tus condiciones
         </Text>
         <Text style={[styles.legalErrorText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
