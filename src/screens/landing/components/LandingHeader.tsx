@@ -20,19 +20,24 @@ import { StyledLogo } from '../../../components/common/StyledLogo';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { ThemeToggleButton } from '../../../components/common/ThemeToggleButton';
 import { useTheme } from '../../../contexts/ThemeContext';
+import type { LandingSectionAnchor } from '../types';
 
 interface LandingHeaderProps {
   isScrolled: boolean;
   onFindSpecialist: () => void;
   onJoinAsProfessional: () => void;
-  onScrollToSection?: (section: 'howItWorks' | 'specializations' | 'forSpecialists') => void;
+  onScrollToSection?: (section: LandingSectionAnchor) => void;
 }
 
 const NAV_ITEMS = [
   { id: 'howItWorks' as const, label: 'Cómo funciona' },
   { id: 'forSpecialists' as const, label: 'Herramientas' },
   { id: 'specializations' as const, label: 'Especialidades' },
+  { id: 'about' as const, label: 'Quiénes somos' },
+  { id: 'faq' as const, label: 'FAQ' },
 ];
+
+type NavItem = (typeof NAV_ITEMS)[number];
 
 const WEB_SCROLLBAR_GUTTER = 16;
 
@@ -77,6 +82,30 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         } as unknown as ViewStyle)
       : undefined;
 
+  const renderNavItem = (item: NavItem) => {
+    return (
+      <AnimatedPressable
+        key={item.id}
+        onPress={() => onScrollToSection?.(item.id)}
+        hoverLift={false}
+        pressScale={0.96}
+        style={styles.navLink}
+      >
+        <Text
+          style={[
+            styles.navLinkText,
+            {
+              color: theme.textSecondary,
+              fontFamily: theme.fontSansMedium,
+            },
+          ]}
+        >
+          {item.label}
+        </Text>
+      </AnimatedPressable>
+    );
+  };
+
   return (
     <Animated.View
       style={[
@@ -107,24 +136,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
 
         {isDesktop && (
           <View style={styles.navLinks}>
-            {NAV_ITEMS.map((item) => (
-              <AnimatedPressable
-                key={item.id}
-                onPress={() => onScrollToSection?.(item.id)}
-                hoverLift={false}
-                pressScale={0.96}
-                style={styles.navLink}
-              >
-                <Text
-                  style={[
-                    styles.navLinkText,
-                    { color: theme.textSecondary, fontFamily: theme.fontSansMedium },
-                  ]}
-                >
-                  {item.label}
-                </Text>
-              </AnimatedPressable>
-            ))}
+            {NAV_ITEMS.map(renderNavItem)}
           </View>
         )}
 
@@ -232,7 +244,7 @@ const styles = StyleSheet.create({
   navLinks: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 28,
+    gap: 20,
   },
   navLink: {
     paddingVertical: 8,

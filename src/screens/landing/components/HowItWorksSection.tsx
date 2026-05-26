@@ -1,15 +1,14 @@
 /**
- * HowItWorksSection - HERA Design System v5.0
+ * HowItWorksSection
  *
- * Keeps the current bento layout but reframes the flow around the
- * professional workspace instead of patient discovery.
+ * Three equal steps for the professional onboarding flow.
  */
 
 import React from 'react';
 import {
-  View,
-  Text,
   StyleSheet,
+  Text,
+  View,
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -27,25 +26,25 @@ interface Step {
 
 const STEPS: Step[] = [
   {
-    number: '01',
+    number: '1',
     icon: 'log-in-outline',
     title: 'Accede a tu espacio profesional',
     description:
-      'Entra con tu cuenta o únete como profesional para centralizar tu consulta desde el primer momento.',
+      'Entra con tu cuenta o únete como profesional para empezar desde un panel pensado para consulta.',
   },
   {
-    number: '02',
+    number: '2',
     icon: 'options-outline',
-    title: 'Configura agenda, disponibilidad y tarifas',
+    title: 'Configura cómo trabajas',
     description:
-      'Define tu operativa con claridad: franjas horarias, sesiones, precios y reglas básicas del trabajo diario.',
+      'Define disponibilidad, tarifas, modalidades y datos clave antes de recibir nuevas reservas.',
   },
   {
-    number: '03',
+    number: '3',
     icon: 'layers-outline',
-    title: 'Gestiona pacientes, sesiones y facturación',
+    title: 'Gestiona la continuidad',
     description:
-      'Haz seguimiento de tu actividad, organiza tu calendario y trabaja con una vista más ordenada de todo el negocio.',
+      'Organiza pacientes, sesiones, facturas y seguimiento diario sin perder el contexto de cada caso.',
   },
 ];
 
@@ -94,34 +93,29 @@ export const HowItWorksSection: React.FC = () => {
               { color: theme.textSecondary, fontFamily: theme.fontSans },
             ]}
           >
-            Una entrada más clara para tu operativa diaria, sin cambiar la calma visual de HERA.
+            Un recorrido sencillo para pasar de la cuenta inicial a una consulta
+            organizada dentro de HERA.
           </Text>
         </MotionView>
 
-        {isDesktop ? (
-          <View style={styles.bentoGrid}>
-            <MotionView entering="fadeInUp" delay={100} style={styles.bentoLarge}>
-              <StepCard step={STEPS[0]} index={0} theme={theme} large />
+        <View
+          style={[
+            styles.stepsGrid,
+            isDesktop && styles.stepsGridDesktop,
+            isTablet && styles.stepsGridTablet,
+          ]}
+        >
+          {STEPS.map((step, index) => (
+            <MotionView
+              key={step.number}
+              entering="fadeInUp"
+              delay={90 + index * 80}
+              style={isDesktop || isTablet ? styles.stepMotion : undefined}
+            >
+              <StepCard step={step} index={index} theme={theme} />
             </MotionView>
-
-            <View style={styles.bentoSmallCol}>
-              <MotionView entering="fadeInUp" delay={180} style={{ flex: 1 }}>
-                <StepCard step={STEPS[1]} index={1} theme={theme} />
-              </MotionView>
-              <MotionView entering="fadeInUp" delay={260} style={{ flex: 1 }}>
-                <StepCard step={STEPS[2]} index={2} theme={theme} />
-              </MotionView>
-            </View>
-          </View>
-        ) : (
-          <View style={[styles.columnGrid, isTablet && styles.tabletGrid]}>
-            {STEPS.map((step, index) => (
-              <MotionView key={step.number} entering="fadeInUp" delay={80 + index * 80}>
-                <StepCard step={step} index={index} theme={theme} />
-              </MotionView>
-            ))}
-          </View>
-        )}
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -131,39 +125,42 @@ interface StepCardProps {
   step: Step;
   index: number;
   theme: Theme;
-  large?: boolean;
 }
 
-function StepCard({ step, index, theme, large = false }: StepCardProps) {
+function StepCard({ step, index, theme }: StepCardProps) {
   const accentColor = STEP_ACCENT_COLORS[index](theme);
   const iconColor = accentColor === theme.primary ? theme.textOnPrimary : '#FFFFFF';
 
   return (
-    <GlassCard
-      intensity={40}
-      borderRadius={20}
-      style={[styles.stepCard, ...(large ? [styles.stepCardLarge] : [])]}
-    >
-      <Text
-        style={[
-          styles.ghostNumber,
-          { color: theme.primary, fontFamily: theme.fontDisplay },
-          ...(large ? [styles.ghostNumberLarge] : []),
-        ]}
-      >
-        {step.number}
-      </Text>
-
-      <View style={styles.iconWrapper}>
+    <GlassCard intensity={40} borderRadius={8} style={styles.stepCard}>
+      <View style={styles.stepHeader}>
         <View style={[styles.iconSurface, { backgroundColor: accentColor }]}>
-          <Ionicons name={step.icon} size={large ? 32 : 26} color={iconColor} />
+          <Ionicons name={step.icon} size={25} color={iconColor} />
+        </View>
+
+        <View
+          style={[
+            styles.stepBadge,
+            {
+              backgroundColor: theme.primaryAlpha12,
+              borderColor: theme.primaryAlpha20,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.stepBadgeText,
+              { color: theme.primary, fontFamily: theme.fontSansSemiBold },
+            ]}
+          >
+            Paso {step.number}
+          </Text>
         </View>
       </View>
 
       <Text
         style={[
           styles.stepTitle,
-          large && styles.stepTitleLarge,
           { color: theme.textPrimary, fontFamily: theme.fontSansBold },
         ]}
       >
@@ -187,7 +184,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   containerDesktop: {
-    paddingVertical: 100,
+    paddingVertical: 96,
     paddingHorizontal: 60,
   },
   content: {
@@ -197,7 +194,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 44,
   },
   eyebrow: {
     fontSize: 12,
@@ -217,72 +214,60 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 17,
+    lineHeight: 26,
     textAlign: 'center',
     maxWidth: 760,
   },
-  bentoGrid: {
-    flexDirection: 'row',
+  stepsGrid: {
     gap: 16,
+  },
+  stepsGridDesktop: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 18,
+  },
+  stepsGridTablet: {
+    flexDirection: 'row',
     alignItems: 'stretch',
   },
-  bentoLarge: {
-    flex: 2,
-  },
-  bentoSmallCol: {
+  stepMotion: {
     flex: 1,
-    gap: 16,
-  },
-  columnGrid: {
-    gap: 16,
-  },
-  tabletGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
   },
   stepCard: {
     padding: 28,
-    position: 'relative',
-    overflow: 'hidden',
-    minHeight: 200,
+    minHeight: 230,
+    height: '100%',
   },
-  stepCardLarge: {
-    minHeight: 280,
-    padding: 36,
-  },
-  ghostNumber: {
-    position: 'absolute',
-    bottom: -10,
-    right: 16,
-    fontSize: 100,
-    opacity: 0.06,
-    lineHeight: 110,
-  },
-  ghostNumberLarge: {
-    fontSize: 140,
-    lineHeight: 150,
-  },
-  iconWrapper: {
-    marginBottom: 20,
+  stepHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+    marginBottom: 24,
   },
   iconSurface: {
     width: 56,
     height: 56,
-    borderRadius: 16,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepTitle: {
-    fontSize: 18,
-    marginBottom: 8,
-    lineHeight: 24,
+  stepBadge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
-  stepTitleLarge: {
-    fontSize: 22,
-    lineHeight: 28,
+  stepBadgeText: {
+    fontSize: 12,
+  },
+  stepTitle: {
+    fontSize: 20,
+    marginBottom: 10,
+    lineHeight: 26,
   },
   stepDescription: {
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 23,
   },
 });

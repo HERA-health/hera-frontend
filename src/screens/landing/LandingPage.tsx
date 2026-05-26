@@ -7,12 +7,14 @@
  * Sections:
  * 1. Hero - Hook visitors in 3 seconds with dual CTAs
  * 2. How It Works - Show simplicity in 3 steps
- * 3. For Specialists - Product-focused section for professionals
- * 4. Trust Indicators - Show concrete specialist capabilities
- * 5. Specializations - Show breadth of supported practice areas
- * 6. Testimonials - Reframed as real use cases
- * 7. Final CTA - Convert after they've seen everything
- * 8. Footer - Navigation and legal
+ * 3. About Us - Explain the product direction with a human tone
+ * 4. For Specialists - Product-focused section for professionals
+ * 5. Trust Indicators - Show sensitive workflow safeguards
+ * 6. Specializations - Show breadth of supported practice areas
+ * 7. Testimonials - Reframed as real use cases
+ * 8. FAQ - Answer mixed professional and patient questions
+ * 9. Final CTA - Convert after they've seen everything
+ * 10. Footer - Navigation and legal
  */
 
 import React, { useRef, useCallback, useEffect, useState } from 'react';
@@ -33,10 +35,13 @@ import { LandingHeader } from './components/LandingHeader';
 import { HeroSection } from './components/HeroSection';
 import { useTheme } from '../../contexts/ThemeContext';
 import { createWebDeferredComponent } from '../../utils/createDeferredComponent';
+import {
+  LANDING_SECTION_NATIVE_IDS,
+  type LandingSectionAnchor,
+} from './types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Landing'>;
 
-type LandingSectionAnchor = 'howItWorks' | 'specializations' | 'forSpecialists';
 type SectionPositions = Record<LandingSectionAnchor, number>;
 type DeferredSectionProps = Record<string, never>;
 type SpecialistCTASectionProps = {
@@ -49,11 +54,35 @@ type SharedCTASectionProps = {
   onFindSpecialist: () => void;
   onJoinAsProfessional: () => void;
 };
+type FooterSectionProps = SharedCTASectionProps & {
+  onScrollToSection: (section: LandingSectionAnchor) => void;
+};
 
 const HEADER_SCROLL_THRESHOLD = 50;
 const SCROLL_INDICATOR_THRESHOLD = 80;
 const HEADER_HEIGHT = 80;
 const DEFERRED_SECTIONS_DELAY_MS = 180;
+
+const getScrollableWebAncestor = (target: HTMLElement): HTMLElement | null => {
+  let current = target.parentElement;
+
+  while (current) {
+    const overflowY = window.getComputedStyle(current).overflowY;
+
+    if (
+      current.scrollHeight > current.clientHeight + 1 &&
+      (overflowY === 'auto' || overflowY === 'scroll')
+    ) {
+      return current;
+    }
+
+    current = current.parentElement;
+  }
+
+  return document.scrollingElement instanceof HTMLElement
+    ? document.scrollingElement
+    : document.documentElement;
+};
 
 const HowItWorksSection = createWebDeferredComponent<DeferredSectionProps>(
   () => require('./components/HowItWorksSection'),
@@ -67,6 +96,11 @@ const TrustIndicatorsSection = createWebDeferredComponent<DeferredSectionProps>(
     displayName: 'DeferredTrustIndicatorsSection',
     exportName: 'TrustIndicatorsSection',
   }
+);
+const AboutUsSection = createWebDeferredComponent<DeferredSectionProps>(
+  () => require('./components/AboutUsSection'),
+  () => import('./components/AboutUsSection'),
+  { displayName: 'DeferredAboutUsSection', exportName: 'AboutUsSection' }
 );
 const TestimonialsSection = createWebDeferredComponent<DeferredSectionProps>(
   () => require('./components/TestimonialsSection'),
@@ -92,12 +126,17 @@ const SpecializationsSection = createWebDeferredComponent<SpecializationsSection
     exportName: 'SpecializationsSection',
   }
 );
+const FAQSection = createWebDeferredComponent<DeferredSectionProps>(
+  () => require('./components/FAQSection'),
+  () => import('./components/FAQSection'),
+  { displayName: 'DeferredFAQSection', exportName: 'FAQSection' }
+);
 const FinalCTASection = createWebDeferredComponent<SharedCTASectionProps>(
   () => require('./components/FinalCTASection'),
   () => import('./components/FinalCTASection'),
   { displayName: 'DeferredFinalCTASection', exportName: 'FinalCTASection' }
 );
-const FooterSection = createWebDeferredComponent<SharedCTASectionProps>(
+const FooterSection = createWebDeferredComponent<FooterSectionProps>(
   () => require('./components/FooterSection'),
   () => import('./components/FooterSection'),
   { displayName: 'DeferredFooterSection', exportName: 'FooterSection' }
@@ -109,8 +148,10 @@ export const LandingPage: React.FC = () => {
   const scrollViewRef = useRef<ScrollView>(null);
   const sectionPositions = useRef<SectionPositions>({
     howItWorks: 0,
-    specializations: 0,
+    about: 0,
     forSpecialists: 0,
+    specializations: 0,
+    faq: 0,
   });
   const pendingSectionScroll = useRef<LandingSectionAnchor | null>(null);
   const headerScrolledRef = useRef(false);
@@ -137,6 +178,25 @@ export const LandingPage: React.FC = () => {
   }, [revealDeferredSections, showDeferredSections]);
 
   const scrollToSection = useCallback((section: LandingSectionAnchor) => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const target = document.getElementById(LANDING_SECTION_NATIVE_IDS[section]);
+      const scrollContainer = target ? getScrollableWebAncestor(target) : null;
+
+      if (target && scrollContainer) {
+        const targetRect = target.getBoundingClientRect();
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const top =
+          scrollContainer.scrollTop +
+          targetRect.top -
+          containerRect.top -
+          HEADER_HEIGHT +
+          70;
+
+        scrollViewRef.current?.scrollTo({ y: Math.max(0, top), animated: true });
+        return;
+      }
+    }
+
     const yPosition = sectionPositions.current[section];
     const adjustedPosition = yPosition - HEADER_HEIGHT + 70;
     scrollViewRef.current?.scrollTo({ y: adjustedPosition, animated: true });
@@ -248,23 +308,46 @@ export const LandingPage: React.FC = () => {
 
         {showDeferredSections && (
           <>
-            <View onLayout={handleSectionLayout('howItWorks')}>
+            <View
+              nativeID={LANDING_SECTION_NATIVE_IDS.howItWorks}
+              onLayout={handleSectionLayout('howItWorks')}
+            >
               <HowItWorksSection />
             </View>
 
-            <View onLayout={handleSectionLayout('forSpecialists')}>
+            <View
+              nativeID={LANDING_SECTION_NATIVE_IDS.forSpecialists}
+              onLayout={handleSectionLayout('forSpecialists')}
+            >
               <ForSpecialistsSection onLearnMore={handleLearnMoreProfessional} />
             </View>
 
             <TrustIndicatorsSection />
 
-            <View onLayout={handleSectionLayout('specializations')}>
+            <View
+              nativeID={LANDING_SECTION_NATIVE_IDS.specializations}
+              onLayout={handleSectionLayout('specializations')}
+            >
               <SpecializationsSection
                 onSpecializationPress={handleSpecializationPress}
               />
             </View>
 
             <TestimonialsSection />
+
+            <View
+              nativeID={LANDING_SECTION_NATIVE_IDS.about}
+              onLayout={handleSectionLayout('about')}
+            >
+              <AboutUsSection />
+            </View>
+
+            <View
+              nativeID={LANDING_SECTION_NATIVE_IDS.faq}
+              onLayout={handleSectionLayout('faq')}
+            >
+              <FAQSection />
+            </View>
 
             <FinalCTASection
               onFindSpecialist={handleFindSpecialist}
@@ -274,6 +357,7 @@ export const LandingPage: React.FC = () => {
             <FooterSection
               onFindSpecialist={handleFindSpecialist}
               onJoinAsProfessional={handleJoinAsProfessional}
+              onScrollToSection={handleScrollToSection}
             />
           </>
         )}

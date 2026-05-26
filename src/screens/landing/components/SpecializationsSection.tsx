@@ -36,14 +36,14 @@ const specializations: Specialization[] = [
     id: 'couples',
     icon: 'heart-outline',
     title: 'Terapia de pareja',
-    description: 'Profesionales que pueden operar sesiones y seguimiento relacional desde HERA.',
+    description: 'Sesiones, agenda y continuidad para procesos relacionales con una estructura clara.',
     accent: 'warning',
   },
   {
     id: 'depression',
     icon: 'cloudy-outline',
     title: 'Depresión',
-    description: 'Consulta, sesiones y continuidad para trabajo clínico alrededor del estado de ánimo.',
+    description: 'Consulta, seguimiento y continuidad para trabajo clínico alrededor del estado de ánimo.',
     accent: 'info',
   },
   {
@@ -71,7 +71,7 @@ const specializations: Specialization[] = [
     id: 'personal',
     icon: 'trophy-outline',
     title: 'Desarrollo personal',
-    description: 'Especialistas que necesitan una operativa sencilla para sostener el acompañamiento.',
+    description: 'Una operativa sencilla para sostener acompañamientos de crecimiento y cambio.',
     accent: 'success',
   },
   {
@@ -219,7 +219,7 @@ export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
               isDesktop && styles.headerTitleDesktop,
             ]}
           >
-            Especialidades que pueden trabajar con HERA
+            Especialidades que encuentran una base ordenada en HERA
           </Text>
           <Text
             style={[
@@ -227,8 +227,8 @@ export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
               { color: theme.textSecondary, fontFamily: theme.fontSans },
             ]}
           >
-            El producto sigue siendo compatible con diferentes tipos de práctica clínica,
-            aunque ahora el mensaje principal esté puesto en la gestión profesional.
+            La plataforma acompaña diferentes formas de práctica clínica sin
+            perder claridad para el especialista ni comprensión para el paciente.
           </Text>
           <View
             style={[
@@ -243,7 +243,7 @@ export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
                 { color: theme.primary, fontFamily: theme.fontSansSemiBold },
               ]}
             >
-              Y seguiremos ampliando muchas más áreas relacionadas con la salud mental
+              Seguiremos ampliando áreas relacionadas con la salud mental
             </Text>
           </View>
         </View>

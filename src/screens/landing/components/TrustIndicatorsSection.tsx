@@ -1,7 +1,7 @@
 /**
  * TrustIndicatorsSection
  *
- * Reframed as a grid of specialist capabilities rather than marketplace claims.
+ * Reframed as a trust and privacy section for sensitive mental-health work.
  * Uses theme tokens only.
  */
 
@@ -26,39 +26,39 @@ interface CapabilityCard {
 
 const capabilityCards: CapabilityCard[] = [
   {
-    icon: 'calendar-outline',
-    title: 'Agenda y sesiones',
-    description: 'Ordena tu calendario profesional con una vista clara de la actividad diaria.',
+    icon: 'ribbon-outline',
+    title: 'Verificación profesional',
+    description: 'Flujos para revisar documentación y proteger la calidad del acceso profesional.',
     accent: 'primary',
   },
   {
-    icon: 'people-outline',
-    title: 'Gestión de pacientes',
-    description: 'Consulta la base de pacientes y mantén el seguimiento dentro del mismo entorno.',
+    icon: 'shield-checkmark-outline',
+    title: 'Privacidad por defecto',
+    description: 'La experiencia se diseña minimizando exposición de datos sensibles y ruido operativo.',
     accent: 'secondary',
   },
   {
-    icon: 'time-outline',
-    title: 'Disponibilidad',
-    description: 'Configura tus franjas y adapta la operativa semanal sin depender de flujos externos.',
+    icon: 'document-text-outline',
+    title: 'Consentimientos claros',
+    description: 'Soporte para consentimiento clínico, aceptación legal y trazabilidad cuando el flujo lo requiere.',
     accent: 'success',
   },
   {
-    icon: 'receipt-outline',
-    title: 'Facturación',
-    description: 'Centraliza configuración, historial de facturas y tareas administrativas clave.',
+    icon: 'folder-open-outline',
+    title: 'Documentación protegida',
+    description: 'Documentos profesionales y clínicos tratados como información privada, no como adjuntos genéricos.',
     accent: 'warning',
   },
   {
-    icon: 'stats-chart-outline',
-    title: 'Dashboard',
-    description: 'Revisa actividad, ingresos, sesiones y tendencias desde un panel pensado para decidir.',
+    icon: 'key-outline',
+    title: 'Área clínica segura',
+    description: 'Acceso clínico con desbloqueo dedicado para separar la gestión diaria de la información más sensible.',
     accent: 'info',
   },
   {
     icon: 'lock-closed-outline',
     title: 'RGPD y LOPDGDD',
-    description: 'Protección de datos y privacidad alineadas con el RGPD y la Ley Orgánica 3/2018 en España.',
+    description: 'Comunicación alineada con el marco de protección de datos aplicable en España.',
     accent: 'primary',
   },
 ];
@@ -184,7 +184,7 @@ export const TrustIndicatorsSection: React.FC = () => {
               { color: theme.primary, fontFamily: theme.fontSansSemiBold },
             ]}
           >
-            HERRAMIENTAS
+            CONFIANZA
           </Text>
           <Text
             style={[
@@ -193,7 +193,7 @@ export const TrustIndicatorsSection: React.FC = () => {
               isDesktop && styles.headerTitleDesktop,
             ]}
           >
-            Todo lo esencial para tu operativa
+            Seriedad para trabajar con información sensible
           </Text>
           <Text
             style={[
@@ -201,8 +201,9 @@ export const TrustIndicatorsSection: React.FC = () => {
               { color: theme.textSecondary, fontFamily: theme.fontSans },
             ]}
           >
-            HERA deja de hablarte como un marketplace secundario y empieza a presentarse
-            como tu espacio de trabajo.
+            Una plataforma de salud mental no solo tiene que ser cómoda: también
+            debe cuidar la privacidad, la verificación, el consentimiento y cada
+            dato sensible desde el primer contacto.
           </Text>
         </View>
 

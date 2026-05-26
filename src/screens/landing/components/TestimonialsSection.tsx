@@ -179,7 +179,7 @@ export const TestimonialsSection: React.FC = () => {
               { color: theme.textPrimary, fontFamily: theme.fontDisplay },
             ]}
           >
-            Flujos que HERA ya puede sostener
+            Flujos reales que HERA ayuda a ordenar
           </Text>
           <Text
             style={[
@@ -187,8 +187,8 @@ export const TestimonialsSection: React.FC = () => {
               { color: theme.textSecondary, fontFamily: theme.fontSans },
             ]}
           >
-            En lugar de forzar testimonios nuevos, la landing muestra de forma honesta
-            las situaciones que el producto ya ayuda a ordenar.
+            Ejemplos concretos de cómo la plataforma puede reducir fricción en
+            una consulta de salud mental sin prometer más de lo que ya existe.
           </Text>
         </MotionView>
 
@@ -240,11 +240,11 @@ const styles = StyleSheet.create({
     fontSize: 30,
     textAlign: 'center',
     marginBottom: 12,
-    letterSpacing: -0.5,
+    letterSpacing: 0,
   },
   headerTitleDesktop: {
     fontSize: 40,
-    letterSpacing: -1,
+    letterSpacing: 0,
   },
   headerSubtitle: {
     fontSize: 16,

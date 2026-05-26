@@ -19,6 +19,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyledLogo } from '../../../components/common/StyledLogo';
 import { heraLanding } from '../../../constants/colors';
 import { getLegalDocumentUrl } from '../../../constants/legal';
+import type { LandingSectionAnchor } from '../types';
 
 const webAnchorStyle: CSSProperties = {
   display: 'block',
@@ -27,6 +28,7 @@ const webAnchorStyle: CSSProperties = {
 
 interface FooterLink {
   label: string;
+  section?: LandingSectionAnchor;
   href?: string;
   onPress?: () => void;
 }
@@ -39,11 +41,13 @@ interface FooterColumn {
 interface FooterSectionProps {
   onFindSpecialist?: () => void;
   onJoinAsProfessional?: () => void;
+  onScrollToSection?: (section: LandingSectionAnchor) => void;
 }
 
 export const FooterSection: React.FC<FooterSectionProps> = ({
   onFindSpecialist,
   onJoinAsProfessional,
+  onScrollToSection,
 }) => {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
@@ -54,18 +58,18 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
       title: 'Espacio profesional',
       links: [
         { label: 'Acceder como profesional', onPress: onJoinAsProfessional },
-        { label: 'Herramientas', href: '#herramientas' },
-        { label: 'Dashboard', href: '#dashboard' },
-        { label: 'Disponibilidad y agenda', href: '#agenda' },
+        { label: 'Herramientas', section: 'forSpecialists' },
+        { label: 'Cómo funciona', section: 'howItWorks' },
+        { label: 'Preguntas frecuentes', section: 'faq' },
       ],
     },
     {
       title: 'Pacientes',
       links: [
         { label: 'Buscar especialista', onPress: onFindSpecialist },
-        { label: 'Especialidades', href: '#especialidades' },
-        { label: 'Cómo funciona', href: '#como-funciona' },
-        { label: 'Centro de ayuda', href: '#ayuda' },
+        { label: 'Especialidades', section: 'specializations' },
+        { label: 'Quiénes somos', section: 'about' },
+        { label: 'FAQ', section: 'faq' },
       ],
     },
     {
@@ -86,6 +90,8 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
   const handleLinkPress = (link: FooterLink) => {
     if (link.onPress) {
       link.onPress();
+    } else if (link.section) {
+      onScrollToSection?.(link.section);
     } else if (link.href) {
       Linking.openURL(link.href).catch(() => {});
     }
@@ -96,7 +102,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
   };
 
   const renderFooterLink = (link: FooterLink) => {
-    if (Platform.OS === 'web' && link.href && !link.onPress) {
+    if (Platform.OS === 'web' && link.href && !link.onPress && !link.section) {
       return React.createElement(
         'a',
         {

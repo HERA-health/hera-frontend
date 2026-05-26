@@ -21,12 +21,12 @@ interface ForSpecialistsSectionProps {
 }
 
 const BENEFITS = [
-  { icon: 'calendar-outline' as const, text: 'Agenda semanal y sesiones en un mismo panel' },
-  { icon: 'people-outline' as const, text: 'Vista más clara de pacientes y seguimiento' },
-  { icon: 'receipt-outline' as const, text: 'Facturación y configuración administrativa' },
-  { icon: 'time-outline' as const, text: 'Disponibilidad conectada con tus reservas' },
-  { icon: 'document-lock-outline' as const, text: 'Documentos y consentimientos protegidos' },
-  { icon: 'stats-chart-outline' as const, text: 'Métricas para entender tu actividad' },
+  { icon: 'calendar-outline' as const, text: 'Agenda, sesiones y disponibilidad conectadas' },
+  { icon: 'people-outline' as const, text: 'Pacientes e historial operativo en una vista clara' },
+  { icon: 'receipt-outline' as const, text: 'Tarifas, facturas y configuración fiscal centralizada' },
+  { icon: 'create-outline' as const, text: 'Perfil profesional público para explicar cómo trabajas' },
+  { icon: 'document-lock-outline' as const, text: 'Documentos, consentimientos y verificación protegidos' },
+  { icon: 'stats-chart-outline' as const, text: 'Dashboard para entender tu actividad y decidir mejor' },
 ];
 
 export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
@@ -97,7 +97,7 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
               isDesktop && styles.titleDesktop,
             ]}
           >
-            Una base más sólida para organizar tu consulta
+            Un espacio de trabajo para llevar mejor tu consulta
           </Text>
 
           <Text
@@ -106,8 +106,9 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
               { color: theme.textSecondary, fontFamily: theme.fontSans },
             ]}
           >
-            HERA te ayuda a trabajar con una operativa más clara: agenda, pacientes,
-            disponibilidad, sesiones y gestión administrativa dentro de la misma experiencia de salud mental.
+            HERA reúne lo que más se repite en la gestión diaria: pacientes,
+            calendario, disponibilidad, perfil público, facturación y seguimiento.
+            Todo con una interfaz calmada y pensada para salud mental.
           </Text>
 
           <View style={[styles.benefitsGrid, isDesktop && styles.benefitsGridDesktop]}>
