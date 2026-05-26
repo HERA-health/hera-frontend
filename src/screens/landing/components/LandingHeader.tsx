@@ -40,6 +40,8 @@ const NAV_ITEMS = [
 type NavItem = (typeof NAV_ITEMS)[number];
 
 const WEB_SCROLLBAR_GUTTER = 16;
+const DESKTOP_HEADER_BREAKPOINT = 1024;
+const DESKTOP_NAV_BREAKPOINT = 1180;
 
 export const LandingHeader: React.FC<LandingHeaderProps> = ({
   isScrolled,
@@ -48,7 +50,8 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   onScrollToSection,
 }) => {
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 1024;
+  const isDesktop = width >= DESKTOP_HEADER_BREAKPOINT;
+  const showDesktopNav = width >= DESKTOP_NAV_BREAKPOINT;
   const isMobile = width < 768;
   const { theme, isDark } = useTheme();
   const scrollProgress = useSharedValue(0);
@@ -134,7 +137,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           <StyledLogo size={isScrolled ? 42 : 46} />
         </View>
 
-        {isDesktop && (
+        {showDesktopNav && (
           <View style={styles.navLinks}>
             {NAV_ITEMS.map(renderNavItem)}
           </View>

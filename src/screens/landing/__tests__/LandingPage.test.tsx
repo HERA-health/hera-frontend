@@ -198,6 +198,28 @@ describe('LandingPage', () => {
     });
   });
 
+  it('hides the full landing navigation on compact desktop widths', () => {
+    mockWindowDimensions = {
+      fontScale: 1,
+      height: 768,
+      scale: 1,
+      width: 1024,
+    };
+
+    render(
+      <LandingHeader
+        isScrolled={false}
+        onFindSpecialist={jest.fn()}
+        onJoinAsProfessional={jest.fn()}
+        onScrollToSection={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByText('Cómo funciona')).toBeNull();
+    expect(screen.getByText('Busco terapia')).toBeTruthy();
+    expect(screen.getByText('Soy profesional')).toBeTruthy();
+  });
+
   it('routes both primary and secondary hero actions to the right login flows', () => {
     render(<LandingPage />);
 
