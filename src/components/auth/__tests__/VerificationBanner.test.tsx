@@ -44,6 +44,7 @@ describe('VerificationBanner', () => {
     isInitialized: true,
     loading: false,
     error: null,
+    legalStatusSnapshot: null,
     verificationSubmitted: null,
     markVerificationSubmitted: jest.fn(),
     login: jest.fn(),

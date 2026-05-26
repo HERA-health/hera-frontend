@@ -5,6 +5,7 @@ import { buildImageFormData, type UploadAsset } from '../utils/multipartUpload';
 import { clearPersistedClinicalAccessSession } from './secureSessionStorage';
 import { Platform } from 'react-native';
 import type { LegalDocumentKey } from '../constants/legal';
+import type { LegalAcceptanceStatus } from './legalService';
 
 export interface AuthResponse {
   token: string;
@@ -26,6 +27,7 @@ export interface AuthResponse {
       verificationSubmittedAt?: string | null;
     };
   };
+  legalStatus?: LegalAcceptanceStatus;
 }
 
 export interface RegisterData {
@@ -64,9 +66,9 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
     );
 
     if (response.data.success && response.data.data) {
-      const { token, refreshToken, user } = response.data.data;
+      const { token, refreshToken } = response.data.data;
       await setAuthSession(token, refreshToken);
-      return { token, refreshToken, user };
+      return response.data.data;
     }
 
     throw new Error('Registration failed');
@@ -111,9 +113,9 @@ export const login = async (data: LoginData): Promise<AuthResponse> => {
     );
 
     if (response.data.success && response.data.data) {
-      const { token, refreshToken, user } = response.data.data;
+      const { token, refreshToken } = response.data.data;
       await setAuthSession(token, refreshToken);
-      return { token, refreshToken, user };
+      return response.data.data;
     }
 
     throw new Error('Login failed');
@@ -204,9 +206,9 @@ export const authenticateWithGoogle = async (data: GoogleAuthData): Promise<Auth
     );
 
     if (response.data.success && response.data.data) {
-      const { token, refreshToken, user } = response.data.data;
+      const { token, refreshToken } = response.data.data;
       await setAuthSession(token, refreshToken);
-      return { token, refreshToken, user };
+      return response.data.data;
     }
 
     throw new Error('Google authentication failed');

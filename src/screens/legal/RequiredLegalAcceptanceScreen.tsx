@@ -7,13 +7,13 @@ import { Button } from '../../components/common/Button';
 import { LEGAL_DOCUMENTS, type LegalDocumentKey } from '../../constants/legal';
 import { spacing } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
-import { acceptLegalDocuments } from '../../services/legalService';
+import { acceptLegalDocuments, type LegalAcceptanceStatus } from '../../services/legalService';
 import type { AppNavigationProp } from '../../constants/types';
 import { getErrorMessage } from '../../constants/errors';
 
 interface RequiredLegalAcceptanceScreenProps {
   requiredDocumentKeys: LegalDocumentKey[];
-  onAccepted: () => void;
+  onAccepted: (status: LegalAcceptanceStatus) => void;
 }
 
 export function RequiredLegalAcceptanceScreen({
@@ -35,8 +35,8 @@ export function RequiredLegalAcceptanceScreen({
     try {
       setLoading(true);
       setError('');
-      await acceptLegalDocuments(requiredDocumentKeys, 'required-gate');
-      onAccepted();
+      const status = await acceptLegalDocuments(requiredDocumentKeys, 'required-gate');
+      onAccepted(status);
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'No se pudo registrar la aceptación.'));
     } finally {

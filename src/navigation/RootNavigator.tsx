@@ -11,6 +11,7 @@ import { LandingPage } from '../screens/landing';
 import { LegalDocumentScreen } from '../screens/legal/LegalDocumentScreen';
 import { RequiredLegalAcceptanceScreen } from '../screens/legal/RequiredLegalAcceptanceScreen';
 import { getLegalStatus, type LegalAcceptanceStatus } from '../services/legalService';
+import { getErrorCode, getErrorMessage } from '../constants/errors';
 import { Button } from '../components/common/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import {
@@ -224,11 +225,13 @@ const PublicSpecialistProfileRoute = createDeferredRoute<'PublicSpecialistProfil
 
 interface LegalStatusUnavailableScreenProps {
   loading: boolean;
+  message: string;
   onRetry: () => void;
 }
 
 function LegalStatusUnavailableScreen({
   loading,
+  message,
   onRetry,
 }: LegalStatusUnavailableScreenProps) {
   const { theme } = useTheme();
@@ -245,10 +248,10 @@ function LegalStatusUnavailableScreen({
         ]}
       >
         <Text style={[styles.legalErrorTitle, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>
-          No hemos podido verificar tus condiciones
+          No hemos podido cargar tu área privada
         </Text>
         <Text style={[styles.legalErrorText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-          Por seguridad, necesitamos comprobar que has aceptado las versiones legales vigentes antes de abrir tu área privada.
+          {message}
         </Text>
         <Button
           variant="primary"
@@ -263,38 +266,131 @@ function LegalStatusUnavailableScreen({
   );
 }
 
+const LEGAL_STATUS_RETRY_DELAYS_MS = [400, 1200] as const;
+
+const delay = (milliseconds: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+
+const getResponseStatus = (error: unknown): number | undefined => {
+  if (typeof error !== 'object' || error === null || !('response' in error)) {
+    return undefined;
+  }
+
+  const response = (error as { response?: { status?: unknown } }).response;
+  return typeof response?.status === 'number' ? response.status : undefined;
+};
+
+const shouldRetryLegalStatusError = (error: unknown): boolean => {
+  const code = getErrorCode(error);
+  if (code === 'NETWORK_ERROR' || code === 'REQUEST_TIMEOUT') {
+    return true;
+  }
+
+  const status = getResponseStatus(error);
+  return typeof status === 'number' && status >= 500;
+};
+
+const getLegalStatusErrorMessage = (error: unknown): string => {
+  const code = getErrorCode(error);
+
+  if (code === 'NETWORK_ERROR' || code === 'REQUEST_TIMEOUT') {
+    return 'No hemos podido conectar con HERA. Si ya aceptaste las condiciones, no tendrás que repetirlo cuando recuperemos la conexión.';
+  }
+
+  if (code === 'RATE_LIMIT_EXCEEDED') {
+    return 'Hemos recibido demasiadas comprobaciones seguidas. Espera unos segundos y vuelve a intentarlo; tus aceptaciones no se han perdido.';
+  }
+
+  return getErrorMessage(
+    error,
+    'Necesitamos comprobar tu sesión y tus condiciones vigentes antes de abrir el área privada. Si ya las aceptaste, no tendrás que repetirlo.'
+  );
+};
+
+const fetchLegalStatusWithRetry = async (): Promise<LegalAcceptanceStatus> => {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= LEGAL_STATUS_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await getLegalStatus();
+    } catch (error: unknown) {
+      lastError = error;
+      const retryDelay = LEGAL_STATUS_RETRY_DELAYS_MS[attempt];
+
+      if (retryDelay === undefined || !shouldRetryLegalStatusError(error)) {
+        throw error;
+      }
+
+      await delay(retryDelay);
+    }
+  }
+
+  throw lastError;
+};
+
 export function RootNavigator() {
-  const { isAuthenticated, isInitialized, user, verificationSubmitted } = useAuth();
+  const {
+    isAuthenticated,
+    isInitialized,
+    legalStatusSnapshot,
+    user,
+    verificationSubmitted,
+  } = useAuth();
   const [legalStatus, setLegalStatus] = useState<LegalAcceptanceStatus | null>(null);
   const [legalLoading, setLegalLoading] = useState(false);
   const [legalStatusError, setLegalStatusError] = useState(false);
+  const [legalStatusErrorMessage, setLegalStatusErrorMessage] = useState(
+    'Necesitamos comprobar tu sesión y tus condiciones vigentes antes de abrir el área privada.'
+  );
 
   const refreshLegalStatus = useCallback(async () => {
     if (!isAuthenticated) {
       setLegalStatus(null);
+      setLegalStatusError(false);
+      setLegalLoading(false);
       return;
     }
 
     setLegalLoading(true);
     try {
-      const nextStatus = await getLegalStatus();
+      const nextStatus = await fetchLegalStatusWithRetry();
       setLegalStatus(nextStatus);
       setLegalStatusError(false);
-    } catch {
+    } catch (error: unknown) {
+      if (getErrorCode(error) === 'SESSION_EXPIRED') {
+        setLegalStatus(null);
+        setLegalStatusError(false);
+        return;
+      }
+
       setLegalStatus(null);
+      setLegalStatusErrorMessage(getLegalStatusErrorMessage(error));
       setLegalStatusError(true);
     } finally {
       setLegalLoading(false);
     }
   }, [isAuthenticated]);
 
+  const handleLegalAccepted = useCallback((nextStatus: LegalAcceptanceStatus) => {
+    setLegalStatus(nextStatus);
+    setLegalStatusError(false);
+  }, []);
+
   useEffect(() => {
     if (!isInitialized) {
       return;
     }
 
+    if (isAuthenticated && legalStatusSnapshot) {
+      setLegalStatus(legalStatusSnapshot);
+      setLegalStatusError(false);
+      return;
+    }
+
     void refreshLegalStatus();
-  }, [isInitialized, refreshLegalStatus, user?.id]);
+  }, [isAuthenticated, isInitialized, legalStatusSnapshot, refreshLegalStatus, user?.id]);
 
   if (!isInitialized) {
     return <LoadingScreen />;
@@ -352,6 +448,7 @@ export function RootNavigator() {
     return (
       <LegalStatusUnavailableScreen
         loading={legalLoading}
+        message={legalStatusErrorMessage}
         onRetry={() => void refreshLegalStatus()}
       />
     );
@@ -361,7 +458,7 @@ export function RootNavigator() {
     const RequiredLegalAcceptanceRoute = () => (
       <RequiredLegalAcceptanceScreen
         requiredDocumentKeys={legalStatus.missingDocumentKeys}
-        onAccepted={() => void refreshLegalStatus()}
+        onAccepted={handleLegalAccepted}
       />
     );
 

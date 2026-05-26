@@ -10,6 +10,7 @@ import {
   getPersistedRefreshToken,
   persistRefreshToken,
 } from './secureSessionStorage';
+import type { LegalAcceptanceStatus } from './legalService';
 
 const { apiUrl } = getEnvVars();
 const API_BASE_URL = apiUrl;
@@ -55,8 +56,33 @@ const buildTimeoutError = (): Error & { code: string } => {
 
 let accessToken: string | null = null;
 let webRefreshToken: string | null = null;
-let refreshPromise: Promise<string | null> | null = null;
 let sessionExpiredHandler: (() => void) | null = null;
+
+export interface InitializedAuthSession {
+  token: string;
+  user: InitializedAuthUser | null;
+  legalStatus: LegalAcceptanceStatus | null;
+}
+
+interface InitializedAuthUser {
+  id: string;
+  email: string;
+  name: string;
+  userType: 'CLIENT' | 'PROFESSIONAL';
+  phone?: string | null;
+  birthDate?: string | null;
+  gender?: string | null;
+  occupation?: string | null;
+  avatar?: string | null;
+  emailVerified?: boolean;
+  isAdmin?: boolean;
+  specialist?: {
+    verificationStatus?: 'PENDING' | 'VERIFIED' | 'REJECTED' | null;
+    verificationSubmittedAt?: string | null;
+  };
+}
+
+let refreshPromise: Promise<InitializedAuthSession | null> | null = null;
 
 const publicApi = axios.create({
   baseURL: API_BASE_URL,
@@ -162,7 +188,7 @@ export const clearAuthSession = async (): Promise<void> => {
   await clearPersistedRefreshToken();
 };
 
-const refreshAccessToken = async (): Promise<string | null> => {
+const refreshAccessToken = async (): Promise<InitializedAuthSession | null> => {
   if (refreshPromise) {
     return refreshPromise;
   }
@@ -178,7 +204,12 @@ const refreshAccessToken = async (): Promise<string | null> => {
 
       const response = await publicApi.post<{
         success: boolean;
-        data?: { token: string; refreshToken: string };
+        data?: {
+          token: string;
+          refreshToken: string;
+          user?: InitializedAuthUser;
+          legalStatus?: LegalAcceptanceStatus;
+        };
       }>(
         '/auth/refresh',
         refreshToken ? { refreshToken } : {}
@@ -190,7 +221,11 @@ const refreshAccessToken = async (): Promise<string | null> => {
       }
 
       await setAuthSession(response.data.data.token, response.data.data.refreshToken);
-      return response.data.data.token;
+      return {
+        token: response.data.data.token,
+        user: response.data.data.user ?? null,
+        legalStatus: response.data.data.legalStatus ?? null,
+      };
     } catch {
       await clearAuthSession();
       return null;
@@ -202,7 +237,7 @@ const refreshAccessToken = async (): Promise<string | null> => {
   return refreshPromise;
 };
 
-export const initializeAuth = async (): Promise<string | null> => refreshAccessToken();
+export const initializeAuth = async (): Promise<InitializedAuthSession | null> => refreshAccessToken();
 
 export const registerSessionExpiredHandler = (handler: (() => void) | null): void => {
   sessionExpiredHandler = handler;
@@ -287,10 +322,10 @@ api.interceptors.response.use(
       !isAuthEndpoint(originalRequest.url)
     ) {
       originalRequest._retry = true;
-      const nextToken = await refreshAccessToken();
+      const nextSession = await refreshAccessToken();
 
-      if (nextToken) {
-        setAuthorizationHeader(originalRequest, nextToken);
+      if (nextSession) {
+        setAuthorizationHeader(originalRequest, nextSession.token);
         return api(originalRequest);
       }
 

@@ -14,6 +14,7 @@ import * as analyticsService from '../services/analyticsService';
 import type { AuthResponse } from '../services/authService';
 import { clearPersistedClinicalAccessSession } from '../services/secureSessionStorage';
 import type { LegalDocumentKey } from '../constants/legal';
+import type { LegalAcceptanceStatus } from '../services/legalService';
 
 export type UserType = 'client' | 'professional';
 
@@ -41,6 +42,7 @@ interface AuthContextType {
   isInitialized: boolean;
   loading: boolean;
   error: string | null;
+  legalStatusSnapshot: LegalAcceptanceStatus | null;
   /** Whether a professional has submitted their verification data (colegiado + DNI) */
   verificationSubmitted: boolean | null;
   /** Mark verification as submitted (called after successful submission) */
@@ -108,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [legalStatusSnapshot, setLegalStatusSnapshot] = useState<LegalAcceptanceStatus | null>(null);
   // null = not yet checked, true = submitted, false = not submitted
   const [verificationSubmitted, setVerificationSubmitted] = useState<boolean | null>(null);
 
@@ -162,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     registerSessionExpiredHandler(() => {
       setUser(null);
+      setLegalStatusSnapshot(null);
       setVerificationSubmitted(null);
       void clearPersistedClinicalAccessSession();
       try {
@@ -173,16 +177,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initialize = async () => {
       try {
-        const token = await initializeAuth();
+        const session = await initializeAuth();
 
-        if (token) {
-          await refreshCurrentUser();
+        if (session) {
+          try {
+            await refreshCurrentUser();
+          } catch {
+            if (!session.user) {
+              throw new Error('No user data available after session refresh');
+            }
+            await syncUserState(session.user);
+          }
+          setLegalStatusSnapshot(session.legalStatus);
         }
       } catch (_err: unknown) {
         // Token might be expired or invalid, just continue as logged out
         await authService.logout();
         await clearPersistedClinicalAccessSession();
         setUser(null);
+        setLegalStatusSnapshot(null);
         setVerificationSubmitted(null);
       } finally {
         setIsInitialized(true);
@@ -207,6 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         await syncUserState(response.user);
       }
+      setLegalStatusSnapshot(response.legalStatus ?? null);
 
       return response;
     } catch (err: unknown) {
@@ -230,6 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         await syncUserState(response.user);
       }
+      setLegalStatusSnapshot(response.legalStatus ?? null);
 
       return response;
     } catch (err: unknown) {
@@ -268,6 +283,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       setUser(mappedUser);
+      setLegalStatusSnapshot(response.legalStatus ?? null);
 
       if (userType === 'professional') {
         setVerificationSubmitted(false);
@@ -290,6 +306,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       await authService.logout();
       setUser(null);
+      setLegalStatusSnapshot(null);
       setVerificationSubmitted(null);
       try {
         analyticsService.reset();
@@ -298,6 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (_err: unknown) {
       setUser(null);
+      setLegalStatusSnapshot(null);
       setVerificationSubmitted(null);
       try {
         analyticsService.reset();
@@ -341,6 +359,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isInitialized,
         loading,
         error,
+        legalStatusSnapshot,
         verificationSubmitted,
         markVerificationSubmitted,
         login,
