@@ -26,6 +26,8 @@ import { StyledLogo } from '../../../components/common/StyledLogo';
 interface HeroSectionProps {
   onFindSpecialist: () => void;
   onJoinAsProfessional: () => void;
+  onJoinAsClinic?: () => void;
+  showClinicEntry?: boolean;
   showScrollIndicator?: boolean;
   onScrollIndicatorPress?: () => void;
 }
@@ -67,6 +69,8 @@ const HERO_HUB_FEATURES: HeroHubFeature[] = [
 export const HeroSection: React.FC<HeroSectionProps> = ({
   onFindSpecialist,
   onJoinAsProfessional,
+  onJoinAsClinic,
+  showClinicEntry = false,
   showScrollIndicator = true,
   onScrollIndicatorPress,
 }) => {
@@ -311,6 +315,39 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 color={isDark ? theme.textMuted : theme.secondaryDark}
               />
             </AnimatedPressable>
+
+            {showClinicEntry ? (
+              <AnimatedPressable
+                onPress={onJoinAsClinic ?? onJoinAsProfessional}
+                pressScale={0.96}
+                hoverLift={false}
+                style={[
+                  styles.secondaryCTA,
+                  styles.clinicCTA,
+                  {
+                    borderColor: isDark ? theme.borderStrong : theme.primaryAlpha20,
+                    backgroundColor: isDark ? theme.bgMuted : theme.primaryAlpha12,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.secondaryCTAText,
+                    {
+                      color: isDark ? theme.textSecondary : theme.primaryDark,
+                      fontFamily: theme.fontSansSemiBold,
+                    },
+                  ]}
+                >
+                  Acceso clínicas
+                </Text>
+                <Ionicons
+                  name="business-outline"
+                  size={18}
+                  color={isDark ? theme.textMuted : theme.primaryDark}
+                />
+              </AnimatedPressable>
+            ) : null}
           </MotionView>
 
           <MotionView entering="fadeIn" delay={400}>
@@ -519,7 +556,7 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 28,
     width: '100%',
-    maxWidth: 520,
+    maxWidth: 720,
   },
   ctaContainerCompactMobile: {
     marginBottom: 18,
@@ -556,6 +593,9 @@ const styles = StyleSheet.create({
   },
   secondaryCTAText: {
     fontSize: 15,
+  },
+  clinicCTA: {
+    flexShrink: 0,
   },
   trustIndicator: {
     maxWidth: 560,

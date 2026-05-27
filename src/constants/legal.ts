@@ -273,7 +273,7 @@ export const LEGAL_DOCUMENTS: Record<LegalDocumentKey, LegalDocumentContent> = {
 };
 
 export const getRequiredRegistrationDocumentKeys = (
-  userType: 'CLIENT' | 'PROFESSIONAL'
+  userType: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC'
 ): LegalDocumentKey[] => {
   const base: LegalDocumentKey[] = ['TERMS_OF_SERVICE', 'PRIVACY_POLICY'];
   return userType === 'PROFESSIONAL'

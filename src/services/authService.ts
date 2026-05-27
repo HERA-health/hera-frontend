@@ -7,6 +7,9 @@ import { Platform } from 'react-native';
 import type { LegalDocumentKey } from '../constants/legal';
 import type { LegalAcceptanceStatus } from './legalService';
 
+export type BackendUserType = 'CLIENT' | 'PROFESSIONAL' | 'CLINIC';
+export type PublicAuthUserType = Exclude<BackendUserType, 'CLINIC'>;
+
 export interface AuthResponse {
   token: string;
   refreshToken: string;
@@ -14,7 +17,7 @@ export interface AuthResponse {
     id: string;
     email: string;
     name: string;
-    userType: 'CLIENT' | 'PROFESSIONAL';
+    userType: BackendUserType;
     phone?: string | null;
     birthDate?: string | null;
     gender?: string | null;
@@ -30,12 +33,15 @@ export interface AuthResponse {
   legalStatus?: LegalAcceptanceStatus;
 }
 
+type AuthUserPayload = AuthResponse['user'];
+
 export interface RegisterData {
   email: string;
   password: string;
   name: string;
-  userType: 'CLIENT' | 'PROFESSIONAL';
+  userType: BackendUserType;
   acceptedLegalDocumentKeys: LegalDocumentKey[];
+  clinicCommercialName?: string;
 }
 
 export interface LoginData {
@@ -45,8 +51,8 @@ export interface LoginData {
 
 export interface GoogleAuthData {
   idToken: string;
-  userType?: 'CLIENT' | 'PROFESSIONAL';
-  expectedUserType?: 'CLIENT' | 'PROFESSIONAL';
+  userType?: PublicAuthUserType;
+  expectedUserType?: PublicAuthUserType;
   acceptedLegalDocumentKeys?: LegalDocumentKey[];
 }
 
@@ -87,6 +93,12 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
           break;
         case 'LEGAL_ACCEPTANCE_REQUIRED':
           errorMessage = 'Debes aceptar las condiciones legales vigentes para crear la cuenta';
+          break;
+        case 'USER_TYPE_NOT_ALLOWED':
+          errorMessage = 'El registro de clínicas no está disponible en este entorno';
+          break;
+        case 'INVALID_CLINIC_DATA':
+          errorMessage = 'Introduce el nombre de la clínica para crear la cuenta';
           break;
         default:
           errorMessage = getErrorMessage(error, errorMessage);
@@ -148,7 +160,7 @@ export const login = async (data: LoginData): Promise<AuthResponse> => {
  */
 export const getCurrentUser = async (): Promise<AuthResponse['user']> => {
   try {
-    const response = await api.get<{ success: boolean; data: any }>('/auth/me');
+    const response = await api.get<{ success: boolean; data: AuthUserPayload }>('/auth/me');
 
     if (response.data.success && response.data.data) {
       return {
@@ -254,7 +266,7 @@ export const updateProfile = async (data: {
   occupation?: string;
 }): Promise<AuthResponse['user']> => {
   try {
-    const response = await api.put<{ success: boolean; data: any }>('/auth/profile', data);
+    const response = await api.put<{ success: boolean; data: AuthUserPayload }>('/auth/profile', data);
 
     if (response.data.success && response.data.data) {
       return {

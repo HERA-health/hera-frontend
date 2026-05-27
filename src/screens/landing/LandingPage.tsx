@@ -39,6 +39,7 @@ import {
   LANDING_SECTION_NATIVE_IDS,
   type LandingSectionAnchor,
 } from './types';
+import { isClinicAuthEntryEnabled } from '../../config/clinicFeatures';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Landing'>;
 
@@ -53,6 +54,8 @@ type SpecializationsSectionProps = {
 type SharedCTASectionProps = {
   onFindSpecialist: () => void;
   onJoinAsProfessional: () => void;
+  onJoinAsClinic?: () => void;
+  showClinicEntry?: boolean;
 };
 type FooterSectionProps = SharedCTASectionProps & {
   onScrollToSection: (section: LandingSectionAnchor) => void;
@@ -162,6 +165,7 @@ export const LandingPage: React.FC = () => {
   const [showDeferredSections, setShowDeferredSections] = useState(
     Platform.OS !== 'web'
   );
+  const clinicAuthEnabled = isClinicAuthEntryEnabled();
 
   const revealDeferredSections = useCallback(() => {
     setShowDeferredSections(true);
@@ -263,6 +267,10 @@ export const LandingPage: React.FC = () => {
     navigation.navigate('Login', { userType: 'PROFESSIONAL' });
   }, [navigation]);
 
+  const handleJoinAsClinic = useCallback(() => {
+    navigation.navigate('Login', { userType: 'CLINIC' });
+  }, [navigation]);
+
   const handleSpecializationPress = useCallback(
     (specializationId: string) => {
       navigation.navigate('Login', {
@@ -288,6 +296,8 @@ export const LandingPage: React.FC = () => {
         isScrolled={headerScrolled}
         onFindSpecialist={handleFindSpecialist}
         onJoinAsProfessional={handleJoinAsProfessional}
+        onJoinAsClinic={handleJoinAsClinic}
+        showClinicEntry={clinicAuthEnabled}
         onScrollToSection={handleScrollToSection}
       />
 
@@ -302,6 +312,8 @@ export const LandingPage: React.FC = () => {
         <HeroSection
           onFindSpecialist={handleFindSpecialist}
           onJoinAsProfessional={handleJoinAsProfessional}
+          onJoinAsClinic={handleJoinAsClinic}
+          showClinicEntry={clinicAuthEnabled}
           showScrollIndicator={showScrollIndicator}
           onScrollIndicatorPress={handleScrollToContent}
         />
@@ -352,11 +364,15 @@ export const LandingPage: React.FC = () => {
             <FinalCTASection
               onFindSpecialist={handleFindSpecialist}
               onJoinAsProfessional={handleJoinAsProfessional}
+              onJoinAsClinic={handleJoinAsClinic}
+              showClinicEntry={clinicAuthEnabled}
             />
 
             <FooterSection
               onFindSpecialist={handleFindSpecialist}
               onJoinAsProfessional={handleJoinAsProfessional}
+              onJoinAsClinic={handleJoinAsClinic}
+              showClinicEntry={clinicAuthEnabled}
               onScrollToSection={handleScrollToSection}
             />
           </>

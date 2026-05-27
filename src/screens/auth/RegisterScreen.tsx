@@ -6,7 +6,7 @@ import * as authService from '../../services/authService';
 import * as analyticsService from '../../services/analyticsService';
 import { getErrorMessage } from '../../constants/errors';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
-import { useAuth, UserType } from '../../contexts/AuthContext';
+import { useAuth, type PublicUserType } from '../../contexts/AuthContext';
 import { AnimatedPressable } from '../../components/common/AnimatedPressable';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
@@ -14,21 +14,54 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { spacing } from '../../constants/colors';
 import { getRequiredRegistrationDocumentKeys } from '../../constants/legal';
 import { AuthSplitLayout, GoogleAuthButton } from '../../components/auth';
+import { isClinicAuthEntryEnabled } from '../../config/clinicFeatures';
 
 type RegisterRouteParams = AppRouteProp<'Register'>;
 type PasswordStrength = 'weak' | 'medium' | 'strong';
+
+const mapRouteUserType = (
+  userType: RegisterRouteParams['params']['userType'],
+  clinicAuthEnabled: boolean
+): PublicUserType => {
+  if (userType === 'PROFESSIONAL') {
+    return 'professional';
+  }
+
+  if (userType === 'CLINIC' && clinicAuthEnabled) {
+    return 'clinic';
+  }
+
+  return 'client';
+};
+
+const mapFrontendUserTypeToBackend = (
+  userType: PublicUserType
+): authService.BackendUserType => {
+  if (userType === 'client') {
+    return 'CLIENT';
+  }
+
+  if (userType === 'professional') {
+    return 'PROFESSIONAL';
+  }
+
+  return 'CLINIC';
+};
 
 export function RegisterScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<RegisterRouteParams>();
   const { theme } = useTheme();
   const { register, authenticateWithGoogle, loading: authLoading, clearError } = useAuth();
+  const clinicAuthEnabled = isClinicAuthEntryEnabled();
 
-  const initialUserType: UserType = route.params.userType === 'PROFESSIONAL'
-    ? 'professional'
-    : 'client';
+  const initialUserType: PublicUserType = mapRouteUserType(
+    route.params.userType,
+    clinicAuthEnabled
+  );
 
-  const [userType, setUserType] = useState<UserType>(initialUserType);
+  const [userType, setUserType] = useState<PublicUserType>(initialUserType);
+  const [clinicCommercialName, setClinicCommercialName] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -61,6 +94,7 @@ export function RegisterScreen() {
   const passwordStrength = getPasswordStrength(password);
   const passwordsMatch = password.length > 0 && confirmPassword.length > 0 && password === confirmPassword;
   const passwordsDontMatch = confirmPassword.length > 0 && password !== confirmPassword;
+  const isClinic = userType === 'clinic';
 
   const strengthMeta = {
     weak: { label: 'Débil', color: theme.warning, width: '34%' as const },
@@ -69,6 +103,20 @@ export function RegisterScreen() {
   }[passwordStrength];
 
   const introCopy = useMemo(() => {
+    if (userType === 'clinic') {
+      return {
+        eyebrow: 'Alta de clínica',
+        title: 'Coordina tu centro desde HERA.',
+        subtitle: 'Crea una cuenta de clínica para probar el panel, la configuración y las próximas capas de equipo y pacientes.',
+        accent: 'primary' as const,
+        features: [
+          { icon: 'business-outline' as const, title: 'Cuenta propia de clínica' },
+          { icon: 'people-circle-outline' as const, title: 'Base preparada para equipo' },
+          { icon: 'shield-checkmark-outline' as const, title: 'Separación clara de permisos' },
+        ],
+      };
+    }
+
     if (userType === 'professional') {
       return {
         eyebrow: 'Alta profesional',
@@ -94,7 +142,7 @@ export function RegisterScreen() {
         { icon: 'shield-checkmark-outline' as const, title: 'Privacidad y datos protegidos' },
       ],
     };
-  }, [theme.success, theme.warning, userType]);
+  }, [userType]);
 
   const validateEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
@@ -124,7 +172,12 @@ export function RegisterScreen() {
     clearError();
 
     if (!name.trim()) {
-      setLocalError('Introduce tu nombre completo.');
+      setLocalError(isClinic ? 'Introduce el nombre de la persona responsable.' : 'Introduce tu nombre completo.');
+      return;
+    }
+
+    if (isClinic && clinicCommercialName.trim().length < 2) {
+      setLocalError('Introduce el nombre de la clínica.');
       return;
     }
 
@@ -155,16 +208,28 @@ export function RegisterScreen() {
 
     try {
       analyticsService.track('register_submitted', {
-        userType: userType === 'client' ? 'CLIENT' : 'PROFESSIONAL',
+        userType: mapFrontendUserTypeToBackend(userType),
       });
 
-      const backendUserType = userType === 'client' ? 'CLIENT' : 'PROFESSIONAL';
+      const backendUserType = mapFrontendUserTypeToBackend(userType);
       const acceptedLegalDocumentKeys = getRequiredRegistrationDocumentKeys(backendUserType);
 
-      await register(email, password, name, userType, acceptedLegalDocumentKeys);
+      await register(
+        email,
+        password,
+        name,
+        userType,
+        acceptedLegalDocumentKeys,
+        isClinic ? clinicCommercialName : undefined
+      );
 
       if (userType === 'professional') {
         navigation.navigate('ProfessionalVerification');
+        return;
+      }
+
+      if (userType === 'clinic') {
+        navigation.navigate('ClinicDashboard');
         return;
       }
 
@@ -192,7 +257,14 @@ export function RegisterScreen() {
       return;
     }
 
-    const backendUserType = userType === 'client' ? 'CLIENT' : 'PROFESSIONAL';
+    if (userType === 'clinic') {
+      setLocalError('Para clínicas, usa el registro con email en esta fase.');
+      return;
+    }
+
+    const backendUserType: authService.PublicAuthUserType = userType === 'client'
+      ? 'CLIENT'
+      : 'PROFESSIONAL';
     const acceptedLegalDocumentKeys = getRequiredRegistrationDocumentKeys(backendUserType);
 
     try {
@@ -344,6 +416,45 @@ export function RegisterScreen() {
                 </Text>
               </View>
             </AnimatedPressable>
+
+            {clinicAuthEnabled ? (
+              <AnimatedPressable
+                onPress={() => setUserType('clinic')}
+                hoverLift={false}
+                pressScale={0.98}
+                style={[
+                  styles.userTypeCard,
+                  {
+                    backgroundColor: userType === 'clinic' ? theme.primaryAlpha12 : theme.bgMuted,
+                    borderColor: userType === 'clinic' ? theme.primary : theme.border,
+                  },
+                ]}
+              >
+                <View style={[styles.userTypeIcon, { backgroundColor: theme.primaryAlpha12 }]}>
+                  <Ionicons
+                    name="business-outline"
+                    size={18}
+                    color={userType === 'clinic' ? theme.primary : theme.textSecondary}
+                  />
+                </View>
+                <View style={styles.userTypeCopy}>
+                  <Text
+                    style={[
+                      styles.userTypeTitle,
+                      {
+                        color: theme.textPrimary,
+                        fontFamily: theme.fontSansSemiBold,
+                      },
+                    ]}
+                  >
+                    Clínica
+                  </Text>
+                  <Text style={[styles.userTypeHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
+                    Panel propio para centros y equipos
+                  </Text>
+                </View>
+              </AnimatedPressable>
+            ) : null}
           </View>
 
           <AnimatedPressable
@@ -384,22 +495,37 @@ export function RegisterScreen() {
             </Text>
           </AnimatedPressable>
 
-          <GoogleAuthButton
-            onCredential={handleGoogleCredential}
-            disabled={authLoading}
-          />
+          {!isClinic ? (
+            <>
+              <GoogleAuthButton
+                onCredential={handleGoogleCredential}
+                disabled={authLoading}
+              />
 
-          <View style={styles.authDivider}>
-            <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
-            <Text style={[styles.authDividerText, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>
-              o crea tu cuenta con email
-            </Text>
-            <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
-          </View>
+              <View style={styles.authDivider}>
+                <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
+                <Text style={[styles.authDividerText, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>
+                  o crea tu cuenta con email
+                </Text>
+                <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
+              </View>
+            </>
+          ) : null}
+
+          {isClinic ? (
+            <Input
+              label="Nombre de la clínica"
+              placeholder="Clínica HERA Norte"
+              value={clinicCommercialName}
+              onChangeText={setClinicCommercialName}
+              autoCapitalize="words"
+              leftIcon={<Ionicons name="business-outline" size={18} color={theme.textMuted} />}
+            />
+          ) : null}
 
           <Input
-            label="Nombre completo"
-            placeholder="Tu nombre y apellidos"
+            label={isClinic ? 'Persona responsable' : 'Nombre completo'}
+            placeholder={isClinic ? 'Nombre y apellidos' : 'Tu nombre y apellidos'}
             value={name}
             onChangeText={setName}
             autoCapitalize="words"
@@ -512,7 +638,7 @@ export function RegisterScreen() {
               ¿Ya tienes cuenta?
             </Text>
             <AnimatedPressable
-              onPress={() => navigation.navigate('Login', { userType: route.params.userType })}
+              onPress={() => navigation.navigate('Login', { userType: mapFrontendUserTypeToBackend(userType) })}
               hoverLift={false}
               pressScale={0.98}
             >

@@ -103,6 +103,25 @@ describe('authService legal status hydration', () => {
     expect(result.legalStatus).toBe(legalStatus);
   });
 
+  it('sends clinic registration fields through the auth contract', async () => {
+    mockSuccessfulAuthResponse();
+
+    await register({
+      email: 'clinic@example.com',
+      password: 'Password1',
+      name: 'Admin Clinic',
+      userType: 'CLINIC',
+      clinicCommercialName: 'Clinica Demo',
+      acceptedLegalDocumentKeys: ['TERMS_OF_SERVICE', 'PRIVACY_POLICY'],
+    });
+
+    expect(postMock).toHaveBeenCalledWith('/auth/register', expect.objectContaining({
+      email: 'clinic@example.com',
+      userType: 'CLINIC',
+      clinicCommercialName: 'Clinica Demo',
+    }));
+  });
+
   it('preserves legalStatus returned by Google auth', async () => {
     mockSuccessfulAuthResponse();
 

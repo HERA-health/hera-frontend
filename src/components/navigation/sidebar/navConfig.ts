@@ -140,10 +140,84 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
   },
 ];
 
+export const CLINIC_SECTIONS: NavigationSection[] = [
+  {
+    id: 'clinic-main',
+    label: 'Clínica',
+    roles: ['CLINIC'],
+    items: [
+      {
+        id: 'clinic-dashboard',
+        label: 'Inicio',
+        icon: 'business-outline',
+        iconActive: 'business',
+        route: 'ClinicDashboard',
+        roles: ['CLINIC'],
+      },
+      {
+        id: 'clinic-team',
+        label: 'Equipo',
+        icon: 'people-outline',
+        iconActive: 'people',
+        route: 'ClinicTeam',
+        roles: ['CLINIC'],
+      },
+      {
+        id: 'clinic-settings',
+        label: 'Configuración',
+        icon: 'settings-outline',
+        iconActive: 'settings',
+        route: 'ClinicSettings',
+        roles: ['CLINIC'],
+      },
+    ],
+  },
+  {
+    id: 'clinic-next',
+    label: 'Próximos módulos',
+    roles: ['CLINIC'],
+    items: [
+      {
+        id: 'clinic-patients',
+        label: 'Pacientes',
+        icon: 'medical-outline',
+        iconActive: 'medical',
+        route: 'ClinicPatients',
+        roles: ['CLINIC'],
+        badge: 'Próx.',
+        badgeVariant: 'info',
+        disabled: true,
+      },
+      {
+        id: 'clinic-agenda',
+        label: 'Agenda',
+        icon: 'calendar-outline',
+        iconActive: 'calendar',
+        route: 'ClinicAgenda',
+        roles: ['CLINIC'],
+        badge: 'Próx.',
+        badgeVariant: 'info',
+        disabled: true,
+      },
+      {
+        id: 'clinic-billing',
+        label: 'Facturación',
+        icon: 'receipt-outline',
+        iconActive: 'receipt',
+        route: 'ClinicBilling',
+        roles: ['CLINIC'],
+        badge: 'Próx.',
+        badgeVariant: 'info',
+        disabled: true,
+      },
+    ],
+  },
+];
+
 export const ADMIN_SECTION: NavigationSection = {
   id: 'admin',
   label: 'Administración',
-  roles: ['CLIENT', 'PROFESSIONAL'],
+  roles: ['CLIENT', 'PROFESSIONAL', 'CLINIC'],
   items: [
     {
       id: 'admin-panel',
@@ -151,16 +225,20 @@ export const ADMIN_SECTION: NavigationSection = {
       icon: 'shield-outline',
       iconActive: 'shield',
       route: 'AdminPanel',
-      roles: ['CLIENT', 'PROFESSIONAL'],
+      roles: ['CLIENT', 'PROFESSIONAL', 'CLINIC'],
     },
   ],
 };
 
 export function getNavigationSections(
-  role: 'CLIENT' | 'PROFESSIONAL',
+  role: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC',
   isAdmin?: boolean,
 ): NavigationSection[] {
-  const sections = role === 'PROFESSIONAL' ? PROFESSIONAL_SECTIONS : CLIENT_SECTIONS;
+  const sections = role === 'PROFESSIONAL'
+    ? PROFESSIONAL_SECTIONS
+    : role === 'CLINIC'
+      ? CLINIC_SECTIONS
+      : CLIENT_SECTIONS;
   return isAdmin ? [...sections, ADMIN_SECTION] : sections;
 }
 

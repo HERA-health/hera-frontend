@@ -49,9 +49,11 @@ export function CustomDrawerContent({
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { user, logout } = useAuth();
 
-  // Determine user role from auth context
-  const userRole: UserRole =
-    user?.type === 'professional' ? 'PROFESSIONAL' : 'CLIENT';
+  const userRole: UserRole = user?.type === 'professional'
+    ? 'PROFESSIONAL'
+    : user?.type === 'clinic'
+      ? 'CLINIC'
+      : 'CLIENT';
 
   // Create SidebarUser from auth user
   const sidebarUser: SidebarUser = {

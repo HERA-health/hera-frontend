@@ -26,6 +26,8 @@ interface LandingHeaderProps {
   isScrolled: boolean;
   onFindSpecialist: () => void;
   onJoinAsProfessional: () => void;
+  onJoinAsClinic?: () => void;
+  showClinicEntry?: boolean;
   onScrollToSection?: (section: LandingSectionAnchor) => void;
 }
 
@@ -47,6 +49,8 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   isScrolled,
   onFindSpecialist,
   onJoinAsProfessional,
+  onJoinAsClinic,
+  showClinicEntry = false,
   onScrollToSection,
 }) => {
   const { width } = useWindowDimensions();
@@ -177,6 +181,38 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
               />
             </AnimatedPressable>
           )}
+
+          {isDesktop && showClinicEntry ? (
+            <AnimatedPressable
+              onPress={onJoinAsClinic ?? onJoinAsProfessional}
+              hoverLift={false}
+              pressScale={0.96}
+              style={[
+                styles.secondaryCTA,
+                {
+                  backgroundColor: isDark ? theme.bgMuted : theme.primaryAlpha12,
+                  borderColor: isDark ? theme.border : theme.primaryAlpha12,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.secondaryCTAText,
+                  {
+                    color: isDark ? theme.textSecondary : theme.primaryDark,
+                    fontFamily: theme.fontSansSemiBold,
+                  },
+                ]}
+              >
+                Clínicas
+              </Text>
+              <Ionicons
+                name="business-outline"
+                size={16}
+                color={isDark ? theme.textSecondary : theme.primaryDark}
+              />
+            </AnimatedPressable>
+          ) : null}
 
           <AnimatedPressable
             onPress={onJoinAsProfessional}

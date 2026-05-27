@@ -109,6 +109,34 @@ const ProfessionalVerificationRoute = createDeferredRoute<'ProfessionalVerificat
     exportName: 'ProfessionalVerificationScreen',
   }
 );
+const ClinicPendingRoute = createDeferredRoute<'ClinicPending'>(
+  () => require('../screens/clinic/ClinicPendingScreen'),
+  {
+    displayName: 'ClinicPendingRoute',
+    exportName: 'ClinicPendingScreen',
+  }
+);
+const ClinicDashboardRoute = createDeferredLayoutRoute<'ClinicDashboard'>(
+  () => require('../screens/clinic/ClinicDashboardScreen'),
+  {
+    displayName: 'ClinicDashboardRoute',
+    exportName: 'ClinicDashboardScreen',
+  }
+);
+const ClinicSettingsRoute = createDeferredLayoutRoute<'ClinicSettings'>(
+  () => require('../screens/clinic/ClinicSettingsScreen'),
+  {
+    displayName: 'ClinicSettingsRoute',
+    exportName: 'ClinicSettingsScreen',
+  }
+);
+const ClinicTeamRoute = createDeferredLayoutRoute<'ClinicTeam'>(
+  () => require('../screens/clinic/ClinicTeamScreen'),
+  {
+    displayName: 'ClinicTeamRoute',
+    exportName: 'ClinicTeamScreen',
+  }
+);
 const HomeRoute = createDeferredLayoutRoute<'Home'>(
   () => require('../screens/home/HomeScreen'),
   { displayName: 'HomeRoute' }
@@ -467,6 +495,37 @@ export function RootNavigator() {
         <Stack.Screen
           name="RequiredLegalAcceptance"
           component={RequiredLegalAcceptanceRoute}
+        />
+        <Stack.Screen
+          name="LegalDocument"
+          component={LegalDocumentScreen}
+          options={{ headerShown: false }}
+        />
+      </Stack.Navigator>
+    );
+  }
+
+  if (user?.type === 'clinic') {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen
+          name="ClinicDashboard"
+          component={ClinicDashboardRoute}
+          options={{ headerTitle: 'Panel de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicSettings"
+          component={ClinicSettingsRoute}
+          options={{ headerTitle: 'Configuración de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicTeam"
+          component={ClinicTeamRoute}
+          options={{ headerTitle: 'Equipo de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicPending"
+          component={ClinicPendingRoute}
         />
         <Stack.Screen
           name="LegalDocument"
