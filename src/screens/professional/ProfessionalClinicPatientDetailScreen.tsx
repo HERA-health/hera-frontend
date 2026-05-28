@@ -25,6 +25,40 @@ const formatDate = (value?: string | null): string =>
     })
     : 'Sin fecha';
 
+const formatConsentStatus = (
+  status: clinicService.ClinicPatientConsentStatus,
+): string => {
+  switch (status) {
+    case 'GRANTED':
+      return 'Concedido';
+    case 'REVOKED':
+      return 'Revocado';
+    case 'PENDING':
+      return 'Pendiente';
+    default: {
+      const exhaustiveCheck: never = status;
+      return exhaustiveCheck;
+    }
+  }
+};
+
+const formatConsentMethod = (
+  method: clinicService.ClinicPatientConsentMethod | null,
+): string => {
+  switch (method) {
+    case 'DIGITAL_SIGNATURE':
+      return 'Digital HERA';
+    case 'CLINIC_ADMIN_ATTESTATION':
+      return 'PDF firmado';
+    case null:
+      return 'Sin método';
+    default: {
+      const exhaustiveCheck: never = method;
+      return exhaustiveCheck;
+    }
+  }
+};
+
 export function ProfessionalClinicPatientDetailScreen(): React.ReactElement {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<AppRouteProp<'ProfessionalClinicPatientDetail'>>();
@@ -129,8 +163,22 @@ export function ProfessionalClinicPatientDetailScreen(): React.ReactElement {
               <InfoRow label="Asignado desde" value={formatDate(patient.assignment.startedAt)} />
               <InfoRow label="Motivo" value={patient.assignment.reason ?? 'Sin motivo registrado'} />
             </View>
+
+            <View style={styles.sectionDivider} />
+
+            <View style={styles.sectionHeader}>
+              <Ionicons name="shield-checkmark-outline" size={20} color={theme.primary} />
+              <Text style={styles.sectionTitle}>Consentimiento</Text>
+            </View>
+            <View style={styles.rows}>
+              <InfoRow label="Estado" value={formatConsentStatus(patient.consent.status)} />
+              <InfoRow label="Método" value={formatConsentMethod(patient.consent.method)} />
+              <InfoRow label="Solicitado" value={formatDate(patient.consent.requestedAt)} />
+              <InfoRow label="Concedido" value={formatDate(patient.consent.grantedAt)} />
+              <InfoRow label="Versión" value={patient.consent.version ?? 'Sin versión'} />
+            </View>
             <Text style={styles.privacyNote}>
-              La historia clínica, sesiones, consentimientos y facturación no están disponibles en esta vista.
+              Esta vista no incluye documentos, eventos, historia clínica, sesiones ni facturación.
             </Text>
           </Card>
         </View>
@@ -263,6 +311,10 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
       fontFamily: theme.fontSans,
       fontSize: 13,
       lineHeight: 19,
+    },
+    sectionDivider: {
+      height: 1,
+      backgroundColor: theme.borderLight,
     },
     stateCard: {
       minHeight: 260,

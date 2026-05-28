@@ -6,6 +6,16 @@ export type ClinicSpecialistStatusFilter = ClinicSpecialistStatus | 'ALL';
 export type ClinicPatientStatus = 'ACTIVE' | 'ARCHIVED';
 export type ClinicPatientStatusFilter = ClinicPatientStatus | 'ALL';
 export type ClinicPatientAssignmentFilter = 'ALL' | 'ASSIGNED' | 'UNASSIGNED';
+export type ClinicPatientConsentStatus = 'PENDING' | 'GRANTED' | 'REVOKED';
+export type ClinicPatientConsentMethod = 'DIGITAL_SIGNATURE' | 'CLINIC_ADMIN_ATTESTATION';
+export type ClinicPatientConsentRequestStatus = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'CANCELLED';
+export type ClinicPatientConsentEventType =
+  | 'REQUESTED'
+  | 'DOCUMENT_UPLOADED'
+  | 'DOCUMENT_DOWNLOADED'
+  | 'GRANTED'
+  | 'ACCEPTED';
+export type ClinicPatientConsentActorType = 'CLINIC_ADMIN' | 'CLIENT' | 'SYSTEM';
 
 export interface ClinicSummary {
   id: string;
@@ -190,6 +200,80 @@ export interface CloseClinicPatientAssignmentPayload {
   endedReason?: string | null;
 }
 
+export interface ClinicPatientConsentStatusSummary {
+  status: ClinicPatientConsentStatus;
+  method: ClinicPatientConsentMethod | null;
+  requestedAt: string | null;
+  grantedAt: string | null;
+  version: string | null;
+}
+
+export interface ClinicPatientConsentSummary extends ClinicPatientConsentStatusSummary {
+  clinicPatientId: string;
+  patientDisplayName: string;
+  patientEmail: string | null;
+  patientStatus: ClinicPatientStatus;
+}
+
+export interface ClinicPatientConsentDocument {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  uploadedAt: string;
+  sizeBytes: number | null;
+}
+
+export interface ClinicPatientConsentEvent {
+  id: string;
+  eventType: ClinicPatientConsentEventType;
+  status: ClinicPatientConsentStatus;
+  method: ClinicPatientConsentMethod | null;
+  version: string | null;
+  actorType: ClinicPatientConsentActorType;
+  createdAt: string;
+  documentId: string | null;
+  requestId: string | null;
+}
+
+export interface ClinicPatientConsentRequest {
+  id: string;
+  status: ClinicPatientConsentRequestStatus;
+  expiresAt: string;
+  createdAt: string;
+  version: string;
+}
+
+export interface ClinicPatientConsentDetail extends ClinicPatientConsentSummary {
+  documents: ClinicPatientConsentDocument[];
+  events: ClinicPatientConsentEvent[];
+  activeRequest: ClinicPatientConsentRequest | null;
+}
+
+export interface ClinicPatientConsentRequestResult {
+  requestId: string;
+  status: ClinicPatientConsentRequestStatus;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface ClinicPatientConsentResolution {
+  id: string;
+  version: string;
+  status: ClinicPatientConsentRequestStatus;
+  expiresAt: string;
+  createdAt: string;
+  consentStatus: ClinicPatientConsentStatus;
+  requiresLogin: boolean;
+  alreadyUsed: boolean;
+  clinic: {
+    id: string;
+    name: string;
+  };
+  patient: {
+    displayName: string;
+  };
+}
+
 export interface LinkClinicSpecialistPayload {
   email: string;
 }
@@ -207,6 +291,8 @@ export interface ProfessionalClinicPatientAssignment {
   startedAt: string;
   reason: string | null;
 }
+
+export type ProfessionalClinicPatientConsent = ClinicPatientConsentStatusSummary;
 
 export interface ProfessionalClinicPatientSummary {
   clinicPatientId: string;
@@ -228,6 +314,7 @@ export interface ProfessionalClinicPatientSummary {
     professionalTitle: string | null;
   };
   assignment: ProfessionalClinicPatientAssignment;
+  consent: ProfessionalClinicPatientConsent;
 }
 
 export type ProfessionalClinicPatientDetail = ProfessionalClinicPatientSummary;

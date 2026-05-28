@@ -3,6 +3,7 @@ import type { DropdownOption } from '../../../components/common/SimpleDropdown';
 import { useAppAlert } from '../../../components/common/alert/AppAlertContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import * as clinicService from '../../../services/clinicService';
+import type { UploadAsset } from '../../../utils/multipartUpload';
 import { useClinicWorkspace } from '../useClinicWorkspace';
 import {
   CLINIC_PATIENT_PAGE_LIMIT,
@@ -62,11 +63,16 @@ export function useClinicPatientsController() {
   const [errors, setErrors] = useState<ClinicPatientErrors>({});
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
+  const [patientConsents, setPatientConsents] = useState<Record<string, clinicService.ClinicPatientConsentDetail>>({});
+  const [consentLoading, setConsentLoading] = useState(false);
+  const [consentSaving, setConsentSaving] = useState(false);
+  const [openingConsentDocumentId, setOpeningConsentDocumentId] = useState<string | null>(null);
 
   const mountedRef = useRef(true);
   const patientsRef = useRef<clinicService.ClinicPatientSummary[]>([]);
   const patientsRequestSeq = useRef(0);
   const detailRequestSeq = useRef(0);
+  const consentRequestSeq = useRef(0);
   const specialistsRequestSeq = useRef(0);
 
   const updatePatients = useCallback((nextPatients: clinicService.ClinicPatientSummary[]) => {
@@ -92,6 +98,11 @@ export function useClinicPatientsController() {
 
     return detail ?? selectedPatientSummary;
   }, [patientDetails, selectedPatientId, selectedPatientSummary]);
+
+  const selectedPatientConsent = useMemo(() => {
+    if (!selectedPatientId) return null;
+    return patientConsents[selectedPatientId] ?? null;
+  }, [patientConsents, selectedPatientId]);
 
   const specialistOptions = useMemo<DropdownOption<string>[]>(
     () => specialists.map((specialist) => ({
@@ -120,6 +131,7 @@ export function useClinicPatientsController() {
   const resetClinicState = useCallback(() => {
     patientsRequestSeq.current += 1;
     detailRequestSeq.current += 1;
+    consentRequestSeq.current += 1;
     specialistsRequestSeq.current += 1;
     updatePatients([]);
     setPatientPageInfo(EMPTY_PATIENT_PAGE_INFO);
@@ -136,6 +148,10 @@ export function useClinicPatientsController() {
     setPatientsLoading(false);
     setPatientsLoadingMore(false);
     setDetailLoading(false);
+    setPatientConsents({});
+    setConsentLoading(false);
+    setConsentSaving(false);
+    setOpeningConsentDocumentId(null);
     setFeedback(null);
   }, [updatePatients]);
 
@@ -167,6 +183,13 @@ export function useClinicPatientsController() {
       patient.id === detail.id ? summary : patient
     )));
   }, [updatePatients]);
+
+  const rememberPatientConsent = useCallback((consent: clinicService.ClinicPatientConsentDetail) => {
+    setPatientConsents((currentConsents) => ({
+      ...currentConsents,
+      [consent.clinicPatientId]: consent,
+    }));
+  }, []);
 
   const loadSpecialists = useCallback(async (clinicId: string) => {
     const requestId = specialistsRequestSeq.current + 1;
@@ -219,6 +242,28 @@ export function useClinicPatientsController() {
       }
     }
   }, []);
+
+  const loadPatientConsent = useCallback(async (clinicId: string, patientId: string) => {
+    const requestId = consentRequestSeq.current + 1;
+    consentRequestSeq.current = requestId;
+    setConsentLoading(true);
+
+    try {
+      const consent = await clinicService.getClinicPatientConsent(clinicId, patientId);
+      if (!mountedRef.current || consentRequestSeq.current !== requestId) return null;
+
+      rememberPatientConsent(consent);
+      return consent;
+    } catch (error: unknown) {
+      if (!mountedRef.current || consentRequestSeq.current !== requestId) return null;
+      setFeedback(createErrorFeedback(error, 'No se pudo cargar el consentimiento del paciente'));
+      return null;
+    } finally {
+      if (mountedRef.current && consentRequestSeq.current === requestId) {
+        setConsentLoading(false);
+      }
+    }
+  }, [rememberPatientConsent]);
 
   const loadPatients = useCallback(async (
     clinicId: string,
@@ -291,6 +336,7 @@ export function useClinicPatientsController() {
       mountedRef.current = false;
       patientsRequestSeq.current += 1;
       detailRequestSeq.current += 1;
+      consentRequestSeq.current += 1;
       specialistsRequestSeq.current += 1;
     };
   }, []);
@@ -325,6 +371,25 @@ export function useClinicPatientsController() {
 
     void loadPatientDetail(workspace.selectedClinicId, selectedPatientId);
   }, [loadPatientDetail, patientDetails, selectedPatientId, workspace.selectedClinicId]);
+
+  useEffect(() => {
+    if (
+      !workspace.selectedClinicId
+      || !selectedPatientId
+      || !canManage
+      || patientConsents[selectedPatientId]
+    ) {
+      return;
+    }
+
+    void loadPatientConsent(workspace.selectedClinicId, selectedPatientId);
+  }, [
+    canManage,
+    loadPatientConsent,
+    patientConsents,
+    selectedPatientId,
+    workspace.selectedClinicId,
+  ]);
 
   const handleSelectClinic = useCallback((clinicId: string) => {
     setStatusFilter('ACTIVE');
@@ -690,6 +755,108 @@ export function useClinicPatientsController() {
     workspace.selectedClinicId,
   ]);
 
+  const handleRequestConsent = useCallback(async () => {
+    if (!workspace.selectedClinicId || !selectedPatient || !canManage) {
+      return;
+    }
+
+    const confirmed = await alert.confirm({
+      title: 'Solicitar consentimiento digital',
+      message: 'Se enviará un enlace al paciente si su ficha está vinculada a una cuenta HERA de paciente.',
+      confirmLabel: 'Solicitar',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    setConsentSaving(true);
+    setFeedback(null);
+
+    try {
+      await clinicService.requestClinicPatientConsent(
+        workspace.selectedClinicId,
+        selectedPatient.id,
+      );
+      const consent = await clinicService.getClinicPatientConsent(
+        workspace.selectedClinicId,
+        selectedPatient.id,
+      );
+      rememberPatientConsent(consent);
+      setFeedback(createSuccessFeedback('Solicitud de consentimiento enviada.'));
+    } catch (error: unknown) {
+      setFeedback(createErrorFeedback(error, 'No se pudo solicitar el consentimiento digital'));
+    } finally {
+      setConsentSaving(false);
+    }
+  }, [alert, canManage, rememberPatientConsent, selectedPatient, workspace.selectedClinicId]);
+
+  const handleUploadConsentEvidence = useCallback(async (file: UploadAsset) => {
+    if (!workspace.selectedClinicId || !selectedPatient || !canManage) {
+      return;
+    }
+
+    if (file.mimeType && file.mimeType !== 'application/pdf') {
+      setFeedback(createErrorFeedback(
+        new Error('Adjunta el consentimiento firmado en PDF.'),
+        'Adjunta el consentimiento firmado en PDF.',
+      ));
+      return;
+    }
+
+    const confirmed = await alert.confirm({
+      title: 'Registrar PDF firmado',
+      message: 'Se guardará la evidencia en almacenamiento privado y el consentimiento quedará marcado como concedido.',
+      confirmLabel: 'Subir PDF',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    setConsentSaving(true);
+    setFeedback(null);
+
+    try {
+      const consent = await clinicService.uploadClinicPatientConsentEvidence(
+        workspace.selectedClinicId,
+        selectedPatient.id,
+        file,
+      );
+      rememberPatientConsent(consent);
+      setFeedback(createSuccessFeedback('Consentimiento firmado registrado.'));
+    } catch (error: unknown) {
+      setFeedback(createErrorFeedback(error, 'No se pudo subir el consentimiento firmado'));
+    } finally {
+      setConsentSaving(false);
+    }
+  }, [alert, canManage, rememberPatientConsent, selectedPatient, workspace.selectedClinicId]);
+
+  const handleOpenConsentDocument = useCallback(async (
+    document: clinicService.ClinicPatientConsentDocument,
+  ) => {
+    if (!workspace.selectedClinicId || !selectedPatient || !canManage) {
+      return;
+    }
+
+    setOpeningConsentDocumentId(document.id);
+    setFeedback(null);
+
+    try {
+      await clinicService.openClinicPatientConsentDocument(
+        workspace.selectedClinicId,
+        selectedPatient.id,
+        document.id,
+        document.fileName,
+        document.mimeType,
+      );
+    } catch (error: unknown) {
+      setFeedback(createErrorFeedback(error, 'No se pudo abrir el documento de consentimiento'));
+    } finally {
+      setOpeningConsentDocumentId(null);
+    }
+  }, [canManage, selectedPatient, workspace.selectedClinicId]);
+
   const handleCloseAssignment = useCallback(async () => {
     if (!workspace.selectedClinicId || !selectedPatient?.activeAssignment || !canManage) {
       return;
@@ -755,7 +922,11 @@ export function useClinicPatientsController() {
     patientsError,
     selectedPatientId,
     selectedPatient,
+    selectedPatientConsent,
     detailLoading,
+    consentLoading,
+    consentSaving,
+    openingConsentDocumentId,
     specialistsLoading,
     specialistsError,
     specialistOptions,
@@ -791,5 +962,8 @@ export function useClinicPatientsController() {
     handleAssignmentReasonChange,
     handleSubmitAssignment,
     handleCloseAssignment,
+    handleRequestConsent,
+    handleUploadConsentEvidence,
+    handleOpenConsentDocument,
   };
 }

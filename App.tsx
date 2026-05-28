@@ -62,6 +62,13 @@ const linking: LinkingOptions<RootStackParamList> = {
           token: (token: string) => token,
         },
       },
+      ClinicConsent: {
+        path: 'clinic-consent/:requestId/:token',
+        parse: {
+          requestId: (requestId: string) => requestId,
+          token: (token: string) => token,
+        },
+      },
       LegalDocument: {
         path: 'legal/:documentKey',
         parse: {

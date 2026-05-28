@@ -87,6 +87,10 @@ const ClinicalConsentRoute = createDeferredRoute<'ClinicalConsent'>(
   () => require('../screens/clinical/ClinicalConsentScreen'),
   { displayName: 'ClinicalConsentRoute', exportName: 'ClinicalConsentScreen' }
 );
+const ClinicConsentRoute = createDeferredRoute<'ClinicConsent'>(
+  () => require('../screens/clinic/ClinicConsentScreen'),
+  { displayName: 'ClinicConsentRoute', exportName: 'ClinicConsentScreen' }
+);
 const ForgotPasswordRoute = createDeferredRoute<'ForgotPassword'>(
   () => require('../screens/auth/ForgotPasswordScreen'),
   { displayName: 'ForgotPasswordRoute', exportName: 'ForgotPasswordScreen' }
@@ -474,6 +478,11 @@ export function RootNavigator() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="ClinicConsent"
+          component={ClinicConsentRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="LegalDocument"
           component={LegalDocumentScreen}
           options={{ headerShown: false }}
@@ -547,6 +556,11 @@ export function RootNavigator() {
           component={ClinicPendingRoute}
         />
         <Stack.Screen
+          name="ClinicConsent"
+          component={ClinicConsentRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="LegalDocument"
           component={LegalDocumentScreen}
           options={{ headerShown: false }}
@@ -577,6 +591,11 @@ export function RootNavigator() {
         <Stack.Screen
           name="ClinicalConsent"
           component={ClinicalConsentRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ClinicConsent"
+          component={ClinicConsentRoute}
           options={{ headerShown: false }}
         />
         <Stack.Screen
@@ -705,6 +724,11 @@ export function RootNavigator() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="ClinicConsent"
+          component={ClinicConsentRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="LegalDocument"
           component={LegalDocumentScreen}
           options={{ headerShown: false }}
@@ -818,6 +842,11 @@ export function RootNavigator() {
       <Stack.Screen
         name="ClinicalConsent"
         component={ClinicalConsentRoute}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ClinicConsent"
+        component={ClinicConsentRoute}
         options={{ headerShown: false }}
       />
       <Stack.Screen

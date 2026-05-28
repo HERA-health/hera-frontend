@@ -5,7 +5,14 @@ import { Button } from '../../../components/common/Button';
 import { Input } from '../../../components/common/Input';
 import { SimpleDropdown, type DropdownOption } from '../../../components/common/SimpleDropdown';
 import { useTheme } from '../../../contexts/ThemeContext';
-import type { ClinicPatientDetail, ClinicPatientSummary } from '../../../services/clinicService';
+import type {
+  ClinicPatientConsentDetail,
+  ClinicPatientConsentDocument,
+  ClinicPatientDetail,
+  ClinicPatientSummary,
+} from '../../../services/clinicService';
+import type { UploadAsset } from '../../../utils/multipartUpload';
+import { ClinicPatientConsentPanel } from './ClinicPatientConsentPanel';
 import { StatusBadge } from './ClinicPatientBadges';
 import type {
   AssignmentForm,
@@ -23,6 +30,10 @@ interface ClinicPatientDetailPanelProps {
   detailLoading: boolean;
   saving: boolean;
   feedback: FeedbackMessage | null;
+  consent: ClinicPatientConsentDetail | null;
+  consentLoading: boolean;
+  consentSaving: boolean;
+  openingConsentDocumentId: string | null;
   canManage: boolean;
   assignmentMode: AssignmentPanelMode;
   assignmentForm: AssignmentForm;
@@ -35,6 +46,9 @@ interface ClinicPatientDetailPanelProps {
   onChangeAssignmentReason: (reason: string) => void;
   onSubmitAssignment: () => void;
   onCloseAssignment: () => void;
+  onRequestConsent: () => void;
+  onUploadConsentEvidence: (file: UploadAsset) => void;
+  onOpenConsentDocument: (document: ClinicPatientConsentDocument) => void;
   onEdit: () => void;
   onStatusChange: () => void;
 }
@@ -44,6 +58,10 @@ export function ClinicPatientDetailPanel({
   detailLoading,
   saving,
   feedback,
+  consent,
+  consentLoading,
+  consentSaving,
+  openingConsentDocumentId,
   canManage,
   assignmentMode,
   assignmentForm,
@@ -56,6 +74,9 @@ export function ClinicPatientDetailPanel({
   onChangeAssignmentReason,
   onSubmitAssignment,
   onCloseAssignment,
+  onRequestConsent,
+  onUploadConsentEvidence,
+  onOpenConsentDocument,
   onEdit,
   onStatusChange,
 }: ClinicPatientDetailPanelProps): React.ReactElement {
@@ -105,6 +126,18 @@ export function ClinicPatientDetailPanel({
           </View>
         ))}
       </View>
+
+      <ClinicPatientConsentPanel
+        consent={consent}
+        loading={consentLoading}
+        saving={consentSaving}
+        openingDocumentId={openingConsentDocumentId}
+        canManage={canManage}
+        patientStatus={patient.status}
+        onRequestDigitalConsent={onRequestConsent}
+        onUploadEvidence={onUploadConsentEvidence}
+        onOpenDocument={onOpenConsentDocument}
+      />
 
       <AssignmentSection
         patient={patient}

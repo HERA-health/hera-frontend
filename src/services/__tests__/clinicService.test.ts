@@ -1,6 +1,8 @@
 import type { AxiosResponse } from 'axios';
+import { buildMultipartFormData } from '../../utils/multipartUpload';
 import api from '../api';
 import {
+  acceptClinicPatientConsentRequest,
   assignClinicPatient,
   closeClinicPatientAssignment,
   createClinicPatient,
@@ -8,14 +10,19 @@ import {
   getClinic,
   getClinicDashboard,
   getClinicPatient,
+  getClinicPatientConsent,
   getMyProfessionalClinicContexts,
   getProfessionalClinicPatient,
+  listClinicPatientConsents,
   listClinicPatients,
   listClinicSpecialists,
   listProfessionalClinicPatients,
   linkClinicSpecialist,
   lookupClinicProfessionalByEmail,
   getMyClinicMemberships,
+  requestClinicPatientConsent,
+  resolveClinicPatientConsentRequest,
+  uploadClinicPatientConsentEvidence,
   updateClinic,
   updateClinicPatient,
   updateClinicPatientStatus,
@@ -25,6 +32,9 @@ import {
   type ClinicDashboard,
   type ClinicDetail,
   type ClinicMembershipSummary,
+  type ClinicPatientConsentDetail,
+  type ClinicPatientConsentResolution,
+  type ClinicPatientConsentSummary,
   type ClinicPatientDetail,
   type ClinicPatientSummary,
   type ClinicSpecialist,
@@ -43,9 +53,18 @@ jest.mock('../api', () => ({
   },
 }));
 
+jest.mock('../../utils/multipartUpload', () => ({
+  buildMultipartFormData: jest.fn(),
+}));
+
+jest.mock('expo-web-browser', () => ({
+  openBrowserAsync: jest.fn(),
+}));
+
 const getMock = api.get as jest.MockedFunction<typeof api.get>;
 const postMock = api.post as jest.MockedFunction<typeof api.post>;
 const patchMock = api.patch as jest.MockedFunction<typeof api.patch>;
+const buildMultipartFormDataMock = buildMultipartFormData as jest.MockedFunction<typeof buildMultipartFormData>;
 
 describe('clinicService', () => {
   beforeEach(() => {
@@ -647,6 +666,252 @@ describe('clinicService', () => {
     );
   });
 
+  it('uses dedicated clinic consent endpoints including multipart evidence', async () => {
+    const summaries: ClinicPatientConsentSummary[] = [
+      {
+        clinicPatientId: 'clinic-patient-1',
+        patientDisplayName: 'Lucia Martin',
+        patientEmail: 'lucia@clinic.test',
+        patientStatus: 'ACTIVE',
+        status: 'PENDING',
+        method: null,
+        requestedAt: null,
+        grantedAt: null,
+        version: null,
+      },
+    ];
+    const detail: ClinicPatientConsentDetail = {
+      ...summaries[0],
+      status: 'GRANTED',
+      method: 'CLINIC_ADMIN_ATTESTATION',
+      requestedAt: '2026-05-28T09:00:00.000Z',
+      grantedAt: '2026-05-28T10:00:00.000Z',
+      version: 'clinic-v2',
+      activeRequest: null,
+      documents: [
+        {
+          id: 'document-1',
+          fileName: 'consentimiento.pdf',
+          mimeType: 'application/pdf',
+          uploadedAt: '2026-05-28T10:00:00.000Z',
+          sizeBytes: 1200,
+        },
+      ],
+      events: [],
+    };
+    const requestResult = {
+      requestId: 'request-1',
+      status: 'PENDING' as const,
+      expiresAt: '2026-06-04T10:00:00.000Z',
+      createdAt: '2026-05-28T10:00:00.000Z',
+    };
+    const uploadAsset = {
+      uri: 'file:///consentimiento.pdf',
+      mimeType: 'application/pdf',
+      fileName: 'consentimiento.pdf',
+    };
+    const formData = new FormData();
+
+    getMock.mockResolvedValueOnce({
+      data: { success: true, data: summaries },
+    } as AxiosResponse<{ success: boolean; data: ClinicPatientConsentSummary[] }>);
+    getMock.mockResolvedValueOnce({
+      data: { success: true, data: detail },
+    } as AxiosResponse<{ success: boolean; data: ClinicPatientConsentDetail }>);
+    postMock.mockResolvedValueOnce({
+      data: { success: true, data: requestResult },
+    } as AxiosResponse<{ success: boolean; data: typeof requestResult }>);
+    buildMultipartFormDataMock.mockResolvedValueOnce(formData);
+    postMock.mockResolvedValueOnce({
+      data: { success: true, data: detail },
+    } as AxiosResponse<{ success: boolean; data: ClinicPatientConsentDetail }>);
+
+    await expect(listClinicPatientConsents('clinic-1')).resolves.toBe(summaries);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/consents');
+
+    await expect(getClinicPatientConsent(
+      'clinic-1',
+      'clinic-patient-1',
+    )).resolves.toBe(detail);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/patients/clinic-patient-1/consent');
+
+    await expect(requestClinicPatientConsent(
+      'clinic-1',
+      'clinic-patient-1',
+      'clinic-v2',
+    )).resolves.toBe(requestResult);
+    expect(postMock).toHaveBeenCalledWith(
+      '/clinics/clinic-1/patients/clinic-patient-1/consent/request',
+      { version: 'clinic-v2' },
+      { timeout: 30000 },
+    );
+
+    await expect(uploadClinicPatientConsentEvidence(
+      'clinic-1',
+      'clinic-patient-1',
+      uploadAsset,
+      'clinic-v2',
+    )).resolves.toBe(detail);
+    expect(buildMultipartFormDataMock).toHaveBeenCalledWith(
+      'document',
+      uploadAsset,
+      { version: 'clinic-v2' },
+      'consentimiento-clinica',
+    );
+    expect(postMock).toHaveBeenCalledWith(
+      '/clinics/clinic-1/patients/clinic-patient-1/consent/evidence',
+      formData,
+      { timeout: 30000 },
+    );
+  });
+
+  it('omits clinic consent version when callers do not pass one', async () => {
+    const requestResult = {
+      requestId: 'request-1',
+      status: 'PENDING' as const,
+      expiresAt: '2026-06-04T10:00:00.000Z',
+      createdAt: '2026-05-28T10:00:00.000Z',
+    };
+    const detail: ClinicPatientConsentDetail = {
+      clinicPatientId: 'clinic-patient-1',
+      patientDisplayName: 'Lucia Martin',
+      patientEmail: 'lucia@clinic.test',
+      patientStatus: 'ACTIVE',
+      status: 'GRANTED',
+      method: 'CLINIC_ADMIN_ATTESTATION',
+      requestedAt: null,
+      grantedAt: '2026-05-28T10:00:00.000Z',
+      version: 'clinic-v2',
+      activeRequest: null,
+      documents: [],
+      events: [],
+    };
+    const uploadAsset = {
+      uri: 'file:///consentimiento.pdf',
+      mimeType: 'application/pdf',
+      fileName: 'consentimiento.pdf',
+    };
+    const formData = new FormData();
+
+    postMock.mockResolvedValueOnce({
+      data: { success: true, data: requestResult },
+    } as AxiosResponse<{ success: boolean; data: typeof requestResult }>);
+    buildMultipartFormDataMock.mockResolvedValueOnce(formData);
+    postMock.mockResolvedValueOnce({
+      data: { success: true, data: detail },
+    } as AxiosResponse<{ success: boolean; data: ClinicPatientConsentDetail }>);
+
+    await expect(requestClinicPatientConsent(
+      'clinic-1',
+      'clinic-patient-1',
+    )).resolves.toBe(requestResult);
+    expect(postMock).toHaveBeenCalledWith(
+      '/clinics/clinic-1/patients/clinic-patient-1/consent/request',
+      {},
+      { timeout: 30000 },
+    );
+
+    await expect(uploadClinicPatientConsentEvidence(
+      'clinic-1',
+      'clinic-patient-1',
+      uploadAsset,
+    )).resolves.toBe(detail);
+    expect(buildMultipartFormDataMock).toHaveBeenCalledWith(
+      'document',
+      uploadAsset,
+      {},
+      'consentimiento-clinica',
+    );
+  });
+
+  it('resolves and accepts clinic consent links without exposing the token outside the request body', async () => {
+    const resolution: ClinicPatientConsentResolution = {
+      id: 'request-1',
+      version: 'clinic-v1',
+      status: 'PENDING',
+      expiresAt: '2026-06-04T10:00:00.000Z',
+      createdAt: '2026-05-28T10:00:00.000Z',
+      consentStatus: 'PENDING',
+      requiresLogin: true,
+      alreadyUsed: false,
+      clinic: {
+        id: 'clinic-1',
+        name: 'Clinica Hera',
+      },
+      patient: {
+        displayName: 'Lucia Martin',
+      },
+    };
+    const acceptedResolution: ClinicPatientConsentResolution = {
+      ...resolution,
+      status: 'ACCEPTED',
+      consentStatus: 'GRANTED',
+      alreadyUsed: true,
+    };
+
+    getMock.mockResolvedValueOnce({
+      data: { success: true, data: resolution },
+    } as AxiosResponse<{ success: boolean; data: ClinicPatientConsentResolution }>);
+    postMock.mockResolvedValueOnce({
+      data: { success: true, data: acceptedResolution },
+    } as AxiosResponse<{ success: boolean; data: ClinicPatientConsentResolution }>);
+
+    await expect(resolveClinicPatientConsentRequest(
+      'request-1',
+      'raw-token',
+    )).resolves.toBe(resolution);
+    expect(getMock).toHaveBeenCalledWith('/clinics/consent/requests/request-1/resolve', {
+      params: { token: 'raw-token' },
+    });
+
+    await expect(acceptClinicPatientConsentRequest(
+      'request-1',
+      'raw-token',
+    )).resolves.toBe(acceptedResolution);
+    expect(postMock).toHaveBeenCalledWith(
+      '/clinics/consent/requests/request-1/accept',
+      { token: 'raw-token' },
+    );
+  });
+
+  it('maps clinic consent errors to Spanish by code', async () => {
+    postMock.mockRejectedValueOnce({
+      response: {
+        data: {
+          success: false,
+          code: 'CLINIC_CONSENT_DIGITAL_UNAVAILABLE',
+          error: 'Internal text',
+        },
+      },
+    });
+
+    await expect(requestClinicPatientConsent(
+      'clinic-1',
+      'clinic-patient-1',
+    )).rejects.toThrow(
+      'Este paciente necesita una cuenta HERA enlazada para usar el consentimiento digital.',
+    );
+  });
+
+  it('maps clinic consent email failures separately from linked-account errors', async () => {
+    postMock.mockRejectedValueOnce({
+      response: {
+        data: {
+          success: false,
+          code: 'CLINIC_CONSENT_EMAIL_FAILED',
+          error: 'SMTP failed',
+        },
+      },
+    });
+
+    await expect(requestClinicPatientConsent(
+      'clinic-1',
+      'clinic-patient-1',
+    )).rejects.toThrow(
+      'No se pudo enviar el email de consentimiento. Revisa la configuración del correo de la clínica.',
+    );
+  });
+
   it('maps clinic patient duplicate email errors to Spanish by code', async () => {
     postMock.mockRejectedValueOnce({
       response: {
@@ -758,6 +1023,13 @@ describe('clinicService', () => {
             startedAt: '2026-05-27T10:05:00.000Z',
             reason: null,
           },
+          consent: {
+            status: 'PENDING',
+            method: null,
+            requestedAt: null,
+            grantedAt: null,
+            version: null,
+          },
         },
       ],
       pageInfo: {
@@ -822,6 +1094,13 @@ describe('clinicService', () => {
         startedAt: '2026-05-27T10:05:00.000Z',
         reason: 'Derivación interna',
       },
+      consent: {
+        status: 'GRANTED',
+        method: 'DIGITAL_SIGNATURE',
+        requestedAt: '2026-05-27T10:10:00.000Z',
+        grantedAt: '2026-05-27T10:12:00.000Z',
+        version: 'clinic-v1',
+      },
     };
 
     getMock.mockResolvedValueOnce({
@@ -831,10 +1110,15 @@ describe('clinicService', () => {
       },
     } as AxiosResponse<{ success: boolean; data: ProfessionalClinicPatientDetail }>);
 
-    await expect(getProfessionalClinicPatient(
+    const result = await getProfessionalClinicPatient(
       'clinic-1',
       'clinic-patient-1',
-    )).resolves.toBe(detail);
+    );
+
+    expect(result).toBe(detail);
+    expect(result.consent.status).toBe('GRANTED');
+    expect('documents' in result.consent).toBe(false);
+    expect('clientId' in result).toBe(false);
     expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/specialist/patients/clinic-patient-1');
   });
 });
