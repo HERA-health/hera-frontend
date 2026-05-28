@@ -137,6 +137,13 @@ const ClinicTeamRoute = createDeferredLayoutRoute<'ClinicTeam'>(
     exportName: 'ClinicTeamScreen',
   }
 );
+const ClinicPatientsRoute = createDeferredLayoutRoute<'ClinicPatients'>(
+  () => require('../screens/clinic/ClinicPatientsScreen'),
+  {
+    displayName: 'ClinicPatientsRoute',
+    exportName: 'ClinicPatientsScreen',
+  }
+);
 const HomeRoute = createDeferredLayoutRoute<'Home'>(
   () => require('../screens/home/HomeScreen'),
   { displayName: 'HomeRoute' }
@@ -194,6 +201,13 @@ const ProfessionalDashboardRoute = createDeferredLayoutRoute<'ProfessionalDashbo
 const ProfessionalClientsRoute = createDeferredLayoutRoute<'ProfessionalClients'>(
   () => require('../screens/professional/ProfessionalClientsScreen'),
   { displayName: 'ProfessionalClientsRoute', exportName: 'ProfessionalClientsScreen' }
+);
+const ProfessionalClinicPatientDetailRoute = createDeferredLayoutRoute<'ProfessionalClinicPatientDetail'>(
+  () => require('../screens/professional/ProfessionalClinicPatientDetailScreen'),
+  {
+    displayName: 'ProfessionalClinicPatientDetailRoute',
+    exportName: 'ProfessionalClinicPatientDetailScreen',
+  }
 );
 const ProfessionalSessionsRoute = createDeferredLayoutRoute<'ProfessionalSessions'>(
   () => require('../screens/professional/ProfessionalSessionsScreen'),
@@ -524,6 +538,11 @@ export function RootNavigator() {
           options={{ headerTitle: 'Equipo de clínica' }}
         />
         <Stack.Screen
+          name="ClinicPatients"
+          component={ClinicPatientsRoute}
+          options={{ headerTitle: 'Pacientes de clínica' }}
+        />
+        <Stack.Screen
           name="ClinicPending"
           component={ClinicPendingRoute}
         />
@@ -590,6 +609,14 @@ export function RootNavigator() {
           name="ProfessionalClients"
           component={ProfessionalClientsRoute}
           options={{ headerTitle: 'Mis Clientes' }}
+        />
+        <Stack.Screen
+          name="ProfessionalClinicPatientDetail"
+          component={ProfessionalClinicPatientDetailRoute}
+          options={{
+            headerTitle: 'Paciente de clínica',
+            headerShown: false,
+          }}
         />
         <Stack.Screen
           name="ProfessionalSessions"

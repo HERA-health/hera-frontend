@@ -163,6 +163,14 @@ export const CLINIC_SECTIONS: NavigationSection[] = [
         roles: ['CLINIC'],
       },
       {
+        id: 'clinic-patients',
+        label: 'Pacientes',
+        icon: 'medical-outline',
+        iconActive: 'medical',
+        route: 'ClinicPatients',
+        roles: ['CLINIC'],
+      },
+      {
         id: 'clinic-settings',
         label: 'Configuración',
         icon: 'settings-outline',
@@ -177,17 +185,6 @@ export const CLINIC_SECTIONS: NavigationSection[] = [
     label: 'Próximos módulos',
     roles: ['CLINIC'],
     items: [
-      {
-        id: 'clinic-patients',
-        label: 'Pacientes',
-        icon: 'medical-outline',
-        iconActive: 'medical',
-        route: 'ClinicPatients',
-        roles: ['CLINIC'],
-        badge: 'Próx.',
-        badgeVariant: 'info',
-        disabled: true,
-      },
       {
         id: 'clinic-agenda',
         label: 'Agenda',

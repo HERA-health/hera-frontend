@@ -37,12 +37,12 @@ const METRIC_VISUALS: Record<clinicService.ClinicDashboardMetricKey, MetricVisua
   upcomingSessions: {
     icon: 'calendar-outline',
     label: 'Sesiones próximas',
-    helperText: 'La agenda de clínica se activará en una fase posterior.',
+    helperText: 'La agenda de clínica aparecerá cuando el módulo esté disponible.',
   },
   pendingConsents: {
     icon: 'document-text-outline',
     label: 'Consentimientos pendientes',
-    helperText: 'El módulo de consentimientos de clínica aún no está operativo.',
+    helperText: 'Los consentimientos de clínica aparecerán cuando el módulo esté disponible.',
   },
 };
 
@@ -60,12 +60,12 @@ const NEXT_STEPS: NextStep[] = [
   },
   {
     title: 'Pacientes',
-    text: 'Después se crearán pacientes de clínica separados de los pacientes privados del profesional.',
+    text: 'Ya puedes crear fichas administrativas separadas de pacientes privados e identidades registradas.',
     icon: 'medical-outline',
   },
   {
     title: 'Agenda y facturación',
-    text: 'Sesiones, facturas y reparto económico llegarán cuando existan pacientes y especialistas asignables.',
+    text: 'Sesiones, facturas y reparto económico se incorporarán sobre asignaciones seguras.',
     icon: 'receipt-outline',
   },
 ];
@@ -149,10 +149,10 @@ export function ClinicDashboardScreen({
           <Button
             variant="outline"
             size="medium"
-            onPress={() => navigation.navigate('ClinicSettings')}
-            icon={<Ionicons name="settings-outline" size={18} color={theme.primary} />}
+            onPress={() => navigation.navigate('ClinicPatients')}
+            icon={<Ionicons name="medical-outline" size={18} color={theme.primary} />}
           >
-            Configuración
+            Pacientes
           </Button>
         </View>
       ) : undefined}
@@ -204,7 +204,7 @@ export function ClinicDashboardScreen({
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Próximos pasos</Text>
               <Text style={styles.sectionText}>
-                El equipo ya es operativo; el resto de módulos seguirá apareciendo solo cuando tenga datos reales.
+                Equipo y pacientes ya son operativos; el resto de módulos aparecerá solo cuando trabaje con datos reales.
               </Text>
             </View>
             <View style={styles.nextGrid}>

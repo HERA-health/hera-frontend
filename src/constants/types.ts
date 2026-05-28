@@ -147,6 +147,10 @@ export type RootStackParamList = {
   ProfessionalHome: undefined;
   ProfessionalDashboard: undefined;
   ProfessionalClients: undefined;
+  ProfessionalClinicPatientDetail: {
+    clinicId: string;
+    clinicPatientId: string;
+  };
   ProfessionalSessions: undefined;
   ProfessionalProfile: undefined;
   ProfessionalBilling: undefined;

@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { AnimatedPressable } from '../../components/common/AnimatedPressable';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
+import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { useAppAlert } from '../../components/common/alert/AppAlertContext';
 import { spacing } from '../../constants/colors';
 import { Theme } from '../../constants/theme';
@@ -35,6 +36,7 @@ interface ClinicTeamForm {
 type ClinicTeamField = keyof ClinicTeamForm;
 type ClinicTeamErrors = Partial<Record<ClinicTeamField, string>>;
 type PanelMode = 'detail' | 'create' | 'edit';
+type FeedbackMessage = { type: 'success' | 'error'; text: string };
 
 interface TeamLoadFilters {
   status: clinicService.ClinicSpecialistStatusFilter;
@@ -234,6 +236,11 @@ export function ClinicTeamScreen({
   const [errors, setErrors] = useState<ClinicTeamErrors>({});
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [linkEmail, setLinkEmail] = useState('');
+  const [linkCandidate, setLinkCandidate] = useState<clinicService.LinkedProfessional | null>(null);
+  const [linkMessage, setLinkMessage] = useState<FeedbackMessage | null>(null);
+  const [linkLoading, setLinkLoading] = useState(false);
+  const [linkSaving, setLinkSaving] = useState(false);
 
   const canManage = workspace.selectedMembership?.role === 'OWNER'
     || workspace.selectedMembership?.role === 'ADMIN';
@@ -291,11 +298,18 @@ export function ClinicTeamScreen({
     };
   }, [loadTeam, search, workspace.selectedClinicId]);
 
+  useEffect(() => {
+    setLinkEmail('');
+    setLinkCandidate(null);
+    setLinkMessage(null);
+  }, [selectedSpecialistId]);
+
   const handleSelectClinic = useCallback((clinicId: string) => {
     setPanelMode('detail');
     setForm(EMPTY_FORM);
     setErrors({});
     setMessage('');
+    setLinkMessage(null);
     void workspace.selectClinic(clinicId);
   }, [workspace]);
 
@@ -316,6 +330,7 @@ export function ClinicTeamScreen({
     setForm(EMPTY_FORM);
     setErrors({});
     setMessage('');
+    setLinkMessage(null);
   }, []);
 
   const handleSelectSpecialist = useCallback((specialistId: string) => {
@@ -323,6 +338,7 @@ export function ClinicTeamScreen({
     setPanelMode('detail');
     setErrors({});
     setMessage('');
+    setLinkMessage(null);
   }, []);
 
   const handleEdit = useCallback(() => {
@@ -337,6 +353,12 @@ export function ClinicTeamScreen({
     setForm((currentForm) => ({ ...currentForm, [field]: value }));
     setErrors((currentErrors) => ({ ...currentErrors, [field]: undefined }));
     setMessage('');
+  }, []);
+
+  const handleLinkEmailChange = useCallback((value: string) => {
+    setLinkEmail(value);
+    setLinkCandidate(null);
+    setLinkMessage(null);
   }, []);
 
   const handleCancelForm = useCallback(() => {
@@ -432,6 +454,134 @@ export function ClinicTeamScreen({
       setMessage(error instanceof Error ? error.message : 'No se pudo actualizar el estado');
     } finally {
       setSaving(false);
+    }
+  }, [alert, canManage, loadTeam, selectedSpecialist, workspace.selectedClinicId]);
+
+  const handleLookupProfessional = useCallback(async () => {
+    if (!workspace.selectedClinicId || !linkEmail.trim()) {
+      setLinkMessage({
+        type: 'error',
+        text: 'Introduce el email profesional que quieres vincular.',
+      });
+      return;
+    }
+
+    setLinkLoading(true);
+    setLinkCandidate(null);
+    setLinkMessage(null);
+
+    try {
+      const candidate = await clinicService.lookupClinicProfessionalByEmail(
+        workspace.selectedClinicId,
+        linkEmail.trim(),
+      );
+      setLinkCandidate(candidate);
+      setLinkMessage({
+        type: 'success',
+        text: 'Cuenta profesional localizada. Revisa los datos antes de vincular.',
+      });
+    } catch (error: unknown) {
+      setLinkMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'No se pudo buscar la cuenta profesional',
+      });
+    } finally {
+      setLinkLoading(false);
+    }
+  }, [linkEmail, workspace.selectedClinicId]);
+
+  const handleLinkProfessional = useCallback(async () => {
+    if (!workspace.selectedClinicId || !selectedSpecialist || !canManage) {
+      return;
+    }
+
+    const email = linkCandidate?.email ?? linkEmail.trim();
+    if (!email) {
+      setLinkMessage({
+        type: 'error',
+        text: 'Busca una cuenta profesional antes de vincular.',
+      });
+      return;
+    }
+
+    setLinkSaving(true);
+    setLinkMessage(null);
+
+    try {
+      const updatedSpecialist = await clinicService.linkClinicSpecialist(
+        workspace.selectedClinicId,
+        selectedSpecialist.id,
+        { email },
+      );
+      setSpecialists((current) => current.map((specialist) => (
+        specialist.id === updatedSpecialist.id ? updatedSpecialist : specialist
+      )));
+      setSelectedSpecialistId(updatedSpecialist.id);
+      setLinkCandidate(null);
+      setLinkEmail('');
+      setLinkMessage({
+        type: 'success',
+        text: 'Cuenta profesional vinculada. El especialista ya puede ver sus pacientes asignados.',
+      });
+      await loadTeam(workspace.selectedClinicId);
+    } catch (error: unknown) {
+      setLinkMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'No se pudo vincular la cuenta profesional',
+      });
+    } finally {
+      setLinkSaving(false);
+    }
+  }, [
+    canManage,
+    linkCandidate,
+    linkEmail,
+    loadTeam,
+    selectedSpecialist,
+    workspace.selectedClinicId,
+  ]);
+
+  const handleUnlinkProfessional = useCallback(async () => {
+    if (!workspace.selectedClinicId || !selectedSpecialist || !canManage) {
+      return;
+    }
+
+    const confirmed = await alert.confirm({
+      title: 'Desvincular cuenta profesional',
+      message:
+        'El especialista dejará de acceder a los pacientes de esta ficha, pero las asignaciones administrativas se conservarán.',
+      confirmLabel: 'Desvincular',
+      destructive: true,
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    setLinkSaving(true);
+    setLinkMessage(null);
+
+    try {
+      const updatedSpecialist = await clinicService.unlinkClinicSpecialist(
+        workspace.selectedClinicId,
+        selectedSpecialist.id,
+      );
+      setSpecialists((current) => current.map((specialist) => (
+        specialist.id === updatedSpecialist.id ? updatedSpecialist : specialist
+      )));
+      setSelectedSpecialistId(updatedSpecialist.id);
+      setLinkMessage({
+        type: 'success',
+        text: 'Cuenta profesional desvinculada.',
+      });
+      await loadTeam(workspace.selectedClinicId);
+    } catch (error: unknown) {
+      setLinkMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'No se pudo desvincular la cuenta profesional',
+      });
+    } finally {
+      setLinkSaving(false);
     }
   }, [alert, canManage, loadTeam, selectedSpecialist, workspace.selectedClinicId]);
 
@@ -581,7 +731,16 @@ export function ClinicTeamScreen({
                   specialist={selectedSpecialist}
                   saving={saving}
                   message={message}
+                  linkEmail={linkEmail}
+                  linkCandidate={linkCandidate}
+                  linkMessage={linkMessage}
+                  linkLoading={linkLoading}
+                  linkSaving={linkSaving}
                   canManage={canManage}
+                  onLinkEmailChange={handleLinkEmailChange}
+                  onLookupProfessional={handleLookupProfessional}
+                  onLinkProfessional={handleLinkProfessional}
+                  onUnlinkProfessional={handleUnlinkProfessional}
                   onEdit={handleEdit}
                   onStatusChange={handleStatusChange}
                 />
@@ -612,23 +771,15 @@ function StatusFilter({ value, onChange }: StatusFilterProps): React.ReactElemen
   const styles = useMemo(() => createStatusFilterStyles(theme), [theme]);
 
   return (
-    <View style={styles.shell}>
-      {STATUS_FILTERS.map((filter) => {
-        const selected = filter.value === value;
-        return (
-          <AnimatedPressable
-            key={filter.value}
-            onPress={() => onChange(filter.value)}
-            hoverLift={false}
-            pressScale={0.98}
-            style={[styles.option, selected ? styles.optionSelected : null]}
-          >
-            <Text style={[styles.optionText, selected ? styles.optionTextSelected : null]}>
-              {filter.label}
-            </Text>
-          </AnimatedPressable>
-        );
-      })}
+    <View style={styles.field}>
+      <Text style={styles.label}>Estado</Text>
+      <SimpleDropdown
+        options={STATUS_FILTERS}
+        value={value}
+        onSelect={onChange}
+        placeholder="Estado"
+        maxHeight={180}
+      />
     </View>
   );
 }
@@ -695,7 +846,16 @@ interface SpecialistDetailPanelProps {
   specialist: clinicService.ClinicSpecialist;
   saving: boolean;
   message: string;
+  linkEmail: string;
+  linkCandidate: clinicService.LinkedProfessional | null;
+  linkMessage: FeedbackMessage | null;
+  linkLoading: boolean;
+  linkSaving: boolean;
   canManage: boolean;
+  onLinkEmailChange: (value: string) => void;
+  onLookupProfessional: () => void;
+  onLinkProfessional: () => void;
+  onUnlinkProfessional: () => void;
   onEdit: () => void;
   onStatusChange: () => void;
 }
@@ -704,7 +864,16 @@ function SpecialistDetailPanel({
   specialist,
   saving,
   message,
+  linkEmail,
+  linkCandidate,
+  linkMessage,
+  linkLoading,
+  linkSaving,
   canManage,
+  onLinkEmailChange,
+  onLookupProfessional,
+  onLinkProfessional,
+  onUnlinkProfessional,
   onEdit,
   onStatusChange,
 }: SpecialistDetailPanelProps): React.ReactElement {
@@ -747,6 +916,20 @@ function SpecialistDetailPanel({
         ))}
       </View>
 
+      <ProfessionalAccountPanel
+        specialist={specialist}
+        email={linkEmail}
+        candidate={linkCandidate}
+        message={linkMessage}
+        loading={linkLoading}
+        saving={linkSaving}
+        canManage={canManage}
+        onEmailChange={onLinkEmailChange}
+        onLookup={onLookupProfessional}
+        onLink={onLinkProfessional}
+        onUnlink={onUnlinkProfessional}
+      />
+
       {message ? (
         <Text style={[
           styles.message,
@@ -765,7 +948,7 @@ function SpecialistDetailPanel({
           variant="outline"
           size="medium"
           onPress={onEdit}
-          disabled={!canManage || saving}
+          disabled={!canManage || saving || linkSaving}
           icon={<Ionicons name="create-outline" size={18} color={theme.primary} />}
         >
           Editar ficha
@@ -774,13 +957,137 @@ function SpecialistDetailPanel({
           variant={specialist.status === 'ACTIVE' ? 'danger' : 'secondary'}
           size="medium"
           onPress={onStatusChange}
-          disabled={!canManage || saving}
+          disabled={!canManage || saving || linkSaving}
           loading={saving}
           icon={<Ionicons name={nextStatusIcon} size={18} color={specialist.status === 'ACTIVE' ? theme.textOnPrimary : theme.primary} />}
         >
           {nextStatusLabel}
         </Button>
       </View>
+    </View>
+  );
+}
+
+interface ProfessionalAccountPanelProps {
+  specialist: clinicService.ClinicSpecialist;
+  email: string;
+  candidate: clinicService.LinkedProfessional | null;
+  message: FeedbackMessage | null;
+  loading: boolean;
+  saving: boolean;
+  canManage: boolean;
+  onEmailChange: (value: string) => void;
+  onLookup: () => void;
+  onLink: () => void;
+  onUnlink: () => void;
+}
+
+function ProfessionalAccountPanel({
+  specialist,
+  email,
+  candidate,
+  message,
+  loading,
+  saving,
+  canManage,
+  onEmailChange,
+  onLookup,
+  onLink,
+  onUnlink,
+}: ProfessionalAccountPanelProps): React.ReactElement {
+  const { theme } = useTheme();
+  const styles = useMemo(() => createDetailStyles(theme), [theme]);
+  const linkedProfessional = specialist.linkedProfessional;
+  const disabled = !canManage || saving || loading || specialist.status !== 'ACTIVE';
+
+  return (
+    <View style={styles.linkPanel}>
+      <View style={styles.linkHeader}>
+        <View style={styles.linkIcon}>
+          <Ionicons name="key-outline" size={18} color={theme.primary} />
+        </View>
+        <View style={styles.linkCopy}>
+          <Text style={styles.linkTitle}>Cuenta profesional</Text>
+          <Text style={styles.linkText}>
+            Vincula esta ficha con una cuenta profesional para que pueda ver sus pacientes asignados.
+          </Text>
+        </View>
+      </View>
+
+      {linkedProfessional ? (
+        <View style={styles.candidateCard}>
+          <Text style={styles.candidateTitle}>{linkedProfessional.name}</Text>
+          <Text style={styles.candidateText}>{linkedProfessional.email}</Text>
+          <Text style={styles.candidateText}>
+            {linkedProfessional.professionalTitle ?? linkedProfessional.specialization ?? 'Profesional HERA'}
+          </Text>
+          <View style={styles.linkActions}>
+            <Button
+              variant="danger"
+              size="small"
+              onPress={onUnlink}
+              disabled={!canManage || saving}
+              loading={saving}
+              icon={<Ionicons name="close-circle-outline" size={16} color={theme.textOnPrimary} />}
+            >
+              Desvincular
+            </Button>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.linkForm}>
+          <Input
+            label="Email profesional"
+            value={email}
+            placeholder="profesional@hera.es"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={!disabled}
+            onChangeText={onEmailChange}
+          />
+          <View style={styles.linkActions}>
+            <Button
+              variant="outline"
+              size="small"
+              onPress={onLookup}
+              disabled={disabled || !email.trim()}
+              loading={loading}
+              icon={<Ionicons name="search-outline" size={16} color={theme.primary} />}
+            >
+              Buscar
+            </Button>
+            <Button
+              variant="primary"
+              size="small"
+              onPress={onLink}
+              disabled={disabled || !candidate}
+              loading={saving}
+              icon={<Ionicons name="link-outline" size={16} color={theme.actionPrimaryText} />}
+            >
+              Vincular
+            </Button>
+          </View>
+
+          {candidate ? (
+            <View style={styles.candidateCard}>
+              <Text style={styles.candidateTitle}>{candidate.name}</Text>
+              <Text style={styles.candidateText}>{candidate.email}</Text>
+              <Text style={styles.candidateText}>
+                {candidate.professionalTitle ?? candidate.specialization ?? 'Profesional HERA'}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      )}
+
+      {message ? (
+        <Text style={[
+          styles.message,
+          { color: message.type === 'error' ? theme.error : theme.success },
+        ]}>
+          {message.text}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -1000,36 +1307,18 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
 
 const createStatusFilterStyles = (theme: Theme) =>
   StyleSheet.create({
-    shell: {
-      flexDirection: 'row',
+    field: {
+      width: '100%',
+      maxWidth: 280,
       gap: spacing.xs,
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 8,
-      padding: spacing.xs,
-      backgroundColor: theme.bgMuted,
+      position: 'relative',
+      zIndex: 20,
     },
-    option: {
-      flex: 1,
-      minHeight: 38,
-      borderRadius: 6,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: spacing.sm,
-    },
-    optionSelected: {
-      backgroundColor: theme.bgCard,
-      borderWidth: 1,
-      borderColor: theme.borderLight,
-    },
-    optionText: {
-      color: theme.textMuted,
+    label: {
+      color: theme.textSecondary,
       fontFamily: theme.fontSansSemiBold,
       fontSize: 13,
       lineHeight: 18,
-    },
-    optionTextSelected: {
-      color: theme.textPrimary,
     },
   });
 
@@ -1173,6 +1462,75 @@ const createDetailStyles = (theme: Theme) =>
     },
     rows: {
       gap: spacing.xs,
+    },
+    linkPanel: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 8,
+      backgroundColor: theme.bgMuted,
+      padding: spacing.md,
+      gap: spacing.md,
+    },
+    linkHeader: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      alignItems: 'flex-start',
+    },
+    linkIcon: {
+      width: 34,
+      height: 34,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.primaryAlpha12,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+    },
+    linkCopy: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    linkTitle: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansBold,
+      fontSize: 15,
+      lineHeight: 21,
+    },
+    linkText: {
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+      fontSize: 13,
+      lineHeight: 19,
+    },
+    linkForm: {
+      gap: spacing.sm,
+    },
+    linkActions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'flex-end',
+      gap: spacing.sm,
+    },
+    candidateCard: {
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+      borderRadius: 8,
+      backgroundColor: theme.bgElevated,
+      padding: spacing.md,
+      gap: 3,
+    },
+    candidateTitle: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansBold,
+      fontSize: 14,
+      lineHeight: 20,
+    },
+    candidateText: {
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+      fontSize: 13,
+      lineHeight: 18,
     },
     row: {
       minHeight: 42,
