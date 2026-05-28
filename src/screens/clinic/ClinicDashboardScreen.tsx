@@ -37,7 +37,7 @@ const METRIC_VISUALS: Record<clinicService.ClinicDashboardMetricKey, MetricVisua
   upcomingSessions: {
     icon: 'calendar-outline',
     label: 'Sesiones próximas',
-    helperText: 'La agenda de clínica aparecerá cuando el módulo esté disponible.',
+    helperText: 'Citas futuras no canceladas en la agenda de clínica.',
   },
   pendingConsents: {
     icon: 'document-text-outline',
@@ -153,6 +153,14 @@ export function ClinicDashboardScreen({
             icon={<Ionicons name="medical-outline" size={18} color={theme.primary} />}
           >
             Pacientes
+          </Button>
+          <Button
+            variant="outline"
+            size="medium"
+            onPress={() => navigation.navigate('ClinicAgenda')}
+            icon={<Ionicons name="calendar-outline" size={18} color={theme.primary} />}
+          >
+            Agenda
           </Button>
         </View>
       ) : undefined}

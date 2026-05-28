@@ -148,6 +148,20 @@ const ClinicPatientsRoute = createDeferredLayoutRoute<'ClinicPatients'>(
     exportName: 'ClinicPatientsScreen',
   }
 );
+const ClinicAgendaRoute = createDeferredLayoutRoute<'ClinicAgenda'>(
+  () => require('../screens/clinic/ClinicAgendaScreen'),
+  {
+    displayName: 'ClinicAgendaRoute',
+    exportName: 'ClinicAgendaScreen',
+  }
+);
+const ClinicBillingRoute = createDeferredLayoutRoute<'ClinicBilling'>(
+  () => require('../screens/clinic/ClinicBillingScreen'),
+  {
+    displayName: 'ClinicBillingRoute',
+    exportName: 'ClinicBillingScreen',
+  }
+);
 const HomeRoute = createDeferredLayoutRoute<'Home'>(
   () => require('../screens/home/HomeScreen'),
   { displayName: 'HomeRoute' }
@@ -550,6 +564,16 @@ export function RootNavigator() {
           name="ClinicPatients"
           component={ClinicPatientsRoute}
           options={{ headerTitle: 'Pacientes de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicAgenda"
+          component={ClinicAgendaRoute}
+          options={{ headerTitle: 'Agenda de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicBilling"
+          component={ClinicBillingRoute}
+          options={{ headerTitle: 'Facturación de clínica' }}
         />
         <Stack.Screen
           name="ClinicPending"

@@ -9,6 +9,10 @@ export type ClinicPatientAssignmentFilter = 'ALL' | 'ASSIGNED' | 'UNASSIGNED';
 export type ClinicPatientConsentStatus = 'PENDING' | 'GRANTED' | 'REVOKED';
 export type ClinicPatientConsentMethod = 'DIGITAL_SIGNATURE' | 'CLINIC_ADMIN_ATTESTATION';
 export type ClinicPatientConsentRequestStatus = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'CANCELLED';
+export type ClinicSessionStatus = 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+export type ClinicSessionType = 'IN_PERSON' | 'PHONE_CALL' | 'VIDEO_CALL';
+export type ClinicInvoiceStatus = 'DRAFT' | 'SENT' | 'PAID' | 'CANCELLED';
+export type ClinicInvoiceKind = 'SIMPLIFIED' | 'FULL';
 export type ClinicPatientConsentEventType =
   | 'REQUESTED'
   | 'DOCUMENT_UPLOADED'
@@ -190,6 +194,175 @@ export interface ClinicPatientListPage {
   items: ClinicPatientSummary[];
   pageInfo: ClinicPatientListPageInfo;
 }
+
+export interface ClinicSessionPatientSummary {
+  id: string;
+  displayName: string;
+  email: string | null;
+  phone: string | null;
+  status: ClinicPatientStatus;
+}
+
+export interface ClinicSessionSpecialistSummary {
+  id: string;
+  displayName: string;
+  professionalTitle: string | null;
+  status: ClinicSpecialistStatus;
+  linkedProfessionalName: string | null;
+}
+
+export interface ClinicSessionSummary {
+  id: string;
+  date: string;
+  duration: number;
+  type: ClinicSessionType;
+  status: ClinicSessionStatus;
+  bookedPrice: number | null;
+  bookedCurrency: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  patient: ClinicSessionPatientSummary;
+  specialist: ClinicSessionSpecialistSummary;
+}
+
+export interface ClinicSessionListFilters {
+  startDate?: string;
+  endDate?: string;
+  clinicSpecialistId?: string;
+  clinicPatientId?: string;
+  status?: ClinicSessionStatus;
+  page?: number;
+  limit?: number;
+}
+
+export interface ClinicSessionListPage {
+  items: ClinicSessionSummary[];
+  pageInfo: ClinicPatientListPageInfo;
+}
+
+export interface CreateClinicSessionPayload {
+  clinicPatientId: string;
+  clinicSpecialistId: string;
+  date: string;
+  duration: number;
+  type: ClinicSessionType;
+}
+
+export interface UpdateClinicSessionStatusPayload {
+  status: Extract<ClinicSessionStatus, 'CANCELLED' | 'COMPLETED'>;
+}
+
+export interface ClinicBillingConfig {
+  id: string;
+  commercialName: string;
+  legalName: string | null;
+  email: string | null;
+  taxId: string | null;
+  fiscalAddress: string | null;
+  fiscalPostalCode: string | null;
+  fiscalCity: string | null;
+  fiscalCountry: string | null;
+  simplifiedInvoicePrefix: string | null;
+  simplifiedInvoiceNextNumber: number;
+  fullInvoicePrefix: string | null;
+  fullInvoiceNextNumber: number;
+  vatRate: number | null;
+  applyVat: boolean;
+  vatExemptReason: string | null;
+  bankIban: string | null;
+  paymentConditions: string | null;
+  sendInvoiceCopyTo: string | null;
+  invoiceLogoUrl: string | null;
+  invoiceAccentColor: string | null;
+}
+
+export type UpdateClinicBillingConfigPayload = Partial<Omit<
+  ClinicBillingConfig,
+  'id' | 'commercialName' | 'email'
+>>;
+
+export interface ClinicBillingSummary {
+  totalThisMonth: number;
+  totalThisYear: number;
+  invoiceCountThisMonth: number;
+  pendingCount: number;
+}
+
+export interface ClinicInvoiceSummary {
+  id: string;
+  clinicId: string;
+  clinicPatientId: string;
+  clinicSpecialistId: string | null;
+  sessionId: string | null;
+  invoiceNumber: string;
+  invoiceKind: ClinicInvoiceKind;
+  subtotal: number;
+  vatRate: number;
+  vatAmount: number;
+  total: number;
+  ivaIncluded: boolean;
+  baseImponible: number | null;
+  concept: string;
+  sessionDate: string | null;
+  durationMinutes: number | null;
+  status: ClinicInvoiceStatus;
+  sentAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  patient: ClinicSessionPatientSummary;
+  specialist: Pick<ClinicSessionSpecialistSummary, 'id' | 'displayName' | 'professionalTitle' | 'status'> | null;
+  session: {
+    id: string;
+    date: string;
+    status: ClinicSessionStatus;
+    duration: number;
+    type: ClinicSessionType;
+  } | null;
+}
+
+export interface ClinicInvoiceDetail extends ClinicInvoiceSummary {
+  internalNotes: string | null;
+}
+
+export interface ClinicInvoiceListFilters {
+  status?: ClinicInvoiceStatus;
+  invoiceKind?: ClinicInvoiceKind;
+  month?: number;
+  year?: number;
+  clinicPatientId?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface ClinicInvoiceListPage {
+  items: ClinicInvoiceSummary[];
+  pageInfo: ClinicPatientListPageInfo & {
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface CreateClinicInvoicePayload {
+  clinicPatientId: string;
+  clinicSpecialistId?: string | null;
+  invoiceKind?: ClinicInvoiceKind;
+  concept: string;
+  subtotal: number;
+  vatRate?: number;
+  vatAmount?: number;
+  sessionDate?: string | null;
+  durationMinutes?: number | null;
+  ivaIncluded?: boolean;
+  baseImponible?: number;
+  internalNotes?: string | null;
+}
+
+export type UpdateClinicInvoicePayload = Partial<Omit<
+  CreateClinicInvoicePayload,
+  'clinicPatientId' | 'clinicSpecialistId'
+>>;
 
 export interface AssignClinicPatientPayload {
   clinicSpecialistId: string;

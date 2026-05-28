@@ -4,3 +4,5 @@ export * from './clinic/teamService';
 export * from './clinic/patientService';
 export * from './clinic/professionalService';
 export * from './clinic/consentService';
+export * from './clinic/sessionService';
+export * from './clinic/billingService';

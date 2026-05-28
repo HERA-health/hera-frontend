@@ -4,10 +4,16 @@ import api from '../api';
 import {
   acceptClinicPatientConsentRequest,
   assignClinicPatient,
+  cancelClinicInvoice,
   closeClinicPatientAssignment,
+  createClinicInvoice,
+  createClinicInvoiceFromSession,
   createClinicPatient,
   createClinicSpecialist,
   getClinic,
+  getClinicBillingConfig,
+  getClinicBillingSummary,
+  getClinicInvoice,
   getClinicDashboard,
   getClinicPatient,
   getClinicPatientConsent,
@@ -15,28 +21,43 @@ import {
   getProfessionalClinicPatient,
   listClinicPatientConsents,
   listClinicPatients,
+  listClinicInvoices,
   listClinicSpecialists,
   listProfessionalClinicPatients,
   linkClinicSpecialist,
   lookupClinicProfessionalByEmail,
+  markClinicInvoiceAsPaid,
   getMyClinicMemberships,
+  listClinicSessions,
   requestClinicPatientConsent,
   resolveClinicPatientConsentRequest,
+  sendClinicInvoice,
   uploadClinicPatientConsentEvidence,
   updateClinic,
+  updateClinicBillingConfig,
+  updateClinicInvoice,
+  createClinicSession,
   updateClinicPatient,
   updateClinicPatientStatus,
+  updateClinicSessionStatus,
   updateClinicSpecialist,
   updateClinicSpecialistStatus,
   unlinkClinicSpecialist,
   type ClinicDashboard,
   type ClinicDetail,
+  type ClinicBillingConfig,
+  type ClinicBillingSummary,
+  type ClinicInvoiceDetail,
+  type ClinicInvoiceListPage,
+  type ClinicInvoiceSummary,
   type ClinicMembershipSummary,
   type ClinicPatientConsentDetail,
   type ClinicPatientConsentResolution,
   type ClinicPatientConsentSummary,
   type ClinicPatientDetail,
   type ClinicPatientSummary,
+  type ClinicSessionListPage,
+  type ClinicSessionSummary,
   type ClinicSpecialist,
   type LinkedProfessional,
   type ProfessionalClinicContext,
@@ -50,6 +71,8 @@ jest.mock('../api', () => ({
     get: jest.fn(),
     post: jest.fn(),
     patch: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
   },
 }));
 
@@ -64,6 +87,8 @@ jest.mock('expo-web-browser', () => ({
 const getMock = api.get as jest.MockedFunction<typeof api.get>;
 const postMock = api.post as jest.MockedFunction<typeof api.post>;
 const patchMock = api.patch as jest.MockedFunction<typeof api.patch>;
+const putMock = api.put as jest.MockedFunction<typeof api.put>;
+const deleteMock = api.delete as jest.MockedFunction<typeof api.delete>;
 const buildMultipartFormDataMock = buildMultipartFormData as jest.MockedFunction<typeof buildMultipartFormData>;
 
 describe('clinicService', () => {
@@ -182,9 +207,9 @@ describe('clinicService', () => {
         {
           key: 'upcomingSessions',
           label: 'Sesiones próximas',
-          value: null,
-          available: false,
-          helperText: 'No disponible',
+          value: 4,
+          available: true,
+          helperText: 'Citas futuras no canceladas',
         },
       ],
     };
@@ -663,6 +688,320 @@ describe('clinicService', () => {
     expect(patchMock).toHaveBeenCalledWith(
       '/clinics/clinic-1/patients/clinic-patient-1/assignment/close',
       { endedReason: 'Corrección administrativa' },
+    );
+  });
+
+  it('uses dedicated clinic session endpoints for agenda operations', async () => {
+    const session: ClinicSessionSummary = {
+      id: 'session-1',
+      date: '2026-06-01T10:00:00.000Z',
+      duration: 60,
+      type: 'IN_PERSON',
+      status: 'CONFIRMED',
+      bookedPrice: 70,
+      bookedCurrency: 'EUR',
+      cancelledAt: null,
+      createdAt: '2026-05-28T10:00:00.000Z',
+      updatedAt: '2026-05-28T10:00:00.000Z',
+      patient: {
+        id: 'clinic-patient-1',
+        displayName: 'Lucia Martin',
+        email: 'lucia@clinic.test',
+        phone: null,
+        status: 'ACTIVE',
+      },
+      specialist: {
+        id: 'clinic-specialist-1',
+        displayName: 'Dra. Ana Ruiz',
+        professionalTitle: 'Psicóloga sanitaria',
+        status: 'ACTIVE',
+        linkedProfessionalName: 'Ana Ruiz',
+      },
+    };
+    const page: ClinicSessionListPage = {
+      items: [session],
+      pageInfo: {
+        page: 1,
+        limit: 50,
+        hasMore: false,
+        nextPage: null,
+      },
+    };
+
+    getMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: page,
+      },
+    } as AxiosResponse<{ success: boolean; data: ClinicSessionListPage }>);
+    postMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: session,
+      },
+    } as AxiosResponse<{ success: boolean; data: ClinicSessionSummary }>);
+    patchMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: { ...session, status: 'CANCELLED' },
+      },
+    } as AxiosResponse<{ success: boolean; data: ClinicSessionSummary }>);
+
+    await expect(listClinicSessions('clinic-1', {
+      startDate: '2026-06-01T00:00:00.000Z',
+      endDate: '2026-06-30T23:59:59.999Z',
+      clinicSpecialistId: 'clinic-specialist-1',
+      clinicPatientId: 'clinic-patient-1',
+      status: 'CONFIRMED',
+      page: 1,
+      limit: 50,
+    })).resolves.toBe(page);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/sessions', {
+      params: {
+        startDate: '2026-06-01T00:00:00.000Z',
+        endDate: '2026-06-30T23:59:59.999Z',
+        clinicSpecialistId: 'clinic-specialist-1',
+        clinicPatientId: 'clinic-patient-1',
+        status: 'CONFIRMED',
+        page: 1,
+        limit: 50,
+      },
+    });
+
+    await expect(createClinicSession('clinic-1', {
+      clinicPatientId: 'clinic-patient-1',
+      clinicSpecialistId: 'clinic-specialist-1',
+      date: '2026-06-01T10:00:00.000Z',
+      duration: 60,
+      type: 'IN_PERSON',
+    })).resolves.toBe(session);
+    expect(postMock).toHaveBeenCalledWith('/clinics/clinic-1/sessions', {
+      clinicPatientId: 'clinic-patient-1',
+      clinicSpecialistId: 'clinic-specialist-1',
+      date: '2026-06-01T10:00:00.000Z',
+      duration: 60,
+      type: 'IN_PERSON',
+    });
+
+    await expect(updateClinicSessionStatus('clinic-1', 'session-1', {
+      status: 'CANCELLED',
+    })).resolves.toEqual({ ...session, status: 'CANCELLED' });
+    expect(patchMock).toHaveBeenCalledWith(
+      '/clinics/clinic-1/sessions/session-1/status',
+      { status: 'CANCELLED' },
+    );
+  });
+
+  it('maps clinic session errors to stable Spanish messages', async () => {
+    postMock.mockRejectedValueOnce({
+      response: {
+        data: {
+          success: false,
+          code: 'CLINIC_SESSION_CONFLICT',
+          error: 'Internal text',
+        },
+      },
+    });
+
+    await expect(createClinicSession('clinic-1', {
+      clinicPatientId: 'clinic-patient-1',
+      clinicSpecialistId: 'clinic-specialist-1',
+      date: '2026-06-01T10:00:00.000Z',
+      duration: 60,
+      type: 'PHONE_CALL',
+    })).rejects.toThrow(
+      'Ese horario ya no está disponible para el profesional seleccionado.',
+    );
+  });
+
+  it('uses dedicated clinic billing endpoints without touching private billing routes', async () => {
+    const summary: ClinicBillingSummary = {
+      totalThisMonth: 140,
+      totalThisYear: 560,
+      invoiceCountThisMonth: 2,
+      pendingCount: 1,
+    };
+    const config: ClinicBillingConfig = {
+      id: 'clinic-1',
+      commercialName: 'Clinica Demo',
+      legalName: 'Clinica Demo SL',
+      email: 'admin@clinic.test',
+      taxId: 'B00000000',
+      fiscalAddress: 'Calle Demo 1',
+      fiscalPostalCode: '28001',
+      fiscalCity: 'Madrid',
+      fiscalCountry: 'Spain',
+      simplifiedInvoicePrefix: 'FSC',
+      simplifiedInvoiceNextNumber: 3,
+      fullInvoicePrefix: 'FC',
+      fullInvoiceNextNumber: 2,
+      vatRate: 21,
+      applyVat: true,
+      vatExemptReason: null,
+      bankIban: null,
+      paymentConditions: null,
+      sendInvoiceCopyTo: null,
+      invoiceLogoUrl: null,
+      invoiceAccentColor: '#8B9D83',
+    };
+    const invoice: ClinicInvoiceDetail = {
+      id: 'invoice-1',
+      clinicId: 'clinic-1',
+      clinicPatientId: 'clinic-patient-1',
+      clinicSpecialistId: 'clinic-specialist-1',
+      sessionId: 'session-1',
+      invoiceNumber: 'FSC-2026-0003',
+      invoiceKind: 'SIMPLIFIED',
+      subtotal: 57.85,
+      vatRate: 21,
+      vatAmount: 12.15,
+      total: 70,
+      ivaIncluded: true,
+      baseImponible: 57.85,
+      concept: 'Sesion de clinica',
+      sessionDate: '2026-06-01T10:00:00.000Z',
+      durationMinutes: 60,
+      internalNotes: null,
+      status: 'DRAFT',
+      sentAt: null,
+      paidAt: null,
+      createdAt: '2026-06-01T10:00:00.000Z',
+      updatedAt: '2026-06-01T10:00:00.000Z',
+      patient: {
+        id: 'clinic-patient-1',
+        displayName: 'Lucia Martin',
+        email: 'lucia@clinic.test',
+        phone: null,
+        status: 'ACTIVE',
+      },
+      specialist: {
+        id: 'clinic-specialist-1',
+        displayName: 'Dra. Ana Ruiz',
+        professionalTitle: 'Psicologa sanitaria',
+        status: 'ACTIVE',
+      },
+      session: {
+        id: 'session-1',
+        date: '2026-06-01T10:00:00.000Z',
+        status: 'COMPLETED',
+        duration: 60,
+        type: 'IN_PERSON',
+      },
+    };
+    const { internalNotes: _internalNotes, ...invoiceSummary } = invoice;
+    void _internalNotes;
+    const page: ClinicInvoiceListPage = {
+      items: [invoiceSummary],
+      pageInfo: {
+        page: 1,
+        limit: 25,
+        total: 1,
+        totalPages: 1,
+        hasMore: false,
+        nextPage: null,
+      },
+    };
+
+    getMock
+      .mockResolvedValueOnce({ data: { success: true, data: summary } } as AxiosResponse)
+      .mockResolvedValueOnce({ data: { success: true, data: config } } as AxiosResponse)
+      .mockResolvedValueOnce({ data: { success: true, data: page } } as AxiosResponse)
+      .mockResolvedValueOnce({ data: { success: true, data: invoice } } as AxiosResponse);
+    patchMock
+      .mockResolvedValueOnce({ data: { success: true, data: config } } as AxiosResponse)
+      .mockResolvedValueOnce({ data: { success: true, data: { ...invoice, status: 'PAID' } } } as AxiosResponse);
+    postMock
+      .mockResolvedValueOnce({ data: { success: true, data: invoice } } as AxiosResponse)
+      .mockResolvedValueOnce({ data: { success: true, data: invoice } } as AxiosResponse)
+      .mockResolvedValueOnce({ data: { success: true, data: { ...invoice, status: 'SENT' } } } as AxiosResponse);
+    putMock.mockResolvedValueOnce({ data: { success: true, data: { ...invoice, concept: 'Actualizada' } } } as AxiosResponse);
+    deleteMock.mockResolvedValueOnce({ data: { success: true, data: { ...invoice, status: 'CANCELLED' } } } as AxiosResponse);
+
+    await expect(getClinicBillingSummary('clinic-1')).resolves.toBe(summary);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/summary');
+
+    await expect(getClinicBillingConfig('clinic-1')).resolves.toBe(config);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/config');
+
+    await expect(updateClinicBillingConfig('clinic-1', {
+      legalName: 'Clinica Demo SL',
+      applyVat: true,
+    })).resolves.toBe(config);
+    expect(patchMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/config', {
+      legalName: 'Clinica Demo SL',
+      applyVat: true,
+    });
+
+    await expect(listClinicInvoices('clinic-1', {
+      status: 'DRAFT',
+      invoiceKind: 'SIMPLIFIED',
+      clinicPatientId: 'clinic-patient-1',
+      page: 1,
+      limit: 25,
+    })).resolves.toBe(page);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/invoices', {
+      params: {
+        status: 'DRAFT',
+        invoiceKind: 'SIMPLIFIED',
+        month: undefined,
+        year: undefined,
+        clinicPatientId: 'clinic-patient-1',
+        page: 1,
+        limit: 25,
+      },
+    });
+
+    await expect(createClinicInvoice('clinic-1', {
+      clinicPatientId: 'clinic-patient-1',
+      clinicSpecialistId: 'clinic-specialist-1',
+      concept: 'Sesion de clinica',
+      subtotal: 70,
+      vatRate: 21,
+    })).resolves.toBe(invoice);
+    expect(postMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/invoices', {
+      clinicPatientId: 'clinic-patient-1',
+      clinicSpecialistId: 'clinic-specialist-1',
+      concept: 'Sesion de clinica',
+      subtotal: 70,
+      vatRate: 21,
+    });
+
+    await expect(createClinicInvoiceFromSession('clinic-1', 'session-1')).resolves.toBe(invoice);
+    expect(postMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/sessions/session-1/invoice');
+
+    await expect(getClinicInvoice('clinic-1', 'invoice-1')).resolves.toBe(invoice);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/invoices/invoice-1');
+
+    await expect(updateClinicInvoice('clinic-1', 'invoice-1', {
+      concept: 'Actualizada',
+    })).resolves.toEqual({ ...invoice, concept: 'Actualizada' });
+    expect(putMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/invoices/invoice-1', {
+      concept: 'Actualizada',
+    });
+
+    await expect(sendClinicInvoice('clinic-1', 'invoice-1')).resolves.toEqual({ ...invoice, status: 'SENT' });
+    expect(postMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/invoices/invoice-1/send');
+
+    await expect(markClinicInvoiceAsPaid('clinic-1', 'invoice-1')).resolves.toEqual({ ...invoice, status: 'PAID' });
+    expect(patchMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/invoices/invoice-1/paid');
+
+    await expect(cancelClinicInvoice('clinic-1', 'invoice-1')).resolves.toEqual({ ...invoice, status: 'CANCELLED' });
+    expect(deleteMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/invoices/invoice-1');
+  });
+
+  it('maps clinic billing email failures to a stable Spanish message', async () => {
+    postMock.mockRejectedValueOnce({
+      response: {
+        data: {
+          success: false,
+          code: 'CLINIC_INVOICE_EMAIL_FAILED',
+          error: 'SMTP failed',
+        },
+      },
+    });
+
+    await expect(sendClinicInvoice('clinic-1', 'invoice-1')).rejects.toThrow(
+      'No se pudo enviar el email de la factura.',
     );
   });
 
