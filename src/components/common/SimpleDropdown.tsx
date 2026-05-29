@@ -40,7 +40,7 @@ export function SimpleDropdown<T extends string | number>({
   const selected = options.find((o) => o.value === value);
 
   return (
-    <View style={dropdownStyles.container}>
+    <View style={[dropdownStyles.container, open ? dropdownStyles.containerOpen : null]}>
       <AnimatedPressable
         style={dropdownStyles.trigger}
         onPress={() => setOpen(!open)}
@@ -112,7 +112,12 @@ function createStyles(theme: Theme, isDark: boolean) {
   return StyleSheet.create({
     container: {
       position: 'relative',
-      zIndex: 1000,
+      zIndex: 1,
+      overflow: 'visible',
+    },
+    containerOpen: {
+      zIndex: 20000,
+      elevation: 20,
     },
     trigger: {
       flexDirection: 'row',
@@ -158,7 +163,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       borderColor: theme.border,
       borderRadius: borderRadius.lg,
       marginTop: spacing.xs,
-      zIndex: 9999,
+      zIndex: 20001,
       ...shadows.md,
       elevation: 10,
       ...(Platform.OS === 'web' ? { boxShadow: '0 4px 12px rgba(0,0,0,0.12)' } as Record<string, string> : {}),

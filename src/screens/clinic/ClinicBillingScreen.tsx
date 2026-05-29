@@ -520,7 +520,7 @@ function InvoiceCreatePanel({
         </View>
       </View>
       <View style={styles.formGrid}>
-        <View>
+        <View style={styles.dropdownStackTop}>
           <Text style={styles.filterLabel}>Paciente</Text>
           <SimpleDropdown
             options={patientOptions}
@@ -532,7 +532,7 @@ function InvoiceCreatePanel({
             <Text style={styles.fieldError}>{errors.clinicPatientId ?? errors.clinicSpecialistId}</Text>
           ) : null}
         </View>
-        <View>
+        <View style={styles.dropdownStackMiddle}>
           <Text style={styles.filterLabel}>Tipo</Text>
           <SimpleDropdown
             options={CREATE_KIND_OPTIONS}
@@ -602,13 +602,15 @@ function InvoiceCreatePanel({
 
       <View style={styles.sessionBox}>
         <Text style={styles.filterLabel}>Cita completada</Text>
-        <SimpleDropdown
-          options={sessionOptions}
-          value={selectedSessionId || null}
-          onSelect={onSelectSession}
-          placeholder="Selecciona cita"
-          maxHeight={260}
-        />
+        <View style={styles.dropdownStackTop}>
+          <SimpleDropdown
+            options={sessionOptions}
+            value={selectedSessionId || null}
+            onSelect={onSelectSession}
+            placeholder="Selecciona cita"
+            maxHeight={260}
+          />
+        </View>
         <Button
           variant="outline"
           size="medium"
@@ -830,6 +832,18 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
     },
     formGrid: {
       gap: spacing.md,
+    },
+    dropdownStackTop: {
+      position: 'relative',
+      zIndex: 60,
+      elevation: 60,
+      overflow: 'visible',
+    },
+    dropdownStackMiddle: {
+      position: 'relative',
+      zIndex: 50,
+      elevation: 50,
+      overflow: 'visible',
     },
     inlineFields: {
       flexDirection: 'row',
