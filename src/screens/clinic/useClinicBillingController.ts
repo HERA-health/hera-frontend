@@ -14,6 +14,11 @@ export interface ClinicBillingFilters {
   patientFilter: string;
 }
 
+export interface ClinicRevenueShareFilters {
+  month: number;
+  year: number;
+}
+
 export interface ClinicBillingConfigForm {
   legalName: string;
   taxId: string;
@@ -68,6 +73,21 @@ export const CREATE_KIND_OPTIONS: DropdownOption<clinicService.ClinicInvoiceKind
   { label: 'Completa', value: 'FULL' },
 ];
 
+export const REVENUE_SHARE_MONTH_OPTIONS: DropdownOption<number>[] = [
+  { label: 'Enero', value: 1 },
+  { label: 'Febrero', value: 2 },
+  { label: 'Marzo', value: 3 },
+  { label: 'Abril', value: 4 },
+  { label: 'Mayo', value: 5 },
+  { label: 'Junio', value: 6 },
+  { label: 'Julio', value: 7 },
+  { label: 'Agosto', value: 8 },
+  { label: 'Septiembre', value: 9 },
+  { label: 'Octubre', value: 10 },
+  { label: 'Noviembre', value: 11 },
+  { label: 'Diciembre', value: 12 },
+];
+
 const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const VAT_OPTIONS = new Set(['0', '10', '21']);
 
@@ -81,6 +101,14 @@ const createInitialFilters = (): ClinicBillingFilters => ({
   invoiceKindFilter: 'ALL',
   patientFilter: 'ALL',
 });
+
+const createRevenueShareFilters = (): ClinicRevenueShareFilters => {
+  const now = new Date();
+  return {
+    month: now.getMonth() + 1,
+    year: now.getFullYear(),
+  };
+};
 
 const createConfigForm = (config?: clinicService.ClinicBillingConfig | null): ClinicBillingConfigForm => ({
   legalName: config?.legalName ?? '',
@@ -175,6 +203,8 @@ export function useClinicBillingController() {
   const workspace = useClinicWorkspace();
 
   const [summary, setSummary] = useState<clinicService.ClinicBillingSummary | null>(null);
+  const [revenueShareSummary, setRevenueShareSummary] =
+    useState<clinicService.ClinicRevenueShareSummary | null>(null);
   const [config, setConfig] = useState<clinicService.ClinicBillingConfig | null>(null);
   const [invoices, setInvoices] = useState<clinicService.ClinicInvoiceSummary[]>([]);
   const [pageInfo, setPageInfo] = useState<clinicService.ClinicInvoiceListPage['pageInfo'] | null>(null);
@@ -184,6 +214,8 @@ export function useClinicBillingController() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
+  const [revenueShareError, setRevenueShareError] = useState('');
+  const [revenueShareLoading, setRevenueShareLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [configForm, setConfigForm] = useState<ClinicBillingConfigForm>(() => createConfigForm());
   const [configErrors, setConfigErrors] = useState<ClinicBillingConfigErrors>({});
@@ -191,6 +223,8 @@ export function useClinicBillingController() {
   const [invoiceErrors, setInvoiceErrors] = useState<ClinicBillingInvoiceErrors>({});
   const [editableFilters, setEditableFilters] = useState<ClinicBillingFilters>(() => createInitialFilters());
   const [appliedFilters, setAppliedFilters] = useState<ClinicBillingFilters>(() => createInitialFilters());
+  const [revenueShareFilters, setRevenueShareFilters] =
+    useState<ClinicRevenueShareFilters>(() => createRevenueShareFilters());
 
   const canManage = workspace.selectedMembership?.role === 'OWNER'
     || workspace.selectedMembership?.role === 'ADMIN';
@@ -220,6 +254,17 @@ export function useClinicBillingController() {
     })),
     [completedSessions],
   );
+
+  const revenueShareYearOptions = useMemo<DropdownOption<number>[]>(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from(
+      { length: currentYear + 1 - 2020 + 1 },
+      (_, index) => currentYear + 1 - index,
+    ).map((year) => ({
+      label: String(year),
+      value: year,
+    }));
+  }, []);
 
   const setEditableFilter = useCallback(<K extends keyof ClinicBillingFilters>(
     field: K,
@@ -285,6 +330,25 @@ export function useClinicBillingController() {
     setSummary(summaryResult);
   }, []);
 
+  const loadRevenueShareSummary = useCallback(async (
+    clinicId: string,
+    filters: ClinicRevenueShareFilters,
+  ) => {
+    try {
+      setRevenueShareLoading(true);
+      setRevenueShareError('');
+      const revenueShareResult = await clinicService.getClinicRevenueShareSummary(clinicId, filters);
+      setRevenueShareSummary(revenueShareResult);
+    } catch (loadError: unknown) {
+      setRevenueShareSummary(null);
+      setRevenueShareError(loadError instanceof Error
+        ? loadError.message
+        : 'No se pudo cargar el resumen de reparto');
+    } finally {
+      setRevenueShareLoading(false);
+    }
+  }, []);
+
   const loadReferenceData = useCallback(async (clinicId: string) => {
     const sessionRange = toSessionLookupRange();
     const [configResult, patientPage, sessionPage] = await Promise.all([
@@ -316,15 +380,25 @@ export function useClinicBillingController() {
 
     await Promise.all([
       loadSummary(workspace.selectedClinicId),
+      loadRevenueShareSummary(workspace.selectedClinicId, revenueShareFilters),
       loadInvoices(workspace.selectedClinicId, 1, filters),
     ]);
-  }, [appliedFilters, canManage, loadInvoices, loadSummary, workspace.selectedClinicId]);
+  }, [
+    appliedFilters,
+    canManage,
+    loadInvoices,
+    loadRevenueShareSummary,
+    loadSummary,
+    revenueShareFilters,
+    workspace.selectedClinicId,
+  ]);
 
   const reloadBilling = useCallback(async (filters = appliedFilters) => {
     if (!workspace.selectedClinicId || !canManage) return;
 
     await Promise.all([
       loadSummary(workspace.selectedClinicId),
+      loadRevenueShareSummary(workspace.selectedClinicId, revenueShareFilters),
       loadReferenceData(workspace.selectedClinicId),
       loadInvoices(workspace.selectedClinicId, 1, filters),
     ]);
@@ -333,7 +407,9 @@ export function useClinicBillingController() {
     canManage,
     loadInvoices,
     loadReferenceData,
+    loadRevenueShareSummary,
     loadSummary,
+    revenueShareFilters,
     workspace.selectedClinicId,
   ]);
 
@@ -341,6 +417,8 @@ export function useClinicBillingController() {
     const clinicId = workspace.selectedClinicId;
     if (!clinicId || !canManage) {
       setSummary(null);
+      setRevenueShareSummary(null);
+      setRevenueShareError('');
       setConfig(null);
       setInvoices([]);
       setPageInfo(null);
@@ -350,14 +428,24 @@ export function useClinicBillingController() {
     }
 
     const initialFilters = createInitialFilters();
+    const initialRevenueShareFilters = createRevenueShareFilters();
     setEditableFilters(initialFilters);
     setAppliedFilters(initialFilters);
+    setRevenueShareFilters(initialRevenueShareFilters);
     void Promise.all([
       loadSummary(clinicId),
+      loadRevenueShareSummary(clinicId, initialRevenueShareFilters),
       loadReferenceData(clinicId),
       loadInvoices(clinicId, 1, initialFilters),
     ]);
-  }, [canManage, loadInvoices, loadReferenceData, loadSummary, workspace.selectedClinicId]);
+  }, [
+    canManage,
+    loadInvoices,
+    loadReferenceData,
+    loadRevenueShareSummary,
+    loadSummary,
+    workspace.selectedClinicId,
+  ]);
 
   const handleSelectClinic = useCallback((clinicId: string) => {
     void workspace.selectClinic(clinicId);
@@ -383,6 +471,20 @@ export function useClinicBillingController() {
     if (!workspace.selectedClinicId || !canManage || !pageInfo?.nextPage) return;
     void loadInvoices(workspace.selectedClinicId, pageInfo.nextPage, appliedFilters);
   }, [appliedFilters, canManage, loadInvoices, pageInfo?.nextPage, workspace.selectedClinicId]);
+
+  const setRevenueShareFilter = useCallback(<K extends keyof ClinicRevenueShareFilters>(
+    field: K,
+    value: ClinicRevenueShareFilters[K],
+  ) => {
+    const nextFilters = {
+      ...revenueShareFilters,
+      [field]: value,
+    };
+    setRevenueShareFilters(nextFilters);
+    if (workspace.selectedClinicId && canManage) {
+      void loadRevenueShareSummary(workspace.selectedClinicId, nextFilters);
+    }
+  }, [canManage, loadRevenueShareSummary, revenueShareFilters, workspace.selectedClinicId]);
 
   const handleSaveConfig = useCallback(async () => {
     if (!workspace.selectedClinicId || !canManage) return;
@@ -555,11 +657,17 @@ export function useClinicBillingController() {
     pageInfo,
     patientFilterOptions,
     patientOptions,
+    revenueShareFilters,
+    revenueShareError,
+    revenueShareLoading,
+    revenueShareSummary,
+    revenueShareYearOptions,
     saving,
     selectedSessionId,
     setConfigField,
     setEditableFilter,
     setInvoiceField,
+    setRevenueShareFilter,
     setSelectedSessionId,
     summary,
     workspace,

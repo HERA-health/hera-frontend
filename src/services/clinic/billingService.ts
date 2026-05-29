@@ -8,6 +8,8 @@ import type {
   ClinicInvoiceDetail,
   ClinicInvoiceListFilters,
   ClinicInvoiceListPage,
+  ClinicRevenueShareSummary,
+  ClinicRevenueShareSummaryFilters,
   CreateClinicInvoicePayload,
   UpdateClinicBillingConfigPayload,
   UpdateClinicInvoicePayload,
@@ -68,6 +70,30 @@ export const getClinicBillingSummary = async (
     throw new Error(getClinicBillingErrorMessage(
       error,
       'No se pudo cargar el resumen de facturación',
+    ));
+  }
+};
+
+export const getClinicRevenueShareSummary = async (
+  clinicId: string,
+  filters: ClinicRevenueShareSummaryFilters = {},
+): Promise<ClinicRevenueShareSummary> => {
+  try {
+    const response = await api.get<{
+      success: boolean;
+      data: ClinicRevenueShareSummary;
+    }>(`/clinics/${clinicId}/billing/revenue-share`, {
+      params: {
+        year: filters.year,
+        month: filters.month,
+      },
+    });
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getClinicBillingErrorMessage(
+      error,
+      'No se pudo cargar el resumen de reparto',
     ));
   }
 };

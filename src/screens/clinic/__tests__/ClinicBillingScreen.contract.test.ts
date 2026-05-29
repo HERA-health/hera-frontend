@@ -20,6 +20,7 @@ describe('ClinicBillingScreen source guards', () => {
     expect(controllerSource).toContain('clinicService.createClinicInvoice');
     expect(controllerSource).toContain('clinicService.createClinicInvoiceFromSession');
     expect(controllerSource).toContain('clinicService.updateClinicBillingConfig');
+    expect(controllerSource).toContain('clinicService.getClinicRevenueShareSummary');
     expect(combinedSource).not.toContain("from '../../services/api'");
     expect(combinedSource).not.toContain('api.');
   });
@@ -58,5 +59,33 @@ describe('ClinicBillingScreen source guards', () => {
     expect(controllerSource).toContain("status: 'COMPLETED'");
     expect(screenSource).toContain('Crear borrador');
     expect(screenSource).toContain('Facturar cita');
+  });
+
+  it('shows the monthly revenue share panel without settlement or payment flows', () => {
+    expect(screenSource).toContain('Reparto mensual');
+    expect(screenSource).toContain('Base pagada');
+    expect(screenSource).toContain('Especialistas');
+    expect(screenSource).toContain('pendingSnapshotInvoiceCount');
+    expect(screenSource).toContain('sin snapshot');
+    expect(controllerSource).toContain('revenueShareFilters');
+    expect(controllerSource).not.toContain('settlement');
+    expect(controllerSource).not.toContain('bank transfer');
+  });
+
+  it('keeps admin billing surfaces behind canManage', () => {
+    const adminBlockStart = screenSource.indexOf('{canManage ? (');
+    expect(adminBlockStart).toBeGreaterThan(-1);
+    const adminBlock = screenSource.slice(adminBlockStart, screenSource.indexOf('</>', adminBlockStart));
+
+    expect(adminBlock).toContain('<SummaryBand');
+    expect(adminBlock).toContain('<RevenueSharePanel');
+    expect(adminBlock).toContain('<ConfigPanel');
+    expect(adminBlock).toContain('<InvoiceCreatePanel');
+    expect(adminBlock).toContain('Facturas');
+  });
+
+  it('offers revenue share years from 2020 through next year', () => {
+    expect(controllerSource).toContain('currentYear + 1 - 2020 + 1');
+    expect(controllerSource).toContain('currentYear + 1 - index');
   });
 });

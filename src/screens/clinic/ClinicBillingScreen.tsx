@@ -21,12 +21,14 @@ import { ClinicWorkspaceScaffold } from './components/ClinicWorkspaceScaffold';
 import {
   CREATE_KIND_OPTIONS,
   KIND_OPTIONS,
+  REVENUE_SHARE_MONTH_OPTIONS,
   STATUS_OPTIONS,
   useClinicBillingController,
   type ClinicBillingConfigErrors,
   type ClinicBillingConfigForm,
   type ClinicBillingInvoiceErrors,
   type ClinicBillingInvoiceForm,
+  type ClinicRevenueShareFilters,
 } from './useClinicBillingController';
 
 const INVOICE_STATUS_LABELS: Record<clinicService.ClinicInvoiceStatus, string> = {
@@ -46,6 +48,12 @@ const formatCurrency = (value: number): string =>
     style: 'currency',
     currency: 'EUR',
   });
+
+const formatPercentage = (value: number): string =>
+  `${value.toLocaleString('es-ES', {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  })} %`;
 
 const formatDate = (value: string | null): string =>
   value
@@ -86,11 +94,17 @@ export function ClinicBillingScreen({
     pageInfo,
     patientFilterOptions,
     patientOptions,
+    revenueShareError,
+    revenueShareFilters,
+    revenueShareLoading,
+    revenueShareSummary,
+    revenueShareYearOptions,
     saving,
     selectedSessionId,
     setConfigField,
     setEditableFilter,
     setInvoiceField,
+    setRevenueShareFilter,
     setSelectedSessionId,
     summary,
     workspace,
@@ -147,126 +161,140 @@ export function ClinicBillingScreen({
             </View>
           ) : null}
 
-          <SummaryBand summary={summary} loading={loading} isCompact={isCompact} />
+          {canManage ? (
+            <>
+              <SummaryBand summary={summary} loading={loading} isCompact={isCompact} />
 
-          <View style={styles.topGrid}>
-            <ConfigPanel
-              form={configForm}
-              errors={configErrors}
-              saving={saving}
-              isCompact={isCompact}
-              onChange={setConfigField}
-              onSave={handleSaveConfig}
-            />
-            <InvoiceCreatePanel
-              form={invoiceForm}
-              errors={invoiceErrors}
-              patientOptions={patientOptions}
-              sessionOptions={completedSessionOptions}
-              selectedSessionId={selectedSessionId}
-              saving={saving}
-              isCompact={isCompact}
-              onChange={setInvoiceField}
-              onCreate={handleCreateInvoice}
-              onCreateFromSession={handleCreateFromSession}
-              onSelectSession={setSelectedSessionId}
-            />
-          </View>
-
-          <View style={styles.filters}>
-            <View style={styles.filterDropdown}>
-              <Text style={styles.filterLabel}>Estado</Text>
-              <SimpleDropdown
-                options={STATUS_OPTIONS}
-                value={editableFilters.statusFilter}
-                onSelect={(value) => setEditableFilter('statusFilter', value)}
-              />
-            </View>
-            <View style={styles.filterDropdown}>
-              <Text style={styles.filterLabel}>Tipo</Text>
-              <SimpleDropdown
-                options={KIND_OPTIONS}
-                value={editableFilters.invoiceKindFilter}
-                onSelect={(value) => setEditableFilter('invoiceKindFilter', value)}
-              />
-            </View>
-            <View style={styles.filterDropdown}>
-              <Text style={styles.filterLabel}>Paciente</Text>
-              <SimpleDropdown
-                options={patientFilterOptions}
-                value={editableFilters.patientFilter}
-                onSelect={(value) => setEditableFilter('patientFilter', value)}
-              />
-            </View>
-            <View style={styles.filterAction}>
-              <Button
-                variant="outline"
-                size="medium"
-                onPress={handleApplyFilters}
-                disabled={!canManage || loading}
-                icon={<Ionicons name="funnel-outline" size={18} color={theme.primary} />}
-              >
-                Aplicar
-              </Button>
-            </View>
-          </View>
-
-          <View style={styles.invoicePanel}>
-            <View style={styles.sectionHeader}>
-              <View>
-                <Text style={styles.sectionTitle}>Facturas</Text>
-                <Text style={styles.sectionSubtitle}>
-                  {pageInfo ? `${pageInfo.total} registros` : 'Listado administrativo'}
-                </Text>
-              </View>
-              {loading ? <ActivityIndicator color={theme.primary} size="small" /> : null}
-            </View>
-
-            {error ? (
-              <StatePanel
-                icon="alert-circle-outline"
-                title="No se pudieron cargar las facturas"
-                text={error}
-                actionLabel="Reintentar"
-                onAction={handleRetry}
+              <RevenueSharePanel
+                summary={revenueShareSummary}
+                filters={revenueShareFilters}
+                yearOptions={revenueShareYearOptions}
+                loading={revenueShareLoading}
+                error={revenueShareError}
                 isCompact={isCompact}
+                onChange={setRevenueShareFilter}
               />
-            ) : null}
 
-            {!error && !loading && invoices.length === 0 ? (
-              <StatePanel
-                icon="receipt-outline"
-                isCompact={isCompact}
-                title="Aún no hay facturas"
-                text="Crea una factura manual o genera una desde una cita de clínica completada."
-              />
-            ) : null}
-
-            <View style={styles.invoiceList}>
-              {invoices.map((invoice) => (
-                <InvoiceRow
-                  key={invoice.id}
-                  invoice={invoice}
+              <View style={styles.topGrid}>
+                <ConfigPanel
+                  form={configForm}
+                  errors={configErrors}
                   saving={saving}
                   isCompact={isCompact}
-                  onAction={handleInvoiceAction}
+                  onChange={setConfigField}
+                  onSave={handleSaveConfig}
                 />
-              ))}
-            </View>
+                <InvoiceCreatePanel
+                  form={invoiceForm}
+                  errors={invoiceErrors}
+                  patientOptions={patientOptions}
+                  sessionOptions={completedSessionOptions}
+                  selectedSessionId={selectedSessionId}
+                  saving={saving}
+                  isCompact={isCompact}
+                  onChange={setInvoiceField}
+                  onCreate={handleCreateInvoice}
+                  onCreateFromSession={handleCreateFromSession}
+                  onSelectSession={setSelectedSessionId}
+                />
+              </View>
 
-            {pageInfo?.nextPage ? (
-              <Button
-                variant="outline"
-                size="medium"
-                onPress={handleLoadMore}
-                loading={loadingMore}
-                disabled={loadingMore}
-                fullWidth
-              >
-                Cargar más
-              </Button>
-            ) : null}
-          </View>
+              <View style={styles.filters}>
+                <View style={styles.filterDropdown}>
+                  <Text style={styles.filterLabel}>Estado</Text>
+                  <SimpleDropdown
+                    options={STATUS_OPTIONS}
+                    value={editableFilters.statusFilter}
+                    onSelect={(value) => setEditableFilter('statusFilter', value)}
+                  />
+                </View>
+                <View style={styles.filterDropdown}>
+                  <Text style={styles.filterLabel}>Tipo</Text>
+                  <SimpleDropdown
+                    options={KIND_OPTIONS}
+                    value={editableFilters.invoiceKindFilter}
+                    onSelect={(value) => setEditableFilter('invoiceKindFilter', value)}
+                  />
+                </View>
+                <View style={styles.filterDropdown}>
+                  <Text style={styles.filterLabel}>Paciente</Text>
+                  <SimpleDropdown
+                    options={patientFilterOptions}
+                    value={editableFilters.patientFilter}
+                    onSelect={(value) => setEditableFilter('patientFilter', value)}
+                  />
+                </View>
+                <View style={styles.filterAction}>
+                  <Button
+                    variant="outline"
+                    size="medium"
+                    onPress={handleApplyFilters}
+                    disabled={loading}
+                    icon={<Ionicons name="funnel-outline" size={18} color={theme.primary} />}
+                  >
+                    Aplicar
+                  </Button>
+                </View>
+              </View>
+
+              <View style={styles.invoicePanel}>
+                <View style={styles.sectionHeader}>
+                  <View>
+                    <Text style={styles.sectionTitle}>Facturas</Text>
+                    <Text style={styles.sectionSubtitle}>
+                      {pageInfo ? `${pageInfo.total} registros` : 'Listado administrativo'}
+                    </Text>
+                  </View>
+                  {loading ? <ActivityIndicator color={theme.primary} size="small" /> : null}
+                </View>
+
+                {error ? (
+                  <StatePanel
+                    icon="alert-circle-outline"
+                    title="No se pudieron cargar las facturas"
+                    text={error}
+                    actionLabel="Reintentar"
+                    onAction={handleRetry}
+                    isCompact={isCompact}
+                  />
+                ) : null}
+
+                {!error && !loading && invoices.length === 0 ? (
+                  <StatePanel
+                    icon="receipt-outline"
+                    isCompact={isCompact}
+                    title="Aún no hay facturas"
+                    text="Crea una factura manual o genera una desde una cita de clínica completada."
+                  />
+                ) : null}
+
+                <View style={styles.invoiceList}>
+                  {invoices.map((invoice) => (
+                    <InvoiceRow
+                      key={invoice.id}
+                      invoice={invoice}
+                      saving={saving}
+                      isCompact={isCompact}
+                      onAction={handleInvoiceAction}
+                    />
+                  ))}
+                </View>
+
+                {pageInfo?.nextPage ? (
+                  <Button
+                    variant="outline"
+                    size="medium"
+                    onPress={handleLoadMore}
+                    loading={loadingMore}
+                    disabled={loadingMore}
+                    fullWidth
+                  >
+                    Cargar más
+                  </Button>
+                ) : null}
+              </View>
+            </>
+          ) : null}
         </View>
       )}
     </ClinicWorkspaceScaffold>
@@ -316,6 +344,165 @@ function SummaryBand({
           <Text style={styles.metricValue}>{loading ? '...' : metric.value}</Text>
         </View>
       ))}
+    </View>
+  );
+}
+
+function RevenueSharePanel({
+  summary,
+  filters,
+  yearOptions,
+  loading,
+  error,
+  isCompact,
+  onChange,
+}: {
+  summary: clinicService.ClinicRevenueShareSummary | null;
+  filters: ClinicRevenueShareFilters;
+  yearOptions: Array<{ label: string; value: number; subtitle?: string }>;
+  loading: boolean;
+  error: string;
+  isCompact: boolean;
+  onChange: <K extends keyof ClinicRevenueShareFilters>(
+    field: K,
+    value: ClinicRevenueShareFilters[K],
+  ) => void;
+}): React.ReactElement {
+  const { theme } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
+  const totals = summary?.totals;
+  const pendingSnapshotCount = totals?.pendingSnapshotInvoiceCount ?? 0;
+  const missingPercentageCount = totals?.missingPercentageInvoiceCount ?? 0;
+  const missingSpecialistCount = totals?.missingSpecialistInvoiceCount ?? 0;
+  const metrics = [
+    {
+      label: 'Base pagada',
+      value: formatCurrency(totals?.shareBaseAmount ?? 0),
+    },
+    {
+      label: 'Especialistas',
+      value: formatCurrency(totals?.specialistShareAmount ?? 0),
+    },
+    {
+      label: 'Clínica',
+      value: formatCurrency(totals?.clinicRetainedAmount ?? 0),
+    },
+    {
+      label: 'Facturas',
+      value: String(totals?.paidInvoiceCount ?? 0),
+    },
+  ];
+
+  return (
+    <View style={styles.revenuePanel}>
+      <View style={styles.sectionHeader}>
+        <View>
+          <Text style={styles.sectionTitle}>Reparto mensual</Text>
+          <Text style={styles.sectionSubtitle}>Facturas pagadas del periodo.</Text>
+        </View>
+        {loading ? <ActivityIndicator color={theme.primary} size="small" /> : null}
+      </View>
+
+      <View style={styles.revenueControls}>
+        <View style={styles.revenueDropdown}>
+          <Text style={styles.filterLabel}>Mes</Text>
+          <SimpleDropdown
+            options={REVENUE_SHARE_MONTH_OPTIONS}
+            value={filters.month}
+            onSelect={(value) => onChange('month', value)}
+          />
+        </View>
+        <View style={styles.revenueDropdown}>
+          <Text style={styles.filterLabel}>Año</Text>
+          <SimpleDropdown
+            options={yearOptions}
+            value={filters.year}
+            onSelect={(value) => onChange('year', value)}
+          />
+        </View>
+      </View>
+
+      {error ? (
+        <View style={styles.inlineWarning}>
+          <Ionicons name="alert-circle-outline" size={18} color={theme.warning} />
+          <Text style={styles.inlineWarningText}>{error}</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.revenueMetrics}>
+        {metrics.map((metric) => (
+          <View key={metric.label} style={styles.revenueMetric}>
+            <Text style={styles.metricLabel}>{metric.label}</Text>
+            <Text style={styles.revenueMetricValue}>{loading ? '...' : metric.value}</Text>
+          </View>
+        ))}
+      </View>
+
+      {pendingSnapshotCount > 0 ? (
+        <View style={styles.inlineWarning}>
+          <Ionicons name="warning-outline" size={18} color={theme.warning} />
+          <Text style={styles.inlineWarningText}>
+            Hay {pendingSnapshotCount} factura{pendingSnapshotCount === 1 ? '' : 's'} pagada{pendingSnapshotCount === 1 ? '' : 's'} anterior{pendingSnapshotCount === 1 ? '' : 'es'} sin snapshot; no se incluye{pendingSnapshotCount === 1 ? '' : 'n'} en los importes.
+          </Text>
+        </View>
+      ) : null}
+
+      {missingPercentageCount > 0 || missingSpecialistCount > 0 ? (
+        <View style={styles.inlineWarning}>
+          <Ionicons name="warning-outline" size={18} color={theme.warning} />
+          <Text style={styles.inlineWarningText}>
+            {missingPercentageCount} sin porcentaje y {missingSpecialistCount} sin especialista.
+          </Text>
+        </View>
+      ) : null}
+
+      {!error && !loading && summary && summary.specialists.length === 0 ? (
+        <View style={styles.revenueEmpty}>
+          <Text style={styles.revenueEmptyText}>Sin facturas pagadas en este mes.</Text>
+        </View>
+      ) : null}
+
+      {summary && summary.specialists.length > 0 ? (
+        <View style={styles.revenueTable}>
+          {!isCompact ? (
+            <View style={styles.revenueHeaderRow}>
+              <Text style={[styles.revenueHeaderCell, styles.revenueSpecialistCell]}>Especialista</Text>
+              <Text style={styles.revenueHeaderCell}>Base</Text>
+              <Text style={styles.revenueHeaderCell}>Reparto</Text>
+              <Text style={styles.revenueHeaderCell}>Clínica</Text>
+              <Text style={styles.revenueHeaderCell}>%</Text>
+            </View>
+          ) : null}
+          {summary.specialists.map((specialist) => (
+            <View key={specialist.clinicSpecialistId} style={styles.revenueRow}>
+              <View style={styles.revenueSpecialistCell}>
+                <Text style={styles.revenueSpecialistName}>{specialist.displayName}</Text>
+                <Text style={styles.revenueSpecialistMeta}>
+                  {specialist.professionalTitle ?? 'Sin título'} · {specialist.paidInvoiceCount} factura{specialist.paidInvoiceCount === 1 ? '' : 's'}
+                </Text>
+              </View>
+              <View style={styles.revenueAmountCell}>
+                {isCompact ? <Text style={styles.revenueCompactLabel}>Base</Text> : null}
+                <Text style={styles.revenueAmount}>{formatCurrency(specialist.shareBaseAmount)}</Text>
+              </View>
+              <View style={styles.revenueAmountCell}>
+                {isCompact ? <Text style={styles.revenueCompactLabel}>Reparto</Text> : null}
+                <Text style={styles.revenueAmount}>{formatCurrency(specialist.specialistShareAmount)}</Text>
+              </View>
+              <View style={styles.revenueAmountCell}>
+                {isCompact ? <Text style={styles.revenueCompactLabel}>Clínica</Text> : null}
+                <Text style={styles.revenueAmount}>{formatCurrency(specialist.clinicRetainedAmount)}</Text>
+              </View>
+              <View style={styles.revenueAmountCell}>
+                {isCompact ? <Text style={styles.revenueCompactLabel}>%</Text> : null}
+                <Text style={styles.revenueAmount}>
+                  {formatPercentage(specialist.effectiveRevenueSharePercentage)}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -812,6 +999,145 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
       borderColor: theme.border,
       borderRadius: borderRadius.lg,
       backgroundColor: theme.bgCard,
+    },
+    revenuePanel: {
+      width: '100%',
+      gap: spacing.lg,
+      padding: spacing.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: borderRadius.lg,
+      backgroundColor: theme.bgCard,
+      zIndex: 40,
+    },
+    revenueControls: {
+      flexDirection: isCompact ? 'column' : 'row',
+      alignItems: isCompact ? 'stretch' : 'flex-end',
+      gap: spacing.md,
+      zIndex: 45,
+    },
+    revenueDropdown: {
+      flex: 1,
+      minWidth: isCompact ? undefined : 180,
+      zIndex: 50,
+    },
+    revenueMetrics: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    revenueMetric: {
+      flexGrow: 1,
+      flexBasis: isCompact ? '45%' : 160,
+      minWidth: 140,
+      gap: 2,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: borderRadius.md,
+      backgroundColor: theme.bgMuted,
+    },
+    revenueMetricValue: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansBold,
+      fontSize: typography.fontSizes.lg,
+    },
+    inlineWarning: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: theme.warning,
+      borderRadius: borderRadius.md,
+      backgroundColor: theme.warningBg,
+    },
+    inlineWarningText: {
+      flex: 1,
+      color: theme.textPrimary,
+      fontFamily: theme.fontSans,
+      fontSize: typography.fontSizes.sm,
+      lineHeight: 20,
+    },
+    revenueEmpty: {
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: borderRadius.md,
+      backgroundColor: theme.bgMuted,
+    },
+    revenueEmptyText: {
+      color: theme.textMuted,
+      fontFamily: theme.fontSansMedium,
+      fontSize: typography.fontSizes.sm,
+      textAlign: 'center',
+    },
+    revenueTable: {
+      gap: spacing.xs,
+    },
+    revenueHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingHorizontal: spacing.md,
+      paddingBottom: spacing.xs,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    revenueHeaderCell: {
+      flex: 1,
+      minWidth: 92,
+      color: theme.textMuted,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: typography.fontSizes.xs,
+      textAlign: 'right',
+      textTransform: 'uppercase',
+    },
+    revenueRow: {
+      flexDirection: isCompact ? 'column' : 'row',
+      alignItems: isCompact ? 'stretch' : 'center',
+      gap: isCompact ? spacing.sm : spacing.md,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: borderRadius.md,
+      backgroundColor: theme.bg,
+    },
+    revenueSpecialistCell: {
+      flex: isCompact ? undefined : 1.6,
+      minWidth: isCompact ? undefined : 180,
+    },
+    revenueSpecialistName: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: typography.fontSizes.sm,
+    },
+    revenueSpecialistMeta: {
+      marginTop: 2,
+      color: theme.textMuted,
+      fontFamily: theme.fontSans,
+      fontSize: typography.fontSizes.xs,
+    },
+    revenueAmountCell: {
+      flex: 1,
+      minWidth: isCompact ? undefined : 92,
+      flexDirection: isCompact ? 'row' : 'column',
+      alignItems: isCompact ? 'center' : 'flex-end',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+    },
+    revenueCompactLabel: {
+      color: theme.textMuted,
+      fontFamily: theme.fontSansMedium,
+      fontSize: typography.fontSizes.xs,
+    },
+    revenueAmount: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: typography.fontSizes.sm,
+      textAlign: isCompact ? 'right' : 'right',
     },
     sectionHeader: {
       flexDirection: 'row',

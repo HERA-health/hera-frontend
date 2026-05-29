@@ -289,6 +289,50 @@ export interface ClinicBillingSummary {
   pendingCount: number;
 }
 
+export interface ClinicRevenueShareSummaryFilters {
+  year?: number;
+  month?: number;
+}
+
+export interface ClinicRevenueSharePeriod {
+  year: number;
+  month: number;
+  startDate: string;
+  endDate: string;
+  currency: 'EUR';
+}
+
+export interface ClinicRevenueShareTotals {
+  paidInvoiceCount: number;
+  shareBaseAmount: number;
+  specialistShareAmount: number;
+  clinicRetainedAmount: number;
+  missingPercentageInvoiceCount: number;
+  missingSpecialistInvoiceCount: number;
+  pendingSnapshotInvoiceCount: number;
+  pendingSnapshotBaseAmount: number;
+}
+
+export interface ClinicRevenueShareSpecialistSummary {
+  clinicSpecialistId: string;
+  displayName: string;
+  professionalTitle: string | null;
+  status: ClinicSpecialistStatus;
+  paidInvoiceCount: number;
+  shareBaseAmount: number;
+  specialistShareAmount: number;
+  clinicRetainedAmount: number;
+  effectiveRevenueSharePercentage: number;
+  missingPercentageInvoiceCount: number;
+  pendingSnapshotInvoiceCount: number;
+}
+
+export interface ClinicRevenueShareSummary {
+  period: ClinicRevenueSharePeriod;
+  totals: ClinicRevenueShareTotals;
+  specialists: ClinicRevenueShareSpecialistSummary[];
+}
+
 export interface ClinicInvoiceSummary {
   id: string;
   clinicId: string;
@@ -306,6 +350,10 @@ export interface ClinicInvoiceSummary {
   concept: string;
   sessionDate: string | null;
   durationMinutes: number | null;
+  revenueSharePercentageSnapshot: number | null;
+  revenueShareBaseAmount: number | null;
+  revenueShareAmount: number | null;
+  revenueShareCalculatedAt: string | null;
   status: ClinicInvoiceStatus;
   sentAt: string | null;
   paidAt: string | null;

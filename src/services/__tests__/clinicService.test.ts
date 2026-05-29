@@ -13,6 +13,7 @@ import {
   getClinic,
   getClinicBillingConfig,
   getClinicBillingSummary,
+  getClinicRevenueShareSummary,
   getClinicInvoice,
   getClinicDashboard,
   getClinicPatient,
@@ -47,6 +48,7 @@ import {
   type ClinicDetail,
   type ClinicBillingConfig,
   type ClinicBillingSummary,
+  type ClinicRevenueShareSummary,
   type ClinicInvoiceDetail,
   type ClinicInvoiceListPage,
   type ClinicInvoiceSummary,
@@ -862,6 +864,10 @@ describe('clinicService', () => {
       sessionDate: '2026-06-01T10:00:00.000Z',
       durationMinutes: 60,
       internalNotes: null,
+      revenueSharePercentageSnapshot: 60,
+      revenueShareBaseAmount: 57.85,
+      revenueShareAmount: 34.71,
+      revenueShareCalculatedAt: '2026-06-01T10:00:00.000Z',
       status: 'DRAFT',
       sentAt: null,
       paidAt: null,
@@ -987,6 +993,61 @@ describe('clinicService', () => {
 
     await expect(cancelClinicInvoice('clinic-1', 'invoice-1')).resolves.toEqual({ ...invoice, status: 'CANCELLED' });
     expect(deleteMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/invoices/invoice-1');
+  });
+
+  it('loads clinic revenue share summaries with period filters', async () => {
+    const summary: ClinicRevenueShareSummary = {
+      period: {
+        year: 2026,
+        month: 5,
+        startDate: '2026-05-01T00:00:00.000Z',
+        endDate: '2026-06-01T00:00:00.000Z',
+        currency: 'EUR',
+      },
+      totals: {
+        paidInvoiceCount: 2,
+        shareBaseAmount: 150,
+        specialistShareAmount: 75,
+        clinicRetainedAmount: 75,
+        missingPercentageInvoiceCount: 0,
+        missingSpecialistInvoiceCount: 0,
+        pendingSnapshotInvoiceCount: 1,
+        pendingSnapshotBaseAmount: 25,
+      },
+      specialists: [
+        {
+          clinicSpecialistId: 'clinic-specialist-1',
+          displayName: 'Dra. Ana Ruiz',
+          professionalTitle: 'Psicologa sanitaria',
+          status: 'ACTIVE',
+          paidInvoiceCount: 2,
+          shareBaseAmount: 150,
+          specialistShareAmount: 75,
+          clinicRetainedAmount: 75,
+          effectiveRevenueSharePercentage: 50,
+          missingPercentageInvoiceCount: 0,
+          pendingSnapshotInvoiceCount: 0,
+        },
+      ],
+    };
+
+    getMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: summary,
+      },
+    } as AxiosResponse<{ success: boolean; data: ClinicRevenueShareSummary }>);
+
+    await expect(getClinicRevenueShareSummary('clinic-1', {
+      year: 2026,
+      month: 5,
+    })).resolves.toBe(summary);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/revenue-share', {
+      params: {
+        year: 2026,
+        month: 5,
+      },
+    });
   });
 
   it('maps clinic billing email failures to a stable Spanish message', async () => {
