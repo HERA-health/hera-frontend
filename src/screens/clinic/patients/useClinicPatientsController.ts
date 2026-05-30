@@ -7,9 +7,11 @@ import type { UploadAsset } from '../../../utils/multipartUpload';
 import { useClinicWorkspace } from '../useClinicWorkspace';
 import {
   CLINIC_PATIENT_PAGE_LIMIT,
+  CLINIC_ASSIGNMENT_HISTORY_PAGE_LIMIT,
   createErrorFeedback,
   createSuccessFeedback,
   EMPTY_ASSIGNMENT_FORM,
+  EMPTY_ASSIGNMENT_HISTORY_PAGE_INFO,
   EMPTY_FORM,
   EMPTY_PATIENT_PAGE_INFO,
   getEmptyToNull,
@@ -32,6 +34,11 @@ import {
 } from './clinicPatientDomain';
 
 interface LoadPatientsOptions {
+  page?: number;
+  append?: boolean;
+}
+
+interface LoadAssignmentHistoryOptions {
   page?: number;
   append?: boolean;
 }
@@ -67,12 +74,18 @@ export function useClinicPatientsController() {
   const [consentLoading, setConsentLoading] = useState(false);
   const [consentSaving, setConsentSaving] = useState(false);
   const [openingConsentDocumentId, setOpeningConsentDocumentId] = useState<string | null>(null);
+  const [assignmentHistory, setAssignmentHistory] = useState<clinicService.ClinicPatientAssignmentHistoryItem[]>([]);
+  const [assignmentHistoryPageInfo, setAssignmentHistoryPageInfo] = useState(EMPTY_ASSIGNMENT_HISTORY_PAGE_INFO);
+  const [assignmentHistoryLoading, setAssignmentHistoryLoading] = useState(false);
+  const [assignmentHistoryLoadingMore, setAssignmentHistoryLoadingMore] = useState(false);
+  const [assignmentHistoryError, setAssignmentHistoryError] = useState('');
 
   const mountedRef = useRef(true);
   const patientsRef = useRef<clinicService.ClinicPatientSummary[]>([]);
   const patientsRequestSeq = useRef(0);
   const detailRequestSeq = useRef(0);
   const consentRequestSeq = useRef(0);
+  const assignmentHistoryRequestSeq = useRef(0);
   const specialistsRequestSeq = useRef(0);
 
   const updatePatients = useCallback((nextPatients: clinicService.ClinicPatientSummary[]) => {
@@ -132,6 +145,7 @@ export function useClinicPatientsController() {
     patientsRequestSeq.current += 1;
     detailRequestSeq.current += 1;
     consentRequestSeq.current += 1;
+    assignmentHistoryRequestSeq.current += 1;
     specialistsRequestSeq.current += 1;
     updatePatients([]);
     setPatientPageInfo(EMPTY_PATIENT_PAGE_INFO);
@@ -152,6 +166,11 @@ export function useClinicPatientsController() {
     setConsentLoading(false);
     setConsentSaving(false);
     setOpeningConsentDocumentId(null);
+    setAssignmentHistory([]);
+    setAssignmentHistoryPageInfo(EMPTY_ASSIGNMENT_HISTORY_PAGE_INFO);
+    setAssignmentHistoryLoading(false);
+    setAssignmentHistoryLoadingMore(false);
+    setAssignmentHistoryError('');
     setFeedback(null);
   }, [updatePatients]);
 
@@ -265,6 +284,61 @@ export function useClinicPatientsController() {
     }
   }, [rememberPatientConsent]);
 
+  const loadAssignmentHistory = useCallback(async (
+    clinicId: string,
+    patientId: string,
+    options: LoadAssignmentHistoryOptions = {},
+  ) => {
+    const append = options.append === true;
+    const page = options.page ?? 1;
+    const requestId = assignmentHistoryRequestSeq.current + 1;
+    assignmentHistoryRequestSeq.current = requestId;
+
+    if (append) {
+      setAssignmentHistoryLoadingMore(true);
+      setAssignmentHistoryError('');
+    } else {
+      setAssignmentHistoryLoading(true);
+      setAssignmentHistoryError('');
+    }
+
+    try {
+      const pageResult = await clinicService.listClinicPatientAssignmentHistory(clinicId, patientId, {
+        page,
+        limit: CLINIC_ASSIGNMENT_HISTORY_PAGE_LIMIT,
+      });
+      if (!mountedRef.current || assignmentHistoryRequestSeq.current !== requestId) return;
+
+      setAssignmentHistory((currentHistory) => {
+        if (!append) {
+          return pageResult.items;
+        }
+
+        const currentIds = new Set(currentHistory.map((item) => item.id));
+        const nextItems = pageResult.items.filter((item) => !currentIds.has(item.id));
+        return [...currentHistory, ...nextItems];
+      });
+      setAssignmentHistoryPageInfo(pageResult.pageInfo);
+      setAssignmentHistoryError('');
+    } catch (error: unknown) {
+      if (!mountedRef.current || assignmentHistoryRequestSeq.current !== requestId) return;
+      if (!append) {
+        setAssignmentHistory([]);
+        setAssignmentHistoryPageInfo(EMPTY_ASSIGNMENT_HISTORY_PAGE_INFO);
+      }
+      setAssignmentHistoryError(error instanceof Error
+        ? error.message
+        : 'No se pudo cargar el historial de responsables');
+    } finally {
+      if (!mountedRef.current || assignmentHistoryRequestSeq.current !== requestId) return;
+      if (append) {
+        setAssignmentHistoryLoadingMore(false);
+      } else {
+        setAssignmentHistoryLoading(false);
+      }
+    }
+  }, []);
+
   const loadPatients = useCallback(async (
     clinicId: string,
     filters?: PatientsLoadFilters,
@@ -337,6 +411,7 @@ export function useClinicPatientsController() {
       patientsRequestSeq.current += 1;
       detailRequestSeq.current += 1;
       consentRequestSeq.current += 1;
+      assignmentHistoryRequestSeq.current += 1;
       specialistsRequestSeq.current += 1;
     };
   }, []);
@@ -387,6 +462,28 @@ export function useClinicPatientsController() {
     canManage,
     loadPatientConsent,
     patientConsents,
+    selectedPatientId,
+    workspace.selectedClinicId,
+  ]);
+
+  useEffect(() => {
+    if (!workspace.selectedClinicId || !selectedPatientId || !canManage) {
+      assignmentHistoryRequestSeq.current += 1;
+      setAssignmentHistory([]);
+      setAssignmentHistoryPageInfo(EMPTY_ASSIGNMENT_HISTORY_PAGE_INFO);
+      setAssignmentHistoryLoading(false);
+      setAssignmentHistoryLoadingMore(false);
+      setAssignmentHistoryError('');
+      return;
+    }
+
+    setAssignmentHistory([]);
+    setAssignmentHistoryPageInfo(EMPTY_ASSIGNMENT_HISTORY_PAGE_INFO);
+    setAssignmentHistoryError('');
+    void loadAssignmentHistory(workspace.selectedClinicId, selectedPatientId);
+  }, [
+    canManage,
+    loadAssignmentHistory,
     selectedPatientId,
     workspace.selectedClinicId,
   ]);
@@ -503,6 +600,42 @@ export function useClinicPatientsController() {
     selectedPatientId,
     workspace.selectedClinicId,
   ]);
+
+  const handleLoadMoreAssignmentHistory = useCallback(() => {
+    if (
+      !workspace.selectedClinicId
+      || !selectedPatientId
+      || !assignmentHistoryPageInfo.hasMore
+      || !assignmentHistoryPageInfo.nextPage
+      || assignmentHistoryLoadingMore
+    ) {
+      return;
+    }
+
+    void loadAssignmentHistory(
+      workspace.selectedClinicId,
+      selectedPatientId,
+      {
+        page: assignmentHistoryPageInfo.nextPage,
+        append: true,
+      },
+    );
+  }, [
+    assignmentHistoryLoadingMore,
+    assignmentHistoryPageInfo.hasMore,
+    assignmentHistoryPageInfo.nextPage,
+    loadAssignmentHistory,
+    selectedPatientId,
+    workspace.selectedClinicId,
+  ]);
+
+  const handleRetryAssignmentHistory = useCallback(() => {
+    if (!workspace.selectedClinicId || !selectedPatientId) {
+      return;
+    }
+
+    void loadAssignmentHistory(workspace.selectedClinicId, selectedPatientId);
+  }, [loadAssignmentHistory, selectedPatientId, workspace.selectedClinicId]);
 
   const handleCancelForm = useCallback(() => {
     setPanelMode('detail');
@@ -627,6 +760,7 @@ export function useClinicPatientsController() {
       }
 
       await loadPatients(workspace.selectedClinicId, nextFilters, updatedPatient.id);
+      await loadAssignmentHistory(workspace.selectedClinicId, updatedPatient.id);
     } catch (error: unknown) {
       setFeedback(createErrorFeedback(error, 'No se pudo actualizar el estado'));
     } finally {
@@ -637,6 +771,7 @@ export function useClinicPatientsController() {
     assignmentFilter,
     canManage,
     clinicSpecialistFilter,
+    loadAssignmentHistory,
     loadPatients,
     rememberPatientDetail,
     search,
@@ -738,6 +873,7 @@ export function useClinicPatientsController() {
         search,
         assignment: 'ALL',
       }, updatedPatient.id);
+      await loadAssignmentHistory(workspace.selectedClinicId, updatedPatient.id);
     } catch (error: unknown) {
       setFeedback(createErrorFeedback(error, 'No se pudo asignar el responsable asistencial'));
     } finally {
@@ -747,6 +883,7 @@ export function useClinicPatientsController() {
     alert,
     assignmentForm,
     canManage,
+    loadAssignmentHistory,
     loadPatients,
     rememberPatientDetail,
     search,
@@ -895,6 +1032,7 @@ export function useClinicPatientsController() {
         search,
         assignment: 'UNASSIGNED',
       }, updatedPatient.id);
+      await loadAssignmentHistory(workspace.selectedClinicId, updatedPatient.id);
     } catch (error: unknown) {
       setFeedback(createErrorFeedback(error, 'No se pudo retirar el responsable asistencial'));
     } finally {
@@ -903,6 +1041,7 @@ export function useClinicPatientsController() {
   }, [
     alert,
     canManage,
+    loadAssignmentHistory,
     loadPatients,
     rememberPatientDetail,
     search,
@@ -923,6 +1062,11 @@ export function useClinicPatientsController() {
     selectedPatientId,
     selectedPatient,
     selectedPatientConsent,
+    assignmentHistory,
+    assignmentHistoryPageInfo,
+    assignmentHistoryLoading,
+    assignmentHistoryLoadingMore,
+    assignmentHistoryError,
     detailLoading,
     consentLoading,
     consentSaving,
@@ -953,6 +1097,8 @@ export function useClinicPatientsController() {
     handleAssignmentFilterChange,
     handleSpecialistFilterChange,
     handleLoadMorePatients,
+    handleLoadMoreAssignmentHistory,
+    handleRetryAssignmentHistory,
     handleCancelForm,
     handleSubmit,
     handleStatusChange,

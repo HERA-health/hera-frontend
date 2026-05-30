@@ -24,6 +24,7 @@ import {
   getMyProfessionalClinicContexts,
   getProfessionalClinicPatient,
   listClinicPatientConsents,
+  listClinicPatientAssignmentHistory,
   listClinicPatients,
   listClinicInvoices,
   listClinicSettlements,
@@ -64,6 +65,7 @@ import {
   type ClinicPatientConsentDetail,
   type ClinicPatientConsentResolution,
   type ClinicPatientConsentSummary,
+  type ClinicPatientAssignmentHistoryPage,
   type ClinicPatientDetail,
   type ClinicPatientSummary,
   type ClinicSessionListPage,
@@ -698,6 +700,59 @@ describe('clinicService', () => {
     expect(patchMock).toHaveBeenCalledWith(
       '/clinics/clinic-1/patients/clinic-patient-1/assignment/close',
       { endedReason: 'Corrección administrativa' },
+    );
+  });
+
+  it('loads clinic patient assignment history through the dedicated endpoint', async () => {
+    const history: ClinicPatientAssignmentHistoryPage = {
+      items: [
+        {
+          id: 'assignment-1',
+          status: 'ENDED',
+          startedAt: '2026-05-27T10:05:00.000Z',
+          endedAt: '2026-05-28T10:05:00.000Z',
+          reason: 'Derivación interna',
+          endedReason: 'Cambio de responsable asistencial',
+          clinicSpecialist: {
+            id: 'clinic-specialist-1',
+            displayName: 'Dra. Ana Ruiz',
+            professionalTitle: null,
+            status: 'ACTIVE',
+          },
+          assignedBy: {
+            id: 'user-1',
+            name: 'Admin Clínica',
+          },
+          endedBy: null,
+        },
+      ],
+      pageInfo: {
+        page: 1,
+        limit: 20,
+        hasMore: false,
+        nextPage: null,
+      },
+    };
+
+    getMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: history,
+      },
+    } as AxiosResponse<{ success: boolean; data: ClinicPatientAssignmentHistoryPage }>);
+
+    await expect(listClinicPatientAssignmentHistory('clinic-1', 'clinic-patient-1', {
+      page: 1,
+      limit: 20,
+    })).resolves.toBe(history);
+    expect(getMock).toHaveBeenCalledWith(
+      '/clinics/clinic-1/patients/clinic-patient-1/assignment/history',
+      {
+        params: {
+          page: 1,
+          limit: 20,
+        },
+      },
     );
   });
 

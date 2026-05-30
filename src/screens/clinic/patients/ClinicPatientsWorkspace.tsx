@@ -136,6 +136,11 @@ export function ClinicPatientsWorkspace({
                   consentLoading={controller.consentLoading}
                   consentSaving={controller.consentSaving}
                   openingConsentDocumentId={controller.openingConsentDocumentId}
+                  assignmentHistory={controller.assignmentHistory}
+                  assignmentHistoryPageInfo={controller.assignmentHistoryPageInfo}
+                  assignmentHistoryLoading={controller.assignmentHistoryLoading}
+                  assignmentHistoryLoadingMore={controller.assignmentHistoryLoadingMore}
+                  assignmentHistoryError={controller.assignmentHistoryError}
                   canManage={controller.canManage}
                   assignmentMode={controller.assignmentMode}
                   assignmentForm={controller.assignmentForm}
@@ -151,6 +156,8 @@ export function ClinicPatientsWorkspace({
                   onRequestConsent={controller.handleRequestConsent}
                   onUploadConsentEvidence={controller.handleUploadConsentEvidence}
                   onOpenConsentDocument={controller.handleOpenConsentDocument}
+                  onLoadMoreAssignmentHistory={controller.handleLoadMoreAssignmentHistory}
+                  onRetryAssignmentHistory={controller.handleRetryAssignmentHistory}
                   onEdit={controller.handleEdit}
                   onStatusChange={controller.handleStatusChange}
                 />

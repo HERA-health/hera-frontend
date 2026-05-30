@@ -59,9 +59,26 @@ describe('ClinicPatientsScreen source guards', () => {
     expect(hookSource).toContain('patientsRequestSeq');
     expect(hookSource).toContain('detailRequestSeq');
     expect(hookSource).toContain('specialistsRequestSeq');
+    expect(hookSource).toContain('assignmentHistoryRequestSeq');
     expect(hookSource).toContain('pageResult.items');
     expect(hookSource).toContain('pageResult.pageInfo');
     expect(hookSource).toContain('mergeSummaryIntoDetail');
+  });
+
+  it('loads assignment history through clinicService and keeps clinical transfer out of the screen', () => {
+    const detailSource = fs.readFileSync(
+      path.join(patientsDir, 'ClinicPatientDetailPanel.tsx'),
+      'utf8',
+    );
+
+    expect(hookSource).toContain('clinicService.listClinicPatientAssignmentHistory');
+    expect(detailSource).toContain('Historial de responsables');
+    expect(detailSource).toContain('no traslada notas ni documentos clínicos');
+    expect(detailSource).toContain('formatDateTime');
+    expect(detailSource).toContain('Motivo administrativo, sin datos clínicos');
+    expect(hookSource).toContain("setAssignmentHistoryError('');");
+    expect(workspaceSource + hookSource + detailSource).not.toContain('ClinicalRecord');
+    expect(workspaceSource + hookSource + detailSource).not.toContain('clinicalRecord');
   });
 
   it('keeps patient screens inside clinicService instead of calling api directly', () => {

@@ -6,9 +6,11 @@ import { Input } from '../../../components/common/Input';
 import { SimpleDropdown, type DropdownOption } from '../../../components/common/SimpleDropdown';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type {
+  ClinicPatientAssignmentHistoryItem,
   ClinicPatientConsentDetail,
   ClinicPatientConsentDocument,
   ClinicPatientDetail,
+  ClinicPatientListPageInfo,
   ClinicPatientSummary,
 } from '../../../services/clinicService';
 import type { UploadAsset } from '../../../utils/multipartUpload';
@@ -21,6 +23,7 @@ import type {
 } from './clinicPatientDomain';
 import {
   formatDate,
+  formatDateTime,
   hasPatientDetail,
 } from './clinicPatientDomain';
 import { createDetailStyles } from './clinicPatientStyles';
@@ -34,6 +37,11 @@ interface ClinicPatientDetailPanelProps {
   consentLoading: boolean;
   consentSaving: boolean;
   openingConsentDocumentId: string | null;
+  assignmentHistory: ClinicPatientAssignmentHistoryItem[];
+  assignmentHistoryPageInfo: ClinicPatientListPageInfo;
+  assignmentHistoryLoading: boolean;
+  assignmentHistoryLoadingMore: boolean;
+  assignmentHistoryError: string;
   canManage: boolean;
   assignmentMode: AssignmentPanelMode;
   assignmentForm: AssignmentForm;
@@ -49,6 +57,8 @@ interface ClinicPatientDetailPanelProps {
   onRequestConsent: () => void;
   onUploadConsentEvidence: (file: UploadAsset) => void;
   onOpenConsentDocument: (document: ClinicPatientConsentDocument) => void;
+  onLoadMoreAssignmentHistory: () => void;
+  onRetryAssignmentHistory: () => void;
   onEdit: () => void;
   onStatusChange: () => void;
 }
@@ -62,6 +72,11 @@ export function ClinicPatientDetailPanel({
   consentLoading,
   consentSaving,
   openingConsentDocumentId,
+  assignmentHistory,
+  assignmentHistoryPageInfo,
+  assignmentHistoryLoading,
+  assignmentHistoryLoadingMore,
+  assignmentHistoryError,
   canManage,
   assignmentMode,
   assignmentForm,
@@ -77,6 +92,8 @@ export function ClinicPatientDetailPanel({
   onRequestConsent,
   onUploadConsentEvidence,
   onOpenConsentDocument,
+  onLoadMoreAssignmentHistory,
+  onRetryAssignmentHistory,
   onEdit,
   onStatusChange,
 }: ClinicPatientDetailPanelProps): React.ReactElement {
@@ -154,6 +171,17 @@ export function ClinicPatientDetailPanel({
         onChangeAssignmentReason={onChangeAssignmentReason}
         onSubmitAssignment={onSubmitAssignment}
         onCloseAssignment={onCloseAssignment}
+      />
+
+      <AssignmentHistorySection
+        history={assignmentHistory}
+        pageInfo={assignmentHistoryPageInfo}
+        loading={assignmentHistoryLoading}
+        loadingMore={assignmentHistoryLoadingMore}
+        error={assignmentHistoryError}
+        canManage={canManage}
+        onLoadMore={onLoadMoreAssignmentHistory}
+        onRetry={onRetryAssignmentHistory}
       />
 
       <View style={styles.sectionHeader}>
@@ -235,6 +263,118 @@ interface AssignmentSectionProps {
   onCloseAssignment: () => void;
 }
 
+interface AssignmentHistorySectionProps {
+  history: ClinicPatientAssignmentHistoryItem[];
+  pageInfo: ClinicPatientListPageInfo;
+  loading: boolean;
+  loadingMore: boolean;
+  error: string;
+  canManage: boolean;
+  onLoadMore: () => void;
+  onRetry: () => void;
+}
+
+function AssignmentHistorySection({
+  history,
+  pageInfo,
+  loading,
+  loadingMore,
+  error,
+  canManage,
+  onLoadMore,
+  onRetry,
+}: AssignmentHistorySectionProps): React.ReactElement | null {
+  const { theme } = useTheme();
+  const styles = useMemo(() => createDetailStyles(theme), [theme]);
+
+  if (!canManage) {
+    return null;
+  }
+
+  return (
+    <View style={styles.historyBox}>
+      <View style={styles.sectionHeader}>
+        <View>
+          <Text style={styles.sectionTitle}>Historial de responsables</Text>
+          <Text style={styles.hint}>
+            Registro administrativo; no traslada notas ni documentos clínicos.
+          </Text>
+        </View>
+        {loading ? <ActivityIndicator color={theme.primary} size="small" /> : null}
+      </View>
+
+      {error ? (
+        <View style={styles.historyState}>
+          <Text style={[styles.message, { color: theme.error }]}>{error}</Text>
+          <Button
+            variant="ghost"
+            size="small"
+            onPress={onRetry}
+            disabled={loading}
+          >
+            Reintentar
+          </Button>
+        </View>
+      ) : null}
+
+      {!loading && !error && history.length === 0 ? (
+        <View style={styles.assignmentEmpty}>
+          <Ionicons name="time-outline" size={18} color={theme.textMuted} />
+          <Text style={styles.hint}>Aún no hay cambios de responsable registrados.</Text>
+        </View>
+      ) : null}
+
+      {history.length > 0 ? (
+        <View style={styles.historyList}>
+          {history.map((item) => (
+            <View key={item.id} style={styles.historyItem}>
+              <View style={[
+                styles.historyMarker,
+                { backgroundColor: item.status === 'ACTIVE' ? theme.primaryAlpha12 : theme.bgCard },
+              ]}>
+                <Ionicons
+                  name={item.status === 'ACTIVE' ? 'checkmark-circle-outline' : 'swap-horizontal-outline'}
+                  size={17}
+                  color={item.status === 'ACTIVE' ? theme.primary : theme.textMuted}
+                />
+              </View>
+              <View style={styles.historyCopy}>
+                <Text style={styles.historyName}>{item.clinicSpecialist.displayName}</Text>
+                <Text style={styles.historyMeta}>
+                  {item.clinicSpecialist.professionalTitle ?? 'Especialista de clínica'} - {formatDateTime(item.startedAt)}
+                  {item.endedAt ? ` a ${formatDateTime(item.endedAt)}` : ' - activo'}
+                </Text>
+                {item.reason ? (
+                  <Text style={styles.assignmentReason}>Motivo: {item.reason}</Text>
+                ) : null}
+                {item.endedReason ? (
+                  <Text style={styles.assignmentReason}>Cierre: {item.endedReason}</Text>
+                ) : null}
+                <Text style={styles.historyActor}>
+                  Alta: {item.assignedBy?.name ?? 'Sin actor registrado'}
+                  {item.endedBy ? ` - Cierre: ${item.endedBy.name}` : ''}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {pageInfo.hasMore ? (
+        <Button
+          variant="ghost"
+          size="medium"
+          onPress={onLoadMore}
+          loading={loadingMore}
+          disabled={loading || loadingMore}
+        >
+          Cargar más
+        </Button>
+      ) : null}
+    </View>
+  );
+}
+
 function AssignmentSection({
   patient,
   assignmentMode,
@@ -306,7 +446,8 @@ function AssignmentSection({
           <Input
             label="Motivo interno"
             value={assignmentForm.reason}
-            placeholder="Derivación, preferencia clínica, continuidad..."
+            placeholder="Motivo administrativo, sin datos clínicos"
+            helperText="No incluyas notas clínicas, diagnósticos ni documentos."
             editable={!saving}
             onChangeText={onChangeAssignmentReason}
           />

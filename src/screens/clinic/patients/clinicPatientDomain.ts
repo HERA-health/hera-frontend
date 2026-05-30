@@ -54,6 +54,7 @@ export interface FieldConfig {
 
 export const DEFAULT_CLINIC_BILLING_COUNTRY = 'España';
 export const CLINIC_PATIENT_PAGE_LIMIT = 50;
+export const CLINIC_ASSIGNMENT_HISTORY_PAGE_LIMIT = 20;
 
 export const EMPTY_FORM: ClinicPatientForm = {
   firstName: '',
@@ -76,6 +77,13 @@ export const EMPTY_ASSIGNMENT_FORM: AssignmentForm = {
 export const EMPTY_PATIENT_PAGE_INFO: ClinicPatientListPageInfo = {
   page: 1,
   limit: CLINIC_PATIENT_PAGE_LIMIT,
+  hasMore: false,
+  nextPage: null,
+};
+
+export const EMPTY_ASSIGNMENT_HISTORY_PAGE_INFO: ClinicPatientListPageInfo = {
+  page: 1,
+  limit: CLINIC_ASSIGNMENT_HISTORY_PAGE_LIMIT,
   hasMore: false,
   nextPage: null,
 };
@@ -303,6 +311,18 @@ export const formatDate = (value: string | null): string => {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
+  }).format(new Date(value));
+};
+
+export const formatDateTime = (value: string | null): string => {
+  if (!value) return 'Sin fecha';
+
+  return new Intl.DateTimeFormat('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(new Date(value));
 };
 

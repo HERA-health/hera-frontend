@@ -130,6 +130,42 @@ export interface ClinicPatientDetail extends ClinicPatientSummary {
   billingCountry: string | null;
 }
 
+export type ClinicPatientAssignmentHistoryStatus = 'ACTIVE' | 'ENDED';
+
+export interface ClinicPatientAssignmentHistoryActor {
+  id: string;
+  name: string;
+}
+
+export interface ClinicPatientAssignmentHistorySpecialist {
+  id: string;
+  displayName: string;
+  professionalTitle: string | null;
+  status: ClinicSpecialistStatus;
+}
+
+export interface ClinicPatientAssignmentHistoryItem {
+  id: string;
+  status: ClinicPatientAssignmentHistoryStatus;
+  startedAt: string;
+  endedAt: string | null;
+  reason: string | null;
+  endedReason: string | null;
+  clinicSpecialist: ClinicPatientAssignmentHistorySpecialist;
+  assignedBy: ClinicPatientAssignmentHistoryActor | null;
+  endedBy: ClinicPatientAssignmentHistoryActor | null;
+}
+
+export interface ClinicPatientAssignmentHistoryFilters {
+  page?: number;
+  limit?: number;
+}
+
+export interface ClinicPatientAssignmentHistoryPage {
+  items: ClinicPatientAssignmentHistoryItem[];
+  pageInfo: ClinicPatientListPageInfo;
+}
+
 export interface UpdateClinicPayload {
   commercialName?: string;
   legalName?: string | null;

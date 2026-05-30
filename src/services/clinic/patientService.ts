@@ -2,6 +2,8 @@ import api from '../api';
 import { getErrorCode, getErrorMessage } from '../../constants/errors';
 import type {
   AssignClinicPatientPayload,
+  ClinicPatientAssignmentHistoryFilters,
+  ClinicPatientAssignmentHistoryPage,
   ClinicPatientDetail,
   ClinicPatientListFilters,
   ClinicPatientListPage,
@@ -190,6 +192,31 @@ export const closeClinicPatientAssignment = async (
     throw new Error(getClinicPatientErrorMessage(
       error,
       'No se pudo retirar el responsable asistencial',
+    ));
+  }
+};
+
+export const listClinicPatientAssignmentHistory = async (
+  clinicId: string,
+  clinicPatientId: string,
+  filters: ClinicPatientAssignmentHistoryFilters = {},
+): Promise<ClinicPatientAssignmentHistoryPage> => {
+  try {
+    const response = await api.get<{
+      success: boolean;
+      data: ClinicPatientAssignmentHistoryPage;
+    }>(`/clinics/${clinicId}/patients/${clinicPatientId}/assignment/history`, {
+      params: {
+        page: filters.page,
+        limit: filters.limit,
+      },
+    });
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getClinicPatientErrorMessage(
+      error,
+      'No se pudo cargar el historial de responsables',
     ));
   }
 };
