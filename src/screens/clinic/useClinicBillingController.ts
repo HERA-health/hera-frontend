@@ -19,6 +19,11 @@ export interface ClinicRevenueShareFilters {
   year: number;
 }
 
+export interface ClinicSettlementFilters {
+  month: number;
+  year: number;
+}
+
 export interface ClinicBillingConfigForm {
   legalName: string;
   taxId: string;
@@ -108,6 +113,29 @@ const createRevenueShareFilters = (): ClinicRevenueShareFilters => {
     month: now.getMonth() + 1,
     year: now.getFullYear(),
   };
+};
+
+const getMadridYearMonth = (): { year: number; month: number } => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: 'numeric',
+  }).formatToParts(new Date());
+  const getPart = (type: Intl.DateTimeFormatPartTypes): number =>
+    Number(parts.find((part) => part.type === type)?.value ?? 0);
+
+  return {
+    year: getPart('year'),
+    month: getPart('month'),
+  };
+};
+
+const createSettlementFilters = (): ClinicSettlementFilters => {
+  const { year: currentYear, month: currentMonth } = getMadridYearMonth();
+
+  return currentMonth === 1
+    ? { month: 12, year: currentYear - 1 }
+    : { month: currentMonth - 1, year: currentYear };
 };
 
 const createConfigForm = (config?: clinicService.ClinicBillingConfig | null): ClinicBillingConfigForm => ({
@@ -205,6 +233,13 @@ export function useClinicBillingController() {
   const [summary, setSummary] = useState<clinicService.ClinicBillingSummary | null>(null);
   const [revenueShareSummary, setRevenueShareSummary] =
     useState<clinicService.ClinicRevenueShareSummary | null>(null);
+  const [settlementPreview, setSettlementPreview] =
+    useState<clinicService.ClinicSettlementPreview | null>(null);
+  const [settlements, setSettlements] = useState<clinicService.ClinicSettlementPeriod[]>([]);
+  const [selectedSettlementDetail, setSelectedSettlementDetail] =
+    useState<clinicService.ClinicSettlementDetail | null>(null);
+  const [settlementPageInfo, setSettlementPageInfo] =
+    useState<clinicService.ClinicSettlementListPage['pageInfo'] | null>(null);
   const [config, setConfig] = useState<clinicService.ClinicBillingConfig | null>(null);
   const [invoices, setInvoices] = useState<clinicService.ClinicInvoiceSummary[]>([]);
   const [pageInfo, setPageInfo] = useState<clinicService.ClinicInvoiceListPage['pageInfo'] | null>(null);
@@ -216,6 +251,9 @@ export function useClinicBillingController() {
   const [error, setError] = useState('');
   const [revenueShareError, setRevenueShareError] = useState('');
   const [revenueShareLoading, setRevenueShareLoading] = useState(false);
+  const [settlementError, setSettlementError] = useState('');
+  const [settlementLoading, setSettlementLoading] = useState(false);
+  const [settlementDetailLoading, setSettlementDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [configForm, setConfigForm] = useState<ClinicBillingConfigForm>(() => createConfigForm());
   const [configErrors, setConfigErrors] = useState<ClinicBillingConfigErrors>({});
@@ -225,6 +263,8 @@ export function useClinicBillingController() {
   const [appliedFilters, setAppliedFilters] = useState<ClinicBillingFilters>(() => createInitialFilters());
   const [revenueShareFilters, setRevenueShareFilters] =
     useState<ClinicRevenueShareFilters>(() => createRevenueShareFilters());
+  const [settlementFilters, setSettlementFilters] =
+    useState<ClinicSettlementFilters>(() => createSettlementFilters());
 
   const canManage = workspace.selectedMembership?.role === 'OWNER'
     || workspace.selectedMembership?.role === 'ADMIN';
@@ -349,6 +389,37 @@ export function useClinicBillingController() {
     }
   }, []);
 
+  const loadSettlementData = useCallback(async (
+    clinicId: string,
+    filters: ClinicSettlementFilters,
+  ) => {
+    try {
+      setSettlementLoading(true);
+      setSettlementError('');
+      const [previewResult, listResult] = await Promise.all([
+        clinicService.getClinicSettlementPreview(clinicId, filters),
+        clinicService.listClinicSettlements(clinicId, {
+          year: filters.year,
+          page: 1,
+          limit: 12,
+        }),
+      ]);
+      setSettlementPreview(previewResult);
+      setSettlements(listResult.items);
+      setSettlementPageInfo(listResult.pageInfo);
+    } catch (loadError: unknown) {
+      setSettlementPreview(null);
+      setSettlements([]);
+      setSelectedSettlementDetail(null);
+      setSettlementPageInfo(null);
+      setSettlementError(loadError instanceof Error
+        ? loadError.message
+        : 'No se pudieron cargar las liquidaciones');
+    } finally {
+      setSettlementLoading(false);
+    }
+  }, []);
+
   const loadReferenceData = useCallback(async (clinicId: string) => {
     const sessionRange = toSessionLookupRange();
     const [configResult, patientPage, sessionPage] = await Promise.all([
@@ -381,6 +452,7 @@ export function useClinicBillingController() {
     await Promise.all([
       loadSummary(workspace.selectedClinicId),
       loadRevenueShareSummary(workspace.selectedClinicId, revenueShareFilters),
+      loadSettlementData(workspace.selectedClinicId, settlementFilters),
       loadInvoices(workspace.selectedClinicId, 1, filters),
     ]);
   }, [
@@ -388,8 +460,10 @@ export function useClinicBillingController() {
     canManage,
     loadInvoices,
     loadRevenueShareSummary,
+    loadSettlementData,
     loadSummary,
     revenueShareFilters,
+    settlementFilters,
     workspace.selectedClinicId,
   ]);
 
@@ -399,6 +473,7 @@ export function useClinicBillingController() {
     await Promise.all([
       loadSummary(workspace.selectedClinicId),
       loadRevenueShareSummary(workspace.selectedClinicId, revenueShareFilters),
+      loadSettlementData(workspace.selectedClinicId, settlementFilters),
       loadReferenceData(workspace.selectedClinicId),
       loadInvoices(workspace.selectedClinicId, 1, filters),
     ]);
@@ -408,8 +483,10 @@ export function useClinicBillingController() {
     loadInvoices,
     loadReferenceData,
     loadRevenueShareSummary,
+    loadSettlementData,
     loadSummary,
     revenueShareFilters,
+    settlementFilters,
     workspace.selectedClinicId,
   ]);
 
@@ -419,6 +496,11 @@ export function useClinicBillingController() {
       setSummary(null);
       setRevenueShareSummary(null);
       setRevenueShareError('');
+      setSettlementPreview(null);
+      setSettlements([]);
+      setSelectedSettlementDetail(null);
+      setSettlementPageInfo(null);
+      setSettlementError('');
       setConfig(null);
       setInvoices([]);
       setPageInfo(null);
@@ -429,12 +511,15 @@ export function useClinicBillingController() {
 
     const initialFilters = createInitialFilters();
     const initialRevenueShareFilters = createRevenueShareFilters();
+    const initialSettlementFilters = createSettlementFilters();
     setEditableFilters(initialFilters);
     setAppliedFilters(initialFilters);
     setRevenueShareFilters(initialRevenueShareFilters);
+    setSettlementFilters(initialSettlementFilters);
     void Promise.all([
       loadSummary(clinicId),
       loadRevenueShareSummary(clinicId, initialRevenueShareFilters),
+      loadSettlementData(clinicId, initialSettlementFilters),
       loadReferenceData(clinicId),
       loadInvoices(clinicId, 1, initialFilters),
     ]);
@@ -443,6 +528,7 @@ export function useClinicBillingController() {
     loadInvoices,
     loadReferenceData,
     loadRevenueShareSummary,
+    loadSettlementData,
     loadSummary,
     workspace.selectedClinicId,
   ]);
@@ -485,6 +571,114 @@ export function useClinicBillingController() {
       void loadRevenueShareSummary(workspace.selectedClinicId, nextFilters);
     }
   }, [canManage, loadRevenueShareSummary, revenueShareFilters, workspace.selectedClinicId]);
+
+  const setSettlementFilter = useCallback(<K extends keyof ClinicSettlementFilters>(
+    field: K,
+    value: ClinicSettlementFilters[K],
+  ) => {
+    const nextFilters = {
+      ...settlementFilters,
+      [field]: value,
+    };
+    setSettlementFilters(nextFilters);
+    setSelectedSettlementDetail(null);
+    if (workspace.selectedClinicId && canManage) {
+      void loadSettlementData(workspace.selectedClinicId, nextFilters);
+    }
+  }, [canManage, loadSettlementData, settlementFilters, workspace.selectedClinicId]);
+
+  const handleViewSettlementDetail = useCallback(async (
+    settlement: clinicService.ClinicSettlementPeriod,
+  ) => {
+    if (!workspace.selectedClinicId || !canManage) return;
+
+    try {
+      setSettlementDetailLoading(true);
+      const detail = await clinicService.getClinicSettlement(
+        workspace.selectedClinicId,
+        settlement.id,
+      );
+      setSelectedSettlementDetail(detail);
+    } catch (detailError: unknown) {
+      showAppAlert(
+        appAlert,
+        'No se pudo cargar',
+        detailError instanceof Error ? detailError.message : 'Inténtalo de nuevo',
+      );
+    } finally {
+      setSettlementDetailLoading(false);
+    }
+  }, [appAlert, canManage, workspace.selectedClinicId]);
+
+  const handleGenerateSettlement = useCallback(async () => {
+    if (!workspace.selectedClinicId || !canManage || saving) return;
+
+    try {
+      setSaving(true);
+      await clinicService.createClinicSettlement(workspace.selectedClinicId, settlementFilters);
+      showAppAlert(
+        appAlert,
+        'Liquidación generada',
+        'El registro interno queda preparado para revisión.'
+      );
+      await loadSettlementData(workspace.selectedClinicId, settlementFilters);
+    } catch (createError: unknown) {
+      showAppAlert(
+        appAlert,
+        'No se pudo generar',
+        createError instanceof Error ? createError.message : 'Revisa las facturas del periodo',
+      );
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    appAlert,
+    canManage,
+    loadSettlementData,
+    saving,
+    settlementFilters,
+    workspace.selectedClinicId,
+  ]);
+
+  const handleSettlementAction = useCallback(async (
+    settlement: clinicService.ClinicSettlementPeriod,
+    status: Extract<clinicService.ClinicSettlementStatus, 'REVIEWED' | 'PAID'>,
+  ) => {
+    if (!workspace.selectedClinicId || !canManage || saving) return;
+
+    try {
+      setSaving(true);
+      const updatedSettlement = await clinicService.updateClinicSettlementStatus(
+        workspace.selectedClinicId,
+        settlement.id,
+        { status },
+      );
+      setSelectedSettlementDetail(updatedSettlement);
+      showAppAlert(
+        appAlert,
+        status === 'REVIEWED' ? 'Liquidación revisada' : 'Liquidación registrada',
+        status === 'REVIEWED'
+          ? 'La liquidación queda lista para registrar el pago interno.'
+          : 'Se ha marcado como pagada a nivel administrativo.'
+      );
+      await loadSettlementData(workspace.selectedClinicId, settlementFilters);
+    } catch (actionError: unknown) {
+      showAppAlert(
+        appAlert,
+        'No se pudo actualizar',
+        actionError instanceof Error ? actionError.message : 'Inténtalo de nuevo',
+      );
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    appAlert,
+    canManage,
+    loadSettlementData,
+    saving,
+    settlementFilters,
+    workspace.selectedClinicId,
+  ]);
 
   const handleSaveConfig = useCallback(async () => {
     if (!workspace.selectedClinicId || !canManage) return;
@@ -664,12 +858,24 @@ export function useClinicBillingController() {
     revenueShareYearOptions,
     saving,
     selectedSessionId,
+    selectedSettlementDetail,
+    settlementError,
+    settlementDetailLoading,
+    settlementFilters,
+    settlementLoading,
+    settlementPageInfo,
+    settlementPreview,
+    settlements,
     setConfigField,
     setEditableFilter,
     setInvoiceField,
     setRevenueShareFilter,
+    setSettlementFilter,
     setSelectedSessionId,
     summary,
     workspace,
+    handleGenerateSettlement,
+    handleSettlementAction,
+    handleViewSettlementDetail,
   };
 }

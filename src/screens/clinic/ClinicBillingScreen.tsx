@@ -29,6 +29,7 @@ import {
   type ClinicBillingInvoiceErrors,
   type ClinicBillingInvoiceForm,
   type ClinicRevenueShareFilters,
+  type ClinicSettlementFilters,
 } from './useClinicBillingController';
 
 const INVOICE_STATUS_LABELS: Record<clinicService.ClinicInvoiceStatus, string> = {
@@ -41,6 +42,12 @@ const INVOICE_STATUS_LABELS: Record<clinicService.ClinicInvoiceStatus, string> =
 const INVOICE_KIND_LABELS: Record<clinicService.ClinicInvoiceKind, string> = {
   SIMPLIFIED: 'Simplificada',
   FULL: 'Completa',
+};
+
+const SETTLEMENT_STATUS_LABELS: Record<clinicService.ClinicSettlementStatus, string> = {
+  PENDING: 'Pendiente',
+  REVIEWED: 'Revisada',
+  PAID: 'Pagada',
 };
 
 const formatCurrency = (value: number): string =>
@@ -81,11 +88,14 @@ export function ClinicBillingScreen({
     handleApplyFilters,
     handleCreateFromSession,
     handleCreateInvoice,
+    handleGenerateSettlement,
     handleInvoiceAction,
     handleLoadMore,
     handleRetry,
     handleSaveConfig,
     handleSelectClinic,
+    handleSettlementAction,
+    handleViewSettlementDetail,
     invoiceErrors,
     invoiceForm,
     invoices,
@@ -101,10 +111,18 @@ export function ClinicBillingScreen({
     revenueShareYearOptions,
     saving,
     selectedSessionId,
+    selectedSettlementDetail,
+    settlementError,
+    settlementDetailLoading,
+    settlementFilters,
+    settlementLoading,
+    settlementPreview,
+    settlements,
     setConfigField,
     setEditableFilter,
     setInvoiceField,
     setRevenueShareFilter,
+    setSettlementFilter,
     setSelectedSessionId,
     summary,
     workspace,
@@ -173,6 +191,23 @@ export function ClinicBillingScreen({
                 error={revenueShareError}
                 isCompact={isCompact}
                 onChange={setRevenueShareFilter}
+              />
+
+              <SettlementPanel
+                preview={settlementPreview}
+                settlements={settlements}
+                selectedSettlement={selectedSettlementDetail}
+                filters={settlementFilters}
+                yearOptions={revenueShareYearOptions}
+                loading={settlementLoading}
+                detailLoading={settlementDetailLoading}
+                error={settlementError}
+                saving={saving}
+                isCompact={isCompact}
+                onChange={setSettlementFilter}
+                onGenerate={handleGenerateSettlement}
+                onViewDetail={handleViewSettlementDetail}
+                onAction={handleSettlementAction}
               />
 
               <View style={styles.topGrid}>
@@ -503,6 +538,329 @@ function RevenueSharePanel({
           ))}
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function SettlementPanel({
+  preview,
+  settlements,
+  selectedSettlement,
+  filters,
+  yearOptions,
+  loading,
+  detailLoading,
+  error,
+  saving,
+  isCompact,
+  onChange,
+  onGenerate,
+  onViewDetail,
+  onAction,
+}: {
+  preview: clinicService.ClinicSettlementPreview | null;
+  settlements: clinicService.ClinicSettlementPeriod[];
+  selectedSettlement: clinicService.ClinicSettlementDetail | null;
+  filters: ClinicSettlementFilters;
+  yearOptions: Array<{ label: string; value: number; subtitle?: string }>;
+  loading: boolean;
+  detailLoading: boolean;
+  error: string;
+  saving: boolean;
+  isCompact: boolean;
+  onChange: <K extends keyof ClinicSettlementFilters>(
+    field: K,
+    value: ClinicSettlementFilters[K],
+  ) => void;
+  onGenerate: () => void;
+  onViewDetail: (settlement: clinicService.ClinicSettlementPeriod) => void;
+  onAction: (
+    settlement: clinicService.ClinicSettlementDetail,
+    status: Extract<clinicService.ClinicSettlementStatus, 'REVIEWED' | 'PAID'>,
+  ) => void;
+}): React.ReactElement {
+  const { theme } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
+  const blockers = preview?.blockers;
+  const totals = preview?.totals;
+  const generateLabel = preview?.existingSettlement?.status === 'PENDING'
+    ? 'Actualizar borrador'
+    : 'Generar liquidación';
+  const canReviewSelected = selectedSettlement?.status === 'PENDING';
+  const canMarkSelectedPaid = selectedSettlement?.status === 'REVIEWED';
+  const metrics = [
+    {
+      label: 'Base liquidable',
+      value: formatCurrency(totals?.shareBaseAmount ?? 0),
+    },
+    {
+      label: 'Especialistas',
+      value: formatCurrency(totals?.specialistShareAmount ?? 0),
+    },
+    {
+      label: 'Clínica',
+      value: formatCurrency(totals?.clinicRetainedAmount ?? 0),
+    },
+    {
+      label: 'Facturas incluidas',
+      value: String(totals?.settledInvoiceCount ?? 0),
+    },
+  ];
+
+  return (
+    <View style={styles.settlementPanel}>
+      <View style={styles.sectionHeader}>
+        <View>
+          <Text style={styles.sectionTitle}>Liquidaciones</Text>
+          <Text style={styles.sectionSubtitle}>
+            Registro interno; no realiza transferencia bancaria.
+          </Text>
+        </View>
+        {loading ? <ActivityIndicator color={theme.primary} size="small" /> : null}
+      </View>
+
+      <View style={styles.revenueControls}>
+        <View style={styles.revenueDropdown}>
+          <Text style={styles.filterLabel}>Mes</Text>
+          <SimpleDropdown
+            options={REVENUE_SHARE_MONTH_OPTIONS}
+            value={filters.month}
+            onSelect={(value) => onChange('month', value)}
+          />
+        </View>
+        <View style={styles.revenueDropdown}>
+          <Text style={styles.filterLabel}>Año</Text>
+          <SimpleDropdown
+            options={yearOptions}
+            value={filters.year}
+            onSelect={(value) => onChange('year', value)}
+          />
+        </View>
+      </View>
+
+      {error ? (
+        <View style={styles.inlineWarning}>
+          <Ionicons name="alert-circle-outline" size={18} color={theme.warning} />
+          <Text style={styles.inlineWarningText}>{error}</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.revenueMetrics}>
+        {metrics.map((metric) => (
+          <View key={metric.label} style={styles.revenueMetric}>
+            <Text style={styles.metricLabel}>{metric.label}</Text>
+            <Text style={styles.revenueMetricValue}>{loading ? '...' : metric.value}</Text>
+          </View>
+        ))}
+      </View>
+
+      {blockers?.periodOpen ? (
+        <View style={styles.inlineWarning}>
+          <Ionicons name="time-outline" size={18} color={theme.warning} />
+          <Text style={styles.inlineWarningText}>
+            Este periodo aún no está cerrado en Europe/Madrid.
+          </Text>
+        </View>
+      ) : null}
+
+      {blockers?.noPaidInvoices ? (
+        <View style={styles.inlineWarning}>
+          <Ionicons name="document-text-outline" size={18} color={theme.warning} />
+          <Text style={styles.inlineWarningText}>
+            No hay facturas pagadas para liquidar en este periodo.
+          </Text>
+        </View>
+      ) : null}
+
+      {blockers && blockers.pendingSnapshotInvoiceCount > 0 ? (
+        <View style={styles.inlineWarning}>
+          <Ionicons name="warning-outline" size={18} color={theme.warning} />
+          <Text style={styles.inlineWarningText}>
+            Hay {blockers.pendingSnapshotInvoiceCount} factura{blockers.pendingSnapshotInvoiceCount === 1 ? '' : 's'} pendiente{blockers.pendingSnapshotInvoiceCount === 1 ? '' : 's'} de snapshot.
+          </Text>
+        </View>
+      ) : null}
+
+      {blockers && blockers.missingSpecialistInvoiceCount > 0 ? (
+        <View style={styles.inlineWarning}>
+          <Ionicons name="person-remove-outline" size={18} color={theme.warning} />
+          <Text style={styles.inlineWarningText}>
+            Hay {blockers.missingSpecialistInvoiceCount} factura{blockers.missingSpecialistInvoiceCount === 1 ? '' : 's'} pagada{blockers.missingSpecialistInvoiceCount === 1 ? '' : 's'} sin especialista.
+          </Text>
+        </View>
+      ) : null}
+
+      {blockers && blockers.alreadySettledInvoiceCount > 0 ? (
+        <View style={styles.inlineWarning}>
+          <Ionicons name="layers-outline" size={18} color={theme.warning} />
+          <Text style={styles.inlineWarningText}>
+            Hay {blockers.alreadySettledInvoiceCount} factura{blockers.alreadySettledInvoiceCount === 1 ? '' : 's'} ya vinculada{blockers.alreadySettledInvoiceCount === 1 ? '' : 's'} a otra liquidación.
+          </Text>
+        </View>
+      ) : null}
+
+      {blockers?.finalizedSettlement ? (
+        <View style={styles.inlineWarning}>
+          <Ionicons name="lock-closed-outline" size={18} color={theme.warning} />
+          <Text style={styles.inlineWarningText}>
+            La liquidación de este periodo ya está revisada o pagada.
+          </Text>
+        </View>
+      ) : null}
+
+      {totals && totals.missingPercentageInvoiceCount > 0 ? (
+        <View style={styles.inlineInfo}>
+          <Ionicons name="information-circle-outline" size={18} color={theme.primary} />
+          <Text style={styles.inlineInfoText}>
+            {totals.missingPercentageInvoiceCount} factura{totals.missingPercentageInvoiceCount === 1 ? '' : 's'} sin porcentaje configurado se liquidan con reparto 0.
+          </Text>
+        </View>
+      ) : null}
+
+      <Button
+        variant="primary"
+        size="medium"
+        onPress={onGenerate}
+        disabled={saving || loading || !preview?.canGenerate}
+        loading={saving}
+        icon={<Ionicons name="file-tray-full-outline" size={18} color={theme.actionPrimaryText} />}
+      >
+        {generateLabel}
+      </Button>
+
+      <View style={styles.settlementList}>
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Histórico</Text>
+            <Text style={styles.sectionSubtitle}>
+              {settlements.length} liquidación{settlements.length === 1 ? '' : 'es'} del año seleccionado.
+            </Text>
+          </View>
+        </View>
+
+        {!loading && settlements.length === 0 ? (
+          <View style={styles.revenueEmpty}>
+            <Text style={styles.revenueEmptyText}>Aún no hay liquidaciones generadas.</Text>
+          </View>
+        ) : null}
+
+        {settlements.map((settlement) => {
+          const isSelected = selectedSettlement?.id === settlement.id;
+          return (
+            <View key={settlement.id} style={[
+              styles.settlementRow,
+              isSelected ? styles.settlementRowSelected : null,
+            ]}>
+              <View style={styles.invoiceMain}>
+                <View style={styles.invoiceTitleRow}>
+                  <Text style={styles.invoiceNumber}>
+                    {String(settlement.month).padStart(2, '0')}/{settlement.year}
+                  </Text>
+                  <Text style={[
+                    styles.statusBadge,
+                    settlement.status === 'PAID' ? styles.statusPaid : null,
+                  ]}>
+                    {SETTLEMENT_STATUS_LABELS[settlement.status]}
+                  </Text>
+                </View>
+                <Text style={styles.invoiceMeta}>
+                  {settlement.settledInvoiceCount} factura{settlement.settledInvoiceCount === 1 ? '' : 's'} · {formatCurrency(settlement.specialistShareAmount)} especialistas
+                </Text>
+              </View>
+              <View style={styles.invoiceActions}>
+                <Text style={styles.invoiceTotal}>{formatCurrency(settlement.shareBaseAmount)}</Text>
+                <Button
+                  variant={isSelected ? 'primary' : 'outline'}
+                  size="small"
+                  onPress={() => onViewDetail(settlement)}
+                  disabled={saving || detailLoading}
+                  loading={detailLoading && isSelected}
+                  icon={<Ionicons name="eye-outline" size={16} color={isSelected ? theme.actionPrimaryText : theme.primary} />}
+                >
+                  Ver detalle
+                </Button>
+              </View>
+            </View>
+          );
+        })}
+
+        {selectedSettlement ? (
+          <View style={styles.settlementDetail}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>
+                  Detalle {String(selectedSettlement.month).padStart(2, '0')}/{selectedSettlement.year}
+                </Text>
+                <Text style={styles.sectionSubtitle}>
+                  {selectedSettlement.settledInvoiceCount} factura{selectedSettlement.settledInvoiceCount === 1 ? '' : 's'} vinculada{selectedSettlement.settledInvoiceCount === 1 ? '' : 's'}.
+                </Text>
+              </View>
+              <Text style={[
+                styles.statusBadge,
+                selectedSettlement.status === 'PAID' ? styles.statusPaid : null,
+              ]}>
+                {SETTLEMENT_STATUS_LABELS[selectedSettlement.status]}
+              </Text>
+            </View>
+
+            <View style={styles.settlementDetailMetrics}>
+              <Text style={styles.invoiceMeta}>Base {formatCurrency(selectedSettlement.shareBaseAmount)}</Text>
+              <Text style={styles.invoiceMeta}>Especialistas {formatCurrency(selectedSettlement.specialistShareAmount)}</Text>
+              <Text style={styles.invoiceMeta}>Clínica {formatCurrency(selectedSettlement.clinicRetainedAmount)}</Text>
+            </View>
+
+            {selectedSettlement.lines.map((line) => (
+              <View key={line.id} style={styles.settlementLine}>
+                <View style={styles.invoiceTitleRow}>
+                  <View style={styles.invoiceMain}>
+                    <Text style={styles.invoiceNumber}>{line.displayName}</Text>
+                    <Text style={styles.invoiceMeta}>
+                      {line.professionalTitle ?? 'Sin título'} · {line.paidInvoiceCount} factura{line.paidInvoiceCount === 1 ? '' : 's'} · {formatPercentage(line.effectiveRevenueSharePercentage)}
+                    </Text>
+                  </View>
+                  <Text style={styles.invoiceTotal}>{formatCurrency(line.specialistShareAmount)}</Text>
+                </View>
+                <View style={styles.settlementInvoiceList}>
+                  {line.invoices.map((invoice) => (
+                    <View key={invoice.id} style={styles.settlementInvoiceRow}>
+                      <View style={styles.invoiceMain}>
+                        <Text style={styles.invoiceConcept}>{invoice.invoiceNumber}</Text>
+                        <Text style={styles.invoiceMeta}>
+                          {invoice.patientDisplayName} · {formatDate(invoice.paidAt)}
+                        </Text>
+                      </View>
+                      <Text style={styles.invoiceMeta}>
+                        Base {formatCurrency(invoice.shareBaseAmount)} · Rep. {formatCurrency(invoice.specialistShareAmount)} · Clínica {formatCurrency(invoice.clinicRetainedAmount)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ))}
+
+            <View style={styles.settlementDetailActions}>
+              <Button
+                variant="outline"
+                size="small"
+                onPress={() => onAction(selectedSettlement, 'REVIEWED')}
+                disabled={saving || !canReviewSelected}
+                icon={<Ionicons name="checkmark-circle-outline" size={16} color={theme.primary} />}
+              >
+                Marcar revisada
+              </Button>
+              <Button
+                variant="outline"
+                size="small"
+                onPress={() => onAction(selectedSettlement, 'PAID')}
+                disabled={saving || !canMarkSelectedPaid}
+                icon={<Ionicons name="card-outline" size={16} color={theme.primary} />}
+              >
+                Registrar pagada
+              </Button>
+            </View>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -1010,6 +1368,16 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
       backgroundColor: theme.bgCard,
       zIndex: 40,
     },
+    settlementPanel: {
+      width: '100%',
+      gap: spacing.lg,
+      padding: spacing.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: borderRadius.lg,
+      backgroundColor: theme.bgCard,
+      zIndex: 35,
+    },
     revenueControls: {
       flexDirection: isCompact ? 'column' : 'row',
       alignItems: isCompact ? 'stretch' : 'flex-end',
@@ -1054,6 +1422,23 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
       backgroundColor: theme.warningBg,
     },
     inlineWarningText: {
+      flex: 1,
+      color: theme.textPrimary,
+      fontFamily: theme.fontSans,
+      fontSize: typography.fontSizes.sm,
+      lineHeight: 20,
+    },
+    inlineInfo: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: borderRadius.md,
+      backgroundColor: theme.bgMuted,
+    },
+    inlineInfoText: {
       flex: 1,
       color: theme.textPrimary,
       fontFamily: theme.fontSans,
@@ -1205,6 +1590,56 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
       paddingTop: spacing.md,
       borderTopWidth: 1,
       borderTopColor: theme.border,
+    },
+    settlementList: {
+      gap: spacing.md,
+      paddingTop: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    settlementRow: {
+      flexDirection: isCompact ? 'column' : 'row',
+      justifyContent: 'space-between',
+      gap: spacing.md,
+      padding: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+      borderRadius: borderRadius.md,
+      backgroundColor: 'transparent',
+    },
+    settlementRowSelected: {
+      backgroundColor: theme.bgMuted,
+    },
+    settlementDetail: {
+      gap: spacing.md,
+      paddingTop: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    settlementDetailMetrics: {
+      flexDirection: isCompact ? 'column' : 'row',
+      flexWrap: 'wrap',
+      gap: spacing.md,
+    },
+    settlementLine: {
+      gap: spacing.sm,
+      paddingVertical: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    settlementInvoiceList: {
+      gap: spacing.xs,
+    },
+    settlementInvoiceRow: {
+      flexDirection: isCompact ? 'column' : 'row',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+      paddingVertical: spacing.sm,
+    },
+    settlementDetailActions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
     },
     filters: {
       flexDirection: isCompact ? 'column' : 'row',

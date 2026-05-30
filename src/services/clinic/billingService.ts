@@ -10,9 +10,16 @@ import type {
   ClinicInvoiceListPage,
   ClinicRevenueShareSummary,
   ClinicRevenueShareSummaryFilters,
+  ClinicSettlementDetail,
+  ClinicSettlementListFilters,
+  ClinicSettlementListPage,
+  ClinicSettlementPreview,
+  ClinicSettlementPreviewFilters,
   CreateClinicInvoicePayload,
+  CreateClinicSettlementPayload,
   UpdateClinicBillingConfigPayload,
   UpdateClinicInvoicePayload,
+  UpdateClinicSettlementStatusPayload,
 } from './types';
 
 const CLINIC_BILLING_ERROR_MESSAGES: Partial<Record<string, string>> = {
@@ -42,6 +49,20 @@ const CLINIC_BILLING_ERROR_MESSAGES: Partial<Record<string, string>> = {
     'No se pudo enviar el email de la factura.',
   CLINIC_BILLING_STORAGE_FAILED:
     'No se pudo guardar o recuperar el PDF de la factura.',
+  CLINIC_SETTLEMENT_NOT_FOUND:
+    'No se encontró la liquidación.',
+  CLINIC_SETTLEMENT_PERIOD_OPEN:
+    'Solo se pueden generar liquidaciones de meses cerrados.',
+  CLINIC_SETTLEMENT_NOTHING_TO_SETTLE:
+    'No hay facturas pagadas para liquidar en este periodo.',
+  CLINIC_SETTLEMENT_BLOCKED:
+    'Hay facturas pagadas pendientes de especialista o snapshot antes de liquidar.',
+  CLINIC_SETTLEMENT_LOCKED:
+    'Solo se pueden actualizar liquidaciones pendientes.',
+  CLINIC_SETTLEMENT_ALREADY_SETTLED:
+    'Hay facturas de este periodo ya vinculadas a otra liquidación.',
+  CLINIC_SETTLEMENT_INVALID_STATUS:
+    'El estado actual de la liquidación no permite esta acción.',
 };
 
 const getClinicBillingErrorMessage = (
@@ -94,6 +115,114 @@ export const getClinicRevenueShareSummary = async (
     throw new Error(getClinicBillingErrorMessage(
       error,
       'No se pudo cargar el resumen de reparto',
+    ));
+  }
+};
+
+export const getClinicSettlementPreview = async (
+  clinicId: string,
+  filters: ClinicSettlementPreviewFilters,
+): Promise<ClinicSettlementPreview> => {
+  try {
+    const response = await api.get<{
+      success: boolean;
+      data: ClinicSettlementPreview;
+    }>(`/clinics/${clinicId}/billing/settlements/preview`, {
+      params: {
+        year: filters.year,
+        month: filters.month,
+      },
+    });
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getClinicBillingErrorMessage(
+      error,
+      'No se pudo cargar la previsualización de liquidación',
+    ));
+  }
+};
+
+export const listClinicSettlements = async (
+  clinicId: string,
+  filters: ClinicSettlementListFilters = {},
+): Promise<ClinicSettlementListPage> => {
+  try {
+    const response = await api.get<{
+      success: boolean;
+      data: ClinicSettlementListPage;
+    }>(`/clinics/${clinicId}/billing/settlements`, {
+      params: {
+        year: filters.year,
+        status: filters.status,
+        page: filters.page,
+        limit: filters.limit,
+      },
+    });
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getClinicBillingErrorMessage(
+      error,
+      'No se pudieron cargar las liquidaciones',
+    ));
+  }
+};
+
+export const createClinicSettlement = async (
+  clinicId: string,
+  payload: CreateClinicSettlementPayload,
+): Promise<ClinicSettlementDetail> => {
+  try {
+    const response = await api.post<{
+      success: boolean;
+      data: ClinicSettlementDetail;
+    }>(`/clinics/${clinicId}/billing/settlements`, payload);
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getClinicBillingErrorMessage(
+      error,
+      'No se pudo generar la liquidación',
+    ));
+  }
+};
+
+export const getClinicSettlement = async (
+  clinicId: string,
+  settlementId: string,
+): Promise<ClinicSettlementDetail> => {
+  try {
+    const response = await api.get<{
+      success: boolean;
+      data: ClinicSettlementDetail;
+    }>(`/clinics/${clinicId}/billing/settlements/${settlementId}`);
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getClinicBillingErrorMessage(
+      error,
+      'No se pudo cargar la liquidación',
+    ));
+  }
+};
+
+export const updateClinicSettlementStatus = async (
+  clinicId: string,
+  settlementId: string,
+  payload: UpdateClinicSettlementStatusPayload,
+): Promise<ClinicSettlementDetail> => {
+  try {
+    const response = await api.patch<{
+      success: boolean;
+      data: ClinicSettlementDetail;
+    }>(`/clinics/${clinicId}/billing/settlements/${settlementId}/status`, payload);
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getClinicBillingErrorMessage(
+      error,
+      'No se pudo actualizar la liquidación',
     ));
   }
 };

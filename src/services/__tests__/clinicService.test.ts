@@ -8,6 +8,7 @@ import {
   closeClinicPatientAssignment,
   createClinicInvoice,
   createClinicInvoiceFromSession,
+  createClinicSettlement,
   createClinicPatient,
   createClinicSpecialist,
   getClinic,
@@ -15,6 +16,8 @@ import {
   getClinicBillingSummary,
   getClinicRevenueShareSummary,
   getClinicInvoice,
+  getClinicSettlement,
+  getClinicSettlementPreview,
   getClinicDashboard,
   getClinicPatient,
   getClinicPatientConsent,
@@ -23,6 +26,7 @@ import {
   listClinicPatientConsents,
   listClinicPatients,
   listClinicInvoices,
+  listClinicSettlements,
   listClinicSpecialists,
   listProfessionalClinicPatients,
   linkClinicSpecialist,
@@ -37,6 +41,7 @@ import {
   updateClinic,
   updateClinicBillingConfig,
   updateClinicInvoice,
+  updateClinicSettlementStatus,
   createClinicSession,
   updateClinicPatient,
   updateClinicPatientStatus,
@@ -49,6 +54,9 @@ import {
   type ClinicBillingConfig,
   type ClinicBillingSummary,
   type ClinicRevenueShareSummary,
+  type ClinicSettlementDetail,
+  type ClinicSettlementListPage,
+  type ClinicSettlementPreview,
   type ClinicInvoiceDetail,
   type ClinicInvoiceListPage,
   type ClinicInvoiceSummary,
@@ -1047,6 +1055,139 @@ describe('clinicService', () => {
         year: 2026,
         month: 5,
       },
+    });
+  });
+
+  it('uses dedicated clinic settlement endpoints with period filters and status actions', async () => {
+    const preview: ClinicSettlementPreview = {
+      period: {
+        year: 2026,
+        month: 4,
+        startDate: '2026-03-31T22:00:00.000Z',
+        endDate: '2026-04-30T22:00:00.000Z',
+        currency: 'EUR',
+        isClosed: true,
+      },
+      existingSettlement: null,
+      canGenerate: true,
+      blockers: {
+        periodOpen: false,
+        noPaidInvoices: false,
+        missingSpecialistInvoiceCount: 0,
+        pendingSnapshotInvoiceCount: 0,
+        alreadySettledInvoiceCount: 0,
+        finalizedSettlement: false,
+      },
+      totals: {
+        paidInvoiceCount: 2,
+        settledInvoiceCount: 2,
+        shareBaseAmount: 150,
+        specialistShareAmount: 75,
+        clinicRetainedAmount: 75,
+        missingPercentageInvoiceCount: 0,
+        missingSpecialistInvoiceCount: 0,
+        pendingSnapshotInvoiceCount: 0,
+        alreadySettledInvoiceCount: 0,
+      },
+      specialists: [],
+    };
+    const listPage: ClinicSettlementListPage = {
+      items: [
+        {
+          id: 'settlement-1',
+          clinicId: 'clinic-1',
+          year: 2026,
+          month: 4,
+          startDate: '2026-03-31T22:00:00.000Z',
+          endDate: '2026-04-30T22:00:00.000Z',
+          status: 'PENDING',
+          currency: 'EUR',
+          paidInvoiceCount: 2,
+          settledInvoiceCount: 2,
+          shareBaseAmount: 150,
+          specialistShareAmount: 75,
+          clinicRetainedAmount: 75,
+          missingPercentageInvoiceCount: 0,
+          missingSpecialistInvoiceCount: 0,
+          pendingSnapshotInvoiceCount: 0,
+          reviewedAt: null,
+          paidAt: null,
+          createdAt: '2026-05-01T08:00:00.000Z',
+          updatedAt: '2026-05-01T08:00:00.000Z',
+        },
+      ],
+      pageInfo: {
+        page: 1,
+        limit: 12,
+        total: 1,
+        totalPages: 1,
+        hasMore: false,
+        nextPage: null,
+      },
+    };
+    const detail: ClinicSettlementDetail = {
+      ...listPage.items[0],
+      lines: [],
+    };
+
+    getMock.mockResolvedValueOnce({
+      data: { success: true, data: preview },
+    } as AxiosResponse<{ success: boolean; data: ClinicSettlementPreview }>);
+    getMock.mockResolvedValueOnce({
+      data: { success: true, data: listPage },
+    } as AxiosResponse<{ success: boolean; data: ClinicSettlementListPage }>);
+    postMock.mockResolvedValueOnce({
+      data: { success: true, data: detail },
+    } as AxiosResponse<{ success: boolean; data: ClinicSettlementDetail }>);
+    getMock.mockResolvedValueOnce({
+      data: { success: true, data: detail },
+    } as AxiosResponse<{ success: boolean; data: ClinicSettlementDetail }>);
+    patchMock.mockResolvedValueOnce({
+      data: { success: true, data: { ...detail, status: 'REVIEWED' } },
+    } as AxiosResponse<{ success: boolean; data: ClinicSettlementDetail }>);
+
+    await expect(getClinicSettlementPreview('clinic-1', {
+      year: 2026,
+      month: 4,
+    })).resolves.toBe(preview);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/settlements/preview', {
+      params: {
+        year: 2026,
+        month: 4,
+      },
+    });
+
+    await expect(listClinicSettlements('clinic-1', {
+      year: 2026,
+      page: 1,
+      limit: 12,
+    })).resolves.toBe(listPage);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/settlements', {
+      params: {
+        year: 2026,
+        status: undefined,
+        page: 1,
+        limit: 12,
+      },
+    });
+
+    await expect(createClinicSettlement('clinic-1', {
+      year: 2026,
+      month: 4,
+    })).resolves.toBe(detail);
+    expect(postMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/settlements', {
+      year: 2026,
+      month: 4,
+    });
+
+    await expect(getClinicSettlement('clinic-1', 'settlement-1')).resolves.toBe(detail);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/settlements/settlement-1');
+
+    await expect(updateClinicSettlementStatus('clinic-1', 'settlement-1', {
+      status: 'REVIEWED',
+    })).resolves.toEqual({ ...detail, status: 'REVIEWED' });
+    expect(patchMock).toHaveBeenCalledWith('/clinics/clinic-1/billing/settlements/settlement-1/status', {
+      status: 'REVIEWED',
     });
   });
 

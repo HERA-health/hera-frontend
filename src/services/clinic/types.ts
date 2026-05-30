@@ -13,6 +13,7 @@ export type ClinicSessionStatus = 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCE
 export type ClinicSessionType = 'IN_PERSON' | 'PHONE_CALL' | 'VIDEO_CALL';
 export type ClinicInvoiceStatus = 'DRAFT' | 'SENT' | 'PAID' | 'CANCELLED';
 export type ClinicInvoiceKind = 'SIMPLIFIED' | 'FULL';
+export type ClinicSettlementStatus = 'PENDING' | 'REVIEWED' | 'PAID';
 export type ClinicPatientConsentEventType =
   | 'REQUESTED'
   | 'DOCUMENT_UPLOADED'
@@ -331,6 +332,119 @@ export interface ClinicRevenueShareSummary {
   period: ClinicRevenueSharePeriod;
   totals: ClinicRevenueShareTotals;
   specialists: ClinicRevenueShareSpecialistSummary[];
+}
+
+export interface ClinicSettlementPeriod {
+  id: string;
+  clinicId: string;
+  year: number;
+  month: number;
+  startDate: string;
+  endDate: string;
+  status: ClinicSettlementStatus;
+  currency: 'EUR';
+  paidInvoiceCount: number;
+  settledInvoiceCount: number;
+  shareBaseAmount: number;
+  specialistShareAmount: number;
+  clinicRetainedAmount: number;
+  missingPercentageInvoiceCount: number;
+  missingSpecialistInvoiceCount: number;
+  pendingSnapshotInvoiceCount: number;
+  reviewedAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClinicSettlementListFilters {
+  year?: number;
+  status?: ClinicSettlementStatus;
+  page?: number;
+  limit?: number;
+}
+
+export interface ClinicSettlementListPage {
+  items: ClinicSettlementPeriod[];
+  pageInfo: ClinicPatientListPageInfo & {
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface ClinicSettlementPreviewFilters {
+  year: number;
+  month: number;
+}
+
+export interface ClinicSettlementPreview {
+  period: ClinicRevenueSharePeriod & {
+    isClosed: boolean;
+  };
+  existingSettlement: Pick<ClinicSettlementPeriod, 'id' | 'status'> | null;
+  canGenerate: boolean;
+  blockers: {
+    periodOpen: boolean;
+    noPaidInvoices: boolean;
+    missingSpecialistInvoiceCount: number;
+    pendingSnapshotInvoiceCount: number;
+    alreadySettledInvoiceCount: number;
+    finalizedSettlement: boolean;
+  };
+  totals: {
+    paidInvoiceCount: number;
+    settledInvoiceCount: number;
+    shareBaseAmount: number;
+    specialistShareAmount: number;
+    clinicRetainedAmount: number;
+    missingPercentageInvoiceCount: number;
+    missingSpecialistInvoiceCount: number;
+    pendingSnapshotInvoiceCount: number;
+    alreadySettledInvoiceCount: number;
+  };
+  specialists: Array<{
+    clinicSpecialistId: string;
+    displayName: string;
+    professionalTitle: string | null;
+    status: ClinicSpecialistStatus;
+    paidInvoiceCount: number;
+    shareBaseAmount: number;
+    specialistShareAmount: number;
+    clinicRetainedAmount: number;
+    effectiveRevenueSharePercentage: number;
+    missingPercentageInvoiceCount: number;
+  }>;
+}
+
+export interface ClinicSettlementInvoice {
+  id: string;
+  clinicInvoiceId: string;
+  invoiceNumber: string;
+  paidAt: string;
+  patientDisplayName: string;
+  revenueSharePercentageSnapshot: number | null;
+  shareBaseAmount: number;
+  specialistShareAmount: number;
+  clinicRetainedAmount: number;
+  missingPercentage: boolean;
+}
+
+export type ClinicSettlementLine = ClinicSettlementPreview['specialists'][number] & {
+  id: string;
+  invoices: ClinicSettlementInvoice[];
+};
+
+export interface ClinicSettlementDetail extends ClinicSettlementPeriod {
+  lines: ClinicSettlementLine[];
+}
+
+export interface CreateClinicSettlementPayload {
+  year: number;
+  month: number;
+}
+
+export interface UpdateClinicSettlementStatusPayload {
+  status: Extract<ClinicSettlementStatus, 'REVIEWED' | 'PAID'>;
 }
 
 export interface ClinicInvoiceSummary {

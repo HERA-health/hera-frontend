@@ -61,14 +61,22 @@ describe('ClinicBillingScreen source guards', () => {
     expect(screenSource).toContain('Facturar cita');
   });
 
-  it('shows the monthly revenue share panel without settlement or payment flows', () => {
+  it('shows monthly revenue share and internal settlements without payment integrations', () => {
     expect(screenSource).toContain('Reparto mensual');
     expect(screenSource).toContain('Base pagada');
     expect(screenSource).toContain('Especialistas');
     expect(screenSource).toContain('pendingSnapshotInvoiceCount');
     expect(screenSource).toContain('sin snapshot');
+    expect(screenSource).toContain('Liquidaciones');
+    expect(screenSource).toContain('Registro interno; no realiza transferencia bancaria');
+    expect(screenSource).toContain('Generar liquidación');
+    expect(screenSource).toContain('Ver detalle');
+    expect(screenSource).toContain('Marcar revisada');
+    expect(screenSource).toContain('Registrar pagada');
     expect(controllerSource).toContain('revenueShareFilters');
-    expect(controllerSource).not.toContain('settlement');
+    expect(controllerSource).toContain('settlementFilters');
+    expect(controllerSource).toContain('clinicService.createClinicSettlement');
+    expect(controllerSource).toContain('clinicService.getClinicSettlement');
     expect(controllerSource).not.toContain('bank transfer');
   });
 
@@ -79,6 +87,7 @@ describe('ClinicBillingScreen source guards', () => {
 
     expect(adminBlock).toContain('<SummaryBand');
     expect(adminBlock).toContain('<RevenueSharePanel');
+    expect(adminBlock).toContain('<SettlementPanel');
     expect(adminBlock).toContain('<ConfigPanel');
     expect(adminBlock).toContain('<InvoiceCreatePanel');
     expect(adminBlock).toContain('Facturas');
