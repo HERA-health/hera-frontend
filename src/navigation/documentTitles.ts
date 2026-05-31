@@ -21,6 +21,7 @@ const ROUTE_TITLES: Record<keyof RootStackParamList, string> = {
   ClinicPatients: 'Pacientes de clínica',
   ClinicAgenda: 'Agenda de clínica',
   ClinicBilling: 'Facturación de clínica',
+  ClinicInvoiceCreate: 'Nueva factura de clínica',
   ForgotPassword: 'Recuperar contraseña',
   EmailSentPasswordReset: 'Revisa tu correo',
   ResetPassword: 'Nueva contraseña',

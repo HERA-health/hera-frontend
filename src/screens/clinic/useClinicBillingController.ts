@@ -728,8 +728,8 @@ export function useClinicBillingController() {
     }
   }, [appAlert, canManage, configForm, workspace.selectedClinicId]);
 
-  const handleCreateInvoice = useCallback(async () => {
-    if (!workspace.selectedClinicId || !canManage) return;
+  const handleCreateInvoice = useCallback(async (): Promise<boolean> => {
+    if (!workspace.selectedClinicId || !canManage) return false;
 
     const parsed = invoiceFormSchema.safeParse(invoiceForm);
     if (!parsed.success) {
@@ -739,13 +739,13 @@ export function useClinicBillingController() {
         nextErrors[field] = issue.message;
       });
       setInvoiceErrors(nextErrors);
-      return;
+      return false;
     }
 
     const clinicSpecialistId = getPatientSpecialistId(patients, parsed.data.clinicPatientId);
     if (!clinicSpecialistId) {
       setInvoiceErrors({ clinicSpecialistId: 'El paciente no tiene responsable activo.' });
-      return;
+      return false;
     }
 
     try {
@@ -767,31 +767,35 @@ export function useClinicBillingController() {
       setInvoiceForm(createInvoiceForm(patients[0]?.id ?? ''));
       showAppAlert(appAlert, 'Factura creada', 'La factura queda en borrador hasta que la envíes.');
       await reloadInvoicesAndSummary();
+      return true;
     } catch (createError: unknown) {
       showAppAlert(
         appAlert,
         'No se pudo crear',
         createError instanceof Error ? createError.message : 'Revisa los datos de la factura',
       );
+      return false;
     } finally {
       setSaving(false);
     }
   }, [appAlert, canManage, invoiceForm, patients, reloadInvoicesAndSummary, workspace.selectedClinicId]);
 
-  const handleCreateFromSession = useCallback(async () => {
-    if (!workspace.selectedClinicId || !canManage || !selectedSessionId) return;
+  const handleCreateFromSession = useCallback(async (): Promise<boolean> => {
+    if (!workspace.selectedClinicId || !canManage || !selectedSessionId) return false;
 
     try {
       setSaving(true);
       await clinicService.createClinicInvoiceFromSession(workspace.selectedClinicId, selectedSessionId);
       showAppAlert(appAlert, 'Factura creada', 'La cita completada ya tiene una factura en borrador.');
       await reloadInvoicesAndSummary();
+      return true;
     } catch (createError: unknown) {
       showAppAlert(
         appAlert,
         'No se pudo facturar la cita',
         createError instanceof Error ? createError.message : 'Revisa el estado de la cita',
       );
+      return false;
     } finally {
       setSaving(false);
     }

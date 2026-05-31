@@ -120,6 +120,7 @@ export type RootStackParamList = {
   ClinicPatients: undefined;
   ClinicAgenda: undefined;
   ClinicBilling: undefined;
+  ClinicInvoiceCreate: undefined;
   ForgotPassword: undefined;
   EmailSentPasswordReset: { email: string };
   ResetPassword: { token: string };

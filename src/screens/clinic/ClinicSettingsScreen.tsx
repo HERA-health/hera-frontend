@@ -286,12 +286,12 @@ export function ClinicSettingsScreen({
   }, [canEdit, form, workspace]);
 
   const clinicName = detail?.commercialName
-    ?? workspace.selectedMembership?.clinic.commercialName
-    ?? 'Configuración de clínica';
+    ?? workspace.selectedMembership?.clinic.commercialName;
 
   return (
     <ClinicWorkspaceScaffold
-      title={clinicName}
+      title="Configuración"
+      contextLabel={clinicName}
       subtitle="Mantén actualizados los datos básicos y fiscales que usaremos en fases posteriores de facturación."
       memberships={workspace.memberships}
       selectedClinicId={workspace.selectedClinicId}

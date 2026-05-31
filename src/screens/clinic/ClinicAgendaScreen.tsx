@@ -89,11 +89,12 @@ export function ClinicAgendaScreen({
     workspace,
   } = useClinicAgendaController();
 
-  const clinicName = workspace.selectedMembership?.clinic.commercialName ?? 'Agenda de clínica';
+  const clinicName = workspace.selectedMembership?.clinic.commercialName;
 
   return (
     <ClinicWorkspaceScaffold
-      title={clinicName}
+      title="Agenda"
+      contextLabel={clinicName}
       subtitle="Coordina citas administrativas de clínica sin mezclar agenda privada, pagos ni área clínica sensible."
       memberships={workspace.memberships}
       selectedClinicId={workspace.selectedClinicId}

@@ -585,11 +585,12 @@ export function ClinicTeamScreen({
     }
   }, [alert, canManage, loadTeam, selectedSpecialist, workspace.selectedClinicId]);
 
-  const clinicName = workspace.selectedMembership?.clinic.commercialName ?? 'Equipo de clínica';
+  const clinicName = workspace.selectedMembership?.clinic.commercialName;
 
   return (
     <ClinicWorkspaceScaffold
-      title={clinicName}
+      title="Equipo"
+      contextLabel={clinicName}
       subtitle="Gestiona especialistas internos de la clínica sin publicar perfiles ni crear accesos profesionales todavía."
       memberships={workspace.memberships}
       selectedClinicId={workspace.selectedClinicId}

@@ -23,7 +23,8 @@ const ROLE_LABELS: Record<ClinicMembershipRole, string> = {
 
 interface ClinicWorkspaceScaffoldProps {
   title: string;
-  subtitle: string;
+  subtitle?: string;
+  contextLabel?: string;
   memberships: ClinicMembershipSummary[];
   selectedClinicId: string | null;
   loading: boolean;
@@ -37,6 +38,7 @@ interface ClinicWorkspaceScaffoldProps {
 export function ClinicWorkspaceScaffold({
   title,
   subtitle,
+  contextLabel,
   memberships,
   selectedClinicId,
   loading,
@@ -96,9 +98,11 @@ export function ClinicWorkspaceScaffold({
       <View style={styles.shell}>
         <View style={styles.header}>
           <View style={styles.headerCopy}>
-            <Text style={styles.kicker}>HERA Clínicas</Text>
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.subtitle}>{subtitle}</Text>
+            <Text style={styles.kicker}>
+              {contextLabel ? `HERA Clínicas / ${contextLabel}` : 'HERA Clínicas'}
+            </Text>
+            <Text style={[styles.title, !subtitle ? styles.titleWithoutSubtitle : null]}>{title}</Text>
+            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
           </View>
 
           <View style={styles.headerTools}>
@@ -170,6 +174,9 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
       fontSize: isCompact ? 32 : 42,
       lineHeight: isCompact ? 38 : 50,
       marginBottom: spacing.sm,
+    },
+    titleWithoutSubtitle: {
+      marginBottom: 0,
     },
     subtitle: {
       color: theme.textSecondary,

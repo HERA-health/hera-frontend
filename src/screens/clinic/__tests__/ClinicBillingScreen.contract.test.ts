@@ -7,11 +7,19 @@ describe('ClinicBillingScreen source guards', () => {
     path.join(clinicDir, 'ClinicBillingScreen.tsx'),
     'utf8',
   );
+  const createScreenSource = fs.readFileSync(
+    path.join(clinicDir, 'ClinicInvoiceCreateScreen.tsx'),
+    'utf8',
+  );
   const controllerSource = fs.readFileSync(
     path.join(clinicDir, 'useClinicBillingController.ts'),
     'utf8',
   );
-  const combinedSource = `${screenSource}\n${controllerSource}`;
+  const navigationSource = fs.readFileSync(
+    path.join(__dirname, '..', '..', '..', 'navigation', 'RootNavigator.tsx'),
+    'utf8',
+  );
+  const combinedSource = `${screenSource}\n${createScreenSource}\n${controllerSource}`;
 
   it('uses clinic domain services instead of raw api calls', () => {
     expect(screenSource).toContain("from './useClinicBillingController'");
@@ -57,8 +65,19 @@ describe('ClinicBillingScreen source guards', () => {
     expect(controllerSource).toContain('handleCreateInvoice');
     expect(controllerSource).toContain('handleCreateFromSession');
     expect(controllerSource).toContain("status: 'COMPLETED'");
-    expect(screenSource).toContain('Crear borrador');
-    expect(screenSource).toContain('Facturar cita');
+    expect(screenSource).toContain("navigation.navigate('ClinicInvoiceCreate')");
+    expect(screenSource).not.toContain("navigation.navigate('ClinicAgenda')");
+    expect(screenSource).not.toContain("navigation.navigate('ClinicDashboard')");
+    expect(screenSource).not.toContain('invoiceIntro');
+    expect(screenSource).not.toContain('Crear borrador');
+    expect(screenSource).not.toContain('Facturar cita');
+    expect(screenSource).not.toContain('InvoiceCreatePanel');
+    expect(createScreenSource).toContain('Crear borrador');
+    expect(createScreenSource).toContain('Facturar cita');
+    expect(createScreenSource).toContain('sin datos clínicos');
+    expect(createScreenSource).toContain('{!canManage ? (');
+    expect(navigationSource).toContain('ClinicInvoiceCreateRoute');
+    expect(navigationSource).toContain('name="ClinicInvoiceCreate"');
   });
 
   it('shows monthly revenue share and internal settlements without payment integrations', () => {
@@ -86,10 +105,11 @@ describe('ClinicBillingScreen source guards', () => {
     const adminBlock = screenSource.slice(adminBlockStart, screenSource.indexOf('</>', adminBlockStart));
 
     expect(adminBlock).toContain('<SummaryBand');
+    expect(adminBlock).toContain('<BillingSectionTabs');
     expect(adminBlock).toContain('<RevenueSharePanel');
     expect(adminBlock).toContain('<SettlementPanel');
     expect(adminBlock).toContain('<ConfigPanel');
-    expect(adminBlock).toContain('<InvoiceCreatePanel');
+    expect(adminBlock).not.toContain('<InvoiceCreatePanel');
     expect(adminBlock).toContain('Facturas');
   });
 

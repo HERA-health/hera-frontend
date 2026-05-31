@@ -124,12 +124,12 @@ export function ClinicDashboardScreen({
     }
   }, [loadDashboard, workspace]);
 
-  const clinicName = workspace.selectedMembership?.clinic.commercialName ?? 'Panel de clínica';
+  const clinicName = workspace.selectedMembership?.clinic.commercialName;
 
   return (
     <ClinicWorkspaceScaffold
-      title={clinicName}
-      subtitle="Gestiona la base de la clínica con datos reales y módulos futuros claramente separados."
+      title="Panel de clínica"
+      contextLabel={clinicName}
       memberships={workspace.memberships}
       selectedClinicId={workspace.selectedClinicId}
       loading={workspace.loading}
@@ -139,26 +139,29 @@ export function ClinicDashboardScreen({
       action={workspace.selectedClinicId ? (
         <View style={styles.headerActions}>
           <Button
-            variant="primary"
-            size="medium"
+            variant="outline"
+            size="small"
+            style={styles.headerActionButton}
             onPress={() => navigation.navigate('ClinicTeam')}
-            icon={<Ionicons name="people-outline" size={18} color={theme.actionPrimaryText} />}
+            icon={<Ionicons name="people-outline" size={16} color={theme.primary} />}
           >
             Equipo
           </Button>
           <Button
             variant="outline"
-            size="medium"
+            size="small"
+            style={styles.headerActionButton}
             onPress={() => navigation.navigate('ClinicPatients')}
-            icon={<Ionicons name="medical-outline" size={18} color={theme.primary} />}
+            icon={<Ionicons name="medical-outline" size={16} color={theme.primary} />}
           >
             Pacientes
           </Button>
           <Button
             variant="outline"
-            size="medium"
+            size="small"
+            style={styles.headerActionButton}
             onPress={() => navigation.navigate('ClinicAgenda')}
-            icon={<Ionicons name="calendar-outline" size={18} color={theme.primary} />}
+            icon={<Ionicons name="calendar-outline" size={16} color={theme.primary} />}
           >
             Agenda
           </Button>
@@ -271,10 +274,17 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
     },
     headerActions: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
+      flexWrap: isCompact ? 'wrap' : 'nowrap',
+      gap: spacing.xs,
       alignItems: 'center',
       justifyContent: 'flex-end',
+      alignSelf: isCompact ? 'stretch' : 'flex-end',
+    },
+    headerActionButton: {
+      minWidth: isCompact ? 0 : 92,
+      flexGrow: isCompact ? 1 : 0,
+      flexBasis: isCompact ? '31%' : undefined,
+      paddingHorizontal: spacing.sm,
     },
     metricsGrid: {
       flexDirection: 'row',

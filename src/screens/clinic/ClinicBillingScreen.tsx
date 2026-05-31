@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -19,18 +19,28 @@ import { useTheme } from '../../contexts/ThemeContext';
 import * as clinicService from '../../services/clinicService';
 import { ClinicWorkspaceScaffold } from './components/ClinicWorkspaceScaffold';
 import {
-  CREATE_KIND_OPTIONS,
   KIND_OPTIONS,
   REVENUE_SHARE_MONTH_OPTIONS,
   STATUS_OPTIONS,
   useClinicBillingController,
   type ClinicBillingConfigErrors,
   type ClinicBillingConfigForm,
-  type ClinicBillingInvoiceErrors,
-  type ClinicBillingInvoiceForm,
   type ClinicRevenueShareFilters,
   type ClinicSettlementFilters,
 } from './useClinicBillingController';
+
+type ClinicBillingSection = 'invoices' | 'revenue' | 'settlements' | 'config';
+
+const BILLING_SECTION_TABS: Array<{
+  key: ClinicBillingSection;
+  label: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+}> = [
+  { key: 'invoices', label: 'Facturas', icon: 'receipt-outline' },
+  { key: 'revenue', label: 'Reparto', icon: 'pie-chart-outline' },
+  { key: 'settlements', label: 'Liquidaciones', icon: 'file-tray-full-outline' },
+  { key: 'config', label: 'Configuración', icon: 'settings-outline' },
+];
 
 const INVOICE_STATUS_LABELS: Record<clinicService.ClinicInvoiceStatus, string> = {
   DRAFT: 'Borrador',
@@ -78,16 +88,14 @@ export function ClinicBillingScreen({
   const { width } = useWindowDimensions();
   const isCompact = width < 960;
   const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
+  const [activeSection, setActiveSection] = useState<ClinicBillingSection>('invoices');
   const {
     canManage,
-    completedSessionOptions,
     configErrors,
     configForm,
     editableFilters,
     error,
     handleApplyFilters,
-    handleCreateFromSession,
-    handleCreateInvoice,
     handleGenerateSettlement,
     handleInvoiceAction,
     handleLoadMore,
@@ -96,21 +104,17 @@ export function ClinicBillingScreen({
     handleSelectClinic,
     handleSettlementAction,
     handleViewSettlementDetail,
-    invoiceErrors,
-    invoiceForm,
     invoices,
     loading,
     loadingMore,
     pageInfo,
     patientFilterOptions,
-    patientOptions,
     revenueShareError,
     revenueShareFilters,
     revenueShareLoading,
     revenueShareSummary,
     revenueShareYearOptions,
     saving,
-    selectedSessionId,
     selectedSettlementDetail,
     settlementError,
     settlementDetailLoading,
@@ -120,19 +124,18 @@ export function ClinicBillingScreen({
     settlements,
     setConfigField,
     setEditableFilter,
-    setInvoiceField,
     setRevenueShareFilter,
     setSettlementFilter,
-    setSelectedSessionId,
     summary,
     workspace,
   } = useClinicBillingController();
 
-  const clinicName = workspace.selectedMembership?.clinic.commercialName ?? 'Facturación de clínica';
+  const clinicName = workspace.selectedMembership?.clinic.commercialName;
 
   return (
     <ClinicWorkspaceScaffold
-      title={clinicName}
+      title="Facturación"
+      contextLabel={clinicName}
       subtitle="Emite y gestiona facturas administrativas de la clínica sin mezclar la facturación privada del profesional."
       memberships={workspace.memberships}
       selectedClinicId={workspace.selectedClinicId}
@@ -140,25 +143,15 @@ export function ClinicBillingScreen({
       error={workspace.error}
       onSelectClinic={handleSelectClinic}
       onRetry={handleRetry}
-      action={workspace.selectedClinicId ? (
-        <View style={styles.headerActions}>
-          <Button
-            variant="ghost"
-            size="medium"
-            onPress={() => navigation.navigate('ClinicAgenda')}
-            icon={<Ionicons name="calendar-outline" size={18} color={theme.primary} />}
-          >
-            Agenda
-          </Button>
-          <Button
-            variant="ghost"
-            size="medium"
-            onPress={() => navigation.navigate('ClinicDashboard')}
-            icon={<Ionicons name="business-outline" size={18} color={theme.primary} />}
-          >
-            Panel
-          </Button>
-        </View>
+      action={workspace.selectedClinicId && canManage ? (
+        <Button
+          variant="primary"
+          size="medium"
+          onPress={() => navigation.navigate('ClinicInvoiceCreate')}
+          icon={<Ionicons name="add-circle-outline" size={18} color={theme.actionPrimaryText} />}
+        >
+          Nueva factura
+        </Button>
       ) : undefined}
     >
       {!workspace.selectedMembership ? (
@@ -183,151 +176,154 @@ export function ClinicBillingScreen({
             <>
               <SummaryBand summary={summary} loading={loading} isCompact={isCompact} />
 
-              <RevenueSharePanel
-                summary={revenueShareSummary}
-                filters={revenueShareFilters}
-                yearOptions={revenueShareYearOptions}
-                loading={revenueShareLoading}
-                error={revenueShareError}
+              <BillingSectionTabs
+                activeSection={activeSection}
+                onChange={setActiveSection}
                 isCompact={isCompact}
-                onChange={setRevenueShareFilter}
               />
 
-              <SettlementPanel
-                preview={settlementPreview}
-                settlements={settlements}
-                selectedSettlement={selectedSettlementDetail}
-                filters={settlementFilters}
-                yearOptions={revenueShareYearOptions}
-                loading={settlementLoading}
-                detailLoading={settlementDetailLoading}
-                error={settlementError}
-                saving={saving}
-                isCompact={isCompact}
-                onChange={setSettlementFilter}
-                onGenerate={handleGenerateSettlement}
-                onViewDetail={handleViewSettlementDetail}
-                onAction={handleSettlementAction}
-              />
+              {activeSection === 'revenue' ? (
+                <RevenueSharePanel
+                  summary={revenueShareSummary}
+                  filters={revenueShareFilters}
+                  yearOptions={revenueShareYearOptions}
+                  loading={revenueShareLoading}
+                  error={revenueShareError}
+                  isCompact={isCompact}
+                  onChange={setRevenueShareFilter}
+                />
+              ) : null}
 
-              <View style={styles.topGrid}>
-                <ConfigPanel
-                  form={configForm}
-                  errors={configErrors}
+              {activeSection === 'settlements' ? (
+                <SettlementPanel
+                  preview={settlementPreview}
+                  settlements={settlements}
+                  selectedSettlement={selectedSettlementDetail}
+                  filters={settlementFilters}
+                  yearOptions={revenueShareYearOptions}
+                  loading={settlementLoading}
+                  detailLoading={settlementDetailLoading}
+                  error={settlementError}
                   saving={saving}
                   isCompact={isCompact}
-                  onChange={setConfigField}
-                  onSave={handleSaveConfig}
+                  onChange={setSettlementFilter}
+                  onGenerate={handleGenerateSettlement}
+                  onViewDetail={handleViewSettlementDetail}
+                  onAction={handleSettlementAction}
                 />
-                <InvoiceCreatePanel
-                  form={invoiceForm}
-                  errors={invoiceErrors}
-                  patientOptions={patientOptions}
-                  sessionOptions={completedSessionOptions}
-                  selectedSessionId={selectedSessionId}
-                  saving={saving}
-                  isCompact={isCompact}
-                  onChange={setInvoiceField}
-                  onCreate={handleCreateInvoice}
-                  onCreateFromSession={handleCreateFromSession}
-                  onSelectSession={setSelectedSessionId}
-                />
-              </View>
+              ) : null}
 
-              <View style={styles.filters}>
-                <View style={styles.filterDropdown}>
-                  <Text style={styles.filterLabel}>Estado</Text>
-                  <SimpleDropdown
-                    options={STATUS_OPTIONS}
-                    value={editableFilters.statusFilter}
-                    onSelect={(value) => setEditableFilter('statusFilter', value)}
+              {activeSection === 'config' ? (
+                <View style={styles.topGrid}>
+                  <ConfigPanel
+                    form={configForm}
+                    errors={configErrors}
+                    saving={saving}
+                    isCompact={isCompact}
+                    onChange={setConfigField}
+                    onSave={handleSaveConfig}
                   />
                 </View>
-                <View style={styles.filterDropdown}>
-                  <Text style={styles.filterLabel}>Tipo</Text>
-                  <SimpleDropdown
-                    options={KIND_OPTIONS}
-                    value={editableFilters.invoiceKindFilter}
-                    onSelect={(value) => setEditableFilter('invoiceKindFilter', value)}
-                  />
-                </View>
-                <View style={styles.filterDropdown}>
-                  <Text style={styles.filterLabel}>Paciente</Text>
-                  <SimpleDropdown
-                    options={patientFilterOptions}
-                    value={editableFilters.patientFilter}
-                    onSelect={(value) => setEditableFilter('patientFilter', value)}
-                  />
-                </View>
-                <View style={styles.filterAction}>
-                  <Button
-                    variant="outline"
-                    size="medium"
-                    onPress={handleApplyFilters}
-                    disabled={loading}
-                    icon={<Ionicons name="funnel-outline" size={18} color={theme.primary} />}
-                  >
-                    Aplicar
-                  </Button>
-                </View>
-              </View>
+              ) : null}
 
-              <View style={styles.invoicePanel}>
-                <View style={styles.sectionHeader}>
-                  <View>
-                    <Text style={styles.sectionTitle}>Facturas</Text>
-                    <Text style={styles.sectionSubtitle}>
-                      {pageInfo ? `${pageInfo.total} registros` : 'Listado administrativo'}
-                    </Text>
+              {activeSection === 'invoices' ? (
+                <>
+                  <View style={styles.filters}>
+                    <View style={styles.filterDropdown}>
+                      <Text style={styles.filterLabel}>Estado</Text>
+                      <SimpleDropdown
+                        options={STATUS_OPTIONS}
+                        value={editableFilters.statusFilter}
+                        onSelect={(value) => setEditableFilter('statusFilter', value)}
+                      />
+                    </View>
+                    <View style={styles.filterDropdown}>
+                      <Text style={styles.filterLabel}>Tipo</Text>
+                      <SimpleDropdown
+                        options={KIND_OPTIONS}
+                        value={editableFilters.invoiceKindFilter}
+                        onSelect={(value) => setEditableFilter('invoiceKindFilter', value)}
+                      />
+                    </View>
+                    <View style={styles.filterDropdown}>
+                      <Text style={styles.filterLabel}>Paciente</Text>
+                      <SimpleDropdown
+                        options={patientFilterOptions}
+                        value={editableFilters.patientFilter}
+                        onSelect={(value) => setEditableFilter('patientFilter', value)}
+                      />
+                    </View>
+                    <View style={styles.filterAction}>
+                      <Button
+                        variant="outline"
+                        size="medium"
+                        onPress={handleApplyFilters}
+                        disabled={loading}
+                        icon={<Ionicons name="funnel-outline" size={18} color={theme.primary} />}
+                      >
+                        Aplicar
+                      </Button>
+                    </View>
                   </View>
-                  {loading ? <ActivityIndicator color={theme.primary} size="small" /> : null}
-                </View>
 
-                {error ? (
-                  <StatePanel
-                    icon="alert-circle-outline"
-                    title="No se pudieron cargar las facturas"
-                    text={error}
-                    actionLabel="Reintentar"
-                    onAction={handleRetry}
-                    isCompact={isCompact}
-                  />
-                ) : null}
+                  <View style={styles.invoicePanel}>
+                    <View style={styles.sectionHeader}>
+                      <View>
+                        <Text style={styles.sectionTitle}>Facturas</Text>
+                        <Text style={styles.sectionSubtitle}>
+                          {pageInfo ? `${pageInfo.total} registros` : 'Listado administrativo'}
+                        </Text>
+                      </View>
+                      {loading ? <ActivityIndicator color={theme.primary} size="small" /> : null}
+                    </View>
 
-                {!error && !loading && invoices.length === 0 ? (
-                  <StatePanel
-                    icon="receipt-outline"
-                    isCompact={isCompact}
-                    title="Aún no hay facturas"
-                    text="Crea una factura manual o genera una desde una cita de clínica completada."
-                  />
-                ) : null}
+                    {error ? (
+                      <StatePanel
+                        icon="alert-circle-outline"
+                        title="No se pudieron cargar las facturas"
+                        text={error}
+                        actionLabel="Reintentar"
+                        onAction={handleRetry}
+                        isCompact={isCompact}
+                      />
+                    ) : null}
 
-                <View style={styles.invoiceList}>
-                  {invoices.map((invoice) => (
-                    <InvoiceRow
-                      key={invoice.id}
-                      invoice={invoice}
-                      saving={saving}
-                      isCompact={isCompact}
-                      onAction={handleInvoiceAction}
-                    />
-                  ))}
-                </View>
+                    {!error && !loading && invoices.length === 0 ? (
+                      <StatePanel
+                        icon="receipt-outline"
+                        isCompact={isCompact}
+                        title="Aún no hay facturas"
+                        text="Crea una factura desde la vista de emisión cuando tengas una cita completada o un concepto administrativo."
+                      />
+                    ) : null}
 
-                {pageInfo?.nextPage ? (
-                  <Button
-                    variant="outline"
-                    size="medium"
-                    onPress={handleLoadMore}
-                    loading={loadingMore}
-                    disabled={loadingMore}
-                    fullWidth
-                  >
-                    Cargar más
-                  </Button>
-                ) : null}
-              </View>
+                    <View style={styles.invoiceList}>
+                      {invoices.map((invoice) => (
+                        <InvoiceRow
+                          key={invoice.id}
+                          invoice={invoice}
+                          saving={saving}
+                          isCompact={isCompact}
+                          onAction={handleInvoiceAction}
+                        />
+                      ))}
+                    </View>
+
+                    {pageInfo?.nextPage ? (
+                      <Button
+                        variant="outline"
+                        size="medium"
+                        onPress={handleLoadMore}
+                        loading={loadingMore}
+                        disabled={loadingMore}
+                        fullWidth
+                      >
+                        Cargar más
+                      </Button>
+                    ) : null}
+                  </View>
+                </>
+              ) : null}
             </>
           ) : null}
         </View>
@@ -379,6 +375,44 @@ function SummaryBand({
           <Text style={styles.metricValue}>{loading ? '...' : metric.value}</Text>
         </View>
       ))}
+    </View>
+  );
+}
+
+function BillingSectionTabs({
+  activeSection,
+  onChange,
+  isCompact,
+}: {
+  activeSection: ClinicBillingSection;
+  onChange: (section: ClinicBillingSection) => void;
+  isCompact: boolean;
+}): React.ReactElement {
+  const { theme } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
+
+  return (
+    <View style={styles.sectionTabs}>
+      {BILLING_SECTION_TABS.map((tab) => {
+        const active = tab.key === activeSection;
+        return (
+          <Button
+            key={tab.key}
+            variant={active ? 'primary' : 'ghost'}
+            size="small"
+            onPress={() => onChange(tab.key)}
+            icon={(
+              <Ionicons
+                name={tab.icon}
+                size={16}
+                color={active ? theme.actionPrimaryText : theme.primary}
+              />
+            )}
+          >
+            {tab.label}
+          </Button>
+        );
+      })}
     </View>
   );
 }
@@ -1025,152 +1059,6 @@ function ConfigPanel({
   );
 }
 
-function InvoiceCreatePanel({
-  form,
-  errors,
-  patientOptions,
-  sessionOptions,
-  selectedSessionId,
-  saving,
-  isCompact,
-  onChange,
-  onCreate,
-  onCreateFromSession,
-  onSelectSession,
-}: {
-  form: ClinicBillingInvoiceForm;
-  errors: ClinicBillingInvoiceErrors;
-  patientOptions: Array<{ label: string; value: string; subtitle?: string }>;
-  sessionOptions: Array<{ label: string; value: string; subtitle?: string }>;
-  selectedSessionId: string;
-  saving: boolean;
-  isCompact: boolean;
-  onChange: <K extends keyof ClinicBillingInvoiceForm>(
-    field: K,
-    value: ClinicBillingInvoiceForm[K],
-  ) => void;
-  onCreate: () => void;
-  onCreateFromSession: () => void;
-  onSelectSession: (sessionId: string) => void;
-}): React.ReactElement {
-  const { theme } = useTheme();
-  const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
-
-  return (
-    <View style={styles.panel}>
-      <View style={styles.sectionHeader}>
-        <View>
-          <Text style={styles.sectionTitle}>Crear factura</Text>
-          <Text style={styles.sectionSubtitle}>Manual o desde una cita completada.</Text>
-        </View>
-      </View>
-      <View style={styles.formGrid}>
-        <View style={styles.dropdownStackTop}>
-          <Text style={styles.filterLabel}>Paciente</Text>
-          <SimpleDropdown
-            options={patientOptions}
-            value={form.clinicPatientId || null}
-            onSelect={(value) => onChange('clinicPatientId', value)}
-            placeholder="Selecciona paciente"
-          />
-          {errors.clinicPatientId || errors.clinicSpecialistId ? (
-            <Text style={styles.fieldError}>{errors.clinicPatientId ?? errors.clinicSpecialistId}</Text>
-          ) : null}
-        </View>
-        <View style={styles.dropdownStackMiddle}>
-          <Text style={styles.filterLabel}>Tipo</Text>
-          <SimpleDropdown
-            options={CREATE_KIND_OPTIONS}
-            value={form.invoiceKind}
-            onSelect={(value) => onChange('invoiceKind', value)}
-          />
-        </View>
-        <Input
-          label="Concepto"
-          value={form.concept}
-          onChangeText={(value) => onChange('concept', value)}
-          error={errors.concept}
-        />
-        <View style={styles.inlineFields}>
-          <Input
-            label="Total"
-            value={form.subtotal}
-            onChangeText={(value) => onChange('subtotal', value)}
-            keyboardType="decimal-pad"
-            error={errors.subtotal}
-            containerStyle={styles.inlineField}
-          />
-          <Input
-            label="IVA"
-            value={form.vatRate}
-            onChangeText={(value) => onChange('vatRate', value)}
-            keyboardType="numeric"
-            error={errors.vatRate}
-            containerStyle={styles.inlineField}
-          />
-        </View>
-        <View style={styles.inlineFields}>
-          <Input
-            label="Fecha sesión"
-            value={form.sessionDate}
-            onChangeText={(value) => onChange('sessionDate', value)}
-            placeholder="YYYY-MM-DD"
-            error={errors.sessionDate}
-            containerStyle={styles.inlineField}
-          />
-          <Input
-            label="Minutos"
-            value={form.durationMinutes}
-            onChangeText={(value) => onChange('durationMinutes', value)}
-            keyboardType="numeric"
-            error={errors.durationMinutes}
-            containerStyle={styles.inlineField}
-          />
-        </View>
-        <Input
-          label="Notas internas"
-          value={form.internalNotes}
-          onChangeText={(value) => onChange('internalNotes', value)}
-          error={errors.internalNotes}
-        />
-      </View>
-      <Button
-        variant="primary"
-        size="medium"
-        onPress={onCreate}
-        loading={saving}
-        disabled={saving || patientOptions.length === 0}
-        icon={<Ionicons name="receipt-outline" size={18} color={theme.actionPrimaryText} />}
-      >
-        Crear borrador
-      </Button>
-
-      <View style={styles.sessionBox}>
-        <Text style={styles.filterLabel}>Cita completada</Text>
-        <View style={styles.dropdownStackTop}>
-          <SimpleDropdown
-            options={sessionOptions}
-            value={selectedSessionId || null}
-            onSelect={onSelectSession}
-            placeholder="Selecciona cita"
-            maxHeight={260}
-          />
-        </View>
-        <Button
-          variant="outline"
-          size="medium"
-          onPress={onCreateFromSession}
-          disabled={saving || !selectedSessionId}
-          fullWidth
-          icon={<Ionicons name="add-circle-outline" size={18} color={theme.primary} />}
-        >
-          Facturar cita
-        </Button>
-      </View>
-    </View>
-  );
-}
-
 function InvoiceRow({
   invoice,
   saving,
@@ -1295,11 +1183,6 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
     workspace: {
       gap: spacing.xl,
     },
-    headerActions: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
     notice: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1342,6 +1225,16 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
       color: theme.textPrimary,
       fontFamily: theme.fontSansBold,
       fontSize: typography.fontSizes.xl,
+    },
+    sectionTabs: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+      padding: spacing.xs,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: borderRadius.lg,
+      backgroundColor: theme.bgMuted,
     },
     topGrid: {
       flexDirection: isCompact ? 'column' : 'row',

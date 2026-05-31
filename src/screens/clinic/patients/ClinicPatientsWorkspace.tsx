@@ -24,12 +24,12 @@ export function ClinicPatientsWorkspace({
   const isCompact = width < 940;
   const styles = useMemo(() => createWorkspaceStyles(theme, isCompact), [isCompact, theme]);
   const controller = useClinicPatientsController();
-  const clinicName = controller.workspace.selectedMembership?.clinic.commercialName
-    ?? 'Pacientes de clínica';
+  const clinicName = controller.workspace.selectedMembership?.clinic.commercialName;
 
   return (
     <ClinicWorkspaceScaffold
-      title={clinicName}
+      title="Pacientes"
+      contextLabel={clinicName}
       subtitle="Gestiona datos administrativos y fiscales de pacientes de clínica con un espacio separado del área asistencial."
       memberships={controller.workspace.memberships}
       selectedClinicId={controller.workspace.selectedClinicId}
