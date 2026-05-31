@@ -39,7 +39,6 @@ import {
   LANDING_SECTION_NATIVE_IDS,
   type LandingSectionAnchor,
 } from './types';
-import { isClinicAuthEntryEnabled } from '../../config/clinicFeatures';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Landing'>;
 
@@ -54,8 +53,7 @@ type SpecializationsSectionProps = {
 type SharedCTASectionProps = {
   onFindSpecialist: () => void;
   onJoinAsProfessional: () => void;
-  onJoinAsClinic?: () => void;
-  showClinicEntry?: boolean;
+  onJoinAsClinic: () => void;
 };
 type FooterSectionProps = SharedCTASectionProps & {
   onScrollToSection: (section: LandingSectionAnchor) => void;
@@ -165,8 +163,6 @@ export const LandingPage: React.FC = () => {
   const [showDeferredSections, setShowDeferredSections] = useState(
     Platform.OS !== 'web'
   );
-  const clinicAuthEnabled = isClinicAuthEntryEnabled();
-
   const revealDeferredSections = useCallback(() => {
     setShowDeferredSections(true);
   }, []);
@@ -297,7 +293,6 @@ export const LandingPage: React.FC = () => {
         onFindSpecialist={handleFindSpecialist}
         onJoinAsProfessional={handleJoinAsProfessional}
         onJoinAsClinic={handleJoinAsClinic}
-        showClinicEntry={clinicAuthEnabled}
         onScrollToSection={handleScrollToSection}
       />
 
@@ -313,7 +308,6 @@ export const LandingPage: React.FC = () => {
           onFindSpecialist={handleFindSpecialist}
           onJoinAsProfessional={handleJoinAsProfessional}
           onJoinAsClinic={handleJoinAsClinic}
-          showClinicEntry={clinicAuthEnabled}
           showScrollIndicator={showScrollIndicator}
           onScrollIndicatorPress={handleScrollToContent}
         />
@@ -365,14 +359,12 @@ export const LandingPage: React.FC = () => {
               onFindSpecialist={handleFindSpecialist}
               onJoinAsProfessional={handleJoinAsProfessional}
               onJoinAsClinic={handleJoinAsClinic}
-              showClinicEntry={clinicAuthEnabled}
             />
 
             <FooterSection
               onFindSpecialist={handleFindSpecialist}
               onJoinAsProfessional={handleJoinAsProfessional}
               onJoinAsClinic={handleJoinAsClinic}
-              showClinicEntry={clinicAuthEnabled}
               onScrollToSection={handleScrollToSection}
             />
           </>

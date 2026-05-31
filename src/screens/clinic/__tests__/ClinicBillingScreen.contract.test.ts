@@ -54,6 +54,38 @@ describe('ClinicBillingScreen source guards', () => {
     expect(controllerSource).toContain('loadSummary');
   });
 
+  it('uses paginated patient and completed-session lookups without fixed large limits', () => {
+    expect(controllerSource).toContain('CLINIC_REFERENCE_PAGE_LIMIT');
+    expect(controllerSource).toContain('CLINIC_SESSION_LOOKUP_PAGE_LIMIT');
+    expect(controllerSource).toContain('PATIENT_LOOKUP_DEBOUNCE_MS');
+    expect(controllerSource).toContain('invalidateBillingRequests');
+    expect(controllerSource).toContain('resetBillingContextState');
+    expect(controllerSource).toContain('patientLookupPageInfo');
+    expect(controllerSource).toContain('completedSessionPageInfo');
+    expect(controllerSource).toContain('clinicPatientId');
+    expect(controllerSource).toContain('mountedRef');
+    expect(controllerSource).toContain('invoicesRequestSeq');
+    expect(controllerSource).toContain('setTimeout');
+    expect(controllerSource).toContain('clearTimeout');
+    expect(controllerSource).toContain('setInvoiceForm(createInvoiceForm())');
+    expect(controllerSource).not.toContain('limit: 200');
+    expect(screenSource).toContain('Buscar paciente');
+    expect(createScreenSource).toContain('Cargar mas citas');
+  });
+
+  it('debounces patient searches and resets invoice form on clinic context changes', () => {
+    const handlerSource = controllerSource.slice(
+      controllerSource.indexOf('const handlePatientLookupSearchChange'),
+      controllerSource.indexOf('const handleLoadMorePatientOptions'),
+    );
+
+    expect(handlerSource).toContain('setPatientLookupSearch(search)');
+    expect(handlerSource).not.toContain('loadPatientLookup');
+    expect(controllerSource).toContain('setInvoiceErrors({})');
+    expect(controllerSource).toContain('setSelectedSessionId');
+    expect(controllerSource).toContain('setCompletedSessions([])');
+  });
+
   it('exposes VAT exemption reason and applies compact styles through child panels', () => {
     expect(screenSource).toContain('vatExemptReason');
     expect(screenSource).toContain('Motivo de exencion IVA');

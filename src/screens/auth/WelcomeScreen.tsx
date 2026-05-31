@@ -28,7 +28,6 @@ import { Button } from '../../components/common/Button';
 import { spacing } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
 import type { RootStackParamList } from '../../constants/types';
-import { isClinicAuthEntryEnabled } from '../../config/clinicFeatures';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Welcome'>;
 type FeatureColorKey = 'primary' | 'secondary' | 'success' | 'info';
@@ -100,7 +99,6 @@ export function WelcomeScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { width } = useWindowDimensions();
   const { theme } = useTheme();
-  const clinicAuthEnabled = isClinicAuthEntryEnabled();
 
   const isDesktop = width > 768;
   const isTablet = width > 600 && width <= 768;
@@ -285,58 +283,56 @@ export function WelcomeScreen() {
             </View>
           </MotionView>
 
-          {clinicAuthEnabled ? (
-            <MotionView entering="fadeInUp" delay={440} style={isDesktop ? { flex: 1 } : undefined}>
-              <View
-                style={[
-                  styles.ctaCard,
-                  {
-                    backgroundColor: theme.bgCard,
-                    borderColor: theme.borderStrong,
-                    shadowColor: theme.shadowCard,
-                  },
-                ]}
-              >
-                <View style={[styles.ctaIconContainer, { backgroundColor: theme.primaryAlpha12 }]}>
-                  <Ionicons name="business" size={38} color={theme.primary} />
-                </View>
-
-                <Text style={[styles.ctaTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>
-                  Soy clínica
-                </Text>
-                <Text style={[styles.ctaSubtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                  Crea un espacio propio para tu centro
-                </Text>
-
-                <View style={styles.bulletList}>
-                  {CTA_BULLETS.clinic.map((bullet, i) => (
-                    <View key={i} style={styles.bulletItem}>
-                      <Ionicons name="checkmark-circle" size={18} color={theme.primary} />
-                      <Text style={[styles.bulletText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                        {bullet}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-
-                <Button
-                  onPress={() => navigation.navigate('Login', { userType: 'CLINIC' })}
-                  variant="outline"
-                  size="large"
-                  fullWidth
-                  icon={<Ionicons name="arrow-forward" size={20} color={theme.link} />}
-                  iconPosition="right"
-                  style={styles.ctaButtonNative}
-                  textStyle={{ fontFamily: theme.fontSansBold }}
-                >
-                  Acceso clínicas
-                </Button>
-                <Text style={[styles.ctaHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
-                  Probar panel de clínica
-                </Text>
+          <MotionView entering="fadeInUp" delay={440} style={isDesktop ? { flex: 1 } : undefined}>
+            <View
+              style={[
+                styles.ctaCard,
+                {
+                  backgroundColor: theme.bgCard,
+                  borderColor: theme.borderStrong,
+                  shadowColor: theme.shadowCard,
+                },
+              ]}
+            >
+              <View style={[styles.ctaIconContainer, { backgroundColor: theme.primaryAlpha12 }]}>
+                <Ionicons name="business" size={38} color={theme.primary} />
               </View>
-            </MotionView>
-          ) : null}
+
+              <Text style={[styles.ctaTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>
+                Soy clínica
+              </Text>
+              <Text style={[styles.ctaSubtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+                Crea un espacio propio para tu centro
+              </Text>
+
+              <View style={styles.bulletList}>
+                {CTA_BULLETS.clinic.map((bullet, i) => (
+                  <View key={i} style={styles.bulletItem}>
+                    <Ionicons name="checkmark-circle" size={18} color={theme.primary} />
+                    <Text style={[styles.bulletText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+                      {bullet}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              <Button
+                onPress={() => navigation.navigate('Login', { userType: 'CLINIC' })}
+                variant="outline"
+                size="large"
+                fullWidth
+                icon={<Ionicons name="arrow-forward" size={20} color={theme.link} />}
+                iconPosition="right"
+                style={styles.ctaButtonNative}
+                textStyle={{ fontFamily: theme.fontSansBold }}
+              >
+                Acceso clínicas
+              </Button>
+              <Text style={[styles.ctaHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
+                Probar panel de clínica
+              </Text>
+            </View>
+          </MotionView>
         </View>
 
         <View style={styles.footer} />

@@ -12,15 +12,13 @@ import { useTheme } from '../../../contexts/ThemeContext';
 interface FinalCTASectionProps {
   onFindSpecialist: () => void;
   onJoinAsProfessional?: () => void;
-  onJoinAsClinic?: () => void;
-  showClinicEntry?: boolean;
+  onJoinAsClinic: () => void;
 }
 
 export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
   onFindSpecialist,
   onJoinAsProfessional,
   onJoinAsClinic,
-  showClinicEntry = false,
 }) => {
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
@@ -90,13 +88,11 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
           </Text>
         </TouchableOpacity>
 
-        {showClinicEntry ? (
-          <TouchableOpacity onPress={onJoinAsClinic ?? onJoinAsProfessional} activeOpacity={0.8}>
-            <Text style={[styles.secondaryLink, styles.clinicLink, { color: foregroundMutedColor, fontFamily: theme.fontSansSemiBold }]}>
-              Acceso para clínicas
-            </Text>
-          </TouchableOpacity>
-        ) : null}
+        <TouchableOpacity onPress={onJoinAsClinic} activeOpacity={0.8}>
+          <Text style={[styles.secondaryLink, styles.clinicLink, { color: foregroundMutedColor, fontFamily: theme.fontSansSemiBold }]}>
+            Acceso para clínicas
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );

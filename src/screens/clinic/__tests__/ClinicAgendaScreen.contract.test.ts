@@ -45,6 +45,32 @@ describe('ClinicAgendaScreen source guards', () => {
     expect(screenSource).not.toContain('clinicService.listClinicSessions');
   });
 
+  it('uses paginated patient lookup and ignores stale async responses', () => {
+    expect(controllerSource).toContain('CLINIC_REFERENCE_PAGE_LIMIT');
+    expect(controllerSource).toContain('PATIENT_LOOKUP_DEBOUNCE_MS');
+    expect(controllerSource).toContain('invalidateAgendaRequests');
+    expect(controllerSource).toContain('resetAgendaState');
+    expect(controllerSource).toContain('patientLookupPageInfo');
+    expect(controllerSource).toContain('handleLoadMorePatientOptions');
+    expect(controllerSource).toContain('mountedRef');
+    expect(controllerSource).toContain('sessionsRequestSeq');
+    expect(controllerSource).toContain('setTimeout');
+    expect(controllerSource).toContain('clearTimeout');
+    expect(controllerSource).not.toContain('limit: 200');
+    expect(screenSource).toContain('Buscar paciente');
+    expect(screenSource).toContain('Cargar mas pacientes');
+  });
+
+  it('debounces patient searches instead of firing lookup from the input handler', () => {
+    const handlerSource = controllerSource.slice(
+      controllerSource.indexOf('const handlePatientLookupSearchChange'),
+      controllerSource.indexOf('const handleLoadMorePatientOptions'),
+    );
+
+    expect(handlerSource).toContain('setPatientLookupSearch(search)');
+    expect(handlerSource).not.toContain('loadPatientLookup');
+  });
+
   it('builds local date ranges without UTC day slicing', () => {
     expect(controllerSource).toContain('toLocalDateInputValue');
     expect(controllerSource).toContain('toLocalStartOfDayIso');

@@ -41,8 +41,7 @@ interface FooterColumn {
 interface FooterSectionProps {
   onFindSpecialist?: () => void;
   onJoinAsProfessional?: () => void;
-  onJoinAsClinic?: () => void;
-  showClinicEntry?: boolean;
+  onJoinAsClinic: () => void;
   onScrollToSection?: (section: LandingSectionAnchor) => void;
 }
 
@@ -50,7 +49,6 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
   onFindSpecialist,
   onJoinAsProfessional,
   onJoinAsClinic,
-  showClinicEntry = false,
   onScrollToSection,
 }) => {
   const { width } = useWindowDimensions();
@@ -67,15 +65,13 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
         { label: 'Preguntas frecuentes', section: 'faq' },
       ],
     },
-    ...(showClinicEntry
-      ? [{
-          title: 'Clínicas',
-          links: [
-            { label: 'Acceso para clínicas', onPress: onJoinAsClinic },
-            { label: 'Panel de clínica', onPress: onJoinAsClinic },
-          ],
-        } satisfies FooterColumn]
-      : []),
+    {
+      title: 'Clínicas',
+      links: [
+        { label: 'Acceso para clínicas', onPress: onJoinAsClinic },
+        { label: 'Panel de clínica', onPress: onJoinAsClinic },
+      ],
+    },
     {
       title: 'Pacientes',
       links: [

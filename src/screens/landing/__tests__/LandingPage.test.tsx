@@ -125,6 +125,7 @@ describe('LandingPage', () => {
     expect(screen.getByText('Aplicación de gestión para especialistas en salud mental')).toBeTruthy();
     expect(screen.getAllByText('Acceder como profesional').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Busco terapia').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Acceso cl.nicas/).length).toBeGreaterThan(0);
     expect(screen.getByText('Paso 1')).toBeTruthy();
     expect(screen.getByText('Paso 2')).toBeTruthy();
     expect(screen.getByText('Paso 3')).toBeTruthy();
@@ -177,6 +178,7 @@ describe('LandingPage', () => {
         isScrolled={false}
         onFindSpecialist={jest.fn()}
         onJoinAsProfessional={jest.fn()}
+        onJoinAsClinic={jest.fn()}
         onScrollToSection={onScrollToSection}
       />
     );
@@ -211,6 +213,7 @@ describe('LandingPage', () => {
         isScrolled={false}
         onFindSpecialist={jest.fn()}
         onJoinAsProfessional={jest.fn()}
+        onJoinAsClinic={jest.fn()}
         onScrollToSection={jest.fn()}
       />
     );
@@ -225,8 +228,10 @@ describe('LandingPage', () => {
 
     fireEvent.press(screen.getAllByText('Acceder como profesional')[0]);
     fireEvent.press(screen.getAllByText('Busco terapia')[0]);
+    fireEvent.press(screen.getAllByText(/Acceso cl.nicas/)[0]);
 
     expect(navigate).toHaveBeenCalledWith('Login', { userType: 'PROFESSIONAL' });
     expect(navigate).toHaveBeenCalledWith('Login', { userType: 'CLIENT' });
+    expect(navigate).toHaveBeenCalledWith('Login', { userType: 'CLINIC' });
   });
 });

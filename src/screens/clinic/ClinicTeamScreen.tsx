@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -224,6 +224,10 @@ export function ClinicTeamScreen({
   const isCompact = width < 940;
   const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
   const workspace = useClinicWorkspace();
+  const mountedRef = useRef(true);
+  const teamRequestSeq = useRef(0);
+  const linkLookupRequestSeq = useRef(0);
+  const teamContextClinicIdRef = useRef<string | null>(null);
 
   const [specialists, setSpecialists] = useState<clinicService.ClinicSpecialist[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
@@ -251,6 +255,8 @@ export function ClinicTeamScreen({
   );
 
   const loadTeam = useCallback(async (clinicId: string, filters?: TeamLoadFilters) => {
+    const requestId = teamRequestSeq.current + 1;
+    teamRequestSeq.current = requestId;
     setTeamLoading(true);
     setTeamError('');
 
@@ -264,6 +270,7 @@ export function ClinicTeamScreen({
         status: effectiveFilters.status,
         search: effectiveFilters.search.trim() || undefined,
       });
+      if (!mountedRef.current || teamRequestSeq.current !== requestId) return;
       setSpecialists(nextSpecialists);
       setSelectedSpecialistId((currentId) => (
         currentId && nextSpecialists.some((specialist) => specialist.id === currentId)
@@ -271,24 +278,57 @@ export function ClinicTeamScreen({
           : nextSpecialists[0]?.id ?? null
       ));
     } catch (error: unknown) {
+      if (!mountedRef.current || teamRequestSeq.current !== requestId) return;
       setSpecialists([]);
       setSelectedSpecialistId(null);
       setTeamError(error instanceof Error ? error.message : 'No se pudo cargar el equipo');
     } finally {
-      setTeamLoading(false);
+      if (mountedRef.current && teamRequestSeq.current === requestId) {
+        setTeamLoading(false);
+      }
     }
   }, [search, statusFilter]);
 
   useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      teamRequestSeq.current += 1;
+      linkLookupRequestSeq.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
     const clinicId = workspace.selectedClinicId;
     if (!clinicId) {
+      teamContextClinicIdRef.current = null;
+      teamRequestSeq.current += 1;
+      linkLookupRequestSeq.current += 1;
       setSpecialists([]);
       setSelectedSpecialistId(null);
       setTeamError('');
       setTeamLoading(false);
+      setLinkEmail('');
+      setLinkCandidate(null);
+      setLinkMessage(null);
+      setLinkLoading(false);
       return undefined;
     }
 
+    const clinicChanged = teamContextClinicIdRef.current !== clinicId;
+    if (clinicChanged) {
+      teamContextClinicIdRef.current = clinicId;
+      teamRequestSeq.current += 1;
+      linkLookupRequestSeq.current += 1;
+      setSpecialists([]);
+      setSelectedSpecialistId(null);
+      setTeamError('');
+      setTeamLoading(false);
+      setLinkEmail('');
+      setLinkCandidate(null);
+      setLinkMessage(null);
+      setLinkLoading(false);
+    }
     const timeoutId = setTimeout(() => {
       void loadTeam(clinicId);
     }, search.trim() ? 250 : 0);
@@ -466,6 +506,8 @@ export function ClinicTeamScreen({
       return;
     }
 
+    const requestId = linkLookupRequestSeq.current + 1;
+    linkLookupRequestSeq.current = requestId;
     setLinkLoading(true);
     setLinkCandidate(null);
     setLinkMessage(null);
@@ -475,18 +517,22 @@ export function ClinicTeamScreen({
         workspace.selectedClinicId,
         linkEmail.trim(),
       );
+      if (!mountedRef.current || linkLookupRequestSeq.current !== requestId) return;
       setLinkCandidate(candidate);
       setLinkMessage({
         type: 'success',
         text: 'Cuenta profesional localizada. Revisa los datos antes de vincular.',
       });
     } catch (error: unknown) {
+      if (!mountedRef.current || linkLookupRequestSeq.current !== requestId) return;
       setLinkMessage({
         type: 'error',
         text: error instanceof Error ? error.message : 'No se pudo buscar la cuenta profesional',
       });
     } finally {
-      setLinkLoading(false);
+      if (mountedRef.current && linkLookupRequestSeq.current === requestId) {
+        setLinkLoading(false);
+      }
     }
   }, [linkEmail, workspace.selectedClinicId]);
 

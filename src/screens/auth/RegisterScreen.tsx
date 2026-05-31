@@ -14,20 +14,18 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { spacing } from '../../constants/colors';
 import { getRequiredRegistrationDocumentKeys } from '../../constants/legal';
 import { AuthSplitLayout, GoogleAuthButton } from '../../components/auth';
-import { isClinicAuthEntryEnabled } from '../../config/clinicFeatures';
 
 type RegisterRouteParams = AppRouteProp<'Register'>;
 type PasswordStrength = 'weak' | 'medium' | 'strong';
 
 const mapRouteUserType = (
-  userType: RegisterRouteParams['params']['userType'],
-  clinicAuthEnabled: boolean
+  userType: RegisterRouteParams['params']['userType']
 ): PublicUserType => {
   if (userType === 'PROFESSIONAL') {
     return 'professional';
   }
 
-  if (userType === 'CLINIC' && clinicAuthEnabled) {
+  if (userType === 'CLINIC') {
     return 'clinic';
   }
 
@@ -53,12 +51,7 @@ export function RegisterScreen() {
   const route = useRoute<RegisterRouteParams>();
   const { theme } = useTheme();
   const { register, authenticateWithGoogle, loading: authLoading, clearError } = useAuth();
-  const clinicAuthEnabled = isClinicAuthEntryEnabled();
-
-  const initialUserType: PublicUserType = mapRouteUserType(
-    route.params.userType,
-    clinicAuthEnabled
-  );
+  const initialUserType: PublicUserType = mapRouteUserType(route.params.userType);
 
   const [userType, setUserType] = useState<PublicUserType>(initialUserType);
   const [clinicCommercialName, setClinicCommercialName] = useState('');
@@ -417,44 +410,42 @@ export function RegisterScreen() {
               </View>
             </AnimatedPressable>
 
-            {clinicAuthEnabled ? (
-              <AnimatedPressable
-                onPress={() => setUserType('clinic')}
-                hoverLift={false}
-                pressScale={0.98}
-                style={[
-                  styles.userTypeCard,
-                  {
-                    backgroundColor: userType === 'clinic' ? theme.primaryAlpha12 : theme.bgMuted,
-                    borderColor: userType === 'clinic' ? theme.primary : theme.border,
-                  },
-                ]}
-              >
-                <View style={[styles.userTypeIcon, { backgroundColor: theme.primaryAlpha12 }]}>
-                  <Ionicons
-                    name="business-outline"
-                    size={18}
-                    color={userType === 'clinic' ? theme.primary : theme.textSecondary}
-                  />
-                </View>
-                <View style={styles.userTypeCopy}>
-                  <Text
-                    style={[
-                      styles.userTypeTitle,
-                      {
-                        color: theme.textPrimary,
-                        fontFamily: theme.fontSansSemiBold,
-                      },
-                    ]}
-                  >
-                    Clínica
-                  </Text>
-                  <Text style={[styles.userTypeHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
-                    Panel propio para centros y equipos
-                  </Text>
-                </View>
-              </AnimatedPressable>
-            ) : null}
+            <AnimatedPressable
+              onPress={() => setUserType('clinic')}
+              hoverLift={false}
+              pressScale={0.98}
+              style={[
+                styles.userTypeCard,
+                {
+                  backgroundColor: userType === 'clinic' ? theme.primaryAlpha12 : theme.bgMuted,
+                  borderColor: userType === 'clinic' ? theme.primary : theme.border,
+                },
+              ]}
+            >
+              <View style={[styles.userTypeIcon, { backgroundColor: theme.primaryAlpha12 }]}>
+                <Ionicons
+                  name="business-outline"
+                  size={18}
+                  color={userType === 'clinic' ? theme.primary : theme.textSecondary}
+                />
+              </View>
+              <View style={styles.userTypeCopy}>
+                <Text
+                  style={[
+                    styles.userTypeTitle,
+                    {
+                      color: theme.textPrimary,
+                      fontFamily: theme.fontSansSemiBold,
+                    },
+                  ]}
+                >
+                  Clínica
+                </Text>
+                <Text style={[styles.userTypeHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
+                  Panel propio para centros y equipos
+                </Text>
+              </View>
+            </AnimatedPressable>
           </View>
 
           <AnimatedPressable

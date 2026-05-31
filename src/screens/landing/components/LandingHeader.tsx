@@ -26,8 +26,7 @@ interface LandingHeaderProps {
   isScrolled: boolean;
   onFindSpecialist: () => void;
   onJoinAsProfessional: () => void;
-  onJoinAsClinic?: () => void;
-  showClinicEntry?: boolean;
+  onJoinAsClinic: () => void;
   onScrollToSection?: (section: LandingSectionAnchor) => void;
 }
 
@@ -50,7 +49,6 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   onFindSpecialist,
   onJoinAsProfessional,
   onJoinAsClinic,
-  showClinicEntry = false,
   onScrollToSection,
 }) => {
   const { width } = useWindowDimensions();
@@ -182,9 +180,9 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             </AnimatedPressable>
           )}
 
-          {isDesktop && showClinicEntry ? (
+          {isDesktop ? (
             <AnimatedPressable
-              onPress={onJoinAsClinic ?? onJoinAsProfessional}
+              onPress={onJoinAsClinic}
               hoverLift={false}
               pressScale={0.96}
               style={[

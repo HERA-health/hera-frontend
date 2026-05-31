@@ -26,8 +26,7 @@ import { StyledLogo } from '../../../components/common/StyledLogo';
 interface HeroSectionProps {
   onFindSpecialist: () => void;
   onJoinAsProfessional: () => void;
-  onJoinAsClinic?: () => void;
-  showClinicEntry?: boolean;
+  onJoinAsClinic: () => void;
   showScrollIndicator?: boolean;
   onScrollIndicatorPress?: () => void;
 }
@@ -70,7 +69,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onFindSpecialist,
   onJoinAsProfessional,
   onJoinAsClinic,
-  showClinicEntry = false,
   showScrollIndicator = true,
   onScrollIndicatorPress,
 }) => {
@@ -316,38 +314,36 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               />
             </AnimatedPressable>
 
-            {showClinicEntry ? (
-              <AnimatedPressable
-                onPress={onJoinAsClinic ?? onJoinAsProfessional}
-                pressScale={0.96}
-                hoverLift={false}
+            <AnimatedPressable
+              onPress={onJoinAsClinic}
+              pressScale={0.96}
+              hoverLift={false}
+              style={[
+                styles.secondaryCTA,
+                styles.clinicCTA,
+                {
+                  borderColor: isDark ? theme.borderStrong : theme.primaryAlpha20,
+                  backgroundColor: isDark ? theme.bgMuted : theme.primaryAlpha12,
+                },
+              ]}
+            >
+              <Text
                 style={[
-                  styles.secondaryCTA,
-                  styles.clinicCTA,
+                  styles.secondaryCTAText,
                   {
-                    borderColor: isDark ? theme.borderStrong : theme.primaryAlpha20,
-                    backgroundColor: isDark ? theme.bgMuted : theme.primaryAlpha12,
+                    color: isDark ? theme.textSecondary : theme.primaryDark,
+                    fontFamily: theme.fontSansSemiBold,
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.secondaryCTAText,
-                    {
-                      color: isDark ? theme.textSecondary : theme.primaryDark,
-                      fontFamily: theme.fontSansSemiBold,
-                    },
-                  ]}
-                >
-                  Acceso clínicas
-                </Text>
-                <Ionicons
-                  name="business-outline"
-                  size={18}
-                  color={isDark ? theme.textMuted : theme.primaryDark}
-                />
-              </AnimatedPressable>
-            ) : null}
+                Acceso clínicas
+              </Text>
+              <Ionicons
+                name="business-outline"
+                size={18}
+                color={isDark ? theme.textMuted : theme.primaryDark}
+              />
+            </AnimatedPressable>
           </MotionView>
 
           <MotionView entering="fadeIn" delay={400}>

@@ -5,9 +5,10 @@ import { getErrorCode, getErrorMessage } from '../../constants/errors';
 import { buildMultipartFormData, type UploadAsset } from '../../utils/multipartUpload';
 import type {
   ClinicPatientConsentDetail,
+  ClinicPatientConsentListFilters,
+  ClinicPatientConsentListPage,
   ClinicPatientConsentRequestResult,
   ClinicPatientConsentResolution,
-  ClinicPatientConsentSummary,
 } from './types';
 
 const CLINIC_CONSENT_ERROR_MESSAGES: Partial<Record<string, string>> = {
@@ -53,12 +54,19 @@ const getClinicConsentErrorMessage = (
 
 export const listClinicPatientConsents = async (
   clinicId: string,
-): Promise<ClinicPatientConsentSummary[]> => {
+  filters: ClinicPatientConsentListFilters = {},
+): Promise<ClinicPatientConsentListPage> => {
   try {
     const response = await api.get<{
       success: boolean;
-      data: ClinicPatientConsentSummary[];
-    }>(`/clinics/${clinicId}/consents`);
+      data: ClinicPatientConsentListPage;
+    }>(`/clinics/${clinicId}/consents`, {
+      params: {
+        search: filters.search,
+        page: filters.page,
+        limit: filters.limit,
+      },
+    });
 
     return response.data.data;
   } catch (error: unknown) {

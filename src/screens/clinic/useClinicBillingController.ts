@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import type { DropdownOption } from '../../components/common/SimpleDropdown';
@@ -95,6 +95,9 @@ export const REVENUE_SHARE_MONTH_OPTIONS: DropdownOption<number>[] = [
 
 const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const VAT_OPTIONS = new Set(['0', '10', '21']);
+const CLINIC_REFERENCE_PAGE_LIMIT = 25;
+const CLINIC_SESSION_LOOKUP_PAGE_LIMIT = 25;
+const PATIENT_LOOKUP_DEBOUNCE_MS = 250;
 
 const emptyToNull = (value: string): string | null => {
   const trimmed = value.trim();
@@ -229,6 +232,15 @@ const buildInvoiceFilters = (
 export function useClinicBillingController() {
   const appAlert = useAppAlert();
   const workspace = useClinicWorkspace();
+  const mountedRef = useRef(true);
+  const invoicesRequestSeq = useRef(0);
+  const summaryRequestSeq = useRef(0);
+  const revenueShareRequestSeq = useRef(0);
+  const settlementRequestSeq = useRef(0);
+  const settlementDetailRequestSeq = useRef(0);
+  const referenceRequestSeq = useRef(0);
+  const patientLookupRequestSeq = useRef(0);
+  const sessionLookupRequestSeq = useRef(0);
 
   const [summary, setSummary] = useState<clinicService.ClinicBillingSummary | null>(null);
   const [revenueShareSummary, setRevenueShareSummary] =
@@ -244,7 +256,16 @@ export function useClinicBillingController() {
   const [invoices, setInvoices] = useState<clinicService.ClinicInvoiceSummary[]>([]);
   const [pageInfo, setPageInfo] = useState<clinicService.ClinicInvoiceListPage['pageInfo'] | null>(null);
   const [patients, setPatients] = useState<clinicService.ClinicPatientSummary[]>([]);
+  const [patientLookupSearch, setPatientLookupSearch] = useState('');
+  const [patientLookupPageInfo, setPatientLookupPageInfo] =
+    useState<clinicService.ClinicPatientListPageInfo | null>(null);
+  const [patientLookupLoading, setPatientLookupLoading] = useState(false);
+  const [patientLookupLoadingMore, setPatientLookupLoadingMore] = useState(false);
   const [completedSessions, setCompletedSessions] = useState<clinicService.ClinicSessionSummary[]>([]);
+  const [completedSessionPageInfo, setCompletedSessionPageInfo] =
+    useState<clinicService.ClinicPatientListPageInfo | null>(null);
+  const [completedSessionLoading, setCompletedSessionLoading] = useState(false);
+  const [completedSessionLoadingMore, setCompletedSessionLoadingMore] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -268,6 +289,61 @@ export function useClinicBillingController() {
 
   const canManage = workspace.selectedMembership?.role === 'OWNER'
     || workspace.selectedMembership?.role === 'ADMIN';
+
+  const invalidateBillingRequests = useCallback(() => {
+    invoicesRequestSeq.current += 1;
+    summaryRequestSeq.current += 1;
+    revenueShareRequestSeq.current += 1;
+    settlementRequestSeq.current += 1;
+    settlementDetailRequestSeq.current += 1;
+    referenceRequestSeq.current += 1;
+    patientLookupRequestSeq.current += 1;
+    sessionLookupRequestSeq.current += 1;
+  }, []);
+
+  const resetBillingContextState = useCallback((
+    nextFilters = createInitialFilters(),
+    nextRevenueShareFilters = createRevenueShareFilters(),
+    nextSettlementFilters = createSettlementFilters(),
+  ) => {
+    invalidateBillingRequests();
+    setSummary(null);
+    setRevenueShareSummary(null);
+    setRevenueShareError('');
+    setRevenueShareLoading(false);
+    setSettlementPreview(null);
+    setSettlements([]);
+    setSelectedSettlementDetail(null);
+    setSettlementPageInfo(null);
+    setSettlementError('');
+    setSettlementLoading(false);
+    setSettlementDetailLoading(false);
+    setConfig(null);
+    setConfigForm(createConfigForm());
+    setConfigErrors({});
+    setInvoices([]);
+    setPageInfo(null);
+    setPatients([]);
+    setPatientLookupSearch('');
+    setPatientLookupPageInfo(null);
+    setPatientLookupLoading(false);
+    setPatientLookupLoadingMore(false);
+    setCompletedSessions([]);
+    setCompletedSessionPageInfo(null);
+    setCompletedSessionLoading(false);
+    setCompletedSessionLoadingMore(false);
+    setSelectedSessionId('');
+    setInvoiceForm(createInvoiceForm());
+    setInvoiceErrors({});
+    setLoading(false);
+    setLoadingMore(false);
+    setError('');
+    setSaving(false);
+    setEditableFilters(nextFilters);
+    setAppliedFilters(nextFilters);
+    setRevenueShareFilters(nextRevenueShareFilters);
+    setSettlementFilters(nextSettlementFilters);
+  }, [invalidateBillingRequests]);
 
   const patientOptions = useMemo<DropdownOption<string>[]>(
     () => patients.map((patient) => ({
@@ -334,6 +410,9 @@ export function useClinicBillingController() {
     page: number,
     filters: ClinicBillingFilters,
   ) => {
+    const requestId = invoicesRequestSeq.current + 1;
+    invoicesRequestSeq.current = requestId;
+
     if (page === 1) {
       setLoading(true);
       setError('');
@@ -346,9 +425,11 @@ export function useClinicBillingController() {
         clinicId,
         buildInvoiceFilters(filters, page),
       );
+      if (!mountedRef.current || invoicesRequestSeq.current !== requestId) return;
       setInvoices((current) => (page === 1 ? result.items : [...current, ...result.items]));
       setPageInfo(result.pageInfo);
     } catch (loadError: unknown) {
+      if (!mountedRef.current || invoicesRequestSeq.current !== requestId) return;
       const message = loadError instanceof Error
         ? loadError.message
         : 'No se pudieron cargar las facturas';
@@ -360,13 +441,19 @@ export function useClinicBillingController() {
         showAppAlert(appAlert, 'No se pudo cargar más', message);
       }
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
+      if (mountedRef.current && invoicesRequestSeq.current === requestId) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
   }, [appAlert]);
 
   const loadSummary = useCallback(async (clinicId: string) => {
+    const requestId = summaryRequestSeq.current + 1;
+    summaryRequestSeq.current = requestId;
+
     const summaryResult = await clinicService.getClinicBillingSummary(clinicId);
+    if (!mountedRef.current || summaryRequestSeq.current !== requestId) return;
     setSummary(summaryResult);
   }, []);
 
@@ -374,18 +461,25 @@ export function useClinicBillingController() {
     clinicId: string,
     filters: ClinicRevenueShareFilters,
   ) => {
+    const requestId = revenueShareRequestSeq.current + 1;
+    revenueShareRequestSeq.current = requestId;
+
     try {
       setRevenueShareLoading(true);
       setRevenueShareError('');
       const revenueShareResult = await clinicService.getClinicRevenueShareSummary(clinicId, filters);
+      if (!mountedRef.current || revenueShareRequestSeq.current !== requestId) return;
       setRevenueShareSummary(revenueShareResult);
     } catch (loadError: unknown) {
+      if (!mountedRef.current || revenueShareRequestSeq.current !== requestId) return;
       setRevenueShareSummary(null);
       setRevenueShareError(loadError instanceof Error
         ? loadError.message
         : 'No se pudo cargar el resumen de reparto');
     } finally {
-      setRevenueShareLoading(false);
+      if (mountedRef.current && revenueShareRequestSeq.current === requestId) {
+        setRevenueShareLoading(false);
+      }
     }
   }, []);
 
@@ -393,6 +487,9 @@ export function useClinicBillingController() {
     clinicId: string,
     filters: ClinicSettlementFilters,
   ) => {
+    const requestId = settlementRequestSeq.current + 1;
+    settlementRequestSeq.current = requestId;
+
     try {
       setSettlementLoading(true);
       setSettlementError('');
@@ -404,10 +501,12 @@ export function useClinicBillingController() {
           limit: 12,
         }),
       ]);
+      if (!mountedRef.current || settlementRequestSeq.current !== requestId) return;
       setSettlementPreview(previewResult);
       setSettlements(listResult.items);
       setSettlementPageInfo(listResult.pageInfo);
     } catch (loadError: unknown) {
+      if (!mountedRef.current || settlementRequestSeq.current !== requestId) return;
       setSettlementPreview(null);
       setSettlements([]);
       setSelectedSettlementDetail(null);
@@ -416,34 +515,120 @@ export function useClinicBillingController() {
         ? loadError.message
         : 'No se pudieron cargar las liquidaciones');
     } finally {
-      setSettlementLoading(false);
+      if (mountedRef.current && settlementRequestSeq.current === requestId) {
+        setSettlementLoading(false);
+      }
+    }
+  }, []);
+
+  const loadPatientLookup = useCallback(async (
+    clinicId: string,
+    search: string,
+    page = 1,
+    append = false,
+  ) => {
+    const requestId = patientLookupRequestSeq.current + 1;
+    patientLookupRequestSeq.current = requestId;
+
+    if (append) {
+      setPatientLookupLoadingMore(true);
+    } else {
+      setPatientLookupLoading(true);
+    }
+
+    try {
+      const patientPage = await clinicService.listClinicPatients(clinicId, {
+        status: 'ACTIVE',
+        assignment: 'ASSIGNED',
+        search: search.trim() || undefined,
+        page,
+        limit: CLINIC_REFERENCE_PAGE_LIMIT,
+      });
+
+      if (!mountedRef.current || patientLookupRequestSeq.current !== requestId) return;
+
+      setPatients((currentPatients) => {
+        if (!append) return patientPage.items;
+
+        const currentIds = new Set(currentPatients.map((patient) => patient.id));
+        const nextItems = patientPage.items.filter((patient) => !currentIds.has(patient.id));
+        return [...currentPatients, ...nextItems];
+      });
+      setPatientLookupPageInfo(patientPage.pageInfo);
+      setInvoiceForm((current) => (
+        current.clinicPatientId ? current : createInvoiceForm(patientPage.items[0]?.id ?? '')
+      ));
+    } finally {
+      if (mountedRef.current && patientLookupRequestSeq.current === requestId) {
+        setPatientLookupLoading(false);
+        setPatientLookupLoadingMore(false);
+      }
+    }
+  }, []);
+
+  const loadCompletedSessionLookup = useCallback(async (
+    clinicId: string,
+    clinicPatientId: string,
+    page = 1,
+    append = false,
+  ) => {
+    const requestId = sessionLookupRequestSeq.current + 1;
+    sessionLookupRequestSeq.current = requestId;
+
+    if (!clinicPatientId) {
+      setCompletedSessions([]);
+      setCompletedSessionPageInfo(null);
+      setSelectedSessionId('');
+      return;
+    }
+
+    const sessionRange = toSessionLookupRange();
+    if (append) {
+      setCompletedSessionLoadingMore(true);
+    } else {
+      setCompletedSessionLoading(true);
+    }
+
+    try {
+      const sessionPage = await clinicService.listClinicSessions(clinicId, {
+        ...sessionRange,
+        clinicPatientId,
+        status: 'COMPLETED',
+        page,
+        limit: CLINIC_SESSION_LOOKUP_PAGE_LIMIT,
+      });
+
+      if (!mountedRef.current || sessionLookupRequestSeq.current !== requestId) return;
+
+      setCompletedSessions((currentSessions) => {
+        if (!append) return sessionPage.items;
+
+        const currentIds = new Set(currentSessions.map((session) => session.id));
+        const nextItems = sessionPage.items.filter((session) => !currentIds.has(session.id));
+        return [...currentSessions, ...nextItems];
+      });
+      setCompletedSessionPageInfo(sessionPage.pageInfo);
+      setSelectedSessionId((current) => (
+        current && (append || sessionPage.items.some((session) => session.id === current))
+          ? current
+          : sessionPage.items[0]?.id ?? ''
+      ));
+    } finally {
+      if (mountedRef.current && sessionLookupRequestSeq.current === requestId) {
+        setCompletedSessionLoading(false);
+        setCompletedSessionLoadingMore(false);
+      }
     }
   }, []);
 
   const loadReferenceData = useCallback(async (clinicId: string) => {
-    const sessionRange = toSessionLookupRange();
-    const [configResult, patientPage, sessionPage] = await Promise.all([
-      clinicService.getClinicBillingConfig(clinicId),
-      clinicService.listClinicPatients(clinicId, {
-        status: 'ACTIVE',
-        assignment: 'ASSIGNED',
-        limit: 200,
-      }),
-      clinicService.listClinicSessions(clinicId, {
-        ...sessionRange,
-        status: 'COMPLETED',
-        limit: 200,
-      }),
-    ]);
+    const requestId = referenceRequestSeq.current + 1;
+    referenceRequestSeq.current = requestId;
 
+    const configResult = await clinicService.getClinicBillingConfig(clinicId);
+    if (!mountedRef.current || referenceRequestSeq.current !== requestId) return;
     setConfig(configResult);
     setConfigForm(createConfigForm(configResult));
-    setPatients(patientPage.items);
-    setCompletedSessions(sessionPage.items);
-    setInvoiceForm((current) => (
-      current.clinicPatientId ? current : createInvoiceForm(patientPage.items[0]?.id ?? '')
-    ));
-    setSelectedSessionId(sessionPage.items[0]?.id ?? '');
   }, []);
 
   const reloadInvoicesAndSummary = useCallback(async (filters = appliedFilters) => {
@@ -475,16 +660,19 @@ export function useClinicBillingController() {
       loadRevenueShareSummary(workspace.selectedClinicId, revenueShareFilters),
       loadSettlementData(workspace.selectedClinicId, settlementFilters),
       loadReferenceData(workspace.selectedClinicId),
+      loadPatientLookup(workspace.selectedClinicId, patientLookupSearch, 1, false),
       loadInvoices(workspace.selectedClinicId, 1, filters),
     ]);
   }, [
     appliedFilters,
     canManage,
     loadInvoices,
+    loadPatientLookup,
     loadReferenceData,
     loadRevenueShareSummary,
     loadSettlementData,
     loadSummary,
+    patientLookupSearch,
     revenueShareFilters,
     settlementFilters,
     workspace.selectedClinicId,
@@ -493,29 +681,14 @@ export function useClinicBillingController() {
   useEffect(() => {
     const clinicId = workspace.selectedClinicId;
     if (!clinicId || !canManage) {
-      setSummary(null);
-      setRevenueShareSummary(null);
-      setRevenueShareError('');
-      setSettlementPreview(null);
-      setSettlements([]);
-      setSelectedSettlementDetail(null);
-      setSettlementPageInfo(null);
-      setSettlementError('');
-      setConfig(null);
-      setInvoices([]);
-      setPageInfo(null);
-      setPatients([]);
-      setCompletedSessions([]);
+      resetBillingContextState();
       return;
     }
 
     const initialFilters = createInitialFilters();
     const initialRevenueShareFilters = createRevenueShareFilters();
     const initialSettlementFilters = createSettlementFilters();
-    setEditableFilters(initialFilters);
-    setAppliedFilters(initialFilters);
-    setRevenueShareFilters(initialRevenueShareFilters);
-    setSettlementFilters(initialSettlementFilters);
+    resetBillingContextState(initialFilters, initialRevenueShareFilters, initialSettlementFilters);
     void Promise.all([
       loadSummary(clinicId),
       loadRevenueShareSummary(clinicId, initialRevenueShareFilters),
@@ -530,6 +703,54 @@ export function useClinicBillingController() {
     loadRevenueShareSummary,
     loadSettlementData,
     loadSummary,
+    resetBillingContextState,
+    workspace.selectedClinicId,
+  ]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      invalidateBillingRequests();
+    };
+  }, [invalidateBillingRequests]);
+
+  useEffect(() => {
+    const clinicId = workspace.selectedClinicId;
+    if (!clinicId || !canManage) {
+      return undefined;
+    }
+
+    const timeoutId = setTimeout(() => {
+      void loadPatientLookup(clinicId, patientLookupSearch, 1, false);
+    }, patientLookupSearch.trim() ? PATIENT_LOOKUP_DEBOUNCE_MS : 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [
+    canManage,
+    loadPatientLookup,
+    patientLookupSearch,
+    workspace.selectedClinicId,
+  ]);
+
+  useEffect(() => {
+    const clinicId = workspace.selectedClinicId;
+    const clinicPatientId = invoiceForm.clinicPatientId;
+
+    if (!clinicId || !canManage || !clinicPatientId) {
+      setCompletedSessions([]);
+      setCompletedSessionPageInfo(null);
+      setSelectedSessionId('');
+      return;
+    }
+
+    void loadCompletedSessionLookup(clinicId, clinicPatientId, 1, false);
+  }, [
+    canManage,
+    invoiceForm.clinicPatientId,
+    loadCompletedSessionLookup,
     workspace.selectedClinicId,
   ]);
 
@@ -557,6 +778,61 @@ export function useClinicBillingController() {
     if (!workspace.selectedClinicId || !canManage || !pageInfo?.nextPage) return;
     void loadInvoices(workspace.selectedClinicId, pageInfo.nextPage, appliedFilters);
   }, [appliedFilters, canManage, loadInvoices, pageInfo?.nextPage, workspace.selectedClinicId]);
+
+  const handlePatientLookupSearchChange = useCallback((search: string) => {
+    setPatientLookupSearch(search);
+  }, []);
+
+  const handleLoadMorePatientOptions = useCallback(() => {
+    if (
+      !workspace.selectedClinicId
+      || !canManage
+      || !patientLookupPageInfo?.nextPage
+      || patientLookupLoadingMore
+    ) {
+      return;
+    }
+
+    void loadPatientLookup(
+      workspace.selectedClinicId,
+      patientLookupSearch,
+      patientLookupPageInfo.nextPage,
+      true
+    );
+  }, [
+    canManage,
+    loadPatientLookup,
+    patientLookupLoadingMore,
+    patientLookupPageInfo?.nextPage,
+    patientLookupSearch,
+    workspace.selectedClinicId,
+  ]);
+
+  const handleLoadMoreCompletedSessions = useCallback(() => {
+    if (
+      !workspace.selectedClinicId
+      || !canManage
+      || !invoiceForm.clinicPatientId
+      || !completedSessionPageInfo?.nextPage
+      || completedSessionLoadingMore
+    ) {
+      return;
+    }
+
+    void loadCompletedSessionLookup(
+      workspace.selectedClinicId,
+      invoiceForm.clinicPatientId,
+      completedSessionPageInfo.nextPage,
+      true
+    );
+  }, [
+    canManage,
+    completedSessionLoadingMore,
+    completedSessionPageInfo?.nextPage,
+    invoiceForm.clinicPatientId,
+    loadCompletedSessionLookup,
+    workspace.selectedClinicId,
+  ]);
 
   const setRevenueShareFilter = useCallback(<K extends keyof ClinicRevenueShareFilters>(
     field: K,
@@ -592,21 +868,28 @@ export function useClinicBillingController() {
   ) => {
     if (!workspace.selectedClinicId || !canManage) return;
 
+    const requestId = settlementDetailRequestSeq.current + 1;
+    settlementDetailRequestSeq.current = requestId;
+
     try {
       setSettlementDetailLoading(true);
       const detail = await clinicService.getClinicSettlement(
         workspace.selectedClinicId,
         settlement.id,
       );
+      if (!mountedRef.current || settlementDetailRequestSeq.current !== requestId) return;
       setSelectedSettlementDetail(detail);
     } catch (detailError: unknown) {
+      if (!mountedRef.current || settlementDetailRequestSeq.current !== requestId) return;
       showAppAlert(
         appAlert,
         'No se pudo cargar',
         detailError instanceof Error ? detailError.message : 'Inténtalo de nuevo',
       );
     } finally {
-      setSettlementDetailLoading(false);
+      if (mountedRef.current && settlementDetailRequestSeq.current === requestId) {
+        setSettlementDetailLoading(false);
+      }
     }
   }, [appAlert, canManage, workspace.selectedClinicId]);
 
@@ -833,7 +1116,10 @@ export function useClinicBillingController() {
 
   return {
     canManage,
+    completedSessionLoading,
+    completedSessionLoadingMore,
     completedSessionOptions,
+    completedSessionPageInfo,
     config,
     configErrors,
     configForm,
@@ -844,6 +1130,9 @@ export function useClinicBillingController() {
     handleCreateInvoice,
     handleInvoiceAction,
     handleLoadMore,
+    handleLoadMoreCompletedSessions,
+    handleLoadMorePatientOptions,
+    handlePatientLookupSearchChange,
     handleRetry,
     handleSaveConfig,
     handleSelectClinic,
@@ -854,6 +1143,10 @@ export function useClinicBillingController() {
     loadingMore,
     pageInfo,
     patientFilterOptions,
+    patientLookupLoading,
+    patientLookupLoadingMore,
+    patientLookupPageInfo,
+    patientLookupSearch,
     patientOptions,
     revenueShareFilters,
     revenueShareError,

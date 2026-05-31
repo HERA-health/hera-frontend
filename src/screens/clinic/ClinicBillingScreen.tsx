@@ -99,6 +99,8 @@ export function ClinicBillingScreen({
     handleGenerateSettlement,
     handleInvoiceAction,
     handleLoadMore,
+    handleLoadMorePatientOptions,
+    handlePatientLookupSearchChange,
     handleRetry,
     handleSaveConfig,
     handleSelectClinic,
@@ -109,6 +111,10 @@ export function ClinicBillingScreen({
     loadingMore,
     pageInfo,
     patientFilterOptions,
+    patientLookupLoading,
+    patientLookupLoadingMore,
+    patientLookupPageInfo,
+    patientLookupSearch,
     revenueShareError,
     revenueShareFilters,
     revenueShareLoading,
@@ -247,11 +253,28 @@ export function ClinicBillingScreen({
                     </View>
                     <View style={styles.filterDropdown}>
                       <Text style={styles.filterLabel}>Paciente</Text>
+                      <Input
+                        label="Buscar paciente"
+                        value={patientLookupSearch}
+                        onChangeText={handlePatientLookupSearchChange}
+                        containerStyle={styles.lookupInput}
+                      />
                       <SimpleDropdown
                         options={patientFilterOptions}
                         value={editableFilters.patientFilter}
                         onSelect={(value) => setEditableFilter('patientFilter', value)}
                       />
+                      {patientLookupPageInfo?.hasMore ? (
+                        <Button
+                          variant="ghost"
+                          size="small"
+                          onPress={handleLoadMorePatientOptions}
+                          loading={patientLookupLoadingMore}
+                          disabled={patientLookupLoading || patientLookupLoadingMore}
+                        >
+                          Cargar mas pacientes
+                        </Button>
+                      ) : null}
                     </View>
                     <View style={styles.filterAction}>
                       <Button
@@ -1548,7 +1571,11 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
     filterDropdown: {
       flex: 1,
       minWidth: 180,
+      gap: spacing.xs,
       zIndex: 30,
+    },
+    lookupInput: {
+      marginBottom: 0,
     },
     filterAction: {
       minWidth: isCompact ? undefined : 130,

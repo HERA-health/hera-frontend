@@ -30,13 +30,23 @@ export function ClinicInvoiceCreateScreen({
   const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
   const {
     canManage,
+    completedSessionLoading,
+    completedSessionLoadingMore,
     completedSessionOptions,
+    completedSessionPageInfo,
     handleCreateFromSession,
     handleCreateInvoice,
+    handleLoadMoreCompletedSessions,
+    handleLoadMorePatientOptions,
+    handlePatientLookupSearchChange,
     handleRetry,
     handleSelectClinic,
     invoiceErrors,
     invoiceForm,
+    patientLookupLoading,
+    patientLookupLoadingMore,
+    patientLookupPageInfo,
+    patientLookupSearch,
     patientOptions,
     saving,
     selectedSessionId,
@@ -112,13 +122,23 @@ export function ClinicInvoiceCreateScreen({
                 form={invoiceForm}
                 errors={invoiceErrors}
                 patientOptions={patientOptions}
+                patientLookupSearch={patientLookupSearch}
+                patientLookupLoading={patientLookupLoading}
+                patientLookupLoadingMore={patientLookupLoadingMore}
+                patientLookupHasMore={Boolean(patientLookupPageInfo?.hasMore)}
                 sessionOptions={completedSessionOptions}
+                sessionLookupLoading={completedSessionLoading}
+                sessionLookupLoadingMore={completedSessionLoadingMore}
+                sessionLookupHasMore={Boolean(completedSessionPageInfo?.hasMore)}
                 selectedSessionId={selectedSessionId}
                 saving={saving}
                 isCompact={isCompact}
                 onChange={setInvoiceField}
                 onCreate={handleCreateAndReturn}
                 onCreateFromSession={handleCreateFromSessionAndReturn}
+                onLoadMorePatients={handleLoadMorePatientOptions}
+                onLoadMoreSessions={handleLoadMoreCompletedSessions}
+                onPatientSearchChange={handlePatientLookupSearchChange}
                 onSelectSession={setSelectedSessionId}
               />
             </>
@@ -133,19 +153,36 @@ function InvoiceCreatePanel({
   form,
   errors,
   patientOptions,
+  patientLookupSearch,
+  patientLookupLoading,
+  patientLookupLoadingMore,
+  patientLookupHasMore,
   sessionOptions,
+  sessionLookupLoading,
+  sessionLookupLoadingMore,
+  sessionLookupHasMore,
   selectedSessionId,
   saving,
   isCompact,
   onChange,
   onCreate,
   onCreateFromSession,
+  onLoadMorePatients,
+  onLoadMoreSessions,
+  onPatientSearchChange,
   onSelectSession,
 }: {
   form: ClinicBillingInvoiceForm;
   errors: ClinicBillingInvoiceErrors;
   patientOptions: Array<{ label: string; value: string; subtitle?: string }>;
+  patientLookupSearch: string;
+  patientLookupLoading: boolean;
+  patientLookupLoadingMore: boolean;
+  patientLookupHasMore: boolean;
   sessionOptions: Array<{ label: string; value: string; subtitle?: string }>;
+  sessionLookupLoading: boolean;
+  sessionLookupLoadingMore: boolean;
+  sessionLookupHasMore: boolean;
   selectedSessionId: string;
   saving: boolean;
   isCompact: boolean;
@@ -155,6 +192,9 @@ function InvoiceCreatePanel({
   ) => void;
   onCreate: () => void;
   onCreateFromSession: () => void;
+  onLoadMorePatients: () => void;
+  onLoadMoreSessions: () => void;
+  onPatientSearchChange: (search: string) => void;
   onSelectSession: (sessionId: string) => void;
 }): React.ReactElement {
   const { theme } = useTheme();
@@ -172,12 +212,29 @@ function InvoiceCreatePanel({
       <View style={styles.formGrid}>
         <View style={styles.dropdownStackTop}>
           <Text style={styles.filterLabel}>Paciente</Text>
+          <Input
+            label="Buscar paciente"
+            value={patientLookupSearch}
+            onChangeText={onPatientSearchChange}
+            containerStyle={styles.lookupInput}
+          />
           <SimpleDropdown
             options={patientOptions}
             value={form.clinicPatientId || null}
             onSelect={(value) => onChange('clinicPatientId', value)}
             placeholder="Selecciona paciente"
           />
+          {patientLookupHasMore ? (
+            <Button
+              variant="ghost"
+              size="small"
+              onPress={onLoadMorePatients}
+              loading={patientLookupLoadingMore}
+              disabled={patientLookupLoading || patientLookupLoadingMore}
+            >
+              Cargar mas pacientes
+            </Button>
+          ) : null}
           {errors.clinicPatientId || errors.clinicSpecialistId ? (
             <Text style={styles.fieldError}>{errors.clinicPatientId ?? errors.clinicSpecialistId}</Text>
           ) : null}
@@ -265,6 +322,17 @@ function InvoiceCreatePanel({
             placeholder="Selecciona cita"
             maxHeight={260}
           />
+          {sessionLookupHasMore ? (
+            <Button
+              variant="ghost"
+              size="small"
+              onPress={onLoadMoreSessions}
+              loading={sessionLookupLoadingMore}
+              disabled={sessionLookupLoading || sessionLookupLoadingMore}
+            >
+              Cargar mas citas
+            </Button>
+          ) : null}
         </View>
         <Button
           variant="outline"
@@ -395,6 +463,9 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
       color: theme.textSecondary,
       fontFamily: theme.fontSansSemiBold,
       fontSize: typography.fontSizes.sm,
+    },
+    lookupInput: {
+      marginBottom: 0,
     },
     fieldError: {
       marginTop: spacing.xs,

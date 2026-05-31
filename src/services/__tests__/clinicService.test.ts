@@ -1308,9 +1308,19 @@ describe('clinicService', () => {
     };
     const formData = new FormData();
 
+    const consentPage = {
+      items: summaries,
+      pageInfo: {
+        page: 1,
+        limit: 25,
+        hasMore: false,
+        nextPage: null,
+      },
+    };
+
     getMock.mockResolvedValueOnce({
-      data: { success: true, data: summaries },
-    } as AxiosResponse<{ success: boolean; data: ClinicPatientConsentSummary[] }>);
+      data: { success: true, data: consentPage },
+    } as AxiosResponse<{ success: boolean; data: typeof consentPage }>);
     getMock.mockResolvedValueOnce({
       data: { success: true, data: detail },
     } as AxiosResponse<{ success: boolean; data: ClinicPatientConsentDetail }>);
@@ -1322,8 +1332,18 @@ describe('clinicService', () => {
       data: { success: true, data: detail },
     } as AxiosResponse<{ success: boolean; data: ClinicPatientConsentDetail }>);
 
-    await expect(listClinicPatientConsents('clinic-1')).resolves.toBe(summaries);
-    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/consents');
+    await expect(listClinicPatientConsents('clinic-1', {
+      search: 'lucia',
+      page: 1,
+      limit: 25,
+    })).resolves.toBe(consentPage);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/consents', {
+      params: {
+        search: 'lucia',
+        page: 1,
+        limit: 25,
+      },
+    });
 
     await expect(getClinicPatientConsent(
       'clinic-1',

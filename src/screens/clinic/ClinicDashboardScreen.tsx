@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -79,33 +79,54 @@ export function ClinicDashboardScreen({
   const isCompact = width < 820;
   const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
   const workspace = useClinicWorkspace();
+  const mountedRef = useRef(true);
+  const dashboardRequestSeq = useRef(0);
   const [dashboard, setDashboard] = useState<clinicService.ClinicDashboard | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [dashboardError, setDashboardError] = useState('');
 
   const loadDashboard = useCallback(async (clinicId: string) => {
+    const requestId = dashboardRequestSeq.current + 1;
+    dashboardRequestSeq.current = requestId;
     setDashboardLoading(true);
     setDashboardError('');
 
     try {
       const nextDashboard = await clinicService.getClinicDashboard(clinicId);
+      if (!mountedRef.current || dashboardRequestSeq.current !== requestId) return;
       setDashboard(nextDashboard);
     } catch (error: unknown) {
+      if (!mountedRef.current || dashboardRequestSeq.current !== requestId) return;
       setDashboard(null);
       setDashboardError(error instanceof Error ? error.message : 'No se pudo cargar el panel');
     } finally {
-      setDashboardLoading(false);
+      if (mountedRef.current && dashboardRequestSeq.current === requestId) {
+        setDashboardLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      dashboardRequestSeq.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!workspace.selectedClinicId) {
+      dashboardRequestSeq.current += 1;
       setDashboard(null);
       setDashboardError('');
       setDashboardLoading(false);
       return;
     }
 
+    dashboardRequestSeq.current += 1;
+    setDashboard(null);
+    setDashboardError('');
+    setDashboardLoading(false);
     void loadDashboard(workspace.selectedClinicId);
   }, [loadDashboard, workspace.selectedClinicId]);
 

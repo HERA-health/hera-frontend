@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -189,6 +189,8 @@ export function ClinicSettingsScreen({
   const isCompact = width < 900;
   const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
   const workspace = useClinicWorkspace();
+  const mountedRef = useRef(true);
+  const detailRequestSeq = useRef(0);
   const [detail, setDetail] = useState<clinicService.ClinicDetail | null>(null);
   const [form, setForm] = useState<ClinicSettingsForm>(EMPTY_FORM);
   const [errors, setErrors] = useState<ClinicSettingsErrors>({});
@@ -201,26 +203,41 @@ export function ClinicSettingsScreen({
     || workspace.selectedMembership?.role === 'ADMIN';
 
   const loadClinicDetail = useCallback(async (clinicId: string) => {
+    const requestId = detailRequestSeq.current + 1;
+    detailRequestSeq.current = requestId;
     setDetailLoading(true);
     setDetailError('');
     setSaveMessage('');
 
     try {
       const nextDetail = await clinicService.getClinic(clinicId);
+      if (!mountedRef.current || detailRequestSeq.current !== requestId) return;
       setDetail(nextDetail);
       setForm(mapDetailToForm(nextDetail));
       setErrors({});
     } catch (error: unknown) {
+      if (!mountedRef.current || detailRequestSeq.current !== requestId) return;
       setDetail(null);
       setForm(EMPTY_FORM);
       setDetailError(error instanceof Error ? error.message : 'No se pudo cargar la clínica');
     } finally {
-      setDetailLoading(false);
+      if (mountedRef.current && detailRequestSeq.current === requestId) {
+        setDetailLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      detailRequestSeq.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!workspace.selectedClinicId) {
+      detailRequestSeq.current += 1;
       setDetail(null);
       setForm(EMPTY_FORM);
       setErrors({});
@@ -229,6 +246,13 @@ export function ClinicSettingsScreen({
       return;
     }
 
+    detailRequestSeq.current += 1;
+    setDetail(null);
+    setForm(EMPTY_FORM);
+    setErrors({});
+    setDetailError('');
+    setSaveMessage('');
+    setDetailLoading(false);
     void loadClinicDetail(workspace.selectedClinicId);
   }, [loadClinicDetail, workspace.selectedClinicId]);
 

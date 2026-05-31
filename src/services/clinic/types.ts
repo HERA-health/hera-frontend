@@ -586,6 +586,17 @@ export interface ClinicPatientConsentSummary extends ClinicPatientConsentStatusS
   patientStatus: ClinicPatientStatus;
 }
 
+export interface ClinicPatientConsentListFilters {
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface ClinicPatientConsentListPage {
+  items: ClinicPatientConsentSummary[];
+  pageInfo: ClinicPatientListPageInfo;
+}
+
 export interface ClinicPatientConsentDocument {
   id: string;
   fileName: string;

@@ -69,7 +69,9 @@ export function ClinicAgendaScreen({
     handleChangeForm,
     handleCreateSession,
     handleLoadMore,
+    handleLoadMorePatientOptions,
     handleOpenCreateModal,
+    handlePatientLookupSearchChange,
     handleRetry,
     handleSelectClinic,
     handleUpdateStatus,
@@ -78,6 +80,10 @@ export function ClinicAgendaScreen({
     modalVisible,
     pageInfo,
     patientFilterOptions,
+    patientLookupLoading,
+    patientLookupLoadingMore,
+    patientLookupPageInfo,
+    patientLookupSearch,
     patientOptions,
     patients,
     selectedFormPatient,
@@ -172,11 +178,28 @@ export function ClinicAgendaScreen({
             </View>
             <View style={styles.filterDropdown}>
               <Text style={styles.filterLabel}>Paciente</Text>
+              <Input
+                label="Buscar paciente"
+                value={patientLookupSearch}
+                onChangeText={handlePatientLookupSearchChange}
+                containerStyle={styles.lookupInput}
+              />
               <SimpleDropdown
                 options={patientFilterOptions}
                 value={editableFilters.patientFilter}
                 onSelect={(value) => setEditableFilter('patientFilter', value)}
               />
+              {patientLookupPageInfo?.hasMore ? (
+                <Button
+                  variant="ghost"
+                  size="small"
+                  onPress={handleLoadMorePatientOptions}
+                  loading={patientLookupLoadingMore}
+                  disabled={patientLookupLoading || patientLookupLoadingMore}
+                >
+                  Cargar mas pacientes
+                </Button>
+              ) : null}
             </View>
             <View style={styles.filterAction}>
               <Button variant="outline" size="medium" onPress={handleApplyFilters}>
@@ -237,9 +260,15 @@ export function ClinicAgendaScreen({
             form={form}
             errors={formErrors}
             patientOptions={patientOptions}
+            patientLookupSearch={patientLookupSearch}
+            patientLookupLoading={patientLookupLoading}
+            patientLookupLoadingMore={patientLookupLoadingMore}
+            patientLookupHasMore={Boolean(patientLookupPageInfo?.hasMore)}
             selectedPatient={selectedFormPatient}
             saving={saving}
             onChange={handleChangeForm}
+            onLoadMorePatients={handleLoadMorePatientOptions}
+            onPatientSearchChange={handlePatientLookupSearchChange}
             onClose={() => {
               if (!saving) setModalVisible(false);
             }}
@@ -359,12 +388,18 @@ interface CreateSessionModalProps {
   form: ClinicAgendaCreateSessionForm;
   errors: ClinicAgendaCreateSessionErrors;
   patientOptions: DropdownOption<string>[];
+  patientLookupSearch: string;
+  patientLookupLoading: boolean;
+  patientLookupLoadingMore: boolean;
+  patientLookupHasMore: boolean;
   selectedPatient: clinicService.ClinicPatientSummary | null;
   saving: boolean;
   onChange: <K extends keyof ClinicAgendaCreateSessionForm>(
     field: K,
     value: ClinicAgendaCreateSessionForm[K]
   ) => void;
+  onLoadMorePatients: () => void;
+  onPatientSearchChange: (search: string) => void;
   onClose: () => void;
   onSubmit: () => void;
 }
@@ -374,9 +409,15 @@ function CreateSessionModal({
   form,
   errors,
   patientOptions,
+  patientLookupSearch,
+  patientLookupLoading,
+  patientLookupLoadingMore,
+  patientLookupHasMore,
   selectedPatient,
   saving,
   onChange,
+  onLoadMorePatients,
+  onPatientSearchChange,
   onClose,
   onSubmit,
 }: CreateSessionModalProps): React.ReactElement {
@@ -400,6 +441,12 @@ function CreateSessionModal({
           <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
             <View style={styles.field}>
               <Text style={styles.label}>Paciente</Text>
+              <Input
+                label="Buscar paciente"
+                value={patientLookupSearch}
+                onChangeText={onPatientSearchChange}
+                containerStyle={styles.lookupInput}
+              />
               <SimpleDropdown
                 options={patientOptions}
                 value={form.clinicPatientId || null}
@@ -407,6 +454,17 @@ function CreateSessionModal({
                 placeholder="Selecciona paciente"
                 maxHeight={280}
               />
+              {patientLookupHasMore ? (
+                <Button
+                  variant="ghost"
+                  size="small"
+                  onPress={onLoadMorePatients}
+                  loading={patientLookupLoadingMore}
+                  disabled={patientLookupLoading || patientLookupLoadingMore}
+                >
+                  Cargar mas pacientes
+                </Button>
+              ) : null}
               {errors.clinicPatientId ? <Text style={styles.error}>{errors.clinicPatientId}</Text> : null}
             </View>
 
@@ -519,6 +577,9 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
       gap: spacing.xs,
       position: 'relative',
       zIndex: 30,
+    },
+    lookupInput: {
+      marginBottom: 0,
     },
     filterLabel: {
       color: theme.textSecondary,
@@ -724,6 +785,9 @@ const createModalStyles = (theme: Theme) =>
       gap: spacing.xs,
       position: 'relative',
       zIndex: 20,
+    },
+    lookupInput: {
+      marginBottom: 0,
     },
     label: {
       color: theme.textSecondary,
