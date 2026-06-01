@@ -14,10 +14,11 @@
  * - All UI logic delegated to Sidebar component
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { NavigationProp, ParamListBase, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useClinicWorkspace } from '../../screens/clinic/useClinicWorkspace';
 import { Sidebar } from './sidebar';
 import { UserRole, SidebarUser } from './sidebar/types';
 
@@ -47,7 +48,10 @@ export function CustomDrawerContent({
   onToggleCollapse,
 }: CustomDrawerContentProps): React.ReactElement {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
-  const { user, logout } = useAuth();
+  const { user, logout, verificationSubmitted } = useAuth();
+  const shouldLoadClinicAdminAccess = user?.type === 'professional'
+    && verificationSubmitted !== false;
+  const clinicWorkspace = useClinicWorkspace({ enabled: shouldLoadClinicAdminAccess });
 
   const userRole: UserRole = user?.type === 'professional'
     ? 'PROFESSIONAL'
@@ -61,6 +65,17 @@ export function CustomDrawerContent({
     role: userRole,
     avatarUrl: user?.avatar || undefined,
   };
+
+  const hasClinicAdminAccess = useMemo(
+    () => userRole === 'CLINIC'
+      || (
+        shouldLoadClinicAdminAccess
+        && clinicWorkspace.memberships.some((membership) => (
+          membership.role === 'OWNER' || membership.role === 'ADMIN'
+        ))
+      ),
+    [clinicWorkspace.memberships, shouldLoadClinicAdminAccess, userRole],
+  );
 
   // Navigation handler - delegates to React Navigation
   const handleNavigate = useCallback(
@@ -86,6 +101,7 @@ export function CustomDrawerContent({
         onLogout={handleLogout}
         onGuideStart={onGuideStart}
         isAdmin={user?.isAdmin}
+        hasClinicAdminAccess={hasClinicAdminAccess}
         isUserSectionScrollable={isUserSectionScrollable}
         isCollapsed={isCollapsed}
         onToggleCollapse={onToggleCollapse}

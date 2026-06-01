@@ -17,6 +17,7 @@ const ROUTE_TITLES: Record<keyof RootStackParamList, string> = {
   ClinicPending: 'Área de clínica',
   ClinicDashboard: 'Panel de clínica',
   ClinicSettings: 'Configuración de clínica',
+  ClinicAdministrators: 'Administradores de clínica',
   ClinicTeam: 'Equipo de clínica',
   ClinicPatients: 'Pacientes de clínica',
   ClinicAgenda: 'Agenda de clínica',

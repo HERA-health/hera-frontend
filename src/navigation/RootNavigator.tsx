@@ -134,6 +134,13 @@ const ClinicSettingsRoute = createDeferredLayoutRoute<'ClinicSettings'>(
     exportName: 'ClinicSettingsScreen',
   }
 );
+const ClinicAdministratorsRoute = createDeferredLayoutRoute<'ClinicAdministrators'>(
+  () => require('../screens/clinic/ClinicAdministratorsScreen'),
+  {
+    displayName: 'ClinicAdministratorsRoute',
+    exportName: 'ClinicAdministratorsScreen',
+  }
+);
 const ClinicTeamRoute = createDeferredLayoutRoute<'ClinicTeam'>(
   () => require('../screens/clinic/ClinicTeamScreen'),
   {
@@ -563,6 +570,11 @@ export function RootNavigator() {
           options={{ headerTitle: 'Configuración de clínica' }}
         />
         <Stack.Screen
+          name="ClinicAdministrators"
+          component={ClinicAdministratorsRoute}
+          options={{ headerTitle: 'Administradores de clínica' }}
+        />
+        <Stack.Screen
           name="ClinicTeam"
           component={ClinicTeamRoute}
           options={{ headerTitle: 'Equipo de clínica' }}
@@ -708,6 +720,46 @@ export function RootNavigator() {
             headerTitle: 'Perfil del Cliente',
             headerShown: false,
           }}
+        />
+        <Stack.Screen
+          name="ClinicDashboard"
+          component={ClinicDashboardRoute}
+          options={{ headerTitle: 'Panel de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicSettings"
+          component={ClinicSettingsRoute}
+          options={{ headerTitle: 'Configuración de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicAdministrators"
+          component={ClinicAdministratorsRoute}
+          options={{ headerTitle: 'Administradores de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicTeam"
+          component={ClinicTeamRoute}
+          options={{ headerTitle: 'Equipo de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicPatients"
+          component={ClinicPatientsRoute}
+          options={{ headerTitle: 'Pacientes de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicAgenda"
+          component={ClinicAgendaRoute}
+          options={{ headerTitle: 'Agenda de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicBilling"
+          component={ClinicBillingRoute}
+          options={{ headerTitle: 'Facturación de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicInvoiceCreate"
+          component={ClinicInvoiceCreateRoute}
+          options={{ headerTitle: 'Nueva factura de clínica' }}
         />
         <Stack.Screen
           name="AdminPanel"

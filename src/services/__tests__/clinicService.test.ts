@@ -3,6 +3,7 @@ import { buildMultipartFormData } from '../../utils/multipartUpload';
 import api from '../api';
 import {
   acceptClinicPatientConsentRequest,
+  addClinicAdministrator,
   assignClinicPatient,
   cancelClinicInvoice,
   closeClinicPatientAssignment,
@@ -34,12 +35,15 @@ import {
   lookupClinicProfessionalByEmail,
   markClinicInvoiceAsPaid,
   getMyClinicMemberships,
+  listClinicAdministrators,
   listClinicSessions,
   requestClinicPatientConsent,
   resolveClinicPatientConsentRequest,
   sendClinicInvoice,
   uploadClinicPatientConsentEvidence,
   updateClinic,
+  updateClinicAdministratorRole,
+  updateClinicAdministratorStatus,
   updateClinicBillingConfig,
   updateClinicInvoice,
   updateClinicSettlementStatus,
@@ -50,6 +54,7 @@ import {
   updateClinicSpecialist,
   updateClinicSpecialistStatus,
   unlinkClinicSpecialist,
+  type ClinicAdministrator,
   type ClinicDashboard,
   type ClinicDetail,
   type ClinicBillingConfig,
@@ -136,6 +141,141 @@ describe('clinicService', () => {
 
     await expect(getMyClinicMemberships()).resolves.toBe(memberships);
     expect(getMock).toHaveBeenCalledWith('/clinics/me');
+  });
+
+  it('uses dedicated clinic administrator endpoints', async () => {
+    const administrator: ClinicAdministrator = {
+      id: 'membership-admin-1',
+      clinicId: 'clinic-1',
+      role: 'ADMIN',
+      status: 'ACTIVE',
+      createdAt: '2026-05-31T10:00:00.000Z',
+      updatedAt: '2026-05-31T10:00:00.000Z',
+      deactivatedAt: null,
+      user: {
+        name: 'Ana Ruiz',
+        email: 'ana@hera.test',
+        userType: 'PROFESSIONAL',
+        accountStatus: 'ACTIVE',
+      },
+      linkedSpecialist: {
+        id: 'clinic-specialist-1',
+        displayName: 'Dra. Ana Ruiz',
+        status: 'ACTIVE',
+      },
+    };
+    const clinicOwnerAdministrator: ClinicAdministrator = {
+      ...administrator,
+      role: 'OWNER',
+      user: {
+        name: 'Clínica Norte',
+        email: 'clinica@hera.test',
+        userType: 'CLINIC',
+        accountStatus: 'ACTIVE',
+      },
+      linkedSpecialist: null,
+    };
+
+    getMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: [administrator],
+      },
+    } as AxiosResponse<{ success: boolean; data: ClinicAdministrator[] }>);
+    postMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: administrator,
+      },
+    } as AxiosResponse<{ success: boolean; data: ClinicAdministrator }>);
+    patchMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: clinicOwnerAdministrator,
+      },
+    } as AxiosResponse<{ success: boolean; data: ClinicAdministrator }>);
+    patchMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: { ...administrator, status: 'INACTIVE' },
+      },
+    } as AxiosResponse<{ success: boolean; data: ClinicAdministrator }>);
+
+    await expect(listClinicAdministrators('clinic-1')).resolves.toEqual([administrator]);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/admins');
+
+    await expect(addClinicAdministrator('clinic-1', {
+      email: 'ana@hera.test',
+    })).resolves.toBe(administrator);
+    expect(postMock).toHaveBeenCalledWith('/clinics/clinic-1/admins', {
+      email: 'ana@hera.test',
+    });
+
+    await expect(updateClinicAdministratorRole('clinic-1', 'membership-admin-1', {
+      role: 'OWNER',
+    })).resolves.toEqual(clinicOwnerAdministrator);
+    expect(patchMock).toHaveBeenCalledWith(
+      '/clinics/clinic-1/admins/membership-admin-1/role',
+      { role: 'OWNER' },
+    );
+
+    await expect(updateClinicAdministratorStatus('clinic-1', 'membership-admin-1', {
+      status: 'INACTIVE',
+    })).resolves.toEqual({ ...administrator, status: 'INACTIVE' });
+    expect(patchMock).toHaveBeenCalledWith(
+      '/clinics/clinic-1/admins/membership-admin-1/status',
+      { status: 'INACTIVE' },
+    );
+  });
+
+  it('maps clinic administrator permission errors to Spanish by code', async () => {
+    postMock.mockRejectedValueOnce({
+      response: {
+        data: {
+          success: false,
+          code: 'CLINIC_ADMIN_USER_NOT_ALLOWED',
+          error: 'Internal text',
+        },
+      },
+    });
+
+    await expect(addClinicAdministrator('clinic-1', {
+      email: 'cliente@hera.test',
+    })).rejects.toThrow(
+      'Solo cuentas profesionales o de clínica pueden administrar una clínica.',
+    );
+
+    patchMock.mockRejectedValueOnce({
+      response: {
+        data: {
+          success: false,
+          code: 'CLINIC_ADMIN_MEMBERSHIP_INACTIVE',
+          error: 'Internal text',
+        },
+      },
+    });
+
+    await expect(updateClinicAdministratorRole('clinic-1', 'membership-admin-1', {
+      role: 'OWNER',
+    })).rejects.toThrow(
+      'Reactiva este administrador antes de cambiar su rol.',
+    );
+
+    patchMock.mockRejectedValueOnce({
+      response: {
+        data: {
+          success: false,
+          code: 'CLINIC_ADMIN_OWNER_REQUIRES_CLINIC_ACCOUNT',
+          error: 'Internal text',
+        },
+      },
+    });
+
+    await expect(updateClinicAdministratorRole('clinic-1', 'membership-admin-1', {
+      role: 'OWNER',
+    })).rejects.toThrow(
+      'Solo una cuenta de clínica puede ser propietaria.',
+    );
   });
 
   it('loads editable clinic detail through the clinic endpoint', async () => {

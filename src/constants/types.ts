@@ -116,6 +116,7 @@ export type RootStackParamList = {
   ClinicPending: undefined;
   ClinicDashboard: undefined;
   ClinicSettings: undefined;
+  ClinicAdministrators: undefined;
   ClinicTeam: undefined;
   ClinicPatients: undefined;
   ClinicAgenda: undefined;

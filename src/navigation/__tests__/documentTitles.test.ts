@@ -16,6 +16,7 @@ describe('documentTitles', () => {
   it('formats clinic route titles', () => {
     expect(getDocumentTitleForRoute('ClinicDashboard')).toBe('Hera | Panel de clínica');
     expect(getDocumentTitleForRoute('ClinicSettings')).toBe('Hera | Configuración de clínica');
+    expect(getDocumentTitleForRoute('ClinicAdministrators')).toBe('Hera | Administradores de clínica');
     expect(getDocumentTitleForRoute('ClinicTeam')).toBe('Hera | Equipo de clínica');
     expect(getDocumentTitleForRoute('ClinicPatients')).toBe('Hera | Pacientes de clínica');
     expect(getDocumentTitleForRoute('ClinicPending')).toBe('Hera | Área de clínica');

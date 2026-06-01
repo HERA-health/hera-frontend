@@ -9,6 +9,7 @@ describe('Clinic workspace scaffold titles', () => {
   );
   const screenFiles = [
     'ClinicDashboardScreen.tsx',
+    'ClinicAdministratorsScreen.tsx',
     'ClinicTeamScreen.tsx',
     'ClinicAgendaScreen.tsx',
     'ClinicBillingScreen.tsx',
@@ -24,6 +25,7 @@ describe('Clinic workspace scaffold titles', () => {
     expect(scaffoldSource).toContain('HERA Clínicas / ${contextLabel}');
     expect(combinedScreenSources).not.toContain('title={clinicName}');
     expect(combinedScreenSources).toContain('title="Panel de clínica"');
+    expect(combinedScreenSources).toContain('title="Administradores"');
     expect(combinedScreenSources).toContain('title="Equipo"');
     expect(combinedScreenSources).toContain('title="Pacientes"');
     expect(combinedScreenSources).toContain('title="Agenda"');

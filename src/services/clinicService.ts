@@ -1,4 +1,5 @@
 export * from './clinic/types';
+export * from './clinic/adminService';
 export * from './clinic/workspaceService';
 export * from './clinic/teamService';
 export * from './clinic/patientService';

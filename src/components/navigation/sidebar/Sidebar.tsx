@@ -19,6 +19,7 @@ export function Sidebar({
   onLogout,
   onGuideStart,
   isAdmin,
+  hasClinicAdminAccess,
   isUserSectionScrollable = false,
   isCollapsed = false,
   onToggleCollapse,
@@ -26,8 +27,8 @@ export function Sidebar({
   const { theme } = useTheme();
   const sidebarTheme = getSidebarTheme(theme);
   const sections = useMemo(
-    () => getNavigationSections(userRole, isAdmin),
-    [isAdmin, userRole],
+    () => getNavigationSections(userRole, isAdmin, hasClinicAdminAccess),
+    [hasClinicAdminAccess, isAdmin, userRole],
   );
   const profileRoute: keyof RootStackParamList = userRole === 'PROFESSIONAL'
     ? 'ProfessionalProfile'

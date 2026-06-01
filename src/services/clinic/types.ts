@@ -1,6 +1,7 @@
 export type ClinicStatus = 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED';
 export type ClinicMembershipRole = 'OWNER' | 'ADMIN' | 'SPECIALIST';
 export type ClinicMembershipStatus = 'ACTIVE' | 'INACTIVE';
+export type ClinicAdministratorUserType = 'PROFESSIONAL' | 'CLINIC';
 export type ClinicSpecialistStatus = 'ACTIVE' | 'INACTIVE';
 export type ClinicSpecialistStatusFilter = ClinicSpecialistStatus | 'ALL';
 export type ClinicPatientStatus = 'ACTIVE' | 'ARCHIVED';
@@ -48,6 +49,39 @@ export interface ClinicMembershipSummary {
   createdAt: string;
   updatedAt: string;
   clinic: ClinicSummary;
+}
+
+export interface ClinicAdministrator {
+  id: string;
+  clinicId: string;
+  role: Extract<ClinicMembershipRole, 'OWNER' | 'ADMIN'>;
+  status: ClinicMembershipStatus;
+  createdAt: string;
+  updatedAt: string;
+  deactivatedAt: string | null;
+  user: {
+    name: string;
+    email: string;
+    userType: ClinicAdministratorUserType;
+    accountStatus: 'ACTIVE' | 'SUSPENDED' | 'DELETED';
+  };
+  linkedSpecialist: {
+    id: string;
+    displayName: string;
+    status: ClinicSpecialistStatus;
+  } | null;
+}
+
+export interface AddClinicAdministratorPayload {
+  email: string;
+}
+
+export interface UpdateClinicAdministratorRolePayload {
+  role: Extract<ClinicMembershipRole, 'OWNER' | 'ADMIN'>;
+}
+
+export interface UpdateClinicAdministratorStatusPayload {
+  status: ClinicMembershipStatus;
 }
 
 export type ClinicDashboardMetricKey =

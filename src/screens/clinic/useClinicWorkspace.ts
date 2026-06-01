@@ -15,14 +15,19 @@ interface ClinicWorkspaceState {
   selectClinic: (clinicId: string) => Promise<void>;
 }
 
+interface ClinicWorkspaceOptions {
+  enabled?: boolean;
+}
+
 const getSelectedClinicStorageKey = (userId: string | undefined): string =>
   `${SELECTED_CLINIC_STORAGE_PREFIX}${userId ?? 'anonymous'}`;
 
-export function useClinicWorkspace(): ClinicWorkspaceState {
+export function useClinicWorkspace(options: ClinicWorkspaceOptions = {}): ClinicWorkspaceState {
   const { user } = useAuth();
+  const enabled = options.enabled ?? true;
   const [memberships, setMemberships] = useState<clinicService.ClinicMembershipSummary[]>([]);
   const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState('');
 
   const storageKey = useMemo(() => getSelectedClinicStorageKey(user?.id), [user?.id]);
@@ -32,7 +37,19 @@ export function useClinicWorkspace(): ClinicWorkspaceState {
     [memberships, selectedClinicId],
   );
 
+  const resetWorkspace = useCallback(() => {
+    setMemberships([]);
+    setSelectedClinicId(null);
+    setError('');
+    setLoading(false);
+  }, []);
+
   const loadMemberships = useCallback(async () => {
+    if (!enabled) {
+      resetWorkspace();
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -61,9 +78,14 @@ export function useClinicWorkspace(): ClinicWorkspaceState {
     } finally {
       setLoading(false);
     }
-  }, [storageKey]);
+  }, [enabled, resetWorkspace, storageKey]);
 
   useEffect(() => {
+    if (!enabled) {
+      resetWorkspace();
+      return undefined;
+    }
+
     let active = true;
 
     const load = async () => {
@@ -78,7 +100,7 @@ export function useClinicWorkspace(): ClinicWorkspaceState {
     return () => {
       active = false;
     };
-  }, [loadMemberships]);
+  }, [enabled, loadMemberships, resetWorkspace]);
 
   const selectClinic = useCallback(async (clinicId: string) => {
     setSelectedClinicId(clinicId);
