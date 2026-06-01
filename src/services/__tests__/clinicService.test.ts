@@ -1,6 +1,7 @@
 import type { AxiosResponse } from 'axios';
 import { buildMultipartFormData } from '../../utils/multipartUpload';
 import api from '../api';
+import { clearRequestCache } from '../requestCache';
 import {
   acceptClinicPatientConsentRequest,
   addClinicAdministrator,
@@ -91,6 +92,7 @@ jest.mock('../api', () => ({
     put: jest.fn(),
     delete: jest.fn(),
   },
+  getAuthSessionCacheScope: jest.fn(() => 'auth:test-session'),
 }));
 
 jest.mock('../../utils/multipartUpload', () => ({
@@ -111,6 +113,7 @@ const buildMultipartFormDataMock = buildMultipartFormData as jest.MockedFunction
 describe('clinicService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    clearRequestCache();
   });
 
   it('returns the minimal clinic membership DTO', async () => {
@@ -141,6 +144,27 @@ describe('clinicService', () => {
 
     await expect(getMyClinicMemberships()).resolves.toBe(memberships);
     expect(getMock).toHaveBeenCalledWith('/clinics/me');
+  });
+
+  it('coalesces concurrent clinic membership loads', async () => {
+    const memberships: ClinicMembershipSummary[] = [];
+
+    getMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: memberships,
+      },
+    } as AxiosResponse<{ success: boolean; data: ClinicMembershipSummary[] }>);
+
+    const [firstResult, secondResult] = await Promise.all([
+      getMyClinicMemberships(),
+      getMyClinicMemberships(),
+    ]);
+
+    expect(getMock).toHaveBeenCalledTimes(1);
+    expect(getMock).toHaveBeenCalledWith('/clinics/me');
+    expect(firstResult).toBe(memberships);
+    expect(secondResult).toBe(memberships);
   });
 
   it('uses dedicated clinic administrator endpoints', async () => {
@@ -1821,6 +1845,194 @@ describe('clinicService', () => {
         search: 'lucia',
         page: undefined,
         limit: 100,
+      },
+    });
+  });
+
+  it('coalesces concurrent professional clinic context loads', async () => {
+    const contexts: ProfessionalClinicContext[] = [];
+
+    getMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: contexts,
+      },
+    } as AxiosResponse<{ success: boolean; data: ProfessionalClinicContext[] }>);
+
+    const [firstResult, secondResult] = await Promise.all([
+      getMyProfessionalClinicContexts(),
+      getMyProfessionalClinicContexts(),
+    ]);
+
+    expect(getMock).toHaveBeenCalledTimes(1);
+    expect(getMock).toHaveBeenCalledWith('/clinics/specialist/me');
+    expect(firstResult).toBe(contexts);
+    expect(secondResult).toBe(contexts);
+  });
+
+  it('invalidates cached professional clinic contexts after specialist link changes', async () => {
+    const firstContexts: ProfessionalClinicContext[] = [];
+    const nextContexts: ProfessionalClinicContext[] = [
+      {
+        clinic: {
+          id: 'clinic-1',
+          commercialName: 'Clínica Hera',
+          legalName: null,
+          status: 'ACTIVE',
+          createdAt: '2026-05-27T10:00:00.000Z',
+          updatedAt: '2026-05-27T10:00:00.000Z',
+        },
+        responsible: {
+          displayName: 'Dra. Ana Ruiz',
+          professionalTitle: 'Psicóloga sanitaria',
+        },
+      },
+    ];
+    const specialist: ClinicSpecialist = {
+      id: 'clinic-specialist-1',
+      clinicId: 'clinic-1',
+      displayName: 'Dra. Ana Ruiz',
+      email: null,
+      phone: null,
+      professionalTitle: null,
+      licenseNumber: null,
+      specialization: null,
+      status: 'ACTIVE',
+      baseSessionPrice: null,
+      revenueSharePercentage: null,
+      createdAt: '2026-05-27T10:00:00.000Z',
+      updatedAt: '2026-05-27T10:00:00.000Z',
+      deactivatedAt: null,
+      linkedProfessional: {
+        name: 'Ana Ruiz',
+        email: 'ana@hera.test',
+        professionalTitle: 'Psicóloga sanitaria',
+        specialization: 'Ansiedad',
+        verificationStatus: 'VERIFIED',
+        accountStatus: 'ACTIVE',
+      },
+    };
+
+    getMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: firstContexts,
+      },
+    } as AxiosResponse<{ success: boolean; data: ProfessionalClinicContext[] }>);
+    patchMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: specialist,
+      },
+    } as AxiosResponse<{ success: boolean; data: ClinicSpecialist }>);
+    getMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: nextContexts,
+      },
+    } as AxiosResponse<{ success: boolean; data: ProfessionalClinicContext[] }>);
+
+    await expect(getMyProfessionalClinicContexts()).resolves.toBe(firstContexts);
+    await expect(linkClinicSpecialist(
+      'clinic-1',
+      'clinic-specialist-1',
+      { email: 'ana@hera.test' },
+    )).resolves.toBe(specialist);
+    await expect(getMyProfessionalClinicContexts()).resolves.toBe(nextContexts);
+
+    expect(getMock).toHaveBeenCalledTimes(2);
+    expect(getMock).toHaveBeenNthCalledWith(1, '/clinics/specialist/me');
+    expect(getMock).toHaveBeenNthCalledWith(2, '/clinics/specialist/me');
+  });
+
+  it('invalidates cached professional clinic patients after assignment changes', async () => {
+    const firstPage: ProfessionalClinicPatientListPage = {
+      items: [],
+      pageInfo: {
+        page: 1,
+        limit: 50,
+        hasMore: false,
+        nextPage: null,
+      },
+    };
+    const nextPage: ProfessionalClinicPatientListPage = {
+      items: [],
+      pageInfo: {
+        page: 1,
+        limit: 50,
+        hasMore: false,
+        nextPage: null,
+      },
+    };
+    const patient: ClinicPatientDetail = {
+      id: 'clinic-patient-1',
+      status: 'ACTIVE',
+      displayName: 'Lucia Martin',
+      firstName: 'Lucia',
+      lastName: 'Martin',
+      email: 'lucia@clinic.test',
+      phone: null,
+      billingDataComplete: false,
+      activeAssignment: {
+        id: 'assignment-1',
+        clinicSpecialistId: 'clinic-specialist-1',
+        clinicSpecialistDisplayName: 'Dra. Ana Ruiz',
+        clinicSpecialistProfessionalTitle: 'Psicóloga sanitaria',
+        clinicSpecialistStatus: 'ACTIVE',
+        startedAt: '2026-05-27T10:05:00.000Z',
+        reason: null,
+      },
+      createdAt: '2026-05-27T10:00:00.000Z',
+      updatedAt: '2026-05-27T10:05:00.000Z',
+      archivedAt: null,
+      billingFullName: null,
+      billingTaxId: null,
+      billingAddress: null,
+      billingPostalCode: null,
+      billingCity: null,
+      billingCountry: null,
+    };
+
+    getMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: firstPage,
+      },
+    } as AxiosResponse<{ success: boolean; data: ProfessionalClinicPatientListPage }>);
+    patchMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: patient,
+      },
+    } as AxiosResponse<{ success: boolean; data: ClinicPatientDetail }>);
+    getMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: nextPage,
+      },
+    } as AxiosResponse<{ success: boolean; data: ProfessionalClinicPatientListPage }>);
+
+    await expect(listProfessionalClinicPatients('clinic-1', { limit: 50 })).resolves.toBe(firstPage);
+    await expect(assignClinicPatient(
+      'clinic-1',
+      'clinic-patient-1',
+      { clinicSpecialistId: 'clinic-specialist-1' },
+    )).resolves.toBe(patient);
+    await expect(listProfessionalClinicPatients('clinic-1', { limit: 50 })).resolves.toBe(nextPage);
+
+    expect(getMock).toHaveBeenCalledTimes(2);
+    expect(getMock).toHaveBeenNthCalledWith(1, '/clinics/clinic-1/specialist/patients', {
+      params: {
+        search: undefined,
+        page: undefined,
+        limit: 50,
+      },
+    });
+    expect(getMock).toHaveBeenNthCalledWith(2, '/clinics/clinic-1/specialist/patients', {
+      params: {
+        search: undefined,
+        page: undefined,
+        limit: 50,
       },
     });
   });

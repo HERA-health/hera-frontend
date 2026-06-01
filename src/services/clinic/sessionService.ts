@@ -1,5 +1,6 @@
 import api from '../api';
 import { getErrorCode, getErrorMessage } from '../../constants/errors';
+import { clearRequestCache } from '../requestCache';
 import type {
   ClinicSessionListFilters,
   ClinicSessionListPage,
@@ -82,6 +83,7 @@ export const createClinicSession = async (
       data: ClinicSessionSummary;
     }>(`/clinics/${clinicId}/sessions`, payload);
 
+    clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getClinicSessionErrorMessage(
@@ -102,6 +104,7 @@ export const updateClinicSessionStatus = async (
       data: ClinicSessionSummary;
     }>(`/clinics/${clinicId}/sessions/${sessionId}/status`, payload);
 
+    clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getClinicSessionErrorMessage(

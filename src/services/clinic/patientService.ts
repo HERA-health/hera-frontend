@@ -1,5 +1,6 @@
 import api from '../api';
 import { getErrorCode, getErrorMessage } from '../../constants/errors';
+import { clearRequestCache } from '../requestCache';
 import type {
   AssignClinicPatientPayload,
   ClinicPatientAssignmentHistoryFilters,
@@ -107,6 +108,7 @@ export const createClinicPatient = async (
       data: ClinicPatientDetail;
     }>(`/clinics/${clinicId}/patients`, payload);
 
+    clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getClinicPatientErrorMessage(
@@ -127,6 +129,7 @@ export const updateClinicPatient = async (
       data: ClinicPatientDetail;
     }>(`/clinics/${clinicId}/patients/${clinicPatientId}`, payload);
 
+    clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getClinicPatientErrorMessage(
@@ -147,6 +150,7 @@ export const updateClinicPatientStatus = async (
       data: ClinicPatientDetail;
     }>(`/clinics/${clinicId}/patients/${clinicPatientId}/status`, { status });
 
+    clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getClinicPatientErrorMessage(
@@ -167,6 +171,7 @@ export const assignClinicPatient = async (
       data: ClinicPatientDetail;
     }>(`/clinics/${clinicId}/patients/${clinicPatientId}/assignment`, payload);
 
+    clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getClinicPatientErrorMessage(
@@ -187,6 +192,7 @@ export const closeClinicPatientAssignment = async (
       data: ClinicPatientDetail;
     }>(`/clinics/${clinicId}/patients/${clinicPatientId}/assignment/close`, payload);
 
+    clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getClinicPatientErrorMessage(

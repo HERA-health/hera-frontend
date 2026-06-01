@@ -3,6 +3,7 @@ jest.mock('../api', () => ({
     get: jest.fn(),
     put: jest.fn(),
   },
+  getAuthSessionCacheScope: jest.fn(() => 'auth:test-session'),
 }));
 
 jest.mock('../../utils/multipartUpload', () => ({
@@ -19,13 +20,20 @@ jest.mock('react-native', () => ({
 }));
 
 import { api } from '../api';
-import { getVerificationStatus, updateComprehensiveProfile } from '../professionalService';
+import {
+  getProfessionalClients,
+  getProfessionalSessions,
+  getVerificationStatus,
+  updateComprehensiveProfile,
+} from '../professionalService';
+import { clearRequestCache } from '../requestCache';
 
 const mockedApi = api as jest.Mocked<typeof api>;
 
 describe('professionalService.getVerificationStatus', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    clearRequestCache();
   });
 
   it('normalizes legacy verification timestamp fields from the backend response', async () => {
@@ -100,6 +108,7 @@ describe('professionalService.getVerificationStatus', () => {
 describe('professionalService.updateComprehensiveProfile', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    clearRequestCache();
   });
 
   it('does not send billing-owned fields through the profile endpoint', async () => {
@@ -127,6 +136,64 @@ describe('professionalService.updateComprehensiveProfile', () => {
 
     expect(mockedApi.put).toHaveBeenCalledWith('/specialists/me/profile', {
       fullName: 'Dra. Prueba',
+    });
+  });
+});
+
+describe('professionalService cached professional GETs', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    clearRequestCache();
+  });
+
+  it('coalesces concurrent professional session loads', async () => {
+    mockedApi.get.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: [
+          {
+            id: 'session-1',
+            clientId: 'client-1',
+            specialistId: 'specialist-1',
+            date: '2026-06-01T10:00:00.000Z',
+            duration: 60,
+            status: 'CONFIRMED',
+            type: 'VIDEO_CALL',
+          },
+        ],
+      },
+    });
+
+    const [firstResult, secondResult] = await Promise.all([
+      getProfessionalSessions(),
+      getProfessionalSessions(),
+    ]);
+
+    expect(mockedApi.get).toHaveBeenCalledTimes(1);
+    expect(mockedApi.get).toHaveBeenCalledWith('/sessions/professional');
+    expect(firstResult).toHaveLength(1);
+    expect(secondResult).toHaveLength(1);
+  });
+
+  it('coalesces concurrent professional client loads with the same filters', async () => {
+    mockedApi.get.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: [],
+      },
+    });
+
+    await Promise.all([
+      getProfessionalClients({ source: 'ALL', lifecycle: 'ACTIVE' }),
+      getProfessionalClients({ source: 'ALL', lifecycle: 'ACTIVE' }),
+    ]);
+
+    expect(mockedApi.get).toHaveBeenCalledTimes(1);
+    expect(mockedApi.get).toHaveBeenCalledWith('/clients', {
+      params: {
+        source: 'ALL',
+        lifecycle: 'ACTIVE',
+      },
     });
   });
 });

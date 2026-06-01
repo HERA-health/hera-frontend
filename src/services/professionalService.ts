@@ -5,6 +5,7 @@ import type { ProfessionalType } from '../constants/professionalTypes';
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { buildImageFormData, buildMultipartFormData, type UploadAsset } from '../utils/multipartUpload';
+import { cachedGet, clearRequestCache } from './requestCache';
 
 export type ClientSource = 'REGISTERED' | 'MANAGED';
 export type ClientLifecycleFilter = 'ACTIVE' | 'ARCHIVED' | 'ALL';
@@ -186,13 +187,17 @@ interface GetProfessionalClientsOptions {
 }
 
 export const getProfessionalProfile = async (): Promise<ProfessionalProfile | null> => {
-  const response = await api.get('/specialists/me');
-  return response.data.success ? response.data.data : null;
+  return cachedGet('professional:profile-summary', async () => {
+    const response = await api.get('/specialists/me');
+    return response.data.success ? response.data.data : null;
+  });
 };
 
 export const getProfessionalSessions = async (): Promise<Session[]> => {
-  const response = await api.get('/sessions/professional');
-  return response.data.success ? response.data.data : [];
+  return cachedGet('professional:sessions', async () => {
+    const response = await api.get('/sessions/professional');
+    return response.data.success ? response.data.data : [];
+  });
 };
 
 export const getProfessionalClients = async (
@@ -204,13 +209,17 @@ export const getProfessionalClients = async (
       ? { source: sourceOrOptions, lifecycle }
       : sourceOrOptions;
 
-  const response = await api.get('/clients', {
-    params: {
-      ...(options.source ? { source: options.source } : {}),
-      ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
-    },
+  const cacheKey = `professional:clients:${options.source ?? 'DEFAULT'}:${options.lifecycle ?? 'DEFAULT'}`;
+
+  return cachedGet(cacheKey, async () => {
+    const response = await api.get('/clients', {
+      params: {
+        ...(options.source ? { source: options.source } : {}),
+        ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
+      },
+    });
+    return response.data.success ? response.data.data.map(normalizeClient) : [];
   });
-  return response.data.success ? response.data.data.map(normalizeClient) : [];
 };
 
 export const getProfessionalClientDetail = async (clientId: string): Promise<Client | null> => {
@@ -220,6 +229,7 @@ export const getProfessionalClientDetail = async (clientId: string): Promise<Cli
 
 export const createManagedClient = async (data: CreateManagedClientInput): Promise<Client> => {
   const response = await api.post('/clients/managed', data);
+  clearRequestCache();
   return normalizeClient(response.data.data);
 };
 
@@ -228,6 +238,7 @@ export const createManagedClientSession = async (
 ): Promise<Session> => {
   try {
     const response = await api.post('/sessions/professional/managed', data);
+    clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo crear la cita'));
@@ -240,6 +251,7 @@ export const updateManagedClient = async (
 ): Promise<Client> => {
   try {
     const response = await api.patch(`/clients/${clientId}/managed`, data);
+    clearRequestCache();
     return normalizeClient(response.data.data);
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo actualizar el paciente'));
@@ -252,6 +264,7 @@ export const updateClientBilling = async (
 ): Promise<Client> => {
   try {
     const response = await api.patch(`/clients/${clientId}/billing`, data);
+    clearRequestCache();
     return normalizeClient(response.data.data);
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudieron actualizar los datos fiscales del paciente'));
@@ -269,6 +282,7 @@ export const updateSessionStatus = async (
 ): Promise<void> => {
   try {
     const response = await api.put(`/sessions/${sessionId}/status`, { status });
+    clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo actualizar el estado de la sesión'));

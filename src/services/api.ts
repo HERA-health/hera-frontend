@@ -58,6 +58,7 @@ const buildTimeoutError = (): Error & { code: string } => {
 let accessToken: string | null = null;
 let webRefreshToken: string | null = null;
 let sessionExpiredHandler: (() => void) | null = null;
+let authSessionCacheVersion = 0;
 
 export interface InitializedAuthSession {
   token: string;
@@ -170,8 +171,19 @@ const clearWebRefreshToken = () => {
   webRefreshToken = null;
 };
 
+const bumpAuthSessionCacheScope = (): void => {
+  authSessionCacheVersion += 1;
+};
+
+export const getAuthSessionCacheScope = (): string =>
+  accessToken ? `auth:${authSessionCacheVersion}` : `anonymous:${authSessionCacheVersion}`;
+
 export const setAuthSession = async (token: string, refreshToken: string): Promise<void> => {
+  const shouldBumpCacheScope = accessToken !== token;
   accessToken = token;
+  if (shouldBumpCacheScope) {
+    bumpAuthSessionCacheScope();
+  }
 
   if (IS_WEB_PLATFORM) {
     webRefreshToken = refreshToken;
@@ -184,9 +196,13 @@ export const setAuthSession = async (token: string, refreshToken: string): Promi
 };
 
 export const clearAuthSession = async (): Promise<void> => {
+  const hadSession = Boolean(accessToken || webRefreshToken);
   clearAccessToken();
   clearWebRefreshToken();
   await clearPersistedRefreshToken();
+  if (hadSession) {
+    bumpAuthSessionCacheScope();
+  }
 };
 
 const refreshAccessToken = async (): Promise<InitializedAuthSession | null> => {

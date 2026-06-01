@@ -1,5 +1,6 @@
 import api from '../api';
 import { getErrorCode, getErrorMessage } from '../../constants/errors';
+import { cachedGet } from '../requestCache';
 import type {
   ProfessionalClinicContext,
   ProfessionalClinicPatientDetail,
@@ -28,12 +29,14 @@ const getClinicProfessionalErrorMessage = (
 
 export const getMyProfessionalClinicContexts = async (): Promise<ProfessionalClinicContext[]> => {
   try {
-    const response = await api.get<{
-      success: boolean;
-      data: ProfessionalClinicContext[];
-    }>('/clinics/specialist/me');
+    return await cachedGet('clinic:professional-contexts', async () => {
+      const response = await api.get<{
+        success: boolean;
+        data: ProfessionalClinicContext[];
+      }>('/clinics/specialist/me');
 
-    return response.data.data;
+      return response.data.data;
+    });
   } catch (error: unknown) {
     throw new Error(getClinicProfessionalErrorMessage(
       error,
@@ -47,18 +50,28 @@ export const listProfessionalClinicPatients = async (
   filters: ProfessionalClinicPatientListFilters = {},
 ): Promise<ProfessionalClinicPatientListPage> => {
   try {
-    const response = await api.get<{
-      success: boolean;
-      data: ProfessionalClinicPatientListPage;
-    }>(`/clinics/${clinicId}/specialist/patients`, {
-      params: {
-        search: filters.search,
-        page: filters.page,
-        limit: filters.limit,
-      },
-    });
+    const cacheKey = [
+      'clinic:professional-patients',
+      clinicId,
+      filters.search?.trim() ?? '',
+      filters.page ?? '',
+      filters.limit ?? '',
+    ].join(':');
 
-    return response.data.data;
+    return await cachedGet(cacheKey, async () => {
+      const response = await api.get<{
+        success: boolean;
+        data: ProfessionalClinicPatientListPage;
+      }>(`/clinics/${clinicId}/specialist/patients`, {
+        params: {
+          search: filters.search,
+          page: filters.page,
+          limit: filters.limit,
+        },
+      });
+
+      return response.data.data;
+    });
   } catch (error: unknown) {
     throw new Error(getClinicProfessionalErrorMessage(
       error,

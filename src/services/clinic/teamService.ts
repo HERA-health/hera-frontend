@@ -1,5 +1,6 @@
 import api from '../api';
 import { getErrorMessage } from '../../constants/errors';
+import { clearRequestCache } from '../requestCache';
 import type {
   ClinicSpecialist,
   ClinicSpecialistListFilters,
@@ -93,6 +94,7 @@ export const createClinicSpecialist = async (
       data: ClinicSpecialist;
     }>(`/clinics/${clinicId}/specialists`, payload);
 
+    clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getClinicSpecialistErrorMessage(error, 'No se pudo crear el especialista'));
@@ -110,6 +112,7 @@ export const updateClinicSpecialist = async (
       data: ClinicSpecialist;
     }>(`/clinics/${clinicId}/specialists/${clinicSpecialistId}`, payload);
 
+    clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getClinicSpecialistErrorMessage(error, 'No se pudo guardar la ficha del especialista'));
@@ -127,6 +130,7 @@ export const updateClinicSpecialistStatus = async (
       data: ClinicSpecialist;
     }>(`/clinics/${clinicId}/specialists/${clinicSpecialistId}/status`, { status });
 
+    clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getClinicSpecialistErrorMessage(error, 'No se pudo actualizar el estado del especialista'));
@@ -165,6 +169,7 @@ export const linkClinicSpecialist = async (
       data: ClinicSpecialist;
     }>(`/clinics/${clinicId}/specialists/${clinicSpecialistId}/link`, payload);
 
+    clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getClinicSpecialistErrorMessage(
@@ -184,6 +189,7 @@ export const unlinkClinicSpecialist = async (
       data: ClinicSpecialist;
     }>(`/clinics/${clinicId}/specialists/${clinicSpecialistId}/unlink`);
 
+    clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getClinicSpecialistErrorMessage(

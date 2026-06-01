@@ -1,5 +1,6 @@
 import api from '../api';
 import { getErrorMessage } from '../../constants/errors';
+import { cachedGet, clearRequestCache } from '../requestCache';
 import type {
   ClinicDashboard,
   ClinicDetail,
@@ -9,12 +10,14 @@ import type {
 
 export const getMyClinicMemberships = async (): Promise<ClinicMembershipSummary[]> => {
   try {
-    const response = await api.get<{
-      success: boolean;
-      data: ClinicMembershipSummary[];
-    }>('/clinics/me');
+    return await cachedGet('clinic:memberships', async () => {
+      const response = await api.get<{
+        success: boolean;
+        data: ClinicMembershipSummary[];
+      }>('/clinics/me');
 
-    return response.data.data;
+      return response.data.data;
+    });
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo cargar la cuenta de clínica'));
   }
@@ -43,6 +46,7 @@ export const updateClinic = async (
       data: ClinicDetail;
     }>(`/clinics/${clinicId}`, payload);
 
+    clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudieron guardar los datos de la clínica'));

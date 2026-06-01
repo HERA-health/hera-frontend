@@ -28,6 +28,7 @@ import {
 } from '../../components/onboarding/professionalTourContext';
 import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
 import { useTheme } from '../../contexts/ThemeContext';
+import { getErrorMessage } from '../../constants/errors';
 import * as analyticsService from '../../services/analyticsService';
 import * as professionalService from '../../services/professionalService';
 import {
@@ -120,6 +121,7 @@ export function ProfessionalSessionsScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [loadErrorMessage, setLoadErrorMessage] = useState('');
   const [sessions, setSessions] = useState<ProfessionalSession[]>([]);
   const [processingSessionId, setProcessingSessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -127,6 +129,8 @@ export function ProfessionalSessionsScreen() {
   const [loadingManagedClients, setLoadingManagedClients] = useState(false);
   const [schedulerVisible, setSchedulerVisible] = useState(false);
   const [schedulerSaving, setSchedulerSaving] = useState(false);
+  const sessionsLoadSeqRef = useRef(0);
+  const sessionsRef = useRef<ProfessionalSession[]>([]);
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -134,8 +138,14 @@ export function ProfessionalSessionsScreen() {
   }, []);
 
   const loadSessions = useCallback(async () => {
+    const requestSeq = sessionsLoadSeqRef.current + 1;
+    sessionsLoadSeqRef.current = requestSeq;
+    const hasExistingSessions = sessionsRef.current.length > 0;
+
     try {
-      setLoading(true);
+      if (!hasExistingSessions) {
+        setLoading(true);
+      }
       const data = await professionalService.getProfessionalSessions();
 
       const mappedSessions: ProfessionalSession[] = data.map((session) => {
@@ -174,13 +184,25 @@ export function ProfessionalSessionsScreen() {
         };
       });
 
+      if (sessionsLoadSeqRef.current !== requestSeq) {
+        return;
+      }
+
+      sessionsRef.current = mappedSessions;
       setSessions(mappedSessions);
       setLoadError(false);
+      setLoadErrorMessage('');
     } catch (error) {
+      if (sessionsLoadSeqRef.current !== requestSeq) {
+        return;
+      }
+
       setLoadError(true);
-      showAppAlert(appAlert, 'Error', 'No se pudieron cargar las sesiones');
+      setLoadErrorMessage(getErrorMessage(error, 'No se pudieron cargar las sesiones'));
     } finally {
-      setLoading(false);
+      if (sessionsLoadSeqRef.current === requestSeq) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -237,6 +259,14 @@ export function ProfessionalSessionsScreen() {
   useEffect(() => {
     analyticsService.trackScreen('professional_sessions');
     loadSessions();
+  }, [loadSessions]);
+
+  useEffect(() => () => {
+    sessionsLoadSeqRef.current += 1;
+  }, []);
+
+  const handleRetryLoadSessions = useCallback(() => {
+    void loadSessions();
   }, [loadSessions]);
 
   useProfessionalTourAutoStart(
@@ -806,6 +836,51 @@ export function ProfessionalSessionsScreen() {
     </Card>
   );
 
+  const renderLoadErrorNotice = () => {
+    if (!loadError || sessions.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={styles.loadErrorNotice}>
+        <View style={styles.loadErrorTextBlock}>
+          <Ionicons name="alert-circle-outline" size={20} color={theme.warning} />
+          <View style={styles.loadErrorCopy}>
+            <Text style={styles.loadErrorTitle}>No se pudieron actualizar las sesiones</Text>
+            <Text style={styles.loadErrorMessage}>{loadErrorMessage}</Text>
+          </View>
+        </View>
+        <View style={styles.loadErrorAction}>
+          <Button
+            variant="outline"
+            size="small"
+            onPress={handleRetryLoadSessions}
+            loading={loading}
+            fullWidth={isMobile}
+          >
+            Reintentar
+          </Button>
+        </View>
+      </View>
+    );
+  };
+
+  const renderLoadErrorState = () => (
+    <View style={styles.loadErrorState}>
+      <Ionicons name="cloud-offline-outline" size={44} color={theme.warning} />
+      <Text style={styles.loadErrorStateTitle}>No se pudieron cargar las sesiones</Text>
+      <Text style={styles.loadErrorStateSubtitle}>{loadErrorMessage}</Text>
+      <Button
+        variant="primary"
+        size="medium"
+        onPress={handleRetryLoadSessions}
+        loading={loading}
+      >
+        Reintentar
+      </Button>
+    </View>
+  );
+
   const renderDayView = () => {
     const grouped = TIME_SLOTS.map((hour) => ({
       hour,
@@ -1182,6 +1257,8 @@ export function ProfessionalSessionsScreen() {
             </View>
           </TourTarget>
 
+          {renderLoadErrorNotice()}
+
           <View style={styles.sessionListTourContent}>
             <TourTarget
               id="professional.sessions.list"
@@ -1192,9 +1269,15 @@ export function ProfessionalSessionsScreen() {
             >
               <View style={styles.sessionListTourAnchor} />
             </TourTarget>
+            {loadError && sessions.length === 0 ? (
+              renderLoadErrorState()
+            ) : (
+              <>
               {viewMode === 'day' ? renderDayView() : null}
               {viewMode === 'week' ? renderWeekView() : null}
               {viewMode === 'list' ? renderListView() : null}
+              </>
+            )}
           </View>
         </View>
         </View>
@@ -1481,6 +1564,67 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       alignItems: 'center',
       gap: spacing.sm,
       ...shadows.sm,
+    },
+    loadErrorNotice: {
+      marginHorizontal: isMobile ? spacing.md : spacing.lg,
+      marginBottom: spacing.sm,
+      padding: spacing.md,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.warning,
+      backgroundColor: theme.warningBg,
+      flexDirection: isMobile ? 'column' : 'row',
+      alignItems: isMobile ? 'stretch' : 'center',
+      justifyContent: 'space-between',
+      gap: spacing.md,
+    },
+    loadErrorTextBlock: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+    },
+    loadErrorCopy: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    loadErrorTitle: {
+      fontSize: typography.fontSizes.sm,
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansBold,
+    },
+    loadErrorMessage: {
+      fontSize: typography.fontSizes.sm,
+      lineHeight: 20,
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+    },
+    loadErrorAction: {
+      width: isMobile ? '100%' : 132,
+    },
+    loadErrorState: {
+      flex: 1,
+      minHeight: 320,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.xl,
+      gap: spacing.md,
+    },
+    loadErrorStateTitle: {
+      fontSize: typography.fontSizes.xl,
+      color: theme.textPrimary,
+      textAlign: 'center',
+      fontFamily: theme.fontSansBold,
+    },
+    loadErrorStateSubtitle: {
+      maxWidth: 520,
+      fontSize: typography.fontSizes.md,
+      lineHeight: 24,
+      color: theme.textSecondary,
+      textAlign: 'center',
+      fontFamily: theme.fontSans,
     },
     dateNavButton: {
       width: isMobile ? 40 : 38,

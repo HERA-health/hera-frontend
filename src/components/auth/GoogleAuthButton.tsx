@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing } from '../../constants/colors';
+import { Button } from '../common/Button';
 
 interface GoogleCredentialResponse {
   credential?: string;
@@ -46,37 +47,155 @@ declare global {
 const GOOGLE_SCRIPT_ID = 'google-identity-services';
 const GOOGLE_SCRIPT_SRC = 'https://accounts.google.com/gsi/client';
 const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_AUTH_CLIENT_ID;
+const GOOGLE_SCRIPT_LOAD_TIMEOUT_MS = 10000;
+const GOOGLE_SCRIPT_READY_POLL_MS = 50;
 const BUTTON_HEIGHT = 54;
 const GOOGLE_BUTTON_HEIGHT = 40;
 const GOOGLE_BUTTON_SCALE = BUTTON_HEIGHT / GOOGLE_BUTTON_HEIGHT;
+
+let googleIdentityScriptPromise: Promise<void> | null = null;
+let initializedGoogleClientId: string | null = null;
+let activeCredentialHandler: ((idToken: string) => void) | null = null;
+
+type BrowserTimerId = number;
+
+const hasGoogleIdentityClient = (): boolean =>
+  typeof window !== 'undefined' && Boolean(window.google?.accounts?.id);
+
+const waitForGoogleIdentityClient = (script: HTMLScriptElement): Promise<void> => (
+  new Promise((resolve, reject) => {
+    let settled = false;
+
+    const cleanup = (
+      loadHandler: () => void,
+      errorHandler: () => void,
+      timeoutId: BrowserTimerId,
+      intervalId: BrowserTimerId,
+    ) => {
+      script.removeEventListener('load', loadHandler);
+      script.removeEventListener('error', errorHandler);
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+    };
+
+    const finish = (
+      callback: () => void,
+      loadHandler: () => void,
+      errorHandler: () => void,
+      timeoutId: BrowserTimerId,
+      intervalId: BrowserTimerId,
+    ) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      cleanup(loadHandler, errorHandler, timeoutId, intervalId);
+      callback();
+    };
+
+    const rejectAndReset = (
+      message: string,
+      loadHandler: () => void,
+      errorHandler: () => void,
+      timeoutId: BrowserTimerId,
+      intervalId: BrowserTimerId,
+    ) => {
+      if (hasGoogleIdentityClient()) {
+        finish(() => resolve(), loadHandler, errorHandler, timeoutId, intervalId);
+        return;
+      }
+
+      finish(() => {
+        googleIdentityScriptPromise = null;
+        script.remove();
+        reject(new Error(message));
+      }, loadHandler, errorHandler, timeoutId, intervalId);
+    };
+
+    const resolveIfReady = (
+      loadHandler: () => void,
+      errorHandler: () => void,
+      timeoutId: BrowserTimerId,
+      intervalId: BrowserTimerId,
+    ) => {
+      if (hasGoogleIdentityClient()) {
+        finish(() => resolve(), loadHandler, errorHandler, timeoutId, intervalId);
+      }
+    };
+
+    let timeoutId: BrowserTimerId;
+    let intervalId: BrowserTimerId;
+
+    const onLoad = () => {
+      resolveIfReady(onLoad, onError, timeoutId, intervalId);
+    };
+    const onError = () => {
+      rejectAndReset('Google Auth failed to load', onLoad, onError, timeoutId, intervalId);
+    };
+
+    timeoutId = window.setTimeout(
+      () => rejectAndReset('Google Auth load timed out', onLoad, onError, timeoutId, intervalId),
+      GOOGLE_SCRIPT_LOAD_TIMEOUT_MS,
+    );
+    intervalId = window.setInterval(
+      () => resolveIfReady(onLoad, onError, timeoutId, intervalId),
+      GOOGLE_SCRIPT_READY_POLL_MS,
+    );
+
+    script.addEventListener('load', onLoad, { once: true });
+    script.addEventListener('error', onError, { once: true });
+    resolveIfReady(onLoad, onError, timeoutId, intervalId);
+  })
+);
 
 const loadGoogleIdentityScript = (): Promise<void> => {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return Promise.reject(new Error('Google Auth is only available on web'));
   }
 
-  if (window.google?.accounts?.id) {
+  if (hasGoogleIdentityClient()) {
     return Promise.resolve();
+  }
+
+  if (googleIdentityScriptPromise) {
+    return googleIdentityScriptPromise;
   }
 
   const existingScript = document.getElementById(GOOGLE_SCRIPT_ID) as HTMLScriptElement | null;
   if (existingScript) {
-    return new Promise((resolve, reject) => {
-      existingScript.addEventListener('load', () => resolve(), { once: true });
-      existingScript.addEventListener('error', () => reject(new Error('Google Auth failed to load')), { once: true });
-    });
+    googleIdentityScriptPromise = waitForGoogleIdentityClient(existingScript);
+    return googleIdentityScriptPromise;
   }
 
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.id = GOOGLE_SCRIPT_ID;
-    script.src = GOOGLE_SCRIPT_SRC;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Google Auth failed to load'));
-    document.head.appendChild(script);
+  const script = document.createElement('script');
+  script.id = GOOGLE_SCRIPT_ID;
+  script.src = GOOGLE_SCRIPT_SRC;
+  script.async = true;
+  script.defer = true;
+  document.head.appendChild(script);
+  googleIdentityScriptPromise = waitForGoogleIdentityClient(script);
+
+  return googleIdentityScriptPromise;
+};
+
+const initializeGoogleIdentity = (clientId: string): void => {
+  if (!window.google?.accounts?.id || initializedGoogleClientId === clientId) {
+    return;
+  }
+
+  window.google.accounts.id.initialize({
+    client_id: clientId,
+    callback: (response) => {
+      if (response.credential) {
+        activeCredentialHandler?.(response.credential);
+      }
+    },
+    ux_mode: 'popup',
+    auto_select: false,
+    itp_support: true,
   });
+  initializedGoogleClientId = clientId;
 };
 
 export function GoogleAuthButton({ onCredential, disabled = false }: GoogleAuthButtonProps) {
@@ -84,11 +203,18 @@ export function GoogleAuthButton({ onCredential, disabled = false }: GoogleAuthB
   const { width } = useWindowDimensions();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [isReady, setIsReady] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
   const fallbackWidth = Math.min(440, Math.max(240, Math.floor(width - spacing.lg * 2)));
   const visualButtonWidth = Math.max(240, Math.floor(containerWidth || fallbackWidth));
   const googleButtonWidth = Math.max(240, Math.floor(visualButtonWidth / GOOGLE_BUTTON_SCALE));
+
+  const handleRetryGoogleLoad = useCallback(() => {
+    setIsReady(false);
+    setLoadError(false);
+    setLoadAttempt((attempt) => attempt + 1);
+  }, []);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !containerRef.current) {
@@ -119,6 +245,8 @@ export function GoogleAuthButton({ onCredential, disabled = false }: GoogleAuthB
     }
 
     let cancelled = false;
+    activeCredentialHandler = onCredential;
+    setLoadError(false);
 
     loadGoogleIdentityScript()
       .then(() => {
@@ -128,17 +256,8 @@ export function GoogleAuthButton({ onCredential, disabled = false }: GoogleAuthB
 
         containerRef.current.innerHTML = '';
         setIsReady(false);
-        window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: (response) => {
-            if (response.credential) {
-              onCredential(response.credential);
-            }
-          },
-          ux_mode: 'popup',
-          auto_select: false,
-          itp_support: true,
-        });
+        setLoadError(false);
+        initializeGoogleIdentity(GOOGLE_CLIENT_ID);
 
         window.google.accounts.id.renderButton(containerRef.current, {
           type: 'standard',
@@ -160,8 +279,11 @@ export function GoogleAuthButton({ onCredential, disabled = false }: GoogleAuthB
 
     return () => {
       cancelled = true;
+      if (activeCredentialHandler === onCredential) {
+        activeCredentialHandler = null;
+      }
     };
-  }, [googleButtonWidth, isDark, onCredential]);
+  }, [googleButtonWidth, isDark, loadAttempt, onCredential]);
 
   if (Platform.OS !== 'web') {
     return null;
@@ -187,6 +309,14 @@ export function GoogleAuthButton({ onCredential, disabled = false }: GoogleAuthB
         <Text style={[styles.fallbackText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
           Google no está disponible ahora mismo.
         </Text>
+        <Button
+          variant="outline"
+          size="small"
+          onPress={handleRetryGoogleLoad}
+          fullWidth
+        >
+          Reintentar Google
+        </Button>
       </View>
     );
   }
@@ -253,6 +383,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: spacing.md,
     marginTop: spacing.sm,
+    gap: spacing.sm,
   },
   fallbackText: {
     fontSize: 14,
