@@ -7,6 +7,7 @@ describe('clinic auth entry points', () => {
 
   it('keeps clinic login and registration available without a frontend env gate', () => {
     const welcomeSource = fs.readFileSync(path.join(__dirname, '..', 'WelcomeScreen.tsx'), 'utf8');
+    const loginSource = fs.readFileSync(path.join(__dirname, '..', 'LoginScreen.tsx'), 'utf8');
     const registerSource = fs.readFileSync(path.join(__dirname, '..', 'RegisterScreen.tsx'), 'utf8');
     const landingSource = fs.readFileSync(
       path.join(__dirname, '..', '..', 'landing', 'LandingPage.tsx'),
@@ -14,12 +15,24 @@ describe('clinic auth entry points', () => {
     );
 
     expect(welcomeSource).not.toContain(obsoleteHelperName);
+    expect(loginSource).not.toContain(obsoleteHelperName);
     expect(registerSource).not.toContain(obsoleteHelperName);
     expect(landingSource).not.toContain(obsoleteHelperName);
     expect(welcomeSource).toContain("userType: 'CLINIC'");
     expect(registerSource).toContain('clinicCommercialName');
     expect(registerSource).toContain("setUserType('clinic')");
     expect(landingSource).toContain('handleJoinAsClinic');
+  });
+
+  it('keeps Google auth visible and scoped for clinic login and registration', () => {
+    const loginSource = fs.readFileSync(path.join(__dirname, '..', 'LoginScreen.tsx'), 'utf8');
+    const registerSource = fs.readFileSync(path.join(__dirname, '..', 'RegisterScreen.tsx'), 'utf8');
+
+    expect(loginSource).not.toContain('isClinicLogin');
+    expect(loginSource).not.toContain("expectedUserType === 'CLINIC' ? undefined");
+    expect(loginSource).toContain('expectedUserType,');
+    expect(registerSource).not.toContain('Para clínicas, usa el registro con email en esta fase');
+    expect(registerSource).toContain("clinicCommercialName: isClinic ? clinicCommercialName.trim() : undefined");
   });
 
   it('does not keep the obsolete frontend clinic auth flag around', () => {

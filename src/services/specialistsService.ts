@@ -192,6 +192,10 @@ export const normalizeSpecialistLanguages = (languages: unknown): string[] => {
   return cleanedLanguages;
 };
 
+export const resolveSpecialistAvatar = (
+  specialist: Pick<SpecialistData, 'avatar' | 'user'>
+): string | null => specialist.user.avatar ?? specialist.avatar ?? null;
+
 /**
  * Maps a raw API SpecialistData response to the Specialist profile shape
  * used by the UI components. Pure function - no side effects.
@@ -204,7 +208,7 @@ export const mapSpecialistToProfile = (data: SpecialistData): Specialist => {
     title: data.professionalTitle || data.specialization,
     professionalType: data.professionalType,
     professionalTypeLabel: data.professionalTypeLabel,
-    avatar: data.avatar || undefined,
+    avatar: resolveSpecialistAvatar(data) ?? undefined,
     bio: normalizeSpecialistDescription(data.description),
     rating: data.rating,
     reviewCount: data.reviewCount,

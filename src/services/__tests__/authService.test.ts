@@ -133,4 +133,23 @@ describe('authService legal status hydration', () => {
     expect(setAuthSessionMock).toHaveBeenCalledWith('access-token', 'refresh-token');
     expect(result.legalStatus).toBe(legalStatus);
   });
+
+  it('sends clinic Google registration fields through the auth contract', async () => {
+    mockSuccessfulAuthResponse();
+
+    await authenticateWithGoogle({
+      idToken: 'google-id-token',
+      userType: 'CLINIC',
+      expectedUserType: 'CLINIC',
+      acceptedLegalDocumentKeys: ['TERMS_OF_SERVICE', 'PRIVACY_POLICY'],
+      clinicCommercialName: 'Clínica Demo',
+    });
+
+    expect(postMock).toHaveBeenCalledWith('/auth/google', expect.objectContaining({
+      idToken: 'google-id-token',
+      userType: 'CLINIC',
+      expectedUserType: 'CLINIC',
+      clinicCommercialName: 'Clínica Demo',
+    }));
+  });
 });

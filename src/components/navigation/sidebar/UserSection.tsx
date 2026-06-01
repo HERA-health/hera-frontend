@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Image, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -19,6 +19,12 @@ export function UserSection({
 }: UserSectionProps): React.ReactElement {
   const { theme } = useTheme();
   const sidebarTheme = getSidebarTheme(theme);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const showAvatarImage = Boolean(user.avatarUrl) && !avatarLoadFailed;
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [user.avatarUrl]);
 
   const handleLogout = useCallback(() => {
     onLogout();
@@ -63,13 +69,14 @@ export function UserSection({
           accessibilityLabel={`Abrir perfil de ${user.name}`}
         >
           <View style={[styles.topRow, isCollapsed ? styles.topRowCollapsed : null]}>
-            {user.avatarUrl ? (
+            {showAvatarImage ? (
               <Image
                 source={{ uri: user.avatarUrl }}
                 style={[
                   styles.avatarImage,
                   isCollapsed ? styles.avatarCollapsed : null,
                 ]}
+                onError={() => setAvatarLoadFailed(true)}
               />
             ) : (
               <View

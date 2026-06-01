@@ -106,7 +106,7 @@ const mapSpecialistDataToCard = (
   return {
     id: specialist.id,
     name,
-    avatar: specialist.avatar || undefined,
+    avatar: specialistsService.resolveSpecialistAvatar(specialist) ?? undefined,
     initial: name.charAt(0).toUpperCase(),
     specialization: specialist.specialization,
     professionalType: specialist.professionalType,
@@ -170,6 +170,7 @@ const SpecialistsScreen: React.FC = () => {
   const [primarySession, setPrimarySession] = useState<specialistsService.PrimarySpecialistSessionContext | null>(null);
   const [favoriteSpecialists, setFavoriteSpecialists] = useState<Specialist[]>([]);
   const [favoriteSpecialistIds, setFavoriteSpecialistIds] = useState<string[]>([]);
+  const [failedAvatarUris, setFailedAvatarUris] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasCompletedQuestionnaire, setHasCompletedQuestionnaire] = useState(false);
@@ -622,6 +623,8 @@ const SpecialistsScreen: React.FC = () => {
     if (!primarySpecialist) return null;
     const isActiveSession = primarySession?.status === 'PENDING' || primarySession?.status === 'CONFIRMED';
     const sessionLabel = isActiveSession ? 'Cita en curso' : 'Última sesión';
+    const avatarUri = primarySpecialist.avatar;
+    const showAvatarImage = Boolean(avatarUri && !failedAvatarUris.has(avatarUri));
 
     return (
       <View style={styles.primarySection}>
@@ -639,8 +642,16 @@ const SpecialistsScreen: React.FC = () => {
         >
           <View style={[styles.primaryCardInner, { backgroundColor: isDark ? theme.bgElevated : theme.bgCard }]}>
             <View style={styles.primaryAvatar}>
-              {primarySpecialist.avatar ? (
-                <Image source={{ uri: primarySpecialist.avatar }} style={styles.primaryAvatarImage} />
+              {showAvatarImage ? (
+                <Image
+                  source={{ uri: avatarUri ?? undefined }}
+                  style={[styles.primaryAvatarImage, { backgroundColor: theme.bgCard }]}
+                  onError={() => {
+                    if (avatarUri) {
+                      setFailedAvatarUris(prev => new Set(prev).add(avatarUri));
+                    }
+                  }}
+                />
               ) : (
                 <Text style={styles.primaryAvatarInitial}>{primarySpecialist.initial}</Text>
               )}
@@ -698,27 +709,40 @@ const SpecialistsScreen: React.FC = () => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.favoritesRail}
         >
-          {favoriteSpecialists.map((specialist) => (
-            <AnimatedPressable
-              key={`favorite-${specialist.id}`}
-              onPress={() => handleSpecialistPress(specialist.id)}
-              style={styles.favoriteCard}
-              pressScale={0.98}
-            >
-              {renderFavoriteButton(specialist, true)}
-              <View style={styles.favoriteAvatar}>
-                {specialist.avatar ? (
-                  <Image source={{ uri: specialist.avatar }} style={styles.favoriteAvatarImage} />
-                ) : (
-                  <Text style={styles.favoriteAvatarInitial}>{specialist.initial}</Text>
-                )}
-              </View>
-              <Text style={styles.favoriteName} numberOfLines={1}>{specialist.name}</Text>
-              <Text style={styles.favoriteSpec} numberOfLines={2}>
-                {getProfessionalTypeLabel(specialist.professionalType, specialist.professionalTypeLabel)}
-              </Text>
-            </AnimatedPressable>
-          ))}
+          {favoriteSpecialists.map((specialist) => {
+            const avatarUri = specialist.avatar;
+            const showAvatarImage = Boolean(avatarUri && !failedAvatarUris.has(avatarUri));
+
+            return (
+              <AnimatedPressable
+                key={`favorite-${specialist.id}`}
+                onPress={() => handleSpecialistPress(specialist.id)}
+                style={styles.favoriteCard}
+                pressScale={0.98}
+              >
+                {renderFavoriteButton(specialist, true)}
+                <View style={styles.favoriteAvatar}>
+                  {showAvatarImage ? (
+                    <Image
+                      source={{ uri: avatarUri ?? undefined }}
+                      style={[styles.favoriteAvatarImage, { backgroundColor: theme.bgCard }]}
+                      onError={() => {
+                        if (avatarUri) {
+                          setFailedAvatarUris(prev => new Set(prev).add(avatarUri));
+                        }
+                      }}
+                    />
+                  ) : (
+                    <Text style={styles.favoriteAvatarInitial}>{specialist.initial}</Text>
+                  )}
+                </View>
+                <Text style={styles.favoriteName} numberOfLines={1}>{specialist.name}</Text>
+                <Text style={styles.favoriteSpec} numberOfLines={2}>
+                  {getProfessionalTypeLabel(specialist.professionalType, specialist.professionalTypeLabel)}
+                </Text>
+              </AnimatedPressable>
+            );
+          })}
         </ScrollView>
       </View>
     );

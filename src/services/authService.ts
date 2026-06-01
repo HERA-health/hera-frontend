@@ -8,7 +8,7 @@ import type { LegalDocumentKey } from '../constants/legal';
 import type { LegalAcceptanceStatus } from './legalService';
 
 export type BackendUserType = 'CLIENT' | 'PROFESSIONAL' | 'CLINIC';
-export type PublicAuthUserType = Exclude<BackendUserType, 'CLINIC'>;
+export type PublicAuthUserType = BackendUserType;
 
 export interface AuthResponse {
   token: string;
@@ -54,9 +54,24 @@ export interface GoogleAuthData {
   userType?: PublicAuthUserType;
   expectedUserType?: PublicAuthUserType;
   acceptedLegalDocumentKeys?: LegalDocumentKey[];
+  clinicCommercialName?: string;
 }
 
 const getClientPlatform = (): 'web' | 'mobile' => (Platform.OS === 'web' ? 'web' : 'mobile');
+
+const getGoogleUserTypeMismatchMessage = (
+  expectedUserType?: PublicAuthUserType
+): string => {
+  if (expectedUserType === 'PROFESSIONAL') {
+    return 'Esta cuenta de Google está registrada como paciente o clínica. Entra desde el acceso correcto o usa otra cuenta de Google para acceder como profesional.';
+  }
+
+  if (expectedUserType === 'CLINIC') {
+    return 'Esta cuenta de Google está registrada como paciente o profesional. Entra desde el acceso correcto o usa otra cuenta de Google para acceder como clínica.';
+  }
+
+  return 'Esta cuenta de Google está registrada como profesional o clínica. Entra desde el acceso correcto o usa otra cuenta de Google para acceder como paciente.';
+};
 
 /**
  * Register a new user
@@ -234,9 +249,10 @@ export const authenticateWithGoogle = async (data: GoogleAuthData): Promise<Auth
           errorMessage = 'Completa el registro para continuar con Google';
           break;
         case 'USER_TYPE_MISMATCH':
-          errorMessage = data.expectedUserType === 'PROFESSIONAL'
-            ? 'Esta cuenta de Google está registrada como paciente. Entra desde "Busco ayuda" o usa otra cuenta de Google para acceder como profesional.'
-            : 'Esta cuenta de Google está registrada como profesional. Entra desde "Soy especialista" o usa otra cuenta de Google para acceder como paciente.';
+          errorMessage = getGoogleUserTypeMismatchMessage(data.expectedUserType);
+          break;
+        case 'INVALID_CLINIC_DATA':
+          errorMessage = 'Introduce el nombre de la clínica para crear la cuenta';
           break;
         case 'GOOGLE_ACCOUNT_CONFLICT':
           errorMessage = 'Este correo ya está vinculado a otra cuenta de Google';

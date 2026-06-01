@@ -250,14 +250,12 @@ export function RegisterScreen() {
       return;
     }
 
-    if (userType === 'clinic') {
-      setLocalError('Para clínicas, usa el registro con email en esta fase.');
+    if (isClinic && clinicCommercialName.trim().length < 2) {
+      setLocalError('Introduce el nombre de la clínica.');
       return;
     }
 
-    const backendUserType: authService.PublicAuthUserType = userType === 'client'
-      ? 'CLIENT'
-      : 'PROFESSIONAL';
+    const backendUserType: authService.PublicAuthUserType = mapFrontendUserTypeToBackend(userType);
     const acceptedLegalDocumentKeys = getRequiredRegistrationDocumentKeys(backendUserType);
 
     try {
@@ -267,6 +265,7 @@ export function RegisterScreen() {
         userType: backendUserType,
         expectedUserType: backendUserType,
         acceptedLegalDocumentKeys,
+        clinicCommercialName: isClinic ? clinicCommercialName.trim() : undefined,
       });
 
       if (userType === 'professional') {
@@ -274,11 +273,24 @@ export function RegisterScreen() {
         return;
       }
 
+      if (userType === 'clinic') {
+        navigation.navigate('ClinicDashboard');
+        return;
+      }
+
       navigation.navigate('MainStack');
     } catch (error: unknown) {
       setLocalError(getErrorMessage(error, 'No se pudo continuar con Google.'));
     }
-  }, [authenticateWithGoogle, clearError, navigation, termsAccepted, userType]);
+  }, [
+    authenticateWithGoogle,
+    clearError,
+    clinicCommercialName,
+    isClinic,
+    navigation,
+    termsAccepted,
+    userType,
+  ]);
 
   return (
     <AuthSplitLayout
@@ -486,23 +498,6 @@ export function RegisterScreen() {
             </Text>
           </AnimatedPressable>
 
-          {!isClinic ? (
-            <>
-              <GoogleAuthButton
-                onCredential={handleGoogleCredential}
-                disabled={authLoading}
-              />
-
-              <View style={styles.authDivider}>
-                <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
-                <Text style={[styles.authDividerText, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>
-                  o crea tu cuenta con email
-                </Text>
-                <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
-              </View>
-            </>
-          ) : null}
-
           {isClinic ? (
             <Input
               label="Nombre de la clínica"
@@ -513,6 +508,19 @@ export function RegisterScreen() {
               leftIcon={<Ionicons name="business-outline" size={18} color={theme.textMuted} />}
             />
           ) : null}
+
+          <GoogleAuthButton
+            onCredential={handleGoogleCredential}
+            disabled={authLoading}
+          />
+
+          <View style={styles.authDivider}>
+            <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
+            <Text style={[styles.authDividerText, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>
+              o crea tu cuenta con email
+            </Text>
+            <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
+          </View>
 
           <Input
             label={isClinic ? 'Persona responsable' : 'Nombre completo'}

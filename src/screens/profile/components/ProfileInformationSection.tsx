@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -66,6 +66,12 @@ export const ProfileInformationSection: React.FC<ProfileInformationSectionProps>
 }) => {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const showAvatarImage = Boolean(user?.avatar) && !avatarLoadFailed;
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [user?.avatar]);
 
   return (
     <View style={styles.content}>
@@ -75,8 +81,12 @@ export const ProfileInformationSection: React.FC<ProfileInformationSectionProps>
             <View style={[styles.avatarShell, { backgroundColor: theme.bgMuted }]}>
               <ActivityIndicator size="large" color={theme.primary} />
             </View>
-          ) : user?.avatar ? (
-            <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
+          ) : showAvatarImage ? (
+            <Image
+              source={{ uri: user?.avatar ?? '' }}
+              style={styles.avatarImage}
+              onError={() => setAvatarLoadFailed(true)}
+            />
           ) : (
             <View style={[styles.avatarShell, { backgroundColor: theme.primary }]}>
               <Text style={styles.avatarText}>

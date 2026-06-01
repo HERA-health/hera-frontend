@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Image,
   StyleSheet,
@@ -49,7 +49,13 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
     specialist.professionalTypeLabel,
   );
 
-  const avatarUri = specialist.user?.avatar || specialist.avatar;
+  const avatarUri = specialist.user?.avatar ?? specialist.avatar;
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const showAvatarImage = Boolean(avatarUri) && !avatarLoadFailed;
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [avatarUri]);
 
   return (
     <AnimatedPressable
@@ -87,10 +93,14 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
       <View style={styles.mainContent}>
         <View style={[styles.leftSection, { flexDirection: isWideScreen ? 'row' : 'column' }]}>
           <View style={styles.avatarContainer}>
-            {avatarUri ? (
+            {showAvatarImage ? (
               <Image
-                source={{ uri: avatarUri }}
-                style={[styles.avatarImage, { borderColor: theme.primaryMuted }]}
+                source={{ uri: avatarUri ?? undefined }}
+                style={[
+                  styles.avatarImage,
+                  { backgroundColor: theme.bgCard, borderColor: theme.primaryMuted },
+                ]}
+                onError={() => setAvatarLoadFailed(true)}
               />
             ) : (
               <View style={[styles.avatar, { backgroundColor: theme.primary }]}>

@@ -356,9 +356,9 @@ export default function HomeScreen() {
 
             <View style={styles.nextSessionSpecialist}>
               <View style={styles.nextSessionAvatarWrap}>
-                {nextSession.specialist.avatar || nextSession.specialist.user.avatar ? (
+                {nextSession.specialist.user.avatar || nextSession.specialist.avatar ? (
                   <Image
-                    source={{ uri: (nextSession.specialist.avatar || nextSession.specialist.user.avatar) as string }}
+                    source={{ uri: (nextSession.specialist.user.avatar || nextSession.specialist.avatar) as string }}
                     style={styles.nextSessionAvatar}
                   />
                 ) : (
@@ -479,9 +479,9 @@ export default function HomeScreen() {
                 pressScale={0.985}
               >
                 <View style={styles.sessionAvatarWrap}>
-                  {session.specialist.avatar || session.specialist.user.avatar ? (
+                  {session.specialist.user.avatar || session.specialist.avatar ? (
                     <Image
-                      source={{ uri: (session.specialist.avatar || session.specialist.user.avatar) as string }}
+                      source={{ uri: (session.specialist.user.avatar || session.specialist.avatar) as string }}
                       style={styles.sessionAvatar}
                     />
                   ) : (

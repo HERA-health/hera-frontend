@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Specialist } from '../../../constants/types';
@@ -33,6 +33,13 @@ export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
     specialist.professionalType,
     specialist.professionalTypeLabel,
   );
+  const avatarUri = specialist.user?.avatar ?? specialist.avatar;
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const showAvatarImage = Boolean(avatarUri) && !avatarLoadFailed;
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [avatarUri]);
 
   return (
     <AnimatedPressable
@@ -42,8 +49,12 @@ export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
     >
       <View style={styles.left}>
         <View style={styles.avatarWrap}>
-          {specialist.avatar || specialist.user?.avatar ? (
-            <Image source={{ uri: specialist.user?.avatar || specialist.avatar }} style={styles.avatar} />
+          {showAvatarImage ? (
+            <Image
+              source={{ uri: avatarUri ?? undefined }}
+              style={[styles.avatar, { backgroundColor: theme.bgCard }]}
+              onError={() => setAvatarLoadFailed(true)}
+            />
           ) : (
             <View style={styles.avatarFallback}>
               <Text style={styles.avatarInitial}>{specialist.initial}</Text>

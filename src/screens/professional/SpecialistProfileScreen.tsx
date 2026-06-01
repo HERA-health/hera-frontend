@@ -374,7 +374,7 @@ const mapServiceProfileToFormData = (profile: ServiceProfileData): SpecialistPro
   professionalTitle: profile.professionalTitle || '',
   professionalType: profile.professionalType || null,
   bio: profile.bio || '',
-  avatar: profile.avatar || null,
+  avatar: profile.avatar ?? null,
   specialties: profile.specialties || [],
   therapeuticApproaches: profile.therapeuticApproaches || [],
   languages: profile.languages || ['spanish'],
@@ -493,6 +493,7 @@ export function SpecialistProfileScreen() {
   const [activeTab, setActiveTab] = useState<ProfileTab>('information');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [isUploadingGalleryPhoto, setIsUploadingGalleryPhoto] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -623,6 +624,11 @@ export function SpecialistProfileScreen() {
   });
 
   const [originalData, setOriginalData] = useState<SpecialistProfileData>(profileData);
+  const showProfileAvatar = Boolean(profileData.avatar) && !avatarLoadFailed;
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [profileData.avatar]);
 
   // Calculate profile completion percentage
   const verificationCompletion = useMemo(() => {
@@ -825,6 +831,7 @@ export function SpecialistProfileScreen() {
       };
       const hasFieldChanged = <K extends keyof SpecialistProfileData>(field: K) =>
         JSON.stringify(profileData[field]) !== JSON.stringify(originalData[field]);
+      const avatarChanged = hasFieldChanged('avatar');
       const assignIfChanged = <K extends keyof SpecialistProfileData, T extends keyof ServiceProfileData>(
         localField: K,
         apiField: T,
@@ -864,6 +871,10 @@ export function SpecialistProfileScreen() {
       const result = await professionalService.updateComprehensiveProfile(updateData);
       const mappedData = mapServiceProfileToFormData(result);
 
+      if (avatarChanged) {
+        updateUser({ avatar: mappedData.avatar });
+        setAvatarLoadFailed(false);
+      }
       setProfileData(mappedData);
       setOriginalData(mappedData);
       showAppAlert(appAlert, 'Cambios guardados', 'Tu perfil ha sido actualizado correctamente');
@@ -873,7 +884,7 @@ export function SpecialistProfileScreen() {
     } finally {
       setIsSaving(false);
     }
-  }, [hasChanges, originalData, profileData]);
+  }, [hasChanges, originalData, profileData, updateUser]);
 
   const handleImagePick = useCallback(async () => {
     if (isUploadingAvatar) return;
@@ -894,8 +905,11 @@ export function SpecialistProfileScreen() {
             mimeType: asset.mimeType,
             fileName: asset.fileName,
           });
-          updateUser({ avatar: updatedUser.avatar ?? undefined });
-          updateField('avatar', updatedUser.avatar ?? null);
+          const nextAvatar = updatedUser.avatar ?? null;
+          updateUser({ avatar: nextAvatar });
+          setAvatarLoadFailed(false);
+          setProfileData(prev => ({ ...prev, avatar: nextAvatar }));
+          setOriginalData(prev => ({ ...prev, avatar: nextAvatar }));
         } catch (uploadError: unknown) {
           showAppAlert(appAlert, 'Error', getErrorMessage(uploadError, 'No se pudo subir la foto'));
         } finally {
@@ -905,7 +919,7 @@ export function SpecialistProfileScreen() {
     } catch (error) {
       showAppAlert(appAlert, 'Error', 'No se pudo seleccionar la imagen');
     }
-  }, [updateField, updateUser, isUploadingAvatar]);
+  }, [updateUser, isUploadingAvatar]);
 
   // Navigate to own public profile (as patients see it)
   const handleViewPublicProfile = useCallback(() => {
@@ -1705,8 +1719,12 @@ export function SpecialistProfileScreen() {
               <Text style={styles.panelTitle}>Foto de perfil</Text>
               <View style={styles.photoSection}>
                 <View style={styles.avatarContainer}>
-                  {profileData.avatar ? (
-                    <Image source={{ uri: profileData.avatar }} style={styles.avatarLarge} />
+                  {showProfileAvatar ? (
+                    <Image
+                      source={{ uri: profileData.avatar ?? '' }}
+                      style={styles.avatarLarge}
+                      onError={() => setAvatarLoadFailed(true)}
+                    />
                   ) : (
                     <View style={[styles.avatarLarge, { backgroundColor: palette.primary }]}>
                       <Text style={styles.avatarLargeText}>

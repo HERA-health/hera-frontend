@@ -31,7 +31,6 @@ export function LoginScreen() {
   const expectedUserType = route.params?.userType;
   const isMobile = width < 768;
   const isCompactMobile = width < 420;
-  const isClinicLogin = expectedUserType === 'CLINIC';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -143,10 +142,9 @@ export function LoginScreen() {
 
     try {
       analyticsService.track('google_login_attempted', { userType: expectedUserType || 'unknown' });
-      const googleExpectedUserType = expectedUserType === 'CLINIC' ? undefined : expectedUserType;
       const response = await authenticateWithGoogle({
         idToken,
-        expectedUserType: googleExpectedUserType,
+        expectedUserType,
       });
       analyticsService.track('google_login_success', { userType: response.user.userType });
     } catch (error: unknown) {
@@ -227,22 +225,18 @@ export function LoginScreen() {
             </View>
           ) : null}
 
-          {!isClinicLogin ? (
-            <>
-              <GoogleAuthButton
-                onCredential={handleGoogleCredential}
-                disabled={authLoading}
-              />
+          <GoogleAuthButton
+            onCredential={handleGoogleCredential}
+            disabled={authLoading}
+          />
 
-              <View style={styles.authDivider}>
-                <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
-                <Text style={[styles.authDividerText, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>
-                  o accede con email
-                </Text>
-                <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
-              </View>
-            </>
-          ) : null}
+          <View style={styles.authDivider}>
+            <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
+            <Text style={[styles.authDividerText, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>
+              o accede con email
+            </Text>
+            <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
+          </View>
 
           <Input
             label="Email"
