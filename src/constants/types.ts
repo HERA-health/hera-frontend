@@ -105,13 +105,23 @@ import type { LegalDocumentKey } from './legal';
 export type RootStackParamList = {
   Landing: undefined;
   Welcome: undefined;
-  Login: { userType: 'CLIENT' | 'PROFESSIONAL'; specialization?: string };
-  Register: { userType: 'CLIENT' | 'PROFESSIONAL' };
+  Login: { userType: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC'; specialization?: string };
+  Register: { userType: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC' };
   EmailSentVerification: { email: string; userType: 'CLIENT' | 'PROFESSIONAL' };
   EmailVerification: { token: string };
   ClinicalConsent: { requestId: string; token: string };
+  ClinicConsent: { requestId: string; token: string };
   LegalDocument: { documentKey: LegalDocumentKey };
   RequiredLegalAcceptance: undefined;
+  ClinicPending: undefined;
+  ClinicDashboard: undefined;
+  ClinicSettings: undefined;
+  ClinicAdministrators: undefined;
+  ClinicTeam: undefined;
+  ClinicPatients: undefined;
+  ClinicAgenda: undefined;
+  ClinicBilling: undefined;
+  ClinicInvoiceCreate: undefined;
   ForgotPassword: undefined;
   EmailSentPasswordReset: { email: string };
   ResetPassword: { token: string };
@@ -140,6 +150,10 @@ export type RootStackParamList = {
   ProfessionalHome: undefined;
   ProfessionalDashboard: undefined;
   ProfessionalClients: undefined;
+  ProfessionalClinicPatientDetail: {
+    clinicId: string;
+    clinicPatientId: string;
+  };
   ProfessionalSessions: undefined;
   ProfessionalProfile: undefined;
   ProfessionalBilling: undefined;

@@ -11,7 +11,7 @@ import type { ProfessionalTourTargetId } from '../../onboarding/professionalTour
 /**
  * User roles within the HERA platform
  */
-export type UserRole = 'CLIENT' | 'PROFESSIONAL';
+export type UserRole = 'CLIENT' | 'PROFESSIONAL' | 'CLINIC';
 
 /**
  * Supported icon names from Ionicons
@@ -30,6 +30,12 @@ export type IconName =
   | 'grid-outline'
   | 'people'
   | 'people-outline'
+  | 'business'
+  | 'business-outline'
+  | 'medical'
+  | 'medical-outline'
+  | 'document-text'
+  | 'document-text-outline'
   | 'create'
   | 'create-outline'
   | 'call'
@@ -157,6 +163,8 @@ export interface SidebarProps {
   onGuideStart?: () => Promise<void> | void;
   /** Whether the user is an admin */
   isAdmin?: boolean;
+  /** Whether a professional has clinic owner/admin memberships */
+  hasClinicAdminAccess?: boolean;
   /** Whether the user/profile section should scroll with navigation content */
   isUserSectionScrollable?: boolean;
   /** Whether the sidebar is in collapsed state */

@@ -87,6 +87,10 @@ const ClinicalConsentRoute = createDeferredRoute<'ClinicalConsent'>(
   () => require('../screens/clinical/ClinicalConsentScreen'),
   { displayName: 'ClinicalConsentRoute', exportName: 'ClinicalConsentScreen' }
 );
+const ClinicConsentRoute = createDeferredRoute<'ClinicConsent'>(
+  () => require('../screens/clinic/ClinicConsentScreen'),
+  { displayName: 'ClinicConsentRoute', exportName: 'ClinicConsentScreen' }
+);
 const ForgotPasswordRoute = createDeferredRoute<'ForgotPassword'>(
   () => require('../screens/auth/ForgotPasswordScreen'),
   { displayName: 'ForgotPasswordRoute', exportName: 'ForgotPasswordScreen' }
@@ -107,6 +111,69 @@ const ProfessionalVerificationRoute = createDeferredRoute<'ProfessionalVerificat
   {
     displayName: 'ProfessionalVerificationRoute',
     exportName: 'ProfessionalVerificationScreen',
+  }
+);
+const ClinicPendingRoute = createDeferredRoute<'ClinicPending'>(
+  () => require('../screens/clinic/ClinicPendingScreen'),
+  {
+    displayName: 'ClinicPendingRoute',
+    exportName: 'ClinicPendingScreen',
+  }
+);
+const ClinicDashboardRoute = createDeferredLayoutRoute<'ClinicDashboard'>(
+  () => require('../screens/clinic/ClinicDashboardScreen'),
+  {
+    displayName: 'ClinicDashboardRoute',
+    exportName: 'ClinicDashboardScreen',
+  }
+);
+const ClinicSettingsRoute = createDeferredLayoutRoute<'ClinicSettings'>(
+  () => require('../screens/clinic/ClinicSettingsScreen'),
+  {
+    displayName: 'ClinicSettingsRoute',
+    exportName: 'ClinicSettingsScreen',
+  }
+);
+const ClinicAdministratorsRoute = createDeferredLayoutRoute<'ClinicAdministrators'>(
+  () => require('../screens/clinic/ClinicAdministratorsScreen'),
+  {
+    displayName: 'ClinicAdministratorsRoute',
+    exportName: 'ClinicAdministratorsScreen',
+  }
+);
+const ClinicTeamRoute = createDeferredLayoutRoute<'ClinicTeam'>(
+  () => require('../screens/clinic/ClinicTeamScreen'),
+  {
+    displayName: 'ClinicTeamRoute',
+    exportName: 'ClinicTeamScreen',
+  }
+);
+const ClinicPatientsRoute = createDeferredLayoutRoute<'ClinicPatients'>(
+  () => require('../screens/clinic/ClinicPatientsScreen'),
+  {
+    displayName: 'ClinicPatientsRoute',
+    exportName: 'ClinicPatientsScreen',
+  }
+);
+const ClinicAgendaRoute = createDeferredLayoutRoute<'ClinicAgenda'>(
+  () => require('../screens/clinic/ClinicAgendaScreen'),
+  {
+    displayName: 'ClinicAgendaRoute',
+    exportName: 'ClinicAgendaScreen',
+  }
+);
+const ClinicBillingRoute = createDeferredLayoutRoute<'ClinicBilling'>(
+  () => require('../screens/clinic/ClinicBillingScreen'),
+  {
+    displayName: 'ClinicBillingRoute',
+    exportName: 'ClinicBillingScreen',
+  }
+);
+const ClinicInvoiceCreateRoute = createDeferredLayoutRoute<'ClinicInvoiceCreate'>(
+  () => require('../screens/clinic/ClinicInvoiceCreateScreen'),
+  {
+    displayName: 'ClinicInvoiceCreateRoute',
+    exportName: 'ClinicInvoiceCreateScreen',
   }
 );
 const HomeRoute = createDeferredLayoutRoute<'Home'>(
@@ -166,6 +233,13 @@ const ProfessionalDashboardRoute = createDeferredLayoutRoute<'ProfessionalDashbo
 const ProfessionalClientsRoute = createDeferredLayoutRoute<'ProfessionalClients'>(
   () => require('../screens/professional/ProfessionalClientsScreen'),
   { displayName: 'ProfessionalClientsRoute', exportName: 'ProfessionalClientsScreen' }
+);
+const ProfessionalClinicPatientDetailRoute = createDeferredLayoutRoute<'ProfessionalClinicPatientDetail'>(
+  () => require('../screens/professional/ProfessionalClinicPatientDetailScreen'),
+  {
+    displayName: 'ProfessionalClinicPatientDetailRoute',
+    exportName: 'ProfessionalClinicPatientDetailScreen',
+  }
 );
 const ProfessionalSessionsRoute = createDeferredLayoutRoute<'ProfessionalSessions'>(
   () => require('../screens/professional/ProfessionalSessionsScreen'),
@@ -432,6 +506,11 @@ export function RootNavigator() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="ClinicConsent"
+          component={ClinicConsentRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="LegalDocument"
           component={LegalDocumentScreen}
           options={{ headerShown: false }}
@@ -477,6 +556,67 @@ export function RootNavigator() {
     );
   }
 
+  if (user?.type === 'clinic') {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen
+          name="ClinicDashboard"
+          component={ClinicDashboardRoute}
+          options={{ headerTitle: 'Panel de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicSettings"
+          component={ClinicSettingsRoute}
+          options={{ headerTitle: 'Configuración de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicAdministrators"
+          component={ClinicAdministratorsRoute}
+          options={{ headerTitle: 'Administradores de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicTeam"
+          component={ClinicTeamRoute}
+          options={{ headerTitle: 'Equipo de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicPatients"
+          component={ClinicPatientsRoute}
+          options={{ headerTitle: 'Pacientes de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicAgenda"
+          component={ClinicAgendaRoute}
+          options={{ headerTitle: 'Agenda de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicBilling"
+          component={ClinicBillingRoute}
+          options={{ headerTitle: 'Facturación de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicInvoiceCreate"
+          component={ClinicInvoiceCreateRoute}
+          options={{ headerTitle: 'Nueva factura de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicPending"
+          component={ClinicPendingRoute}
+        />
+        <Stack.Screen
+          name="ClinicConsent"
+          component={ClinicConsentRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="LegalDocument"
+          component={LegalDocumentScreen}
+          options={{ headerShown: false }}
+        />
+      </Stack.Navigator>
+    );
+  }
+
   const isProfessional = user?.type === 'professional';
 
   if (isProfessional && verificationSubmitted === false) {
@@ -499,6 +639,11 @@ export function RootNavigator() {
         <Stack.Screen
           name="ClinicalConsent"
           component={ClinicalConsentRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ClinicConsent"
+          component={ClinicConsentRoute}
           options={{ headerShown: false }}
         />
         <Stack.Screen
@@ -531,6 +676,14 @@ export function RootNavigator() {
           name="ProfessionalClients"
           component={ProfessionalClientsRoute}
           options={{ headerTitle: 'Mis Clientes' }}
+        />
+        <Stack.Screen
+          name="ProfessionalClinicPatientDetail"
+          component={ProfessionalClinicPatientDetailRoute}
+          options={{
+            headerTitle: 'Paciente de clínica',
+            headerShown: false,
+          }}
         />
         <Stack.Screen
           name="ProfessionalSessions"
@@ -567,6 +720,46 @@ export function RootNavigator() {
             headerTitle: 'Perfil del Cliente',
             headerShown: false,
           }}
+        />
+        <Stack.Screen
+          name="ClinicDashboard"
+          component={ClinicDashboardRoute}
+          options={{ headerTitle: 'Panel de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicSettings"
+          component={ClinicSettingsRoute}
+          options={{ headerTitle: 'Configuración de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicAdministrators"
+          component={ClinicAdministratorsRoute}
+          options={{ headerTitle: 'Administradores de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicTeam"
+          component={ClinicTeamRoute}
+          options={{ headerTitle: 'Equipo de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicPatients"
+          component={ClinicPatientsRoute}
+          options={{ headerTitle: 'Pacientes de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicAgenda"
+          component={ClinicAgendaRoute}
+          options={{ headerTitle: 'Agenda de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicBilling"
+          component={ClinicBillingRoute}
+          options={{ headerTitle: 'Facturación de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicInvoiceCreate"
+          component={ClinicInvoiceCreateRoute}
+          options={{ headerTitle: 'Nueva factura de clínica' }}
         />
         <Stack.Screen
           name="AdminPanel"
@@ -616,6 +809,11 @@ export function RootNavigator() {
         <Stack.Screen
           name="ClinicalConsent"
           component={ClinicalConsentRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ClinicConsent"
+          component={ClinicConsentRoute}
           options={{ headerShown: false }}
         />
         <Stack.Screen
@@ -732,6 +930,11 @@ export function RootNavigator() {
       <Stack.Screen
         name="ClinicalConsent"
         component={ClinicalConsentRoute}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ClinicConsent"
+        component={ClinicConsentRoute}
         options={{ headerShown: false }}
       />
       <Stack.Screen

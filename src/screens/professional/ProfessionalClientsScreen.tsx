@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -17,6 +17,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { z } from 'zod';
 import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
 import { AnimatedPressable, Button, Card } from '../../components/common';
+import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { TourTarget } from '../../components/onboarding/TourTarget';
 import { useProfessionalTourAutoStart } from '../../components/onboarding/professionalTourContext';
 import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
@@ -26,11 +27,22 @@ import type { Theme } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getErrorCode, getErrorMessage } from '../../constants/errors';
 import * as clinicalService from '../../services/clinicalService';
+import * as clinicService from '../../services/clinicService';
 import * as professionalService from '../../services/professionalService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ProfessionalClients'>;
 type SourceFilter = professionalService.ClientSource | 'ALL';
 type LifecycleFilter = professionalService.ClientLifecycleFilter;
+type PatientContextKey = 'individual' | `clinic:${string}`;
+
+const INDIVIDUAL_CONTEXT_KEY: PatientContextKey = 'individual';
+const PROFESSIONAL_CLINIC_PATIENT_PAGE_LIMIT = 100;
+const EMPTY_PROFESSIONAL_CLINIC_PATIENT_PAGE_INFO: clinicService.ClinicPatientListPageInfo = {
+  page: 1,
+  limit: PROFESSIONAL_CLINIC_PATIENT_PAGE_LIMIT,
+  hasMore: false,
+  nextPage: null,
+};
 
 const managedClientSchema = z.object({
   firstName: z.string().trim().min(2, 'Introduce el nombre'),
@@ -227,6 +239,16 @@ export function ProfessionalClientsScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [professionalClinicContexts, setProfessionalClinicContexts] = useState<clinicService.ProfessionalClinicContext[]>([]);
+  const [clinicContextsLoading, setClinicContextsLoading] = useState(false);
+  const [clinicContextsError, setClinicContextsError] = useState<string | null>(null);
+  const [activeContextKey, setActiveContextKey] = useState<PatientContextKey>(INDIVIDUAL_CONTEXT_KEY);
+  const [clinicPatients, setClinicPatients] = useState<clinicService.ProfessionalClinicPatientSummary[]>([]);
+  const [clinicPatientsLoading, setClinicPatientsLoading] = useState(false);
+  const [clinicPatientsLoadingMore, setClinicPatientsLoadingMore] = useState(false);
+  const [clinicPatientsError, setClinicPatientsError] = useState<string | null>(null);
+  const [clinicPatientsPageInfo, setClinicPatientsPageInfo] =
+    useState<clinicService.ClinicPatientListPageInfo>(EMPTY_PROFESSIONAL_CLINIC_PATIENT_PAGE_INFO);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('ALL');
   const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleFilter>('ACTIVE');
   const [searchQuery, setSearchQuery] = useState('');
@@ -239,9 +261,32 @@ export function ProfessionalClientsScreen() {
   const [dpaSubmitting, setDpaSubmitting] = useState(false);
   const [form, setForm] = useState<ManagedClientForm>(emptyForm);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof ManagedClientForm, string>>>({});
+  const clinicPatientsRequestSeqRef = useRef(0);
 
   const gridColumns = isDesktop ? 3 : isTablet ? 2 : 1;
   const gridItemWidth = isDesktop ? '31.8%' : isTablet ? '48.8%' : '100%';
+  const activeClinicId = activeContextKey.startsWith('clinic:')
+    ? activeContextKey.replace('clinic:', '')
+    : null;
+  const activeClinicContext = useMemo(
+    () => professionalClinicContexts.find((context) => context.clinic.id === activeClinicId) ?? null,
+    [activeClinicId, professionalClinicContexts],
+  );
+  const patientContextOptions = useMemo(
+    () => [
+      {
+        label: 'Consulta privada',
+        value: INDIVIDUAL_CONTEXT_KEY,
+        subtitle: 'Pacientes propios y sesiones individuales',
+      },
+      ...professionalClinicContexts.map((context) => ({
+        label: context.clinic.commercialName,
+        value: `clinic:${context.clinic.id}` as PatientContextKey,
+        subtitle: context.responsible.displayName,
+      })),
+    ],
+    [professionalClinicContexts],
+  );
 
   const loadClients = useCallback(async () => {
     try {
@@ -255,6 +300,89 @@ export function ProfessionalClientsScreen() {
       setLoading(false);
     }
   }, [lifecycleFilter, sourceFilter]);
+
+  const loadProfessionalClinicContexts = useCallback(async () => {
+    try {
+      setClinicContextsLoading(true);
+      setClinicContextsError(null);
+      const contexts = await clinicService.getMyProfessionalClinicContexts();
+      setProfessionalClinicContexts(contexts);
+      setActiveContextKey((currentKey) => {
+        if (currentKey === INDIVIDUAL_CONTEXT_KEY) {
+          return currentKey;
+        }
+
+        const currentClinicId = currentKey.replace('clinic:', '');
+        return contexts.some((context) => context.clinic.id === currentClinicId)
+          ? currentKey
+          : INDIVIDUAL_CONTEXT_KEY;
+      });
+    } catch (loadError: unknown) {
+      setProfessionalClinicContexts([]);
+      setActiveContextKey(INDIVIDUAL_CONTEXT_KEY);
+      setClinicContextsError(getErrorMessage(loadError, 'No se pudieron cargar tus clínicas'));
+    } finally {
+      setClinicContextsLoading(false);
+    }
+  }, []);
+
+  const loadClinicPatients = useCallback(async (
+    clinicId: string,
+    query: string,
+    options: { page?: number; append?: boolean } = {},
+  ) => {
+    const requestSeq = clinicPatientsRequestSeqRef.current + 1;
+    clinicPatientsRequestSeqRef.current = requestSeq;
+    const pageToLoad = options.page ?? 1;
+    const shouldAppend = options.append === true;
+
+    try {
+      if (shouldAppend) {
+        setClinicPatientsLoadingMore(true);
+      } else {
+        setClinicPatientsLoading(true);
+      }
+      setClinicPatientsError(null);
+      const page = await clinicService.listProfessionalClinicPatients(clinicId, {
+        search: query.trim() || undefined,
+        page: pageToLoad,
+        limit: PROFESSIONAL_CLINIC_PATIENT_PAGE_LIMIT,
+      });
+
+      if (clinicPatientsRequestSeqRef.current !== requestSeq) {
+        return;
+      }
+
+      setClinicPatientsPageInfo(page.pageInfo);
+      setClinicPatients((currentPatients) => {
+        if (!shouldAppend) {
+          return page.items;
+        }
+
+        const currentIds = new Set(currentPatients.map((patient) => patient.clinicPatientId));
+        const nextPatients = page.items.filter((patient) => !currentIds.has(patient.clinicPatientId));
+        return [...currentPatients, ...nextPatients];
+      });
+    } catch (loadError: unknown) {
+      if (clinicPatientsRequestSeqRef.current !== requestSeq) {
+        return;
+      }
+
+      if (!shouldAppend) {
+        setClinicPatients([]);
+        setClinicPatientsPageInfo(EMPTY_PROFESSIONAL_CLINIC_PATIENT_PAGE_INFO);
+      }
+      setClinicPatientsError(getErrorMessage(loadError, 'No se pudieron cargar tus pacientes de clínica'));
+    } finally {
+      if (clinicPatientsRequestSeqRef.current === requestSeq) {
+        if (shouldAppend) {
+          setClinicPatientsLoadingMore(false);
+        } else {
+          setClinicPatientsLoading(false);
+        }
+      }
+    }
+  }, []);
 
   const loadClinicalAccessStatus = useCallback(async () => {
     try {
@@ -277,8 +405,59 @@ export function ProfessionalClientsScreen() {
   }, [loadClients]);
 
   useEffect(() => {
+    void loadProfessionalClinicContexts();
+  }, [loadProfessionalClinicContexts]);
+
+  useEffect(() => {
+    clinicPatientsRequestSeqRef.current += 1;
+    setClinicPatients([]);
+    setClinicPatientsError(null);
+    setClinicPatientsPageInfo(EMPTY_PROFESSIONAL_CLINIC_PATIENT_PAGE_INFO);
+    setClinicPatientsLoadingMore(false);
+
+    if (!activeClinicId) {
+      setClinicPatientsLoading(false);
+      return undefined;
+    }
+
+    setClinicPatientsLoading(true);
+    const timeoutId = setTimeout(() => {
+      void loadClinicPatients(activeClinicId, searchQuery, { page: 1, append: false });
+    }, searchQuery.trim() ? 250 : 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [activeClinicId, loadClinicPatients, searchQuery]);
+
+  useEffect(() => {
     void loadClinicalAccessStatus();
   }, [loadClinicalAccessStatus]);
+
+  const handleLoadMoreClinicPatients = useCallback(() => {
+    if (
+      !activeClinicId
+      || clinicPatientsLoading
+      || clinicPatientsLoadingMore
+      || !clinicPatientsPageInfo.hasMore
+      || !clinicPatientsPageInfo.nextPage
+    ) {
+      return;
+    }
+
+    void loadClinicPatients(activeClinicId, searchQuery, {
+      page: clinicPatientsPageInfo.nextPage,
+      append: true,
+    });
+  }, [
+    activeClinicId,
+    clinicPatientsLoading,
+    clinicPatientsLoadingMore,
+    clinicPatientsPageInfo.hasMore,
+    clinicPatientsPageInfo.nextPage,
+    loadClinicPatients,
+    searchQuery,
+  ]);
 
   useProfessionalTourAutoStart(
     'professional_clients_v1',
@@ -647,6 +826,96 @@ export function ProfessionalClientsScreen() {
     );
   };
 
+  const renderClinicPatientCard = (patient: clinicService.ProfessionalClinicPatientSummary) => (
+    <Card
+      key={patient.clinicPatientId}
+      variant="default"
+      padding="medium"
+      hoverLift
+      style={stylesForTheme.clientCard}
+    >
+      <View style={stylesForTheme.clientHeader}>
+        <View style={[stylesForTheme.avatar, { backgroundColor: theme.secondary + '16' }]}>
+          <Text style={[stylesForTheme.avatarText, { color: theme.secondary }]}>
+            {patient.displayName.slice(0, 1).toUpperCase()}
+          </Text>
+        </View>
+
+        <View style={stylesForTheme.clientHeaderInfo}>
+          <View style={stylesForTheme.badgeRow}>
+            <View style={[stylesForTheme.sourceBadge, { backgroundColor: theme.primaryAlpha12 }]}>
+              <Text style={[stylesForTheme.sourceBadgeText, { color: theme.primary }]}>
+                Clínica
+              </Text>
+            </View>
+            <View style={[stylesForTheme.sourceBadge, { backgroundColor: theme.secondary + '16' }]}>
+              <Text style={[stylesForTheme.sourceBadgeText, { color: theme.secondary }]}>
+                Asignado
+              </Text>
+            </View>
+          </View>
+
+          <Text style={[stylesForTheme.clientName, { color: theme.textPrimary }]}>
+            {patient.displayName}
+          </Text>
+          <Text style={[stylesForTheme.clientMeta, { color: theme.textSecondary }]}>
+            {patient.email ?? 'Sin email registrado'}
+          </Text>
+
+          <View style={stylesForTheme.quickFactsRow}>
+            <View
+              style={[
+                stylesForTheme.quickFactPill,
+                { backgroundColor: theme.bgMuted, borderColor: theme.border },
+              ]}
+            >
+              <Ionicons name="business-outline" size={13} color={theme.textMuted} />
+              <Text style={[stylesForTheme.quickFactText, { color: theme.textSecondary }]} numberOfLines={1}>
+                {patient.clinic.name}
+              </Text>
+            </View>
+
+            <View
+              style={[
+                stylesForTheme.quickFactPill,
+                { backgroundColor: theme.bgMuted, borderColor: theme.border },
+              ]}
+            >
+              <Ionicons name="person-outline" size={13} color={theme.textMuted} />
+              <Text style={[stylesForTheme.quickFactText, { color: theme.textSecondary }]} numberOfLines={1}>
+                {patient.responsible.displayName}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <View style={stylesForTheme.infoRow}>
+        <Ionicons name="call-outline" size={16} color={theme.textMuted} />
+        <Text style={[stylesForTheme.infoText, { color: theme.textSecondary }]}>
+          {patient.phone ?? 'Sin teléfono'}
+        </Text>
+      </View>
+
+      <View style={stylesForTheme.cardActions}>
+        <View style={stylesForTheme.cardActionItem}>
+          <Button
+            variant="outline"
+            size="small"
+            onPress={() => navigation.navigate('ProfessionalClinicPatientDetail', {
+              clinicId: patient.clinic.id,
+              clinicPatientId: patient.clinicPatientId,
+            })}
+            icon={<Ionicons name="person-circle-outline" size={16} color={theme.primary} />}
+            fullWidth
+          >
+            Ver ficha
+          </Button>
+        </View>
+      </View>
+    </Card>
+  );
+
   const renderClientGrid = () => {
     const rows = [];
 
@@ -657,6 +926,25 @@ export function ProfessionalClientsScreen() {
           {rowItems.map((client) => (
             <View key={client.id} style={[stylesForTheme.gridItem, { width: gridItemWidth }]}>
               {renderClientCard(client)}
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    return rows;
+  };
+
+  const renderClinicPatientGrid = () => {
+    const rows = [];
+
+    for (let i = 0; i < clinicPatients.length; i += gridColumns) {
+      const rowItems = clinicPatients.slice(i, i + gridColumns);
+      rows.push(
+        <View key={`clinic-row-${i}`} style={stylesForTheme.gridRow}>
+          {rowItems.map((patient) => (
+            <View key={patient.clinicPatientId} style={[stylesForTheme.gridItem, { width: gridItemWidth }]}>
+              {renderClinicPatientCard(patient)}
             </View>
           ))}
         </View>
@@ -681,70 +969,147 @@ export function ProfessionalClientsScreen() {
             <Text style={[stylesForTheme.title, { color: theme.textPrimary }]}>Mis pacientes</Text>
           </View>
 
-          <TourTarget
-            id="professional.clients.new-patient"
-            fill
-            style={isMobile ? stylesForTheme.fullWidthTourTarget : undefined}
-          >
-            <Button
-              variant="primary"
-              size="large"
-              onPress={openManagedClientModal}
-              icon={<Ionicons name="add" size={18} color={theme.actionPrimaryText} />}
-              fullWidth={isMobile}
-              disabled={dpaSubmitting}
-              loading={dpaSubmitting}
+          {!activeClinicId ? (
+            <TourTarget
+              id="professional.clients.new-patient"
+              fill
+              style={isMobile ? stylesForTheme.fullWidthTourTarget : undefined}
             >
-              Nuevo paciente
-            </Button>
-          </TourTarget>
+              <Button
+                variant="primary"
+                size="large"
+                onPress={openManagedClientModal}
+                icon={<Ionicons name="add" size={18} color={theme.actionPrimaryText} />}
+                fullWidth={isMobile}
+                disabled={dpaSubmitting}
+                loading={dpaSubmitting}
+              >
+                Nuevo paciente
+              </Button>
+            </TourTarget>
+          ) : null}
         </View>
 
         <TourTarget id="professional.clients.filters" fill style={stylesForTheme.fullWidthTourTarget}>
           <Card variant="default" padding="large" style={stylesForTheme.toolbarCard}>
+          {professionalClinicContexts.length > 0 || clinicContextsLoading || clinicContextsError ? (
+            <View style={stylesForTheme.contextRow}>
+              <View style={stylesForTheme.contextDropdown}>
+                <Text style={[stylesForTheme.contextLabel, { color: theme.textSecondary }]}>
+                  Contexto
+                </Text>
+                <SimpleDropdown
+                  options={patientContextOptions}
+                  value={activeContextKey}
+                  onSelect={setActiveContextKey}
+                  placeholder="Selecciona contexto"
+                  maxHeight={240}
+                />
+              </View>
+              {clinicContextsLoading ? (
+                <ActivityIndicator color={theme.primary} size="small" />
+              ) : null}
+              {clinicContextsError ? (
+                <Text style={[stylesForTheme.contextHint, { color: theme.warning }]}>
+                  {clinicContextsError}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
           <View style={stylesForTheme.searchRow}>
             <View style={[stylesForTheme.searchField, { borderColor: theme.border, backgroundColor: theme.bgMuted }]}>
               <Ionicons name="search-outline" size={18} color={theme.textMuted} />
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Buscar por nombre, email o teléfono"
+                placeholder={activeClinicId ? 'Buscar pacientes asignados' : 'Buscar por nombre, email o teléfono'}
                 placeholderTextColor={theme.textMuted}
                 style={[stylesForTheme.searchInput, { color: theme.textPrimary }]}
               />
             </View>
           </View>
 
-          <View style={stylesForTheme.filtersBar}>
-            <SegmentedFilterGroup
-              label="Tipo"
-              options={FILTERS}
-              activeValue={sourceFilter}
-              onChange={setSourceFilter}
-              theme={theme}
-            />
-            <SegmentedFilterGroup
-              label="Estado"
-              options={LIFECYCLE_FILTERS}
-              activeValue={lifecycleFilter}
-              onChange={setLifecycleFilter}
-              theme={theme}
-            />
-          </View>
+          {activeClinicId ? (
+            <View style={[stylesForTheme.contextNotice, { backgroundColor: theme.bgMuted, borderColor: theme.border }]}>
+              <Ionicons name="business-outline" size={18} color={theme.primary} />
+              <Text style={[stylesForTheme.contextNoticeText, { color: theme.textSecondary }]}>
+                {activeClinicContext
+                  ? `Viendo pacientes asignados en ${activeClinicContext.clinic.commercialName}.`
+                  : 'Viendo pacientes asignados por clínica.'}
+              </Text>
+            </View>
+          ) : (
+            <View style={stylesForTheme.filtersBar}>
+              <SegmentedFilterGroup
+                label="Tipo"
+                options={FILTERS}
+                activeValue={sourceFilter}
+                onChange={setSourceFilter}
+                theme={theme}
+              />
+              <SegmentedFilterGroup
+                label="Estado"
+                options={LIFECYCLE_FILTERS}
+                activeValue={lifecycleFilter}
+                onChange={setLifecycleFilter}
+                theme={theme}
+              />
+            </View>
+          )}
           </Card>
         </TourTarget>
 
-        {error ? (
+        {(activeClinicId ? clinicPatientsError : error) ? (
           <Card variant="outlined" padding="large" style={stylesForTheme.errorCard}>
             <View style={stylesForTheme.errorRow}>
               <Ionicons name="alert-circle-outline" size={20} color={theme.warning} />
-              <Text style={[stylesForTheme.errorText, { color: theme.textSecondary }]}>{error}</Text>
+              <Text style={[stylesForTheme.errorText, { color: theme.textSecondary }]}>
+                {activeClinicId ? clinicPatientsError : error}
+              </Text>
             </View>
           </Card>
         ) : null}
 
         <TourTarget id="professional.clients.grid" fill style={stylesForTheme.fullWidthTourTarget}>
-          {loading ? (
+          {activeClinicId ? (
+            clinicPatientsLoading ? (
+              <View style={stylesForTheme.loadingState}>
+                <ActivityIndicator size="large" color={theme.primary} />
+                <Text style={[stylesForTheme.loadingText, { color: theme.textSecondary }]}>
+                  Cargando pacientes de clínica...
+                </Text>
+              </View>
+            ) : clinicPatients.length === 0 ? (
+              <Card variant="outlined" padding="large" style={stylesForTheme.emptyCard}>
+                <Ionicons name="business-outline" size={28} color={theme.textMuted} />
+                <Text style={[stylesForTheme.emptyTitle, { color: theme.textPrimary }]}>
+                  No tienes pacientes asignados aquí
+                </Text>
+                <Text style={[stylesForTheme.emptyText, { color: theme.textSecondary }]}>
+                  Cuando la clínica te asigne pacientes activos, aparecerán en este contexto.
+                </Text>
+              </Card>
+            ) : (
+              <View style={stylesForTheme.clientsGrid}>
+                {renderClinicPatientGrid()}
+                {clinicPatientsPageInfo.hasMore ? (
+                  <View style={stylesForTheme.loadMoreRow}>
+                    <Button
+                      variant="outline"
+                      size="medium"
+                      onPress={handleLoadMoreClinicPatients}
+                      loading={clinicPatientsLoadingMore}
+                      disabled={clinicPatientsLoadingMore}
+                      icon={<Ionicons name="chevron-down-outline" size={17} color={theme.primary} />}
+                    >
+                      Cargar más pacientes
+                    </Button>
+                  </View>
+                ) : null}
+              </View>
+            )
+          ) : loading ? (
             <View style={stylesForTheme.loadingState}>
               <ActivityIndicator size="large" color={theme.primary} />
               <Text style={[stylesForTheme.loadingText, { color: theme.textSecondary }]}>
@@ -1084,6 +1449,48 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     toolbarCard: {
       gap: spacing.md,
     },
+    contextRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: spacing.md,
+      flexWrap: 'wrap',
+      position: 'relative',
+      zIndex: 20,
+    },
+    contextDropdown: {
+      width: '100%',
+      maxWidth: 360,
+      gap: 6,
+      position: 'relative',
+      zIndex: 30,
+    },
+    contextLabel: {
+      ...textStyles.caption,
+      fontFamily: theme.fontSansBold,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+    },
+    contextHint: {
+      ...textStyles.bodySmall,
+      fontFamily: theme.fontSans,
+      flex: 1,
+      minWidth: 220,
+    },
+    contextNotice: {
+      minHeight: 44,
+      borderWidth: 1,
+      borderRadius: borderRadius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    contextNoticeText: {
+      ...textStyles.bodySmall,
+      fontFamily: theme.fontSans,
+      flex: 1,
+    },
     fullWidthTourTarget: {
       width: '100%',
     },
@@ -1162,6 +1569,10 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     },
     clientsGrid: {
       gap: spacing.md,
+    },
+    loadMoreRow: {
+      alignItems: 'center',
+      paddingTop: spacing.sm,
     },
     gridRow: {
       flexDirection: 'row',

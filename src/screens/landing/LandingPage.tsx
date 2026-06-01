@@ -53,6 +53,7 @@ type SpecializationsSectionProps = {
 type SharedCTASectionProps = {
   onFindSpecialist: () => void;
   onJoinAsProfessional: () => void;
+  onJoinAsClinic: () => void;
 };
 type FooterSectionProps = SharedCTASectionProps & {
   onScrollToSection: (section: LandingSectionAnchor) => void;
@@ -162,7 +163,6 @@ export const LandingPage: React.FC = () => {
   const [showDeferredSections, setShowDeferredSections] = useState(
     Platform.OS !== 'web'
   );
-
   const revealDeferredSections = useCallback(() => {
     setShowDeferredSections(true);
   }, []);
@@ -263,6 +263,10 @@ export const LandingPage: React.FC = () => {
     navigation.navigate('Login', { userType: 'PROFESSIONAL' });
   }, [navigation]);
 
+  const handleJoinAsClinic = useCallback(() => {
+    navigation.navigate('Login', { userType: 'CLINIC' });
+  }, [navigation]);
+
   const handleSpecializationPress = useCallback(
     (specializationId: string) => {
       navigation.navigate('Login', {
@@ -288,6 +292,7 @@ export const LandingPage: React.FC = () => {
         isScrolled={headerScrolled}
         onFindSpecialist={handleFindSpecialist}
         onJoinAsProfessional={handleJoinAsProfessional}
+        onJoinAsClinic={handleJoinAsClinic}
         onScrollToSection={handleScrollToSection}
       />
 
@@ -302,6 +307,7 @@ export const LandingPage: React.FC = () => {
         <HeroSection
           onFindSpecialist={handleFindSpecialist}
           onJoinAsProfessional={handleJoinAsProfessional}
+          onJoinAsClinic={handleJoinAsClinic}
           showScrollIndicator={showScrollIndicator}
           onScrollIndicatorPress={handleScrollToContent}
         />
@@ -352,11 +358,13 @@ export const LandingPage: React.FC = () => {
             <FinalCTASection
               onFindSpecialist={handleFindSpecialist}
               onJoinAsProfessional={handleJoinAsProfessional}
+              onJoinAsClinic={handleJoinAsClinic}
             />
 
             <FooterSection
               onFindSpecialist={handleFindSpecialist}
               onJoinAsProfessional={handleJoinAsProfessional}
+              onJoinAsClinic={handleJoinAsClinic}
               onScrollToSection={handleScrollToSection}
             />
           </>

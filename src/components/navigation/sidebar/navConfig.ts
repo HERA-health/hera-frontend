@@ -140,10 +140,140 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
   },
 ];
 
+export const CLINIC_SECTIONS: NavigationSection[] = [
+  {
+    id: 'clinic-main',
+    label: 'Clínica',
+    roles: ['CLINIC'],
+    items: [
+      {
+        id: 'clinic-dashboard',
+        label: 'Inicio',
+        icon: 'business-outline',
+        iconActive: 'business',
+        route: 'ClinicDashboard',
+        roles: ['CLINIC'],
+      },
+      {
+        id: 'clinic-team',
+        label: 'Equipo',
+        icon: 'people-outline',
+        iconActive: 'people',
+        route: 'ClinicTeam',
+        roles: ['CLINIC'],
+      },
+      {
+        id: 'clinic-administrators',
+        label: 'Administradores',
+        icon: 'shield-outline',
+        iconActive: 'shield',
+        route: 'ClinicAdministrators',
+        roles: ['CLINIC'],
+      },
+      {
+        id: 'clinic-patients',
+        label: 'Pacientes',
+        icon: 'medical-outline',
+        iconActive: 'medical',
+        route: 'ClinicPatients',
+        roles: ['CLINIC'],
+      },
+      {
+        id: 'clinic-agenda',
+        label: 'Agenda',
+        icon: 'calendar-outline',
+        iconActive: 'calendar',
+        route: 'ClinicAgenda',
+        roles: ['CLINIC'],
+      },
+      {
+        id: 'clinic-billing',
+        label: 'Facturación',
+        icon: 'receipt-outline',
+        iconActive: 'receipt',
+        route: 'ClinicBilling',
+        roles: ['CLINIC'],
+      },
+      {
+        id: 'clinic-settings',
+        label: 'Configuración',
+        icon: 'settings-outline',
+        iconActive: 'settings',
+        route: 'ClinicSettings',
+        roles: ['CLINIC'],
+      },
+    ],
+  },
+];
+
+export const PROFESSIONAL_CLINIC_SECTION: NavigationSection = {
+  id: 'professional-clinic-admin',
+  label: 'Clínica',
+  roles: ['PROFESSIONAL'],
+  items: [
+    {
+      id: 'clinic-dashboard',
+      label: 'Inicio',
+      icon: 'business-outline',
+      iconActive: 'business',
+      route: 'ClinicDashboard',
+      roles: ['PROFESSIONAL'],
+    },
+    {
+      id: 'clinic-team',
+      label: 'Equipo',
+      icon: 'people-outline',
+      iconActive: 'people',
+      route: 'ClinicTeam',
+      roles: ['PROFESSIONAL'],
+    },
+    {
+      id: 'clinic-administrators',
+      label: 'Administradores',
+      icon: 'shield-outline',
+      iconActive: 'shield',
+      route: 'ClinicAdministrators',
+      roles: ['PROFESSIONAL'],
+    },
+    {
+      id: 'clinic-patients',
+      label: 'Pacientes',
+      icon: 'medical-outline',
+      iconActive: 'medical',
+      route: 'ClinicPatients',
+      roles: ['PROFESSIONAL'],
+    },
+    {
+      id: 'clinic-agenda',
+      label: 'Agenda',
+      icon: 'calendar-outline',
+      iconActive: 'calendar',
+      route: 'ClinicAgenda',
+      roles: ['PROFESSIONAL'],
+    },
+    {
+      id: 'clinic-billing',
+      label: 'Facturación',
+      icon: 'receipt-outline',
+      iconActive: 'receipt',
+      route: 'ClinicBilling',
+      roles: ['PROFESSIONAL'],
+    },
+    {
+      id: 'clinic-settings',
+      label: 'Configuración',
+      icon: 'settings-outline',
+      iconActive: 'settings',
+      route: 'ClinicSettings',
+      roles: ['PROFESSIONAL'],
+    },
+  ],
+};
+
 export const ADMIN_SECTION: NavigationSection = {
   id: 'admin',
   label: 'Administración',
-  roles: ['CLIENT', 'PROFESSIONAL'],
+  roles: ['CLIENT', 'PROFESSIONAL', 'CLINIC'],
   items: [
     {
       id: 'admin-panel',
@@ -151,16 +281,23 @@ export const ADMIN_SECTION: NavigationSection = {
       icon: 'shield-outline',
       iconActive: 'shield',
       route: 'AdminPanel',
-      roles: ['CLIENT', 'PROFESSIONAL'],
+      roles: ['CLIENT', 'PROFESSIONAL', 'CLINIC'],
     },
   ],
 };
 
 export function getNavigationSections(
-  role: 'CLIENT' | 'PROFESSIONAL',
+  role: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC',
   isAdmin?: boolean,
+  hasClinicAdminAccess?: boolean,
 ): NavigationSection[] {
-  const sections = role === 'PROFESSIONAL' ? PROFESSIONAL_SECTIONS : CLIENT_SECTIONS;
+  const sections = role === 'PROFESSIONAL'
+    ? hasClinicAdminAccess
+      ? [...PROFESSIONAL_SECTIONS, PROFESSIONAL_CLINIC_SECTION]
+      : PROFESSIONAL_SECTIONS
+    : role === 'CLINIC'
+      ? CLINIC_SECTIONS
+      : CLIENT_SECTIONS;
   return isAdmin ? [...sections, ADMIN_SECTION] : sections;
 }
 

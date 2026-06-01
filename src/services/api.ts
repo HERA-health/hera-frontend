@@ -11,6 +11,7 @@ import {
   persistRefreshToken,
 } from './secureSessionStorage';
 import type { LegalAcceptanceStatus } from './legalService';
+import type { BackendUserType } from './authService';
 
 const { apiUrl } = getEnvVars();
 const API_BASE_URL = apiUrl;
@@ -68,7 +69,7 @@ interface InitializedAuthUser {
   id: string;
   email: string;
   name: string;
-  userType: 'CLIENT' | 'PROFESSIONAL';
+  userType: BackendUserType;
   phone?: string | null;
   birthDate?: string | null;
   gender?: string | null;

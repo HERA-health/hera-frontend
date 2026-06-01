@@ -41,12 +41,14 @@ interface FooterColumn {
 interface FooterSectionProps {
   onFindSpecialist?: () => void;
   onJoinAsProfessional?: () => void;
+  onJoinAsClinic: () => void;
   onScrollToSection?: (section: LandingSectionAnchor) => void;
 }
 
 export const FooterSection: React.FC<FooterSectionProps> = ({
   onFindSpecialist,
   onJoinAsProfessional,
+  onJoinAsClinic,
   onScrollToSection,
 }) => {
   const { width } = useWindowDimensions();
@@ -61,6 +63,13 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
         { label: 'Herramientas', section: 'forSpecialists' },
         { label: 'Cómo funciona', section: 'howItWorks' },
         { label: 'Preguntas frecuentes', section: 'faq' },
+      ],
+    },
+    {
+      title: 'Clínicas',
+      links: [
+        { label: 'Acceso para clínicas', onPress: onJoinAsClinic },
+        { label: 'Panel de clínica', onPress: onJoinAsClinic },
       ],
     },
     {

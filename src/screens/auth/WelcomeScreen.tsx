@@ -85,6 +85,12 @@ const CTA_BULLETS = {
     'Facturación automática y pagos seguros',
     'Publica contenido y construye tu marca personal',
   ],
+  clinic: [
+    'Cuenta propia para gestionar el centro',
+    'Base preparada para equipo, pacientes y agenda',
+    'Panel separado de la consulta individual',
+    'Facturación y reparto económico en próximas fases',
+  ],
 };
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -273,6 +279,57 @@ export function WelcomeScreen() {
               </Button>
               <Text style={[styles.ctaHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
                 Unirme a la red
+              </Text>
+            </View>
+          </MotionView>
+
+          <MotionView entering="fadeInUp" delay={440} style={isDesktop ? { flex: 1 } : undefined}>
+            <View
+              style={[
+                styles.ctaCard,
+                {
+                  backgroundColor: theme.bgCard,
+                  borderColor: theme.borderStrong,
+                  shadowColor: theme.shadowCard,
+                },
+              ]}
+            >
+              <View style={[styles.ctaIconContainer, { backgroundColor: theme.primaryAlpha12 }]}>
+                <Ionicons name="business" size={38} color={theme.primary} />
+              </View>
+
+              <Text style={[styles.ctaTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>
+                Soy clínica
+              </Text>
+              <Text style={[styles.ctaSubtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+                Crea un espacio propio para tu centro
+              </Text>
+
+              <View style={styles.bulletList}>
+                {CTA_BULLETS.clinic.map((bullet, i) => (
+                  <View key={i} style={styles.bulletItem}>
+                    <Ionicons name="checkmark-circle" size={18} color={theme.primary} />
+                    <Text style={[styles.bulletText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+                      {bullet}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              <Button
+                onPress={() => navigation.navigate('Login', { userType: 'CLINIC' })}
+                variant="outline"
+                size="large"
+                fullWidth
+                icon={<Ionicons name="arrow-forward" size={20} color={theme.link} />}
+                iconPosition="right"
+                style={styles.ctaButtonNative}
+                textStyle={{ fontFamily: theme.fontSansBold }}
+              >
+                Acceso clínicas
+              </Button>
+              <Text style={[styles.ctaHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
+                Probar panel de clínica
               </Text>
             </View>
           </MotionView>

@@ -13,6 +13,13 @@ import { AuthSplitLayout, GoogleAuthButton } from '../../components/auth';
 import * as analyticsService from '../../services/analyticsService';
 
 type LoginRouteParams = AppRouteProp<'Login'>;
+type LoginUserType = 'CLIENT' | 'PROFESSIONAL' | 'CLINIC';
+
+const getLoginUserTypeLabel = (userType: LoginUserType): string => {
+  if (userType === 'CLIENT') return 'paciente';
+  if (userType === 'PROFESSIONAL') return 'profesional';
+  return 'clínica';
+};
 
 export function LoginScreen() {
   const navigation = useNavigation<AppNavigationProp>();
@@ -24,6 +31,7 @@ export function LoginScreen() {
   const expectedUserType = route.params?.userType;
   const isMobile = width < 768;
   const isCompactMobile = width < 420;
+  const isClinicLogin = expectedUserType === 'CLINIC';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,6 +45,19 @@ export function LoginScreen() {
   const displayError = localError || authError;
 
   const introCopy = useMemo(() => {
+    if (expectedUserType === 'CLINIC') {
+      return {
+        eyebrow: 'Acceso clínica',
+        title: 'Tu centro, listo para crecer en HERA.',
+        subtitle: 'Entra al panel de clínica para gestionar configuración y preparar las próximas capas operativas.',
+        features: [
+          { icon: 'business-outline' as const, title: 'Panel propio para la clínica' },
+          { icon: 'people-circle-outline' as const, title: 'Base de equipo y pacientes' },
+          { icon: 'shield-checkmark-outline' as const, title: 'Acceso separado del profesional individual' },
+        ],
+      };
+    }
+
     if (expectedUserType === 'PROFESSIONAL') {
       return {
         eyebrow: 'Acceso profesional',
@@ -93,12 +114,19 @@ export function LoginScreen() {
       analyticsService.track('login_success', { userType: response.user.userType });
 
       if (expectedUserType && response.user.userType !== expectedUserType) {
-        const actualTypeName = response.user.userType === 'CLIENT' ? 'cliente' : 'profesional';
-        const expectedTypeName = expectedUserType === 'CLIENT' ? 'cliente' : 'profesional';
-        const correctButton = expectedUserType === 'CLIENT' ? 'Soy especialista' : 'Busco ayuda';
+        const actualTypeName = getLoginUserTypeLabel(response.user.userType);
+        const expectedTypeName = getLoginUserTypeLabel(expectedUserType);
+        const correctButton = response.user.userType === 'CLIENT'
+          ? 'Busco ayuda'
+          : response.user.userType === 'PROFESSIONAL'
+            ? 'Soy especialista'
+            : 'Acceso clínicas';
+        const nextStep = response.user.userType === 'CLINIC'
+          ? 'Usa el acceso de clínica.'
+          : `Vuelve atrás y usa "${correctButton}".`;
 
         setLocalError(
-          `Esta cuenta pertenece a ${actualTypeName}. Has intentado entrar como ${expectedTypeName}. Vuelve atrás y usa "${correctButton}".`,
+          `Esta cuenta pertenece a ${actualTypeName}. Has intentado entrar como ${expectedTypeName}. ${nextStep}`,
         );
         await logout();
       }
@@ -115,9 +143,10 @@ export function LoginScreen() {
 
     try {
       analyticsService.track('google_login_attempted', { userType: expectedUserType || 'unknown' });
+      const googleExpectedUserType = expectedUserType === 'CLINIC' ? undefined : expectedUserType;
       const response = await authenticateWithGoogle({
         idToken,
-        expectedUserType,
+        expectedUserType: googleExpectedUserType,
       });
       analyticsService.track('google_login_success', { userType: response.user.userType });
     } catch (error: unknown) {
@@ -167,7 +196,11 @@ export function LoginScreen() {
                   { color: theme.textPrimary, fontFamily: theme.fontDisplay },
                 ]}
               >
-                {expectedUserType === 'PROFESSIONAL' ? 'Iniciar sesión profesional' : 'Iniciar sesión'}
+                {expectedUserType === 'PROFESSIONAL'
+                  ? 'Iniciar sesión profesional'
+                  : expectedUserType === 'CLINIC'
+                    ? 'Iniciar sesión clínica'
+                    : 'Iniciar sesión'}
               </Text>
               <Text
                 style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}
@@ -194,18 +227,22 @@ export function LoginScreen() {
             </View>
           ) : null}
 
-          <GoogleAuthButton
-            onCredential={handleGoogleCredential}
-            disabled={authLoading}
-          />
+          {!isClinicLogin ? (
+            <>
+              <GoogleAuthButton
+                onCredential={handleGoogleCredential}
+                disabled={authLoading}
+              />
 
-          <View style={styles.authDivider}>
-            <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
-            <Text style={[styles.authDividerText, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>
-              o accede con email
-            </Text>
-            <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
-          </View>
+              <View style={styles.authDivider}>
+                <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
+                <Text style={[styles.authDividerText, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>
+                  o accede con email
+                </Text>
+                <View style={[styles.authDividerLine, { backgroundColor: theme.border }]} />
+              </View>
+            </>
+          ) : null}
 
           <Input
             label="Email"

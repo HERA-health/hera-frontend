@@ -11,12 +11,13 @@ import * as professionalService from '../services/professionalService';
 import { initializeAuth, registerSessionExpiredHandler } from '../services/api';
 import { getErrorMessage } from '../constants/errors';
 import * as analyticsService from '../services/analyticsService';
-import type { AuthResponse } from '../services/authService';
+import type { AuthResponse, BackendUserType } from '../services/authService';
 import { clearPersistedClinicalAccessSession } from '../services/secureSessionStorage';
 import type { LegalDocumentKey } from '../constants/legal';
 import type { LegalAcceptanceStatus } from '../services/legalService';
 
-export type UserType = 'client' | 'professional';
+export type UserType = 'client' | 'professional' | 'clinic';
+export type PublicUserType = UserType;
 
 interface User {
   id: string;
@@ -53,8 +54,9 @@ interface AuthContextType {
     email: string,
     password: string,
     name: string,
-    userType: UserType,
-    acceptedLegalDocumentKeys: LegalDocumentKey[]
+    userType: PublicUserType,
+    acceptedLegalDocumentKeys: LegalDocumentKey[],
+    clinicCommercialName?: string
   ) => Promise<AuthResponse>;
   logout: () => Promise<void>;
   setUserType: (type: UserType) => void;
@@ -65,8 +67,23 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const mapAuthUser = (userData: AuthResponse['user']): User => {
-  const userType: UserType = userData.userType === 'CLIENT' ? 'client' : 'professional';
+export const mapBackendUserType = (backendUserType: BackendUserType): UserType => {
+  switch (backendUserType) {
+    case 'CLIENT':
+      return 'client';
+    case 'PROFESSIONAL':
+      return 'professional';
+    case 'CLINIC':
+      return 'clinic';
+    default: {
+      const exhaustiveCheck: never = backendUserType;
+      return exhaustiveCheck;
+    }
+  }
+};
+
+export const mapAuthUser = (userData: AuthResponse['user']): User => {
+  const userType = mapBackendUserType(userData.userType);
 
   return {
     id: userData.id,
@@ -260,14 +277,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     name: string,
-    userType: UserType,
-    acceptedLegalDocumentKeys: LegalDocumentKey[]
+    userType: PublicUserType,
+    acceptedLegalDocumentKeys: LegalDocumentKey[],
+    clinicCommercialName?: string
   ) => {
     try {
       setLoading(true);
       setError(null);
 
-      const backendUserType = userType === 'client' ? 'CLIENT' : 'PROFESSIONAL';
+      const backendUserType: BackendUserType = userType === 'client'
+        ? 'CLIENT'
+        : userType === 'professional'
+          ? 'PROFESSIONAL'
+          : 'CLINIC';
 
       const response = await authService.register({
         email,
@@ -275,6 +297,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name,
         userType: backendUserType,
         acceptedLegalDocumentKeys,
+        clinicCommercialName,
       });
 
       const mappedUser: User = {
