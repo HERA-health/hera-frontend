@@ -23,6 +23,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { heraLanding, spacing, shadows } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import * as professionalService from '../../services/professionalService';
 import * as authService from '../../services/authService';
@@ -31,12 +32,14 @@ import * as analyticsService from '../../services/analyticsService';
 import type { AppNavigationProp } from '../../constants/types';
 import type { UploadAsset } from '../../utils/multipartUpload';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
+import { AnimatedPressable } from '../../components/common/AnimatedPressable';
 
 export function ProfessionalVerificationScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
-  const { user, markVerificationSubmitted } = useAuth();
+  const { theme } = useTheme();
+  const { user, markVerificationSubmitted, logout } = useAuth();
 
   // Responsive breakpoints
   const isDesktop = width >= 768;
@@ -92,6 +95,37 @@ export function ProfessionalVerificationScreen() {
       Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
       Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
     ]).start();
+  };
+
+  const hasVerificationDraft =
+    colegiadoNumber.trim().length > 0 || dniImage !== null || consentAccepted;
+
+  const exitVerification = async () => {
+    setLocalError('');
+    analyticsService.track('verification_exited_before_submit');
+    await logout();
+  };
+
+  const handleExitVerification = () => {
+    if (isLoading || isUploadingImage) {
+      return;
+    }
+
+    if (!hasVerificationDraft) {
+      void exitVerification();
+      return;
+    }
+
+    showAppAlert(
+      appAlert,
+      'Salir de la verificación',
+      'Los datos que hayas introducido no se guardarán. Podrás iniciar sesión más tarde para completar la verificación.',
+      [
+        { text: 'Seguir aquí', style: 'cancel' },
+        { text: 'Salir al inicio', style: 'destructive', onPress: () => void exitVerification() },
+      ],
+      { cancelable: true }
+    );
   };
 
   const pickImage = async () => {
@@ -321,6 +355,7 @@ export function ProfessionalVerificationScreen() {
         styles.formSide,
         isDesktop && styles.formSideDesktop,
         {
+          backgroundColor: theme.bg,
           opacity: fadeAnim,
           transform: [{ translateY: formSlideAnim }],
         },
@@ -333,10 +368,33 @@ export function ProfessionalVerificationScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.formContainer, isLargeDesktop && styles.formContainerLarge]}>
+          <AnimatedPressable
+            onPress={handleExitVerification}
+            disabled={isLoading || isUploadingImage}
+            hoverLift={false}
+            pressScale={0.95}
+            accessibilityLabel="Salir de la verificación profesional"
+            style={[
+              styles.exitButton,
+              {
+                backgroundColor: theme.bgMuted,
+                borderColor: theme.border,
+              },
+              (isLoading || isUploadingImage) && styles.exitButtonDisabled,
+            ]}
+          >
+            <Ionicons name="arrow-back" size={18} color={theme.textSecondary} />
+            <Text style={[styles.exitButtonText, { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold }]}>
+              Ahora no
+            </Text>
+          </AnimatedPressable>
+
           {/* Header */}
           <View style={styles.formHeader}>
-            <Text style={styles.formTitle}>Verifica tu identidad profesional</Text>
-            <Text style={styles.formSubtitle}>
+            <Text style={[styles.formTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>
+              Verifica tu identidad profesional
+            </Text>
+            <Text style={[styles.formSubtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
               Para garantizar la calidad del servicio, todos los especialistas deben verificar su número de colegiado.
             </Text>
           </View>
@@ -346,32 +404,42 @@ export function ProfessionalVerificationScreen() {
             <Animated.View
               style={[
                 styles.errorContainer,
+                { backgroundColor: theme.warningBg, borderColor: theme.warning },
                 { transform: [{ translateX: shakeAnim }] },
               ]}
             >
-              <Ionicons name="alert-circle" size={20} color={heraLanding.warning} />
-              <Text style={styles.errorText}>{localError}</Text>
+              <Ionicons name="alert-circle" size={20} color={theme.warning} />
+              <Text style={[styles.errorText, { color: theme.warning, fontFamily: theme.fontSansSemiBold }]}>
+                {localError}
+              </Text>
             </Animated.View>
           )}
 
           {/* Colegiado Number Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Número de colegiado</Text>
+            <Text style={[styles.inputLabel, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
+              Número de colegiado
+            </Text>
             <View
               style={[
                 styles.inputContainer,
                 colegiadoFocused && styles.inputContainerFocused,
+                {
+                  backgroundColor: theme.bgCard,
+                  borderColor: colegiadoFocused ? theme.focus : theme.border,
+                  shadowColor: theme.shadowCard,
+                },
               ]}
             >
               <Ionicons
                 name="card-outline"
                 size={20}
-                color={colegiadoFocused ? heraLanding.primary : heraLanding.textMuted}
+                color={colegiadoFocused ? theme.focus : theme.textMuted}
               />
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: theme.textPrimary, fontFamily: theme.fontSans }]}
                 placeholder="Ej: M-12345"
-                placeholderTextColor={heraLanding.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={colegiadoNumber}
                 onChangeText={setColegiadoNumber}
                 onFocus={() => setColegiadoFocused(true)}
@@ -379,18 +447,24 @@ export function ProfessionalVerificationScreen() {
                 autoCapitalize="characters"
               />
             </View>
-            <Text style={styles.inputHint}>
+            <Text style={[styles.inputHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
               El número de colegiado de tu comunidad autónoma
             </Text>
           </View>
 
           {/* Carnet de colegiado Photo Upload */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Foto del carnet de colegiado</Text>
+            <Text style={[styles.inputLabel, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
+              Foto del carnet de colegiado
+            </Text>
             <TouchableOpacity
               style={[
                 styles.imageUploadContainer,
                 dniImageUri && styles.imageUploadContainerWithImage,
+                {
+                  backgroundColor: theme.bgCard,
+                  borderColor: dniImageUri ? theme.focus : theme.border,
+                },
               ]}
               onPress={showImageOptions}
               activeOpacity={0.85}
@@ -398,8 +472,10 @@ export function ProfessionalVerificationScreen() {
             >
               {isUploadingImage ? (
                 <View style={styles.imageUploadPlaceholder}>
-                  <ActivityIndicator size="large" color={heraLanding.primary} />
-                  <Text style={styles.imageUploadText}>Procesando imagen...</Text>
+                  <ActivityIndicator size="large" color={theme.primary} />
+                  <Text style={[styles.imageUploadText, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
+                    Procesando imagen...
+                  </Text>
                 </View>
               ) : dniImageUri ? (
                 <View style={styles.imagePreviewContainer}>
@@ -413,15 +489,19 @@ export function ProfessionalVerificationScreen() {
                 </View>
               ) : (
                 <View style={styles.imageUploadPlaceholder}>
-                  <View style={styles.uploadIconContainer}>
-                    <Ionicons name="camera-outline" size={32} color={heraLanding.primary} />
+                  <View style={[styles.uploadIconContainer, { backgroundColor: theme.primaryAlpha12 }]}>
+                    <Ionicons name="camera-outline" size={32} color={theme.primary} />
                   </View>
-                  <Text style={styles.imageUploadText}>Toca para subir foto del carnet de colegiado</Text>
-                  <Text style={styles.imageUploadHint}>JPG, PNG - Máx 5MB</Text>
+                  <Text style={[styles.imageUploadText, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
+                    Toca para subir foto del carnet de colegiado
+                  </Text>
+                  <Text style={[styles.imageUploadHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
+                    JPG, PNG - Máx 5MB
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
-            <Text style={styles.inputHint}>
+            <Text style={[styles.inputHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
               Asegúrate de que se vea claramente tu número de colegiado y tus datos personales en la fotografía
             </Text>
           </View>
@@ -432,12 +512,21 @@ export function ProfessionalVerificationScreen() {
             onPress={() => setConsentAccepted(!consentAccepted)}
             activeOpacity={0.8}
           >
-            <View style={[styles.checkbox, consentAccepted && styles.checkboxChecked]}>
+            <View
+              style={[
+                styles.checkbox,
+                {
+                  backgroundColor: theme.bgCard,
+                  borderColor: theme.border,
+                },
+                consentAccepted && { backgroundColor: theme.focus, borderColor: theme.focus },
+              ]}
+            >
               {consentAccepted && (
-                <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                <Ionicons name="checkmark" size={14} color={theme.textOnPrimary} />
               )}
             </View>
-            <Text style={styles.consentText}>
+            <Text style={[styles.consentText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
               Acepto que HERA procese mi número de colegiado y carnet de colegiado únicamente para verificar mi identidad profesional. Estos datos serán eliminados una vez completada la verificación.
             </Text>
           </TouchableOpacity>
@@ -452,27 +541,31 @@ export function ProfessionalVerificationScreen() {
             disabled={isLoading || !consentAccepted}
             activeOpacity={0.85}
           >
-            <View style={[styles.primaryButtonSurface, { backgroundColor: heraLanding.primary }]}>
+            <View style={[styles.primaryButtonSurface, { backgroundColor: theme.actionPrimary }]}>
               <View style={styles.primaryButtonContent}>
-              {isLoading ? (
-                <>
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                  <Text style={styles.primaryButtonText}>Enviando...</Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name="shield-checkmark" size={20} color="#FFFFFF" />
-                  <Text style={styles.primaryButtonText}>Enviar para verificación</Text>
-                </>
-              )}
+                {isLoading ? (
+                  <>
+                    <ActivityIndicator size="small" color={theme.actionPrimaryText} />
+                    <Text style={[styles.primaryButtonText, { color: theme.actionPrimaryText, fontFamily: theme.fontSansSemiBold }]}>
+                      Enviando...
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="shield-checkmark" size={20} color={theme.actionPrimaryText} />
+                    <Text style={[styles.primaryButtonText, { color: theme.actionPrimaryText, fontFamily: theme.fontSansSemiBold }]}>
+                      Enviar para verificación
+                    </Text>
+                  </>
+                )}
               </View>
             </View>
           </TouchableOpacity>
 
           {/* Info Notice */}
-          <View style={styles.infoNotice}>
-            <Ionicons name="information-circle-outline" size={20} color={heraLanding.info} />
-            <Text style={styles.infoNoticeText}>
+          <View style={[styles.infoNotice, { backgroundColor: theme.bgAlt, borderColor: theme.border }]}>
+            <Ionicons name="information-circle-outline" size={20} color={theme.info} />
+            <Text style={[styles.infoNoticeText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
               La verificación del número de colegiado es obligatoria para garantizar la calidad de nuestros profesionales. Tras enviar tus datos, podrás verificar tu email y acceder a la plataforma.
             </Text>
           </View>
@@ -483,7 +576,7 @@ export function ProfessionalVerificationScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={[styles.content, isDesktop && styles.contentDesktop]}>
@@ -612,6 +705,24 @@ const styles = StyleSheet.create({
   },
   formContainerLarge: {
     maxWidth: 520,
+  },
+  exitButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderRadius: 14,
+    minHeight: 40,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  exitButtonDisabled: {
+    opacity: 0.56,
+  },
+  exitButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   formHeader: {
     marginBottom: 24,
@@ -774,10 +885,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 2,
-  },
-  checkboxChecked: {
-    backgroundColor: heraLanding.primary,
-    borderColor: heraLanding.primary,
   },
   consentText: {
     flex: 1,
