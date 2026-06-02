@@ -216,7 +216,7 @@ export function ProfessionalSessionsScreen() {
       setManagedClients(clients);
       return clients;
     } catch {
-      showAppAlert(appAlert, 'Error', 'No se pudieron cargar tus pacientes gestionados');
+      showAppAlert(appAlert, 'Error', 'No se pudieron cargar tus pacientes añadidos por ti');
       return [];
     } finally {
       setLoadingManagedClients(false);
@@ -229,8 +229,8 @@ export function ProfessionalSessionsScreen() {
     if (clients.length === 0) {
       showAppAlert(
         appAlert,
-        'Sin pacientes gestionados',
-        'Primero crea o activa un paciente gestionado para poder programar una cita.'
+        'Sin pacientes añadidos por ti',
+        'Primero añade o activa un paciente desde tu panel para poder programar una cita.'
       );
       return;
     }

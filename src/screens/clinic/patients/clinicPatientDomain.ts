@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CONTACT_METHOD_REQUIRED_MESSAGE } from '../../../constants/errors';
 import type {
   ClinicPatientAssignmentFilter,
   ClinicPatientDetail,
@@ -195,6 +196,14 @@ export const clinicPatientFormSchema = z.object({
   billingCity: optionalTextString(2, 120, 'Introduce una ciudad válida'),
   billingCountry: optionalTextString(2, 80, 'Introduce un país válido'),
 }).superRefine((form, context) => {
+  if (!form.email && !form.phone) {
+    context.addIssue({
+      code: 'custom',
+      path: ['email'],
+      message: CONTACT_METHOD_REQUIRED_MESSAGE,
+    });
+  }
+
   if (form.email && !z.string().email().safeParse(form.email).success) {
     context.addIssue({
       code: 'custom',

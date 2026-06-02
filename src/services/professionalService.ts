@@ -147,7 +147,7 @@ export interface CreateManagedClientInput {
   billingPostalCode?: string;
   billingCity?: string;
   billingCountry?: string;
-  consentOnFile: true;
+  consentOnFile?: boolean;
   consentVersion?: string;
 }
 

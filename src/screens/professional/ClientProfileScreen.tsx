@@ -23,7 +23,10 @@ import type { ProfessionalTourTargetId } from '../../components/onboarding/profe
 import { ClinicalTab } from '../../components/professional/ClinicalTab';
 import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
 import { borderRadius, layout, spacing, typography } from '../../constants/colors';
-import { getErrorMessage } from '../../constants/errors';
+import {
+  CONTACT_METHOD_REQUIRED_MESSAGE,
+  getErrorMessage,
+} from '../../constants/errors';
 import { lightTheme } from '../../constants/theme';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -199,6 +202,7 @@ export function ClientProfileScreen() {
   const [refreshingClient, setRefreshingClient] = useState(false);
   const [billingModalVisible, setBillingModalVisible] = useState(false);
   const [savingBilling, setSavingBilling] = useState(false);
+  const [billingContactError, setBillingContactError] = useState('');
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
   const [sessionSaving, setSessionSaving] = useState(false);
   const [archiveSubmitting, setArchiveSubmitting] = useState(false);
@@ -312,6 +316,7 @@ export function ClientProfileScreen() {
       billingCity: client.billingCity || '',
       billingCountry: client.billingCountry || 'Spain',
     });
+    setBillingContactError('');
   }, [client]);
 
   useEffect(() => {
@@ -463,6 +468,9 @@ export function ClientProfileScreen() {
   const updateBillingField = useCallback(
     (field: keyof typeof billingForm, value: string) => {
       setBillingForm((current) => ({ ...current, [field]: value }));
+      if (field === 'email' || field === 'phone') {
+        setBillingContactError('');
+      }
     },
     [],
   );
@@ -472,8 +480,18 @@ export function ClientProfileScreen() {
       return;
     }
 
+    if (
+      client.source === 'MANAGED'
+      && !billingForm.email.trim()
+      && !billingForm.phone.trim()
+    ) {
+      setBillingContactError(CONTACT_METHOD_REQUIRED_MESSAGE);
+      return;
+    }
+
     try {
       setSavingBilling(true);
+      setBillingContactError('');
 
       const trimmedBilling = {
         billingFullName: billingForm.billingFullName.trim(),
@@ -810,7 +828,7 @@ export function ClientProfileScreen() {
           <Text
             style={[
               textStyles.strong,
-              { color: client.consentOnFile ? theme.success : theme.warning },
+              { color: client.consentOnFile ? theme.status.confirmed.text : theme.status.pending.text },
               emphasisStyle,
             ]}
           >
@@ -888,30 +906,8 @@ export function ClientProfileScreen() {
           <Ionicons name="arrow-back" size={18} color={theme.textSecondary} />
         </AnimatedPressable>
 
-        <View style={[styles.topBarBadges, isMobile && styles.topBarBadgesMobile]}>
-          <View
-            style={[
-              styles.topBadge,
-              isMobile && styles.topBadgeMobile,
-              {
-                backgroundColor:
-                  client.source === 'MANAGED' ? theme.secondaryAlpha12 : theme.primaryAlpha12,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                textStyles.caption,
-                styles.topBadgeText,
-                isMobile && styles.topBadgeTextMobile,
-                labelStyle,
-                { color: client.source === 'MANAGED' ? theme.secondary : theme.primary },
-              ]}
-            >
-              {client.source === 'MANAGED' ? 'Paciente gestionado' : 'Paciente HERA'}
-            </Text>
-          </View>
-          {isClientArchived ? (
+        {isClientArchived ? (
+          <View style={[styles.topBarBadges, isMobile && styles.topBarBadgesMobile]}>
             <View
               style={[
                 styles.topBadge,
@@ -931,8 +927,8 @@ export function ClientProfileScreen() {
                 Archivado
               </Text>
             </View>
-          ) : null}
-        </View>
+          </View>
+        ) : null}
       </View>
 
        <TourTarget id="professional.client-profile.hero" fill style={styles.fullWidthTourTarget}>
@@ -1237,10 +1233,18 @@ export function ClientProfileScreen() {
                     <TextInput
                       value={billingForm.email}
                       onChangeText={(value) => updateBillingField('email', value)}
-                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
+                      style={[
+                        styles.modalInput,
+                        inputTextStyle,
+                        {
+                          color: theme.textPrimary,
+                          borderColor: billingContactError ? theme.error : theme.border,
+                        },
+                      ]}
                       placeholder="email@paciente.com"
                       placeholderTextColor={theme.textMuted}
                       autoCapitalize="none"
+                      keyboardType="email-address"
                     />
                   </View>
                   <View style={styles.modalField}>
@@ -1248,11 +1252,26 @@ export function ClientProfileScreen() {
                     <TextInput
                       value={billingForm.phone}
                       onChangeText={(value) => updateBillingField('phone', value)}
-                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
+                      style={[
+                        styles.modalInput,
+                        inputTextStyle,
+                        {
+                          color: theme.textPrimary,
+                          borderColor: billingContactError ? theme.error : theme.border,
+                        },
+                      ]}
                       placeholder="600 000 000"
                       placeholderTextColor={theme.textMuted}
+                      keyboardType="phone-pad"
                     />
                   </View>
+                  {billingContactError ? (
+                    <View style={styles.modalFieldFull}>
+                      <Text style={[styles.modalError, { color: theme.error }]}>
+                        {billingContactError}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               ) : null}
 
@@ -1899,6 +1918,9 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.sm,
     fontFamily: lightTheme.fontSans,
     backgroundColor: 'transparent',
+  },
+  modalError: {
+    ...textStyles.caption,
   },
   modalSection: {
     gap: spacing.md,

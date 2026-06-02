@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DropdownOption } from '../../../components/common/SimpleDropdown';
 import { useAppAlert } from '../../../components/common/alert/AppAlertContext';
+import { CONTACT_METHOD_REQUIRED_MESSAGE } from '../../../constants/errors';
 import { useAuth } from '../../../contexts/AuthContext';
 import * as clinicService from '../../../services/clinicService';
 import type { UploadAsset } from '../../../utils/multipartUpload';
@@ -547,7 +548,13 @@ export function useClinicPatientsController() {
 
   const handleChange = useCallback((field: ClinicPatientField, value: string) => {
     setForm((currentForm) => ({ ...currentForm, [field]: value }));
-    setErrors((currentErrors) => ({ ...currentErrors, [field]: undefined }));
+    setErrors((currentErrors) => {
+      const nextErrors = { ...currentErrors, [field]: undefined };
+      if (field === 'phone' && currentErrors.email === CONTACT_METHOD_REQUIRED_MESSAGE) {
+        nextErrors.email = undefined;
+      }
+      return nextErrors;
+    });
     setFeedback(null);
   }, []);
 

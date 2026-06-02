@@ -258,7 +258,7 @@ describe('ClinicalGeneralWorkspace', () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        'Vía para pacientes gestionados sin cuenta HERA. Al registrar el documento firmado, el consentimiento queda vigente y se habilita el tratamiento de sus datos clínicos.',
+        'Vía con documento firmado para pacientes sin cuenta HERA. Al registrar el documento, el consentimiento queda vigente y se habilita el tratamiento de sus datos clínicos.',
       ),
     ).toBeTruthy();
 

@@ -13,6 +13,8 @@ import type {
 } from '../../services/clinicalService';
 import type { ProfessionalTourTargetId } from '../onboarding/professionalTourTypes';
 
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
 interface ClinicalConsentPanelProps {
   isTablet: boolean;
   client: Client;
@@ -134,10 +136,10 @@ export function ClinicalConsentPanel({
 
   const consentTone =
     record.consentStatus === 'GRANTED'
-      ? theme.success
+      ? theme.status.confirmed
       : record.consentStatus === 'REVOKED'
-        ? theme.error
-        : theme.warning;
+        ? theme.status.cancelled
+        : theme.status.pending;
 
   const canRequestDigitalConsent =
     isRegisteredClient &&
@@ -160,12 +162,18 @@ export function ClinicalConsentPanel({
       : record.consentStatus === 'REVOKED'
         ? 'Retirado'
         : 'Pendiente';
+  const statusIconName: IoniconName =
+    record.consentStatus === 'GRANTED'
+      ? 'shield-checkmark-outline'
+      : record.consentStatus === 'REVOKED'
+        ? 'close-circle-outline'
+        : 'time-outline';
   const digitalMethodDescription = isTablet
     ? 'Vía para pacientes con cuenta HERA. Al firmar desde su cuenta, el consentimiento queda vigente y se habilita el tratamiento de sus datos clínicos.'
     : 'Paciente con cuenta HERA: firma desde su cuenta para dejar el consentimiento vigente.';
   const documentMethodDescription = isTablet
-    ? 'Vía para pacientes gestionados sin cuenta HERA. Al registrar el documento firmado, el consentimiento queda vigente y se habilita el tratamiento de sus datos clínicos.'
-    : 'Paciente gestionado: sube el documento firmado y regístralo para dejar el consentimiento vigente.';
+    ? 'Vía con documento firmado para pacientes sin cuenta HERA. Al registrar el documento, el consentimiento queda vigente y se habilita el tratamiento de sus datos clínicos.'
+    : 'Documento firmado: súbelo y regístralo para dejar el consentimiento vigente.';
   const digitalMethodPill = isRegisteredClient
     ? 'Vía de este paciente'
     : isTablet
@@ -174,8 +182,8 @@ export function ClinicalConsentPanel({
   const documentMethodPill = isManagedClient
     ? 'Vía de este paciente'
     : isTablet
-      ? 'Vía para paciente gestionado'
-      : 'Paciente gestionado';
+      ? 'Vía con documento firmado'
+      : 'Documento firmado';
   const header = (
     <View style={[styles.header, !isTablet && styles.headerMobile]}>
       <View style={[styles.copy, !isTablet && styles.copyMobile]}>
@@ -190,12 +198,13 @@ export function ClinicalConsentPanel({
         style={[
           styles.statusPill,
           {
-            backgroundColor: `${consentTone}14`,
-            borderColor: `${consentTone}28`,
+            backgroundColor: consentTone.bg,
+            borderColor: consentTone.border,
           },
         ]}
       >
-        <Text style={[styles.statusPillText, { color: consentTone }, labelStyle]}>
+        <Ionicons name={statusIconName} size={16} color={consentTone.text} />
+        <Text style={[styles.statusPillText, { color: consentTone.text }, labelStyle]}>
           {statusLabel}
         </Text>
       </View>
@@ -561,12 +570,15 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   statusPillText: {
     fontSize: typography.fontSizes.xs,
     lineHeight: 16,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0,
   },
   methodGrid: {
     gap: spacing.md,
@@ -655,10 +667,10 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.xs,
     lineHeight: 16,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0,
   },
   methodPillTextMobile: {
-    letterSpacing: 0.4,
+    letterSpacing: 0,
   },
   methodInfo: {
     borderWidth: 1,
@@ -777,12 +789,12 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.xs,
     lineHeight: 18,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0,
   },
   detailLabelMobile: {
     fontSize: typography.fontSizes.xs,
     lineHeight: 16,
-    letterSpacing: 0.4,
+    letterSpacing: 0,
   },
   detailValue: {
     fontSize: typography.fontSizes.sm,
@@ -839,7 +851,7 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.xs,
     lineHeight: 16,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0,
   },
   emptyState: {
     borderWidth: 1,

@@ -437,10 +437,10 @@ export function ClinicalTab({
 
   const consentColor =
     consentLabel === 'Vigente'
-      ? theme.success
+      ? theme.status.confirmed.text
       : consentLabel === 'Retirado'
-        ? theme.error
-        : theme.warning;
+        ? theme.status.cancelled.text
+        : theme.status.pending.text;
 
   const sidebarRows: SidebarRow[] = hasActiveSession
     ? [

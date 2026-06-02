@@ -1,5 +1,6 @@
 import type { AxiosResponse } from 'axios';
 import { buildMultipartFormData } from '../../utils/multipartUpload';
+import { CONTACT_METHOD_REQUIRED_MESSAGE } from '../../constants/errors';
 import api from '../api';
 import { clearRequestCache } from '../requestCache';
 import {
@@ -1708,6 +1709,23 @@ describe('clinicService', () => {
       lastName: 'Martin',
       email: 'lucia@clinic.test',
     })).rejects.toThrow('Ya existe un paciente de esta clínica con ese email administrativo.');
+  });
+
+  it('maps clinic patient contact method errors to shared Spanish copy by code', async () => {
+    postMock.mockRejectedValueOnce({
+      response: {
+        data: {
+          success: false,
+          code: 'CLINIC_PATIENT_CONTACT_METHOD_REQUIRED',
+          error: 'Texto técnico que no debe mostrarse',
+        },
+      },
+    });
+
+    await expect(createClinicPatient('clinic-1', {
+      firstName: 'Lucia',
+      lastName: 'Martin',
+    })).rejects.toThrow(CONTACT_METHOD_REQUIRED_MESSAGE);
   });
 
   it('maps clinic patient serializable conflicts to Spanish by code', async () => {

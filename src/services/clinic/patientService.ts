@@ -1,5 +1,9 @@
 import api from '../api';
-import { getErrorCode, getErrorMessage } from '../../constants/errors';
+import {
+  CONTACT_METHOD_REQUIRED_MESSAGE,
+  getErrorCode,
+  getErrorMessage,
+} from '../../constants/errors';
 import { clearRequestCache } from '../requestCache';
 import type {
   AssignClinicPatientPayload,
@@ -17,6 +21,7 @@ import type {
 const CLINIC_PATIENT_ERROR_MESSAGES: Partial<Record<string, string>> = {
   CLINIC_PATIENT_DUPLICATE_EMAIL:
     'Ya existe un paciente de esta clínica con ese email administrativo.',
+  CLINIC_PATIENT_CONTACT_METHOD_REQUIRED: CONTACT_METHOD_REQUIRED_MESSAGE,
   CLINIC_PATIENT_NOT_FOUND:
     'No se encontró la ficha del paciente.',
   CLINIC_PATIENT_CONFLICT:

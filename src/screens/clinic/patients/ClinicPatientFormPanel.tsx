@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from '../../../components/common/Button';
 import { Input } from '../../../components/common/Input';
+import { CONTACT_METHOD_REQUIRED_MESSAGE } from '../../../constants/errors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type {
   ClinicPatientErrors,
@@ -43,6 +44,10 @@ export function ClinicPatientFormPanel({
   const { theme } = useTheme();
   const styles = useMemo(() => createFormStyles(theme), [theme]);
   const disabled = !canManage || saving;
+  const contactMethodError =
+    errors.email === CONTACT_METHOD_REQUIRED_MESSAGE
+      ? errors.email
+      : undefined;
 
   return (
     <View style={styles.panel}>
@@ -68,11 +73,16 @@ export function ClinicPatientFormPanel({
             keyboardType={field.keyboardType}
             autoCapitalize={field.autoCapitalize}
             helperText={field.helperText}
-            error={errors[field.key]}
+            error={field.key === 'email' && contactMethodError ? undefined : errors[field.key]}
             editable={!disabled}
             onChangeText={(value) => onChange(field.key, value)}
           />
         ))}
+        {contactMethodError ? (
+          <Text style={[styles.message, { color: theme.error }]}>
+            {contactMethodError}
+          </Text>
+        ) : null}
       </View>
 
       <View style={styles.fields}>

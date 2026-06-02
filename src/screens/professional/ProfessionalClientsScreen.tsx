@@ -5,12 +5,12 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
   useWindowDimensions,
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -25,15 +25,30 @@ import { borderRadius, layout, shadows, spacing, typography } from '../../consta
 import type { RootStackParamList } from '../../constants/types';
 import type { Theme } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getErrorCode, getErrorMessage } from '../../constants/errors';
+import {
+  CONTACT_METHOD_REQUIRED_MESSAGE,
+  getErrorCode,
+  getErrorMessage,
+} from '../../constants/errors';
 import * as clinicalService from '../../services/clinicalService';
 import * as clinicService from '../../services/clinicService';
+import { createManagedPatientWithInitialConsent } from '../../services/managedPatientConsentService';
 import * as professionalService from '../../services/professionalService';
+import type { UploadAsset } from '../../utils/multipartUpload';
+import {
+  CLINICAL_PIN_REGEX,
+  CONSENT_DOCUMENT_MIME_TYPES,
+  emptyManagedClientForm,
+  managedClientSchema,
+  type ConsentCaptureMode,
+  type ManagedClientForm,
+} from './managedClientFormDomain';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ProfessionalClients'>;
 type SourceFilter = professionalService.ClientSource | 'ALL';
 type LifecycleFilter = professionalService.ClientLifecycleFilter;
 type PatientContextKey = 'individual' | `clinic:${string}`;
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const INDIVIDUAL_CONTEXT_KEY: PatientContextKey = 'individual';
 const PROFESSIONAL_CLINIC_PATIENT_PAGE_LIMIT = 100;
@@ -44,35 +59,10 @@ const EMPTY_PROFESSIONAL_CLINIC_PATIENT_PAGE_INFO: clinicService.ClinicPatientLi
   nextPage: null,
 };
 
-const managedClientSchema = z.object({
-  firstName: z.string().trim().min(2, 'Introduce el nombre'),
-  lastName: z.string().trim().min(2, 'Introduce los apellidos'),
-  email: z
-    .string()
-    .trim()
-    .optional()
-    .transform((value) => value || '')
-    .refine((value) => value.length === 0 || z.string().email().safeParse(value).success, {
-      message: 'Introduce un email válido',
-    }),
-  phone: z.string().trim().optional().transform((value) => value || ''),
-  billingFullName: z.string().trim().optional().transform((value) => value || ''),
-  billingTaxId: z.string().trim().optional().transform((value) => value || ''),
-  billingAddress: z.string().trim().optional().transform((value) => value || ''),
-  billingPostalCode: z.string().trim().optional().transform((value) => value || ''),
-  billingCity: z.string().trim().optional().transform((value) => value || ''),
-  billingCountry: z.string().trim().optional().transform((value) => value || 'Spain'),
-  consentOnFile: z.boolean().refine((value) => value === true, {
-    message: 'Debes confirmar que dispones del consentimiento informado',
-  }),
-});
-
-type ManagedClientForm = z.infer<typeof managedClientSchema>;
-
 const FILTERS: Array<{ label: string; value: SourceFilter }> = [
   { label: 'Todos', value: 'ALL' },
-  { label: 'Registrados', value: 'REGISTERED' },
-  { label: 'Gestionados', value: 'MANAGED' },
+  { label: 'Autoregistrados', value: 'REGISTERED' },
+  { label: 'Añadidos por mí', value: 'MANAGED' },
 ];
 
 const LIFECYCLE_FILTERS: Array<{ label: string; value: LifecycleFilter }> = [
@@ -81,19 +71,7 @@ const LIFECYCLE_FILTERS: Array<{ label: string; value: LifecycleFilter }> = [
   { label: 'Todos', value: 'ALL' },
 ];
 
-const emptyForm: ManagedClientForm = {
-  firstName: '',
-  lastName: '',
-  email: '',
-  phone: '',
-  billingFullName: '',
-  billingTaxId: '',
-  billingAddress: '',
-  billingPostalCode: '',
-  billingCity: '',
-  billingCountry: 'Spain',
-  consentOnFile: false,
-};
+const emptyForm = emptyManagedClientForm;
 
 const textStyles = {
   caption: { fontSize: typography.fontSizes.xs, lineHeight: 18 },
@@ -127,76 +105,43 @@ const getConsentLabel = (client: professionalService.Client): string => {
 const getConsentTone = (
   client: professionalService.Client,
   theme: Theme
-): { backgroundColor: string; color: string } =>
-  client.consentOnFile
-    ? { backgroundColor: theme.success + '18', color: theme.success }
-    : { backgroundColor: theme.warning + '18', color: theme.warning };
+): { backgroundColor: string; borderColor: string; color: string; iconName: IoniconName } => {
+  const status = client.consentOnFile ? theme.status.confirmed : theme.status.pending;
+
+  return {
+    backgroundColor: status.bg,
+    borderColor: status.border,
+    color: status.text,
+    iconName: client.consentOnFile ? 'shield-checkmark-outline' : 'time-outline',
+  };
+};
+
+const getConsentDocumentName = (document: UploadAsset | null): string =>
+  document?.fileName || document?.name || 'Documento seleccionado';
+
+const pickInitialConsentDocument = async (): Promise<UploadAsset | null> => {
+  const result = await DocumentPicker.getDocumentAsync({
+    type: CONSENT_DOCUMENT_MIME_TYPES,
+    copyToCacheDirectory: true,
+    multiple: false,
+  });
+
+  if (result.canceled || !result.assets?.length) {
+    return null;
+  }
+
+  const asset = result.assets[0] as DocumentPicker.DocumentPickerAsset & UploadAsset;
+
+  return {
+    ...asset,
+    fileName: asset.fileName || asset.name || null,
+    name: asset.name || asset.fileName || null,
+    mimeType: asset.mimeType || null,
+  };
+};
 
 const getSessionCountLabel = (count: number): string =>
   count === 1 ? 'sesión' : 'sesiones';
-
-function SegmentedFilterGroup<T extends string>({
-  label,
-  options,
-  activeValue,
-  onChange,
-  theme,
-}: {
-  label: string;
-  options: Array<{ label: string; value: T }>;
-  activeValue: T;
-  onChange: (value: T) => void;
-  theme: Theme;
-}) {
-  return (
-    <View style={styles.segmentedGroup}>
-      <Text style={[styles.segmentedLabel, { color: theme.textMuted, fontFamily: theme.fontSansBold }]}>
-        {label}
-      </Text>
-      <View
-        style={[
-          styles.segmentedTrack,
-          {
-            backgroundColor: theme.bgMuted,
-            borderColor: theme.border,
-          },
-        ]}
-      >
-        {options.map((option) => {
-          const active = option.value === activeValue;
-
-          return (
-            <AnimatedPressable
-              key={option.value}
-              onPress={() => onChange(option.value)}
-              hoverLift={false}
-              pressScale={0.98}
-              style={[
-                styles.segmentedOption,
-                active && {
-                  backgroundColor: theme.secondaryMuted,
-                  borderColor: theme.borderStrong,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.segmentedOptionText,
-                  {
-                    color: active ? theme.textPrimary : theme.textSecondary,
-                    fontFamily: theme.fontSansBold,
-                  },
-                ]}
-              >
-                {option.label}
-              </Text>
-            </AnimatedPressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
 
 function MetricCard({
   icon,
@@ -259,8 +204,11 @@ export function ProfessionalClientsScreen() {
   const [hasAcceptedDpa, setHasAcceptedDpa] = useState<boolean | null>(null);
   const [dpaStatusLoading, setDpaStatusLoading] = useState(true);
   const [dpaSubmitting, setDpaSubmitting] = useState(false);
+  const [clinicalAccessStatus, setClinicalAccessStatus] = useState<clinicalService.ClinicalAccessStatus | null>(null);
+  const [clinicalAccessToken, setClinicalAccessToken] = useState<string | null>(null);
   const [form, setForm] = useState<ManagedClientForm>(emptyForm);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof ManagedClientForm, string>>>({});
+  const clinicalAccessTokenRef = useRef<string | null>(null);
   const clinicPatientsRequestSeqRef = useRef(0);
 
   const gridColumns = isDesktop ? 3 : isTablet ? 2 : 1;
@@ -287,6 +235,19 @@ export function ProfessionalClientsScreen() {
     ],
     [professionalClinicContexts],
   );
+
+  const syncClinicalAccessToken = useCallback((nextToken: string | null) => {
+    clinicalAccessTokenRef.current = nextToken;
+    setClinicalAccessToken(nextToken);
+  }, []);
+  const clinicalSessionActive = Boolean(clinicalAccessToken && clinicalAccessStatus?.session.active);
+  const canAttachInitialConsent = clinicalSessionActive || Boolean(clinicalAccessStatus?.hasPin);
+  const initialConsentPinRequired =
+    form.consentCaptureMode === 'UPLOAD_NOW' && !clinicalSessionActive;
+  const contactMethodError =
+    formErrors.email === CONTACT_METHOD_REQUIRED_MESSAGE
+      ? formErrors.email
+      : undefined;
 
   const loadClients = useCallback(async () => {
     try {
@@ -384,21 +345,27 @@ export function ProfessionalClientsScreen() {
     }
   }, []);
 
-  const loadClinicalAccessStatus = useCallback(async () => {
+  const loadClinicalAccessStatus = useCallback(async (sessionToken?: string | null) => {
     try {
       setDpaStatusLoading(true);
-      const status = await clinicalService.getClinicalAccessStatus();
+      const tokenToCheck = sessionToken ?? clinicalAccessTokenRef.current;
+      const status = await clinicalService.getClinicalAccessStatus(tokenToCheck || undefined);
       const accepted = clinicalService.hasAcceptedCurrentDataProcessingAgreement(status);
+      setClinicalAccessStatus(status);
       setHasAcceptedDpa(accepted);
+      if (tokenToCheck && !status.session.active) {
+        syncClinicalAccessToken(null);
+      }
       return accepted;
     } catch (statusError: unknown) {
       setHasAcceptedDpa(null);
+      setClinicalAccessStatus(null);
       setError(getErrorMessage(statusError, 'No se pudo comprobar el encargo de tratamiento'));
       return null;
     } finally {
       setDpaStatusLoading(false);
     }
-  }, []);
+  }, [syncClinicalAccessToken]);
 
   useEffect(() => {
     void loadClients();
@@ -499,7 +466,100 @@ export function ProfessionalClientsScreen() {
 
   const updateFormField = <K extends keyof ManagedClientForm>(field: K, value: ManagedClientForm[K]) => {
     setForm((current) => ({ ...current, [field]: value }));
-    setFormErrors((current) => ({ ...current, [field]: undefined }));
+    setFormErrors((current) => {
+      const nextErrors = { ...current, [field]: undefined };
+      if (field === 'phone' && current.email === CONTACT_METHOD_REQUIRED_MESSAGE) {
+        nextErrors.email = undefined;
+      }
+      return nextErrors;
+    });
+  };
+
+  const updateConsentCaptureMode = (mode: ConsentCaptureMode) => {
+    if (mode === 'UPLOAD_NOW' && !canAttachInitialConsent) {
+      setFormErrors((current) => ({
+        ...current,
+        consentCaptureMode:
+          'Configura el PIN clínico desde el área clínica antes de adjuntar el consentimiento en el alta.',
+      }));
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      consentCaptureMode: mode,
+      ...(mode === 'UPLOAD_LATER'
+        ? { consentDocument: null, clinicalPin: '' }
+        : {}),
+    }));
+    setFormErrors((current) => ({
+      ...current,
+      consentCaptureMode: undefined,
+      consentDocument: undefined,
+      clinicalPin: undefined,
+    }));
+  };
+
+  const handlePickInitialConsentDocument = async () => {
+    try {
+      const document = await pickInitialConsentDocument();
+      if (!document) return;
+
+      updateFormField('consentDocument', document);
+    } catch (pickError: unknown) {
+      setFormErrors((current) => ({
+        ...current,
+        consentDocument: getErrorMessage(pickError, 'No se pudo seleccionar el documento.'),
+      }));
+    }
+  };
+
+  const handleRemoveInitialConsentDocument = () => {
+    setForm((current) => ({ ...current, consentDocument: null }));
+    setFormErrors((current) => ({ ...current, consentDocument: undefined }));
+  };
+
+  const ensureClinicalAccessForInitialConsent = async (pin: string): Promise<string> => {
+    const currentToken = clinicalAccessTokenRef.current;
+
+    if (currentToken) {
+      const status = await clinicalService.getClinicalAccessStatus(currentToken);
+      setClinicalAccessStatus(status);
+
+      if (status.session.active) {
+        return currentToken;
+      }
+
+      syncClinicalAccessToken(null);
+    }
+
+    const status = clinicalAccessStatus ?? await clinicalService.getClinicalAccessStatus();
+    setClinicalAccessStatus(status);
+
+    if (!status.hasPin) {
+      throw new Error('Configura tu PIN clínico antes de adjuntar el consentimiento en el alta.');
+    }
+
+    if (!CLINICAL_PIN_REGEX.test(pin)) {
+      throw new Error('Introduce un PIN clínico válido de 6 dígitos.');
+    }
+
+    const session = await clinicalService.unlockClinicalArea(pin);
+    syncClinicalAccessToken(session.token);
+    setClinicalAccessStatus((current) => current
+      ? {
+          ...current,
+          session: {
+            active: true,
+            sessionId: session.sessionId,
+            createdAt: new Date().toISOString(),
+            absoluteExpiresAt: session.absoluteExpiresAt,
+            idleExpiresAt: session.idleExpiresAt,
+          },
+        }
+      : current);
+
+    return session.token;
   };
 
   const handleAcceptDataProcessingAgreement = async (
@@ -516,7 +576,7 @@ export function ProfessionalClientsScreen() {
         return;
       }
 
-      showAppAlert(appAlert, 'Encargo aceptado', 'Ya puedes crear pacientes gestionados desde esta pantalla.');
+      showAppAlert(appAlert, 'Encargo aceptado', 'Ya puedes crear pacientes desde esta pantalla.');
     } catch (acceptError: unknown) {
       showAppAlert(
         appAlert,
@@ -536,8 +596,8 @@ export function ProfessionalClientsScreen() {
       tone: 'info',
       dismissible: true,
       message:
-        'Antes de crear pacientes gestionados, HERA necesita registrar que aceptas el encargo de tratamiento vigente.\n\n' +
-        'Este acuerdo permite que HERA trate los datos que introduzcas siguiendo tus instrucciones como profesional, con medidas de seguridad y confidencialidad. No sustituye al consentimiento informado del paciente ni te obliga a crear una historia clínica; solo habilita el uso seguro de pacientes gestionados en HERA.',
+        'Antes de crear pacientes desde tu panel, HERA necesita registrar que aceptas el encargo de tratamiento vigente.\n\n' +
+        'Este acuerdo permite que HERA trate los datos que introduzcas siguiendo tus instrucciones como profesional, con medidas de seguridad y confidencialidad. No sustituye al consentimiento informado del paciente ni te obliga a crear una historia clínica; solo habilita el uso seguro de pacientes añadidos por ti en HERA.',
       actions: [
         { label: 'Ahora no', value: 'cancel', role: 'cancel' },
         { label: 'Aceptar y continuar', value: 'accept', role: 'confirm' },
@@ -555,7 +615,7 @@ export function ProfessionalClientsScreen() {
       tone: 'warning',
       dismissible: true,
       message:
-        'Antes de crear pacientes gestionados tenemos que comprobar si ya aceptaste el encargo de tratamiento vigente. Si la conexión falló hace un momento, puedes reintentarlo ahora.',
+        'Antes de crear pacientes tenemos que comprobar si ya aceptaste el encargo de tratamiento vigente. Si la conexión falló hace un momento, puedes reintentarlo ahora.',
       actions: [
         { label: 'Cancelar', value: 'cancel', role: 'cancel' },
         { label: 'Reintentar', value: 'retry', role: 'confirm' },
@@ -602,18 +662,81 @@ export function ProfessionalClientsScreen() {
   const handleCreateManagedClient = async () => {
     try {
       setSaving(true);
+      setError(null);
       setFormErrors({});
 
       const parsed = managedClientSchema.parse(form);
-      const created = await professionalService.createManagedClient({
-        ...parsed,
-        consentOnFile: true,
+      let initialConsentAccessToken: string | null = null;
+
+      if (parsed.consentCaptureMode === 'UPLOAD_NOW') {
+        if (!canAttachInitialConsent) {
+          setFormErrors((current) => ({
+            ...current,
+            consentCaptureMode:
+              'Configura el PIN clínico desde el área clínica antes de adjuntar el consentimiento en el alta.',
+          }));
+          return;
+        }
+
+        try {
+          initialConsentAccessToken = await ensureClinicalAccessForInitialConsent(parsed.clinicalPin);
+        } catch (accessError: unknown) {
+          setFormErrors((current) => ({
+            ...current,
+            clinicalPin: getErrorMessage(accessError, 'No se pudo desbloquear el área clínica.'),
+          }));
+          return;
+        }
+      }
+
+      const result = await createManagedPatientWithInitialConsent({
+        client: {
+          firstName: parsed.firstName,
+          lastName: parsed.lastName,
+          email: parsed.email,
+          phone: parsed.phone,
+          billingFullName: parsed.billingFullName,
+          billingTaxId: parsed.billingTaxId,
+          billingAddress: parsed.billingAddress,
+          billingPostalCode: parsed.billingPostalCode,
+          billingCity: parsed.billingCity,
+          billingCountry: parsed.billingCountry,
+          consentVersion: 'v1',
+        },
+        consentDocument:
+          parsed.consentCaptureMode === 'UPLOAD_NOW'
+            ? parsed.consentDocument
+            : null,
+        clinicalAccessToken: initialConsentAccessToken,
         consentVersion: 'v1',
       });
 
-      setClients((current) => [created, ...current]);
+      setClients((current) => [
+        result.client,
+        ...current.filter((client) => client.id !== result.client.id),
+      ]);
       setModalVisible(false);
       resetForm();
+
+      if (result.consentError) {
+        showAppAlert(
+          appAlert,
+          'Paciente creado',
+          `La ficha se creó, pero no se pudo registrar el consentimiento firmado: ${getErrorMessage(
+            result.consentError,
+            'podrás completarlo desde el área clínica.'
+          )}`
+        );
+        return;
+      }
+
+      if (result.consentCompleted) {
+        showAppAlert(
+          appAlert,
+          'Consentimiento registrado',
+          'Paciente creado y consentimiento firmado registrado como vigente.'
+        );
+      }
     } catch (createError: unknown) {
       if (createError instanceof z.ZodError) {
         const nextErrors: Partial<Record<keyof ManagedClientForm, string>> = {};
@@ -638,7 +761,7 @@ export function ProfessionalClientsScreen() {
         return;
       }
 
-      setError(getErrorMessage(createError, 'No se pudo crear el paciente gestionado'));
+      setError(getErrorMessage(createError, 'No se pudo crear el paciente'));
     } finally {
       setSaving(false);
     }
@@ -711,24 +834,6 @@ export function ProfessionalClientsScreen() {
 
           <View style={stylesForTheme.clientHeaderInfo}>
             <View style={stylesForTheme.badgeRow}>
-              <View
-                style={[
-                  stylesForTheme.sourceBadge,
-                  {
-                    backgroundColor:
-                      client.source === 'MANAGED' ? theme.secondary + '16' : theme.primary + '12',
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    stylesForTheme.sourceBadgeText,
-                    { color: client.source === 'MANAGED' ? theme.secondary : theme.primary },
-                  ]}
-                >
-                  {client.source === 'MANAGED' ? 'Gestionado' : 'Registrado'}
-                </Text>
-              </View>
               {client.archivedAt ? (
                 <View
                   style={[
@@ -741,7 +846,14 @@ export function ProfessionalClientsScreen() {
                   </Text>
                 </View>
               ) : null}
-              <View style={[stylesForTheme.consentBadge, { backgroundColor: consentTone.backgroundColor }]}>
+              <View style={[
+                stylesForTheme.consentBadge,
+                {
+                  backgroundColor: consentTone.backgroundColor,
+                  borderColor: consentTone.borderColor,
+                },
+              ]}>
+                <Ionicons name={consentTone.iconName} size={13} color={consentTone.color} />
                 <Text style={[stylesForTheme.consentBadgeText, { color: consentTone.color }]}>
                   {getConsentLabel(client)}
                 </Text>
@@ -990,7 +1102,11 @@ export function ProfessionalClientsScreen() {
           ) : null}
         </View>
 
-        <TourTarget id="professional.clients.filters" fill style={stylesForTheme.fullWidthTourTarget}>
+        <TourTarget
+          id="professional.clients.filters"
+          fill
+          style={[stylesForTheme.fullWidthTourTarget, stylesForTheme.filtersTourTarget]}
+        >
           <Card variant="default" padding="large" style={stylesForTheme.toolbarCard}>
           {professionalClinicContexts.length > 0 || clinicContextsLoading || clinicContextsError ? (
             <View style={stylesForTheme.contextRow}>
@@ -1041,20 +1157,30 @@ export function ProfessionalClientsScreen() {
             </View>
           ) : (
             <View style={stylesForTheme.filtersBar}>
-              <SegmentedFilterGroup
-                label="Tipo"
-                options={FILTERS}
-                activeValue={sourceFilter}
-                onChange={setSourceFilter}
-                theme={theme}
-              />
-              <SegmentedFilterGroup
-                label="Estado"
-                options={LIFECYCLE_FILTERS}
-                activeValue={lifecycleFilter}
-                onChange={setLifecycleFilter}
-                theme={theme}
-              />
+              <View style={stylesForTheme.filterDropdown}>
+                <Text style={[stylesForTheme.contextLabel, { color: theme.textSecondary }]}>
+                  Origen
+                </Text>
+                <SimpleDropdown
+                  options={FILTERS}
+                  value={sourceFilter}
+                  onSelect={setSourceFilter}
+                  placeholder="Origen"
+                  maxHeight={180}
+                />
+              </View>
+              <View style={stylesForTheme.filterDropdown}>
+                <Text style={[stylesForTheme.contextLabel, { color: theme.textSecondary }]}>
+                  Estado
+                </Text>
+                <SimpleDropdown
+                  options={LIFECYCLE_FILTERS}
+                  value={lifecycleFilter}
+                  onSelect={setLifecycleFilter}
+                  placeholder="Estado"
+                  maxHeight={180}
+                />
+              </View>
             </View>
           )}
           </Card>
@@ -1071,7 +1197,11 @@ export function ProfessionalClientsScreen() {
           </Card>
         ) : null}
 
-        <TourTarget id="professional.clients.grid" fill style={stylesForTheme.fullWidthTourTarget}>
+        <TourTarget
+          id="professional.clients.grid"
+          fill
+          style={[stylesForTheme.fullWidthTourTarget, stylesForTheme.gridTourTarget]}
+        >
           {activeClinicId ? (
             clinicPatientsLoading ? (
               <View style={stylesForTheme.loadingState}>
@@ -1125,7 +1255,7 @@ export function ProfessionalClientsScreen() {
               <Text style={[stylesForTheme.emptyText, { color: theme.textSecondary }]}>
                 {lifecycleFilter === 'ARCHIVED'
                   ? 'Todavía no tienes pacientes archivados con este filtro.'
-                  : 'Puedes crear un paciente gestionado o cambiar los filtros para ver tu base completa.'}
+                  : 'Puedes añadir un paciente o cambiar los filtros para ver tu base completa.'}
               </Text>
             </Card>
           ) : (
@@ -1152,9 +1282,9 @@ export function ProfessionalClientsScreen() {
             >
               <View style={stylesForTheme.modalHeader}>
                 <View style={stylesForTheme.modalHeaderCopy}>
-                  <Text style={[stylesForTheme.modalTitle, { color: theme.textPrimary }]}>Nuevo paciente gestionado</Text>
+                  <Text style={[stylesForTheme.modalTitle, { color: theme.textPrimary }]}>Nuevo paciente</Text>
                   <Text style={[stylesForTheme.modalSubtitle, { color: theme.textSecondary }]}>
-                    Crea una ficha administrativa mínima. El expediente clínico permanecerá pendiente hasta adjuntar el consentimiento firmado y desbloquear el área clínica.
+                    Crea la ficha y decide si registras el consentimiento firmado ahora o lo dejas pendiente para completarlo más adelante.
                   </Text>
                 </View>
                 <AnimatedPressable
@@ -1207,7 +1337,7 @@ export function ProfessionalClientsScreen() {
                     keyboardType="email-address"
                     placeholderTextColor={theme.textMuted}
                   />
-                  {formErrors.email ? (
+                  {formErrors.email && !contactMethodError ? (
                     <Text style={[stylesForTheme.fieldError, { color: theme.error }]}>{formErrors.email}</Text>
                   ) : null}
                 </View>
@@ -1217,15 +1347,25 @@ export function ProfessionalClientsScreen() {
                   <TextInput
                     value={form.phone}
                     onChangeText={(value) => updateFormField('phone', value)}
-                    style={[stylesForTheme.input, { color: theme.textPrimary, borderColor: formErrors.phone ? theme.error : theme.border }]}
+                    style={[stylesForTheme.input, { color: theme.textPrimary, borderColor: formErrors.phone || contactMethodError ? theme.error : theme.border }]}
                     placeholder="Teléfono opcional"
                     keyboardType="phone-pad"
                     placeholderTextColor={theme.textMuted}
                   />
-                  {formErrors.phone ? (
-                    <Text style={[stylesForTheme.fieldError, { color: theme.error }]}>{formErrors.phone}</Text>
+                  {formErrors.phone && !contactMethodError ? (
+                    <Text style={[stylesForTheme.fieldError, { color: theme.error }]}>
+                      {formErrors.phone}
+                    </Text>
                   ) : null}
                 </View>
+
+                {contactMethodError ? (
+                  <View style={stylesForTheme.contactErrorBlock}>
+                    <Text style={[stylesForTheme.fieldError, { color: theme.error }]}>
+                      {contactMethodError}
+                    </Text>
+                  </View>
+                ) : null}
 
                 <View style={[stylesForTheme.field, { flexBasis: '100%' }]}>
                   <Text style={[stylesForTheme.fieldLabel, { color: theme.textSecondary }]}>
@@ -1304,25 +1444,202 @@ export function ProfessionalClientsScreen() {
                 </View>
               </View>
 
-              <View style={[stylesForTheme.consentPanel, { backgroundColor: theme.bgMuted, borderColor: theme.border }]}>
-                <View style={stylesForTheme.consentPanelCopy}>
+              <View style={stylesForTheme.consentSection}>
+                <View style={stylesForTheme.consentSectionHeader}>
                   <Text style={[stylesForTheme.consentPanelTitle, { color: theme.textPrimary }]}>
-                    Declaración previa del profesional
+                    Consentimiento clínico
                   </Text>
                   <Text style={[stylesForTheme.consentPanelText, { color: theme.textSecondary }]}>
-                    Confirmas que cuentas con el consentimiento informado y que adjuntarás el documento firmado en el área clínica antes de activar el expediente.
+                    Si adjuntas el documento firmado ahora, quedará guardado como evidencia clínica y el consentimiento pasará a vigente.
                   </Text>
                 </View>
-                <Switch
-                  value={form.consentOnFile}
-                  onValueChange={(value) => updateFormField('consentOnFile', value)}
-                  trackColor={{ false: theme.border, true: theme.secondaryMuted }}
-                  thumbColor={form.consentOnFile ? theme.selection : theme.textMuted}
-                />
+
+                <View style={[stylesForTheme.consentOptions, isMobile ? stylesForTheme.consentOptionsMobile : null]}>
+                  <AnimatedPressable
+                    onPress={() => updateConsentCaptureMode('UPLOAD_NOW')}
+                    hoverLift={false}
+                    pressScale={0.99}
+                    disabled={!canAttachInitialConsent || saving}
+                    style={[
+                      stylesForTheme.consentOption,
+                      {
+                        backgroundColor:
+                          form.consentCaptureMode === 'UPLOAD_NOW'
+                            ? theme.status.confirmed.bg
+                            : theme.bgMuted,
+                        borderColor:
+                          form.consentCaptureMode === 'UPLOAD_NOW'
+                            ? theme.status.confirmed.border
+                            : theme.border,
+                      },
+                      !canAttachInitialConsent ? stylesForTheme.consentOptionDisabled : null,
+                    ]}
+                  >
+                    <View style={[
+                      stylesForTheme.consentOptionIcon,
+                      { backgroundColor: theme.bgCard, borderColor: theme.status.confirmed.border },
+                    ]}>
+                      <Ionicons name="document-attach-outline" size={19} color={theme.status.confirmed.text} />
+                    </View>
+                    <View style={stylesForTheme.consentOptionCopy}>
+                      <Text style={[stylesForTheme.consentOptionTitle, { color: theme.textPrimary }]}>
+                        Adjuntar firmado ahora
+                      </Text>
+                      <Text style={[stylesForTheme.consentOptionText, { color: theme.textSecondary }]}>
+                        Sube PDF o imagen y valida con PIN clínico.
+                      </Text>
+                    </View>
+                    {form.consentCaptureMode === 'UPLOAD_NOW' ? (
+                      <Ionicons name="checkmark-circle" size={20} color={theme.status.confirmed.text} />
+                    ) : null}
+                  </AnimatedPressable>
+
+                  <AnimatedPressable
+                    onPress={() => updateConsentCaptureMode('UPLOAD_LATER')}
+                    hoverLift={false}
+                    pressScale={0.99}
+                    disabled={saving}
+                    style={[
+                      stylesForTheme.consentOption,
+                      {
+                        backgroundColor:
+                          form.consentCaptureMode === 'UPLOAD_LATER'
+                            ? theme.status.pending.bg
+                            : theme.bgMuted,
+                        borderColor:
+                          form.consentCaptureMode === 'UPLOAD_LATER'
+                            ? theme.status.pending.border
+                            : theme.border,
+                      },
+                    ]}
+                  >
+                    <View style={[
+                      stylesForTheme.consentOptionIcon,
+                      { backgroundColor: theme.bgCard, borderColor: theme.status.pending.border },
+                    ]}>
+                      <Ionicons name="time-outline" size={19} color={theme.status.pending.text} />
+                    </View>
+                    <View style={stylesForTheme.consentOptionCopy}>
+                      <Text style={[stylesForTheme.consentOptionTitle, { color: theme.textPrimary }]}>
+                        Añadir después
+                      </Text>
+                      <Text style={[stylesForTheme.consentOptionText, { color: theme.textSecondary }]}>
+                        La ficha se crea con consentimiento pendiente.
+                      </Text>
+                    </View>
+                    {form.consentCaptureMode === 'UPLOAD_LATER' ? (
+                      <Ionicons name="checkmark-circle" size={20} color={theme.status.pending.text} />
+                    ) : null}
+                  </AnimatedPressable>
+                </View>
+
+                {!canAttachInitialConsent ? (
+                  <Text style={[stylesForTheme.fieldHint, { color: theme.textMuted }]}>
+                    Para adjuntar el consentimiento en el alta, configura primero tu PIN clínico desde el área clínica.
+                  </Text>
+                ) : null}
+
+                {formErrors.consentCaptureMode ? (
+                  <Text style={[stylesForTheme.fieldError, { color: theme.error }]}>{formErrors.consentCaptureMode}</Text>
+                ) : null}
+
+                {form.consentCaptureMode === 'UPLOAD_NOW' ? (
+                  <View style={[
+                    stylesForTheme.initialConsentBox,
+                    { backgroundColor: theme.bgMuted, borderColor: theme.status.confirmed.border },
+                  ]}>
+                    <View style={stylesForTheme.initialConsentHeader}>
+                      <Ionicons name="shield-checkmark-outline" size={18} color={theme.status.confirmed.text} />
+                      <Text style={[stylesForTheme.initialConsentTitle, { color: theme.textPrimary }]}>
+                        Documento firmado
+                      </Text>
+                    </View>
+
+                    {form.consentDocument ? (
+                      <View style={[
+                        stylesForTheme.selectedDocumentRow,
+                        { backgroundColor: theme.bgCard, borderColor: theme.border },
+                      ]}>
+                        <View style={[
+                          stylesForTheme.selectedDocumentIcon,
+                          { backgroundColor: theme.primaryAlpha12 },
+                        ]}>
+                          <Ionicons name="document-text-outline" size={18} color={theme.primary} />
+                        </View>
+                        <View style={stylesForTheme.selectedDocumentCopy}>
+                          <Text style={[stylesForTheme.selectedDocumentName, { color: theme.textPrimary }]} numberOfLines={1}>
+                            {getConsentDocumentName(form.consentDocument)}
+                          </Text>
+                          <Text style={[stylesForTheme.selectedDocumentMeta, { color: theme.textSecondary }]}>
+                            Se guardará en el área clínica protegida.
+                          </Text>
+                        </View>
+                        <Button
+                          variant="ghost"
+                          size="small"
+                          onPress={handleRemoveInitialConsentDocument}
+                          disabled={saving}
+                        >
+                          Quitar
+                        </Button>
+                      </View>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="medium"
+                        onPress={() => { void handlePickInitialConsentDocument(); }}
+                        disabled={saving}
+                        icon={<Ionicons name="cloud-upload-outline" size={18} color={theme.primary} />}
+                      >
+                        Adjuntar documento
+                      </Button>
+                    )}
+
+                    {formErrors.consentDocument ? (
+                      <Text style={[stylesForTheme.fieldError, { color: theme.error }]}>{formErrors.consentDocument}</Text>
+                    ) : null}
+
+                    {initialConsentPinRequired ? (
+                      <View style={stylesForTheme.pinField}>
+                        <Text style={[stylesForTheme.fieldLabel, { color: theme.textSecondary }]}>PIN clínico</Text>
+                        <TextInput
+                          value={form.clinicalPin}
+                          onChangeText={(value) => updateFormField('clinicalPin', value)}
+                          style={[stylesForTheme.input, { color: theme.textPrimary, borderColor: formErrors.clinicalPin ? theme.error : theme.border }]}
+                          placeholder="6 dígitos"
+                          placeholderTextColor={theme.textMuted}
+                          keyboardType="number-pad"
+                          secureTextEntry
+                          maxLength={6}
+                        />
+                        {formErrors.clinicalPin ? (
+                          <Text style={[stylesForTheme.fieldError, { color: theme.error }]}>{formErrors.clinicalPin}</Text>
+                        ) : null}
+                      </View>
+                    ) : (
+                      <View style={[
+                        stylesForTheme.clinicalAccessNotice,
+                        { backgroundColor: theme.status.confirmed.bg, borderColor: theme.status.confirmed.border },
+                      ]}>
+                        <Ionicons name="lock-open-outline" size={17} color={theme.status.confirmed.text} />
+                        <Text style={[stylesForTheme.clinicalAccessNoticeText, { color: theme.status.confirmed.text }]}>
+                          Área clínica desbloqueada para este registro.
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <View style={[
+                    stylesForTheme.clinicalAccessNotice,
+                    { backgroundColor: theme.status.pending.bg, borderColor: theme.status.pending.border },
+                  ]}>
+                    <Ionicons name="time-outline" size={17} color={theme.status.pending.text} />
+                    <Text style={[stylesForTheme.clinicalAccessNoticeText, { color: theme.status.pending.text }]}>
+                      El consentimiento aparecerá como pendiente hasta adjuntar el documento firmado.
+                    </Text>
+                  </View>
+                )}
               </View>
-              {formErrors.consentOnFile ? (
-                <Text style={[stylesForTheme.fieldError, { color: theme.error }]}>{formErrors.consentOnFile}</Text>
-              ) : null}
 
               <View style={[stylesForTheme.modalActions, isMobile ? stylesForTheme.modalActionsMobile : null]}>
                 <Button variant="ghost" size="medium" onPress={() => setModalVisible(false)} fullWidth={isMobile}>
@@ -1350,38 +1667,6 @@ export function ProfessionalClientsScreen() {
 }
 
 const styles = StyleSheet.create({
-  segmentedGroup: {
-    gap: 6,
-    minWidth: 220,
-  },
-  segmentedLabel: {
-    ...textStyles.caption,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  segmentedTrack: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 999,
-    borderWidth: 1,
-    padding: 4,
-    gap: 4,
-  },
-  segmentedOption: {
-    minHeight: 34,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 7,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  segmentedOptionText: {
-    ...textStyles.bodySmall,
-    fontWeight: '700',
-  },
   metricCard: {
     flex: 1,
     minWidth: 170,
@@ -1448,6 +1733,9 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     },
     toolbarCard: {
       gap: spacing.md,
+      overflow: 'visible',
+      position: 'relative',
+      zIndex: 40,
     },
     contextRow: {
       flexDirection: 'row',
@@ -1494,6 +1782,14 @@ const createStyles = (theme: Theme, isDark: boolean) =>
     fullWidthTourTarget: {
       width: '100%',
     },
+    filtersTourTarget: {
+      position: 'relative',
+      zIndex: 40,
+    },
+    gridTourTarget: {
+      position: 'relative',
+      zIndex: 1,
+    },
     searchRow: {
       flexDirection: 'row',
       gap: spacing.md,
@@ -1516,16 +1812,21 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       fontFamily: theme.fontSans,
       minHeight: 44,
     },
-    filterRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
     filtersBar: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: spacing.md,
       alignItems: 'flex-start',
+      position: 'relative',
+      zIndex: 50,
+    },
+    filterDropdown: {
+      width: '100%',
+      maxWidth: 260,
+      minWidth: 220,
+      gap: 6,
+      position: 'relative',
+      zIndex: 60,
     },
     errorCard: {
       borderColor: theme.warning + '35',
@@ -1634,6 +1935,10 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       paddingHorizontal: 9,
       paddingVertical: 5,
       borderRadius: 999,
+      borderWidth: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
     },
     consentBadgeText: {
       ...textStyles.caption,
@@ -1761,6 +2066,10 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       flex: 1,
       gap: 8,
     },
+    contactErrorBlock: {
+      flexBasis: '100%',
+      marginTop: -spacing.xs,
+    },
     fieldLabel: {
       ...textStyles.caption,
       fontWeight: '700',
@@ -1785,16 +2094,10 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       fontWeight: '600',
       fontFamily: theme.fontSansSemiBold,
     },
-    consentPanel: {
-      borderRadius: borderRadius.xl,
-      borderWidth: 1,
-      padding: spacing.md,
-      flexDirection: 'row',
-      alignItems: 'center',
+    consentSection: {
       gap: spacing.md,
     },
-    consentPanelCopy: {
-      flex: 1,
+    consentSectionHeader: {
       gap: 6,
     },
     consentPanelTitle: {
@@ -1806,6 +2109,117 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       ...textStyles.bodySmall,
       fontFamily: theme.fontSans,
       lineHeight: 22,
+    },
+    consentOptions: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      alignItems: 'stretch',
+    },
+    consentOptionsMobile: {
+      flexDirection: 'column',
+    },
+    consentOption: {
+      flex: 1,
+      minWidth: 0,
+      minHeight: 104,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1,
+      padding: spacing.md,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+    },
+    consentOptionDisabled: {
+      opacity: 0.52,
+    },
+    consentOptionIcon: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    consentOptionCopy: {
+      flex: 1,
+      minWidth: 0,
+      gap: 4,
+    },
+    consentOptionTitle: {
+      ...textStyles.bodySmall,
+      fontWeight: '700',
+      fontFamily: theme.fontSansBold,
+    },
+    consentOptionText: {
+      ...textStyles.caption,
+      fontFamily: theme.fontSans,
+      lineHeight: 18,
+    },
+    initialConsentBox: {
+      borderRadius: borderRadius.lg,
+      borderWidth: 1,
+      padding: spacing.md,
+      gap: spacing.sm,
+    },
+    initialConsentHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    initialConsentTitle: {
+      ...textStyles.bodySmall,
+      fontWeight: '700',
+      fontFamily: theme.fontSansBold,
+    },
+    selectedDocumentRow: {
+      minHeight: 62,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      padding: spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    selectedDocumentIcon: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    selectedDocumentCopy: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    selectedDocumentName: {
+      ...textStyles.bodySmall,
+      fontWeight: '700',
+      fontFamily: theme.fontSansBold,
+    },
+    selectedDocumentMeta: {
+      ...textStyles.caption,
+      fontFamily: theme.fontSans,
+    },
+    pinField: {
+      gap: 8,
+      maxWidth: 260,
+    },
+    clinicalAccessNotice: {
+      minHeight: 42,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    clinicalAccessNoticeText: {
+      ...textStyles.caption,
+      fontWeight: '700',
+      fontFamily: theme.fontSansBold,
+      flex: 1,
     },
     modalActions: {
       flexDirection: 'row',

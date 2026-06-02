@@ -22,7 +22,10 @@ describe('ClinicPatientsScreen source guards', () => {
   );
   const patientScreenFiles = [
     'ClinicPatientsScreen.tsx',
-    ...fs.readdirSync(patientsDir).map((fileName) => path.join('patients', fileName)),
+    ...fs
+      .readdirSync(patientsDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => path.join('patients', entry.name)),
   ];
 
   it('keeps the route wrapper thin and moves patient logic into clinic/patients modules', () => {

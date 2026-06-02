@@ -177,7 +177,7 @@ export function ManagedSessionSchedulerModal({
                 {title}
               </Text>
               <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                Programa una sesión confirmada para un paciente gestionado.
+                Programa una sesión confirmada para un paciente añadido por ti.
               </Text>
             </View>
             <AnimatedPressable
@@ -254,7 +254,7 @@ export function ManagedSessionSchedulerModal({
                     })
                   ) : (
                     <Text style={[styles.emptyText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                      No hay pacientes gestionados activos con esa búsqueda.
+                      No hay pacientes activos añadidos por ti con esa búsqueda.
                     </Text>
                   )}
                 </View>

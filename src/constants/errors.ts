@@ -40,6 +40,14 @@ export interface ValidationError {
  */
 export type AppError = ApiError | NetworkError | ValidationError | Error;
 
+export const CONTACT_METHOD_REQUIRED_MESSAGE =
+  'Introduce un email o un número de móvil para poder contactar con el paciente.';
+
+const API_ERROR_MESSAGES_BY_CODE: Partial<Record<string, string>> = {
+  CLIENT_CONTACT_METHOD_REQUIRED: CONTACT_METHOD_REQUIRED_MESSAGE,
+  CLINIC_PATIENT_CONTACT_METHOD_REQUIRED: CONTACT_METHOD_REQUIRED_MESSAGE,
+};
+
 /**
  * Type guard: Check if error is an API error
  */
@@ -126,6 +134,12 @@ export function getErrorMessage(error: unknown, defaultMessage = 'Ha ocurrido un
     const data = error.response.data;
     if (data.error === 'Invalid or expired token' || data.error === 'No token provided') {
       return 'Tu sesión ya no está activa. Vuelve a iniciar sesión para continuar.';
+    }
+    const codedMessage =
+      (data.code && API_ERROR_MESSAGES_BY_CODE[data.code])
+      || (data.error && API_ERROR_MESSAGES_BY_CODE[data.error]);
+    if (codedMessage) {
+      return codedMessage;
     }
     if (
       data.message &&
