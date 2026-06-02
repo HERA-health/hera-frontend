@@ -3,7 +3,8 @@
  */
 
 import React, { useCallback } from 'react';
-import { Insets, Platform, Pressable, StyleProp, ViewStyle } from 'react-native';
+import { Platform, Pressable } from 'react-native';
+import type { AccessibilityState, Insets, StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -22,6 +23,7 @@ interface AnimatedPressableProps {
   hitSlop?: Insets;
   accessibilityLabel?: string;
   accessibilityRole?: 'button' | 'link' | 'none';
+  accessibilityState?: AccessibilityState;
 }
 
 const AnimatedPressableComponent = Animated.createAnimatedComponent(Pressable);
@@ -38,6 +40,7 @@ export function AnimatedPressable({
   hitSlop,
   accessibilityLabel,
   accessibilityRole = 'button',
+  accessibilityState,
 }: AnimatedPressableProps) {
   const scale = useSharedValue(1);
   const translateY = useSharedValue(0);
@@ -79,6 +82,7 @@ export function AnimatedPressable({
       hitSlop={hitSlop}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityRole}
+      accessibilityState={accessibilityState}
       style={[style, animStyle]}
     >
       {children}

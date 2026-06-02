@@ -27,6 +27,14 @@ type DaySlots = Record<string, SlotState>;
 type WeeklySlots = Record<DayOfWeek, DaySlots>;
 type EnabledDays = Record<DayOfWeek, boolean>;
 type CalendarMarkedDates = Record<string, { marked?: boolean; dotColor?: string; selected?: boolean; selectedColor?: string }>;
+type QuickPresetId = 'morning' | 'afternoon' | 'full';
+interface TimeRange { start: string; end: string; }
+interface QuickPreset extends TimeRange {
+  id: QuickPresetId;
+  label: string;
+  description: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}
 interface ExceptionType { id: string; label: string; icon: keyof typeof Ionicons.glyphMap; tone: 'primary' | 'secondary' | 'warning' | 'muted'; }
 
 const DAYS: DayConfig[] = [
@@ -39,10 +47,13 @@ const DAYS: DayConfig[] = [
   { name: 'sunday', label: 'Domingo', shortLabel: 'Dom' },
 ];
 
+const AVAILABILITY_START_HOUR = 7;
+const AVAILABILITY_END_HOUR = 23;
+
 const TIME_SLOTS: TimeSlot[] = [];
-for (let hour = 8; hour <= 21; hour += 1) {
+for (let hour = AVAILABILITY_START_HOUR; hour < AVAILABILITY_END_HOUR; hour += 1) {
   TIME_SLOTS.push({ hour, minute: 0, label: `${hour.toString().padStart(2, '0')}:00` });
-  if (hour < 21) TIME_SLOTS.push({ hour, minute: 30, label: `${hour.toString().padStart(2, '0')}:30` });
+  TIME_SLOTS.push({ hour, minute: 30, label: `${hour.toString().padStart(2, '0')}:30` });
 }
 
 const EXCEPTION_TYPES: ExceptionType[] = [
@@ -53,10 +64,10 @@ const EXCEPTION_TYPES: ExceptionType[] = [
   { id: 'other', label: 'Otro', icon: 'ellipsis-horizontal-outline', tone: 'muted' },
 ];
 
-const QUICK_PRESETS = [
-  { id: 'morning', label: 'Mañana', slots: { start: '09:00', end: '14:00' } },
-  { id: 'afternoon', label: 'Tarde', slots: { start: '15:00', end: '20:00' } },
-  { id: 'full', label: 'Completa', slots: [{ start: '09:00', end: '14:00' }, { start: '16:00', end: '20:00' }] },
+const QUICK_PRESETS: QuickPreset[] = [
+  { id: 'morning', label: 'Mañana', description: 'Inicio temprano', start: '08:00', end: '14:00', icon: 'sunny-outline' },
+  { id: 'afternoon', label: 'Tarde', description: 'Bloque vespertino', start: '14:00', end: '20:00', icon: 'partly-sunny-outline' },
+  { id: 'full', label: 'Completa', description: 'Jornada continua', start: '08:00', end: '20:00', icon: 'calendar-outline' },
 ];
 
 const BUFFER_OPTIONS = [
@@ -98,6 +109,107 @@ const createDefaultEnabledDays = (): EnabledDays => ({
   saturday: false,
   sunday: false,
 });
+
+const getTimeMinutes = (time: string): number => {
+  const [hour, minute] = time.split(':').map(Number);
+  return hour * 60 + minute;
+};
+
+const formatPresetHour = (time: string): string => {
+  const [hour, minute] = time.split(':');
+  return minute === '00' ? String(Number(hour)) : time;
+};
+
+const formatPresetRange = (range: TimeRange): string => `${formatPresetHour(range.start)}-${formatPresetHour(range.end)} h`;
+
+const getDayLabel = (dayName: DayOfWeek): string => DAYS.find((day) => day.name === dayName)?.label ?? dayName;
+
+const createDaySlotsForRange = (range: TimeRange): DaySlots => {
+  const daySlots = createEmptyDaySlots();
+  const startMinutes = getTimeMinutes(range.start);
+  const endMinutes = getTimeMinutes(range.end);
+  TIME_SLOTS.forEach((slot) => {
+    const slotMinutes = slot.hour * 60 + slot.minute;
+    if (slotMinutes >= startMinutes && slotMinutes < endMinutes) {
+      daySlots[slot.label] = { available: true, isBreak: false };
+    }
+  });
+  return daySlots;
+};
+
+const getSlotIndex = (time: string): number => TIME_SLOTS.findIndex((slot) => slot.label === time);
+
+const createContinuousDaySlots = (startIndex: number, endIndex: number): DaySlots => {
+  const daySlots = createEmptyDaySlots();
+  for (let index = startIndex; index <= endIndex; index += 1) {
+    const slot = TIME_SLOTS[index];
+    if (slot) {
+      daySlots[slot.label] = { available: true, isBreak: false };
+    }
+  }
+  return daySlots;
+};
+
+const getAvailableSlotIndices = (daySlots: DaySlots): number[] => (
+  TIME_SLOTS.reduce<number[]>((indices, slot, index) => {
+    if (daySlots[slot.label]?.available) {
+      indices.push(index);
+    }
+    return indices;
+  }, [])
+);
+
+const isContinuousDaySlots = (daySlots: DaySlots): boolean => {
+  const availableIndices = getAvailableSlotIndices(daySlots);
+  if (availableIndices.length <= 1) return true;
+  return availableIndices.every((slotIndex, index) => index === 0 || slotIndex === availableIndices[index - 1] + 1);
+};
+
+const getNonContinuousDayLabels = (weeklySlots: WeeklySlots): string[] => (
+  DAYS
+    .filter((day) => !isContinuousDaySlots(weeklySlots[day.name]))
+    .map((day) => day.label)
+);
+
+const toggleContinuousSlot = (
+  daySlots: DaySlots,
+  time: string,
+): { slots: DaySlots; changed: boolean; blocked: boolean } => {
+  const targetIndex = getSlotIndex(time);
+  if (targetIndex < 0) return { slots: daySlots, changed: false, blocked: false };
+  if (!isContinuousDaySlots(daySlots)) return { slots: daySlots, changed: false, blocked: true };
+
+  const availableIndices = getAvailableSlotIndices(daySlots);
+  if (availableIndices.length === 0) {
+    return { slots: createContinuousDaySlots(targetIndex, targetIndex), changed: true, blocked: false };
+  }
+
+  const firstIndex = availableIndices[0];
+  const lastIndex = availableIndices[availableIndices.length - 1];
+  const targetIsAvailable = availableIndices.includes(targetIndex);
+
+  if (!targetIsAvailable) {
+    return {
+      slots: createContinuousDaySlots(Math.min(firstIndex, targetIndex), Math.max(lastIndex, targetIndex)),
+      changed: true,
+      blocked: false,
+    };
+  }
+
+  if (availableIndices.length === 1) {
+    return { slots: createEmptyDaySlots(), changed: true, blocked: false };
+  }
+
+  if (targetIndex === firstIndex) {
+    return { slots: createContinuousDaySlots(firstIndex + 1, lastIndex), changed: true, blocked: false };
+  }
+
+  if (targetIndex === lastIndex) {
+    return { slots: createContinuousDaySlots(firstIndex, lastIndex - 1), changed: true, blocked: false };
+  }
+
+  return { slots: daySlots, changed: false, blocked: true };
+};
 
 const getErrorMessage = (error: unknown, fallback: string): string => error instanceof Error ? error.message : fallback;
 
@@ -153,8 +265,8 @@ const convertScheduleToSlots = (schedule: availabilityService.WeeklySchedule): W
   DAYS.forEach((day) => {
     const daySchedule = schedule[day.name];
     if (!daySchedule) return;
-    const startMinutes = Number(daySchedule.start.split(':')[0]) * 60 + Number(daySchedule.start.split(':')[1]);
-    const endMinutes = Number(daySchedule.end.split(':')[0]) * 60 + Number(daySchedule.end.split(':')[1]);
+    const startMinutes = getTimeMinutes(daySchedule.start);
+    const endMinutes = getTimeMinutes(daySchedule.end);
     TIME_SLOTS.forEach((slot) => {
       const slotMinutes = slot.hour * 60 + slot.minute;
       if (slotMinutes >= startMinutes && slotMinutes < endMinutes) weeklySlots[day.name][slot.label] = { available: true, isBreak: false };
@@ -216,6 +328,10 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   const [bufferTime, setBufferTime] = useState(15);
   const [billingConfig, setBillingConfig] = useState<FullBillingConfig | null>(null);
   const [billingConfigError, setBillingConfigError] = useState<string | null>(null);
+  const [selectedPresetId, setSelectedPresetId] = useState<QuickPresetId | null>(null);
+  const [selectedPresetDays, setSelectedPresetDays] = useState<DayOfWeek[]>([]);
+  const [quickPatternsExpanded, setQuickPatternsExpanded] = useState(false);
+  const [rangeNoticeVisible, setRangeNoticeVisible] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -271,6 +387,31 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     : `${billingDuration} min · ${formatCurrency(billingPrice)}`;
   const billingDurationHint = billingConfigError
     ?? 'Las reservas públicas usan la tarifa por defecto de Facturación.';
+  const selectedPreset = useMemo(
+    () => QUICK_PRESETS.find((preset) => preset.id === selectedPresetId),
+    [selectedPresetId]
+  );
+  const selectedPresetDaysSet = useMemo(
+    () => new Set<DayOfWeek>(selectedPresetDays),
+    [selectedPresetDays]
+  );
+  const selectedPresetDayLabels = useMemo(
+    () => selectedPresetDays.map((dayName) => getDayLabel(dayName)),
+    [selectedPresetDays]
+  );
+  const allPresetDaysSelected = selectedPresetDays.length === DAYS.length;
+  const canApplySelectedPreset = selectedPreset !== undefined && selectedPresetDays.length > 0;
+  const presetSummaryText = useMemo(() => {
+    if (!selectedPreset) {
+      return 'Elige un horario para empezar.';
+    }
+
+    if (selectedPresetDayLabels.length === 0) {
+      return `${selectedPreset.label} (${formatPresetRange(selectedPreset)}) -> selecciona días destino.`;
+    }
+
+    return `${selectedPreset.label} (${formatPresetRange(selectedPreset)}) -> ${selectedPresetDayLabels.join(', ')}`;
+  }, [selectedPreset, selectedPresetDayLabels]);
 
   useEffect(() => { analyticsService.trackScreen('availability'); }, []);
   useEffect(() => { void loadData(); }, [loadData]);
@@ -280,7 +421,10 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   );
 
   const prepareAvailabilityPresetsStep = useCallback(
-    () => availabilityTourScroll.scrollToTop(),
+    () => {
+      setQuickPatternsExpanded(true);
+      return availabilityTourScroll.scrollToTop();
+    },
     [availabilityTourScroll],
   );
   const prepareAvailabilityGridStep = useCallback(
@@ -325,16 +469,24 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     }
   }, [enabledDays, showPreviewModal]);
 
+  useEffect(() => {
+    if (!rangeNoticeVisible) return undefined;
+    const timeout = setTimeout(() => setRangeNoticeVisible(false), 4500);
+    return () => clearTimeout(timeout);
+  }, [rangeNoticeVisible]);
+
   const toggleSlot = useCallback((day: DayOfWeek, time: string) => {
-    setWeeklySlots((prev) => {
-      if (!enabledDays[day]) return prev;
-      const nextSlots = { ...prev };
-      const currentState = nextSlots[day][time];
-      nextSlots[day] = { ...nextSlots[day], [time]: { ...currentState, available: !currentState.available, isBreak: false } };
-      return nextSlots;
-    });
+    if (!enabledDays[day]) return;
+    const result = toggleContinuousSlot(weeklySlots[day], time);
+    if (result.blocked) {
+      setRangeNoticeVisible(true);
+      return;
+    }
+    if (!result.changed) return;
+    setWeeklySlots((prev) => ({ ...prev, [day]: result.slots }));
+    setRangeNoticeVisible(false);
     setHasChanges(true);
-  }, [enabledDays]);
+  }, [enabledDays, weeklySlots]);
 
   const toggleDayEnabled = useCallback((day: DayOfWeek) => {
     setEnabledDays((prev) => {
@@ -345,40 +497,45 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     setHasChanges(true);
   }, []);
 
-  const applyPreset = useCallback((presetId: string) => {
-    const preset = QUICK_PRESETS.find((item) => item.id === presetId);
-    if (!preset) return;
-    const daysToApply = DAYS.filter((day) => enabledDays[day.name]).map((day) => day.name);
+  const togglePresetDay = useCallback((day: DayOfWeek) => {
+    setSelectedPresetDays((prev) => (
+      prev.includes(day)
+        ? prev.filter((selectedDay) => selectedDay !== day)
+        : [...prev, day]
+    ));
+  }, []);
+
+  const toggleAllPresetDays = useCallback(() => {
+    setSelectedPresetDays((prev) => (
+      prev.length === DAYS.length ? [] : DAYS.map((day) => day.name)
+    ));
+  }, []);
+
+  const applySelectedPreset = useCallback(() => {
+    if (!selectedPreset || selectedPresetDays.length === 0) return;
+    const daysToApply = selectedPresetDays;
     setWeeklySlots((prev) => {
       const nextSlots = { ...prev };
       daysToApply.forEach((day) => {
-        nextSlots[day] = createEmptyDaySlots();
-        const ranges = Array.isArray(preset.slots) ? preset.slots : [preset.slots];
-        ranges.forEach((range) => {
-          const startMinutes = Number(range.start.split(':')[0]) * 60 + Number(range.start.split(':')[1]);
-          const endMinutes = Number(range.end.split(':')[0]) * 60 + Number(range.end.split(':')[1]);
-          TIME_SLOTS.forEach((slot) => {
-            const slotMinutes = slot.hour * 60 + slot.minute;
-            if (slotMinutes >= startMinutes && slotMinutes < endMinutes) nextSlots[day][slot.label] = { available: true, isBreak: false };
-          });
-        });
+        nextSlots[day] = createDaySlotsForRange(selectedPreset);
       });
       return nextSlots;
     });
-    setHasChanges(true);
-  }, [enabledDays]);
-
-  const copyDayToAll = useCallback((sourceDay: DayOfWeek) => {
-    setWeeklySlots((prev) => {
-      const nextSlots = { ...prev };
-      const sourceSlots = prev[sourceDay];
-      DAYS.forEach((day) => { if (day.name !== sourceDay && enabledDays[day.name]) nextSlots[day.name] = { ...sourceSlots }; });
-      return nextSlots;
+    setEnabledDays((prev) => {
+      const nextState = { ...prev };
+      daysToApply.forEach((day) => { nextState[day] = true; });
+      return nextState;
     });
     setHasChanges(true);
-  }, [enabledDays]);
+  }, [selectedPreset, selectedPresetDays]);
 
   const handleSave = useCallback(async () => {
+    const nonContinuousDays = getNonContinuousDayLabels(weeklySlots);
+    if (nonContinuousDays.length > 0) {
+      showAppAlert(appAlert, 'Error', 'Cada día debe tener un único tramo continuo de disponibilidad.');
+      return;
+    }
+
     try {
       setSaving(true);
       const schedule = convertSlotsToSchedule(weeklySlots);
@@ -392,7 +549,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     } finally {
       setSaving(false);
     }
-  }, [bufferTime, weeklySlots]);
+  }, [appAlert, bufferTime, weeklySlots]);
 
   const handleAddException = useCallback(async () => {
     if (!selectedExceptionDate) return;
@@ -431,7 +588,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     [enabledDays, previewSelectedDate]
   );
   const previewSlots = useMemo(
-    () => TIME_SLOTS.filter((slot) => weeklySlots[previewDayName][slot.label]?.available).slice(0, 8),
+    () => TIME_SLOTS.filter((slot) => weeklySlots[previewDayName][slot.label]?.available),
     [previewDayName, weeklySlots]
   );
   const previewMarkedDates = useMemo<CalendarMarkedDates>(() => (
@@ -440,7 +597,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
       : {}
   ), [previewSelectedDate, theme.primary]);
   const previewDayLabel = useMemo(
-    () => DAYS.find((day) => day.name === previewDayName)?.label.toLowerCase() ?? 'lunes',
+    () => getDayLabel(previewDayName).toLowerCase(),
     [previewDayName]
   );
   const calendarTheme = useMemo(() => ({
@@ -663,39 +820,199 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
         <View style={styles.mainContent}>
           <View style={[styles.leftColumn, useTwoColumns && styles.leftColumnDesktop]}>
             <View style={styles.leftColumnContent}>
-          <TourTarget id="professional.availability.presets" fill style={styles.fullWidthTourTarget}>
-            <Card variant="default" padding="large" style={styles.controlsCard}>
-            <View style={styles.controlsHeader}>
-              <View>
-                <Text style={styles.controlsTitle}>Patrones rápidos</Text>
-                <Text style={styles.controlsSubtitle}>Aplica una base inicial y luego ajusta solo donde necesites.</Text>
-              </View>
-            </View>
-            <View style={styles.presetsRow}>
-              {QUICK_PRESETS.map((preset) => (
-                <AnimatedPressable key={preset.id} style={styles.presetBtn} onPress={() => applyPreset(preset.id)} hoverLift={false}>
-                  <Text style={styles.presetBtnText}>{preset.label}</Text>
-                </AnimatedPressable>
-              ))}
-              <AnimatedPressable style={styles.copyBtn} onPress={() => copyDayToAll('monday')} hoverLift={false}>
-                <Ionicons name="copy-outline" size={14} color={theme.primary} />
-                <Text style={styles.copyBtnText}>Copiar lunes</Text>
-              </AnimatedPressable>
-            </View>
-            </Card>
-          </TourTarget>
+              <TourTarget id="professional.availability.presets" fill style={styles.fullWidthTourTarget}>
+                <Card variant="default" padding="large" style={styles.controlsCard}>
+                  <AnimatedPressable
+                    style={[styles.controlsHeader, quickPatternsExpanded && styles.controlsHeaderExpanded]}
+                    onPress={() => setQuickPatternsExpanded((current) => !current)}
+                    hoverLift={false}
+                    pressScale={0.995}
+                    accessibilityLabel={quickPatternsExpanded ? 'Cerrar patrones rápidos' : 'Abrir patrones rápidos'}
+                    accessibilityState={{ expanded: quickPatternsExpanded }}
+                  >
+                    <View style={styles.controlsHeaderCopy}>
+                      <View style={[styles.iconShell, { backgroundColor: theme.primaryAlpha12 }]}>
+                        <Ionicons name="albums-outline" size={18} color={theme.primary} />
+                      </View>
+                      <View style={styles.controlsHeaderText}>
+                        <Text style={styles.controlsTitle}>Patrones rápidos</Text>
+                        <Text style={styles.controlsSubtitle}>
+                          {quickPatternsExpanded
+                            ? 'Aplica una base inicial en tres pasos y luego ajusta solo donde necesites.'
+                            : 'Configura un patrón base en 3 pasos.'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.controlsHeaderAction}>
+                      {!isMobile ? (
+                        <Text style={styles.controlsHeaderActionText}>
+                          {quickPatternsExpanded ? 'Ocultar' : 'Abrir'}
+                        </Text>
+                      ) : null}
+                      <Ionicons
+                        name={quickPatternsExpanded ? 'chevron-up' : 'chevron-down'}
+                        size={18}
+                        color={theme.textSecondary}
+                      />
+                    </View>
+                  </AnimatedPressable>
+                  {quickPatternsExpanded ? (
+                    <View style={styles.quickFlow}>
+                      <View style={styles.quickStep}>
+                        <View style={styles.quickStepHeader}>
+                          <View style={styles.quickStepBadge}>
+                            <Text style={styles.quickStepBadgeText}>1</Text>
+                          </View>
+                          <View style={styles.quickStepCopy}>
+                            <Text style={styles.quickStepTitle}>Elegir horario</Text>
+                            <Text style={styles.quickStepText}>Selecciona el rango base que quieres replicar.</Text>
+                          </View>
+                        </View>
+                        <View style={styles.quickPresetGrid}>
+                          {QUICK_PRESETS.map((preset) => {
+                            const isSelected = selectedPresetId === preset.id;
+                            return (
+                              <AnimatedPressable
+                                key={preset.id}
+                                style={[styles.quickPresetOption, isSelected && styles.quickPresetOptionActive]}
+                                onPress={() => setSelectedPresetId(preset.id)}
+                                hoverLift={false}
+                                accessibilityLabel={`Elegir patrón ${preset.label}`}
+                              >
+                                <View style={[styles.quickPresetIcon, isSelected && styles.quickPresetIconActive]}>
+                                  <Ionicons name={preset.icon} size={18} color={isSelected ? theme.textOnPrimary : theme.primary} />
+                                </View>
+                                <View style={styles.quickPresetCopy}>
+                                  <Text style={[styles.quickPresetLabel, isSelected && styles.quickPresetLabelActive]}>{preset.label}</Text>
+                                  <Text style={[styles.quickPresetRange, isSelected && styles.quickPresetRangeActive]}>
+                                    {formatPresetRange(preset)}
+                                  </Text>
+                                  <Text style={[styles.quickPresetDescription, isSelected && styles.quickPresetDescriptionActive]}>
+                                    {preset.description}
+                                  </Text>
+                                </View>
+                              </AnimatedPressable>
+                            );
+                          })}
+                        </View>
+                      </View>
+
+                      <View style={styles.quickStep}>
+                        <View style={styles.quickStepHeader}>
+                          <View style={styles.quickStepBadge}>
+                            <Text style={styles.quickStepBadgeText}>2</Text>
+                          </View>
+                          <View style={styles.quickStepCopy}>
+                            <Text style={styles.quickStepTitle}>Seleccionar días destino</Text>
+                            <Text style={styles.quickStepText}>Puedes incluir días sin horario; se activarán al aplicar.</Text>
+                          </View>
+                        </View>
+                        <View style={styles.quickDaysHeader}>
+                          <Text style={styles.quickDaysHint}>{selectedPresetDays.length} de {DAYS.length} días seleccionados</Text>
+                          <AnimatedPressable
+                            style={[styles.quickSelectAllButton, allPresetDaysSelected && styles.quickSelectAllButtonActive]}
+                            onPress={toggleAllPresetDays}
+                            hoverLift={false}
+                            accessibilityLabel="Seleccionar todos los días para patrón"
+                          >
+                            <Ionicons
+                              name={allPresetDaysSelected ? 'checkbox-outline' : 'square-outline'}
+                              size={16}
+                              color={allPresetDaysSelected ? theme.primary : theme.textSecondary}
+                            />
+                            <Text style={[styles.quickSelectAllText, allPresetDaysSelected && styles.quickSelectAllTextActive]}>
+                              {allPresetDaysSelected ? 'Quitar todos' : 'Seleccionar todos'}
+                            </Text>
+                          </AnimatedPressable>
+                        </View>
+                        <View style={styles.quickDaysGrid}>
+                          {DAYS.map((day) => {
+                            const isSelected = selectedPresetDaysSet.has(day.name);
+                            const isEnabled = enabledDays[day.name];
+                            return (
+                              <AnimatedPressable
+                                key={day.name}
+                                style={[
+                                  styles.quickDayChip,
+                                  !isEnabled && styles.quickDayChipInactive,
+                                  isSelected && styles.quickDayChipActive,
+                                ]}
+                                onPress={() => togglePresetDay(day.name)}
+                                hoverLift={false}
+                                accessibilityLabel={`Seleccionar ${day.label} para patrón`}
+                              >
+                                <Text style={[styles.quickDayText, isSelected && styles.quickDayTextActive]}>
+                                  {isMobile ? day.shortLabel : day.label}
+                                </Text>
+                                {!isEnabled ? <Text style={[styles.quickDayState, isSelected && styles.quickDayStateActive]}>Sin horario</Text> : null}
+                              </AnimatedPressable>
+                            );
+                          })}
+                        </View>
+                      </View>
+
+                      <View style={styles.quickStep}>
+                        <View style={styles.quickStepHeader}>
+                          <View style={styles.quickStepBadge}>
+                            <Text style={styles.quickStepBadgeText}>3</Text>
+                          </View>
+                          <View style={styles.quickStepCopy}>
+                            <Text style={styles.quickStepTitle}>Confirmar</Text>
+                            <Text style={styles.quickStepText}>Revisa el resumen antes de modificar la semana.</Text>
+                          </View>
+                        </View>
+                        <View style={styles.quickConfirmPanel}>
+                          <View style={styles.quickSummaryIcon}>
+                            <Ionicons name="checkmark-done-outline" size={18} color={canApplySelectedPreset ? theme.primary : theme.textMuted} />
+                          </View>
+                          <View style={styles.quickSummaryCopy}>
+                            <Text style={styles.quickSummaryLabel}>Resumen</Text>
+                            <Text style={styles.quickSummaryText}>{presetSummaryText}</Text>
+                          </View>
+                          <View style={styles.quickApplyWrap}>
+                            <Button
+                              variant="primary"
+                              size="medium"
+                              onPress={applySelectedPreset}
+                              disabled={!canApplySelectedPreset}
+                              icon={<Ionicons name="flash-outline" size={17} color={canApplySelectedPreset ? theme.textOnPrimary : theme.textMuted} />}
+                              fullWidth
+                            >
+                              Aplicar
+                            </Button>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  ) : null}
+                </Card>
+              </TourTarget>
 
           <Card variant="default" padding="none" style={styles.gridCard}>
             <TourTarget id="professional.availability.weekly-grid" fill style={styles.fullWidthTourTarget}>
               <View style={styles.gridIntro}>
                 <Text style={styles.gridTitle}>Disponibilidad semanal</Text>
-                <Text style={styles.gridSubtitle}>Activa días y pulsa en las franjas para marcar cuándo ofreces sesiones.</Text>
+                <Text style={styles.gridSubtitle}>Activa días y pulsa en las franjas para ajustar el tramo continuo en el que ofreces sesiones.</Text>
+                {rangeNoticeVisible ? (
+                  <View style={styles.rangeNotice}>
+                    <Ionicons name="information-circle-outline" size={16} color={theme.warning} />
+                    <Text style={styles.rangeNoticeText}>
+                      Cada día guarda un único tramo continuo. Ajusta el inicio o el final desde los extremos.
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             </TourTarget>
             <View style={styles.gridHeader}>
               <View style={styles.timeCol} />
               {DAYS.map((day) => (
-                <AnimatedPressable key={day.name} style={styles.dayCol} onPress={() => toggleDayEnabled(day.name)} hoverLift={false}>
+                <AnimatedPressable
+                  key={day.name}
+                  style={styles.dayCol}
+                  onPress={() => toggleDayEnabled(day.name)}
+                  hoverLift={false}
+                  accessibilityLabel={`${enabledDays[day.name] ? 'Desactivar' : 'Activar'} ${day.label}`}
+                >
                   <View style={[styles.dayCheck, enabledDays[day.name] && styles.dayCheckActive]}>
                     {enabledDays[day.name] ? <Ionicons name="checkmark" size={10} color={theme.textOnPrimary} /> : null}
                   </View>
@@ -728,6 +1045,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
                         disabled={!isEnabled}
                         hoverLift={false}
                         pressScale={0.99}
+                        accessibilityLabel={`${day.label} ${slot.label}`}
                       >
                         <View style={styles.slotCellFiller} />
                       </AnimatedPressable>
@@ -861,7 +1179,12 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
                       </View>
                     </View>
 
-                    <View style={styles.previewSlots}>
+                    <ScrollView
+                      style={styles.previewSlotsScroll}
+                      contentContainerStyle={styles.previewSlots}
+                      nestedScrollEnabled
+                      showsVerticalScrollIndicator={previewSlots.length > 12}
+                    >
                       {previewSlots.length > 0 ? (
                         previewSlots.map((slot) => (
                           <View key={slot.label} style={styles.previewSlot}>
@@ -869,9 +1192,9 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
                           </View>
                         ))
                       ) : (
-                        <Text style={styles.emptyText}>Todavía no hay horarios disponibles en lunes.</Text>
+                        <Text style={styles.emptyText}>Todavía no hay horarios disponibles para el {previewDayLabel}.</Text>
                       )}
-                    </View>
+                    </ScrollView>
                   </View>
 
                   <View style={styles.previewInfoCard}>
@@ -969,31 +1292,184 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     rightColumn: { flex: 0.38, alignSelf: 'flex-start' },
     rightColumnContent: { padding: spacing.lg, paddingBottom: 120 },
     controlsCard: { borderWidth: 1, borderColor: theme.border },
-    controlsHeader: { marginBottom: spacing.md },
+    controlsHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.md,
+      minHeight: 48,
+    },
+    controlsHeaderExpanded: { marginBottom: spacing.md },
+    controlsHeaderCopy: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    controlsHeaderText: { flex: 1, minWidth: 0 },
     controlsTitle: { fontSize: 16, fontWeight: '700', color: theme.textPrimary, fontFamily: theme.fontHeading },
     controlsSubtitle: { marginTop: 4, fontSize: 13, lineHeight: 18, color: theme.textSecondary, fontFamily: theme.fontSans },
-    presetsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-    presetBtn: {
-      paddingVertical: 10,
-      paddingHorizontal: 14,
+    controlsHeaderAction: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: isMobile ? 8 : 10,
       borderRadius: borderRadius.md,
       backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
       borderWidth: 1,
-      borderColor: theme.border,
+      borderColor: theme.borderLight,
     },
-    presetBtnText: { fontSize: 13, fontWeight: '600', color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
-    copyBtn: {
+    controlsHeaderActionText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.textSecondary,
+      fontFamily: theme.fontSansBold,
+    },
+    quickFlow: { gap: isMobile ? spacing.md : spacing.lg },
+    quickStep: { gap: spacing.sm },
+    quickStepHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+    },
+    quickStepBadge: {
+      width: 28,
+      height: 28,
+      borderRadius: borderRadius.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.primaryAlpha12,
+      borderWidth: 1,
+      borderColor: theme.primaryAlpha20,
+    },
+    quickStepBadgeText: { fontSize: 12, fontWeight: '800', color: theme.primary, fontFamily: theme.fontSansBold },
+    quickStepCopy: { flex: 1, gap: 2 },
+    quickStepTitle: { fontSize: 13, fontWeight: '800', color: theme.textPrimary, fontFamily: theme.fontSansBold },
+    quickStepText: { fontSize: 12, lineHeight: 17, color: theme.textSecondary, fontFamily: theme.fontSans },
+    quickPresetGrid: {
+      flexDirection: isMobile ? 'column' : 'row',
+      gap: spacing.sm,
+    },
+    quickPresetOption: {
+      flex: isMobile ? 0 : 1,
+      minWidth: isMobile ? undefined : 0,
+      alignSelf: 'stretch',
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
+      gap: spacing.sm,
+      padding: spacing.md,
       borderRadius: borderRadius.md,
       borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    },
+    quickPresetOptionActive: {
       borderColor: theme.primary,
       backgroundColor: theme.primaryAlpha12,
     },
-    copyBtnText: { fontSize: 13, fontWeight: '600', color: theme.primary, fontFamily: theme.fontSansSemiBold },
+    quickPresetIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.primaryAlpha12,
+    },
+    quickPresetIconActive: {
+      backgroundColor: theme.primary,
+    },
+    quickPresetCopy: { flex: 1, minWidth: 0 },
+    quickPresetLabel: { fontSize: 14, fontWeight: '800', color: theme.textPrimary, fontFamily: theme.fontSansBold },
+    quickPresetLabelActive: { color: theme.primary },
+    quickPresetRange: { marginTop: 2, fontSize: 13, fontWeight: '700', color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
+    quickPresetRangeActive: { color: theme.primary },
+    quickPresetDescription: { marginTop: 2, fontSize: 11, lineHeight: 15, color: theme.textMuted, fontFamily: theme.fontSans },
+    quickPresetDescriptionActive: { color: theme.textSecondary },
+    quickDaysHeader: {
+      flexDirection: isMobile ? 'column' : 'row',
+      alignItems: isMobile ? 'stretch' : 'center',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+    },
+    quickDaysHint: { flex: 1, fontSize: 12, color: theme.textSecondary, fontFamily: theme.fontSans },
+    quickSelectAllButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      alignSelf: isMobile ? 'stretch' : 'flex-start',
+      gap: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    },
+    quickSelectAllButtonActive: {
+      borderColor: theme.primary,
+      backgroundColor: theme.primaryAlpha12,
+    },
+    quickSelectAllText: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, fontFamily: theme.fontSansBold },
+    quickSelectAllTextActive: { color: theme.primary },
+    quickDaysGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    quickDayChip: {
+      minWidth: isMobile ? 76 : 96,
+      minHeight: 46,
+      paddingVertical: 9,
+      paddingHorizontal: 12,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.bgCard,
+    },
+    quickDayChipInactive: {
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+      borderColor: theme.borderLight,
+    },
+    quickDayChipActive: {
+      borderColor: theme.primary,
+      backgroundColor: theme.primaryAlpha12,
+    },
+    quickDayText: { fontSize: 13, fontWeight: '800', color: theme.textPrimary, fontFamily: theme.fontSansBold },
+    quickDayTextActive: { color: theme.primary },
+    quickDayState: { marginTop: 2, fontSize: 10, fontWeight: '600', color: theme.textMuted, fontFamily: theme.fontSansSemiBold },
+    quickDayStateActive: { color: theme.primary },
+    quickConfirmPanel: {
+      flexDirection: isMobile ? 'column' : 'row',
+      alignItems: isMobile ? 'stretch' : 'center',
+      gap: spacing.md,
+      padding: spacing.md,
+      borderRadius: borderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    },
+    quickSummaryIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: borderRadius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.bgCard,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+    },
+    quickSummaryCopy: { flex: 1, minWidth: 0, gap: 2 },
+    quickSummaryLabel: { fontSize: 11, fontWeight: '800', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: 0.4, fontFamily: theme.fontSansBold },
+    quickSummaryText: { fontSize: 13, lineHeight: 18, color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
+    quickApplyWrap: {
+      minWidth: isMobile ? 0 : 132,
+      alignSelf: isMobile ? 'stretch' : 'center',
+    },
     gridCard: { overflow: 'hidden', borderWidth: 1, borderColor: theme.border },
     gridIntro: {
       paddingHorizontal: spacing.lg,
@@ -1005,6 +1481,25 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     gridTitle: { fontSize: 17, fontWeight: '700', color: theme.textPrimary, fontFamily: theme.fontHeading },
     gridSubtitle: { marginTop: 4, fontSize: 13, lineHeight: 18, color: theme.textSecondary, fontFamily: theme.fontSans },
+    rangeNotice: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      marginTop: spacing.sm,
+      paddingVertical: 9,
+      paddingHorizontal: 10,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.warning,
+      backgroundColor: theme.warningBg,
+    },
+    rangeNoticeText: {
+      flex: 1,
+      fontSize: 12,
+      lineHeight: 17,
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+    },
     gridHeader: {
       flexDirection: 'row',
       backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
@@ -1328,7 +1823,10 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     previewInfoCopy: { flex: 1, gap: 2 },
     previewInfoTitle: { fontSize: 14, fontWeight: '700', color: theme.textPrimary, fontFamily: theme.fontSansBold },
     previewInfoText: { fontSize: 12, lineHeight: 17, color: theme.textSecondary, fontFamily: theme.fontSans },
-    previewSlots: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+    previewSlotsScroll: {
+      maxHeight: isMobile ? 156 : 220,
+    },
+    previewSlots: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, paddingRight: spacing.xs },
     previewSlot: {
       paddingVertical: 8,
       paddingHorizontal: 14,

@@ -143,14 +143,14 @@ export const PROFESSIONAL_TOUR_DEFINITIONS: Record<
         id: 'presets',
         targetId: 'professional.availability.presets',
         title: 'Empieza con patrones',
-        body: 'Aplica una base de mañana, tarde o jornada completa y después ajusta solo lo necesario.',
+        body: 'Elige horario, selecciona días destino y aplica una base antes de ajustar solo lo necesario.',
         placement: 'bottom',
       },
       {
         id: 'weekly-grid',
         targetId: 'professional.availability.weekly-grid',
-        title: 'Marca tus huecos reales',
-        body: 'Activa días y pulsa franjas para decidir cuándo pueden reservarte los pacientes.',
+        title: 'Ajusta tu tramo semanal',
+        body: 'Activa días y ajusta un tramo continuo para decidir cuándo pueden reservarte los pacientes.',
         placement: 'bottom',
       },
       {
