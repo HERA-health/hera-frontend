@@ -1,0 +1,111 @@
+import React from 'react';
+import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { spacing, borderRadius, typography } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
+import {
+  getPasswordRequirementStatuses,
+  type PasswordRequirementKey,
+} from '../../utils/validation';
+
+interface PasswordRequirementsChecklistProps {
+  password: string;
+  containerStyle?: StyleProp<ViewStyle>;
+  showWhenEmpty?: boolean;
+}
+
+const compactRequirementLabels: Record<PasswordRequirementKey, string> = {
+  minLength: '8 caracteres',
+  uppercase: '1 mayúscula',
+  lowercase: '1 minúscula',
+  number: '1 número',
+  symbol: '1 símbolo',
+};
+
+export function PasswordRequirementsChecklist({
+  password,
+  containerStyle,
+  showWhenEmpty = true,
+}: PasswordRequirementsChecklistProps): React.ReactElement | null {
+  const { theme } = useTheme();
+  const requirements = getPasswordRequirementStatuses(password);
+
+  if (!showWhenEmpty && password.length === 0) {
+    return null;
+  }
+
+  return (
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.bgMuted,
+          borderColor: theme.borderLight,
+        },
+        containerStyle,
+      ]}
+    >
+      <View style={styles.content}>
+        <Text style={[styles.title, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]}>
+          Debe incluir:
+        </Text>
+        {requirements.map((requirement) => {
+          const iconColor = requirement.met ? theme.success : theme.error;
+
+          return (
+            <View key={requirement.key} style={styles.requirementItem}>
+              <Ionicons
+                name={requirement.met ? 'checkmark-circle' : 'close-circle'}
+                size={13}
+                color={iconColor}
+              />
+              <Text
+                style={[
+                  styles.requirementText,
+                  {
+                    color: iconColor,
+                    fontFamily: theme.fontSansSemiBold,
+                  },
+                ]}
+              >
+                {compactRequirementLabels[requirement.key]}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    borderWidth: 1,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  content: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: spacing.sm,
+    rowGap: spacing.xs,
+  },
+  title: {
+    fontSize: typography.fontSizes.xs,
+    lineHeight: 16,
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  requirementText: {
+    flexShrink: 1,
+    fontSize: 11,
+    lineHeight: 14,
+  },
+});

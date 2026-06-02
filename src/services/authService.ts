@@ -6,6 +6,7 @@ import { clearPersistedClinicalAccessSession } from './secureSessionStorage';
 import { Platform } from 'react-native';
 import type { LegalDocumentKey } from '../constants/legal';
 import type { LegalAcceptanceStatus } from './legalService';
+import { PASSWORD_REQUIREMENTS_MESSAGE } from '../utils/validation';
 
 export type BackendUserType = 'CLIENT' | 'PROFESSIONAL' | 'CLINIC';
 export type PublicAuthUserType = BackendUserType;
@@ -614,7 +615,7 @@ export const resetPassword = async (
           errorMessage = 'Este enlace ya ha sido utilizado';
           break;
         case 'WEAK_PASSWORD':
-          errorMessage = 'La contraseña no cumple con los requisitos mínimos';
+          errorMessage = PASSWORD_REQUIREMENTS_MESSAGE;
           break;
         default:
           errorMessage = getErrorMessage(error, errorMessage);

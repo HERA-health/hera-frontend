@@ -18,24 +18,24 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { SuccessScreen } from '../../components/auth';
+import { PasswordRequirementsChecklist, SuccessScreen } from '../../components/auth';
 import * as authService from '../../services/authService';
 import {
   validatePassword,
   validatePasswordMatch,
-  calculatePasswordStrength,
   getPasswordError,
   getPasswordMatchError,
 } from '../../utils/validation';
 import { heraLanding, spacing, borderRadius, shadows } from '../../constants/colors';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
-import type { PasswordStrength } from '../../types/auth';
+import { useTheme } from '../../contexts/ThemeContext';
 
 type ScreenState = 'loading' | 'form' | 'success' | 'error';
 
 export function ResetPasswordScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<AppRouteProp<'ResetPassword'>>();
+  const { theme } = useTheme();
 
   const { token } = route.params;
 
@@ -59,7 +59,6 @@ export function ResetPasswordScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   // Password validation state
-  const passwordStrength: PasswordStrength = calculatePasswordStrength(password);
   const isPasswordValid = validatePassword(password);
   const passwordsMatch = confirmPassword.length > 0 && validatePasswordMatch(password, confirmPassword);
   const passwordsDontMatch = confirmPassword.length > 0 && !validatePasswordMatch(password, confirmPassword);
@@ -158,48 +157,6 @@ export function ResetPasswordScreen() {
     navigation.navigate('ForgotPassword');
   };
 
-  // Password Strength Indicator
-  const renderPasswordStrength = () => {
-    if (!password) return null;
-
-    const strengthColors = {
-      weak: heraLanding.warning,
-      medium: heraLanding.secondary,
-      strong: heraLanding.success,
-    };
-
-    const strengthLabels = {
-      weak: 'Débil',
-      medium: 'Media',
-      strong: 'Fuerte',
-    };
-
-    const strengthWidth = {
-      weak: '33%' as const,
-      medium: '66%' as const,
-      strong: '100%' as const,
-    };
-
-    return (
-      <View style={styles.strengthContainer}>
-        <View style={styles.strengthBar}>
-          <View
-            style={[
-              styles.strengthProgress,
-              {
-                width: strengthWidth[passwordStrength],
-                backgroundColor: strengthColors[passwordStrength],
-              },
-            ]}
-          />
-        </View>
-        <Text style={[styles.strengthText, { color: strengthColors[passwordStrength] }]}>
-          {strengthLabels[passwordStrength]}
-        </Text>
-      </View>
-    );
-  };
-
   // Loading state
   if (screenState === 'loading') {
     return (
@@ -281,32 +238,51 @@ export function ResetPasswordScreen() {
             <Animated.View
               style={[
                 styles.formErrorContainer,
+                { backgroundColor: theme.errorBg },
                 { transform: [{ translateX: shakeAnim }] },
               ]}
             >
-              <Ionicons name="alert-circle" size={20} color={heraLanding.warning} />
-              <Text style={styles.formErrorText}>{formError}</Text>
+              <Ionicons name="alert-circle" size={20} color={theme.error} />
+              <Text
+                style={[
+                  styles.formErrorText,
+                  { color: theme.error, fontFamily: theme.fontSansMedium },
+                ]}
+              >
+                {formError}
+              </Text>
             </Animated.View>
           )}
 
           {/* Password Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Nueva contraseña</Text>
+            <Text
+              style={[
+                styles.inputLabel,
+                { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
+              ]}
+            >
+              Nueva contraseña
+            </Text>
             <View
               style={[
                 styles.inputContainer,
-                passwordFocused && styles.inputContainerFocused,
+                passwordFocused ? { ...shadows.sm, shadowColor: theme.shadowPrimary } : null,
+                {
+                  backgroundColor: theme.bgCard,
+                  borderColor: passwordFocused ? theme.focus : theme.border,
+                },
               ]}
             >
               <Ionicons
                 name="lock-closed-outline"
                 size={20}
-                color={passwordFocused ? heraLanding.primary : heraLanding.textMuted}
+                color={passwordFocused ? theme.focus : theme.textMuted}
               />
               <TextInput
-                style={styles.input}
-                placeholder="Mínimo 8 caracteres"
-                placeholderTextColor={heraLanding.textMuted}
+                style={[styles.input, { color: theme.textPrimary, fontFamily: theme.fontSans }]}
+                placeholder="Crea una contraseña segura"
+                placeholderTextColor={theme.textMuted}
                 value={password}
                 onChangeText={setPassword}
                 onFocus={() => setPasswordFocused(true)}
@@ -322,22 +298,37 @@ export function ResetPasswordScreen() {
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
-                  color={heraLanding.textMuted}
+                  color={theme.textMuted}
                 />
               </TouchableOpacity>
             </View>
-            {renderPasswordStrength()}
+            <PasswordRequirementsChecklist password={password} />
           </View>
 
           {/* Confirm Password Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Confirmar contraseña</Text>
+            <Text
+              style={[
+                styles.inputLabel,
+                { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
+              ]}
+            >
+              Confirmar contraseña
+            </Text>
             <View
               style={[
                 styles.inputContainer,
-                confirmPasswordFocused && styles.inputContainerFocused,
-                passwordsMatch && styles.inputContainerSuccess,
-                passwordsDontMatch && styles.inputContainerError,
+                confirmPasswordFocused ? { ...shadows.sm, shadowColor: theme.shadowPrimary } : null,
+                {
+                  backgroundColor: theme.bgCard,
+                  borderColor: passwordsMatch
+                    ? theme.success
+                    : passwordsDontMatch
+                    ? theme.error
+                    : confirmPasswordFocused
+                    ? theme.focus
+                    : theme.border,
+                },
               ]}
             >
               <Ionicons
@@ -345,18 +336,18 @@ export function ResetPasswordScreen() {
                 size={20}
                 color={
                   passwordsMatch
-                    ? heraLanding.success
+                    ? theme.success
                     : passwordsDontMatch
-                    ? heraLanding.warning
+                    ? theme.error
                     : confirmPasswordFocused
-                    ? heraLanding.primary
-                    : heraLanding.textMuted
+                    ? theme.focus
+                    : theme.textMuted
                 }
               />
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: theme.textPrimary, fontFamily: theme.fontSans }]}
                 placeholder="Repite tu contraseña"
-                placeholderTextColor={heraLanding.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 onFocus={() => setConfirmPasswordFocused(true)}
@@ -366,10 +357,10 @@ export function ResetPasswordScreen() {
                 autoCapitalize="none"
               />
               {passwordsMatch && (
-                <Ionicons name="checkmark-circle" size={20} color={heraLanding.success} />
+                <Ionicons name="checkmark-circle" size={20} color={theme.success} />
               )}
               {passwordsDontMatch && (
-                <Ionicons name="close-circle" size={20} color={heraLanding.warning} />
+                <Ionicons name="close-circle" size={20} color={theme.error} />
               )}
               <TouchableOpacity
                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -378,12 +369,19 @@ export function ResetPasswordScreen() {
                 <Ionicons
                   name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
-                  color={heraLanding.textMuted}
+                  color={theme.textMuted}
                 />
               </TouchableOpacity>
             </View>
             {passwordsDontMatch && (
-              <Text style={styles.matchErrorText}>Las contraseñas no coinciden</Text>
+              <Text
+                style={[
+                  styles.matchErrorText,
+                  { color: theme.error, fontFamily: theme.fontSansMedium },
+                ]}
+              >
+                Las contraseñas no coinciden
+              </Text>
             )}
           </View>
 
@@ -391,6 +389,10 @@ export function ResetPasswordScreen() {
           <TouchableOpacity
             style={[
               styles.submitButton,
+              {
+                backgroundColor: canSubmit ? theme.primary : theme.borderStrong,
+                shadowColor: theme.shadowPrimary,
+              },
               !canSubmit && styles.submitButtonDisabled,
             ]}
             onPress={handleSubmit}
@@ -398,11 +400,18 @@ export function ResetPasswordScreen() {
             activeOpacity={0.85}
           >
             {isSubmitting ? (
-              <ActivityIndicator size="small" color={heraLanding.textOnPrimary} />
+              <ActivityIndicator size="small" color={theme.textOnPrimary} />
             ) : (
               <>
-                <Text style={styles.submitButtonText}>Restablecer contraseña</Text>
-                <Ionicons name="checkmark-circle-outline" size={20} color={heraLanding.textOnPrimary} />
+                <Text
+                  style={[
+                    styles.submitButtonText,
+                    { color: theme.textOnPrimary, fontFamily: theme.fontSansBold },
+                  ]}
+                >
+                  Restablecer contraseña
+                </Text>
+                <Ionicons name="checkmark-circle-outline" size={20} color={theme.textOnPrimary} />
               </>
             )}
           </TouchableOpacity>
@@ -540,7 +549,6 @@ const styles = StyleSheet.create({
   formErrorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: heraLanding.warningLight,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginBottom: spacing.lg,
@@ -549,7 +557,6 @@ const styles = StyleSheet.create({
   formErrorText: {
     flex: 1,
     fontSize: 14,
-    color: heraLanding.warning,
     fontWeight: '500',
   },
 
@@ -560,33 +567,19 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: heraLanding.textPrimary,
     marginBottom: spacing.xs,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: heraLanding.cardBg,
     borderWidth: 2,
-    borderColor: heraLanding.border,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     height: 52,
   },
-  inputContainerFocused: {
-    borderColor: heraLanding.primary,
-    ...shadows.sm,
-  },
-  inputContainerSuccess: {
-    borderColor: heraLanding.success,
-  },
-  inputContainerError: {
-    borderColor: heraLanding.warning,
-  },
   input: {
     flex: 1,
     fontSize: 16,
-    color: heraLanding.textPrimary,
     marginLeft: spacing.sm,
     paddingVertical: 0,
   },
@@ -595,34 +588,9 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
 
-  // Password Strength
-  strengthContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.xs,
-    gap: spacing.sm,
-  },
-  strengthBar: {
-    flex: 1,
-    height: 4,
-    backgroundColor: heraLanding.border,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  strengthProgress: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  strengthText: {
-    fontSize: 12,
-    fontWeight: '600',
-    minWidth: 50,
-  },
-
   // Match Error
   matchErrorText: {
     fontSize: 13,
-    color: heraLanding.warning,
     marginTop: spacing.xs,
     fontWeight: '500',
   },
@@ -632,7 +600,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: heraLanding.primary,
     paddingVertical: spacing.md,
     borderRadius: borderRadius.lg,
     gap: spacing.sm,
@@ -640,13 +607,11 @@ const styles = StyleSheet.create({
     ...shadows.md,
   },
   submitButtonDisabled: {
-    backgroundColor: heraLanding.textMuted,
     opacity: 0.6,
   },
   submitButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: heraLanding.textOnPrimary,
   },
 
   // Back Link

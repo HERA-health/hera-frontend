@@ -93,7 +93,7 @@ describe('authService legal status hydration', () => {
 
     const result = await register({
       email: 'user@example.com',
-      password: 'Password1',
+      password: 'Password1!',
       name: 'User Example',
       userType: 'CLIENT',
       acceptedLegalDocumentKeys: ['TERMS_OF_SERVICE', 'PRIVACY_POLICY'],
@@ -108,7 +108,7 @@ describe('authService legal status hydration', () => {
 
     await register({
       email: 'clinic@example.com',
-      password: 'Password1',
+      password: 'Password1!',
       name: 'Admin Clinic',
       userType: 'CLINIC',
       clinicCommercialName: 'Clinica Demo',

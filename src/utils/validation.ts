@@ -48,13 +48,77 @@ export function getEmailError(email: string): string | null {
 /**
  * Password validation requirements:
  * - Minimum 8 characters
- * - At least 1 letter
+ * - At least 1 uppercase letter
+ * - At least 1 lowercase letter
  * - At least 1 number
+ * - At least 1 symbol
  */
 const PASSWORD_MIN_LENGTH = 8;
-const PASSWORD_LETTER_REGEX = /[a-zA-Z]/;
-const PASSWORD_NUMBER_REGEX = /\d/;
-const PASSWORD_SPECIAL_REGEX = /[!@#$%^&*(),.?":{}|<>]/;
+const PASSWORD_UPPERCASE_REGEX = /\p{Lu}/u;
+const PASSWORD_LOWERCASE_REGEX = /\p{Ll}/u;
+const PASSWORD_NUMBER_REGEX = /\p{N}/u;
+const PASSWORD_SYMBOL_REGEX = /[^\p{L}\p{N}\s]/u;
+
+export const PASSWORD_REQUIREMENTS_MESSAGE =
+  'La contraseña debe tener al menos 8 caracteres e incluir una mayúscula, una minúscula, un número y un símbolo';
+
+export type PasswordRequirementKey =
+  | 'minLength'
+  | 'uppercase'
+  | 'lowercase'
+  | 'number'
+  | 'symbol';
+
+export interface PasswordRequirementStatus {
+  key: PasswordRequirementKey;
+  label: string;
+  error: string;
+  met: boolean;
+}
+
+const getPasswordValue = (password: string): string =>
+  typeof password === 'string' ? password : '';
+
+export function getPasswordRequirementStatuses(password: string): PasswordRequirementStatus[] {
+  const value = getPasswordValue(password);
+
+  return [
+    {
+      key: 'minLength',
+      label: `Mínimo ${PASSWORD_MIN_LENGTH} caracteres`,
+      error: `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres`,
+      met: value.length >= PASSWORD_MIN_LENGTH,
+    },
+    {
+      key: 'uppercase',
+      label: '1 mayúscula',
+      error: 'La contraseña debe contener al menos una mayúscula',
+      met: PASSWORD_UPPERCASE_REGEX.test(value),
+    },
+    {
+      key: 'lowercase',
+      label: '1 minúscula',
+      error: 'La contraseña debe contener al menos una minúscula',
+      met: PASSWORD_LOWERCASE_REGEX.test(value),
+    },
+    {
+      key: 'number',
+      label: '1 número',
+      error: 'La contraseña debe contener al menos un número',
+      met: PASSWORD_NUMBER_REGEX.test(value),
+    },
+    {
+      key: 'symbol',
+      label: '1 símbolo',
+      error: 'La contraseña debe contener al menos un símbolo',
+      met: PASSWORD_SYMBOL_REGEX.test(value),
+    },
+  ];
+}
+
+export function getMissingPasswordRequirements(password: string): PasswordRequirementStatus[] {
+  return getPasswordRequirementStatuses(password).filter((requirement) => !requirement.met);
+}
 
 /**
  * Validates password meets minimum requirements
@@ -66,11 +130,7 @@ export function validatePassword(password: string): boolean {
     return false;
   }
 
-  return (
-    password.length >= PASSWORD_MIN_LENGTH &&
-    PASSWORD_LETTER_REGEX.test(password) &&
-    PASSWORD_NUMBER_REGEX.test(password)
-  );
+  return getMissingPasswordRequirements(password).length === 0;
 }
 
 /**
@@ -83,19 +143,7 @@ export function getPasswordError(password: string): string | null {
     return 'La contraseña es requerida';
   }
 
-  if (password.length < PASSWORD_MIN_LENGTH) {
-    return `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres`;
-  }
-
-  if (!PASSWORD_LETTER_REGEX.test(password)) {
-    return 'La contraseña debe contener al menos una letra';
-  }
-
-  if (!PASSWORD_NUMBER_REGEX.test(password)) {
-    return 'La contraseña debe contener al menos un número';
-  }
-
-  return null;
+  return getMissingPasswordRequirements(password)[0]?.error ?? null;
 }
 
 /**
@@ -112,17 +160,7 @@ export function getPasswordErrors(password: string): string[] {
     return errors;
   }
 
-  if (password.length < PASSWORD_MIN_LENGTH) {
-    errors.push(`Mínimo ${PASSWORD_MIN_LENGTH} caracteres`);
-  }
-
-  if (!PASSWORD_LETTER_REGEX.test(password)) {
-    errors.push('Al menos una letra');
-  }
-
-  if (!PASSWORD_NUMBER_REGEX.test(password)) {
-    errors.push('Al menos un número');
-  }
+  errors.push(...getMissingPasswordRequirements(password).map((requirement) => requirement.label));
 
   return errors;
 }
@@ -181,10 +219,10 @@ export function calculatePasswordStrength(password: string): PasswordStrength {
   if (password.length >= 16) score += 1;
 
   // Character diversity scoring
-  if (PASSWORD_LETTER_REGEX.test(password)) score += 1;
+  if (PASSWORD_UPPERCASE_REGEX.test(password)) score += 1;
+  if (PASSWORD_LOWERCASE_REGEX.test(password)) score += 1;
   if (PASSWORD_NUMBER_REGEX.test(password)) score += 1;
-  if (PASSWORD_SPECIAL_REGEX.test(password)) score += 1;
-  if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score += 1;
+  if (PASSWORD_SYMBOL_REGEX.test(password)) score += 1;
 
   // Map score to strength
   if (score >= 6) {

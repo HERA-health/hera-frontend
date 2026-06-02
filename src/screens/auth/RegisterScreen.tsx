@@ -13,10 +13,10 @@ import { Input } from '../../components/common/Input';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing } from '../../constants/colors';
 import { getRequiredRegistrationDocumentKeys } from '../../constants/legal';
-import { AuthSplitLayout, GoogleAuthButton } from '../../components/auth';
+import { AuthSplitLayout, GoogleAuthButton, PasswordRequirementsChecklist } from '../../components/auth';
+import { getPasswordError, validatePassword } from '../../utils/validation';
 
 type RegisterRouteParams = AppRouteProp<'Register'>;
-type PasswordStrength = 'weak' | 'medium' | 'strong';
 
 const mapRouteUserType = (
   userType: RegisterRouteParams['params']['userType']
@@ -68,32 +68,11 @@ export function RegisterScreen() {
     analyticsService.trackScreen('register');
   }, []);
 
-  const getPasswordStrength = (value: string): PasswordStrength => {
-    if (!value) return 'weak';
-
-    let score = 0;
-    if (value.length >= 8) score++;
-    if (value.length >= 12) score++;
-    if (/[A-Z]/.test(value)) score++;
-    if (/[a-z]/.test(value)) score++;
-    if (/[0-9]/.test(value)) score++;
-    if (/[^A-Za-z0-9]/.test(value)) score++;
-
-    if (score <= 2) return 'weak';
-    if (score <= 4) return 'medium';
-    return 'strong';
-  };
-
-  const passwordStrength = getPasswordStrength(password);
+  const isPasswordValid = validatePassword(password);
   const passwordsMatch = password.length > 0 && confirmPassword.length > 0 && password === confirmPassword;
   const passwordsDontMatch = confirmPassword.length > 0 && password !== confirmPassword;
+  const canSubmit = termsAccepted && isPasswordValid && passwordsMatch && !authLoading;
   const isClinic = userType === 'clinic';
-
-  const strengthMeta = {
-    weak: { label: 'Débil', color: theme.warning, width: '34%' as const },
-    medium: { label: 'Media', color: theme.warningAmber, width: '67%' as const },
-    strong: { label: 'Fuerte', color: theme.success, width: '100%' as const },
-  }[passwordStrength];
 
   const introCopy = useMemo(() => {
     if (userType === 'clinic') {
@@ -184,8 +163,9 @@ export function RegisterScreen() {
       return;
     }
 
-    if (password.length < 8) {
-      setLocalError('La contraseña debe tener al menos 8 caracteres.');
+    const passwordError = getPasswordError(password);
+    if (passwordError) {
+      setLocalError(passwordError);
       return;
     }
 
@@ -545,7 +525,7 @@ export function RegisterScreen() {
 
           <Input
             label="Contraseña"
-            placeholder="Mínimo 8 caracteres"
+            placeholder="Crea una contraseña segura"
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
@@ -567,22 +547,7 @@ export function RegisterScreen() {
             )}
           />
 
-          <View style={styles.strengthRow}>
-            <View style={[styles.strengthTrack, { backgroundColor: theme.borderLight }]}>
-              <View
-                style={[
-                  styles.strengthFill,
-                  {
-                    width: strengthMeta.width,
-                    backgroundColor: strengthMeta.color,
-                  },
-                ]}
-              />
-            </View>
-            <Text style={[styles.strengthText, { color: strengthMeta.color, fontFamily: theme.fontSansSemiBold }]}>
-              {strengthMeta.label}
-            </Text>
-          </View>
+          <PasswordRequirementsChecklist password={password} />
 
           <Input
             label="Confirmar contraseña"
@@ -622,8 +587,8 @@ export function RegisterScreen() {
             size="large"
             fullWidth
             loading={authLoading}
-            disabled={!termsAccepted}
-            icon={<Ionicons name="arrow-forward" size={18} color="#FFFFFF" />}
+            disabled={!canSubmit}
+            icon={<Ionicons name="arrow-forward" size={18} color={theme.textOnPrimary} />}
             iconPosition="right"
             textStyle={{ fontFamily: theme.fontSansBold }}
           >
@@ -731,27 +696,6 @@ const styles = StyleSheet.create({
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  strengthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: -6,
-    marginBottom: spacing.md,
-  },
-  strengthTrack: {
-    flex: 1,
-    height: 5,
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  strengthFill: {
-    height: '100%',
-    borderRadius: 999,
-  },
-  strengthText: {
-    fontSize: 12,
-    minWidth: 46,
   },
   termsRow: {
     flexDirection: 'row',
