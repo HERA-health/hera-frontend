@@ -1,5 +1,19 @@
 import { api } from './api';
 import { getErrorMessage } from '../constants/errors';
+import type {
+  AvailabilityAbsenceReason,
+  AvailabilityExceptionRangeImpact,
+  AvailabilityExceptionRangeResult,
+  RemoveAvailabilityExceptionRangeResult,
+} from './availabilityContracts';
+
+export {
+  AVAILABILITY_ABSENCE_REASONS,
+  type AvailabilityAbsenceReason,
+  type AvailabilityExceptionRangeImpact,
+  type AvailabilityExceptionRangeResult,
+  type RemoveAvailabilityExceptionRangeResult,
+} from './availabilityContracts';
 
 /**
  * Day schedule interface
@@ -29,7 +43,7 @@ export interface AvailabilityException {
   id: string;
   specialistId: string;
   date: string; // ISO date string
-  reason?: string;
+  reason?: string | null;
   isAvailable: boolean;
   startTime?: string;
   endTime?: string;
@@ -104,6 +118,55 @@ export const addException = async (
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo agregar la excepción'));
+  }
+};
+
+export const getExceptionRangeImpact = async (
+  startDate: string,
+  endDate: string
+): Promise<AvailabilityExceptionRangeImpact> => {
+  try {
+    const params = new URLSearchParams({ startDate, endDate });
+    const response = await api.get(`/availability/exceptions/range-impact?${params.toString()}`);
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo comprobar el impacto del periodo'));
+  }
+};
+
+export const addExceptionRange = async (
+  startDate: string,
+  endDate: string,
+  reason: AvailabilityAbsenceReason
+): Promise<AvailabilityExceptionRangeResult> => {
+  try {
+    const response = await api.post('/availability/exceptions/range', {
+      startDate,
+      endDate,
+      reason,
+    });
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo bloquear el periodo'));
+  }
+};
+
+export const removeExceptionRange = async (
+  startDate: string,
+  endDate: string,
+  reason: string | null
+): Promise<RemoveAvailabilityExceptionRangeResult> => {
+  try {
+    const response = await api.delete('/availability/exceptions/range', {
+      data: {
+        startDate,
+        endDate,
+        reason,
+      },
+    });
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo eliminar el periodo'));
   }
 };
 

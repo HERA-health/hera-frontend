@@ -1,6 +1,6 @@
 import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { borderRadius, layout, shadows, spacing } from '../../constants/colors';
@@ -17,6 +17,21 @@ import {
   useProfessionalTourStepPreparation,
 } from '../../components/onboarding/professionalTourContext';
 import { useProfessionalTourScrollPreparation } from '../../components/onboarding/useProfessionalTourScrollPreparation';
+import {
+  type AvailabilityExceptionPeriod,
+  formatExceptionPeriodDateRange,
+  getDateKeysInRange,
+  groupAvailabilityExceptionPeriods,
+  getTodayDateKey,
+  sortAvailabilityExceptionPeriodsForSidebar,
+} from './utils/availabilityExceptionRanges';
+import {
+  AVAILABILITY_EXCEPTION_TYPES,
+  type AvailabilityExceptionTypeId,
+} from './utils/availabilityExceptionTypes';
+import { ExceptionPeriodsCard } from './components/availability/ExceptionPeriodsCard';
+import { ExceptionRangeModal } from './components/availability/ExceptionRangeModal';
+import { useExceptionRangeDraft } from './components/availability/useExceptionRangeDraft';
 
 type Props = ScreenProps<'ProfessionalAvailability'>;
 type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
@@ -26,7 +41,16 @@ interface SlotState { available: boolean; isBreak: boolean; }
 type DaySlots = Record<string, SlotState>;
 type WeeklySlots = Record<DayOfWeek, DaySlots>;
 type EnabledDays = Record<DayOfWeek, boolean>;
-type CalendarMarkedDates = Record<string, { marked?: boolean; dotColor?: string; selected?: boolean; selectedColor?: string }>;
+type CalendarMarkedDates = Record<string, {
+  marked?: boolean;
+  dotColor?: string;
+  selected?: boolean;
+  selectedColor?: string;
+  color?: string;
+  textColor?: string;
+  startingDay?: boolean;
+  endingDay?: boolean;
+}>;
 type QuickPresetId = 'morning' | 'afternoon' | 'full';
 interface TimeRange { start: string; end: string; }
 interface QuickPreset extends TimeRange {
@@ -35,8 +59,6 @@ interface QuickPreset extends TimeRange {
   description: string;
   icon: keyof typeof Ionicons.glyphMap;
 }
-interface ExceptionType { id: string; label: string; icon: keyof typeof Ionicons.glyphMap; tone: 'primary' | 'secondary' | 'warning' | 'muted'; }
-
 const DAYS: DayConfig[] = [
   { name: 'monday', label: 'Lunes', shortLabel: 'Lun' },
   { name: 'tuesday', label: 'Martes', shortLabel: 'Mar' },
@@ -55,14 +77,6 @@ for (let hour = AVAILABILITY_START_HOUR; hour < AVAILABILITY_END_HOUR; hour += 1
   TIME_SLOTS.push({ hour, minute: 0, label: `${hour.toString().padStart(2, '0')}:00` });
   TIME_SLOTS.push({ hour, minute: 30, label: `${hour.toString().padStart(2, '0')}:30` });
 }
-
-const EXCEPTION_TYPES: ExceptionType[] = [
-  { id: 'vacation', label: 'Vacaciones', icon: 'airplane-outline', tone: 'primary' },
-  { id: 'conference', label: 'Conferencia', icon: 'school-outline', tone: 'secondary' },
-  { id: 'personal', label: 'Personal', icon: 'person-outline', tone: 'warning' },
-  { id: 'holiday', label: 'Festivo', icon: 'calendar-outline', tone: 'warning' },
-  { id: 'other', label: 'Otro', icon: 'ellipsis-horizontal-outline', tone: 'muted' },
-];
 
 const QUICK_PRESETS: QuickPreset[] = [
   { id: 'morning', label: 'Mañana', description: 'Inicio temprano', start: '08:00', end: '14:00', icon: 'sunny-outline' },
@@ -224,15 +238,6 @@ const getSettledValue = <T,>(
   throw result.reason instanceof Error ? result.reason : new Error(fallbackMessage);
 };
 
-const getExceptionToneColor = (theme: Theme, type: ExceptionType): string => {
-  switch (type.tone) {
-    case 'primary': return theme.primary;
-    case 'secondary': return theme.secondary;
-    case 'warning': return theme.warning;
-    default: return theme.textMuted;
-  }
-};
-
 const getDayNameFromDate = (dateString: string): DayOfWeek => {
   const weekday = new Date(`${dateString}T12:00:00`).getDay();
   const dayMap: Record<number, DayOfWeek> = {
@@ -322,8 +327,9 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   const [hasChanges, setHasChanges] = useState(false);
   const [showExceptionModal, setShowExceptionModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [selectedExceptionDate, setSelectedExceptionDate] = useState('');
-  const [selectedExceptionType, setSelectedExceptionType] = useState('vacation');
+  const [selectedExceptionType, setSelectedExceptionType] =
+    useState<AvailabilityExceptionTypeId>('vacation');
+  const [savingExceptionRange, setSavingExceptionRange] = useState(false);
   const [previewSelectedDate, setPreviewSelectedDate] = useState('');
   const [bufferTime, setBufferTime] = useState(15);
   const [billingConfig, setBillingConfig] = useState<FullBillingConfig | null>(null);
@@ -412,6 +418,18 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
 
     return `${selectedPreset.label} (${formatPresetRange(selectedPreset)}) -> ${selectedPresetDayLabels.join(', ')}`;
   }, [selectedPreset, selectedPresetDayLabels]);
+  const exceptionRangeDraft = useExceptionRangeDraft({
+    isOpen: showExceptionModal,
+    loadImpact: availabilityService.getExceptionRangeImpact,
+  });
+  const selectedExceptionTypeConfig = useMemo(
+    () =>
+      AVAILABILITY_EXCEPTION_TYPES.find((type) => type.id === selectedExceptionType)
+      ?? AVAILABILITY_EXCEPTION_TYPES[0],
+    [selectedExceptionType]
+  );
+  const selectedExceptionReason = selectedExceptionTypeConfig.label;
+  const canAddExceptionRange = exceptionRangeDraft.canSubmit && !savingExceptionRange;
 
   useEffect(() => { analyticsService.trackScreen('availability'); }, []);
   useEffect(() => { void loadData(); }, [loadData]);
@@ -529,6 +547,17 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     setHasChanges(true);
   }, [selectedPreset, selectedPresetDays]);
 
+  const openExceptionModal = useCallback(() => {
+    exceptionRangeDraft.reset();
+    setShowExceptionModal(true);
+  }, [exceptionRangeDraft.reset]);
+
+  const closeExceptionModal = useCallback(() => {
+    setShowExceptionModal(false);
+    setSavingExceptionRange(false);
+    exceptionRangeDraft.reset();
+  }, [exceptionRangeDraft.reset]);
+
   const handleSave = useCallback(async () => {
     const nonContinuousDays = getNonContinuousDayLabels(weeklySlots);
     if (nonContinuousDays.length > 0) {
@@ -551,38 +580,112 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     }
   }, [appAlert, bufferTime, weeklySlots]);
 
-  const handleAddException = useCallback(async () => {
-    if (!selectedExceptionDate) return;
-    try {
-      const exceptionType = EXCEPTION_TYPES.find((type) => type.id === selectedExceptionType);
-      await availabilityService.addException(selectedExceptionDate, exceptionType?.label ?? 'No disponible', false);
-      await loadData();
-      setShowExceptionModal(false);
-      setSelectedExceptionDate('');
-    } catch (error: unknown) {
-      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo añadir la excepción'));
-    }
-  }, [loadData, selectedExceptionDate, selectedExceptionType]);
+  const handleAddExceptionRange = useCallback(async () => {
+    if (!exceptionRangeDraft.selectedRange || exceptionRangeDraft.isTooLong) return;
 
-  const handleRemoveException = useCallback((date: string) => {
-    showAppAlert(appAlert, 'Eliminar excepción', '¿Quieres eliminar esta excepción?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: async () => {
-        try {
-          await availabilityService.removeException(date.split('T')[0]);
-          await loadData();
-        } catch (error: unknown) {
-          showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo eliminar la excepción'));
-        }
-      } },
-    ]);
-  }, [loadData]);
+    try {
+      setSavingExceptionRange(true);
+      await availabilityService.addExceptionRange(
+        exceptionRangeDraft.selectedRange.startDate,
+        exceptionRangeDraft.selectedRange.endDate,
+        selectedExceptionReason
+      );
+      await loadData();
+      analyticsService.track('availability_exception_range_created', {
+        dayCount: exceptionRangeDraft.dayCount,
+      });
+      closeExceptionModal();
+    } catch (error: unknown) {
+      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo bloquear el periodo'));
+    } finally {
+      setSavingExceptionRange(false);
+    }
+  }, [
+    appAlert,
+    closeExceptionModal,
+    exceptionRangeDraft.dayCount,
+    exceptionRangeDraft.isTooLong,
+    exceptionRangeDraft.selectedRange,
+    loadData,
+    selectedExceptionReason,
+  ]);
+
+  const handleRemoveExceptionPeriod = useCallback((period: AvailabilityExceptionPeriod) => {
+    const periodDateText = formatExceptionPeriodDateRange(period);
+    showAppAlert(
+      appAlert,
+      'Eliminar periodo',
+      `¿Quieres eliminar el bloqueo de ${periodDateText}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await availabilityService.removeExceptionRange(
+                period.startDate,
+                period.endDate,
+                period.deleteReason
+              );
+
+              await loadData();
+            } catch (error: unknown) {
+              showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo eliminar el periodo'));
+            }
+          },
+        },
+      ]
+    );
+  }, [appAlert, loadData]);
 
   const summary = useMemo(() => calculateWeeklySummary(weeklySlots), [weeklySlots]);
-  const markedDates = useMemo<CalendarMarkedDates>(() => exceptions.reduce<CalendarMarkedDates>((acc, exception) => {
-    acc[exception.date.split('T')[0]] = { marked: true, dotColor: theme.warning };
-    return acc;
-  }, {}), [exceptions, theme.warning]);
+  const exceptionPeriods = useMemo(
+    () => groupAvailabilityExceptionPeriods(exceptions),
+    [exceptions]
+  );
+  const sidebarExceptionPeriods = useMemo(
+    () => sortAvailabilityExceptionPeriodsForSidebar(exceptionPeriods),
+    [exceptionPeriods]
+  );
+  const exceptionCalendarMarkedDates = useMemo<CalendarMarkedDates>(() => {
+    const dates = exceptionPeriods.reduce<CalendarMarkedDates>((acc, period) => {
+      const periodDates = getDateKeysInRange(period.startDate, period.endDate);
+      periodDates.forEach((dateKey, index) => {
+        acc[dateKey] = {
+          color: theme.warningBg,
+          textColor: theme.textPrimary,
+          startingDay: index === 0,
+          endingDay: index === periodDates.length - 1,
+        };
+      });
+      return acc;
+    }, {});
+
+    if (exceptionRangeDraft.selectedRange) {
+      const selectedDates = getDateKeysInRange(
+        exceptionRangeDraft.selectedRange.startDate,
+        exceptionRangeDraft.selectedRange.endDate
+      );
+      selectedDates.forEach((dateKey, index) => {
+        dates[dateKey] = {
+          color: theme.primary,
+          textColor: theme.textOnPrimary,
+          startingDay: index === 0,
+          endingDay: index === selectedDates.length - 1,
+        };
+      });
+    }
+
+    return dates;
+  }, [
+    exceptionRangeDraft.selectedRange,
+    exceptionPeriods,
+    theme.primary,
+    theme.textOnPrimary,
+    theme.textPrimary,
+    theme.warningBg,
+  ]);
   const previewDayName = useMemo<DayOfWeek>(
     () => getDayNameFromDate(previewSelectedDate || getInitialPreviewDate(enabledDays)),
     [enabledDays, previewSelectedDate]
@@ -663,51 +766,11 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
         </View>
       </Card>
 
-      <Card variant="default" padding="large" style={styles.sidebarCard}>
-        <View style={styles.cardHeader}>
-          <View style={[styles.iconShell, { backgroundColor: theme.warningBg }]}>
-            <Ionicons name="calendar-clear-outline" size={18} color={theme.warning} />
-          </View>
-          <View style={styles.cardHeaderText}>
-            <Text style={styles.cardTitle}>Excepciones</Text>
-            <Text style={styles.cardCaption}>Bloquea días concretos sin tocar la base</Text>
-          </View>
-        </View>
-        {exceptions.length > 0 ? (
-          <View style={styles.exceptionsList}>
-            {exceptions.slice(0, 5).map((exception) => {
-              const exceptionType = EXCEPTION_TYPES.find((type) => exception.reason?.toLowerCase().includes(type.label.toLowerCase())) ?? EXCEPTION_TYPES[4];
-              const exceptionColor = getExceptionToneColor(theme, exceptionType);
-              return (
-                <View key={exception.id} style={[styles.exceptionItem, { borderLeftColor: exceptionColor }]}>
-                  <View style={styles.exceptionInfo}>
-                    <Ionicons name={exceptionType.icon} size={16} color={exceptionColor} />
-                    <View style={styles.exceptionText}>
-                      <Text style={styles.exceptionDate} numberOfLines={1}>
-                        {new Date(exception.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
-                      </Text>
-                      <Text style={styles.exceptionReason} numberOfLines={1}>{exception.reason ?? 'No disponible'}</Text>
-                    </View>
-                  </View>
-                  <AnimatedPressable onPress={() => handleRemoveException(exception.date)} style={styles.exceptionRemoveButton} hoverLift={false} pressScale={0.96}>
-                    <Ionicons name="close-circle" size={18} color={theme.textMuted} />
-                  </AnimatedPressable>
-                </View>
-              );
-            })}
-            {exceptions.length > 5 ? <Text style={styles.moreExceptions}>+{exceptions.length - 5} más…</Text> : null}
-          </View>
-        ) : (
-          <View style={styles.emptyStateBox}>
-            <Ionicons name="calendar-outline" size={22} color={theme.textMuted} />
-            <Text style={styles.emptyText}>Sin fechas bloqueadas</Text>
-          </View>
-        )}
-        <AnimatedPressable style={styles.addExceptionButton} onPress={() => setShowExceptionModal(true)} hoverLift={false}>
-          <Ionicons name="add-circle-outline" size={18} color={theme.primary} />
-          <Text style={styles.addExceptionText}>Añadir excepción</Text>
-        </AnimatedPressable>
-      </Card>
+      <ExceptionPeriodsCard
+        periods={sidebarExceptionPeriods}
+        onAddPress={openExceptionModal}
+        onRemovePeriod={handleRemoveExceptionPeriod}
+      />
 
       <Card variant="default" padding="large" style={styles.sidebarCard}>
         <View style={styles.cardHeader}>
@@ -1080,56 +1143,25 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
         </View>
       </ScrollView>
 
-      <Modal visible={showExceptionModal} transparent animationType="fade" onRequestClose={() => setShowExceptionModal(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowExceptionModal(false)}>
-          <Pressable style={styles.modalContent} onPress={() => undefined}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Bloquear fecha</Text>
-              <AnimatedPressable onPress={() => setShowExceptionModal(false)} style={styles.modalCloseButton} hoverLift={false}>
-                <Ionicons name="close" size={22} color={theme.textSecondary} />
-              </AnimatedPressable>
-            </View>
-            <View style={styles.modalCalendar}>
-              <Calendar
-                onDayPress={(day) => setSelectedExceptionDate(day.dateString)}
-                markedDates={{
-                  ...markedDates,
-                  ...(selectedExceptionDate ? { [selectedExceptionDate]: { selected: true, selectedColor: theme.primary } } : {}),
-                }}
-                minDate={new Date().toISOString().split('T')[0]}
-                theme={calendarTheme}
-              />
-            </View>
-            {selectedExceptionDate ? (
-              <>
-                <Text style={styles.modalLabel}>Tipo de ausencia</Text>
-                <View style={styles.exTypeGrid}>
-                  {EXCEPTION_TYPES.map((type) => {
-                    const typeColor = getExceptionToneColor(theme, type);
-                    const isSelected = selectedExceptionType === type.id;
-                    return (
-                      <AnimatedPressable
-                        key={type.id}
-                        style={isSelected ? [styles.exTypeBtn, { backgroundColor: `${typeColor}20`, borderColor: typeColor }] : styles.exTypeBtn}
-                        onPress={() => setSelectedExceptionType(type.id)}
-                        hoverLift={false}
-                      >
-                        <Ionicons name={type.icon} size={18} color={isSelected ? typeColor : theme.textSecondary} />
-                        <Text style={[styles.exTypeBtnText, isSelected && { color: typeColor }]}>{type.label}</Text>
-                      </AnimatedPressable>
-                    );
-                  })}
-                </View>
-                <View style={styles.modalActionWrap}>
-                  <Button variant="primary" size="large" onPress={handleAddException} fullWidth>
-                    Bloquear fecha
-                  </Button>
-                </View>
-              </>
-            ) : null}
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <ExceptionRangeModal
+        visible={showExceptionModal}
+        rangeLabel={exceptionRangeDraft.rangeLabel}
+        selectionStep={exceptionRangeDraft.selectionStep}
+        markedDates={exceptionCalendarMarkedDates}
+        calendarTheme={calendarTheme}
+        minDate={getTodayDateKey()}
+        isTooLong={exceptionRangeDraft.isTooLong}
+        impact={exceptionRangeDraft.impact}
+        impactLoading={exceptionRangeDraft.impactLoading}
+        impactError={exceptionRangeDraft.impactError}
+        selectedTypeId={selectedExceptionType}
+        saving={savingExceptionRange}
+        canSubmit={canAddExceptionRange}
+        onClose={closeExceptionModal}
+        onDayPress={exceptionRangeDraft.handleDayPress}
+        onSelectType={setSelectedExceptionType}
+        onSubmit={handleAddExceptionRange}
+      />
 
       <Modal visible={!isMobile && showPreviewModal} transparent animationType="slide" onRequestClose={() => setShowPreviewModal(false)}>
         <View style={styles.previewOverlay}>
@@ -1585,46 +1617,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     miniChartBar: { width: '100%', borderRadius: 8 },
     miniChartLabel: { fontSize: 10, fontWeight: '600', color: theme.textMuted, fontFamily: theme.fontSansSemiBold },
-    exceptionsList: { gap: spacing.sm },
-    exceptionItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.sm,
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-      borderRadius: borderRadius.md,
-      borderLeftWidth: 3,
-    },
-    exceptionInfo: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
-    exceptionText: { flex: 1 },
-    exceptionDate: { fontSize: 13, fontWeight: '700', color: theme.textPrimary, fontFamily: theme.fontSansBold },
-    exceptionReason: { marginTop: 2, fontSize: 12, color: theme.textSecondary, fontFamily: theme.fontSans },
-    exceptionRemoveButton: { padding: 4 },
-    moreExceptions: { fontSize: 12, color: theme.textMuted, textAlign: 'center', paddingTop: spacing.xs, fontFamily: theme.fontSans },
-    emptyStateBox: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacing.lg,
-      gap: spacing.xs,
-      borderRadius: borderRadius.lg,
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-    },
     emptyText: { fontSize: 13, color: theme.textMuted, textAlign: 'center', fontFamily: theme.fontSans },
-    addExceptionButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      marginTop: spacing.md,
-      paddingVertical: spacing.md,
-      borderRadius: borderRadius.md,
-      borderWidth: 1,
-      borderColor: theme.primary,
-      borderStyle: 'dashed',
-      backgroundColor: theme.primaryAlpha12,
-    },
-    addExceptionText: { fontSize: 13, fontWeight: '600', color: theme.primary, fontFamily: theme.fontSansSemiBold },
     settingRow: { marginBottom: spacing.md },
     settingRowLast: { marginBottom: 0 },
     settingLabel: { marginBottom: spacing.sm, fontSize: 13, fontWeight: '700', color: theme.textPrimary, fontFamily: theme.fontSansBold },
@@ -1677,51 +1670,7 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     billingDurationHintError: {
       color: theme.warning,
     },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: theme.overlay,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacing.lg,
-    },
-    modalContent: {
-      width: '100%',
-      maxWidth: 420,
-      maxHeight: '90%',
-      borderRadius: borderRadius.xl,
-      padding: spacing.lg,
-      paddingBottom: spacing.xl,
-      backgroundColor: theme.bgElevated,
-      borderWidth: 1,
-      borderColor: theme.border,
-      ...shadows.xl,
-    },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
-    modalTitle: { fontSize: 18, fontWeight: '800', color: theme.textPrimary, fontFamily: theme.fontHeading },
     modalCloseButton: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-    modalCalendar: {
-      marginBottom: spacing.md,
-      borderRadius: borderRadius.lg,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.bgElevated,
-    },
-    modalLabel: { marginBottom: spacing.sm, fontSize: 13, fontWeight: '700', color: theme.textPrimary, fontFamily: theme.fontSansBold },
-    exTypeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
-    modalActionWrap: { marginTop: spacing.xs, paddingBottom: spacing.sm },
-    exTypeBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-      borderRadius: borderRadius.md,
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-    },
-    exTypeBtnText: { fontSize: 13, fontWeight: '600', color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
     previewOverlay: {
       flex: 1,
       backgroundColor: theme.overlay,

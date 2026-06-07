@@ -13,10 +13,24 @@ import { billingService } from '../../../services/billingService';
 import { ProfessionalAvailabilityScreen } from '../ProfessionalAvailabilityScreen';
 
 jest.mock('react-native-calendars', () => ({
-  Calendar: () => {
+  Calendar: ({ onDayPress }: { onDayPress?: (day: { dateString: string }) => void }) => {
     const React = require('react');
-    const { Text } = require('react-native');
-    return <Text>calendar</Text>;
+    const { Pressable, Text, View } = require('react-native');
+    const selectableDates = ['2026-06-09', '2026-06-11', '2026-06-16'];
+    return (
+      <View>
+        <Text>calendar</Text>
+        {selectableDates.map((date) => (
+          <Pressable
+            key={date}
+            accessibilityLabel={`Seleccionar ${date}`}
+            onPress={() => onDayPress?.({ dateString: date })}
+          >
+            <Text>{date}</Text>
+          </Pressable>
+        ))}
+      </View>
+    );
   },
 }));
 
@@ -42,9 +56,13 @@ jest.mock('../../../services/analyticsService', () => ({
 }));
 
 jest.mock('../../../services/availabilityService', () => ({
+  addExceptionRange: jest.fn(),
   getMyWeeklySchedule: jest.fn(),
   getMyExceptions: jest.fn(),
+  getExceptionRangeImpact: jest.fn(),
   getMyBufferTime: jest.fn(),
+  removeException: jest.fn(),
+  removeExceptionRange: jest.fn(),
   updateWeeklySchedule: jest.fn(),
   updateBufferTime: jest.fn(),
 }));
@@ -97,6 +115,18 @@ describe('ProfessionalAvailabilityScreen', () => {
     mockedUseAppAlertState.mockReturnValue({ isVisible: false });
     mockedAvailabilityService.getMyWeeklySchedule.mockResolvedValue(emptyWeeklySchedule);
     mockedAvailabilityService.getMyExceptions.mockResolvedValue([]);
+    mockedAvailabilityService.getExceptionRangeImpact.mockResolvedValue({ activeSessionCount: 0 });
+    mockedAvailabilityService.addExceptionRange.mockResolvedValue({
+      activeSessionCount: 0,
+      createdCount: 1,
+      dayCount: 1,
+      endDate: '2026-06-09',
+      reason: 'Vacaciones',
+      startDate: '2026-06-09',
+      updatedCount: 0,
+    });
+    mockedAvailabilityService.removeException.mockResolvedValue(undefined);
+    mockedAvailabilityService.removeExceptionRange.mockResolvedValue({ deletedCount: 1 });
     mockedAvailabilityService.getMyBufferTime.mockResolvedValue(15);
     mockedAvailabilityService.updateWeeklySchedule.mockResolvedValue(undefined);
     mockedAvailabilityService.updateBufferTime.mockResolvedValue(undefined);
@@ -191,6 +221,149 @@ describe('ProfessionalAvailabilityScreen', () => {
 
     expect(screen.queryByText('Cambios sin guardar')).toBeNull();
     expect(mockedAvailabilityService.updateWeeklySchedule).not.toHaveBeenCalled();
+  });
+
+  it('blocks a selected absence range with the chosen label', async () => {
+    mockedAvailabilityService.addExceptionRange.mockResolvedValue({
+      activeSessionCount: 0,
+      createdCount: 8,
+      dayCount: 8,
+      endDate: '2026-06-16',
+      reason: 'Formación',
+      startDate: '2026-06-09',
+      updatedCount: 0,
+    });
+    const props = {
+      navigation: { navigate: jest.fn() },
+    } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
+
+    render(<ProfessionalAvailabilityScreen {...props} />);
+
+    await screen.findByText('Patrones rápidos');
+    fireEvent.press(screen.getByText('Añadir excepción'));
+    fireEvent.press(screen.getByLabelText('Seleccionar 2026-06-09'));
+    fireEvent.press(screen.getByLabelText('Seleccionar 2026-06-16'));
+
+    expect(screen.getByText('9-16 jun · 8 días')).toBeTruthy();
+    fireEvent.press(screen.getByText('Formación'));
+    const blockButtons = screen.getAllByText('Bloquear periodo');
+    fireEvent.press(blockButtons[blockButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(mockedAvailabilityService.addExceptionRange).toHaveBeenCalledWith(
+        '2026-06-09',
+        '2026-06-16',
+        'Formación',
+      );
+    });
+  });
+
+  it('warns when an absence range contains active sessions', async () => {
+    mockedAvailabilityService.getExceptionRangeImpact.mockResolvedValue({ activeSessionCount: 3 });
+    const props = {
+      navigation: { navigate: jest.fn() },
+    } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
+
+    render(<ProfessionalAvailabilityScreen {...props} />);
+
+    await screen.findByText('Patrones rápidos');
+    fireEvent.press(screen.getByText('Añadir excepción'));
+    fireEvent.press(screen.getByLabelText('Seleccionar 2026-06-09'));
+
+    expect(await screen.findByText('Hay 3 sesiones activas en este periodo. Se mantienen programadas.')).toBeTruthy();
+  });
+
+  it('groups consecutive exceptions and removes the whole period in one action', async () => {
+    const createException = (
+      id: string,
+      date: string,
+      reason: string
+    ): availabilityService.AvailabilityException => ({
+      id,
+      specialistId: 'specialist-1',
+      date,
+      reason,
+      isAvailable: false,
+      createdAt: '2026-06-01T00:00:00.000Z',
+      updatedAt: '2026-06-01T00:00:00.000Z',
+    });
+    mockedAvailabilityService.getMyExceptions.mockResolvedValue([
+      createException('exception-1', '2026-06-09T00:00:00.000Z', 'Vacaciones'),
+      createException('exception-2', '2026-06-10T00:00:00.000Z', 'Vacaciones'),
+      createException('exception-3', '2026-06-11T00:00:00.000Z', 'Vacaciones'),
+    ]);
+    const props = {
+      navigation: { navigate: jest.fn() },
+    } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
+
+    render(<ProfessionalAvailabilityScreen {...props} />);
+
+    expect(await screen.findByText('9-11 jun')).toBeTruthy();
+    expect(screen.getByText('Vacaciones · 3 días')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Eliminar bloqueo 9-11 jun'));
+
+    const removeAlert = mockedShowAppAlert.mock.calls.find((call) => call[1] === 'Eliminar periodo');
+    const buttons = removeAlert?.[3] as Array<{ text: string; onPress?: () => void | Promise<void> }> | undefined;
+    expect(buttons).toBeDefined();
+
+    await act(async () => {
+      await buttons?.[1]?.onPress?.();
+    });
+
+    await waitFor(() => {
+      expect(mockedAvailabilityService.removeExceptionRange).toHaveBeenCalledWith(
+        '2026-06-09',
+        '2026-06-11',
+        'Vacaciones',
+      );
+    });
+    expect(mockedAvailabilityService.removeException).not.toHaveBeenCalled();
+  });
+
+  it('removes legacy grouped exceptions with one range request', async () => {
+    const createException = (
+      id: string,
+      date: string,
+      reason: string
+    ): availabilityService.AvailabilityException => ({
+      id,
+      specialistId: 'specialist-1',
+      date,
+      reason,
+      isAvailable: false,
+      createdAt: '2026-06-01T00:00:00.000Z',
+      updatedAt: '2026-06-01T00:00:00.000Z',
+    });
+    mockedAvailabilityService.getMyExceptions.mockResolvedValue([
+      createException('exception-1', '2026-06-09T00:00:00.000Z', 'Conferencia'),
+      createException('exception-2', '2026-06-10T00:00:00.000Z', 'Conferencia'),
+    ]);
+    const props = {
+      navigation: { navigate: jest.fn() },
+    } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
+
+    render(<ProfessionalAvailabilityScreen {...props} />);
+
+    expect(await screen.findByText('9-10 jun')).toBeTruthy();
+    expect(screen.getByText('Conferencia · 2 días')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Eliminar bloqueo 9-10 jun'));
+
+    const removeAlert = mockedShowAppAlert.mock.calls.find((call) => call[1] === 'Eliminar periodo');
+    const buttons = removeAlert?.[3] as Array<{ text: string; onPress?: () => void | Promise<void> }> | undefined;
+    expect(buttons).toBeDefined();
+
+    await act(async () => {
+      await buttons?.[1]?.onPress?.();
+    });
+
+    await waitFor(() => {
+      expect(mockedAvailabilityService.removeExceptionRange).toHaveBeenCalledWith(
+        '2026-06-09',
+        '2026-06-10',
+        'Conferencia',
+      );
+    });
+    expect(mockedAvailabilityService.removeException).not.toHaveBeenCalled();
   });
 
   it('replaces selected days and activates disabled destinations before saving', async () => {
