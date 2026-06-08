@@ -793,6 +793,10 @@ export function ProfessionalClientsScreen() {
       showAppAlert(appAlert, 'Cita creada', 'La cita se ha programado correctamente.');
       await loadClients();
     } catch (createError: unknown) {
+      if (professionalService.isManagedSessionBufferConflictError(createError)) {
+        throw createError;
+      }
+
       const message = getErrorMessage(createError, 'No se pudo crear la cita');
       showAppAlert(appAlert, 'No se pudo crear la cita', message);
     } finally {

@@ -1,6 +1,7 @@
 jest.mock('../api', () => ({
   api: {
     get: jest.fn(),
+    post: jest.fn(),
     put: jest.fn(),
   },
   getAuthSessionCacheScope: jest.fn(() => 'auth:test-session'),
@@ -21,9 +22,11 @@ jest.mock('react-native', () => ({
 
 import { api } from '../api';
 import {
+  createManagedClientSession,
   getProfessionalClients,
   getProfessionalSessions,
   getVerificationStatus,
+  isManagedSessionBufferConflictError,
   updateComprehensiveProfile,
 } from '../professionalService';
 import { clearRequestCache } from '../requestCache';
@@ -195,5 +198,48 @@ describe('professionalService cached professional GETs', () => {
         lifecycle: 'ACTIVE',
       },
     });
+  });
+});
+
+describe('professionalService.createManagedClientSession', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    clearRequestCache();
+  });
+
+  it('preserves buffer conflict code and minutes for the scheduler modal', async () => {
+    mockedApi.post.mockRejectedValue({
+      response: {
+        data: {
+          success: false,
+          code: 'BUFFER_CONFLICT_REQUIRES_OVERRIDE',
+          error: 'La cita incumple el descanso configurado entre sesiones.',
+          data: { bufferMinutes: 15 },
+        },
+      },
+    });
+
+    await expect(
+      createManagedClientSession({
+        clientId: 'client-1',
+        date: '2026-06-15T10:00:00.000Z',
+        duration: 60,
+        type: 'VIDEO_CALL',
+      })
+    ).rejects.toMatchObject({
+      code: 'BUFFER_CONFLICT_REQUIRES_OVERRIDE',
+      bufferMinutes: 15,
+    });
+
+    try {
+      await createManagedClientSession({
+        clientId: 'client-1',
+        date: '2026-06-15T10:00:00.000Z',
+        duration: 60,
+        type: 'VIDEO_CALL',
+      });
+    } catch (error: unknown) {
+      expect(isManagedSessionBufferConflictError(error)).toBe(true);
+    }
   });
 });

@@ -10,19 +10,19 @@ const baseForm = {
 
 describe('validateManagedSessionSchedulerInput', () => {
   it('returns a backend-ready payload for a future session', () => {
-    const result = validateManagedSessionSchedulerInput(baseForm, new Date(2026, 0, 1, 9, 0));
+    const result = validateManagedSessionSchedulerInput(
+      baseForm,
+      new Date('2026-01-01T08:00:00.000Z')
+    );
 
     expect(result.success).toBe(true);
     if (!result.success) return;
 
     expect(result.input.clientId).toBe('client-1');
+    expect(result.input.date).toBe('2026-01-02T09:30:00.000Z');
     expect(result.input.duration).toBe(60);
     expect(result.input.type).toBe('VIDEO_CALL');
-    expect(result.startsAt.getFullYear()).toBe(2026);
-    expect(result.startsAt.getMonth()).toBe(0);
-    expect(result.startsAt.getDate()).toBe(2);
-    expect(result.startsAt.getHours()).toBe(10);
-    expect(result.startsAt.getMinutes()).toBe(30);
+    expect(result.startsAt.toISOString()).toBe('2026-01-02T09:30:00.000Z');
   });
 
   it('requires patient selection', () => {
@@ -31,7 +31,7 @@ describe('validateManagedSessionSchedulerInput', () => {
         ...baseForm,
         clientId: '',
       },
-      new Date(2026, 0, 1, 9, 0)
+      new Date('2026-01-01T08:00:00.000Z')
     );
 
     expect(result.success).toBe(false);
@@ -47,7 +47,7 @@ describe('validateManagedSessionSchedulerInput', () => {
         date: '2026-99-02',
         time: '25:00',
       },
-      new Date(2026, 0, 1, 9, 0)
+      new Date('2026-01-01T08:00:00.000Z')
     );
 
     expect(result.success).toBe(false);
@@ -59,11 +59,11 @@ describe('validateManagedSessionSchedulerInput', () => {
   it('enforces duration bounds', () => {
     const tooShort = validateManagedSessionSchedulerInput(
       { ...baseForm, duration: 10 },
-      new Date(2026, 0, 1, 9, 0)
+      new Date('2026-01-01T08:00:00.000Z')
     );
     const tooLong = validateManagedSessionSchedulerInput(
       { ...baseForm, duration: 181 },
-      new Date(2026, 0, 1, 9, 0)
+      new Date('2026-01-01T08:00:00.000Z')
     );
 
     expect(tooShort.success).toBe(false);
@@ -80,7 +80,7 @@ describe('validateManagedSessionSchedulerInput', () => {
   it('rejects past sessions', () => {
     const result = validateManagedSessionSchedulerInput(
       { ...baseForm, date: '2026-01-01', time: '08:30' },
-      new Date(2026, 0, 1, 9, 0)
+      new Date('2026-01-01T08:00:00.000Z')
     );
 
     expect(result.success).toBe(false);

@@ -12,6 +12,7 @@ import { spacing, borderRadius } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { TimeSlot } from '../../../services/sessionsService';
+import { formatMadridDateKey } from '../../../utils/madridTime';
 
 interface TimeSlotsColumnProps {
   selectedDate: string | null;
@@ -22,7 +23,7 @@ interface TimeSlotsColumnProps {
 }
 
 const formatDate = (dateString: string): string =>
-  new Date(dateString).toLocaleDateString('es-ES', {
+  formatMadridDateKey(dateString, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -68,14 +69,14 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
   if (!selectedDate) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Horarios disponibles</Text>
+        <Text style={styles.title}>Elige una hora</Text>
         <Text style={styles.subtitle}>
           Selecciona primero una fecha para desbloquear las horas.
         </Text>
         {renderEmpty(
           'calendar-clear-outline',
           'Elige una fecha',
-          'Cuando marques un dia, te mostraremos las franjas disponibles al momento.',
+          'Cuando marques un día, te mostraremos las franjas disponibles al momento.',
         )}
       </View>
     );
@@ -84,7 +85,7 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
   if (loading) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Horarios disponibles</Text>
+        <Text style={styles.title}>Elige una hora</Text>
         <Text style={styles.subtitle}>{formatDate(selectedDate)}</Text>
         <View style={styles.emptyState}>
           <ActivityIndicator size="large" color={theme.primary} />
@@ -98,7 +99,7 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
   if (availableSlots.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Horarios disponibles</Text>
+        <Text style={styles.title}>Elige una hora</Text>
         <Text style={styles.subtitle}>{formatDate(selectedDate)}</Text>
         {renderEmpty(
           'sad-outline',
@@ -111,7 +112,7 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Horarios disponibles</Text>
+      <Text style={styles.title}>Elige una hora</Text>
       <Text style={styles.subtitle}>{formatDate(selectedDate)}</Text>
 
       <ScrollView
@@ -126,21 +127,41 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
                 <Ionicons name={group.icon} size={14} color={theme.secondaryDark} />
                 <Text style={styles.slotGroupTitle}>{group.label}</Text>
               </View>
-              <Text style={styles.slotGroupCount}>{group.slots.length}</Text>
+              <Text style={styles.slotGroupCount}>
+                {group.slots.filter((slot) => slot.available !== false).length}
+              </Text>
             </View>
 
             <View style={styles.slotsGrid}>
               {group.slots.map((slot) => {
-                const selected = selectedTime === slot.startTime;
+                const disabled = slot.available === false;
+                const selected = !disabled && selectedTime === slot.startTime;
                 return (
                   <AnimatedPressable
                     key={slot.startTime}
                     onPress={() => onTimeSelect(slot)}
-                    style={[styles.slotButton, selected ? styles.slotButtonSelected : null]}
+                    disabled={disabled}
+                    accessibilityState={{ disabled, selected }}
+                    style={[
+                      styles.slotButton,
+                      disabled ? styles.slotButtonDisabled : null,
+                      selected ? styles.slotButtonSelected : null,
+                    ]}
                   >
-                    <Text style={[styles.slotButtonText, selected ? styles.slotButtonTextSelected : null]}>
-                      {slot.startTime}
-                    </Text>
+                    <View style={styles.slotButtonCopy}>
+                      <Text
+                        style={[
+                          styles.slotButtonText,
+                          disabled ? styles.slotButtonTextDisabled : null,
+                          selected ? styles.slotButtonTextSelected : null,
+                        ]}
+                      >
+                        {slot.startTime}
+                      </Text>
+                      {disabled && (
+                        <Text style={styles.slotUnavailableText}>No disponible</Text>
+                      )}
+                    </View>
                     {selected && (
                       <Ionicons name="checkmark" size={16} color={theme.textOnPrimary} />
                     )}
@@ -230,6 +251,7 @@ const createStyles = (
     },
     slotButton: {
       minWidth: 92,
+      minHeight: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
@@ -241,17 +263,37 @@ const createStyles = (
       borderWidth: 1,
       borderColor: theme.border,
     },
+    slotButtonDisabled: {
+      backgroundColor: theme.bgMuted,
+      borderColor: theme.border,
+      opacity: 0.72,
+    },
     slotButtonSelected: {
       backgroundColor: theme.primary,
       borderColor: theme.primary,
+    },
+    slotButtonCopy: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 68,
     },
     slotButtonText: {
       fontSize: 13,
       fontFamily: theme.fontSansSemiBold,
       color: theme.textPrimary,
     },
+    slotButtonTextDisabled: {
+      color: theme.textMuted,
+    },
     slotButtonTextSelected: {
       color: theme.textOnPrimary,
+    },
+    slotUnavailableText: {
+      color: theme.textMuted,
+      fontFamily: theme.fontSans,
+      fontSize: 10,
+      lineHeight: 13,
+      marginTop: 1,
     },
     emptyState: {
       flex: 1,

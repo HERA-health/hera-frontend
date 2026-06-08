@@ -20,11 +20,16 @@ import type {
   CreateManagedClientSessionInput,
   SessionType,
 } from '../../services/professionalService';
+import { isManagedSessionBufferConflictError } from '../../services/professionalService';
 import { validateManagedSessionSchedulerInput } from '../../utils/managedSessionSchedulerValidation';
 import type { ManagedSessionSchedulerField } from '../../utils/managedSessionSchedulerValidation';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 type FormField = ManagedSessionSchedulerField | 'form';
+type BufferConflictState = {
+  input: CreateManagedClientSessionInput;
+  bufferMinutes: number;
+};
 
 interface ManagedSessionSchedulerModalProps {
   visible: boolean;
@@ -99,6 +104,7 @@ export function ManagedSessionSchedulerModal({
   const [type, setType] = useState<SessionType>('VIDEO_CALL');
   const [search, setSearch] = useState('');
   const [errors, setErrors] = useState<Partial<Record<FormField, string>>>({});
+  const [bufferConflict, setBufferConflict] = useState<BufferConflictState | null>(null);
 
   useEffect(() => {
     if (!visible) return;
@@ -111,6 +117,7 @@ export function ManagedSessionSchedulerModal({
     setType('VIDEO_CALL');
     setSearch('');
     setErrors({});
+    setBufferConflict(null);
   }, [clients, initialClientId, visible]);
 
   const selectedClient = useMemo(
@@ -133,6 +140,12 @@ export function ManagedSessionSchedulerModal({
   const showClientSelector = !initialClientId;
   const isCompact = width < 720;
 
+  const clearBufferConflict = () => {
+    if (bufferConflict) {
+      setBufferConflict(null);
+    }
+  };
+
   const handleSubmit = async () => {
     const validation = validateManagedSessionSchedulerInput({
       clientId,
@@ -148,7 +161,39 @@ export function ManagedSessionSchedulerModal({
     }
 
     setErrors({});
-    await onSubmit(validation.input);
+    try {
+      await onSubmit(validation.input);
+      setBufferConflict(null);
+    } catch (error: unknown) {
+      if (isManagedSessionBufferConflictError(error)) {
+        setBufferConflict({
+          input: validation.input,
+          bufferMinutes: error.bufferMinutes,
+        });
+        return;
+      }
+
+      setErrors({
+        form: error instanceof Error ? error.message : 'No se pudo crear la cita',
+      });
+    }
+  };
+
+  const handleOverrideBuffer = async () => {
+    if (!bufferConflict) return;
+
+    setErrors({});
+    try {
+      await onSubmit({
+        ...bufferConflict.input,
+        overrideBuffer: true,
+      });
+      setBufferConflict(null);
+    } catch (error: unknown) {
+      setErrors({
+        form: error instanceof Error ? error.message : 'No se pudo crear la cita',
+      });
+    }
   };
 
   return (
@@ -219,7 +264,10 @@ export function ManagedSessionSchedulerModal({
                       return (
                         <AnimatedPressable
                           key={client.id}
-                          onPress={() => setClientId(client.id)}
+                          onPress={() => {
+                            setClientId(client.id);
+                            clearBufferConflict();
+                          }}
                           hoverLift={false}
                           style={[
                             styles.clientRow,
@@ -289,7 +337,10 @@ export function ManagedSessionSchedulerModal({
                 </Text>
                 <TextInput
                   value={dateValue}
-                  onChangeText={setDateValue}
+                  onChangeText={(value) => {
+                    setDateValue(value);
+                    clearBufferConflict();
+                  }}
                   placeholder="AAAA-MM-DD"
                   placeholderTextColor={theme.textMuted}
                   autoCapitalize="none"
@@ -317,7 +368,10 @@ export function ManagedSessionSchedulerModal({
                 </Text>
                 <TextInput
                   value={timeValue}
-                  onChangeText={setTimeValue}
+                  onChangeText={(value) => {
+                    setTimeValue(value);
+                    clearBufferConflict();
+                  }}
                   placeholder="HH:MM"
                   placeholderTextColor={theme.textMuted}
                   autoCapitalize="none"
@@ -350,7 +404,10 @@ export function ManagedSessionSchedulerModal({
                   return (
                     <AnimatedPressable
                       key={option}
-                      onPress={() => setDurationValue(String(option))}
+                      onPress={() => {
+                        setDurationValue(String(option));
+                        clearBufferConflict();
+                      }}
                       hoverLift={false}
                       style={[
                         styles.pill,
@@ -376,7 +433,10 @@ export function ManagedSessionSchedulerModal({
                 })}
                 <TextInput
                   value={durationValue}
-                  onChangeText={setDurationValue}
+                  onChangeText={(value) => {
+                    setDurationValue(value);
+                    clearBufferConflict();
+                  }}
                   keyboardType="number-pad"
                   placeholder="Min"
                   placeholderTextColor={theme.textMuted}
@@ -408,7 +468,10 @@ export function ManagedSessionSchedulerModal({
                   return (
                     <AnimatedPressable
                       key={option.value}
-                      onPress={() => setType(option.value)}
+                      onPress={() => {
+                        setType(option.value);
+                        clearBufferConflict();
+                      }}
                       hoverLift={false}
                       style={[
                         styles.typeOption,
@@ -460,6 +523,49 @@ export function ManagedSessionSchedulerModal({
                   : 'Este paciente no tiene email. La cita se creará sin aviso por correo.'}
               </Text>
             </View>
+
+            {bufferConflict && (
+              <View
+                style={[
+                  styles.bufferWarning,
+                  {
+                    borderColor: theme.warning,
+                    backgroundColor: theme.warningBg,
+                  },
+                ]}
+              >
+                <View style={styles.bufferWarningHeader}>
+                  <Ionicons name="time-outline" size={19} color={theme.warning} />
+                  <View style={styles.bufferWarningCopy}>
+                    <Text style={[styles.bufferWarningTitle, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
+                      Descanso entre sesiones
+                    </Text>
+                    <Text style={[styles.bufferWarningText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+                      Esta cita no respeta el descanso de {bufferConflict.bufferMinutes} min configurado entre sesiones.
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.bufferWarningActions}>
+                  <Button
+                    variant="ghost"
+                    onPress={() => setBufferConflict(null)}
+                    disabled={saving}
+                    style={styles.bufferWarningButton}
+                  >
+                    Revisar hora
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onPress={handleOverrideBuffer}
+                    disabled={saving}
+                    loading={saving}
+                    style={styles.bufferWarningButton}
+                  >
+                    Crear igualmente
+                  </Button>
+                </View>
+              </View>
+            )}
 
             {errors.form && (
               <Text style={[styles.errorText, { color: theme.error, fontFamily: theme.fontSans }]}>
@@ -680,6 +786,38 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 19,
+  },
+  bufferWarning: {
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  bufferWarningHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  bufferWarningCopy: {
+    flex: 1,
+    gap: 3,
+    minWidth: 0,
+  },
+  bufferWarningTitle: {
+    fontSize: 14,
+  },
+  bufferWarningText: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  bufferWarningActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    justifyContent: 'flex-end',
+  },
+  bufferWarningButton: {
+    minWidth: 132,
   },
   errorText: {
     fontSize: 12,

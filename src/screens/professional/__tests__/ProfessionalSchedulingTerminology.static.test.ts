@@ -30,4 +30,14 @@ describe('professional scheduling patient terminology', () => {
     expect(source).not.toContain('Paciente gestionado');
     expect(source).not.toContain('Pacientes gestionados');
   });
+
+  it('keeps explicit buffer override actions inside the scheduler modal', () => {
+    expect(source).toContain('Descanso entre sesiones');
+    expect(source).toContain('Esta cita no respeta el descanso de');
+    expect(source).toContain('Revisar hora');
+    expect(source).toContain('Crear igualmente');
+    expect(source).toContain('overrideBuffer: true');
+    expect(source).toContain('isManagedSessionBufferConflictError');
+    expect(source).not.toContain('invade el margen');
+  });
 });

@@ -7,7 +7,7 @@ jest.mock('../api', () => ({
 }));
 
 import { api } from '../api';
-import { createSession, getBookingQuote } from '../sessionsService';
+import { createSession, getAvailableSlots, getBookingQuote } from '../sessionsService';
 
 const mockedApi = api as jest.Mocked<typeof api>;
 
@@ -83,5 +83,30 @@ describe('sessionsService.getBookingQuote', () => {
       duration: 60,
       type: 'VIDEO_CALL',
     });
+  });
+
+  it('prefers slotOptions when available slots include disabled options', async () => {
+    mockedApi.get.mockResolvedValue({
+      data: {
+        data: {
+          slots: [
+            { startTime: '11:30', endTime: '12:30' },
+          ],
+          slotOptions: [
+            { startTime: '10:15', endTime: '11:15', available: false },
+            { startTime: '11:30', endTime: '12:30', available: true },
+          ],
+        },
+      },
+    });
+
+    await expect(getAvailableSlots('specialist-1', '2026-06-15')).resolves.toEqual([
+      { startTime: '10:15', endTime: '11:15', available: false },
+      { startTime: '11:30', endTime: '12:30', available: true },
+    ]);
+
+    expect(mockedApi.get).toHaveBeenCalledWith(
+      '/specialists/specialist-1/available-slots?date=2026-06-15'
+    );
   });
 });

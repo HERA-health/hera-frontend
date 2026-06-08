@@ -1,5 +1,5 @@
 import { api } from './api';
-import { getErrorMessage } from '../constants/errors';
+import { getErrorCode, getErrorMessage, hasResponseData } from '../constants/errors';
 import type { Specialist } from '../constants/types';
 import type { ProfessionalType } from '../constants/professionalTypes';
 import { Platform } from 'react-native';
@@ -13,6 +13,12 @@ export type ClinicalConsentStatus = 'PENDING' | 'GRANTED' | 'REVOKED';
 export type ClinicalConsentMethod = 'DIGITAL_SIGNATURE' | 'SPECIALIST_ATTESTATION';
 export type QuestionnaireAvailability = 'NOT_STARTED' | 'AVAILABLE' | 'REQUIRES_REFRESH';
 export type SessionType = 'VIDEO_CALL' | 'PHONE_CALL' | 'IN_PERSON';
+const BUFFER_CONFLICT_REQUIRES_OVERRIDE = 'BUFFER_CONFLICT_REQUIRES_OVERRIDE';
+
+export interface ManagedSessionBufferConflictError extends Error {
+  code: typeof BUFFER_CONFLICT_REQUIRES_OVERRIDE;
+  bufferMinutes: number;
+}
 
 export interface QuestionnaireSummary {
   concerns: string[];
@@ -179,6 +185,7 @@ export interface CreateManagedClientSessionInput {
   date: string;
   duration: number;
   type: SessionType;
+  overrideBuffer?: boolean;
 }
 
 interface GetProfessionalClientsOptions {
@@ -233,6 +240,33 @@ export const createManagedClient = async (data: CreateManagedClientInput): Promi
   return normalizeClient(response.data.data);
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const getBufferMinutesFromError = (error: unknown): number => {
+  if (!hasResponseData(error)) {
+    return 0;
+  }
+
+  const responseData = error.response.data as { data?: unknown };
+  if (!isRecord(responseData.data)) {
+    return 0;
+  }
+
+  const bufferMinutes = responseData.data.bufferMinutes;
+  return typeof bufferMinutes === 'number' && Number.isFinite(bufferMinutes)
+    ? bufferMinutes
+    : 0;
+};
+
+export const isManagedSessionBufferConflictError = (
+  error: unknown
+): error is ManagedSessionBufferConflictError => (
+  isRecord(error)
+  && error.code === BUFFER_CONFLICT_REQUIRES_OVERRIDE
+  && typeof error.bufferMinutes === 'number'
+);
+
 export const createManagedClientSession = async (
   data: CreateManagedClientSessionInput
 ): Promise<Session> => {
@@ -241,6 +275,15 @@ export const createManagedClientSession = async (
     clearRequestCache();
     return response.data.data;
   } catch (error: unknown) {
+    if (getErrorCode(error) === BUFFER_CONFLICT_REQUIRES_OVERRIDE) {
+      const conflict = new Error(
+        getErrorMessage(error, 'La cita incumple el descanso configurado entre sesiones')
+      ) as ManagedSessionBufferConflictError;
+      conflict.code = BUFFER_CONFLICT_REQUIRES_OVERRIDE;
+      conflict.bufferMinutes = getBufferMinutesFromError(error);
+      throw conflict;
+    }
+
     throw new Error(getErrorMessage(error, 'No se pudo crear la cita'));
   }
 };

@@ -14,6 +14,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { Button } from '../../../components/common/Button';
 import { BookingQuote, SessionType } from '../../../services/sessionsService';
+import { formatMadridDateKey } from '../../../utils/madridTime';
 
 interface SpecialistInfo {
   id: string;
@@ -97,7 +98,7 @@ const formatSpecialization = (specialization: string): string => {
 };
 
 const formatDate = (dateString: string): string =>
-  new Date(dateString).toLocaleDateString('es-ES', {
+  formatMadridDateKey(dateString, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',

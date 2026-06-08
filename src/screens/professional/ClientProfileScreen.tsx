@@ -650,6 +650,10 @@ export function ClientProfileScreen() {
         showAppAlert(appAlert, 'Cita creada', 'La cita se ha programado correctamente.');
         await loadClient();
       } catch (createError: unknown) {
+        if (professionalService.isManagedSessionBufferConflictError(createError)) {
+          throw createError;
+        }
+
         showAppAlert(
           appAlert,
           'No se pudo crear la cita',

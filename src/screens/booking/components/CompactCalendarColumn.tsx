@@ -4,12 +4,13 @@ import { Calendar, DateData, LocaleConfig } from 'react-native-calendars';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { spacing, borderRadius } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { formatMadridDateKey, getMadridDateKey } from '../../../utils/madridTime';
 
 LocaleConfig.locales.es = {
   monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
   monthNamesShort: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
-  dayNames: ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'],
-  dayNamesShort: ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'],
+  dayNames: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
+  dayNamesShort: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
   today: 'Hoy',
 };
 LocaleConfig.defaultLocale = 'es';
@@ -31,7 +32,7 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
   const { width } = useWindowDimensions();
   const isCompact = width < 1024;
   const styles = useMemo(() => createStyles(theme, isDark, isCompact), [theme, isDark, isCompact]);
-  const today = minDate || new Date().toISOString().split('T')[0];
+  const today = minDate || getMadridDateKey();
   const calendarSurface = isDark ? theme.bgElevated : '#FFFFFF';
   const calendarBorder = isDark ? theme.borderLight : theme.border;
   const calendarTheme = useMemo(
@@ -120,7 +121,7 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
         <Ionicons name="sparkles-outline" size={16} color={theme.secondaryDark} />
         <Text style={styles.helperText}>
           {selectedDate
-            ? new Date(selectedDate).toLocaleDateString('es-ES', {
+            ? formatMadridDateKey(selectedDate, {
                 weekday: 'long',
                 day: 'numeric',
                 month: 'long',

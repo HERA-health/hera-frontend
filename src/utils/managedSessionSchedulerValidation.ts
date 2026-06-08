@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { CreateManagedClientSessionInput, SessionType } from '../services/professionalService';
+import { parseMadridDateTime } from './madridTime';
 
 export type ManagedSessionSchedulerField = 'clientId' | 'date' | 'time' | 'duration' | 'type';
 
@@ -32,31 +33,6 @@ const schedulerSchema = z.object({
   type: z.enum(['VIDEO_CALL', 'PHONE_CALL', 'IN_PERSON']),
 });
 
-const parseLocalDateTime = (dateValue: string, timeValue: string): Date | null => {
-  const [year, month, day] = dateValue.split('-').map(Number);
-  const [hour, minute] = timeValue.split(':').map(Number);
-
-  if (
-    !Number.isInteger(year) ||
-    !Number.isInteger(month) ||
-    !Number.isInteger(day) ||
-    !Number.isInteger(hour) ||
-    !Number.isInteger(minute)
-  ) {
-    return null;
-  }
-
-  const date = new Date(year, month - 1, day, hour, minute, 0, 0);
-  const matchesInput =
-    date.getFullYear() === year &&
-    date.getMonth() === month - 1 &&
-    date.getDate() === day &&
-    date.getHours() === hour &&
-    date.getMinutes() === minute;
-
-  return matchesInput ? date : null;
-};
-
 export const validateManagedSessionSchedulerInput = (
   form: ManagedSessionSchedulerForm,
   now: Date = new Date()
@@ -87,21 +63,21 @@ export const validateManagedSessionSchedulerInput = (
     return { success: false, errors };
   }
 
-  const startsAt = parseLocalDateTime(parsed.data.date, parsed.data.time);
+  const startsAt = parseMadridDateTime(parsed.data.date, parsed.data.time);
   if (!startsAt) {
     return { success: false, errors: { date: 'La fecha u hora no es válida' } };
   }
 
-  if (startsAt.getTime() <= now.getTime()) {
+  if (startsAt.date.getTime() <= now.getTime()) {
     return { success: false, errors: { date: 'La cita debe ser futura' } };
   }
 
   return {
     success: true,
-    startsAt,
+    startsAt: startsAt.date,
     input: {
       clientId: parsed.data.clientId,
-      date: startsAt.toISOString(),
+      date: startsAt.iso,
       duration: parsed.data.duration,
       type: parsed.data.type,
     },

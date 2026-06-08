@@ -22,6 +22,7 @@ import {
   getDefaultBookingSessionType,
   isBookingSessionTypeAvailable,
 } from './bookingModalities';
+import { formatMadridDateKey, parseMadridDateTime } from '../../utils/madridTime';
 
 interface BookingScreenProps {
   route: {
@@ -232,7 +233,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
 
       try {
         const slots = await sessionsService.getAvailableSlots(specialistId, date);
-        setAvailableSlots(slots.filter((slot) => slot.available !== false));
+        setAvailableSlots(slots);
       } catch (error: unknown) {
         const message =
           error instanceof Error
@@ -259,9 +260,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
     (slot: TimeSlot) => {
       setSelectedSlot(slot);
       if (selectedDate) {
-        const dayOfWeek = new Date(selectedDate).toLocaleDateString('en-US', {
-          weekday: 'long',
-        });
+        const dayOfWeek = formatMadridDateKey(selectedDate, { weekday: 'long' }, 'en-US');
         analyticsService.track('booking_slot_selected', {
           dayOfWeek,
           timeSlot: slot.startTime,
@@ -278,7 +277,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
     }
 
     if (!isBookingSessionTypeAvailable(sessionType, modalityFlags)) {
-      showBookingMessage(appAlert, 'Error', 'Esta modalidad no esta disponible para este especialista');
+      showBookingMessage(appAlert, 'Error', 'Esta modalidad no está disponible para este especialista');
       return;
     }
 
@@ -294,14 +293,13 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
     try {
       setLoading(true);
 
-      const [hours, minutes] = selectedSlot.startTime.split(':');
-      const dateObj = new Date(selectedDate);
-      dateObj.setHours(parseInt(hours, 10));
-      dateObj.setMinutes(parseInt(minutes, 10));
-      dateObj.setSeconds(0);
-      dateObj.setMilliseconds(0);
+      const madridDateTime = parseMadridDateTime(selectedDate, selectedSlot.startTime);
+      if (!madridDateTime) {
+        showBookingMessage(appAlert, 'Error', 'La fecha u hora no es válida');
+        return;
+      }
 
-      const dateTime = dateObj.toISOString();
+      const dateTime = madridDateTime.iso;
 
       const createdSession = await sessionsService.createSession({
         specialistId,
@@ -320,7 +318,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
       navigation.navigate('Sessions', { refresh: true, showSuccess: true });
 
       setTimeout(() => {
-        const formattedDate = new Date(dateTime).toLocaleDateString('es-ES', {
+        const formattedDate = formatMadridDateKey(selectedDate, {
           weekday: 'long',
           day: 'numeric',
           month: 'long',
@@ -337,7 +335,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
         showBookingMessage(
           appAlert,
           'Reserva confirmada',
-          `Tu ${sessionTypeText.toLowerCase()} con ${specialistName} ha sido solicitada.\n\nEstado: Pendiente de confirmacion\nFecha: ${formattedDate}\nHora: ${selectedSlot.startTime}\nTipo: ${sessionTypeText}`,
+          `Tu ${sessionTypeText.toLowerCase()} con ${specialistName} ha sido solicitada.\n\nEstado: Pendiente de confirmación\nFecha: ${formattedDate}\nHora: ${selectedSlot.startTime}\nTipo: ${sessionTypeText}`,
         );
       }, 400);
     } catch (error: unknown) {
@@ -506,7 +504,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
             <Text style={styles.mobileFooterPillLabel}>Fecha</Text>
             <Text style={styles.mobileFooterPillValue}>
               {selectedDate
-                ? new Date(selectedDate).toLocaleDateString('es-ES', {
+                ? formatMadridDateKey(selectedDate, {
                     day: 'numeric',
                     month: 'short',
                   })

@@ -11,6 +11,11 @@ export interface TimeSlot {
   available?: boolean; // Optional - backend doesn't always provide this
 }
 
+interface AvailableSlotsResponse {
+  slots?: TimeSlot[];
+  slotOptions?: TimeSlot[];
+}
+
 /**
  * Session type enum matching backend
  */
@@ -94,8 +99,8 @@ export const getAvailableSlots = async (
   try {
     const url = `/specialists/${specialistId}/available-slots?date=${date}`;
     const response = await api.get(url);
-    const slots = response.data.data.slots || [];
-    return slots;
+    const data = response.data.data as AvailableSlotsResponse | undefined;
+    return data?.slotOptions ?? data?.slots ?? [];
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudieron cargar los horarios disponibles'));
   }
