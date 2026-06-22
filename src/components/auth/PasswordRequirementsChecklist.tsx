@@ -3,24 +3,13 @@ import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-na
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { spacing, borderRadius, typography } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
-import {
-  getPasswordRequirementStatuses,
-  type PasswordRequirementKey,
-} from '../../utils/validation';
+import { getPasswordRequirementStatuses } from '../../utils/validation';
 
 interface PasswordRequirementsChecklistProps {
   password: string;
   containerStyle?: StyleProp<ViewStyle>;
   showWhenEmpty?: boolean;
 }
-
-const compactRequirementLabels: Record<PasswordRequirementKey, string> = {
-  minLength: '8 caracteres',
-  uppercase: '1 mayúscula',
-  lowercase: '1 minúscula',
-  number: '1 número',
-  symbol: '1 símbolo',
-};
 
 export function PasswordRequirementsChecklist({
   password,
@@ -29,6 +18,7 @@ export function PasswordRequirementsChecklist({
 }: PasswordRequirementsChecklistProps): React.ReactElement | null {
   const { theme } = useTheme();
   const requirements = getPasswordRequirementStatuses(password);
+  const hasPassword = password.length > 0;
 
   if (!showWhenEmpty && password.length === 0) {
     return null;
@@ -44,18 +34,37 @@ export function PasswordRequirementsChecklist({
         },
         containerStyle,
       ]}
+      accessibilityLiveRegion="polite"
     >
       <View style={styles.content}>
         <Text style={[styles.title, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]}>
           Debe incluir:
         </Text>
         {requirements.map((requirement) => {
-          const iconColor = requirement.met ? theme.success : theme.error;
+          const status = requirement.met ? 'met' : hasPassword ? 'missing' : 'neutral';
+          const iconColor =
+            status === 'met'
+              ? theme.success
+              : status === 'missing'
+              ? theme.error
+              : theme.textMuted;
+          const iconName =
+            status === 'met'
+              ? 'checkmark-circle'
+              : status === 'missing'
+              ? 'close-circle'
+              : 'ellipse-outline';
+          const accessibilityStatus = requirement.met ? 'cumplido' : 'pendiente';
 
           return (
-            <View key={requirement.key} style={styles.requirementItem}>
+            <View
+              key={requirement.key}
+              style={styles.requirementItem}
+              accessible
+              accessibilityLabel={`${requirement.label}: ${accessibilityStatus}`}
+            >
               <Ionicons
-                name={requirement.met ? 'checkmark-circle' : 'close-circle'}
+                name={iconName}
                 size={13}
                 color={iconColor}
               />
@@ -68,7 +77,7 @@ export function PasswordRequirementsChecklist({
                   },
                 ]}
               >
-                {compactRequirementLabels[requirement.key]}
+                {requirement.label}
               </Text>
             </View>
           );
