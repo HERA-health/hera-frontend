@@ -84,6 +84,11 @@ describe('authService legal status hydration', () => {
 
     const result = await login({ email: 'user@example.com', password: 'Password1' });
 
+    expect(postMock).toHaveBeenCalledWith(
+      '/auth/login',
+      expect.objectContaining({ email: 'user@example.com' }),
+      expect.objectContaining({ timeout: 30000 })
+    );
     expect(setAuthSessionMock).toHaveBeenCalledWith('access-token', 'refresh-token');
     expect(result.legalStatus).toBe(legalStatus);
   });
@@ -115,11 +120,15 @@ describe('authService legal status hydration', () => {
       acceptedLegalDocumentKeys: ['TERMS_OF_SERVICE', 'PRIVACY_POLICY'],
     });
 
-    expect(postMock).toHaveBeenCalledWith('/auth/register', expect.objectContaining({
-      email: 'clinic@example.com',
-      userType: 'CLINIC',
-      clinicCommercialName: 'Clinica Demo',
-    }));
+    expect(postMock).toHaveBeenCalledWith(
+      '/auth/register',
+      expect.objectContaining({
+        email: 'clinic@example.com',
+        userType: 'CLINIC',
+        clinicCommercialName: 'Clinica Demo',
+      }),
+      expect.objectContaining({ timeout: 30000 })
+    );
   });
 
   it('preserves legalStatus returned by Google auth', async () => {
@@ -145,11 +154,15 @@ describe('authService legal status hydration', () => {
       clinicCommercialName: 'Clínica Demo',
     });
 
-    expect(postMock).toHaveBeenCalledWith('/auth/google', expect.objectContaining({
-      idToken: 'google-id-token',
-      userType: 'CLINIC',
-      expectedUserType: 'CLINIC',
-      clinicCommercialName: 'Clínica Demo',
-    }));
+    expect(postMock).toHaveBeenCalledWith(
+      '/auth/google',
+      expect.objectContaining({
+        idToken: 'google-id-token',
+        userType: 'CLINIC',
+        expectedUserType: 'CLINIC',
+        clinicCommercialName: 'Clínica Demo',
+      }),
+      expect.objectContaining({ timeout: 30000 })
+    );
   });
 });

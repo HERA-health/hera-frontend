@@ -11,6 +11,9 @@ import { PASSWORD_REQUIREMENTS_MESSAGE } from '../utils/validation';
 export type BackendUserType = 'CLIENT' | 'PROFESSIONAL' | 'CLINIC';
 export type PublicAuthUserType = BackendUserType;
 
+const AUTH_REQUEST_TIMEOUT_MS = 30000;
+const authRequestConfig = { timeout: AUTH_REQUEST_TIMEOUT_MS };
+
 export interface AuthResponse {
   token: string;
   refreshToken: string;
@@ -84,7 +87,8 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
       {
         ...data,
         platform: getClientPlatform(),
-      }
+      },
+      authRequestConfig
     );
 
     if (response.data.success && response.data.data) {
@@ -137,7 +141,8 @@ export const login = async (data: LoginData): Promise<AuthResponse> => {
       {
         ...data,
         platform: getClientPlatform(),
-      }
+      },
+      authRequestConfig
     );
 
     if (response.data.success && response.data.data) {
@@ -230,7 +235,8 @@ export const authenticateWithGoogle = async (data: GoogleAuthData): Promise<Auth
       {
         ...data,
         platform: getClientPlatform(),
-      }
+      },
+      authRequestConfig
     );
 
     if (response.data.success && response.data.data) {
