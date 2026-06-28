@@ -28,8 +28,6 @@ const STRINGS = {
   howToGet: 'Cómo llegar',
 };
 
-const SOFT_HEADER_COLORS = new Set(['#97B2A6', '#BDD7FF', '#DFD8CD']);
-
 const SectionDivider: React.FC<{ color: string }> = ({ color }) => (
   <View style={{ height: 0.5, backgroundColor: color }} />
 );
@@ -38,16 +36,11 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
   specialist,
   onBookPress,
   onSlotSelect,
-  gradientColors,
   canBook = true,
   showLargePhoto = true,
 }) => {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
-  const headerColor = gradientColors[0] || theme.primary;
-  const softHeader = SOFT_HEADER_COLORS.has(headerColor.toUpperCase());
-  const headerTextColor = softHeader ? theme.textPrimary : theme.textOnPrimary;
-  const headerMutedColor = softHeader ? theme.textSecondary : 'rgba(255,255,255,0.85)';
 
   const offersOnline = specialist.offersOnline ?? true;
   const offersInPerson = specialist.offersInPerson ?? false;
@@ -94,11 +87,20 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
         <>
           <View style={styles.photoSection}>
             {specialist.avatar ? (
-              <Image
-                source={{ uri: specialist.avatar }}
-                resizeMode="contain"
-                style={styles.profilePhoto}
-              />
+              <>
+                <Image
+                  source={{ uri: specialist.avatar }}
+                  resizeMode="cover"
+                  blurRadius={18}
+                  style={styles.profilePhotoBackdrop}
+                />
+                <View style={styles.profilePhotoOverlay} />
+                <Image
+                  source={{ uri: specialist.avatar }}
+                  resizeMode="contain"
+                  style={styles.profilePhoto}
+                />
+              </>
             ) : (
               <View style={[styles.profilePhoto, styles.profilePhotoPlaceholder]}>
                 <Text style={styles.profilePhotoInitial}>{initial}</Text>
@@ -112,18 +114,22 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
         </>
       ) : null}
 
-      <View style={[styles.priceHeader, { backgroundColor: headerColor }]}>
+      <View style={styles.priceSection}>
+        <View style={styles.priceAccent} />
         <View style={styles.priceRow}>
-          <Text style={[styles.priceAmount, { color: headerTextColor }]}>
+          <Text style={styles.priceAmount}>
             {specialist.pricePerSession}€
           </Text>
-          <Text style={[styles.priceLabel, { color: headerMutedColor }]}>
+          <Text style={styles.priceLabel}>
             {STRINGS.perSession}
           </Text>
         </View>
-        <Text style={[styles.priceDuration, { color: headerMutedColor }]}>
-          {sessionDurationText}
-        </Text>
+        <View style={styles.durationRow}>
+          <Ionicons name="time-outline" size={14} color={theme.textSecondary} />
+          <Text style={styles.priceDuration}>
+            {sessionDurationText}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.infoSection}>
@@ -255,10 +261,21 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  profilePhotoBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: isDark ? 0.26 : 0.34,
+    transform: [{ scale: 1.04 }],
+  },
+  profilePhotoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: isDark ? 'rgba(12,18,17,0.52)' : 'rgba(255,252,246,0.42)',
   },
   profilePhoto: {
     width: '100%',
     height: '100%',
+    zIndex: 1,
   },
   profilePhotoPlaceholder: {
     alignItems: 'center',
@@ -290,8 +307,19 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     fontFamily: theme.fontSansMedium,
     color: theme.textSecondary,
   },
-  priceHeader: {
-    padding: 20,
+  priceSection: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    backgroundColor: theme.bgCard,
+    borderTopWidth: 1,
+    borderTopColor: theme.borderLight,
+  },
+  priceAccent: {
+    width: 34,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: theme.primaryAlpha20,
+    marginBottom: spacing.sm,
   },
   priceRow: {
     flexDirection: 'row',
@@ -301,14 +329,23 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   },
   priceAmount: {
     fontSize: 32,
+    lineHeight: 38,
     fontWeight: '700',
+    color: theme.textPrimary,
   },
   priceLabel: {
     fontSize: 16,
     fontWeight: '400',
+    color: theme.textSecondary,
+  },
+  durationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   priceDuration: {
     fontSize: 13,
+    color: theme.textSecondary,
   },
   infoSection: {
     padding: spacing.md,

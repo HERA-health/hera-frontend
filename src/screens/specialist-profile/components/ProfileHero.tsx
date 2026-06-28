@@ -36,7 +36,6 @@ const translateSpecialty = (tag: string): string => SPECIALTY_TRANSLATIONS[tag.t
 export const ProfileHero: React.FC<ProfileHeroProps> = ({
   specialist,
   onRatingPress,
-  gradientColors,
   bio,
   therapeuticApproach,
 }) => {
@@ -57,14 +56,16 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
 
   return (
     <View style={styles.cardContainer}>
-      <View style={[styles.headerSurface, { backgroundColor: gradientColors[0] }]} />
-
       <View style={styles.contentContainer}>
         <View style={[styles.mainRow, isMobile && styles.mainRowMobile]}>
-          <View style={[styles.avatarWrapper, { marginTop: isDesktop ? -60 : -66 }]}>
+          <View style={styles.avatarWrapper}>
             <View style={[styles.avatarRing, { width: avatarSize, height: avatarSize }]}>
               {specialist.avatar ? (
-                <Image source={{ uri: specialist.avatar }} style={styles.avatarImage} />
+                <Image
+                  source={{ uri: specialist.avatar }}
+                  resizeMode="cover"
+                  style={styles.avatarImage}
+                />
               ) : (
                 <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary }]}>
                   <Text style={styles.avatarInitial}>{specialist.name[0]}</Text>
@@ -199,17 +200,14 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     shadowRadius: 24,
     elevation: 3,
   },
-  headerSurface: {
-    height: 110,
-    width: '100%',
-  },
   contentContainer: {
+    paddingTop: spacing.xl,
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.lg,
   },
   mainRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: spacing.lg,
   },
   mainRowMobile: {
@@ -222,8 +220,7 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   },
   avatarRing: {
     borderRadius: borderRadius.xl,
-    backgroundColor: theme.bgCard,
-    padding: 6,
+    overflow: 'hidden',
   },
   avatarImage: {
     width: '100%',
