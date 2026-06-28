@@ -2,6 +2,8 @@ import { api } from './api';
 import { getErrorMessage } from '../constants/errors';
 import type { Specialist } from '../screens/specialist-profile/types';
 import type { ProfessionalType } from '../constants/professionalTypes';
+import { Platform } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 
 const SPECIALISTS_CACHE_TTL_MS = 30_000;
 const LEGACY_DEFAULT_SPECIALIST_DESCRIPTION = 'new professional';
@@ -47,7 +49,16 @@ export interface SpecialistData {
   languagesSpoken?: string[];
   education?: Array<{ id: string; degree: string; institution: string; startYear: string; endYear: string }>;
   experience?: Array<{ id: string; position: string; organization: string; startYear: string; endYear?: string | null; current?: boolean }>;
-  certificates?: Array<{ id: string; name: string; issuer?: string; validUntil?: string | null }>;
+  certificates?: Array<{
+    id: string;
+    name: string;
+    issuer?: string;
+    validUntil?: string | null;
+    educationId?: string | null;
+    mimeType?: string | null;
+    documentUrl?: string;
+    previewUrl?: string;
+  }>;
   slotDuration?: number | null;
   nextAvailable?: string | null;
   verificationStatus?: string;
@@ -196,6 +207,39 @@ export const resolveSpecialistAvatar = (
   specialist: Pick<SpecialistData, 'avatar' | 'user'>
 ): string | null => specialist.user.avatar ?? specialist.avatar ?? null;
 
+export const resolvePublicSpecialistDocumentUrl = (documentUrl: string): string => {
+  if (/^https?:\/\//i.test(documentUrl)) {
+    return documentUrl;
+  }
+
+  const baseUrl = String(api.defaults.baseURL ?? '').replace(/\/$/, '');
+  const apiOrigin = baseUrl.replace(/\/api$/, '');
+
+  if (documentUrl.startsWith('/')) {
+    return `${apiOrigin}${documentUrl}`;
+  }
+
+  return `${baseUrl}/${documentUrl}`;
+};
+
+const openPublicDocumentUrl = async (url: string): Promise<void> => {
+  if (Platform.OS === 'web') {
+    const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
+    if (openedWindow) {
+      return;
+    }
+
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    anchor.click();
+    return;
+  }
+
+  await WebBrowser.openBrowserAsync(url);
+};
+
 /**
  * Maps a raw API SpecialistData response to the Specialist profile shape
  * used by the UI components. Pure function - no side effects.
@@ -227,7 +271,15 @@ export const mapSpecialistToProfile = (data: SpecialistData): Specialist => {
     })(),
     education: data.education ?? [],
     experience: data.experience ?? [],
-    certifications: data.certificates ?? [],
+    certifications: (data.certificates ?? []).map((certificate) => ({
+      ...certificate,
+      documentUrl: certificate.documentUrl
+        ? resolvePublicSpecialistDocumentUrl(certificate.documentUrl)
+        : undefined,
+      previewUrl: certificate.previewUrl
+        ? resolvePublicSpecialistDocumentUrl(certificate.previewUrl)
+        : undefined,
+    })),
     nextAvailable: data.nextAvailable ?? null,
     slotDuration: data.slotDuration ?? null,
     address: data.offersInPerson && data.officeAddress ? {
@@ -248,6 +300,23 @@ export const mapSpecialistToProfile = (data: SpecialistData): Specialist => {
     firstVisitFree: data.firstVisitFree || false,
     collegiateNumber: data.collegiateNumber || undefined,
   };
+};
+
+export const openPublicCertificateDocument = async (
+  specialistId: string,
+  certificateId: string,
+  _mimeType?: string | null,
+  documentUrl?: string
+): Promise<void> => {
+  try {
+    const fallbackDocumentUrl =
+      `/api/specialists/${encodeURIComponent(specialistId)}/certificates/${encodeURIComponent(certificateId)}/document`;
+    const requestUrl = resolvePublicSpecialistDocumentUrl(documentUrl ?? fallbackDocumentUrl);
+
+    await openPublicDocumentUrl(requestUrl);
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo abrir el certificado.'));
+  }
 };
 
 /**

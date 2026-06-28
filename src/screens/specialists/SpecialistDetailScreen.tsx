@@ -41,10 +41,11 @@ import {
   VideoSection,
   ProfileSkeleton,
 } from '../specialist-profile/components';
-import type { Specialist, Review } from '../specialist-profile/types';
+import type { Specialist, Review, CertificateItem } from '../specialist-profile/types';
 import { LocationMapPreview, ModalityBadges } from '../../components/location';
 import * as analyticsService from '../../services/analyticsService';
 import { AnimatedPressable, Button } from '../../components/common';
+import type { TimeSlot } from '../../services/sessionsService';
 
 // Types
 interface SpecialistDetailScreenProps {
@@ -55,6 +56,11 @@ interface SpecialistDetailScreenProps {
 // Breakpoints
 const DESKTOP_BREAKPOINT = 1024;
 const TABLET_BREAKPOINT = 768;
+
+interface SelectedProfileSlot {
+  date: string;
+  slot: TimeSlot;
+}
 
 // Main Component
 export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
@@ -119,7 +125,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
   };
 
   // ============== NAVIGATION HANDLERS (PRESERVED) ==============
-  const handleBookSession = useCallback(() => {
+  const handleBookSession = useCallback((selectedSlot?: SelectedProfileSlot) => {
     if (!specialist) return;
 
     if (!canBook) {
@@ -142,8 +148,39 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       slotDuration: specialist.slotDuration ?? 60,
       offersOnline: specialist.offersOnline ?? true,
       offersInPerson: specialist.offersInPerson ?? false,
+      ...(selectedSlot ? {
+        initialDate: selectedSlot.date,
+        initialSlotStartTime: selectedSlot.slot.startTime,
+        initialSlotEndTime: selectedSlot.slot.endTime,
+      } : {}),
     });
   }, [appAlert, canBook, specialist, navigation]);
+
+  const handleBookSessionPress = useCallback(() => {
+    handleBookSession();
+  }, [handleBookSession]);
+
+  const handleAvailabilitySlotSelect = useCallback((date: string, slot: TimeSlot) => {
+    handleBookSession({ date, slot });
+  }, [handleBookSession]);
+
+  const handleOpenCertificate = useCallback(async (certificate: CertificateItem) => {
+    if (!specialist) {
+      return;
+    }
+
+    try {
+      await specialistsService.openPublicCertificateDocument(
+        specialist.id,
+        certificate.id,
+        certificate.mimeType,
+        certificate.documentUrl
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'No se pudo abrir el certificado.';
+      showAppAlert(appAlert, 'Error', message);
+    }
+  }, [appAlert, specialist]);
 
   const handleGoBack = useCallback(() => {
     navigation.goBack();
@@ -187,13 +224,13 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
     <>
       {/* Hero Section */}
       {!skipHero && (
-        <ProfileHero
-          specialist={specialist}
-          affinity={affinity}
-          onBookPress={handleBookSession}
-          onRatingPress={handleScrollToReviews}
-          gradientColors={gradientColors}
-          bio={specialist.bio}
+              <ProfileHero
+                specialist={specialist}
+                affinity={affinity}
+                onBookPress={handleBookSessionPress}
+                onRatingPress={handleScrollToReviews}
+                gradientColors={gradientColors}
+                bio={specialist.bio}
           therapeuticApproach={specialist.therapeuticApproach}
         />
       )}
@@ -227,6 +264,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
           certifications={specialist.certifications}
           collegiateNumber={specialist.collegiateNumber}
           experienceYears={specialist.experienceYears}
+          onOpenCertificate={(certificate) => void handleOpenCertificate(certificate)}
         />
       </View>
 
@@ -280,7 +318,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
                 <ProfileHero
                   specialist={specialist}
                   affinity={affinity}
-                  onBookPress={handleBookSession}
+                  onBookPress={handleBookSessionPress}
                   onRatingPress={handleScrollToReviews}
                   gradientColors={gradientColors}
                   bio={specialist.bio}
@@ -297,9 +335,11 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
               ]}>
                 <BookingSidebar
                   specialist={specialist}
-                  onBookPress={handleBookSession}
+                  onBookPress={handleBookSessionPress}
+                  onSlotSelect={handleAvailabilitySlotSelect}
                   gradientColors={gradientColors}
                   canBook={canBook}
+                  showLargePhoto
                 />
                 {specialist.photoGallery && specialist.photoGallery.length > 0 && (
                   <View style={styles.rightColumnGallery}>
@@ -343,15 +383,26 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
 
         {/* Main Content */}
         <View style={styles.mobileContainer}>
-          {renderMainContent(heroRenderedAbove)}
+          <ProfileHero
+            specialist={specialist}
+            affinity={affinity}
+            onBookPress={handleBookSessionPress}
+            onRatingPress={handleScrollToReviews}
+            gradientColors={gradientColors}
+            bio={specialist.bio}
+            therapeuticApproach={specialist.therapeuticApproach}
+          />
           <View style={styles.section}>
             <BookingSidebar
               specialist={specialist}
-              onBookPress={handleBookSession}
+              onBookPress={handleBookSessionPress}
+              onSlotSelect={handleAvailabilitySlotSelect}
               gradientColors={gradientColors}
               canBook={canBook}
+              showLargePhoto={false}
             />
           </View>
+          {renderMainContent(true)}
           {specialist.photoGallery && specialist.photoGallery.length > 0 && (
             <View style={styles.section}>
               <PhotoGallerySection
@@ -368,7 +419,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       <StickyBookingBar
         specialistName={specialist.name}
         pricePerSession={specialist.pricePerSession}
-        onBookPress={handleBookSession}
+        onBookPress={handleBookSessionPress}
         visible={showStickyBar}
         canBook={canBook}
       />

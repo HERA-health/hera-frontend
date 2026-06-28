@@ -144,6 +144,9 @@ export type RootStackParamList = {
     slotDuration?: number;
     offersOnline?: boolean;
     offersInPerson?: boolean;
+    initialDate?: string;
+    initialSlotStartTime?: string;
+    initialSlotEndTime?: string;
   };
   Questionnaire: undefined;
   QuestionnaireResults: { results: any[] };

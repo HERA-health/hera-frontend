@@ -2,6 +2,7 @@ jest.mock('../api', () => ({
   api: {
     get: jest.fn(),
     post: jest.fn(),
+    patch: jest.fn(),
     put: jest.fn(),
   },
   getAuthSessionCacheScope: jest.fn(() => 'auth:test-session'),
@@ -21,17 +22,21 @@ jest.mock('react-native', () => ({
 }));
 
 import { api } from '../api';
+import { buildMultipartFormData } from '../../utils/multipartUpload';
 import {
   createManagedClientSession,
   getProfessionalClients,
   getProfessionalSessions,
   getVerificationStatus,
   isManagedSessionBufferConflictError,
+  updateCertificateDocumentMetadata,
   updateComprehensiveProfile,
+  uploadCertificateDocument,
 } from '../professionalService';
 import { clearRequestCache } from '../requestCache';
 
 const mockedApi = api as jest.Mocked<typeof api>;
+const mockedBuildMultipartFormData = buildMultipartFormData as jest.MockedFunction<typeof buildMultipartFormData>;
 
 describe('professionalService.getVerificationStatus', () => {
   beforeEach(() => {
@@ -197,6 +202,99 @@ describe('professionalService cached professional GETs', () => {
         source: 'ALL',
         lifecycle: 'ACTIVE',
       },
+    });
+  });
+});
+
+describe('professionalService certificate documents', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    clearRequestCache();
+  });
+
+  it('uploads certificate visibility and education metadata with the document', async () => {
+    const file = {
+      uri: 'file:///certificate.pdf',
+      name: 'certificate.pdf',
+      fileName: 'certificate.pdf',
+      mimeType: 'application/pdf',
+    };
+    const formData = new FormData();
+
+    mockedBuildMultipartFormData.mockResolvedValue(formData);
+    mockedApi.post.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          id: 'cert-1',
+          name: 'Máster clínico',
+          issuer: 'Universidad',
+          validUntil: null,
+          publicVisible: true,
+          educationId: 'edu-1',
+        },
+      },
+    });
+
+    await expect(uploadCertificateDocument({
+      file,
+      name: 'Máster clínico',
+      issuer: 'Universidad',
+      validUntil: null,
+      publicVisible: true,
+      educationId: 'edu-1',
+    })).resolves.toMatchObject({
+      id: 'cert-1',
+      publicVisible: true,
+      educationId: 'edu-1',
+    });
+
+    expect(mockedBuildMultipartFormData).toHaveBeenCalledWith(
+      'document',
+      file,
+      {
+        name: 'Máster clínico',
+        issuer: 'Universidad',
+        publicVisible: 'true',
+        educationId: 'edu-1',
+      },
+      'certificado'
+    );
+    expect(mockedApi.post).toHaveBeenCalledWith('/specialists/me/certificates', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 30000,
+    });
+  });
+
+  it('patches certificate public metadata without re-uploading the file', async () => {
+    mockedApi.patch.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          id: 'cert-1',
+          name: 'Máster clínico',
+          issuer: 'Universidad',
+          validUntil: null,
+          publicVisible: false,
+          educationId: null,
+        },
+      },
+    });
+
+    await expect(updateCertificateDocumentMetadata('cert-1', {
+      publicVisible: false,
+      educationId: null,
+    })).resolves.toMatchObject({
+      id: 'cert-1',
+      publicVisible: false,
+      educationId: null,
+    });
+
+    expect(mockedApi.patch).toHaveBeenCalledWith('/specialists/me/certificates/cert-1', {
+      publicVisible: false,
+      educationId: null,
     });
   });
 });

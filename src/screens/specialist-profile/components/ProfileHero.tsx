@@ -46,7 +46,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
 
   const isDesktop = width >= 768;
   const isMobile = width < 600;
-  const avatarSize = isDesktop ? 120 : 96;
+  const avatarSize = isDesktop ? 120 : 132;
   const offersOnline = specialist.offersOnline ?? true;
   const offersInPerson = specialist.offersInPerson ?? false;
   const translatedSpecializations = specialist.specializations.map(translateSpecialty);
@@ -61,7 +61,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
 
       <View style={styles.contentContainer}>
         <View style={[styles.mainRow, isMobile && styles.mainRowMobile]}>
-          <View style={[styles.avatarWrapper, { marginTop: isDesktop ? -60 : -48 }]}>
+          <View style={[styles.avatarWrapper, { marginTop: isDesktop ? -60 : -66 }]}>
             <View style={[styles.avatarRing, { width: avatarSize, height: avatarSize }]}>
               {specialist.avatar ? (
                 <Image source={{ uri: specialist.avatar }} style={styles.avatarImage} />

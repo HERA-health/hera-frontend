@@ -41,7 +41,11 @@ const client: Client = {
 
 describe('ManagedSessionSchedulerModal buffer override UX', () => {
   beforeEach(() => {
-    jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-06-15T08:00:00.000Z').getTime());
+    const futureNow = new Date();
+    futureNow.setDate(futureNow.getDate() + 1);
+    futureNow.setHours(8, 0, 0, 0);
+
+    jest.spyOn(Date, 'now').mockReturnValue(futureNow.getTime());
     mockedUseTheme.mockReturnValue({
       theme: lightTheme,
       mode: 'light',

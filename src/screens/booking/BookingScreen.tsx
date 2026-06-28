@@ -24,19 +24,24 @@ import {
 } from './bookingModalities';
 import { formatMadridDateKey, parseMadridDateTime } from '../../utils/madridTime';
 
+interface BookingRouteParams {
+  specialistId: string;
+  specialistName: string;
+  pricePerSession: number;
+  avatar?: string;
+  title?: string;
+  specializations?: string[];
+  slotDuration?: number;
+  offersOnline?: boolean;
+  offersInPerson?: boolean;
+  initialDate?: string;
+  initialSlotStartTime?: string;
+  initialSlotEndTime?: string;
+}
+
 interface BookingScreenProps {
   route: {
-    params: {
-      specialistId: string;
-      specialistName: string;
-      pricePerSession: number;
-      avatar?: string;
-      title?: string;
-      specializations?: string[];
-      slotDuration?: number;
-      offersOnline?: boolean;
-      offersInPerson?: boolean;
-    };
+    params: BookingRouteParams;
   };
   navigation: {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
@@ -60,8 +65,43 @@ const showBookingMessage = (
 const formatBookingAmount = (amount: number): string =>
   `${amount.toLocaleString('es-ES', { maximumFractionDigits: 2 })}€`;
 
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_PATTERN = /^\d{2}:\d{2}$/;
+
+interface InitialSlotSelection {
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+const buildInitialSlotSelection = (
+  params: BookingRouteParams
+): InitialSlotSelection | null => {
+  if (
+    !params.initialDate
+    || !DATE_KEY_PATTERN.test(params.initialDate)
+    || !params.initialSlotStartTime
+    || !TIME_PATTERN.test(params.initialSlotStartTime)
+    || !params.initialSlotEndTime
+    || !TIME_PATTERN.test(params.initialSlotEndTime)
+  ) {
+    return null;
+  }
+
+  return {
+    date: params.initialDate,
+    startTime: params.initialSlotStartTime,
+    endTime: params.initialSlotEndTime,
+  };
+};
+
 export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation }) => {
   const appAlert = useAppAlert();
+  const routeParams = route.params;
+  const initialSlotSelection = useMemo(
+    () => buildInitialSlotSelection(routeParams),
+    [routeParams],
+  );
   const {
     specialistId,
     specialistName,
@@ -72,7 +112,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
     slotDuration: paramSlotDuration,
     offersOnline,
     offersInPerson,
-  } = route.params;
+  } = routeParams;
   const slotDuration = paramSlotDuration ?? 60;
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
@@ -105,7 +145,13 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
     };
   }, [specialistId]);
 
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const initialSlotRef = useRef<InitialSlotSelection | null>(initialSlotSelection);
+  const initialDateLoadRef = useRef<string | null>(initialSlotSelection?.date ?? null);
+  const slotsRequestIdRef = useRef(0);
+
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    initialSlotSelection?.date ?? null
+  );
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [sessionType, setSessionType] = useState<SessionType>(defaultSessionType ?? 'VIDEO_CALL');
@@ -227,14 +273,51 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
   );
 
   const loadAvailableSlots = useCallback(
-    async (date: string) => {
+    async (date: string, options: { keepInitialSlot?: boolean } = {}) => {
+      const requestId = slotsRequestIdRef.current + 1;
+      slotsRequestIdRef.current = requestId;
+      const isLatestRequest = () => slotsRequestIdRef.current === requestId;
+
       setLoadingSlots(true);
-      setSelectedSlot(null);
+      if (!options.keepInitialSlot) {
+        initialSlotRef.current = null;
+        setSelectedSlot(null);
+      }
 
       try {
         const slots = await sessionsService.getAvailableSlots(specialistId, date);
+        if (!isLatestRequest()) {
+          return;
+        }
+
         setAvailableSlots(slots);
+
+        const initialSlot = initialSlotRef.current;
+        if (initialSlot?.date === date) {
+          initialSlotRef.current = null;
+          const matchingSlot = slots.find((slot) => (
+            slot.available !== false
+            && slot.startTime === initialSlot.startTime
+            && slot.endTime === initialSlot.endTime
+          ));
+
+          if (matchingSlot) {
+            setSelectedSlot(matchingSlot);
+          } else {
+            setSelectedSlot(null);
+            showBookingMessage(
+              appAlert,
+              'Horario no disponible',
+              'Ese horario acaba de dejar de estar disponible. Elige otra hora para continuar.'
+            );
+          }
+        }
       } catch (error: unknown) {
+        if (!isLatestRequest()) {
+          return;
+        }
+
+        initialSlotRef.current = null;
         const message =
           error instanceof Error
             ? error.message
@@ -242,11 +325,23 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
         showBookingMessage(appAlert, 'Error', message);
         setAvailableSlots([]);
       } finally {
-        setLoadingSlots(false);
+        if (isLatestRequest()) {
+          setLoadingSlots(false);
+        }
       }
     },
     [appAlert, specialistId],
   );
+
+  useEffect(() => {
+    const initialDateToLoad = initialDateLoadRef.current;
+    if (!initialDateToLoad) {
+      return;
+    }
+
+    initialDateLoadRef.current = null;
+    void loadAvailableSlots(initialDateToLoad, { keepInitialSlot: true });
+  }, [loadAvailableSlots]);
 
   const handleDateSelect = useCallback(
     (date: string) => {

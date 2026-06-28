@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   createNativeStackNavigator,
@@ -18,6 +18,11 @@ import {
   createDeferredComponent,
   type DeferredComponentModule,
 } from '../utils/createDeferredComponent';
+import {
+  clearPendingBookingIntent,
+  consumePendingBookingIntent,
+  mapPendingIntentToBookingParams,
+} from '../services/pendingBookingIntentService';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -297,6 +302,36 @@ const PublicSpecialistProfileRoute = createDeferredRoute<'PublicSpecialistProfil
   }
 );
 
+const ClientHomeRoute: React.FC<StackRouteProps<'Home'>> = (props) => {
+  const consumedIntentRef = useRef(false);
+
+  useEffect(() => {
+    if (consumedIntentRef.current) {
+      return undefined;
+    }
+
+    consumedIntentRef.current = true;
+    let active = true;
+
+    const consumeIntent = async () => {
+      const intent = await consumePendingBookingIntent();
+      if (!active || !intent) {
+        return;
+      }
+
+      props.navigation.navigate('Booking', mapPendingIntentToBookingParams(intent));
+    };
+
+    void consumeIntent();
+
+    return () => {
+      active = false;
+    };
+  }, [props.navigation]);
+
+  return <HomeRoute {...props} />;
+};
+
 interface LegalStatusUnavailableScreenProps {
   loading: boolean;
   message: string;
@@ -465,6 +500,12 @@ export function RootNavigator() {
 
     void refreshLegalStatus();
   }, [isAuthenticated, isInitialized, legalStatusSnapshot, refreshLegalStatus, user?.id]);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.type && user.type !== 'client') {
+      void clearPendingBookingIntent();
+    }
+  }, [isAuthenticated, user?.type]);
 
   if (!isInitialized) {
     return <LoadingScreen />;
@@ -833,7 +874,7 @@ export function RootNavigator() {
     >
       <Stack.Screen
         name="Home"
-        component={HomeRoute}
+        component={ClientHomeRoute}
         options={{ headerTitle: 'HERA' }}
       />
       <Stack.Screen

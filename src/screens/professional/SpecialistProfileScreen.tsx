@@ -323,6 +323,8 @@ interface CertificateDraft {
   name: string;
   issuer: string;
   validUntil: string;
+  publicVisible: boolean;
+  educationId: string | null;
 }
 
 const pickProfessionalDocument = async (
@@ -514,9 +516,12 @@ export function SpecialistProfileScreen() {
     name: '',
     issuer: '',
     validUntil: '',
+    publicVisible: false,
+    educationId: null,
   });
   const [isUploadingInsurance, setIsUploadingInsurance] = useState(false);
   const [isUploadingCertificate, setIsUploadingCertificate] = useState(false);
+  const [updatingCertificateKey, setUpdatingCertificateKey] = useState<string | null>(null);
   const [openingCredentialKey, setOpeningCredentialKey] = useState<string | null>(null);
 
   useProfessionalTourAutoStart(
@@ -529,6 +534,7 @@ export function SpecialistProfileScreen() {
       && !isUploadingGalleryPhoto
       && !isUploadingInsurance
       && !isUploadingCertificate
+      && updatingCertificateKey === null
       && openingCredentialKey === null
       && !isAppAlertVisible,
   );
@@ -982,6 +988,8 @@ export function SpecialistProfileScreen() {
       name: '',
       issuer: '',
       validUntil: '',
+      publicVisible: false,
+      educationId: null,
     });
   }, []);
 
@@ -1110,6 +1118,8 @@ export function SpecialistProfileScreen() {
         name: trimmedName,
         issuer: trimmedIssuer,
         validUntil: trimmedValidUntil || null,
+        publicVisible: certificateDraft.publicVisible,
+        educationId: certificateDraft.educationId,
       });
 
       setProfileData(prev => ({
@@ -1144,6 +1154,39 @@ export function SpecialistProfileScreen() {
       setOpeningCredentialKey(null);
     }
   }, [openingCredentialKey]);
+
+  const handleUpdateCertificateMetadata = useCallback(async (
+    certificate: Certificate,
+    patch: { publicVisible?: boolean; educationId?: string | null }
+  ) => {
+    if (updatingCertificateKey) {
+      return;
+    }
+
+    const key = `certificate-meta:${certificate.id}`;
+
+    try {
+      setUpdatingCertificateKey(key);
+      const updatedCertificate = await professionalService.updateCertificateDocumentMetadata(
+        certificate.id,
+        patch
+      );
+
+      const applyCertificateUpdate = (prev: SpecialistProfileData): SpecialistProfileData => ({
+        ...prev,
+        certificates: prev.certificates.map((item) =>
+          item.id === updatedCertificate.id ? { ...item, ...updatedCertificate } : item
+        ),
+      });
+
+      setProfileData(applyCertificateUpdate);
+      setOriginalData(applyCertificateUpdate);
+    } catch (error: unknown) {
+      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo actualizar el certificado.'));
+    } finally {
+      setUpdatingCertificateKey(null);
+    }
+  }, [appAlert, updatingCertificateKey]);
 
   const handleDeleteCertificate = useCallback((certificateId: string) => {
     const doDelete = async () => {
@@ -2303,6 +2346,69 @@ export function SpecialistProfileScreen() {
     );
   };
 
+  const getEducationOptionLabel = (education: Education): string => {
+    const degree = education.degree.trim() || 'Formación';
+    const institution = education.institution.trim();
+    return institution ? `${degree} · ${institution}` : degree;
+  };
+
+  const renderCertificateEducationPicker = (certificate: Certificate) => {
+    if (!profileData.education.length) {
+      return (
+        <Text style={styles.certificateAssociationHint}>
+          Añade una formación para poder vincular este documento a un título concreto.
+        </Text>
+      );
+    }
+
+    const updateKey = `certificate-meta:${certificate.id}`;
+    const isUpdating = updatingCertificateKey === updateKey;
+    const options: Array<{ id: string | null; label: string }> = [
+      { id: null, label: 'Sin asociar' },
+      ...profileData.education.map((education) => ({
+        id: education.id,
+        label: getEducationOptionLabel(education),
+      })),
+    ];
+
+    return (
+      <View style={styles.certificateAssociationBlock}>
+        <Text style={styles.certificateAssociationLabel}>Asociar a formación</Text>
+        <View style={styles.certificateAssociationChips}>
+          {options.map((option) => {
+            const selected = (certificate.educationId ?? null) === option.id;
+
+            return (
+              <TouchableOpacity
+                key={option.id ?? 'none'}
+                style={[
+                  styles.certificateAssociationChip,
+                  selected && styles.certificateAssociationChipSelected,
+                ]}
+                activeOpacity={0.75}
+                disabled={isUpdating || selected}
+                onPress={() => void handleUpdateCertificateMetadata(certificate, { educationId: option.id })}
+              >
+                {selected ? (
+                  <Ionicons name="checkmark" size={13} color={palette.textOnCard} />
+                ) : null}
+                <Text
+                  style={[
+                    styles.certificateAssociationChipText,
+                    selected && styles.certificateAssociationChipTextSelected,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
+
   const renderCredentialsTab = () => (
     <View style={styles.tabContent}>
       {/* Professional Verification Status Banner */}
@@ -2541,50 +2647,109 @@ export function SpecialistProfileScreen() {
             <Ionicons name="ribbon-outline" size={40} color={palette.textMuted} />
             <Text style={styles.emptyStateTitle}>No has añadido certificados</Text>
             <Text style={styles.emptyStateDescription}>
-              Añade certificaciones privadas para revisión interna y para poder mostrar acreditaciones de forma controlada.
+              Añade certificados privados y decide cuáles quieres mostrar en tu perfil público.
             </Text>
           </View>
         ) : (
           <View style={styles.itemsList}>
-            {profileData.certificates.map((cert) => (
-              <View key={cert.id} style={styles.documentCard}>
-                <View style={styles.documentIcon}>
-                  <Ionicons name="ribbon" size={24} color={palette.primary} />
-                </View>
-                <View style={styles.documentContent}>
-                  <Text style={styles.documentTitle}>{cert.name}</Text>
-                  <Text style={styles.documentMeta}>{cert.issuer}</Text>
-                  {cert.validUntil && (
-                    <Text style={styles.documentMeta}>Válido hasta: {cert.validUntil}</Text>
-                  )}
-                  {formatDocumentDate(cert.documentUploadedAt) && (
-                    <Text style={styles.documentMeta}>
-                      Documento subido el {formatDocumentDate(cert.documentUploadedAt)}
-                    </Text>
-                  )}
-                </View>
-                <View style={styles.documentActions}>
-                  <TouchableOpacity
-                    style={styles.documentAction}
-                    activeOpacity={0.7}
-                    onPress={() => void handleOpenCertificate(cert)}
-                  >
-                    {openingCredentialKey === `certificate:${cert.id}` ? (
-                      <ActivityIndicator size="small" color={palette.primary} />
-                    ) : (
-                      <Ionicons name="eye-outline" size={20} color={palette.primary} />
+            {profileData.certificates.map((cert) => {
+              const linkedEducation = cert.educationId
+                ? profileData.education.find((education) => education.id === cert.educationId)
+                : null;
+              const updateKey = `certificate-meta:${cert.id}`;
+              const isUpdating = updatingCertificateKey === updateKey;
+
+              return (
+                <View key={cert.id} style={styles.documentCard}>
+                  <View style={styles.documentIcon}>
+                    <Ionicons name="ribbon" size={24} color={palette.primary} />
+                  </View>
+                  <View style={styles.documentContent}>
+                    <View style={styles.certificateHeaderRow}>
+                      <Text style={styles.documentTitle}>{cert.name}</Text>
+                      <View
+                        style={[
+                          styles.certificateVisibilityBadge,
+                          cert.publicVisible
+                            ? styles.certificateVisibilityBadgeActive
+                            : styles.certificateVisibilityBadgePrivate,
+                        ]}
+                      >
+                        <Ionicons
+                          name={cert.publicVisible ? 'eye-outline' : 'lock-closed-outline'}
+                          size={13}
+                          color={cert.publicVisible ? palette.success : palette.textSecondary}
+                        />
+                        <Text
+                          style={[
+                            styles.certificateVisibilityBadgeText,
+                            cert.publicVisible && styles.certificateVisibilityBadgeTextActive,
+                          ]}
+                        >
+                          {cert.publicVisible ? 'Visible en perfil' : 'Privado'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.documentMeta}>{cert.issuer}</Text>
+                    {cert.validUntil && (
+                      <Text style={styles.documentMeta}>Válido hasta: {cert.validUntil}</Text>
                     )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.documentAction}
-                    activeOpacity={0.7}
-                    onPress={() => handleDeleteCertificate(cert.id)}
-                  >
-                    <Ionicons name="trash-outline" size={20} color={palette.warning} />
-                  </TouchableOpacity>
+                    {formatDocumentDate(cert.documentUploadedAt) && (
+                      <Text style={styles.documentMeta}>
+                        Documento subido el {formatDocumentDate(cert.documentUploadedAt)}
+                      </Text>
+                    )}
+                    {linkedEducation ? (
+                      <Text style={styles.certificateAssociationText}>
+                        Asociado a {getEducationOptionLabel(linkedEducation)}
+                      </Text>
+                    ) : null}
+                    {renderCertificateEducationPicker(cert)}
+                  </View>
+                  <View style={styles.documentActions}>
+                    <TouchableOpacity
+                      style={[styles.documentAction, styles.certificateVisibilityAction]}
+                      activeOpacity={0.7}
+                      disabled={isUpdating}
+                      onPress={() => void handleUpdateCertificateMetadata(cert, {
+                        publicVisible: !cert.publicVisible,
+                      })}
+                    >
+                      {isUpdating ? (
+                        <ActivityIndicator size="small" color={palette.primary} />
+                      ) : (
+                        <Ionicons
+                          name={cert.publicVisible ? 'eye-off-outline' : 'eye-outline'}
+                          size={18}
+                          color={palette.primary}
+                        />
+                      )}
+                      <Text style={styles.certificateVisibilityActionText}>
+                        {cert.publicVisible ? 'Ocultar' : 'Mostrar'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.documentAction}
+                      activeOpacity={0.7}
+                      onPress={() => void handleOpenCertificate(cert)}
+                    >
+                      {openingCredentialKey === `certificate:${cert.id}` ? (
+                        <ActivityIndicator size="small" color={palette.primary} />
+                      ) : (
+                        <Ionicons name="open-outline" size={20} color={palette.primary} />
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.documentAction}
+                      activeOpacity={0.7}
+                      onPress={() => handleDeleteCertificate(cert.id)}
+                    >
+                      <Ionicons name="trash-outline" size={20} color={palette.warning} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </View>
@@ -2909,12 +3074,18 @@ export function SpecialistProfileScreen() {
             <View style={styles.shareModalHeader}>
               <View style={styles.shareModalHeaderCopy}>
                 <View style={styles.shareModalBadge}>
-                  <Ionicons name="ribbon-outline" size={14} color={palette.primary} />
-                  <Text style={styles.shareModalBadgeText}>Documento privado</Text>
+                  <Ionicons
+                    name={certificateDraft.publicVisible ? 'eye-outline' : 'lock-closed-outline'}
+                    size={14}
+                    color={palette.primary}
+                  />
+                  <Text style={styles.shareModalBadgeText}>
+                    {certificateDraft.publicVisible ? 'Visible en perfil' : 'Documento privado'}
+                  </Text>
                 </View>
                 <Text style={styles.shareModalTitle}>Añadir certificado</Text>
                 <Text style={styles.shareModalSubtitle}>
-                  El paciente no verá el archivo. Guardaremos el documento en privado para revisión interna y futuras verificaciones.
+                  Por defecto se guarda privado. Si activas la visibilidad, los pacientes podrán abrir el documento aportado en tu perfil público.
                 </Text>
               </View>
 
@@ -2963,6 +3134,75 @@ export function SpecialistProfileScreen() {
                   Al continuar te pediremos el PDF o la imagen del certificado.
                 </Text>
               </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.certificatePublicToggle,
+                  certificateDraft.publicVisible && styles.certificatePublicToggleActive,
+                ]}
+                activeOpacity={0.78}
+                onPress={() => setCertificateDraft(prev => ({
+                  ...prev,
+                  publicVisible: !prev.publicVisible,
+                }))}
+              >
+                <Ionicons
+                  name={certificateDraft.publicVisible ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={certificateDraft.publicVisible ? palette.primary : palette.textMuted}
+                />
+                <View style={styles.certificatePublicToggleCopy}>
+                  <Text style={styles.certificatePublicToggleTitle}>Visible en perfil público</Text>
+                  <Text style={styles.certificatePublicToggleText}>
+                    Los pacientes podrán ver el archivo desde tu perfil. Actívalo sólo si el documento no contiene datos sensibles.
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {profileData.education.length ? (
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>Asociar a formación</Text>
+                  <View style={styles.certificateAssociationChips}>
+                    {[{ id: null, label: 'Sin asociar' }, ...profileData.education.map((education) => ({
+                      id: education.id,
+                      label: getEducationOptionLabel(education),
+                    }))].map((option) => {
+                      const selected = certificateDraft.educationId === option.id;
+
+                      return (
+                        <TouchableOpacity
+                          key={option.id ?? 'none'}
+                          style={[
+                            styles.certificateAssociationChip,
+                            selected && styles.certificateAssociationChipSelected,
+                          ]}
+                          activeOpacity={0.75}
+                          onPress={() => setCertificateDraft(prev => ({
+                            ...prev,
+                            educationId: option.id,
+                          }))}
+                        >
+                          {selected ? (
+                            <Ionicons name="checkmark" size={13} color={palette.textOnCard} />
+                          ) : null}
+                          <Text
+                            style={[
+                              styles.certificateAssociationChipText,
+                              selected && styles.certificateAssociationChipTextSelected,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <Text style={styles.fieldHint}>
+                    Si lo asocias, el certificado aparecerá debajo de esa formación en el perfil.
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
             <View style={styles.shareModalActions}>
@@ -3969,7 +4209,7 @@ function createStyles(
   // ===== DOCUMENT CARD =====
   documentCard: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.md,
     padding: spacing.md,
     backgroundColor: palette.background,
@@ -3985,6 +4225,7 @@ function createStyles(
   },
   documentContent: {
     flex: 1,
+    minWidth: 0,
   },
   documentTitle: {
     fontSize: 15,
@@ -4052,10 +4293,147 @@ function createStyles(
   },
   documentActions: {
     flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
     gap: spacing.sm,
   },
   documentAction: {
     padding: spacing.sm,
+  },
+  certificateHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: 3,
+  },
+  certificateVisibilityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  certificateVisibilityBadgeActive: {
+    borderColor: palette.success,
+    backgroundColor: palette.successLight,
+  },
+  certificateVisibilityBadgePrivate: {
+    borderColor: palette.border,
+    backgroundColor: palette.backgroundMuted,
+  },
+  certificateVisibilityBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: palette.fontSansBold,
+    color: palette.textSecondary,
+  },
+  certificateVisibilityBadgeTextActive: {
+    color: palette.success,
+  },
+  certificateAssociationText: {
+    fontSize: 12,
+    fontFamily: palette.fontSans,
+    color: palette.primary,
+    marginTop: spacing.xs,
+  },
+  certificateAssociationBlock: {
+    marginTop: spacing.md,
+    gap: spacing.xs,
+  },
+  certificateAssociationLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: palette.fontSansBold,
+    color: palette.textSecondary,
+  },
+  certificateAssociationHint: {
+    fontSize: 12,
+    fontFamily: palette.fontSans,
+    lineHeight: 18,
+    color: palette.textMuted,
+    marginTop: spacing.sm,
+  },
+  certificateAssociationChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  certificateAssociationChip: {
+    maxWidth: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.cardBg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+  },
+  certificateAssociationChipSelected: {
+    borderColor: palette.primary,
+    backgroundColor: palette.primary,
+  },
+  certificateAssociationChipText: {
+    maxWidth: 220,
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: palette.fontSansSemiBold,
+    color: palette.textSecondary,
+  },
+  certificateAssociationChipTextSelected: {
+    color: palette.textOnCard,
+  },
+  certificateVisibilityAction: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: palette.cardBg,
+  },
+  certificateVisibilityActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: palette.fontSansBold,
+    color: palette.primary,
+  },
+  certificatePublicToggle: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.cardBg,
+    padding: spacing.md,
+  },
+  certificatePublicToggleActive: {
+    borderColor: palette.primary,
+    backgroundColor: palette.primaryAlpha12,
+  },
+  certificatePublicToggleCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  certificatePublicToggleTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: palette.fontHeading,
+    color: palette.textPrimary,
+  },
+  certificatePublicToggleText: {
+    fontSize: 12,
+    fontFamily: palette.fontSans,
+    lineHeight: 18,
+    color: palette.textSecondary,
   },
 
   // ===== UPLOAD AREA =====

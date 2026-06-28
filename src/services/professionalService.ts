@@ -55,6 +55,9 @@ export interface SpecialistCertificate {
   hasDocument?: boolean;
   documentUploadedAt?: string | null;
   mimeType?: string | null;
+  documentSizeBytes?: number | null;
+  publicVisible?: boolean;
+  educationId?: string | null;
 }
 
 export interface Session {
@@ -745,6 +748,8 @@ export const uploadCertificateDocument = async (input: {
   name: string;
   issuer: string;
   validUntil?: string | null;
+  publicVisible?: boolean;
+  educationId?: string | null;
 }): Promise<SpecialistCertificate> => {
   try {
     const formData = await buildMultipartFormData(
@@ -754,6 +759,8 @@ export const uploadCertificateDocument = async (input: {
         name: input.name,
         issuer: input.issuer,
         ...(input.validUntil ? { validUntil: input.validUntil } : {}),
+        publicVisible: input.publicVisible ? 'true' : 'false',
+        ...(input.educationId ? { educationId: input.educationId } : {}),
       },
       'certificado'
     );
@@ -768,6 +775,21 @@ export const uploadCertificateDocument = async (input: {
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo subir el certificado.'));
+  }
+};
+
+export const updateCertificateDocumentMetadata = async (
+  certificateId: string,
+  input: {
+    publicVisible?: boolean;
+    educationId?: string | null;
+  }
+): Promise<SpecialistCertificate> => {
+  try {
+    const response = await api.patch(`/specialists/me/certificates/${certificateId}`, input);
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo actualizar el certificado.'));
   }
 };
 

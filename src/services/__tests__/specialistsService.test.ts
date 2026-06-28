@@ -4,6 +4,7 @@ jest.mock('../api', () => ({
     post: jest.fn(),
     delete: jest.fn(),
     defaults: {
+      baseURL: 'http://localhost:3000/api',
       headers: {
         common: {},
       },
@@ -11,18 +12,27 @@ jest.mock('../api', () => ({
   },
 }));
 
+jest.mock('expo-web-browser', () => ({
+  openBrowserAsync: jest.fn(),
+}));
+
 import { api } from '../api';
+import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 import {
   addFavoriteSpecialist,
   getAllSpecialists,
   getSpecialistPersonalization,
   mapSpecialistToProfile,
+  openPublicCertificateDocument,
   removeFavoriteSpecialist,
   resolveSpecialistAvatar,
+  resolvePublicSpecialistDocumentUrl,
   type SpecialistData,
 } from '../specialistsService';
 
 const mockedApi = api as jest.Mocked<typeof api>;
+const mockedWebBrowser = jest.mocked(WebBrowser);
 
 describe('specialistsService personalization', () => {
   beforeEach(() => {
@@ -141,5 +151,75 @@ describe('specialistsService personalization', () => {
 
     expect(resolveSpecialistAvatar(specialist)).toBe('https://cdn.example.com/legacy-avatar.jpg');
     expect(mapSpecialistToProfile(specialist).avatar).toBe('https://cdn.example.com/legacy-avatar.jpg');
+  });
+
+  it('maps public certificate document metadata for the profile experience section', () => {
+    const specialist = mapSpecialistToProfile({
+      id: 'specialist-certificates',
+      userId: 'user-certificates',
+      specialization: 'Psicología sanitaria',
+      professionalType: 'PSYCHOLOGIST_HEALTH',
+      professionalTypeLabel: 'Psicólogo/a sanitario/a',
+      description: 'Bio profesional',
+      pricePerSession: 80,
+      rating: 4.9,
+      reviewCount: 12,
+      firstVisitFree: false,
+      avatar: null,
+      user: { name: 'Dra. Elena' },
+      offersOnline: true,
+      offersInPerson: false,
+      matchingProfile: {},
+      certificates: [{
+        id: 'cert-1',
+        name: 'Máster clínico',
+        issuer: 'Universidad',
+        validUntil: null,
+        educationId: 'edu-1',
+        mimeType: 'image/png',
+        documentUrl: '/api/specialists/specialist-certificates/certificates/cert-1/document',
+        previewUrl: '/api/specialists/specialist-certificates/certificates/cert-1/document',
+      }],
+    } satisfies SpecialistData);
+
+    expect(specialist.certifications).toEqual([{
+      id: 'cert-1',
+      name: 'Máster clínico',
+      issuer: 'Universidad',
+      validUntil: null,
+      educationId: 'edu-1',
+      mimeType: 'image/png',
+      documentUrl: 'http://localhost:3000/api/specialists/specialist-certificates/certificates/cert-1/document',
+      previewUrl: 'http://localhost:3000/api/specialists/specialist-certificates/certificates/cert-1/document',
+    }]);
+  });
+
+  it('resolves relative public document URLs against the API origin', () => {
+    expect(resolvePublicSpecialistDocumentUrl('/api/specialists/spec-1/certificates/cert-1/document'))
+      .toBe('http://localhost:3000/api/specialists/spec-1/certificates/cert-1/document');
+  });
+
+  it('opens public certificates directly without downloading them as blobs', async () => {
+    const originalPlatform = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+    mockedWebBrowser.openBrowserAsync.mockResolvedValue(
+      { type: 'cancel' } as Awaited<ReturnType<typeof WebBrowser.openBrowserAsync>>
+    );
+
+    try {
+      await openPublicCertificateDocument(
+        'spec-1',
+        'cert-1',
+        'application/pdf',
+        '/api/specialists/spec-1/certificates/cert-1/document'
+      );
+    } finally {
+      Object.defineProperty(Platform, 'OS', { value: originalPlatform, configurable: true });
+    }
+
+    expect(mockedApi.get).not.toHaveBeenCalled();
+    expect(mockedWebBrowser.openBrowserAsync).toHaveBeenCalledWith(
+      'http://localhost:3000/api/specialists/spec-1/certificates/cert-1/document'
+    );
   });
 });

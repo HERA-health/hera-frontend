@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import {
+  Image,
   Linking,
   Platform,
   StyleSheet,
@@ -12,7 +13,8 @@ import { LocationMapPreview } from '../../../components/location';
 import { borderRadius, shadows, spacing } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { Theme } from '../../../constants/theme';
-import { BookingSidebarProps } from '../types';
+import type { BookingSidebarProps } from '../types';
+import { ProfileAvailabilityPreview } from './ProfileAvailabilityPreview';
 
 const STRINGS = {
   perSession: '/sesión',
@@ -35,8 +37,10 @@ const SectionDivider: React.FC<{ color: string }> = ({ color }) => (
 export const BookingSidebar: React.FC<BookingSidebarProps> = ({
   specialist,
   onBookPress,
+  onSlotSelect,
   gradientColors,
   canBook = true,
+  showLargePhoto = true,
 }) => {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
@@ -50,6 +54,7 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
   const address = specialist.address;
   const showLocation = offersInPerson && !!address;
   const hasCoordinates = !!(address?.latitude && address?.longitude);
+  const initial = specialist.name?.[0]?.toUpperCase() ?? '?';
 
   const slotDuration = specialist.slotDuration ?? 60;
   const sessionDurationText = `Sesión de ${slotDuration} minutos`;
@@ -85,6 +90,28 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
 
   return (
     <View style={styles.sidebarCard}>
+      {showLargePhoto ? (
+        <>
+          <View style={styles.photoSection}>
+            {specialist.avatar ? (
+              <Image
+                source={{ uri: specialist.avatar }}
+                resizeMode="contain"
+                style={styles.profilePhoto}
+              />
+            ) : (
+              <View style={[styles.profilePhoto, styles.profilePhotoPlaceholder]}>
+                <Text style={styles.profilePhotoInitial}>{initial}</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.photoIdentity}>
+            <Text style={styles.photoName} numberOfLines={1}>{specialist.name}</Text>
+            <Text style={styles.photoCaption} numberOfLines={1}>{specialist.title}</Text>
+          </View>
+        </>
+      ) : null}
+
       <View style={[styles.priceHeader, { backgroundColor: headerColor }]}>
         <View style={styles.priceRow}>
           <Text style={[styles.priceAmount, { color: headerTextColor }]}>
@@ -130,12 +157,34 @@ export const BookingSidebar: React.FC<BookingSidebarProps> = ({
 
       <SectionDivider color={theme.borderLight} />
 
+      {canBook ? (
+        <>
+          <View style={styles.availabilitySection}>
+            <ProfileAvailabilityPreview
+              specialistId={specialist.id}
+              nextAvailable={specialist.nextAvailable}
+              canBook={canBook}
+              onSlotSelect={(date, slot) => {
+                if (onSlotSelect) {
+                  onSlotSelect(date, slot);
+                  return;
+                }
+
+                onBookPress();
+              }}
+            />
+          </View>
+
+          <SectionDivider color={theme.borderLight} />
+        </>
+      ) : null}
+
       <View style={styles.ctaSection}>
         <Button
           variant="primary"
           size="large"
           fullWidth
-          onPress={onBookPress}
+          onPress={() => onBookPress()}
           disabled={!canBook}
         >
           {canBook ? STRINGS.bookSession : STRINGS.noPublicBooking}
@@ -199,6 +248,47 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     borderColor: theme.borderLight,
     overflow: 'hidden',
     ...shadows.sm,
+  },
+  photoSection: {
+    width: '100%',
+    height: 320,
+    backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profilePhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  profilePhotoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.primaryAlpha12,
+  },
+  profilePhotoInitial: {
+    fontSize: 64,
+    fontFamily: theme.fontHeading,
+    color: theme.primary,
+  },
+  photoIdentity: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: theme.bgCard,
+    borderTopWidth: 1,
+    borderTopColor: theme.borderLight,
+  },
+  photoName: {
+    fontSize: 22,
+    lineHeight: 27,
+    fontFamily: theme.fontHeading,
+    color: theme.textPrimary,
+  },
+  photoCaption: {
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: theme.fontSansMedium,
+    color: theme.textSecondary,
   },
   priceHeader: {
     padding: 20,
@@ -273,6 +363,9 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   ctaSection: {
     padding: spacing.md,
     gap: 10,
+  },
+  availabilitySection: {
+    padding: spacing.md,
   },
   ctaUnavailableText: {
     fontSize: 12,

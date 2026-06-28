@@ -42,7 +42,7 @@ export const StickyBookingBar: React.FC<StickyBookingBarProps> = ({
             <Text style={styles.price}>€{pricePerSession}/sesión</Text>
           </View>
         )}
-        <Button variant="primary" size="large" style={ctaStyle} onPress={onBookPress}>
+        <Button variant="primary" size="large" style={ctaStyle} onPress={() => onBookPress()}>
           Reservar sesión
         </Button>
       </View>

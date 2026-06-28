@@ -4,6 +4,7 @@
  */
 
 import type { ProfessionalType } from '../../constants/professionalTypes';
+import type { TimeSlot as AvailableSlot } from '../../services/sessionsService';
 
 export interface Specialist {
   id: string;
@@ -99,6 +100,10 @@ export interface CertificateItem {
   name: string;
   issuer?: string;
   validUntil?: string | null;
+  educationId?: string | null;
+  mimeType?: string | null;
+  documentUrl?: string;
+  previewUrl?: string;
 }
 
 export interface Review {
@@ -137,6 +142,7 @@ export interface ExperienceSectionProps {
   certifications?: CertificateItem[];
   collegiateNumber?: string;
   experienceYears?: number;
+  onOpenCertificate?: (certificate: CertificateItem) => void;
 }
 
 export interface ReviewsSectionProps {
@@ -161,8 +167,10 @@ export interface StickyBookingBarProps {
 export interface BookingSidebarProps {
   specialist: Specialist;
   onBookPress: () => void;
+  onSlotSelect?: (date: string, slot: AvailableSlot) => void;
   gradientColors: [string, string];
   canBook?: boolean;
+  showLargePhoto?: boolean;
 }
 
 export interface CompactHeroProps {
