@@ -9,9 +9,16 @@ jest.mock('../../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
 }));
 
-jest.mock('../../../../components/location', () => ({
-  LocationMapPreview: () => null,
-}));
+jest.mock('../../../../components/location', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+
+  return {
+    LocationMapPreview: ({ address }: { address: string }) => (
+      React.createElement(Text, null, `Mapa de ${address}`)
+    ),
+  };
+});
 
 jest.mock('../../../../services/sessionsService', () => ({
   getAvailableSlots: jest.fn(),
@@ -97,5 +104,63 @@ describe('BookingSidebar', () => {
     await waitFor(() => {
       expect(screen.getByText('No hay horas libres este día.')).toBeTruthy();
     });
+  });
+
+  it('keeps booking actions visible while the public map is shown for mixed modalities', async () => {
+    render(
+      <BookingSidebar
+        specialist={{
+          ...specialist,
+          offersOnline: true,
+          offersInPerson: true,
+          address: {
+            street: 'Calle Prádena del Rincón',
+            city: 'Madrid',
+            postalCode: '28002',
+            latitude: 40.438,
+            longitude: -3.676,
+          },
+        } as never}
+        onBookPress={jest.fn()}
+        onSlotSelect={jest.fn()}
+        gradientColors={['#006884', '#006884']}
+        canBook
+        showLargePhoto={false}
+      />
+    );
+
+    expect(screen.getByText('Reservar sesión')).toBeTruthy();
+    expect(screen.getByText('Elige tu horario')).toBeTruthy();
+    expect(screen.getByText('Calle Prádena del Rincón')).toBeTruthy();
+    expect(screen.getByText('Madrid')).toBeTruthy();
+    expect(screen.getByText('Mapa de Calle Prádena del Rincón')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText('No hay horas libres este día.')).toBeTruthy();
+    });
+  });
+
+  it('shows the map when the specialist only offers in-person sessions', () => {
+    render(
+      <BookingSidebar
+        specialist={{
+          ...specialist,
+          offersOnline: false,
+          offersInPerson: true,
+          address: {
+            street: 'Calle Prádena del Rincón',
+            city: 'Madrid',
+            postalCode: '28002',
+            latitude: 40.438,
+            longitude: -3.676,
+          },
+        } as never}
+        onBookPress={jest.fn()}
+        gradientColors={['#006884', '#006884']}
+        canBook={false}
+        showLargePhoto={false}
+      />
+    );
+
+    expect(screen.getByText('Mapa de Calle Prádena del Rincón')).toBeTruthy();
   });
 });

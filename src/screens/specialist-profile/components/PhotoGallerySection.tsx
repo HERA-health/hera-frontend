@@ -23,6 +23,7 @@ import { spacing, borderRadius, shadows } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { Theme } from '../../../constants/theme';
 import { AnimatedPressable } from '../../../components/common';
+import { ProfileDisclosureSection } from './ProfileDisclosureSection';
 
 const STRINGS = {
   title: 'Galería',
@@ -46,6 +47,8 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const opacity = useSharedValue(1);
   const lightboxOpacity = useSharedValue(1);
+  const animatedImageStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const animatedLightboxStyle = useAnimatedStyle(() => ({ opacity: lightboxOpacity.value }));
 
   if (!photoGallery?.length) return null;
 
@@ -96,9 +99,6 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
     }
   };
 
-  const animatedImageStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  const animatedLightboxStyle = useAnimatedStyle(() => ({ opacity: lightboxOpacity.value }));
-
   const carouselCounter = `${String(currentIndex + 1).padStart(2, '0')} / ${String(count).padStart(2, '0')}`;
   const lightboxCounter = `${String(lightboxIndex + 1).padStart(2, '0')} / ${String(count).padStart(2, '0')}`;
 
@@ -107,102 +107,29 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <Ionicons name="images-outline" size={20} color={theme.textPrimary} />
-        <Text style={styles.title}>{STRINGS.title}</Text>
-      </View>
-
-      <AnimatedPressable onPress={openLightbox} style={styles.mainImageWrapper} hoverLift={false} pressScale={0.995}>
-        <Animated.Image
-          source={{ uri: photoGallery[currentIndex] }}
-          style={[styles.mainImage, animatedImageStyle]}
-          resizeMode="contain"
-          accessibilityLabel={specialistName ? `${specialistName} - ${carouselCounter}` : carouselCounter}
-        />
-
-        <View style={styles.counterBadge}>
-          <Text style={styles.counterText}>{carouselCounter}</Text>
-        </View>
-
-        {count > 1 && currentIndex > 0 && (
-          <AnimatedPressable
-            style={[styles.navButton, styles.navButtonLeft]}
-            onPress={goToPrev}
-            hoverLift={false}
-            pressScale={0.96}
-            accessibilityLabel={STRINGS.prevImage}
-          >
-            <Ionicons name="chevron-back" size={18} color="#FFFFFF" />
-          </AnimatedPressable>
-        )}
-
-        {count > 1 && currentIndex < count - 1 && (
-          <AnimatedPressable
-            style={[styles.navButton, styles.navButtonRight]}
-            onPress={goToNext}
-            hoverLift={false}
-            pressScale={0.96}
-            accessibilityLabel={STRINGS.nextImage}
-          >
-            <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
-          </AnimatedPressable>
-        )}
-      </AnimatedPressable>
-
-      {count > 1 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbnailRow}>
-          {photoGallery.map((url, index) => {
-            const isActive = index === currentIndex;
-            return (
-              <AnimatedPressable
-                key={`${url}-${index}`}
-                onPress={() => changeImage(index)}
-                hoverLift={false}
-                pressScale={0.97}
-                style={isActive ? [styles.thumbnailWrapper, styles.thumbnailWrapperActive] : styles.thumbnailWrapper}
-              >
-                <Image source={{ uri: url }} style={[styles.thumbnail, { opacity: isActive ? 1 : 0.68 }]} resizeMode="cover" />
-              </AnimatedPressable>
-            );
-          })}
-        </ScrollView>
-      )}
-
-      {count > 1 && (
-        <View style={styles.dotsRow}>
-          {Array.from({ length: dotCount }).map((_, i) => (
-            <View key={i} style={[styles.dot, i === activeDot && styles.dotActive]} />
-          ))}
-        </View>
-      )}
-
-      <Modal visible={lightboxVisible} transparent={false} animationType="fade" onRequestClose={closeLightbox} statusBarTranslucent>
-        <View style={styles.lightboxContainer}>
+      <ProfileDisclosureSection
+        title={STRINGS.title}
+        iconName="images-outline"
+        summary={`${count} ${count === 1 ? 'foto' : 'fotos'}`}
+        defaultExpanded={false}
+        testID="photo-gallery-disclosure"
+      >
+        <AnimatedPressable onPress={openLightbox} style={styles.mainImageWrapper} hoverLift={false} pressScale={0.995}>
           <Animated.Image
-            source={{ uri: photoGallery[lightboxIndex] }}
-            style={[styles.lightboxImage, animatedLightboxStyle]}
+            source={{ uri: photoGallery[currentIndex] }}
+            style={[styles.mainImage, animatedImageStyle]}
             resizeMode="contain"
-            accessibilityLabel={specialistName ? `${specialistName} - ${lightboxCounter}` : lightboxCounter}
+            accessibilityLabel={specialistName ? `${specialistName} - ${carouselCounter}` : carouselCounter}
           />
 
-          <AnimatedPressable
-            style={styles.lightboxClose}
-            onPress={closeLightbox}
-            hoverLift={false}
-            pressScale={0.96}
-            accessibilityLabel={STRINGS.closeGallery}
-          >
-            <Ionicons name="close" size={24} color="#FFFFFF" />
-          </AnimatedPressable>
-
-          <View style={styles.lightboxCounter}>
-            <Text style={styles.counterText}>{lightboxCounter}</Text>
+          <View style={styles.counterBadge}>
+            <Text style={styles.counterText}>{carouselCounter}</Text>
           </View>
 
-          {count > 1 && lightboxIndex > 0 && (
+          {count > 1 && currentIndex > 0 && (
             <AnimatedPressable
               style={[styles.navButton, styles.navButtonLeft]}
-              onPress={lightboxPrev}
+              onPress={goToPrev}
               hoverLift={false}
               pressScale={0.96}
               accessibilityLabel={STRINGS.prevImage}
@@ -211,10 +138,10 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
             </AnimatedPressable>
           )}
 
-          {count > 1 && lightboxIndex < count - 1 && (
+          {count > 1 && currentIndex < count - 1 && (
             <AnimatedPressable
               style={[styles.navButton, styles.navButtonRight]}
-              onPress={lightboxNext}
+              onPress={goToNext}
               hoverLift={false}
               pressScale={0.96}
               accessibilityLabel={STRINGS.nextImage}
@@ -222,8 +149,84 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
               <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
             </AnimatedPressable>
           )}
-        </View>
-      </Modal>
+        </AnimatedPressable>
+
+        {count > 1 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbnailRow}>
+            {photoGallery.map((url, index) => {
+              const isActive = index === currentIndex;
+              return (
+                <AnimatedPressable
+                  key={`${url}-${index}`}
+                  onPress={() => changeImage(index)}
+                  hoverLift={false}
+                  pressScale={0.97}
+                  style={isActive ? [styles.thumbnailWrapper, styles.thumbnailWrapperActive] : styles.thumbnailWrapper}
+                >
+                  <Image source={{ uri: url }} style={[styles.thumbnail, { opacity: isActive ? 1 : 0.68 }]} resizeMode="cover" />
+                </AnimatedPressable>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        {count > 1 && (
+          <View style={styles.dotsRow}>
+            {Array.from({ length: dotCount }).map((_, i) => (
+              <View key={i} style={[styles.dot, i === activeDot && styles.dotActive]} />
+            ))}
+          </View>
+        )}
+
+        <Modal visible={lightboxVisible} transparent={false} animationType="fade" onRequestClose={closeLightbox} statusBarTranslucent>
+          <View style={styles.lightboxContainer}>
+            <Animated.Image
+              source={{ uri: photoGallery[lightboxIndex] }}
+              style={[styles.lightboxImage, animatedLightboxStyle]}
+              resizeMode="contain"
+              accessibilityLabel={specialistName ? `${specialistName} - ${lightboxCounter}` : lightboxCounter}
+            />
+
+            <AnimatedPressable
+              style={styles.lightboxClose}
+              onPress={closeLightbox}
+              hoverLift={false}
+              pressScale={0.96}
+              accessibilityLabel={STRINGS.closeGallery}
+            >
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </AnimatedPressable>
+
+            <View style={styles.lightboxCounter}>
+              <Text style={styles.counterText}>{lightboxCounter}</Text>
+            </View>
+
+            {count > 1 && lightboxIndex > 0 && (
+              <AnimatedPressable
+                style={[styles.navButton, styles.navButtonLeft]}
+                onPress={lightboxPrev}
+                hoverLift={false}
+                pressScale={0.96}
+                accessibilityLabel={STRINGS.prevImage}
+              >
+                <Ionicons name="chevron-back" size={18} color="#FFFFFF" />
+              </AnimatedPressable>
+            )}
+
+            {count > 1 && lightboxIndex < count - 1 && (
+              <AnimatedPressable
+                style={[styles.navButton, styles.navButtonRight]}
+                onPress={lightboxNext}
+                hoverLift={false}
+                pressScale={0.96}
+                accessibilityLabel={STRINGS.nextImage}
+              >
+                <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+              </AnimatedPressable>
+            )}
+          </View>
+        </Modal>
+      </ProfileDisclosureSection>
     </View>
   );
 };
@@ -236,19 +239,6 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.borderLight,
     ...shadows.sm,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: theme.textPrimary,
   },
   mainImageWrapper: {
     aspectRatio: 16 / 9,

@@ -12,6 +12,7 @@ import ReviewCard from './ReviewCard';
 import StickyBookingBar from './StickyBookingBar';
 import BookingSidebar from './BookingSidebar';
 import ProfileAvailabilityPreview from './ProfileAvailabilityPreview';
+import ProfileDisclosureSection from './ProfileDisclosureSection';
 import PhotoGallerySection from './PhotoGallerySection';
 import VideoSection from './VideoSection';
 import ProfileSkeleton from './ProfileSkeleton';
@@ -27,6 +28,7 @@ export {
   StickyBookingBar,
   BookingSidebar,
   ProfileAvailabilityPreview,
+  ProfileDisclosureSection,
   PhotoGallerySection,
   VideoSection,
   ProfileSkeleton,

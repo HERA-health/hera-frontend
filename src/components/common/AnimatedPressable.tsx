@@ -24,6 +24,7 @@ interface AnimatedPressableProps {
   accessibilityLabel?: string;
   accessibilityRole?: 'button' | 'link' | 'none';
   accessibilityState?: AccessibilityState;
+  testID?: string;
 }
 
 const AnimatedPressableComponent = Animated.createAnimatedComponent(Pressable);
@@ -41,6 +42,7 @@ export function AnimatedPressable({
   accessibilityLabel,
   accessibilityRole = 'button',
   accessibilityState,
+  testID,
 }: AnimatedPressableProps) {
   const scale = useSharedValue(1);
   const translateY = useSharedValue(0);
@@ -83,6 +85,7 @@ export function AnimatedPressable({
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityRole}
       accessibilityState={accessibilityState}
+      testID={testID}
       style={[style, animStyle]}
     >
       {children}

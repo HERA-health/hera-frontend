@@ -1,17 +1,19 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ExperienceSectionProps, CertificateItem } from '../types';
 import { spacing, borderRadius, shadows } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { Theme } from '../../../constants/theme';
 import { AnimatedPressable } from '../../../components/common';
+import { ProfileDisclosureSection } from './ProfileDisclosureSection';
 
 const STRINGS = {
   title: 'Experiencia y formación',
-  education: 'Formación académica',
+  education: 'Formación superior y profesional',
   experience: 'Experiencia profesional',
   certificates: 'Certificaciones y acreditaciones',
+  credentials: 'Credenciales profesionales',
   documentProvided: 'Documento aportado',
   viewCertificate: 'Ver certificado',
   yearsExperience: 'años de experiencia clínica',
@@ -32,7 +34,90 @@ const formatRange = (startYear?: string | null, endYear?: string | null, current
 const isImageCertificate = (certificate: CertificateItem): boolean =>
   typeof certificate.mimeType === 'string' && certificate.mimeType.startsWith('image/');
 
-const CertificateCard: React.FC<{
+const composeEntryText = (
+  range: string | null,
+  primary: string,
+  secondary?: string | null
+): string => {
+  const body = secondary ? `${primary} - ${secondary}` : primary;
+  return range ? `${range}: ${body}` : body;
+};
+
+const CertificateAttachmentTile: React.FC<{
+  certificate: CertificateItem;
+  styles: ReturnType<typeof createStyles>;
+  theme: Theme;
+  onOpenCertificate?: (certificate: CertificateItem) => void;
+  compact?: boolean;
+  interactive?: boolean;
+}> = ({ certificate, styles, theme, onOpenCertificate, compact = false, interactive = true }) => {
+  const canOpen = Boolean(onOpenCertificate && certificate.documentUrl);
+  const tileStyle = compact ? styles.certificateTileCompact : styles.certificateTile;
+  const thumbnailStyle = compact ? styles.certificateThumbnailCompact : styles.certificateThumbnail;
+  const thumbnail = (
+    <View style={thumbnailStyle}>
+      {isImageCertificate(certificate) && certificate.previewUrl ? (
+        <Image
+          source={{ uri: certificate.previewUrl }}
+          style={styles.certificateImage}
+          resizeMode="cover"
+        />
+      ) : (
+        <Ionicons name="document-text-outline" size={24} color={theme.primary} />
+      )}
+    </View>
+  );
+
+  if (!interactive) {
+    return <View style={tileStyle}>{thumbnail}</View>;
+  }
+
+  return (
+    <AnimatedPressable
+      style={tileStyle}
+      onPress={() => onOpenCertificate?.(certificate)}
+      disabled={!canOpen}
+      hoverLift={false}
+      pressScale={0.98}
+      accessibilityRole={canOpen ? 'button' : 'none'}
+      accessibilityState={canOpen ? undefined : { disabled: true }}
+      accessibilityLabel={canOpen ? `Ver certificado ${certificate.name}` : certificate.name}
+    >
+      {thumbnail}
+    </AnimatedPressable>
+  );
+};
+
+const CertificateStrip: React.FC<{
+  certificates: CertificateItem[];
+  styles: ReturnType<typeof createStyles>;
+  theme: Theme;
+  onOpenCertificate?: (certificate: CertificateItem) => void;
+}> = ({ certificates, styles, theme, onOpenCertificate }) => (
+  <View style={styles.attachmentBlock}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.attachmentStrip}
+    >
+      {certificates.map((certificate) => (
+        <CertificateAttachmentTile
+          key={certificate.id}
+          certificate={certificate}
+          styles={styles}
+          theme={theme}
+          onOpenCertificate={onOpenCertificate}
+        />
+      ))}
+    </ScrollView>
+    <View style={styles.documentBadgeSubtle}>
+      <Ionicons name="shield-checkmark-outline" size={12} color={theme.success} />
+      <Text style={styles.documentBadgeSubtleText}>{STRINGS.documentProvided}</Text>
+    </View>
+  </View>
+);
+
+const CertificateListRow: React.FC<{
   certificate: CertificateItem;
   styles: ReturnType<typeof createStyles>;
   theme: Theme;
@@ -41,45 +126,41 @@ const CertificateCard: React.FC<{
   const canOpen = Boolean(onOpenCertificate && certificate.documentUrl);
 
   return (
-    <View style={styles.certificateCard}>
-      <View style={styles.certificateThumbnail}>
-        {isImageCertificate(certificate) && certificate.previewUrl ? (
-          <Image
-            source={{ uri: certificate.previewUrl }}
-            style={styles.certificateImage}
-            resizeMode="cover"
-          />
-        ) : (
-          <Ionicons name="document-text-outline" size={24} color={theme.primary} />
-        )}
-      </View>
-
+    <AnimatedPressable
+      style={styles.certificateListRow}
+      onPress={canOpen ? () => onOpenCertificate?.(certificate) : undefined}
+      disabled={!canOpen}
+      hoverLift={false}
+      pressScale={0.99}
+      accessibilityRole={canOpen ? 'button' : 'none'}
+      accessibilityState={canOpen ? undefined : { disabled: true }}
+      accessibilityLabel={canOpen ? `Ver certificado ${certificate.name}` : certificate.name}
+    >
+      <CertificateAttachmentTile
+        certificate={certificate}
+        styles={styles}
+        theme={theme}
+        compact
+        interactive={false}
+      />
       <View style={styles.certificateCopy}>
         <Text style={styles.certificateName}>{certificate.name}</Text>
-        {certificate.issuer ? (
-          <Text style={styles.certificateIssuer}>{certificate.issuer}</Text>
-        ) : null}
+        {certificate.issuer ? <Text style={styles.certificateIssuer}>{certificate.issuer}</Text> : null}
         {certificate.validUntil ? (
           <Text style={styles.certificateMeta}>Válido hasta {certificate.validUntil}</Text>
         ) : null}
-        <View style={styles.documentBadge}>
-          <Ionicons name="shield-checkmark-outline" size={13} color={theme.success} />
-          <Text style={styles.documentBadgeText}>{STRINGS.documentProvided}</Text>
+        <View style={styles.documentBadgeSubtle}>
+          <Ionicons name="shield-checkmark-outline" size={12} color={theme.success} />
+          <Text style={styles.documentBadgeSubtleText}>{STRINGS.documentProvided}</Text>
         </View>
       </View>
-
-      <AnimatedPressable
-        style={[styles.certificateButton, !canOpen && styles.certificateButtonDisabled]}
-        onPress={() => onOpenCertificate?.(certificate)}
-        disabled={!canOpen}
-        hoverLift={false}
-        pressScale={0.985}
-        accessibilityLabel={`Ver certificado ${certificate.name}`}
-      >
-        <Ionicons name="open-outline" size={16} color={theme.textOnPrimary} />
-        <Text style={styles.certificateButtonText}>{STRINGS.viewCertificate}</Text>
-      </AnimatedPressable>
-    </View>
+      {canOpen ? (
+        <View style={styles.certificateOpenAction}>
+          <Text style={styles.certificateOpenText}>{STRINGS.viewCertificate}</Text>
+          <Ionicons name="open-outline" size={15} color={theme.primary} />
+        </View>
+      ) : null}
+    </AnimatedPressable>
   );
 };
 
@@ -93,10 +174,12 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
 }) => {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const educationItems = useMemo(() => education ?? [], [education]);
+  const experienceItems = useMemo(() => experience ?? [], [experience]);
 
   const educationIds = useMemo(
-    () => new Set((education ?? []).map((item) => item.id)),
-    [education]
+    () => new Set(educationItems.map((item) => item.id)),
+    [educationItems]
   );
 
   const { certificatesByEducation, unlinkedCertificates } = useMemo(() => {
@@ -121,109 +204,134 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
     };
   }, [certifications, educationIds]);
 
-  const hasEducation = Boolean(education?.length);
-  const hasExperience = Boolean(experience?.length);
-  const hasCertificates = Boolean(certifications?.length);
+  const hasEducation = educationItems.length > 0;
+  const hasExperience = experienceItems.length > 0;
+  const hasCertificates = Boolean(unlinkedCertificates.length);
   const hasContent = hasEducation || hasExperience || hasCertificates || collegiateNumber || experienceYears;
+  const credentialItems = [
+    collegiateNumber ? `Col. ${collegiateNumber}` : null,
+    typeof experienceYears === 'number' && experienceYears > 0
+      ? `${experienceYears}+ ${STRINGS.yearsExperience}`
+      : null,
+  ].filter((item): item is string => Boolean(item));
+  const firstDisclosureKey = hasEducation
+    ? 'education'
+    : hasExperience
+      ? 'experience'
+      : hasCertificates
+        ? 'certificates'
+        : null;
+  const hasDisclosures = hasEducation || hasExperience || hasCertificates;
+
   if (!hasContent) return null;
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{STRINGS.title}</Text>
 
-      {(collegiateNumber || (typeof experienceYears === 'number' && experienceYears > 0)) ? (
+      {!hasDisclosures && credentialItems.length ? (
+        <View style={styles.credentialsOnlyRow}>
+          <Ionicons name="checkmark-circle-outline" size={20} color={theme.success} />
+          <View style={styles.credentialsOnlyCopy}>
+            <Text style={styles.credentialsOnlyTitle}>{STRINGS.credentials}</Text>
+            <Text style={styles.credentialsOnlyText}>{credentialItems.join(' · ')}</Text>
+          </View>
+        </View>
+      ) : credentialItems.length ? (
         <View style={styles.summaryRow}>
-          {typeof experienceYears === 'number' && experienceYears > 0 ? (
-            <View style={styles.summaryPill}>
-              <Ionicons name="briefcase-outline" size={15} color={theme.primary} />
-              <Text style={styles.summaryPillText}>{experienceYears}+ {STRINGS.yearsExperience}</Text>
+          {credentialItems.map((item) => (
+            <View key={item} style={styles.summaryPill}>
+              <Ionicons name="checkmark-circle-outline" size={14} color={theme.success} />
+              <Text style={styles.summaryPillText}>{item}</Text>
             </View>
-          ) : null}
-          {collegiateNumber ? (
-            <View style={styles.summaryPill}>
-              <Ionicons name="checkmark-circle-outline" size={15} color={theme.success} />
-              <Text style={styles.summaryPillText}>Col. {collegiateNumber}</Text>
-            </View>
-          ) : null}
+          ))}
         </View>
       ) : null}
 
-      {hasEducation ? (
-        <View style={styles.subSection}>
-          <Text style={styles.subSectionTitle}>{STRINGS.education}</Text>
-          <View style={styles.blockList}>
-            {education!.map((item) => {
-              const linkedCertificates = certificatesByEducation.get(item.id) ?? [];
-              const range = formatRange(item.startYear, item.endYear);
+      {hasDisclosures ? (
+        <View style={styles.disclosureList}>
+          {hasEducation ? (
+            <ProfileDisclosureSection
+              title={STRINGS.education}
+              iconName="school-outline"
+              defaultExpanded={firstDisclosureKey === 'education'}
+              testID="experience-education-disclosure"
+              variant="row"
+            >
+              <View style={styles.blockList}>
+                {educationItems.map((item) => {
+                  const linkedCertificates = certificatesByEducation.get(item.id) ?? [];
+                  const range = formatRange(item.startYear, item.endYear);
+                  const entryText = composeEntryText(range, item.degree, item.institution);
 
-              return (
-                <View key={item.id} style={styles.storyBlock}>
-                  <View style={styles.storyIcon}>
-                    <Ionicons name="school-outline" size={20} color={theme.primary} />
-                  </View>
-                  <View style={styles.storyContent}>
-                    <Text style={styles.storyTitle}>{item.degree}</Text>
-                    <Text style={styles.storySubtitle}>{item.institution}</Text>
-                    {range ? <Text style={styles.storyMeta}>{range}</Text> : null}
-                    {linkedCertificates.length ? (
-                      <View style={styles.linkedCertificates}>
-                        {linkedCertificates.map((certificate) => (
-                          <CertificateCard
-                            key={certificate.id}
-                            certificate={certificate}
+                  return (
+                    <View key={item.id} style={styles.timelineItem}>
+                      <View style={styles.bulletDot} />
+                      <View style={styles.timelineContent}>
+                        <Text style={styles.timelineText}>{entryText}</Text>
+                        {linkedCertificates.length ? (
+                          <CertificateStrip
+                            certificates={linkedCertificates}
                             styles={styles}
                             theme={theme}
                             onOpenCertificate={onOpenCertificate}
                           />
-                        ))}
+                        ) : null}
                       </View>
-                    ) : null}
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        </View>
-      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            </ProfileDisclosureSection>
+          ) : null}
 
-      {hasExperience ? (
-        <View style={styles.subSection}>
-          <Text style={styles.subSectionTitle}>{STRINGS.experience}</Text>
-          <View style={styles.blockList}>
-            {experience!.map((item) => {
-              const range = formatRange(item.startYear, item.endYear, item.current);
+          {hasExperience ? (
+            <ProfileDisclosureSection
+              title={STRINGS.experience}
+              iconName="briefcase-outline"
+              defaultExpanded={firstDisclosureKey === 'experience'}
+              testID="experience-work-disclosure"
+              variant="row"
+            >
+              <View style={styles.blockList}>
+                {experienceItems.map((item) => {
+                  const range = formatRange(item.startYear, item.endYear, item.current);
+                  const entryText = composeEntryText(range, item.position, item.organization);
 
-              return (
-                <View key={item.id} style={styles.storyBlock}>
-                  <View style={styles.storyIcon}>
-                    <Ionicons name="medkit-outline" size={20} color={theme.primary} />
-                  </View>
-                  <View style={styles.storyContent}>
-                    <Text style={styles.storyTitle}>{item.position}</Text>
-                    <Text style={styles.storySubtitle}>{item.organization}</Text>
-                    {range ? <Text style={styles.storyMeta}>{range}</Text> : null}
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        </View>
-      ) : null}
+                  return (
+                    <View key={item.id} style={styles.timelineItem}>
+                      <View style={styles.bulletDot} />
+                      <View style={styles.timelineContent}>
+                        <Text style={styles.timelineText}>{entryText}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </ProfileDisclosureSection>
+          ) : null}
 
-      {unlinkedCertificates.length ? (
-        <View style={styles.subSection}>
-          <Text style={styles.subSectionTitle}>{STRINGS.certificates}</Text>
-          <View style={styles.certificateList}>
-            {unlinkedCertificates.map((certificate) => (
-              <CertificateCard
-                key={certificate.id}
-                certificate={certificate}
-                styles={styles}
-                theme={theme}
-                onOpenCertificate={onOpenCertificate}
-              />
-            ))}
-          </View>
+          {unlinkedCertificates.length ? (
+            <ProfileDisclosureSection
+              title={STRINGS.certificates}
+              iconName="ribbon-outline"
+              defaultExpanded={firstDisclosureKey === 'certificates'}
+              testID="experience-certificates-disclosure"
+              variant="row"
+            >
+              <View style={styles.certificateList}>
+                {unlinkedCertificates.map((certificate) => (
+                  <CertificateListRow
+                    key={certificate.id}
+                    certificate={certificate}
+                    styles={styles}
+                    theme={theme}
+                    onOpenCertificate={onOpenCertificate}
+                  />
+                ))}
+              </View>
+            </ProfileDisclosureSection>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -245,11 +353,37 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     color: theme.textPrimary,
     marginBottom: spacing.lg,
   },
+  credentialsOnlyRow: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: theme.borderLight,
+    paddingVertical: spacing.md,
+  },
+  credentialsOnlyCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  credentialsOnlyTitle: {
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '700',
+    color: theme.textPrimary,
+  },
+  credentialsOnlyText: {
+    marginTop: 2,
+    fontSize: 13,
+    lineHeight: 18,
+    color: theme.textSecondary,
+  },
   summaryRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   summaryPill: {
     flexDirection: 'row',
@@ -267,77 +401,69 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     color: theme.textSecondary,
     fontWeight: '600',
   },
-  subSection: {
-    marginBottom: spacing.lg,
-  },
-  subSectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: theme.textPrimary,
-    marginBottom: spacing.md,
+  disclosureList: {
+    gap: 0,
   },
   blockList: {
-    gap: spacing.md,
+    gap: spacing.sm,
   },
-  storyBlock: {
+  timelineItem: {
     flexDirection: 'row',
-    gap: spacing.md,
-    borderWidth: 1,
-    borderColor: theme.borderLight,
-    backgroundColor: isDark ? theme.bgElevated : theme.bgMuted,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
+    alignItems: 'flex-start',
+    gap: spacing.sm,
   },
-  storyIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: isDark ? theme.primaryMuted : theme.surface,
-    borderWidth: 1,
-    borderColor: theme.borderLight,
+  bulletDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: theme.textPrimary,
+    marginTop: 9,
   },
-  storyContent: {
+  timelineContent: {
     flex: 1,
     minWidth: 0,
   },
-  storyTitle: {
+  timelineText: {
     fontSize: 16,
-    fontWeight: '700',
+    lineHeight: 25,
     color: theme.textPrimary,
-    marginBottom: 3,
   },
-  storySubtitle: {
-    fontSize: 14,
-    color: theme.textSecondary,
-    lineHeight: 20,
-  },
-  storyMeta: {
-    fontSize: 12,
-    color: theme.textMuted,
-    marginTop: 4,
-  },
-  linkedCertificates: {
-    gap: spacing.sm,
+  attachmentBlock: {
     marginTop: spacing.md,
+    gap: spacing.xs,
+  },
+  attachmentStrip: {
+    gap: spacing.sm,
+    alignItems: 'center',
+    paddingRight: spacing.md,
   },
   certificateList: {
     gap: spacing.sm,
   },
-  certificateCard: {
-    flexDirection: Platform.OS === 'web' ? 'row' : 'column',
-    alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
-    gap: spacing.md,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.bgCard,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
+  certificateTile: {
+    width: 58,
+    height: 58,
+    borderRadius: borderRadius.sm,
+  },
+  certificateTileCompact: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.sm,
   },
   certificateThumbnail: {
-    width: 56,
-    height: 56,
+    width: '100%',
+    height: '100%',
+    borderRadius: borderRadius.sm,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: isDark ? theme.bgElevated : theme.surface,
+    borderWidth: 1,
+    borderColor: theme.borderLight,
+  },
+  certificateThumbnailCompact: {
+    width: '100%',
+    height: '100%',
     borderRadius: borderRadius.sm,
     overflow: 'hidden',
     alignItems: 'center',
@@ -350,10 +476,18 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  certificateListRow: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.borderLight,
+  },
   certificateCopy: {
     flex: 1,
     minWidth: 0,
-    gap: 3,
   },
   certificateName: {
     fontSize: 14,
@@ -367,43 +501,30 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   certificateMeta: {
     fontSize: 12,
     color: theme.textMuted,
+    marginTop: 2,
   },
-  documentBadge: {
+  documentBadgeSubtle: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: isDark ? theme.successBg : theme.surface,
-    borderWidth: 1,
-    borderColor: theme.successLight,
+    marginTop: 4,
   },
-  documentBadgeText: {
+  documentBadgeSubtleText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     color: theme.success,
   },
-  certificateButton: {
-    minHeight: 38,
+  certificateOpenAction: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderRadius: borderRadius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    backgroundColor: theme.primary,
+    gap: 4,
+    marginLeft: spacing.sm,
   },
-  certificateButtonDisabled: {
-    opacity: 0.5,
-  },
-  certificateButtonText: {
-    fontSize: 13,
+  certificateOpenText: {
+    fontSize: 12,
     fontWeight: '700',
-    color: theme.textOnPrimary,
+    color: theme.primary,
   },
 });
 
