@@ -36,6 +36,7 @@ import {
   Pressable,
   Image,
   Share,
+  Switch,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
@@ -152,6 +153,9 @@ interface SpecialistProfileData {
   profileVisible: boolean;
   showReviewCount: boolean;
   showLastOnline: boolean;
+  emailSessionRequestsEnabled: boolean;
+  emailSessionCancellationsEnabled: boolean;
+  emailSessionReminder24hEnabled: boolean;
 
   // Mi Espacio
   gradientId: string;
@@ -414,6 +418,9 @@ const mapServiceProfileToFormData = (profile: ServiceProfileData): SpecialistPro
   profileVisible: profile.profileVisible ?? true,
   showReviewCount: profile.showReviewCount ?? true,
   showLastOnline: profile.showLastOnline || false,
+  emailSessionRequestsEnabled: profile.emailSessionRequestsEnabled ?? true,
+  emailSessionCancellationsEnabled: profile.emailSessionCancellationsEnabled ?? true,
+  emailSessionReminder24hEnabled: profile.emailSessionReminder24hEnabled ?? false,
   gradientId: profile.gradientId ?? 'salvia-lavanda',
   photoGallery: profile.photoGallery ?? [],
   presentationVideoUrl: profile.presentationVideoUrl ?? '',
@@ -610,6 +617,9 @@ export function SpecialistProfileScreen() {
     profileVisible: true,
     showReviewCount: true,
     showLastOnline: false,
+    emailSessionRequestsEnabled: true,
+    emailSessionCancellationsEnabled: true,
+    emailSessionReminder24hEnabled: false,
 
     // Mi Espacio
     gradientId: 'salvia-lavanda',
@@ -860,6 +870,9 @@ export function SpecialistProfileScreen() {
       assignIfChanged('experience', 'experience', profileData.experience);
       assignIfChanged('phone', 'phone', profileData.phone);
       assignIfChanged('profileVisible', 'profileVisible', profileData.profileVisible);
+      assignIfChanged('emailSessionRequestsEnabled', 'emailSessionRequestsEnabled', profileData.emailSessionRequestsEnabled);
+      assignIfChanged('emailSessionCancellationsEnabled', 'emailSessionCancellationsEnabled', profileData.emailSessionCancellationsEnabled);
+      assignIfChanged('emailSessionReminder24hEnabled', 'emailSessionReminder24hEnabled', profileData.emailSessionReminder24hEnabled);
       assignIfChanged('gradientId', 'gradientId', profileData.gradientId);
       assignIfChanged('photoGallery', 'photoGallery', profileData.photoGallery);
       assignIfChanged('presentationVideoUrl', 'presentationVideoUrl', profileData.presentationVideoUrl);
@@ -2878,40 +2891,67 @@ export function SpecialistProfileScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Notificaciones</Text>
         <View style={styles.formCard}>
-          <View style={styles.notificationInfoCard}>
-            <View style={styles.notificationInfoHeader}>
-              <View style={styles.notificationInfoIcon}>
-                <Ionicons name="mail-outline" size={18} color={theme.primary} />
+          <View style={styles.notificationPreferenceList}>
+            <View style={styles.notificationPreferenceRow}>
+              <View style={styles.notificationPreferenceIcon}>
+                <Ionicons name="calendar-clear-outline" size={18} color={palette.primary} />
               </View>
-              <View style={styles.notificationInfoCopy}>
-                <Text style={styles.notificationInfoTitle}>Emails automáticos activos</Text>
-                <Text style={styles.notificationInfoDescription}>
-                  En esta versión HERA envía por defecto los avisos críticos de agenda para evitar que se pierda una reserva o una cancelación.
+              <View style={styles.notificationPreferenceCopy}>
+                <Text style={styles.notificationPreferenceTitle}>Nueva solicitud de cita</Text>
+                <Text style={styles.notificationPreferenceDescription}>
+                  Recibe un email cuando un paciente solicite una nueva cita.
                 </Text>
               </View>
-              <View style={styles.notificationStatusPill}>
-                <Text style={styles.notificationStatusText}>Activas</Text>
-              </View>
+              <Switch
+                value={profileData.emailSessionRequestsEnabled}
+                onValueChange={(value) => updateField('emailSessionRequestsEnabled', value)}
+                trackColor={{ false: palette.border, true: palette.primaryMuted }}
+                thumbColor={profileData.emailSessionRequestsEnabled ? palette.primary : palette.cardBackground}
+                ios_backgroundColor={palette.border}
+              />
             </View>
 
-            <View style={styles.notificationInfoList}>
-              <View style={styles.notificationInfoRow}>
-                <Ionicons name="calendar-clear-outline" size={16} color={theme.primary} />
-                <Text style={styles.notificationInfoRowText}>Nueva solicitud de cita</Text>
+            <View style={styles.notificationPreferenceDivider} />
+
+            <View style={styles.notificationPreferenceRow}>
+              <View style={styles.notificationPreferenceIcon}>
+                <Ionicons name="close-circle-outline" size={18} color={palette.warning} />
               </View>
-              <View style={styles.notificationInfoRow}>
-                <Ionicons name="close-circle-outline" size={16} color={theme.warning} />
-                <Text style={styles.notificationInfoRowText}>Cancelación de cita</Text>
+              <View style={styles.notificationPreferenceCopy}>
+                <Text style={styles.notificationPreferenceTitle}>Cancelación de cita</Text>
+                <Text style={styles.notificationPreferenceDescription}>
+                  Recibe un email si un paciente cancela una cita.
+                </Text>
               </View>
-              <View style={styles.notificationInfoRow}>
-                <Ionicons name="time-outline" size={16} color={theme.textSecondary} />
-                <Text style={styles.notificationInfoRowText}>Los recordatorios push llegarán en una fase posterior</Text>
-              </View>
+              <Switch
+                value={profileData.emailSessionCancellationsEnabled}
+                onValueChange={(value) => updateField('emailSessionCancellationsEnabled', value)}
+                trackColor={{ false: palette.border, true: palette.primaryMuted }}
+                thumbColor={profileData.emailSessionCancellationsEnabled ? palette.primary : palette.cardBackground}
+                ios_backgroundColor={palette.border}
+              />
             </View>
 
-            <Text style={styles.notificationInfoHint}>
-              Cuando exista configuración real por canal, aparecerá aquí en lugar de estos avisos informativos.
-            </Text>
+            <View style={styles.notificationPreferenceDivider} />
+
+            <View style={styles.notificationPreferenceRow}>
+              <View style={styles.notificationPreferenceIcon}>
+                <Ionicons name="time-outline" size={18} color={palette.textSecondary} />
+              </View>
+              <View style={styles.notificationPreferenceCopy}>
+                <Text style={styles.notificationPreferenceTitle}>Recordatorio 24h antes</Text>
+                <Text style={styles.notificationPreferenceDescription}>
+                  Recibe un email por cada cita confirmada 24 horas antes.
+                </Text>
+              </View>
+              <Switch
+                value={profileData.emailSessionReminder24hEnabled}
+                onValueChange={(value) => updateField('emailSessionReminder24hEnabled', value)}
+                trackColor={{ false: palette.border, true: palette.primaryMuted }}
+                thumbColor={profileData.emailSessionReminder24hEnabled ? palette.primary : palette.cardBackground}
+                ios_backgroundColor={palette.border}
+              />
+            </View>
           </View>
         </View>
       </View>
@@ -4700,20 +4740,15 @@ function createStyles(
     fontFamily: palette.fontSansSemiBold,
     color: palette.textOnCard,
   },
-  notificationInfoCard: {
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.backgroundMuted,
-    padding: spacing.lg,
+  notificationPreferenceList: {
     gap: spacing.md,
   },
-  notificationInfoHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
+  notificationPreferenceRow: {
+    flexDirection: isMobile ? 'column' : 'row',
+    alignItems: isMobile ? 'stretch' : 'center',
+    gap: spacing.md,
   },
-  notificationInfoIcon: {
+  notificationPreferenceIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -4721,56 +4756,25 @@ function createStyles(
     justifyContent: 'center',
     backgroundColor: palette.primaryAlpha12,
   },
-  notificationInfoCopy: {
+  notificationPreferenceCopy: {
     flex: 1,
     gap: 4,
   },
-  notificationInfoTitle: {
+  notificationPreferenceTitle: {
     fontSize: 15,
     fontWeight: '700',
     fontFamily: palette.fontHeading,
     color: palette.textPrimary,
   },
-  notificationInfoDescription: {
+  notificationPreferenceDescription: {
     fontSize: 14,
     fontFamily: palette.fontSans,
     lineHeight: 21,
     color: palette.textSecondary,
   },
-  notificationStatusPill: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    backgroundColor: palette.primaryAlpha12,
-    borderWidth: 1,
-    borderColor: palette.primaryMuted,
-  },
-  notificationStatusText: {
-    fontSize: 12,
-    fontWeight: '700',
-    fontFamily: palette.fontSansBold,
-    color: palette.primary,
-  },
-  notificationInfoList: {
-    gap: spacing.sm,
-  },
-  notificationInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  notificationInfoRowText: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: palette.fontSans,
-    color: palette.textPrimary,
-    lineHeight: 20,
-  },
-  notificationInfoHint: {
-    fontSize: 13,
-    fontFamily: palette.fontSans,
-    lineHeight: 19,
-    color: palette.textMuted,
+  notificationPreferenceDivider: {
+    height: 1,
+    backgroundColor: palette.border,
   },
   privacySection: {
     marginBottom: spacing.md,

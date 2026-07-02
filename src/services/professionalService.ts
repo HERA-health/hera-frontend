@@ -432,6 +432,9 @@ export interface SpecialistProfileData {
   profileVisible: boolean;
   showReviewCount: boolean;
   showLastOnline: boolean;
+  emailSessionRequestsEnabled: boolean;
+  emailSessionCancellationsEnabled: boolean;
+  emailSessionReminder24hEnabled: boolean;
 
   // Stats
   rating: number;
@@ -494,6 +497,15 @@ export const updateComprehensiveProfile = async (
 
     if (data.phone !== undefined) apiData.phone = data.phone;
     if (data.profileVisible !== undefined) apiData.profileVisible = data.profileVisible;
+    if (data.emailSessionRequestsEnabled !== undefined) {
+      apiData.emailSessionRequestsEnabled = data.emailSessionRequestsEnabled;
+    }
+    if (data.emailSessionCancellationsEnabled !== undefined) {
+      apiData.emailSessionCancellationsEnabled = data.emailSessionCancellationsEnabled;
+    }
+    if (data.emailSessionReminder24hEnabled !== undefined) {
+      apiData.emailSessionReminder24hEnabled = data.emailSessionReminder24hEnabled;
+    }
 
     // Mi Espacio
     if (data.gradientId !== undefined) apiData.gradientId = data.gradientId;

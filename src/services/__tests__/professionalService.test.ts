@@ -137,6 +137,9 @@ describe('professionalService.updateComprehensiveProfile', () => {
       applyVat: true,
       showReviewCount: false,
       showLastOnline: true,
+      emailSessionRequestsEnabled: false,
+      emailSessionCancellationsEnabled: true,
+      emailSessionReminder24hEnabled: true,
       personalMotto: 'Campo eliminado',
     } as Parameters<typeof updateComprehensiveProfile>[0] & {
       personalMotto: string;
@@ -144,6 +147,9 @@ describe('professionalService.updateComprehensiveProfile', () => {
 
     expect(mockedApi.put).toHaveBeenCalledWith('/specialists/me/profile', {
       fullName: 'Dra. Prueba',
+      emailSessionRequestsEnabled: false,
+      emailSessionCancellationsEnabled: true,
+      emailSessionReminder24hEnabled: true,
     });
   });
 });
