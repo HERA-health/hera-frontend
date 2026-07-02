@@ -68,6 +68,8 @@ const escapeHtml = (value: string): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+const trimLineEndWhitespace = (html: string): string => html.replace(/[ \t]+$/gm, '');
+
 const renderSummaryRows = (summaryRows: SummaryRow[]): string =>
   summaryRows
     .map(
@@ -122,7 +124,7 @@ export const buildTransactionalEmailHtml = ({
 }: TransactionalEmailLayoutProps): string => {
   const tone = toneMap[statusTone];
 
-  return `
+  return trimLineEndWhitespace(`
     <!doctype html>
     <html lang="es">
       <head>
@@ -192,7 +194,7 @@ export const buildTransactionalEmailHtml = ({
         </table>
       </body>
     </html>
-  `;
+  `);
 };
 
 export const buildTransactionalEmailText = ({

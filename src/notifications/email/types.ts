@@ -1,8 +1,11 @@
 export type SessionNotificationEvent =
   | 'session_requested'
+  | 'session_scheduled_by_specialist'
   | 'session_confirmed'
   | 'session_cancelled'
-  | 'session_reminder_24h';
+  | 'session_reminder_24h'
+  | 'patient_session_reminder_24h'
+  | 'specialist_session_reminder_24h';
 
 export type SessionNotificationRecipient = 'specialist' | 'patient';
 

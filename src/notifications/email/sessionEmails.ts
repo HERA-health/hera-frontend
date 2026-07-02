@@ -181,6 +181,26 @@ export const renderSpecialistSessionRequestedEmail = (
     'Revisar solicitud'
   );
 
+export const renderClientSessionScheduledBySpecialistEmail = (
+  payload: Omit<SessionNotificationPayload, 'event' | 'recipient' | 'status'> & {
+    status?: 'CONFIRMED';
+  }
+): EmailTemplateResult =>
+  buildEmail(
+    {
+      ...payload,
+      event: 'session_scheduled_by_specialist',
+      recipient: 'patient',
+      status: payload.status ?? 'CONFIRMED',
+    },
+    `Cita programada · ${payload.specialistName}`,
+    'Cita programada',
+    'Tienes una cita programada',
+    `${payload.specialistName} ha programado esta cita contigo. No necesitas registrarte para conservar esta información; si más adelante quieres consultar tus citas desde HERA, puedes crear una cuenta de forma opcional.`,
+    'success',
+    'Crear cuenta en HERA (opcional)'
+  );
+
 export const renderSpecialistSessionCancelledEmail = (
   payload: Omit<SessionNotificationPayload, 'event' | 'recipient' | 'status'> & {
     status?: 'CANCELLED';
@@ -229,7 +249,7 @@ export const renderClientSessionReminder24hEmail = (
   buildEmail(
     {
       ...payload,
-      event: 'session_reminder_24h',
+      event: 'patient_session_reminder_24h',
       recipient: 'patient',
       status: payload.status ?? 'CONFIRMED',
     },
@@ -241,6 +261,26 @@ export const renderClientSessionReminder24hEmail = (
     'Ver detalles de la cita'
   );
 
+export const renderSpecialistSessionReminder24hEmail = (
+  payload: Omit<SessionNotificationPayload, 'event' | 'recipient' | 'status'> & {
+    status?: 'CONFIRMED';
+  }
+): EmailTemplateResult =>
+  buildEmail(
+    {
+      ...payload,
+      event: 'specialist_session_reminder_24h',
+      recipient: 'specialist',
+      status: payload.status ?? 'CONFIRMED',
+    },
+    `Recordatorio de cita · ${payload.patientName}`,
+    'Recordatorio 24h',
+    'Mañana tienes una cita en HERA',
+    `Te recordamos que tienes una cita con ${payload.patientName}. Revisa la hora, la modalidad y los accesos necesarios con antelación.`,
+    'primary',
+    'Ver agenda'
+  );
+
 export const renderSessionNotificationEmail = (
   payload: SessionNotificationPayload
 ): EmailTemplateResult => {
@@ -249,6 +289,11 @@ export const renderSessionNotificationEmail = (
       return renderSpecialistSessionRequestedEmail({
         ...payload,
         status: 'PENDING',
+      });
+    case 'session_scheduled_by_specialist':
+      return renderClientSessionScheduledBySpecialistEmail({
+        ...payload,
+        status: 'CONFIRMED',
       });
     case 'session_cancelled':
       return renderSpecialistSessionCancelledEmail({
@@ -260,8 +305,14 @@ export const renderSessionNotificationEmail = (
         ...payload,
         status: 'CONFIRMED',
       });
+    case 'patient_session_reminder_24h':
     case 'session_reminder_24h':
       return renderClientSessionReminder24hEmail({
+        ...payload,
+        status: 'CONFIRMED',
+      });
+    case 'specialist_session_reminder_24h':
+      return renderSpecialistSessionReminder24hEmail({
         ...payload,
         status: 'CONFIRMED',
       });
