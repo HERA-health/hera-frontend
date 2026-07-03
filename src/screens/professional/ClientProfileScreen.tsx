@@ -564,14 +564,14 @@ export function ClientProfileScreen() {
     }
   }, [appAlert, billingForm, client]);
 
-  const canScheduleManagedSession = Boolean(
-    client && isManagedClient && !isClientArchived
+  const canScheduleProfessionalSession = Boolean(
+    client && !isClientArchived
   );
 
   const openSessionScheduler = useCallback(() => {
-    if (!canScheduleManagedSession) return;
+    if (!canScheduleProfessionalSession) return;
     setSessionModalVisible(true);
-  }, [canScheduleManagedSession]);
+  }, [canScheduleProfessionalSession]);
 
   const closeSessionScheduler = useCallback(() => {
     if (sessionSaving) return;
@@ -863,7 +863,7 @@ export function ClientProfileScreen() {
           <Text style={[textStyles.body, { color: theme.textSecondary }]}>
             No hay ninguna sesión futura programada.
           </Text>
-          {canScheduleManagedSession ? (
+          {canScheduleProfessionalSession ? (
             <Button
               variant="secondary"
               size="small"
@@ -1004,7 +1004,7 @@ export function ClientProfileScreen() {
                 Editar
               </Button>
 
-              {canScheduleManagedSession ? (
+              {canScheduleProfessionalSession ? (
                 <Button
                   variant="primary"
                   size="small"

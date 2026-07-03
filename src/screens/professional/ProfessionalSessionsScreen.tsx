@@ -125,8 +125,8 @@ export function ProfessionalSessionsScreen() {
   const [sessions, setSessions] = useState<ProfessionalSession[]>([]);
   const [processingSessionId, setProcessingSessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [managedClients, setManagedClients] = useState<professionalService.Client[]>([]);
-  const [loadingManagedClients, setLoadingManagedClients] = useState(false);
+  const [schedulableClients, setSchedulableClients] = useState<professionalService.Client[]>([]);
+  const [loadingSchedulableClients, setLoadingSchedulableClients] = useState(false);
   const [schedulerVisible, setSchedulerVisible] = useState(false);
   const [schedulerSaving, setSchedulerSaving] = useState(false);
   const sessionsLoadSeqRef = useRef(0);
@@ -206,37 +206,39 @@ export function ProfessionalSessionsScreen() {
     }
   }, []);
 
-  const loadManagedClients = useCallback(async (): Promise<professionalService.Client[]> => {
+  const loadSchedulableClients = useCallback(async (): Promise<professionalService.Client[]> => {
     try {
-      setLoadingManagedClients(true);
+      setLoadingSchedulableClients(true);
       const clients = await professionalService.getProfessionalClients({
-        source: 'MANAGED',
+        source: 'ALL',
         lifecycle: 'ACTIVE',
       });
-      setManagedClients(clients);
+      setSchedulableClients(clients);
       return clients;
     } catch {
-      showAppAlert(appAlert, 'Error', 'No se pudieron cargar tus pacientes añadidos por ti');
+      showAppAlert(appAlert, 'Error', 'No se pudieron cargar tus pacientes');
       return [];
     } finally {
-      setLoadingManagedClients(false);
+      setLoadingSchedulableClients(false);
     }
   }, [appAlert]);
 
   const openManagedSessionScheduler = useCallback(async () => {
-    const clients = managedClients.length > 0 ? managedClients : await loadManagedClients();
+    const clients = schedulableClients.length > 0
+      ? schedulableClients
+      : await loadSchedulableClients();
 
     if (clients.length === 0) {
       showAppAlert(
         appAlert,
-        'Sin pacientes añadidos por ti',
-        'Primero añade o activa un paciente desde tu panel para poder programar una cita.'
+        'Sin pacientes disponibles',
+        'Primero añade, vincula o atiende a un paciente desde tu panel para poder programar una cita.'
       );
       return;
     }
 
     setSchedulerVisible(true);
-  }, [appAlert, loadManagedClients, managedClients]);
+  }, [appAlert, loadSchedulableClients, schedulableClients]);
 
   const handleCreateManagedSession = useCallback(
     async (input: professionalService.CreateManagedClientSessionInput) => {
@@ -1177,7 +1179,7 @@ export function ProfessionalSessionsScreen() {
                 variant="primary"
                 size="small"
                 onPress={openManagedSessionScheduler}
-                loading={loadingManagedClients}
+                loading={loadingSchedulableClients}
                 fullWidth={isMobile}
                 icon={<Ionicons name="calendar-outline" size={16} color={theme.textOnPrimary} />}
               >
@@ -1288,7 +1290,7 @@ export function ProfessionalSessionsScreen() {
       </View>
       <ManagedSessionSchedulerModal
         visible={schedulerVisible}
-        clients={managedClients}
+        clients={schedulableClients}
         saving={schedulerSaving}
         onClose={() => {
           if (!schedulerSaving) setSchedulerVisible(false);

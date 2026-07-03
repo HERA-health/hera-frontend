@@ -23,12 +23,18 @@ describe('professional scheduling patient terminology', () => {
   ].join('\n');
 
   it('uses operational copy instead of managed patient terminology', () => {
-    expect(source).toContain('pacientes añadidos por ti');
-    expect(source).toContain('pacientes activos añadidos por ti');
+    expect(source).toContain('paciente de tu consulta');
+    expect(source).toContain('pacientes activos de tu consulta');
     expect(source).not.toContain('paciente gestionado');
     expect(source).not.toContain('pacientes gestionados');
     expect(source).not.toContain('Paciente gestionado');
     expect(source).not.toContain('Pacientes gestionados');
+  });
+
+  it('loads all active visible patients for professional scheduling', () => {
+    expect(source).toContain("source: 'ALL'");
+    expect(source).toContain("lifecycle: 'ACTIVE'");
+    expect(source).not.toContain("source: 'MANAGED',");
   });
 
   it('keeps explicit buffer override actions inside the scheduler modal', () => {

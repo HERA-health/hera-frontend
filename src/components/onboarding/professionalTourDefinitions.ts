@@ -107,7 +107,7 @@ export const PROFESSIONAL_TOUR_DEFINITIONS: Record<
         id: 'new-session',
         targetId: 'professional.sessions.new-session',
         title: 'Programa una cita',
-        body: 'Desde aquí creas sesiones para pacientes añadidos por ti sin salir del calendario.',
+        body: 'Desde aquí creas sesiones para pacientes de tu consulta sin salir del calendario.',
         placement: 'left',
       },
       {

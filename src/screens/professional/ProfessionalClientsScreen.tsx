@@ -597,7 +597,7 @@ export function ProfessionalClientsScreen() {
       dismissible: true,
       message:
         'Antes de crear pacientes desde tu panel, HERA necesita registrar que aceptas el encargo de tratamiento vigente.\n\n' +
-        'Este acuerdo permite que HERA trate los datos que introduzcas siguiendo tus instrucciones como profesional, con medidas de seguridad y confidencialidad. No sustituye al consentimiento informado del paciente ni te obliga a crear una historia clínica; solo habilita el uso seguro de pacientes añadidos por ti en HERA.',
+        'Este acuerdo permite que HERA trate los datos que introduzcas siguiendo tus instrucciones como profesional, con medidas de seguridad y confidencialidad. No sustituye al consentimiento informado del paciente ni te obliga a crear una historia clínica; solo habilita el uso seguro de pacientes de tu consulta en HERA.',
       actions: [
         { label: 'Ahora no', value: 'cancel', role: 'cancel' },
         { label: 'Aceptar y continuar', value: 'accept', role: 'confirm' },
@@ -768,7 +768,7 @@ export function ProfessionalClientsScreen() {
   };
 
   const openSessionScheduler = (client: professionalService.Client) => {
-    if (client.source !== 'MANAGED' || client.archivedAt) {
+    if (client.archivedAt) {
       return;
     }
 
@@ -924,7 +924,7 @@ export function ProfessionalClientsScreen() {
               Ver ficha
             </Button>
           </View>
-          {client.source === 'MANAGED' && !client.archivedAt ? (
+          {!client.archivedAt ? (
             <View style={stylesForTheme.cardActionItem}>
               <Button
                 variant="secondary"
