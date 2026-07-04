@@ -158,7 +158,7 @@ export type RootStackParamList = {
     clinicPatientId: string;
   };
   ProfessionalSessions: undefined;
-  ProfessionalProfile: undefined;
+  ProfessionalProfile: { initialTab?: ProfessionalProfileTab } | undefined;
   ProfessionalBilling: undefined;
   CreateInvoice: {
     invoiceId?: string;
@@ -186,6 +186,15 @@ export type MainTabParamList = {
   Sessions: { refresh?: boolean; showSuccess?: boolean } | undefined;
   Profile: undefined;
 };
+
+export type ProfessionalProfileTab =
+  | 'information'
+  | 'mi-espacio'
+  | 'agenda'
+  | 'credentials'
+  | 'pricing'
+  | 'privacy'
+  | 'account';
 
 /**
  * Filter options for specialists screen

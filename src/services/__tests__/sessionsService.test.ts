@@ -55,6 +55,7 @@ describe('sessionsService.getBookingQuote', () => {
       data: {
         data: {
           id: 'session-1',
+          status: 'CONFIRMED',
           bookedPrice: 0,
           bookedCurrency: 'EUR',
           bookedTariffId: 'tariff-standard',
@@ -73,6 +74,7 @@ describe('sessionsService.getBookingQuote', () => {
       })
     ).resolves.toMatchObject({
       id: 'session-1',
+      status: 'CONFIRMED',
       bookedPrice: 0,
       bookedCurrency: 'EUR',
     });

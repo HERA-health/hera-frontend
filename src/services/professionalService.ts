@@ -432,6 +432,7 @@ export interface SpecialistProfileData {
   profileVisible: boolean;
   showReviewCount: boolean;
   showLastOnline: boolean;
+  autoConfirmSessionRequests: boolean;
   emailSessionRequestsEnabled: boolean;
   emailSessionCancellationsEnabled: boolean;
   emailSessionReminder24hEnabled: boolean;
@@ -458,6 +459,10 @@ export interface SpecialistProfileData {
   offersInPerson: boolean;
 }
 
+export interface AgendaPreferences {
+  autoConfirmSessionRequests: boolean;
+}
+
 /**
  * Get comprehensive profile data for the current professional
  */
@@ -470,6 +475,18 @@ export const getComprehensiveProfile = async (): Promise<SpecialistProfileData |
     return null;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo obtener el perfil'));
+  }
+};
+
+export const getAgendaPreferences = async (): Promise<AgendaPreferences | null> => {
+  try {
+    const response = await api.get('/specialists/me/agenda-preferences');
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return null;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudieron obtener las preferencias de agenda'));
   }
 };
 
@@ -497,6 +514,9 @@ export const updateComprehensiveProfile = async (
 
     if (data.phone !== undefined) apiData.phone = data.phone;
     if (data.profileVisible !== undefined) apiData.profileVisible = data.profileVisible;
+    if (data.autoConfirmSessionRequests !== undefined) {
+      apiData.autoConfirmSessionRequests = data.autoConfirmSessionRequests;
+    }
     if (data.emailSessionRequestsEnabled !== undefined) {
       apiData.emailSessionRequestsEnabled = data.emailSessionRequestsEnabled;
     }

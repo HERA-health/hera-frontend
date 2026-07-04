@@ -25,6 +25,7 @@ import { api } from '../api';
 import { buildMultipartFormData } from '../../utils/multipartUpload';
 import {
   createManagedClientSession,
+  getAgendaPreferences,
   getProfessionalClients,
   getProfessionalSessions,
   getVerificationStatus,
@@ -137,6 +138,7 @@ describe('professionalService.updateComprehensiveProfile', () => {
       applyVat: true,
       showReviewCount: false,
       showLastOnline: true,
+      autoConfirmSessionRequests: false,
       emailSessionRequestsEnabled: false,
       emailSessionCancellationsEnabled: true,
       emailSessionReminder24hEnabled: true,
@@ -147,10 +149,34 @@ describe('professionalService.updateComprehensiveProfile', () => {
 
     expect(mockedApi.put).toHaveBeenCalledWith('/specialists/me/profile', {
       fullName: 'Dra. Prueba',
+      autoConfirmSessionRequests: false,
       emailSessionRequestsEnabled: false,
       emailSessionCancellationsEnabled: true,
       emailSessionReminder24hEnabled: true,
     });
+  });
+});
+
+describe('professionalService.getAgendaPreferences', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    clearRequestCache();
+  });
+
+  it('loads agenda preferences through the minimal endpoint', async () => {
+    mockedApi.get.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          autoConfirmSessionRequests: false,
+        },
+      },
+    });
+
+    await expect(getAgendaPreferences()).resolves.toEqual({
+      autoConfirmSessionRequests: false,
+    });
+    expect(mockedApi.get).toHaveBeenCalledWith('/specialists/me/agenda-preferences');
   });
 });
 

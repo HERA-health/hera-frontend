@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
   borderRadius,
   layout,
@@ -129,6 +129,7 @@ export function ProfessionalSessionsScreen() {
   const [loadingSchedulableClients, setLoadingSchedulableClients] = useState(false);
   const [schedulerVisible, setSchedulerVisible] = useState(false);
   const [schedulerSaving, setSchedulerSaving] = useState(false);
+  const [autoConfirmSessionRequests, setAutoConfirmSessionRequests] = useState<boolean | null>(null);
   const sessionsLoadSeqRef = useRef(0);
   const sessionsRef = useRef<ProfessionalSession[]>([]);
 
@@ -223,6 +224,15 @@ export function ProfessionalSessionsScreen() {
     }
   }, [appAlert]);
 
+  const loadAgendaPreference = useCallback(async () => {
+    try {
+      const preferences = await professionalService.getAgendaPreferences();
+      setAutoConfirmSessionRequests(preferences?.autoConfirmSessionRequests ?? null);
+    } catch {
+      // Keep the current value. If it has not loaded yet, the chip stays neutral.
+    }
+  }, []);
+
   const openManagedSessionScheduler = useCallback(async () => {
     const clients = schedulableClients.length > 0
       ? schedulableClients
@@ -267,6 +277,12 @@ export function ProfessionalSessionsScreen() {
     loadSessions();
   }, [loadSessions]);
 
+  useFocusEffect(
+    useCallback(() => {
+      void loadAgendaPreference();
+    }, [loadAgendaPreference]),
+  );
+
   useEffect(() => () => {
     sessionsLoadSeqRef.current += 1;
   }, []);
@@ -274,6 +290,10 @@ export function ProfessionalSessionsScreen() {
   const handleRetryLoadSessions = useCallback(() => {
     void loadSessions();
   }, [loadSessions]);
+
+  const handleConfigureAgenda = useCallback(() => {
+    navigation.navigate('ProfessionalProfile', { initialTab: 'agenda' });
+  }, [navigation]);
 
   useProfessionalTourAutoStart(
     'professional_sessions_v1',
@@ -353,6 +373,28 @@ export function ProfessionalSessionsScreen() {
     () => sessions.filter((session) => session.status === 'pending'),
     [sessions],
   );
+
+  const agendaModeColor = autoConfirmSessionRequests === null
+    ? theme.textSecondary
+    : autoConfirmSessionRequests
+      ? theme.success
+      : theme.warningAmber;
+  const agendaModeBorderColor = autoConfirmSessionRequests === null
+    ? theme.border
+    : `${agendaModeColor}66`;
+  const agendaModeBackgroundColor = autoConfirmSessionRequests === null
+    ? theme.bgCard
+    : `${agendaModeColor}12`;
+  const agendaModeIcon: keyof typeof Ionicons.glyphMap = autoConfirmSessionRequests === null
+    ? 'settings-outline'
+    : autoConfirmSessionRequests
+      ? 'flash-outline'
+      : 'time-outline';
+  const agendaModeLabel = autoConfirmSessionRequests === null
+    ? 'Configurar agenda'
+    : autoConfirmSessionRequests
+      ? 'Confirmación automática'
+      : 'Confirmación manual';
 
   const navigateDate = useCallback(
     (direction: number) => {
@@ -1171,6 +1213,35 @@ export function ProfessionalSessionsScreen() {
                 <Text style={[styles.kpiValue, { color: theme.warningAmber }]}>{pendingSessions.length}</Text>
                 <Text style={styles.kpiLabel}>pendientes</Text>
               </View>
+              <AnimatedPressable
+                onPress={handleConfigureAgenda}
+                style={[
+                  styles.bookingModeChip,
+                  {
+                    borderColor: agendaModeBorderColor,
+                    backgroundColor: agendaModeBackgroundColor,
+                  },
+                ]}
+                hoverLift={false}
+                pressScale={0.98}
+                accessibilityLabel="Configurar modo de confirmación de reservas"
+              >
+                <Ionicons
+                  name={agendaModeIcon}
+                  size={15}
+                  color={agendaModeColor}
+                />
+                <Text
+                  style={[
+                    styles.bookingModeChipText,
+                    { color: agendaModeColor },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {agendaModeLabel}
+                </Text>
+                <Ionicons name="settings-outline" size={13} color={theme.textMuted} />
+              </AnimatedPressable>
             </View>
           </View>
           <View style={styles.headerActionWrap}>
@@ -1383,6 +1454,23 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       fontSize: typography.fontSizes.xs,
       color: theme.textMuted,
       textTransform: 'uppercase',
+      fontFamily: theme.fontSansSemiBold,
+    },
+    bookingModeChip: {
+      minHeight: 34,
+      maxWidth: isMobile ? '100%' : 248,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+      borderRadius: borderRadius.full,
+      borderWidth: 1,
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 5,
+    },
+    bookingModeChipText: {
+      flexShrink: 1,
+      minWidth: 0,
+      fontSize: typography.fontSizes.xs,
       fontFamily: theme.fontSansSemiBold,
     },
     body: {

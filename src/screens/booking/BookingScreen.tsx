@@ -426,11 +426,12 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
             : sessionType === 'IN_PERSON'
               ? 'Presencial'
               : 'Llamada';
+        const isConfirmed = createdSession.status === 'CONFIRMED';
 
         showBookingMessage(
           appAlert,
-          'Reserva confirmada',
-          `Tu ${sessionTypeText.toLowerCase()} con ${specialistName} ha sido solicitada.\n\nEstado: Pendiente de confirmación\nFecha: ${formattedDate}\nHora: ${selectedSlot.startTime}\nTipo: ${sessionTypeText}`,
+          isConfirmed ? 'Cita confirmada' : 'Solicitud enviada',
+          `Tu ${sessionTypeText.toLowerCase()} con ${specialistName} ${isConfirmed ? 'ha quedado confirmada.' : 'ha sido solicitada.'}\n\nEstado: ${isConfirmed ? 'Confirmada' : 'Pendiente de confirmación'}\nFecha: ${formattedDate}\nHora: ${selectedSlot.startTime}\nTipo: ${sessionTypeText}`,
         );
       }, 400);
     } catch (error: unknown) {

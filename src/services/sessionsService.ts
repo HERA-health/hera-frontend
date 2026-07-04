@@ -70,6 +70,7 @@ interface CreateSessionRequest {
 
 export interface CreatedSession {
   id: string;
+  status: SessionStatus;
   bookedPrice?: number | null;
   bookedCurrency?: string | null;
   bookedTariffId?: string | null;

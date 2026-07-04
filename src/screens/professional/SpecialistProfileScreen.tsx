@@ -5,13 +5,14 @@
  * Designed to feel like LinkedIn meets Stripe Dashboard - professional, trustworthy,
  * and easy to maintain.
  *
- * Six Essential Tabs:
+ * Seven Essential Tabs:
  * 1. Información Profesional - Public profile info (what clients see)
  * 2. Mi Espacio - Public personalization
- * 3. Credenciales y Verificación - Verification status and trust badges
- * 4. Facturación - Pricing and payment configuration
- * 5. Privacidad - Public visibility controls
- * 6. Cuenta - Account settings and security
+ * 3. Agenda y reservas - Booking confirmation preferences
+ * 4. Credenciales y Verificación - Verification status and trust badges
+ * 5. Facturación - Pricing and payment configuration
+ * 6. Privacidad - Public visibility controls
+ * 7. Cuenta - Account settings and security
  *
  * Features:
  * - Full-width tab workspace for faster profile editing
@@ -46,7 +47,7 @@ import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/co
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { shadows, spacing, borderRadius, typography, layout } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
 import * as professionalService from '../../services/professionalService';
@@ -59,7 +60,7 @@ import {
   VerificationStatusResponse,
 } from '../../services/professionalService';
 import { AddressAutocomplete, LocationMapPreview } from '../../components/location';
-import type { AppNavigationProp } from '../../constants/types';
+import type { AppNavigationProp, AppRouteProp, ProfessionalProfileTab } from '../../constants/types';
 import { getWebAppUrl } from '../../config/api';
 import { AnimatedPressable, Button } from '../../components/common';
 import { TourTarget } from '../../components/onboarding/TourTarget';
@@ -78,7 +79,7 @@ import {
 // TYPE DEFINITIONS
 // ============================================================================
 
-type ProfileTab = 'mi-espacio' | 'information' | 'credentials' | 'pricing' | 'privacy' | 'account';
+type ProfileTab = ProfessionalProfileTab;
 
 interface Education {
   id: string;
@@ -153,6 +154,7 @@ interface SpecialistProfileData {
   profileVisible: boolean;
   showReviewCount: boolean;
   showLastOnline: boolean;
+  autoConfirmSessionRequests: boolean;
   emailSessionRequestsEnabled: boolean;
   emailSessionCancellationsEnabled: boolean;
   emailSessionReminder24hEnabled: boolean;
@@ -418,6 +420,7 @@ const mapServiceProfileToFormData = (profile: ServiceProfileData): SpecialistPro
   profileVisible: profile.profileVisible ?? true,
   showReviewCount: profile.showReviewCount ?? true,
   showLastOnline: profile.showLastOnline || false,
+  autoConfirmSessionRequests: profile.autoConfirmSessionRequests ?? true,
   emailSessionRequestsEnabled: profile.emailSessionRequestsEnabled ?? true,
   emailSessionCancellationsEnabled: profile.emailSessionCancellationsEnabled ?? true,
   emailSessionReminder24hEnabled: profile.emailSessionReminder24hEnabled ?? false,
@@ -513,6 +516,7 @@ export function SpecialistProfileScreen() {
 
   // Navigation
   const navigation = useNavigation<AppNavigationProp>();
+  const route = useRoute<AppRouteProp<'ProfessionalProfile'>>();
 
   // Share profile state
   const [specialistId, setSpecialistId] = useState<string | null>(null);
@@ -617,6 +621,7 @@ export function SpecialistProfileScreen() {
     profileVisible: true,
     showReviewCount: true,
     showLastOnline: false,
+    autoConfirmSessionRequests: true,
     emailSessionRequestsEnabled: true,
     emailSessionCancellationsEnabled: true,
     emailSessionReminder24hEnabled: false,
@@ -769,6 +774,11 @@ export function SpecialistProfileScreen() {
   // Reload both profile data and verification status on every screen focus
   useFocusEffect(
     useCallback(() => {
+      if (route.params?.initialTab) {
+        setActiveTab(route.params.initialTab);
+        navigation.setParams({ initialTab: undefined });
+      }
+
       loadProfile();
       loadBillingConfig();
       const loadVerificationStatus = async () => {
@@ -793,7 +803,7 @@ export function SpecialistProfileScreen() {
         }
       };
       loadSpecialistId();
-    }, [loadBillingConfig, loadProfile])
+    }, [loadBillingConfig, loadProfile, navigation, route.params?.initialTab])
   );
 
   // ============================================================================
@@ -870,6 +880,7 @@ export function SpecialistProfileScreen() {
       assignIfChanged('experience', 'experience', profileData.experience);
       assignIfChanged('phone', 'phone', profileData.phone);
       assignIfChanged('profileVisible', 'profileVisible', profileData.profileVisible);
+      assignIfChanged('autoConfirmSessionRequests', 'autoConfirmSessionRequests', profileData.autoConfirmSessionRequests);
       assignIfChanged('emailSessionRequestsEnabled', 'emailSessionRequestsEnabled', profileData.emailSessionRequestsEnabled);
       assignIfChanged('emailSessionCancellationsEnabled', 'emailSessionCancellationsEnabled', profileData.emailSessionCancellationsEnabled);
       assignIfChanged('emailSessionReminder24hEnabled', 'emailSessionReminder24hEnabled', profileData.emailSessionReminder24hEnabled);
@@ -1297,6 +1308,7 @@ export function SpecialistProfileScreen() {
   const tabs: { id: ProfileTab; label: string; icon: IconName }[] = [
     { id: 'information', label: 'Información Profesional', icon: 'person-outline' },
     { id: 'mi-espacio', label: STRINGS.miEspacio.tabLabel, icon: 'sparkles-outline' },
+    { id: 'agenda', label: 'Agenda y reservas', icon: 'calendar-clear-outline' },
     { id: 'credentials', label: 'Credenciales', icon: 'shield-checkmark-outline' },
     { id: 'pricing', label: 'Facturación', icon: 'card-outline' },
     { id: 'privacy', label: 'Privacidad', icon: 'eye-outline' },
@@ -1460,6 +1472,115 @@ export function SpecialistProfileScreen() {
   // ============================================================================
   // RENDER: FORM COMPONENTS
   // ============================================================================
+
+  const renderAgendaPreferenceRow = ({
+    icon,
+    iconColor,
+    title,
+    description,
+    value,
+    onValueChange,
+    statusText,
+    statusColor,
+  }: {
+    icon: IconName;
+    iconColor: string;
+    title: string;
+    description: string;
+    value: boolean;
+    onValueChange: (value: boolean) => void;
+    statusText?: string;
+    statusColor?: string;
+  }) => (
+    <View style={styles.agendaPreferenceRow}>
+      <View style={styles.agendaPreferenceInfo}>
+        <View style={styles.agendaPreferenceIcon}>
+          <Ionicons name={icon} size={18} color={iconColor} />
+        </View>
+        <View style={styles.agendaPreferenceCopy}>
+          <Text style={styles.agendaPreferenceTitle}>{title}</Text>
+          <Text style={styles.agendaPreferenceDescription}>{description}</Text>
+        </View>
+      </View>
+      <View style={styles.agendaPreferenceAction}>
+        {statusText ? (
+          <Text style={[styles.agendaPreferenceStatus, { color: statusColor ?? palette.textSecondary }]}>
+            {statusText}
+          </Text>
+        ) : null}
+        <Switch
+          value={value}
+          onValueChange={onValueChange}
+          trackColor={{ false: palette.border, true: palette.primaryMuted }}
+          thumbColor={value ? palette.primary : palette.cardBackground}
+          ios_backgroundColor={palette.border}
+        />
+      </View>
+    </View>
+  );
+
+  const renderAgendaReservationsTab = () => {
+    const autoConfirmEnabled = profileData.autoConfirmSessionRequests;
+    const confirmationStatusColor = autoConfirmEnabled ? palette.success : palette.warningAmber;
+
+    return (
+      <View style={styles.tabContent}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Agenda y reservas</Text>
+          <Text style={styles.agendaSectionDescription}>
+            Gestiona cómo se confirman tus reservas y qué avisos quieres recibir por email.
+          </Text>
+
+          <View style={styles.agendaSettingsCard}>
+            {renderAgendaPreferenceRow({
+              icon: 'calendar-clear-outline',
+              iconColor: palette.primary,
+              title: 'Confirmar reservas automáticamente',
+              description:
+                'Las reservas en horarios disponibles se confirman al momento. Si lo desactivas, podrás aprobarlas antes de confirmarlas.',
+              value: autoConfirmEnabled,
+              onValueChange: (value) => updateField('autoConfirmSessionRequests', value),
+              statusText: autoConfirmEnabled ? 'Confirmación automática' : 'Confirmación manual',
+              statusColor: confirmationStatusColor,
+            })}
+
+            <View style={styles.agendaPreferenceDivider} />
+
+            {renderAgendaPreferenceRow({
+              icon: 'mail-outline',
+              iconColor: palette.primary,
+              title: 'Aviso de nueva reserva',
+              description: 'Recibe un email cuando un paciente reserve o solicite una cita.',
+              value: profileData.emailSessionRequestsEnabled,
+              onValueChange: (value) => updateField('emailSessionRequestsEnabled', value),
+            })}
+
+            <View style={styles.agendaPreferenceDivider} />
+
+            {renderAgendaPreferenceRow({
+              icon: 'close-circle-outline',
+              iconColor: palette.warning,
+              title: 'Cancelación de cita',
+              description: 'Recibe un email si un paciente cancela una cita.',
+              value: profileData.emailSessionCancellationsEnabled,
+              onValueChange: (value) => updateField('emailSessionCancellationsEnabled', value),
+            })}
+
+            <View style={styles.agendaPreferenceDivider} />
+
+            {renderAgendaPreferenceRow({
+              icon: 'time-outline',
+              iconColor: palette.textSecondary,
+              title: 'Recordatorio 24h antes',
+              description: 'Recibe un email por cada cita confirmada 24 horas antes.',
+              value: profileData.emailSessionReminder24hEnabled,
+              onValueChange: (value) => updateField('emailSessionReminder24hEnabled', value),
+            })}
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   const renderFormField = (
     label: string,
@@ -2888,73 +3009,6 @@ export function SpecialistProfileScreen() {
           )}
         </View>
       </View>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Notificaciones</Text>
-        <View style={styles.formCard}>
-          <View style={styles.notificationPreferenceList}>
-            <View style={styles.notificationPreferenceRow}>
-              <View style={styles.notificationPreferenceIcon}>
-                <Ionicons name="calendar-clear-outline" size={18} color={palette.primary} />
-              </View>
-              <View style={styles.notificationPreferenceCopy}>
-                <Text style={styles.notificationPreferenceTitle}>Nueva solicitud de cita</Text>
-                <Text style={styles.notificationPreferenceDescription}>
-                  Recibe un email cuando un paciente solicite una nueva cita.
-                </Text>
-              </View>
-              <Switch
-                value={profileData.emailSessionRequestsEnabled}
-                onValueChange={(value) => updateField('emailSessionRequestsEnabled', value)}
-                trackColor={{ false: palette.border, true: palette.primaryMuted }}
-                thumbColor={profileData.emailSessionRequestsEnabled ? palette.primary : palette.cardBackground}
-                ios_backgroundColor={palette.border}
-              />
-            </View>
-
-            <View style={styles.notificationPreferenceDivider} />
-
-            <View style={styles.notificationPreferenceRow}>
-              <View style={styles.notificationPreferenceIcon}>
-                <Ionicons name="close-circle-outline" size={18} color={palette.warning} />
-              </View>
-              <View style={styles.notificationPreferenceCopy}>
-                <Text style={styles.notificationPreferenceTitle}>Cancelación de cita</Text>
-                <Text style={styles.notificationPreferenceDescription}>
-                  Recibe un email si un paciente cancela una cita.
-                </Text>
-              </View>
-              <Switch
-                value={profileData.emailSessionCancellationsEnabled}
-                onValueChange={(value) => updateField('emailSessionCancellationsEnabled', value)}
-                trackColor={{ false: palette.border, true: palette.primaryMuted }}
-                thumbColor={profileData.emailSessionCancellationsEnabled ? palette.primary : palette.cardBackground}
-                ios_backgroundColor={palette.border}
-              />
-            </View>
-
-            <View style={styles.notificationPreferenceDivider} />
-
-            <View style={styles.notificationPreferenceRow}>
-              <View style={styles.notificationPreferenceIcon}>
-                <Ionicons name="time-outline" size={18} color={palette.textSecondary} />
-              </View>
-              <View style={styles.notificationPreferenceCopy}>
-                <Text style={styles.notificationPreferenceTitle}>Recordatorio 24h antes</Text>
-                <Text style={styles.notificationPreferenceDescription}>
-                  Recibe un email por cada cita confirmada 24 horas antes.
-                </Text>
-              </View>
-              <Switch
-                value={profileData.emailSessionReminder24hEnabled}
-                onValueChange={(value) => updateField('emailSessionReminder24hEnabled', value)}
-                trackColor={{ false: palette.border, true: palette.primaryMuted }}
-                thumbColor={profileData.emailSessionReminder24hEnabled ? palette.primary : palette.cardBackground}
-                ios_backgroundColor={palette.border}
-              />
-            </View>
-          </View>
-        </View>
-      </View>
     </View>
   );
 
@@ -3096,6 +3150,7 @@ export function SpecialistProfileScreen() {
         >
           {activeTab === 'mi-espacio' && renderMiEspacioTab()}
           {activeTab === 'information' && renderInformationTab()}
+          {activeTab === 'agenda' && renderAgendaReservationsTab()}
           {activeTab === 'credentials' && renderCredentialsTab()}
           {activeTab === 'pricing' && renderPricingTab()}
           {activeTab === 'privacy' && renderPrivacyTab()}
@@ -4740,41 +4795,80 @@ function createStyles(
     fontFamily: palette.fontSansSemiBold,
     color: palette.textOnCard,
   },
-  notificationPreferenceList: {
-    gap: spacing.md,
-  },
-  notificationPreferenceRow: {
-    flexDirection: isMobile ? 'column' : 'row',
-    alignItems: isMobile ? 'stretch' : 'center',
-    gap: spacing.md,
-  },
-  notificationPreferenceIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.primaryAlpha12,
-  },
-  notificationPreferenceCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  notificationPreferenceTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    fontFamily: palette.fontHeading,
-    color: palette.textPrimary,
-  },
-  notificationPreferenceDescription: {
+  agendaSectionDescription: {
+    marginTop: -spacing.xs,
+    marginBottom: spacing.md,
     fontSize: 14,
     fontFamily: palette.fontSans,
     lineHeight: 21,
     color: palette.textSecondary,
   },
-  notificationPreferenceDivider: {
+  agendaSettingsCard: {
+    width: '100%',
+    overflow: 'hidden',
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.cardBg,
+  },
+  agendaPreferenceRow: {
+    minHeight: 82,
+    flexDirection: isMobile ? 'column' : 'row',
+    alignItems: isMobile ? 'stretch' : 'center',
+    justifyContent: 'space-between',
+    gap: isMobile ? spacing.sm : spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  agendaPreferenceInfo: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  agendaPreferenceIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.primaryAlpha12,
+  },
+  agendaPreferenceCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  agendaPreferenceTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: palette.fontHeading,
+    color: palette.textPrimary,
+  },
+  agendaPreferenceDescription: {
+    fontSize: 12,
+    fontFamily: palette.fontSans,
+    lineHeight: 18,
+    color: palette.textSecondary,
+  },
+  agendaPreferenceAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: isMobile ? 'space-between' : 'flex-end',
+    gap: spacing.sm,
+    minWidth: isMobile ? undefined : 244,
+  },
+  agendaPreferenceStatus: {
+    flexShrink: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: palette.fontSansSemiBold,
+  },
+  agendaPreferenceDivider: {
     height: 1,
     backgroundColor: palette.border,
+    marginLeft: isMobile ? spacing.lg : 76,
   },
   privacySection: {
     marginBottom: spacing.md,
