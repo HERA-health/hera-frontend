@@ -181,10 +181,28 @@ export const renderSpecialistSessionRequestedEmail = (
     'Revisar solicitud'
   );
 
+type ClientScheduledBySpecialistPayload = Omit<
+  SessionNotificationPayload,
+  'event' | 'recipient' | 'status'
+> & {
+  status?: 'CONFIRMED';
+};
+
+const getPatientAccountCtaLabel = (payload: Pick<SessionNotificationPayload, 'patientHasAccount'>): string =>
+  payload.patientHasAccount ? 'Ver detalles de la cita' : 'Crear cuenta en HERA (opcional)';
+
+const getScheduledBySpecialistIntro = (payload: ClientScheduledBySpecialistPayload): string =>
+  payload.patientHasAccount
+    ? `${payload.specialistName} ha programado esta cita contigo. Puedes revisar la fecha, la modalidad y los accesos desde tu cuenta de HERA.`
+    : `${payload.specialistName} ha programado esta cita contigo. No necesitas registrarte para conservar esta información; si más adelante quieres consultar tus citas desde HERA, puedes crear una cuenta de forma opcional.`;
+
+const getUpdatedBySpecialistIntro = (payload: ClientScheduledBySpecialistPayload): string =>
+  payload.patientHasAccount
+    ? `${payload.specialistName} ha actualizado los datos de tu cita. Revisa la nueva fecha, hora, duración o modalidad desde tu cuenta de HERA.`
+    : `${payload.specialistName} ha actualizado los datos de tu cita. Conserva este aviso con la nueva fecha, hora, duración y modalidad. No necesitas registrarte para conservar esta información; si más adelante quieres consultar tus citas desde HERA, puedes crear una cuenta de forma opcional.`;
+
 export const renderClientSessionScheduledBySpecialistEmail = (
-  payload: Omit<SessionNotificationPayload, 'event' | 'recipient' | 'status'> & {
-    status?: 'CONFIRMED';
-  }
+  payload: ClientScheduledBySpecialistPayload
 ): EmailTemplateResult =>
   buildEmail(
     {
@@ -196,9 +214,27 @@ export const renderClientSessionScheduledBySpecialistEmail = (
     `Cita programada · ${payload.specialistName}`,
     'Cita programada',
     'Tienes una cita programada',
-    `${payload.specialistName} ha programado esta cita contigo. No necesitas registrarte para conservar esta información; si más adelante quieres consultar tus citas desde HERA, puedes crear una cuenta de forma opcional.`,
+    getScheduledBySpecialistIntro(payload),
     'success',
-    'Crear cuenta en HERA (opcional)'
+    getPatientAccountCtaLabel(payload)
+  );
+
+export const renderClientSessionUpdatedBySpecialistEmail = (
+  payload: ClientScheduledBySpecialistPayload
+): EmailTemplateResult =>
+  buildEmail(
+    {
+      ...payload,
+      event: 'session_scheduled_by_specialist',
+      recipient: 'patient',
+      status: payload.status ?? 'CONFIRMED',
+    },
+    `Cita modificada · ${payload.specialistName}`,
+    'Cita modificada',
+    'Tu cita se ha modificado',
+    getUpdatedBySpecialistIntro(payload),
+    'success',
+    getPatientAccountCtaLabel(payload)
   );
 
 export const renderSpecialistSessionCancelledEmail = (

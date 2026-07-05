@@ -297,7 +297,11 @@ export interface ProfessionalSession {
   status: 'scheduled' | 'completed' | 'cancelled' | 'pending';
   meetingLink?: string;
   type: 'video' | 'audio' | 'chat' | 'in_person';
+  clientEmail?: string | null;
+  clientSource?: 'REGISTERED' | 'MANAGED';
+  clientUserId?: string | null;
   clientAvatar?: string;
+  hasInvoice?: boolean;
 }
 
 // ============================================================================

@@ -191,6 +191,13 @@ export interface CreateManagedClientSessionInput {
   overrideBuffer?: boolean;
 }
 
+export interface UpdateManagedSessionScheduleInput {
+  date: string;
+  duration: number;
+  type: SessionType;
+  overrideBuffer?: boolean;
+}
+
 interface GetProfessionalClientsOptions {
   source?: ClientSource | 'ALL';
   lifecycle?: ClientLifecycleFilter;
@@ -288,6 +295,28 @@ export const createManagedClientSession = async (
     }
 
     throw new Error(getErrorMessage(error, 'No se pudo crear la cita'));
+  }
+};
+
+export const updateManagedSessionSchedule = async (
+  sessionId: string,
+  data: UpdateManagedSessionScheduleInput
+): Promise<Session> => {
+  try {
+    const response = await api.put(`/sessions/${sessionId}/schedule`, data);
+    clearRequestCache();
+    return response.data.data;
+  } catch (error: unknown) {
+    if (getErrorCode(error) === BUFFER_CONFLICT_REQUIRES_OVERRIDE) {
+      const conflict = new Error(
+        getErrorMessage(error, 'La cita incumple el descanso configurado entre sesiones')
+      ) as ManagedSessionBufferConflictError;
+      conflict.code = BUFFER_CONFLICT_REQUIRES_OVERRIDE;
+      conflict.bufferMinutes = getBufferMinutesFromError(error);
+      throw conflict;
+    }
+
+    throw new Error(getErrorMessage(error, 'No se pudo modificar la cita'));
   }
 };
 

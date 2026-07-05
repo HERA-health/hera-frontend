@@ -1,5 +1,6 @@
 import {
   renderClientSessionScheduledBySpecialistEmail,
+  renderClientSessionUpdatedBySpecialistEmail,
   renderClientSessionConfirmedEmail,
   renderClientSessionReminder24hEmail,
   renderSpecialistSessionCancelledEmail,
@@ -53,6 +54,23 @@ describe('session email templates', () => {
     expect(result.subject).toContain('Cita programada');
     expect(result.text).toContain('No necesitas registrarte');
     expect(result).toMatchSnapshot();
+  });
+
+  it('renders modified session copy for registered patients without registration CTA', () => {
+    const result = renderClientSessionUpdatedBySpecialistEmail({
+      ...basePayload,
+      recipientName: 'Lucía',
+      counterpartName: 'Dra. Elena Martín',
+      type: 'VIDEO_CALL',
+      meetingLink: 'https://meet.hera.app/session-123',
+      patientHasAccount: true,
+    });
+
+    expect(result.event).toBe('session_scheduled_by_specialist');
+    expect(result.subject).toContain('Cita modificada');
+    expect(result.text).toContain('Tu cita se ha modificado');
+    expect(result.text).toContain('Ver detalles de la cita');
+    expect(result.text).not.toContain('Crear cuenta en HERA');
   });
 
   it('renders specialist_session_cancelled without fake video or location data for phone calls', () => {

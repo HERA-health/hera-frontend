@@ -2,6 +2,7 @@ import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/co
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Linking,
   ScrollView,
   StyleSheet,
@@ -91,6 +92,29 @@ function getSessionClientName(client?: professionalService.Session['client']): s
   return client?.displayName || managedName || client?.user?.name || 'Cliente';
 }
 
+function getFirstNonBlank(...values: Array<string | null | undefined>): string | null {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+
+  return null;
+}
+
+function getSessionClientEmail(client?: professionalService.Session['client']): string | null {
+  return getFirstNonBlank(client?.primaryEmail, client?.user?.email, client?.email);
+}
+
+function getSchedulerClientEmail(client?: professionalService.Client | null): string | null {
+  return getFirstNonBlank(client?.primaryEmail, client?.user?.email, client?.email);
+}
+
+function getSchedulerClientAvatar(client?: professionalService.Client | null): string | null {
+  return getFirstNonBlank(client?.user?.avatar);
+}
+
 function isProfessionalVideoSession(session: ProfessionalSession): boolean {
   return session.type === 'video' || Boolean(session.meetingLink);
 }
@@ -102,6 +126,68 @@ function getProfessionalVideoCallSession(session: ProfessionalSession) {
     date: session.date,
     duration: session.duration,
     meetingLink: session.meetingLink || PENDING_VIDEO_MEETING_LINK,
+  };
+}
+
+function toSchedulerSessionType(type: ProfessionalSession['type']): professionalService.SessionType {
+  switch (type) {
+    case 'audio':
+      return 'PHONE_CALL';
+    case 'in_person':
+      return 'IN_PERSON';
+    case 'video':
+    case 'chat':
+      return 'VIDEO_CALL';
+  }
+}
+
+function buildSchedulerClientFromSession(session: ProfessionalSession): professionalService.Client {
+  const email = session.clientEmail ?? null;
+
+  return {
+    id: session.clientId,
+    userId: session.clientUserId ?? null,
+    source: session.clientSource ?? 'MANAGED',
+    firstName: session.clientName,
+    lastName: '',
+    email,
+    phone: null,
+    primaryEmail: email,
+    displayName: session.clientName,
+    user: {
+      id: session.clientUserId ?? null,
+      email: email ?? '',
+      name: session.clientName,
+      userType: 'CLIENT',
+      avatar: session.clientAvatar ?? null,
+    },
+  };
+}
+
+function hydrateSchedulerClientFromSession(
+  client: professionalService.Client,
+  session: ProfessionalSession
+): professionalService.Client {
+  const sessionClient = buildSchedulerClientFromSession(session);
+  const email = getSchedulerClientEmail(client) ?? getSchedulerClientEmail(sessionClient);
+  const avatar = getSchedulerClientAvatar(client) ?? getSchedulerClientAvatar(sessionClient);
+  const existingUser = client.user ?? sessionClient.user;
+
+  return {
+    ...client,
+    firstName: client.firstName || sessionClient.firstName,
+    lastName: client.lastName ?? sessionClient.lastName,
+    email,
+    primaryEmail: email,
+    displayName: client.displayName || sessionClient.displayName,
+    user: {
+      ...existingUser,
+      id: existingUser.id ?? sessionClient.user.id,
+      email: existingUser.email || email || '',
+      name: existingUser.name || sessionClient.user.name,
+      userType: existingUser.userType || sessionClient.user.userType,
+      avatar,
+    },
   };
 }
 
@@ -129,6 +215,7 @@ export function ProfessionalSessionsScreen() {
   const [loadingSchedulableClients, setLoadingSchedulableClients] = useState(false);
   const [schedulerVisible, setSchedulerVisible] = useState(false);
   const [schedulerSaving, setSchedulerSaving] = useState(false);
+  const [editingSession, setEditingSession] = useState<ProfessionalSession | null>(null);
   const [autoConfirmSessionRequests, setAutoConfirmSessionRequests] = useState<boolean | null>(null);
   const sessionsLoadSeqRef = useRef(0);
   const sessionsRef = useRef<ProfessionalSession[]>([]);
@@ -170,6 +257,7 @@ export function ProfessionalSessionsScreen() {
             ? 'in_person'
             : 'video';
         const clientName = getSessionClientName(session.client);
+        const clientEmail = getSessionClientEmail(session.client);
 
         return {
           id: session.id,
@@ -181,7 +269,11 @@ export function ProfessionalSessionsScreen() {
           status: mappedStatus,
           type: mappedType,
           meetingLink: session.meetingLink || undefined,
+          clientEmail,
+          clientSource: session.client?.source,
+          clientUserId: session.client?.userId ?? null,
           clientAvatar: session.client?.user?.avatar || undefined,
+          hasInvoice: Boolean(session.invoice),
         };
       });
 
@@ -234,6 +326,7 @@ export function ProfessionalSessionsScreen() {
   }, []);
 
   const openManagedSessionScheduler = useCallback(async () => {
+    setEditingSession(null);
     const clients = schedulableClients.length > 0
       ? schedulableClients
       : await loadSchedulableClients();
@@ -250,12 +343,27 @@ export function ProfessionalSessionsScreen() {
     setSchedulerVisible(true);
   }, [appAlert, loadSchedulableClients, schedulableClients]);
 
+  const openManagedSessionEditor = useCallback((session: ProfessionalSession) => {
+    setEditingSession(session);
+    setSchedulerVisible(true);
+  }, []);
+
+  const closeManagedSessionScheduler = useCallback(() => {
+    if (schedulerSaving) {
+      return;
+    }
+
+    setSchedulerVisible(false);
+    setEditingSession(null);
+  }, [schedulerSaving]);
+
   const handleCreateManagedSession = useCallback(
     async (input: professionalService.CreateManagedClientSessionInput) => {
       try {
         setSchedulerSaving(true);
         await professionalService.createManagedClientSession(input);
         setSchedulerVisible(false);
+        setEditingSession(null);
         showAppAlert(appAlert, 'Cita creada', 'La cita se ha programado correctamente.');
         await loadSessions();
       } catch (error) {
@@ -270,6 +378,38 @@ export function ProfessionalSessionsScreen() {
       }
     },
     [appAlert, loadSessions],
+  );
+
+  const handleUpdateManagedSession = useCallback(
+    async (input: professionalService.CreateManagedClientSessionInput) => {
+      if (!editingSession) {
+        return;
+      }
+
+      try {
+        setSchedulerSaving(true);
+        await professionalService.updateManagedSessionSchedule(editingSession.id, {
+          date: input.date,
+          duration: input.duration,
+          type: input.type,
+          overrideBuffer: input.overrideBuffer,
+        });
+        setSchedulerVisible(false);
+        setEditingSession(null);
+        showAppAlert(appAlert, 'Cita modificada', 'La cita se ha actualizado correctamente.');
+        await loadSessions();
+      } catch (error) {
+        if (professionalService.isManagedSessionBufferConflictError(error)) {
+          throw error;
+        }
+
+        const message = error instanceof Error ? error.message : 'No se pudo modificar la cita';
+        showAppAlert(appAlert, 'No se pudo modificar la cita', message);
+      } finally {
+        setSchedulerSaving(false);
+      }
+    },
+    [appAlert, editingSession, loadSessions],
   );
 
   useEffect(() => {
@@ -372,6 +512,34 @@ export function ProfessionalSessionsScreen() {
   const pendingSessions = useMemo(
     () => sessions.filter((session) => session.status === 'pending'),
     [sessions],
+  );
+
+  const schedulerClients = useMemo(
+    () => {
+      if (!editingSession) {
+        return schedulableClients;
+      }
+
+      const existingClient = schedulableClients.find((client) => client.id === editingSession.clientId);
+      return [
+        existingClient
+          ? hydrateSchedulerClientFromSession(existingClient, editingSession)
+          : buildSchedulerClientFromSession(editingSession),
+      ];
+    },
+    [editingSession, schedulableClients],
+  );
+
+  const schedulerInitialValues = useMemo(
+    () => editingSession
+      ? {
+          clientId: editingSession.clientId,
+          date: editingSession.date.toISOString(),
+          duration: editingSession.duration,
+          type: toSchedulerSessionType(editingSession.type),
+        }
+      : null,
+    [editingSession],
   );
 
   const agendaModeColor = autoConfirmSessionRequests === null
@@ -658,6 +826,8 @@ export function ProfessionalSessionsScreen() {
         const buttonStyle = getVideoCallButtonStyle(buttonState);
         const canJoin = isVideoCallButtonClickable(buttonState);
         const sessionEnded = session.date.getTime() + session.duration * 60 * 1000 < currentTime.getTime();
+        const sessionStarted = session.date.getTime() <= currentTime.getTime();
+        const canModifySession = !sessionStarted && !session.hasInvoice;
 
         return (
           <View style={styles.actionStack}>
@@ -694,6 +864,20 @@ export function ProfessionalSessionsScreen() {
                     fullWidth
                   >
                     Completar
+                  </Button>
+                </View>
+              ) : null}
+              {canModifySession ? (
+                <View style={styles.actionHalf}>
+                  <Button
+                    variant="outline"
+                    size="small"
+                    onPress={() => openManagedSessionEditor(session)}
+                    disabled={processingSessionId === session.id}
+                    icon={<Ionicons name="create-outline" size={16} color={theme.primary} />}
+                    fullWidth
+                  >
+                    Modificar
                   </Button>
                 </View>
               ) : null}
@@ -748,6 +932,7 @@ export function ProfessionalSessionsScreen() {
       handleConfirmSession,
       handleCancelSession,
       handleJoinSession,
+      openManagedSessionEditor,
       handleRejectSession,
       navigation,
       processingSessionId,
@@ -771,7 +956,16 @@ export function ProfessionalSessionsScreen() {
           <View style={styles.sessionCardHeader}>
             <View style={styles.sessionClientBlock}>
               <View style={[styles.sessionAvatar, { backgroundColor: theme.primaryAlpha12 }]}>
-                <Text style={styles.sessionAvatarText}>{session.clientInitial}</Text>
+                {session.clientAvatar ? (
+                  <Image
+                    testID={`professional-session-client-avatar-${session.id}`}
+                    source={{ uri: session.clientAvatar }}
+                    style={styles.sessionAvatarImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={styles.sessionAvatarText}>{session.clientInitial}</Text>
+                )}
               </View>
               <View style={styles.sessionClientInfo}>
                 <Text style={styles.sessionClientName}>{session.clientName}</Text>
@@ -1361,12 +1555,13 @@ export function ProfessionalSessionsScreen() {
       </View>
       <ManagedSessionSchedulerModal
         visible={schedulerVisible}
-        clients={schedulableClients}
+        clients={schedulerClients}
+        initialClientId={editingSession?.clientId ?? null}
+        initialValues={schedulerInitialValues}
+        mode={editingSession ? 'edit' : 'create'}
         saving={schedulerSaving}
-        onClose={() => {
-          if (!schedulerSaving) setSchedulerVisible(false);
-        }}
-        onSubmit={handleCreateManagedSession}
+        onClose={closeManagedSessionScheduler}
+        onSubmit={editingSession ? handleUpdateManagedSession : handleCreateManagedSession}
       />
     </>
   );
@@ -1845,6 +2040,11 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       borderRadius: 21,
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    sessionAvatarImage: {
+      height: '100%',
+      width: '100%',
     },
     sessionAvatarText: {
       fontSize: typography.fontSizes.md,

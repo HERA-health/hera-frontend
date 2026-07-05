@@ -21,7 +21,13 @@ const ENV = {
 };
 
 const isLocalWebHostname = (hostname: string): boolean =>
-  hostname === 'localhost' || hostname === '127.0.0.1';
+  hostname === 'localhost'
+  || hostname === '127.0.0.1'
+  || hostname === '::1'
+  || hostname.endsWith('.local')
+  || /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)
+  || /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname)
+  || /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname);
 
 const getEnvVars = () => {
   if (typeof window !== 'undefined') {

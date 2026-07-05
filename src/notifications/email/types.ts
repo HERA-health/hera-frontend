@@ -37,6 +37,7 @@ export interface SessionNotificationPayload {
   status: SessionNotificationStatus;
   ctaUrl: string;
   ctaLabel?: string;
+  patientHasAccount?: boolean;
   meetingLink?: string | null;
   officeAddress?: SessionNotificationOfficeAddress | null;
   actor?: SessionNotificationActor;

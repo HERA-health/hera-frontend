@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Image,
   Modal,
   Platform,
   ScrollView,
@@ -30,11 +31,21 @@ type BufferConflictState = {
   input: CreateManagedClientSessionInput;
   bufferMinutes: number;
 };
+type SchedulerMode = 'create' | 'edit';
+
+export interface ManagedSessionSchedulerInitialValues {
+  clientId: string;
+  date: string;
+  duration: number;
+  type: SessionType;
+}
 
 interface ManagedSessionSchedulerModalProps {
   visible: boolean;
   clients: Client[];
   initialClientId?: string | null;
+  initialValues?: ManagedSessionSchedulerInitialValues | null;
+  mode?: SchedulerMode;
   title?: string;
   saving?: boolean;
   onClose: () => void;
@@ -73,9 +84,35 @@ const getClientName = (client?: Client | null): string => {
   return client.displayName || managedName || client.user?.name || 'Paciente';
 };
 
+const getFirstNonBlank = (...values: Array<string | null | undefined>): string | null => {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+
+  return null;
+};
+
 const getClientEmail = (client?: Client | null): string | null => {
-  const email = client?.primaryEmail || client?.email || client?.user?.email || null;
-  return email && email.trim().length > 0 ? email : null;
+  return getFirstNonBlank(client?.primaryEmail, client?.user?.email, client?.email);
+};
+
+const getClientAvatar = (client?: Client | null): string | null => {
+  return getFirstNonBlank(client?.user?.avatar);
+};
+
+const getEmailNoticeText = (email: string | null, isEditing: boolean): string => {
+  if (email) {
+    return isEditing
+      ? `Se enviará un aviso con los cambios a ${email}.`
+      : `Se enviará un aviso de la cita a ${email}.`;
+  }
+
+  return isEditing
+    ? 'Este paciente no tiene email. La cita se modificará sin aviso por correo.'
+    : 'Este paciente no tiene email. La cita se creará sin aviso por correo.';
 };
 
 const getInitialClientId = (clients: Client[], initialClientId?: string | null): string => {
@@ -90,7 +127,9 @@ export function ManagedSessionSchedulerModal({
   visible,
   clients,
   initialClientId,
-  title = 'Nueva cita',
+  initialValues,
+  mode = 'create',
+  title,
   saving = false,
   onClose,
   onSubmit,
@@ -105,20 +144,25 @@ export function ManagedSessionSchedulerModal({
   const [search, setSearch] = useState('');
   const [errors, setErrors] = useState<Partial<Record<FormField, string>>>({});
   const [bufferConflict, setBufferConflict] = useState<BufferConflictState | null>(null);
+  const isEditing = mode === 'edit';
 
   useEffect(() => {
     if (!visible) return;
 
-    const defaultStart = roundToNextHalfHour(new Date(Date.now() + 60 * 60 * 1000));
-    setClientId(getInitialClientId(clients, initialClientId));
-    setDateValue(formatDateInput(defaultStart));
-    setTimeValue(formatTimeInput(defaultStart));
-    setDurationValue('60');
-    setType('VIDEO_CALL');
+    const initialStart = initialValues?.date
+      ? new Date(initialValues.date)
+      : roundToNextHalfHour(new Date(Date.now() + 60 * 60 * 1000));
+    const requestedClientId = initialValues?.clientId ?? initialClientId;
+
+    setClientId(getInitialClientId(clients, requestedClientId));
+    setDateValue(formatDateInput(initialStart));
+    setTimeValue(formatTimeInput(initialStart));
+    setDurationValue(String(initialValues?.duration ?? 60));
+    setType(initialValues?.type ?? 'VIDEO_CALL');
     setSearch('');
     setErrors({});
     setBufferConflict(null);
-  }, [clients, initialClientId, visible]);
+  }, [clients, initialClientId, initialValues, visible]);
 
   const selectedClient = useMemo(
     () => clients.find((client) => client.id === clientId) || null,
@@ -137,8 +181,30 @@ export function ManagedSessionSchedulerModal({
   }, [clients, search]);
 
   const selectedEmail = getClientEmail(selectedClient);
-  const showClientSelector = !initialClientId;
+  const showClientSelector = !initialClientId && !isEditing;
   const isCompact = width < 720;
+  const emailNoticeText = getEmailNoticeText(selectedEmail, isEditing);
+
+  const renderClientAvatar = (client: Client | null, testID: string) => {
+    const avatar = getClientAvatar(client);
+
+    return (
+      <View style={[styles.avatar, { backgroundColor: theme.primaryAlpha12 }]}>
+        {avatar ? (
+          <Image
+            testID={testID}
+            source={{ uri: avatar }}
+            style={styles.avatarImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={[styles.avatarText, { color: theme.primary, fontFamily: theme.fontSansBold }]}>
+            {getClientName(client).charAt(0).toUpperCase()}
+          </Text>
+        )}
+      </View>
+    );
+  };
 
   const clearBufferConflict = () => {
     if (bufferConflict) {
@@ -174,7 +240,11 @@ export function ManagedSessionSchedulerModal({
       }
 
       setErrors({
-        form: error instanceof Error ? error.message : 'No se pudo crear la cita',
+        form: error instanceof Error
+          ? error.message
+          : isEditing
+          ? 'No se pudo modificar la cita'
+          : 'No se pudo crear la cita',
       });
     }
   };
@@ -191,7 +261,11 @@ export function ManagedSessionSchedulerModal({
       setBufferConflict(null);
     } catch (error: unknown) {
       setErrors({
-        form: error instanceof Error ? error.message : 'No se pudo crear la cita',
+        form: error instanceof Error
+          ? error.message
+          : isEditing
+          ? 'No se pudo modificar la cita'
+          : 'No se pudo crear la cita',
       });
     }
   };
@@ -219,10 +293,12 @@ export function ManagedSessionSchedulerModal({
           <View style={[styles.header, { borderBottomColor: theme.border }]}>
             <View style={styles.headerTitleWrap}>
               <Text style={[styles.title, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>
-                {title}
+                {title ?? (isEditing ? 'Modificar cita' : 'Nueva cita')}
               </Text>
               <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                Programa una sesión confirmada para un paciente de tu consulta.
+                {isEditing
+                  ? 'Actualiza la fecha, hora, duración o modalidad de esta cita.'
+                  : 'Programa una sesión confirmada para un paciente de tu consulta.'}
               </Text>
             </View>
             <AnimatedPressable
@@ -277,11 +353,7 @@ export function ManagedSessionSchedulerModal({
                             },
                           ]}
                         >
-                          <View style={[styles.avatar, { backgroundColor: theme.primaryAlpha12 }]}>
-                            <Text style={[styles.avatarText, { color: theme.primary, fontFamily: theme.fontSansBold }]}>
-                              {getClientName(client).charAt(0).toUpperCase()}
-                            </Text>
-                          </View>
+                          {renderClientAvatar(client, `managed-session-client-avatar-${client.id}`)}
                           <View style={styles.clientInfo}>
                             <Text
                               style={[styles.clientName, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}
@@ -314,11 +386,7 @@ export function ManagedSessionSchedulerModal({
               </View>
             ) : (
               <View style={[styles.selectedPatient, { borderColor: theme.border, backgroundColor: theme.bgAlt }]}>
-                <View style={[styles.avatar, { backgroundColor: theme.primaryAlpha12 }]}>
-                  <Text style={[styles.avatarText, { color: theme.primary, fontFamily: theme.fontSansBold }]}>
-                    {getClientName(selectedClient).charAt(0).toUpperCase()}
-                  </Text>
-                </View>
+                {renderClientAvatar(selectedClient, 'managed-session-selected-client-avatar')}
                 <View style={styles.clientInfo}>
                   <Text style={[styles.clientName, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
                     {getClientName(selectedClient)}
@@ -518,9 +586,7 @@ export function ManagedSessionSchedulerModal({
                 color={selectedEmail ? theme.primary : theme.warning}
               />
               <Text style={[styles.noticeText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                {selectedEmail
-                  ? `Se enviará un aviso de la cita a ${selectedEmail}.`
-                  : 'Este paciente no tiene email. La cita se creará sin aviso por correo.'}
+                {emailNoticeText}
               </Text>
             </View>
 
@@ -561,7 +627,7 @@ export function ManagedSessionSchedulerModal({
                     loading={saving}
                     style={styles.bufferWarningButton}
                   >
-                    Crear igualmente
+                    {isEditing ? 'Guardar igualmente' : 'Crear igualmente'}
                   </Button>
                 </View>
               </View>
@@ -591,7 +657,7 @@ export function ManagedSessionSchedulerModal({
               icon={<Ionicons name="calendar-outline" size={18} color={theme.textOnPrimary} />}
               style={styles.footerButton}
             >
-              Crear cita
+              {isEditing ? 'Guardar cambios' : 'Crear cita'}
             </Button>
           </View>
         </Card>
@@ -691,7 +757,12 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     height: 36,
     justifyContent: 'center',
+    overflow: 'hidden',
     width: 36,
+  },
+  avatarImage: {
+    height: '100%',
+    width: '100%',
   },
   avatarText: {
     fontSize: 15,
