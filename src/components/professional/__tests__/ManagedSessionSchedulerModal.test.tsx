@@ -1,16 +1,25 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { lightTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { ManagedSessionSchedulerModal } from '../ManagedSessionSchedulerModal';
-import type { Client, CreateManagedClientSessionInput } from '../../../services/professionalService';
+import type {
+  Client,
+  CreateManagedClientSessionInput,
+  ManagedSessionSlotOptionsResult,
+} from '../../../services/professionalService';
+import { parseMadridDateTime } from '../../../utils/madridTime';
+import { MANAGED_SESSION_TIME_OPTIONS } from '../../../utils/managedSessionSchedulerOptions';
 
 jest.mock('../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
 }));
 
+const mockGetManagedSessionSlotOptions = jest.fn();
+
 jest.mock('../../../services/professionalService', () => ({
+  getManagedSessionSlotOptions: (input: unknown) => mockGetManagedSessionSlotOptions(input),
   isManagedSessionBufferConflictError: (error: unknown) => (
     error !== null
     && typeof error === 'object'
@@ -20,6 +29,28 @@ jest.mock('../../../services/professionalService', () => ({
     && typeof error.bufferMinutes === 'number'
   ),
 }));
+
+let mockCalendarDate = '2026-01-03';
+
+jest.mock('react-native-calendars', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+
+  return {
+    LocaleConfig: {
+      locales: {},
+      defaultLocale: 'es',
+    },
+    Calendar: ({ onDayPress }: { onDayPress?: (day: { dateString: string }) => void }) => (
+      <Text
+        testID="managed-session-calendar"
+        onPress={() => onDayPress?.({ dateString: mockCalendarDate })}
+      >
+        calendar
+      </Text>
+    ),
+  };
+});
 
 const mockedUseTheme = jest.mocked(useTheme);
 
@@ -48,11 +79,36 @@ const formatDateInput = (date: Date): string =>
 const formatTimeInput = (date: Date): string =>
   `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 
+const buildAvailableSlotOptions = (): ManagedSessionSlotOptionsResult => ({
+  date: mockCalendarDate,
+  duration: 60,
+  bufferMinutes: 15,
+  slots: MANAGED_SESSION_TIME_OPTIONS.map((startTime) => ({
+    startTime,
+    endTime: startTime,
+    status: 'AVAILABLE' as const,
+    selectable: true,
+  })),
+});
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return { promise, resolve, reject };
+}
+
 describe('ManagedSessionSchedulerModal buffer override UX', () => {
   beforeEach(() => {
     const futureNow = new Date();
     futureNow.setDate(futureNow.getDate() + 1);
     futureNow.setHours(8, 0, 0, 0);
+    const calendarDate = new Date(futureNow.getTime() + 3 * 24 * 60 * 60 * 1000);
+    mockCalendarDate = formatDateInput(calendarDate);
 
     jest.spyOn(Date, 'now').mockReturnValue(futureNow.getTime());
     mockedUseTheme.mockReturnValue({
@@ -61,6 +117,8 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
       isDark: false,
       setMode: jest.fn(),
     });
+    mockGetManagedSessionSlotOptions.mockReset();
+    mockGetManagedSessionSlotOptions.mockResolvedValue(buildAvailableSlotOptions());
   });
 
   afterEach(() => {
@@ -132,6 +190,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
         mode="edit"
         clients={[client]}
         initialClientId="client-1"
+        editingSessionId="session-1"
         initialValues={{
           clientId: 'client-1',
           date: startsAt.toISOString(),
@@ -144,9 +203,16 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     );
 
     expect(screen.getByText('Modificar cita')).toBeTruthy();
-    expect(screen.getByDisplayValue(formatDateInput(startsAt))).toBeTruthy();
-    expect(screen.getByDisplayValue(formatTimeInput(startsAt))).toBeTruthy();
-    expect(screen.getByDisplayValue('75')).toBeTruthy();
+    expect(screen.getByText(formatDateInput(startsAt))).toBeTruthy();
+    expect(screen.getAllByText(formatTimeInput(startsAt)).length).toBeGreaterThan(0);
+    expect(screen.getByText('75 min')).toBeTruthy();
+    await waitFor(() => {
+      expect(mockGetManagedSessionSlotOptions).toHaveBeenCalledWith({
+        date: formatDateInput(startsAt),
+        duration: 75,
+        sessionId: 'session-1',
+      });
+    });
 
     fireEvent.press(screen.getByText('Guardar cambios'));
 
@@ -167,7 +233,317 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     });
   });
 
-  it('shows the selected patient avatar when editing a session', () => {
+  it('selects date, fixed time and predefined duration without free inputs', async () => {
+    const onSubmit = jest.fn(() => Promise.resolve());
+
+    render(
+      <ManagedSessionSchedulerModal
+        visible
+        clients={[client]}
+        initialClientId="client-1"
+        onClose={jest.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+
+    expect(screen.queryByPlaceholderText('AAAA-MM-DD')).toBeNull();
+    expect(screen.queryByPlaceholderText('HH:MM')).toBeNull();
+    expect(screen.queryByPlaceholderText('Min')).toBeNull();
+
+    fireEvent.press(screen.getByLabelText('Seleccionar fecha'));
+    fireEvent.press(screen.getByTestId('managed-session-calendar'));
+    fireEvent.press(screen.getByLabelText('Seleccionar hora'));
+    fireEvent.press(screen.getByTestId('managed-session-time-option-14:30'));
+    fireEvent.press(screen.getByTestId('managed-session-duration-option-90'));
+    fireEvent.press(screen.getByText('Crear cita'));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+    });
+    expect(onSubmit).toHaveBeenCalledWith({
+      clientId: 'client-1',
+      date: parseMadridDateTime(mockCalendarDate, '14:30')?.iso,
+      duration: 90,
+      type: 'VIDEO_CALL',
+    });
+  });
+
+  it('moves create flow to the next available slot when the suggested time is occupied', async () => {
+    const response = buildAvailableSlotOptions();
+    response.slots = response.slots.map((slot) => (
+      slot.startTime === '09:00'
+        ? { ...slot, status: 'OCCUPIED' as const, selectable: false }
+        : slot
+    ));
+    mockGetManagedSessionSlotOptions.mockResolvedValueOnce(response);
+
+    render(
+      <ManagedSessionSchedulerModal
+        visible
+        clients={[client]}
+        initialClientId="client-1"
+        onClose={jest.fn()}
+        onSubmit={jest.fn(() => Promise.resolve())}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('09:15')).toBeTruthy();
+    });
+  });
+
+  it('disables occupied slots and keeps buffer slots selectable with a visible warning', async () => {
+    const response = buildAvailableSlotOptions();
+    response.slots = response.slots.map((slot) => {
+      if (slot.startTime === '14:30') {
+        return { ...slot, status: 'OCCUPIED' as const, selectable: false };
+      }
+
+      if (slot.startTime === '14:45') {
+        return { ...slot, status: 'BUFFER_CONFLICT' as const, selectable: true };
+      }
+
+      return slot;
+    });
+    mockGetManagedSessionSlotOptions.mockResolvedValueOnce(response);
+
+    render(
+      <ManagedSessionSchedulerModal
+        visible
+        clients={[client]}
+        initialClientId="client-1"
+        onClose={jest.fn()}
+        onSubmit={jest.fn(() => Promise.resolve())}
+      />
+    );
+
+    fireEvent.press(screen.getByLabelText('Seleccionar hora'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Hora 14:30, ocupada')).toBeTruthy();
+      expect(screen.getByLabelText('Hora 14:45, en descanso')).toBeTruthy();
+    });
+    expect(screen.getByText('Libre')).toBeTruthy();
+    expect(screen.getByText('Ocupada')).toBeTruthy();
+    expect(screen.getByText('Descanso')).toBeTruthy();
+
+    expect(screen.getByLabelText('Hora 14:30, ocupada').props.accessibilityState.disabled).toBe(true);
+
+    fireEvent.press(screen.getByLabelText('Hora 14:45, en descanso'));
+
+    expect(screen.getByText('Este hueco pisa el descanso configurado entre sesiones.')).toBeTruthy();
+  });
+
+  it('clears stale occupied state immediately when duration reloads slot options', async () => {
+    const startsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    startsAt.setHours(12, 30, 0, 0);
+    const firstResponse = buildAvailableSlotOptions();
+    firstResponse.slots = firstResponse.slots.map((slot) => (
+      slot.startTime === '12:30'
+        ? { ...slot, status: 'OCCUPIED' as const, selectable: false }
+        : slot
+    ));
+    const pendingResponse = createDeferred<ManagedSessionSlotOptionsResult>();
+    mockGetManagedSessionSlotOptions
+      .mockResolvedValueOnce(firstResponse)
+      .mockReturnValueOnce(pendingResponse.promise);
+
+    render(
+      <ManagedSessionSchedulerModal
+        visible
+        mode="edit"
+        clients={[client]}
+        initialClientId="client-1"
+        editingSessionId="session-1"
+        initialValues={{
+          clientId: 'client-1',
+          date: startsAt.toISOString(),
+          duration: 60,
+          type: 'VIDEO_CALL',
+        }}
+        onClose={jest.fn()}
+        onSubmit={jest.fn(() => Promise.resolve())}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Ese hueco ya está ocupado. Elige otra hora.')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('managed-session-duration-option-90'));
+
+    await waitFor(() => {
+      expect(mockGetManagedSessionSlotOptions).toHaveBeenLastCalledWith({
+        date: formatDateInput(startsAt),
+        duration: 90,
+        sessionId: 'session-1',
+      });
+    });
+    expect(screen.queryByText('Ese hueco ya está ocupado. Elige otra hora.')).toBeNull();
+
+    await act(async () => {
+      pendingResponse.resolve({ ...buildAvailableSlotOptions(), duration: 90 });
+    });
+  });
+
+  it('ignores an older slot response that resolves after a newer duration request', async () => {
+    const startsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    startsAt.setHours(12, 30, 0, 0);
+    const staleResponse = buildAvailableSlotOptions();
+    staleResponse.slots = staleResponse.slots.map((slot) => (
+      slot.startTime === '12:30'
+        ? { ...slot, status: 'OCCUPIED' as const, selectable: false }
+        : slot
+    ));
+    const firstRequest = createDeferred<ManagedSessionSlotOptionsResult>();
+    mockGetManagedSessionSlotOptions
+      .mockReturnValueOnce(firstRequest.promise)
+      .mockResolvedValueOnce({ ...buildAvailableSlotOptions(), duration: 90 });
+
+    render(
+      <ManagedSessionSchedulerModal
+        visible
+        mode="edit"
+        clients={[client]}
+        initialClientId="client-1"
+        editingSessionId="session-1"
+        initialValues={{
+          clientId: 'client-1',
+          date: startsAt.toISOString(),
+          duration: 60,
+          type: 'VIDEO_CALL',
+        }}
+        onClose={jest.fn()}
+        onSubmit={jest.fn(() => Promise.resolve())}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockGetManagedSessionSlotOptions).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('managed-session-duration-option-90'));
+    });
+
+    await waitFor(() => {
+      expect(mockGetManagedSessionSlotOptions).toHaveBeenCalledTimes(2);
+    });
+
+    await act(async () => {
+      firstRequest.resolve(staleResponse);
+    });
+
+    expect(screen.queryByText('Ese hueco ya está ocupado. Elige otra hora.')).toBeNull();
+  });
+
+  it('keeps backend submit protection available when slot lookup fails', async () => {
+    const onSubmit = jest.fn(() => Promise.resolve());
+    mockGetManagedSessionSlotOptions.mockRejectedValueOnce(new Error('network'));
+
+    render(
+      <ManagedSessionSchedulerModal
+        visible
+        clients={[client]}
+        initialClientId="client-1"
+        onClose={jest.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('No se pudieron comprobar huecos. Se validará al guardar.')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('Crear cita'));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('shows non-standard edit values as invalid until a fixed option is selected', async () => {
+    const startsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    startsAt.setHours(12, 32, 0, 0);
+    const onSubmit = jest.fn(() => Promise.resolve());
+
+    render(
+      <ManagedSessionSchedulerModal
+        visible
+        mode="edit"
+        clients={[client]}
+        initialClientId="client-1"
+        initialValues={{
+          clientId: 'client-1',
+          date: startsAt.toISOString(),
+          duration: 65,
+          type: 'VIDEO_CALL',
+        }}
+        onClose={jest.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+
+    expect(screen.getByText('12:32')).toBeTruthy();
+    expect(screen.getByText('65 min')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Guardar cambios'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Elige una franja horaria de la lista')).toBeTruthy();
+      expect(screen.getByText('Elige una duración de la lista')).toBeTruthy();
+    });
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('managed-session-duration-option-60'));
+    });
+
+    expect(screen.queryByText('Elige una duración de la lista')).toBeNull();
+  });
+
+  it('does not silently move an edited session when its current slot is occupied', async () => {
+    const startsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    startsAt.setHours(12, 30, 0, 0);
+    const response = buildAvailableSlotOptions();
+    response.slots = response.slots.map((slot) => (
+      slot.startTime === '12:30'
+        ? { ...slot, status: 'OCCUPIED' as const, selectable: false }
+        : slot
+    ));
+    mockGetManagedSessionSlotOptions.mockResolvedValueOnce(response);
+
+    render(
+      <ManagedSessionSchedulerModal
+        visible
+        mode="edit"
+        clients={[client]}
+        initialClientId="client-1"
+        editingSessionId="session-1"
+        initialValues={{
+          clientId: 'client-1',
+          date: startsAt.toISOString(),
+          duration: 60,
+          type: 'VIDEO_CALL',
+        }}
+        onClose={jest.fn()}
+        onSubmit={jest.fn(() => Promise.resolve())}
+      />
+    );
+
+    expect(screen.getAllByText('12:30').length).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(screen.getByText('Ese hueco ya está ocupado. Elige otra hora.')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByLabelText('Seleccionar hora'));
+    fireEvent.press(screen.getByTestId('managed-session-time-option-12:45'));
+
+    expect(screen.queryByText('Ese hueco ya está ocupado. Elige otra hora.')).toBeNull();
+    expect(screen.getAllByText('12:45').length).toBeGreaterThan(0);
+  });
+
+  it('shows the selected patient avatar when editing a session', async () => {
     const startsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
     startsAt.setHours(12, 30, 0, 0);
 
@@ -193,9 +569,12 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     expect(screen.getByTestId('managed-session-selected-client-avatar').props.source).toEqual({
       uri: 'https://cdn.hera.test/avatar-lucia.jpg',
     });
+    await waitFor(() => {
+      expect(mockGetManagedSessionSlotOptions).toHaveBeenCalled();
+    });
   });
 
-  it('uses modification copy when an edited session patient has no email', () => {
+  it('uses modification copy when an edited session patient has no email', async () => {
     const startsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
     startsAt.setHours(12, 30, 0, 0);
     const clientWithoutEmail: Client = {
@@ -226,5 +605,8 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     );
 
     expect(screen.getByText('Este paciente no tiene email. La cita se modificará sin aviso por correo.')).toBeTruthy();
+    await waitFor(() => {
+      expect(mockGetManagedSessionSlotOptions).toHaveBeenCalled();
+    });
   });
 });

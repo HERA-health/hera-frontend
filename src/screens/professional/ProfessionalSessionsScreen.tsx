@@ -1557,6 +1557,7 @@ export function ProfessionalSessionsScreen() {
         visible={schedulerVisible}
         clients={schedulerClients}
         initialClientId={editingSession?.clientId ?? null}
+        editingSessionId={editingSession?.id ?? null}
         initialValues={schedulerInitialValues}
         mode={editingSession ? 'edit' : 'create'}
         saving={schedulerSaving}

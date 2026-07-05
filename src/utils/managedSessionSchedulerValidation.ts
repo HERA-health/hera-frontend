@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import type { CreateManagedClientSessionInput, SessionType } from '../services/professionalService';
 import { parseMadridDateTime } from './madridTime';
+import {
+  isManagedSessionDurationOption,
+  isManagedSessionTimeOption,
+} from './managedSessionSchedulerOptions';
 
 export type ManagedSessionSchedulerField = 'clientId' | 'date' | 'time' | 'duration' | 'type';
 
@@ -28,8 +32,12 @@ export type ManagedSessionSchedulerValidationResult =
 const schedulerSchema = z.object({
   clientId: z.string().min(1, 'Selecciona un paciente'),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Usa el formato AAAA-MM-DD'),
-  time: z.string().regex(/^\d{2}:\d{2}$/, 'Usa el formato HH:MM'),
-  duration: z.number().int().min(15, 'Mínimo 15 minutos').max(180, 'Máximo 180 minutos'),
+  time: z.string()
+    .regex(/^\d{2}:\d{2}$/, 'Usa el formato HH:MM')
+    .refine(isManagedSessionTimeOption, 'Elige una franja horaria de la lista'),
+  duration: z.number()
+    .int('Elige una duración de la lista')
+    .refine(isManagedSessionDurationOption, 'Elige una duración de la lista'),
   type: z.enum(['VIDEO_CALL', 'PHONE_CALL', 'IN_PERSON']),
 });
 

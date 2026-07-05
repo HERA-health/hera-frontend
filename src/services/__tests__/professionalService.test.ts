@@ -26,6 +26,7 @@ import { buildMultipartFormData } from '../../utils/multipartUpload';
 import {
   createManagedClientSession,
   getAgendaPreferences,
+  getManagedSessionSlotOptions,
   getProfessionalClients,
   getProfessionalSessions,
   getVerificationStatus,
@@ -371,5 +372,49 @@ describe('professionalService.createManagedClientSession', () => {
     } catch (error: unknown) {
       expect(isManagedSessionBufferConflictError(error)).toBe(true);
     }
+  });
+});
+
+describe('professionalService.getManagedSessionSlotOptions', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    clearRequestCache();
+  });
+
+  it('loads private managed slot states with minimal query params', async () => {
+    const response = {
+      date: '2026-07-07',
+      duration: 60,
+      bufferMinutes: 15,
+      slots: [
+        {
+          startTime: '10:15',
+          endTime: '11:15',
+          status: 'AVAILABLE' as const,
+          selectable: true,
+        },
+      ],
+    };
+
+    mockedApi.get.mockResolvedValue({
+      data: {
+        success: true,
+        data: response,
+      },
+    });
+
+    await expect(getManagedSessionSlotOptions({
+      date: '2026-07-07',
+      duration: 60,
+      sessionId: 'session-1',
+    })).resolves.toBe(response);
+
+    expect(mockedApi.get).toHaveBeenCalledWith('/sessions/professional/managed-slot-options', {
+      params: {
+        date: '2026-07-07',
+        duration: 60,
+        sessionId: 'session-1',
+      },
+    });
   });
 });

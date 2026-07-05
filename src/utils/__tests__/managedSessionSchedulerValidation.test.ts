@@ -1,4 +1,8 @@
 import { validateManagedSessionSchedulerInput } from '../managedSessionSchedulerValidation';
+import {
+  MANAGED_SESSION_DURATION_OPTIONS,
+  MANAGED_SESSION_TIME_OPTIONS,
+} from '../managedSessionSchedulerOptions';
 
 const baseForm = {
   clientId: 'client-1',
@@ -9,6 +13,13 @@ const baseForm = {
 };
 
 describe('validateManagedSessionSchedulerInput', () => {
+  it('keeps the private managed appointment grid contract explicit', () => {
+    expect([...MANAGED_SESSION_DURATION_OPTIONS]).toEqual([45, 50, 60, 75, 90]);
+    expect(MANAGED_SESSION_TIME_OPTIONS[0]).toBe('07:00');
+    expect(MANAGED_SESSION_TIME_OPTIONS[MANAGED_SESSION_TIME_OPTIONS.length - 1]).toBe('23:00');
+    expect(MANAGED_SESSION_TIME_OPTIONS).toHaveLength(65);
+  });
+
   it('returns a backend-ready payload for a future session', () => {
     const result = validateManagedSessionSchedulerInput(
       baseForm,
@@ -45,7 +56,6 @@ describe('validateManagedSessionSchedulerInput', () => {
       {
         ...baseForm,
         date: '2026-99-02',
-        time: '25:00',
       },
       new Date('2026-01-01T08:00:00.000Z')
     );
@@ -56,24 +66,27 @@ describe('validateManagedSessionSchedulerInput', () => {
     expect(result.errors.date).toBe('La fecha u hora no es válida');
   });
 
-  it('enforces duration bounds', () => {
-    const tooShort = validateManagedSessionSchedulerInput(
-      { ...baseForm, duration: 10 },
-      new Date('2026-01-01T08:00:00.000Z')
-    );
-    const tooLong = validateManagedSessionSchedulerInput(
-      { ...baseForm, duration: 181 },
+  it('rejects times outside the fixed scheduler grid', () => {
+    const result = validateManagedSessionSchedulerInput(
+      { ...baseForm, time: '15:32' },
       new Date('2026-01-01T08:00:00.000Z')
     );
 
-    expect(tooShort.success).toBe(false);
-    if (!tooShort.success) {
-      expect(tooShort.errors.duration).toBe('Mínimo 15 minutos');
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.errors.time).toBe('Elige una franja horaria de la lista');
     }
+  });
 
-    expect(tooLong.success).toBe(false);
-    if (!tooLong.success) {
-      expect(tooLong.errors.duration).toBe('Máximo 180 minutos');
+  it('enforces predefined durations', () => {
+    const result = validateManagedSessionSchedulerInput(
+      { ...baseForm, duration: 30 },
+      new Date('2026-01-01T08:00:00.000Z')
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.errors.duration).toBe('Elige una duración de la lista');
     }
   });
 

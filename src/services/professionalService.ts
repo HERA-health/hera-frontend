@@ -198,6 +198,28 @@ export interface UpdateManagedSessionScheduleInput {
   overrideBuffer?: boolean;
 }
 
+export type ManagedSessionSlotStatus = 'AVAILABLE' | 'OCCUPIED' | 'BUFFER_CONFLICT' | 'PAST';
+
+export interface ManagedSessionSlotOption {
+  startTime: string;
+  endTime: string;
+  status: ManagedSessionSlotStatus;
+  selectable: boolean;
+}
+
+export interface ManagedSessionSlotOptionsResult {
+  date: string;
+  duration: number;
+  bufferMinutes: number;
+  slots: ManagedSessionSlotOption[];
+}
+
+interface GetManagedSessionSlotOptionsInput {
+  date: string;
+  duration: number;
+  sessionId?: string;
+}
+
 interface GetProfessionalClientsOptions {
   source?: ClientSource | 'ALL';
   lifecycle?: ClientLifecycleFilter;
@@ -276,6 +298,24 @@ export const isManagedSessionBufferConflictError = (
   && error.code === BUFFER_CONFLICT_REQUIRES_OVERRIDE
   && typeof error.bufferMinutes === 'number'
 );
+
+export const getManagedSessionSlotOptions = async (
+  input: GetManagedSessionSlotOptionsInput
+): Promise<ManagedSessionSlotOptionsResult> => {
+  try {
+    const response = await api.get('/sessions/professional/managed-slot-options', {
+      params: {
+        date: input.date,
+        duration: input.duration,
+        ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      },
+    });
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudieron comprobar los huecos disponibles'));
+  }
+};
 
 export const createManagedClientSession = async (
   data: CreateManagedClientSessionInput
