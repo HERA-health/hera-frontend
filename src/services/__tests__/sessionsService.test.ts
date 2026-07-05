@@ -7,7 +7,13 @@ jest.mock('../api', () => ({
 }));
 
 import { api } from '../api';
-import { createSession, getAvailableSlots, getBookingQuote } from '../sessionsService';
+import {
+  createPublicSession,
+  createSession,
+  getAvailableSlots,
+  getBookingQuote,
+  getPublicBookingQuote,
+} from '../sessionsService';
 
 const mockedApi = api as jest.Mocked<typeof api>;
 
@@ -84,6 +90,121 @@ describe('sessionsService.getBookingQuote', () => {
       date: '2026-05-20T10:00:00.000Z',
       duration: 60,
       type: 'VIDEO_CALL',
+    });
+  });
+
+  it('requests a public quote without patient identity', async () => {
+    mockedApi.post.mockResolvedValue({
+      data: {
+        data: {
+          specialistId: 'specialist-1',
+          duration: 60,
+          currency: 'EUR',
+          price: 80,
+          basePrice: 80,
+          tariffId: null,
+          tariffName: null,
+          baseTariffName: null,
+          firstVisitFreeApplied: false,
+        },
+      },
+    });
+
+    await expect(
+      getPublicBookingQuote({
+        specialistId: 'specialist-1',
+        duration: 60,
+        type: 'VIDEO_CALL',
+      })
+    ).resolves.toMatchObject({
+      price: 80,
+      firstVisitFreeApplied: false,
+    });
+
+    expect(mockedApi.post).toHaveBeenCalledWith('/sessions/public-booking-quote', {
+      specialistId: 'specialist-1',
+      duration: 60,
+      type: 'VIDEO_CALL',
+    });
+  });
+
+  it('requests an estimated public quote without patient email', async () => {
+    mockedApi.post.mockResolvedValue({
+      data: {
+        data: {
+          specialistId: 'specialist-1',
+          duration: 60,
+          currency: 'EUR',
+          price: 80,
+          basePrice: 80,
+          tariffId: null,
+          tariffName: null,
+          baseTariffName: null,
+          firstVisitFreeApplied: false,
+        },
+      },
+    });
+
+    await expect(
+      getPublicBookingQuote({
+        specialistId: 'specialist-1',
+        duration: 60,
+        type: 'VIDEO_CALL',
+      })
+    ).resolves.toMatchObject({
+      price: 80,
+    });
+
+    expect(mockedApi.post).toHaveBeenCalledWith('/sessions/public-booking-quote', {
+      specialistId: 'specialist-1',
+      duration: 60,
+      type: 'VIDEO_CALL',
+    });
+  });
+
+  it('creates a public session with contact data and privacy acceptance', async () => {
+    mockedApi.post.mockResolvedValue({
+      data: {
+        data: {
+          id: 'session-public-1',
+          status: 'PENDING',
+        },
+      },
+    });
+
+    await expect(
+      createPublicSession({
+        specialistId: 'specialist-1',
+        date: '2026-05-20T10:00:00.000Z',
+        duration: 60,
+        type: 'VIDEO_CALL',
+        patient: {
+          firstName: 'Lucia',
+          lastName: 'Gomez',
+          email: 'lucia@example.com',
+          phone: '+34600000000',
+        },
+        privacyAccepted: true,
+        privacyVersion: 'privacy-policy-v1',
+      })
+    ).resolves.toMatchObject({
+      id: 'session-public-1',
+      status: 'PENDING',
+    });
+
+    expect(mockedApi.post).toHaveBeenCalledWith('/sessions/public', {
+      specialistId: 'specialist-1',
+      date: '2026-05-20T10:00:00.000Z',
+      duration: 60,
+      type: 'VIDEO_CALL',
+      patient: {
+        firstName: 'Lucia',
+        lastName: 'Gomez',
+        email: 'lucia@example.com',
+        phone: '+34600000000',
+      },
+      privacyAccepted: true,
+      privacyVersion: 'privacy-policy-v1',
     });
   });
 

@@ -4,7 +4,7 @@ import { showAppAlert, useAppAlert } from '../../components/common/alert';
  *
  * Accessible via deep link: /especialista/:specialistId
  * Works without authentication. Shows HERA branded header instead of back button.
- * Auth-aware CTA: unauthenticated users see register/login modal.
+ * Auth-aware CTA: unauthenticated users can request an appointment without registering.
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -15,8 +15,6 @@ import {
   StyleSheet,
   useWindowDimensions,
   Platform,
-  Modal,
-  Pressable,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -45,7 +43,6 @@ import type { Specialist, Review, CertificateItem } from '../specialist-profile/
 import type { AppNavigationProp, AppRouteProp, RootStackParamList } from '../../constants/types';
 import { AnimatedPressable, Button } from '../../components/common';
 import type { TimeSlot } from '../../services/sessionsService';
-import { savePendingBookingIntent } from '../../services/pendingBookingIntentService';
 
 const DESKTOP_BREAKPOINT = 1024;
 const TABLET_BREAKPOINT = 768;
@@ -76,7 +73,6 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [showStickyBar, setShowStickyBar] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
   const canBook = specialist
     ? specialist.offersOnline !== false || specialist.offersInPerson === true
     : false;
@@ -146,43 +142,17 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
       } : {}),
     };
 
-    if (!isAuthenticated) {
-      if (selectedSlot) {
-        try {
-          await savePendingBookingIntent({
-            specialistId: bookingParams.specialistId,
-            specialistName: bookingParams.specialistName,
-            pricePerSession: bookingParams.pricePerSession,
-            avatar: bookingParams.avatar,
-            title: bookingParams.title,
-            specializations: bookingParams.specializations,
-            slotDuration: bookingParams.slotDuration,
-            offersOnline: bookingParams.offersOnline,
-            offersInPerson: bookingParams.offersInPerson,
-            initialDate: selectedSlot.date,
-            initialSlotStartTime: selectedSlot.slot.startTime,
-            initialSlotEndTime: selectedSlot.slot.endTime,
-          });
-        } catch (storageError: unknown) {
-          console.warn('No se pudo guardar la intención de reserva:', storageError);
-        }
-      }
-
-      setShowAuthModal(true);
-      return;
-    }
-
-    if (user?.type !== 'client') {
-      showAppAlert(appAlert, 'Información', 'No puedes reservar sesiones desde esta cuenta.');
-      return;
-    }
-
     if (!canBook) {
       showAppAlert(
         appAlert,
         'Reserva no disponible',
         'Este especialista no tiene modalidades de reserva activas en este momento.'
       );
+      return;
+    }
+
+    if (isAuthenticated && user?.type !== 'client') {
+      showAppAlert(appAlert, 'Información', 'No puedes reservar sesiones desde esta cuenta.');
       return;
     }
 
@@ -266,67 +236,6 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         </View>
       )}
     </View>
-  );
-
-  // ============== AUTH MODAL ==============
-  const renderAuthModal = () => (
-    <Modal
-      visible={showAuthModal}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setShowAuthModal(false)}
-    >
-      <Pressable style={styles.modalOverlay} onPress={() => setShowAuthModal(false)}>
-        <Pressable style={[styles.modalContent, isMobile && styles.modalContentMobile]} onPress={e => e.stopPropagation()}>
-          <AnimatedPressable
-            style={styles.modalCloseButton}
-            onPress={() => setShowAuthModal(false)}
-            hoverLift={false}
-            pressScale={0.96}
-          >
-            <Ionicons name="close" size={24} color={theme.textSecondary} />
-          </AnimatedPressable>
-
-          <View style={styles.modalBody}>
-            <View style={styles.modalLogoRow}>
-              <StyledLogo size={40} />
-            </View>
-            <Text style={styles.modalTitle}>
-              Crea tu cuenta gratuita
-            </Text>
-            <Text style={styles.modalSubtitle}>
-              para reservar tu sesión con {specialist?.name}
-            </Text>
-
-            <Button
-              variant="primary"
-              size="large"
-              fullWidth
-              style={styles.modalPrimaryButton}
-              onPress={() => {
-                setShowAuthModal(false);
-                navigation.navigate('Register', { userType: 'CLIENT' });
-              }}
-            >
-              Crear cuenta
-            </Button>
-
-            <Button
-              variant="outline"
-              size="large"
-              fullWidth
-              style={styles.modalSecondaryButton}
-              onPress={() => {
-                setShowAuthModal(false);
-                navigation.navigate('Login', { userType: 'CLIENT' });
-              }}
-            >
-              Ya tengo cuenta
-            </Button>
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
   );
 
   // ============== LOADING ==============
@@ -480,7 +389,6 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
             </View>
           </View>
         </ScrollView>
-        {renderAuthModal()}
       </View>
     );
   }
@@ -537,7 +445,6 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         visible={showStickyBar}
         canBook={canBook}
       />
-      {renderAuthModal()}
     </View>
   );
 };
@@ -677,67 +584,6 @@ const createStyles = (
     lineHeight: 20,
   },
 
-  // Auth Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: isDark ? 'rgba(6, 10, 8, 0.76)' : 'rgba(23, 30, 25, 0.42)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  modalContent: {
-    backgroundColor: theme.bgCard,
-    borderRadius: borderRadius.xl,
-    padding: spacing.xxl,
-    width: '90%',
-    maxWidth: 420,
-    position: 'relative',
-    borderWidth: 1,
-    borderColor: theme.borderLight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: isDark ? 0.3 : 0.1,
-    shadowRadius: 32,
-    elevation: 10,
-  },
-  modalContentMobile: {
-    width: '92%',
-    padding: spacing.xl,
-  },
-  modalCloseButton: {
-    position: 'absolute',
-    top: spacing.md,
-    right: spacing.md,
-    zIndex: 1,
-    padding: spacing.xs,
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalBody: {
-    alignItems: 'center',
-  },
-  modalLogoRow: {
-    marginBottom: spacing.md,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: theme.textPrimary,
-    textAlign: 'center',
-  },
-  modalSubtitle: {
-    fontSize: 15,
-    color: theme.textSecondary,
-    textAlign: 'center',
-    marginTop: spacing.xs,
-    marginBottom: spacing.xl,
-  },
-  modalPrimaryButton: {
-    marginBottom: spacing.sm,
-  },
-  modalSecondaryButton: {},
 });
 
 export default PublicSpecialistProfileScreen;

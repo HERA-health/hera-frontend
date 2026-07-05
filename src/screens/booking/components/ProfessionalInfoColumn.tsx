@@ -43,10 +43,12 @@ interface ProfessionalInfoColumnProps {
   bookingQuote?: BookingQuote | null;
   quoteLoading?: boolean;
   quoteError?: string | null;
+  quoteIsEstimated?: boolean;
   canConfirm?: boolean;
   loading?: boolean;
   showConfirmButton?: boolean;
   showSummary?: boolean;
+  extraContentBeforeSummary?: React.ReactNode;
 }
 
 const SESSION_OPTIONS: Array<{
@@ -116,10 +118,12 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
   bookingQuote = null,
   quoteLoading = false,
   quoteError = null,
+  quoteIsEstimated = false,
   canConfirm = true,
   loading = false,
   showConfirmButton = true,
   showSummary = true,
+  extraContentBeforeSummary,
 }) => {
   const { theme, isDark } = useTheme();
   const { width } = useWindowDimensions();
@@ -135,13 +139,18 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
   const priceText = quoteLoading
     ? 'Calculando...'
     : quoteError
-      ? 'Precio no disponible'
+      ? 'No disponible'
       : bookingQuote
         ? formatAmount(bookingQuote.price)
         : 'Calculando...';
   const totalCaption = bookingQuote?.firstVisitFreeApplied
     ? `Primera sesión gratuita aplicada. Tarifa habitual ${formatAmount(bookingQuote.basePrice)}`
-    : quoteError ?? (bookingQuote ? 'Pago seguro al confirmar la reserva' : 'Calculando precio final...');
+    : quoteError
+      ?? (quoteIsEstimated
+        ? 'Precio publicado por el especialista.'
+        : bookingQuote
+          ? 'Precio final calculado para esta reserva.'
+          : 'Calculando precio...');
 
   return (
     <View style={styles.container}>
@@ -172,6 +181,9 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
             <View style={styles.metricCard}>
               <Text style={styles.metricLabel}>PRECIO</Text>
               <Text style={styles.metricValue}>{priceText} / sesión</Text>
+              {quoteIsEstimated && !quoteError ? (
+                <Text style={styles.estimatedPriceText}>Precio del especialista</Text>
+              ) : null}
               {bookingQuote?.firstVisitFreeApplied ? (
                 <View style={styles.promoBadge}>
                   <Ionicons name="gift-outline" size={12} color={theme.success} />
@@ -287,6 +299,8 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
           </View>
         </View>
 
+        {extraContentBeforeSummary}
+
         {showSummary && (
           <View style={styles.card}>
             <View style={styles.summaryHeader}>
@@ -331,7 +345,7 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
             </View>
 
             <View style={styles.totalRow}>
-              <View>
+              <View style={styles.totalTextBlock}>
                 <Text style={styles.totalLabel}>TOTAL ESTIMADO</Text>
                 <Text style={[styles.totalCaption, quoteError ? styles.totalCaptionError : null]}>
                   {totalCaption}
@@ -459,15 +473,22 @@ const createStyles = (
     },
     metricLabel: {
       fontSize: 10,
-      letterSpacing: 0.5,
       fontFamily: theme.fontSansSemiBold,
       color: theme.textMuted,
       textTransform: 'uppercase',
     },
     metricValue: {
       fontSize: 13,
+      lineHeight: 17,
       fontFamily: theme.fontSansSemiBold,
       color: theme.textPrimary,
+    },
+    estimatedPriceText: {
+      marginTop: 2,
+      fontSize: 11,
+      lineHeight: 15,
+      fontFamily: theme.fontSansMedium,
+      color: theme.textSecondary,
     },
     promoBadge: {
       alignSelf: 'flex-start',
@@ -645,18 +666,22 @@ const createStyles = (
     },
     totalRow: {
       flexDirection: 'row',
-      alignItems: 'flex-end',
+      alignItems: 'flex-start',
       justifyContent: 'space-between',
+      gap: spacing.md,
       paddingTop: spacing.sm,
       borderTopWidth: 1,
       borderTopColor: theme.borderLight,
     },
     totalLabel: {
       fontSize: 10,
-      letterSpacing: 0.5,
       fontFamily: theme.fontSansSemiBold,
       color: theme.textMuted,
       textTransform: 'uppercase',
+    },
+    totalTextBlock: {
+      flex: 1,
+      minWidth: 0,
     },
     totalCaption: {
       marginTop: 2,
@@ -669,7 +694,11 @@ const createStyles = (
       fontFamily: theme.fontSansMedium,
     },
     totalValue: {
-      fontSize: 28,
+      flexShrink: 1,
+      minWidth: 96,
+      textAlign: 'right',
+      fontSize: isCompact ? 22 : 24,
+      lineHeight: isCompact ? 26 : 29,
       fontFamily: theme.fontHeading,
       color: theme.textPrimary,
     },

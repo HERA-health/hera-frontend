@@ -68,6 +68,29 @@ interface CreateSessionRequest {
   type: SessionType;
 }
 
+export interface PublicBookingPatientInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string | null;
+}
+
+interface PublicBookingQuoteRequest {
+  specialistId: string;
+  duration: number;
+  type: Exclude<SessionType, 'PHONE_CALL'>;
+}
+
+interface CreatePublicSessionRequest {
+  specialistId: string;
+  date: string;
+  duration: number;
+  type: Exclude<SessionType, 'PHONE_CALL'>;
+  patient: PublicBookingPatientInput;
+  privacyAccepted: true;
+  privacyVersion: string;
+}
+
 export interface CreatedSession {
   id: string;
   status: SessionStatus;
@@ -76,6 +99,11 @@ export interface CreatedSession {
   bookedTariffId?: string | null;
   bookedTariffName?: string | null;
   bookedDuration?: number | null;
+}
+
+export interface PublicCreatedSession {
+  id: string;
+  status: SessionStatus;
 }
 
 export interface BookingQuote {
@@ -143,6 +171,44 @@ export const getBookingQuote = async (
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo calcular el precio de la reserva'));
+  }
+};
+
+export const getPublicBookingQuote = async (
+  request: PublicBookingQuoteRequest
+): Promise<BookingQuote> => {
+  try {
+    const response = await api.post<ApiResponse<BookingQuote>>(
+      '/sessions/public-booking-quote',
+      request
+    );
+
+    if (!response.data.data) {
+      throw new Error('No se pudo calcular el precio de la reserva');
+    }
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo calcular el precio de la reserva'));
+  }
+};
+
+export const createPublicSession = async (
+  sessionData: CreatePublicSessionRequest
+): Promise<PublicCreatedSession> => {
+  try {
+    const response = await api.post<ApiResponse<PublicCreatedSession>>(
+      '/sessions/public',
+      sessionData
+    );
+
+    if (!response.data.data) {
+      throw new Error('No se pudo crear la cita');
+    }
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo crear la cita'));
   }
 };
 

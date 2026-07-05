@@ -209,6 +209,10 @@ const BookingRoute = createDeferredLayoutRoute<'Booking'>(
   () => require('../screens/booking/BookingScreen'),
   { displayName: 'BookingRoute', exportName: 'BookingScreen' }
 );
+const PublicBookingRoute = createDeferredRoute<'Booking'>(
+  () => require('../screens/booking/BookingScreen'),
+  { displayName: 'PublicBookingRoute', exportName: 'BookingScreen' }
+);
 const QuestionnaireRoute = createDeferredLayoutRoute<'Questionnaire'>(
   () => require('../screens/questionnaire/QuestionnaireScreen'),
   { displayName: 'QuestionnaireRoute', exportName: 'QuestionnaireScreen' }
@@ -540,6 +544,11 @@ export function RootNavigator() {
           name="PublicSpecialistProfile"
           component={PublicSpecialistProfileRoute}
           options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Booking"
+          component={PublicBookingRoute}
+          options={{ headerTitle: 'Reservar sesión', headerShown: false }}
         />
         <Stack.Screen
           name="ClinicalConsent"

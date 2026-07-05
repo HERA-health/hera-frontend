@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { lightTheme } from '../../../constants/theme';
+import { useAuth } from '../../../contexts/AuthContext';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { showAppAlert } from '../../../components/common/alert';
 import * as sessionsService from '../../../services/sessionsService';
@@ -9,6 +10,10 @@ import { BookingScreen } from '../BookingScreen';
 
 jest.mock('../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
+}));
+
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: jest.fn(),
 }));
 
 jest.mock('../../../components/common/alert', () => ({
@@ -19,7 +24,9 @@ jest.mock('../../../components/common/alert', () => ({
 jest.mock('../../../services/sessionsService', () => ({
   getAvailableSlots: jest.fn(),
   getBookingQuote: jest.fn(),
+  getPublicBookingQuote: jest.fn(),
   createSession: jest.fn(),
+  createPublicSession: jest.fn(),
 }));
 
 jest.mock('../components', () => {
@@ -58,6 +65,7 @@ jest.mock('../components', () => {
 });
 
 const mockedUseTheme = jest.mocked(useTheme);
+const mockedUseAuth = jest.mocked(useAuth);
 const mockedSessionsService = jest.mocked(sessionsService);
 const mockedShowAppAlert = jest.mocked(showAppAlert);
 
@@ -90,6 +98,15 @@ describe('BookingScreen initial slot preselection', () => {
       isDark: false,
       setMode: jest.fn(),
     } as unknown as ReturnType<typeof useTheme>);
+    mockedUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      user: {
+        id: 'client-user-1',
+        name: 'Paciente',
+        email: 'paciente@example.com',
+        type: 'client',
+      },
+    } as unknown as ReturnType<typeof useAuth>);
     mockedSessionsService.getBookingQuote.mockResolvedValue({
       specialistId: 'specialist-1',
       duration: 60,
