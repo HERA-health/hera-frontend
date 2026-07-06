@@ -204,7 +204,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
 
     expect(screen.getByText('Modificar cita')).toBeTruthy();
     expect(screen.getByText(formatDateInput(startsAt))).toBeTruthy();
-    expect(screen.getAllByText(formatTimeInput(startsAt)).length).toBeGreaterThan(0);
+    expect(screen.getByDisplayValue(formatTimeInput(startsAt))).toBeTruthy();
     expect(screen.getByText('75 min')).toBeTruthy();
     await waitFor(() => {
       expect(mockGetManagedSessionSlotOptions).toHaveBeenCalledWith({
@@ -233,7 +233,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     });
   });
 
-  it('selects date, fixed time and predefined duration without free inputs', async () => {
+  it('selects date, dropdown time and predefined duration while keeping time editable', async () => {
     const onSubmit = jest.fn(() => Promise.resolve());
 
     render(
@@ -247,7 +247,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     );
 
     expect(screen.queryByPlaceholderText('AAAA-MM-DD')).toBeNull();
-    expect(screen.queryByPlaceholderText('HH:MM')).toBeNull();
+    expect(screen.getByTestId('managed-session-time-input')).toBeTruthy();
     expect(screen.queryByPlaceholderText('Min')).toBeNull();
 
     fireEvent.press(screen.getByLabelText('Seleccionar fecha'));
@@ -264,6 +264,35 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
       clientId: 'client-1',
       date: parseMadridDateTime(mockCalendarDate, '14:30')?.iso,
       duration: 90,
+      type: 'VIDEO_CALL',
+    });
+  });
+
+  it('allows typing a fixed available time without opening the selector', async () => {
+    const onSubmit = jest.fn(() => Promise.resolve());
+
+    render(
+      <ManagedSessionSchedulerModal
+        visible
+        clients={[client]}
+        initialClientId="client-1"
+        onClose={jest.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+
+    fireEvent.press(screen.getByLabelText('Seleccionar fecha'));
+    fireEvent.press(screen.getByTestId('managed-session-calendar'));
+    fireEvent.changeText(screen.getByTestId('managed-session-time-input'), '14:30');
+    fireEvent.press(screen.getByText('Crear cita'));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+    });
+    expect(onSubmit).toHaveBeenCalledWith({
+      clientId: 'client-1',
+      date: parseMadridDateTime(mockCalendarDate, '14:30')?.iso,
+      duration: 60,
       type: 'VIDEO_CALL',
     });
   });
@@ -288,7 +317,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('09:15')).toBeTruthy();
+      expect(screen.getByDisplayValue('09:15')).toBeTruthy();
     });
   });
 
@@ -323,8 +352,8 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
       expect(screen.getByLabelText('Hora 14:30, ocupada')).toBeTruthy();
       expect(screen.getByLabelText('Hora 14:45, en descanso')).toBeTruthy();
     });
-    expect(screen.getByText('Libre')).toBeTruthy();
-    expect(screen.getByText('Ocupada')).toBeTruthy();
+    expect(screen.getByText('Disponible')).toBeTruthy();
+    expect(screen.getByText('No disponible')).toBeTruthy();
     expect(screen.getByText('Descanso')).toBeTruthy();
 
     expect(screen.getByLabelText('Hora 14:30, ocupada').props.accessibilityState.disabled).toBe(true);
@@ -332,6 +361,42 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     fireEvent.press(screen.getByLabelText('Hora 14:45, en descanso'));
 
     expect(screen.getByText('Este hueco pisa el descanso configurado entre sesiones.')).toBeTruthy();
+  });
+
+  it('shows a typed occupied slot as blocked without silently replacing it', async () => {
+    const onSubmit = jest.fn(() => Promise.resolve());
+    const response = buildAvailableSlotOptions();
+    response.slots = response.slots.map((slot) => (
+      slot.startTime === '14:30'
+        ? { ...slot, status: 'OCCUPIED' as const, selectable: false }
+        : slot
+    ));
+    mockGetManagedSessionSlotOptions.mockResolvedValueOnce(response);
+
+    render(
+      <ManagedSessionSchedulerModal
+        visible
+        clients={[client]}
+        initialClientId="client-1"
+        onClose={jest.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+
+    fireEvent.press(screen.getByLabelText('Seleccionar hora'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Hora 14:30, ocupada')).toBeTruthy();
+    });
+
+    fireEvent.changeText(screen.getByTestId('managed-session-time-input'), '14:30');
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('14:30')).toBeTruthy();
+      expect(screen.getByText('Ese hueco ya está ocupado. Elige otra hora.')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('Crear cita'));
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it('clears stale occupied state immediately when duration reloads slot options', async () => {
@@ -484,7 +549,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
       />
     );
 
-    expect(screen.getByText('12:32')).toBeTruthy();
+    expect(screen.getByDisplayValue('12:32')).toBeTruthy();
     expect(screen.getByText('65 min')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Guardar cambios'));
@@ -531,7 +596,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
       />
     );
 
-    expect(screen.getAllByText('12:30').length).toBeGreaterThan(0);
+    expect(screen.getByDisplayValue('12:30')).toBeTruthy();
     await waitFor(() => {
       expect(screen.getByText('Ese hueco ya está ocupado. Elige otra hora.')).toBeTruthy();
     });
@@ -540,7 +605,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     fireEvent.press(screen.getByTestId('managed-session-time-option-12:45'));
 
     expect(screen.queryByText('Ese hueco ya está ocupado. Elige otra hora.')).toBeNull();
-    expect(screen.getAllByText('12:45').length).toBeGreaterThan(0);
+    expect(screen.getByDisplayValue('12:45')).toBeTruthy();
   });
 
   it('shows the selected patient avatar when editing a session', async () => {

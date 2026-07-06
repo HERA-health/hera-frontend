@@ -218,6 +218,7 @@ export function ManagedSessionSchedulerModal({
   const [search, setSearch] = useState('');
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
+  const [timeEditedManually, setTimeEditedManually] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<FormField, string>>>({});
   const [bufferConflict, setBufferConflict] = useState<BufferConflictState | null>(null);
   const [slotOptions, setSlotOptions] = useState<ManagedSessionSlotOption[]>([]);
@@ -242,6 +243,7 @@ export function ManagedSessionSchedulerModal({
     setSearch('');
     setDatePickerOpen(false);
     setTimePickerOpen(false);
+    setTimeEditedManually(false);
     setErrors({});
     setBufferConflict(null);
     setSlotOptions([]);
@@ -278,8 +280,25 @@ export function ManagedSessionSchedulerModal({
     return new Map(slotOptions.map((slot) => [slot.startTime, slot]));
   }, [slotOptions]);
   const selectedSlotOption = slotOptionsByStart.get(timeValue);
-  const selectedSlotMessage = getSlotStatusMessage(selectedSlotOption?.status);
-  const selectedSlotIsBlocked = selectedSlotOption ? !selectedSlotOption.selectable : false;
+  const selectedTimeIsPastFallback = selectedTimeIsAllowed
+    && !selectedSlotOption
+    && isManagedSessionTimeInPast(dateValue, timeValue, new Date(Date.now()));
+  const selectedSlotStatus = selectedSlotOption?.status ?? (selectedTimeIsPastFallback ? 'PAST' : undefined);
+  const selectedSlotMessage = getSlotStatusMessage(selectedSlotStatus);
+  const selectedSlotIsBlocked = selectedSlotOption ? !selectedSlotOption.selectable : selectedTimeIsPastFallback;
+  const selectedTimeHasError = Boolean(errors.time) || !selectedTimeIsAllowed || selectedSlotIsBlocked;
+  const selectedTimeHasWarning = selectedSlotStatus === 'BUFFER_CONFLICT';
+  const timePickerControlColor = selectedTimeHasError
+    ? theme.error
+    : selectedTimeHasWarning
+    ? theme.warning
+    : theme.primary;
+  const timePickerDividerColor = selectedTimeHasError
+    ? theme.error
+    : selectedTimeHasWarning
+    ? theme.warning
+    : theme.border;
+  const timePickerControlBackground = timePickerOpen ? theme.primaryAlpha12 : 'transparent';
   const calendarMarkedDates = useMemo(
     () => ({
       [dateValue]: {
@@ -369,7 +388,7 @@ export function ManagedSessionSchedulerModal({
   ]);
 
   useEffect(() => {
-    if (!visible || isEditing || !selectedTimeIsAllowed || slotOptions.length === 0) {
+    if (!visible || isEditing || timeEditedManually || !selectedTimeIsAllowed || slotOptions.length === 0) {
       return;
     }
 
@@ -389,6 +408,7 @@ export function ManagedSessionSchedulerModal({
     }) ?? slotOptions.find((slot) => slot.status === 'AVAILABLE');
     if (firstAvailableSlot) {
       setTimeValue(firstAvailableSlot.startTime);
+      setTimeEditedManually(false);
       setBufferConflict(null);
     }
   }, [
@@ -396,6 +416,7 @@ export function ManagedSessionSchedulerModal({
     selectedTimeIsAllowed,
     slotOptions,
     slotOptionsByStart,
+    timeEditedManually,
     timeValue,
     visible,
   ]);
@@ -439,6 +460,35 @@ export function ManagedSessionSchedulerModal({
       });
       return next;
     });
+  };
+
+  const handleTimeTextChange = (value: string) => {
+    setTimeValue(value.trim().slice(0, 5));
+    setTimeEditedManually(true);
+    setDatePickerOpen(false);
+    clearBufferConflict();
+    clearFieldErrors('time', 'form');
+  };
+
+  const handleTimeTextBlur = () => {
+    const trimmed = timeValue.trim();
+    const singleDigitHourMatch = trimmed.match(/^(\d):(\d{2})$/);
+
+    if (!singleDigitHourMatch) {
+      if (trimmed !== timeValue) {
+        setTimeValue(trimmed);
+      }
+      return;
+    }
+
+    const hours = Number(singleDigitHourMatch[1]);
+    const minutes = Number(singleDigitHourMatch[2]);
+    if (minutes > 59) {
+      setTimeValue(trimmed);
+      return;
+    }
+
+    setTimeValue(`${pad(hours)}:${pad(minutes)}`);
   };
 
   const handleSubmit = async () => {
@@ -723,60 +773,80 @@ export function ManagedSessionSchedulerModal({
                 <Text style={[styles.label, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
                   Hora
                 </Text>
-                <AnimatedPressable
-                  onPress={() => {
-                    setTimePickerOpen((current) => !current);
-                    setDatePickerOpen(false);
-                  }}
-                  hoverLift={false}
-                  pressScale={0.98}
-                  accessibilityLabel="Seleccionar hora"
+                <View
                   style={[
                     styles.selectorTrigger,
+                    styles.timeSelectorTrigger,
                     {
                       borderColor:
-                        errors.time || !selectedTimeIsAllowed || selectedSlotIsBlocked
+                        selectedTimeHasError
                           ? theme.error
-                          : selectedSlotOption?.status === 'BUFFER_CONFLICT'
+                          : selectedTimeHasWarning
                           ? theme.warning
                           : theme.border,
                       backgroundColor: theme.bgMuted,
                     },
                   ]}
                 >
-                  <Text
+                  <TextInput
+                    testID="managed-session-time-input"
+                    accessibilityLabel="Hora de la cita"
+                    value={timeValue}
+                    onChangeText={handleTimeTextChange}
+                    onBlur={handleTimeTextBlur}
+                    onFocus={() => setDatePickerOpen(false)}
+                    placeholder="HH:MM"
+                    placeholderTextColor={theme.textMuted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    maxLength={5}
                     style={[
-                      styles.timeTriggerText,
+                      styles.timeInput,
                       {
                         color:
-                          !selectedTimeIsAllowed || selectedSlotIsBlocked
+                          selectedTimeHasError
                             ? theme.error
-                            : selectedSlotOption?.status === 'BUFFER_CONFLICT'
+                            : selectedTimeHasWarning
                             ? theme.warning
                             : theme.textPrimary,
                         fontFamily: theme.fontSansSemiBold,
                       },
                     ]}
-                    numberOfLines={1}
+                  />
+                  <AnimatedPressable
+                    onPress={() => {
+                      setTimePickerOpen((current) => !current);
+                      setDatePickerOpen(false);
+                    }}
+                    hoverLift={false}
+                    pressScale={0.92}
+                    accessibilityLabel="Seleccionar hora"
+                    style={[
+                      styles.timePickerButton,
+                      {
+                        backgroundColor: timePickerControlBackground,
+                        borderLeftColor: timePickerDividerColor,
+                      },
+                    ]}
                   >
-                    {timeValue}
-                  </Text>
-                  {slotOptionsLoading ? (
-                    <ActivityIndicator size="small" color={theme.primary} />
-                  ) : (
-                    <Ionicons
-                      name={timePickerOpen ? 'chevron-up-outline' : 'time-outline'}
-                      size={19}
-                      color={
-                        errors.time || !selectedTimeIsAllowed || selectedSlotIsBlocked
-                          ? theme.error
-                          : selectedSlotOption?.status === 'BUFFER_CONFLICT'
-                          ? theme.warning
-                          : theme.primary
-                      }
-                    />
-                  )}
-                </AnimatedPressable>
+                    {slotOptionsLoading ? (
+                      <ActivityIndicator size="small" color={timePickerControlColor} />
+                    ) : (
+                      <>
+                        <Ionicons
+                          name="time-outline"
+                          size={17}
+                          color={timePickerControlColor}
+                        />
+                        <Ionicons
+                          name={timePickerOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
+                          size={13}
+                          color={timePickerControlColor}
+                        />
+                      </>
+                    )}
+                  </AnimatedPressable>
+                </View>
                 {timePickerOpen && (
                   <View
                     style={[
@@ -790,33 +860,38 @@ export function ManagedSessionSchedulerModal({
                       <View style={styles.timeLegendItem}>
                         <View
                           style={[
-                            styles.timeLegendDot,
-                            { borderColor: theme.border, backgroundColor: theme.bgElevated },
+                            styles.timeLegendSample,
+                            { borderColor: theme.primary, backgroundColor: theme.primaryAlpha12 },
                           ]}
-                        />
-                        <Text style={[styles.timeLegendText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                          Libre
+                        >
+                          <Ionicons name="checkmark-outline" size={9} color={theme.primary} />
+                        </View>
+                        <Text style={[styles.timeLegendText, { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold }]}>
+                          Disponible
                         </Text>
                       </View>
                       <View style={styles.timeLegendItem}>
                         <View
                           style={[
-                            styles.timeLegendDot,
-                            styles.timeLegendDotMuted,
+                            styles.timeLegendSample,
                             { borderColor: theme.border, backgroundColor: theme.bgMuted },
                           ]}
-                        />
+                        >
+                          <Ionicons name="close-outline" size={10} color={theme.textMuted} />
+                        </View>
                         <Text style={[styles.timeLegendText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                          Ocupada
+                          No disponible
                         </Text>
                       </View>
                       <View style={styles.timeLegendItem}>
                         <View
                           style={[
-                            styles.timeLegendDot,
+                            styles.timeLegendSample,
                             { borderColor: theme.warning, backgroundColor: theme.warningBg },
                           ]}
-                        />
+                        >
+                          <Ionicons name="warning-outline" size={9} color={theme.warning} />
+                        </View>
                         <Text style={[styles.timeLegendText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
                           Descanso
                         </Text>
@@ -850,6 +925,7 @@ export function ManagedSessionSchedulerModal({
                             accessibilityState={{ selected: active, disabled }}
                             onPress={() => {
                               setTimeValue(option);
+                              setTimeEditedManually(false);
                               setTimePickerOpen(false);
                               clearBufferConflict();
                               clearFieldErrors('time', 'form');
@@ -1268,6 +1344,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
+  timeSelectorTrigger: {
+    gap: spacing.xs,
+    overflow: 'hidden',
+    paddingRight: spacing.xs,
+  },
   selectorTextWrap: {
     flex: 1,
     minWidth: 0,
@@ -1279,9 +1360,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  timeTriggerText: {
+  timeInput: {
     flex: 1,
     fontSize: 15,
+    minHeight: 34,
+    minWidth: 0,
+    outlineStyle: 'none' as never,
+    padding: 0,
+  },
+  timePickerButton: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    borderLeftWidth: 1,
+    flexDirection: 'row',
+    gap: 2,
+    justifyContent: 'center',
+    minHeight: 34,
+    paddingLeft: spacing.sm,
+    paddingRight: spacing.xs,
+    width: 44,
   },
   dropdownPanel: {
     borderRadius: borderRadius.md,
@@ -1335,7 +1432,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: 1,
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.xs,
     justifyContent: 'space-between',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -1344,18 +1441,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 4,
+    minWidth: 0,
   },
-  timeLegendDot: {
-    borderRadius: 4,
+  timeLegendSample: {
+    alignItems: 'center',
+    borderRadius: 5,
     borderWidth: 1,
-    height: 8,
-    width: 8,
-  },
-  timeLegendDotMuted: {
-    opacity: 0.5,
+    height: 14,
+    justifyContent: 'center',
+    width: 18,
   },
   timeLegendText: {
     fontSize: 10,
+    letterSpacing: 0,
   },
   timeOptionsGrid: {
     flexDirection: 'row',
