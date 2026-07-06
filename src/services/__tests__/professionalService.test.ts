@@ -28,6 +28,7 @@ import {
   getAgendaPreferences,
   getManagedSessionSlotOptions,
   getProfessionalClients,
+  getProfessionalSessionDetail,
   getProfessionalSessions,
   getVerificationStatus,
   isManagedSessionBufferConflictError,
@@ -214,6 +215,81 @@ describe('professionalService cached professional GETs', () => {
     expect(mockedApi.get).toHaveBeenCalledWith('/sessions/professional');
     expect(firstResult).toHaveLength(1);
     expect(secondResult).toHaveLength(1);
+  });
+
+  it('loads professional session detail without using the cached list endpoint', async () => {
+    const detail = {
+      id: 'session-1',
+      clientId: 'client-1',
+      specialistId: 'specialist-1',
+      date: '2026-06-01T10:00:00.000Z',
+      duration: 60,
+      status: 'CONFIRMED',
+      type: 'VIDEO_CALL',
+      origin: 'CLINIC',
+      clinicContext: {
+        clinicId: 'clinic-1',
+        clinicName: 'Clínica Hera',
+        clinicSpecialistId: 'clinic-specialist-1',
+        displayName: 'Dra. Ana Ruiz',
+        professionalTitle: 'Psicóloga sanitaria',
+      },
+      price: {
+        amount: 70,
+        currency: 'EUR',
+        tariffName: 'Sesión estándar',
+      },
+      professional: {
+        id: 'specialist-1',
+        displayName: 'Dra. Ana Ruiz',
+        professionalTitle: 'Psicóloga sanitaria',
+      },
+      clinicalTarget: {
+        clientId: 'client-1',
+        sessionId: 'session-1',
+      },
+      actions: {
+        canConfirm: false,
+        canCancel: false,
+        canComplete: false,
+        canModifySchedule: false,
+        canJoinVideo: false,
+        canOpenClinicalNotes: true,
+      },
+    };
+
+    mockedApi.get.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: detail,
+      },
+    });
+
+    await expect(getProfessionalSessionDetail('session-1')).resolves.toBe(detail);
+    expect(mockedApi.get).toHaveBeenCalledWith('/sessions/professional/session-1');
+  });
+
+  it('loads professional sessions with optional clinic filters', async () => {
+    mockedApi.get.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: [],
+      },
+    });
+
+    await expect(getProfessionalSessions({
+      origin: 'CLINIC',
+      clinicId: 'clinic-1',
+      clientId: 'client-1',
+    })).resolves.toEqual([]);
+
+    expect(mockedApi.get).toHaveBeenCalledWith('/sessions/professional', {
+      params: {
+        origin: 'CLINIC',
+        clinicId: 'clinic-1',
+        clientId: 'client-1',
+      },
+    });
   });
 
   it('coalesces concurrent professional client loads with the same filters', async () => {

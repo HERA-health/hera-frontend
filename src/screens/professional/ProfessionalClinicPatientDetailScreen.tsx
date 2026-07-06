@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,12 +9,15 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Button, Card } from '../../components/common';
+import { AnimatedPressable, Button, Card } from '../../components/common';
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
+import { AppointmentDetailSheet } from '../../components/sessions/AppointmentDetailSheet';
 import { spacing, typography } from '../../constants/colors';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import type { Theme } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as clinicService from '../../services/clinicService';
+import * as professionalService from '../../services/professionalService';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
 const formatDate = (value?: string | null): string =>
@@ -24,6 +28,27 @@ const formatDate = (value?: string | null): string =>
       year: 'numeric',
     })
     : 'Sin fecha';
+
+const formatSessionDate = (value: string): string =>
+  new Date(value).toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+const SESSION_TYPE_LABELS: Record<string, string> = {
+  VIDEO_CALL: 'Videollamada',
+  PHONE_CALL: 'Llamada',
+  IN_PERSON: 'Presencial',
+};
+
+const SESSION_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Pendiente',
+  CONFIRMED: 'Confirmada',
+  COMPLETED: 'Completada',
+  CANCELLED: 'Cancelada',
+};
 
 const formatConsentStatus = (
   status: clinicService.ClinicPatientConsentStatus,
@@ -63,27 +88,121 @@ export function ProfessionalClinicPatientDetailScreen(): React.ReactElement {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<AppRouteProp<'ProfessionalClinicPatientDetail'>>();
   const { clinicId, clinicPatientId } = route.params;
+  const appAlert = useAppAlert();
   const { theme } = useTheme();
   const { width } = useWindowDimensions();
   const isCompact = width < 820;
   const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
   const [patient, setPatient] = useState<clinicService.ProfessionalClinicPatientDetail | null>(null);
+  const [patientSessions, setPatientSessions] = useState<professionalService.Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [selectedSessionDetail, setSelectedSessionDetail] =
+    useState<professionalService.ProfessionalSessionDetail | null>(null);
+  const [selectedSessionDetailLoading, setSelectedSessionDetailLoading] = useState(false);
+  const [selectedSessionDetailError, setSelectedSessionDetailError] = useState('');
+  const sessionDetailLoadSeqRef = useRef(0);
 
   const loadPatient = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
       const detail = await clinicService.getProfessionalClinicPatient(clinicId, clinicPatientId);
+      const sessions = await professionalService.getProfessionalSessions({
+        origin: 'CLINIC',
+        clinicId,
+        clientId: detail.clientId,
+      });
       setPatient(detail);
+      setPatientSessions(sessions);
     } catch (loadError: unknown) {
       setPatient(null);
+      setPatientSessions([]);
       setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el paciente');
     } finally {
       setLoading(false);
     }
   }, [clinicId, clinicPatientId]);
+
+  const openSessionDetail = useCallback(async (sessionId: string) => {
+    const requestSeq = sessionDetailLoadSeqRef.current + 1;
+    sessionDetailLoadSeqRef.current = requestSeq;
+    setSelectedSessionId(sessionId);
+    setSelectedSessionDetail(null);
+    setSelectedSessionDetailError('');
+    setSelectedSessionDetailLoading(true);
+
+    try {
+      const detail = await professionalService.getProfessionalSessionDetail(sessionId);
+      if (sessionDetailLoadSeqRef.current !== requestSeq) return;
+      setSelectedSessionDetail(detail);
+    } catch (detailError: unknown) {
+      if (sessionDetailLoadSeqRef.current !== requestSeq) return;
+      setSelectedSessionDetailError(detailError instanceof Error
+        ? detailError.message
+        : 'No se pudo cargar el detalle de la cita');
+    } finally {
+      if (sessionDetailLoadSeqRef.current === requestSeq) {
+        setSelectedSessionDetailLoading(false);
+      }
+    }
+  }, []);
+
+  const closeSessionDetail = useCallback(() => {
+    sessionDetailLoadSeqRef.current += 1;
+    setSelectedSessionId(null);
+    setSelectedSessionDetail(null);
+    setSelectedSessionDetailLoading(false);
+    setSelectedSessionDetailError('');
+  }, []);
+
+  const openSelectedSessionNotes = useCallback(() => {
+    const target = selectedSessionDetail?.clinicalTarget;
+    if (!target) return;
+
+    closeSessionDetail();
+    navigation.navigate('ClientProfile', {
+      clientId: target.clientId,
+      initialTab: 'clinical',
+      clinicalWorkspace: 'sessions',
+      focusSessionId: target.sessionId,
+    });
+  }, [closeSessionDetail, navigation, selectedSessionDetail]);
+
+  const openSelectedSessionPatient = useCallback(() => {
+    if (!selectedSessionDetail) return;
+    const { clientId } = selectedSessionDetail;
+    closeSessionDetail();
+    navigation.navigate('ClientProfile', { clientId });
+  }, [closeSessionDetail, navigation, selectedSessionDetail]);
+
+  const joinSelectedSession = useCallback(async () => {
+    if (!selectedSessionDetail) return;
+
+    try {
+      const meetingData = await professionalService.getMeetingLink(selectedSessionDetail.id);
+      if (!meetingData.canJoin) {
+        showAppAlert(appAlert, 'Aun no es el momento', meetingData.message);
+        return;
+      }
+
+      if (!meetingData.meetingLink) {
+        showAppAlert(appAlert, 'Enlace no disponible', 'No se pudo preparar el enlace de la videollamada.');
+        return;
+      }
+
+      const supported = await Linking.canOpenURL(meetingData.meetingLink);
+      if (!supported) {
+        showAppAlert(appAlert, 'No se pudo abrir', 'Tu dispositivo no pudo abrir el enlace de la videollamada.');
+        return;
+      }
+
+      await Linking.openURL(meetingData.meetingLink);
+    } catch {
+      showAppAlert(appAlert, 'Error', 'Hubo un problema al unirte a la sesion');
+    }
+  }, [appAlert, selectedSessionDetail]);
 
   useEffect(() => {
     void loadPatient();
@@ -146,6 +265,41 @@ export function ProfessionalClinicPatientDetailScreen(): React.ReactElement {
               <InfoRow label="Estado" value={patient.status === 'ACTIVE' ? 'Activo' : 'Archivado'} />
               <InfoRow label="Alta en clínica" value={formatDate(patient.createdAt)} />
             </View>
+
+            <View style={styles.sectionDivider} />
+
+            <View style={styles.sectionHeader}>
+              <Ionicons name="calendar-clear-outline" size={20} color={theme.primary} />
+              <Text style={styles.sectionTitle}>Citas asignadas</Text>
+            </View>
+            {patientSessions.length > 0 ? (
+              <View style={styles.sessionList}>
+                {patientSessions.map((session) => (
+                  <AnimatedPressable
+                    key={session.id}
+                    onPress={() => void openSessionDetail(session.id)}
+                    hoverLift={false}
+                    pressScale={0.99}
+                    style={styles.sessionItem}
+                  >
+                    <View style={styles.sessionIcon}>
+                      <Ionicons name="calendar-outline" size={17} color={theme.primary} />
+                    </View>
+                    <View style={styles.sessionCopy}>
+                      <Text style={styles.sessionTitle}>
+                        {formatSessionDate(session.date)}
+                      </Text>
+                      <Text style={styles.sessionMeta}>
+                        {SESSION_STATUS_LABELS[session.status] ?? session.status} · {SESSION_TYPE_LABELS[session.type] ?? session.type} · {session.duration} min
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                  </AnimatedPressable>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.privacyNote}>No hay citas asignadas visibles para este paciente.</Text>
+            )}
           </Card>
 
           <Card variant="outlined" padding="large" style={styles.sideCard}>
@@ -183,6 +337,20 @@ export function ProfessionalClinicPatientDetailScreen(): React.ReactElement {
           </Card>
         </View>
       ) : null}
+      <AppointmentDetailSheet
+        visible={Boolean(selectedSessionId)}
+        mode="professional"
+        professionalSession={selectedSessionDetail}
+        loading={selectedSessionDetailLoading}
+        error={selectedSessionDetailError}
+        onClose={closeSessionDetail}
+        onRetry={selectedSessionId ? () => void openSessionDetail(selectedSessionId) : undefined}
+        onOpenPatient={selectedSessionDetail ? openSelectedSessionPatient : undefined}
+        onOpenNotes={selectedSessionDetail?.clinicalTarget ? openSelectedSessionNotes : undefined}
+        onJoinVideo={selectedSessionDetail?.actions?.canJoinVideo ? () => {
+          void joinSelectedSession();
+        } : undefined}
+      />
     </ScrollView>
   );
 }
@@ -305,6 +473,47 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
     },
     rows: {
       gap: spacing.xs,
+    },
+    sessionList: {
+      gap: spacing.sm,
+    },
+    sessionItem: {
+      minHeight: 68,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+      borderRadius: 8,
+      backgroundColor: theme.bgMuted,
+      padding: spacing.md,
+    },
+    sessionIcon: {
+      width: 34,
+      height: 34,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.primaryAlpha12,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+    },
+    sessionCopy: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    sessionTitle: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansBold,
+      fontSize: 14,
+      lineHeight: 20,
+    },
+    sessionMeta: {
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+      fontSize: 12,
+      lineHeight: 17,
     },
     privacyNote: {
       color: theme.textMuted,

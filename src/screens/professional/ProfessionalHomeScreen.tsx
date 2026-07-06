@@ -9,6 +9,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
+  Linking,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,6 +30,7 @@ import { Theme } from '../../constants/theme';
 import { AppNavigationProp } from '../../constants/types';
 import { VerificationBanner } from '../../components/auth';
 import { AnimatedPressable, Button } from '../../components/common';
+import { AppointmentDetailSheet } from '../../components/sessions/AppointmentDetailSheet';
 import { TourTarget } from '../../components/onboarding/TourTarget';
 import {
   useProfessionalTourAutoStart,
@@ -58,6 +61,9 @@ interface MappedSession {
   duration: number;
   status: string;
   type: string;
+  origin?: professionalService.ProfessionalSessionOrigin;
+  clinicContext?: professionalService.Session['clinicContext'];
+  actions?: professionalService.Session['actions'];
 }
 
 const WEEK_VIEW_HOUR_HEIGHT = 48;
@@ -146,15 +152,23 @@ function dateKey(date: Date): string {
 }
 
 function mapSession(s: professionalService.Session): MappedSession {
+  const displayName = s.client?.displayName
+    || [s.client?.firstName, s.client?.lastName].filter(Boolean).join(' ').trim()
+    || s.client?.user?.name
+    || 'Cliente';
+
   return {
     id: s.id,
     clientId: s.clientId,
-    clientName: s.client?.user?.name || 'Cliente',
-    clientInitial: (s.client?.user?.name || 'C')[0].toUpperCase(),
+    clientName: displayName,
+    clientInitial: displayName[0]?.toUpperCase() ?? 'C',
     date: s.date,
-    duration: 60,
+    duration: s.bookedDuration ?? s.duration ?? 60,
     status: s.status,
-    type: 'VIDEO_CALL',
+    type: s.type,
+    origin: s.origin,
+    clinicContext: s.clinicContext,
+    actions: s.actions,
   };
 }
 
@@ -192,8 +206,22 @@ function formatEndTime(startDate: string, durationMinutes: number): string {
   return `${hh}:${mm}`;
 }
 
+function getCalendarVisibleSessions(sessions: MappedSession[]): MappedSession[] {
+  return sessions.filter((session) => session.status === 'CONFIRMED' || session.status === 'PENDING');
+}
+
 function getSessionStatusTone(theme: Theme, status: string) {
-  return status === 'CONFIRMED' ? theme.status.confirmed : theme.status.pending;
+  switch (status) {
+    case 'CONFIRMED':
+      return theme.status.confirmed;
+    case 'COMPLETED':
+      return theme.status.completed;
+    case 'CANCELLED':
+      return theme.status.cancelled;
+    case 'PENDING':
+    default:
+      return theme.status.pending;
+  }
 }
 
 export function ProfessionalHomeScreen() {
@@ -212,6 +240,13 @@ export function ProfessionalHomeScreen() {
   const [sessions, setSessions] = useState<professionalService.Session[]>([]);
   const [profile, setProfile] = useState<professionalService.ProfessionalProfile | null>(null);
   const [processingSessionId, setProcessingSessionId] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [selectedSessionDetail, setSelectedSessionDetail] =
+    useState<professionalService.ProfessionalSessionDetail | null>(null);
+  const [selectedSessionDetailLoading, setSelectedSessionDetailLoading] = useState(false);
+  const [selectedSessionDetailError, setSelectedSessionDetailError] = useState('');
+  const [dayListDate, setDayListDate] = useState<Date | null>(null);
+  const [dayListSessions, setDayListSessions] = useState<MappedSession[]>([]);
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<CalendarView>('month');
@@ -219,6 +254,7 @@ export function ProfessionalHomeScreen() {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
+  const sessionDetailLoadSeqRef = useRef(0);
 
   useEffect(() => {
     analyticsService.trackScreen('professional_dashboard');
@@ -244,6 +280,88 @@ export function ProfessionalHomeScreen() {
       setLoading(false);
     }
   }, []);
+
+  const openSessionDetail = useCallback(async (sessionId: string) => {
+    const requestSeq = sessionDetailLoadSeqRef.current + 1;
+    sessionDetailLoadSeqRef.current = requestSeq;
+    setSelectedSessionId(sessionId);
+    setSelectedSessionDetail(null);
+    setSelectedSessionDetailError('');
+    setSelectedSessionDetailLoading(true);
+
+    try {
+      const detail = await professionalService.getProfessionalSessionDetail(sessionId);
+      if (sessionDetailLoadSeqRef.current !== requestSeq) return;
+      setSelectedSessionDetail(detail);
+    } catch (error: unknown) {
+      if (sessionDetailLoadSeqRef.current !== requestSeq) return;
+      setSelectedSessionDetailError(error instanceof Error
+        ? error.message
+        : 'No se pudo cargar el detalle de la cita');
+    } finally {
+      if (sessionDetailLoadSeqRef.current === requestSeq) {
+        setSelectedSessionDetailLoading(false);
+      }
+    }
+  }, []);
+
+  const closeSessionDetail = useCallback(() => {
+    sessionDetailLoadSeqRef.current += 1;
+    setSelectedSessionId(null);
+    setSelectedSessionDetail(null);
+    setSelectedSessionDetailLoading(false);
+    setSelectedSessionDetailError('');
+  }, []);
+
+  const retrySessionDetail = useCallback(() => {
+    if (!selectedSessionId) return;
+    void openSessionDetail(selectedSessionId);
+  }, [openSessionDetail, selectedSessionId]);
+
+  const openSelectedSessionPatient = useCallback(() => {
+    if (!selectedSessionDetail) return;
+    const { clientId } = selectedSessionDetail;
+    closeSessionDetail();
+    navigation.navigate('ClientProfile', { clientId });
+  }, [closeSessionDetail, navigation, selectedSessionDetail]);
+
+  const openSelectedSessionNotes = useCallback(() => {
+    const target = selectedSessionDetail?.clinicalTarget;
+    if (!target) return;
+
+    closeSessionDetail();
+    navigation.navigate('ClientProfile', {
+      clientId: target.clientId,
+      initialTab: 'clinical',
+      clinicalWorkspace: 'sessions',
+      focusSessionId: target.sessionId,
+    });
+  }, [closeSessionDetail, navigation, selectedSessionDetail]);
+
+  const handleJoinSession = useCallback(async (sessionId: string) => {
+    try {
+      const meetingData = await professionalService.getMeetingLink(sessionId);
+      if (!meetingData.canJoin) {
+        showAppAlert(appAlert, 'Aún no es el momento', meetingData.message);
+        return;
+      }
+
+      if (!meetingData.meetingLink) {
+        showAppAlert(appAlert, 'Enlace no disponible', 'No se pudo preparar el enlace de la videollamada.');
+        return;
+      }
+
+      const supported = await Linking.canOpenURL(meetingData.meetingLink);
+      if (!supported) {
+        showAppAlert(appAlert, 'No se pudo abrir', 'Tu dispositivo no pudo abrir el enlace de la videollamada.');
+        return;
+      }
+
+      await Linking.openURL(meetingData.meetingLink);
+    } catch {
+      showAppAlert(appAlert, 'Error', 'Hubo un problema al unirte a la sesión');
+    }
+  }, [appAlert]);
 
   useEffect(() => {
     loadData();
@@ -295,7 +413,7 @@ export function ProfessionalHomeScreen() {
   }, [mappedSessions]);
 
   const pendingRequests = useMemo(
-    () => mappedSessions.filter((session) => session.status === 'PENDING'),
+    () => mappedSessions.filter((session) => session.status === 'PENDING' && session.origin !== 'CLINIC'),
     [mappedSessions],
   );
 
@@ -533,10 +651,11 @@ export function ProfessionalHomeScreen() {
       {Array.from({ length: calendarDays.length / 7 }, (_, weekIdx) => (
         <View key={`week-${weekIdx}`} style={styles.calendarWeekRow}>
           {calendarDays.slice(weekIdx * 7, weekIdx * 7 + 7).map((day) => {
-            const confirmed = day.sessions.filter((session) => session.status === 'CONFIRMED');
-            const pending = day.sessions.filter((session) => session.status === 'PENDING');
+            const visibleSessions = getCalendarVisibleSessions(day.sessions);
+            const confirmed = visibleSessions.filter((session) => session.status === 'CONFIRMED');
+            const pending = visibleSessions.filter((session) => session.status === 'PENDING');
             const pills = [...confirmed.slice(0, 2), ...pending.slice(0, 2)].slice(0, 2);
-            const totalEvents = confirmed.length + pending.length;
+            const totalEvents = visibleSessions.length;
             const extraCount = totalEvents - pills.length;
 
             return (
@@ -562,8 +681,11 @@ export function ProfessionalHomeScreen() {
                 {pills.map((session) => {
                   const tone = getSessionStatusTone(theme, session.status);
                   return (
-                    <View
+                    <AnimatedPressable
                       key={session.id}
+                      onPress={() => void openSessionDetail(session.id)}
+                      hoverLift={false}
+                      pressScale={0.98}
                       style={[
                         styles.eventPill,
                         { backgroundColor: tone.bg, borderColor: tone.border },
@@ -572,12 +694,21 @@ export function ProfessionalHomeScreen() {
                       <Text style={[styles.eventPillText, { color: tone.text }]} numberOfLines={1}>
                         {formatTime(session.date)}
                       </Text>
-                    </View>
+                    </AnimatedPressable>
                   );
                 })}
 
                 {extraCount > 0 && (
-                  <Text style={styles.extraEventsText}>+{extraCount} más</Text>
+                  <AnimatedPressable
+                    onPress={() => {
+                      setDayListDate(day.date);
+                      setDayListSessions(visibleSessions);
+                    }}
+                    hoverLift={false}
+                    pressScale={0.98}
+                  >
+                    <Text style={styles.extraEventsText}>+{extraCount} más</Text>
+                  </AnimatedPressable>
                 )}
               </View>
             );
@@ -664,7 +795,7 @@ export function ProfessionalHomeScreen() {
                   return (
                     <AnimatedPressable
                       key={session.id}
-                      onPress={() => navigation.navigate('ProfessionalSessions')}
+                      onPress={() => void openSessionDetail(session.id)}
                       style={[
                         styles.weekSessionBlock,
                         {
@@ -739,11 +870,21 @@ export function ProfessionalHomeScreen() {
       >
         {pendingRequests.length > 0 ? (
           pendingRequests.map((request) => (
-            <View key={request.id} style={styles.requestCard}>
+            <View
+              key={request.id}
+              style={styles.requestCard}
+            >
+              <AnimatedPressable
+                onPress={() => void openSessionDetail(request.id)}
+                hoverLift={false}
+                pressScale={0.99}
+                style={styles.requestDetailPressable}
+              >
               <Text style={styles.requestClientName}>{request.clientName}</Text>
               <Text style={styles.requestDetail}>
                 {getDateLabel(request.date)} {formatTime(request.date)} · {getSessionTypeLabel(request.type)}
               </Text>
+              </AnimatedPressable>
 
               <View style={styles.requestButtons}>
                 <View style={styles.requestButtonSlot}>
@@ -804,7 +945,13 @@ export function ProfessionalHomeScreen() {
       >
         {upcomingSessions.length > 0 ? (
           upcomingSessions.map((session) => (
-            <View key={session.id} style={styles.upcomingCard}>
+            <AnimatedPressable
+              key={session.id}
+              onPress={() => void openSessionDetail(session.id)}
+              hoverLift={false}
+              pressScale={0.99}
+              style={styles.upcomingCard}
+            >
               <View style={styles.upcomingTimeCol}>
                 <Text style={styles.upcomingDayLabel}>{getDateLabel(session.date)}</Text>
                 <Text style={styles.upcomingTime}>{formatTime(session.date)}</Text>
@@ -817,7 +964,7 @@ export function ProfessionalHomeScreen() {
                   {getSessionTypeLabel(session.type)} · {session.duration} min
                 </Text>
               </View>
-            </View>
+            </AnimatedPressable>
           ))
         ) : (
           <Text style={styles.emptyText}>No hay sesiones próximas</Text>
@@ -873,6 +1020,87 @@ export function ProfessionalHomeScreen() {
           <View style={styles.bottomSpacer} />
         </ScrollView>
       )}
+      <Modal
+        visible={Boolean(dayListDate)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setDayListDate(null);
+          setDayListSessions([]);
+        }}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.dayListSheet}>
+            <View style={styles.dayListHeader}>
+              <View>
+                <Text style={styles.dayListTitle}>
+                  {dayListDate
+                    ? dayListDate.toLocaleDateString('es-ES', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                      })
+                    : 'Citas del día'}
+                </Text>
+                <Text style={styles.dayListSubtitle}>{dayListSessions.length} citas</Text>
+              </View>
+              <Button
+                variant="ghost"
+                size="small"
+                onPress={() => {
+                  setDayListDate(null);
+                  setDayListSessions([]);
+                }}
+              >
+                Cerrar
+              </Button>
+            </View>
+            <ScrollView contentContainerStyle={styles.dayListContent}>
+              {dayListSessions.map((session) => (
+                <AnimatedPressable
+                  key={session.id}
+                  onPress={() => {
+                    setDayListDate(null);
+                    setDayListSessions([]);
+                    void openSessionDetail(session.id);
+                  }}
+                  hoverLift={false}
+                  pressScale={0.99}
+                  style={styles.dayListItem}
+                >
+                  <View style={styles.dayListTime}>
+                    <Text style={styles.dayListTimeText}>{formatTime(session.date)}</Text>
+                  </View>
+                  <View style={styles.dayListCopy}>
+                    <Text style={styles.dayListName}>{session.clientName}</Text>
+                    <Text style={styles.dayListMeta}>
+                      {getSessionTypeLabel(session.type)} · {session.duration} min
+                    </Text>
+                    {session.origin === 'CLINIC' && session.clinicContext ? (
+                      <Text style={styles.dayListMeta}>{session.clinicContext.clinicName}</Text>
+                    ) : null}
+                  </View>
+                </AnimatedPressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      <AppointmentDetailSheet
+        visible={Boolean(selectedSessionId)}
+        mode="professional"
+        professionalSession={selectedSessionDetail}
+        loading={selectedSessionDetailLoading}
+        error={selectedSessionDetailError}
+        processing={processingSessionId === selectedSessionId}
+        onClose={closeSessionDetail}
+        onRetry={retrySessionDetail}
+        onOpenPatient={selectedSessionDetail ? openSelectedSessionPatient : undefined}
+        onOpenNotes={selectedSessionDetail?.clinicalTarget ? openSelectedSessionNotes : undefined}
+        onJoinVideo={selectedSessionDetail?.actions?.canJoinVideo ? () => {
+          void handleJoinSession(selectedSessionDetail.id);
+        } : undefined}
+      />
     </View>
   );
 }
@@ -1054,6 +1282,88 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     },
     bottomSpacer: {
       height: spacing.xxl,
+    },
+    modalBackdrop: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.overlay,
+      padding: spacing.lg,
+    },
+    dayListSheet: {
+      width: '100%',
+      maxWidth: 520,
+      maxHeight: '82%',
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 8,
+      backgroundColor: theme.bgCard,
+      overflow: 'hidden',
+    },
+    dayListHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+      padding: spacing.lg,
+    },
+    dayListTitle: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansBold,
+      fontSize: typography.fontSizes.lg,
+      lineHeight: 24,
+      textTransform: 'capitalize',
+    },
+    dayListSubtitle: {
+      color: theme.textMuted,
+      fontFamily: theme.fontSans,
+      fontSize: typography.fontSizes.sm,
+      lineHeight: 20,
+    },
+    dayListContent: {
+      padding: spacing.lg,
+      gap: spacing.sm,
+    },
+    dayListItem: {
+      minHeight: 68,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+      borderRadius: 8,
+      backgroundColor: theme.bgMuted,
+      padding: spacing.md,
+    },
+    dayListTime: {
+      width: 58,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dayListTimeText: {
+      color: theme.primary,
+      fontFamily: theme.fontSansBold,
+      fontSize: typography.fontSizes.md,
+      lineHeight: 22,
+    },
+    dayListCopy: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    dayListName: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansBold,
+      fontSize: typography.fontSizes.md,
+      lineHeight: 22,
+    },
+    dayListMeta: {
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+      fontSize: typography.fontSizes.sm,
+      lineHeight: 19,
     },
     calendarGrid: {
       backgroundColor: theme.bgCard,
@@ -1306,6 +1616,10 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       borderBottomWidth: 1,
       borderBottomColor: theme.borderLight,
     },
+    requestDetailPressable: {
+      width: '100%',
+      marginBottom: spacing.sm,
+    },
     requestClientName: {
       fontSize: typography.fontSizes.sm,
       color: theme.textPrimary,
@@ -1315,7 +1629,6 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     requestDetail: {
       fontSize: typography.fontSizes.xs,
       color: theme.textSecondary,
-      marginBottom: spacing.sm,
       fontFamily: theme.fontSans,
     },
     requestButtons: {

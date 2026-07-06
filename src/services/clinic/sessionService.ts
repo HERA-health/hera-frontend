@@ -4,6 +4,7 @@ import { clearRequestCache } from '../requestCache';
 import type {
   ClinicSessionListFilters,
   ClinicSessionListPage,
+  ClinicSessionDetail,
   ClinicSessionSummary,
   CreateClinicSessionPayload,
   UpdateClinicSessionStatusPayload,
@@ -69,6 +70,25 @@ export const listClinicSessions = async (
     throw new Error(getClinicSessionErrorMessage(
       error,
       'No se pudo cargar la agenda de clínica',
+    ));
+  }
+};
+
+export const getClinicSessionDetail = async (
+  clinicId: string,
+  sessionId: string,
+): Promise<ClinicSessionDetail> => {
+  try {
+    const response = await api.get<{
+      success: boolean;
+      data: ClinicSessionDetail;
+    }>(`/clinics/${clinicId}/sessions/${sessionId}`);
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getClinicSessionErrorMessage(
+      error,
+      'No se pudo cargar la cita de clínica',
     ));
   }
 };

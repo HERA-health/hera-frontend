@@ -172,6 +172,8 @@ export type RootStackParamList = {
   ClientProfile: {
     clientId: string;
     initialTab?: 'summary' | 'history' | 'clinical';
+    clinicalWorkspace?: 'general' | 'sessions';
+    focusSessionId?: string;
     focusBillingEditor?: boolean;
   };
   AdminPanel: undefined;
@@ -302,6 +304,22 @@ export interface ProfessionalSession {
   clientUserId?: string | null;
   clientAvatar?: string;
   hasInvoice?: boolean;
+  origin?: 'PRIVATE' | 'CLINIC';
+  clinicContext?: {
+    clinicId: string;
+    clinicName: string;
+    clinicSpecialistId: string | null;
+    displayName: string | null;
+    professionalTitle: string | null;
+  } | null;
+  actions?: {
+    canConfirm: boolean;
+    canCancel: boolean;
+    canComplete: boolean;
+    canModifySchedule: boolean;
+    canJoinVideo: boolean;
+    canOpenClinicalNotes: boolean;
+  };
 }
 
 // ============================================================================

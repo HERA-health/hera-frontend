@@ -99,6 +99,7 @@ export function ClinicalGeneralWorkspace({
   const emphasisStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const [noteDraft, setNoteDraft] = useState('');
+  const clinicalContentGranted = record.consentStatus === 'GRANTED';
 
   const consentEvidenceDocuments = useMemo(
     () => record.documents.filter((document) => document.category === 'CONSENT_EVIDENCE'),
@@ -161,6 +162,7 @@ export function ClinicalGeneralWorkspace({
         multiline
         value={noteDraft}
         onChangeText={setNoteDraft}
+        editable={clinicalContentGranted}
         placeholder="Escribe aquí una nota general del expediente..."
         placeholderTextColor={theme.textMuted}
         style={[
@@ -184,7 +186,7 @@ export function ClinicalGeneralWorkspace({
           size="small"
           onPress={handleSaveNote}
           loading={noteSaving}
-          disabled={!noteDraft.trim()}
+          disabled={!clinicalContentGranted || !noteDraft.trim()}
         >
           Guardar nota
         </Button>
@@ -300,7 +302,7 @@ export function ClinicalGeneralWorkspace({
       uploading={documentUploading}
       emptyTitle="No hay informes médicos cargados"
       emptyDescription="Sube aquí los informes relevantes que acompañan al proceso terapéutico."
-      onUpload={() => void handleUpload('MEDICAL_REPORT')}
+      onUpload={clinicalContentGranted ? () => void handleUpload('MEDICAL_REPORT') : undefined}
       onOpenDocument={(document) => void onOpenDocument(document)}
       tourTargetId="professional.clinical.reports"
       tourTargetsActive={tourTargetsActive}
@@ -319,7 +321,7 @@ export function ClinicalGeneralWorkspace({
       uploading={documentUploading}
       emptyTitle="No hay documentos generales"
       emptyDescription="Puedes dejar aquí información complementaria que convenga tener accesible en la carpeta general."
-      onUpload={() => void handleUpload('GENERAL')}
+      onUpload={clinicalContentGranted ? () => void handleUpload('GENERAL') : undefined}
       onOpenDocument={(document) => void onOpenDocument(document)}
       tourTargetId="professional.clinical.documents"
       tourTargetsActive={tourTargetsActive}

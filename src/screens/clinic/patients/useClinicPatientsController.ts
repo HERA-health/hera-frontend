@@ -9,6 +9,8 @@ import { useClinicWorkspace } from '../useClinicWorkspace';
 import {
   CLINIC_PATIENT_PAGE_LIMIT,
   CLINIC_ASSIGNMENT_HISTORY_PAGE_LIMIT,
+  CLINIC_PATIENT_SESSION_PAGE_LIMIT,
+  buildPatientSessionRangeIso,
   createErrorFeedback,
   createSuccessFeedback,
   EMPTY_ASSIGNMENT_FORM,
@@ -40,6 +42,11 @@ interface LoadPatientsOptions {
 }
 
 interface LoadAssignmentHistoryOptions {
+  page?: number;
+  append?: boolean;
+}
+
+interface LoadPatientSessionsOptions {
   page?: number;
   append?: boolean;
 }
@@ -80,6 +87,17 @@ export function useClinicPatientsController() {
   const [assignmentHistoryLoading, setAssignmentHistoryLoading] = useState(false);
   const [assignmentHistoryLoadingMore, setAssignmentHistoryLoadingMore] = useState(false);
   const [assignmentHistoryError, setAssignmentHistoryError] = useState('');
+  const [patientSessions, setPatientSessions] = useState<clinicService.ClinicSessionSummary[]>([]);
+  const [patientSessionsPageInfo, setPatientSessionsPageInfo] =
+    useState<clinicService.ClinicPatientListPageInfo | null>(null);
+  const [patientSessionsLoading, setPatientSessionsLoading] = useState(false);
+  const [patientSessionsLoadingMore, setPatientSessionsLoadingMore] = useState(false);
+  const [patientSessionsError, setPatientSessionsError] = useState('');
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [selectedSessionDetail, setSelectedSessionDetail] =
+    useState<clinicService.ClinicSessionDetail | null>(null);
+  const [selectedSessionDetailLoading, setSelectedSessionDetailLoading] = useState(false);
+  const [selectedSessionDetailError, setSelectedSessionDetailError] = useState('');
 
   const mountedRef = useRef(true);
   const patientsRef = useRef<clinicService.ClinicPatientSummary[]>([]);
@@ -88,6 +106,8 @@ export function useClinicPatientsController() {
   const consentRequestSeq = useRef(0);
   const assignmentHistoryRequestSeq = useRef(0);
   const specialistsRequestSeq = useRef(0);
+  const patientSessionsRequestSeq = useRef(0);
+  const sessionDetailRequestSeq = useRef(0);
 
   const updatePatients = useCallback((nextPatients: clinicService.ClinicPatientSummary[]) => {
     patientsRef.current = nextPatients;
@@ -148,6 +168,8 @@ export function useClinicPatientsController() {
     consentRequestSeq.current += 1;
     assignmentHistoryRequestSeq.current += 1;
     specialistsRequestSeq.current += 1;
+    patientSessionsRequestSeq.current += 1;
+    sessionDetailRequestSeq.current += 1;
     updatePatients([]);
     setPatientPageInfo(EMPTY_PATIENT_PAGE_INFO);
     setPatientDetails({});
@@ -172,6 +194,15 @@ export function useClinicPatientsController() {
     setAssignmentHistoryLoading(false);
     setAssignmentHistoryLoadingMore(false);
     setAssignmentHistoryError('');
+    setPatientSessions([]);
+    setPatientSessionsPageInfo(null);
+    setPatientSessionsLoading(false);
+    setPatientSessionsLoadingMore(false);
+    setPatientSessionsError('');
+    setSelectedSessionId(null);
+    setSelectedSessionDetail(null);
+    setSelectedSessionDetailLoading(false);
+    setSelectedSessionDetailError('');
     setFeedback(null);
   }, [updatePatients]);
 
@@ -340,6 +371,86 @@ export function useClinicPatientsController() {
     }
   }, []);
 
+  const loadPatientSessions = useCallback(async (
+    clinicId: string,
+    clinicPatientId: string,
+    options: LoadPatientSessionsOptions = {},
+  ) => {
+    const append = options.append === true;
+    const page = options.page ?? 1;
+    const requestId = patientSessionsRequestSeq.current + 1;
+    patientSessionsRequestSeq.current = requestId;
+
+    if (append) {
+      setPatientSessionsLoadingMore(true);
+    } else {
+      setPatientSessionsLoading(true);
+      setPatientSessionsError('');
+    }
+
+    try {
+      const range = buildPatientSessionRangeIso();
+      const pageResult = await clinicService.listClinicSessions(clinicId, {
+        clinicPatientId,
+        startDate: range.startDate,
+        endDate: range.endDate,
+        page,
+        limit: CLINIC_PATIENT_SESSION_PAGE_LIMIT,
+      });
+
+      if (!mountedRef.current || patientSessionsRequestSeq.current !== requestId) return;
+
+      setPatientSessions((currentSessions) => {
+        if (!append) return pageResult.items;
+
+        const currentIds = new Set(currentSessions.map((session) => session.id));
+        const nextItems = pageResult.items.filter((session) => !currentIds.has(session.id));
+        return [...currentSessions, ...nextItems];
+      });
+      setPatientSessionsPageInfo(pageResult.pageInfo);
+      setPatientSessionsError('');
+    } catch (error: unknown) {
+      if (!mountedRef.current || patientSessionsRequestSeq.current !== requestId) return;
+      if (!append) {
+        setPatientSessions([]);
+        setPatientSessionsPageInfo(null);
+      }
+      setPatientSessionsError(error instanceof Error
+        ? error.message
+        : 'No se pudieron cargar las citas del paciente');
+    } finally {
+      if (!mountedRef.current || patientSessionsRequestSeq.current !== requestId) return;
+      if (append) {
+        setPatientSessionsLoadingMore(false);
+      } else {
+        setPatientSessionsLoading(false);
+      }
+    }
+  }, []);
+
+  const loadSessionDetail = useCallback(async (clinicId: string, sessionId: string) => {
+    const requestId = sessionDetailRequestSeq.current + 1;
+    sessionDetailRequestSeq.current = requestId;
+    setSelectedSessionDetailLoading(true);
+    setSelectedSessionDetailError('');
+
+    try {
+      const detail = await clinicService.getClinicSessionDetail(clinicId, sessionId);
+      if (!mountedRef.current || sessionDetailRequestSeq.current !== requestId) return;
+      setSelectedSessionDetail(detail);
+    } catch (error: unknown) {
+      if (!mountedRef.current || sessionDetailRequestSeq.current !== requestId) return;
+      setSelectedSessionDetail(null);
+      setSelectedSessionDetailError(error instanceof Error
+        ? error.message
+        : 'No se pudo cargar el detalle de la cita');
+    } finally {
+      if (mountedRef.current && sessionDetailRequestSeq.current === requestId) {
+        setSelectedSessionDetailLoading(false);
+      }
+    }
+  }, []);
+
   const loadPatients = useCallback(async (
     clinicId: string,
     filters?: PatientsLoadFilters,
@@ -414,6 +525,8 @@ export function useClinicPatientsController() {
       consentRequestSeq.current += 1;
       assignmentHistoryRequestSeq.current += 1;
       specialistsRequestSeq.current += 1;
+      patientSessionsRequestSeq.current += 1;
+      sessionDetailRequestSeq.current += 1;
     };
   }, []);
 
@@ -485,6 +598,28 @@ export function useClinicPatientsController() {
   }, [
     canManage,
     loadAssignmentHistory,
+    selectedPatientId,
+    workspace.selectedClinicId,
+  ]);
+
+  useEffect(() => {
+    if (!workspace.selectedClinicId || !selectedPatientId || !canManage) {
+      patientSessionsRequestSeq.current += 1;
+      setPatientSessions([]);
+      setPatientSessionsPageInfo(null);
+      setPatientSessionsLoading(false);
+      setPatientSessionsLoadingMore(false);
+      setPatientSessionsError('');
+      return;
+    }
+
+    setPatientSessions([]);
+    setPatientSessionsPageInfo(null);
+    setPatientSessionsError('');
+    void loadPatientSessions(workspace.selectedClinicId, selectedPatientId);
+  }, [
+    canManage,
+    loadPatientSessions,
     selectedPatientId,
     workspace.selectedClinicId,
   ]);
@@ -643,6 +778,91 @@ export function useClinicPatientsController() {
 
     void loadAssignmentHistory(workspace.selectedClinicId, selectedPatientId);
   }, [loadAssignmentHistory, selectedPatientId, workspace.selectedClinicId]);
+
+  const handleLoadMorePatientSessions = useCallback(() => {
+    if (
+      !workspace.selectedClinicId
+      || !selectedPatientId
+      || !patientSessionsPageInfo?.hasMore
+      || !patientSessionsPageInfo.nextPage
+      || patientSessionsLoadingMore
+    ) {
+      return;
+    }
+
+    void loadPatientSessions(
+      workspace.selectedClinicId,
+      selectedPatientId,
+      {
+        page: patientSessionsPageInfo.nextPage,
+        append: true,
+      },
+    );
+  }, [
+    loadPatientSessions,
+    patientSessionsLoadingMore,
+    patientSessionsPageInfo?.hasMore,
+    patientSessionsPageInfo?.nextPage,
+    selectedPatientId,
+    workspace.selectedClinicId,
+  ]);
+
+  const handleRetryPatientSessions = useCallback(() => {
+    if (!workspace.selectedClinicId || !selectedPatientId) {
+      return;
+    }
+
+    void loadPatientSessions(workspace.selectedClinicId, selectedPatientId);
+  }, [loadPatientSessions, selectedPatientId, workspace.selectedClinicId]);
+
+  const handleOpenSessionDetail = useCallback((sessionId: string) => {
+    if (!workspace.selectedClinicId || !canManage) return;
+
+    setSelectedSessionId(sessionId);
+    setSelectedSessionDetail(null);
+    setSelectedSessionDetailError('');
+    void loadSessionDetail(workspace.selectedClinicId, sessionId);
+  }, [canManage, loadSessionDetail, workspace.selectedClinicId]);
+
+  const handleCloseSessionDetail = useCallback(() => {
+    sessionDetailRequestSeq.current += 1;
+    setSelectedSessionId(null);
+    setSelectedSessionDetail(null);
+    setSelectedSessionDetailLoading(false);
+    setSelectedSessionDetailError('');
+  }, []);
+
+  const handleRetrySessionDetail = useCallback(() => {
+    if (!workspace.selectedClinicId || !selectedSessionId) return;
+    void loadSessionDetail(workspace.selectedClinicId, selectedSessionId);
+  }, [loadSessionDetail, selectedSessionId, workspace.selectedClinicId]);
+
+  const handleUpdateSessionStatus = useCallback(async (
+    session: clinicService.ClinicSessionSummary,
+    status: Extract<clinicService.ClinicSessionStatus, 'CANCELLED' | 'COMPLETED'>,
+  ): Promise<boolean> => {
+    if (!workspace.selectedClinicId || !selectedPatientId || !canManage || saving) return false;
+
+    setSaving(true);
+    setFeedback(null);
+
+    try {
+      await clinicService.updateClinicSessionStatus(workspace.selectedClinicId, session.id, { status });
+      await loadPatientSessions(workspace.selectedClinicId, selectedPatientId);
+      return true;
+    } catch (error: unknown) {
+      setFeedback(createErrorFeedback(error, 'No se pudo actualizar la cita'));
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    canManage,
+    loadPatientSessions,
+    saving,
+    selectedPatientId,
+    workspace.selectedClinicId,
+  ]);
 
   const handleCancelForm = useCallback(() => {
     setPanelMode('detail');
@@ -1074,6 +1294,15 @@ export function useClinicPatientsController() {
     assignmentHistoryLoading,
     assignmentHistoryLoadingMore,
     assignmentHistoryError,
+    patientSessions,
+    patientSessionsPageInfo,
+    patientSessionsLoading,
+    patientSessionsLoadingMore,
+    patientSessionsError,
+    selectedSessionId,
+    selectedSessionDetail,
+    selectedSessionDetailLoading,
+    selectedSessionDetailError,
     detailLoading,
     consentLoading,
     consentSaving,
@@ -1105,7 +1334,13 @@ export function useClinicPatientsController() {
     handleSpecialistFilterChange,
     handleLoadMorePatients,
     handleLoadMoreAssignmentHistory,
+    handleLoadMorePatientSessions,
     handleRetryAssignmentHistory,
+    handleRetryPatientSessions,
+    handleOpenSessionDetail,
+    handleCloseSessionDetail,
+    handleRetrySessionDetail,
+    handleUpdateSessionStatus,
     handleCancelForm,
     handleSubmit,
     handleStatusChange,

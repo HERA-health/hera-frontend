@@ -13,6 +13,7 @@ export type ClinicalConsentStatus = 'PENDING' | 'GRANTED' | 'REVOKED';
 export type ClinicalConsentMethod = 'DIGITAL_SIGNATURE' | 'SPECIALIST_ATTESTATION';
 export type QuestionnaireAvailability = 'NOT_STARTED' | 'AVAILABLE' | 'REQUIRES_REFRESH';
 export type SessionType = 'VIDEO_CALL' | 'PHONE_CALL' | 'IN_PERSON';
+export type ProfessionalSessionOrigin = 'PRIVATE' | 'CLINIC';
 const BUFFER_CONFLICT_REQUIRES_OVERRIDE = 'BUFFER_CONFLICT_REQUIRES_OVERRIDE';
 
 export interface ManagedSessionBufferConflictError extends Error {
@@ -85,6 +86,7 @@ export interface Session {
     email?: string | null;
     phone?: string | null;
     primaryEmail?: string | null;
+    primaryPhone?: string | null;
     displayName?: string;
     user: {
       name: string;
@@ -96,6 +98,39 @@ export interface Session {
     id: string;
     invoiceNumber: string;
     status: string;
+  } | null;
+  origin?: ProfessionalSessionOrigin;
+  clinicContext?: {
+    clinicId: string;
+    clinicName: string;
+    clinicSpecialistId: string | null;
+    displayName: string | null;
+    professionalTitle: string | null;
+  } | null;
+  actions?: {
+    canConfirm: boolean;
+    canCancel: boolean;
+    canComplete: boolean;
+    canModifySchedule: boolean;
+    canJoinVideo: boolean;
+    canOpenClinicalNotes: boolean;
+  };
+}
+
+export interface ProfessionalSessionDetail extends Session {
+  price: {
+    amount: number | null;
+    currency: string;
+    tariffName: string | null;
+  };
+  professional: {
+    id: string | null;
+    displayName: string;
+    professionalTitle: string | null;
+  };
+  clinicalTarget: {
+    clientId: string;
+    sessionId: string;
   } | null;
 }
 
@@ -220,6 +255,12 @@ interface GetManagedSessionSlotOptionsInput {
   sessionId?: string;
 }
 
+export interface GetProfessionalSessionsOptions {
+  origin?: ProfessionalSessionOrigin;
+  clinicId?: string;
+  clientId?: string;
+}
+
 interface GetProfessionalClientsOptions {
   source?: ClientSource | 'ALL';
   lifecycle?: ClientLifecycleFilter;
@@ -232,11 +273,38 @@ export const getProfessionalProfile = async (): Promise<ProfessionalProfile | nu
   });
 };
 
-export const getProfessionalSessions = async (): Promise<Session[]> => {
-  return cachedGet('professional:sessions', async () => {
-    const response = await api.get('/sessions/professional');
+export const getProfessionalSessions = async (
+  options: GetProfessionalSessionsOptions = {}
+): Promise<Session[]> => {
+  const cacheKey = [
+    'professional:sessions',
+    options.origin ?? '',
+    options.clinicId ?? '',
+    options.clientId ?? '',
+  ].join(':');
+
+  return cachedGet(cacheKey, async () => {
+    const params = {
+      ...(options.origin ? { origin: options.origin } : {}),
+      ...(options.clinicId ? { clinicId: options.clinicId } : {}),
+      ...(options.clientId ? { clientId: options.clientId } : {}),
+    };
+    const response = Object.keys(params).length
+      ? await api.get('/sessions/professional', { params })
+      : await api.get('/sessions/professional');
     return response.data.success ? response.data.data : [];
   });
+};
+
+export const getProfessionalSessionDetail = async (
+  sessionId: string
+): Promise<ProfessionalSessionDetail> => {
+  try {
+    const response = await api.get(`/sessions/professional/${sessionId}`);
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo cargar el detalle de la cita'));
+  }
 };
 
 export const getProfessionalClients = async (

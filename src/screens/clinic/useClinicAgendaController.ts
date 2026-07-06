@@ -180,8 +180,14 @@ export function useClinicAgendaController() {
   const sessionsRequestSeq = useRef(0);
   const specialistsRequestSeq = useRef(0);
   const patientLookupRequestSeq = useRef(0);
+  const sessionDetailRequestSeq = useRef(0);
 
   const [sessions, setSessions] = useState<clinicService.ClinicSessionSummary[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [selectedSessionDetail, setSelectedSessionDetail] =
+    useState<clinicService.ClinicSessionDetail | null>(null);
+  const [selectedSessionDetailLoading, setSelectedSessionDetailLoading] = useState(false);
+  const [selectedSessionDetailError, setSelectedSessionDetailError] = useState('');
   const [pageInfo, setPageInfo] = useState<clinicService.ClinicPatientListPageInfo | null>(null);
   const [patients, setPatients] = useState<clinicService.ClinicPatientSummary[]>([]);
   const [patientLookupSearch, setPatientLookupSearch] = useState('');
@@ -207,6 +213,7 @@ export function useClinicAgendaController() {
     sessionsRequestSeq.current += 1;
     specialistsRequestSeq.current += 1;
     patientLookupRequestSeq.current += 1;
+    sessionDetailRequestSeq.current += 1;
   }, []);
 
   const resetAgendaState = useCallback(() => {
@@ -214,6 +221,10 @@ export function useClinicAgendaController() {
 
     invalidateAgendaRequests();
     setSessions([]);
+    setSelectedSessionId(null);
+    setSelectedSessionDetail(null);
+    setSelectedSessionDetailLoading(false);
+    setSelectedSessionDetailError('');
     setPageInfo(null);
     setPatients([]);
     setPatientLookupSearch('');
@@ -370,6 +381,29 @@ export function useClinicAgendaController() {
     }
   }, [appAlert]);
 
+  const loadSessionDetail = useCallback(async (clinicId: string, sessionId: string) => {
+    const requestId = sessionDetailRequestSeq.current + 1;
+    sessionDetailRequestSeq.current = requestId;
+    setSelectedSessionDetailLoading(true);
+    setSelectedSessionDetailError('');
+
+    try {
+      const detail = await clinicService.getClinicSessionDetail(clinicId, sessionId);
+      if (!mountedRef.current || sessionDetailRequestSeq.current !== requestId) return;
+      setSelectedSessionDetail(detail);
+    } catch (detailError: unknown) {
+      if (!mountedRef.current || sessionDetailRequestSeq.current !== requestId) return;
+      setSelectedSessionDetail(null);
+      setSelectedSessionDetailError(detailError instanceof Error
+        ? detailError.message
+        : 'No se pudo cargar el detalle de la cita');
+    } finally {
+      if (mountedRef.current && sessionDetailRequestSeq.current === requestId) {
+        setSelectedSessionDetailLoading(false);
+      }
+    }
+  }, []);
+
   const reloadAgenda = useCallback(async (filters = appliedFilters) => {
     if (!workspace.selectedClinicId || !canManage) return;
     await Promise.all([
@@ -397,6 +431,10 @@ export function useClinicAgendaController() {
     const initialFilters = createInitialFilters();
     invalidateAgendaRequests();
     setSessions([]);
+    setSelectedSessionId(null);
+    setSelectedSessionDetail(null);
+    setSelectedSessionDetailLoading(false);
+    setSelectedSessionDetailError('');
     setPageInfo(null);
     setPatients([]);
     setPatientLookupSearch('');
@@ -465,6 +503,28 @@ export function useClinicAgendaController() {
 
     void reloadAgenda();
   }, [reloadAgenda, workspace]);
+
+  const handleOpenSessionDetail = useCallback((sessionId: string) => {
+    if (!workspace.selectedClinicId || !canManage) return;
+
+    setSelectedSessionId(sessionId);
+    setSelectedSessionDetail(null);
+    setSelectedSessionDetailError('');
+    void loadSessionDetail(workspace.selectedClinicId, sessionId);
+  }, [canManage, loadSessionDetail, workspace.selectedClinicId]);
+
+  const handleCloseSessionDetail = useCallback(() => {
+    sessionDetailRequestSeq.current += 1;
+    setSelectedSessionId(null);
+    setSelectedSessionDetail(null);
+    setSelectedSessionDetailLoading(false);
+    setSelectedSessionDetailError('');
+  }, []);
+
+  const handleRetrySessionDetail = useCallback(() => {
+    if (!workspace.selectedClinicId || !selectedSessionId) return;
+    void loadSessionDetail(workspace.selectedClinicId, selectedSessionId);
+  }, [loadSessionDetail, selectedSessionId, workspace.selectedClinicId]);
 
   const handleApplyFilters = useCallback(() => {
     if (!workspace.selectedClinicId || !canManage) return;
@@ -583,19 +643,21 @@ export function useClinicAgendaController() {
   const handleUpdateStatus = useCallback(async (
     session: clinicService.ClinicSessionSummary,
     status: Extract<clinicService.ClinicSessionStatus, 'CANCELLED' | 'COMPLETED'>,
-  ) => {
-    if (!workspace.selectedClinicId || !canManage || saving) return;
+  ): Promise<boolean> => {
+    if (!workspace.selectedClinicId || !canManage || saving) return false;
 
     try {
       setSaving(true);
       await clinicService.updateClinicSessionStatus(workspace.selectedClinicId, session.id, { status });
       await reloadAgenda();
+      return true;
     } catch (updateError: unknown) {
       showAppAlert(
         appAlert,
         'No se pudo actualizar',
         updateError instanceof Error ? updateError.message : 'No se pudo actualizar la cita',
       );
+      return false;
     } finally {
       setSaving(false);
     }
@@ -614,10 +676,13 @@ export function useClinicAgendaController() {
     handleLoadMore,
     handleLoadMorePatientOptions,
     handleOpenCreateModal,
+    handleOpenSessionDetail,
     handlePatientLookupSearchChange,
     handleRetry,
+    handleRetrySessionDetail,
     handleSelectClinic,
     handleUpdateStatus,
+    handleCloseSessionDetail,
     loading,
     loadingMore,
     modalVisible,
@@ -630,6 +695,10 @@ export function useClinicAgendaController() {
     patientOptions,
     patients,
     selectedFormPatient,
+    selectedSessionDetail,
+    selectedSessionDetailError,
+    selectedSessionDetailLoading,
+    selectedSessionId,
     sessions,
     setEditableFilter,
     setModalVisible,

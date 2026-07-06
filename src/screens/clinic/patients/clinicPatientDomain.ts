@@ -56,6 +56,16 @@ export interface FieldConfig {
 export const DEFAULT_CLINIC_BILLING_COUNTRY = 'España';
 export const CLINIC_PATIENT_PAGE_LIMIT = 50;
 export const CLINIC_ASSIGNMENT_HISTORY_PAGE_LIMIT = 20;
+export const CLINIC_PATIENT_SESSION_PAGE_LIMIT = 20;
+export const PATIENT_SESSION_RANGE_PAST_DAYS = 30;
+export const PATIENT_SESSION_RANGE_FUTURE_DAYS = 150;
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+export const buildPatientSessionRangeIso = (now = new Date()) => ({
+  startDate: new Date(now.getTime() - PATIENT_SESSION_RANGE_PAST_DAYS * DAY_IN_MS).toISOString(),
+  endDate: new Date(now.getTime() + PATIENT_SESSION_RANGE_FUTURE_DAYS * DAY_IN_MS).toISOString(),
+});
 
 export const EMPTY_FORM: ClinicPatientForm = {
   firstName: '',

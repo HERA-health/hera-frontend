@@ -11,7 +11,9 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
+import { AnimatedPressable } from '../../components/common/AnimatedPressable';
 import { DropdownOption, SimpleDropdown } from '../../components/common/SimpleDropdown';
+import { AppointmentDetailSheet } from '../../components/sessions/AppointmentDetailSheet';
 import { spacing } from '../../constants/colors';
 import { Theme } from '../../constants/theme';
 import type { ScreenProps } from '../../constants/types';
@@ -71,10 +73,13 @@ export function ClinicAgendaScreen({
     handleLoadMore,
     handleLoadMorePatientOptions,
     handleOpenCreateModal,
+    handleOpenSessionDetail,
     handlePatientLookupSearchChange,
     handleRetry,
+    handleRetrySessionDetail,
     handleSelectClinic,
     handleUpdateStatus,
+    handleCloseSessionDetail,
     loading,
     loadingMore,
     modalVisible,
@@ -87,6 +92,10 @@ export function ClinicAgendaScreen({
     patientOptions,
     patients,
     selectedFormPatient,
+    selectedSessionDetail,
+    selectedSessionDetailError,
+    selectedSessionDetailLoading,
+    selectedSessionId,
     sessions,
     setEditableFilter,
     setModalVisible,
@@ -96,6 +105,7 @@ export function ClinicAgendaScreen({
   } = useClinicAgendaController();
 
   const clinicName = workspace.selectedMembership?.clinic.commercialName;
+  const selectedDetail = selectedSessionDetail;
 
   return (
     <ClinicWorkspaceScaffold
@@ -240,6 +250,7 @@ export function ClinicAgendaScreen({
                   onComplete={() => {
                     void handleUpdateStatus(session, 'COMPLETED');
                   }}
+                  onOpen={() => handleOpenSessionDetail(session.id)}
                 />
               ))}
               {pageInfo?.hasMore ? (
@@ -273,6 +284,27 @@ export function ClinicAgendaScreen({
               if (!saving) setModalVisible(false);
             }}
             onSubmit={handleCreateSession}
+          />
+
+          <AppointmentDetailSheet
+            visible={Boolean(selectedSessionId)}
+            mode="clinic-admin"
+            clinicSession={selectedDetail}
+            loading={selectedSessionDetailLoading}
+            error={selectedSessionDetailError}
+            processing={saving}
+            onClose={handleCloseSessionDetail}
+            onRetry={handleRetrySessionDetail}
+            onCancel={selectedDetail?.actions.canCancel ? () => {
+              void handleUpdateStatus(selectedDetail, 'CANCELLED').then((updated) => {
+                if (updated) handleCloseSessionDetail();
+              });
+            } : undefined}
+            onComplete={selectedDetail?.actions.canComplete ? () => {
+              void handleUpdateStatus(selectedDetail, 'COMPLETED').then((updated) => {
+                if (updated) handleCloseSessionDetail();
+              });
+            } : undefined}
           />
         </View>
       )}
@@ -317,6 +349,7 @@ interface SessionRowProps {
   saving: boolean;
   onCancel: () => void;
   onComplete: () => void;
+  onOpen: () => void;
 }
 
 function SessionRow({
@@ -324,6 +357,7 @@ function SessionRow({
   saving,
   onCancel,
   onComplete,
+  onOpen,
 }: SessionRowProps): React.ReactElement {
   const { theme } = useTheme();
   const styles = useMemo(() => createSessionRowStyles(theme), [theme]);
@@ -338,6 +372,13 @@ function SessionRow({
 
   return (
     <View style={styles.row}>
+      <AnimatedPressable
+      onPress={onOpen}
+      hoverLift={false}
+      pressScale={0.99}
+      style={styles.detailsButton}
+      accessibilityLabel={`Ver detalle de cita de ${session.patient.displayName}`}
+    >
       <View style={styles.timeBlock}>
         <Text style={styles.date}>{formatDate(session.date)}</Text>
         <Text style={styles.time}>{formatTime(session.date)}</Text>
@@ -359,6 +400,7 @@ function SessionRow({
           {session.bookedPrice !== null ? ` · ${session.bookedPrice.toFixed(2)} ${session.bookedCurrency ?? 'EUR'}` : ''}
         </Text>
       </View>
+      </AnimatedPressable>
       {canAct ? (
         <View style={styles.actions}>
           <Button
@@ -655,6 +697,14 @@ const createSessionRowStyles = (theme: Theme) =>
       borderRadius: 8,
       backgroundColor: theme.bgCard,
       padding: spacing.lg,
+    },
+    detailsButton: {
+      flex: 1,
+      minWidth: 260,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: spacing.md,
     },
     timeBlock: {
       width: 110,

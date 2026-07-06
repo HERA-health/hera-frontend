@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from '../../../components/common/Button';
+import { AppointmentDetailSheet } from '../../../components/sessions/AppointmentDetailSheet';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { ScreenProps } from '../../../constants/types';
 import { ClinicWorkspaceScaffold } from '../components/ClinicWorkspaceScaffold';
@@ -25,6 +26,7 @@ export function ClinicPatientsWorkspace({
   const styles = useMemo(() => createWorkspaceStyles(theme, isCompact), [isCompact, theme]);
   const controller = useClinicPatientsController();
   const clinicName = controller.workspace.selectedMembership?.clinic.commercialName;
+  const selectedSessionDetail = controller.selectedSessionDetail;
 
   return (
     <ClinicWorkspaceScaffold
@@ -141,6 +143,11 @@ export function ClinicPatientsWorkspace({
                   assignmentHistoryLoading={controller.assignmentHistoryLoading}
                   assignmentHistoryLoadingMore={controller.assignmentHistoryLoadingMore}
                   assignmentHistoryError={controller.assignmentHistoryError}
+                  patientSessions={controller.patientSessions}
+                  patientSessionsPageInfo={controller.patientSessionsPageInfo}
+                  patientSessionsLoading={controller.patientSessionsLoading}
+                  patientSessionsLoadingMore={controller.patientSessionsLoadingMore}
+                  patientSessionsError={controller.patientSessionsError}
                   canManage={controller.canManage}
                   assignmentMode={controller.assignmentMode}
                   assignmentForm={controller.assignmentForm}
@@ -158,6 +165,9 @@ export function ClinicPatientsWorkspace({
                   onOpenConsentDocument={controller.handleOpenConsentDocument}
                   onLoadMoreAssignmentHistory={controller.handleLoadMoreAssignmentHistory}
                   onRetryAssignmentHistory={controller.handleRetryAssignmentHistory}
+                  onOpenSessionDetail={controller.handleOpenSessionDetail}
+                  onLoadMorePatientSessions={controller.handleLoadMorePatientSessions}
+                  onRetryPatientSessions={controller.handleRetryPatientSessions}
                   onEdit={controller.handleEdit}
                   onStatusChange={controller.handleStatusChange}
                 />
@@ -172,6 +182,31 @@ export function ClinicPatientsWorkspace({
               )}
             </View>
           </View>
+
+          <AppointmentDetailSheet
+            visible={Boolean(controller.selectedSessionId)}
+            mode="clinic-admin"
+            clinicSession={selectedSessionDetail}
+            loading={controller.selectedSessionDetailLoading}
+            error={controller.selectedSessionDetailError}
+            processing={controller.saving}
+            onClose={controller.handleCloseSessionDetail}
+            onRetry={controller.handleRetrySessionDetail}
+            onCancel={selectedSessionDetail?.actions.canCancel ? () => {
+              void controller
+                .handleUpdateSessionStatus(selectedSessionDetail, 'CANCELLED')
+                .then((updated) => {
+                  if (updated) controller.handleCloseSessionDetail();
+                });
+            } : undefined}
+            onComplete={selectedSessionDetail?.actions.canComplete ? () => {
+              void controller
+                .handleUpdateSessionStatus(selectedSessionDetail, 'COMPLETED')
+                .then((updated) => {
+                  if (updated) controller.handleCloseSessionDetail();
+                });
+            } : undefined}
+          />
         </View>
       )}
     </ClinicWorkspaceScaffold>

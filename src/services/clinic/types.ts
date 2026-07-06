@@ -297,6 +297,41 @@ export interface ClinicSessionSummary {
   specialist: ClinicSessionSpecialistSummary;
 }
 
+export type ClinicSessionFinancialSource =
+  | 'ACTIVE_INVOICE'
+  | 'CURRENT_SPECIALIST_CONFIG'
+  | 'UNCONFIGURED';
+
+export interface ClinicSessionFinancials {
+  priceAmount: number | null;
+  currency: string;
+  shareBaseAmount: number | null;
+  professionalSharePercentage: number | null;
+  clinicSharePercentage: number | null;
+  professionalShareAmount: number | null;
+  clinicShareAmount: number | null;
+  source: ClinicSessionFinancialSource;
+}
+
+export interface ClinicSessionDetail extends ClinicSessionSummary {
+  bookedDuration: number | null;
+  bookedTariffId: string | null;
+  bookedTariffName: string | null;
+  financials: ClinicSessionFinancials;
+  invoice: {
+    id: string;
+    invoiceNumber: string;
+    status: ClinicInvoiceStatus;
+    total: number;
+  } | null;
+  actions: {
+    canCancel: boolean;
+    canComplete: boolean;
+    canOpenClinicalNotes: false;
+    canJoinVideo: false;
+  };
+}
+
 export interface ClinicSessionListFilters {
   startDate?: string;
   endDate?: string;
@@ -712,6 +747,7 @@ export type ProfessionalClinicPatientConsent = ClinicPatientConsentStatusSummary
 
 export interface ProfessionalClinicPatientSummary {
   clinicPatientId: string;
+  clientId: string;
   displayName: string;
   firstName: string | null;
   lastName: string | null;

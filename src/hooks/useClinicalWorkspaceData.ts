@@ -238,6 +238,35 @@ export function useClinicalWorkspaceData({
     }
   }, [clientId, handleAccessError, record, token]);
 
+  const ensureSessionFolderLoaded = useCallback(async (sessionId: string): Promise<boolean> => {
+    if (!token || !record) {
+      return false;
+    }
+
+    if (record.sessionFolders.some((folder) => folder.session.id === sessionId)) {
+      return true;
+    }
+
+    try {
+      setLoadingMoreSessions(true);
+      const folder = await clinicalService.getClinicalSessionFolder(clientId, sessionId, token);
+      setRecord((current) =>
+        current
+          ? {
+              ...current,
+              sessionFolders: mergeSessionFoldersById(current.sessionFolders, [folder]),
+            }
+          : current
+      );
+      return true;
+    } catch (error) {
+      handleAccessError(error);
+      throw error;
+    } finally {
+      setLoadingMoreSessions(false);
+    }
+  }, [clientId, handleAccessError, record, token]);
+
   const saveClinicalNote = useCallback(
     async (content: string, sessionId?: string) => {
       if (!token) {
@@ -376,6 +405,7 @@ export function useClinicalWorkspaceData({
     loadMoreDocuments,
     loadMoreSessionFolders,
     loadMoreConsentEvents,
+    ensureSessionFolderLoaded,
     saveClinicalNote,
     uploadClinicalDocument,
     openClinicalDocument,

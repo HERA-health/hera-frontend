@@ -191,7 +191,13 @@ export function ClientProfileScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<AppRouteProp<'ClientProfile'>>();
   const appAlert = useAppAlert();
-  const { clientId, initialTab, focusBillingEditor } = route.params;
+  const {
+    clientId,
+    initialTab,
+    clinicalWorkspace,
+    focusSessionId,
+    focusBillingEditor,
+  } = route.params;
   const { height, width } = useWindowDimensions();
   const { theme } = useTheme();
   const tour = useOptionalProfessionalTour();
@@ -1168,6 +1174,8 @@ export function ClientProfileScreen() {
           <ClinicalTab
             clientId={client.id}
             client={client}
+            initialWorkspace={clinicalWorkspace}
+            focusSessionId={focusSessionId}
             onPrepareClinicalTourStep={prepareClinicalTourStep}
             onRequestRefreshClient={loadClient}
             tourTargetsActive={activeTab === 'clinical'}

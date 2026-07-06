@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -34,6 +34,8 @@ import type { ProfessionalTourTargetId } from '../onboarding/professionalTourTyp
 interface ClinicalTabProps {
   clientId: string;
   client: Client;
+  initialWorkspace?: ClinicalWorkspaceKey;
+  focusSessionId?: string;
   onPrepareClinicalTourStep?: (targetId: ProfessionalTourTargetId) => Promise<void> | void;
   onRequestRefreshClient?: () => Promise<void>;
   tourTargetsActive?: boolean;
@@ -101,6 +103,8 @@ const getBannerStyles = (
 export function ClinicalTab({
   clientId,
   client,
+  initialWorkspace,
+  focusSessionId,
   onPrepareClinicalTourStep,
   onRequestRefreshClient,
   tourTargetsActive = true,
@@ -111,7 +115,9 @@ export function ClinicalTab({
   const { width } = useWindowDimensions();
   const isTablet = width >= 920;
 
-  const [workspace, setWorkspace] = useState<ClinicalWorkspaceKey>('general');
+  const [workspace, setWorkspace] = useState<ClinicalWorkspaceKey>(
+    () => focusSessionId ? 'sessions' : initialWorkspace ?? 'general'
+  );
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [pin, setPin] = useState('');
   const [setupPin, setSetupPin] = useState('');
@@ -120,6 +126,8 @@ export function ClinicalTab({
   const [showSetupPin, setShowSetupPin] = useState(false);
   const [clinicalTermsAccepted, setClinicalTermsAccepted] = useState<boolean | null>(null);
   const [clinicalTermsLoading, setClinicalTermsLoading] = useState(true);
+  const handledFocusSessionLoadRef = useRef<string | null>(null);
+  const loadingFocusSessionRef = useRef<string | null>(null);
 
   const showBanner = useCallback((tone: BannerTone, message: string) => {
     setBanner({ tone, message });
@@ -170,6 +178,8 @@ export function ClinicalTab({
     onRequestRefreshClient,
     onAccessLost: handleWorkspaceAccessLost,
   });
+  const clinicalRecord = workspaceData.record;
+  const ensureSessionFolderLoaded = workspaceData.ensureSessionFolderLoaded;
 
   useEffect(() => {
     if (!banner) {
@@ -188,12 +198,78 @@ export function ClinicalTab({
   }, [loadClinicalTermsStatus]);
 
   useEffect(() => {
-    setWorkspace('general');
+    setWorkspace(focusSessionId ? 'sessions' : initialWorkspace ?? 'general');
     setPin('');
     setSetupPin('');
     setSetupPinConfirm('');
     setBanner(null);
-  }, [clientId]);
+    handledFocusSessionLoadRef.current = null;
+    loadingFocusSessionRef.current = null;
+  }, [clientId, focusSessionId, initialWorkspace]);
+
+  useEffect(() => {
+    if (focusSessionId) {
+      setWorkspace('sessions');
+      return;
+    }
+
+    if (initialWorkspace) {
+      setWorkspace(initialWorkspace);
+    }
+  }, [focusSessionId, initialWorkspace]);
+
+  useEffect(() => {
+    if (!focusSessionId) {
+      handledFocusSessionLoadRef.current = null;
+      loadingFocusSessionRef.current = null;
+      return;
+    }
+
+    if (!access.token || !clinicalRecord) {
+      return;
+    }
+
+    const alreadyLoaded = clinicalRecord.sessionFolders.some(
+      (folder) => folder.session.id === focusSessionId
+    );
+    if (alreadyLoaded) {
+      handledFocusSessionLoadRef.current = focusSessionId;
+      loadingFocusSessionRef.current = null;
+      return;
+    }
+
+    if (
+      handledFocusSessionLoadRef.current === focusSessionId
+      || loadingFocusSessionRef.current === focusSessionId
+    ) {
+      return;
+    }
+
+    loadingFocusSessionRef.current = focusSessionId;
+    void ensureSessionFolderLoaded(focusSessionId)
+      .then((loaded) => {
+        if (loaded) {
+          handledFocusSessionLoadRef.current = focusSessionId;
+        }
+      })
+      .catch((error: unknown) => {
+        showBanner(
+          'warning',
+          getErrorMessage(error, 'No se pudo abrir la carpeta clinica de esta cita.')
+        );
+      })
+      .finally(() => {
+        if (loadingFocusSessionRef.current === focusSessionId) {
+          loadingFocusSessionRef.current = null;
+        }
+      });
+  }, [
+    access.token,
+    clinicalRecord,
+    ensureSessionFolderLoaded,
+    focusSessionId,
+    showBanner,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -836,6 +912,7 @@ export function ClinicalTab({
               noteSaving={workspaceData.noteSaving}
               documentUploading={workspaceData.documentUploading}
               openingDocumentId={workspaceData.openingDocumentId}
+              focusSessionId={focusSessionId}
               onOpenDocument={handleOpenClinicalDocument}
               onSaveNote={handleSaveClinicalNote}
               onUploadDocument={handleUploadClinicalDocument}

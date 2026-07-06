@@ -18,6 +18,7 @@ import {
   getClinicBillingConfig,
   getClinicBillingSummary,
   getClinicRevenueShareSummary,
+  getClinicSessionDetail,
   getClinicInvoice,
   getClinicSettlement,
   getClinicSettlementPreview,
@@ -76,6 +77,7 @@ import {
   type ClinicPatientDetail,
   type ClinicPatientSummary,
   type ClinicSessionListPage,
+  type ClinicSessionDetail,
   type ClinicSessionSummary,
   type ClinicSpecialist,
   type LinkedProfessional,
@@ -1022,6 +1024,65 @@ describe('clinicService', () => {
     );
   });
 
+  it('loads clinic session detail through the admin detail endpoint', async () => {
+    const detail: ClinicSessionDetail = {
+      id: 'session-1',
+      date: '2026-06-01T10:00:00.000Z',
+      duration: 60,
+      type: 'IN_PERSON',
+      status: 'CONFIRMED',
+      bookedPrice: 70,
+      bookedCurrency: 'EUR',
+      bookedDuration: 60,
+      bookedTariffId: null,
+      bookedTariffName: 'Sesión estándar',
+      cancelledAt: null,
+      createdAt: '2026-05-28T10:00:00.000Z',
+      updatedAt: '2026-05-28T10:00:00.000Z',
+      patient: {
+        id: 'clinic-patient-1',
+        displayName: 'Lucia Martin',
+        email: 'lucia@clinic.test',
+        phone: null,
+        status: 'ACTIVE',
+      },
+      specialist: {
+        id: 'clinic-specialist-1',
+        displayName: 'Dra. Ana Ruiz',
+        professionalTitle: 'Psicóloga sanitaria',
+        status: 'ACTIVE',
+        linkedProfessionalName: 'Ana Ruiz',
+      },
+      financials: {
+        priceAmount: 70,
+        currency: 'EUR',
+        shareBaseAmount: 70,
+        professionalSharePercentage: 60,
+        clinicSharePercentage: 40,
+        professionalShareAmount: 42,
+        clinicShareAmount: 28,
+        source: 'CURRENT_SPECIALIST_CONFIG',
+      },
+      invoice: null,
+      actions: {
+        canCancel: true,
+        canComplete: false,
+        canOpenClinicalNotes: false,
+        canJoinVideo: false,
+      },
+    };
+
+    getMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: detail,
+      },
+    } as AxiosResponse<{ success: boolean; data: ClinicSessionDetail }>);
+
+    await expect(getClinicSessionDetail('clinic-1', 'session-1')).resolves.toBe(detail);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/sessions/session-1');
+  });
+
   it('maps clinic session errors to stable Spanish messages', async () => {
     postMock.mockRejectedValueOnce({
       response: {
@@ -1799,6 +1860,7 @@ describe('clinicService', () => {
       items: [
         {
           clinicPatientId: 'clinic-patient-1',
+          clientId: 'client-1',
           displayName: 'Lucia Martin',
           firstName: 'Lucia',
           lastName: 'Martin',
@@ -2058,6 +2120,7 @@ describe('clinicService', () => {
   it('loads professional clinic patient detail through the limited endpoint', async () => {
     const detail: ProfessionalClinicPatientDetail = {
       clinicPatientId: 'clinic-patient-1',
+      clientId: 'client-1',
       displayName: 'Lucia Martin',
       firstName: 'Lucia',
       lastName: 'Martin',
@@ -2104,7 +2167,7 @@ describe('clinicService', () => {
     expect(result).toBe(detail);
     expect(result.consent.status).toBe('GRANTED');
     expect('documents' in result.consent).toBe(false);
-    expect('clientId' in result).toBe(false);
+    expect(result.clientId).toBe('client-1');
     expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/specialist/patients/clinic-patient-1');
   });
 });

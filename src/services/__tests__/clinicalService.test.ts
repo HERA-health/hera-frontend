@@ -17,7 +17,13 @@ jest.mock('react-native', () => ({
   Platform: { OS: 'web' },
 }));
 
-import { hasAcceptedCurrentDataProcessingAgreement } from '../clinicalService';
+import { api } from '../api';
+import {
+  getClinicalSessionFolder,
+  hasAcceptedCurrentDataProcessingAgreement,
+} from '../clinicalService';
+
+const mockedApi = api as jest.Mocked<typeof api>;
 
 const baseStatus = {
   hasPin: false,
@@ -80,5 +86,45 @@ describe('hasAcceptedCurrentDataProcessingAgreement', () => {
         currentDataProcessingAgreementVersion: 'v2',
       })
     ).toBe(false);
+  });
+});
+
+describe('getClinicalSessionFolder', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('loads a single session folder with the clinical access token', async () => {
+    const folder = {
+      session: {
+        id: 'session-1',
+        date: '2026-06-01T10:00:00.000Z',
+        duration: 60,
+        status: 'COMPLETED',
+        type: 'VIDEO_CALL',
+        invoice: null,
+      },
+      notes: [],
+      documents: [],
+    };
+
+    mockedApi.get.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: folder,
+      },
+    });
+
+    await expect(
+      getClinicalSessionFolder('client-1', 'session-1', 'clinical-token')
+    ).resolves.toBe(folder);
+    expect(mockedApi.get).toHaveBeenCalledWith(
+      '/clinical/records/client-1/session-folders/session-1',
+      {
+        headers: {
+          'x-clinical-access-token': 'clinical-token',
+        },
+      }
+    );
   });
 });

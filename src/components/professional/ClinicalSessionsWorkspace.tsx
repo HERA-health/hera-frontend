@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { useNavigation } from '@react-navigation/native';
@@ -27,6 +27,7 @@ interface ClinicalSessionsWorkspaceProps {
   noteSaving: boolean;
   documentUploading: boolean;
   openingDocumentId: string | null;
+  focusSessionId?: string;
   onOpenDocument: (document: ClinicalDocument) => Promise<void>;
   onSaveNote: (content: string, sessionId?: string) => Promise<void>;
   onUploadDocument: (
@@ -80,6 +81,7 @@ export function ClinicalSessionsWorkspace({
   noteSaving,
   documentUploading,
   openingDocumentId,
+  focusSessionId,
   onOpenDocument,
   onSaveNote,
   onUploadDocument,
@@ -99,11 +101,32 @@ export function ClinicalSessionsWorkspace({
   const [attachableInvoices, setAttachableInvoices] = useState<AttachableInvoiceSummary[]>([]);
   const [invoiceSheetLoading, setInvoiceSheetLoading] = useState(false);
   const [invoiceAttaching, setInvoiceAttaching] = useState(false);
+  const handledFocusSessionIdRef = useRef<string | null>(null);
 
   const activeDraftSession = useMemo(
     () => sessionFolders.find((folder) => folder.session.id === draftSessionId)?.session ?? null,
     [draftSessionId, sessionFolders]
   );
+
+  useEffect(() => {
+    if (!focusSessionId) {
+      handledFocusSessionIdRef.current = null;
+      return;
+    }
+
+    if (handledFocusSessionIdRef.current === focusSessionId) {
+      return;
+    }
+
+    const hasFocusedFolder = sessionFolders.some((folder) => folder.session.id === focusSessionId);
+    if (!hasFocusedFolder) {
+      return;
+    }
+
+    setDraftSessionId(focusSessionId);
+    setNoteDraft('');
+    handledFocusSessionIdRef.current = focusSessionId;
+  }, [focusSessionId, sessionFolders]);
 
   const handleSaveDraft = async () => {
     const trimmedDraft = noteDraft.trim();

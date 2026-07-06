@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { lightTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { ClinicalGeneralWorkspace } from '../ClinicalGeneralWorkspace';
@@ -291,5 +291,46 @@ describe('ClinicalGeneralWorkspace', () => {
     expect(screen.getByText('consentimiento-firmado.pdf')).toBeTruthy();
     expect(screen.getByText('Adjuntar documento')).toBeTruthy();
     expect(screen.getByText('Registrar consentimiento firmado')).toBeTruthy();
+  });
+
+  it('keeps signed consent evidence usable while clinical content actions wait for consent', () => {
+    const onAttestClinicalConsent = jest.fn();
+    const onUploadDocument = jest.fn();
+    const onSaveNote = jest.fn();
+
+    render(
+      <ClinicalGeneralWorkspace
+        client={managedClient as never}
+        record={pendingManagedRecord as never}
+        isTablet
+        noteSaving={false}
+        documentUploading={false}
+        consentSubmitting={false}
+        closingProcess={false}
+        openingDocumentId={null}
+        loadingMoreNotes={false}
+        loadingMoreDocuments={false}
+        loadingMoreConsentEvents={false}
+        onSaveNote={onSaveNote}
+        onOpenDocument={jest.fn()}
+        onUploadDocument={onUploadDocument}
+        onRequestDigitalConsent={jest.fn()}
+        onAttestClinicalConsent={onAttestClinicalConsent}
+        onCloseClinicalProcess={jest.fn()}
+        onLoadMoreNotes={jest.fn()}
+        onLoadMoreDocuments={jest.fn()}
+        onLoadMoreConsentEvents={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByText('Registrar consentimiento firmado'));
+
+    expect(onAttestClinicalConsent).toHaveBeenCalledWith('consent-document-1');
+    expect(screen.getByText('Adjuntar documento')).toBeTruthy();
+    expect(screen.queryByText('Añadir informe')).toBeNull();
+    expect(screen.queryByText('Añadir documento')).toBeNull();
+    expect(screen.getByPlaceholderText('Escribe aquí una nota general del expediente...').props.editable).toBe(false);
+    expect(onUploadDocument).not.toHaveBeenCalled();
+    expect(onSaveNote).not.toHaveBeenCalled();
   });
 });

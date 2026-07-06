@@ -28,6 +28,7 @@ import {
   useProfessionalTourStepPreparation,
 } from '../../components/onboarding/professionalTourContext';
 import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
+import { AppointmentDetailSheet } from '../../components/sessions/AppointmentDetailSheet';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getErrorMessage } from '../../constants/errors';
 import * as analyticsService from '../../services/analyticsService';
@@ -217,8 +218,14 @@ export function ProfessionalSessionsScreen() {
   const [schedulerSaving, setSchedulerSaving] = useState(false);
   const [editingSession, setEditingSession] = useState<ProfessionalSession | null>(null);
   const [autoConfirmSessionRequests, setAutoConfirmSessionRequests] = useState<boolean | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [selectedSessionDetail, setSelectedSessionDetail] =
+    useState<professionalService.ProfessionalSessionDetail | null>(null);
+  const [selectedSessionDetailLoading, setSelectedSessionDetailLoading] = useState(false);
+  const [selectedSessionDetailError, setSelectedSessionDetailError] = useState('');
   const sessionsLoadSeqRef = useRef(0);
   const sessionsRef = useRef<ProfessionalSession[]>([]);
+  const sessionDetailLoadSeqRef = useRef(0);
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -274,6 +281,9 @@ export function ProfessionalSessionsScreen() {
           clientUserId: session.client?.userId ?? null,
           clientAvatar: session.client?.user?.avatar || undefined,
           hasInvoice: Boolean(session.invoice),
+          origin: session.origin,
+          clinicContext: session.clinicContext,
+          actions: session.actions,
         };
       });
 
@@ -356,6 +366,61 @@ export function ProfessionalSessionsScreen() {
     setSchedulerVisible(false);
     setEditingSession(null);
   }, [schedulerSaving]);
+
+  const openSessionDetail = useCallback(async (sessionId: string) => {
+    const requestSeq = sessionDetailLoadSeqRef.current + 1;
+    sessionDetailLoadSeqRef.current = requestSeq;
+    setSelectedSessionId(sessionId);
+    setSelectedSessionDetail(null);
+    setSelectedSessionDetailError('');
+    setSelectedSessionDetailLoading(true);
+
+    try {
+      const detail = await professionalService.getProfessionalSessionDetail(sessionId);
+      if (sessionDetailLoadSeqRef.current !== requestSeq) return;
+      setSelectedSessionDetail(detail);
+    } catch (error: unknown) {
+      if (sessionDetailLoadSeqRef.current !== requestSeq) return;
+      setSelectedSessionDetailError(getErrorMessage(error, 'No se pudo cargar el detalle de la cita'));
+    } finally {
+      if (sessionDetailLoadSeqRef.current === requestSeq) {
+        setSelectedSessionDetailLoading(false);
+      }
+    }
+  }, []);
+
+  const closeSessionDetail = useCallback(() => {
+    sessionDetailLoadSeqRef.current += 1;
+    setSelectedSessionId(null);
+    setSelectedSessionDetail(null);
+    setSelectedSessionDetailLoading(false);
+    setSelectedSessionDetailError('');
+  }, []);
+
+  const retrySessionDetail = useCallback(() => {
+    if (!selectedSessionId) return;
+    void openSessionDetail(selectedSessionId);
+  }, [openSessionDetail, selectedSessionId]);
+
+  const openSelectedSessionPatient = useCallback(() => {
+    if (!selectedSessionDetail) return;
+    const { clientId } = selectedSessionDetail;
+    closeSessionDetail();
+    navigation.navigate('ClientProfile', { clientId });
+  }, [closeSessionDetail, navigation, selectedSessionDetail]);
+
+  const openSelectedSessionNotes = useCallback(() => {
+    const target = selectedSessionDetail?.clinicalTarget;
+    if (!target) return;
+
+    closeSessionDetail();
+    navigation.navigate('ClientProfile', {
+      clientId: target.clientId,
+      initialTab: 'clinical',
+      clinicalWorkspace: 'sessions',
+      focusSessionId: target.sessionId,
+    });
+  }, [closeSessionDetail, navigation, selectedSessionDetail]);
 
   const handleCreateManagedSession = useCallback(
     async (input: professionalService.CreateManagedClientSessionInput) => {
@@ -789,7 +854,33 @@ export function ProfessionalSessionsScreen() {
 
   const renderSessionActions = useCallback(
     (session: ProfessionalSession) => {
-      if (session.status === 'pending') {
+      if (session.origin === 'CLINIC') {
+        return (
+          <View style={styles.clinicManagedNotice}>
+            <Ionicons name="business-outline" size={16} color={theme.textSecondary} />
+            <Text style={styles.clinicManagedText}>
+              Gestionada por clínica
+            </Text>
+            <View style={styles.clinicManagedAction}>
+              <Button
+                variant="outline"
+                size="small"
+                onPress={() => void openSessionDetail(session.id)}
+                icon={<Ionicons name="calendar-clear-outline" size={16} color={theme.primary} />}
+                fullWidth
+              >
+                Ver detalle
+              </Button>
+            </View>
+          </View>
+        );
+      }
+
+      const actions = session.actions;
+      const canConfirmPending = actions?.canConfirm ?? session.status === 'pending';
+      const canCancelPending = actions?.canCancel ?? true;
+
+      if (session.status === 'pending' && canConfirmPending) {
         return (
           <View style={styles.actionRow}>
             <View style={styles.actionHalf}>
@@ -808,7 +899,7 @@ export function ProfessionalSessionsScreen() {
                 variant="outline"
                 size="small"
                 onPress={() => handleRejectSession(session.id, session.clientName)}
-                disabled={processingSessionId === session.id}
+                disabled={processingSessionId === session.id || !canCancelPending}
                 fullWidth
               >
                 Rechazar
@@ -825,16 +916,19 @@ export function ProfessionalSessionsScreen() {
         const buttonLabel = getVideoCallButtonLabel(buttonState, videoCallSession);
         const buttonStyle = getVideoCallButtonStyle(buttonState);
         const canJoin = isVideoCallButtonClickable(buttonState);
-        const sessionEnded = session.date.getTime() + session.duration * 60 * 1000 < currentTime.getTime();
         const sessionStarted = session.date.getTime() <= currentTime.getTime();
-        const canModifySession = !sessionStarted && !session.hasInvoice;
+        const sessionEnded = session.date.getTime() + session.duration * 60 * 1000 < currentTime.getTime();
+        const canModifySession = !sessionStarted && !session.hasInvoice && (actions?.canModifySchedule ?? false);
+        const canCompleteSession = actions?.canComplete ?? sessionEnded;
+        const canCancelSession = actions?.canCancel ?? !sessionEnded;
+        const canJoinSession = Boolean(actions?.canJoinVideo) && canJoin;
 
         return (
           <View style={styles.actionStack}>
             {isVideoSession ? (
               <AnimatedPressable
-                onPress={canJoin ? () => handleJoinSession(session.id) : undefined}
-                disabled={!canJoin}
+                onPress={canJoinSession ? () => handleJoinSession(session.id) : undefined}
+                disabled={!canJoinSession}
                 hoverLift={false}
                 pressScale={0.98}
                 style={[
@@ -842,7 +936,7 @@ export function ProfessionalSessionsScreen() {
                   {
                     backgroundColor: buttonStyle.backgroundColor,
                     borderColor: buttonStyle.borderColor || buttonStyle.backgroundColor,
-                    opacity: buttonStyle.disabled ? 0.75 : 1,
+                    opacity: buttonStyle.disabled || !canJoinSession ? 0.75 : 1,
                   },
                 ]}
               >
@@ -854,7 +948,7 @@ export function ProfessionalSessionsScreen() {
             ) : null}
 
             <View style={styles.actionRow}>
-              {sessionEnded ? (
+              {canCompleteSession ? (
                 <View style={styles.actionHalf}>
                   <Button
                     variant="secondary"
@@ -881,7 +975,7 @@ export function ProfessionalSessionsScreen() {
                   </Button>
                 </View>
               ) : null}
-              {!sessionEnded ? (
+              {canCancelSession ? (
                 <View style={styles.actionHalf}>
                   <Button
                     variant="outline"
@@ -898,11 +992,11 @@ export function ProfessionalSessionsScreen() {
                 <Button
                   variant="outline"
                   size="small"
-                  onPress={() => navigation.navigate('ClientProfile', { clientId: session.clientId })}
+                  onPress={() => void openSessionDetail(session.id)}
                   icon={<Ionicons name="person-circle-outline" size={16} color={theme.primary} />}
                   fullWidth
                 >
-                  Ver ficha
+                  Ver detalle
                 </Button>
               </View>
             </View>
@@ -916,11 +1010,11 @@ export function ProfessionalSessionsScreen() {
             <Button
               variant="outline"
               size="small"
-              onPress={() => navigation.navigate('ClientProfile', { clientId: session.clientId })}
+              onPress={() => void openSessionDetail(session.id)}
               icon={<Ionicons name="person-circle-outline" size={16} color={theme.primary} />}
               fullWidth
             >
-              Ver ficha
+              Ver detalle
             </Button>
           </View>
         </View>
@@ -933,11 +1027,12 @@ export function ProfessionalSessionsScreen() {
       handleCancelSession,
       handleJoinSession,
       openManagedSessionEditor,
+      openSessionDetail,
       handleRejectSession,
-      navigation,
       processingSessionId,
       styles,
       theme.primary,
+      theme.textSecondary,
     ],
   );
 
@@ -947,13 +1042,22 @@ export function ProfessionalSessionsScreen() {
       const accentColor = getStatusColor(status);
 
       return (
-        <Card
+        <View
           key={session.id}
-          variant="default"
-          padding="medium"
-          style={compact ? styles.sessionCardCompact : styles.sessionCard}
         >
-          <View style={styles.sessionCardHeader}>
+          <Card
+            variant="default"
+            padding="medium"
+            style={compact ? styles.sessionCardCompact : styles.sessionCard}
+          >
+          <AnimatedPressable
+            onPress={() => void openSessionDetail(session.id)}
+            hoverLift={false}
+            pressScale={0.99}
+            style={styles.sessionCardDetailPressable}
+            accessibilityLabel={`Ver detalle de cita de ${session.clientName}`}
+          >
+            <View style={styles.sessionCardHeader}>
             <View style={styles.sessionClientBlock}>
               <View style={[styles.sessionAvatar, { backgroundColor: theme.primaryAlpha12 }]}>
                 {session.clientAvatar ? (
@@ -972,6 +1076,11 @@ export function ProfessionalSessionsScreen() {
                 <Text style={styles.sessionClientMeta}>
                   {formatSessionTimeRange(session)} · {session.duration} min · {getSessionTypeLabel(session.type)}
                 </Text>
+                {session.origin === 'CLINIC' && session.clinicContext ? (
+                  <Text style={styles.sessionClientMeta} numberOfLines={1}>
+                    {session.clinicContext.clinicName}
+                  </Text>
+                ) : null}
               </View>
             </View>
             <View style={[styles.sessionStatusPill, { backgroundColor: `${accentColor}20` }]}>
@@ -988,14 +1097,17 @@ export function ProfessionalSessionsScreen() {
                   : 'Cancelada'}
               </Text>
             </View>
-          </View>
+            </View>
+          </AnimatedPressable>
           {!compact ? renderSessionActions(session) : null}
-        </Card>
+          </Card>
+        </View>
       );
     },
     [
       getSessionDisplayStatus,
       getStatusColor,
+      openSessionDetail,
       renderSessionActions,
       styles.sessionCard,
       styles.sessionCardCompact,
@@ -1281,7 +1393,7 @@ export function ProfessionalSessionsScreen() {
                   return (
                     <AnimatedPressable
                       key={session.id}
-                      onPress={() => navigation.navigate('ClientProfile', { clientId: session.clientId })}
+                      onPress={() => void openSessionDetail(session.id)}
                       hoverLift={false}
                       pressScale={0.99}
                       style={[
@@ -1553,6 +1665,21 @@ export function ProfessionalSessionsScreen() {
         </View>
         </View>
       </View>
+      <AppointmentDetailSheet
+        visible={Boolean(selectedSessionId)}
+        mode="professional"
+        professionalSession={selectedSessionDetail}
+        loading={selectedSessionDetailLoading}
+        error={selectedSessionDetailError}
+        processing={processingSessionId === selectedSessionId}
+        onClose={closeSessionDetail}
+        onRetry={retrySessionDetail}
+        onOpenPatient={selectedSessionDetail ? openSelectedSessionPatient : undefined}
+        onOpenNotes={selectedSessionDetail?.clinicalTarget ? openSelectedSessionNotes : undefined}
+        onJoinVideo={selectedSessionDetail?.actions?.canJoinVideo ? () => {
+          void handleJoinSession(selectedSessionDetail.id);
+        } : undefined}
+      />
       <ManagedSessionSchedulerModal
         visible={schedulerVisible}
         clients={schedulerClients}
@@ -2022,6 +2149,9 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       borderRadius: borderRadius.lg,
       marginBottom: spacing.sm,
     },
+    sessionCardDetailPressable: {
+      width: '100%',
+    },
     sessionCardHeader: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -2093,6 +2223,29 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
     actionHalf: {
       flex: 1,
       minWidth: 120,
+    },
+    clinicManagedNotice: {
+      minHeight: 44,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: spacing.sm,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+      borderRadius: 8,
+      backgroundColor: theme.bgMuted,
+      padding: spacing.sm,
+    },
+    clinicManagedText: {
+      flex: 1,
+      minWidth: 150,
+      color: theme.textSecondary,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: typography.fontSizes.sm,
+      lineHeight: 20,
+    },
+    clinicManagedAction: {
+      minWidth: 130,
     },
     joinButton: {
       minHeight: 42,

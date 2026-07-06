@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { Button } from '../../../components/common/Button';
 import { Input } from '../../../components/common/Input';
 import { SimpleDropdown, type DropdownOption } from '../../../components/common/SimpleDropdown';
@@ -12,6 +13,7 @@ import type {
   ClinicPatientDetail,
   ClinicPatientListPageInfo,
   ClinicPatientSummary,
+  ClinicSessionSummary,
 } from '../../../services/clinicService';
 import type { UploadAsset } from '../../../utils/multipartUpload';
 import { ClinicPatientConsentPanel } from './ClinicPatientConsentPanel';
@@ -42,6 +44,11 @@ interface ClinicPatientDetailPanelProps {
   assignmentHistoryLoading: boolean;
   assignmentHistoryLoadingMore: boolean;
   assignmentHistoryError: string;
+  patientSessions: ClinicSessionSummary[];
+  patientSessionsPageInfo: ClinicPatientListPageInfo | null;
+  patientSessionsLoading: boolean;
+  patientSessionsLoadingMore: boolean;
+  patientSessionsError: string;
   canManage: boolean;
   assignmentMode: AssignmentPanelMode;
   assignmentForm: AssignmentForm;
@@ -59,9 +66,33 @@ interface ClinicPatientDetailPanelProps {
   onOpenConsentDocument: (document: ClinicPatientConsentDocument) => void;
   onLoadMoreAssignmentHistory: () => void;
   onRetryAssignmentHistory: () => void;
+  onOpenSessionDetail: (sessionId: string) => void;
+  onLoadMorePatientSessions: () => void;
+  onRetryPatientSessions: () => void;
   onEdit: () => void;
   onStatusChange: () => void;
 }
+
+const SESSION_STATUS_LABELS: Record<ClinicSessionSummary['status'], string> = {
+  PENDING: 'Pendiente',
+  CONFIRMED: 'Confirmada',
+  COMPLETED: 'Completada',
+  CANCELLED: 'Cancelada',
+};
+
+const SESSION_TYPE_LABELS: Record<ClinicSessionSummary['type'], string> = {
+  IN_PERSON: 'Presencial',
+  PHONE_CALL: 'Llamada',
+  VIDEO_CALL: 'Videollamada',
+};
+
+const formatSessionDateTime = (value: string): string =>
+  new Date(value).toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
 export function ClinicPatientDetailPanel({
   patient,
@@ -77,6 +108,11 @@ export function ClinicPatientDetailPanel({
   assignmentHistoryLoading,
   assignmentHistoryLoadingMore,
   assignmentHistoryError,
+  patientSessions,
+  patientSessionsPageInfo,
+  patientSessionsLoading,
+  patientSessionsLoadingMore,
+  patientSessionsError,
   canManage,
   assignmentMode,
   assignmentForm,
@@ -94,6 +130,9 @@ export function ClinicPatientDetailPanel({
   onOpenConsentDocument,
   onLoadMoreAssignmentHistory,
   onRetryAssignmentHistory,
+  onOpenSessionDetail,
+  onLoadMorePatientSessions,
+  onRetryPatientSessions,
   onEdit,
   onStatusChange,
 }: ClinicPatientDetailPanelProps): React.ReactElement {
@@ -184,6 +223,18 @@ export function ClinicPatientDetailPanel({
         onRetry={onRetryAssignmentHistory}
       />
 
+      <PatientSessionsSection
+        sessions={patientSessions}
+        pageInfo={patientSessionsPageInfo}
+        loading={patientSessionsLoading}
+        loadingMore={patientSessionsLoadingMore}
+        error={patientSessionsError}
+        canManage={canManage}
+        onOpenSessionDetail={onOpenSessionDetail}
+        onLoadMore={onLoadMorePatientSessions}
+        onRetry={onRetryPatientSessions}
+      />
+
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Fiscal</Text>
         {detailLoading ? <ActivityIndicator color={theme.primary} size="small" /> : null}
@@ -272,6 +323,109 @@ interface AssignmentHistorySectionProps {
   canManage: boolean;
   onLoadMore: () => void;
   onRetry: () => void;
+}
+
+interface PatientSessionsSectionProps {
+  sessions: ClinicSessionSummary[];
+  pageInfo: ClinicPatientListPageInfo | null;
+  loading: boolean;
+  loadingMore: boolean;
+  error: string;
+  canManage: boolean;
+  onOpenSessionDetail: (sessionId: string) => void;
+  onLoadMore: () => void;
+  onRetry: () => void;
+}
+
+function PatientSessionsSection({
+  sessions,
+  pageInfo,
+  loading,
+  loadingMore,
+  error,
+  canManage,
+  onOpenSessionDetail,
+  onLoadMore,
+  onRetry,
+}: PatientSessionsSectionProps): React.ReactElement | null {
+  const { theme } = useTheme();
+  const styles = useMemo(() => createDetailStyles(theme), [theme]);
+
+  if (!canManage) {
+    return null;
+  }
+
+  return (
+    <View style={styles.historyBox}>
+      <View style={styles.sectionHeader}>
+        <View>
+          <Text style={styles.sectionTitle}>Citas</Text>
+          <Text style={styles.hint}>
+            Citas recientes y proximas del paciente dentro de la clinica.
+          </Text>
+        </View>
+        {loading ? <ActivityIndicator color={theme.primary} size="small" /> : null}
+      </View>
+
+      {error ? (
+        <View style={styles.historyState}>
+          <Text style={[styles.message, { color: theme.error }]}>{error}</Text>
+          <Button variant="ghost" size="small" onPress={onRetry} disabled={loading}>
+            Reintentar
+          </Button>
+        </View>
+      ) : null}
+
+      {!loading && !error && sessions.length === 0 ? (
+        <View style={styles.assignmentEmpty}>
+          <Ionicons name="calendar-outline" size={18} color={theme.textMuted} />
+          <Text style={styles.hint}>No hay citas registradas para este paciente.</Text>
+        </View>
+      ) : null}
+
+      {sessions.length > 0 ? (
+        <View style={styles.historyList}>
+          {sessions.map((session) => (
+            <AnimatedPressable
+              key={session.id}
+              onPress={() => onOpenSessionDetail(session.id)}
+              hoverLift={false}
+              pressScale={0.99}
+              style={styles.historyItem}
+              accessibilityLabel={`Ver detalle de cita de ${session.patient.displayName}`}
+            >
+              <View style={styles.historyMarker}>
+                <Ionicons name="calendar-clear-outline" size={17} color={theme.primary} />
+              </View>
+              <View style={styles.historyCopy}>
+                <Text style={styles.historyName}>
+                  {formatSessionDateTime(session.date)}
+                </Text>
+                <Text style={styles.historyMeta}>
+                  {SESSION_STATUS_LABELS[session.status]} - {SESSION_TYPE_LABELS[session.type]} - {session.duration} min
+                </Text>
+                <Text style={styles.historyActor}>
+                  {session.specialist.displayName}
+                </Text>
+              </View>
+            </AnimatedPressable>
+          ))}
+        </View>
+      ) : null}
+
+      {pageInfo?.hasMore ? (
+        <Button
+          variant="ghost"
+          size="medium"
+          onPress={onLoadMore}
+          loading={loadingMore}
+          disabled={loading || loadingMore}
+        >
+          Cargar más
+        </Button>
+      ) : null}
+    </View>
+  );
 }
 
 function AssignmentHistorySection({

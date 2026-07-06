@@ -361,6 +361,21 @@ export const listClinicalSessionFolders = async (
   }
 };
 
+export const getClinicalSessionFolder = async (
+  clientId: string,
+  sessionId: string,
+  clinicalAccessToken: string
+): Promise<ClinicalSessionFolder> => {
+  try {
+    const response = await api.get(`/clinical/records/${clientId}/session-folders/${sessionId}`, {
+      headers: buildClinicalHeaders(clinicalAccessToken),
+    });
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo abrir la carpeta clinica de la sesion'));
+  }
+};
+
 export const createClinicalNote = async (
   clientId: string,
   content: string,
