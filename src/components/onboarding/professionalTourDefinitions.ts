@@ -149,8 +149,8 @@ export const PROFESSIONAL_TOUR_DEFINITIONS: Record<
       {
         id: 'weekly-grid',
         targetId: 'professional.availability.weekly-grid',
-        title: 'Ajusta tu tramo semanal',
-        body: 'Activa días y ajusta un tramo continuo para decidir cuándo pueden reservarte los pacientes.',
+        title: 'Ajusta tus franjas',
+        body: 'Activa días y añade o quita franjas de forma libre para decidir cuándo pueden reservarte los pacientes.',
         placement: 'bottom',
       },
       {

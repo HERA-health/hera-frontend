@@ -12,8 +12,10 @@ import {
   addExceptionRange,
   getMyExceptions,
   getMyWeeklySchedule,
+  getMyWeeklyScheduleSnapshot,
   getExceptionRangeImpact,
   removeExceptionRange,
+  updateWeeklySchedule,
   type WeeklySchedule,
 } from '../availabilityService';
 
@@ -48,6 +50,170 @@ describe('availabilityService private professional reads', () => {
 
     expect(mockedApi.get).toHaveBeenCalledTimes(1);
     expect(mockedApi.get).toHaveBeenCalledWith('/availability/schedule/me');
+  });
+
+  it('normalizes legacy single-range schedules from the private endpoint', async () => {
+    mockedApi.get.mockResolvedValue({
+      data: {
+        data: {
+          schedule: {
+            ...emptyWeeklySchedule,
+            monday: { start: '08:00', end: '14:00' },
+          },
+          specialistId: 'specialist-1',
+        },
+      },
+    });
+
+    await expect(getMyWeeklySchedule()).resolves.toEqual({
+      ...emptyWeeklySchedule,
+      monday: [{ start: '08:00', end: '14:00' }],
+    });
+  });
+
+  it('accepts canonical v2 multi-range schedules from the private endpoint', async () => {
+    mockedApi.get.mockResolvedValue({
+      data: {
+        data: {
+          schedule: {
+            ...emptyWeeklySchedule,
+            monday: [
+              { start: '08:00', end: '14:00' },
+              { start: '16:00', end: '20:00' },
+            ],
+          },
+          scheduleVersion: 2,
+          specialistId: 'specialist-1',
+        },
+      },
+    });
+
+    await expect(getMyWeeklySchedule()).resolves.toEqual({
+      ...emptyWeeklySchedule,
+      monday: [
+        { start: '08:00', end: '14:00' },
+        { start: '16:00', end: '20:00' },
+      ],
+    });
+  });
+
+  it('loads a v2 weekly schedule snapshot with revision', async () => {
+    const schedule = {
+      ...emptyWeeklySchedule,
+      monday: [
+        { start: '08:00', end: '14:00' },
+        { start: '16:00', end: '20:00' },
+      ],
+    };
+    mockedApi.get.mockResolvedValue({
+      data: {
+        data: {
+          schedule,
+          scheduleRevision: 'rev-current',
+          scheduleVersion: 2,
+          specialistId: 'specialist-1',
+        },
+      },
+    });
+
+    await expect(getMyWeeklyScheduleSnapshot()).resolves.toEqual({
+      schedule,
+      scheduleRevision: 'rev-current',
+    });
+  });
+
+  it('keeps snapshot reads compatible with legacy schedule payloads', async () => {
+    mockedApi.get.mockResolvedValue({
+      data: {
+        data: emptyWeeklySchedule,
+      },
+    });
+
+    await expect(getMyWeeklyScheduleSnapshot()).resolves.toEqual({
+      schedule: emptyWeeklySchedule,
+      scheduleRevision: null,
+    });
+  });
+
+  it('fails with a controlled error when the schedule payload is invalid', async () => {
+    mockedApi.get.mockResolvedValue({
+      data: {
+        data: {
+          schedule: {
+            ...emptyWeeklySchedule,
+            monday: { start: '08:15', end: '14:00' },
+          },
+          specialistId: 'specialist-1',
+        },
+      },
+    });
+
+    await expect(getMyWeeklySchedule()).rejects.toThrow('Formato de disponibilidad no válido');
+  });
+
+  it('fails with a controlled error when schedule ranges exceed the weekly bounds', async () => {
+    mockedApi.get.mockResolvedValue({
+      data: {
+        data: {
+          schedule: {
+            ...emptyWeeklySchedule,
+            monday: [{ start: '06:30', end: '08:00' }],
+          },
+          specialistId: 'specialist-1',
+        },
+      },
+    });
+
+    await expect(getMyWeeklySchedule()).rejects.toThrow('Formato de disponibilidad no válido');
+  });
+
+  it('fails with a controlled error when schedule ranges overlap or are unordered', async () => {
+    mockedApi.get.mockResolvedValue({
+      data: {
+        data: {
+          schedule: {
+            ...emptyWeeklySchedule,
+            monday: [
+              { start: '10:00', end: '12:00' },
+              { start: '09:00', end: '10:00' },
+            ],
+          },
+          specialistId: 'specialist-1',
+        },
+      },
+    });
+
+    await expect(getMyWeeklySchedule()).rejects.toThrow('Formato de disponibilidad no válido');
+  });
+
+  it('updates the weekly schedule with the current revision and returns the new snapshot', async () => {
+    const schedule = {
+      ...emptyWeeklySchedule,
+      monday: [
+        { start: '08:00', end: '14:00' },
+        { start: '16:00', end: '20:00' },
+      ],
+    };
+    mockedApi.put.mockResolvedValue({
+      data: {
+        data: {
+          schedule,
+          scheduleRevision: 'rev-next',
+          scheduleVersion: 2,
+          specialistId: 'specialist-1',
+        },
+      },
+    });
+
+    await expect(updateWeeklySchedule(schedule, 'rev-current')).resolves.toEqual({
+      schedule,
+      scheduleRevision: 'rev-next',
+    });
+
+    expect(mockedApi.put).toHaveBeenCalledWith('/availability/schedule', {
+      schedule,
+      scheduleRevision: 'rev-current',
+    });
   });
 
   it('loads authenticated professional exceptions through the private endpoint', async () => {

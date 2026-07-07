@@ -58,6 +58,7 @@ jest.mock('../../../services/analyticsService', () => ({
 jest.mock('../../../services/availabilityService', () => ({
   addExceptionRange: jest.fn(),
   getMyWeeklySchedule: jest.fn(),
+  getMyWeeklyScheduleSnapshot: jest.fn(),
   getMyExceptions: jest.fn(),
   getExceptionRangeImpact: jest.fn(),
   getMyBufferTime: jest.fn(),
@@ -83,7 +84,7 @@ const mockedShowAppAlert = jest.mocked(showAppAlert);
 const mockedAvailabilityService = jest.mocked(availabilityService);
 const mockedBillingService = jest.mocked(billingService);
 
-const emptyWeeklySchedule = {
+const emptyWeeklySchedule: availabilityService.WeeklySchedule = {
   monday: null,
   tuesday: null,
   wednesday: null,
@@ -92,6 +93,14 @@ const emptyWeeklySchedule = {
   saturday: null,
   sunday: null,
 };
+
+const createScheduleSnapshot = (
+  schedule: availabilityService.WeeklySchedule = emptyWeeklySchedule,
+  scheduleRevision: string | null = 'rev-empty',
+): availabilityService.WeeklyScheduleSnapshot => ({
+  schedule,
+  scheduleRevision,
+});
 
 describe('ProfessionalAvailabilityScreen', () => {
   beforeEach(() => {
@@ -114,6 +123,7 @@ describe('ProfessionalAvailabilityScreen', () => {
     mockedUseAppAlert.mockReturnValue({} as ReturnType<typeof useAppAlert>);
     mockedUseAppAlertState.mockReturnValue({ isVisible: false });
     mockedAvailabilityService.getMyWeeklySchedule.mockResolvedValue(emptyWeeklySchedule);
+    mockedAvailabilityService.getMyWeeklyScheduleSnapshot.mockResolvedValue(createScheduleSnapshot());
     mockedAvailabilityService.getMyExceptions.mockResolvedValue([]);
     mockedAvailabilityService.getExceptionRangeImpact.mockResolvedValue({ activeSessionCount: 0 });
     mockedAvailabilityService.addExceptionRange.mockResolvedValue({
@@ -128,7 +138,10 @@ describe('ProfessionalAvailabilityScreen', () => {
     mockedAvailabilityService.removeException.mockResolvedValue(undefined);
     mockedAvailabilityService.removeExceptionRange.mockResolvedValue({ deletedCount: 1 });
     mockedAvailabilityService.getMyBufferTime.mockResolvedValue(15);
-    mockedAvailabilityService.updateWeeklySchedule.mockResolvedValue(undefined);
+    mockedAvailabilityService.updateWeeklySchedule.mockImplementation(async (schedule) => ({
+      schedule,
+      scheduleRevision: 'rev-next',
+    }));
     mockedAvailabilityService.updateBufferTime.mockResolvedValue(undefined);
     mockedBillingService.getConfig.mockRejectedValue(new Error('No se pudo cargar la configuración de facturación'));
   });
@@ -149,7 +162,7 @@ describe('ProfessionalAvailabilityScreen', () => {
     });
     expect(screen.getByText('No se pudo cargar la configuración de facturación')).toBeTruthy();
     await waitFor(() => {
-      expect(mockedAvailabilityService.getMyWeeklySchedule).toHaveBeenCalled();
+      expect(mockedAvailabilityService.getMyWeeklyScheduleSnapshot).toHaveBeenCalled();
     });
     expect(mockedShowAppAlert).not.toHaveBeenCalled();
   });
@@ -205,7 +218,7 @@ describe('ProfessionalAvailabilityScreen', () => {
     expect(screen.getByText('Confirmar')).toBeTruthy();
     expect(screen.getByText('8-14 h')).toBeTruthy();
     expect(screen.getByText('14-20 h')).toBeTruthy();
-    expect(screen.getByText('8-20 h')).toBeTruthy();
+    expect(screen.getByText('8-14 · 16-20 h')).toBeTruthy();
   });
 
   it('does not apply a quick pattern without a complete selection', async () => {
@@ -367,10 +380,10 @@ describe('ProfessionalAvailabilityScreen', () => {
   });
 
   it('replaces selected days and activates disabled destinations before saving', async () => {
-    mockedAvailabilityService.getMyWeeklySchedule.mockResolvedValue({
+    mockedAvailabilityService.getMyWeeklyScheduleSnapshot.mockResolvedValue(createScheduleSnapshot({
       ...emptyWeeklySchedule,
-      monday: { start: '14:00', end: '20:00' },
-    });
+      monday: [{ start: '14:00', end: '20:00' }],
+    }));
     const props = {
       navigation: { navigate: jest.fn() },
     } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
@@ -393,15 +406,186 @@ describe('ProfessionalAvailabilityScreen', () => {
     fireEvent.press(screen.getByText('Guardar'));
 
     await waitFor(() => {
-      expect(mockedAvailabilityService.updateWeeklySchedule).toHaveBeenCalledWith({
-        monday: { start: '08:00', end: '14:00' },
-        tuesday: null,
-        wednesday: null,
-        thursday: null,
-        friday: null,
-        saturday: null,
-        sunday: { start: '08:00', end: '14:00' },
-      });
+      expect(mockedAvailabilityService.updateWeeklySchedule).toHaveBeenCalledWith(
+        {
+          monday: [{ start: '08:00', end: '14:00' }],
+          tuesday: null,
+          wednesday: null,
+          thursday: null,
+          friday: null,
+          saturday: null,
+          sunday: [{ start: '08:00', end: '14:00' }],
+        },
+        'rev-empty'
+      );
+    });
+  });
+
+  it('applies the full quick pattern with a two-hour break', async () => {
+    const props = {
+      navigation: { navigate: jest.fn() },
+    } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
+
+    render(<ProfessionalAvailabilityScreen {...props} />);
+
+    await screen.findByText('Patrones rápidos');
+    fireEvent.press(screen.getByLabelText('Abrir patrones rápidos'));
+    fireEvent.press(screen.getByLabelText('Elegir patrón Completa'));
+    fireEvent.press(screen.getByLabelText('Seleccionar Lunes para patrón'));
+    fireEvent.press(screen.getByText('Aplicar'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Cambios sin guardar')).toBeTruthy();
+    });
+    expect(screen.getByText('8-14 · 16-20')).toBeTruthy();
+    expect(screen.getByLabelText('Lunes 13:30-14:00').props.accessibilityState?.selected).toBe(true);
+
+    fireEvent.press(screen.getByText('Guardar'));
+
+    await waitFor(() => {
+      expect(mockedAvailabilityService.updateWeeklySchedule).toHaveBeenCalledWith(
+        {
+          monday: [
+            { start: '08:00', end: '14:00' },
+            { start: '16:00', end: '20:00' },
+          ],
+          tuesday: null,
+          wednesday: null,
+          thursday: null,
+          friday: null,
+          saturday: null,
+          sunday: null,
+        },
+        'rev-empty'
+      );
+    });
+  });
+
+  it('shows compact real range chips on mobile after applying the full pattern', async () => {
+    const mobileMetrics = {
+      width: 390,
+      height: 844,
+      scale: 1,
+      fontScale: 1,
+    };
+    ReactNative.Dimensions.set({
+      window: mobileMetrics,
+      screen: mobileMetrics,
+    });
+    const props = {
+      navigation: { navigate: jest.fn() },
+    } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
+
+    render(<ProfessionalAvailabilityScreen {...props} />);
+
+    await screen.findByText('Patrones rápidos');
+    fireEvent.press(screen.getByLabelText('Abrir patrones rápidos'));
+    fireEvent.press(screen.getByLabelText('Elegir patrón Completa'));
+    fireEvent.press(screen.getByLabelText('Seleccionar Lunes para patrón'));
+    fireEvent.press(screen.getByText('Aplicar'));
+
+    expect(screen.getByText('8-14 · 16-20')).toBeTruthy();
+  });
+
+  it('does not update buffer time when the weekly schedule save conflicts', async () => {
+    mockedAvailabilityService.updateWeeklySchedule.mockRejectedValueOnce(
+      new Error('La disponibilidad ha cambiado mientras guardabas. Revisa e inténtalo de nuevo.')
+    );
+    const props = {
+      navigation: { navigate: jest.fn() },
+    } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
+
+    render(<ProfessionalAvailabilityScreen {...props} />);
+
+    await screen.findByText('Patrones rápidos');
+    fireEvent.press(screen.getByLabelText('Activar Lunes'));
+    fireEvent.press(screen.getByLabelText('Lunes 08:00-08:30'));
+    fireEvent.press(screen.getByText('Guardar'));
+
+    await waitFor(() => {
+      expect(mockedAvailabilityService.updateWeeklySchedule).toHaveBeenCalled();
+    });
+    expect(mockedAvailabilityService.updateBufferTime).not.toHaveBeenCalled();
+    expect(mockedShowAppAlert).toHaveBeenCalledWith(
+      expect.anything(),
+      'Error',
+      'La disponibilidad ha cambiado mientras guardabas. Revisa e inténtalo de nuevo.'
+    );
+  });
+
+  it('keeps changes pending when buffer time fails after schedule save', async () => {
+    mockedAvailabilityService.updateBufferTime.mockRejectedValueOnce(
+      new Error('No se pudo actualizar el descanso entre sesiones')
+    );
+    const props = {
+      navigation: { navigate: jest.fn() },
+    } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
+
+    render(<ProfessionalAvailabilityScreen {...props} />);
+
+    await screen.findByText('Patrones rápidos');
+    fireEvent.press(screen.getByLabelText('Activar Lunes'));
+    fireEvent.press(screen.getByLabelText('Lunes 08:00-08:30'));
+    fireEvent.press(screen.getByText('Guardar'));
+
+    await waitFor(() => {
+      expect(mockedShowAppAlert).toHaveBeenCalledWith(
+        expect.anything(),
+        'Guardado parcial',
+        'Tu disponibilidad se actualizó, pero no se pudo guardar el descanso entre sesiones. Inténtalo de nuevo.'
+      );
+    });
+    expect(screen.getByText('Cambios sin guardar')).toBeTruthy();
+  });
+
+  it('uses the updated schedule revision after a successful save', async () => {
+    const props = {
+      navigation: { navigate: jest.fn() },
+    } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
+
+    render(<ProfessionalAvailabilityScreen {...props} />);
+
+    await screen.findByText('Patrones rápidos');
+    fireEvent.press(screen.getByLabelText('Activar Lunes'));
+    fireEvent.press(screen.getByLabelText('Lunes 08:00-08:30'));
+    fireEvent.press(screen.getByText('Guardar'));
+
+    await waitFor(() => {
+      expect(mockedAvailabilityService.updateWeeklySchedule).toHaveBeenNthCalledWith(
+        1,
+        {
+          monday: [{ start: '08:00', end: '08:30' }],
+          tuesday: null,
+          wednesday: null,
+          thursday: null,
+          friday: null,
+          saturday: null,
+          sunday: null,
+        },
+        'rev-empty'
+      );
+    });
+
+    fireEvent.press(screen.getByLabelText('Lunes 10:00-10:30'));
+    fireEvent.press(screen.getByText('Guardar'));
+
+    await waitFor(() => {
+      expect(mockedAvailabilityService.updateWeeklySchedule).toHaveBeenNthCalledWith(
+        2,
+        {
+          monday: [
+            { start: '08:00', end: '08:30' },
+            { start: '10:00', end: '10:30' },
+          ],
+          tuesday: null,
+          wednesday: null,
+          thursday: null,
+          friday: null,
+          saturday: null,
+          sunday: null,
+        },
+        'rev-next'
+      );
     });
   });
 
@@ -437,7 +621,7 @@ describe('ProfessionalAvailabilityScreen', () => {
 
     await screen.findByText('Patrones rápidos');
     fireEvent.press(screen.getByLabelText('Activar Lunes'));
-    fireEvent.press(screen.getByLabelText('Lunes 22:30'));
+    fireEvent.press(screen.getByLabelText('Lunes 22:30-23:00'));
 
     await waitFor(() => {
       expect(screen.getByText('Cambios sin guardar')).toBeTruthy();
@@ -446,19 +630,22 @@ describe('ProfessionalAvailabilityScreen', () => {
     fireEvent.press(screen.getByText('Guardar'));
 
     await waitFor(() => {
-      expect(mockedAvailabilityService.updateWeeklySchedule).toHaveBeenCalledWith({
-        monday: { start: '22:30', end: '23:00' },
-        tuesday: null,
-        wednesday: null,
-        thursday: null,
-        friday: null,
-        saturday: null,
-        sunday: null,
-      });
+      expect(mockedAvailabilityService.updateWeeklySchedule).toHaveBeenCalledWith(
+        {
+          monday: [{ start: '22:30', end: '23:00' }],
+          tuesday: null,
+          wednesday: null,
+          thursday: null,
+          friday: null,
+          saturday: null,
+          sunday: null,
+        },
+        'rev-empty'
+      );
     });
   });
 
-  it('expands manual grid edits as a single continuous range', async () => {
+  it('keeps separated manual grid clicks as separate ranges', async () => {
     const props = {
       navigation: { navigate: jest.fn() },
     } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
@@ -467,8 +654,8 @@ describe('ProfessionalAvailabilityScreen', () => {
 
     await screen.findByText('Patrones rápidos');
     fireEvent.press(screen.getByLabelText('Activar Lunes'));
-    fireEvent.press(screen.getByLabelText('Lunes 08:00'));
-    fireEvent.press(screen.getByLabelText('Lunes 10:00'));
+    fireEvent.press(screen.getByLabelText('Lunes 08:00-08:30'));
+    fireEvent.press(screen.getByLabelText('Lunes 10:00-10:30'));
 
     await waitFor(() => {
       expect(screen.getByText('Cambios sin guardar')).toBeTruthy();
@@ -477,23 +664,29 @@ describe('ProfessionalAvailabilityScreen', () => {
     fireEvent.press(screen.getByText('Guardar'));
 
     await waitFor(() => {
-      expect(mockedAvailabilityService.updateWeeklySchedule).toHaveBeenCalledWith({
-        monday: { start: '08:00', end: '10:30' },
-        tuesday: null,
-        wednesday: null,
-        thursday: null,
-        friday: null,
-        saturday: null,
-        sunday: null,
-      });
+      expect(mockedAvailabilityService.updateWeeklySchedule).toHaveBeenCalledWith(
+        {
+          monday: [
+            { start: '08:00', end: '08:30' },
+            { start: '10:00', end: '10:30' },
+          ],
+          tuesday: null,
+          wednesday: null,
+          thursday: null,
+          friday: null,
+          saturday: null,
+          sunday: null,
+        },
+        'rev-empty'
+      );
     });
   });
 
-  it('trims a manual continuous range from the selected edge', async () => {
-    mockedAvailabilityService.getMyWeeklySchedule.mockResolvedValue({
+  it('trims only the selected edge slot from a manual range', async () => {
+    mockedAvailabilityService.getMyWeeklyScheduleSnapshot.mockResolvedValue(createScheduleSnapshot({
       ...emptyWeeklySchedule,
-      monday: { start: '08:00', end: '10:00' },
-    });
+      monday: [{ start: '08:00', end: '10:00' }],
+    }));
     const props = {
       navigation: { navigate: jest.fn() },
     } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
@@ -501,7 +694,7 @@ describe('ProfessionalAvailabilityScreen', () => {
     render(<ProfessionalAvailabilityScreen {...props} />);
 
     await screen.findByText('Patrones rápidos');
-    fireEvent.press(screen.getByLabelText('Lunes 08:00'));
+    fireEvent.press(screen.getByLabelText('Lunes 08:00-08:30'));
 
     await waitFor(() => {
       expect(screen.getByText('Cambios sin guardar')).toBeTruthy();
@@ -510,23 +703,26 @@ describe('ProfessionalAvailabilityScreen', () => {
     fireEvent.press(screen.getByText('Guardar'));
 
     await waitFor(() => {
-      expect(mockedAvailabilityService.updateWeeklySchedule).toHaveBeenCalledWith({
-        monday: { start: '08:30', end: '10:00' },
-        tuesday: null,
-        wednesday: null,
-        thursday: null,
-        friday: null,
-        saturday: null,
-        sunday: null,
-      });
+      expect(mockedAvailabilityService.updateWeeklySchedule).toHaveBeenCalledWith(
+        {
+          monday: [{ start: '08:30', end: '10:00' }],
+          tuesday: null,
+          wednesday: null,
+          thursday: null,
+          friday: null,
+          saturday: null,
+          sunday: null,
+        },
+        'rev-empty'
+      );
     });
   });
 
-  it('blocks interior slot clicks so manual edits cannot create gaps', async () => {
-    mockedAvailabilityService.getMyWeeklySchedule.mockResolvedValue({
+  it('allows interior slot clicks to create a break', async () => {
+    mockedAvailabilityService.getMyWeeklyScheduleSnapshot.mockResolvedValue(createScheduleSnapshot({
       ...emptyWeeklySchedule,
-      monday: { start: '08:00', end: '10:00' },
-    });
+      monday: [{ start: '08:00', end: '10:00' }],
+    }));
     const props = {
       navigation: { navigate: jest.fn() },
     } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
@@ -534,18 +730,38 @@ describe('ProfessionalAvailabilityScreen', () => {
     render(<ProfessionalAvailabilityScreen {...props} />);
 
     await screen.findByText('Patrones rápidos');
-    fireEvent.press(screen.getByLabelText('Lunes 09:00'));
+    fireEvent.press(screen.getByLabelText('Lunes 09:00-09:30'));
 
-    expect(screen.getByText('Cada día guarda un único tramo continuo. Ajusta el inicio o el final desde los extremos.')).toBeTruthy();
-    expect(screen.queryByText('Cambios sin guardar')).toBeNull();
-    expect(mockedAvailabilityService.updateWeeklySchedule).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByText('Cambios sin guardar')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('Guardar'));
+
+    await waitFor(() => {
+      expect(mockedAvailabilityService.updateWeeklySchedule).toHaveBeenCalledWith(
+        {
+          monday: [
+            { start: '08:00', end: '09:00' },
+            { start: '09:30', end: '10:00' },
+          ],
+          tuesday: null,
+          wednesday: null,
+          thursday: null,
+          friday: null,
+          saturday: null,
+          sunday: null,
+        },
+        'rev-empty'
+      );
+    });
   });
 
-  it('shows late availability slots in preview instead of truncating the list', async () => {
-    mockedAvailabilityService.getMyWeeklySchedule.mockResolvedValue({
+  it('shows full availability ranges in preview instead of raw slot starts', async () => {
+    mockedAvailabilityService.getMyWeeklyScheduleSnapshot.mockResolvedValue(createScheduleSnapshot({
       ...emptyWeeklySchedule,
-      monday: { start: '07:00', end: '23:00' },
-    });
+      monday: [{ start: '07:00', end: '23:00' }],
+    }));
     const props = {
       navigation: { navigate: jest.fn() },
     } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
@@ -555,6 +771,7 @@ describe('ProfessionalAvailabilityScreen', () => {
     await screen.findByText('Patrones rápidos');
     fireEvent.press(screen.getByText('Vista previa'));
 
-    expect(screen.getByText('22:30')).toBeTruthy();
+    expect(screen.getByText('07:00-23:00')).toBeTruthy();
+    expect(screen.queryByText('22:30')).toBeNull();
   });
 });

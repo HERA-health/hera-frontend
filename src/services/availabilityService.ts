@@ -1,4 +1,5 @@
 import { api } from './api';
+import { z } from 'zod';
 import { getErrorMessage } from '../constants/errors';
 import type {
   AvailabilityAbsenceReason,
@@ -23,18 +24,109 @@ export interface DaySchedule {
   end: string;   // HH:mm format
 }
 
+type LegacyDaySchedule = DaySchedule | DaySchedule[] | null;
+
 /**
  * Weekly availability schedule
  */
 export interface WeeklySchedule {
-  monday: DaySchedule | null;
-  tuesday: DaySchedule | null;
-  wednesday: DaySchedule | null;
-  thursday: DaySchedule | null;
-  friday: DaySchedule | null;
-  saturday: DaySchedule | null;
-  sunday: DaySchedule | null;
+  monday: DaySchedule[] | null;
+  tuesday: DaySchedule[] | null;
+  wednesday: DaySchedule[] | null;
+  thursday: DaySchedule[] | null;
+  friday: DaySchedule[] | null;
+  saturday: DaySchedule[] | null;
+  sunday: DaySchedule[] | null;
 }
+
+type WeeklyScheduleResponse = Record<keyof WeeklySchedule, LegacyDaySchedule>;
+
+export interface WeeklyScheduleSnapshot {
+  schedule: WeeklySchedule;
+  scheduleRevision: string | null;
+}
+
+const INVALID_WEEKLY_SCHEDULE_MESSAGE = 'Formato de disponibilidad no válido';
+const WEEKLY_SCHEDULE_MIN_MINUTES = 7 * 60;
+const WEEKLY_SCHEDULE_MAX_MINUTES = 23 * 60;
+const WEEKLY_SCHEDULE_STEP_MINUTES = 30;
+const WEEKLY_SCHEDULE_MIN_RANGE_MINUTES = 30;
+const MAX_WEEKLY_SCHEDULE_RANGES_PER_DAY = 32;
+const weeklyScheduleTimeSchema = z.string()
+  .regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/);
+
+const getTimeMinutes = (time: string): number => {
+  const [hour, minute] = time.split(':').map(Number);
+  return hour * 60 + minute;
+};
+
+const weeklyScheduleRangeSchema = z.object({
+  start: weeklyScheduleTimeSchema,
+  end: weeklyScheduleTimeSchema,
+}).strict().superRefine((range, context) => {
+  const startMinutes = getTimeMinutes(range.start);
+  const endMinutes = getTimeMinutes(range.end);
+
+  if (startMinutes >= endMinutes) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Schedule range start must be before end',
+      path: ['end'],
+    });
+  }
+
+  if (startMinutes < WEEKLY_SCHEDULE_MIN_MINUTES || endMinutes > WEEKLY_SCHEDULE_MAX_MINUTES) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Schedule range must stay within 07:00-23:00',
+      path: ['start'],
+    });
+  }
+
+  if (
+    startMinutes % WEEKLY_SCHEDULE_STEP_MINUTES !== 0
+    || endMinutes % WEEKLY_SCHEDULE_STEP_MINUTES !== 0
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Schedule range must use 30-minute steps',
+      path: ['start'],
+    });
+  }
+
+  if (endMinutes - startMinutes < WEEKLY_SCHEDULE_MIN_RANGE_MINUTES) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Schedule range must last at least 30 minutes',
+      path: ['end'],
+    });
+  }
+});
+
+const legacyDayScheduleSchema = z.union([
+  weeklyScheduleRangeSchema,
+  z.array(weeklyScheduleRangeSchema).max(MAX_WEEKLY_SCHEDULE_RANGES_PER_DAY),
+  z.null(),
+]);
+
+const weeklyScheduleResponseSchema = z.object({
+  friday: legacyDayScheduleSchema,
+  monday: legacyDayScheduleSchema,
+  saturday: legacyDayScheduleSchema,
+  sunday: legacyDayScheduleSchema,
+  thursday: legacyDayScheduleSchema,
+  tuesday: legacyDayScheduleSchema,
+  wednesday: legacyDayScheduleSchema,
+}).strict();
+
+const weeklyScheduleSnapshotResponseSchema = z.object({
+  schedule: weeklyScheduleResponseSchema,
+  scheduleRevision: z.string().min(1),
+}).passthrough();
+
+const legacyWeeklyScheduleEnvelopeSchema = z.object({
+  schedule: weeklyScheduleResponseSchema,
+}).passthrough();
 
 /**
  * Availability exception (date-specific override)
@@ -57,7 +149,16 @@ export interface AvailabilityException {
 export const getMyWeeklySchedule = async (): Promise<WeeklySchedule> => {
   try {
     const response = await api.get('/availability/schedule/me');
-    return response.data.data.schedule;
+    return parseWeeklyScheduleResponse(response.data.data.schedule);
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo cargar el horario'));
+  }
+};
+
+export const getMyWeeklyScheduleSnapshot = async (): Promise<WeeklyScheduleSnapshot> => {
+  try {
+    const response = await api.get('/availability/schedule/me');
+    return parseWeeklyScheduleSnapshotResponse(response.data.data);
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo cargar el horario'));
   }
@@ -67,13 +168,102 @@ export const getMyWeeklySchedule = async (): Promise<WeeklySchedule> => {
  * Update weekly availability schedule
  */
 export const updateWeeklySchedule = async (
-  schedule: WeeklySchedule
-): Promise<void> => {
+  schedule: WeeklySchedule,
+  scheduleRevision?: string | null
+): Promise<WeeklyScheduleSnapshot> => {
   try {
-    await api.put('/availability/schedule', schedule);
+    const requestBody = scheduleRevision
+      ? { schedule, scheduleRevision }
+      : schedule;
+    const response = await api.put('/availability/schedule', requestBody);
+    return parseWeeklyScheduleSnapshotResponse(response.data.data, { requireRevision: true });
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo actualizar el horario'));
   }
+};
+
+const validateNormalizedDaySchedule = (daySchedule: DaySchedule[] | null): void => {
+  if (!daySchedule) {
+    return;
+  }
+
+  for (let index = 1; index < daySchedule.length; index += 1) {
+    const previousRange = daySchedule[index - 1];
+    const currentRange = daySchedule[index];
+
+    if (getTimeMinutes(previousRange.end) > getTimeMinutes(currentRange.start)) {
+      throw new Error(INVALID_WEEKLY_SCHEDULE_MESSAGE);
+    }
+  }
+};
+
+const normalizeDaySchedule = (daySchedule: LegacyDaySchedule): DaySchedule[] | null => {
+  if (!daySchedule) {
+    return null;
+  }
+
+  const ranges = Array.isArray(daySchedule) ? daySchedule : [daySchedule];
+  const normalizedRanges = ranges.length > 0 ? ranges : null;
+  validateNormalizedDaySchedule(normalizedRanges);
+  return normalizedRanges;
+};
+
+const normalizeWeeklySchedule = (schedule: WeeklyScheduleResponse): WeeklySchedule => ({
+  friday: normalizeDaySchedule(schedule.friday),
+  monday: normalizeDaySchedule(schedule.monday),
+  saturday: normalizeDaySchedule(schedule.saturday),
+  sunday: normalizeDaySchedule(schedule.sunday),
+  thursday: normalizeDaySchedule(schedule.thursday),
+  tuesday: normalizeDaySchedule(schedule.tuesday),
+  wednesday: normalizeDaySchedule(schedule.wednesday),
+});
+
+const parseWeeklyScheduleResponse = (schedule: unknown): WeeklySchedule => {
+  const parsedSchedule = weeklyScheduleResponseSchema.safeParse(schedule);
+
+  if (!parsedSchedule.success) {
+    throw new Error(INVALID_WEEKLY_SCHEDULE_MESSAGE);
+  }
+
+  return normalizeWeeklySchedule(parsedSchedule.data);
+};
+
+const parseWeeklyScheduleSnapshotResponse = (
+  data: unknown,
+  options: { requireRevision?: boolean } = {}
+): WeeklyScheduleSnapshot => {
+  const parsedV2Snapshot = weeklyScheduleSnapshotResponseSchema.safeParse(data);
+
+  if (parsedV2Snapshot.success) {
+    return {
+      schedule: normalizeWeeklySchedule(parsedV2Snapshot.data.schedule),
+      scheduleRevision: parsedV2Snapshot.data.scheduleRevision,
+    };
+  }
+
+  if (options.requireRevision) {
+    throw new Error(INVALID_WEEKLY_SCHEDULE_MESSAGE);
+  }
+
+  const parsedLegacyEnvelope = legacyWeeklyScheduleEnvelopeSchema.safeParse(data);
+
+  if (parsedLegacyEnvelope.success) {
+    return {
+      schedule: normalizeWeeklySchedule(parsedLegacyEnvelope.data.schedule),
+      scheduleRevision: null,
+    };
+  }
+
+  const parsedLegacySchedule = weeklyScheduleResponseSchema.safeParse(data);
+
+  if (parsedLegacySchedule.success) {
+    return {
+      schedule: normalizeWeeklySchedule(parsedLegacySchedule.data),
+      scheduleRevision: null,
+    };
+  }
+
+  throw new Error(INVALID_WEEKLY_SCHEDULE_MESSAGE);
 };
 
 /**

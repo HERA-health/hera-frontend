@@ -53,10 +53,11 @@ type CalendarMarkedDates = Record<string, {
 }>;
 type QuickPresetId = 'morning' | 'afternoon' | 'full';
 interface TimeRange { start: string; end: string; }
-interface QuickPreset extends TimeRange {
+interface QuickPreset {
   id: QuickPresetId;
   label: string;
   description: string;
+  ranges: TimeRange[];
   icon: keyof typeof Ionicons.glyphMap;
 }
 const DAYS: DayConfig[] = [
@@ -79,9 +80,18 @@ for (let hour = AVAILABILITY_START_HOUR; hour < AVAILABILITY_END_HOUR; hour += 1
 }
 
 const QUICK_PRESETS: QuickPreset[] = [
-  { id: 'morning', label: 'Mañana', description: 'Inicio temprano', start: '08:00', end: '14:00', icon: 'sunny-outline' },
-  { id: 'afternoon', label: 'Tarde', description: 'Bloque vespertino', start: '14:00', end: '20:00', icon: 'partly-sunny-outline' },
-  { id: 'full', label: 'Completa', description: 'Jornada continua', start: '08:00', end: '20:00', icon: 'calendar-outline' },
+  { id: 'morning', label: 'Mañana', description: 'Inicio temprano', ranges: [{ start: '08:00', end: '14:00' }], icon: 'sunny-outline' },
+  { id: 'afternoon', label: 'Tarde', description: 'Bloque vespertino', ranges: [{ start: '14:00', end: '20:00' }], icon: 'partly-sunny-outline' },
+  {
+    id: 'full',
+    label: 'Completa',
+    description: 'Con pausa 14-16 h',
+    ranges: [
+      { start: '08:00', end: '14:00' },
+      { start: '16:00', end: '20:00' },
+    ],
+    icon: 'calendar-outline',
+  },
 ];
 
 const BUFFER_OPTIONS = [
@@ -134,35 +144,31 @@ const formatPresetHour = (time: string): string => {
   return minute === '00' ? String(Number(hour)) : time;
 };
 
-const formatPresetRange = (range: TimeRange): string => `${formatPresetHour(range.start)}-${formatPresetHour(range.end)} h`;
+const formatCompactTimeRange = (range: TimeRange): string => `${formatPresetHour(range.start)}-${formatPresetHour(range.end)}`;
+const formatCompactTimeRanges = (ranges: TimeRange[]): string => ranges.map(formatCompactTimeRange).join(' · ');
+const formatPresetRanges = (ranges: TimeRange[]): string => `${formatCompactTimeRanges(ranges)} h`;
+const formatFullTimeRange = (range: TimeRange): string => `${range.start}-${range.end}`;
 
 const getDayLabel = (dayName: DayOfWeek): string => DAYS.find((day) => day.name === dayName)?.label ?? dayName;
 
-const createDaySlotsForRange = (range: TimeRange): DaySlots => {
+const createDaySlotsForRanges = (ranges: TimeRange[]): DaySlots => {
   const daySlots = createEmptyDaySlots();
-  const startMinutes = getTimeMinutes(range.start);
-  const endMinutes = getTimeMinutes(range.end);
-  TIME_SLOTS.forEach((slot) => {
-    const slotMinutes = slot.hour * 60 + slot.minute;
-    if (slotMinutes >= startMinutes && slotMinutes < endMinutes) {
-      daySlots[slot.label] = { available: true, isBreak: false };
-    }
+
+  ranges.forEach((range) => {
+    const startMinutes = getTimeMinutes(range.start);
+    const endMinutes = getTimeMinutes(range.end);
+    TIME_SLOTS.forEach((slot) => {
+      const slotMinutes = slot.hour * 60 + slot.minute;
+      if (slotMinutes >= startMinutes && slotMinutes < endMinutes) {
+        daySlots[slot.label] = { available: true, isBreak: false };
+      }
+    });
   });
+
   return daySlots;
 };
 
 const getSlotIndex = (time: string): number => TIME_SLOTS.findIndex((slot) => slot.label === time);
-
-const createContinuousDaySlots = (startIndex: number, endIndex: number): DaySlots => {
-  const daySlots = createEmptyDaySlots();
-  for (let index = startIndex; index <= endIndex; index += 1) {
-    const slot = TIME_SLOTS[index];
-    if (slot) {
-      daySlots[slot.label] = { available: true, isBreak: false };
-    }
-  }
-  return daySlots;
-};
 
 const getAvailableSlotIndices = (daySlots: DaySlots): number[] => (
   TIME_SLOTS.reduce<number[]>((indices, slot, index) => {
@@ -172,58 +178,6 @@ const getAvailableSlotIndices = (daySlots: DaySlots): number[] => (
     return indices;
   }, [])
 );
-
-const isContinuousDaySlots = (daySlots: DaySlots): boolean => {
-  const availableIndices = getAvailableSlotIndices(daySlots);
-  if (availableIndices.length <= 1) return true;
-  return availableIndices.every((slotIndex, index) => index === 0 || slotIndex === availableIndices[index - 1] + 1);
-};
-
-const getNonContinuousDayLabels = (weeklySlots: WeeklySlots): string[] => (
-  DAYS
-    .filter((day) => !isContinuousDaySlots(weeklySlots[day.name]))
-    .map((day) => day.label)
-);
-
-const toggleContinuousSlot = (
-  daySlots: DaySlots,
-  time: string,
-): { slots: DaySlots; changed: boolean; blocked: boolean } => {
-  const targetIndex = getSlotIndex(time);
-  if (targetIndex < 0) return { slots: daySlots, changed: false, blocked: false };
-  if (!isContinuousDaySlots(daySlots)) return { slots: daySlots, changed: false, blocked: true };
-
-  const availableIndices = getAvailableSlotIndices(daySlots);
-  if (availableIndices.length === 0) {
-    return { slots: createContinuousDaySlots(targetIndex, targetIndex), changed: true, blocked: false };
-  }
-
-  const firstIndex = availableIndices[0];
-  const lastIndex = availableIndices[availableIndices.length - 1];
-  const targetIsAvailable = availableIndices.includes(targetIndex);
-
-  if (!targetIsAvailable) {
-    return {
-      slots: createContinuousDaySlots(Math.min(firstIndex, targetIndex), Math.max(lastIndex, targetIndex)),
-      changed: true,
-      blocked: false,
-    };
-  }
-
-  if (availableIndices.length === 1) {
-    return { slots: createEmptyDaySlots(), changed: true, blocked: false };
-  }
-
-  if (targetIndex === firstIndex) {
-    return { slots: createContinuousDaySlots(firstIndex + 1, lastIndex), changed: true, blocked: false };
-  }
-
-  if (targetIndex === lastIndex) {
-    return { slots: createContinuousDaySlots(firstIndex, lastIndex - 1), changed: true, blocked: false };
-  }
-
-  return { slots: daySlots, changed: false, blocked: true };
-};
 
 const getErrorMessage = (error: unknown, fallback: string): string => error instanceof Error ? error.message : fallback;
 
@@ -268,30 +222,66 @@ const getInitialPreviewDate = (enabledDays: EnabledDays): string => {
 const convertScheduleToSlots = (schedule: availabilityService.WeeklySchedule): WeeklySlots => {
   const weeklySlots = createEmptyWeeklySlots();
   DAYS.forEach((day) => {
-    const daySchedule = schedule[day.name];
-    if (!daySchedule) return;
-    const startMinutes = getTimeMinutes(daySchedule.start);
-    const endMinutes = getTimeMinutes(daySchedule.end);
-    TIME_SLOTS.forEach((slot) => {
-      const slotMinutes = slot.hour * 60 + slot.minute;
-      if (slotMinutes >= startMinutes && slotMinutes < endMinutes) weeklySlots[day.name][slot.label] = { available: true, isBreak: false };
-    });
+    const daySchedules = schedule[day.name];
+    weeklySlots[day.name] = createDaySlotsForRanges(daySchedules ?? []);
   });
   return weeklySlots;
+};
+
+const getSlotEndTime = (slot: TimeSlot): string => {
+  const endMinutes = slot.hour * 60 + slot.minute + 30;
+  const endHour = Math.floor(endMinutes / 60);
+  const endMinute = endMinutes % 60;
+  return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+};
+
+const getRangesFromDaySlots = (daySlots: DaySlots): availabilityService.DaySchedule[] => {
+  const availableIndices = getAvailableSlotIndices(daySlots);
+  if (availableIndices.length === 0) return [];
+
+  const ranges: availabilityService.DaySchedule[] = [];
+  let rangeStartIndex = availableIndices[0];
+  let previousIndex = availableIndices[0];
+
+  for (let index = 1; index <= availableIndices.length; index += 1) {
+    const currentIndex = availableIndices[index];
+    const shouldCloseRange = currentIndex === undefined || currentIndex !== previousIndex + 1;
+
+    if (shouldCloseRange) {
+      const firstSlot = TIME_SLOTS[rangeStartIndex];
+      const lastSlot = TIME_SLOTS[previousIndex];
+      if (firstSlot && lastSlot) {
+        ranges.push({ start: firstSlot.label, end: getSlotEndTime(lastSlot) });
+      }
+      if (currentIndex !== undefined) {
+        rangeStartIndex = currentIndex;
+      }
+    }
+
+    if (currentIndex !== undefined) {
+      previousIndex = currentIndex;
+    }
+  }
+
+  return ranges;
 };
 
 const convertSlotsToSchedule = (weeklySlots: WeeklySlots): availabilityService.WeeklySchedule => {
   const schedule: availabilityService.WeeklySchedule = { monday: null, tuesday: null, wednesday: null, thursday: null, friday: null, saturday: null, sunday: null };
   DAYS.forEach((day) => {
-    const availableSlots = TIME_SLOTS.filter((slot) => weeklySlots[day.name][slot.label]?.available);
-    if (availableSlots.length === 0) return;
-    const firstSlot = availableSlots[0];
-    const lastSlot = availableSlots[availableSlots.length - 1];
-    const endHour = lastSlot.hour + (lastSlot.minute === 30 ? 1 : 0);
-    const endMinute = lastSlot.minute === 30 ? '00' : '30';
-    schedule[day.name] = { start: firstSlot.label, end: `${endHour.toString().padStart(2, '0')}:${endMinute}` };
+    const ranges = getRangesFromDaySlots(weeklySlots[day.name]);
+
+    schedule[day.name] = ranges.length > 0 ? ranges : null;
   });
   return schedule;
+};
+
+const createEnabledDaysFromSchedule = (schedule: availabilityService.WeeklySchedule): EnabledDays => {
+  const enabledDays = createDefaultEnabledDays();
+  DAYS.forEach((day) => {
+    enabledDays[day.name] = schedule[day.name] !== null;
+  });
+  return enabledDays;
 };
 
 const calculateWeeklySummary = (weeklySlots: WeeklySlots) => {
@@ -332,12 +322,12 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   const [savingExceptionRange, setSavingExceptionRange] = useState(false);
   const [previewSelectedDate, setPreviewSelectedDate] = useState('');
   const [bufferTime, setBufferTime] = useState(15);
+  const [scheduleRevision, setScheduleRevision] = useState<string | null>(null);
   const [billingConfig, setBillingConfig] = useState<FullBillingConfig | null>(null);
   const [billingConfigError, setBillingConfigError] = useState<string | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState<QuickPresetId | null>(null);
   const [selectedPresetDays, setSelectedPresetDays] = useState<DayOfWeek[]>([]);
   const [quickPatternsExpanded, setQuickPatternsExpanded] = useState(false);
-  const [rangeNoticeVisible, setRangeNoticeVisible] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -345,18 +335,17 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
       setLoadError(false);
       setBillingConfigError(null);
       const [scheduleResult, exceptionsResult, bufferResult, billingConfigResult] = await Promise.allSettled([
-        availabilityService.getMyWeeklySchedule(),
+        availabilityService.getMyWeeklyScheduleSnapshot(),
         availabilityService.getMyExceptions(),
         availabilityService.getMyBufferTime(),
         billingService.getConfig(),
       ]);
-      const scheduleData = getSettledValue(scheduleResult, 'No se pudo cargar el horario semanal');
+      const scheduleSnapshot = getSettledValue(scheduleResult, 'No se pudo cargar el horario semanal');
       const exceptionsData = getSettledValue(exceptionsResult, 'No se pudieron cargar las excepciones');
       const savedBufferTime = getSettledValue(bufferResult, 'No se pudo cargar el descanso entre sesiones');
-      setWeeklySlots(convertScheduleToSlots(scheduleData));
-      const nextEnabledDays = createDefaultEnabledDays();
-      DAYS.forEach((day) => { nextEnabledDays[day.name] = scheduleData[day.name] !== null; });
-      setEnabledDays(nextEnabledDays);
+      setWeeklySlots(convertScheduleToSlots(scheduleSnapshot.schedule));
+      setEnabledDays(createEnabledDaysFromSchedule(scheduleSnapshot.schedule));
+      setScheduleRevision(scheduleSnapshot.scheduleRevision);
       setExceptions(exceptionsData);
       setBufferTime(savedBufferTime);
 
@@ -413,10 +402,10 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     }
 
     if (selectedPresetDayLabels.length === 0) {
-      return `${selectedPreset.label} (${formatPresetRange(selectedPreset)}) -> selecciona días destino.`;
+      return `${selectedPreset.label} (${formatPresetRanges(selectedPreset.ranges)}) -> selecciona días destino.`;
     }
 
-    return `${selectedPreset.label} (${formatPresetRange(selectedPreset)}) -> ${selectedPresetDayLabels.join(', ')}`;
+    return `${selectedPreset.label} (${formatPresetRanges(selectedPreset.ranges)}) -> ${selectedPresetDayLabels.join(', ')}`;
   }, [selectedPreset, selectedPresetDayLabels]);
   const exceptionRangeDraft = useExceptionRangeDraft({
     isOpen: showExceptionModal,
@@ -487,24 +476,22 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     }
   }, [enabledDays, showPreviewModal]);
 
-  useEffect(() => {
-    if (!rangeNoticeVisible) return undefined;
-    const timeout = setTimeout(() => setRangeNoticeVisible(false), 4500);
-    return () => clearTimeout(timeout);
-  }, [rangeNoticeVisible]);
-
   const toggleSlot = useCallback((day: DayOfWeek, time: string) => {
     if (!enabledDays[day]) return;
-    const result = toggleContinuousSlot(weeklySlots[day], time);
-    if (result.blocked) {
-      setRangeNoticeVisible(true);
-      return;
-    }
-    if (!result.changed) return;
-    setWeeklySlots((prev) => ({ ...prev, [day]: result.slots }));
-    setRangeNoticeVisible(false);
+    if (getSlotIndex(time) < 0) return;
+    setWeeklySlots((prev) => {
+      const daySlots = prev[day];
+      const currentSlot = daySlots[time] ?? { available: false, isBreak: false };
+      return {
+        ...prev,
+        [day]: {
+          ...daySlots,
+          [time]: { available: !currentSlot.available, isBreak: false },
+        },
+      };
+    });
     setHasChanges(true);
-  }, [enabledDays, weeklySlots]);
+  }, [enabledDays]);
 
   const toggleDayEnabled = useCallback((day: DayOfWeek) => {
     setEnabledDays((prev) => {
@@ -535,7 +522,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     setWeeklySlots((prev) => {
       const nextSlots = { ...prev };
       daysToApply.forEach((day) => {
-        nextSlots[day] = createDaySlotsForRange(selectedPreset);
+        nextSlots[day] = createDaySlotsForRanges(selectedPreset.ranges);
       });
       return nextSlots;
     });
@@ -559,18 +546,29 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   }, [exceptionRangeDraft.reset]);
 
   const handleSave = useCallback(async () => {
-    const nonContinuousDays = getNonContinuousDayLabels(weeklySlots);
-    if (nonContinuousDays.length > 0) {
-      showAppAlert(appAlert, 'Error', 'Cada día debe tener un único tramo continuo de disponibilidad.');
-      return;
-    }
-
     try {
       setSaving(true);
       const schedule = convertSlotsToSchedule(weeklySlots);
-      await Promise.all([availabilityService.updateWeeklySchedule(schedule), availabilityService.updateBufferTime(bufferTime)]);
+      const updatedScheduleSnapshot = await availabilityService.updateWeeklySchedule(schedule, scheduleRevision);
+      const updatedWeeklySlots = convertScheduleToSlots(updatedScheduleSnapshot.schedule);
+      setWeeklySlots(updatedWeeklySlots);
+      setEnabledDays(createEnabledDaysFromSchedule(updatedScheduleSnapshot.schedule));
+      setScheduleRevision(updatedScheduleSnapshot.scheduleRevision);
+
+      try {
+        await availabilityService.updateBufferTime(bufferTime);
+      } catch {
+        setHasChanges(true);
+        showAppAlert(
+          appAlert,
+          'Guardado parcial',
+          'Tu disponibilidad se actualizó, pero no se pudo guardar el descanso entre sesiones. Inténtalo de nuevo.'
+        );
+        return;
+      }
+
       setHasChanges(false);
-      const totalSlots = Object.values(weeklySlots).reduce((sum, daySlots) => sum + Object.values(daySlots).filter((slot) => slot.available).length, 0);
+      const totalSlots = Object.values(updatedWeeklySlots).reduce((sum, daySlots) => sum + Object.values(daySlots).filter((slot) => slot.available).length, 0);
       analyticsService.track('availability_updated', { slotsCount: totalSlots });
       showAppAlert(appAlert, 'Éxito', 'Disponibilidad actualizada correctamente');
     } catch (error: unknown) {
@@ -578,7 +576,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     } finally {
       setSaving(false);
     }
-  }, [appAlert, bufferTime, weeklySlots]);
+  }, [appAlert, bufferTime, scheduleRevision, weeklySlots]);
 
   const handleAddExceptionRange = useCallback(async () => {
     if (!exceptionRangeDraft.selectedRange || exceptionRangeDraft.isTooLong) return;
@@ -640,6 +638,21 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   }, [appAlert, loadData]);
 
   const summary = useMemo(() => calculateWeeklySummary(weeklySlots), [weeklySlots]);
+  const weeklyRangeSummary = useMemo(() => {
+    const rangesByDay = {} as Record<DayOfWeek, availabilityService.DaySchedule[]>;
+    DAYS.forEach((day) => {
+      rangesByDay[day.name] = getRangesFromDaySlots(weeklySlots[day.name]);
+    });
+    return rangesByDay;
+  }, [weeklySlots]);
+  const mobileRangeChips = useMemo(() => (
+    DAYS.flatMap((day) => {
+      const ranges = weeklyRangeSummary[day.name];
+      return ranges.length > 0
+        ? [{ day, ranges }]
+        : [];
+    })
+  ), [weeklyRangeSummary]);
   const exceptionPeriods = useMemo(
     () => groupAvailabilityExceptionPeriods(exceptions),
     [exceptions]
@@ -690,9 +703,9 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     () => getDayNameFromDate(previewSelectedDate || getInitialPreviewDate(enabledDays)),
     [enabledDays, previewSelectedDate]
   );
-  const previewSlots = useMemo(
-    () => TIME_SLOTS.filter((slot) => weeklySlots[previewDayName][slot.label]?.available),
-    [previewDayName, weeklySlots]
+  const previewRanges = useMemo(
+    () => weeklyRangeSummary[previewDayName],
+    [previewDayName, weeklyRangeSummary]
   );
   const previewMarkedDates = useMemo<CalendarMarkedDates>(() => (
     previewSelectedDate
@@ -928,7 +941,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
                           </View>
                           <View style={styles.quickStepCopy}>
                             <Text style={styles.quickStepTitle}>Elegir horario</Text>
-                            <Text style={styles.quickStepText}>Selecciona el rango base que quieres replicar.</Text>
+                            <Text style={styles.quickStepText}>Selecciona los bloques base que quieres replicar.</Text>
                           </View>
                         </View>
                         <View style={styles.quickPresetGrid}>
@@ -946,11 +959,33 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
                                   <Ionicons name={preset.icon} size={18} color={isSelected ? theme.textOnPrimary : theme.primary} />
                                 </View>
                                 <View style={styles.quickPresetCopy}>
-                                  <Text style={[styles.quickPresetLabel, isSelected && styles.quickPresetLabelActive]}>{preset.label}</Text>
-                                  <Text style={[styles.quickPresetRange, isSelected && styles.quickPresetRangeActive]}>
-                                    {formatPresetRange(preset)}
-                                  </Text>
-                                  <Text style={[styles.quickPresetDescription, isSelected && styles.quickPresetDescriptionActive]}>
+                                  {isMobile ? (
+                                    <View style={styles.quickPresetMobileLine}>
+                                      <Text
+                                        style={[styles.quickPresetLabel, isSelected && styles.quickPresetLabelActive]}
+                                        numberOfLines={1}
+                                      >
+                                        {preset.label}
+                                      </Text>
+                                      <Text
+                                        style={[styles.quickPresetRange, isSelected && styles.quickPresetRangeActive]}
+                                        numberOfLines={1}
+                                      >
+                                        {formatPresetRanges(preset.ranges)}
+                                      </Text>
+                                    </View>
+                                  ) : (
+                                    <>
+                                      <Text style={[styles.quickPresetLabel, isSelected && styles.quickPresetLabelActive]}>{preset.label}</Text>
+                                      <Text style={[styles.quickPresetRange, isSelected && styles.quickPresetRangeActive]}>
+                                        {formatPresetRanges(preset.ranges)}
+                                      </Text>
+                                    </>
+                                  )}
+                                  <Text
+                                    style={[styles.quickPresetDescription, isSelected && styles.quickPresetDescriptionActive]}
+                                    numberOfLines={1}
+                                  >
                                     {preset.description}
                                   </Text>
                                 </View>
@@ -1055,46 +1090,69 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
             <TourTarget id="professional.availability.weekly-grid" fill style={styles.fullWidthTourTarget}>
               <View style={styles.gridIntro}>
                 <Text style={styles.gridTitle}>Disponibilidad semanal</Text>
-                <Text style={styles.gridSubtitle}>Activa días y pulsa en las franjas para ajustar el tramo continuo en el que ofreces sesiones.</Text>
-                {rangeNoticeVisible ? (
-                  <View style={styles.rangeNotice}>
-                    <Ionicons name="information-circle-outline" size={16} color={theme.warning} />
-                    <Text style={styles.rangeNoticeText}>
-                      Cada día guarda un único tramo continuo. Ajusta el inicio o el final desde los extremos.
-                    </Text>
-                  </View>
+                <Text style={styles.gridSubtitle}>Activa días y pulsa en las franjas para añadir o quitar horas concretas.</Text>
+                {isMobile && mobileRangeChips.length > 0 ? (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.mobileRangeChipsScroll}
+                    contentContainerStyle={styles.mobileRangeChipsContent}
+                  >
+                    {mobileRangeChips.map(({ day, ranges }) => (
+                      <View key={day.name} style={styles.mobileRangeChip}>
+                        <Text style={styles.mobileRangeChipDay}>{day.shortLabel}</Text>
+                        <Text style={styles.mobileRangeChipText}>{formatCompactTimeRanges(ranges)}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
                 ) : null}
               </View>
             </TourTarget>
             <View style={styles.gridHeader}>
               <View style={styles.timeCol} />
-              {DAYS.map((day) => (
-                <AnimatedPressable
-                  key={day.name}
-                  style={styles.dayCol}
-                  onPress={() => toggleDayEnabled(day.name)}
-                  hoverLift={false}
-                  accessibilityLabel={`${enabledDays[day.name] ? 'Desactivar' : 'Activar'} ${day.label}`}
-                >
-                  <View style={[styles.dayCheck, enabledDays[day.name] && styles.dayCheckActive]}>
-                    {enabledDays[day.name] ? <Ionicons name="checkmark" size={10} color={theme.textOnPrimary} /> : null}
-                  </View>
-                  <Text style={[styles.dayLabel, !enabledDays[day.name] && styles.dayLabelDisabled]}>
-                    {isMobile ? day.shortLabel.charAt(0) : isTablet ? day.shortLabel : day.label}
-                  </Text>
-                </AnimatedPressable>
-              ))}
+              {DAYS.map((day) => {
+                const dayRanges = weeklyRangeSummary[day.name];
+                const daySummaryText = dayRanges.length > 0
+                  ? formatCompactTimeRanges(dayRanges)
+                  : 'Sin horario';
+
+                return (
+                  <AnimatedPressable
+                    key={day.name}
+                    style={styles.dayCol}
+                    onPress={() => toggleDayEnabled(day.name)}
+                    hoverLift={false}
+                    accessibilityLabel={`${enabledDays[day.name] ? 'Desactivar' : 'Activar'} ${day.label}`}
+                  >
+                    <View style={[styles.dayCheck, enabledDays[day.name] && styles.dayCheckActive]}>
+                      {enabledDays[day.name] ? <Ionicons name="checkmark" size={10} color={theme.textOnPrimary} /> : null}
+                    </View>
+                    <Text style={[styles.dayLabel, !enabledDays[day.name] && styles.dayLabelDisabled]}>
+                      {isMobile ? day.shortLabel.charAt(0) : isTablet ? day.shortLabel : day.label}
+                    </Text>
+                    {!isMobile ? (
+                      <Text
+                        style={[styles.dayRangeSummary, !enabledDays[day.name] && styles.dayRangeSummaryDisabled]}
+                        numberOfLines={1}
+                      >
+                        {daySummaryText}
+                      </Text>
+                    ) : null}
+                  </AnimatedPressable>
+                );
+              })}
             </View>
             <View style={styles.gridBody}>
               {TIME_SLOTS.map((slot) => (
                 <View key={slot.label} style={styles.gridRow}>
-                  <View style={styles.timeCol}>
+                  <View style={[styles.timeCol, styles.timeColBody]}>
                     {slot.minute === 0 ? <Text style={styles.timeLabel}>{slot.label}</Text> : null}
                   </View>
                   {DAYS.map((day) => {
                     const slotState = weeklySlots[day.name][slot.label];
                     const isAvailable = slotState?.available ?? false;
                     const isEnabled = enabledDays[day.name];
+                    const slotIntervalLabel = `${slot.label}-${getSlotEndTime(slot)}`;
                     return (
                       <AnimatedPressable
                         key={`${day.name}-${slot.label}`}
@@ -1108,7 +1166,8 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
                         disabled={!isEnabled}
                         hoverLift={false}
                         pressScale={0.99}
-                        accessibilityLabel={`${day.label} ${slot.label}`}
+                        accessibilityLabel={`${day.label} ${slotIntervalLabel}`}
+                        accessibilityState={{ disabled: !isEnabled, selected: isAvailable }}
                       >
                         <View style={styles.slotCellFiller} />
                       </AnimatedPressable>
@@ -1207,7 +1266,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
                       </View>
                       <View style={styles.previewInfoCopy}>
                         <Text style={styles.previewInfoTitle}>Horarios disponibles</Text>
-                        <Text style={styles.previewInfoText}>Ejemplo de bloques visibles para el {previewDayLabel}.</Text>
+                        <Text style={styles.previewInfoText}>Bloques completos visibles para el {previewDayLabel}.</Text>
                       </View>
                     </View>
 
@@ -1215,12 +1274,12 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
                       style={styles.previewSlotsScroll}
                       contentContainerStyle={styles.previewSlots}
                       nestedScrollEnabled
-                      showsVerticalScrollIndicator={previewSlots.length > 12}
+                      showsVerticalScrollIndicator={previewRanges.length > 8}
                     >
-                      {previewSlots.length > 0 ? (
-                        previewSlots.map((slot) => (
-                          <View key={slot.label} style={styles.previewSlot}>
-                            <Text style={styles.previewSlotText}>{slot.label}</Text>
+                      {previewRanges.length > 0 ? (
+                        previewRanges.map((range) => (
+                          <View key={`${range.start}-${range.end}`} style={styles.previewSlot}>
+                            <Text style={styles.previewSlotText}>{formatFullTimeRange(range)}</Text>
                           </View>
                         ))
                       ) : (
@@ -1259,6 +1318,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
 
 const createStyles = (theme: Theme, isDark: boolean, width: number) => {
   const isMobile = width < 768;
+  const isTablet = width >= 768 && width < 1024;
   const useTwoColumns = width >= 1080;
 
   return StyleSheet.create({
@@ -1383,16 +1443,18 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     quickStepText: { fontSize: 12, lineHeight: 17, color: theme.textSecondary, fontFamily: theme.fontSans },
     quickPresetGrid: {
       flexDirection: isMobile ? 'column' : 'row',
-      gap: spacing.sm,
+      gap: isMobile ? 8 : spacing.sm,
     },
     quickPresetOption: {
       flex: isMobile ? 0 : 1,
       minWidth: isMobile ? undefined : 0,
+      minHeight: isMobile ? 52 : undefined,
       alignSelf: 'stretch',
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.sm,
-      padding: spacing.md,
+      gap: isMobile ? 8 : spacing.sm,
+      paddingHorizontal: isMobile ? 10 : spacing.md,
+      paddingVertical: isMobile ? 8 : spacing.md,
       borderRadius: borderRadius.md,
       borderWidth: 1,
       borderColor: theme.border,
@@ -1403,8 +1465,8 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       backgroundColor: theme.primaryAlpha12,
     },
     quickPresetIcon: {
-      width: 36,
-      height: 36,
+      width: isMobile ? 30 : 36,
+      height: isMobile ? 30 : 36,
       borderRadius: borderRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1413,12 +1475,19 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     quickPresetIconActive: {
       backgroundColor: theme.primary,
     },
-    quickPresetCopy: { flex: 1, minWidth: 0 },
-    quickPresetLabel: { fontSize: 14, fontWeight: '800', color: theme.textPrimary, fontFamily: theme.fontSansBold },
+    quickPresetCopy: { flex: 1, minWidth: 0, justifyContent: 'center' },
+    quickPresetMobileLine: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+      minWidth: 0,
+    },
+    quickPresetLabel: { flexShrink: 1, fontSize: isMobile ? 13 : 14, lineHeight: isMobile ? 16 : undefined, fontWeight: '800', color: theme.textPrimary, fontFamily: theme.fontSansBold },
     quickPresetLabelActive: { color: theme.primary },
-    quickPresetRange: { marginTop: 2, fontSize: 13, fontWeight: '700', color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
+    quickPresetRange: { marginTop: isMobile ? 0 : 2, fontSize: isMobile ? 12 : 13, lineHeight: isMobile ? 15 : undefined, fontWeight: '700', color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
     quickPresetRangeActive: { color: theme.primary },
-    quickPresetDescription: { marginTop: 2, fontSize: 11, lineHeight: 15, color: theme.textMuted, fontFamily: theme.fontSans },
+    quickPresetDescription: { marginTop: isMobile ? 1 : 2, fontSize: isMobile ? 10 : 11, lineHeight: isMobile ? 13 : 15, color: theme.textMuted, fontFamily: theme.fontSans },
     quickPresetDescriptionActive: { color: theme.textSecondary },
     quickDaysHeader: {
       flexDirection: isMobile ? 'column' : 'row',
@@ -1513,24 +1582,34 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     gridTitle: { fontSize: 17, fontWeight: '700', color: theme.textPrimary, fontFamily: theme.fontHeading },
     gridSubtitle: { marginTop: 4, fontSize: 13, lineHeight: 18, color: theme.textSecondary, fontFamily: theme.fontSans },
-    rangeNotice: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 8,
-      marginTop: spacing.sm,
-      paddingVertical: 9,
-      paddingHorizontal: 10,
-      borderRadius: borderRadius.md,
-      borderWidth: 1,
-      borderColor: theme.warning,
-      backgroundColor: theme.warningBg,
+    mobileRangeChipsScroll: { marginTop: spacing.sm },
+    mobileRangeChipsContent: {
+      gap: spacing.sm,
+      paddingRight: spacing.lg,
     },
-    rangeNoticeText: {
-      flex: 1,
-      fontSize: 12,
-      lineHeight: 17,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
+    mobileRangeChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      minHeight: 30,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: borderRadius.full,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+    },
+    mobileRangeChipDay: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: theme.primary,
+      fontFamily: theme.fontSansBold,
+    },
+    mobileRangeChipText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansSemiBold,
     },
     gridHeader: {
       flexDirection: 'row',
@@ -1553,12 +1632,23 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     dayCheckActive: { backgroundColor: theme.primary, borderColor: theme.primary },
     dayLabel: { fontSize: isMobile ? 11 : 12, fontWeight: '700', color: theme.textPrimary, fontFamily: theme.fontSansBold },
     dayLabelDisabled: { color: theme.textMuted },
-    gridBody: { backgroundColor: theme.bgCard },
-    gridRow: { flexDirection: 'row', height: 22 },
+    dayRangeSummary: {
+      maxWidth: '100%',
+      fontSize: isTablet ? 9 : 10,
+      lineHeight: 12,
+      fontWeight: '600',
+      color: theme.textSecondary,
+      fontFamily: theme.fontSansSemiBold,
+      textAlign: 'center',
+    },
+    dayRangeSummaryDisabled: { color: theme.textMuted },
+    gridBody: { backgroundColor: theme.borderLight },
+    gridRow: { flexDirection: 'row', height: 22, gap: 1, marginBottom: 1 },
     timeLabel: { fontSize: 10, fontWeight: '600', color: theme.textMuted, fontFamily: theme.fontSansSemiBold },
-    slotCell: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: theme.borderLight, backgroundColor: theme.bgCard },
+    timeColBody: { backgroundColor: theme.bgCard },
+    slotCell: { flex: 1, backgroundColor: theme.bgCard },
     slotCellFiller: { flex: 1 },
-    slotCellHour: { borderBottomColor: theme.border },
+    slotCellHour: {},
     slotCellDisabled: { backgroundColor: theme.surfaceMuted },
     slotCellAvailable: { backgroundColor: theme.successLight },
     legend: {
