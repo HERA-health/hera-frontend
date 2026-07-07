@@ -69,6 +69,12 @@ const linking: LinkingOptions<RootStackParamList> = {
           token: (token: string) => token,
         },
       },
+      PublicReview: {
+        path: 'review/:token',
+        parse: {
+          token: (token: string) => token,
+        },
+      },
       LegalDocument: {
         path: 'legal/:documentKey',
         parse: {

@@ -305,6 +305,13 @@ const PublicSpecialistProfileRoute = createDeferredRoute<'PublicSpecialistProfil
     exportName: 'PublicSpecialistProfileScreen',
   }
 );
+const PublicReviewRoute = createDeferredRoute<'PublicReview'>(
+  () => require('../screens/reviews/PublicReviewScreen'),
+  {
+    displayName: 'PublicReviewRoute',
+    exportName: 'PublicReviewScreen',
+  }
+);
 
 const ClientHomeRoute: React.FC<StackRouteProps<'Home'>> = (props) => {
   const consumedIntentRef = useRef(false);
@@ -546,6 +553,11 @@ export function RootNavigator() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="PublicReview"
+          component={PublicReviewRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="Booking"
           component={PublicBookingRoute}
           options={{ headerTitle: 'Reservar sesión', headerShown: false }}
@@ -596,6 +608,11 @@ export function RootNavigator() {
         <Stack.Screen
           name="RequiredLegalAcceptance"
           component={RequiredLegalAcceptanceRoute}
+        />
+        <Stack.Screen
+          name="PublicReview"
+          component={PublicReviewRoute}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="LegalDocument"
@@ -659,6 +676,11 @@ export function RootNavigator() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="PublicReview"
+          component={PublicReviewRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="LegalDocument"
           component={LegalDocumentScreen}
           options={{ headerShown: false }}
@@ -684,6 +706,11 @@ export function RootNavigator() {
         <Stack.Screen
           name="PublicSpecialistProfile"
           component={PublicSpecialistProfileRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PublicReview"
+          component={PublicReviewRoute}
           options={{ headerShown: false }}
         />
         <Stack.Screen
@@ -857,6 +884,11 @@ export function RootNavigator() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="PublicReview"
+          component={PublicReviewRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="ClinicalConsent"
           component={ClinicalConsentRoute}
           options={{ headerShown: false }}
@@ -975,6 +1007,11 @@ export function RootNavigator() {
       <Stack.Screen
         name="PublicSpecialistProfile"
         component={PublicSpecialistProfileRoute}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="PublicReview"
+        component={PublicReviewRoute}
         options={{ headerShown: false }}
       />
       <Stack.Screen

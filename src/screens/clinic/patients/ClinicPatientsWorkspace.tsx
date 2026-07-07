@@ -199,13 +199,6 @@ export function ClinicPatientsWorkspace({
                   if (updated) controller.handleCloseSessionDetail();
                 });
             } : undefined}
-            onComplete={selectedSessionDetail?.actions.canComplete ? () => {
-              void controller
-                .handleUpdateSessionStatus(selectedSessionDetail, 'COMPLETED')
-                .then((updated) => {
-                  if (updated) controller.handleCloseSessionDetail();
-                });
-            } : undefined}
           />
         </View>
       )}

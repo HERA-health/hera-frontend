@@ -247,9 +247,6 @@ export function ClinicAgendaScreen({
                   onCancel={() => {
                     void handleUpdateStatus(session, 'CANCELLED');
                   }}
-                  onComplete={() => {
-                    void handleUpdateStatus(session, 'COMPLETED');
-                  }}
                   onOpen={() => handleOpenSessionDetail(session.id)}
                 />
               ))}
@@ -300,11 +297,6 @@ export function ClinicAgendaScreen({
                 if (updated) handleCloseSessionDetail();
               });
             } : undefined}
-            onComplete={selectedDetail?.actions.canComplete ? () => {
-              void handleUpdateStatus(selectedDetail, 'COMPLETED').then((updated) => {
-                if (updated) handleCloseSessionDetail();
-              });
-            } : undefined}
           />
         </View>
       )}
@@ -348,7 +340,6 @@ interface SessionRowProps {
   session: clinicService.ClinicSessionSummary;
   saving: boolean;
   onCancel: () => void;
-  onComplete: () => void;
   onOpen: () => void;
 }
 
@@ -356,19 +347,21 @@ function SessionRow({
   session,
   saving,
   onCancel,
-  onComplete,
   onOpen,
 }: SessionRowProps): React.ReactElement {
   const { theme } = useTheme();
   const styles = useMemo(() => createSessionRowStyles(theme), [theme]);
-  const isFuture = new Date(session.date).getTime() > Date.now();
-  const canAct = session.status === 'CONFIRMED';
+  const sessionEnded = new Date(session.date).getTime() + session.duration * 60 * 1000 <= Date.now();
+  const canAct = session.status === 'CONFIRMED' && !sessionEnded;
+  const displayStatus = session.status === 'CONFIRMED' && sessionEnded
+    ? 'COMPLETED'
+    : session.status;
   const statusStyle = {
     CONFIRMED: styles.status_CONFIRMED,
     COMPLETED: styles.status_COMPLETED,
     CANCELLED: styles.status_CANCELLED,
     PENDING: styles.status_PENDING,
-  }[session.status];
+  }[displayStatus];
 
   return (
     <View style={styles.row}>
@@ -388,7 +381,7 @@ function SessionRow({
         <View style={styles.titleRow}>
           <Text style={styles.patient} numberOfLines={1}>{session.patient.displayName}</Text>
           <View style={[styles.statusPill, statusStyle]}>
-            <Text style={styles.statusText}>{SESSION_STATUS_LABELS[session.status]}</Text>
+            <Text style={styles.statusText}>{SESSION_STATUS_LABELS[displayStatus]}</Text>
           </View>
         </View>
         <Text style={styles.meta} numberOfLines={1}>
@@ -410,14 +403,6 @@ function SessionRow({
             disabled={saving}
           >
             Cancelar
-          </Button>
-          <Button
-            variant="primary"
-            size="small"
-            onPress={onComplete}
-            disabled={saving || isFuture}
-          >
-            Completar
           </Button>
         </View>
       ) : null}

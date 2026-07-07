@@ -96,6 +96,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
 
   const [rating, setRating] = useState(0);
   const [text, setText] = useState('');
+  const [publicationConsentAccepted, setPublicationConsentAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -136,6 +137,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
   const resetState = () => {
     setRating(0);
     setText('');
+    setPublicationConsentAccepted(false);
     setError(null);
     setSubmitted(false);
     setLoading(false);
@@ -160,12 +162,21 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
       setError('El comentario debe tener al menos 10 caracteres.');
       return;
     }
+    if (!publicationConsentAccepted) {
+      setError('Acepta la publicación de la reseña antes de enviarla.');
+      return;
+    }
 
     setError(null);
     setLoading(true);
 
     try {
-      await createReview({ sessionId, rating, text: text.trim() });
+      await createReview({
+        sessionId,
+        rating,
+        text: text.trim(),
+        publicationConsentAccepted: true,
+      });
       setSubmitted(true);
       setTimeout(() => {
         resetState();
@@ -178,7 +189,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
     }
   };
 
-  const isValid = rating > 0 && text.trim().length >= 10;
+  const isValid = rating > 0 && text.trim().length >= 10 && publicationConsentAccepted;
   const initials = specialistName
     ? specialistName
         .split(' ')
@@ -311,12 +322,22 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
                 />
               </View>
 
-              <View style={styles.privacyNotice}>
-                <Ionicons name="shield-checkmark-outline" size={14} color={theme.textMuted} />
+              <AnimatedPressable
+                onPress={() => setPublicationConsentAccepted((accepted) => !accepted)}
+                style={styles.privacyNotice}
+                hoverLift={false}
+                accessibilityRole="button"
+                accessibilityState={{ checked: publicationConsentAccepted }}
+              >
+                <Ionicons
+                  name={publicationConsentAccepted ? 'checkbox-outline' : 'square-outline'}
+                  size={20}
+                  color={publicationConsentAccepted ? theme.primary : theme.textMuted}
+                />
                 <Text style={styles.privacyText}>
-                  Tu nombre aparecerá abreviado para proteger tu privacidad.
+                  Entiendo que mi reseña se publicará con mi nombre abreviado y acepto enviarla.
                 </Text>
-              </View>
+              </AnimatedPressable>
 
               {error ? (
                 <View style={styles.errorBanner}>

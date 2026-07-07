@@ -28,7 +28,6 @@ interface AppointmentDetailSheetProps {
   onClose: () => void;
   onRetry?: () => void;
   onCancel?: () => void;
-  onComplete?: () => void;
   onJoinVideo?: () => void;
   onOpenNotes?: () => void;
   onOpenPatient?: () => void;
@@ -116,7 +115,6 @@ export function AppointmentDetailSheet({
   onClose,
   onRetry,
   onCancel,
-  onComplete,
   onJoinVideo,
   onOpenNotes,
   onOpenPatient,
@@ -301,16 +299,6 @@ export function AppointmentDetailSheet({
                         disabled={processing}
                       >
                         Cancelar cita
-                      </Button>
-                    ) : null}
-                    {clinicSession?.actions.canComplete && onComplete ? (
-                      <Button
-                        variant="primary"
-                        size="medium"
-                        onPress={onComplete}
-                        loading={processing}
-                      >
-                        Completar
                       </Button>
                     ) : null}
                   </>

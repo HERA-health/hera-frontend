@@ -111,6 +111,7 @@ export type RootStackParamList = {
   EmailVerification: { token: string };
   ClinicalConsent: { requestId: string; token: string };
   ClinicConsent: { requestId: string; token: string };
+  PublicReview: { token: string };
   LegalDocument: { documentKey: LegalDocumentKey };
   RequiredLegalAcceptance: undefined;
   ClinicPending: undefined;

@@ -41,6 +41,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
 
   const isCompleted = session.status === 'COMPLETED';
   const isCancelled = session.status === 'CANCELLED';
+  const isSessionEnded = new Date(session.date).getTime() + session.duration * 60 * 1000 <= Date.now();
   const isVideoCall = session.type === 'VIDEO_CALL';
   const isTodaySession = isToday(session.date);
   const canShowVideoButton = isVideoCall && !isCompleted && !isCancelled;
@@ -192,7 +193,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
         </View>
       ) : null}
 
-      {showActions && !isCompleted && !isCancelled ? (
+      {showActions && !isCompleted && !isCancelled && !isSessionEnded ? (
         <View style={styles.footerActions}>
           <Button
             variant="ghost"

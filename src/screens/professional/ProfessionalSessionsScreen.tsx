@@ -678,7 +678,11 @@ export function ProfessionalSessionsScreen() {
       const sessionEnd = sessionStart + session.duration * 60 * 1000;
       const now = currentTime.getTime();
 
-      if (now >= sessionStart && now <= sessionEnd) {
+      if (now >= sessionEnd) {
+        return 'completed';
+      }
+
+      if (now >= sessionStart) {
         return 'in_progress';
       }
 
@@ -810,23 +814,6 @@ export function ProfessionalSessionsScreen() {
     [appAlert, loadSessions, processingSessionId],
   );
 
-  const handleCompleteSession = useCallback(
-    async (sessionId: string, clientName: string) => {
-      if (processingSessionId) return;
-      try {
-        setProcessingSessionId(sessionId);
-        await professionalService.updateSessionStatus(sessionId, 'COMPLETED');
-        showAppAlert(appAlert, 'Sesión completada', `La sesión con ${clientName} se ha marcado como completada`);
-        await loadSessions();
-      } catch {
-        showAppAlert(appAlert, 'Error', 'No se pudo completar la sesión');
-      } finally {
-        setProcessingSessionId(null);
-      }
-    },
-    [loadSessions, processingSessionId],
-  );
-
   const handleJoinSession = useCallback(async (sessionId: string) => {
     try {
       const meetingData = await professionalService.getMeetingLink(sessionId);
@@ -917,10 +904,9 @@ export function ProfessionalSessionsScreen() {
         const buttonStyle = getVideoCallButtonStyle(buttonState);
         const canJoin = isVideoCallButtonClickable(buttonState);
         const sessionStarted = session.date.getTime() <= currentTime.getTime();
-        const sessionEnded = session.date.getTime() + session.duration * 60 * 1000 < currentTime.getTime();
+        const sessionEnded = session.date.getTime() + session.duration * 60 * 1000 <= currentTime.getTime();
         const canModifySession = !sessionStarted && !session.hasInvoice && (actions?.canModifySchedule ?? false);
-        const canCompleteSession = actions?.canComplete ?? sessionEnded;
-        const canCancelSession = actions?.canCancel ?? !sessionEnded;
+        const canCancelSession = !sessionEnded && (actions?.canCancel ?? true);
         const canJoinSession = Boolean(actions?.canJoinVideo) && canJoin;
 
         return (
@@ -948,19 +934,6 @@ export function ProfessionalSessionsScreen() {
             ) : null}
 
             <View style={styles.actionRow}>
-              {canCompleteSession ? (
-                <View style={styles.actionHalf}>
-                  <Button
-                    variant="secondary"
-                    size="small"
-                    onPress={() => handleCompleteSession(session.id, session.clientName)}
-                    loading={processingSessionId === session.id}
-                    fullWidth
-                  >
-                    Completar
-                  </Button>
-                </View>
-              ) : null}
               {canModifySession ? (
                 <View style={styles.actionHalf}>
                   <Button
@@ -1022,7 +995,6 @@ export function ProfessionalSessionsScreen() {
     },
     [
       currentTime,
-      handleCompleteSession,
       handleConfirmSession,
       handleCancelSession,
       handleJoinSession,
