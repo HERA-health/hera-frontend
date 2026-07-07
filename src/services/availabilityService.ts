@@ -60,10 +60,23 @@ const getTimeMinutes = (time: string): number => {
   return hour * 60 + minute;
 };
 
-const weeklyScheduleRangeSchema = z.object({
+const canonicalWeeklyScheduleRangeSchema = z.object({
   start: weeklyScheduleTimeSchema,
   end: weeklyScheduleTimeSchema,
-}).strict().superRefine((range, context) => {
+}).strict();
+
+const databaseWeeklyScheduleRangeSchema = z.object({
+  startTime: weeklyScheduleTimeSchema,
+  endTime: weeklyScheduleTimeSchema,
+}).passthrough().transform(({ startTime, endTime }) => ({
+  start: startTime,
+  end: endTime,
+}));
+
+const weeklyScheduleRangeSchema = z.union([
+  canonicalWeeklyScheduleRangeSchema,
+  databaseWeeklyScheduleRangeSchema,
+]).superRefine((range, context) => {
   const startMinutes = getTimeMinutes(range.start);
   const endMinutes = getTimeMinutes(range.end);
 

@@ -12,7 +12,11 @@ export interface AvailabilityExceptionPeriod {
   exceptions: AvailabilityException[];
 }
 
-export const getExceptionDateKey = (exceptionDate: string): string => exceptionDate.split('T')[0];
+export const getExceptionDateKey = (exceptionDate: string | null | undefined): string | null => (
+  typeof exceptionDate === 'string' && exceptionDate.length > 0
+    ? exceptionDate.split('T')[0]
+    : null
+);
 
 export const getOrderedDateRange = (
   startDate: string,
@@ -61,6 +65,12 @@ export const groupAvailabilityExceptionPeriods = (
       deleteReason: exception.reason ?? null,
       displayReason: exception.reason ?? 'No disponible',
     }))
+    .filter((entry): entry is {
+      exception: AvailabilityException;
+      dateKey: string;
+      deleteReason: string | null;
+      displayReason: string;
+    } => entry.dateKey !== null)
     .sort((left, right) => (
       left.dateKey === right.dateKey
         ? left.displayReason.localeCompare(right.displayReason, 'es')

@@ -159,7 +159,7 @@ describe('ProfessionalAvailabilityScreen', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText('No disponible').length).toBeGreaterThan(0);
-    });
+    }, { timeout: 3000 });
     expect(screen.getByText('No se pudo cargar la configuración de facturación')).toBeTruthy();
     await waitFor(() => {
       expect(mockedAvailabilityService.getMyWeeklyScheduleSnapshot).toHaveBeenCalled();

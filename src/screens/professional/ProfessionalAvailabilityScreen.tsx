@@ -134,20 +134,35 @@ const createDefaultEnabledDays = (): EnabledDays => ({
   sunday: false,
 });
 
+const isValidTimeValue = (time: unknown): time is string => (
+  typeof time === 'string' && /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(time)
+);
+
+const isValidTimeRange = (range: Partial<TimeRange> | null | undefined): range is TimeRange => (
+  isValidTimeValue(range?.start) && isValidTimeValue(range?.end)
+);
+
 const getTimeMinutes = (time: string): number => {
   const [hour, minute] = time.split(':').map(Number);
   return hour * 60 + minute;
 };
 
 const formatPresetHour = (time: string): string => {
+  if (!isValidTimeValue(time)) return '';
   const [hour, minute] = time.split(':');
   return minute === '00' ? String(Number(hour)) : time;
 };
 
-const formatCompactTimeRange = (range: TimeRange): string => `${formatPresetHour(range.start)}-${formatPresetHour(range.end)}`;
-const formatCompactTimeRanges = (ranges: TimeRange[]): string => ranges.map(formatCompactTimeRange).join(' · ');
+const formatCompactTimeRange = (range: TimeRange): string => (
+  isValidTimeRange(range) ? `${formatPresetHour(range.start)}-${formatPresetHour(range.end)}` : ''
+);
+const formatCompactTimeRanges = (ranges: TimeRange[]): string => (
+  ranges.map(formatCompactTimeRange).filter(Boolean).join(' · ')
+);
 const formatPresetRanges = (ranges: TimeRange[]): string => `${formatCompactTimeRanges(ranges)} h`;
-const formatFullTimeRange = (range: TimeRange): string => `${range.start}-${range.end}`;
+const formatFullTimeRange = (range: TimeRange): string => (
+  isValidTimeRange(range) ? `${range.start}-${range.end}` : ''
+);
 
 const getDayLabel = (dayName: DayOfWeek): string => DAYS.find((day) => day.name === dayName)?.label ?? dayName;
 
@@ -155,6 +170,10 @@ const createDaySlotsForRanges = (ranges: TimeRange[]): DaySlots => {
   const daySlots = createEmptyDaySlots();
 
   ranges.forEach((range) => {
+    if (!isValidTimeRange(range)) {
+      return;
+    }
+
     const startMinutes = getTimeMinutes(range.start);
     const endMinutes = getTimeMinutes(range.end);
     TIME_SLOTS.forEach((slot) => {

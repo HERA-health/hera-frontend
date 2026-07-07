@@ -77,6 +77,24 @@ describe('availabilityExceptionRanges', () => {
     }));
   });
 
+  it('ignores unavailable exceptions without a usable date instead of crashing', () => {
+    const malformedException = {
+      ...createException('malformed', '2026-06-09T00:00:00.000Z', 'Vacaciones'),
+      date: undefined,
+    } as unknown as AvailabilityException;
+
+    const periods = groupAvailabilityExceptionPeriods([
+      malformedException,
+      createException('exception-1', '2026-06-10T00:00:00.000Z', 'Vacaciones'),
+    ]);
+
+    expect(periods).toHaveLength(1);
+    expect(periods[0]).toEqual(expect.objectContaining({
+      endDate: '2026-06-10',
+      startDate: '2026-06-10',
+    }));
+  });
+
   it('sorts current and future periods before past periods for the sidebar', () => {
     const periods = groupAvailabilityExceptionPeriods([
       createException('past-old', '2026-04-01T00:00:00.000Z', 'Vacaciones'),

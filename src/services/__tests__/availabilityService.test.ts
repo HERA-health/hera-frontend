@@ -71,6 +71,36 @@ describe('availabilityService private professional reads', () => {
     });
   });
 
+  it('normalizes database-shaped ranges defensively from schedule responses', async () => {
+    mockedApi.get.mockResolvedValue({
+      data: {
+        data: {
+          schedule: {
+            ...emptyWeeklySchedule,
+            monday: [
+              { startTime: '08:00', endTime: '14:00' },
+              { startTime: '16:00', endTime: '20:00' },
+            ],
+          },
+          scheduleRevision: 'rev-current',
+          scheduleVersion: 2,
+          specialistId: 'specialist-1',
+        },
+      },
+    });
+
+    await expect(getMyWeeklyScheduleSnapshot()).resolves.toEqual({
+      schedule: {
+        ...emptyWeeklySchedule,
+        monday: [
+          { start: '08:00', end: '14:00' },
+          { start: '16:00', end: '20:00' },
+        ],
+      },
+      scheduleRevision: 'rev-current',
+    });
+  });
+
   it('accepts canonical v2 multi-range schedules from the private endpoint', async () => {
     mockedApi.get.mockResolvedValue({
       data: {
