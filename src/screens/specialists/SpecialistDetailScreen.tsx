@@ -274,6 +274,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
         onLayout={(e) => { reviewsYOffset.current = e.nativeEvent.layout.y; }}
       >
         <ReviewsSection
+          specialistId={specialist.id}
           reviews={reviews}
           rating={specialist.rating}
           reviewCount={specialist.reviewCount}

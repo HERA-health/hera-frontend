@@ -320,6 +320,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
       {/* Reviews Section */}
       <View style={styles.section}>
         <ReviewsSection
+          specialistId={specialist.id}
           reviews={reviews}
           rating={specialist.rating}
           reviewCount={specialist.reviewCount}

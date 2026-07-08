@@ -12,6 +12,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRoute } from '@react-navigation/native';
 
 import { AnimatedPressable, Button } from '../../components/common';
+import { AuthorDisplaySelector } from '../../components/reviews/AuthorDisplaySelector';
 import { borderRadius, spacing, typography } from '../../constants/colors';
 import { getErrorCode, getErrorMessage } from '../../constants/errors';
 import type { AppRouteProp } from '../../constants/types';
@@ -21,9 +22,11 @@ import {
   getPublicReviewInvitation,
   submitPublicReviewInvitation,
   type PublicReviewInvitation,
+  type ReviewAuthorDisplayMode,
 } from '../../services/reviewsService';
 
 const RATING_LABELS = ['', 'Muy mala', 'Mejorable', 'Correcta', 'Buena', 'Excelente'];
+const DEFAULT_AUTHOR_DISPLAY_MODE: ReviewAuthorDisplayMode = 'ANONYMOUS';
 
 const getInvitationFallbackMessage = (error: unknown): string => {
   const code = getErrorCode(error);
@@ -57,14 +60,32 @@ export function PublicReviewScreen(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [rating, setRating] = useState(0);
   const [text, setText] = useState('');
+  const [authorDisplayMode, setAuthorDisplayMode] = useState<ReviewAuthorDisplayMode>(
+    DEFAULT_AUTHOR_DISPLAY_MODE
+  );
   const [publicationConsentAccepted, setPublicationConsentAccepted] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [submittedStatus, setSubmittedStatus] = useState<'SUBMITTED' | 'UPDATED' | null>(null);
+
+  const hydrateForm = (nextInvitation: PublicReviewInvitation) => {
+    const selectedMode = nextInvitation.existingReview?.authorDisplayMode
+      ?? nextInvitation.selectedAuthorDisplayMode
+      ?? nextInvitation.authorNameOptions[0]?.mode
+      ?? DEFAULT_AUTHOR_DISPLAY_MODE;
+
+    setAuthorDisplayMode(selectedMode);
+
+    if (nextInvitation.status === 'EDITABLE' && nextInvitation.existingReview) {
+      setRating(nextInvitation.existingReview.rating);
+      setText(nextInvitation.existingReview.text);
+    }
+  };
 
   const loadInvitation = useCallback(async () => {
     try {
       setLoading(true);
       const nextInvitation = await getPublicReviewInvitation(token);
       setInvitation(nextInvitation);
+      hydrateForm(nextInvitation);
       setError(null);
     } catch (loadError: unknown) {
       setInvitation(null);
@@ -102,15 +123,14 @@ export function PublicReviewScreen(): React.ReactElement {
       await submitPublicReviewInvitation(token, {
         rating,
         text: trimmedText,
+        authorDisplayMode,
         publicationConsentAccepted: true,
       });
-      setSubmitted(true);
-      setInvitation((current) => current ? { ...current, status: 'SUBMITTED' } : current);
+      setSubmittedStatus(invitation?.status === 'EDITABLE' ? 'UPDATED' : 'SUBMITTED');
     } catch (submitError: unknown) {
       if (getErrorCode(submitError) === 'ALREADY_SUBMITTED') {
         setError(null);
-        setSubmitted(true);
-        setInvitation((current) => current ? { ...current, status: 'SUBMITTED' } : current);
+        setSubmittedStatus('SUBMITTED');
         return;
       }
 
@@ -121,7 +141,8 @@ export function PublicReviewScreen(): React.ReactElement {
   };
 
   const specialistName = invitation?.specialistName ?? 'tu especialista';
-  const isAvailable = invitation?.status === 'AVAILABLE' && !submitted;
+  const isEditable = invitation?.status === 'EDITABLE';
+  const isFormAvailable = (invitation?.status === 'AVAILABLE' || isEditable) && !submittedStatus;
   const isValid = rating > 0 && text.trim().length >= 10 && publicationConsentAccepted;
 
   return (
@@ -143,10 +164,12 @@ export function PublicReviewScreen(): React.ReactElement {
               <Ionicons name="star-outline" size={22} color={theme.primary} />
             </View>
             <View style={styles.headerCopy}>
-              <Text style={styles.eyebrow}>Reseña de sesión</Text>
-              <Text style={styles.title}>Comparte cómo ha ido</Text>
+              <Text style={styles.eyebrow}>Opinión verificada</Text>
+              <Text style={styles.title}>
+                {isEditable ? 'Actualiza tu reseña' : 'Comparte tu experiencia'}
+              </Text>
               <Text style={styles.subtitle}>
-                Tu valoración se publicará con tu nombre abreviado y ayudará a otros pacientes a decidir con más claridad.
+                Solo aceptamos opiniones vinculadas a una sesión HERA completada. Puedes elegir cómo aparecerá tu nombre.
               </Text>
             </View>
           </View>
@@ -160,11 +183,15 @@ export function PublicReviewScreen(): React.ReactElement {
               styles={styles}
               theme={theme}
             />
-          ) : submitted || invitation?.status === 'SUBMITTED' ? (
+          ) : submittedStatus || invitation?.status === 'SUBMITTED' ? (
             <StateBlock
               icon="checkmark-circle-outline"
-              title="Gracias por tu reseña"
-              text={`Tu valoración sobre ${specialistName} ha quedado registrada.`}
+              title={submittedStatus === 'UPDATED' ? 'Reseña actualizada' : 'Gracias por tu reseña'}
+              text={
+                submittedStatus === 'UPDATED'
+                  ? `Tu opinión sobre ${specialistName} se ha actualizado.`
+                  : `Tu valoración sobre ${specialistName} ha quedado registrada.`
+              }
               styles={styles}
               theme={theme}
               tone="success"
@@ -184,7 +211,7 @@ export function PublicReviewScreen(): React.ReactElement {
             <StateBlock
               icon="time-outline"
               title="Enlace caducado"
-              text="Este enlace de reseña ya no está disponible."
+              text="Este enlace de reseña ya no está disponible. Puedes pedir otro desde el perfil del especialista."
               styles={styles}
               theme={theme}
               tone="warning"
@@ -198,91 +225,115 @@ export function PublicReviewScreen(): React.ReactElement {
               theme={theme}
               tone="warning"
             />
-          ) : isAvailable ? (
+          ) : isFormAvailable ? (
             <View style={styles.form}>
               <View style={styles.specialistStrip}>
-                <Ionicons name="person-circle-outline" size={22} color={theme.textSecondary} />
+                <View style={styles.verifiedBadge}>
+                  <Ionicons name="shield-checkmark-outline" size={16} color={theme.success} />
+                  <Text style={styles.verifiedText}>Sesión HERA verificada</Text>
+                </View>
                 <Text style={styles.specialistText} numberOfLines={2}>
-                  Sesión con <Text style={styles.specialistName}>{specialistName}</Text>
+                  Opinión sobre <Text style={styles.specialistName}>{specialistName}</Text>
                 </Text>
               </View>
 
-              <View style={styles.ratingBlock}>
-                <Text style={styles.label}>Valoración</Text>
-                <View style={styles.stars}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <AnimatedPressable
-                      key={star}
-                      onPress={() => setRating(star)}
-                      hoverLift
-                      pressScale={0.9}
-                      style={styles.starButton}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${star} de 5`}
-                    >
-                      <Ionicons
-                        name={star <= rating ? 'star' : 'star-outline'}
-                        size={isCompact ? 30 : 34}
-                        color={star <= rating ? theme.starRating : theme.borderStrong}
-                      />
-                    </AnimatedPressable>
-                  ))}
+              <View style={styles.formGrid}>
+                <View style={styles.formMain}>
+                  <View style={styles.ratingBlock}>
+                    <Text style={styles.label}>Valoración</Text>
+                    <View style={styles.stars}>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <AnimatedPressable
+                          key={star}
+                          onPress={() => setRating(star)}
+                          hoverLift
+                          pressScale={0.9}
+                          style={styles.starButton}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${star} de 5`}
+                        >
+                          <Ionicons
+                            name={star <= rating ? 'star' : 'star-outline'}
+                            size={isCompact ? 30 : 34}
+                            color={star <= rating ? theme.starRating : theme.borderStrong}
+                          />
+                        </AnimatedPressable>
+                      ))}
+                    </View>
+                    <Text style={styles.ratingLabel}>
+                      {rating > 0 ? RATING_LABELS[rating] : 'Selecciona una valoración'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.commentBlock}>
+                    <Text style={styles.label}>Comentario</Text>
+                    <TextInput
+                      value={text}
+                      onChangeText={setText}
+                      placeholder="Cuenta qué te ha ayudado, cómo te sentiste y qué destacarías..."
+                      placeholderTextColor={theme.textMuted}
+                      multiline
+                      maxLength={1000}
+                      textAlignVertical="top"
+                      style={styles.input}
+                    />
+                    <Text style={styles.counter}>{text.trim().length}/1000</Text>
+                  </View>
+
+                  <AuthorDisplaySelector
+                    options={invitation.authorNameOptions}
+                    selectedMode={authorDisplayMode}
+                    onSelect={setAuthorDisplayMode}
+                    disabled={submitting}
+                  />
+
+                  <AnimatedPressable
+                    onPress={() => setPublicationConsentAccepted((accepted) => !accepted)}
+                    style={styles.consentRow}
+                    hoverLift={false}
+                    accessibilityRole="button"
+                    accessibilityState={{ checked: publicationConsentAccepted }}
+                  >
+                    <Ionicons
+                      name={publicationConsentAccepted ? 'checkbox-outline' : 'square-outline'}
+                      size={22}
+                      color={publicationConsentAccepted ? theme.primary : theme.textSecondary}
+                    />
+                    <Text style={styles.consentText}>
+                      Entiendo que mi reseña se publicará con el nombre visible elegido y acepto enviarla.
+                    </Text>
+                  </AnimatedPressable>
+
+                  {error ? (
+                    <View style={styles.inlineError}>
+                      <Ionicons name="alert-circle-outline" size={18} color={theme.error} />
+                      <Text style={styles.inlineErrorText}>{error}</Text>
+                    </View>
+                  ) : null}
+
+                  <Button
+                    variant="primary"
+                    size="large"
+                    onPress={() => void handleSubmit()}
+                    disabled={!isValid || submitting}
+                    loading={submitting}
+                    fullWidth
+                    icon={<Ionicons name={isEditable ? 'save-outline' : 'send-outline'} size={18} color={theme.actionPrimaryText} />}
+                  >
+                    {isEditable ? 'Actualizar reseña' : 'Enviar reseña'}
+                  </Button>
                 </View>
-                <Text style={styles.ratingLabel}>
-                  {rating > 0 ? RATING_LABELS[rating] : 'Selecciona una valoración'}
-                </Text>
-              </View>
 
-              <View style={styles.commentBlock}>
-                <Text style={styles.label}>Comentario</Text>
-                <TextInput
-                  value={text}
-                  onChangeText={setText}
-                  placeholder="Cuenta qué te ha ayudado de la sesión..."
-                  placeholderTextColor={theme.textMuted}
-                  multiline
-                  maxLength={1000}
-                  textAlignVertical="top"
-                  style={styles.input}
-                />
-                <Text style={styles.counter}>{text.trim().length}/1000</Text>
-              </View>
-
-              <AnimatedPressable
-                onPress={() => setPublicationConsentAccepted((accepted) => !accepted)}
-                style={styles.consentRow}
-                hoverLift={false}
-                accessibilityRole="button"
-                accessibilityState={{ checked: publicationConsentAccepted }}
-              >
-                <Ionicons
-                  name={publicationConsentAccepted ? 'checkbox-outline' : 'square-outline'}
-                  size={22}
-                  color={publicationConsentAccepted ? theme.primary : theme.textSecondary}
-                />
-                <Text style={styles.consentText}>
-                  Entiendo que mi reseña se publicará con mi nombre abreviado y acepto enviarla.
-                </Text>
-              </AnimatedPressable>
-
-              {error ? (
-                <View style={styles.inlineError}>
-                  <Ionicons name="alert-circle-outline" size={18} color={theme.error} />
-                  <Text style={styles.inlineErrorText}>{error}</Text>
+                <View style={styles.tipsPanel}>
+                  <View style={styles.tipsTitleRow}>
+                    <Ionicons name="bulb-outline" size={18} color={theme.primary} />
+                    <Text style={styles.tipsTitle}>Consejos rápidos</Text>
+                  </View>
+                  <Text style={styles.tipText}>Habla de tu experiencia real en la sesión.</Text>
+                  <Text style={styles.tipText}>Céntrate en comunicación, trato, claridad y utilidad.</Text>
+                  <Text style={styles.tipText}>Evita datos clínicos sensibles o información de terceros.</Text>
                 </View>
-              ) : null}
-
-              <Button
-                variant="primary"
-                size="large"
-                onPress={() => void handleSubmit()}
-                disabled={!isValid || submitting}
-                loading={submitting}
-                fullWidth
-                icon={<Ionicons name="send-outline" size={18} color={theme.actionPrimaryText} />}
-              >
-                Enviar reseña
-              </Button>
+              </View>
             </View>
           ) : (
             <StateBlock
@@ -363,7 +414,7 @@ const createStyles = (theme: Theme, isDark: boolean, isCompact: boolean) =>
     },
     shell: {
       width: '100%',
-      maxWidth: 980,
+      maxWidth: 1080,
       alignSelf: 'center',
       flexDirection: isCompact ? 'column' : 'row',
       gap: isCompact ? spacing.lg : spacing.xl,
@@ -371,7 +422,7 @@ const createStyles = (theme: Theme, isDark: boolean, isCompact: boolean) =>
     },
     brandRail: {
       width: isCompact ? '100%' : 132,
-      minHeight: isCompact ? 0 : 520,
+      minHeight: isCompact ? 0 : 560,
       flexDirection: isCompact ? 'row' : 'column',
       alignItems: isCompact ? 'center' : 'flex-start',
       gap: spacing.md,
@@ -386,7 +437,7 @@ const createStyles = (theme: Theme, isDark: boolean, isCompact: boolean) =>
       flex: 1,
       height: isCompact ? 1 : undefined,
       width: isCompact ? undefined : 1,
-      minHeight: isCompact ? 1 : 160,
+      minHeight: isCompact ? 1 : 180,
       backgroundColor: theme.border,
     },
     panel: {
@@ -443,15 +494,13 @@ const createStyles = (theme: Theme, isDark: boolean, isCompact: boolean) =>
       fontFamily: theme.fontSans,
       fontSize: typography.fontSizes.md,
       lineHeight: 24,
-      maxWidth: 620,
+      maxWidth: 660,
     },
     form: {
       paddingTop: spacing.xl,
       gap: spacing.lg,
     },
     specialistStrip: {
-      flexDirection: 'row',
-      alignItems: 'center',
       gap: spacing.sm,
       backgroundColor: theme.surfaceMuted,
       borderColor: theme.borderLight,
@@ -460,8 +509,23 @@ const createStyles = (theme: Theme, isDark: boolean, isCompact: boolean) =>
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
     },
+    verifiedBadge: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+      borderRadius: borderRadius.full,
+      backgroundColor: theme.successBg,
+    },
+    verifiedText: {
+      color: theme.success,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: typography.fontSizes.xs,
+      lineHeight: 16,
+    },
     specialistText: {
-      flex: 1,
       color: theme.textSecondary,
       fontFamily: theme.fontSans,
       fontSize: typography.fontSizes.sm,
@@ -470,6 +534,41 @@ const createStyles = (theme: Theme, isDark: boolean, isCompact: boolean) =>
     specialistName: {
       color: theme.textPrimary,
       fontFamily: theme.fontSansSemiBold,
+    },
+    formGrid: {
+      flexDirection: isCompact ? 'column' : 'row',
+      alignItems: 'flex-start',
+      gap: isCompact ? spacing.lg : spacing.xl,
+    },
+    formMain: {
+      flex: 1,
+      width: '100%',
+      gap: spacing.lg,
+    },
+    tipsPanel: {
+      width: isCompact ? '100%' : 270,
+      gap: spacing.sm,
+      borderLeftWidth: isCompact ? 0 : 1,
+      borderTopWidth: isCompact ? 1 : 0,
+      borderColor: theme.borderLight,
+      paddingLeft: isCompact ? 0 : spacing.lg,
+      paddingTop: isCompact ? spacing.lg : 0,
+    },
+    tipsTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    tipsTitle: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: typography.fontSizes.sm,
+    },
+    tipText: {
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+      fontSize: typography.fontSizes.sm,
+      lineHeight: 21,
     },
     ratingBlock: {
       gap: spacing.sm,

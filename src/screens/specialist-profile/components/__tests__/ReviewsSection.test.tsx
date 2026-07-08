@@ -9,6 +9,10 @@ jest.mock('../../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
 }));
 
+jest.mock('../../../../services/reviewsService', () => ({
+  requestPublicReviewLink: jest.fn(),
+}));
+
 const mockedUseTheme = jest.mocked(useTheme);
 
 describe('ReviewsSection', () => {
@@ -28,6 +32,7 @@ describe('ReviewsSection', () => {
   it('starts expanded when there are reviews', () => {
     render(
       <ReviewsSection
+        specialistId="specialist-1"
         rating={5}
         reviewCount={1}
         reviews={[{
@@ -42,13 +47,16 @@ describe('ReviewsSection', () => {
 
     expect(screen.getByText('5.0 promedio (1 reseña)')).toBeTruthy();
     expect(screen.getByText(/Me ayudó mucho/)).toBeTruthy();
+    expect(screen.getByText('Sesión verificada')).toBeTruthy();
+    expect(screen.getByText('Añadir tu opinión')).toBeTruthy();
   });
 
-  it('stays compact when there are no reviews', () => {
-    render(<ReviewsSection rating={0} reviewCount={0} reviews={[]} />);
+  it('shows the verified review CTA when there are no reviews', () => {
+    render(<ReviewsSection specialistId="specialist-1" rating={0} reviewCount={0} reviews={[]} />);
 
     expect(screen.getByText('Reseñas de clientes')).toBeTruthy();
     expect(screen.getByText('Sin reseñas todavía')).toBeTruthy();
-    expect(screen.queryByText(/Los pacientes/)).toBeNull();
+    expect(screen.getByText(/Los pacientes ya pueden añadir opiniones verificadas/)).toBeTruthy();
+    expect(screen.getByText('Añadir tu opinión')).toBeTruthy();
   });
 });

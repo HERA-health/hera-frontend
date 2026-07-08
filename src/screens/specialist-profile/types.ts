@@ -146,6 +146,7 @@ export interface ExperienceSectionProps {
 }
 
 export interface ReviewsSectionProps {
+  specialistId?: string;
   reviews: Review[];
   rating: number;
   reviewCount: number;

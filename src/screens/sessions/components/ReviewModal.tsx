@@ -18,9 +18,16 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { borderRadius, spacing } from '../../../constants/colors';
 import type { Theme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { AuthorDisplaySelector } from '../../../components/reviews/AuthorDisplaySelector';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { Button } from '../../../components/common/Button';
-import { createReview } from '../../../services/reviewsService';
+import {
+  canReview,
+  createReview,
+  type ReviewAuthorDisplayMode,
+  type ReviewAuthorNameOption,
+  type ReviewMode,
+} from '../../../services/reviewsService';
 
 interface ReviewModalProps {
   visible: boolean;
@@ -33,11 +40,18 @@ interface ReviewModalProps {
 
 const MODAL_MAX_WIDTH = 560;
 const RATING_LABELS = ['', 'Muy mala', 'Mejorable', 'Correcta', 'Buena', 'Excelente'];
+const DEFAULT_AUTHOR_DISPLAY_MODE: ReviewAuthorDisplayMode = 'ANONYMOUS';
 
-const SuccessView: React.FC<{ specialistName: string; rating: number; theme: Theme }> = ({
+const SuccessView: React.FC<{
+  specialistName: string;
+  rating: number;
+  theme: Theme;
+  reviewMode: ReviewMode;
+}> = ({
   specialistName,
   rating,
   theme,
+  reviewMode,
 }) => {
   const scaleAnim = useRef(new Animated.Value(0.92)).current;
   const styles = useMemo(() => createSuccessStyles(theme), [theme]);
@@ -62,7 +76,9 @@ const SuccessView: React.FC<{ specialistName: string; rating: number; theme: The
         <Ionicons name="checkmark" size={40} color={theme.success} />
       </Animated.View>
 
-      <Text style={[styles.successTitle, { color: theme.textPrimary }]}>Gracias por tu reseña</Text>
+      <Text style={[styles.successTitle, { color: theme.textPrimary }]}>
+        {reviewMode === 'EDIT' ? 'Reseña actualizada' : 'Gracias por tu reseña'}
+      </Text>
       <Text style={[styles.successSubtitle, { color: theme.textSecondary }]}>
         Tu valoración sobre {specialistName} ayudará a otras personas a elegir con más confianza.
       </Text>
@@ -96,8 +112,15 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
 
   const [rating, setRating] = useState(0);
   const [text, setText] = useState('');
+  const [reviewMode, setReviewMode] = useState<ReviewMode>('CREATE');
+  const [authorNameOptions, setAuthorNameOptions] = useState<ReviewAuthorNameOption[]>([]);
+  const [authorDisplayMode, setAuthorDisplayMode] = useState<ReviewAuthorDisplayMode>(
+    DEFAULT_AUTHOR_DISPLAY_MODE
+  );
   const [publicationConsentAccepted, setPublicationConsentAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [isReviewAllowed, setIsReviewAllowed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
@@ -137,14 +160,83 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
   const resetState = () => {
     setRating(0);
     setText('');
+    setReviewMode('CREATE');
+    setAuthorNameOptions([]);
+    setAuthorDisplayMode(DEFAULT_AUTHOR_DISPLAY_MODE);
     setPublicationConsentAccepted(false);
     setError(null);
     setSubmitted(false);
     setLoading(false);
+    setPreparing(false);
+    setIsReviewAllowed(false);
   };
 
+  useEffect(() => {
+    if (!visible || !sessionId) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const prepareReview = async () => {
+      setPreparing(true);
+      setError(null);
+      setSubmitted(false);
+      setPublicationConsentAccepted(false);
+      setIsReviewAllowed(false);
+
+      try {
+        const result = await canReview(sessionId);
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (!result.canReview) {
+          setError(result.reason ?? 'No se puede reseñar esta sesión.');
+          return;
+        }
+
+        setIsReviewAllowed(true);
+
+        const nextMode = result.mode ?? 'CREATE';
+        const nextOptions = result.authorNameOptions ?? [];
+        const nextDisplayMode = result.existingReview?.authorDisplayMode
+          ?? result.selectedAuthorDisplayMode
+          ?? nextOptions[0]?.mode
+          ?? DEFAULT_AUTHOR_DISPLAY_MODE;
+
+        setReviewMode(nextMode);
+        setAuthorNameOptions(nextOptions);
+        setAuthorDisplayMode(nextDisplayMode);
+
+        if (nextMode === 'EDIT' && result.existingReview) {
+          setRating(result.existingReview.rating);
+          setText(result.existingReview.text);
+        } else {
+          setRating(0);
+          setText('');
+        }
+      } catch {
+        if (isMounted) {
+          setError('No se pudo preparar el formulario de reseña.');
+        }
+      } finally {
+        if (isMounted) {
+          setPreparing(false);
+        }
+      }
+    };
+
+    void prepareReview();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [visible, sessionId]);
+
   const handleClose = () => {
-    if (loading) return;
+    if (loading || preparing) return;
     resetState();
     onClose();
   };
@@ -175,6 +267,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
         sessionId,
         rating,
         text: text.trim(),
+        authorDisplayMode,
         publicationConsentAccepted: true,
       });
       setSubmitted(true);
@@ -189,7 +282,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
     }
   };
 
-  const isValid = rating > 0 && text.trim().length >= 10 && publicationConsentAccepted;
+  const isValid = isReviewAllowed && rating > 0 && text.trim().length >= 10 && publicationConsentAccepted;
   const initials = specialistName
     ? specialistName
         .split(' ')
@@ -229,7 +322,28 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
           ]}
         >
           {submitted ? (
-            <SuccessView specialistName={specialistName} rating={rating} theme={theme} />
+            <SuccessView
+              specialistName={specialistName}
+              rating={rating}
+              theme={theme}
+              reviewMode={reviewMode}
+            />
+          ) : preparing ? (
+            <View style={styles.preparingContainer}>
+              <ActivityIndicator color={theme.primary} size="small" />
+              <Text style={styles.preparingText}>Preparando tu reseña...</Text>
+            </View>
+          ) : !isReviewAllowed && error ? (
+            <View style={styles.blockedContainer}>
+              <View style={styles.blockedIconShell}>
+                <Ionicons name="lock-closed-outline" size={30} color={theme.textSecondary} />
+              </View>
+              <Text style={styles.blockedTitle}>No se puede enviar la reseña</Text>
+              <Text style={styles.blockedText}>{error}</Text>
+              <Button variant="secondary" size="medium" onPress={handleClose}>
+                Cerrar
+              </Button>
+            </View>
           ) : (
             <ScrollView
               showsVerticalScrollIndicator={false}
@@ -242,7 +356,9 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
                     <Ionicons name="star-outline" size={14} color={theme.secondaryDark} />
                     <Text style={styles.headerBadgeText}>Reseña</Text>
                   </View>
-                  <Text style={styles.title}>Cuéntanos cómo fue tu sesión</Text>
+                  <Text style={styles.title}>
+                    {reviewMode === 'EDIT' ? 'Actualiza tu reseña' : 'Cuéntanos cómo fue tu sesión'}
+                  </Text>
                   <Text style={styles.subtitle}>
                     Tu opinión ayuda a otras personas y mejora la confianza en la plataforma.
                   </Text>
@@ -267,7 +383,9 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
                 )}
 
                 <View style={styles.specialistCopy}>
-                  <Text style={styles.specialistLabel}>Reseña para</Text>
+                  <Text style={styles.specialistLabel}>
+                    {reviewMode === 'EDIT' ? 'Editando reseña para' : 'Reseña para'}
+                  </Text>
                   <Text style={styles.specialistName}>{specialistName}</Text>
                 </View>
               </View>
@@ -322,6 +440,13 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
                 />
               </View>
 
+              <AuthorDisplaySelector
+                options={authorNameOptions}
+                selectedMode={authorDisplayMode}
+                onSelect={setAuthorDisplayMode}
+                disabled={loading}
+              />
+
               <AnimatedPressable
                 onPress={() => setPublicationConsentAccepted((accepted) => !accepted)}
                 style={styles.privacyNotice}
@@ -335,7 +460,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
                   color={publicationConsentAccepted ? theme.primary : theme.textMuted}
                 />
                 <Text style={styles.privacyText}>
-                  Entiendo que mi reseña se publicará con mi nombre abreviado y acepto enviarla.
+                  Entiendo que mi reseña se publicará con el nombre visible elegido y acepto enviarla.
                 </Text>
               </AnimatedPressable>
 
@@ -357,13 +482,17 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
                   disabled={!isValid || loading}
                   icon={
                     loading ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <ActivityIndicator size="small" color={theme.actionPrimaryText} />
                     ) : (
-                      <Ionicons name="send" size={16} color="#FFFFFF" />
+                      <Ionicons
+                        name={reviewMode === 'EDIT' ? 'save' : 'send'}
+                        size={16}
+                        color={theme.actionPrimaryText}
+                      />
                     )
                   }
                 >
-                  Enviar reseña
+                  {reviewMode === 'EDIT' ? 'Actualizar reseña' : 'Enviar reseña'}
                 </Button>
               </View>
             </ScrollView>
@@ -400,6 +529,53 @@ const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean) =>
       shadowRadius: 28,
       elevation: 10,
       overflow: 'hidden',
+    },
+    preparingContainer: {
+      minHeight: 260,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.md,
+      padding: spacing.xl,
+    },
+    preparingText: {
+      fontSize: 14,
+      lineHeight: 20,
+      fontFamily: theme.fontSansSemiBold,
+      color: theme.textSecondary,
+      textAlign: 'center',
+    },
+    blockedContainer: {
+      minHeight: 300,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.md,
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing.xxxl,
+    },
+    blockedIconShell: {
+      width: 72,
+      height: 72,
+      borderRadius: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+    },
+    blockedTitle: {
+      fontSize: 20,
+      lineHeight: 26,
+      fontFamily: theme.fontHeading,
+      color: theme.textPrimary,
+      textAlign: 'center',
+    },
+    blockedText: {
+      maxWidth: 380,
+      fontSize: 14,
+      lineHeight: 21,
+      fontFamily: theme.fontSans,
+      color: theme.textSecondary,
+      textAlign: 'center',
     },
     scrollContent: {
       padding: spacing.xl,
