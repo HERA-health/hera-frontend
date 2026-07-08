@@ -321,9 +321,14 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
       <View style={styles.section}>
         <ReviewsSection
           specialistId={specialist.id}
+          specialistName={specialist.name}
+          specialistAvatar={specialist.avatar}
           reviews={reviews}
           rating={specialist.rating}
           reviewCount={specialist.reviewCount}
+          isAuthenticated={isAuthenticated}
+          isClient={user?.type === 'client'}
+          onReviewSubmitted={() => void loadSpecialistDetails()}
         />
       </View>
     </>

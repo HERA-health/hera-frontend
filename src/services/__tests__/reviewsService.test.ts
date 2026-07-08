@@ -6,9 +6,39 @@ jest.mock('../api', () => ({
 }));
 
 import {
+  canReviewSpecialist,
   normalizePublicReviewInvitation,
   type PublicReviewInvitation,
 } from '../reviewsService';
+import { api } from '../api';
+
+const mockedApi = api as jest.Mocked<typeof api>;
+
+describe('reviewsService.canReviewSpecialist', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('requests authenticated specialist review eligibility', async () => {
+    mockedApi.get.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          canReview: true,
+          sessionId: 'session-1',
+          mode: 'CREATE',
+        },
+      },
+    });
+
+    await expect(canReviewSpecialist('specialist-1')).resolves.toMatchObject({
+      canReview: true,
+      sessionId: 'session-1',
+    });
+
+    expect(mockedApi.get).toHaveBeenCalledWith('/reviews/specialist/specialist-1/can-review');
+  });
+});
 
 describe('reviewsService.normalizePublicReviewInvitation', () => {
   it('fills safe defaults for a legacy invitation payload', () => {

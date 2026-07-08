@@ -36,6 +36,21 @@ export interface CanReviewResponse {
   existingReview?: ExistingReviewDetails | null;
 }
 
+export type CanReviewSpecialistReason =
+  | 'NO_COMPLETED_SESSION'
+  | 'CLIENT_EMAIL_REQUIRED'
+  | 'SPECIALIST_NOT_FOUND';
+
+export interface CanReviewSpecialistResponse {
+  canReview: boolean;
+  reason?: CanReviewSpecialistReason;
+  sessionId?: string;
+  mode?: ReviewMode;
+  authorNameOptions?: ReviewAuthorNameOption[];
+  selectedAuthorDisplayMode?: ReviewAuthorDisplayMode;
+  existingReview?: ExistingReviewDetails | null;
+}
+
 export type PublicReviewInvitationStatus =
   | 'AVAILABLE'
   | 'EDITABLE'
@@ -170,6 +185,15 @@ export const createReview = async (data: CreateReviewData): Promise<void> => {
 export const canReview = async (sessionId: string): Promise<CanReviewResponse> => {
   const response = await api.get<{ success: boolean; data: CanReviewResponse }>(
     `/reviews/session/${sessionId}/can-review`
+  );
+  return response.data.data;
+};
+
+export const canReviewSpecialist = async (
+  specialistId: string
+): Promise<CanReviewSpecialistResponse> => {
+  const response = await api.get<{ success: boolean; data: CanReviewSpecialistResponse }>(
+    `/reviews/specialist/${encodeURIComponent(specialistId)}/can-review`
   );
   return response.data.data;
 };

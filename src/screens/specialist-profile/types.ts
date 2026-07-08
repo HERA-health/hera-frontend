@@ -147,10 +147,15 @@ export interface ExperienceSectionProps {
 
 export interface ReviewsSectionProps {
   specialistId?: string;
+  specialistName?: string;
+  specialistAvatar?: string;
   reviews: Review[];
   rating: number;
   reviewCount: number;
   onSeeAllPress?: () => void;
+  onReviewSubmitted?: () => void;
+  isAuthenticated?: boolean;
+  isClient?: boolean;
 }
 
 export interface ReviewCardProps {

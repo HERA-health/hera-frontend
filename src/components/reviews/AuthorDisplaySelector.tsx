@@ -70,7 +70,7 @@ export const AuthorDisplaySelector: React.FC<AuthorDisplaySelectorProps> = ({
         })}
       </View>
       <Text style={styles.helpText}>
-        Se mostrará junto a tu opinión. Puedes elegir una versión abreviada o anónima.
+        Aparecerá junto a tu opinión. Puedes elegir una versión abreviada o anónima.
       </Text>
     </View>
   );

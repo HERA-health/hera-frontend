@@ -26,6 +26,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as specialistsService from '../../services/specialistsService';
 import { spacing, borderRadius, shadows } from '../../constants/colors';
 import { getGradientColors } from '../../constants/gradients';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import type { Theme } from '../../constants/theme';
 
@@ -68,6 +69,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
   navigation,
 }) => {
   const appAlert = useAppAlert();
+  const { isAuthenticated, user } = useAuth();
   const { specialistId, affinity } = route?.params || {};
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
@@ -275,9 +277,14 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       >
         <ReviewsSection
           specialistId={specialist.id}
+          specialistName={specialist.name}
+          specialistAvatar={specialist.avatar}
           reviews={reviews}
           rating={specialist.rating}
           reviewCount={specialist.reviewCount}
+          isAuthenticated={isAuthenticated}
+          isClient={user?.type === 'client'}
+          onReviewSubmitted={() => void loadSpecialistDetails()}
         />
       </View>
     </>

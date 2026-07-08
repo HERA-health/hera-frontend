@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, View, Text, StyleSheet, TextInput } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ReviewsSectionProps } from '../types';
 import { ReviewCard } from './ReviewCard';
@@ -8,7 +8,12 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import type { Theme } from '../../../constants/theme';
 import { AnimatedPressable, Button } from '../../../components/common';
 import { ProfileDisclosureSection } from './ProfileDisclosureSection';
-import { requestPublicReviewLink } from '../../../services/reviewsService';
+import {
+  canReviewSpecialist,
+  requestPublicReviewLink,
+  type CanReviewSpecialistReason,
+} from '../../../services/reviewsService';
+import ReviewModal from '../../sessions/components/ReviewModal';
 
 const STRINGS = {
   title: 'Reseñas de clientes',
@@ -21,12 +26,31 @@ const STRINGS = {
 const isValidEmail = (email: string): boolean =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
+const getDirectReviewBlockedMessage = (
+  reason?: CanReviewSpecialistReason
+): string => {
+  if (reason === 'CLIENT_EMAIL_REQUIRED') {
+    return 'Necesitamos un email asociado a tu cuenta para poder verificar y publicar tu reseña.';
+  }
+
+  if (reason === 'SPECIALIST_NOT_FOUND') {
+    return 'No se pudo validar este perfil de especialista.';
+  }
+
+  return 'Para dejar una reseña necesitas haber completado una sesión HERA con este especialista.';
+};
+
 export const ReviewsSection: React.FC<ReviewsSectionProps> = ({
   specialistId,
+  specialistName = 'tu especialista',
+  specialistAvatar,
   reviews,
   rating,
   reviewCount,
   onSeeAllPress,
+  onReviewSubmitted,
+  isAuthenticated = false,
+  isClient = false,
 }) => {
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -35,6 +59,9 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = ({
   const [requesting, setRequesting] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [directReviewSessionId, setDirectReviewSessionId] = useState<string | null>(null);
+  const [directReviewLoading, setDirectReviewLoading] = useState(false);
+  const [directReviewMessage, setDirectReviewMessage] = useState<string | null>(null);
 
   const hasReviews = reviewCount > 0 && reviews.length > 0;
   const displayedReviews = reviews.slice(0, 3);
@@ -43,6 +70,57 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = ({
   const summary = hasReviews
     ? `${rating.toFixed(1)} ${STRINGS.average} (${reviewCount} ${reviewCountLabel})`
     : STRINGS.emptyTitle;
+
+  const canUseDirectReview = Boolean(isAuthenticated && isClient && specialistId);
+  const showAddReviewCta = Boolean(specialistId && (!isAuthenticated || isClient));
+
+  const handleDirectReview = async () => {
+    if (!specialistId) {
+      return;
+    }
+
+    try {
+      setDirectReviewLoading(true);
+      setDirectReviewMessage(null);
+      setRequestOpen(false);
+
+      const result = await canReviewSpecialist(specialistId);
+
+      if (result.canReview && result.sessionId) {
+        setDirectReviewSessionId(result.sessionId);
+        return;
+      }
+
+      setDirectReviewMessage(getDirectReviewBlockedMessage(result.reason));
+    } catch {
+      setDirectReviewMessage('No se pudo comprobar si puedes dejar una reseña ahora mismo.');
+    } finally {
+      setDirectReviewLoading(false);
+    }
+  };
+
+  const handleAddReviewPress = () => {
+    setRequestError(null);
+    setDirectReviewMessage(null);
+
+    if (canUseDirectReview) {
+      void handleDirectReview();
+      return;
+    }
+
+    setRequestOpen((open) => {
+      const nextOpen = !open;
+      if (nextOpen) {
+        setRequestSent(false);
+      }
+      return nextOpen;
+    });
+  };
+
+  const handleReviewSuccess = () => {
+    setDirectReviewSessionId(null);
+    onReviewSubmitted?.();
+  };
 
   const handleRequestLink = async () => {
     const trimmedEmail = email.trim();
@@ -83,30 +161,40 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = ({
             <Text style={styles.trustBadgeText}>Sesiones HERA verificadas</Text>
           </View>
 
-          {specialistId ? (
+          {showAddReviewCta ? (
             <AnimatedPressable
               style={styles.addButton}
-              onPress={() => {
-                setRequestOpen((open) => !open);
-                setRequestError(null);
-              }}
+              onPress={handleAddReviewPress}
+              disabled={directReviewLoading}
               hoverLift={false}
               pressScale={0.98}
               accessibilityRole="button"
+              accessibilityState={{ disabled: directReviewLoading }}
             >
-              <Ionicons name="add-circle-outline" size={17} color={theme.primary} />
+              {directReviewLoading ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <Ionicons name="add-circle-outline" size={17} color={theme.primary} />
+              )}
               <Text style={styles.addButtonText}>Añadir tu opinión</Text>
             </AnimatedPressable>
           ) : null}
         </View>
 
-        {requestOpen && specialistId ? (
+        {directReviewMessage ? (
+          <View style={styles.directReviewMessage}>
+            <Ionicons name="information-circle-outline" size={18} color={theme.primary} />
+            <Text style={styles.directReviewMessageText}>{directReviewMessage}</Text>
+          </View>
+        ) : null}
+
+        {requestOpen && specialistId && !canUseDirectReview ? (
           <View style={styles.requestBox}>
             {requestSent ? (
               <View style={styles.requestConfirmation}>
                 <Ionicons name="mail-outline" size={20} color={theme.primary} />
                 <Text style={styles.requestConfirmationText}>
-                  Si encontramos una sesión HERA completada asociada a este email, te enviaremos un enlace para dejar o editar tu reseña.
+                  Revisa tu correo. Si este email está asociado a una sesión HERA completada con este especialista, recibirás un enlace para dejar o editar tu opinión.
                 </Text>
               </View>
             ) : (
@@ -166,6 +254,15 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = ({
           </Text>
         )}
       </ProfileDisclosureSection>
+
+      <ReviewModal
+        visible={Boolean(directReviewSessionId)}
+        sessionId={directReviewSessionId ?? ''}
+        specialistName={specialistName}
+        specialistAvatar={specialistAvatar}
+        onClose={() => setDirectReviewSessionId(null)}
+        onSuccess={handleReviewSuccess}
+      />
     </View>
   );
 };
@@ -273,6 +370,24 @@ const createStyles = (theme: Theme) => StyleSheet.create({
     gap: spacing.sm,
   },
   requestConfirmationText: {
+    flex: 1,
+    color: theme.textSecondary,
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: theme.fontSans,
+  },
+  directReviewMessage: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.primaryAlpha20,
+    backgroundColor: theme.primaryAlpha12,
+  },
+  directReviewMessageText: {
     flex: 1,
     color: theme.textSecondary,
     fontSize: 13,

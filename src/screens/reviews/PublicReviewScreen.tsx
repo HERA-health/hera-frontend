@@ -144,6 +144,7 @@ export function PublicReviewScreen(): React.ReactElement {
   const isEditable = invitation?.status === 'EDITABLE';
   const isFormAvailable = (invitation?.status === 'AVAILABLE' || isEditable) && !submittedStatus;
   const isValid = rating > 0 && text.trim().length >= 10 && publicationConsentAccepted;
+  const ratingColor = theme.medals.gold[0];
 
   return (
     <ScrollView
@@ -153,15 +154,10 @@ export function PublicReviewScreen(): React.ReactElement {
       showsVerticalScrollIndicator
     >
       <View style={styles.shell}>
-        <View style={styles.brandRail}>
-          <Text style={styles.brand}>HERA</Text>
-          <View style={styles.railLine} />
-        </View>
-
         <View style={styles.panel}>
           <View style={styles.header}>
             <View style={styles.iconShell}>
-              <Ionicons name="star-outline" size={22} color={theme.primary} />
+              <Ionicons name="shield-checkmark-outline" size={22} color={theme.primary} />
             </View>
             <View style={styles.headerCopy}>
               <Text style={styles.eyebrow}>Opinión verificada</Text>
@@ -254,8 +250,8 @@ export function PublicReviewScreen(): React.ReactElement {
                         >
                           <Ionicons
                             name={star <= rating ? 'star' : 'star-outline'}
-                            size={isCompact ? 30 : 34}
-                            color={star <= rating ? theme.starRating : theme.borderStrong}
+                            size={isCompact ? 29 : 31}
+                            color={star <= rating ? ratingColor : theme.borderStrong}
                           />
                         </AnimatedPressable>
                       ))}
@@ -408,56 +404,33 @@ const createStyles = (theme: Theme, isDark: boolean, isCompact: boolean) =>
     },
     content: {
       flexGrow: 1,
-      justifyContent: 'center',
+      justifyContent: 'flex-start',
       paddingHorizontal: isCompact ? spacing.lg : spacing.xxl,
-      paddingVertical: isCompact ? spacing.xl : spacing.xxxl,
+      paddingVertical: isCompact ? spacing.xl : spacing.xxl,
     },
     shell: {
       width: '100%',
-      maxWidth: 1080,
+      maxWidth: 760,
       alignSelf: 'center',
-      flexDirection: isCompact ? 'column' : 'row',
-      gap: isCompact ? spacing.lg : spacing.xl,
-      alignItems: isCompact ? 'stretch' : 'center',
-    },
-    brandRail: {
-      width: isCompact ? '100%' : 132,
-      minHeight: isCompact ? 0 : 560,
-      flexDirection: isCompact ? 'row' : 'column',
-      alignItems: isCompact ? 'center' : 'flex-start',
-      gap: spacing.md,
-    },
-    brand: {
-      color: theme.textMuted,
-      fontFamily: theme.fontSansSemiBold,
-      fontSize: 12,
-      letterSpacing: 0,
-    },
-    railLine: {
-      flex: 1,
-      height: isCompact ? 1 : undefined,
-      width: isCompact ? undefined : 1,
-      minHeight: isCompact ? 1 : 180,
-      backgroundColor: theme.border,
+      alignItems: 'stretch',
     },
     panel: {
-      flex: 1,
       backgroundColor: theme.bgCard,
       borderWidth: 1,
       borderColor: theme.border,
       borderRadius: borderRadius.lg,
-      padding: isCompact ? spacing.lg : spacing.xxl,
-      shadowColor: isDark ? theme.shadowStrong : theme.shadowCard,
-      shadowOffset: { width: 0, height: 18 },
+      padding: isCompact ? spacing.lg : spacing.xl,
+      shadowColor: isDark ? theme.shadowStrong : theme.shadowNeutral,
+      shadowOffset: { width: 0, height: 10 },
       shadowOpacity: 1,
-      shadowRadius: 34,
-      elevation: 8,
+      shadowRadius: 24,
+      elevation: 5,
     },
     header: {
-      flexDirection: isCompact ? 'column' : 'row',
-      gap: spacing.lg,
-      alignItems: isCompact ? 'flex-start' : 'center',
-      paddingBottom: spacing.xl,
+      flexDirection: 'row',
+      gap: spacing.md,
+      alignItems: 'flex-start',
+      paddingBottom: spacing.lg,
       borderBottomWidth: 1,
       borderBottomColor: theme.borderLight,
     },
@@ -485,19 +458,19 @@ const createStyles = (theme: Theme, isDark: boolean, isCompact: boolean) =>
     title: {
       color: theme.textPrimary,
       fontFamily: theme.fontHeading,
-      fontSize: isCompact ? 30 : 38,
-      lineHeight: isCompact ? 36 : 44,
+      fontSize: isCompact ? 25 : 30,
+      lineHeight: isCompact ? 31 : 36,
       letterSpacing: 0,
     },
     subtitle: {
       color: theme.textSecondary,
       fontFamily: theme.fontSans,
-      fontSize: typography.fontSizes.md,
-      lineHeight: 24,
-      maxWidth: 660,
+      fontSize: typography.fontSizes.sm,
+      lineHeight: 21,
+      maxWidth: 580,
     },
     form: {
-      paddingTop: spacing.xl,
+      paddingTop: spacing.lg,
       gap: spacing.lg,
     },
     specialistStrip: {
@@ -536,23 +509,17 @@ const createStyles = (theme: Theme, isDark: boolean, isCompact: boolean) =>
       fontFamily: theme.fontSansSemiBold,
     },
     formGrid: {
-      flexDirection: isCompact ? 'column' : 'row',
-      alignItems: 'flex-start',
-      gap: isCompact ? spacing.lg : spacing.xl,
+      gap: spacing.lg,
     },
     formMain: {
-      flex: 1,
       width: '100%',
       gap: spacing.lg,
     },
     tipsPanel: {
-      width: isCompact ? '100%' : 270,
       gap: spacing.sm,
-      borderLeftWidth: isCompact ? 0 : 1,
-      borderTopWidth: isCompact ? 1 : 0,
+      borderTopWidth: 1,
       borderColor: theme.borderLight,
-      paddingLeft: isCompact ? 0 : spacing.lg,
-      paddingTop: isCompact ? spacing.lg : 0,
+      paddingTop: spacing.md,
     },
     tipsTitleRow: {
       flexDirection: 'row',
@@ -580,16 +547,16 @@ const createStyles = (theme: Theme, isDark: boolean, isCompact: boolean) =>
     },
     stars: {
       flexDirection: 'row',
-      gap: isCompact ? spacing.xs : spacing.sm,
+      gap: isCompact ? 2 : spacing.xs,
       alignItems: 'center',
     },
     starButton: {
-      width: isCompact ? 42 : 48,
-      height: isCompact ? 42 : 48,
+      width: isCompact ? 38 : 42,
+      height: isCompact ? 38 : 42,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: borderRadius.md,
-      backgroundColor: theme.primaryAlpha12,
+      borderRadius: borderRadius.full,
+      backgroundColor: 'transparent',
     },
     ratingLabel: {
       color: theme.textSecondary,
@@ -600,8 +567,8 @@ const createStyles = (theme: Theme, isDark: boolean, isCompact: boolean) =>
       gap: spacing.sm,
     },
     input: {
-      minHeight: 150,
-      borderWidth: 1.5,
+      minHeight: 142,
+      borderWidth: 1,
       borderColor: theme.border,
       borderRadius: borderRadius.md,
       backgroundColor: theme.bgElevated,
@@ -654,7 +621,7 @@ const createStyles = (theme: Theme, isDark: boolean, isCompact: boolean) =>
       lineHeight: 20,
     },
     state: {
-      minHeight: 300,
+      minHeight: 260,
       alignItems: 'center',
       justifyContent: 'center',
       gap: spacing.md,

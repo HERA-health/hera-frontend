@@ -12,7 +12,7 @@ const ROUTE_TITLES: Record<keyof RootStackParamList, string> = {
   EmailVerification: 'Verificación de email',
   ClinicalConsent: 'Consentimiento clínico',
   ClinicConsent: 'Consentimiento de clínica',
-  PublicReview: 'Reseña de sesión',
+  PublicReview: 'Reseña HERA',
   LegalDocument: 'Documento legal',
   RequiredLegalAcceptance: 'Actualización legal',
   ClinicPending: 'Área de clínica',
