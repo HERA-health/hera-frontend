@@ -12,7 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { Calendar, DateData, LocaleConfig } from 'react-native-calendars';
+import { Calendar, DateData } from 'react-native-calendars';
 import { useTheme } from '../../contexts/ThemeContext';
 import { borderRadius, spacing } from '../../constants/colors';
 import { Button } from '../common/Button';
@@ -43,15 +43,6 @@ import {
   parseManagedSessionTimeToMinutes,
 } from '../../utils/managedSessionSchedulerOptions';
 import { formatMadridDateKey, getMadridDateKey } from '../../utils/madridTime';
-
-LocaleConfig.locales.es = {
-  monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
-  monthNamesShort: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
-  dayNames: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
-  dayNamesShort: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
-  today: 'Hoy',
-};
-LocaleConfig.defaultLocale = 'es';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 type FormField = ManagedSessionSchedulerField | 'form';

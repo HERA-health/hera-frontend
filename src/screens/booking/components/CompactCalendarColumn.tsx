@@ -1,19 +1,10 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
-import { Calendar, DateData, LocaleConfig } from 'react-native-calendars';
+import { Calendar, DateData } from 'react-native-calendars';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { spacing, borderRadius } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { formatMadridDateKey, getMadridDateKey } from '../../../utils/madridTime';
-
-LocaleConfig.locales.es = {
-  monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
-  monthNamesShort: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
-  dayNames: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
-  dayNamesShort: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
-  today: 'Hoy',
-};
-LocaleConfig.defaultLocale = 'es';
 
 interface CompactCalendarColumnProps {
   selectedDate: string | null;

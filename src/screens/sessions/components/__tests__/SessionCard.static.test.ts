@@ -6,9 +6,14 @@ const sessionCardPath = path.join(__dirname, '..', 'SessionCard.tsx');
 describe('SessionCard cancellation action', () => {
   const source = fs.readFileSync(sessionCardPath, 'utf8');
 
-  it('hides cancellation once the session end time has passed', () => {
-    expect(source).toContain('const isSessionEnded =');
-    expect(source).toContain('session.duration * 60 * 1000 <= Date.now()');
-    expect(source).toContain('showActions && !isCompleted && !isCancelled && !isSessionEnded');
+  it('uses the explicit patient cancellation rule before rendering the action', () => {
+    expect(source).toContain('const canCancel = canClientCancelSession(session);');
+    expect(source).toContain('showActions && canCancel && onCancelPress');
+  });
+
+  it('spells review actions correctly in Spanish', () => {
+    expect(source).toContain('Dejar reseña');
+    expect(source).toContain('Reseña enviada');
+    expect(source).not.toContain('resena');
   });
 });

@@ -4,6 +4,7 @@ import { Calendar, DateData } from 'react-native-calendars';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { borderRadius, shadows, spacing } from '../../../constants/colors';
+import { CALENDAR_LOCALE } from '../../../config/calendarLocale';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { Theme } from '../../../constants/theme';
 import { AnimatedPressable, Card } from '../../../components/common';
@@ -148,11 +149,15 @@ const CalendarPanel: React.FC<CalendarPanelProps> = ({
 
       <View style={styles.calendarWrap}>
         <Calendar
+          key={`patient-calendar-${CALENDAR_LOCALE}`}
+          testID="patient-sessions-calendar"
           current={selectedDate}
           onDayPress={(day: DateData) => onDateSelect(day.dateString)}
           markedDates={markedDates}
           markingType="multi-dot"
           enableSwipeMonths
+          firstDay={1}
+          monthFormat="MMMM yyyy"
           theme={calendarTheme}
           style={styles.calendar}
         />

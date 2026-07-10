@@ -19,6 +19,27 @@ const STATUS_COLORS: Record<SessionStatus, string> = {
 const GRACE_PERIOD_MS = 60 * 60 * 1000; // 1 hour after session ends
 
 /**
+ * Checks whether the patient can still cancel a session from the UI.
+ * Final or unknown statuses are intentionally excluded.
+ */
+export const canClientCancelSession = (
+  session: Pick<ApiSession, 'date' | 'duration' | 'status'>,
+  now = Date.now()
+): boolean => {
+  const hasCancellableStatus = session.status === 'PENDING' || session.status === 'CONFIRMED';
+  const sessionStart = new Date(session.date).getTime();
+  const sessionEnd = sessionStart + session.duration * 60 * 1000;
+
+  return hasCancellableStatus
+    && Number.isFinite(now)
+    && Number.isFinite(sessionStart)
+    && Number.isFinite(session.duration)
+    && session.duration > 0
+    && Number.isFinite(sessionEnd)
+    && sessionEnd > now;
+};
+
+/**
  * Checks if a session is past (with grace period)
  */
 export const isSessionPast = (session: ApiSession): boolean => {

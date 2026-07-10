@@ -8,6 +8,7 @@ import type { Theme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { SessionCardProps } from '../types';
 import {
+  canClientCancelSession,
   formatTime,
   getDateLabel,
   getSessionTypeIcon,
@@ -41,7 +42,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
 
   const isCompleted = session.status === 'COMPLETED';
   const isCancelled = session.status === 'CANCELLED';
-  const isSessionEnded = new Date(session.date).getTime() + session.duration * 60 * 1000 <= Date.now();
+  const canCancel = canClientCancelSession(session);
   const isVideoCall = session.type === 'VIDEO_CALL';
   const isTodaySession = isToday(session.date);
   const canShowVideoButton = isVideoCall && !isCompleted && !isCancelled;
@@ -193,12 +194,12 @@ const SessionCard: React.FC<SessionCardProps> = ({
         </View>
       ) : null}
 
-      {showActions && !isCompleted && !isCancelled && !isSessionEnded ? (
+      {showActions && canCancel && onCancelPress ? (
         <View style={styles.footerActions}>
           <Button
             variant="ghost"
             size="small"
-            onPress={onCancelPress ?? (() => undefined)}
+            onPress={onCancelPress}
             icon={<Ionicons name="close-outline" size={16} color={theme.warning} />}
             style={styles.cancelGhostButton}
             textStyle={styles.cancelGhostButtonText}
@@ -213,7 +214,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
           {hasReview ? (
             <>
               <Ionicons name="star" size={15} color={theme.starRating} />
-              <Text style={[styles.completedText, { color: theme.starRating }]}>Resena enviada</Text>
+              <Text style={[styles.completedText, { color: theme.starRating }]}>Reseña enviada</Text>
             </>
           ) : onLeaveReviewPress ? (
             <Button
@@ -224,7 +225,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
               style={styles.reviewButton}
               textStyle={styles.reviewButtonText}
             >
-              Dejar resena
+              Dejar reseña
             </Button>
           ) : (
             <>
