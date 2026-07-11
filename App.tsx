@@ -15,6 +15,7 @@ import './src/config/calendarLocale';
 import { POSTHOG_API_KEY, POSTHOG_HOST, ANALYTICS_ENABLED } from './src/config/analytics';
 import { setPostHogClient } from './src/services/analyticsService';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { ProfileCompletionProvider } from './src/contexts/ProfileCompletionContext';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { getDocumentTitleForRoute } from './src/navigation/documentTitles';
@@ -199,18 +200,20 @@ function ThemedApp() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <AuthProvider>
-          <AlertProvider>
-            <NavigationContainer
-              linking={linking}
-              documentTitle={{
-                formatter: (_options, route) =>
-                  getDocumentTitleForRoute(route?.name, route?.params),
-              }}
-            >
-              <StatusBar style={isDark ? 'light' : 'dark'} />
-              <RootNavigator />
-            </NavigationContainer>
-          </AlertProvider>
+          <ProfileCompletionProvider>
+            <AlertProvider>
+              <NavigationContainer
+                linking={linking}
+                documentTitle={{
+                  formatter: (_options, route) =>
+                    getDocumentTitleForRoute(route?.name, route?.params),
+                }}
+              >
+                <StatusBar style={isDark ? 'light' : 'dark'} />
+                <RootNavigator />
+              </NavigationContainer>
+            </AlertProvider>
+          </ProfileCompletionProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </ErrorBoundary>

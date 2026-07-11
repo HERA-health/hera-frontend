@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -83,12 +83,14 @@ const formatDate = (value: string | null): string =>
 
 export function ClinicBillingScreen({
   navigation,
+  route,
 }: ScreenProps<'ClinicBilling'>): React.ReactElement {
   const { theme } = useTheme();
   const { width } = useWindowDimensions();
   const isCompact = width < 960;
   const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
   const [activeSection, setActiveSection] = useState<ClinicBillingSection>('invoices');
+  const [highlightConfig, setHighlightConfig] = useState(false);
   const {
     canManage,
     configErrors,
@@ -137,6 +139,21 @@ export function ClinicBillingScreen({
   } = useClinicBillingController();
 
   const clinicName = workspace.selectedMembership?.clinic.commercialName;
+
+  useEffect(() => {
+    if (route.params?.initialSection !== 'config') return undefined;
+
+    setActiveSection('config');
+    setHighlightConfig(true);
+    navigation.setParams({ initialSection: undefined });
+    return undefined;
+  }, [navigation, route.params?.initialSection]);
+
+  useEffect(() => {
+    if (!highlightConfig) return undefined;
+    const timeout = setTimeout(() => setHighlightConfig(false), 1800);
+    return () => clearTimeout(timeout);
+  }, [highlightConfig]);
 
   return (
     <ClinicWorkspaceScaffold
@@ -228,6 +245,7 @@ export function ClinicBillingScreen({
                     isCompact={isCompact}
                     onChange={setConfigField}
                     onSave={handleSaveConfig}
+                    highlighted={highlightConfig}
                   />
                 </View>
               ) : null}
@@ -929,6 +947,7 @@ function ConfigPanel({
   isCompact,
   onChange,
   onSave,
+  highlighted,
 }: {
   form: ClinicBillingConfigForm;
   errors: ClinicBillingConfigErrors;
@@ -939,12 +958,13 @@ function ConfigPanel({
     value: ClinicBillingConfigForm[K],
   ) => void;
   onSave: () => void;
+  highlighted: boolean;
 }): React.ReactElement {
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
 
   return (
-    <View style={styles.panel}>
+    <View style={[styles.panel, highlighted ? styles.panelHighlighted : null]}>
       <View style={styles.sectionHeader}>
         <View>
           <Text style={styles.sectionTitle}>Configuración fiscal</Text>
@@ -1273,6 +1293,10 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
       borderColor: theme.border,
       borderRadius: borderRadius.lg,
       backgroundColor: theme.bgCard,
+    },
+    panelHighlighted: {
+      borderColor: theme.primary,
+      backgroundColor: theme.primaryAlpha12,
     },
     revenuePanel: {
       width: '100%',

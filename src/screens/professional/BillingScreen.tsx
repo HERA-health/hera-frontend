@@ -15,10 +15,10 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { colors, spacing, borderRadius, typography, shadows, touchTarget, layout } from '../../constants/colors';
 import { lightTheme, Theme } from '../../constants/theme';
-import { AppNavigationProp } from '../../constants/types';
+import { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import { AnimatedPressable, Button } from '../../components/common';
 import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
 import { TourTarget } from '../../components/onboarding/TourTarget';
@@ -30,6 +30,7 @@ import { useProfessionalTourScrollPreparation } from '../../components/onboardin
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
 import {
   billingService,
   BillingSummary,
@@ -235,6 +236,7 @@ const InvoiceStatusBadge: React.FC<StatusBadgeProps> = ({ status, styles, theme 
 
 export function BillingScreen() {
   const { user } = useAuth();
+  const { refresh: refreshCompletion } = useProfileCompletion();
   const appAlert = useAppAlert();
   const { isVisible: isAppAlertVisible } = useAppAlertState();
   const { width } = useWindowDimensions();
@@ -260,6 +262,7 @@ export function BillingScreen() {
 
   // Specialist billing config (loaded from API)
   const [billingConfig, setBillingConfig] = useState<BillingConfig>({});
+  const [isConfigLoaded, setIsConfigLoaded] = useState(false);
   const [tariffItems, setTariffItems] = useState<TariffItem[]>([]);
   const [firstVisitFree, setFirstVisitFree] = useState(false);
 
@@ -280,6 +283,7 @@ export function BillingScreen() {
   const [editingTariffs, setEditingTariffs] = useState(false);
   const [editingFiscal, setEditingFiscal] = useState(false);
   const [editingNumbering, setEditingNumbering] = useState(false);
+  const [highlightFiscal, setHighlightFiscal] = useState(false);
   const [uploadingInvoiceLogo, setUploadingInvoiceLogo] = useState(false);
   const [savingInvoiceDesign, setSavingInvoiceDesign] = useState(false);
   const [numberingError, setNumberingError] = useState<string | null>(null);
@@ -296,6 +300,7 @@ export function BillingScreen() {
   });
 
   const navigation = useNavigation<AppNavigationProp>();
+  const route = useRoute<AppRouteProp<'ProfessionalBilling'>>();
 
   // Action loading states
   const [sendingId, setSendingId] = useState<string | null>(null);
@@ -418,6 +423,7 @@ export function BillingScreen() {
 
   // Load specialist billing config from API
   const loadConfig = useCallback(async () => {
+    setIsConfigLoaded(false);
     try {
       const s = await billingService.getConfig();
       const config: BillingConfig = {
@@ -471,11 +477,39 @@ export function BillingScreen() {
     } catch {
       // Config loading failed — defaults are already set
     }
+    setIsConfigLoaded(true);
   }, []);
 
   useEffect(() => {
     loadConfig();
   }, [loadConfig]);
+
+  useEffect(() => {
+    if (route.params?.initialSection !== 'fiscal' || loading || !isConfigLoaded) return undefined;
+
+    setTempFiscal(billingConfig);
+    setEditingFiscal(true);
+    setHighlightFiscal(true);
+    navigation.setParams({ initialSection: undefined });
+
+    requestAnimationFrame(() => {
+      void prepareBillingFiscalStep();
+    });
+    return undefined;
+  }, [
+    billingConfig,
+    isConfigLoaded,
+    loading,
+    navigation,
+    prepareBillingFiscalStep,
+    route.params?.initialSection,
+  ]);
+
+  useEffect(() => {
+    if (!highlightFiscal) return undefined;
+    const timeout = setTimeout(() => setHighlightFiscal(false), 1800);
+    return () => clearTimeout(timeout);
+  }, [highlightFiscal]);
 
   // ── Filter/search change handlers ───────────────────────────
   const handleFilterChange = useCallback((filter: FilterTab) => {
@@ -661,6 +695,7 @@ export function BillingScreen() {
       await billingService.updateBillingConfig(tempFiscal);
       setBillingConfig((prev) => ({ ...prev, ...tempFiscal }));
       setEditingFiscal(false);
+      await refreshCompletion();
       showAppAlert(appAlert, 'Éxito', 'Datos fiscales actualizados');
     } catch (error) {
       showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al guardar');
@@ -1265,7 +1300,7 @@ export function BillingScreen() {
 
   const renderFiscalCard = () => (
     <TourTarget id="professional.billing.fiscal" fill style={styles.fullWidthTourTarget}>
-      <View style={styles.card}>
+      <View style={[styles.card, highlightFiscal ? styles.cardTargeted : null]}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{STRINGS.fiscalData}</Text>
         <TouchableOpacity onPress={() => { setTempFiscal(billingConfig); setEditingFiscal(!editingFiscal); }}>
@@ -1711,6 +1746,10 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean, isMobil
     borderWidth: 1,
     borderColor: theme.border,
     ...shadows.sm,
+  },
+  cardTargeted: {
+    borderColor: theme.primary,
+    backgroundColor: theme.primaryAlpha12,
   },
   cardHeader: {
     flexDirection: 'row',

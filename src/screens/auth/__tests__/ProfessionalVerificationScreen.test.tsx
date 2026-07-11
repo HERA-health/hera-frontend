@@ -6,6 +6,7 @@ import { showAppAlert, useAppAlert } from '../../../components/common/alert';
 import { lightTheme } from '../../../constants/theme';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { useProfileCompletion } from '../../../contexts/ProfileCompletionContext';
 import { ProfessionalVerificationScreen } from '../ProfessionalVerificationScreen';
 
 jest.mock('@react-navigation/native', () => ({
@@ -23,6 +24,10 @@ jest.mock('../../../contexts/AuthContext', () => ({
 
 jest.mock('../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
+}));
+
+jest.mock('../../../contexts/ProfileCompletionContext', () => ({
+  useProfileCompletion: jest.fn(),
 }));
 
 jest.mock('../../../services/analyticsService', () => ({
@@ -53,6 +58,7 @@ const mockedUseAppAlert = jest.mocked(useAppAlert);
 const mockedShowAppAlert = jest.mocked(showAppAlert);
 const mockedUseAuth = jest.mocked(useAuth);
 const mockedUseTheme = jest.mocked(useTheme);
+const mockedUseProfileCompletion = jest.mocked(useProfileCompletion);
 
 describe('ProfessionalVerificationScreen', () => {
   const logout = jest.fn();
@@ -72,6 +78,13 @@ describe('ProfessionalVerificationScreen', () => {
       mode: 'light',
       isDark: false,
       setMode: jest.fn(),
+    });
+
+    mockedUseProfileCompletion.mockReturnValue({
+      snapshot: null,
+      loading: false,
+      refresh: jest.fn().mockResolvedValue(undefined),
+      setClinicScope: jest.fn(),
     });
 
     mockedUseAuth.mockReturnValue({

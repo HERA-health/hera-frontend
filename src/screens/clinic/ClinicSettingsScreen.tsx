@@ -15,6 +15,7 @@ import { Theme } from '../../constants/theme';
 import type { ScreenProps } from '../../constants/types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
 import * as clinicService from '../../services/clinicService';
 import { ClinicWorkspaceScaffold } from './components/ClinicWorkspaceScaffold';
 import { useClinicWorkspace } from './useClinicWorkspace';
@@ -182,8 +183,10 @@ const getValidationErrors = (error: z.ZodError<ClinicSettingsForm>): ClinicSetti
 
 export function ClinicSettingsScreen({
   navigation,
+  route,
 }: ScreenProps<'ClinicSettings'>): React.ReactElement {
   const { logout } = useAuth();
+  const { refresh: refreshCompletion } = useProfileCompletion();
   const { theme } = useTheme();
   const { width } = useWindowDimensions();
   const isCompact = width < 900;
@@ -198,6 +201,7 @@ export function ClinicSettingsScreen({
   const [detailError, setDetailError] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [highlightContact, setHighlightContact] = useState(false);
 
   const canEdit = workspace.selectedMembership?.role === 'OWNER'
     || workspace.selectedMembership?.role === 'ADMIN';
@@ -256,6 +260,22 @@ export function ClinicSettingsScreen({
     void loadClinicDetail(workspace.selectedClinicId);
   }, [loadClinicDetail, workspace.selectedClinicId]);
 
+  useEffect(() => {
+    if (route.params?.initialSection !== 'contact' || detailLoading || !detail) {
+      return undefined;
+    }
+
+    setHighlightContact(true);
+    navigation.setParams({ initialSection: undefined });
+    return undefined;
+  }, [detail, detailLoading, navigation, route.params?.initialSection]);
+
+  useEffect(() => {
+    if (!highlightContact) return undefined;
+    const timeout = setTimeout(() => setHighlightContact(false), 1800);
+    return () => clearTimeout(timeout);
+  }, [highlightContact]);
+
   const handleSelectClinic = useCallback((clinicId: string) => {
     void workspace.selectClinic(clinicId);
   }, [workspace]);
@@ -302,12 +322,13 @@ export function ClinicSettingsScreen({
       setForm(mapDetailToForm(updatedClinic));
       setSaveMessage('Datos de clínica guardados.');
       await workspace.reload();
+      await refreshCompletion();
     } catch (error: unknown) {
       setSaveMessage(error instanceof Error ? error.message : 'No se pudieron guardar los datos');
     } finally {
       setSaving(false);
     }
-  }, [canEdit, form, workspace]);
+  }, [canEdit, form, refreshCompletion, workspace]);
 
   const clinicName = detail?.commercialName
     ?? workspace.selectedMembership?.clinic.commercialName;
@@ -384,6 +405,7 @@ export function ClinicSettingsScreen({
               errors={errors}
               disabled={!canEdit || saving}
               onChange={handleChange}
+              highlighted={highlightContact}
             />
             <FormSection
               title="Datos fiscales"
@@ -436,6 +458,7 @@ interface FormSectionProps {
   errors: ClinicSettingsErrors;
   disabled: boolean;
   onChange: (field: ClinicSettingsField, value: string) => void;
+  highlighted?: boolean;
 }
 
 function FormSection({
@@ -446,12 +469,13 @@ function FormSection({
   errors,
   disabled,
   onChange,
+  highlighted = false,
 }: FormSectionProps): React.ReactElement {
   const { theme } = useTheme();
   const styles = useMemo(() => createSectionStyles(theme), [theme]);
 
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, highlighted ? styles.sectionHighlighted : null]}>
       <Text style={styles.sectionTitle}>{title}</Text>
       <Text style={styles.sectionText}>{text}</Text>
       <View style={styles.fields}>
@@ -590,6 +614,10 @@ const createSectionStyles = (theme: Theme) =>
       borderRadius: 8,
       backgroundColor: theme.bgCard,
       padding: spacing.lg,
+    },
+    sectionHighlighted: {
+      borderColor: theme.primary,
+      backgroundColor: theme.primaryAlpha12,
     },
     sectionTitle: {
       color: theme.textPrimary,

@@ -23,6 +23,8 @@ export function Sidebar({
   isUserSectionScrollable = false,
   isCollapsed = false,
   onToggleCollapse,
+  notices = {},
+  onNoticeNavigate,
 }: SidebarProps): React.ReactElement {
   const { theme } = useTheme();
   const sidebarTheme = getSidebarTheme(theme);
@@ -151,6 +153,8 @@ export function Sidebar({
             onNavigate={onNavigate}
             showDivider={sectionIndex > 0}
             isCollapsed={isCollapsed}
+            notices={notices}
+            onNoticeNavigate={onNoticeNavigate}
           />
         ))}
 
@@ -172,6 +176,8 @@ interface NavigationSectionComponentProps {
   onNavigate: (route: keyof RootStackParamList) => void;
   showDivider: boolean;
   isCollapsed: boolean;
+  notices: NonNullable<SidebarProps['notices']>;
+  onNoticeNavigate?: SidebarProps['onNoticeNavigate'];
 }
 
 function NavigationSectionComponent({
@@ -180,6 +186,8 @@ function NavigationSectionComponent({
   onNavigate,
   showDivider,
   isCollapsed,
+  notices,
+  onNoticeNavigate,
 }: NavigationSectionComponentProps): React.ReactElement {
   const { theme } = useTheme();
   const sidebarTheme = getSidebarTheme(theme);
@@ -215,6 +223,8 @@ function NavigationSectionComponent({
           isActive={currentRoute === item.route}
           onPress={onNavigate}
           isCollapsed={isCollapsed}
+          notice={notices[item.id]}
+          onNoticePress={onNoticeNavigate}
         />
       ))}
     </View>

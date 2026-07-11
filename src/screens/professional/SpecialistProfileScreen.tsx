@@ -60,7 +60,13 @@ import {
   VerificationStatusResponse,
 } from '../../services/professionalService';
 import { AddressAutocomplete, LocationMapPreview } from '../../components/location';
-import type { AppNavigationProp, AppRouteProp, ProfessionalProfileTab } from '../../constants/types';
+import type {
+  AppNavigationProp,
+  AppRouteProp,
+  ProfessionalProfileSection,
+  ProfessionalProfileTab,
+} from '../../constants/types';
+import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
 import { getWebAppUrl } from '../../config/api';
 import { AnimatedPressable, Button } from '../../components/common';
 import { TourTarget } from '../../components/onboarding/TourTarget';
@@ -69,11 +75,18 @@ import {
   useProfessionalTourStepPreparation,
 } from '../../components/onboarding/professionalTourContext';
 import type { UploadAsset } from '../../utils/multipartUpload';
+import type { ProfileCompletionCode } from '../../services/profileCompletionService';
+import { getMatchingCompletionDescription } from './utils/profileCompletionCopy';
 import {
   getProfessionalTypeLabel,
   PROFESSIONAL_TYPE_OPTIONS,
   type ProfessionalType,
 } from '../../constants/professionalTypes';
+import {
+  PROFESSIONAL_LANGUAGE_OPTIONS,
+  PROFESSIONAL_SPECIALTY_OPTIONS,
+  PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS,
+} from '../../constants/professionalMatchingOptions';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -180,39 +193,6 @@ interface SpecialistProfileData {
 // ============================================================================
 // CONSTANTS - Field Options
 // ============================================================================
-
-const SPECIALTIES = [
-  { value: 'anxiety', label: 'Ansiedad y estrés' },
-  { value: 'depression', label: 'Depresión' },
-  { value: 'couples', label: 'Terapia de pareja' },
-  { value: 'trauma', label: 'Trauma (EMDR)' },
-  { value: 'self-esteem', label: 'Autoestima' },
-  { value: 'grief', label: 'Duelo' },
-  { value: 'addiction', label: 'Adicciones' },
-  { value: 'eating', label: 'Trastornos alimentarios' },
-  { value: 'sleep', label: 'Problemas de sueño' },
-  { value: 'phobias', label: 'Fobias' },
-];
-
-const THERAPEUTIC_APPROACHES = [
-  { value: 'cbt', label: 'Cognitivo-Conductual (TCC)' },
-  { value: 'act', label: 'Terapia de Aceptación y Compromiso' },
-  { value: 'emdr', label: 'EMDR' },
-  { value: 'psychodynamic', label: 'Psicodinámico' },
-  { value: 'humanistic', label: 'Humanista' },
-  { value: 'systemic', label: 'Sistémico' },
-  { value: 'mindfulness', label: 'Mindfulness' },
-  { value: 'gestalt', label: 'Gestalt' },
-];
-
-const LANGUAGES = [
-  { value: 'spanish', label: 'Español' },
-  { value: 'english', label: 'Inglés' },
-  { value: 'catalan', label: 'Catalán' },
-  { value: 'french', label: 'Francés' },
-  { value: 'german', label: 'Alemán' },
-  { value: 'portuguese', label: 'Portugués' },
-];
 
 const SESSION_TYPES = [
   { value: 'individual', label: 'Individual' },
@@ -494,6 +474,7 @@ const getInsuranceReviewCopy = (
 
 export function SpecialistProfileScreen() {
   const { user, updateUser } = useAuth();
+  const { snapshot: completionSnapshot, refresh: refreshCompletion } = useProfileCompletion();
   const appAlert = useAppAlert();
   const { isVisible: isAppAlertVisible } = useAppAlertState();
   const { theme, isDark } = useTheme();
@@ -513,6 +494,18 @@ export function SpecialistProfileScreen() {
   const styles = useMemo(() => createStyles(palette, isDesktop, isMobile), [palette, isDesktop, isMobile]);
   const miEspacioStyles = useMemo(() => createMiEspacioStyles(palette), [palette]);
   const formScrollRef = useRef<ScrollView | null>(null);
+  const formScrollOffsetRef = useRef(0);
+  const sectionRefs = useRef<Record<ProfessionalProfileSection, View | null>>({
+    identity: null,
+    bio: null,
+    matching: null,
+    modality: null,
+    location: null,
+    verification: null,
+    insurance: null,
+  });
+  const [pendingSection, setPendingSection] = useState<ProfessionalProfileSection | null>(null);
+  const [highlightedSection, setHighlightedSection] = useState<ProfessionalProfileSection | null>(null);
 
   // Navigation
   const navigation = useNavigation<AppNavigationProp>();
@@ -557,6 +550,40 @@ export function SpecialistProfileScreen() {
   useProfessionalTourStepPreparation('professional.profile.tabs', prepareProfileTopStep);
   useProfessionalTourStepPreparation('professional.profile.preview', prepareProfileTopStep);
   useProfessionalTourStepPreparation('professional.profile.save', prepareProfileTopStep);
+
+  useEffect(() => {
+    if (!pendingSection || isLoading) return undefined;
+
+    const animationFrame = requestAnimationFrame(() => {
+      const target = sectionRefs.current[pendingSection];
+      const scrollView = formScrollRef.current;
+      if (!target || !scrollView) return;
+      const measurableScrollView = scrollView as unknown as {
+        measureInWindow: (
+          callback: (x: number, y: number, width: number, height: number) => void
+        ) => void;
+      };
+
+      target.measureInWindow((_targetX, targetY) => {
+        measurableScrollView.measureInWindow((_scrollX, scrollY) => {
+          scrollView.scrollTo({
+            y: Math.max(0, formScrollOffsetRef.current + targetY - scrollY - spacing.md),
+            animated: true,
+          });
+          setHighlightedSection(pendingSection);
+          setPendingSection(null);
+        });
+      });
+    });
+
+    return () => cancelAnimationFrame(animationFrame);
+  }, [activeTab, isLoading, pendingSection]);
+
+  useEffect(() => {
+    if (!highlightedSection) return undefined;
+    const timeout = setTimeout(() => setHighlightedSection(null), 1800);
+    return () => clearTimeout(timeout);
+  }, [highlightedSection]);
 
   // Verification status state
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatusResponse>({
@@ -728,6 +755,42 @@ export function SpecialistProfileScreen() {
   const publicSessionPrice =
     billingConfig?.pricePerSession ?? (Number.isFinite(parsedProfilePrice) ? parsedProfilePrice : null);
 
+  const actionableCompletionItems = useMemo(
+    () => completionSnapshot?.role === 'PROFESSIONAL'
+      ? completionSnapshot.items.filter((item) => item.state === 'ACTION_REQUIRED')
+      : [],
+    [completionSnapshot],
+  );
+  const actionableCompletionCodes = useMemo(
+    () => new Set<ProfileCompletionCode>(
+      actionableCompletionItems.map((item) => item.code),
+    ),
+    [actionableCompletionItems],
+  );
+  const hasCompletionIssue = useCallback(
+    (code: ProfileCompletionCode): boolean => actionableCompletionCodes.has(code),
+    [actionableCompletionCodes],
+  );
+  const getCompletionCount = useCallback(
+    (codes: ProfileCompletionCode[]): number => codes.reduce(
+      (count, code) => count + (actionableCompletionCodes.has(code) ? 1 : 0),
+      0,
+    ),
+    [actionableCompletionCodes],
+  );
+  const informationCompletionCount = getCompletionCount([
+    'PROFILE_IDENTITY',
+    'PROFILE_BIO',
+    'PROFILE_MATCHING',
+    'PROFILE_MODALITY',
+    'PROFILE_LOCATION',
+  ]);
+  const credentialsCompletionCount = getCompletionCount([
+    'PROFESSIONAL_VERIFICATION',
+    'PROFESSIONAL_INSURANCE',
+  ]);
+  const billingCompletionCount = getCompletionCount(['PROFESSIONAL_BILLING']);
+
   // Check for changes
   useEffect(() => {
     const changed = JSON.stringify(profileData) !== JSON.stringify(originalData);
@@ -776,7 +839,12 @@ export function SpecialistProfileScreen() {
     useCallback(() => {
       if (route.params?.initialTab) {
         setActiveTab(route.params.initialTab);
-        navigation.setParams({ initialTab: undefined });
+      }
+      if (route.params?.initialSection) {
+        setPendingSection(route.params.initialSection);
+      }
+      if (route.params?.initialTab || route.params?.initialSection) {
+        navigation.setParams({ initialTab: undefined, initialSection: undefined });
       }
 
       loadProfile();
@@ -803,7 +871,13 @@ export function SpecialistProfileScreen() {
         }
       };
       loadSpecialistId();
-    }, [loadBillingConfig, loadProfile, navigation, route.params?.initialTab])
+    }, [
+      loadBillingConfig,
+      loadProfile,
+      navigation,
+      route.params?.initialSection,
+      route.params?.initialTab,
+    ])
   );
 
   // ============================================================================
@@ -907,14 +981,19 @@ export function SpecialistProfileScreen() {
       }
       setProfileData(mappedData);
       setOriginalData(mappedData);
+      await refreshCompletion();
       showAppAlert(appAlert, 'Cambios guardados', 'Tu perfil ha sido actualizado correctamente');
     } catch (error: unknown) {
       console.error('Error saving profile:', error);
-      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo guardar el perfil. Intenta de nuevo.'));
+      showAppAlert(
+        appAlert,
+        'No se pudo guardar el perfil',
+        getErrorMessage(error, 'Revisa los datos introducidos e inténtalo de nuevo.'),
+      );
     } finally {
       setIsSaving(false);
     }
-  }, [hasChanges, originalData, profileData, updateUser]);
+  }, [hasChanges, originalData, profileData, refreshCompletion, updateUser]);
 
   const handleImagePick = useCallback(async () => {
     if (isUploadingAvatar) return;
@@ -941,20 +1020,24 @@ export function SpecialistProfileScreen() {
           setProfileData(prev => ({ ...prev, avatar: nextAvatar }));
           setOriginalData(prev => ({ ...prev, avatar: nextAvatar }));
         } catch (uploadError: unknown) {
-          showAppAlert(appAlert, 'Error', getErrorMessage(uploadError, 'No se pudo subir la foto'));
+          showAppAlert(
+            appAlert,
+            'No se pudo subir la foto',
+            getErrorMessage(uploadError, 'Comprueba la imagen seleccionada e inténtalo de nuevo.'),
+          );
         } finally {
           setIsUploadingAvatar(false);
         }
       }
     } catch (error) {
-      showAppAlert(appAlert, 'Error', 'No se pudo seleccionar la imagen');
+      showAppAlert(appAlert, 'No se pudo seleccionar la imagen', 'Inténtalo de nuevo con otra imagen.');
     }
   }, [updateUser, isUploadingAvatar]);
 
   // Navigate to own public profile (as patients see it)
   const handleViewPublicProfile = useCallback(() => {
     if (!specialistId) {
-      showAppAlert(appAlert, 'Error', 'No se pudo cargar el perfil');
+      showAppAlert(appAlert, 'Perfil no disponible', 'No se pudo cargar la vista pública del perfil.');
       return;
     }
 
@@ -1056,12 +1139,17 @@ export function SpecialistProfileScreen() {
         insuranceRejectedReason: null,
         locationVisibleToPatients: false,
       }));
+      await refreshCompletion();
     } catch (error: unknown) {
-      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo subir la póliza.'));
+      showAppAlert(
+        appAlert,
+        'No se pudo subir la póliza',
+        getErrorMessage(error, 'Comprueba que sea un PDF válido e inténtalo de nuevo.'),
+      );
     } finally {
       setIsUploadingInsurance(false);
     }
-  }, [isUploadingInsurance]);
+  }, [isUploadingInsurance, refreshCompletion]);
 
   const handleOpenInsuranceDocument = useCallback(async () => {
     if (openingCredentialKey === 'insurance') {
@@ -1072,7 +1160,11 @@ export function SpecialistProfileScreen() {
       setOpeningCredentialKey('insurance');
       await professionalService.openInsuranceDocument();
     } catch (error: unknown) {
-      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo abrir la póliza.'));
+      showAppAlert(
+        appAlert,
+        'No se pudo abrir la póliza',
+        getErrorMessage(error, 'Vuelve a intentarlo en unos segundos.'),
+      );
     } finally {
       setOpeningCredentialKey(null);
     }
@@ -1101,8 +1193,13 @@ export function SpecialistProfileScreen() {
           locationVisibleToPatients: false,
           offersInPerson: result.offersInPerson,
         }));
+        await refreshCompletion();
       } catch (error: unknown) {
-        showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo eliminar la póliza.'));
+        showAppAlert(
+          appAlert,
+          'No se pudo eliminar la póliza',
+          getErrorMessage(error, 'Vuelve a intentarlo en unos segundos.'),
+        );
       }
     };
 
@@ -1114,7 +1211,7 @@ export function SpecialistProfileScreen() {
         { text: 'Eliminar', style: 'destructive', onPress: () => void doDelete() },
       ]
     );
-  }, []);
+  }, [refreshCompletion]);
 
   const handleCreateCertificate = useCallback(async () => {
     if (isUploadingCertificate) {
@@ -1157,7 +1254,11 @@ export function SpecialistProfileScreen() {
       setIsCertificateModalVisible(false);
       resetCertificateDraft();
     } catch (error: unknown) {
-      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo subir el certificado.'));
+      showAppAlert(
+        appAlert,
+        'No se pudo subir el certificado',
+        getErrorMessage(error, 'Revisa el archivo y los datos del certificado.'),
+      );
     } finally {
       setIsUploadingCertificate(false);
     }
@@ -1173,7 +1274,11 @@ export function SpecialistProfileScreen() {
       setOpeningCredentialKey(key);
       await professionalService.openCertificateDocument(certificate.id, certificate.mimeType);
     } catch (error: unknown) {
-      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo abrir el certificado.'));
+      showAppAlert(
+        appAlert,
+        'No se pudo abrir el certificado',
+        getErrorMessage(error, 'Vuelve a intentarlo en unos segundos.'),
+      );
     } finally {
       setOpeningCredentialKey(null);
     }
@@ -1206,7 +1311,11 @@ export function SpecialistProfileScreen() {
       setProfileData(applyCertificateUpdate);
       setOriginalData(applyCertificateUpdate);
     } catch (error: unknown) {
-      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo actualizar el certificado.'));
+      showAppAlert(
+        appAlert,
+        'No se pudo actualizar el certificado',
+        getErrorMessage(error, 'Revisa los datos e inténtalo de nuevo.'),
+      );
     } finally {
       setUpdatingCertificateKey(null);
     }
@@ -1225,7 +1334,11 @@ export function SpecialistProfileScreen() {
           certificates: prev.certificates.filter(cert => cert.id !== certificateId),
         }));
       } catch (error: unknown) {
-        showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo eliminar el certificado.'));
+        showAppAlert(
+          appAlert,
+          'No se pudo eliminar el certificado',
+          getErrorMessage(error, 'Vuelve a intentarlo en unos segundos.'),
+        );
       }
     };
 
@@ -1305,12 +1418,27 @@ export function SpecialistProfileScreen() {
   // RENDER: TAB NAVIGATION
   // ============================================================================
 
-  const tabs: { id: ProfileTab; label: string; icon: IconName }[] = [
-    { id: 'information', label: 'Información Profesional', icon: 'person-outline' },
+  const tabs: { id: ProfileTab; label: string; icon: IconName; pendingCount?: number }[] = [
+    {
+      id: 'information',
+      label: 'Información Profesional',
+      icon: 'person-outline',
+      pendingCount: informationCompletionCount,
+    },
     { id: 'mi-espacio', label: STRINGS.miEspacio.tabLabel, icon: 'sparkles-outline' },
     { id: 'agenda', label: 'Agenda y reservas', icon: 'calendar-clear-outline' },
-    { id: 'credentials', label: 'Credenciales', icon: 'shield-checkmark-outline' },
-    { id: 'pricing', label: 'Facturación', icon: 'card-outline' },
+    {
+      id: 'credentials',
+      label: 'Credenciales',
+      icon: 'shield-checkmark-outline',
+      pendingCount: credentialsCompletionCount,
+    },
+    {
+      id: 'pricing',
+      label: 'Facturación',
+      icon: 'card-outline',
+      pendingCount: billingCompletionCount,
+    },
     { id: 'privacy', label: 'Privacidad', icon: 'eye-outline' },
     { id: 'account', label: 'Cuenta', icon: 'settings-outline' },
   ];
@@ -1462,6 +1590,14 @@ export function SpecialistProfileScreen() {
               >
                 {tab.label}
               </Text>
+              {tab.pendingCount ? (
+                <View
+                  style={styles.tabPendingBadge}
+                  accessibilityLabel={`${tab.pendingCount} apartados pendientes`}
+                >
+                  <Text style={styles.tabPendingBadgeText}>{tab.pendingCount}</Text>
+                </View>
+              ) : null}
             </AnimatedPressable>
           ))}
         </ScrollView>
@@ -1664,7 +1800,7 @@ export function SpecialistProfileScreen() {
 
   const renderChipSelector = (
     label: string,
-    options: { value: string; label: string }[],
+    options: readonly { value: string; label: string }[],
     selectedValues: string[],
     field: 'specialties' | 'therapeuticApproaches' | 'languages' | 'sessionTypes',
     maxSelections?: number
@@ -1736,13 +1872,13 @@ export function SpecialistProfileScreen() {
           updateField('photoGallery', [...profileData.photoGallery, response.url]);
         } catch (uploadError: unknown) {
           const message = uploadError instanceof Error ? uploadError.message : 'No se pudo subir la foto';
-          showAppAlert(appAlert, 'Error', message);
+          showAppAlert(appAlert, 'No se pudo subir la foto', message);
         } finally {
           setIsUploadingGalleryPhoto(false);
         }
       }
     } catch {
-      showAppAlert(appAlert, 'Error', 'No se pudo seleccionar la imagen');
+      showAppAlert(appAlert, 'No se pudo seleccionar la imagen', 'Inténtalo de nuevo con otra imagen.');
     }
   }, [isUploadingGalleryPhoto, profileData.photoGallery, updateField]);
 
@@ -1753,7 +1889,7 @@ export function SpecialistProfileScreen() {
         updateField('photoGallery', profileData.photoGallery.filter(u => u !== url));
       } catch (deleteError: unknown) {
         const message = deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar la foto';
-        showAppAlert(appAlert, 'Error', message);
+        showAppAlert(appAlert, 'No se pudo eliminar la foto', message);
       }
     };
 
@@ -1885,11 +2021,71 @@ export function SpecialistProfileScreen() {
   // RENDER: TAB 1 - INFORMACIÓN PROFESIONAL
   // ============================================================================
 
+  const renderCompletionWarning = (
+    code: ProfileCompletionCode,
+    title: string,
+    description: string,
+  ): React.ReactElement | null => {
+    if (!hasCompletionIssue(code)) return null;
+
+    const isCritical = actionableCompletionItems.some(
+      (item) => item.code === code && item.severity === 'CRITICAL',
+    );
+    const color = isCritical ? theme.error : theme.warningAmber;
+
+    return (
+      <View
+        style={[
+          styles.completionWarning,
+          isCritical ? styles.completionWarningCritical : null,
+        ]}
+        accessible
+        accessibilityLabel={`${title}. ${description}`}
+        accessibilityLiveRegion="polite"
+      >
+        <View style={[styles.completionWarningIcon, { borderColor: color }]}>
+          <Ionicons name="alert" size={13} color={color} />
+        </View>
+        <View style={styles.completionWarningCopy}>
+          <Text style={[styles.completionWarningTitle, { color }]}>{title}</Text>
+          <Text style={styles.completionWarningText}>{description}</Text>
+        </View>
+      </View>
+    );
+  };
+
   const renderInformationTab = () => (
     <View style={styles.tabContent}>
+      {informationCompletionCount > 0 ? (
+        <View style={styles.completionSummary}>
+          <Ionicons name="information-circle-outline" size={20} color={theme.warningAmber} />
+          <View style={styles.completionSummaryCopy}>
+            <Text style={styles.completionSummaryTitle}>
+              {informationCompletionCount === 1
+                ? 'Te queda 1 apartado por completar'
+                : `Te quedan ${informationCompletionCount} apartados por completar`}
+            </Text>
+            <Text style={styles.completionSummaryText}>
+              Los encontrarás señalados debajo. El aviso desaparecerá cuando guardes la información requerida.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       {/* Public Identity Section */}
-      <View style={styles.section}>
+      <View
+        ref={(node) => { sectionRefs.current.identity = node; }}
+        style={[
+          styles.section,
+          highlightedSection === 'identity' ? styles.targetHighlight : null,
+        ]}
+      >
         <Text style={styles.sectionTitle}>Identidad pública</Text>
+        {renderCompletionWarning(
+          'PROFILE_IDENTITY',
+          'Identidad profesional incompleta',
+          'Revisa que el nombre completo y el tipo profesional estén informados.',
+        )}
         <View style={[styles.formCard, styles.informationCard]}>
           <View style={styles.identityCardLayout}>
             <View style={styles.photoPanel}>
@@ -1994,8 +2190,22 @@ export function SpecialistProfileScreen() {
 
       <View style={styles.informationSplitGrid}>
         {/* Professional Bio Section */}
-        <View style={[styles.section, styles.descriptionSection]}>
+        <View
+          ref={(node) => { sectionRefs.current.bio = node; }}
+          style={[
+            styles.section,
+            styles.descriptionSection,
+            highlightedSection === 'bio' ? styles.targetHighlight : null,
+          ]}
+        >
           <Text style={styles.sectionTitle}>Descripción profesional</Text>
+          {renderCompletionWarning(
+            'PROFILE_BIO',
+            'Descripción profesional incompleta',
+            profileData.bio.trim().length < 150
+              ? `Te faltan ${150 - profileData.bio.trim().length} caracteres para alcanzar el mínimo de 150.`
+              : 'Ya alcanzaste el mínimo. Guarda los cambios para actualizar el estado del perfil.',
+          )}
           <View style={[styles.formCard, styles.informationCard, styles.splitEqualCard]}>
             <View style={styles.descriptionPane}>
               {renderFormField(
@@ -2017,8 +2227,20 @@ export function SpecialistProfileScreen() {
         </View>
 
         {/* Modality Section */}
-        <View style={[styles.section, styles.modalitySection]}>
+        <View
+          ref={(node) => { sectionRefs.current.modality = node; }}
+          style={[
+            styles.section,
+            styles.modalitySection,
+            highlightedSection === 'modality' ? styles.targetHighlight : null,
+          ]}
+        >
           <Text style={styles.sectionTitle}>Modalidad de sesiones</Text>
+          {renderCompletionWarning(
+            'PROFILE_MODALITY',
+            'Modalidad pendiente',
+            'Selecciona al menos una modalidad: sesiones online o presenciales.',
+          )}
           <View style={[styles.formCard, styles.informationCard, styles.splitEqualCard]}>
             <View style={styles.formField}>
               <Text style={styles.fieldHelper}>Selecciona cómo ofreces tus sesiones</Text>
@@ -2093,8 +2315,19 @@ export function SpecialistProfileScreen() {
 
       {/* Office Location (only if in-person is offered) */}
       {profileData.offersInPerson && (
-        <View style={styles.section}>
+        <View
+          ref={(node) => { sectionRefs.current.location = node; }}
+          style={[
+            styles.section,
+            highlightedSection === 'location' ? styles.targetHighlight : null,
+          ]}
+        >
           <Text style={styles.sectionTitle}>Ubicación presencial</Text>
+          {renderCompletionWarning(
+            'PROFILE_LOCATION',
+            'Ubicación presencial incompleta',
+            'Completa la dirección, la ciudad, el código postal y el país de la consulta.',
+          )}
           <View style={[styles.formCard, styles.informationCard, styles.locationCard]}>
             <View style={styles.locationLayout}>
               <View style={styles.locationFieldsPane}>
@@ -2163,25 +2396,37 @@ export function SpecialistProfileScreen() {
       )}
 
       {/* Specialties Section */}
-      <View style={[styles.section, styles.informationFullSection]}>
+      <View
+        ref={(node) => { sectionRefs.current.matching = node; }}
+        style={[
+          styles.section,
+          styles.informationFullSection,
+          highlightedSection === 'matching' ? styles.targetHighlight : null,
+        ]}
+      >
         <Text style={styles.sectionTitle}>Especialidades y enfoques</Text>
+        {renderCompletionWarning(
+          'PROFILE_MATCHING',
+          'Información profesional pendiente',
+          getMatchingCompletionDescription(profileData),
+        )}
         <View style={styles.formCard}>
           {renderChipSelector(
             'Especialidades',
-            SPECIALTIES,
+            PROFESSIONAL_SPECIALTY_OPTIONS,
             profileData.specialties,
             'specialties',
             5
           )}
           {renderChipSelector(
             'Enfoques terapéuticos',
-            THERAPEUTIC_APPROACHES,
+            PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS,
             profileData.therapeuticApproaches,
             'therapeuticApproaches'
           )}
           {renderChipSelector(
             'Idiomas',
-            LANGUAGES,
+            PROFESSIONAL_LANGUAGE_OPTIONS,
             profileData.languages,
             'languages'
           )}
@@ -2546,7 +2791,17 @@ export function SpecialistProfileScreen() {
   const renderCredentialsTab = () => (
     <View style={styles.tabContent}>
       {/* Professional Verification Status Banner */}
-      {renderVerificationStatusBanner()}
+      <View
+        ref={(node) => { sectionRefs.current.verification = node; }}
+        style={highlightedSection === 'verification' ? styles.targetHighlight : null}
+      >
+        {renderCompletionWarning(
+          'PROFESSIONAL_VERIFICATION',
+          'Verificación profesional pendiente',
+          'Completa o reenvía la verificación para que HERA pueda revisar tus credenciales.',
+        )}
+        {renderVerificationStatusBanner()}
+      </View>
 
       {/* Verification Status Overview */}
       <View style={styles.section}>
@@ -2668,8 +2923,19 @@ export function SpecialistProfileScreen() {
       </View>
 
       {/* Professional Insurance */}
-      <View style={styles.section}>
+      <View
+        ref={(node) => { sectionRefs.current.insurance = node; }}
+        style={[
+          styles.section,
+          highlightedSection === 'insurance' ? styles.targetHighlight : null,
+        ]}
+      >
         <Text style={styles.sectionTitle}>Seguro de responsabilidad civil</Text>
+        {renderCompletionWarning(
+          'PROFESSIONAL_INSURANCE',
+          'Seguro de responsabilidad civil pendiente',
+          'Sube una póliza válida para mantener activa la modalidad presencial.',
+        )}
         <View style={styles.formCard}>
           <View style={styles.credentialsHintCard}>
             <Ionicons name="lock-closed-outline" size={18} color={palette.primary} />
@@ -2896,6 +3162,11 @@ export function SpecialistProfileScreen() {
 
   const renderPricingTab = () => (
     <View style={styles.tabContent}>
+      {renderCompletionWarning(
+        'PROFESSIONAL_BILLING',
+        'Datos fiscales incompletos',
+        'Completa el nombre fiscal, el NIF y la dirección fiscal desde Facturación.',
+      )}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Resumen de facturación</Text>
         <View style={styles.formCard}>
@@ -3147,6 +3418,10 @@ export function SpecialistProfileScreen() {
           style={styles.formArea}
           contentContainerStyle={styles.formContent}
           showsVerticalScrollIndicator={true}
+          onScroll={(event) => {
+            formScrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
         >
           {activeTab === 'mi-espacio' && renderMiEspacioTab()}
           {activeTab === 'information' && renderInformationTab()}
@@ -3746,6 +4021,21 @@ function createStyles(
     color: palette.textPrimary,
     fontWeight: '600',
   },
+  tabPendingBadge: {
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 5,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.warningAmber,
+  },
+  tabPendingBadgeText: {
+    color: palette.textOnPrimary,
+    fontFamily: palette.fontSansBold,
+    fontSize: 10,
+    lineHeight: 12,
+  },
 
   // ===== MAIN LAYOUT =====
   mainArea: {
@@ -3853,6 +4143,80 @@ function createStyles(
   // ===== SECTIONS =====
   section: {
     marginBottom: isMobile ? spacing.md : spacing.lg,
+  },
+  targetHighlight: {
+    backgroundColor: palette.primaryAlpha12,
+    borderColor: palette.primary,
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    padding: 3,
+  },
+  completionSummary: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: palette.warningAmber,
+    borderRadius: borderRadius.lg,
+    backgroundColor: palette.warningLight,
+  },
+  completionSummaryCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  completionSummaryTitle: {
+    color: palette.textPrimary,
+    fontFamily: palette.fontSansBold,
+    fontSize: 14,
+    lineHeight: 19,
+  },
+  completionSummaryText: {
+    color: palette.textSecondary,
+    fontFamily: palette.fontSans,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  completionWarning: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: palette.warningAmber,
+    borderRadius: borderRadius.md,
+    backgroundColor: palette.warningLight,
+  },
+  completionWarningCritical: {
+    borderColor: palette.warning,
+  },
+  completionWarningIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.cardBg,
+  },
+  completionWarningCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  completionWarningTitle: {
+    fontFamily: palette.fontSansBold,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  completionWarningText: {
+    color: palette.textSecondary,
+    fontFamily: palette.fontSans,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 1,
   },
   sectionHeader: {
     flexDirection: 'row',

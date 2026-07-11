@@ -1,4 +1,4 @@
-import React, { type ReactNode, useMemo } from 'react';
+import React, { type ReactNode, useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -13,6 +13,8 @@ import { DropdownOption, SimpleDropdown } from '../../../components/common/Simpl
 import { layout, spacing } from '../../../constants/colors';
 import { Theme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useProfileCompletion } from '../../../contexts/ProfileCompletionContext';
 import type { ClinicMembershipRole, ClinicMembershipSummary } from '../../../services/clinicService';
 
 const ROLE_LABELS: Record<ClinicMembershipRole, string> = {
@@ -49,9 +51,17 @@ export function ClinicWorkspaceScaffold({
   action,
 }: ClinicWorkspaceScaffoldProps): React.ReactElement {
   const { theme } = useTheme();
+  const { user } = useAuth();
+  const { setClinicScope } = useProfileCompletion();
   const { width } = useWindowDimensions();
   const isCompact = width < 768;
   const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
+
+  useEffect(() => {
+    if (user?.type === 'clinic') {
+      setClinicScope(selectedClinicId);
+    }
+  }, [selectedClinicId, setClinicScope, user?.type]);
 
   const clinicOptions = useMemo<DropdownOption<string>[]>(
     () => memberships.map((membership) => ({

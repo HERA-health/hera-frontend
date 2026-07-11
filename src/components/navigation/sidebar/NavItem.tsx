@@ -81,15 +81,21 @@ export function NavItem({
   isActive,
   onPress,
   isCollapsed = false,
+  notice,
+  onNoticePress,
 }: NavItemProps): React.ReactElement {
   const { theme } = useTheme();
   const sidebarTheme = getSidebarTheme(theme);
 
   const handlePress = useCallback(() => {
     if (!item.disabled) {
-      onPress(item.route);
+      if (notice && onNoticePress) {
+        onNoticePress(notice);
+      } else {
+        onPress(item.route);
+      }
     }
-  }, [item.disabled, item.route, onPress]);
+  }, [item.disabled, item.route, notice, onNoticePress, onPress]);
 
   const indicatorOpacity = useSharedValue(isActive ? 1 : 0);
 
@@ -109,6 +115,12 @@ export function NavItem({
       : item.badgeVariant === 'info'
         ? sidebarTheme.badge.info
         : sidebarTheme.badge.default);
+  const noticeColor = notice?.tone === 'critical'
+    ? theme.error
+    : notice?.tone === 'info'
+      ? theme.info
+      : theme.warningAmber;
+  const noticeIcon = notice?.tone === 'info' ? 'time-outline' : 'alert-circle';
 
   const innerContent = (
     <View
@@ -151,6 +163,16 @@ export function NavItem({
           size={18}
           color={isActive ? sidebarTheme.icon.active : sidebarTheme.icon.inactive}
         />
+        {isCollapsed && notice ? (
+          <View
+            style={[
+              styles.noticeDot,
+              { backgroundColor: sidebarTheme.background.primary, borderColor: noticeColor },
+            ]}
+          >
+            <Ionicons name={noticeIcon} size={12} color={noticeColor} />
+          </View>
+        ) : null}
       </View>
 
       {!isCollapsed && (
@@ -167,8 +189,25 @@ export function NavItem({
           >
             {item.label}
           </Text>
+          {notice ? (
+            <Text
+              style={[
+                styles.noticeLabel,
+                { color: noticeColor, fontFamily: theme.fontSansMedium },
+              ]}
+              numberOfLines={1}
+            >
+              {notice.label}
+            </Text>
+          ) : null}
         </View>
       )}
+
+      {!isCollapsed && notice ? (
+        <View style={[styles.noticeIcon, { backgroundColor: sidebarTheme.background.subtle }]}>
+          <Ionicons name={noticeIcon} size={17} color={noticeColor} />
+        </View>
+      ) : null}
 
       {!isCollapsed && item.badge && (
         <PulsingBadge
@@ -189,7 +228,10 @@ export function NavItem({
         hoverLift={false}
         pressScale={0.985}
         style={item.disabled ? [styles.pressable, styles.disabled] : styles.pressable}
-        accessibilityLabel={`Navegar a ${item.label}`}
+        accessibilityLabel={notice
+          ? `${item.label}. ${notice.label}. Abrir sección pendiente`
+          : `Navegar a ${item.label}`}
+        accessibilityHint={notice ? 'Abre directamente la información que requiere atención' : undefined}
       >
         {item.tourTargetId ? (
           <TourTarget id={item.tourTargetId} fill style={styles.tourTarget}>

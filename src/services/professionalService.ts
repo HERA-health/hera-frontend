@@ -627,6 +627,17 @@ export const getAgendaPreferences = async (): Promise<AgendaPreferences | null> 
   }
 };
 
+export const getProfessionalProfileUpdateErrorMessage = (error: unknown): string => {
+  const rawMessage = getErrorMessage(error, 'No se pudo actualizar el perfil. Inténtalo de nuevo.');
+  const isTechnicalValidationMessage = /(^|\s)(invalid|validation failed|expected|unrecognized|too small|too big)\b/i.test(rawMessage)
+    || /[a-z]+(?:\.\d+)+/i.test(rawMessage)
+    || /\b(?:clinicId|specialistId|bufferTime|startDate|endDate)\b/.test(rawMessage);
+
+  return isTechnicalValidationMessage
+    ? 'Revisa los campos señalados del perfil y vuelve a intentarlo.'
+    : rawMessage;
+};
+
 /**
  * Update comprehensive profile for the current professional
  */
@@ -684,7 +695,7 @@ export const updateComprehensiveProfile = async (
     const response = await api.put('/specialists/me/profile', apiData);
     return response.data.data;
   } catch (error: unknown) {
-    throw new Error(getErrorMessage(error, 'No se pudo actualizar el perfil'));
+    throw new Error(getProfessionalProfileUpdateErrorMessage(error));
   }
 };
 

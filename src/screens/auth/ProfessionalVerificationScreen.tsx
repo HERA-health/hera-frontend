@@ -24,6 +24,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { heraLanding, spacing, shadows } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
 import { useNavigation } from '@react-navigation/native';
 import * as professionalService from '../../services/professionalService';
 import * as authService from '../../services/authService';
@@ -40,6 +41,7 @@ export function ProfessionalVerificationScreen() {
   const { width } = useWindowDimensions();
   const { theme } = useTheme();
   const { user, markVerificationSubmitted, logout } = useAuth();
+  const { refresh: refreshCompletion } = useProfileCompletion();
 
   // Responsive breakpoints
   const isDesktop = width >= 768;
@@ -255,6 +257,7 @@ export function ProfessionalVerificationScreen() {
 
       analyticsService.track('verification_submitted');
       markVerificationSubmitted();
+      await refreshCompletion();
 
       if (user?.email) {
         try {

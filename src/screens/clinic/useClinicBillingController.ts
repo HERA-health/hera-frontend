@@ -4,6 +4,7 @@ import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import type { DropdownOption } from '../../components/common/SimpleDropdown';
 import * as clinicService from '../../services/clinicService';
 import { useClinicWorkspace } from './useClinicWorkspace';
+import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
 
 export type ClinicBillingStatusFilter = clinicService.ClinicInvoiceStatus | 'ALL';
 export type ClinicBillingKindFilter = clinicService.ClinicInvoiceKind | 'ALL';
@@ -231,6 +232,7 @@ const buildInvoiceFilters = (
 
 export function useClinicBillingController() {
   const appAlert = useAppAlert();
+  const { refresh: refreshCompletion } = useProfileCompletion();
   const workspace = useClinicWorkspace();
   const mountedRef = useRef(true);
   const invoicesRequestSeq = useRef(0);
@@ -999,6 +1001,7 @@ export function useClinicBillingController() {
       });
       setConfig(updated);
       setConfigForm(createConfigForm(updated));
+      await refreshCompletion();
       showAppAlert(appAlert, 'Configuración guardada', 'La facturación de clínica se ha actualizado.');
     } catch (saveError: unknown) {
       showAppAlert(
@@ -1009,7 +1012,7 @@ export function useClinicBillingController() {
     } finally {
       setSaving(false);
     }
-  }, [appAlert, canManage, configForm, workspace.selectedClinicId]);
+  }, [appAlert, canManage, configForm, refreshCompletion, workspace.selectedClinicId]);
 
   const handleCreateInvoice = useCallback(async (): Promise<boolean> => {
     if (!workspace.selectedClinicId || !canManage) return false;

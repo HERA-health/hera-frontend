@@ -116,12 +116,12 @@ export type RootStackParamList = {
   RequiredLegalAcceptance: undefined;
   ClinicPending: undefined;
   ClinicDashboard: undefined;
-  ClinicSettings: undefined;
+  ClinicSettings: { initialSection?: ClinicSettingsSection } | undefined;
   ClinicAdministrators: undefined;
   ClinicTeam: undefined;
   ClinicPatients: undefined;
   ClinicAgenda: undefined;
-  ClinicBilling: undefined;
+  ClinicBilling: { initialSection?: ClinicBillingInitialSection } | undefined;
   ClinicInvoiceCreate: undefined;
   ForgotPassword: undefined;
   EmailSentPasswordReset: { email: string };
@@ -159,8 +159,11 @@ export type RootStackParamList = {
     clinicPatientId: string;
   };
   ProfessionalSessions: undefined;
-  ProfessionalProfile: { initialTab?: ProfessionalProfileTab } | undefined;
-  ProfessionalBilling: undefined;
+  ProfessionalProfile: {
+    initialTab?: ProfessionalProfileTab;
+    initialSection?: ProfessionalProfileSection;
+  } | undefined;
+  ProfessionalBilling: { initialSection?: ProfessionalBillingSection } | undefined;
   CreateInvoice: {
     invoiceId?: string;
     clientId?: string;
@@ -198,6 +201,19 @@ export type ProfessionalProfileTab =
   | 'pricing'
   | 'privacy'
   | 'account';
+
+export type ProfessionalProfileSection =
+  | 'identity'
+  | 'bio'
+  | 'matching'
+  | 'modality'
+  | 'location'
+  | 'verification'
+  | 'insurance';
+
+export type ProfessionalBillingSection = 'fiscal';
+export type ClinicSettingsSection = 'contact';
+export type ClinicBillingInitialSection = 'config';
 
 /**
  * Filter options for specialists screen

@@ -111,7 +111,26 @@ export interface NavItemProps {
   onPress: (route: keyof RootStackParamList) => void;
   /** Whether the sidebar is in collapsed state */
   isCollapsed?: boolean;
+  /** Dynamic completion notice for this destination */
+  notice?: SidebarNotice;
+  /** Navigate to the exact section represented by the notice */
+  onNoticePress?: (notice: SidebarNotice) => void;
 }
+
+export interface SidebarNavigationTarget {
+  route: string;
+  params?: Record<string, string>;
+}
+
+export interface SidebarNotice {
+  code: string;
+  label: string;
+  tone: 'warning' | 'critical' | 'info';
+  count: number;
+  target: SidebarNavigationTarget;
+}
+
+export type SidebarNoticeMap = Record<string, SidebarNotice>;
 
 /**
  * User information for the sidebar user section
@@ -171,6 +190,10 @@ export interface SidebarProps {
   isCollapsed?: boolean;
   /** Callback to toggle collapse state */
   onToggleCollapse?: () => void;
+  /** Completion notices keyed by navigation item id */
+  notices?: SidebarNoticeMap;
+  /** Navigate to the section represented by a completion notice */
+  onNoticeNavigate?: (notice: SidebarNotice) => void;
 }
 
 /**

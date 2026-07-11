@@ -22,6 +22,7 @@ interface AnimatedPressableProps {
   disabled?: boolean;
   hitSlop?: Insets;
   accessibilityLabel?: string;
+  accessibilityHint?: string;
   accessibilityRole?: 'button' | 'link' | 'none';
   accessibilityState?: AccessibilityState;
   testID?: string;
@@ -40,6 +41,7 @@ export function AnimatedPressable({
   disabled = false,
   hitSlop,
   accessibilityLabel,
+  accessibilityHint,
   accessibilityRole = 'button',
   accessibilityState,
   testID,
@@ -83,6 +85,7 @@ export function AnimatedPressable({
       disabled={disabled}
       hitSlop={hitSlop}
       accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       accessibilityRole={accessibilityRole}
       accessibilityState={accessibilityState}
       testID={testID}

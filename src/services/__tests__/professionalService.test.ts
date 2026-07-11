@@ -31,6 +31,7 @@ import {
   getProfessionalSessionDetail,
   getProfessionalSessions,
   getVerificationStatus,
+  getProfessionalProfileUpdateErrorMessage,
   isManagedSessionBufferConflictError,
   updateCertificateDocumentMetadata,
   updateComprehensiveProfile,
@@ -156,6 +157,44 @@ describe('professionalService.updateComprehensiveProfile', () => {
       emailSessionCancellationsEnabled: true,
       emailSessionReminder24hEnabled: true,
     });
+  });
+
+  it('hides technical language validation paths behind a safe fallback', async () => {
+    mockedApi.put.mockRejectedValue({
+      response: {
+        data: {
+          code: 'VALIDATION_ERROR',
+          error: 'Validation failed',
+          message: 'El valor de "languages.0" no es válido',
+        },
+      },
+    });
+
+    await expect(updateComprehensiveProfile({ languages: ['spanish'] })).rejects.toThrow(
+      'Revisa los campos señalados del perfil y vuelve a intentarlo.',
+    );
+  });
+
+  it('preserves a reviewed user-facing validation message from the backend', () => {
+    expect(getProfessionalProfileUpdateErrorMessage({
+      response: {
+        data: {
+          code: 'VALIDATION_ERROR',
+          message: 'Selecciona una opción válida en Idiomas.',
+        },
+      },
+    })).toBe('Selecciona una opción válida en Idiomas.');
+  });
+
+  it('uses a safe generic message for unknown technical validation errors', () => {
+    expect(getProfessionalProfileUpdateErrorMessage({
+      response: {
+        data: {
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+        },
+      },
+    })).toBe('Revisa los campos señalados del perfil y vuelve a intentarlo.');
   });
 });
 

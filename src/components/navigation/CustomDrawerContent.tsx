@@ -14,13 +14,16 @@
  * - All UI logic delegated to Sidebar component
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { NavigationProp, ParamListBase, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useClinicWorkspace } from '../../screens/clinic/useClinicWorkspace';
 import { Sidebar } from './sidebar';
 import { UserRole, SidebarUser } from './sidebar/types';
+import type { SidebarNotice } from './sidebar/types';
+import { buildSidebarCompletionNotices } from './sidebar/completionNotices';
+import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
 
 interface CustomDrawerContentProps {
   currentRoute?: string;
@@ -49,6 +52,7 @@ export function CustomDrawerContent({
 }: CustomDrawerContentProps): React.ReactElement {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { user, logout, verificationSubmitted } = useAuth();
+  const { snapshot: completionSnapshot, refresh: refreshCompletion } = useProfileCompletion();
   const shouldLoadClinicAdminAccess = user?.type === 'professional'
     && verificationSubmitted !== false;
   const clinicWorkspace = useClinicWorkspace({ enabled: shouldLoadClinicAdminAccess });
@@ -76,6 +80,14 @@ export function CustomDrawerContent({
       ),
     [clinicWorkspace.memberships, shouldLoadClinicAdminAccess, userRole],
   );
+  const notices = useMemo(
+    () => buildSidebarCompletionNotices(completionSnapshot),
+    [completionSnapshot],
+  );
+
+  useEffect(() => {
+    void refreshCompletion();
+  }, [currentRoute, refreshCompletion]);
 
   // Navigation handler - delegates to React Navigation
   const handleNavigate = useCallback(
@@ -85,6 +97,11 @@ export function CustomDrawerContent({
     },
     [navigation, onNavigateComplete]
   );
+
+  const handleNoticeNavigate = useCallback((notice: SidebarNotice) => {
+    navigation.navigate(notice.target.route, notice.target.params);
+    void Promise.resolve(onNavigateComplete?.()).catch(() => undefined);
+  }, [navigation, onNavigateComplete]);
 
   // Logout handler - delegates to auth context
   const handleLogout = useCallback(() => {
@@ -105,6 +122,8 @@ export function CustomDrawerContent({
         isUserSectionScrollable={isUserSectionScrollable}
         isCollapsed={isCollapsed}
         onToggleCollapse={onToggleCollapse}
+        notices={notices}
+        onNoticeNavigate={handleNoticeNavigate}
       />
     </View>
   );
