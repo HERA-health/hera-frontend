@@ -32,6 +32,7 @@ interface LandingHeaderProps {
 
 const NAV_ITEMS = [
   { id: 'howItWorks' as const, label: 'Cómo funciona' },
+  { id: 'featuredSpecialists' as const, label: 'Especialistas' },
   { id: 'forSpecialists' as const, label: 'Herramientas' },
   { id: 'specializations' as const, label: 'Especialidades' },
   { id: 'about' as const, label: 'Quiénes somos' },
@@ -42,7 +43,8 @@ type NavItem = (typeof NAV_ITEMS)[number];
 
 const WEB_SCROLLBAR_GUTTER = 16;
 const DESKTOP_HEADER_BREAKPOINT = 1024;
-const DESKTOP_NAV_BREAKPOINT = 1180;
+const DESKTOP_NAV_BREAKPOINT = 1200;
+const WIDE_HEADER_BREAKPOINT = 1400;
 
 export const LandingHeader: React.FC<LandingHeaderProps> = ({
   isScrolled,
@@ -54,6 +56,8 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_HEADER_BREAKPOINT;
   const showDesktopNav = width >= DESKTOP_NAV_BREAKPOINT;
+  const useCompactDesktopNav = showDesktopNav && width < WIDE_HEADER_BREAKPOINT;
+  const showClinicCta = !showDesktopNav || width >= WIDE_HEADER_BREAKPOINT;
   const isMobile = width < 768;
   const { theme, isDark } = useTheme();
   const scrollProgress = useSharedValue(0);
@@ -99,6 +103,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         <Text
           style={[
             styles.navLinkText,
+            useCompactDesktopNav && styles.navLinkTextCompact,
             {
               color: theme.textSecondary,
               fontFamily: theme.fontSansMedium,
@@ -132,6 +137,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         style={[
           styles.content,
           isDesktop && styles.contentDesktop,
+          useCompactDesktopNav && styles.contentDesktopCompact,
           isMobile && styles.contentMobile,
         ]}
       >
@@ -140,7 +146,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         </View>
 
         {showDesktopNav && (
-          <View style={styles.navLinks}>
+          <View style={[styles.navLinks, useCompactDesktopNav && styles.navLinksCompact]}>
             {NAV_ITEMS.map(renderNavItem)}
           </View>
         )}
@@ -180,7 +186,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             </AnimatedPressable>
           )}
 
-          {isDesktop ? (
+          {isDesktop && showClinicCta ? (
             <AnimatedPressable
               onPress={onJoinAsClinic}
               hoverLift={false}
@@ -265,8 +271,12 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   contentDesktop: {
-    paddingHorizontal: 48,
+    maxWidth: 1720,
+    paddingHorizontal: 40,
     paddingVertical: 18,
+  },
+  contentDesktopCompact: {
+    paddingHorizontal: 24,
   },
   contentMobile: {
     paddingHorizontal: 16,
@@ -276,12 +286,17 @@ const styles = StyleSheet.create({
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexShrink: 1,
+    flexShrink: 0,
   },
   navLinks: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
+    flexShrink: 1,
+    minWidth: 0,
+    gap: 18,
+  },
+  navLinksCompact: {
+    gap: 12,
   },
   navLink: {
     paddingVertical: 8,
@@ -291,10 +306,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
   },
+  navLinkTextCompact: {
+    fontSize: 14,
+  },
   ctaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   ctaContainerMobile: {
     gap: 8,

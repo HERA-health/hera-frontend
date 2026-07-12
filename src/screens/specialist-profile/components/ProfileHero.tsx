@@ -15,23 +15,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import type { Theme } from '../../../constants/theme';
 import { APPROACH_TRANSLATIONS } from './AboutSection';
 import { getProfessionalTypeLabel } from '../../../constants/professionalTypes';
-
-export const SPECIALTY_TRANSLATIONS: Record<string, string> = {
-  anxiety: 'Ansiedad',
-  depression: 'Depresión',
-  'self-esteem': 'Autoestima',
-  stress: 'Estrés laboral',
-  relationships: 'Relaciones',
-  sleep: 'Problemas de sueño',
-  phobias: 'Fobias',
-  trauma: 'Trauma',
-  couples: 'Terapia de pareja',
-  grief: 'Duelo',
-  addiction: 'Adicciones',
-  eating: 'Trastornos alimentarios',
-};
-
-const translateSpecialty = (tag: string): string => SPECIALTY_TRANSLATIONS[tag.toLowerCase()] || tag;
+import { translateSpecialty } from '../../../constants/specialties';
 
 export const ProfileHero: React.FC<ProfileHeroProps> = ({
   specialist,

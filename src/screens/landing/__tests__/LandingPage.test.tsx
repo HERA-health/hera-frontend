@@ -22,7 +22,7 @@ jest.mock('react-native', () => {
 
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 import { lightTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -35,6 +35,15 @@ jest.mock('../../../contexts/ThemeContext', () => ({
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: jest.fn(),
+  useRoute: jest.fn(),
+}));
+
+jest.mock('../../../services/specialistsService', () => ({
+  getFeaturedSpecialists: jest.fn().mockResolvedValue([]),
+}));
+
+jest.mock('../components/FeaturedSpecialistsSection', () => ({
+  FeaturedSpecialistsSection: () => null,
 }));
 
 jest.mock('react-native-reanimated', () => {
@@ -91,6 +100,7 @@ jest.mock('../../../components/common/StyledLogo', () => ({
 
 const mockedUseTheme = jest.mocked(useTheme);
 const mockedUseNavigation = jest.mocked(useNavigation);
+const mockedUseRoute = jest.mocked(useRoute);
 
 describe('LandingPage', () => {
   const navigate = jest.fn();
@@ -113,6 +123,7 @@ describe('LandingPage', () => {
     mockedUseNavigation.mockReturnValue({
       navigate,
     } as ReturnType<typeof useNavigation>);
+    mockedUseRoute.mockReturnValue({ params: undefined } as ReturnType<typeof useRoute>);
   });
 
   afterEach(() => {
@@ -172,6 +183,12 @@ describe('LandingPage', () => {
 
   it('wires desktop navigation items to landing section scroll targets', () => {
     const onScrollToSection = jest.fn();
+    mockWindowDimensions = {
+      fontScale: 1,
+      height: 900,
+      scale: 1,
+      width: 1720,
+    };
 
     render(
       <LandingHeader
@@ -185,6 +202,7 @@ describe('LandingPage', () => {
 
     const navTargets = [
       ['Cómo funciona', 'howItWorks'],
+      ['Especialistas', 'featuredSpecialists'],
       ['Herramientas', 'forSpecialists'],
       ['Especialidades', 'specializations'],
       ['Quiénes somos', 'about'],
@@ -198,6 +216,30 @@ describe('LandingPage', () => {
     navTargets.forEach(([, target], index) => {
       expect(onScrollToSection).toHaveBeenNthCalledWith(index + 1, target);
     });
+  });
+
+  it('scrolls to the public specialist section without changing the therapy login action', () => {
+    const onScrollToSection = jest.fn();
+    mockWindowDimensions = {
+      fontScale: 1,
+      height: 900,
+      scale: 1,
+      width: 1720,
+    };
+
+    render(
+      <LandingHeader
+        isScrolled={false}
+        onFindSpecialist={jest.fn()}
+        onJoinAsProfessional={jest.fn()}
+        onJoinAsClinic={jest.fn()}
+        onScrollToSection={onScrollToSection}
+      />
+    );
+
+    fireEvent.press(screen.getByText('Especialistas'));
+
+    expect(onScrollToSection).toHaveBeenCalledWith('featuredSpecialists');
   });
 
   it('hides the full landing navigation on compact desktop widths', () => {
@@ -219,8 +261,33 @@ describe('LandingPage', () => {
     );
 
     expect(screen.queryByText('Cómo funciona')).toBeNull();
+    expect(screen.queryByText('Especialistas')).toBeNull();
     expect(screen.getByText('Busco terapia')).toBeTruthy();
     expect(screen.getByText('Soy profesional')).toBeTruthy();
+  });
+
+  it('keeps landing navigation available at intermediate desktop widths', () => {
+    mockWindowDimensions = {
+      fontScale: 1,
+      height: 768,
+      scale: 1,
+      width: 1280,
+    };
+
+    render(
+      <LandingHeader
+        isScrolled={false}
+        onFindSpecialist={jest.fn()}
+        onJoinAsProfessional={jest.fn()}
+        onJoinAsClinic={jest.fn()}
+        onScrollToSection={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Cómo funciona')).toBeTruthy();
+    expect(screen.getByText('Especialistas')).toBeTruthy();
+    expect(screen.getByText('Busco terapia')).toBeTruthy();
+    expect(screen.queryByText('Clínicas')).toBeNull();
   });
 
   it('routes both primary and secondary hero actions to the right login flows', () => {

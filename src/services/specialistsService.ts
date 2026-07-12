@@ -2,10 +2,15 @@ import { api } from './api';
 import { getErrorMessage } from '../constants/errors';
 import type { Specialist } from '../screens/specialist-profile/types';
 import type { ProfessionalType } from '../constants/professionalTypes';
+import type {
+  ProfessionalSpecialtyValue,
+  ProfessionalTherapeuticApproachValue,
+} from '../constants/professionalMatchingOptions';
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
 const SPECIALISTS_CACHE_TTL_MS = 30_000;
+const FEATURED_SPECIALISTS_CACHE_TTL_MS = 60_000;
 const LEGACY_DEFAULT_SPECIALIST_DESCRIPTION = 'new professional';
 const DEFAULT_SPECIALIST_DESCRIPTION = 'Nuevo especialista en HERA';
 const LEGACY_DEFAULT_LANGUAGE = 'english';
@@ -80,6 +85,55 @@ export interface SpecialistFilters {
   inPersonOnly?: boolean;
 }
 
+export type PublicSpecialistModality = 'ONLINE' | 'IN_PERSON';
+export type PublicSpecialistDirectorySort =
+  | 'RECENT'
+  | 'PRICE_ASC'
+  | 'PRICE_DESC'
+  | 'RATING_DESC'
+  | 'REVIEWS_DESC';
+
+export interface PublicSpecialistCard {
+  id: string;
+  name: string;
+  avatar: string | null;
+  specialization: string;
+  professionalType: ProfessionalType | null;
+  professionalTypeLabel: string;
+  pricePerSession: number;
+  offersOnline: boolean;
+  offersInPerson: boolean;
+  yearsInPractice: number | null;
+  gradientId: string | null;
+  rating: number | null;
+  reviewCount: number | null;
+}
+
+export interface PublicSpecialistDirectoryCard extends PublicSpecialistCard {
+  collegiateNumber: string | null;
+  specialties: string[];
+}
+
+export interface PublicSpecialistDirectoryFilters {
+  q?: string;
+  professionalType?: ProfessionalType;
+  modality?: PublicSpecialistModality;
+  specialties?: readonly ProfessionalSpecialtyValue[];
+  approaches?: readonly ProfessionalTherapeuticApproachValue[];
+  minRating?: number;
+  maxPrice?: number;
+  sort?: PublicSpecialistDirectorySort;
+  page?: number;
+}
+
+export interface PublicSpecialistDirectoryPage {
+  items: PublicSpecialistDirectoryCard[];
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+}
+
 export interface MatchedSpecialistsResponse {
   specialists: SpecialistData[];
   hasCompletedQuestionnaire: boolean;
@@ -108,6 +162,10 @@ const matchedSpecialistsCache = new Map<string, CacheEntry<MatchedSpecialistsRes
 const matchedSpecialistsRequests = new Map<string, Promise<MatchedSpecialistsResponse>>();
 const publicSpecialistsCache = new Map<string, CacheEntry<SpecialistData[]>>();
 const publicSpecialistsRequests = new Map<string, Promise<SpecialistData[]>>();
+const featuredSpecialistsCache = new Map<string, CacheEntry<PublicSpecialistCard[]>>();
+const featuredSpecialistsRequests = new Map<string, Promise<PublicSpecialistCard[]>>();
+const publicDirectoryCache = new Map<string, CacheEntry<PublicSpecialistDirectoryPage>>();
+const publicDirectoryRequests = new Map<string, Promise<PublicSpecialistDirectoryPage>>();
 
 const getFreshCache = <T>(cache: Map<string, CacheEntry<T>>, key: string): T | null => {
   const cached = cache.get(key);
@@ -124,10 +182,15 @@ const getFreshCache = <T>(cache: Map<string, CacheEntry<T>>, key: string): T | n
   return cached.data;
 };
 
-const setCache = <T>(cache: Map<string, CacheEntry<T>>, key: string, data: T): T => {
+const setCache = <T>(
+  cache: Map<string, CacheEntry<T>>,
+  key: string,
+  data: T,
+  ttlMs: number = SPECIALISTS_CACHE_TTL_MS
+): T => {
   cache.set(key, {
     data,
-    expiresAt: Date.now() + SPECIALISTS_CACHE_TTL_MS,
+    expiresAt: Date.now() + ttlMs,
   });
 
   return data;
@@ -162,11 +225,37 @@ const getPublicSpecialistsCacheKey = (filters?: SpecialistFilters): string => {
   return `public:${queryString}`;
 };
 
+const buildPublicDirectoryQueryParams = (
+  filters?: PublicSpecialistDirectoryFilters
+): URLSearchParams => {
+  const params = new URLSearchParams();
+  const query = filters?.q?.trim();
+
+  if (query && query.length >= 2) params.append('q', query);
+  if (filters?.professionalType) params.append('professionalType', filters.professionalType);
+  if (filters?.modality) params.append('modality', filters.modality);
+  filters?.specialties?.forEach((specialty) => params.append('specialty', specialty));
+  filters?.approaches?.forEach((approach) => params.append('approach', approach));
+  if (filters?.minRating !== undefined) params.append('minRating', filters.minRating.toString());
+  if (filters?.maxPrice !== undefined) params.append('maxPrice', filters.maxPrice.toString());
+  if (filters?.sort && filters.sort !== 'RECENT') params.append('sort', filters.sort);
+  if (filters?.page && filters.page > 1) params.append('page', filters.page.toString());
+
+  return params;
+};
+
+const getPublicDirectoryCacheKey = (filters?: PublicSpecialistDirectoryFilters): string =>
+  `directory:${buildPublicDirectoryQueryParams(filters).toString()}`;
+
 export const invalidateSpecialistsCache = (): void => {
   matchedSpecialistsCache.clear();
   matchedSpecialistsRequests.clear();
   publicSpecialistsCache.clear();
   publicSpecialistsRequests.clear();
+  featuredSpecialistsCache.clear();
+  featuredSpecialistsRequests.clear();
+  publicDirectoryCache.clear();
+  publicDirectoryRequests.clear();
 };
 
 export const normalizeSpecialistDescription = (description?: string | null): string => {
@@ -379,6 +468,77 @@ export const getAllSpecialists = async (filters?: SpecialistFilters): Promise<Sp
     });
 
   publicSpecialistsRequests.set(cacheKey, request);
+  return request;
+};
+
+/**
+ * Gets the compact daily specialist window used below the landing hero.
+ * It deliberately stays separate from the full authenticated directory data.
+ */
+export const getFeaturedSpecialists = async (): Promise<PublicSpecialistCard[]> => {
+  const cacheKey = 'featured';
+  const cached = getFreshCache(featuredSpecialistsCache, cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const inFlight = featuredSpecialistsRequests.get(cacheKey);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const request = api
+    .get<{ success: boolean; data: PublicSpecialistCard[] }>('/specialists/featured')
+    .then((response) => (
+      setCache(
+        featuredSpecialistsCache,
+        cacheKey,
+        response.data.data,
+        FEATURED_SPECIALISTS_CACHE_TTL_MS
+      )
+    ))
+    .catch((error: unknown) => {
+      throw new Error(getErrorMessage(error, 'No se pudieron cargar los especialistas destacados'));
+    })
+    .finally(() => {
+      featuredSpecialistsRequests.delete(cacheKey);
+    });
+
+  featuredSpecialistsRequests.set(cacheKey, request);
+  return request;
+};
+
+/**
+ * Gets a paginated, unauthenticated specialist directory without matching,
+ * favourites or any patient-specific enhancement.
+ */
+export const getPublicSpecialistDirectory = async (
+  filters?: PublicSpecialistDirectoryFilters
+): Promise<PublicSpecialistDirectoryPage> => {
+  const cacheKey = getPublicDirectoryCacheKey(filters);
+  const cached = getFreshCache(publicDirectoryCache, cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const inFlight = publicDirectoryRequests.get(cacheKey);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const queryString = buildPublicDirectoryQueryParams(filters).toString();
+  const url = `/specialists/directory${queryString ? `?${queryString}` : ''}`;
+  const request = api
+    .get<{ success: boolean; data: PublicSpecialistDirectoryPage }>(url)
+    .then((response) => setCache(publicDirectoryCache, cacheKey, response.data.data))
+    .catch((error: unknown) => {
+      throw new Error(getErrorMessage(error, 'No se pudo cargar el directorio de especialistas'));
+    })
+    .finally(() => {
+      publicDirectoryRequests.delete(cacheKey);
+    });
+
+  publicDirectoryRequests.set(cacheKey, request);
   return request;
 };
 

@@ -305,6 +305,13 @@ const PublicSpecialistProfileRoute = createDeferredRoute<'PublicSpecialistProfil
     exportName: 'PublicSpecialistProfileScreen',
   }
 );
+const PublicSpecialistsRoute = createDeferredRoute<'PublicSpecialists'>(
+  () => require('../screens/specialists/PublicSpecialistsScreen'),
+  {
+    displayName: 'PublicSpecialistsRoute',
+    exportName: 'PublicSpecialistsScreen',
+  }
+);
 const PublicReviewRoute = createDeferredRoute<'PublicReview'>(
   () => require('../screens/reviews/PublicReviewScreen'),
   {
@@ -529,6 +536,11 @@ export function RootNavigator() {
         screenOptions={{ headerShown: false }}
       >
         <Stack.Screen name="Landing" component={LandingPage} />
+        <Stack.Screen
+          name="PublicSpecialists"
+          component={PublicSpecialistsRoute}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="Welcome" component={WelcomeRoute} />
         <Stack.Screen name="Login" component={LoginRoute} />
         <Stack.Screen name="Register" component={RegisterRoute} />
@@ -706,6 +718,11 @@ export function RootNavigator() {
         <Stack.Screen
           name="PublicSpecialistProfile"
           component={PublicSpecialistProfileRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PublicSpecialists"
+          component={PublicSpecialistsRoute}
           options={{ headerShown: false }}
         />
         <Stack.Screen
@@ -1007,6 +1024,11 @@ export function RootNavigator() {
       <Stack.Screen
         name="PublicSpecialistProfile"
         component={PublicSpecialistProfileRoute}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="PublicSpecialists"
+        component={PublicSpecialistsRoute}
         options={{ headerShown: false }}
       />
       <Stack.Screen

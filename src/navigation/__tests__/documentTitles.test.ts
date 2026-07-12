@@ -5,6 +5,7 @@ describe('documentTitles', () => {
     expect(getDocumentTitleForRoute('Landing')).toBe('Hera | Inicio');
     expect(getDocumentTitleForRoute('Login')).toBe('Hera | Iniciar sesión');
     expect(getDocumentTitleForRoute('Register')).toBe('Hera | Crear cuenta');
+    expect(getDocumentTitleForRoute('PublicSpecialists')).toBe('Hera | Especialistas');
   });
 
   it('formats professional route titles in Spanish', () => {

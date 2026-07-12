@@ -21,7 +21,10 @@ import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 import {
   addFavoriteSpecialist,
+  getFeaturedSpecialists,
   getAllSpecialists,
+  getPublicSpecialistDirectory,
+  invalidateSpecialistsCache,
   getSpecialistPersonalization,
   mapSpecialistToProfile,
   openPublicCertificateDocument,
@@ -37,6 +40,7 @@ const mockedWebBrowser = jest.mocked(WebBrowser);
 describe('specialistsService personalization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    invalidateSpecialistsCache();
   });
 
   it('loads private specialist personalization from the client endpoint', async () => {
@@ -78,6 +82,57 @@ describe('specialistsService personalization', () => {
     await expect(getAllSpecialists({ professionalType: 'PSYCHIATRIST' })).resolves.toEqual([]);
 
     expect(mockedApi.get).toHaveBeenCalledWith('/specialists?professionalType=PSYCHIATRIST');
+  });
+
+  it('loads the compact featured specialist payload without requesting the full directory', async () => {
+    const payload = [{
+      id: 'featured-1',
+      name: 'Dra. Elena',
+      avatar: null,
+      specialization: 'Psicología sanitaria',
+      professionalType: 'PSYCHOLOGIST_HEALTH' as const,
+      professionalTypeLabel: 'Psicóloga sanitaria',
+      pricePerSession: 80,
+      offersOnline: true,
+      offersInPerson: false,
+      yearsInPractice: 8,
+      gradientId: 'salvia-lavanda',
+      rating: 4.8,
+      reviewCount: 15,
+    }];
+    mockedApi.get.mockResolvedValue({ data: { success: true, data: payload } });
+
+    await expect(getFeaturedSpecialists()).resolves.toEqual(payload);
+
+    expect(mockedApi.get).toHaveBeenCalledWith('/specialists/featured');
+    expect(mockedApi.get).not.toHaveBeenCalledWith('/specialists');
+  });
+
+  it('requests only the selected public directory page and filters', async () => {
+    const payload = {
+      items: [],
+      page: 2,
+      pageSize: 12,
+      total: 12,
+      hasMore: false,
+    };
+    mockedApi.get.mockResolvedValue({ data: { success: true, data: payload } });
+
+    await expect(getPublicSpecialistDirectory({
+      q: 'ansiedad',
+      professionalType: 'PSYCHIATRIST',
+      modality: 'ONLINE',
+      specialties: ['anxiety', 'depression'],
+      approaches: ['cbt', 'emdr'],
+      minRating: 4.5,
+      maxPrice: 60,
+      sort: 'RATING_DESC',
+      page: 2,
+    })).resolves.toEqual(payload);
+
+    expect(mockedApi.get).toHaveBeenCalledWith(
+      '/specialists/directory?q=ansiedad&professionalType=PSYCHIATRIST&modality=ONLINE&specialty=anxiety&specialty=depression&approach=cbt&approach=emdr&minRating=4.5&maxPrice=60&sort=RATING_DESC&page=2'
+    );
   });
 
   it('does not invent an online modality when the public profile exposes none', () => {

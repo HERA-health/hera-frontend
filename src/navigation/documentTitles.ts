@@ -31,6 +31,7 @@ const ROUTE_TITLES: Record<keyof RootStackParamList, string> = {
   MainStack: 'Área privada',
   Home: 'Inicio',
   Specialists: 'Especialistas',
+  PublicSpecialists: 'Especialistas',
   Sessions: 'Mis sesiones',
   OnDutyPsychologist: 'Psicólogo de guardia',
   Profile: 'Mi perfil',

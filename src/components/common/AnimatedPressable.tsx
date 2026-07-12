@@ -23,7 +23,7 @@ interface AnimatedPressableProps {
   hitSlop?: Insets;
   accessibilityLabel?: string;
   accessibilityHint?: string;
-  accessibilityRole?: 'button' | 'link' | 'none';
+  accessibilityRole?: 'button' | 'checkbox' | 'link' | 'none' | 'radio';
   accessibilityState?: AccessibilityState;
   testID?: string;
 }

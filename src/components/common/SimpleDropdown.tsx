@@ -20,11 +20,17 @@ export interface DropdownOption<T> {
 }
 
 export interface SimpleDropdownProps<T> {
-  options: DropdownOption<T>[];
+  options: readonly DropdownOption<T>[];
   value: T | null;
   onSelect: (value: T) => void;
   placeholder?: string;
   maxHeight?: number;
+  optionsMinWidth?: number;
+  optionsAlign?: 'left' | 'right';
+  compact?: boolean;
+  selectionIndicator?: 'none' | 'checkbox' | 'radio';
+  onClear?: () => void;
+  highlightSelection?: boolean;
 }
 
 export function SimpleDropdown<T extends string | number>({
@@ -33,16 +39,27 @@ export function SimpleDropdown<T extends string | number>({
   onSelect,
   placeholder = 'Seleccionar...',
   maxHeight = 200,
+  optionsMinWidth,
+  optionsAlign = 'left',
+  compact = false,
+  selectionIndicator = 'none',
+  onClear,
+  highlightSelection = true,
 }: SimpleDropdownProps<T>) {
   const { theme, isDark } = useTheme();
   const dropdownStyles = React.useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value);
+  const selectionHighlighted = Boolean(selected && highlightSelection);
 
   return (
     <View style={[dropdownStyles.container, open ? dropdownStyles.containerOpen : null]}>
       <AnimatedPressable
-        style={dropdownStyles.trigger}
+        style={[
+          dropdownStyles.trigger,
+          compact && dropdownStyles.triggerCompact,
+          selectionHighlighted && dropdownStyles.triggerSelected,
+        ]}
         onPress={() => setOpen(!open)}
         hoverLift={false}
         pressScale={0.98}
@@ -52,6 +69,7 @@ export function SimpleDropdown<T extends string | number>({
             style={[
               dropdownStyles.triggerText,
               !selected && dropdownStyles.placeholderText,
+              selectionHighlighted && dropdownStyles.triggerTextSelected,
             ]}
             numberOfLines={1}
           >
@@ -66,7 +84,7 @@ export function SimpleDropdown<T extends string | number>({
         <Ionicons
           name={open ? 'chevron-up' : 'chevron-down'}
           size={16}
-          color={theme.textMuted}
+          color={selectionHighlighted ? theme.primary : theme.textMuted}
         />
       </AnimatedPressable>
       {open && (
@@ -75,31 +93,78 @@ export function SimpleDropdown<T extends string | number>({
             style={dropdownStyles.backdrop}
             onPress={() => setOpen(false)}
           />
-          <View style={[dropdownStyles.optionsList, { maxHeight }]}>
+          <View
+            style={[
+              dropdownStyles.optionsList,
+              { maxHeight, minWidth: optionsMinWidth },
+              optionsAlign === 'right' ? dropdownStyles.optionsListRight : null,
+            ]}
+          >
             <ScrollView nestedScrollEnabled bounces={false}>
-              {options.map((opt) => (
-                <AnimatedPressable
-                  key={String(opt.value)}
-                  style={opt.value === value ? [dropdownStyles.option, dropdownStyles.optionActive] : dropdownStyles.option}
-                  onPress={() => {
-                    onSelect(opt.value);
-                    setOpen(false);
-                  }}
-                  hoverLift={false}
-                  pressScale={0.98}
-                >
-                  <Text
-                    style={opt.value === value ? [dropdownStyles.optionText, dropdownStyles.optionTextActive] : dropdownStyles.optionText}
+              {options.map((opt) => {
+                const active = opt.value === value;
+                const indicatorRole = selectionIndicator === 'checkbox'
+                  ? 'checkbox'
+                  : selectionIndicator === 'radio'
+                    ? 'radio'
+                    : 'button';
+
+                return (
+                  <AnimatedPressable
+                    key={String(opt.value)}
+                    style={active ? [dropdownStyles.option, dropdownStyles.optionActive] : dropdownStyles.option}
+                    onPress={() => {
+                      if (active && onClear) {
+                        onClear();
+                      } else {
+                        onSelect(opt.value);
+                      }
+                      setOpen(false);
+                    }}
+                    hoverLift={false}
+                    pressScale={0.98}
+                    accessibilityRole={indicatorRole}
+                    accessibilityLabel={opt.label}
+                    accessibilityState={selectionIndicator === 'none'
+                      ? { selected: active }
+                      : { checked: active, selected: active }}
                   >
-                    {opt.label}
-                  </Text>
-                  {opt.subtitle && (
-                    <Text style={dropdownStyles.optionSubtitle} numberOfLines={1}>
-                      {opt.subtitle}
-                    </Text>
-                  )}
-                </AnimatedPressable>
-              ))}
+                    <View style={dropdownStyles.optionRow}>
+                      {selectionIndicator !== 'none' ? (
+                        <View
+                          style={[
+                            dropdownStyles.selectionIndicator,
+                            selectionIndicator === 'radio' && dropdownStyles.radioIndicator,
+                            {
+                              backgroundColor: active && selectionIndicator === 'checkbox' ? theme.primary : 'transparent',
+                              borderColor: active ? theme.primary : theme.border,
+                            },
+                          ]}
+                        >
+                          {active && selectionIndicator === 'checkbox' ? (
+                            <Ionicons name="checkmark" size={13} color={theme.actionPrimaryText} />
+                          ) : null}
+                          {active && selectionIndicator === 'radio' ? (
+                            <View style={[dropdownStyles.radioDot, { backgroundColor: theme.primary }]} />
+                          ) : null}
+                        </View>
+                      ) : null}
+                      <View style={dropdownStyles.optionCopy}>
+                        <Text
+                          style={active ? [dropdownStyles.optionText, dropdownStyles.optionTextActive] : dropdownStyles.optionText}
+                        >
+                          {opt.label}
+                        </Text>
+                        {opt.subtitle ? (
+                          <Text style={dropdownStyles.optionSubtitle} numberOfLines={1}>
+                            {opt.subtitle}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  </AnimatedPressable>
+                );
+              })}
             </ScrollView>
           </View>
         </>
@@ -168,9 +233,53 @@ function createStyles(theme: Theme, isDark: boolean) {
       elevation: 10,
       ...(Platform.OS === 'web' ? { boxShadow: '0 4px 12px rgba(0,0,0,0.12)' } as Record<string, string> : {}),
     },
+    triggerCompact: {
+      minHeight: 44,
+      borderRadius: 12,
+      paddingHorizontal: 13,
+      paddingVertical: 7,
+    },
+    triggerSelected: {
+      backgroundColor: theme.primaryAlpha12,
+      borderColor: theme.primary,
+    },
+    triggerTextSelected: {
+      color: theme.primary,
+      fontFamily: theme.fontSansSemiBold,
+    },
+    optionsListRight: {
+      left: 'auto',
+      right: 0,
+    },
     option: {
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
+    },
+    optionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    optionCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    selectionIndicator: {
+      width: 20,
+      height: 20,
+      borderWidth: 1,
+      borderRadius: 6,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    radioIndicator: {
+      borderRadius: 10,
+    },
+    radioDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
     },
     optionActive: {
       backgroundColor: theme.primaryAlpha12,

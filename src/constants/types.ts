@@ -103,7 +103,15 @@ export interface Feature {
 import type { LegalDocumentKey } from './legal';
 
 export type RootStackParamList = {
-  Landing: undefined;
+  Landing: {
+    section?:
+      | 'howItWorks'
+      | 'featuredSpecialists'
+      | 'about'
+      | 'forSpecialists'
+      | 'specializations'
+      | 'faq';
+  } | undefined;
   Welcome: undefined;
   Login: { userType: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC'; specialization?: string };
   Register: { userType: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC' };
@@ -130,6 +138,7 @@ export type RootStackParamList = {
   MainStack: undefined;
   Home: undefined;
   Specialists: undefined;
+  PublicSpecialists: undefined;
   Sessions: undefined;
   OnDutyPsychologist: undefined;
   Profile: undefined;
