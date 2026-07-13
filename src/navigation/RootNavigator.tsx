@@ -616,7 +616,21 @@ export function RootNavigator() {
     );
 
     return (
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator
+        initialRouteName="RequiredLegalAcceptance"
+        screenOptions={{ headerShown: false }}
+      >
+        <Stack.Screen name="Landing" component={LandingPage} />
+        <Stack.Screen
+          name="PublicSpecialists"
+          component={PublicSpecialistsRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PublicSpecialistProfile"
+          component={PublicSpecialistProfileRoute}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen
           name="RequiredLegalAcceptance"
           component={RequiredLegalAcceptanceRoute}
@@ -637,7 +651,18 @@ export function RootNavigator() {
 
   if (user?.type === 'clinic') {
     return (
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator initialRouteName="ClinicDashboard" screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Landing" component={LandingPage} />
+        <Stack.Screen
+          name="PublicSpecialists"
+          component={PublicSpecialistsRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PublicSpecialistProfile"
+          component={PublicSpecialistProfileRoute}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen
           name="ClinicDashboard"
           component={ClinicDashboardRoute}
@@ -705,7 +730,11 @@ export function RootNavigator() {
 
   if (isProfessional && verificationSubmitted === false) {
     return (
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator
+        initialRouteName="ProfessionalVerification"
+        screenOptions={{ headerShown: false }}
+      >
+        <Stack.Screen name="Landing" component={LandingPage} />
         <Stack.Screen
           name="ProfessionalVerification"
           component={ProfessionalVerificationRoute}
@@ -752,10 +781,17 @@ export function RootNavigator() {
   if (isProfessional) {
     return (
       <Stack.Navigator
+        initialRouteName="ProfessionalHome"
         screenOptions={{
           headerShown: false,
         }}
       >
+        <Stack.Screen name="Landing" component={LandingPage} />
+        <Stack.Screen
+          name="PublicSpecialists"
+          component={PublicSpecialistsRoute}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen
           name="ProfessionalHome"
           component={ProfessionalHomeRoute}
@@ -926,10 +962,12 @@ export function RootNavigator() {
 
   return (
     <Stack.Navigator
+      initialRouteName="Home"
       screenOptions={{
         headerShown: false,
       }}
     >
+      <Stack.Screen name="Landing" component={LandingPage} />
       <Stack.Screen
         name="Home"
         component={ClientHomeRoute}

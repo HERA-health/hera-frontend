@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { lightTheme } from '../../../constants/theme';
@@ -8,10 +8,18 @@ import * as specialistsService from '../../../services/specialistsService';
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: jest.fn(),
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    const ReactModule = require('react');
+    ReactModule.useEffect(effect, [effect]);
+  },
 }));
 
 jest.mock('../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
+}));
+
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ isAuthenticated: false }),
 }));
 
 jest.mock('../../../services/specialistsService', () => ({
@@ -60,6 +68,21 @@ const specialist = {
   rating: 4.8,
   reviewCount: 17,
   specialties: ['anxiety', 'self-esteem', 'depression', 'trauma', 'sleep'],
+};
+
+const createDeferred = <T,>() => {
+  let resolve: ((value: T) => void) | undefined;
+  let reject: ((reason?: unknown) => void) | undefined;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return {
+    promise,
+    resolve: (value: T) => resolve?.(value),
+    reject: (reason?: unknown) => reject?.(reason),
+  };
 };
 
 describe('PublicSpecialistsScreen', () => {
@@ -195,5 +218,51 @@ describe('PublicSpecialistsScreen', () => {
     await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(
       expect.objectContaining({ professionalType: undefined })
     ));
+  });
+
+  it('ignores stale responses when a newer search finishes first', async () => {
+    const firstRequest = createDeferred<specialistsService.PublicSpecialistDirectoryPage>();
+    const secondRequest = createDeferred<specialistsService.PublicSpecialistDirectoryPage>();
+    const newerSpecialist = {
+      ...specialist,
+      id: 'specialist-2',
+      name: 'Dra. Lucía Nueva',
+    };
+    mockedDirectory
+      .mockReturnValueOnce(firstRequest.promise)
+      .mockReturnValueOnce(secondRequest.promise);
+
+    render(<PublicSpecialistsScreen />);
+    await waitFor(() => expect(mockedDirectory).toHaveBeenCalledTimes(1));
+
+    fireEvent.changeText(screen.getByPlaceholderText('Nombre, profesión o especialidad'), 'lucía');
+    fireEvent.press(screen.getByText('Buscar'));
+    await waitFor(() => expect(mockedDirectory).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      secondRequest.resolve({
+        items: [newerSpecialist],
+        page: 1,
+        pageSize: 12,
+        total: 1,
+        hasMore: false,
+      });
+      await secondRequest.promise;
+    });
+    expect(screen.getByText('Dra. Lucía Nueva')).toBeTruthy();
+
+    await act(async () => {
+      firstRequest.resolve({
+        items: [specialist],
+        page: 1,
+        pageSize: 12,
+        total: 1,
+        hasMore: false,
+      });
+      await firstRequest.promise;
+    });
+
+    expect(screen.getByText('Dra. Lucía Nueva')).toBeTruthy();
+    expect(screen.queryByText('Dra. Elena Martín')).toBeNull();
   });
 });

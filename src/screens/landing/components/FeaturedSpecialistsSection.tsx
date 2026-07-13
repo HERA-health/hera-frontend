@@ -105,6 +105,7 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
                 <PublicSpecialistCard
                   specialist={specialist}
                   variant="featured"
+                  href={`/especialista/${encodeURIComponent(specialist.id)}`}
                   onPress={() => onOpenSpecialist(specialist.id)}
                 />
               </MotionView>

@@ -19,6 +19,7 @@ interface PublicSpecialistCardProps {
   variant: PublicSpecialistCardVariant;
   directoryHorizontal?: boolean;
   style?: StyleProp<ViewStyle>;
+  href?: string;
 }
 
 const formatPrice = (price: number): string =>
@@ -44,6 +45,7 @@ export const PublicSpecialistCard: React.FC<PublicSpecialistCardProps> = ({
   variant,
   directoryHorizontal = false,
   style,
+  href,
 }) => {
   const { theme } = useTheme();
   const colors = useMemo(() => getGradientColors(specialist.gradientId), [specialist.gradientId]);
@@ -85,7 +87,8 @@ export const PublicSpecialistCard: React.FC<PublicSpecialistCardProps> = ({
   return (
     <AnimatedPressable
       onPress={onPress}
-      accessibilityRole="button"
+      href={href}
+      accessibilityRole={href ? 'link' : 'button'}
       accessibilityLabel={`Abrir el perfil de ${specialist.name}`}
       hoverLift
       pressScale={0.98}

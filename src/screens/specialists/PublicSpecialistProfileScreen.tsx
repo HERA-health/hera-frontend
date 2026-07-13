@@ -7,14 +7,13 @@ import { showAppAlert, useAppAlert } from '../../components/common/alert';
  * Auth-aware CTA: unauthenticated users can request an appointment without registering.
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   useWindowDimensions,
-  Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -43,6 +42,7 @@ import type { Specialist, Review, CertificateItem } from '../specialist-profile/
 import type { AppNavigationProp, AppRouteProp, RootStackParamList } from '../../constants/types';
 import { AnimatedPressable, Button } from '../../components/common';
 import type { TimeSlot } from '../../services/sessionsService';
+import { useWebPageMetadata } from '../../hooks/useWebPageMetadata';
 
 const DESKTOP_BREAKPOINT = 1024;
 const TABLET_BREAKPOINT = 768;
@@ -56,7 +56,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   const route = useRoute<AppRouteProp<'PublicSpecialistProfile'>>();
   const navigation = useNavigation<AppNavigationProp>();
   const appAlert = useAppAlert();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, legalStatusSnapshot } = useAuth();
   const { theme, isDark } = useTheme();
   const { specialistId } = route.params || {};
   const { width } = useWindowDimensions();
@@ -67,9 +67,11 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   const styles = createStyles(theme, isDark, isDesktop, isTablet, isMobile);
 
   const scrollViewRef = useRef<ScrollView>(null);
+  const profileRequestRef = useRef(0);
 
   const [specialist, setSpecialist] = useState<Specialist | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsVisible, setReviewsVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [showStickyBar, setShowStickyBar] = useState(false);
@@ -77,50 +79,78 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     ? specialist.offersOnline !== false || specialist.offersInPerson === true
     : false;
 
-  // Set document title on web
-  useEffect(() => {
-    if (Platform.OS === 'web' && specialist) {
-      document.title = `${specialist.name} - Especialista en HERA`;
-    }
-    return () => {
-      if (Platform.OS === 'web') {
-        document.title = 'HERA';
-      }
-    };
-  }, [specialist]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadSpecialistDetails();
-    }, [specialistId])
+  const hasIndexableProfile = Boolean(
+    !loading
+    && !error
+    && specialist
+    && specialist.isPubliclyListed === true
+    && specialist.avatar
+    && specialist.pricePerSession > 0
   );
 
-  const loadSpecialistDetails = async () => {
+  useWebPageMetadata({
+    title: specialist ? `${specialist.name} | Especialista en HERA` : 'Hera | Perfil público',
+    description: specialist
+      ? `Consulta el perfil profesional de ${specialist.name}, sus áreas de acompañamiento y modalidades de sesión en HERA.`
+      : 'Consulta perfiles públicos de especialistas verificados en HERA.',
+    canonicalPath: specialistId
+      ? `/especialista/${encodeURIComponent(specialistId)}`
+      : '/especialista',
+    indexable: hasIndexableProfile,
+    openGraphType: 'profile',
+  });
+
+  const loadSpecialistDetails = useCallback(async () => {
+    const requestId = profileRequestRef.current + 1;
+    profileRequestRef.current = requestId;
+
     try {
       setLoading(true);
       setError(false);
+      setReviews([]);
+      setReviewsVisible(false);
 
       if (!specialistId) {
         throw new Error('No specialist ID provided');
       }
 
-      const data = await specialistsService.getSpecialistDetails(specialistId);
+      const data = await specialistsService.getPublicSpecialistDetails(specialistId);
 
-      const mappedSpecialist = specialistsService.mapSpecialistToProfile(data);
+      if (profileRequestRef.current !== requestId) {
+        return;
+      }
+
+      const mappedSpecialist = specialistsService.mapPublicSpecialistToProfile(data);
 
       setSpecialist(mappedSpecialist);
+      setReviewsVisible(data.reviewCount !== null);
 
       // Reviews: use real data if available
-      if (data.reviewCount > 0 && data.reviews) {
+      if (data.reviewCount !== null && data.reviewCount > 0 && data.reviews) {
         setReviews(data.reviews);
       }
     } catch (err: unknown) {
+      if (profileRequestRef.current !== requestId) {
+        return;
+      }
       console.error('Error loading public profile:', err);
       setError(true);
     } finally {
-      setLoading(false);
+      if (profileRequestRef.current === requestId) {
+        setLoading(false);
+      }
     }
-  };
+  }, [specialistId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadSpecialistDetails();
+
+      return () => {
+        profileRequestRef.current += 1;
+      };
+    }, [loadSpecialistDetails])
+  );
 
   const handleBookSession = useCallback(async (selectedSlot?: SelectedProfileSlot) => {
     if (!specialist) return;
@@ -156,8 +186,25 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
       return;
     }
 
+    const bookingRouteIsAvailable = navigation.getState().routeNames.includes('Booking');
+    if (
+      isAuthenticated
+      && (legalStatusSnapshot?.requiresAcceptance || !bookingRouteIsAvailable)
+    ) {
+      navigation.navigate('RequiredLegalAcceptance');
+      return;
+    }
+
     navigation.navigate('Booking', bookingParams);
-  }, [appAlert, canBook, specialist, isAuthenticated, user, navigation]);
+  }, [
+    appAlert,
+    canBook,
+    specialist,
+    isAuthenticated,
+    legalStatusSnapshot?.requiresAcceptance,
+    user,
+    navigation,
+  ]);
 
   const handleBookSessionPress = useCallback(() => {
     void handleBookSession();
@@ -317,20 +364,21 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         />
       </View>
 
-      {/* Reviews Section */}
-      <View style={styles.section}>
-        <ReviewsSection
-          specialistId={specialist.id}
-          specialistName={specialist.name}
-          specialistAvatar={specialist.avatar}
-          reviews={reviews}
-          rating={specialist.rating}
-          reviewCount={specialist.reviewCount}
-          isAuthenticated={isAuthenticated}
-          isClient={user?.type === 'client'}
-          onReviewSubmitted={() => void loadSpecialistDetails()}
-        />
-      </View>
+      {reviewsVisible ? (
+        <View style={styles.section}>
+          <ReviewsSection
+            specialistId={specialist.id}
+            specialistName={specialist.name}
+            specialistAvatar={specialist.avatar}
+            reviews={reviews}
+            rating={specialist.rating}
+            reviewCount={specialist.reviewCount}
+            isAuthenticated={isAuthenticated}
+            isClient={user?.type === 'client'}
+            onReviewSubmitted={() => void loadSpecialistDetails()}
+          />
+        </View>
+      ) : null}
     </>
   );
 

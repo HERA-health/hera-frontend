@@ -10,7 +10,6 @@ import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
 const SPECIALISTS_CACHE_TTL_MS = 30_000;
-const FEATURED_SPECIALISTS_CACHE_TTL_MS = 60_000;
 const LEGACY_DEFAULT_SPECIALIST_DESCRIPTION = 'new professional';
 const DEFAULT_SPECIALIST_DESCRIPTION = 'Nuevo especialista en HERA';
 const LEGACY_DEFAULT_LANGUAGE = 'english';
@@ -83,6 +82,46 @@ export interface SpecialistFilters {
   lng?: number;
   maxDistance?: number;
   inPersonOnly?: boolean;
+}
+
+export interface PublicSpecialistProfileData {
+  id: string;
+  isPubliclyListed: boolean;
+  specialization: string;
+  professionalType: ProfessionalType | null;
+  professionalTypeLabel: string;
+  description: string;
+  pricePerSession: number;
+  rating: number | null;
+  reviewCount: number | null;
+  firstVisitFree: boolean;
+  matchingProfile: Record<string, unknown>;
+  avatar: string | null;
+  user: {
+    name: string;
+    avatar?: string | null;
+  };
+  officeAddress?: string | null;
+  officeCity?: string | null;
+  officePostalCode?: string | null;
+  officeLat?: number | null;
+  officeLng?: number | null;
+  offersOnline: boolean;
+  offersInPerson: boolean;
+  professionalTitle?: string | null;
+  education?: SpecialistData['education'];
+  experience?: SpecialistData['experience'];
+  certificates?: SpecialistData['certificates'];
+  verificationStatus?: string;
+  collegiateNumber?: string | null;
+  gradientId?: string;
+  photoGallery?: string[];
+  presentationVideoUrl?: string | null;
+  yearsInPractice?: number | null;
+  languagesSpoken?: string[];
+  slotDuration?: number | null;
+  nextAvailable?: string | null;
+  reviews: NonNullable<SpecialistData['reviews']>;
 }
 
 export type PublicSpecialistModality = 'ONLINE' | 'IN_PERSON';
@@ -162,9 +201,7 @@ const matchedSpecialistsCache = new Map<string, CacheEntry<MatchedSpecialistsRes
 const matchedSpecialistsRequests = new Map<string, Promise<MatchedSpecialistsResponse>>();
 const publicSpecialistsCache = new Map<string, CacheEntry<SpecialistData[]>>();
 const publicSpecialistsRequests = new Map<string, Promise<SpecialistData[]>>();
-const featuredSpecialistsCache = new Map<string, CacheEntry<PublicSpecialistCard[]>>();
 const featuredSpecialistsRequests = new Map<string, Promise<PublicSpecialistCard[]>>();
-const publicDirectoryCache = new Map<string, CacheEntry<PublicSpecialistDirectoryPage>>();
 const publicDirectoryRequests = new Map<string, Promise<PublicSpecialistDirectoryPage>>();
 
 const getFreshCache = <T>(cache: Map<string, CacheEntry<T>>, key: string): T | null => {
@@ -252,9 +289,7 @@ export const invalidateSpecialistsCache = (): void => {
   matchedSpecialistsRequests.clear();
   publicSpecialistsCache.clear();
   publicSpecialistsRequests.clear();
-  featuredSpecialistsCache.clear();
   featuredSpecialistsRequests.clear();
-  publicDirectoryCache.clear();
   publicDirectoryRequests.clear();
 };
 
@@ -333,7 +368,9 @@ const openPublicDocumentUrl = async (url: string): Promise<void> => {
  * Maps a raw API SpecialistData response to the Specialist profile shape
  * used by the UI components. Pure function - no side effects.
  */
-export const mapSpecialistToProfile = (data: SpecialistData): Specialist => {
+export function mapSpecialistToProfile(data: SpecialistData): Specialist;
+export function mapSpecialistToProfile(data: Omit<SpecialistData, 'userId'>): Specialist;
+export function mapSpecialistToProfile(data: Omit<SpecialistData, 'userId'>): Specialist {
   const mp = data.matchingProfile as Record<string, unknown> | undefined;
   return {
     id: data.id,
@@ -389,7 +426,18 @@ export const mapSpecialistToProfile = (data: SpecialistData): Specialist => {
     firstVisitFree: data.firstVisitFree || false,
     collegiateNumber: data.collegiateNumber || undefined,
   };
-};
+}
+
+export const mapPublicSpecialistToProfile = (data: PublicSpecialistProfileData): Specialist =>
+  ({
+    ...mapSpecialistToProfile({
+      ...data,
+      rating: data.rating ?? 0,
+      reviewCount: data.reviewCount ?? 0,
+      collegiateNumber: data.collegiateNumber ?? undefined,
+    }),
+    isPubliclyListed: data.isPubliclyListed,
+  });
 
 export const openPublicCertificateDocument = async (
   specialistId: string,
@@ -477,11 +525,6 @@ export const getAllSpecialists = async (filters?: SpecialistFilters): Promise<Sp
  */
 export const getFeaturedSpecialists = async (): Promise<PublicSpecialistCard[]> => {
   const cacheKey = 'featured';
-  const cached = getFreshCache(featuredSpecialistsCache, cacheKey);
-  if (cached) {
-    return cached;
-  }
-
   const inFlight = featuredSpecialistsRequests.get(cacheKey);
   if (inFlight) {
     return inFlight;
@@ -489,14 +532,7 @@ export const getFeaturedSpecialists = async (): Promise<PublicSpecialistCard[]> 
 
   const request = api
     .get<{ success: boolean; data: PublicSpecialistCard[] }>('/specialists/featured')
-    .then((response) => (
-      setCache(
-        featuredSpecialistsCache,
-        cacheKey,
-        response.data.data,
-        FEATURED_SPECIALISTS_CACHE_TTL_MS
-      )
-    ))
+    .then((response) => response.data.data)
     .catch((error: unknown) => {
       throw new Error(getErrorMessage(error, 'No se pudieron cargar los especialistas destacados'));
     })
@@ -516,11 +552,6 @@ export const getPublicSpecialistDirectory = async (
   filters?: PublicSpecialistDirectoryFilters
 ): Promise<PublicSpecialistDirectoryPage> => {
   const cacheKey = getPublicDirectoryCacheKey(filters);
-  const cached = getFreshCache(publicDirectoryCache, cacheKey);
-  if (cached) {
-    return cached;
-  }
-
   const inFlight = publicDirectoryRequests.get(cacheKey);
   if (inFlight) {
     return inFlight;
@@ -530,7 +561,7 @@ export const getPublicSpecialistDirectory = async (
   const url = `/specialists/directory${queryString ? `?${queryString}` : ''}`;
   const request = api
     .get<{ success: boolean; data: PublicSpecialistDirectoryPage }>(url)
-    .then((response) => setCache(publicDirectoryCache, cacheKey, response.data.data))
+    .then((response) => response.data.data)
     .catch((error: unknown) => {
       throw new Error(getErrorMessage(error, 'No se pudo cargar el directorio de especialistas'));
     })
@@ -555,6 +586,26 @@ export const getSpecialistDetails = async (specialistId: string): Promise<Specia
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'Error al cargar detalles del especialista'));
+  }
+};
+
+/**
+ * Gets the privacy-minimized, unauthenticated view of a public specialist.
+ */
+export const getPublicSpecialistDetails = async (
+  specialistId: string
+): Promise<PublicSpecialistProfileData> => {
+  if (!specialistId || specialistId === 'undefined' || specialistId === 'null' || specialistId.trim() === '') {
+    throw new Error('Invalid specialist ID: Cannot fetch public details for undefined or null specialist');
+  }
+
+  try {
+    const response = await api.get<{ success: boolean; data: PublicSpecialistProfileData }>(
+      `/specialists/public/${encodeURIComponent(specialistId)}`
+    );
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'Error al cargar el perfil público del especialista'));
   }
 };
 

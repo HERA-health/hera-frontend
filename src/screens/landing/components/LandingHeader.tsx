@@ -24,6 +24,7 @@ import type { LandingSectionAnchor } from '../types';
 
 interface LandingHeaderProps {
   isScrolled: boolean;
+  showAccessActions?: boolean;
   onFindSpecialist: () => void;
   onJoinAsProfessional: () => void;
   onJoinAsClinic: () => void;
@@ -48,6 +49,7 @@ const WIDE_HEADER_BREAKPOINT = 1400;
 
 export const LandingHeader: React.FC<LandingHeaderProps> = ({
   isScrolled,
+  showAccessActions = true,
   onFindSpecialist,
   onJoinAsProfessional,
   onJoinAsClinic,
@@ -154,7 +156,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         <View style={[styles.ctaContainer, isMobile && styles.ctaContainerMobile]}>
           <ThemeToggleButton size="sm" />
 
-          {isDesktop && (
+          {isDesktop && showAccessActions && (
             <AnimatedPressable
               onPress={onFindSpecialist}
               hoverLift={false}
@@ -186,7 +188,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             </AnimatedPressable>
           )}
 
-          {isDesktop && showClinicCta ? (
+          {isDesktop && showClinicCta && showAccessActions ? (
             <AnimatedPressable
               onPress={onJoinAsClinic}
               hoverLift={false}
@@ -218,29 +220,31 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             </AnimatedPressable>
           ) : null}
 
-          <AnimatedPressable
-            onPress={onJoinAsProfessional}
-            pressScale={0.96}
-            hoverLift
-            style={[
-              styles.primaryCTA,
-              ...(isMobile ? [styles.primaryCTAMobile] : []),
-              {
-                backgroundColor: theme.actionPrimary,
-                shadowColor: theme.shadowSecondary,
-              },
-            ]}
-          >
-            <Text
+          {showAccessActions ? (
+            <AnimatedPressable
+              onPress={onJoinAsProfessional}
+              pressScale={0.96}
+              hoverLift
               style={[
-                styles.primaryCTAText,
-                { color: theme.actionPrimaryText, fontFamily: theme.fontSansSemiBold },
+                styles.primaryCTA,
+                ...(isMobile ? [styles.primaryCTAMobile] : []),
+                {
+                  backgroundColor: theme.actionPrimary,
+                  shadowColor: theme.shadowSecondary,
+                },
               ]}
             >
-              Soy profesional
-            </Text>
-            <Ionicons name="arrow-forward" size={16} color={theme.actionPrimaryText} />
-          </AnimatedPressable>
+              <Text
+                style={[
+                  styles.primaryCTAText,
+                  { color: theme.actionPrimaryText, fontFamily: theme.fontSansSemiBold },
+                ]}
+              >
+                Soy profesional
+              </Text>
+              <Ionicons name="arrow-forward" size={16} color={theme.actionPrimaryText} />
+            </AnimatedPressable>
+          ) : null}
         </View>
       </View>
     </Animated.View>

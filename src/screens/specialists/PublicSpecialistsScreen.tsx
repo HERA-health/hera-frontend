@@ -14,6 +14,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
@@ -34,6 +35,7 @@ import * as specialistsService from '../../services/specialistsService';
 import * as analyticsService from '../../services/analyticsService';
 import { LandingHeader } from '../landing/components/LandingHeader';
 import type { LandingSectionAnchor } from '../landing/types';
+import { useWebPageMetadata } from '../../hooks/useWebPageMetadata';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'PublicSpecialists'>;
 
@@ -91,6 +93,7 @@ const INITIAL_FILTERS: DirectoryFilters = {
 
 export const PublicSpecialistsScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const { isAuthenticated } = useAuth();
   const { theme, isDark } = useTheme();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1180;
@@ -106,12 +109,31 @@ export const PublicSpecialistsScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [headerScrolled, setHeaderScrolled] = useState(false);
   const headerScrolledRef = useRef(false);
+  const mountedRef = useRef(true);
+  const requestSequenceRef = useRef(0);
+  const activeLoadMoreRequestRef = useRef<number | null>(null);
+
+  useWebPageMetadata({
+    title: 'Hera | Especialistas',
+    description: 'Explora especialistas de salud mental verificados, compara sus modalidades y consulta sus perfiles públicos antes de reservar.',
+    canonicalPath: '/especialistas',
+  });
 
   const loadDirectory = useCallback(async (nextPage: number, append: boolean) => {
+    if (append && activeLoadMoreRequestRef.current !== null) {
+      return;
+    }
+
+    const requestId = requestSequenceRef.current + 1;
+    requestSequenceRef.current = requestId;
+
     if (append) {
+      activeLoadMoreRequestRef.current = requestId;
       setLoadingMore(true);
     } else {
+      activeLoadMoreRequestRef.current = null;
       setLoading(true);
+      setLoadingMore(false);
     }
     setError(null);
 
@@ -128,16 +150,39 @@ export const PublicSpecialistsScreen: React.FC = () => {
         page: nextPage,
       });
 
+      if (!mountedRef.current || requestSequenceRef.current !== requestId) {
+        return;
+      }
+
       setItems((currentItems) => append ? [...currentItems, ...response.items] : response.items);
       setPage(response.page);
       setHasMore(response.hasMore);
     } catch (loadError: unknown) {
+      if (!mountedRef.current || requestSequenceRef.current !== requestId) {
+        return;
+      }
       setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el directorio');
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
+      if (activeLoadMoreRequestRef.current === requestId) {
+        activeLoadMoreRequestRef.current = null;
+      }
+
+      if (mountedRef.current && requestSequenceRef.current === requestId) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
   }, [filters]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+      requestSequenceRef.current += 1;
+      activeLoadMoreRequestRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     void loadDirectory(1, false);
@@ -195,6 +240,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bg} />
       <LandingHeader
         isScrolled={headerScrolled}
+        showAccessActions={!isAuthenticated}
         onFindSpecialist={() => navigation.navigate('Login', { userType: 'CLIENT' })}
         onJoinAsProfessional={() => navigation.navigate('Login', { userType: 'PROFESSIONAL' })}
         onJoinAsClinic={() => navigation.navigate('Login', { userType: 'CLINIC' })}
@@ -357,6 +403,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
                   variant="directory"
                   directoryHorizontal={useHorizontalCards}
                   style={styles.resultCard}
+                  href={`/especialista/${encodeURIComponent(specialist.id)}`}
                   onPress={() => navigation.navigate('PublicSpecialistProfile', { specialistId: specialist.id })}
                 />
               ))}

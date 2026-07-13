@@ -23,15 +23,18 @@ import {
   addFavoriteSpecialist,
   getFeaturedSpecialists,
   getAllSpecialists,
+  getPublicSpecialistDetails,
   getPublicSpecialistDirectory,
   invalidateSpecialistsCache,
   getSpecialistPersonalization,
   mapSpecialistToProfile,
+  mapPublicSpecialistToProfile,
   openPublicCertificateDocument,
   removeFavoriteSpecialist,
   resolveSpecialistAvatar,
   resolvePublicSpecialistDocumentUrl,
   type SpecialistData,
+  type PublicSpecialistProfileData,
 } from '../specialistsService';
 
 const mockedApi = api as jest.Mocked<typeof api>;
@@ -106,6 +109,63 @@ describe('specialistsService personalization', () => {
 
     expect(mockedApi.get).toHaveBeenCalledWith('/specialists/featured');
     expect(mockedApi.get).not.toHaveBeenCalledWith('/specialists');
+  });
+
+  it('coalesces identical public requests in flight without caching resolved responses', async () => {
+    const payload = {
+      items: [],
+      page: 1,
+      pageSize: 12,
+      total: 0,
+      hasMore: false,
+    };
+    let resolveRequest: ((value: { data: { success: boolean; data: typeof payload } }) => void) | undefined;
+    const pendingRequest = new Promise<{ data: { success: boolean; data: typeof payload } }>((resolve) => {
+      resolveRequest = resolve;
+    });
+    mockedApi.get.mockReturnValueOnce(pendingRequest);
+
+    const first = getPublicSpecialistDirectory({ page: 1 });
+    const second = getPublicSpecialistDirectory({ page: 1 });
+
+    expect(mockedApi.get).toHaveBeenCalledTimes(1);
+    resolveRequest?.({ data: { success: true, data: payload } });
+    await expect(Promise.all([first, second])).resolves.toEqual([payload, payload]);
+
+    mockedApi.get.mockResolvedValueOnce({ data: { success: true, data: payload } });
+    await expect(getPublicSpecialistDirectory({ page: 1 })).resolves.toEqual(payload);
+    expect(mockedApi.get).toHaveBeenCalledTimes(2);
+  });
+
+  it('loads public details from the visibility-safe endpoint and maps hidden reviews explicitly', async () => {
+    const payload: PublicSpecialistProfileData = {
+      id: 'public-1',
+      isPubliclyListed: false,
+      specialization: 'Psicología sanitaria',
+      professionalType: 'PSYCHOLOGIST_HEALTH',
+      professionalTypeLabel: 'Psicólogo/a sanitario/a',
+      description: 'Perfil profesional',
+      pricePerSession: 70,
+      rating: null,
+      reviewCount: null,
+      firstVisitFree: false,
+      avatar: 'https://example.com/avatar.jpg',
+      user: { name: 'Elena', avatar: null },
+      offersOnline: true,
+      offersInPerson: false,
+      matchingProfile: { specialties: ['anxiety'] },
+      reviews: [],
+    };
+    mockedApi.get.mockResolvedValue({ data: { success: true, data: payload } });
+
+    const result = await getPublicSpecialistDetails('public-1');
+    const mapped = mapPublicSpecialistToProfile(result);
+
+    expect(mockedApi.get).toHaveBeenCalledWith('/specialists/public/public-1');
+    expect(result).not.toHaveProperty('userId');
+    expect(mapped.rating).toBe(0);
+    expect(mapped.reviewCount).toBe(0);
+    expect(mapped.isPubliclyListed).toBe(false);
   });
 
   it('requests only the selected public directory page and filters', async () => {

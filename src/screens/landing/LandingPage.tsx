@@ -34,7 +34,9 @@ import type { AppRouteProp, RootStackParamList } from '../../constants/types';
 import { LandingHeader } from './components/LandingHeader';
 import { HeroSection } from './components/HeroSection';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { createWebDeferredComponent } from '../../utils/createDeferredComponent';
+import { useWebPageMetadata } from '../../hooks/useWebPageMetadata';
 import {
   LANDING_SECTION_NATIVE_IDS,
   type LandingSectionAnchor,
@@ -42,7 +44,7 @@ import {
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Landing'>;
 
-type SectionPositions = Record<LandingSectionAnchor, number>;
+type SectionPositions = Partial<Record<LandingSectionAnchor, number>>;
 type DeferredSectionProps = Record<string, never>;
 type SpecialistCTASectionProps = {
   onLearnMore: () => void;
@@ -66,12 +68,7 @@ type FooterSectionProps = SharedCTASectionProps & {
 const HEADER_SCROLL_THRESHOLD = 50;
 const SCROLL_INDICATOR_THRESHOLD = 80;
 const HEADER_HEIGHT = 80;
-const WEB_SECTION_SCROLL_MARGIN = HEADER_HEIGHT + 12;
 const DEFERRED_SECTIONS_DELAY_MS = 180;
-const ROUTED_SECTION_SCROLL_DELAY_MS = 250;
-const ROUTED_SECTION_STABILIZE_DELAY_MS = 1400;
-const WEB_SECTION_SCROLL_RETRY_MS = 50;
-const WEB_SECTION_SCROLL_MAX_RETRIES = 20;
 
 const getRequestedLandingSection = (
   routeSection: LandingSectionAnchor | undefined
@@ -91,34 +88,6 @@ const getRequestedLandingSection = (
   }
 
   return undefined;
-};
-
-const getScrollableWebAncestor = (target: HTMLElement): HTMLElement | null => {
-  let current = target.parentElement;
-
-  while (current) {
-    const overflowY = window.getComputedStyle(current).overflowY;
-
-    if (
-      current.scrollHeight > current.clientHeight + 1 &&
-      (overflowY === 'auto' || overflowY === 'scroll')
-    ) {
-      return current;
-    }
-
-    current = current.parentElement;
-  }
-
-  const documentScroller = document.scrollingElement;
-
-  if (
-    documentScroller instanceof HTMLElement
-    && documentScroller.scrollHeight > documentScroller.clientHeight + 1
-  ) {
-    return documentScroller;
-  }
-
-  return null;
 };
 
 const HowItWorksSection = createWebDeferredComponent<DeferredSectionProps>(
@@ -189,20 +158,18 @@ const FooterSection = createWebDeferredComponent<FooterSectionProps>(
 
 export const LandingPage: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const {
+    isAuthenticated,
+    user,
+    legalStatusSnapshot,
+    verificationSubmitted,
+  } = useAuth();
   const route = useRoute<AppRouteProp<'Landing'>>();
   const requestedLandingSection = getRequestedLandingSection(route.params?.section);
   const { theme, isDark } = useTheme();
   const scrollViewRef = useRef<ScrollView>(null);
-  const sectionPositions = useRef<SectionPositions>({
-    howItWorks: 0,
-    featuredSpecialists: 0,
-    about: 0,
-    forSpecialists: 0,
-    specializations: 0,
-    faq: 0,
-  });
+  const sectionPositions = useRef<SectionPositions>({});
   const pendingSectionScroll = useRef<LandingSectionAnchor | null>(null);
-  const webSectionScrollRequest = useRef(0);
   const headerScrolledRef = useRef(false);
   const scrollIndicatorVisibleRef = useRef(true);
 
@@ -211,6 +178,12 @@ export const LandingPage: React.FC = () => {
   const [showDeferredSections, setShowDeferredSections] = useState(
     Platform.OS !== 'web' || requestedLandingSection !== undefined
   );
+
+  useWebPageMetadata({
+    title: 'Hera | Inicio',
+    description: 'HERA conecta a pacientes con especialistas verificados y ofrece herramientas de gestión para profesionales de salud mental.',
+    canonicalPath: '/',
+  });
   const revealDeferredSections = useCallback(() => {
     setShowDeferredSections(true);
   }, []);
@@ -226,21 +199,12 @@ export const LandingPage: React.FC = () => {
   }, [revealDeferredSections, showDeferredSections]);
 
   const scrollToSection = useCallback((section: LandingSectionAnchor): boolean => {
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const target = document.getElementById(LANDING_SECTION_NATIVE_IDS[section]);
-      const scrollContainer = target ? getScrollableWebAncestor(target) : null;
-
-      if (target && scrollContainer) {
-        target.style.scrollMarginTop = `${WEB_SECTION_SCROLL_MARGIN}px`;
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        return true;
-      }
-
+    const yPosition = sectionPositions.current[section];
+    if (yPosition === undefined) {
       return false;
     }
 
-    const yPosition = sectionPositions.current[section];
-    const adjustedPosition = yPosition - HEADER_HEIGHT + 70;
+    const adjustedPosition = Math.max(0, yPosition - HEADER_HEIGHT + 70);
     scrollViewRef.current?.scrollTo({ y: adjustedPosition, animated: true });
     return true;
   }, []);
@@ -279,7 +243,7 @@ export const LandingPage: React.FC = () => {
 
       if (pendingSectionScroll.current === section) {
         pendingSectionScroll.current = null;
-        requestAnimationFrame(() => scrollToSection(section));
+        scrollToSection(section);
       }
     },
     [scrollToSection]
@@ -290,39 +254,11 @@ export const LandingPage: React.FC = () => {
       revealDeferredSections();
       scrollIndicatorVisibleRef.current = false;
       setShowScrollIndicator(false);
+      pendingSectionScroll.current = section;
 
-      if (Platform.OS === 'web') {
-        const requestId = webSectionScrollRequest.current + 1;
-        webSectionScrollRequest.current = requestId;
-        let retries = 0;
-
-        const scrollWhenReady = () => {
-          if (webSectionScrollRequest.current !== requestId) {
-            return;
-          }
-
-          if (scrollToSection(section)) {
-            return;
-          }
-
-          if (retries >= WEB_SECTION_SCROLL_MAX_RETRIES) {
-            return;
-          }
-
-          retries += 1;
-          setTimeout(scrollWhenReady, WEB_SECTION_SCROLL_RETRY_MS);
-        };
-
-        requestAnimationFrame(scrollWhenReady);
-        return;
+      if (scrollToSection(section)) {
+        pendingSectionScroll.current = null;
       }
-
-      if (sectionPositions.current[section] <= 0) {
-        pendingSectionScroll.current = section;
-        return;
-      }
-
-      scrollToSection(section);
     },
     [revealDeferredSections, scrollToSection]
   );
@@ -334,35 +270,53 @@ export const LandingPage: React.FC = () => {
       return undefined;
     }
 
-    const scrollTimer = setTimeout(
-      () => handleScrollToSection(requestedSection),
-      Platform.OS === 'web' ? ROUTED_SECTION_SCROLL_DELAY_MS : 0
-    );
-    const stabilizeTimer = Platform.OS === 'web'
-      ? setTimeout(
-          () => handleScrollToSection(requestedSection),
-          ROUTED_SECTION_STABILIZE_DELAY_MS
-        )
-      : undefined;
+    handleScrollToSection(requestedSection);
 
-    return () => {
-      clearTimeout(scrollTimer);
-      if (stabilizeTimer) {
-        clearTimeout(stabilizeTimer);
+    if (route.params?.section !== undefined) {
+      navigation.setParams({ section: undefined });
+    }
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('section')) {
+        url.searchParams.delete('section');
+        window.history.replaceState(window.history.state, document.title, `${url.pathname}${url.search}${url.hash}`);
       }
-    };
-  }, [handleScrollToSection, requestedLandingSection]);
+    }
+  }, [handleScrollToSection, navigation, requestedLandingSection, route.params?.section]);
 
-  useEffect(
-    () => () => {
-      webSectionScrollRequest.current += 1;
-    },
-    []
-  );
+  const navigateToAuthenticatedWorkspace = useCallback((): boolean => {
+    if (!isAuthenticated || !user) {
+      return false;
+    }
+
+    const workspaceRoute = user.type === 'professional'
+      ? (verificationSubmitted === false ? 'ProfessionalVerification' : 'ProfessionalHome')
+      : (user.type === 'clinic' ? 'ClinicDashboard' : 'Home');
+    const workspaceIsAvailable = navigation.getState().routeNames.includes(workspaceRoute);
+
+    navigation.navigate(
+      legalStatusSnapshot?.requiresAcceptance || !workspaceIsAvailable
+        ? 'RequiredLegalAcceptance'
+        : workspaceRoute
+    );
+    return true;
+  }, [
+    isAuthenticated,
+    legalStatusSnapshot?.requiresAcceptance,
+    navigation,
+    user,
+    verificationSubmitted,
+  ]);
 
   const handleFindSpecialist = useCallback(() => {
+    if (isAuthenticated) {
+      navigation.navigate('PublicSpecialists');
+      return;
+    }
+
     navigation.navigate('Login', { userType: 'CLIENT' });
-  }, [navigation]);
+  }, [isAuthenticated, navigation]);
 
   const handleOpenPublicSpecialist = useCallback((specialistId: string) => {
     navigation.navigate('PublicSpecialistProfile', { specialistId });
@@ -373,26 +327,43 @@ export const LandingPage: React.FC = () => {
   }, [navigation]);
 
   const handleJoinAsProfessional = useCallback(() => {
+    if (navigateToAuthenticatedWorkspace()) {
+      return;
+    }
+
     navigation.navigate('Login', { userType: 'PROFESSIONAL' });
-  }, [navigation]);
+  }, [navigateToAuthenticatedWorkspace, navigation]);
 
   const handleJoinAsClinic = useCallback(() => {
+    if (navigateToAuthenticatedWorkspace()) {
+      return;
+    }
+
     navigation.navigate('Login', { userType: 'CLINIC' });
-  }, [navigation]);
+  }, [navigateToAuthenticatedWorkspace, navigation]);
 
   const handleSpecializationPress = useCallback(
     (specializationId: string) => {
+      if (isAuthenticated) {
+        navigation.navigate('PublicSpecialists');
+        return;
+      }
+
       navigation.navigate('Login', {
         userType: 'CLIENT',
         specialization: specializationId,
       });
     },
-    [navigation]
+    [isAuthenticated, navigation]
   );
 
   const handleLearnMoreProfessional = useCallback(() => {
+    if (navigateToAuthenticatedWorkspace()) {
+      return;
+    }
+
     navigation.navigate('Login', { userType: 'PROFESSIONAL' });
-  }, [navigation]);
+  }, [navigateToAuthenticatedWorkspace, navigation]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -403,6 +374,7 @@ export const LandingPage: React.FC = () => {
 
       <LandingHeader
         isScrolled={headerScrolled}
+        showAccessActions={!isAuthenticated}
         onFindSpecialist={handleFindSpecialist}
         onJoinAsProfessional={handleJoinAsProfessional}
         onJoinAsClinic={handleJoinAsClinic}

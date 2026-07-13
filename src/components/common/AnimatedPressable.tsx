@@ -4,7 +4,13 @@
 
 import React, { useCallback } from 'react';
 import { Platform, Pressable } from 'react-native';
-import type { AccessibilityState, Insets, StyleProp, ViewStyle } from 'react-native';
+import type {
+  AccessibilityState,
+  GestureResponderEvent,
+  Insets,
+  StyleProp,
+  ViewStyle,
+} from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -12,8 +18,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 interface AnimatedPressableProps {
-  onPress?: () => void;
-  onLongPress?: () => void;
+  onPress?: (event: GestureResponderEvent) => void;
+  onLongPress?: (event: GestureResponderEvent) => void;
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   hoverLift?: boolean;
@@ -26,9 +32,24 @@ interface AnimatedPressableProps {
   accessibilityRole?: 'button' | 'checkbox' | 'link' | 'none' | 'radio';
   accessibilityState?: AccessibilityState;
   testID?: string;
+  href?: string;
 }
 
 const AnimatedPressableComponent = Animated.createAnimatedComponent(Pressable);
+type WebLinkProps = {
+  href?: string;
+};
+
+interface WebPointerModifiers {
+  altKey?: boolean;
+  button?: number;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  shiftKey?: boolean;
+}
+const WebLinkAnimatedPressable = AnimatedPressableComponent as React.ComponentType<
+  React.ComponentProps<typeof AnimatedPressableComponent> & WebLinkProps
+>;
 
 export function AnimatedPressable({
   onPress,
@@ -45,6 +66,7 @@ export function AnimatedPressable({
   accessibilityRole = 'button',
   accessibilityState,
   testID,
+  href,
 }: AnimatedPressableProps) {
   const scale = useSharedValue(1);
   const translateY = useSharedValue(0);
@@ -74,9 +96,33 @@ export function AnimatedPressable({
     translateY.value = withSpring(0, { damping: 18, stiffness: 220 });
   }, [translateY]);
 
+  const handlePress = useCallback((event: GestureResponderEvent) => {
+    if (Platform.OS === 'web' && href) {
+      const nativeEvent = event.nativeEvent as unknown as WebPointerModifiers;
+      const opensSeparateContext = Boolean(
+        nativeEvent.altKey
+        || nativeEvent.ctrlKey
+        || nativeEvent.metaKey
+        || nativeEvent.shiftKey
+        || (nativeEvent.button ?? 0) !== 0
+      );
+
+      if (opensSeparateContext) {
+        return;
+      }
+
+      // Keep ordinary clicks inside React Navigation while preserving the
+      // browser's native new-tab/window behavior for modified clicks.
+      event.preventDefault();
+    }
+
+    onPress?.(event);
+  }, [href, onPress]);
+
   return (
-    <AnimatedPressableComponent
-      onPress={disabled ? undefined : onPress}
+    <WebLinkAnimatedPressable
+      {...(Platform.OS === 'web' && href ? { href } : {})}
+      onPress={disabled ? undefined : handlePress}
       onLongPress={disabled ? undefined : onLongPress}
       onPressIn={disabled ? undefined : handlePressIn}
       onPressOut={disabled ? undefined : handlePressOut}
@@ -92,6 +138,6 @@ export function AnimatedPressable({
       style={[style, animStyle]}
     >
       {children}
-    </AnimatedPressableComponent>
+    </WebLinkAnimatedPressable>
   );
 }
