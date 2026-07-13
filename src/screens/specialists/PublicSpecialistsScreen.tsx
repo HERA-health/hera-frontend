@@ -205,6 +205,13 @@ export const PublicSpecialistsScreen: React.FC = () => {
     navigation.navigate('Landing', { section });
   }, [navigation]);
 
+  const navigateToLandingHome = useCallback(() => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Landing' }],
+    });
+  }, [navigation]);
+
   const submitSearch = useCallback(() => {
     const nextQuery = queryInput.trim();
     setFilters((currentFilters) => ({
@@ -241,6 +248,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
       <LandingHeader
         isScrolled={headerScrolled}
         showAccessActions={!isAuthenticated}
+        onLogoPress={navigateToLandingHome}
         onFindSpecialist={() => navigation.navigate('Login', { userType: 'CLIENT' })}
         onJoinAsProfessional={() => navigation.navigate('Login', { userType: 'PROFESSIONAL' })}
         onJoinAsClinic={() => navigation.navigate('Login', { userType: 'CLINIC' })}

@@ -29,14 +29,19 @@ jest.mock('../../../services/specialistsService', () => ({
 jest.mock('../../landing/components/LandingHeader', () => ({
   LandingHeader: ({
     onFindSpecialist,
+    onLogoPress,
     onScrollToSection,
   }: {
     onFindSpecialist: () => void;
+    onLogoPress: () => void;
     onScrollToSection: (section: 'featuredSpecialists') => void;
   }) => {
     const { Pressable, Text, View } = require('react-native');
     return (
       <View>
+        <Pressable onPress={onLogoPress} accessibilityRole="link" accessibilityLabel="Ir al inicio">
+          <Text>Hera</Text>
+        </Pressable>
         <Pressable onPress={() => onScrollToSection('featuredSpecialists')}>
           <Text>Especialistas</Text>
         </Pressable>
@@ -87,6 +92,7 @@ const createDeferred = <T,>() => {
 
 describe('PublicSpecialistsScreen', () => {
   const navigate = jest.fn();
+  const reset = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -96,7 +102,7 @@ describe('PublicSpecialistsScreen', () => {
       isDark: false,
       setMode: jest.fn(),
     } as unknown as ReturnType<typeof useTheme>);
-    mockedUseNavigation.mockReturnValue({ navigate } as ReturnType<typeof useNavigation>);
+    mockedUseNavigation.mockReturnValue({ navigate, reset } as ReturnType<typeof useNavigation>);
   });
 
   it('loads a public page and opens the public profile without authentication', async () => {
@@ -141,6 +147,26 @@ describe('PublicSpecialistsScreen', () => {
     fireEvent.press(screen.getByText('Especialistas'));
 
     expect(navigate).toHaveBeenCalledWith('Landing', { section: 'featuredSpecialists' });
+  });
+
+  it('returns to the landing home when the header logo is pressed', async () => {
+    mockedDirectory.mockResolvedValue({
+      items: [specialist],
+      page: 1,
+      pageSize: 12,
+      total: 1,
+      hasMore: false,
+    });
+
+    render(<PublicSpecialistsScreen />);
+
+    await waitFor(() => expect(screen.getByText('Dra. Elena Martín')).toBeTruthy());
+    fireEvent.press(screen.getByRole('link', { name: 'Ir al inicio' }));
+
+    expect(reset).toHaveBeenCalledWith({
+      index: 0,
+      routes: [{ name: 'Landing' }],
+    });
   });
 
   it('applies a submitted text search to the next public directory request', async () => {

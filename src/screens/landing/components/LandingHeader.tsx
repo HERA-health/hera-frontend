@@ -25,6 +25,7 @@ import type { LandingSectionAnchor } from '../types';
 interface LandingHeaderProps {
   isScrolled: boolean;
   showAccessActions?: boolean;
+  onLogoPress?: () => void;
   onFindSpecialist: () => void;
   onJoinAsProfessional: () => void;
   onJoinAsClinic: () => void;
@@ -50,6 +51,7 @@ const WIDE_HEADER_BREAKPOINT = 1400;
 export const LandingHeader: React.FC<LandingHeaderProps> = ({
   isScrolled,
   showAccessActions = true,
+  onLogoPress,
   onFindSpecialist,
   onJoinAsProfessional,
   onJoinAsClinic,
@@ -143,9 +145,23 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           isMobile && styles.contentMobile,
         ]}
       >
-        <View style={styles.logoContainer}>
-          <StyledLogo size={isScrolled ? 42 : 46} />
-        </View>
+        {onLogoPress ? (
+          <AnimatedPressable
+            onPress={onLogoPress}
+            hoverLift={false}
+            pressScale={0.98}
+            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+            accessibilityRole="link"
+            accessibilityLabel="Ir al inicio"
+            style={styles.logoContainer}
+          >
+            <StyledLogo size={isScrolled ? 42 : 46} />
+          </AnimatedPressable>
+        ) : (
+          <View style={styles.logoContainer}>
+            <StyledLogo size={isScrolled ? 42 : 46} />
+          </View>
+        )}
 
         {showDesktopNav && (
           <View style={[styles.navLinks, useCompactDesktopNav && styles.navLinksCompact]}>
