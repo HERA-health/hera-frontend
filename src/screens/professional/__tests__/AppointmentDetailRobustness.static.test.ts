@@ -33,6 +33,7 @@ describe('appointment detail robustness contracts', () => {
     'professional',
     'ProfessionalClinicPatientDetailScreen.tsx'
   );
+  const appointmentDetailSheetSource = readSource('components', 'sessions', 'AppointmentDetailSheet.tsx');
   const clinicalTabSource = readSource('components', 'professional', 'ClinicalTab.tsx');
   const clinicalWorkspaceDataSource = readSource('hooks', 'useClinicalWorkspaceData.ts');
 
@@ -108,6 +109,22 @@ describe('appointment detail robustness contracts', () => {
     [professionalSessionsSource, professionalHomeSource, professionalClinicPatientSource].forEach((source) => {
       expectCloseBeforeClientProfileNavigation(source, 'openSelectedSessionPatient');
       expectCloseBeforeClientProfileNavigation(source, 'openSelectedSessionNotes');
+    });
+  });
+
+  it('exposes a linked invoice only from completed professional appointment details', () => {
+    expect(appointmentDetailSheetSource).toContain('onOpenInvoice?: () => void;');
+    expect(appointmentDetailSheetSource).toContain("const canOpenInvoice = mode === 'professional'");
+    expect(appointmentDetailSheetSource).toContain("professionalSession?.status === 'COMPLETED'");
+    expect(appointmentDetailSheetSource).toContain('Boolean(professionalSession.invoice)');
+    expect(appointmentDetailSheetSource).toContain('Ver factura');
+
+    [professionalSessionsSource, professionalHomeSource, professionalClinicPatientSource].forEach((source) => {
+      expect(source).toContain("navigation.navigate('CreateInvoice', { invoiceId: invoice.id });");
+      expect(source).toContain('await billingService.downloadInvoice(invoice.id, invoice.invoiceNumber);');
+      expect(source).toContain(
+        "onOpenInvoice={selectedSessionDetail?.status === 'COMPLETED' && selectedSessionDetail.invoice"
+      );
     });
   });
 });

@@ -39,7 +39,9 @@ import {
 import { useProfessionalTourScrollPreparation } from '../../components/onboarding/useProfessionalTourScrollPreparation';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { getErrorMessage } from '../../constants/errors';
 import * as analyticsService from '../../services/analyticsService';
+import { billingService } from '../../services/billingService';
 import * as professionalService from '../../services/professionalService';
 import { formatTime, getDateLabel } from '../sessions/utils/sessionHelpers';
 
@@ -337,6 +339,23 @@ export function ProfessionalHomeScreen() {
       focusSessionId: target.sessionId,
     });
   }, [closeSessionDetail, navigation, selectedSessionDetail]);
+
+  const openSelectedSessionInvoice = useCallback(async () => {
+    const invoice = selectedSessionDetail?.invoice;
+    if (!invoice) return;
+
+    if (invoice.status === 'DRAFT') {
+      closeSessionDetail();
+      navigation.navigate('CreateInvoice', { invoiceId: invoice.id });
+      return;
+    }
+
+    try {
+      await billingService.downloadInvoice(invoice.id, invoice.invoiceNumber);
+    } catch (error: unknown) {
+      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo abrir la factura'));
+    }
+  }, [appAlert, closeSessionDetail, navigation, selectedSessionDetail]);
 
   const handleJoinSession = useCallback(async (sessionId: string) => {
     try {
@@ -1097,6 +1116,9 @@ export function ProfessionalHomeScreen() {
         onRetry={retrySessionDetail}
         onOpenPatient={selectedSessionDetail ? openSelectedSessionPatient : undefined}
         onOpenNotes={selectedSessionDetail?.clinicalTarget ? openSelectedSessionNotes : undefined}
+        onOpenInvoice={selectedSessionDetail?.status === 'COMPLETED' && selectedSessionDetail.invoice
+          ? () => void openSelectedSessionInvoice()
+          : undefined}
         onJoinVideo={selectedSessionDetail?.actions?.canJoinVideo ? () => {
           void handleJoinSession(selectedSessionDetail.id);
         } : undefined}

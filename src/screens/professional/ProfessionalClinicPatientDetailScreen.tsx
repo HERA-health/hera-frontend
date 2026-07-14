@@ -15,8 +15,10 @@ import { AppointmentDetailSheet } from '../../components/sessions/AppointmentDet
 import { spacing, typography } from '../../constants/colors';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import type { Theme } from '../../constants/theme';
+import { getErrorMessage } from '../../constants/errors';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as clinicService from '../../services/clinicService';
+import { billingService } from '../../services/billingService';
 import * as professionalService from '../../services/professionalService';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
@@ -176,6 +178,23 @@ export function ProfessionalClinicPatientDetailScreen(): React.ReactElement {
     closeSessionDetail();
     navigation.navigate('ClientProfile', { clientId });
   }, [closeSessionDetail, navigation, selectedSessionDetail]);
+
+  const openSelectedSessionInvoice = useCallback(async () => {
+    const invoice = selectedSessionDetail?.invoice;
+    if (!invoice) return;
+
+    if (invoice.status === 'DRAFT') {
+      closeSessionDetail();
+      navigation.navigate('CreateInvoice', { invoiceId: invoice.id });
+      return;
+    }
+
+    try {
+      await billingService.downloadInvoice(invoice.id, invoice.invoiceNumber);
+    } catch (error: unknown) {
+      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo abrir la factura'));
+    }
+  }, [appAlert, closeSessionDetail, navigation, selectedSessionDetail]);
 
   const joinSelectedSession = useCallback(async () => {
     if (!selectedSessionDetail) return;
@@ -347,6 +366,9 @@ export function ProfessionalClinicPatientDetailScreen(): React.ReactElement {
         onRetry={selectedSessionId ? () => void openSessionDetail(selectedSessionId) : undefined}
         onOpenPatient={selectedSessionDetail ? openSelectedSessionPatient : undefined}
         onOpenNotes={selectedSessionDetail?.clinicalTarget ? openSelectedSessionNotes : undefined}
+        onOpenInvoice={selectedSessionDetail?.status === 'COMPLETED' && selectedSessionDetail.invoice
+          ? () => void openSelectedSessionInvoice()
+          : undefined}
         onJoinVideo={selectedSessionDetail?.actions?.canJoinVideo ? () => {
           void joinSelectedSession();
         } : undefined}

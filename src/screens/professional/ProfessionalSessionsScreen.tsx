@@ -32,6 +32,7 @@ import { AppointmentDetailSheet } from '../../components/sessions/AppointmentDet
 import { useTheme } from '../../contexts/ThemeContext';
 import { getErrorMessage } from '../../constants/errors';
 import * as analyticsService from '../../services/analyticsService';
+import { billingService } from '../../services/billingService';
 import * as professionalService from '../../services/professionalService';
 import {
   getVideoCallButtonLabel,
@@ -421,6 +422,23 @@ export function ProfessionalSessionsScreen() {
       focusSessionId: target.sessionId,
     });
   }, [closeSessionDetail, navigation, selectedSessionDetail]);
+
+  const openSelectedSessionInvoice = useCallback(async () => {
+    const invoice = selectedSessionDetail?.invoice;
+    if (!invoice) return;
+
+    if (invoice.status === 'DRAFT') {
+      closeSessionDetail();
+      navigation.navigate('CreateInvoice', { invoiceId: invoice.id });
+      return;
+    }
+
+    try {
+      await billingService.downloadInvoice(invoice.id, invoice.invoiceNumber);
+    } catch (error: unknown) {
+      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo abrir la factura'));
+    }
+  }, [appAlert, closeSessionDetail, navigation, selectedSessionDetail]);
 
   const handleCreateManagedSession = useCallback(
     async (input: professionalService.CreateManagedClientSessionInput) => {
@@ -1648,6 +1666,9 @@ export function ProfessionalSessionsScreen() {
         onRetry={retrySessionDetail}
         onOpenPatient={selectedSessionDetail ? openSelectedSessionPatient : undefined}
         onOpenNotes={selectedSessionDetail?.clinicalTarget ? openSelectedSessionNotes : undefined}
+        onOpenInvoice={selectedSessionDetail?.status === 'COMPLETED' && selectedSessionDetail.invoice
+          ? () => void openSelectedSessionInvoice()
+          : undefined}
         onJoinVideo={selectedSessionDetail?.actions?.canJoinVideo ? () => {
           void handleJoinSession(selectedSessionDetail.id);
         } : undefined}

@@ -31,6 +31,7 @@ interface AppointmentDetailSheetProps {
   onJoinVideo?: () => void;
   onOpenNotes?: () => void;
   onOpenPatient?: () => void;
+  onOpenInvoice?: () => void;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -118,6 +119,7 @@ export function AppointmentDetailSheet({
   onJoinVideo,
   onOpenNotes,
   onOpenPatient,
+  onOpenInvoice,
 }: AppointmentDetailSheetProps): React.ReactElement {
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -159,6 +161,11 @@ export function AppointmentDetailSheet({
   const canShowNotes = mode === 'professional'
     && Boolean(professionalSession?.clinicalTarget)
     && Boolean(onOpenNotes);
+  const invoice = mode === 'clinic-admin' ? clinicSession?.invoice : professionalSession?.invoice;
+  const canOpenInvoice = mode === 'professional'
+    && professionalSession?.status === 'COMPLETED'
+    && Boolean(professionalSession.invoice)
+    && Boolean(onOpenInvoice);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -249,10 +256,10 @@ export function AppointmentDetailSheet({
                         : professionalSession?.price.tariffName ?? 'Sin tarifa'
                     }
                   />
-                  {clinicSession?.invoice ? (
+                  {invoice ? (
                     <InfoRow
                       label="Factura"
-                      value={`${clinicSession.invoice.invoiceNumber} · ${clinicSession.invoice.status}`}
+                      value={`${invoice.invoiceNumber} · ${invoice.status}`}
                     />
                   ) : null}
                 </Section>
@@ -312,6 +319,18 @@ export function AppointmentDetailSheet({
                         icon={<Ionicons name="person-circle-outline" size={18} color={theme.primary} />}
                       >
                         Ver ficha
+                      </Button>
+                    ) : null}
+                    {canOpenInvoice ? (
+                      <Button
+                        variant="outline"
+                        size="medium"
+                        onPress={() => {
+                          onOpenInvoice?.();
+                        }}
+                        icon={<Ionicons name="receipt-outline" size={18} color={theme.primary} />}
+                      >
+                        Ver factura
                       </Button>
                     ) : null}
                     {canShowNotes ? (
