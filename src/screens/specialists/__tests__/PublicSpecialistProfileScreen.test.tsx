@@ -50,8 +50,16 @@ jest.mock('../../../components/common', () => {
   const { Pressable, Text } = require('react-native');
 
   return {
-    AnimatedPressable: ({ children, onPress }: { children?: React.ReactNode; onPress?: () => void }) => (
-      <Pressable onPress={onPress}>{children}</Pressable>
+    AnimatedPressable: ({
+      children,
+      onPress,
+      testID,
+    }: {
+      children?: React.ReactNode;
+      onPress?: () => void;
+      testID?: string;
+    }) => (
+      <Pressable onPress={onPress} testID={testID}>{children}</Pressable>
     ),
     Button: ({ children, onPress }: { children?: React.ReactNode; onPress?: () => void }) => (
       <Pressable onPress={onPress}><Text>{children}</Text></Pressable>
@@ -105,11 +113,12 @@ const specialist: Specialist = {
 
 describe('PublicSpecialistProfileScreen booking navigation', () => {
   const navigate = jest.fn();
+  const reset = jest.fn();
   const getState = jest.fn();
 
   beforeEach(() => {
     getState.mockReturnValue({ routeNames: ['Booking', 'RequiredLegalAcceptance'] });
-    mockedUseNavigation.mockReturnValue({ navigate, getState } as ReturnType<typeof useNavigation>);
+    mockedUseNavigation.mockReturnValue({ navigate, reset, getState } as ReturnType<typeof useNavigation>);
     mockedUseRoute.mockReturnValue({
       params: { specialistId: specialist.id },
     } as ReturnType<typeof useRoute>);
@@ -181,5 +190,44 @@ describe('PublicSpecialistProfileScreen booking navigation', () => {
 
     expect(navigate).toHaveBeenCalledWith('RequiredLegalAcceptance');
     expect(navigate).not.toHaveBeenCalledWith('Booking', expect.anything());
+  });
+
+  it.each([
+    ['client', 'Home', null, true],
+    ['professional', 'ProfessionalHome', null, true],
+    ['professional', 'ProfessionalVerification', null, false],
+    ['clinic', 'ClinicDashboard', null, true],
+    ['client', 'RequiredLegalAcceptance', { requiresAcceptance: true }, true],
+  ] as const)(
+    'returns an authenticated %s account to %s',
+    async (userType, expectedRoute, legalStatusSnapshot, verificationSubmitted) => {
+      mockedUseAuth.mockReturnValue({
+        isAuthenticated: true,
+        user: { type: userType },
+        legalStatusSnapshot,
+        verificationSubmitted,
+      } as ReturnType<typeof useAuth>);
+
+      render(<PublicSpecialistProfileScreen />);
+      await screen.findAllByText('Reservar en prueba');
+      fireEvent.press(screen.getByTestId('public-specialist-profile-home'));
+
+      expect(reset).toHaveBeenCalledWith({ index: 0, routes: [{ name: expectedRoute }] });
+    }
+  );
+
+  it('returns a visitor to the public landing from the profile logo', async () => {
+    mockedUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      user: null,
+      legalStatusSnapshot: null,
+      verificationSubmitted: null,
+    } as ReturnType<typeof useAuth>);
+
+    render(<PublicSpecialistProfileScreen />);
+    await screen.findAllByText('Reservar en prueba');
+    fireEvent.press(screen.getByTestId('public-specialist-profile-home'));
+
+    expect(reset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'Landing' }] });
   });
 });

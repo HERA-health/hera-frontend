@@ -248,7 +248,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
       <LandingHeader
         isScrolled={headerScrolled}
         showAccessActions={!isAuthenticated}
-        onLogoPress={navigateToLandingHome}
+        onLogoPress={isAuthenticated ? undefined : navigateToLandingHome}
         onFindSpecialist={() => navigation.navigate('Login', { userType: 'CLIENT' })}
         onJoinAsProfessional={() => navigation.navigate('Login', { userType: 'PROFESSIONAL' })}
         onJoinAsClinic={() => navigation.navigate('Login', { userType: 'CLINIC' })}

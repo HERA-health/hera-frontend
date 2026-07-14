@@ -56,7 +56,12 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   const route = useRoute<AppRouteProp<'PublicSpecialistProfile'>>();
   const navigation = useNavigation<AppNavigationProp>();
   const appAlert = useAppAlert();
-  const { isAuthenticated, user, legalStatusSnapshot } = useAuth();
+  const {
+    isAuthenticated,
+    user,
+    legalStatusSnapshot,
+    verificationSubmitted,
+  } = useAuth();
   const { theme, isDark } = useTheme();
   const { specialistId } = route.params || {};
   const { width } = useWindowDimensions();
@@ -233,8 +238,21 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   }, [appAlert, specialist]);
 
   const handleGoToLanding = useCallback(() => {
-    navigation.navigate('Landing');
-  }, [navigation]);
+    if (!isAuthenticated) {
+      navigation.reset({ index: 0, routes: [{ name: 'Landing' }] });
+      return;
+    }
+
+    const workspaceRoute = legalStatusSnapshot?.requiresAcceptance
+      ? 'RequiredLegalAcceptance'
+      : user?.type === 'professional'
+        ? (verificationSubmitted === false ? 'ProfessionalVerification' : 'ProfessionalHome')
+        : user?.type === 'clinic'
+          ? 'ClinicDashboard'
+          : 'Home';
+
+    navigation.reset({ index: 0, routes: [{ name: workspaceRoute }] });
+  }, [isAuthenticated, legalStatusSnapshot?.requiresAcceptance, navigation, user?.type, verificationSubmitted]);
 
   const handleScrollToReviews = useCallback(() => {
     scrollViewRef.current?.scrollTo({ y: 800, animated: true });
@@ -258,6 +276,9 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         onPress={handleGoToLanding}
         hoverLift={false}
         pressScale={0.985}
+        accessibilityRole="link"
+        accessibilityLabel="Ir al inicio"
+        testID="public-specialist-profile-home"
       >
         <StyledLogo size={36} />
       </AnimatedPressable>
