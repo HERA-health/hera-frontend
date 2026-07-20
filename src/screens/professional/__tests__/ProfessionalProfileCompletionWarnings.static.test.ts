@@ -32,6 +32,10 @@ describe('professional profile completion warnings', () => {
     expect(source).toContain('styles.tabPendingBadge');
   });
 
+  it('opens the fiscal billing editor directly from the billing summary CTA', () => {
+    expect(source).toContain("navigation.navigate('ProfessionalBilling', { initialSection: 'fiscal' })");
+  });
+
   it('uses action-specific alert titles instead of a generic Error heading', () => {
     expect(source).not.toContain("showAppAlert(appAlert, 'Error'");
     expect(source).toContain("'No se pudo guardar el perfil'");

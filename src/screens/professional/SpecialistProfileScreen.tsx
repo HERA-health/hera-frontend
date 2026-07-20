@@ -1087,7 +1087,7 @@ export function SpecialistProfileScreen() {
   }, [shareProfileUrl]);
 
   const handleOpenBilling = useCallback(() => {
-    navigation.navigate('ProfessionalBilling');
+    navigation.navigate('ProfessionalBilling', { initialSection: 'fiscal' });
   }, [navigation]);
 
   const resetCertificateDraft = useCallback(() => {

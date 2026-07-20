@@ -31,6 +31,7 @@ import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
+import { createFiscalEditDraft } from './utils/billingFiscalDraft';
 import {
   billingService,
   BillingSummary,
@@ -378,6 +379,17 @@ export function BillingScreen() {
     [billingTourScroll],
   );
 
+  const handleFiscalEditPress = useCallback(() => {
+    if (editingFiscal) {
+      setTempFiscal(billingConfig);
+      setEditingFiscal(false);
+      return;
+    }
+
+    setTempFiscal(createFiscalEditDraft(billingConfig, user?.name));
+    setEditingFiscal(true);
+  }, [billingConfig, editingFiscal, user?.name]);
+
   useProfessionalTourStepPreparation(
     'professional.billing.invoice-list',
     prepareBillingInvoiceListStep,
@@ -487,7 +499,7 @@ export function BillingScreen() {
   useEffect(() => {
     if (route.params?.initialSection !== 'fiscal' || loading || !isConfigLoaded) return undefined;
 
-    setTempFiscal(billingConfig);
+    setTempFiscal(createFiscalEditDraft(billingConfig, user?.name));
     setEditingFiscal(true);
     setHighlightFiscal(true);
     navigation.setParams({ initialSection: undefined });
@@ -503,6 +515,7 @@ export function BillingScreen() {
     navigation,
     prepareBillingFiscalStep,
     route.params?.initialSection,
+    user?.name,
   ]);
 
   useEffect(() => {
@@ -1303,7 +1316,7 @@ export function BillingScreen() {
       <View style={[styles.card, highlightFiscal ? styles.cardTargeted : null]}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{STRINGS.fiscalData}</Text>
-        <TouchableOpacity onPress={() => { setTempFiscal(billingConfig); setEditingFiscal(!editingFiscal); }}>
+        <TouchableOpacity onPress={handleFiscalEditPress}>
           <Text style={styles.editBtn}>{editingFiscal ? STRINGS.cancel : STRINGS.edit}</Text>
         </TouchableOpacity>
       </View>

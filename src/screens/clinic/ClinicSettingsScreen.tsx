@@ -22,14 +22,8 @@ import { useClinicWorkspace } from './useClinicWorkspace';
 
 interface ClinicSettingsForm {
   commercialName: string;
-  legalName: string;
   email: string;
   phone: string;
-  taxId: string;
-  fiscalAddress: string;
-  fiscalPostalCode: string;
-  fiscalCity: string;
-  fiscalCountry: string;
 }
 
 type ClinicSettingsField = keyof ClinicSettingsForm;
@@ -47,14 +41,8 @@ interface FieldConfig {
 
 const EMPTY_FORM: ClinicSettingsForm = {
   commercialName: '',
-  legalName: '',
   email: '',
   phone: '',
-  taxId: '',
-  fiscalAddress: '',
-  fiscalPostalCode: '',
-  fiscalCity: '',
-  fiscalCountry: '',
 };
 
 const identityFields: FieldConfig[] = [
@@ -64,12 +52,6 @@ const identityFields: FieldConfig[] = [
     placeholder: 'HERA Clínica Centro',
     autoCapitalize: 'words',
     helperText: 'Nombre visible para el equipo de la clínica.',
-  },
-  {
-    key: 'legalName',
-    label: 'Razón social',
-    placeholder: 'HERA Clínica Centro S.L.',
-    autoCapitalize: 'words',
   },
   {
     key: 'email',
@@ -86,49 +68,10 @@ const identityFields: FieldConfig[] = [
   },
 ];
 
-const fiscalFields: FieldConfig[] = [
-  {
-    key: 'taxId',
-    label: 'NIF/CIF',
-    placeholder: 'B00000000',
-    autoCapitalize: 'characters',
-  },
-  {
-    key: 'fiscalAddress',
-    label: 'Dirección fiscal',
-    placeholder: 'Calle, número, planta',
-    autoCapitalize: 'sentences',
-    multiline: true,
-  },
-  {
-    key: 'fiscalPostalCode',
-    label: 'Código postal',
-    placeholder: '28001',
-  },
-  {
-    key: 'fiscalCity',
-    label: 'Ciudad',
-    placeholder: 'Madrid',
-    autoCapitalize: 'words',
-  },
-  {
-    key: 'fiscalCountry',
-    label: 'País',
-    placeholder: 'España',
-    autoCapitalize: 'words',
-  },
-];
-
 const clinicSettingsSchema = z.object({
   commercialName: z.string().trim().min(2, 'Indica un nombre comercial').max(160, 'Máximo 160 caracteres'),
-  legalName: z.string().trim().max(200, 'Máximo 200 caracteres'),
   email: z.string().trim().max(180, 'Máximo 180 caracteres'),
   phone: z.string().trim().max(40, 'Máximo 40 caracteres'),
-  taxId: z.string().trim().max(40, 'Máximo 40 caracteres'),
-  fiscalAddress: z.string().trim().max(240, 'Máximo 240 caracteres'),
-  fiscalPostalCode: z.string().trim().max(24, 'Máximo 24 caracteres'),
-  fiscalCity: z.string().trim().max(120, 'Máximo 120 caracteres'),
-  fiscalCountry: z.string().trim().max(120, 'Máximo 120 caracteres'),
 }).superRefine((form, context) => {
   if (form.email && !z.string().email().safeParse(form.email).success) {
     context.addIssue({
@@ -146,27 +89,29 @@ const getEmptyToNull = (value: string): string | null => {
 
 const mapDetailToForm = (detail: clinicService.ClinicDetail): ClinicSettingsForm => ({
   commercialName: detail.commercialName,
-  legalName: detail.legalName ?? '',
   email: detail.email ?? '',
   phone: detail.phone ?? '',
-  taxId: detail.taxId ?? '',
-  fiscalAddress: detail.fiscalAddress ?? '',
-  fiscalPostalCode: detail.fiscalPostalCode ?? '',
-  fiscalCity: detail.fiscalCity ?? '',
-  fiscalCountry: detail.fiscalCountry ?? '',
 });
 
 const mapFormToPayload = (form: ClinicSettingsForm): clinicService.UpdateClinicPayload => ({
   commercialName: form.commercialName.trim(),
-  legalName: getEmptyToNull(form.legalName),
   email: getEmptyToNull(form.email),
   phone: getEmptyToNull(form.phone),
-  taxId: getEmptyToNull(form.taxId),
-  fiscalAddress: getEmptyToNull(form.fiscalAddress),
-  fiscalPostalCode: getEmptyToNull(form.fiscalPostalCode),
-  fiscalCity: getEmptyToNull(form.fiscalCity),
-  fiscalCountry: getEmptyToNull(form.fiscalCountry),
 });
+
+const hasText = (value: string | null | undefined): value is string => Boolean(value?.trim());
+
+const formatFiscalValue = (value: string | null | undefined): string =>
+  hasText(value) ? value.trim() : 'Pendiente';
+
+const isClinicFiscalComplete = (clinic: clinicService.ClinicDetail | null): boolean => (
+  hasText(clinic?.legalName)
+  && hasText(clinic?.taxId)
+  && hasText(clinic?.fiscalAddress)
+  && hasText(clinic?.fiscalPostalCode)
+  && hasText(clinic?.fiscalCity)
+  && hasText(clinic?.fiscalCountry)
+);
 
 const getValidationErrors = (error: z.ZodError<ClinicSettingsForm>): ClinicSettingsErrors => {
   const nextErrors: ClinicSettingsErrors = {};
@@ -297,6 +242,10 @@ export function ClinicSettingsScreen({
     setSaveMessage('');
   }, []);
 
+  const handleOpenBillingConfig = useCallback(() => {
+    navigation.navigate('ClinicBilling', { initialSection: 'config' });
+  }, [navigation]);
+
   const handleSubmit = useCallback(async () => {
     if (!workspace.selectedClinicId || !canEdit) {
       return;
@@ -407,14 +356,10 @@ export function ClinicSettingsScreen({
               onChange={handleChange}
               highlighted={highlightContact}
             />
-            <FormSection
-              title="Datos fiscales"
-              text="Datos preparados para facturación clínica, sin activar todavía cobros ni Stripe."
-              fields={fiscalFields}
-              form={form}
-              errors={errors}
-              disabled={!canEdit || saving}
-              onChange={handleChange}
+            <FiscalSummarySection
+              clinic={detail}
+              canEdit={canEdit}
+              onManage={handleOpenBillingConfig}
             />
           </View>
 
@@ -430,7 +375,7 @@ export function ClinicSettingsScreen({
               </Text>
             ) : (
               <Text style={styles.footerHint}>
-                La actualización guarda solo campos administrativos de clínica.
+                La actualización guarda solo datos administrativos y de contacto.
               </Text>
             )}
             <Button
@@ -498,6 +443,88 @@ function FormSection({
           />
         ))}
       </View>
+    </View>
+  );
+}
+
+interface FiscalSummarySectionProps {
+  clinic: clinicService.ClinicDetail | null;
+  canEdit: boolean;
+  onManage: () => void;
+}
+
+function FiscalSummarySection({
+  clinic,
+  canEdit,
+  onManage,
+}: FiscalSummarySectionProps): React.ReactElement {
+  const { theme } = useTheme();
+  const styles = useMemo(() => createSectionStyles(theme), [theme]);
+  const fiscalComplete = isClinicFiscalComplete(clinic);
+  const rows = [
+    { label: 'Razón social', value: clinic?.legalName },
+    { label: 'NIF/CIF', value: clinic?.taxId },
+    { label: 'Dirección fiscal', value: clinic?.fiscalAddress },
+    { label: 'Código postal', value: clinic?.fiscalPostalCode },
+    { label: 'Ciudad', value: clinic?.fiscalCity },
+    { label: 'País', value: clinic?.fiscalCountry },
+  ];
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Datos fiscales</Text>
+      <Text style={styles.sectionText}>
+        La facturación de clínica usa estos datos para emitir facturas completas.
+      </Text>
+
+      <View style={styles.statusRow}>
+        <Ionicons
+          name={fiscalComplete ? 'checkmark-circle' : 'alert-circle-outline'}
+          size={18}
+          color={fiscalComplete ? theme.success : theme.warningAmber}
+        />
+        <Text
+          style={[
+            styles.statusText,
+            { color: fiscalComplete ? theme.success : theme.warningAmber },
+          ]}
+        >
+          {fiscalComplete ? 'Datos fiscales completos' : 'Faltan datos fiscales'}
+        </Text>
+      </View>
+
+      <View style={styles.summaryRows}>
+        {rows.map((row) => {
+          const hasValue = hasText(row.value);
+          return (
+            <View key={row.label} style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>{row.label}</Text>
+              <Text style={[styles.summaryValue, !hasValue ? styles.summaryValueMuted : null]}>
+                {formatFiscalValue(row.value)}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+
+      {canEdit ? (
+        <Button
+          variant="outline"
+          size="medium"
+          onPress={onManage}
+          icon={<Ionicons name="receipt-outline" size={18} color={theme.primary} />}
+          style={styles.manageButton}
+        >
+          Gestionar en Facturación
+        </Button>
+      ) : (
+        <View style={styles.permissionNote}>
+          <Ionicons name="lock-closed-outline" size={16} color={theme.warning} />
+          <Text style={styles.permissionText}>
+            Solo propietarios y administradores pueden modificar estos datos desde Facturación.
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -639,6 +666,67 @@ const createSectionStyles = (theme: Theme) =>
     multilineInput: {
       minHeight: 86,
       paddingTop: spacing.sm,
+    },
+    statusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      marginBottom: spacing.md,
+    },
+    statusText: {
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    summaryRows: {
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+      marginBottom: spacing.lg,
+    },
+    summaryRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+      paddingVertical: spacing.sm,
+    },
+    summaryLabel: {
+      color: theme.textMuted,
+      fontFamily: theme.fontSans,
+      fontSize: 13,
+      lineHeight: 19,
+      flex: 1,
+    },
+    summaryValue: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 13,
+      lineHeight: 19,
+      flex: 1.25,
+      textAlign: 'right',
+    },
+    summaryValueMuted: {
+      color: theme.textMuted,
+      fontFamily: theme.fontSans,
+    },
+    manageButton: {
+      alignSelf: 'flex-start',
+    },
+    permissionNote: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      borderRadius: 8,
+      backgroundColor: theme.warningBg,
+      padding: spacing.sm,
+    },
+    permissionText: {
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+      fontSize: 12,
+      lineHeight: 17,
+      flex: 1,
     },
   });
 
