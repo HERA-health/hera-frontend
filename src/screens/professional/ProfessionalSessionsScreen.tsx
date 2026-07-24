@@ -47,6 +47,7 @@ const DAY_HOUR_HEIGHT = 72;
 const PENDING_VIDEO_MEETING_LINK = 'https://hera.local/pending-video-link';
 
 type SessionStatusTone = 'confirmed' | 'pending' | 'in_progress' | 'completed' | 'cancelled';
+type AgendaOriginFilter = 'ALL' | professionalService.ProfessionalSessionOrigin;
 
 interface ViewOption {
   value: SessionViewMode;
@@ -58,6 +59,12 @@ const VIEW_OPTIONS: ViewOption[] = [
   { value: 'day', label: 'Día', icon: 'calendar' },
   { value: 'week', label: 'Semana', icon: 'calendar-outline' },
   { value: 'list', label: 'Lista', icon: 'list' },
+];
+
+const ORIGIN_FILTER_OPTIONS: Array<{ value: AgendaOriginFilter; label: string }> = [
+  { value: 'ALL', label: 'Todas' },
+  { value: 'CLINIC', label: 'Clínica' },
+  { value: 'PRIVATE', label: 'Particular' },
 ];
 
 function formatTime(date: Date) {
@@ -211,6 +218,7 @@ export function ProfessionalSessionsScreen() {
   const [loadError, setLoadError] = useState(false);
   const [loadErrorMessage, setLoadErrorMessage] = useState('');
   const [sessions, setSessions] = useState<ProfessionalSession[]>([]);
+  const [originFilter, setOriginFilter] = useState<AgendaOriginFilter>('ALL');
   const [processingSessionId, setProcessingSessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [schedulableClients, setSchedulableClients] = useState<professionalService.Client[]>([]);
@@ -242,7 +250,9 @@ export function ProfessionalSessionsScreen() {
       if (!hasExistingSessions) {
         setLoading(true);
       }
-      const data = await professionalService.getProfessionalSessions();
+      const data = await professionalService.getProfessionalSessions(
+        originFilter === 'ALL' ? {} : { origin: originFilter },
+      );
 
       const mappedSessions: ProfessionalSession[] = data.map((session) => {
         const status = session.status?.toUpperCase() || '';
@@ -334,7 +344,7 @@ export function ProfessionalSessionsScreen() {
     } catch {
       // Keep the current value. If it has not loaded yet, the chip stays neutral.
     }
-  }, []);
+  }, [originFilter]);
 
   const openManagedSessionScheduler = useCallback(async () => {
     setEditingSession(null);
@@ -1030,6 +1040,10 @@ export function ProfessionalSessionsScreen() {
     (session: ProfessionalSession, compact = false) => {
       const status = getSessionDisplayStatus(session);
       const accentColor = getStatusColor(status);
+      const isClinicSession = session.origin === 'CLINIC';
+      const originColor = isClinicSession ? theme.primary : theme.secondaryDark;
+      const originBackground = isClinicSession ? theme.primaryAlpha12 : theme.secondaryAlpha12;
+      const originLabel = isClinicSession ? 'Clínica' : 'Particular';
 
       return (
         <View
@@ -1038,7 +1052,10 @@ export function ProfessionalSessionsScreen() {
           <Card
             variant="default"
             padding="medium"
-            style={compact ? styles.sessionCardCompact : styles.sessionCard}
+            style={[
+              compact ? styles.sessionCardCompact : styles.sessionCard,
+              { borderLeftWidth: 3, borderLeftColor: originColor },
+            ]}
           >
           <AnimatedPressable
             onPress={() => void openSessionDetail(session.id)}
@@ -1049,7 +1066,7 @@ export function ProfessionalSessionsScreen() {
           >
             <View style={styles.sessionCardHeader}>
             <View style={styles.sessionClientBlock}>
-              <View style={[styles.sessionAvatar, { backgroundColor: theme.primaryAlpha12 }]}>
+              <View style={[styles.sessionAvatar, { backgroundColor: originBackground }]}>
                 {session.clientAvatar ? (
                   <Image
                     testID={`professional-session-client-avatar-${session.id}`}
@@ -1073,19 +1090,25 @@ export function ProfessionalSessionsScreen() {
                 ) : null}
               </View>
             </View>
-            <View style={[styles.sessionStatusPill, { backgroundColor: `${accentColor}20` }]}>
-              <View style={[styles.sessionStatusDot, { backgroundColor: accentColor }]} />
-              <Text style={[styles.sessionStatusText, { color: accentColor }]}>
-                {status === 'confirmed'
-                  ? 'Confirmada'
-                  : status === 'pending'
-                  ? 'Pendiente'
-                  : status === 'in_progress'
-                  ? 'En curso'
-                  : status === 'completed'
-                  ? 'Completada'
-                  : 'Cancelada'}
-              </Text>
+            <View style={styles.sessionPills}>
+              <View style={[styles.sessionOriginPill, { backgroundColor: originBackground }]}>
+                <View style={[styles.sessionStatusDot, { backgroundColor: originColor }]} />
+                <Text style={[styles.sessionStatusText, { color: originColor }]}>{originLabel}</Text>
+              </View>
+              <View style={[styles.sessionStatusPill, { backgroundColor: `${accentColor}20` }]}>
+                <View style={[styles.sessionStatusDot, { backgroundColor: accentColor }]} />
+                <Text style={[styles.sessionStatusText, { color: accentColor }]}>
+                  {status === 'confirmed'
+                    ? 'Confirmada'
+                    : status === 'pending'
+                    ? 'Pendiente'
+                    : status === 'in_progress'
+                    ? 'En curso'
+                    : status === 'completed'
+                    ? 'Completada'
+                    : 'Cancelada'}
+                </Text>
+              </View>
             </View>
             </View>
           </AnimatedPressable>
@@ -1102,6 +1125,9 @@ export function ProfessionalSessionsScreen() {
       styles.sessionCard,
       styles.sessionCardCompact,
       theme.primaryAlpha12,
+      theme.secondaryAlpha12,
+      theme.secondaryDark,
+      theme.primary,
     ],
   );
 
@@ -1171,6 +1197,17 @@ export function ProfessionalSessionsScreen() {
         ['Pendiente', getStatusColor('pending')],
         ['En curso', getStatusColor('in_progress')],
         ['Completada', getStatusColor('completed')],
+      ].map(([label, color]) => (
+        <View key={label} style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: color as string }]} />
+          <Text style={styles.legendText}>{label}</Text>
+        </View>
+      ))}
+      <View style={styles.legendDivider} />
+      <Text style={styles.sideCardTitle}>Origen</Text>
+      {[
+        ['Clínica', theme.primary],
+        ['Particular', theme.secondaryDark],
       ].map(([label, color]) => (
         <View key={label} style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: color as string }]} />
@@ -1379,6 +1416,7 @@ export function ProfessionalSessionsScreen() {
                   const blockHeight = Math.max((session.duration / 60) * WEEK_HOUR_HEIGHT - 6, 54);
                   const status = getSessionDisplayStatus(session);
                   const accentColor = getStatusColor(status);
+                  const originColor = session.origin === 'CLINIC' ? theme.primary : theme.secondaryDark;
 
                   return (
                     <AnimatedPressable
@@ -1392,6 +1430,8 @@ export function ProfessionalSessionsScreen() {
                           top: topOffset,
                           minHeight: blockHeight,
                           borderColor: accentColor,
+                          borderLeftWidth: 3,
+                          borderLeftColor: originColor,
                           backgroundColor: `${accentColor}12`,
                         },
                       ]}
@@ -1403,7 +1443,7 @@ export function ProfessionalSessionsScreen() {
                         {formatSessionTimeRange(session)}
                       </Text>
                       <Text style={styles.weekAgendaSessionMeta} numberOfLines={1}>
-                        {session.duration} min · {getSessionTypeLabel(session.type)}
+                        {session.duration} min · {getSessionTypeLabel(session.type)} · {session.origin === 'CLINIC' ? 'Clínica' : 'Particular'}
                       </Text>
                     </AnimatedPressable>
                   );
@@ -1590,6 +1630,38 @@ export function ProfessionalSessionsScreen() {
                   ))}
                 </View>
               </TourTarget>
+
+              <View style={styles.originFilters} accessibilityRole="tablist">
+                {ORIGIN_FILTER_OPTIONS.map((option) => {
+                  const selected = originFilter === option.value;
+                  const originColor = option.value === 'CLINIC'
+                    ? theme.primary
+                    : option.value === 'PRIVATE'
+                    ? theme.secondaryDark
+                    : theme.textSecondary;
+
+                  return (
+                    <AnimatedPressable
+                      key={option.value}
+                      onPress={() => setOriginFilter(option.value)}
+                      hoverLift={false}
+                      pressScale={0.98}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`Mostrar citas: ${option.label}`}
+                      style={[
+                        styles.originFilter,
+                        selected && { borderColor: originColor, backgroundColor: `${originColor}14` },
+                      ]}
+                    >
+                      <View style={[styles.originFilterDot, { backgroundColor: originColor }]} />
+                      <Text style={[styles.originFilterText, selected && { color: originColor }]}>
+                        {option.label}
+                      </Text>
+                    </AnimatedPressable>
+                  );
+                })}
+              </View>
 
               {nextUpcomingSession ? (
                 <AnimatedPressable
@@ -1872,6 +1944,11 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       color: theme.textSecondary,
       fontFamily: theme.fontSans,
     },
+    legendDivider: {
+      height: 1,
+      backgroundColor: theme.border,
+      marginVertical: spacing.sm,
+    },
     main: {
       flex: 1,
       minWidth: 0,
@@ -1913,6 +1990,33 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: spacing.xs,
+    },
+    originFilters: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    originFilter: {
+      minHeight: 34,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: borderRadius.full,
+      backgroundColor: theme.bgCard,
+    },
+    originFilterDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 999,
+    },
+    originFilterText: {
+      color: theme.textSecondary,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: typography.fontSizes.sm,
     },
     viewTab: {
       flexDirection: 'row',
@@ -2187,6 +2291,18 @@ function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
       fontSize: typography.fontSizes.sm,
       color: theme.textSecondary,
       fontFamily: theme.fontSans,
+    },
+    sessionPills: {
+      alignItems: 'flex-end',
+      gap: spacing.xs,
+    },
+    sessionOriginPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.full,
     },
     sessionStatusPill: {
       flexDirection: 'row',

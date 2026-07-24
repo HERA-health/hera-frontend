@@ -16,7 +16,8 @@ describe('ClinicAgendaScreen source guards', () => {
   it('uses clinic domain services instead of raw api calls', () => {
     expect(screenSource).toContain("from './useClinicAgendaController'");
     expect(controllerSource).toContain("from '../../services/clinicService'");
-    expect(controllerSource).toContain('clinicService.listClinicSessions');
+    expect(controllerSource).toContain('clinicService.getClinicAgenda');
+    expect(controllerSource).toContain('buildClinicAgendaFilters');
     expect(controllerSource).toContain('clinicService.createClinicSession');
     expect(controllerSource).toContain('clinicService.updateClinicSessionStatus');
     expect(combinedSource).not.toContain("from '../../services/api'");
@@ -85,5 +86,28 @@ describe('ClinicAgendaScreen source guards', () => {
     expect(combinedSource).not.toContain('ClinicalNote');
     expect(combinedSource).not.toContain('meetingLink');
     expect(combinedSource).not.toContain('Invoice');
+  });
+
+  it('keeps private appointments visibly differentiated and strictly read-only', () => {
+    expect(screenSource).toContain('originFilterOptions');
+    expect(screenSource).toContain('AgendaOriginLegend');
+    expect(screenSource).toContain('PrivateAgendaDetailModal');
+    expect(screenSource).toContain("session.origin === 'CLINIC'");
+    expect(screenSource).toContain('readOnly');
+  });
+
+  it('keeps agenda filters grouped by purpose instead of one crowded row', () => {
+    expect(screenSource).toContain('styles.filterHeader');
+    expect(screenSource).toContain('styles.primaryFilters');
+    expect(screenSource).toContain('styles.patientFilter');
+    expect(screenSource).toContain('highlightSelection={false}');
+    expect(screenSource).toContain('Actualizar agenda');
+  });
+
+  it('loads additional agenda pages explicitly instead of rendering an unbounded response', () => {
+    expect(controllerSource).toContain('agendaPageInfo');
+    expect(controllerSource).toContain('handleLoadMoreSessions');
+    expect(controllerSource).toContain('limit: 50');
+    expect(screenSource).toContain('Cargar más citas');
   });
 });

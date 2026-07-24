@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -14,7 +14,7 @@ import { Input } from '../../components/common/Input';
 import { AnimatedPressable } from '../../components/common/AnimatedPressable';
 import { DropdownOption, SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { AppointmentDetailSheet } from '../../components/sessions/AppointmentDetailSheet';
-import { spacing } from '../../constants/colors';
+import { borderRadius, spacing } from '../../constants/colors';
 import { Theme } from '../../constants/theme';
 import type { ScreenProps } from '../../constants/types';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -60,8 +60,14 @@ export function ClinicAgendaScreen({
   const { theme } = useTheme();
   const { width } = useWindowDimensions();
   const isCompact = width < 920;
-  const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
+  const isNarrow = width < 620;
+  const styles = useMemo(
+    () => createStyles(theme, isCompact, isNarrow),
+    [isCompact, isNarrow, theme],
+  );
   const {
+    agendaLoadingMore,
+    agendaPageInfo,
     canManage,
     editableFilters,
     error,
@@ -70,7 +76,7 @@ export function ClinicAgendaScreen({
     handleApplyFilters,
     handleChangeForm,
     handleCreateSession,
-    handleLoadMore,
+    handleLoadMoreSessions,
     handleLoadMorePatientOptions,
     handleOpenCreateModal,
     handleOpenSessionDetail,
@@ -81,9 +87,8 @@ export function ClinicAgendaScreen({
     handleUpdateStatus,
     handleCloseSessionDetail,
     loading,
-    loadingMore,
     modalVisible,
-    pageInfo,
+    originFilterOptions,
     patientFilterOptions,
     patientLookupLoading,
     patientLookupLoadingMore,
@@ -106,12 +111,14 @@ export function ClinicAgendaScreen({
 
   const clinicName = workspace.selectedMembership?.clinic.commercialName;
   const selectedDetail = selectedSessionDetail;
+  const [selectedPrivateSession, setSelectedPrivateSession] =
+    useState<clinicService.ClinicAgendaPrivateSession | null>(null);
 
   return (
     <ClinicWorkspaceScaffold
       title="Agenda"
       contextLabel={clinicName}
-      subtitle="Coordina citas administrativas de clínica sin mezclar agenda privada, pagos ni área clínica sensible."
+      subtitle="Coordina la agenda del equipo y consulta la ocupación particular de un profesional vinculado sin acceder a datos clínicos, de contacto o financieros."
       memberships={workspace.memberships}
       selectedClinicId={workspace.selectedClinicId}
       loading={workspace.loading}
@@ -158,65 +165,136 @@ export function ClinicAgendaScreen({
           ) : null}
 
           <View style={styles.filters}>
-            <Input
-              label="Desde"
-              value={editableFilters.startDate}
-              onChangeText={(value) => setEditableFilter('startDate', value)}
-              containerStyle={styles.filterInput}
-            />
-            <Input
-              label="Hasta"
-              value={editableFilters.endDate}
-              onChangeText={(value) => setEditableFilter('endDate', value)}
-              containerStyle={styles.filterInput}
-            />
-            <View style={styles.filterDropdown}>
-              <Text style={styles.filterLabel}>Estado</Text>
-              <SimpleDropdown
-                options={STATUS_OPTIONS}
-                value={editableFilters.statusFilter}
-                onSelect={(value) => setEditableFilter('statusFilter', value)}
-              />
+            <View style={styles.filterHeader}>
+              <View style={styles.filterHeading}>
+                <View style={styles.filterIcon}>
+                  <Ionicons name="options-outline" size={18} color={theme.primary} />
+                </View>
+                <View style={styles.filterHeadingCopy}>
+                  <Text style={styles.filterTitle}>Filtrar agenda</Text>
+                  <Text style={styles.filterDescription}>
+                    Ajusta el periodo y el contexto antes de actualizar la vista.
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.coordinationBadge}>
+                <Ionicons name="people-outline" size={15} color={theme.secondaryDark} />
+                <Text style={styles.coordinationBadgeText}>Vista de coordinación</Text>
+              </View>
             </View>
-            <View style={styles.filterDropdown}>
-              <Text style={styles.filterLabel}>Profesional</Text>
-              <SimpleDropdown
-                options={specialistFilterOptions}
-                value={editableFilters.specialistFilter}
-                onSelect={(value) => setEditableFilter('specialistFilter', value)}
-              />
-            </View>
-            <View style={styles.filterDropdown}>
-              <Text style={styles.filterLabel}>Paciente</Text>
-              <Input
-                label="Buscar paciente"
-                value={patientLookupSearch}
-                onChangeText={handlePatientLookupSearchChange}
-                containerStyle={styles.lookupInput}
-              />
-              <SimpleDropdown
-                options={patientFilterOptions}
-                value={editableFilters.patientFilter}
-                onSelect={(value) => setEditableFilter('patientFilter', value)}
-              />
-              {patientLookupPageInfo?.hasMore ? (
+
+            <View style={styles.primaryFilters}>
+              <View style={styles.periodFilter}>
+                <View style={styles.filterLabelRow}>
+                  <Ionicons name="calendar-outline" size={15} color={theme.primary} />
+                  <Text style={styles.filterLabel}>Periodo</Text>
+                </View>
+                <View style={styles.periodInputs}>
+                  <Input
+                    label="Desde"
+                    value={editableFilters.startDate}
+                    onChangeText={(value) => setEditableFilter('startDate', value)}
+                    containerStyle={styles.dateInput}
+                    leftIcon={<Ionicons name="calendar-clear-outline" size={16} color={theme.textMuted} />}
+                  />
+                  <View style={styles.periodConnector} />
+                  <Input
+                    label="Hasta"
+                    value={editableFilters.endDate}
+                    onChangeText={(value) => setEditableFilter('endDate', value)}
+                    containerStyle={styles.dateInput}
+                    leftIcon={<Ionicons name="calendar-clear-outline" size={16} color={theme.textMuted} />}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.filterDropdown}>
+                <Text style={styles.filterLabel}>Estado</Text>
+                <SimpleDropdown
+                  compact
+                  highlightSelection={false}
+                  options={STATUS_OPTIONS}
+                  value={editableFilters.statusFilter}
+                  onSelect={(value) => setEditableFilter('statusFilter', value)}
+                />
+              </View>
+
+              <View style={styles.professionalFilter}>
+                <Text style={styles.filterLabel}>Profesional</Text>
+                <SimpleDropdown
+                  compact
+                  highlightSelection={false}
+                  options={specialistFilterOptions}
+                  value={editableFilters.specialistFilter}
+                  onSelect={(value) => setEditableFilter('specialistFilter', value)}
+                />
+              </View>
+
+              <View style={styles.filterDropdown}>
+                <Text style={styles.filterLabel}>Origen</Text>
+                <SimpleDropdown
+                  compact
+                  highlightSelection={false}
+                  options={originFilterOptions}
+                  value={editableFilters.originFilter}
+                  onSelect={(value) => setEditableFilter('originFilter', value)}
+                />
+              </View>
+
+              <View style={styles.filterAction}>
                 <Button
-                  variant="ghost"
-                  size="small"
-                  onPress={handleLoadMorePatientOptions}
-                  loading={patientLookupLoadingMore}
-                  disabled={patientLookupLoading || patientLookupLoadingMore}
+                  variant="primary"
+                  size="medium"
+                  fullWidth
+                  onPress={handleApplyFilters}
+                  icon={<Ionicons name="refresh-outline" size={17} color={theme.actionPrimaryText} />}
                 >
-                  Cargar mas pacientes
+                  Actualizar agenda
                 </Button>
-              ) : null}
+              </View>
             </View>
-            <View style={styles.filterAction}>
-              <Button variant="outline" size="medium" onPress={handleApplyFilters}>
-                Aplicar
-              </Button>
+
+            <View style={styles.patientFilter}>
+              <View style={styles.patientFilterHeader}>
+                <View style={styles.filterLabelRow}>
+                  <Ionicons name="person-outline" size={15} color={theme.primary} />
+                  <Text style={styles.filterLabel}>Paciente</Text>
+                </View>
+                <Text style={styles.patientFilterHint}>Opcional</Text>
+              </View>
+              <View style={styles.patientFilterControls}>
+                <Input
+                  placeholder="Buscar por nombre"
+                  value={patientLookupSearch}
+                  onChangeText={handlePatientLookupSearchChange}
+                  containerStyle={styles.patientSearchInput}
+                  leftIcon={<Ionicons name="search-outline" size={17} color={theme.textMuted} />}
+                />
+                <View style={styles.patientDropdown}>
+                  <SimpleDropdown
+                    compact
+                    highlightSelection={false}
+                    options={patientFilterOptions}
+                    value={editableFilters.patientFilter}
+                    onSelect={(value) => setEditableFilter('patientFilter', value)}
+                  />
+                </View>
+                {patientLookupPageInfo?.hasMore ? (
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    onPress={handleLoadMorePatientOptions}
+                    loading={patientLookupLoadingMore}
+                    disabled={patientLookupLoading || patientLookupLoadingMore}
+                  >
+                    Ver más
+                  </Button>
+                ) : null}
+              </View>
             </View>
           </View>
+
+          <AgendaOriginLegend />
 
           {loading ? (
             <View style={styles.statePanel}>
@@ -235,30 +313,40 @@ export function ClinicAgendaScreen({
             <StatePanel
               icon="calendar-outline"
               title="Sin citas en este rango"
-              text="Las citas creadas por la clínica aparecerán en este listado."
+              text="Selecciona un profesional para incorporar sus citas particulares a la vista de coordinación."
             />
           ) : (
             <View style={styles.sessionList}>
               {sessions.map((session) => (
                 <SessionRow
-                  key={session.id}
+                  key={session.key}
                   session={session}
                   saving={saving}
-                  onCancel={() => {
+                  onCancel={session.origin === 'CLINIC' ? () => {
                     void handleUpdateStatus(session, 'CANCELLED');
+                  } : undefined}
+                  onOpen={() => {
+                    if (session.origin === 'CLINIC') {
+                      handleOpenSessionDetail(session.sessionId);
+                      return;
+                    }
+
+                    setSelectedPrivateSession(session);
                   }}
-                  onOpen={() => handleOpenSessionDetail(session.id)}
                 />
               ))}
-              {pageInfo?.hasMore ? (
-                <Button
-                  variant="outline"
-                  size="medium"
-                  loading={loadingMore}
-                  onPress={handleLoadMore}
-                >
-                  Cargar más citas
-                </Button>
+              {agendaPageInfo?.hasMore ? (
+                <View style={styles.loadMoreAgenda}>
+                  <Button
+                    variant="outline"
+                    size="medium"
+                    onPress={handleLoadMoreSessions}
+                    loading={agendaLoadingMore}
+                    disabled={agendaLoadingMore}
+                  >
+                    Cargar más citas
+                  </Button>
+                </View>
               ) : null}
             </View>
           )}
@@ -297,6 +385,10 @@ export function ClinicAgendaScreen({
                 if (updated) handleCloseSessionDetail();
               });
             } : undefined}
+          />
+          <PrivateAgendaDetailModal
+            session={selectedPrivateSession}
+            onClose={() => setSelectedPrivateSession(null)}
           />
         </View>
       )}
@@ -337,9 +429,9 @@ function StatePanel({
 }
 
 interface SessionRowProps {
-  session: clinicService.ClinicSessionSummary;
+  session: clinicService.ClinicAgendaItem;
   saving: boolean;
-  onCancel: () => void;
+  onCancel?: () => void;
   onOpen: () => void;
 }
 
@@ -352,7 +444,7 @@ function SessionRow({
   const { theme } = useTheme();
   const styles = useMemo(() => createSessionRowStyles(theme), [theme]);
   const sessionEnded = new Date(session.date).getTime() + session.duration * 60 * 1000 <= Date.now();
-  const canAct = session.status === 'CONFIRMED' && !sessionEnded;
+  const canAct = !session.readOnly && session.status === 'CONFIRMED' && !sessionEnded;
   const displayStatus = session.status === 'CONFIRMED' && sessionEnded
     ? 'COMPLETED'
     : session.status;
@@ -362,15 +454,20 @@ function SessionRow({
     CANCELLED: styles.status_CANCELLED,
     PENDING: styles.status_PENDING,
   }[displayStatus];
+  const originColor = session.origin === 'CLINIC' ? theme.primary : theme.secondaryDark;
 
   return (
     <View style={styles.row}>
+      <View
+        pointerEvents="none"
+        style={[styles.originAccent, { backgroundColor: originColor }]}
+      />
       <AnimatedPressable
       onPress={onOpen}
       hoverLift={false}
       pressScale={0.99}
       style={styles.detailsButton}
-      accessibilityLabel={`Ver detalle de cita de ${session.patient.displayName}`}
+       accessibilityLabel={`Ver detalle operativo de cita de ${session.patientName}`}
     >
       <View style={styles.timeBlock}>
         <Text style={styles.date}>{formatDate(session.date)}</Text>
@@ -379,18 +476,17 @@ function SessionRow({
       </View>
       <View style={styles.main}>
         <View style={styles.titleRow}>
-          <Text style={styles.patient} numberOfLines={1}>{session.patient.displayName}</Text>
+           <Text style={styles.patient} numberOfLines={1}>{session.patientName}</Text>
           <View style={[styles.statusPill, statusStyle]}>
             <Text style={styles.statusText}>{SESSION_STATUS_LABELS[displayStatus]}</Text>
           </View>
         </View>
         <Text style={styles.meta} numberOfLines={1}>
           {session.specialist.displayName}
-          {session.specialist.professionalTitle ? ` · ${session.specialist.professionalTitle}` : ''}
+           {session.specialist.professionalTitle ? ` · ${session.specialist.professionalTitle}` : ''}
         </Text>
         <Text style={styles.meta} numberOfLines={1}>
-          {SESSION_TYPE_LABELS[session.type]}
-          {session.bookedPrice !== null ? ` · ${session.bookedPrice.toFixed(2)} ${session.bookedCurrency ?? 'EUR'}` : ''}
+           {SESSION_TYPE_LABELS[session.type]} · {session.origin === 'CLINIC' ? 'Clínica' : 'Particular'}
         </Text>
       </View>
       </AnimatedPressable>
@@ -399,13 +495,103 @@ function SessionRow({
           <Button
             variant="outline"
             size="small"
-            onPress={onCancel}
+            onPress={onCancel ?? (() => undefined)}
             disabled={saving}
           >
             Cancelar
           </Button>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function AgendaOriginLegend(): React.ReactElement {
+  const { theme } = useTheme();
+  const styles = useMemo(() => createAgendaOriginLegendStyles(theme), [theme]);
+
+  return (
+    <View style={styles.container} accessibilityRole="text">
+      <Text style={styles.label}>Origen de la cita</Text>
+      <View style={styles.item}>
+        <View style={[styles.dot, { backgroundColor: theme.primary }]} />
+        <Text style={styles.text}>Clínica</Text>
+      </View>
+      <View style={styles.item}>
+        <View style={[styles.dot, { backgroundColor: theme.secondaryDark }]} />
+        <Text style={styles.text}>Particular</Text>
+      </View>
+      <Text style={styles.note}>Las citas particulares son de solo lectura.</Text>
+    </View>
+  );
+}
+
+interface PrivateAgendaDetailModalProps {
+  session: clinicService.ClinicAgendaPrivateSession | null;
+  onClose: () => void;
+}
+
+function PrivateAgendaDetailModal({
+  session,
+  onClose,
+}: PrivateAgendaDetailModalProps): React.ReactElement {
+  const { theme } = useTheme();
+  const styles = useMemo(() => createPrivateAgendaDetailStyles(theme), [theme]);
+
+  if (!session) {
+    return <></>;
+  }
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.backdrop}>
+        <View style={styles.modal}>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.eyebrow}>Cita particular</Text>
+              <Text style={styles.title}>{session.patientName}</Text>
+            </View>
+            <AnimatedPressable
+              onPress={onClose}
+              style={styles.closeButton}
+              hoverLift={false}
+              pressScale={0.96}
+              accessibilityLabel="Cerrar detalle de cita particular"
+            >
+              <Ionicons name="close" size={20} color={theme.textSecondary} />
+            </AnimatedPressable>
+          </View>
+          <View style={styles.detailList}>
+            <DetailRow label="Fecha" value={formatDate(session.date)} />
+            <DetailRow label="Hora" value={formatTime(session.date)} />
+            <DetailRow label="Duración" value={`${session.duration} min`} />
+            <DetailRow label="Modalidad" value={SESSION_TYPE_LABELS[session.type]} />
+            <DetailRow label="Estado" value={SESSION_STATUS_LABELS[session.status]} />
+            <DetailRow label="Profesional" value={session.specialist.displayName} />
+          </View>
+          <View style={styles.notice}>
+            <Ionicons name="lock-closed-outline" size={16} color={theme.secondaryDark} />
+            <Text style={styles.noticeText}>
+              Vista operativa de solo lectura. No incluye contacto, notas, documentos ni información económica.
+            </Text>
+          </View>
+          <Button variant="outline" size="medium" onPress={onClose} fullWidth>
+            Cerrar
+          </Button>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }): React.ReactElement {
+  const { theme } = useTheme();
+  const styles = useMemo(() => createPrivateAgendaDetailStyles(theme), [theme]);
+
+  return (
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
     </View>
   );
 }
@@ -552,7 +738,7 @@ function CreateSessionModal({
   );
 }
 
-const createStyles = (theme: Theme, isCompact: boolean) =>
+const createStyles = (theme: Theme, isCompact: boolean, isNarrow: boolean) =>
   StyleSheet.create({
     workspace: {
       gap: spacing.lg,
@@ -582,45 +768,170 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
       lineHeight: 20,
     },
     filters: {
-      flexDirection: isCompact ? 'column' : 'row',
-      alignItems: isCompact ? 'stretch' : 'flex-end',
       gap: spacing.md,
       borderWidth: 1,
       borderColor: theme.border,
-      borderRadius: 8,
-      backgroundColor: theme.bgCard,
+      borderRadius: borderRadius.xl,
+      backgroundColor: theme.bgElevated,
       padding: spacing.lg,
       position: 'relative',
       zIndex: 20,
     },
-    filterInput: {
-      flex: isCompact ? undefined : 1,
-      minWidth: isCompact ? undefined : 150,
+    filterHeader: {
+      flexDirection: isNarrow ? 'column' : 'row',
+      alignItems: isNarrow ? 'flex-start' : 'center',
+      justifyContent: 'space-between',
+      gap: spacing.md,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    filterHeading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      gap: spacing.sm,
+    },
+    filterIcon: {
+      width: 34,
+      height: 34,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: borderRadius.md,
+      backgroundColor: theme.primaryAlpha12,
+    },
+    filterHeadingCopy: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    filterTitle: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 16,
+      lineHeight: 21,
+    },
+    filterDescription: {
+      color: theme.textMuted,
+      fontFamily: theme.fontSans,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    coordinationBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      borderRadius: borderRadius.full,
+      backgroundColor: theme.secondaryAlpha12,
+      paddingHorizontal: spacing.sm + 2,
+      paddingVertical: 6,
+    },
+    coordinationBadgeText: {
+      color: theme.secondaryDark,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 12,
+      lineHeight: 16,
+    },
+    primaryFilters: {
+      flexDirection: isCompact ? 'column' : 'row',
+      flexWrap: isCompact ? undefined : 'wrap',
+      alignItems: isCompact ? 'stretch' : 'flex-end',
+      gap: spacing.md,
+    },
+    periodFilter: {
+      flex: isCompact ? undefined : 1.55,
+      minWidth: isCompact ? undefined : 300,
+      gap: spacing.xs,
+    },
+    filterLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      minHeight: 18,
+    },
+    periodInputs: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: spacing.sm,
+    },
+    dateInput: {
+      flex: 1,
+      minWidth: 0,
       marginBottom: 0,
     },
+    periodConnector: {
+      width: 10,
+      height: 1,
+      marginBottom: 22,
+      backgroundColor: theme.border,
+    },
     filterDropdown: {
-      flex: isCompact ? undefined : 1.2,
-      minWidth: isCompact ? undefined : 180,
+      flex: isCompact ? undefined : 1,
+      minWidth: isCompact ? undefined : 156,
       gap: spacing.xs,
       position: 'relative',
       zIndex: 30,
     },
-    lookupInput: {
-      marginBottom: 0,
+    professionalFilter: {
+      flex: isCompact ? undefined : 1.2,
+      minWidth: isCompact ? undefined : 190,
+      gap: spacing.xs,
+      position: 'relative',
+      zIndex: 30,
     },
     filterLabel: {
       color: theme.textSecondary,
-      fontFamily: theme.fontSansMedium,
-      fontSize: 14,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 13,
       lineHeight: 18,
     },
     filterAction: {
-      minWidth: isCompact ? undefined : 110,
+      width: isCompact ? '100%' : 184,
+      minWidth: isCompact ? undefined : 184,
+    },
+    patientFilter: {
+      gap: spacing.sm,
+      borderRadius: borderRadius.lg,
+      backgroundColor: theme.bgMuted,
+      padding: spacing.md,
+      position: 'relative',
+      zIndex: 25,
+    },
+    patientFilterHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+    },
+    patientFilterHint: {
+      color: theme.textMuted,
+      fontFamily: theme.fontSansMedium,
+      fontSize: 12,
+      lineHeight: 16,
+    },
+    patientFilterControls: {
+      flexDirection: isNarrow ? 'column' : 'row',
+      alignItems: isNarrow ? 'stretch' : 'center',
+      gap: spacing.sm,
+    },
+    patientSearchInput: {
+      flex: 1,
+      marginBottom: 0,
+    },
+    patientDropdown: {
+      width: isNarrow ? '100%' : 240,
+      minWidth: isNarrow ? undefined : 200,
+      position: 'relative',
+      zIndex: 30,
     },
     sessionList: {
       gap: spacing.md,
       position: 'relative',
       zIndex: 1,
+    },
+    loadMoreAgenda: {
+      alignItems: 'center',
+      paddingTop: spacing.xs,
     },
     statePanel: {
       minHeight: 260,
@@ -682,6 +993,14 @@ const createSessionRowStyles = (theme: Theme) =>
       borderRadius: 8,
       backgroundColor: theme.bgCard,
       padding: spacing.lg,
+    },
+    originAccent: {
+      position: 'absolute',
+      top: spacing.sm,
+      bottom: spacing.sm,
+      left: 0,
+      width: 3,
+      borderRadius: 999,
     },
     detailsButton: {
       flex: 1,
@@ -769,6 +1088,139 @@ const createSessionRowStyles = (theme: Theme) =>
       flexWrap: 'wrap',
       gap: spacing.sm,
       justifyContent: 'flex-end',
+    },
+  });
+
+const createAgendaOriginLegendStyles = (theme: Theme) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: spacing.sm,
+      borderLeftWidth: 3,
+      borderLeftColor: theme.primary,
+      backgroundColor: theme.bgMuted,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: 6,
+    },
+    label: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    item: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: 999,
+    },
+    text: {
+      color: theme.textSecondary,
+      fontFamily: theme.fontSansMedium,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    note: {
+      color: theme.textMuted,
+      fontFamily: theme.fontSans,
+      fontSize: 12,
+      lineHeight: 17,
+      flexShrink: 1,
+    },
+  });
+
+const createPrivateAgendaDetailStyles = (theme: Theme) =>
+  StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.overlay,
+      padding: spacing.lg,
+    },
+    modal: {
+      width: '100%',
+      maxWidth: 480,
+      gap: spacing.lg,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.bgCard,
+      padding: spacing.xl,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: spacing.md,
+    },
+    eyebrow: {
+      color: theme.secondaryDark,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 12,
+      lineHeight: 16,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    title: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansBold,
+      fontSize: 22,
+      lineHeight: 29,
+    },
+    closeButton: {
+      width: 34,
+      height: 34,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 999,
+      backgroundColor: theme.bgMuted,
+    },
+    detailList: {
+      gap: spacing.sm,
+    },
+    detailRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+      paddingBottom: spacing.sm,
+    },
+    detailLabel: {
+      color: theme.textMuted,
+      fontFamily: theme.fontSansMedium,
+      fontSize: 13,
+      lineHeight: 19,
+    },
+    detailValue: {
+      flex: 1,
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 13,
+      lineHeight: 19,
+      textAlign: 'right',
+    },
+    notice: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      borderRadius: 6,
+      backgroundColor: theme.secondaryAlpha12,
+      padding: spacing.md,
+    },
+    noticeText: {
+      flex: 1,
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+      fontSize: 13,
+      lineHeight: 19,
     },
   });
 

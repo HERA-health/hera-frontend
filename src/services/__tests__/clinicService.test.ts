@@ -18,6 +18,7 @@ import {
   getClinicBillingConfig,
   getClinicBillingSummary,
   getClinicRevenueShareSummary,
+  getClinicAgenda,
   getClinicSessionDetail,
   getClinicInvoice,
   getClinicSettlement,
@@ -77,6 +78,7 @@ import {
   type ClinicPatientDetail,
   type ClinicPatientSummary,
   type ClinicSessionListPage,
+  type ClinicAgenda,
   type ClinicSessionDetail,
   type ClinicSessionSummary,
   type ClinicSpecialist,
@@ -1022,6 +1024,65 @@ describe('clinicService', () => {
       '/clinics/clinic-1/sessions/session-1/status',
       { status: 'CANCELLED' },
     );
+  });
+
+  it('loads the minimal combined agenda projection for the selected professional', async () => {
+    const agenda: ClinicAgenda = {
+      items: [
+        {
+          key: 'private-20260601T100000Z-0',
+          origin: 'PRIVATE',
+          readOnly: true,
+          date: '2026-06-01T10:00:00.000Z',
+          duration: 60,
+          type: 'PHONE_CALL',
+          status: 'CONFIRMED',
+          patientName: 'Marta López',
+          specialist: {
+            id: 'clinic-specialist-1',
+            displayName: 'Dra. Ana Ruiz',
+            professionalTitle: 'Psicóloga sanitaria',
+          },
+        },
+      ],
+      pageInfo: {
+        page: 2,
+        limit: 50,
+        hasMore: true,
+        nextPage: 3,
+      },
+    };
+
+    getMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: agenda,
+      },
+    } as AxiosResponse<{ success: boolean; data: ClinicAgenda }>);
+
+    await expect(getClinicAgenda('clinic-1', {
+      startDate: '2026-06-01T00:00:00.000Z',
+      endDate: '2026-06-30T23:59:59.999Z',
+      clinicSpecialistId: 'clinic-specialist-1',
+      origin: 'ALL',
+      page: 2,
+      limit: 50,
+    })).resolves.toEqual(agenda);
+
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/agenda', {
+      params: {
+        startDate: '2026-06-01T00:00:00.000Z',
+        endDate: '2026-06-30T23:59:59.999Z',
+        clinicSpecialistId: 'clinic-specialist-1',
+        clinicPatientId: undefined,
+        status: undefined,
+        origin: 'ALL',
+        page: 2,
+        limit: 50,
+      },
+    });
+    expect(agenda.items[0]).not.toHaveProperty('sessionId');
+    expect(agenda.items[0]).not.toHaveProperty('email');
   });
 
   it('loads clinic session detail through the admin detail endpoint', async () => {

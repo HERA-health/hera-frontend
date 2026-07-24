@@ -347,6 +347,48 @@ export interface ClinicSessionListPage {
   pageInfo: ClinicPatientListPageInfo;
 }
 
+export type ClinicAgendaOrigin = 'ALL' | 'CLINIC' | 'PRIVATE';
+
+interface ClinicAgendaItemBase {
+  key: string;
+  origin: Exclude<ClinicAgendaOrigin, 'ALL'>;
+  date: string;
+  duration: number;
+  type: ClinicSessionType;
+  status: ClinicSessionStatus;
+  patientName: string;
+  specialist: Pick<ClinicSessionSpecialistSummary, 'id' | 'displayName' | 'professionalTitle'>;
+}
+
+export interface ClinicAgendaClinicSession extends ClinicAgendaItemBase {
+  origin: 'CLINIC';
+  readOnly: false;
+  sessionId: string;
+}
+
+export interface ClinicAgendaPrivateSession extends ClinicAgendaItemBase {
+  origin: 'PRIVATE';
+  readOnly: true;
+}
+
+export type ClinicAgendaItem = ClinicAgendaClinicSession | ClinicAgendaPrivateSession;
+
+export interface ClinicAgendaFilters {
+  startDate: string;
+  endDate: string;
+  clinicSpecialistId?: string;
+  clinicPatientId?: string;
+  status?: ClinicSessionStatus;
+  origin?: ClinicAgendaOrigin;
+  page?: number;
+  limit?: number;
+}
+
+export interface ClinicAgenda {
+  items: ClinicAgendaItem[];
+  pageInfo: ClinicPatientListPageInfo;
+}
+
 export interface CreateClinicSessionPayload {
   clinicPatientId: string;
   clinicSpecialistId: string;

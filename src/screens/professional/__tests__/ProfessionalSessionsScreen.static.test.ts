@@ -34,4 +34,13 @@ describe('ProfessionalSessionsScreen schedule editing contract', () => {
     expect(source).toContain('const canModifySession = !sessionStarted && !session.hasInvoice');
     expect(source).toContain('{canModifySession ? (');
   });
+
+  it('provides one agenda with accessible origin filters and labels', () => {
+    expect(source).toContain("const [originFilter, setOriginFilter] = useState<AgendaOriginFilter>('ALL')");
+    expect(source).toContain('ORIGIN_FILTER_OPTIONS');
+    expect(source).toContain("originFilter === 'ALL' ? {} : { origin: originFilter }");
+    expect(source).toContain("const originLabel = isClinicSession ? 'Clínica' : 'Particular'");
+    expect(source).toContain('<Text style={styles.sideCardTitle}>Origen</Text>');
+    expect(source).toContain('accessibilityLabel={`Mostrar citas: ${option.label}`}');
+  });
 });

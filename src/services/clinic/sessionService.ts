@@ -4,6 +4,8 @@ import { clearRequestCache } from '../requestCache';
 import type {
   ClinicSessionListFilters,
   ClinicSessionListPage,
+  ClinicAgenda,
+  ClinicAgendaFilters,
   ClinicSessionDetail,
   ClinicSessionSummary,
   CreateClinicSessionPayload,
@@ -31,6 +33,12 @@ const CLINIC_SESSION_ERROR_MESSAGES: Partial<Record<string, string>> = {
     'Las videollamadas de clínica no están activas todavía.',
   CLINIC_SESSION_INVALID_STATUS:
     'Revisa el estado o la fecha de la cita antes de continuar.',
+  CLINIC_AGENDA_INVALID_RANGE:
+    'Selecciona un periodo de agenda válido de hasta 42 días.',
+  CLINIC_AGENDA_SPECIALIST_REQUIRED:
+    'Selecciona un profesional vinculado para consultar citas particulares.',
+  CLINIC_AGENDA_SPECIALIST_NOT_AVAILABLE:
+    'El profesional seleccionado ya no tiene una cuenta profesional activa vinculada.',
 };
 
 const getClinicSessionErrorMessage = (
@@ -60,6 +68,36 @@ export const listClinicSessions = async (
         clinicSpecialistId: filters.clinicSpecialistId,
         clinicPatientId: filters.clinicPatientId,
         status: filters.status,
+        page: filters.page,
+        limit: filters.limit,
+      },
+    });
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getClinicSessionErrorMessage(
+      error,
+      'No se pudo cargar la agenda de clínica',
+    ));
+  }
+};
+
+export const getClinicAgenda = async (
+  clinicId: string,
+  filters: ClinicAgendaFilters,
+): Promise<ClinicAgenda> => {
+  try {
+    const response = await api.get<{
+      success: boolean;
+      data: ClinicAgenda;
+    }>(`/clinics/${clinicId}/agenda`, {
+      params: {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        clinicSpecialistId: filters.clinicSpecialistId,
+        clinicPatientId: filters.clinicPatientId,
+        status: filters.status,
+        origin: filters.origin,
         page: filters.page,
         limit: filters.limit,
       },
