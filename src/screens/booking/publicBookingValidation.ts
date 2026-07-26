@@ -14,6 +14,26 @@ export const publicBookingContactSchema = z.object({
 
 export type PublicBookingContactForm = z.infer<typeof publicBookingContactSchema>;
 
+export interface PublicBookingPatientPayload {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+}
+
+export const toPublicBookingPatientPayload = (
+  contact: PublicBookingContactForm
+): PublicBookingPatientPayload => {
+  const phone = contact.phone?.trim();
+
+  return {
+    firstName: contact.firstName,
+    lastName: contact.lastName,
+    email: contact.email,
+    ...(phone ? { phone } : {}),
+  };
+};
+
 export type PublicBookingContactErrors = Partial<
   Record<keyof PublicBookingContactForm, string>
 >;

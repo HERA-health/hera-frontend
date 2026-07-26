@@ -30,6 +30,7 @@ import {
   PUBLIC_BOOKING_PRIVACY_VERSION,
   publicBookingContactSchema,
   PublicBookingContactErrors,
+  toPublicBookingPatientPayload,
 } from './publicBookingValidation';
 
 interface BookingRouteParams {
@@ -477,17 +478,16 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
       const dateTime = madridDateTime.iso;
 
       if (isAnonymousBooking) {
+        if (!publicContactResult.success) {
+          return;
+        }
+
         const createdSession = await sessionsService.createPublicSession({
           specialistId,
           date: dateTime,
           duration: slotDuration,
           type: sessionType,
-          patient: {
-            firstName: publicContactResult.success ? publicContactResult.data.firstName : '',
-            lastName: publicContactResult.success ? publicContactResult.data.lastName : '',
-            email: publicContactResult.success ? publicContactResult.data.email : '',
-            phone: publicContactResult.success ? publicContactResult.data.phone || null : null,
-          },
+          patient: toPublicBookingPatientPayload(publicContactResult.data),
           privacyAccepted: true,
           privacyVersion: PUBLIC_BOOKING_PRIVACY_VERSION,
         });
