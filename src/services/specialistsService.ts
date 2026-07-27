@@ -601,7 +601,7 @@ export const getPublicSpecialistDetails = async (
 
   try {
     const response = await api.get<{ success: boolean; data: PublicSpecialistProfileData }>(
-      `/specialists/public/${encodeURIComponent(specialistId)}`
+      `/specialists/public/${encodeURIComponent(specialistId.trim())}`
     );
     return response.data.data;
   } catch (error: unknown) {

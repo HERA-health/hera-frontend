@@ -162,14 +162,6 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
 
     const bookingParams: RootStackParamList['Booking'] = {
       specialistId: specialist.id,
-      specialistName: specialist.name,
-      pricePerSession: specialist.pricePerSession,
-      avatar: specialist.avatar,
-      title: specialist.title,
-      specializations: specialist.specializations,
-      slotDuration: specialist.slotDuration ?? 60,
-      offersOnline: specialist.offersOnline ?? true,
-      offersInPerson: specialist.offersInPerson ?? false,
       ...(selectedSlot ? {
         initialDate: selectedSlot.date,
         initialSlotStartTime: selectedSlot.slot.startTime,

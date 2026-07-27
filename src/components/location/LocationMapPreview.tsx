@@ -19,6 +19,10 @@ import { AnimatedPressable } from '../common';
 import { spacing, borderRadius, shadows } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import { GOOGLE_MAPS_API_KEY, loadGoogleMaps } from './googleMapsLoader';
+import {
+  getMapInteractionOptions,
+  hasFiniteMapCoordinates,
+} from './locationMapOptions';
 
 interface LocationMapPreviewProps {
   lat: number;
@@ -53,9 +57,10 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
   const markerRef = useRef<google.maps.Marker | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasCoordinates = hasFiniteMapCoordinates(lat, lng);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || !hasGoogleMapsApiKey || !lat || !lng) {
+    if (Platform.OS !== 'web' || !hasGoogleMapsApiKey || !hasCoordinates) {
       setIsLoading(false);
       return;
     }
@@ -82,10 +87,9 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
           center: position,
           zoom: 15,
           disableDefaultUI: !interactive,
-          zoomControl: interactive,
           mapTypeControl: false,
           streetViewControl: false,
-          fullscreenControl: interactive,
+          ...getMapInteractionOptions(interactive),
           styles: [
             {
               featureType: 'poi',
@@ -98,6 +102,7 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
         markerRef.current = new maps.Marker({
           position,
           map: mapRef.current,
+          clickable: interactive,
           icon: {
             path: maps.SymbolPath.CIRCLE,
             scale: 10,
@@ -130,9 +135,11 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
           content: infoWindowContent,
         });
 
-        markerRef.current.addListener('click', () => {
-          infoWindow.open(mapRef.current, markerRef.current);
-        });
+        if (interactive) {
+          markerRef.current.addListener('click', () => {
+            infoWindow.open(mapRef.current, markerRef.current);
+          });
+        }
 
         setError(null);
         setIsLoading(false);
@@ -162,17 +169,17 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
       markerRef.current = null;
       mapRef.current = null;
     };
-  }, [address, city, interactive, lat, lng, theme.primary]);
+  }, [address, city, hasCoordinates, interactive, lat, lng, theme.primary]);
 
   useEffect(() => {
-    if (!mapRef.current || !markerRef.current || !lat || !lng) {
+    if (!mapRef.current || !markerRef.current || !hasCoordinates) {
       return;
     }
 
     const position = { lat, lng };
     markerRef.current.setPosition(position);
     mapRef.current.panTo(position);
-  }, [lat, lng]);
+  }, [hasCoordinates, lat, lng]);
 
   const handleOpenDirections = () => {
     const destination = encodeURIComponent(`${address}, ${city}`);
@@ -213,8 +220,8 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
             { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted },
           ]}
         >
-          <Ionicons name="map-outline" size={48} color={theme.textMuted} />
-          <Text style={[styles.placeholderText, { color: theme.textMuted }]}>
+          <Ionicons name="map-outline" size={48} color={theme.textSecondary} />
+          <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>
             Mapa disponible en versión web
           </Text>
         </View>
@@ -236,6 +243,8 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
           <AnimatedPressable
             style={[styles.directionsButton, { backgroundColor: theme.primary }]}
             onPress={handleOpenDirections}
+            accessibilityRole="button"
+            accessibilityLabel={`Cómo llegar a ${address}, ${city}`}
           >
             <Ionicons name="navigate" size={18} color={theme.textOnPrimary} />
             <Text style={[styles.directionsText, { color: theme.textOnPrimary }]}>
@@ -262,8 +271,8 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
             { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted },
           ]}
         >
-          <Ionicons name="warning-outline" size={48} color={theme.textMuted} />
-          <Text style={[styles.placeholderText, { color: theme.textMuted }]}>
+          <Ionicons name="warning-outline" size={48} color={theme.textSecondary} />
+          <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>
             API key de Google Maps no configurada
           </Text>
         </View>
@@ -271,7 +280,7 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
     );
   }
 
-  if (!lat || !lng) {
+  if (!hasCoordinates) {
     return (
       <View
         style={[
@@ -286,8 +295,8 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
             { height, backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted },
           ]}
         >
-          <Ionicons name="location-outline" size={48} color={theme.textMuted} />
-          <Text style={[styles.placeholderText, { color: theme.textMuted }]}>
+          <Ionicons name="location-outline" size={48} color={theme.textSecondary} />
+          <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>
             Selecciona una dirección para ver el mapa
           </Text>
         </View>
@@ -312,7 +321,7 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
             ]}
           >
             <ActivityIndicator size="large" color={theme.primary} />
-            <Text style={[styles.loadingText, { color: theme.textMuted }]}>Cargando mapa...</Text>
+            <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Cargando mapa...</Text>
           </View>
         ) : null}
 
@@ -324,7 +333,7 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
             ]}
           >
             <Ionicons name="alert-circle-outline" size={48} color={theme.error} />
-            <Text style={[styles.placeholderText, { color: theme.textMuted }]}>{error}</Text>
+            <Text style={[styles.placeholderText, { color: theme.textSecondary }]}>{error}</Text>
           </View>
         ) : null}
 
@@ -346,6 +355,9 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
           { backgroundColor: theme.bgCard, borderTopColor: theme.borderLight },
         ]}
         onPress={handleOpenInMaps}
+        accessibilityRole="button"
+        accessibilityLabel={`Abrir ${address}, ${city} en Google Maps`}
+        accessibilityHint="Abre la ubicación de la consulta en una nueva pestaña"
       >
         <View style={[styles.addressIcon, { backgroundColor: theme.primaryAlpha12 }]}>
           <Ionicons name="location" size={20} color={theme.primary} />
@@ -356,13 +368,15 @@ export const LocationMapPreview: React.FC<LocationMapPreviewProps> = ({
           </Text>
           <Text style={[styles.city, { color: theme.textSecondary }]}>{city}</Text>
         </View>
-        <Ionicons name="open-outline" size={18} color={theme.textMuted} />
+        <Ionicons name="open-outline" size={18} color={theme.textSecondary} />
       </AnimatedPressable>
 
       {showDirectionsButton ? (
         <AnimatedPressable
           style={[styles.directionsButton, { backgroundColor: theme.primary }]}
           onPress={handleOpenDirections}
+          accessibilityRole="button"
+          accessibilityLabel={`Cómo llegar a ${address}, ${city}`}
         >
           <Ionicons name="navigate" size={18} color={theme.textOnPrimary} />
           <Text style={[styles.directionsText, { color: theme.textOnPrimary }]}>
@@ -400,7 +414,7 @@ const createStyles = (
     loadingText: {
       marginTop: spacing.sm,
       fontSize: 13,
-      color: isDark ? theme.textMuted : theme.textSecondary,
+      color: theme.textSecondary,
     },
     mapPlaceholder: {
       justifyContent: 'center',

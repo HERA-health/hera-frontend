@@ -1,7 +1,9 @@
 import {
+  PUBLIC_BOOKING_PRIVACY_VERSION,
   publicBookingContactSchema,
   toPublicBookingPatientPayload,
 } from '../publicBookingValidation';
+import { LEGAL_DOCUMENT_VERSION } from '../../../constants/legal';
 
 const validContact = {
   firstName: 'Lucia',
@@ -11,6 +13,10 @@ const validContact = {
 };
 
 describe('public booking contact payload', () => {
+  it('records the same privacy version that is presented in the legal document', () => {
+    expect(PUBLIC_BOOKING_PRIVACY_VERSION).toBe(LEGAL_DOCUMENT_VERSION);
+  });
+
   it('omits an empty optional phone number from the API payload', () => {
     const contact = publicBookingContactSchema.parse({
       ...validContact,

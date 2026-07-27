@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { LEGAL_DOCUMENT_VERSION } from '../../constants/legal';
 
-export const PUBLIC_BOOKING_PRIVACY_VERSION = 'privacy-policy-v1';
+export const PUBLIC_BOOKING_PRIVACY_VERSION = LEGAL_DOCUMENT_VERSION;
 
 export const publicBookingContactSchema = z.object({
   firstName: z.string().trim().min(2, 'Introduce tu nombre').max(80),

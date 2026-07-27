@@ -91,7 +91,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
 
   useFocusEffect(
     useCallback(() => {
-      analyticsService.trackScreen('specialist_detail', { specialistId });
+      analyticsService.trackScreen('specialist_detail');
       loadSpecialistDetails();
     }, [specialistId])
   );
@@ -139,17 +139,9 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       return;
     }
 
-    analyticsService.track('booking_initiated', { specialistId: specialist.id });
+    analyticsService.track('booking_initiated');
     navigation.navigate('Booking', {
       specialistId: specialist.id,
-      specialistName: specialist.name,
-      pricePerSession: specialist.pricePerSession,
-      avatar: specialist.avatar,
-      title: specialist.title,
-      specializations: specialist.specializations,
-      slotDuration: specialist.slotDuration ?? 60,
-      offersOnline: specialist.offersOnline ?? true,
-      offersInPerson: specialist.offersInPerson ?? false,
       ...(selectedSlot ? {
         initialDate: selectedSlot.date,
         initialSlotStartTime: selectedSlot.slot.startTime,

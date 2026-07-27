@@ -106,9 +106,16 @@ const specialist: Specialist = {
   reviewCount: 0,
   pricePerSession: 60,
   specializations: [],
-  sessionTypes: ['VIDEO_CALL'],
+  sessionTypes: ['VIDEO_CALL', 'IN_PERSON'],
   offersOnline: true,
-  offersInPerson: false,
+  offersInPerson: true,
+  address: {
+    street: 'Calle de Alcalá, 42',
+    city: 'Madrid',
+    postalCode: '28014',
+    latitude: 40.418,
+    longitude: -3.696,
+  },
 };
 
 describe('PublicSpecialistProfileScreen booking navigation', () => {
@@ -168,10 +175,9 @@ describe('PublicSpecialistProfileScreen booking navigation', () => {
     fireEvent.press(bookingActions[0]);
 
     await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith('Booking', expect.objectContaining({
+      expect(navigate).toHaveBeenCalledWith('Booking', {
         specialistId: specialist.id,
-        pricePerSession: specialist.pricePerSession,
-      }));
+      });
     });
   });
 

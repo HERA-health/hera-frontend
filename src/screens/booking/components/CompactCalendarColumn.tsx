@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Calendar, DateData } from 'react-native-calendars';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { spacing, borderRadius } from '../../../constants/colors';
@@ -11,6 +11,8 @@ interface CompactCalendarColumnProps {
   onDateSelect: (date: string) => void;
   availableDates?: string[];
   minDate?: string;
+  disabled?: boolean;
+  busy?: boolean;
 }
 
 export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
@@ -18,13 +20,14 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
   onDateSelect,
   availableDates,
   minDate,
+  disabled = false,
+  busy = false,
 }) => {
   const { theme, isDark } = useTheme();
-  const { width } = useWindowDimensions();
-  const isCompact = width < 1024;
-  const styles = useMemo(() => createStyles(theme, isDark, isCompact), [theme, isDark, isCompact]);
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const today = minDate || getMadridDateKey();
-  const calendarSurface = isDark ? theme.bgElevated : '#FFFFFF';
+  const initialCalendarDate = selectedDate || today;
+  const calendarSurface = isDark ? theme.bgElevated : theme.bgCard;
   const calendarBorder = isDark ? theme.borderLight : theme.border;
   const calendarTheme = useMemo(
     () => ({
@@ -32,13 +35,13 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
       calendarBackground: calendarSurface,
       monthTextColor: theme.textPrimary,
       textMonthFontWeight: '700' as const,
-      textMonthFontSize: isCompact ? 16 : 18,
-      textSectionTitleColor: theme.textMuted,
+      textMonthFontSize: 17,
+      textSectionTitleColor: theme.textSecondary,
       textDayHeaderFontWeight: '600' as const,
-      textDayHeaderFontSize: isCompact ? 10 : 11,
+      textDayHeaderFontSize: 11,
       dayTextColor: theme.textPrimary,
       textDayFontWeight: '500' as const,
-      textDayFontSize: isCompact ? 13 : 14,
+      textDayFontSize: 14,
       todayTextColor: theme.secondaryDark,
       todayBackgroundColor: 'transparent',
       selectedDayBackgroundColor: theme.primary,
@@ -50,16 +53,16 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
     }),
     [
       calendarSurface,
-      isCompact,
       theme.primary,
       theme.secondary,
       theme.secondaryDark,
       theme.textMuted,
       theme.textOnPrimary,
       theme.textPrimary,
+      theme.textSecondary,
     ],
   );
-  const calendarKey = `${isDark ? 'dark' : 'light'}-${isCompact ? 'compact' : 'regular'}`;
+  const calendarKey = isDark ? 'dark' : 'light';
 
   const markedDates = useMemo(() => {
     const dates: Record<string, object> = {};
@@ -84,18 +87,34 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
   }, [availableDates, selectedDate, theme.primary, theme.secondary, theme.textOnPrimary]);
 
   const handleDayPress = (day: DateData) => {
+    if (disabled || busy) {
+      return;
+    }
+
     onDateSelect(day.dateString);
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Selecciona una fecha</Text>
-      <Text style={styles.subtitle}>Elige el dia que mejor encaje con tu agenda.</Text>
+    <View
+      accessibilityState={{ busy, disabled }}
+      pointerEvents={disabled || busy ? 'none' : 'auto'}
+      style={styles.container}
+    >
+      <View style={styles.heading}>
+        <View style={styles.iconShell}>
+          <Ionicons name="calendar-outline" size={17} color={theme.primary} />
+        </View>
+        <View style={styles.headingCopy}>
+          <Text style={styles.title}>Selecciona una fecha</Text>
+          <Text style={styles.subtitle}>Elige el día que mejor encaje contigo.</Text>
+        </View>
+      </View>
 
       <View style={styles.calendarShell}>
         <Calendar
           key={calendarKey}
-          current={today}
+          current={initialCalendarDate}
+          initialDate={initialCalendarDate}
           minDate={today}
           onDayPress={handleDayPress}
           markedDates={markedDates}
@@ -127,63 +146,66 @@ export const CompactCalendarColumn: React.FC<CompactCalendarColumnProps> = ({
 const createStyles = (
   theme: ReturnType<typeof useTheme>['theme'],
   isDark: boolean,
-  isCompact: boolean,
 ) => {
-  const calendarSurface = isDark ? theme.bgElevated : '#FFFFFF';
+  const calendarSurface = isDark ? theme.bgElevated : theme.bgCard;
   const calendarBorder = isDark ? theme.borderLight : theme.border;
 
   return StyleSheet.create({
     container: {
-      flexGrow: isCompact ? 0 : 1,
-      flexShrink: 0,
-      flexBasis: isCompact ? 'auto' : 0,
+      flex: 1,
       width: '100%',
-      minWidth: isCompact ? 0 : 300,
-      maxWidth: isCompact ? 9999 : 360,
-      alignSelf: 'stretch',
-      backgroundColor: theme.bgCard,
-      borderRadius: borderRadius.lg,
-      borderWidth: 1,
-      borderColor: theme.border,
-      padding: spacing.md,
+      minWidth: 0,
+      minHeight: 410,
       gap: spacing.sm,
-      shadowColor: theme.shadowCard,
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 1,
-      shadowRadius: 14,
-      elevation: 3,
+    },
+    heading: {
+      minHeight: 42,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    iconShell: {
+      width: 36,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 18,
+      backgroundColor: theme.primaryAlpha12,
+    },
+    headingCopy: {
+      flex: 1,
+      gap: 1,
     },
     title: {
-      fontSize: 16,
+      fontSize: 15,
       fontFamily: theme.fontHeading,
       color: theme.textPrimary,
     },
     subtitle: {
-      marginTop: -4,
-      fontSize: 12,
-      lineHeight: 17,
+      fontSize: 11,
+      lineHeight: 16,
       fontFamily: theme.fontSans,
       color: theme.textSecondary,
     },
     calendarShell: {
       width: '100%',
-      minHeight: isCompact ? 292 : undefined,
+      minHeight: 306,
       borderWidth: 1,
-      borderColor: calendarBorder,
-      borderRadius: borderRadius.md,
+      borderColor: isDark ? calendarBorder : theme.textMuted,
+      borderRadius: borderRadius.lg,
       overflow: 'hidden',
       backgroundColor: calendarSurface,
     },
     calendar: {
       width: '100%',
-      minHeight: isCompact ? 280 : undefined,
+      minHeight: 294,
       paddingBottom: spacing.xs,
     },
     helperBanner: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.xs,
-      borderRadius: borderRadius.md,
+      borderRadius: borderRadius.lg,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
@@ -196,7 +218,6 @@ const createStyles = (
       lineHeight: 16,
       fontFamily: theme.fontSans,
       color: theme.textSecondary,
-      textTransform: 'capitalize',
     },
   });
 };

@@ -1,8 +1,5 @@
-/**
- * Booking Components
- * Calendly-style 4-column booking layout components
- */
-
+export { BookingModalitySection } from './BookingModalitySection';
 export { ProfessionalInfoColumn } from './ProfessionalInfoColumn';
 export { CompactCalendarColumn } from './CompactCalendarColumn';
 export { TimeSlotsColumn } from './TimeSlotsColumn';
+export { BookingLocationMap } from './BookingLocationMap';

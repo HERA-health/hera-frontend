@@ -1,387 +1,330 @@
-import React, { useMemo } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  useWindowDimensions,
-} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { spacing, borderRadius } from '../../../constants/colors';
-import { useTheme } from '../../../contexts/ThemeContext';
-import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  Image,
+  type LayoutChangeEvent,
+  Platform,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  type ViewStyle,
+} from 'react-native';
+
 import { Button } from '../../../components/common/Button';
-import { BookingQuote, SessionType } from '../../../services/sessionsService';
-import { formatMadridDateKey } from '../../../utils/madridTime';
-
-interface SpecialistInfo {
-  id: string;
-  name: string;
-  title?: string;
-  avatar?: string;
-  pricePerSession: number;
-  specializations?: string[];
-  sessionDuration?: number;
-  offersOnline?: boolean;
-  offersInPerson?: boolean;
-}
-
-interface BookingState {
-  selectedDate: string | null;
-  selectedTime: string | null;
-  sessionType: SessionType;
-}
+import { borderRadius, spacing } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import type {
+  BookingQuote,
+  SessionType,
+} from '../../../services/sessionsService';
+import {
+  BOOKING_SESSION_OPTIONS,
+  formatBookingDate,
+  formatOfficeLocation,
+  formatSpecialization,
+  getQuotePresentation,
+  type BookingSelection,
+  type BookingSpecialist,
+} from './bookingPresentation';
+import { BookingLocationMap } from './BookingLocationMap';
 
 interface ProfessionalInfoColumnProps {
-  specialist: SpecialistInfo;
-  booking: BookingState;
-  onConfirm: () => void;
-  onSessionTypeChange: (type: SessionType) => void;
+  specialist: BookingSpecialist;
+  booking: BookingSelection;
   availableSessionTypes: SessionType[];
+  onPrimaryAction: () => void;
+  actionLabel: string;
+  actionDisabled?: boolean;
+  actionHint?: string | null;
+  accountMessage?: string | null;
   bookingQuote?: BookingQuote | null;
   quoteLoading?: boolean;
   quoteError?: string | null;
   quoteIsEstimated?: boolean;
-  canConfirm?: boolean;
   loading?: boolean;
-  showConfirmButton?: boolean;
-  showSummary?: boolean;
-  extraContentBeforeSummary?: React.ReactNode;
+  sticky?: boolean;
+  showAction?: boolean;
 }
 
-const SESSION_OPTIONS: Array<{
-  type: SessionType;
-  label: string;
-  description: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}> = [
-  {
-    type: 'VIDEO_CALL',
-    label: 'Videollamada',
-    description: 'Sesion segura desde cualquier lugar',
-    icon: 'videocam-outline',
-  },
-  {
-    type: 'IN_PERSON',
-    label: 'Presencial',
-    description: 'Encuentro en la consulta del especialista',
-    icon: 'business-outline',
-  },
-];
+const STICKY_TOP_OFFSET = 24;
+const STICKY_BOTTOM_GUTTER = 24;
+const BOOKING_HEADER_HEIGHT = 72;
 
-const SPECIALIZATION_LABELS: Record<string, string> = {
-  anxiety: 'Ansiedad',
-  depression: 'Depresión',
-  couples: 'Pareja',
-  trauma: 'Trauma',
-  stress: 'Estrés',
-  self_esteem: 'Autoestima',
-  selfesteem: 'Autoestima',
-  autoestima: 'Autoestima',
-  pareja: 'Pareja',
-  ansiedad: 'Ansiedad',
-  depresion: 'Depresión',
-  trauma_y_duelo: 'Trauma y duelo',
-  grief: 'Duelo',
-  duelo: 'Duelo',
-};
-
-const formatSpecialization = (specialization: string): string => {
-  const normalized = specialization.trim().toLowerCase().replace(/\s+/g, '_');
-  return (
-    SPECIALIZATION_LABELS[normalized] ??
-    specialization
-      .trim()
-      .replace(/[_-]+/g, ' ')
-      .replace(/\b\w/g, (letter) => letter.toUpperCase())
+export const canUseStickyBookingSummary = ({
+  contentHeight,
+  requested,
+  viewportHeight,
+}: {
+  contentHeight: number;
+  requested: boolean;
+  viewportHeight: number;
+}) =>
+  requested
+  && contentHeight > 0
+  && viewportHeight >= (
+    BOOKING_HEADER_HEIGHT
+    + contentHeight
+    + STICKY_TOP_OFFSET
+    + STICKY_BOTTOM_GUTTER
   );
-};
-
-const formatDate = (dateString: string): string =>
-  formatMadridDateKey(dateString, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
-
-const formatAmount = (amount: number): string =>
-  `${amount.toLocaleString('es-ES', { maximumFractionDigits: 2 })}€`;
 
 export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
   specialist,
   booking,
-  onConfirm,
-  onSessionTypeChange,
   availableSessionTypes,
+  onPrimaryAction,
+  actionLabel,
+  actionDisabled = false,
+  actionHint = null,
+  accountMessage = null,
   bookingQuote = null,
   quoteLoading = false,
   quoteError = null,
   quoteIsEstimated = false,
-  canConfirm = true,
   loading = false,
-  showConfirmButton = true,
-  showSummary = true,
-  extraContentBeforeSummary,
+  sticky = false,
+  showAction = true,
 }) => {
   const { theme, isDark } = useTheme();
-  const { width } = useWindowDimensions();
-  const isCompact = width < 1024;
-  const styles = useMemo(() => createStyles(theme, isDark, isCompact), [theme, isDark, isCompact]);
-  const isComplete = Boolean(booking.selectedDate && booking.selectedTime);
-  const sessionOptions = useMemo(
-    () => SESSION_OPTIONS.filter((option) => availableSessionTypes.includes(option.type)),
-    [availableSessionTypes],
+  const { height: viewportHeight } = useWindowDimensions();
+  const [contentHeight, setContentHeight] = useState(0);
+  const styles = useMemo(
+    () => createStyles(theme, isDark),
+    [isDark, theme],
   );
-  const activeType =
-    sessionOptions.find((option) => option.type === booking.sessionType) ?? sessionOptions[0];
-  const priceText = quoteLoading
-    ? 'Calculando...'
-    : quoteError
-      ? 'No disponible'
-      : bookingQuote
-        ? formatAmount(bookingQuote.price)
-        : 'Calculando...';
-  const totalCaption = bookingQuote?.firstVisitFreeApplied
-    ? `Primera sesión gratuita aplicada. Tarifa habitual ${formatAmount(bookingQuote.basePrice)}`
-    : quoteError
-      ?? (quoteIsEstimated
-        ? 'Precio publicado por el especialista.'
-        : bookingQuote
-          ? 'Precio final calculado para esta reserva.'
-          : 'Calculando precio...');
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextHeight = event.nativeEvent.layout.height;
+
+    setContentHeight((currentHeight) =>
+      Math.abs(currentHeight - nextHeight) > 0.5 ? nextHeight : currentHeight
+    );
+  }, []);
+  const activeType = BOOKING_SESSION_OPTIONS.find(
+    ({ type }) => type === booking.sessionType && availableSessionTypes.includes(type),
+  );
+  const quote = getQuotePresentation({
+    bookingQuote,
+    quoteLoading,
+    quoteError,
+    quoteIsEstimated,
+  });
+  const officeLocation = specialist.officeLocation
+    ? formatOfficeLocation(specialist.officeLocation)
+    : null;
+  const webStickyStyle: ViewStyle | undefined =
+    Platform.OS === 'web' && canUseStickyBookingSummary({
+      contentHeight,
+      requested: sticky,
+      viewportHeight,
+    })
+      ? ({
+          position: 'sticky',
+          top: STICKY_TOP_OFFSET,
+        } as unknown as ViewStyle)
+      : undefined;
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator
-      >
-        <View style={styles.card}>
-          <View style={styles.profileRow}>
-            {specialist.avatar ? (
-              <Image source={{ uri: specialist.avatar }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarLetter}>
-                  {specialist.name?.[0]?.toUpperCase() ?? '?'}
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.profileText}>
-              <Text style={styles.name}>{specialist.name}</Text>
-              <Text style={styles.title}>{specialist.title || 'Especialista'}</Text>
-            </View>
-          </View>
-
-          <View style={styles.metricsRow}>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>PRECIO</Text>
-              <Text style={styles.metricValue}>{priceText} / sesión</Text>
-              {quoteIsEstimated && !quoteError ? (
-                <Text style={styles.estimatedPriceText}>Precio del especialista</Text>
-              ) : null}
-              {bookingQuote?.firstVisitFreeApplied ? (
-                <View style={styles.promoBadge}>
-                  <Ionicons name="gift-outline" size={12} color={theme.success} />
-                  <Text style={styles.promoBadgeText}>Primera sesión gratis</Text>
-                </View>
-              ) : null}
-              {quoteError ? (
-                <Text style={styles.quoteErrorText}>{quoteError}</Text>
-              ) : null}
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>DURACIÓN</Text>
-              <Text style={styles.metricValue}>{specialist.sessionDuration ?? 60} min</Text>
-            </View>
-          </View>
-
-          {specialist.specializations && specialist.specializations.length > 0 && (
-            <View style={styles.tagsRow}>
-              {specialist.specializations.slice(0, 4).map((specialization) => (
-                <View key={specialization} style={styles.tag}>
-                  <Text style={styles.tagText}>{formatSpecialization(specialization)}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Tipo de sesion</Text>
-          <Text style={styles.cardSubtitle}>Elige como prefieres tener este encuentro.</Text>
-
-          {sessionOptions.length > 0 ? (
-            <View style={styles.sessionList}>
-              {sessionOptions.map((option) => {
-                const selected = booking.sessionType === option.type;
-
-                return (
-                  <AnimatedPressable
-                    key={option.type}
-                    onPress={() => onSessionTypeChange(option.type)}
-                    style={[styles.sessionItem, selected ? styles.sessionItemSelected : null]}
-                  >
-                    <View
-                      style={[
-                        styles.sessionIconShell,
-                        selected ? styles.sessionIconShellSelected : null,
-                      ]}
-                    >
-                      <Ionicons
-                        name={option.icon}
-                        size={16}
-                        color={selected ? theme.textOnPrimary : theme.primary}
-                      />
-                    </View>
-
-                    <View style={styles.sessionTextBlock}>
-                      <Text
-                        style={[
-                          styles.sessionLabel,
-                          selected ? styles.sessionLabelSelected : null,
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.sessionDescription,
-                          selected ? styles.sessionDescriptionSelected : null,
-                        ]}
-                      >
-                        {option.description}
-                      </Text>
-                    </View>
-
-                    {selected && (
-                      <Ionicons name="checkmark-circle" size={18} color={theme.textOnPrimary} />
-                    )}
-                  </AnimatedPressable>
-                );
-              })}
-            </View>
+    <View
+      onLayout={handleLayout}
+      style={[styles.container, webStickyStyle]}
+      testID="booking-summary-card"
+    >
+      <View style={styles.profile}>
+        <View style={styles.profileRow}>
+          {specialist.avatar ? (
+            <Image
+              source={{ uri: specialist.avatar }}
+              style={styles.avatar}
+              accessibilityLabel={`Foto de ${specialist.name}`}
+            />
           ) : (
-            <View style={styles.unavailableBox}>
-              <Ionicons name="alert-circle-outline" size={18} color={theme.warningAmber} />
-              <Text style={styles.unavailableText}>
-                Este especialista no tiene modalidades de reserva activas.
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarLetter}>
+                {specialist.name?.[0]?.toUpperCase() ?? '?'}
               </Text>
             </View>
           )}
-        </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Antes de confirmar</Text>
-          <View style={styles.infoList}>
-            <View style={styles.infoRow}>
-              <Ionicons name="globe-outline" size={14} color={theme.textSecondary} />
-              <Text style={styles.infoText}>Horario local adaptado a Europe/Madrid.</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Ionicons name="refresh-outline" size={14} color={theme.textSecondary} />
-              <Text style={styles.infoText}>Cancelacion gratis 24 h antes.</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Ionicons
-                name={activeType?.icon ?? 'calendar-outline'}
-                size={14}
-                color={theme.textSecondary}
-              />
-              <Text style={styles.infoText}>
-                {activeType?.description ?? 'Reserva disponible cuando el especialista active una modalidad.'}
-              </Text>
-            </View>
+          <View style={styles.profileCopy}>
+            <Text style={styles.profileEyebrow}>TU PROFESIONAL</Text>
+            <Text style={styles.name}>{specialist.name}</Text>
+            <Text style={styles.title}>{specialist.title || 'Profesional de salud mental'}</Text>
+            <Text style={styles.profilePrice}>{quote.pricePerSessionText}</Text>
+            {quoteIsEstimated && !quoteError ? (
+              <Text style={styles.estimatedPriceText}>Precio del profesional</Text>
+            ) : null}
           </View>
         </View>
 
-        {extraContentBeforeSummary}
-
-        {showSummary && (
-          <View style={styles.card}>
-            <View style={styles.summaryHeader}>
-              <Text style={styles.cardTitle}>Resumen de tu reserva</Text>
-              {activeType ? (
-                <View style={styles.summaryBadge}>
-                  <Text style={styles.summaryBadgeText}>{activeType.label}</Text>
-                </View>
-              ) : null}
-            </View>
-
-            <View style={styles.summaryItem}>
-              <Ionicons
-                name="calendar-outline"
-                size={14}
-                color={booking.selectedDate ? theme.primary : theme.textMuted}
-              />
-              <Text
-                style={[
-                  styles.summaryValue,
-                  !booking.selectedDate ? styles.summaryValueMuted : null,
-                ]}
-              >
-                {booking.selectedDate ? formatDate(booking.selectedDate) : 'Elige una fecha'}
-              </Text>
-            </View>
-
-            <View style={styles.summaryItem}>
-              <Ionicons
-                name="time-outline"
-                size={14}
-                color={booking.selectedTime ? theme.primary : theme.textMuted}
-              />
-              <Text
-                style={[
-                  styles.summaryValue,
-                  !booking.selectedTime ? styles.summaryValueMuted : null,
-                ]}
-              >
-                {booking.selectedTime || 'Elige una hora'}
-              </Text>
-            </View>
-
-            <View style={styles.totalRow}>
-              <View style={styles.totalTextBlock}>
-                <Text style={styles.totalLabel}>TOTAL ESTIMADO</Text>
-                <Text style={[styles.totalCaption, quoteError ? styles.totalCaptionError : null]}>
-                  {totalCaption}
-                </Text>
+        {specialist.specializations?.length ? (
+          <View style={styles.tags}>
+            {specialist.specializations.slice(0, 3).map((specialization) => (
+              <View key={specialization} style={styles.tag}>
+                <Text style={styles.tagText}>{formatSpecialization(specialization)}</Text>
               </View>
-              <Text style={styles.totalValue}>{priceText}</Text>
-            </View>
-
-            {showConfirmButton && (
-            <Button
-              variant="primary"
-              size="medium"
-              onPress={onConfirm}
-              disabled={!isComplete || loading || sessionOptions.length === 0 || quoteLoading || !canConfirm}
-              loading={loading}
-              fullWidth
-                icon={
-                  !loading ? (
-                    <Ionicons
-                      name="checkmark-circle-outline"
-                      size={18}
-                      color="#FFFFFF"
-                    />
-                  ) : undefined
-                }
-              >
-                Confirmar reserva
-              </Button>
-            )}
-
-            {loading && !showConfirmButton && (
-              <ActivityIndicator size="small" color={theme.primary} />
-            )}
+            ))}
           </View>
-        )}
-      </ScrollView>
+        ) : null}
+      </View>
+
+      <View style={styles.divider} />
+
+      <View style={styles.summary}>
+        <View style={styles.summaryHeading}>
+          <Text style={styles.summaryEyebrow}>RESUMEN DE LA CITA</Text>
+          {activeType ? (
+            <View style={styles.modalityBadge}>
+              <Ionicons name={activeType.icon} size={13} color={theme.secondaryDark} />
+              <Text style={styles.modalityBadgeText}>{activeType.label}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.summaryRows}>
+          <SummaryRow
+            icon="calendar-outline"
+            label="Fecha"
+            value={booking.selectedDate ? formatBookingDate(booking.selectedDate) : 'Por elegir'}
+            active={Boolean(booking.selectedDate)}
+          />
+          <SummaryRow
+            icon="time-outline"
+            label="Hora"
+            value={booking.selectedTime || 'Por elegir'}
+            active={Boolean(booking.selectedTime)}
+          />
+          <SummaryRow
+            icon="hourglass-outline"
+            label="Duración"
+            value={`${specialist.sessionDuration ?? 60} min`}
+            active
+          />
+          {booking.sessionType === 'IN_PERSON' ? (
+            <SummaryRow
+              icon="location-outline"
+              label="Consulta"
+              value={
+                officeLocation
+                  ? [officeLocation.street, officeLocation.locality].filter(Boolean).join(', ')
+                  : 'Dirección no publicada'
+              }
+              active={Boolean(officeLocation)}
+            />
+          ) : null}
+        </View>
+
+        <View style={styles.total}>
+          <View style={styles.totalCopy}>
+            <Text style={styles.totalLabel}>TOTAL</Text>
+            <Text
+              accessibilityRole={quoteError ? 'alert' : undefined}
+              style={[
+                styles.totalCaption,
+                quoteError ? styles.totalCaptionError : null,
+              ]}
+            >
+              {quote.caption}
+            </Text>
+          </View>
+          <Text style={styles.totalValue}>{quote.priceText}</Text>
+        </View>
+      </View>
+
+      <View style={styles.conditions}>
+        <View style={styles.condition}>
+          <Ionicons name="globe-outline" size={15} color={theme.textSecondary} />
+          <Text style={styles.conditionText}>Horario de Europe/Madrid</Text>
+        </View>
+        <View style={styles.condition}>
+          <Ionicons name="refresh-outline" size={15} color={theme.textSecondary} />
+          <Text style={styles.conditionText}>Cancelación gratuita hasta 24 h antes</Text>
+        </View>
+      </View>
+
+      {accountMessage ? (
+        <View accessibilityRole="alert" style={styles.accountNotice}>
+          <Ionicons name="information-circle-outline" size={18} color={theme.warningAmber} />
+          <Text style={styles.accountNoticeText}>{accountMessage}</Text>
+        </View>
+      ) : null}
+
+      {showAction ? (
+        <View style={styles.action}>
+          <Button
+            variant="primary"
+            size="medium"
+            onPress={onPrimaryAction}
+            disabled={actionDisabled}
+            loading={loading}
+            fullWidth
+            icon={
+              !loading ? (
+                <Ionicons
+                  name={actionLabel === 'Confirmar cita' ? 'checkmark-circle-outline' : 'arrow-down-outline'}
+                  size={18}
+                  color={theme.textOnPrimary}
+                />
+              ) : undefined
+            }
+          >
+            {actionLabel}
+          </Button>
+          {actionHint ? (
+            <Text style={styles.actionHint}>{actionHint}</Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      {booking.sessionType === 'IN_PERSON' ? (
+        <BookingLocationMap officeLocation={specialist.officeLocation} />
+      ) : null}
+    </View>
+  );
+};
+
+interface SummaryRowProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  active: boolean;
+}
+
+const SummaryRow: React.FC<SummaryRowProps> = ({
+  icon,
+  label,
+  value,
+  active,
+}) => {
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(
+    () => createStyles(theme, isDark),
+    [isDark, theme],
+  );
+  const mutedIconColor = isDark ? theme.textMuted : theme.textSecondary;
+
+  return (
+    <View
+      accessible
+      accessibilityLabel={`${label}: ${value}`}
+      style={styles.summaryRow}
+    >
+      <View style={styles.summaryIcon}>
+        <Ionicons
+          name={icon}
+          size={15}
+          color={active ? theme.primary : mutedIconColor}
+        />
+      </View>
+      <Text style={styles.summaryLabel}>{label}</Text>
+      <Text
+        style={[
+          styles.summaryValue,
+          !active ? styles.summaryValueMuted : null,
+        ]}
+      >
+        {value}
+      </Text>
     </View>
   );
 };
@@ -389,33 +332,26 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
 const createStyles = (
   theme: ReturnType<typeof useTheme>['theme'],
   isDark: boolean,
-  isCompact: boolean,
-) =>
-  StyleSheet.create({
+) => {
+  const functionalMutedText = isDark ? theme.textMuted : theme.textSecondary;
+
+  return StyleSheet.create({
     container: {
       width: '100%',
-      maxWidth: isCompact ? 9999 : 340,
-      alignSelf: 'stretch',
-    },
-    scrollView: {
-      flex: 1,
-    },
-    scrollContent: {
       gap: spacing.md,
-      paddingBottom: spacing.xs,
-    },
-    card: {
-      backgroundColor: theme.bgCard,
-      borderRadius: borderRadius.lg,
+      padding: spacing.lg,
       borderWidth: 1,
       borderColor: theme.border,
-      padding: spacing.md,
-      gap: spacing.md,
+      borderRadius: borderRadius.xl,
+      backgroundColor: theme.bgCard,
       shadowColor: theme.shadowCard,
-      shadowOffset: { width: 0, height: 6 },
+      shadowOffset: { width: 0, height: 12 },
       shadowOpacity: 1,
-      shadowRadius: 14,
-      elevation: 3,
+      shadowRadius: 28,
+      elevation: 4,
+    },
+    profile: {
+      gap: spacing.md,
     },
     profileRow: {
       flexDirection: 'row',
@@ -423,285 +359,226 @@ const createStyles = (
       gap: spacing.md,
     },
     avatar: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
+      width: 58,
+      height: 58,
+      borderRadius: 29,
     },
     avatarPlaceholder: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
+      width: 58,
+      height: 58,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: theme.primaryAlpha12,
       borderWidth: 1,
       borderColor: theme.primaryAlpha20,
+      borderRadius: 29,
+      backgroundColor: theme.primaryAlpha12,
     },
     avatarLetter: {
-      fontSize: 24,
-      fontFamily: theme.fontHeading,
       color: theme.primary,
+      fontFamily: theme.fontHeading,
+      fontSize: 23,
     },
-    profileText: {
+    profileCopy: {
       flex: 1,
+      minWidth: 0,
       gap: 2,
+    },
+    profileEyebrow: {
+      color: theme.secondaryDark,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 9,
+      letterSpacing: 1.1,
     },
     name: {
-      fontSize: 24,
-      lineHeight: 28,
-      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
+      fontFamily: theme.fontHeading,
+      fontSize: 21,
+      lineHeight: 25,
     },
     title: {
-      fontSize: 14,
-      fontFamily: theme.fontSansMedium,
       color: theme.textSecondary,
-    },
-    metricsRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-    },
-    metricCard: {
-      flex: 1,
-      backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
-      borderWidth: 1,
-      borderColor: theme.borderLight,
-      borderRadius: borderRadius.md,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.sm,
-      gap: 2,
-    },
-    metricLabel: {
-      fontSize: 10,
-      fontFamily: theme.fontSansSemiBold,
-      color: theme.textMuted,
-      textTransform: 'uppercase',
-    },
-    metricValue: {
-      fontSize: 13,
+      fontFamily: theme.fontSansMedium,
+      fontSize: 12,
       lineHeight: 17,
-      fontFamily: theme.fontSansSemiBold,
+    },
+    profilePrice: {
+      marginTop: 3,
       color: theme.textPrimary,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 12,
     },
     estimatedPriceText: {
-      marginTop: 2,
-      fontSize: 11,
-      lineHeight: 15,
-      fontFamily: theme.fontSansMedium,
-      color: theme.textSecondary,
+      color: functionalMutedText,
+      fontFamily: theme.fontSans,
+      fontSize: 9,
+      lineHeight: 13,
     },
-    promoBadge: {
-      alignSelf: 'flex-start',
+    tags: {
       flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      marginTop: 4,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: borderRadius.sm,
-      backgroundColor: theme.successBg,
-    },
-    promoBadgeText: {
-      fontSize: 11,
-      fontFamily: theme.fontSansSemiBold,
-      color: theme.success,
-    },
-    quoteErrorText: {
-      marginTop: 4,
-      fontSize: 11,
-      lineHeight: 15,
-      fontFamily: theme.fontSansMedium,
-      color: theme.error,
-    },
-    tagsRow: {
-      flexDirection: 'row',
+      gap: 6,
       flexWrap: 'wrap',
-      gap: spacing.xs,
     },
     tag: {
       paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
+      paddingVertical: 5,
       borderRadius: borderRadius.full,
-      backgroundColor: theme.secondaryAlpha12,
-      borderWidth: 1,
-      borderColor: theme.glassBorder,
-    },
-    tagText: {
-      fontSize: 11,
-      fontFamily: theme.fontSansMedium,
-      color: theme.secondaryDark,
-    },
-    cardTitle: {
-      fontSize: 16,
-      fontFamily: theme.fontHeading,
-      color: theme.textPrimary,
-    },
-    cardSubtitle: {
-      marginTop: -6,
-      fontSize: 12,
-      lineHeight: 17,
-      fontFamily: theme.fontSans,
-      color: theme.textSecondary,
-    },
-    sessionList: {
-      gap: spacing.sm,
-    },
-    unavailableBox: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacing.sm,
-      padding: spacing.md,
-      borderRadius: borderRadius.md,
-      borderWidth: 1,
-      borderColor: theme.warningAmber,
-      backgroundColor: theme.warningBg,
-    },
-    unavailableText: {
-      flex: 1,
-      fontSize: 13,
-      lineHeight: 18,
-      fontFamily: theme.fontSansMedium,
-      color: theme.textPrimary,
-    },
-    sessionItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      padding: spacing.md,
-      borderRadius: borderRadius.md,
-      borderWidth: 1,
-      borderColor: theme.border,
       backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
     },
-    sessionItemSelected: {
-      backgroundColor: theme.primary,
-      borderColor: theme.primary,
-    },
-    sessionIconShell: {
-      width: 30,
-      height: 30,
-      borderRadius: 15,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: isDark ? theme.primaryMuted : theme.primaryAlpha12,
-    },
-    sessionIconShellSelected: {
-      backgroundColor: 'rgba(255,255,255,0.16)',
-    },
-    sessionTextBlock: {
-      flex: 1,
-      gap: 2,
-    },
-    sessionLabel: {
-      fontSize: 14,
-      fontFamily: theme.fontSansSemiBold,
-      color: theme.textPrimary,
-    },
-    sessionLabelSelected: {
-      color: theme.textOnPrimary,
-    },
-    sessionDescription: {
-      fontSize: 11,
-      lineHeight: 15,
-      fontFamily: theme.fontSans,
+    tagText: {
       color: theme.textSecondary,
+      fontFamily: theme.fontSansMedium,
+      fontSize: 10,
     },
-    sessionDescriptionSelected: {
-      color: 'rgba(255,255,255,0.82)',
+    divider: {
+      height: 1,
+      backgroundColor: theme.borderLight,
     },
-    infoList: {
-      gap: spacing.sm,
+    summary: {
+      gap: spacing.md,
     },
-    infoRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-    },
-    infoText: {
-      flex: 1,
-      fontSize: 12,
-      lineHeight: 18,
-      fontFamily: theme.fontSans,
-      color: theme.textSecondary,
-    },
-    summaryHeader: {
+    summaryHeading: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: spacing.sm,
     },
-    summaryBadge: {
+    summaryEyebrow: {
+      color: functionalMutedText,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 9,
+      letterSpacing: 1.05,
+    },
+    modalityBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
       paddingHorizontal: spacing.sm,
-      paddingVertical: 6,
+      paddingVertical: 5,
       borderRadius: borderRadius.full,
       backgroundColor: theme.secondaryAlpha12,
-      borderWidth: 1,
-      borderColor: theme.glassBorder,
     },
-    summaryBadgeText: {
-      fontSize: 10,
-      fontFamily: theme.fontSansSemiBold,
+    modalityBadgeText: {
       color: theme.secondaryDark,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 10,
     },
-    summaryItem: {
+    summaryRows: {
+      gap: spacing.xs,
+    },
+    summaryRow: {
+      minHeight: 40,
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.xs,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.sm,
-      borderRadius: borderRadius.md,
+    },
+    summaryIcon: {
+      width: 28,
+      height: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 14,
       backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
-      borderWidth: 1,
-      borderColor: theme.borderLight,
+    },
+    summaryLabel: {
+      width: 58,
+      color: functionalMutedText,
+      fontFamily: theme.fontSansMedium,
+      fontSize: 11,
     },
     summaryValue: {
       flex: 1,
-      fontSize: 12,
-      fontFamily: theme.fontSansMedium,
       color: theme.textPrimary,
-      textTransform: 'capitalize',
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 12,
+      textAlign: 'right',
     },
     summaryValueMuted: {
-      color: theme.textMuted,
+      color: functionalMutedText,
+      fontFamily: theme.fontSansMedium,
     },
-    totalRow: {
+    total: {
       flexDirection: 'row',
       alignItems: 'flex-start',
       justifyContent: 'space-between',
       gap: spacing.md,
-      paddingTop: spacing.sm,
+      paddingTop: spacing.md,
       borderTopWidth: 1,
       borderTopColor: theme.borderLight,
     },
-    totalLabel: {
-      fontSize: 10,
-      fontFamily: theme.fontSansSemiBold,
-      color: theme.textMuted,
-      textTransform: 'uppercase',
-    },
-    totalTextBlock: {
+    totalCopy: {
       flex: 1,
-      minWidth: 0,
+      gap: 3,
+    },
+    totalLabel: {
+      color: functionalMutedText,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 9,
+      letterSpacing: 0.9,
     },
     totalCaption: {
-      marginTop: 2,
-      fontSize: 11,
-      fontFamily: theme.fontSans,
       color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+      fontSize: 10,
+      lineHeight: 15,
     },
     totalCaptionError: {
       color: theme.error,
       fontFamily: theme.fontSansMedium,
     },
     totalValue: {
-      flexShrink: 1,
-      minWidth: 96,
-      textAlign: 'right',
-      fontSize: isCompact ? 22 : 24,
-      lineHeight: isCompact ? 26 : 29,
-      fontFamily: theme.fontHeading,
+      minWidth: 88,
       color: theme.textPrimary,
+      fontFamily: theme.fontHeading,
+      fontSize: 25,
+      lineHeight: 29,
+      textAlign: 'right',
+    },
+    conditions: {
+      gap: spacing.xs,
+      padding: spacing.sm,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+      borderRadius: borderRadius.md,
+      backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
+    },
+    condition: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    conditionText: {
+      flex: 1,
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+      fontSize: 10,
+      lineHeight: 15,
+    },
+    accountNotice: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.xs,
+      padding: spacing.sm,
+      borderRadius: borderRadius.md,
+      backgroundColor: theme.warningBg,
+    },
+    accountNoticeText: {
+      flex: 1,
+      color: theme.textSecondary,
+      fontFamily: theme.fontSansMedium,
+      fontSize: 11,
+      lineHeight: 16,
+    },
+    action: {
+      gap: spacing.xs,
+    },
+    actionHint: {
+      color: functionalMutedText,
+      fontFamily: theme.fontSans,
+      fontSize: 10,
+      lineHeight: 15,
+      textAlign: 'center',
     },
   });
+};
 
 export default ProfessionalInfoColumn;

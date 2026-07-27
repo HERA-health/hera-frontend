@@ -104,6 +104,14 @@ export interface Feature {
  */
 import type { LegalDocumentKey } from './legal';
 
+export interface BookingOfficeLocation {
+  street: string;
+  city: string;
+  postalCode?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 export type RootStackParamList = {
   Landing: { section?: LandingSectionAnchor } | undefined;
   Welcome: undefined;
@@ -140,14 +148,6 @@ export type RootStackParamList = {
   SpecialistDetail: { specialistId: string; affinity?: number };
   Booking: {
     specialistId: string;
-    specialistName: string;
-    pricePerSession: number;
-    avatar?: string;
-    title?: string;
-    specializations?: string[];
-    slotDuration?: number;
-    offersOnline?: boolean;
-    offersInPerson?: boolean;
     initialDate?: string;
     initialSlotStartTime?: string;
     initialSlotEndTime?: string;

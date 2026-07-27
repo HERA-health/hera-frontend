@@ -20,10 +20,11 @@ export const setPostHogClient = (client: PostHog): void => {
 };
 
 /**
- * Identify a user for analytics. Links future events to this user.
+ * Adds coarse account context without linking analytics to a database user ID.
+ * The parameter is kept for API compatibility with existing callers.
  */
 export const identify = (
-  userId: string,
+  _userId: string,
   properties: { userType: string; emailVerified: boolean }
 ): void => {
   try {
@@ -31,7 +32,10 @@ export const identify = (
     const client = posthogClient;
     if (!client) return;
 
-    client.identify(userId, properties);
+    client.capture('analytics_user_context_set', {
+      ...properties,
+      platform: 'mobile_web',
+    });
   } catch {
     // silently ignore analytics errors
   }

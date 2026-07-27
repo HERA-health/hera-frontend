@@ -1,17 +1,16 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useMemo } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
   ActivityIndicator,
-  useWindowDimensions,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { spacing, borderRadius } from '../../../constants/colors';
-import { useTheme } from '../../../contexts/ThemeContext';
+
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
-import { TimeSlot } from '../../../services/sessionsService';
+import { borderRadius, spacing } from '../../../constants/colors';
+import { useTheme } from '../../../contexts/ThemeContext';
+import type { TimeSlot } from '../../../services/sessionsService';
 import { formatMadridDateKey } from '../../../utils/madridTime';
 
 interface TimeSlotsColumnProps {
@@ -20,6 +19,10 @@ interface TimeSlotsColumnProps {
   selectedTime: string | null;
   onTimeSelect: (slot: TimeSlot) => void;
   loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
+  disabled?: boolean;
+  busy?: boolean;
 }
 
 const formatDate = (dateString: string): string =>
@@ -35,12 +38,16 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
   selectedTime,
   onTimeSelect,
   loading = false,
+  error = null,
+  onRetry,
+  disabled = false,
+  busy = false,
 }) => {
   const { theme, isDark } = useTheme();
-  const { width } = useWindowDimensions();
-  const isCompact = width < 1024;
-  const styles = useMemo(() => createStyles(theme, isDark, isCompact), [theme, isDark, isCompact]);
-
+  const styles = useMemo(
+    () => createStyles(theme, isDark),
+    [isDark, theme],
+  );
   const slotGroups = useMemo(() => {
     const groups = [
       { key: 'morning', label: 'Mañana', icon: 'sunny-outline' as const, slots: [] as TimeSlot[] },
@@ -58,67 +65,83 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
     return groups.filter((group) => group.slots.length > 0);
   }, [availableSlots]);
 
-  const renderEmpty = (icon: keyof typeof Ionicons.glyphMap, title: string, description: string) => (
-    <View style={styles.emptyState}>
-      <Ionicons name={icon} size={34} color={theme.textMuted} />
-      <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.emptyDescription}>{description}</Text>
-    </View>
-  );
+  const headingSubtitle = selectedDate
+    ? formatDate(selectedDate)
+    : 'Selecciona primero una fecha';
 
-  if (!selectedDate) {
+  if (loading) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Elige una hora</Text>
-        <Text style={styles.subtitle}>
-          Selecciona primero una fecha para desbloquear las horas.
-        </Text>
-        {renderEmpty(
-          'calendar-clear-outline',
-          'Elige una fecha',
-          'Cuando marques un día, te mostraremos las franjas disponibles al momento.',
-        )}
+      <View
+        accessible
+        accessibilityLabel="Cargando horarios. Estamos consultando la agenda del profesional."
+        accessibilityLiveRegion="polite"
+        accessibilityRole="progressbar"
+        accessibilityState={{ busy: true, disabled }}
+        style={styles.container}
+      >
+        <ColumnHeading subtitle={headingSubtitle} />
+        <EmptyState
+          icon={null}
+          title="Cargando horarios"
+          description="Estamos consultando la agenda del profesional."
+          indicator
+        />
       </View>
     );
   }
 
-  if (loading) {
+  if (selectedDate && error) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Elige una hora</Text>
-        <Text style={styles.subtitle}>{formatDate(selectedDate)}</Text>
-        <View style={styles.emptyState}>
-          <ActivityIndicator size="large" color={theme.primary} />
-          <Text style={styles.emptyTitle}>Cargando horarios</Text>
-          <Text style={styles.emptyDescription}>Estamos consultando la agenda del especialista.</Text>
+      <View accessibilityState={{ busy, disabled }} style={styles.container}>
+        <ColumnHeading subtitle={headingSubtitle} />
+        <View accessibilityRole="alert">
+          <EmptyState
+            icon="cloud-offline-outline"
+            title="No hemos podido consultar la agenda"
+            description={error}
+            action={onRetry}
+            actionDisabled={disabled || busy}
+          />
         </View>
+      </View>
+    );
+  }
+
+  if (!selectedDate) {
+    return (
+      <View accessibilityState={{ busy, disabled }} style={styles.container}>
+        <ColumnHeading subtitle={headingSubtitle} />
+        <EmptyState
+          icon="calendar-clear-outline"
+          title="Tu horario aparecerá aquí"
+          description="Cuando marques un día, te mostraremos las horas disponibles."
+        />
       </View>
     );
   }
 
   if (availableSlots.length === 0) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Elige una hora</Text>
-        <Text style={styles.subtitle}>{formatDate(selectedDate)}</Text>
-        {renderEmpty(
-          'sad-outline',
-          'No hay horas libres',
-          'Prueba con otra fecha para ver más opciones.',
-        )}
+      <View accessibilityState={{ busy, disabled }} style={styles.container}>
+        <ColumnHeading subtitle={headingSubtitle} />
+        <EmptyState
+          icon="calendar-outline"
+          title="No hay horas libres"
+          description="Prueba con otra fecha para ver más opciones."
+        />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Elige una hora</Text>
-      <Text style={styles.subtitle}>{formatDate(selectedDate)}</Text>
+    <View accessibilityState={{ busy, disabled }} style={styles.container}>
+      <ColumnHeading subtitle={headingSubtitle} />
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator
+      <View
+        accessibilityRole="radiogroup"
+        accessibilityLabel="Horarios disponibles"
+        accessibilityState={{ busy, disabled }}
+        style={styles.slotGroups}
       >
         {slotGroups.map((group) => (
           <View key={group.key} style={styles.slotGroup}>
@@ -134,17 +157,28 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
 
             <View style={styles.slotsGrid}>
               {group.slots.map((slot) => {
-                const disabled = slot.available === false;
-                const selected = !disabled && selectedTime === slot.startTime;
+                const slotUnavailable = slot.available === false;
+                const slotDisabled = disabled || busy || slotUnavailable;
+                const selected = !slotUnavailable && selectedTime === slot.startTime;
+
                 return (
                   <AnimatedPressable
-                    key={slot.startTime}
+                    key={`${slot.startTime}-${slot.endTime}`}
                     onPress={() => onTimeSelect(slot)}
-                    disabled={disabled}
-                    accessibilityState={{ disabled, selected }}
+                    disabled={slotDisabled}
+                    accessibilityRole="radio"
+                    accessibilityLabel={
+                      slotUnavailable
+                        ? `${slot.startTime}, no disponible`
+                        : `Seleccionar las ${slot.startTime}`
+                    }
+                    accessibilityState={{
+                      checked: selected,
+                      disabled: slotDisabled,
+                    }}
                     style={[
                       styles.slotButton,
-                      disabled ? styles.slotButtonDisabled : null,
+                      slotDisabled ? styles.slotButtonDisabled : null,
                       selected ? styles.slotButtonSelected : null,
                     ]}
                   >
@@ -152,26 +186,95 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
                       <Text
                         style={[
                           styles.slotButtonText,
-                          disabled ? styles.slotButtonTextDisabled : null,
+                          slotDisabled ? styles.slotButtonTextDisabled : null,
                           selected ? styles.slotButtonTextSelected : null,
                         ]}
                       >
                         {slot.startTime}
                       </Text>
-                      {disabled && (
+                      {slotUnavailable ? (
                         <Text style={styles.slotUnavailableText}>No disponible</Text>
-                      )}
+                      ) : null}
                     </View>
-                    {selected && (
+                    {selected ? (
                       <Ionicons name="checkmark" size={16} color={theme.textOnPrimary} />
-                    )}
+                    ) : null}
                   </AnimatedPressable>
                 );
               })}
             </View>
           </View>
         ))}
-      </ScrollView>
+      </View>
+    </View>
+  );
+};
+
+const ColumnHeading: React.FC<{ subtitle: string }> = ({ subtitle }) => {
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(
+    () => createStyles(theme, isDark),
+    [isDark, theme],
+  );
+
+  return (
+    <View style={styles.heading}>
+      <View style={styles.iconShell}>
+        <Ionicons name="time-outline" size={17} color={theme.primary} />
+      </View>
+      <View style={styles.headingCopy}>
+        <Text style={styles.title}>Elige una hora</Text>
+        <Text style={styles.subtitle}>{subtitle}</Text>
+      </View>
+    </View>
+  );
+};
+
+interface EmptyStateProps {
+  icon: keyof typeof Ionicons.glyphMap | null;
+  title: string;
+  description: string;
+  indicator?: boolean;
+  action?: () => void;
+  actionDisabled?: boolean;
+}
+
+const EmptyState: React.FC<EmptyStateProps> = ({
+  icon,
+  title,
+  description,
+  indicator = false,
+  action,
+  actionDisabled = false,
+}) => {
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(
+    () => createStyles(theme, isDark),
+    [isDark, theme],
+  );
+
+  return (
+    <View style={styles.emptyState}>
+      {indicator ? (
+        <ActivityIndicator size="large" color={theme.primary} />
+      ) : icon ? (
+        <Ionicons name={icon} size={32} color={theme.textSecondary} />
+      ) : null}
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptyDescription}>{description}</Text>
+      {action ? (
+        <AnimatedPressable
+          onPress={action}
+          disabled={actionDisabled}
+          accessibilityRole="button"
+          accessibilityLabel="Volver a consultar los horarios"
+          accessibilityState={{ disabled: actionDisabled }}
+          style={styles.retryButton}
+        >
+          <Ionicons name="refresh-outline" size={16} color={theme.primary} />
+          <Text style={styles.retryButtonText}>Reintentar</Text>
+        </AnimatedPressable>
+      ) : null}
     </View>
   );
 };
@@ -179,45 +282,44 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
 const createStyles = (
   theme: ReturnType<typeof useTheme>['theme'],
   isDark: boolean,
-  isCompact: boolean,
 ) =>
   StyleSheet.create({
     container: {
-      flexGrow: isCompact ? 0 : 1,
-      flexShrink: 0,
-      flexBasis: isCompact ? 'auto' : 0,
+      flex: 1,
       width: '100%',
-      minWidth: isCompact ? 0 : 270,
-      maxWidth: isCompact ? 9999 : 320,
-      backgroundColor: theme.bgCard,
-      borderRadius: borderRadius.lg,
-      borderWidth: 1,
-      borderColor: theme.border,
-      padding: spacing.md,
+      minWidth: 0,
       gap: spacing.sm,
-      shadowColor: theme.shadowCard,
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 1,
-      shadowRadius: 14,
-      elevation: 3,
+    },
+    heading: {
+      minHeight: 42,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    iconShell: {
+      width: 36,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 18,
+      backgroundColor: theme.primaryAlpha12,
+    },
+    headingCopy: {
+      flex: 1,
+      gap: 1,
     },
     title: {
-      fontSize: 16,
-      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
+      fontFamily: theme.fontHeading,
+      fontSize: 15,
     },
     subtitle: {
-      marginTop: -4,
-      fontSize: 12,
-      lineHeight: 17,
-      fontFamily: theme.fontSans,
       color: theme.textSecondary,
-      textTransform: 'capitalize',
+      fontFamily: theme.fontSans,
+      fontSize: 11,
+      lineHeight: 16,
     },
-    scrollView: {
-      flex: isCompact ? 0 : 1,
-    },
-    scrollContent: {
+    slotGroups: {
       gap: spacing.md,
       paddingBottom: spacing.sm,
     },
@@ -235,14 +337,14 @@ const createStyles = (
       gap: spacing.xs,
     },
     slotGroupTitle: {
-      fontSize: 13,
-      fontFamily: theme.fontSansSemiBold,
       color: theme.textPrimary,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 12,
     },
     slotGroupCount: {
-      fontSize: 11,
+      color: theme.textSecondary,
       fontFamily: theme.fontSansSemiBold,
-      color: theme.textMuted,
+      fontSize: 10,
     },
     slotsGrid: {
       flexDirection: 'row',
@@ -250,71 +352,98 @@ const createStyles = (
       gap: spacing.sm,
     },
     slotButton: {
-      minWidth: 92,
-      minHeight: 44,
+      width: '31%',
+      minWidth: 0,
+      maxWidth: 150,
+      minHeight: 46,
+      flexGrow: 0,
+      flexShrink: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: spacing.xs,
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.sm,
+      borderWidth: 1,
+      borderColor: theme.textSecondary,
       borderRadius: borderRadius.md,
       backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
-      borderWidth: 1,
-      borderColor: theme.border,
     },
     slotButtonDisabled: {
       backgroundColor: theme.bgMuted,
-      borderColor: theme.border,
-      opacity: 0.72,
+      opacity: 0.7,
     },
     slotButtonSelected: {
-      backgroundColor: theme.primary,
       borderColor: theme.primary,
+      backgroundColor: theme.primary,
     },
     slotButtonCopy: {
+      flexShrink: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      minWidth: 68,
+      minWidth: 0,
     },
     slotButtonText: {
-      fontSize: 13,
-      fontFamily: theme.fontSansSemiBold,
       color: theme.textPrimary,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 13,
     },
     slotButtonTextDisabled: {
-      color: theme.textMuted,
+      color: theme.textSecondary,
     },
     slotButtonTextSelected: {
       color: theme.textOnPrimary,
     },
     slotUnavailableText: {
-      color: theme.textMuted,
-      fontFamily: theme.fontSans,
-      fontSize: 10,
-      lineHeight: 13,
       marginTop: 1,
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+      fontSize: 9,
+      lineHeight: 12,
     },
     emptyState: {
-      flex: 1,
+      minHeight: 190,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: spacing.md,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.xl,
+      gap: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.lg,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: theme.borderStrong,
+      borderRadius: borderRadius.lg,
+      backgroundColor: isDark ? theme.bgElevated : theme.surfaceMuted,
     },
     emptyTitle: {
-      fontSize: 16,
-      fontFamily: theme.fontHeading,
       color: theme.textPrimary,
+      fontFamily: theme.fontHeading,
+      fontSize: 15,
       textAlign: 'center',
     },
     emptyDescription: {
-      fontSize: 12,
-      lineHeight: 18,
-      fontFamily: theme.fontSans,
+      maxWidth: 260,
       color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+      fontSize: 11,
+      lineHeight: 17,
       textAlign: 'center',
+    },
+    retryButton: {
+      minHeight: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.md,
+      borderWidth: 1,
+      borderColor: theme.primaryAlpha20,
+      borderRadius: borderRadius.md,
+      backgroundColor: theme.bgCard,
+    },
+    retryButtonText: {
+      color: theme.primary,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 12,
     },
   });
 

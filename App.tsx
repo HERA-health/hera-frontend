@@ -47,7 +47,7 @@ const heraFonts: Record<string, FontSource> = {
 // Deep linking configuration
 const prefix = Linking.createURL('/');
 
-const linking: LinkingOptions<RootStackParamList> = {
+export const linking: LinkingOptions<RootStackParamList> = {
   prefixes: [prefix, 'hera://'],
   config: {
     screens: {
@@ -97,6 +97,15 @@ const linking: LinkingOptions<RootStackParamList> = {
         alias: ['e/:specialistId'],
         parse: {
           specialistId: (specialistId: string) => specialistId,
+        },
+      },
+      Booking: {
+        path: 'reservar/:specialistId',
+        parse: {
+          specialistId: (specialistId: string) => specialistId,
+          initialDate: (initialDate: string) => initialDate,
+          initialSlotStartTime: (initialSlotStartTime: string) => initialSlotStartTime,
+          initialSlotEndTime: (initialSlotEndTime: string) => initialSlotEndTime,
         },
       },
       PublicSpecialists: 'especialistas',

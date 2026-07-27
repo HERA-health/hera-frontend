@@ -17,14 +17,6 @@ const mockedAsyncStorage = jest.mocked(AsyncStorage);
 
 const baseIntentInput = {
   specialistId: 'specialist-1',
-  specialistName: 'Dra. Prueba',
-  pricePerSession: 80,
-  avatar: 'https://cdn.example.com/avatar.jpg',
-  title: 'Psicóloga sanitaria',
-  specializations: ['Ansiedad'],
-  slotDuration: 60,
-  offersOnline: true,
-  offersInPerson: false,
   initialDate: '2026-06-25',
   initialSlotStartTime: '10:00',
   initialSlotEndTime: '11:00',
@@ -64,7 +56,6 @@ describe('pendingBookingIntentService', () => {
     expect(intent).toMatchObject(baseIntentInput);
     expect(intent ? mapPendingIntentToBookingParams(intent) : null).toMatchObject({
       specialistId: 'specialist-1',
-      specialistName: 'Dra. Prueba',
       initialDate: '2026-06-25',
       initialSlotStartTime: '10:00',
       initialSlotEndTime: '11:00',
@@ -101,4 +92,3 @@ describe('pendingBookingIntentService', () => {
     expect(mockedAsyncStorage.removeItem).toHaveBeenCalledTimes(2);
   });
 });
-

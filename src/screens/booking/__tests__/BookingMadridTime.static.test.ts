@@ -22,16 +22,21 @@ describe('BookingScreen Madrid timezone contract', () => {
     const timeSlotsSource = readBookingComponent('TimeSlotsColumn.tsx');
     const calendarSource = readBookingComponent('CompactCalendarColumn.tsx');
     const infoSource = readBookingComponent('ProfessionalInfoColumn.tsx');
+    const presentationSource = readBookingComponent('bookingPresentation.ts');
 
     expect(timeSlotsSource).toContain("import { formatMadridDateKey } from '../../../utils/madridTime';");
     expect(calendarSource).toContain(
       "import { formatMadridDateKey, getMadridDateKey } from '../../../utils/madridTime';"
     );
-    expect(infoSource).toContain("import { formatMadridDateKey } from '../../../utils/madridTime';");
+    expect(infoSource).toContain("formatBookingDate,");
+    expect(presentationSource).toContain(
+      "import { formatMadridDateKey } from '../../../utils/madridTime';"
+    );
 
     expect(timeSlotsSource).not.toContain('new Date(dateString)');
     expect(calendarSource).not.toContain('new Date(selectedDate)');
     expect(calendarSource).not.toContain("new Date().toISOString().split('T')[0]");
     expect(infoSource).not.toContain('new Date(dateString)');
+    expect(presentationSource).not.toContain('new Date(dateString)');
   });
 });

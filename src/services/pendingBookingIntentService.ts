@@ -6,14 +6,6 @@ const INTENT_TTL_MS = 30 * 60 * 1000;
 
 export interface PendingBookingIntent {
   specialistId: string;
-  specialistName: string;
-  pricePerSession: number;
-  avatar?: string;
-  title?: string;
-  specializations?: string[];
-  slotDuration?: number;
-  offersOnline?: boolean;
-  offersInPerson?: boolean;
   initialDate: string;
   initialSlotStartTime: string;
   initialSlotEndTime: string;
@@ -29,40 +21,15 @@ export type PendingBookingIntentInput = Omit<
 const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const isStringArray = (value: unknown): value is string[] =>
-  Array.isArray(value) && value.every((item) => typeof item === 'string');
-
 const readString = (record: Record<string, unknown>, key: keyof PendingBookingIntent): string | null =>
   typeof record[key] === 'string' && record[key].trim().length > 0
     ? record[key]
     : null;
 
-const readOptionalString = (
-  record: Record<string, unknown>,
-  key: keyof PendingBookingIntent
-): string | undefined =>
-  typeof record[key] === 'string' && record[key].trim().length > 0
-    ? record[key]
-    : undefined;
-
 const readNumber = (record: Record<string, unknown>, key: keyof PendingBookingIntent): number | null =>
   typeof record[key] === 'number' && Number.isFinite(record[key])
     ? record[key]
     : null;
-
-const readOptionalNumber = (
-  record: Record<string, unknown>,
-  key: keyof PendingBookingIntent
-): number | undefined =>
-  typeof record[key] === 'number' && Number.isFinite(record[key])
-    ? record[key]
-    : undefined;
-
-const readOptionalBoolean = (
-  record: Record<string, unknown>,
-  key: keyof PendingBookingIntent
-): boolean | undefined =>
-  typeof record[key] === 'boolean' ? record[key] : undefined;
 
 const parsePendingBookingIntent = (value: unknown): PendingBookingIntent | null => {
   if (!isPlainRecord(value)) {
@@ -70,8 +37,6 @@ const parsePendingBookingIntent = (value: unknown): PendingBookingIntent | null 
   }
 
   const specialistId = readString(value, 'specialistId');
-  const specialistName = readString(value, 'specialistName');
-  const pricePerSession = readNumber(value, 'pricePerSession');
   const initialDate = readString(value, 'initialDate');
   const initialSlotStartTime = readString(value, 'initialSlotStartTime');
   const initialSlotEndTime = readString(value, 'initialSlotEndTime');
@@ -80,8 +45,6 @@ const parsePendingBookingIntent = (value: unknown): PendingBookingIntent | null 
 
   if (
     !specialistId
-    || !specialistName
-    || pricePerSession === null
     || !initialDate
     || !initialSlotStartTime
     || !initialSlotEndTime
@@ -91,18 +54,8 @@ const parsePendingBookingIntent = (value: unknown): PendingBookingIntent | null 
     return null;
   }
 
-  const specializations = value.specializations;
-
   return {
     specialistId,
-    specialistName,
-    pricePerSession,
-    avatar: readOptionalString(value, 'avatar'),
-    title: readOptionalString(value, 'title'),
-    specializations: isStringArray(specializations) ? specializations : undefined,
-    slotDuration: readOptionalNumber(value, 'slotDuration'),
-    offersOnline: readOptionalBoolean(value, 'offersOnline'),
-    offersInPerson: readOptionalBoolean(value, 'offersInPerson'),
     initialDate,
     initialSlotStartTime,
     initialSlotEndTime,
@@ -164,16 +117,7 @@ export const mapPendingIntentToBookingParams = (
   intent: PendingBookingIntent
 ): RootStackParamList['Booking'] => ({
   specialistId: intent.specialistId,
-  specialistName: intent.specialistName,
-  pricePerSession: intent.pricePerSession,
-  avatar: intent.avatar,
-  title: intent.title,
-  specializations: intent.specializations,
-  slotDuration: intent.slotDuration,
-  offersOnline: intent.offersOnline,
-  offersInPerson: intent.offersInPerson,
   initialDate: intent.initialDate,
   initialSlotStartTime: intent.initialSlotStartTime,
   initialSlotEndTime: intent.initialSlotEndTime,
 });
-
