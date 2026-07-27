@@ -22,12 +22,13 @@ import { ThemeToggleButton } from '../../../components/common/ThemeToggleButton'
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { LandingSectionAnchor } from '../types';
 
-export type LandingHeaderContext = 'landing' | 'directory';
+export type LandingHeaderContext = 'landing' | 'directory' | 'access';
 
 interface LandingHeaderProps {
   context: LandingHeaderContext;
   isScrolled: boolean;
   accessLabel?: string;
+  accessIconName?: React.ComponentProps<typeof Ionicons>['name'];
   onLogoPress?: () => void;
   onFindSpecialist?: () => void;
   onExploreProfessionals: () => void;
@@ -53,6 +54,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   context,
   isScrolled,
   accessLabel = 'Acceder',
+  accessIconName = 'arrow-forward',
   onLogoPress,
   onFindSpecialist,
   onExploreProfessionals,
@@ -65,6 +67,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   const isWide = width >= WIDE_HEADER_BREAKPOINT;
   const showBrandDescriptor = width >= BRAND_DESCRIPTOR_BREAKPOINT;
   const isDirectory = context === 'directory';
+  const isAccess = context === 'access';
   const scrollProgress = useSharedValue(0);
 
   useEffect(() => {
@@ -214,7 +217,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             </AnimatedPressable>
           ) : null}
 
-          {!isMobile && !isWide ? (
+          {!isMobile && !isWide && !isAccess ? (
             <AnimatedPressable
               onPress={onExploreProfessionals}
               hoverLift={false}
@@ -237,7 +240,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             </AnimatedPressable>
           ) : null}
 
-          {isWide || isMobile || isDirectory ? (
+          {isWide || isMobile || isDirectory || isAccess ? (
             <AnimatedPressable
               onPress={onAccess}
               pressScale={0.96}
@@ -255,7 +258,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
                 {accessLabel}
               </Text>
               {!isMobile ? (
-                <Ionicons name="arrow-forward" size={16} color={theme.actionPrimaryText} />
+                <Ionicons name={accessIconName} size={16} color={theme.actionPrimaryText} />
               ) : null}
             </AnimatedPressable>
           ) : null}

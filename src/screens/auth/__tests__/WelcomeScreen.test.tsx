@@ -58,17 +58,21 @@ describe('WelcomeScreen', () => {
     } as unknown as ReturnType<typeof useNavigation>);
   });
 
-  it('presents only capabilities that are currently available', () => {
+  it('prioritizes the three available access paths without redundant feature cards', () => {
     render(<WelcomeScreen />);
 
-    expect(screen.getByText('Perfiles verificados')).toBeTruthy();
-    expect(screen.getByText('Videollamadas seguras')).toBeTruthy();
-    expect(screen.getByText('Gestión conectada')).toBeTruthy();
-    expect(screen.getByText('Privacidad por diseño')).toBeTruthy();
+    expect(screen.getByText('¿Cómo quieres acceder?')).toBeTruthy();
     expect(screen.getByText('Busco terapia')).toBeTruthy();
-    expect(screen.getByText('Conoce profesionales y elige con calma')).toBeTruthy();
-    expect(screen.getByText('Acceder a mi espacio')).toBeTruthy();
+    expect(screen.getByText('Soy profesional')).toBeTruthy();
+    expect(screen.getByText('Gestiono una clínica')).toBeTruthy();
+    expect(screen.getByText('Acceder como paciente')).toBeTruthy();
+    expect(screen.getByText('Acceder como profesional')).toBeTruthy();
+    expect(screen.getByText('Acceder como clínica')).toBeTruthy();
 
+    expect(screen.queryByText('Perfiles verificados')).toBeNull();
+    expect(screen.queryByText('Videollamadas seguras')).toBeNull();
+    expect(screen.queryByText('Gestión conectada')).toBeNull();
+    expect(screen.queryByText('Privacidad por diseño')).toBeNull();
     expect(screen.queryByText('Matching con IA')).toBeNull();
     expect(screen.queryByText('LIA - Asistente 24/7')).toBeNull();
     expect(screen.queryByText('Busco ayuda')).toBeNull();
@@ -77,11 +81,23 @@ describe('WelcomeScreen', () => {
     expect(screen.queryByText(/próximas fases/i)).toBeNull();
   });
 
+  it('keeps each access card connected to its existing login flow', () => {
+    render(<WelcomeScreen />);
+
+    fireEvent.press(screen.getByText('Acceder como paciente'));
+    fireEvent.press(screen.getByText('Acceder como profesional'));
+    fireEvent.press(screen.getByText('Acceder como clínica'));
+
+    expect(navigate).toHaveBeenNthCalledWith(1, 'Login', { userType: 'CLIENT' });
+    expect(navigate).toHaveBeenNthCalledWith(2, 'Login', { userType: 'PROFESSIONAL' });
+    expect(navigate).toHaveBeenNthCalledWith(3, 'Login', { userType: 'CLINIC' });
+  });
+
   it('returns to the previous screen when navigation history exists', () => {
     canGoBack.mockReturnValue(true);
     render(<WelcomeScreen />);
 
-    fireEvent.press(screen.getByLabelText('Volver a la página de inicio'));
+    fireEvent.press(screen.getByLabelText('Volver'));
 
     expect(goBack).toHaveBeenCalledTimes(1);
     expect(navigate).not.toHaveBeenCalled();
@@ -91,7 +107,7 @@ describe('WelcomeScreen', () => {
     canGoBack.mockReturnValue(false);
     render(<WelcomeScreen />);
 
-    fireEvent.press(screen.getByLabelText('Volver a la página de inicio'));
+    fireEvent.press(screen.getByLabelText('Volver'));
 
     expect(goBack).not.toHaveBeenCalled();
     expect(navigate).toHaveBeenCalledWith('Landing');
