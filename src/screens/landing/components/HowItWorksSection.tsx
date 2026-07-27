@@ -1,91 +1,66 @@
-/**
- * HowItWorksSection
- *
- * Three equal steps for the professional onboarding flow.
- */
-
 import React from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { GlassCard } from '../../../components/common/GlassCard';
 import { MotionView } from '../../../components/common/MotionView';
-import type { Theme } from '../../../constants/theme';
 
-interface Step {
-  number: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  description: string;
-}
-
-const STEPS: Step[] = [
+const STEPS = [
   {
-    number: '1',
-    icon: 'log-in-outline',
-    title: 'Accede a tu espacio profesional',
+    number: '01',
+    icon: 'search-outline' as const,
+    title: 'Explora perfiles verificados',
     description:
-      'Entra con tu cuenta o únete como profesional para empezar desde un panel pensado para consulta.',
+      'Filtra por especialidad, modalidad y precio sin crear una cuenta para empezar a comparar.',
   },
   {
-    number: '2',
-    icon: 'options-outline',
-    title: 'Configura cómo trabajas',
+    number: '02',
+    icon: 'reader-outline' as const,
+    title: 'Conoce cómo trabaja cada profesional',
     description:
-      'Define disponibilidad, tarifas, modalidades y datos clave antes de recibir nuevas reservas.',
+      'Revisa su enfoque, experiencia, formatos de sesión y disponibilidad antes de decidir.',
   },
   {
-    number: '3',
-    icon: 'layers-outline',
-    title: 'Gestiona la continuidad',
+    number: '03',
+    icon: 'calendar-clear-outline' as const,
+    title: 'Reserva cuando lo tengas claro',
     description:
-      'Organiza pacientes, sesiones, facturas y seguimiento diario sin perder el contexto de cada caso.',
+      'Da el siguiente paso solo cuando encuentres un perfil que encaje contigo y con tu momento.',
   },
-];
-
-const STEP_ACCENT_COLORS = [
-  (theme: Theme) => theme.primary,
-  (theme: Theme) => theme.secondaryDark,
-  (theme: Theme) => theme.success,
 ];
 
 export const HowItWorksSection: React.FC = () => {
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 1024;
-  const isTablet = width >= 768 && width < 1024;
   const { theme } = useTheme();
+  const isDesktop = width >= 1024;
+  const isTablet = width >= 768;
 
   return (
     <View
       style={[
         styles.container,
-        { backgroundColor: theme.bgAlt },
         isDesktop && styles.containerDesktop,
+        { backgroundColor: theme.landingCanvas },
       ]}
     >
       <View style={styles.content}>
-        <MotionView entering="fadeInUp" delay={0} style={styles.header}>
+        <MotionView entering="fadeInUp" style={styles.header}>
           <Text
             style={[
               styles.eyebrow,
               { color: theme.primary, fontFamily: theme.fontSansSemiBold },
             ]}
           >
-            FLUJO
+            CÓMO FUNCIONA PARA PACIENTES
           </Text>
           <Text
+            accessibilityRole="header"
             style={[
               styles.title,
               isDesktop && styles.titleDesktop,
               { color: theme.textPrimary, fontFamily: theme.fontDisplay },
             ]}
           >
-            Empieza a trabajar en 3 pasos
+            Decide con información, sin prisas
           </Text>
           <Text
             style={[
@@ -93,181 +68,185 @@ export const HowItWorksSection: React.FC = () => {
               { color: theme.textSecondary, fontFamily: theme.fontSans },
             ]}
           >
-            Un recorrido sencillo para pasar de la cuenta inicial a una consulta
-            organizada dentro de HERA.
+            Puedes explorar el directorio y conocer a cada especialista antes de
+            iniciar cualquier proceso de reserva.
           </Text>
         </MotionView>
 
-        <View
-          style={[
-            styles.stepsGrid,
-            isDesktop && styles.stepsGridDesktop,
-            isTablet && styles.stepsGridTablet,
-          ]}
-        >
+        <View style={[styles.steps, isTablet && styles.stepsWide]}>
           {STEPS.map((step, index) => (
             <MotionView
               key={step.number}
               entering="fadeInUp"
-              delay={90 + index * 80}
-              style={isDesktop || isTablet ? styles.stepMotion : undefined}
+              delay={80 + index * 70}
+              style={isTablet ? styles.stepMotion : undefined}
             >
-              <StepCard step={step} index={index} theme={theme} />
+              <View
+                style={[
+                  styles.step,
+                  {
+                    backgroundColor: theme.bgCard,
+                    borderColor: theme.border,
+                    shadowColor: theme.shadowCard,
+                  },
+                ]}
+              >
+                <View style={styles.stepTop}>
+                  <View style={[styles.icon, { backgroundColor: theme.primaryAlpha12 }]}>
+                    <Ionicons name={step.icon} size={22} color={theme.primary} />
+                  </View>
+                  <Text
+                    style={[
+                      styles.number,
+                      { color: theme.textMuted, fontFamily: theme.fontDisplay },
+                    ]}
+                  >
+                    {step.number}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.stepTitle,
+                    { color: theme.textPrimary, fontFamily: theme.fontSansBold },
+                  ]}
+                >
+                  {step.title}
+                </Text>
+                <Text
+                  style={[
+                    styles.description,
+                    { color: theme.textSecondary, fontFamily: theme.fontSans },
+                  ]}
+                >
+                  {step.description}
+                </Text>
+              </View>
             </MotionView>
           ))}
-        </View>
-      </View>
-    </View>
-  );
-};
-
-interface StepCardProps {
-  step: Step;
-  index: number;
-  theme: Theme;
-}
-
-function StepCard({ step, index, theme }: StepCardProps) {
-  const accentColor = STEP_ACCENT_COLORS[index](theme);
-  const iconColor = accentColor === theme.primary ? theme.textOnPrimary : '#FFFFFF';
-
-  return (
-    <GlassCard intensity={40} borderRadius={8} style={styles.stepCard}>
-      <View style={styles.stepHeader}>
-        <View style={[styles.iconSurface, { backgroundColor: accentColor }]}>
-          <Ionicons name={step.icon} size={25} color={iconColor} />
         </View>
 
         <View
           style={[
-            styles.stepBadge,
+            styles.callout,
             {
               backgroundColor: theme.primaryAlpha12,
               borderColor: theme.primaryAlpha20,
             },
           ]}
         >
+          <Ionicons name="link-outline" size={22} color={theme.primary} />
           <Text
             style={[
-              styles.stepBadgeText,
-              { color: theme.primary, fontFamily: theme.fontSansSemiBold },
+              styles.calloutText,
+              { color: theme.textPrimary, fontFamily: theme.fontSansMedium },
             ]}
           >
-            Paso {step.number}
+            Cuando reservas, la cita se conecta con la agenda y el espacio de trabajo
+            del profesional para que ambos compartáis un proceso más claro.
           </Text>
         </View>
       </View>
-
-      <Text
-        style={[
-          styles.stepTitle,
-          { color: theme.textPrimary, fontFamily: theme.fontSansBold },
-        ]}
-      >
-        {step.title}
-      </Text>
-      <Text
-        style={[
-          styles.stepDescription,
-          { color: theme.textSecondary, fontFamily: theme.fontSans },
-        ]}
-      >
-        {step.description}
-      </Text>
-    </GlassCard>
+    </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 60,
+    paddingVertical: 68,
     paddingHorizontal: 20,
   },
   containerDesktop: {
-    paddingVertical: 96,
+    paddingTop: 88,
+    paddingBottom: 64,
     paddingHorizontal: 60,
   },
   content: {
-    maxWidth: 1200,
     width: '100%',
+    maxWidth: 1200,
     alignSelf: 'center',
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 44,
+    maxWidth: 760,
+    marginBottom: 42,
   },
   eyebrow: {
     fontSize: 12,
-    letterSpacing: 0,
-    textTransform: 'uppercase',
+    lineHeight: 16,
+    letterSpacing: 1.5,
     marginBottom: 12,
   },
   title: {
-    fontSize: 32,
-    textAlign: 'center',
+    fontSize: 34,
+    lineHeight: 42,
     marginBottom: 12,
-    letterSpacing: 0,
   },
   titleDesktop: {
-    fontSize: 44,
-    letterSpacing: 0,
+    fontSize: 46,
+    lineHeight: 54,
   },
   subtitle: {
     fontSize: 17,
     lineHeight: 26,
-    textAlign: 'center',
-    maxWidth: 760,
   },
-  stepsGrid: {
+  steps: {
     gap: 16,
   },
-  stepsGridDesktop: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 18,
-  },
-  stepsGridTablet: {
+  stepsWide: {
     flexDirection: 'row',
     alignItems: 'stretch',
   },
   stepMotion: {
     flex: 1,
   },
-  stepCard: {
-    padding: 28,
-    minHeight: 230,
+  step: {
     height: '100%',
+    minHeight: 230,
+    padding: 26,
+    borderWidth: 1,
+    borderRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 2,
   },
-  stepHeader: {
+  stepTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 14,
     marginBottom: 24,
   },
-  iconSurface: {
-    width: 56,
-    height: 56,
-    borderRadius: 8,
+  icon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepBadge: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  stepBadgeText: {
-    fontSize: 12,
+  number: {
+    fontSize: 27,
   },
   stepTitle: {
-    fontSize: 20,
-    marginBottom: 10,
-    lineHeight: 26,
+    fontSize: 19,
+    lineHeight: 25,
+    marginBottom: 9,
   },
-  stepDescription: {
+  description: {
     fontSize: 15,
     lineHeight: 23,
+  },
+  callout: {
+    marginTop: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    paddingHorizontal: 20,
+    paddingVertical: 17,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  calloutText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 21,
   },
 });

@@ -22,48 +22,49 @@ import { ThemeToggleButton } from '../../../components/common/ThemeToggleButton'
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { LandingSectionAnchor } from '../types';
 
+export type LandingHeaderContext = 'landing' | 'directory';
+
 interface LandingHeaderProps {
+  context: LandingHeaderContext;
   isScrolled: boolean;
-  showAccessActions?: boolean;
+  accessLabel?: string;
   onLogoPress?: () => void;
-  onFindSpecialist: () => void;
-  onJoinAsProfessional: () => void;
-  onJoinAsClinic: () => void;
+  onFindSpecialist?: () => void;
+  onExploreProfessionals: () => void;
+  onAccess: () => void;
   onScrollToSection?: (section: LandingSectionAnchor) => void;
 }
 
-const NAV_ITEMS = [
-  { id: 'howItWorks' as const, label: 'Cómo funciona' },
-  { id: 'featuredSpecialists' as const, label: 'Especialistas' },
-  { id: 'forSpecialists' as const, label: 'Herramientas' },
-  { id: 'specializations' as const, label: 'Especialidades' },
-  { id: 'about' as const, label: 'Quiénes somos' },
-  { id: 'faq' as const, label: 'FAQ' },
+const NAV_ITEMS: ReadonlyArray<{ id: LandingSectionAnchor; label: string }> = [
+  { id: 'featuredSpecialists', label: 'Especialistas' },
+  { id: 'howItWorks', label: 'Cómo funciona' },
+  { id: 'forSpecialists', label: 'Para profesionales' },
+  { id: 'specializations', label: 'Especialidades' },
+  { id: 'about', label: 'Quiénes somos' },
+  { id: 'faq', label: 'FAQ' },
 ];
 
-type NavItem = (typeof NAV_ITEMS)[number];
-
 const WEB_SCROLLBAR_GUTTER = 16;
-const DESKTOP_HEADER_BREAKPOINT = 1024;
-const DESKTOP_NAV_BREAKPOINT = 1200;
-const WIDE_HEADER_BREAKPOINT = 1400;
+const MOBILE_BREAKPOINT = 768;
+const WIDE_HEADER_BREAKPOINT = 1200;
+const BRAND_DESCRIPTOR_BREAKPOINT = 1400;
 
 export const LandingHeader: React.FC<LandingHeaderProps> = ({
+  context,
   isScrolled,
-  showAccessActions = true,
+  accessLabel = 'Acceder',
   onLogoPress,
   onFindSpecialist,
-  onJoinAsProfessional,
-  onJoinAsClinic,
+  onExploreProfessionals,
+  onAccess,
   onScrollToSection,
 }) => {
   const { width } = useWindowDimensions();
-  const isDesktop = width >= DESKTOP_HEADER_BREAKPOINT;
-  const showDesktopNav = width >= DESKTOP_NAV_BREAKPOINT;
-  const useCompactDesktopNav = showDesktopNav && width < WIDE_HEADER_BREAKPOINT;
-  const showClinicCta = !showDesktopNav || width >= WIDE_HEADER_BREAKPOINT;
-  const isMobile = width < 768;
   const { theme, isDark } = useTheme();
+  const isMobile = width < MOBILE_BREAKPOINT;
+  const isWide = width >= WIDE_HEADER_BREAKPOINT;
+  const showBrandDescriptor = width >= BRAND_DESCRIPTOR_BREAKPOINT;
+  const isDirectory = context === 'directory';
   const scrollProgress = useSharedValue(0);
 
   useEffect(() => {
@@ -74,51 +75,28 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   }, [isScrolled, scrollProgress]);
 
   const containerAnimStyle = useAnimatedStyle(() => {
-    const bgOpacity = interpolate(scrollProgress.value, [0, 1], [0, isDark ? 0.84 : 0.92]);
+    const bgOpacity = interpolate(scrollProgress.value, [0, 1], [0, isDark ? 0.9 : 0.94]);
     const borderOpacity = interpolate(scrollProgress.value, [0, 1], [0, 1]);
 
     return {
       backgroundColor: isDark
-        ? `rgba(39, 40, 33, ${bgOpacity})`
-        : `rgba(245, 240, 232, ${bgOpacity})`,
+        ? `rgba(36, 37, 31, ${bgOpacity})`
+        : `rgba(250, 248, 243, ${bgOpacity})`,
       borderBottomColor: isDark
-        ? `rgba(71, 73, 62, ${borderOpacity})`
-        : `rgba(223, 216, 205, ${borderOpacity})`,
+        ? `rgba(69, 71, 60, ${borderOpacity})`
+        : `rgba(220, 213, 202, ${borderOpacity})`,
     };
   });
 
   const webGlassStyle: ViewStyle | undefined =
     Platform.OS === 'web'
       ? ({
-          backdropFilter: 'blur(18px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(18px) saturate(160%)',
+          backdropFilter: 'blur(18px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(18px) saturate(150%)',
         } as unknown as ViewStyle)
       : undefined;
 
-  const renderNavItem = (item: NavItem) => {
-    return (
-      <AnimatedPressable
-        key={item.id}
-        onPress={() => onScrollToSection?.(item.id)}
-        hoverLift={false}
-        pressScale={0.96}
-        style={styles.navLink}
-      >
-        <Text
-          style={[
-            styles.navLinkText,
-            useCompactDesktopNav && styles.navLinkTextCompact,
-            {
-              color: theme.textSecondary,
-              fontFamily: theme.fontSansMedium,
-            },
-          ]}
-        >
-          {item.label}
-        </Text>
-      </AnimatedPressable>
-    );
-  };
+  const logo = <StyledLogo size={isScrolled ? 42 : 46} />;
 
   return (
     <Animated.View
@@ -129,136 +107,156 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         webGlassStyle,
       ]}
     >
-      {Platform.OS !== 'web' && isScrolled && (
+      {Platform.OS !== 'web' && isScrolled ? (
         <BlurView
           intensity={55}
           tint={isDark ? 'dark' : 'light'}
           style={StyleSheet.absoluteFill}
         />
-      )}
+      ) : null}
 
-      <View
-        style={[
-          styles.content,
-          isDesktop && styles.contentDesktop,
-          useCompactDesktopNav && styles.contentDesktopCompact,
-          isMobile && styles.contentMobile,
-        ]}
-      >
-        {onLogoPress ? (
-          <AnimatedPressable
-            onPress={onLogoPress}
-            hoverLift={false}
-            pressScale={0.98}
-            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-            accessibilityRole="link"
-            accessibilityLabel="Ir al inicio"
-            style={styles.logoContainer}
-          >
-            <StyledLogo size={isScrolled ? 42 : 46} />
-          </AnimatedPressable>
-        ) : (
-          <View style={styles.logoContainer}>
-            <StyledLogo size={isScrolled ? 42 : 46} />
+      <View style={[styles.content, isWide && styles.contentWide, isMobile && styles.contentMobile]}>
+        <View style={styles.brandCluster}>
+          {onLogoPress ? (
+            <AnimatedPressable
+              onPress={onLogoPress}
+              hoverLift={false}
+              pressScale={0.98}
+              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+              accessibilityRole="link"
+              accessibilityLabel="Ir al inicio"
+              style={styles.logoContainer}
+            >
+              {logo}
+            </AnimatedPressable>
+          ) : (
+            <View style={styles.logoContainer}>{logo}</View>
+          )}
+
+          {showBrandDescriptor ? (
+            <View
+              style={[
+                styles.brandDescriptor,
+                { borderLeftColor: theme.borderStrong },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.brandDescriptorText,
+                  {
+                    color: theme.textSecondary,
+                    fontFamily: theme.fontSansMedium,
+                  },
+                ]}
+              >
+                Salud mental
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        {isWide ? (
+          <View style={styles.navLinks}>
+            {NAV_ITEMS.map((item) => (
+              <AnimatedPressable
+                key={item.id}
+                onPress={() => onScrollToSection?.(item.id)}
+                hoverLift={false}
+                pressScale={0.96}
+                accessibilityRole="link"
+                accessibilityLabel={`Ir a ${item.label}`}
+                style={styles.navLink}
+              >
+                <Text
+                  style={[
+                    styles.navLinkText,
+                    { color: theme.textSecondary, fontFamily: theme.fontSansMedium },
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </AnimatedPressable>
+            ))}
           </View>
-        )}
+        ) : null}
 
-        {showDesktopNav && (
-          <View style={[styles.navLinks, useCompactDesktopNav && styles.navLinksCompact]}>
-            {NAV_ITEMS.map(renderNavItem)}
-          </View>
-        )}
-
-        <View style={[styles.ctaContainer, isMobile && styles.ctaContainerMobile]}>
+        <View style={styles.actions}>
           <ThemeToggleButton size="sm" />
 
-          {isDesktop && showAccessActions && (
+          {!isMobile && !isDirectory && onFindSpecialist ? (
             <AnimatedPressable
               onPress={onFindSpecialist}
               hoverLift={false}
               pressScale={0.96}
+              accessibilityRole="link"
+              accessibilityLabel="Explorar profesionales"
               style={[
-                styles.secondaryCTA,
-                {
-                  backgroundColor: isDark ? theme.bgMuted : theme.secondaryAlpha12,
-                  borderColor: isDark ? theme.border : theme.secondaryAlpha12,
-                },
+                styles.secondaryAction,
+                { backgroundColor: theme.secondaryAlpha12, borderColor: theme.border },
               ]}
             >
               <Text
                 style={[
-                  styles.secondaryCTAText,
+                styles.secondaryActionText,
                   {
-                    color: isDark ? theme.textSecondary : theme.secondaryDark,
+                    color: isDark ? theme.textPrimary : theme.secondaryDark,
                     fontFamily: theme.fontSansSemiBold,
                   },
                 ]}
               >
-                Busco terapia
+                Explorar profesionales
               </Text>
               <Ionicons
-                name="arrow-forward"
+                name="search-outline"
                 size={16}
-                color={isDark ? theme.textSecondary : theme.secondaryDark}
-              />
-            </AnimatedPressable>
-          )}
-
-          {isDesktop && showClinicCta && showAccessActions ? (
-            <AnimatedPressable
-              onPress={onJoinAsClinic}
-              hoverLift={false}
-              pressScale={0.96}
-              style={[
-                styles.secondaryCTA,
-                {
-                  backgroundColor: isDark ? theme.bgMuted : theme.primaryAlpha12,
-                  borderColor: isDark ? theme.border : theme.primaryAlpha12,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.secondaryCTAText,
-                  {
-                    color: isDark ? theme.textSecondary : theme.primaryDark,
-                    fontFamily: theme.fontSansSemiBold,
-                  },
-                ]}
-              >
-                Clínicas
-              </Text>
-              <Ionicons
-                name="business-outline"
-                size={16}
-                color={isDark ? theme.textSecondary : theme.primaryDark}
+                color={isDark ? theme.textPrimary : theme.secondaryDark}
               />
             </AnimatedPressable>
           ) : null}
 
-          {showAccessActions ? (
+          {!isMobile && !isWide ? (
             <AnimatedPressable
-              onPress={onJoinAsProfessional}
+              onPress={onExploreProfessionals}
+              hoverLift={false}
               pressScale={0.96}
-              hoverLift
+              accessibilityRole="link"
+              accessibilityLabel="Ir a HERA para profesionales"
               style={[
-                styles.primaryCTA,
-                ...(isMobile ? [styles.primaryCTAMobile] : []),
-                {
-                  backgroundColor: theme.actionPrimary,
-                  shadowColor: theme.shadowSecondary,
-                },
+                styles.secondaryAction,
+                { backgroundColor: theme.primaryAlpha12, borderColor: theme.border },
               ]}
             >
               <Text
                 style={[
-                  styles.primaryCTAText,
+                  styles.secondaryActionText,
+                  { color: theme.primary, fontFamily: theme.fontSansSemiBold },
+                ]}
+              >
+                Para profesionales
+              </Text>
+            </AnimatedPressable>
+          ) : null}
+
+          {isWide || isMobile || isDirectory ? (
+            <AnimatedPressable
+              onPress={onAccess}
+              pressScale={0.96}
+              hoverLift={!isMobile}
+              accessibilityRole="button"
+              accessibilityLabel={accessLabel}
+              style={[styles.primaryAction, { backgroundColor: theme.actionPrimary }]}
+            >
+              <Text
+                style={[
+                  styles.primaryActionText,
                   { color: theme.actionPrimaryText, fontFamily: theme.fontSansSemiBold },
                 ]}
               >
-                Soy profesional
+                {accessLabel}
               </Text>
-              <Ionicons name="arrow-forward" size={16} color={theme.actionPrimaryText} />
+              {!isMobile ? (
+                <Ionicons name="arrow-forward" size={16} color={theme.actionPrimaryText} />
+              ) : null}
             </AnimatedPressable>
           ) : null}
         </View>
@@ -281,41 +279,53 @@ const styles = StyleSheet.create({
     right: WEB_SCROLLBAR_GUTTER,
   },
   content: {
+    width: '100%',
+    maxWidth: 1440,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    maxWidth: 1400,
-    width: '100%',
-    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    gap: 18,
   },
-  contentDesktop: {
+  contentWide: {
     maxWidth: 1720,
     paddingHorizontal: 40,
-    paddingVertical: 18,
-  },
-  contentDesktopCompact: {
-    paddingHorizontal: 24,
+    paddingVertical: 16,
   },
   contentMobile: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    paddingVertical: 11,
+    gap: 10,
   },
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 0,
   },
-  navLinks: {
+  brandCluster: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexShrink: 1,
-    minWidth: 0,
-    gap: 18,
+    flexShrink: 0,
   },
-  navLinksCompact: {
+  brandDescriptor: {
+    minHeight: 28,
+    justifyContent: 'center',
+    marginLeft: 14,
+    paddingLeft: 14,
+    borderLeftWidth: 1,
+  },
+  brandDescriptorText: {
+    fontSize: 12,
+    letterSpacing: 0.35,
+  },
+  navLinks: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 12,
   },
   navLink: {
@@ -323,51 +333,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   navLinkText: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  navLinkTextCompact: {
     fontSize: 14,
   },
-  ctaContainer: {
+  actions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
-  ctaContainerMobile: {
-    gap: 8,
-  },
-  primaryCTA: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 11,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    gap: 6,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  primaryCTAMobile: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  primaryCTAText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  secondaryCTA: {
+  secondaryAction: {
+    minHeight: 42,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
-    gap: 6,
+    gap: 7,
   },
-  secondaryCTAText: {
+  secondaryActionText: {
+    fontSize: 14,
+  },
+  primaryAction: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    gap: 7,
+  },
+  primaryActionText: {
     fontSize: 14,
   },
 });

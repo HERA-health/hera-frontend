@@ -1,24 +1,17 @@
-/**
- * FooterSection
- *
- * Keeps the existing footer structure while making the professional workspace
- * the dominant narrative and leaving patient access visible but secondary.
- */
-
 import React, { type CSSProperties } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  useWindowDimensions,
   Linking,
   Platform,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { StyledLogo } from '../../../components/common/StyledLogo';
-import { heraLanding } from '../../../constants/colors';
 import { getLegalDocumentUrl } from '../../../constants/legal';
+import { useTheme } from '../../../contexts/ThemeContext';
 import type { LandingSectionAnchor } from '../types';
 
 const webAnchorStyle: CSSProperties = {
@@ -39,51 +32,56 @@ interface FooterColumn {
 }
 
 interface FooterSectionProps {
-  onFindSpecialist?: () => void;
-  onJoinAsProfessional?: () => void;
-  onJoinAsClinic: () => void;
-  onScrollToSection?: (section: LandingSectionAnchor) => void;
+  onFindSpecialist: () => void;
+  professionalActionLabel: string;
+  onProfessionalAction: () => void;
+  onProfessionalLogin: () => void;
+  onClinicAccess: () => void;
+  onScrollToSection: (section: LandingSectionAnchor) => void;
 }
 
 export const FooterSection: React.FC<FooterSectionProps> = ({
   onFindSpecialist,
-  onJoinAsProfessional,
-  onJoinAsClinic,
+  professionalActionLabel,
+  onProfessionalAction,
+  onProfessionalLogin,
+  onClinicAccess,
   onScrollToSection,
 }) => {
   const { width } = useWindowDimensions();
+  const { theme } = useTheme();
   const isDesktop = width >= 1024;
-  const isTablet = width >= 768 && width < 1024;
+  const isTablet = width >= 700;
 
   const columns: FooterColumn[] = [
     {
-      title: 'Espacio profesional',
+      title: 'Pacientes',
       links: [
-        { label: 'Acceder como profesional', onPress: onJoinAsProfessional },
-        { label: 'Herramientas', section: 'forSpecialists' },
+        { label: 'Explorar profesionales', onPress: onFindSpecialist },
         { label: 'Cómo funciona', section: 'howItWorks' },
+        { label: 'Especialidades', section: 'specializations' },
         { label: 'Preguntas frecuentes', section: 'faq' },
+      ],
+    },
+    {
+      title: 'Profesionales',
+      links: [
+        { label: professionalActionLabel, onPress: onProfessionalAction },
+        { label: 'Iniciar sesión', onPress: onProfessionalLogin },
+        { label: 'Visibilidad y gestión', section: 'forSpecialists' },
+        { label: 'Especialistas destacados', section: 'featuredSpecialists' },
       ],
     },
     {
       title: 'Clínicas',
       links: [
-        { label: 'Acceso para clínicas', onPress: onJoinAsClinic },
-        { label: 'Panel de clínica', onPress: onJoinAsClinic },
+        { label: 'Acceso para clínicas', onPress: onClinicAccess },
       ],
     },
     {
-      title: 'Pacientes',
+      title: 'HERA',
       links: [
-        { label: 'Buscar especialista', onPress: onFindSpecialist },
-        { label: 'Especialidades', section: 'specializations' },
         { label: 'Quiénes somos', section: 'about' },
-        { label: 'FAQ', section: 'faq' },
-      ],
-    },
-    {
-      title: 'Legal',
-      links: [
         { label: 'Política de privacidad', href: getLegalDocumentUrl('PRIVACY_POLICY') },
         { label: 'Términos y condiciones', href: getLegalDocumentUrl('TERMS_OF_SERVICE') },
         { label: 'Contacto', href: 'mailto:herahealthtech@gmail.com' },
@@ -91,110 +89,133 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
     },
   ];
 
-  const socialLinks = [
-    { icon: 'logo-instagram' as const, href: 'https://instagram.com' },
-    { icon: 'logo-linkedin' as const, href: 'https://www.linkedin.com/in/hera-health' },
-  ];
-
   const handleLinkPress = (link: FooterLink) => {
     if (link.onPress) {
       link.onPress();
     } else if (link.section) {
-      onScrollToSection?.(link.section);
+      onScrollToSection(link.section);
     } else if (link.href) {
-      Linking.openURL(link.href).catch(() => {});
+      void Linking.openURL(link.href).catch(() => undefined);
     }
   };
 
-  const handleSocialPress = (href: string) => {
-    Linking.openURL(href).catch(() => {});
-  };
+  const renderLink = (link: FooterLink) => {
+    const linkText = (
+      <Text
+        style={[
+          styles.linkText,
+          { color: theme.textSecondary, fontFamily: theme.fontSans },
+        ]}
+      >
+        {link.label}
+      </Text>
+    );
 
-  const renderFooterLink = (link: FooterLink) => {
     if (Platform.OS === 'web' && link.href && !link.onPress && !link.section) {
       return React.createElement(
         'a',
-        {
-          key: link.label,
-          href: link.href,
-          style: webAnchorStyle,
-        },
-        <Text style={styles.columnLink}>{link.label}</Text>
+        { key: link.label, href: link.href, style: webAnchorStyle },
+        linkText
       );
     }
 
     return (
-      <TouchableOpacity
+      <AnimatedPressable
         key={link.label}
         onPress={() => handleLinkPress(link)}
-        activeOpacity={0.7}
+        hoverLift={false}
+        pressScale={0.98}
+        accessibilityRole="link"
+        accessibilityLabel={link.label}
+        style={styles.link}
       >
-        <Text style={styles.columnLink}>{link.label}</Text>
-      </TouchableOpacity>
+        {linkText}
+      </AnimatedPressable>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.bgAlt, borderTopColor: theme.border },
+      ]}
+    >
       <View style={styles.content}>
-        <View
-          style={[
-            styles.mainContent,
-            isDesktop && styles.mainContentDesktop,
-            isTablet && styles.mainContentTablet,
-          ]}
-        >
-          <View style={[styles.brandColumn, isDesktop && styles.brandColumnDesktop]}>
-            <View style={styles.logoRow}>
-              <StyledLogo size={52} />
-            </View>
-            <Text style={styles.tagline}>Workspace para salud mental</Text>
-            <Text style={styles.brandDescription}>
-              HERA evoluciona hacia una herramienta de gestión para especialistas,
-              manteniendo el acceso paciente sin perder una presentación honesta y calmada para salud mental.
+        <View style={[styles.main, isDesktop && styles.mainDesktop]}>
+          <View style={styles.brand}>
+            <StyledLogo size={54} />
+            <Text
+              style={[
+                styles.tagline,
+                { color: theme.textPrimary, fontFamily: theme.fontDisplay },
+              ]}
+            >
+              Salud mental, con más claridad.
             </Text>
-
-            <View style={styles.socialLinks}>
-              {socialLinks.map((social) => (
-                <TouchableOpacity
-                  key={social.icon}
-                  style={styles.socialButton}
-                  onPress={() => handleSocialPress(social.href)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name={social.icon} size={20} color="rgba(255, 255, 255, 0.7)" />
-                </TouchableOpacity>
-              ))}
-            </View>
+            <Text
+              style={[
+                styles.description,
+                { color: theme.textSecondary, fontFamily: theme.fontSans },
+              ]}
+            >
+              Un mismo lugar para encontrar al profesional adecuado y para gestionar
+              una consulta con calma, privacidad y contexto.
+            </Text>
+            <AnimatedPressable
+              onPress={() => {
+                void Linking.openURL('https://www.linkedin.com/in/hera-health').catch(
+                  () => undefined
+                );
+              }}
+              hoverLift={false}
+              pressScale={0.96}
+              accessibilityRole="link"
+              accessibilityLabel="HERA en LinkedIn"
+              style={[
+                styles.socialButton,
+                { backgroundColor: theme.primaryAlpha12, borderColor: theme.border },
+              ]}
+            >
+              <Ionicons name="logo-linkedin" size={19} color={theme.primary} />
+            </AnimatedPressable>
           </View>
 
-          <View
-            style={[
-              styles.columnsContainer,
-              isDesktop && styles.columnsContainerDesktop,
-              isTablet && styles.columnsContainerTablet,
-            ]}
-          >
+          <View style={[styles.columns, isTablet && styles.columnsWide]}>
             {columns.map((column) => (
-              <View
-                key={column.title}
-                style={[styles.column, isDesktop && styles.columnDesktop]}
-              >
-                <Text style={styles.columnTitle}>{column.title}</Text>
-                {column.links.map((link) => renderFooterLink(link))}
+              <View key={column.title} style={styles.column}>
+                <Text
+                  style={[
+                    styles.columnTitle,
+                    { color: theme.textPrimary, fontFamily: theme.fontSansBold },
+                  ]}
+                >
+                  {column.title}
+                </Text>
+                {column.links.map(renderLink)}
               </View>
             ))}
           </View>
         </View>
 
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-        <View style={[styles.bottomBar, isDesktop && styles.bottomBarDesktop]}>
-          <Text style={styles.copyright}>
-            (c) {new Date().getFullYear()} HERA - Workspace para especialistas y pacientes
+        <View style={[styles.bottom, isTablet && styles.bottomWide]}>
+          <Text
+            style={[
+              styles.bottomText,
+              { color: theme.textMuted, fontFamily: theme.fontSans },
+            ]}
+          >
+            © {new Date().getFullYear()} HERA
           </Text>
-          <Text style={styles.madeWith}>
-            Hecho con <Ionicons name="heart" size={12} color={heraLanding.gold} /> en España
+          <Text
+            style={[
+              styles.bottomText,
+              { color: theme.textMuted, fontFamily: theme.fontSans },
+            ]}
+          >
+            Hecho con cuidado en España
           </Text>
         </View>
       </View>
@@ -204,115 +225,86 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: heraLanding.secondaryDark,
-    paddingTop: 60,
-    paddingBottom: 32,
+    paddingTop: 64,
+    paddingBottom: 28,
     paddingHorizontal: 20,
+    borderTopWidth: 1,
   },
   content: {
-    maxWidth: 1200,
     width: '100%',
+    maxWidth: 1200,
     alignSelf: 'center',
   },
-  mainContent: {
-    gap: 40,
+  main: {
+    gap: 44,
   },
-  mainContentDesktop: {
+  mainDesktop: {
     flexDirection: 'row',
-    gap: 80,
+    gap: 78,
   },
-  mainContentTablet: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 40,
-  },
-  brandColumn: {
+  brand: {
+    width: '100%',
     maxWidth: 340,
   },
-  brandColumnDesktop: {
-    flex: 0.35,
-  },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
   tagline: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginBottom: 16,
+    fontSize: 24,
+    lineHeight: 31,
+    marginTop: 18,
+    marginBottom: 11,
   },
-  brandDescription: {
+  description: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
     lineHeight: 22,
-    marginBottom: 24,
-  },
-  socialLinks: {
-    flexDirection: 'row',
-    gap: 12,
+    marginBottom: 20,
   },
   socialButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  columnsContainer: {
+  columns: {
+    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 32,
   },
-  columnsContainerDesktop: {
-    flex: 0.65,
+  columnsWide: {
     justifyContent: 'space-between',
   },
-  columnsContainerTablet: {
-    flex: 1,
-    justifyContent: 'space-around',
-  },
   column: {
-    minWidth: 140,
-  },
-  columnDesktop: {
-    minWidth: 160,
+    minWidth: 145,
+    flexGrow: 1,
   },
   columnTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 20,
+    fontSize: 13,
+    letterSpacing: 0.7,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    marginBottom: 15,
   },
-  columnLink: {
+  link: {
+    alignSelf: 'flex-start',
+  },
+  linkText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginBottom: 14,
     lineHeight: 20,
+    marginBottom: 11,
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginVertical: 32,
+    marginVertical: 30,
   },
-  bottomBar: {
+  bottom: {
     alignItems: 'center',
-    gap: 8,
+    gap: 7,
   },
-  bottomBarDesktop: {
+  bottomWide: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  copyright: {
+  bottomText: {
     fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.5)',
-    textAlign: 'center',
-  },
-  madeWith: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.5)',
   },
 });

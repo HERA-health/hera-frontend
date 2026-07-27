@@ -42,7 +42,6 @@ jest.mock('react-native', () => {
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-
 import { lightTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { LandingPage } from '../LandingPage';
@@ -69,6 +68,10 @@ jest.mock('../../../services/specialistsService', () => ({
   getFeaturedSpecialists: jest.fn().mockResolvedValue([]),
 }));
 
+jest.mock('../../../services/analyticsService', () => ({
+  track: jest.fn(),
+}));
+
 jest.mock('../components/FeaturedSpecialistsSection', () => ({
   FeaturedSpecialistsSection: () => null,
 }));
@@ -87,13 +90,6 @@ jest.mock('../../../components/common/MotionView', () => ({
   MotionView: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
 }));
 
-jest.mock('../../../components/common/GlassCard', () => ({
-  GlassCard: ({ children }: { children?: React.ReactNode }) => {
-    const { View: MockView } = require('react-native');
-    return <MockView>{children}</MockView>;
-  },
-}));
-
 jest.mock('../../../components/common/AmbientBackground', () => ({
   AmbientBackground: () => null,
 }));
@@ -102,12 +98,24 @@ jest.mock('../../../components/common/AnimatedPressable', () => ({
   AnimatedPressable: ({
     children,
     onPress,
+    accessibilityLabel,
+    accessibilityRole,
   }: {
     children?: React.ReactNode;
     onPress?: () => void;
+    accessibilityLabel?: string;
+    accessibilityRole?: string;
   }) => {
     const { Pressable: MockPressable } = require('react-native');
-    return <MockPressable onPress={onPress}>{children}</MockPressable>;
+    return (
+      <MockPressable
+        onPress={onPress}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole={accessibilityRole}
+      >
+        {children}
+      </MockPressable>
+    );
   },
 }));
 
@@ -156,14 +164,12 @@ describe('LandingPage', () => {
         'RequiredLegalAcceptance',
       ],
     });
-
     mockedUseTheme.mockReturnValue({
       theme: lightTheme,
       mode: 'light',
       isDark: false,
       setMode: jest.fn(),
     } as unknown as ReturnType<typeof useTheme>);
-
     mockedUseNavigation.mockReturnValue({
       navigate,
       setParams,
@@ -176,41 +182,30 @@ describe('LandingPage', () => {
     jest.clearAllMocks();
   });
 
-  it('prioritizes the professional workspace while keeping patient access available', () => {
+  it('presents the two journeys and only concrete trust claims', () => {
     render(<LandingPage />);
 
-    expect(screen.getByText('Aplicación de gestión para especialistas en salud mental')).toBeTruthy();
-    expect(screen.getAllByText('Acceder como profesional').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Busco terapia').length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Acceso cl.nicas/).length).toBeGreaterThan(0);
-    expect(screen.getByText('Paso 1')).toBeTruthy();
-    expect(screen.getByText('Paso 2')).toBeTruthy();
-    expect(screen.getByText('Paso 3')).toBeTruthy();
-    expect(screen.getByText('Agenda')).toBeTruthy();
-    expect(screen.getByText('Organiza tu agenda de manera sencilla.')).toBeTruthy();
-    expect(screen.getByText('Pacientes y sesiones')).toBeTruthy();
-    expect(screen.getByText('Historial, citas y seguimiento en un solo lugar.')).toBeTruthy();
-    expect(screen.getByText('Gestión clínica segura')).toBeTruthy();
-    expect(screen.getByText('Documentos y consentimientos cifrados para trabajar con seguridad.')).toBeTruthy();
-    expect(screen.getByText('Crea, gestiona y envía tus facturas.')).toBeTruthy();
-    expect(screen.getByText('Privacidad y cumplimiento alineados con la normativa.')).toBeTruthy();
-    expect(screen.getByText('QUIÉNES SOMOS')).toBeTruthy();
-    expect(screen.queryByText('Texto provisional')).toBeNull();
-    expect(screen.queryByText(/placeholder/)).toBeNull();
-    expect(screen.getByText('Sobre HERA')).toBeTruthy();
-    expect(screen.getByText('Construimos una forma más clara de trabajar en salud mental')).toBeTruthy();
-    expect(screen.getByText('Un espacio de trabajo para llevar mejor tu consulta')).toBeTruthy();
-    expect(screen.getByText('Verificación profesional')).toBeTruthy();
-    expect(screen.getByText('Área clínica segura')).toBeTruthy();
-    expect(screen.getByText('Consentimientos claros')).toBeTruthy();
-    expect(screen.getByText('Especialidades que encuentran una base ordenada en HERA')).toBeTruthy();
-    expect(screen.getByText('Flujos reales que HERA ayuda a ordenar')).toBeTruthy();
-    expect(screen.getAllByText('Preguntas frecuentes').length).toBeGreaterThan(0);
-    expect(screen.getByText('¿Qué puede gestionar un profesional dentro de HERA?')).toBeTruthy();
-    expect(screen.getByText('¿Hay funciones en demo o beta?')).toBeTruthy();
-    expect(screen.getByText(/centraliza la gestión de la consulta/)).toBeTruthy();
-    expect(screen.getAllByText(/Facturación/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('RGPD y LOPDGDD').length).toBeGreaterThan(0);
+    expect(screen.getByText('PERSONAS Y PROFESIONALES, EN UN MISMO LUGAR')).toBeTruthy();
+    expect(screen.getByText(/Encuentra apoyo para cuidar tu salud mental/)).toBeTruthy();
+    expect(screen.getByText(/Gestiona tu consulta con sencillez/)).toBeTruthy();
+    expect(screen.getByTestId('hero-journey-divider')).toBeTruthy();
+    expect(screen.getByText('Salud mental')).toBeTruthy();
+    expect(screen.getAllByText('Explorar profesionales').length).toBeGreaterThan(0);
+    expect(screen.getByText('HERA para profesionales')).toBeTruthy();
+    expect(
+      screen.getByLabelText('Profesional de salud mental tomando notas durante una sesión')
+    ).toBeTruthy();
+    expect(screen.getByText('Explora perfiles verificados')).toBeTruthy();
+    expect(screen.getByText('Conoce cómo trabaja cada profesional')).toBeTruthy();
+    expect(screen.getByText('Reserva cuando lo tengas claro')).toBeTruthy();
+    expect(screen.getByText('Hazte visible. Gestiona tu consulta.')).toBeTruthy();
+    expect(screen.getByText('VISIBILIDAD')).toBeTruthy();
+    expect(screen.getByText('GESTIÓN')).toBeTruthy();
+    expect(screen.getByText('Privacidad por diseño')).toBeTruthy();
+    expect(screen.getByText('Consentimientos y documentación')).toBeTruthy();
+    expect(screen.getByText('Marco RGPD y LOPDGDD')).toBeTruthy();
+    expect(screen.queryByText('Flujos reales que HERA ayuda a ordenar')).toBeNull();
+    expect(screen.getByText('Empieza por lo que necesitas hoy')).toBeTruthy();
   });
 
   it('expands FAQ answers on press', () => {
@@ -219,153 +214,122 @@ describe('LandingPage', () => {
     expect(
       screen.queryByText(/Desde su espacio profesional puede organizar disponibilidad/)
     ).toBeNull();
-
     fireEvent.press(screen.getByText('¿Qué puede gestionar un profesional dentro de HERA?'));
-
     expect(
       screen.getByText(/Desde su espacio profesional puede organizar disponibilidad/)
     ).toBeTruthy();
   });
 
-  it('wires desktop navigation items to landing section scroll targets', () => {
+  it('maps every wide header label to its stable anchor', () => {
     const onScrollToSection = jest.fn();
-    mockWindowDimensions = {
-      fontScale: 1,
-      height: 900,
-      scale: 1,
-      width: 1720,
-    };
+    mockWindowDimensions = { fontScale: 1, height: 900, scale: 1, width: 1720 };
 
     render(
       <LandingHeader
+        context="landing"
         isScrolled={false}
         onFindSpecialist={jest.fn()}
-        onJoinAsProfessional={jest.fn()}
-        onJoinAsClinic={jest.fn()}
+        onExploreProfessionals={jest.fn()}
+        onAccess={jest.fn()}
         onScrollToSection={onScrollToSection}
       />
     );
 
-    const navTargets = [
-      ['Cómo funciona', 'howItWorks'],
+    const targets = [
       ['Especialistas', 'featuredSpecialists'],
-      ['Herramientas', 'forSpecialists'],
+      ['Cómo funciona', 'howItWorks'],
+      ['Para profesionales', 'forSpecialists'],
       ['Especialidades', 'specializations'],
       ['Quiénes somos', 'about'],
       ['FAQ', 'faq'],
     ] as const;
 
-    navTargets.forEach(([label]) => {
-      fireEvent.press(screen.getByText(label));
-    });
-
-    navTargets.forEach(([, target], index) => {
+    targets.forEach(([label]) => fireEvent.press(screen.getByText(label)));
+    targets.forEach(([, target], index) => {
       expect(onScrollToSection).toHaveBeenNthCalledWith(index + 1, target);
     });
   });
 
-  it('scrolls to the public specialist section without changing the therapy login action', () => {
-    const onScrollToSection = jest.fn();
-    mockWindowDimensions = {
-      fontScale: 1,
-      height: 900,
-      scale: 1,
-      width: 1720,
-    };
+  it('uses the compact header without saturating it with anchors or clinics', () => {
+    mockWindowDimensions = { fontScale: 1, height: 768, scale: 1, width: 1024 };
 
     render(
       <LandingHeader
+        context="landing"
         isScrolled={false}
         onFindSpecialist={jest.fn()}
-        onJoinAsProfessional={jest.fn()}
-        onJoinAsClinic={jest.fn()}
-        onScrollToSection={onScrollToSection}
-      />
-    );
-
-    fireEvent.press(screen.getByText('Especialistas'));
-
-    expect(onScrollToSection).toHaveBeenCalledWith('featuredSpecialists');
-  });
-
-  it('hides the full landing navigation on compact desktop widths', () => {
-    mockWindowDimensions = {
-      fontScale: 1,
-      height: 768,
-      scale: 1,
-      width: 1024,
-    };
-
-    render(
-      <LandingHeader
-        isScrolled={false}
-        onFindSpecialist={jest.fn()}
-        onJoinAsProfessional={jest.fn()}
-        onJoinAsClinic={jest.fn()}
+        onExploreProfessionals={jest.fn()}
+        onAccess={jest.fn()}
         onScrollToSection={jest.fn()}
       />
     );
 
     expect(screen.queryByText('Cómo funciona')).toBeNull();
-    expect(screen.queryByText('Especialistas')).toBeNull();
-    expect(screen.getByText('Busco terapia')).toBeTruthy();
-    expect(screen.getByText('Soy profesional')).toBeTruthy();
-  });
-
-  it('keeps landing navigation available at intermediate desktop widths', () => {
-    mockWindowDimensions = {
-      fontScale: 1,
-      height: 768,
-      scale: 1,
-      width: 1280,
-    };
-
-    render(
-      <LandingHeader
-        isScrolled={false}
-        onFindSpecialist={jest.fn()}
-        onJoinAsProfessional={jest.fn()}
-        onJoinAsClinic={jest.fn()}
-        onScrollToSection={jest.fn()}
-      />
-    );
-
-    expect(screen.getByText('Cómo funciona')).toBeTruthy();
-    expect(screen.getByText('Especialistas')).toBeTruthy();
-    expect(screen.getByText('Busco terapia')).toBeTruthy();
+    expect(screen.getByText('Explorar profesionales')).toBeTruthy();
+    expect(screen.getByText('Para profesionales')).toBeTruthy();
+    expect(screen.queryByText('Salud mental')).toBeNull();
     expect(screen.queryByText('Clínicas')).toBeNull();
   });
 
-  it('routes both primary and secondary hero actions to the right login flows', () => {
+  it('uses the minimal mobile header while preserving both hero doors', () => {
+    mockWindowDimensions = { fontScale: 1, height: 844, scale: 1, width: 390 };
+
     render(<LandingPage />);
 
-    fireEvent.press(screen.getAllByText('Acceder como profesional')[0]);
-    fireEvent.press(screen.getAllByText('Busco terapia')[0]);
-    fireEvent.press(screen.getAllByText(/Acceso cl.nicas/)[0]);
+    expect(screen.getByText('Acceder')).toBeTruthy();
+    expect(screen.getByText('toggle-theme')).toBeTruthy();
+    expect(screen.getAllByText('Explorar profesionales').length).toBeGreaterThan(0);
+    expect(screen.getByText('HERA para profesionales')).toBeTruthy();
+  });
 
+  it('opens the public directory for an unauthenticated patient without login', () => {
+    render(<LandingPage />);
+
+    fireEvent.press(screen.getAllByText('Explorar profesionales')[0]);
+
+    expect(navigate).toHaveBeenCalledWith('PublicSpecialists');
+    expect(navigate).not.toHaveBeenCalledWith('Login', expect.anything());
+  });
+
+  it('scrolls the professional hero door to the professional anchor', () => {
+    render(<LandingPage />);
+    fireEvent(
+      screen.UNSAFE_getByProps({ nativeID: 'landing-section-for-specialists' }),
+      'layout',
+      { nativeEvent: { layout: { x: 0, y: 1700, width: 1000, height: 500 } } }
+    );
+
+    fireEvent.press(screen.getByText('HERA para profesionales'));
+
+    expect(mockScrollTo).toHaveBeenCalledWith({ y: 1690, animated: true });
+  });
+
+  it('routes professional registration, login and clinic access explicitly', () => {
+    render(<LandingPage />);
+
+    fireEvent.press(screen.getAllByText('Crear cuenta profesional')[0]);
+    fireEvent.press(screen.getAllByText('Iniciar sesión')[0]);
+    fireEvent.press(screen.getAllByText('Acceso para clínicas')[0]);
+
+    expect(navigate).toHaveBeenCalledWith('Register', { userType: 'PROFESSIONAL' });
     expect(navigate).toHaveBeenCalledWith('Login', { userType: 'PROFESSIONAL' });
-    expect(navigate).toHaveBeenCalledWith('Login', { userType: 'CLIENT' });
     expect(navigate).toHaveBeenCalledWith('Login', { userType: 'CLINIC' });
   });
 
-  it('keeps authenticated landing actions inside routes available to the current stack', () => {
-    mockAuthState = {
-      isAuthenticated: true,
-      user: { type: 'client' },
-      legalStatusSnapshot: null,
-      verificationSubmitted: null,
-    };
-
+  it('opens the generic welcome selector from the access action', () => {
     render(<LandingPage />);
 
-    fireEvent.press(screen.getAllByText('Acceder como profesional')[0]);
-    fireEvent.press(screen.getAllByText('Busco terapia')[0]);
-    fireEvent.press(screen.getAllByText(/Acceso cl.nicas/)[0]);
+    fireEvent.press(screen.getByText('Acceder'));
 
-    expect(navigate).toHaveBeenNthCalledWith(1, 'Home');
-    expect(navigate).toHaveBeenNthCalledWith(2, 'PublicSpecialists');
-    expect(navigate).toHaveBeenNthCalledWith(3, 'Home');
-    expect(navigate).not.toHaveBeenCalledWith('Login', expect.anything());
+    expect(navigate).toHaveBeenCalledWith('Welcome');
+  });
+
+  it('opens the directory with a canonical specialty preselected', () => {
+    render(<LandingPage />);
+
+    fireEvent.press(screen.getByText('Ansiedad y estrés'));
+
+    expect(navigate).toHaveBeenCalledWith('PublicSpecialists', { specialty: 'anxiety' });
   });
 
   it.each([
@@ -373,7 +337,7 @@ describe('LandingPage', () => {
     ['professional', false, 'ProfessionalVerification'],
     ['professional', true, 'ProfessionalHome'],
   ] as const)(
-    'returns an authenticated %s account to its valid workspace route',
+    'returns an authenticated %s account to its valid workspace',
     (userType, verificationSubmitted, expectedRoute) => {
       mockAuthState = {
         isAuthenticated: true,
@@ -383,13 +347,13 @@ describe('LandingPage', () => {
       };
 
       render(<LandingPage />);
-      fireEvent.press(screen.getAllByText('Acceder como profesional')[0]);
+      fireEvent.press(screen.getAllByText('Ir a mi espacio')[0]);
 
       expect(navigate).toHaveBeenCalledWith(expectedRoute);
     }
   );
 
-  it('returns authenticated users with pending legal documents to the acceptance screen', () => {
+  it('returns authenticated users with pending legal documents to acceptance', () => {
     mockAuthState = {
       isAuthenticated: true,
       user: { type: 'client' },
@@ -398,36 +362,32 @@ describe('LandingPage', () => {
     };
 
     render(<LandingPage />);
-    fireEvent.press(screen.getAllByText('Acceder como profesional')[0]);
+    fireEvent.press(screen.getAllByText('Ir a mi espacio')[0]);
 
     expect(navigate).toHaveBeenCalledWith('RequiredLegalAcceptance');
   });
 
-  it('uses the legal route when the authenticated workspace is not registered yet', () => {
-    mockAuthState = {
-      isAuthenticated: true,
-      user: { type: 'client' },
-      legalStatusSnapshot: null,
-      verificationSubmitted: null,
-    };
-    getState.mockReturnValue({
-      routeNames: ['Landing', 'PublicSpecialists', 'RequiredLegalAcceptance'],
-    });
-
+  it('keeps all six native IDs mounted on stable wrappers', () => {
     render(<LandingPage />);
-    fireEvent.press(screen.getAllByText('Acceder como profesional')[0]);
 
-    expect(navigate).toHaveBeenCalledWith('RequiredLegalAcceptance');
+    [
+      'landing-section-how-it-works',
+      'landing-section-featured-specialists',
+      'landing-section-for-specialists',
+      'landing-section-specializations',
+      'landing-section-about',
+      'landing-section-faq',
+    ].forEach((nativeID) => {
+      expect(screen.UNSAFE_getByProps({ nativeID })).toBeTruthy();
+    });
   });
 
-  it('consumes one pending routed scroll when the deferred section reports its layout', () => {
+  it('consumes one pending routed scroll after deferred layout', () => {
     mockedUseRoute.mockReturnValue({
       params: { section: 'featuredSpecialists' },
     } as ReturnType<typeof useRoute>);
 
     render(<LandingPage />);
-
-    expect(mockScrollTo).not.toHaveBeenCalled();
     fireEvent(
       screen.UNSAFE_getByProps({ nativeID: 'landing-section-featured-specialists' }),
       'layout',
@@ -439,7 +399,33 @@ describe('LandingPage', () => {
     expect(setParams).toHaveBeenCalledWith({ section: undefined });
   });
 
-  it('uses the same stable scroll path every time a landing navigation item is selected', () => {
+  it('keeps a routed scroll pending while the deferred wrapper has no layout', () => {
+    mockedUseRoute.mockReturnValue({
+      params: { section: 'faq' },
+    } as ReturnType<typeof useRoute>);
+
+    render(<LandingPage />);
+    const faqSection = screen.UNSAFE_getByProps({ nativeID: 'landing-section-faq' });
+
+    fireEvent(
+      faqSection,
+      'layout',
+      { nativeEvent: { layout: { x: 0, y: 0, width: 1000, height: 0 } } }
+    );
+
+    expect(mockScrollTo).not.toHaveBeenCalled();
+
+    fireEvent(
+      faqSection,
+      'layout',
+      { nativeEvent: { layout: { x: 0, y: 4800, width: 1000, height: 700 } } }
+    );
+
+    expect(mockScrollTo).toHaveBeenCalledTimes(1);
+    expect(mockScrollTo).toHaveBeenCalledWith({ y: 4790, animated: true });
+  });
+
+  it('repeats the same stable anchor scroll on every selection', () => {
     render(<LandingPage />);
     fireEvent(
       screen.UNSAFE_getByProps({ nativeID: 'landing-section-featured-specialists' }),

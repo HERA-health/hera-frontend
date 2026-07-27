@@ -11,7 +11,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,7 +20,7 @@ import { Input } from '../../components/common/Input';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { MultiSelectDropdown } from '../../components/common/MultiSelectDropdown';
 import { PublicSpecialistCard } from '../../components/features/PublicSpecialistCard';
-import type { RootStackParamList } from '../../constants/types';
+import type { AppRouteProp, RootStackParamList } from '../../constants/types';
 import {
   PROFESSIONAL_TYPE_OPTIONS,
   type ProfessionalType,
@@ -28,6 +28,7 @@ import {
 import {
   PROFESSIONAL_SPECIALTY_OPTIONS,
   PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS,
+  isProfessionalSpecialtyValue,
   type ProfessionalSpecialtyValue,
   type ProfessionalTherapeuticApproachValue,
 } from '../../constants/professionalMatchingOptions';
@@ -91,16 +92,29 @@ const INITIAL_FILTERS: DirectoryFilters = {
   sort: 'RECENT',
 };
 
+const createInitialFilters = (specialty: unknown): DirectoryFilters =>
+  isProfessionalSpecialtyValue(specialty)
+    ? { ...INITIAL_FILTERS, specialties: [specialty] }
+    : INITIAL_FILTERS;
+
 export const PublicSpecialistsScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
-  const { isAuthenticated } = useAuth();
+  const route = useRoute<AppRouteProp<'PublicSpecialists'>>();
+  const {
+    isAuthenticated,
+    user,
+    legalStatusSnapshot,
+    verificationSubmitted,
+  } = useAuth();
   const { theme, isDark } = useTheme();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1180;
   const isMobile = width < 720;
   const useHorizontalCards = width >= 820;
   const [queryInput, setQueryInput] = useState('');
-  const [filters, setFilters] = useState<DirectoryFilters>(INITIAL_FILTERS);
+  const [filters, setFilters] = useState<DirectoryFilters>(() =>
+    createInitialFilters(route.params?.specialty)
+  );
   const [items, setItems] = useState<specialistsService.PublicSpecialistDirectoryCard[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -192,6 +206,21 @@ export const PublicSpecialistsScreen: React.FC = () => {
     analyticsService.trackScreen('public_specialists_directory');
   }, []);
 
+  useEffect(() => {
+    const requestedSpecialty = route.params?.specialty;
+
+    if (!isProfessionalSpecialtyValue(requestedSpecialty)) {
+      return;
+    }
+
+    setFilters((currentFilters) =>
+      currentFilters.specialties.length === 1
+      && currentFilters.specialties[0] === requestedSpecialty
+        ? currentFilters
+        : { ...currentFilters, specialties: [requestedSpecialty] }
+    );
+  }, [route.params?.specialty]);
+
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const nextHeaderScrolled = event.nativeEvent.contentOffset.y > 24;
 
@@ -211,6 +240,36 @@ export const PublicSpecialistsScreen: React.FC = () => {
       routes: [{ name: 'Landing' }],
     });
   }, [navigation]);
+
+  const navigateToAuthenticatedWorkspace = useCallback((): boolean => {
+    if (!isAuthenticated || !user) {
+      return false;
+    }
+
+    const workspaceRoute = user.type === 'professional'
+      ? (verificationSubmitted === false ? 'ProfessionalVerification' : 'ProfessionalHome')
+      : (user.type === 'clinic' ? 'ClinicDashboard' : 'Home');
+    const workspaceIsAvailable = navigation.getState().routeNames.includes(workspaceRoute);
+
+    navigation.navigate(
+      legalStatusSnapshot?.requiresAcceptance || !workspaceIsAvailable
+        ? 'RequiredLegalAcceptance'
+        : workspaceRoute
+    );
+    return true;
+  }, [
+    isAuthenticated,
+    legalStatusSnapshot?.requiresAcceptance,
+    navigation,
+    user,
+    verificationSubmitted,
+  ]);
+
+  const handleAccess = useCallback(() => {
+    if (!navigateToAuthenticatedWorkspace()) {
+      navigation.navigate('Welcome');
+    }
+  }, [navigateToAuthenticatedWorkspace, navigation]);
 
   const submitSearch = useCallback(() => {
     const nextQuery = queryInput.trim();
@@ -246,12 +305,12 @@ export const PublicSpecialistsScreen: React.FC = () => {
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bg} />
       <LandingHeader
+        context="directory"
         isScrolled={headerScrolled}
-        showAccessActions={!isAuthenticated}
-        onLogoPress={isAuthenticated ? undefined : navigateToLandingHome}
-        onFindSpecialist={() => navigation.navigate('Login', { userType: 'CLIENT' })}
-        onJoinAsProfessional={() => navigation.navigate('Login', { userType: 'PROFESSIONAL' })}
-        onJoinAsClinic={() => navigation.navigate('Login', { userType: 'CLINIC' })}
+        accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
+        onLogoPress={navigateToLandingHome}
+        onExploreProfessionals={() => navigateToLandingSection('forSpecialists')}
+        onAccess={handleAccess}
         onScrollToSection={navigateToLandingSection}
       />
 

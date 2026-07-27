@@ -96,11 +96,17 @@ export const FAQSection: React.FC = () => {
     <View
       style={[
         styles.container,
-        { backgroundColor: theme.bgMuted },
+        { backgroundColor: theme.landingCanvas },
         isDesktop && styles.containerDesktop,
       ]}
     >
-      <View style={styles.content}>
+      <View
+        style={[
+          styles.content,
+          isDesktop && styles.contentDesktop,
+          { borderTopColor: theme.borderLight },
+        ]}
+      >
         <MotionView entering="fadeInUp" delay={0} style={styles.header}>
           <Text
             style={[
@@ -244,17 +250,24 @@ function FAQCard({ item, expanded, onToggle, theme, isDark }: FAQCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 60,
+    paddingTop: 24,
+    paddingBottom: 60,
     paddingHorizontal: 20,
   },
   containerDesktop: {
-    paddingVertical: 96,
+    paddingTop: 32,
+    paddingBottom: 72,
     paddingHorizontal: 60,
   },
   content: {
     maxWidth: 1200,
     width: '100%',
     alignSelf: 'center',
+    borderTopWidth: 1,
+    paddingTop: 56,
+  },
+  contentDesktop: {
+    paddingTop: 64,
   },
   header: {
     alignItems: 'center',

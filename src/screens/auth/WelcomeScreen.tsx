@@ -25,6 +25,7 @@ import { AmbientBackground } from '../../components/common/AmbientBackground';
 import { MotionView } from '../../components/common/MotionView';
 import { StyledLogo } from '../../components/common/StyledLogo';
 import { Button } from '../../components/common/Button';
+import { AnimatedPressable } from '../../components/common/AnimatedPressable';
 import { spacing } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
 import type { RootStackParamList } from '../../constants/types';
@@ -36,9 +37,9 @@ type FeatureColorKey = 'primary' | 'secondary' | 'success' | 'info';
 
 const FEATURES = [
   {
-    icon: 'sync' as const,
-    title: 'Matching con IA',
-    subtitle: 'Algoritmo de afinidad único',
+    icon: 'checkmark-done-circle' as const,
+    title: 'Perfiles verificados',
+    subtitle: 'Información clara para elegir',
     colorKey: 'primary' as FeatureColorKey,
   },
   {
@@ -48,15 +49,15 @@ const FEATURES = [
     colorKey: 'secondary' as FeatureColorKey,
   },
   {
-    icon: 'sparkles' as const,
-    title: 'LIA - Asistente 24/7',
-    subtitle: 'Apoyo emocional inmediato',
+    icon: 'calendar' as const,
+    title: 'Gestión conectada',
+    subtitle: 'Agenda, pacientes y facturación',
     colorKey: 'success' as FeatureColorKey,
   },
   {
     icon: 'shield-checkmark' as const,
-    title: '100% Confidencial',
-    subtitle: 'Privacidad garantizada',
+    title: 'Privacidad por diseño',
+    subtitle: 'Datos y documentos protegidos',
     colorKey: 'info' as FeatureColorKey,
   },
 ];
@@ -74,22 +75,22 @@ const getFeatureColor = (theme: Theme, colorKey: FeatureColorKey): string => {
 
 const CTA_BULLETS = {
   client: [
-    'Matching inteligente con especialistas mediante IA',
-    'Sesiones seguras por videollamada con resúmenes automáticos',
-    'Chat de crisis 24/7 con LIA, tu asistente de apoyo emocional',
-    'Facturación automática y seguimiento completo',
+    'Explora perfiles profesionales verificados',
+    'Compara modalidad, precio y disponibilidad',
+    'Reserva cuando encuentres un perfil que encaje contigo',
+    'Consulta y organiza tus próximas sesiones',
   ],
   professional: [
-    'Gestiona tu agenda y pacientes fácilmente',
-    'Resúmenes automáticos con IA de cada sesión',
-    'Facturación automática y pagos seguros',
-    'Publica contenido y construye tu marca personal',
+    'Publica un perfil profesional verificado',
+    'Gestiona agenda, pacientes y sesiones',
+    'Reúne documentos y consentimientos',
+    'Crea y gestiona tu facturación',
   ],
   clinic: [
     'Cuenta propia para gestionar el centro',
-    'Base preparada para equipo, pacientes y agenda',
+    'Equipo, pacientes y agenda conectados',
+    'Facturación y reparto económico',
     'Panel separado de la consulta individual',
-    'Facturación y reparto económico en próximas fases',
   ],
 };
 
@@ -103,6 +104,15 @@ export function WelcomeScreen() {
   const isDesktop = width > 768;
   const isTablet = width > 600 && width <= 768;
 
+  const handleGoBack = React.useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate('Landing');
+  }, [navigation]);
+
   return (
     <View style={[styles.root, { backgroundColor: theme.bg }]}>
       <AmbientBackground variant="auth" />
@@ -112,6 +122,38 @@ export function WelcomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.topBar}>
+          <AnimatedPressable
+            onPress={handleGoBack}
+            hoverLift={false}
+            pressScale={0.97}
+            accessibilityRole="button"
+            accessibilityLabel="Volver a la página de inicio"
+            accessibilityHint="Regresa a la landing de HERA"
+            style={[
+              styles.backButton,
+              {
+                backgroundColor: theme.bgCard,
+                borderColor: theme.border,
+                shadowColor: theme.shadowCard,
+              },
+            ]}
+          >
+            <Ionicons name="arrow-back" size={18} color={theme.primary} />
+            <Text
+              style={[
+                styles.backButtonText,
+                {
+                  color: theme.textPrimary,
+                  fontFamily: theme.fontSansSemiBold,
+                },
+              ]}
+            >
+              Volver
+            </Text>
+          </AnimatedPressable>
+        </View>
+
         {/* ── Hero ──────────────────────────────────────────────────────────── */}
         <MotionView entering="fadeInUp" delay={0} style={styles.heroSection}>
           <View style={styles.logoContainer}>
@@ -196,10 +238,10 @@ export function WelcomeScreen() {
               </View>
 
               <Text style={[styles.ctaTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>
-                Busco ayuda
+                Busco terapia
               </Text>
               <Text style={[styles.ctaSubtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                Encuentra el especialista perfecto para ti
+                Conoce profesionales y elige con calma
               </Text>
 
               <View style={styles.bulletList}>
@@ -223,10 +265,10 @@ export function WelcomeScreen() {
                 style={styles.ctaButtonNative}
                 textStyle={{ fontFamily: theme.fontSansBold }}
               >
-                Busco ayuda
+                Acceder a mi espacio
               </Button>
               <Text style={[styles.ctaHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
-                Encontrar mi especialista
+                Continúa a tu ritmo
               </Text>
             </View>
           </MotionView>
@@ -278,7 +320,7 @@ export function WelcomeScreen() {
                 Soy especialista
               </Button>
               <Text style={[styles.ctaHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
-                Unirme a la red
+                Acceder al espacio profesional
               </Text>
             </View>
           </MotionView>
@@ -329,7 +371,7 @@ export function WelcomeScreen() {
                 Acceso clínicas
               </Button>
               <Text style={[styles.ctaHint, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
-                Probar panel de clínica
+                Acceder al espacio de clínica
               </Text>
             </View>
           </MotionView>
@@ -351,6 +393,30 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: spacing.lg,
+  },
+
+  // Top navigation
+  topBar: {
+    width: '100%',
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    alignItems: 'flex-start',
+  },
+  backButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  backButtonText: {
+    fontSize: 14,
   },
 
   // Hero

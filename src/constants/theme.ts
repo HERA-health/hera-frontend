@@ -46,6 +46,14 @@ export const lightTheme = {
   actionPrimary: '#3E5C4F',
   actionPrimaryText: '#FFFFFF',
 
+  landingCanvas: '#FAF8F3',
+  landingProfessional: '#E9F0EC',
+  landingTrustPanel: '#F0F3EE',
+  landingPanelBorder: '#D8E0D9',
+  landingCta: '#315448',
+  landingCtaText: '#FFFDF8',
+  landingCtaMutedText: 'rgba(255, 253, 248, 0.82)',
+
   success: '#3E5C4F',
   successBg: '#E4EDE8',
   successLight: '#EFF5F2',
@@ -145,6 +153,14 @@ export const darkTheme: typeof lightTheme = {
   surfaceWarm: '#363228',
   actionPrimary: '#BDB199',
   actionPrimaryText: '#1D1D19',
+
+  landingCanvas: '#24251F',
+  landingProfessional: '#30352D',
+  landingTrustPanel: '#2A2C26',
+  landingPanelBorder: '#45473C',
+  landingCta: '#19241F',
+  landingCtaText: '#F3EBDD',
+  landingCtaMutedText: 'rgba(243, 235, 221, 0.80)',
 
   success: '#A2AA9F',
   successBg: '#2E332C',

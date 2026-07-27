@@ -21,7 +21,7 @@ describe('clinic auth entry points', () => {
     expect(welcomeSource).toContain("userType: 'CLINIC'");
     expect(registerSource).toContain('clinicCommercialName');
     expect(registerSource).toContain("setUserType('clinic')");
-    expect(landingSource).toContain('handleJoinAsClinic');
+    expect(landingSource).toContain('handleClinicAccess');
   });
 
   it('keeps Google auth visible and scoped for clinic login and registration', () => {

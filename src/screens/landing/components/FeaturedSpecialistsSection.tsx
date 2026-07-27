@@ -57,15 +57,15 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
   }, [isDesktop, isTablet]);
 
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? theme.bg : theme.surfaceWarm }]}>
+    <View style={[styles.container, { backgroundColor: theme.landingCanvas }]}>
       <View style={styles.content}>
         <MotionView entering="fadeInUp" style={styles.heading}>
           <View style={[styles.eyebrowPill, { backgroundColor: theme.primaryAlpha12, borderColor: theme.primaryAlpha20 }]}>
             <Ionicons name="heart-outline" size={13} color={theme.primary} />
             <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>PARA QUIENES BUSCAN TERAPIA</Text>
           </View>
-          <Text style={[styles.title, isDesktop && styles.titleDesktop, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Encuentra un profesional con el que empezar</Text>
-          <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Conoce perfiles profesionales verificados y da el siguiente paso a tu ritmo, sin crear una cuenta antes.</Text>
+          <Text style={[styles.title, isDesktop && styles.titleDesktop, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Encuentra al profesional ideal para ti</Text>
+          <Text style={[styles.subtitle, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Explora perfiles verificados, compara especialidades, modalidad online o presencial y precios, y encuentra el apoyo adecuado para tu salud mental.</Text>
         </MotionView>
 
         {loading ? (
@@ -132,7 +132,8 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
-    paddingVertical: 76,
+    paddingTop: 54,
+    paddingBottom: 76,
   },
   content: {
     width: '100%',

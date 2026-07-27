@@ -47,7 +47,7 @@ export const AboutUsSection: React.FC = () => {
     <View
       style={[
         styles.container,
-        { backgroundColor: theme.bg },
+        { backgroundColor: theme.landingCanvas },
         isDesktop && styles.containerDesktop,
       ]}
     >

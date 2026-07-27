@@ -1,91 +1,29 @@
-/**
- * SpecializationsSection
- *
- * Keeps the breadth signal, but reframes it around the types of specialists
- * that can work with HERA instead of a pure discovery marketplace.
- */
-
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  useWindowDimensions,
-} from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
+import { MotionView } from '../../../components/common/MotionView';
 import { useTheme } from '../../../contexts/ThemeContext';
-
-interface Specialization {
-  id: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  description: string;
-  accent: 'primary' | 'secondary' | 'success' | 'warning' | 'info';
-}
-
-const specializations: Specialization[] = [
-  {
-    id: 'anxiety',
-    icon: 'pulse-outline',
-    title: 'Ansiedad y estrés',
-    description: 'Especialistas que trabajan procesos de regulación emocional y acompañamiento continuado.',
-    accent: 'primary',
-  },
-  {
-    id: 'couples',
-    icon: 'heart-outline',
-    title: 'Terapia de pareja',
-    description: 'Sesiones, agenda y continuidad para procesos relacionales con una estructura clara.',
-    accent: 'warning',
-  },
-  {
-    id: 'depression',
-    icon: 'cloudy-outline',
-    title: 'Depresión',
-    description: 'Consulta, seguimiento y continuidad para trabajo clínico alrededor del estado de ánimo.',
-    accent: 'info',
-  },
-  {
-    id: 'trauma',
-    icon: 'medical-outline',
-    title: 'Trauma y EMDR',
-    description: 'Una base organizada para especialidades que requieren seguimiento y estructura.',
-    accent: 'secondary',
-  },
-  {
-    id: 'selfesteem',
-    icon: 'sunny-outline',
-    title: 'Autoestima',
-    description: 'Espacios profesionales orientados al desarrollo personal y la intervención psicológica.',
-    accent: 'warning',
-  },
-  {
-    id: 'family',
-    icon: 'people-outline',
-    title: 'Terapia familiar',
-    description: 'Gestión más clara de sesiones y pacientes en contextos familiares y sistémicos.',
-    accent: 'success',
-  },
-  {
-    id: 'personal',
-    icon: 'trophy-outline',
-    title: 'Desarrollo personal',
-    description: 'Una operativa sencilla para sostener acompañamientos de crecimiento y cambio.',
-    accent: 'success',
-  },
-  {
-    id: 'work',
-    icon: 'briefcase-outline',
-    title: 'Estrés laboral',
-    description: 'Consultas con enfoque en burnout, equilibrio y bienestar en el trabajo.',
-    accent: 'secondary',
-  },
-];
+import type { ProfessionalSpecialtyValue } from '../../../constants/professionalMatchingOptions';
 
 interface SpecializationsSectionProps {
-  onSpecializationPress?: (id: string) => void;
+  onSpecializationPress: (specializationId: ProfessionalSpecialtyValue) => void;
 }
+
+const SPECIALIZATIONS: ReadonlyArray<{
+  id: ProfessionalSpecialtyValue;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}> = [
+  { id: 'anxiety', label: 'Ansiedad y estrés', icon: 'pulse-outline' },
+  { id: 'depression', label: 'Depresión', icon: 'rainy-outline' },
+  { id: 'couples', label: 'Terapia de pareja', icon: 'people-outline' },
+  { id: 'trauma', label: 'Trauma (EMDR)', icon: 'shield-outline' },
+  { id: 'self-esteem', label: 'Autoestima', icon: 'heart-outline' },
+  { id: 'grief', label: 'Duelo', icon: 'leaf-outline' },
+  { id: 'sleep', label: 'Problemas de sueño', icon: 'moon-outline' },
+  { id: 'phobias', label: 'Fobias', icon: 'compass-outline' },
+];
 
 export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
   onSpecializationPress,
@@ -93,162 +31,86 @@ export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
   const { width } = useWindowDimensions();
   const { theme } = useTheme();
   const isDesktop = width >= 1024;
-  const isTablet = width >= 768 && width < 1024;
-
-  const getColumns = () => {
-    if (isDesktop) return 4;
-    if (isTablet) return 3;
-    return 2;
-  };
-
-  const getAccentColors = (accent: Specialization['accent']) => {
-    switch (accent) {
-      case 'secondary':
-        return { icon: theme.secondary, bg: theme.secondaryAlpha12 };
-      case 'success':
-        return { icon: theme.success, bg: theme.successBg };
-      case 'warning':
-        return { icon: theme.warningAmber, bg: theme.warningBg };
-      case 'info':
-        return { icon: theme.info, bg: theme.primaryAlpha12 };
-      default:
-        return { icon: theme.primary, bg: theme.primaryAlpha12 };
-    }
-  };
-
-  const renderGrid = () => {
-    const columns = getColumns();
-    const rows: Specialization[][] = [];
-
-    for (let i = 0; i < specializations.length; i += columns) {
-      rows.push(specializations.slice(i, i + columns));
-    }
-
-    return rows.map((row, rowIndex) => (
-      <View
-        key={rowIndex}
-        style={[
-          styles.row,
-          isDesktop && styles.rowDesktop,
-          isTablet && styles.rowTablet,
-        ]}
-      >
-        {row.map((spec) => {
-          const accent = getAccentColors(spec.accent);
-
-          return (
-            <TouchableOpacity
-              key={spec.id}
-              style={[
-                styles.card,
-                {
-                  backgroundColor: theme.bgCard,
-                  borderColor: theme.border,
-                  shadowColor: theme.shadowNeutral,
-                },
-                isDesktop && styles.cardDesktop,
-                isTablet && styles.cardTablet,
-              ]}
-              onPress={() => onSpecializationPress?.(spec.id)}
-              activeOpacity={0.85}
-            >
-              <View style={[styles.iconContainer, { backgroundColor: accent.bg }]}>
-                <Ionicons name={spec.icon} size={22} color={accent.icon} />
-              </View>
-
-              <Text
-                style={[
-                  styles.title,
-                  { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
-                ]}
-                numberOfLines={2}
-              >
-                {spec.title}
-              </Text>
-
-              <Text
-                style={[
-                  styles.description,
-                  { color: theme.textSecondary, fontFamily: theme.fontSans },
-                ]}
-                numberOfLines={3}
-              >
-                {spec.description}
-              </Text>
-
-              <View style={styles.linkContainer}>
-                <Text
-                  style={[
-                    styles.linkText,
-                    { color: accent.icon, fontFamily: theme.fontSansSemiBold },
-                  ]}
-                >
-                  Ver especialistas
-                </Text>
-                <Ionicons name="arrow-forward" size={14} color={accent.icon} />
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    ));
-  };
+  const isTablet = width >= 640;
 
   return (
     <View
       style={[
         styles.container,
-        { backgroundColor: theme.bg },
         isDesktop && styles.containerDesktop,
+        { backgroundColor: theme.landingCanvas },
       ]}
     >
       <View style={styles.content}>
-        <View style={styles.header}>
+        <MotionView entering="fadeInUp" style={styles.header}>
           <Text
             style={[
               styles.eyebrow,
               { color: theme.primary, fontFamily: theme.fontSansSemiBold },
             ]}
           >
-            ESPECIALIDADES
+            EXPLORA POR ESPECIALIDAD
           </Text>
           <Text
+            accessibilityRole="header"
             style={[
-              styles.headerTitle,
+              styles.title,
+              isDesktop && styles.titleDesktop,
               { color: theme.textPrimary, fontFamily: theme.fontDisplay },
-              isDesktop && styles.headerTitleDesktop,
             ]}
           >
-            Especialidades que encuentran una base ordenada en HERA
+            Empieza por aquello que quieres cuidar
           </Text>
           <Text
             style={[
-              styles.headerSubtitle,
+              styles.subtitle,
               { color: theme.textSecondary, fontFamily: theme.fontSans },
             ]}
           >
-            La plataforma acompaña diferentes formas de práctica clínica sin
-            perder claridad para el especialista ni comprensión para el paciente.
+            Elige un área para abrir el directorio con ese filtro ya aplicado.
+            Después podrás ajustar modalidad, precio y enfoque.
           </Text>
-          <View
-            style={[
-              styles.expansionBadge,
-              { backgroundColor: theme.primaryAlpha12, borderColor: theme.primaryAlpha20 },
-            ]}
-          >
-            <Ionicons name="add-circle-outline" size={16} color={theme.primary} />
-            <Text
-              style={[
-                styles.expansionBadgeText,
-                { color: theme.primary, fontFamily: theme.fontSansSemiBold },
-              ]}
-            >
-              Seguiremos ampliando áreas relacionadas con la salud mental
-            </Text>
-          </View>
-        </View>
+        </MotionView>
 
-        <View style={styles.grid}>{renderGrid()}</View>
+        <View style={[styles.grid, isTablet && styles.gridWide]}>
+          {SPECIALIZATIONS.map((specialization, index) => (
+            <MotionView
+              key={specialization.id}
+              entering="fadeInUp"
+              delay={50 + index * 35}
+              style={isTablet ? styles.itemMotion : undefined}
+            >
+              <AnimatedPressable
+                onPress={() => onSpecializationPress(specialization.id)}
+                pressScale={0.98}
+                hoverLift
+                accessibilityRole="link"
+                accessibilityLabel={`Ver especialistas en ${specialization.label}`}
+                style={[
+                  styles.item,
+                  {
+                    backgroundColor: theme.bgCard,
+                    borderColor: theme.border,
+                    shadowColor: theme.shadowCard,
+                  },
+                ]}
+              >
+                <View style={[styles.icon, { backgroundColor: theme.primaryAlpha12 }]}>
+                  <Ionicons name={specialization.icon} size={22} color={theme.primary} />
+                </View>
+                <Text
+                  style={[
+                    styles.itemLabel,
+                    { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
+                  ]}
+                >
+                  {specialization.label}
+                </Text>
+                <Ionicons name="arrow-forward" size={17} color={theme.textMuted} />
+              </AnimatedPressable>
+            </MotionView>
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -256,111 +118,77 @@ export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 60,
+    paddingVertical: 70,
     paddingHorizontal: 20,
   },
   containerDesktop: {
-    paddingVertical: 92,
+    paddingTop: 88,
+    paddingBottom: 92,
     paddingHorizontal: 60,
   },
   content: {
-    maxWidth: 1200,
     width: '100%',
+    maxWidth: 1200,
     alignSelf: 'center',
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 50,
+    maxWidth: 760,
+    marginBottom: 38,
   },
   eyebrow: {
     fontSize: 12,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
+    letterSpacing: 1.5,
     marginBottom: 12,
-  },
-  headerTitle: {
-    fontSize: 32,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  headerTitleDesktop: {
-    fontSize: 40,
-  },
-  headerSubtitle: {
-    fontSize: 17,
-    textAlign: 'center',
-    maxWidth: 760,
-  },
-  expansionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  expansionBadgeText: {
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  grid: {
-    gap: 16,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  rowDesktop: {
-    gap: 20,
-  },
-  rowTablet: {
-    gap: 16,
-  },
-  card: {
-    flex: 1,
-    borderRadius: 18,
-    padding: 16,
-    alignItems: 'flex-start',
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-  cardDesktop: {
-    padding: 24,
-  },
-  cardTablet: {
-    padding: 20,
-  },
-  iconContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
   },
   title: {
-    fontSize: 16,
-    marginBottom: 6,
-    lineHeight: 22,
-  },
-  description: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 34,
+    lineHeight: 42,
     marginBottom: 12,
-    flex: 1,
   },
-  linkContainer: {
+  titleDesktop: {
+    fontSize: 46,
+    lineHeight: 54,
+  },
+  subtitle: {
+    fontSize: 17,
+    lineHeight: 26,
+  },
+  grid: {
+    gap: 12,
+  },
+  gridWide: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  itemMotion: {
+    width: '48.8%',
+    flexGrow: 1,
+  },
+  item: {
+    minHeight: 76,
+    height: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 'auto',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
+    elevation: 2,
   },
-  linkText: {
-    fontSize: 13,
+  icon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemLabel: {
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 21,
   },
 });

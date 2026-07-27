@@ -1,331 +1,415 @@
-/**
- * ForSpecialistsSection
- *
- * Evolves the previous secondary banner into a product-focused section
- * that speaks clearly about real professional workflows.
- */
-
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  useWindowDimensions,
-} from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useTheme } from '../../../contexts/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
+import { MotionView } from '../../../components/common/MotionView';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 interface ForSpecialistsSectionProps {
-  onLearnMore: () => void;
+  primaryActionLabel: string;
+  showLoginAction: boolean;
+  onPrimaryAction: () => void;
+  onLogin: () => void;
+  onClinicAccess: () => void;
 }
 
-const BENEFITS = [
-  { icon: 'calendar-outline' as const, text: 'Agenda, sesiones y disponibilidad conectadas' },
-  { icon: 'people-outline' as const, text: 'Pacientes e historial operativo en una vista clara' },
-  { icon: 'receipt-outline' as const, text: 'Tarifas, facturas y configuración fiscal centralizada' },
-  { icon: 'create-outline' as const, text: 'Perfil profesional público para explicar cómo trabajas' },
-  { icon: 'document-lock-outline' as const, text: 'Documentos, consentimientos y verificación protegidos' },
-  { icon: 'stats-chart-outline' as const, text: 'Dashboard para entender tu actividad y decidir mejor' },
+const PILLARS = [
+  {
+    eyebrow: 'VISIBILIDAD',
+    icon: 'eye-outline' as const,
+    title: 'Una presencia pública que explica cómo trabajas',
+    description:
+      'Presenta tu perfil, modalidades, tarifas y disponibilidad para que cada persona pueda decidir con más contexto.',
+    features: ['Perfil profesional verificado', 'Modalidades y tarifas claras', 'Disponibilidad y reservas'],
+  },
+  {
+    eyebrow: 'GESTIÓN',
+    icon: 'layers-outline' as const,
+    title: 'La operativa de tu consulta, conectada',
+    description:
+      'Organiza el trabajo cotidiano desde un espacio privado, calmado y diseñado para profesionales de salud mental.',
+    features: ['Agenda, pacientes y sesiones', 'Documentos y consentimientos', 'Facturación y seguimiento'],
+  },
 ];
 
 export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
-  onLearnMore,
+  primaryActionLabel,
+  showLoginAction,
+  onPrimaryAction,
+  onLogin,
+  onClinicAccess,
 }) => {
   const { width } = useWindowDimensions();
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const isDesktop = width >= 1024;
-  const isTablet = width >= 768 && width < 1024;
+  const isMobile = width < 768;
 
   return (
-    <View
+    <LinearGradient
+      colors={[
+        theme.landingCanvas,
+        theme.landingProfessional,
+        theme.landingProfessional,
+        theme.landingCanvas,
+      ]}
+      locations={[0, 0.09, 0.91, 1]}
+      start={{ x: 0.5, y: 0 }}
+      end={{ x: 0.5, y: 1 }}
       style={[
         styles.container,
-        { backgroundColor: theme.secondaryMuted },
         isDesktop && styles.containerDesktop,
       ]}
     >
-      <View
-        style={[
-          styles.content,
-          isDesktop && styles.contentDesktop,
-          isTablet && styles.contentTablet,
-        ]}
-      >
-        {(isDesktop || isTablet) && (
-          <View
-            style={[
-              styles.illustrationContainer,
-              isDesktop && styles.illustrationContainerDesktop,
-            ]}
-          >
-            <View style={styles.illustrationWrapper}>
-              <View style={[styles.centralIcon, { backgroundColor: theme.secondaryDark }]}>
-                <Ionicons name="briefcase-outline" size={46} color="#FFFFFF" />
-              </View>
-
-              <View style={[styles.floatingBadge, styles.badge1, { backgroundColor: theme.bgCard }]}>
-                <Ionicons name="calendar-outline" size={20} color={theme.secondary} />
-              </View>
-              <View style={[styles.floatingBadge, styles.badge2, { backgroundColor: theme.bgCard }]}>
-                <Ionicons name="receipt-outline" size={20} color={theme.success} />
-              </View>
-              <View style={[styles.floatingBadge, styles.badge3, { backgroundColor: theme.bgCard }]}>
-                <Ionicons name="stats-chart-outline" size={20} color={theme.primary} />
-              </View>
-            </View>
-          </View>
-        )}
-
-        <View style={[styles.textContainer, isDesktop && styles.textContainerDesktop]}>
-          <View style={[styles.badge, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>
-            <Ionicons name="briefcase-outline" size={14} color={theme.secondaryDark} />
+      <View style={styles.content}>
+        <MotionView entering="fadeInUp" style={styles.intro}>
+          <View style={[styles.introRule, { backgroundColor: theme.primary }]} />
+          <View style={styles.introCopy}>
             <Text
               style={[
-                styles.badgeText,
-                { color: theme.secondaryDark, fontFamily: theme.fontSansSemiBold },
+                styles.eyebrow,
+                { color: theme.primary, fontFamily: theme.fontSansSemiBold },
               ]}
             >
-              Herramientas para especialistas en salud mental
+              HERA PARA PROFESIONALES
+            </Text>
+            <Text
+              accessibilityRole="header"
+              style={[
+                styles.title,
+                isDesktop && styles.titleDesktop,
+                { color: theme.textPrimary, fontFamily: theme.fontDisplay },
+              ]}
+            >
+              Hazte visible. Gestiona tu consulta.
+            </Text>
+            <Text
+              style={[
+                styles.subtitle,
+                { color: theme.textSecondary, fontFamily: theme.fontSans },
+              ]}
+            >
+              Dos partes de un mismo recorrido: ayudar a nuevas personas a conocerte
+              y darte un espacio fiable para cuidar el trabajo que viene después.
             </Text>
           </View>
+        </MotionView>
 
-          <Text
-            style={[
-              styles.title,
-              { color: theme.textPrimary, fontFamily: theme.fontDisplay },
-              isDesktop && styles.titleDesktop,
-            ]}
-          >
-            Un espacio de trabajo para llevar mejor tu consulta
-          </Text>
-
-          <Text
-            style={[
-              styles.subtitle,
-              { color: theme.textSecondary, fontFamily: theme.fontSans },
-            ]}
-          >
-            HERA reúne lo que más se repite en la gestión diaria: pacientes,
-            calendario, disponibilidad, perfil público, facturación y seguimiento.
-            Todo con una interfaz calmada y pensada para salud mental.
-          </Text>
-
-          <View style={[styles.benefitsGrid, isDesktop && styles.benefitsGridDesktop]}>
-            {BENEFITS.map((benefit) => (
+        <View style={[styles.pillars, isDesktop && styles.pillarsDesktop]}>
+          {PILLARS.map((pillar, index) => (
+            <MotionView
+              key={pillar.eyebrow}
+              entering="fadeInUp"
+              delay={90 + index * 80}
+              style={isDesktop ? styles.pillarMotion : undefined}
+            >
               <View
-                key={benefit.text}
                 style={[
-                  styles.benefitItem,
-                  (isDesktop || isTablet) && styles.benefitItemTwoColumn,
+                  styles.pillar,
                   {
                     backgroundColor: theme.bgCard,
                     borderColor: theme.border,
-                    shadowColor: theme.shadowNeutral,
+                    shadowColor: theme.shadowCard,
                   },
                 ]}
               >
-                <View style={[styles.benefitIcon, { backgroundColor: theme.secondaryAlpha12 }]}>
-                  <Ionicons name={benefit.icon} size={18} color={theme.secondary} />
+                <View style={styles.pillarHeader}>
+                  <View style={[styles.pillarIcon, { backgroundColor: theme.primaryAlpha12 }]}>
+                    <Ionicons name={pillar.icon} size={25} color={theme.primary} />
+                  </View>
+                  <Text
+                    style={[
+                      styles.pillarEyebrow,
+                      { color: theme.primary, fontFamily: theme.fontSansSemiBold },
+                    ]}
+                  >
+                    {pillar.eyebrow}
+                  </Text>
                 </View>
                 <Text
                   style={[
-                    styles.benefitText,
-                    { color: theme.textPrimary, fontFamily: theme.fontSans },
+                    styles.pillarTitle,
+                    { color: theme.textPrimary, fontFamily: theme.fontSansBold },
                   ]}
                 >
-                  {benefit.text}
+                  {pillar.title}
                 </Text>
+                <Text
+                  style={[
+                    styles.pillarDescription,
+                    { color: theme.textSecondary, fontFamily: theme.fontSans },
+                  ]}
+                >
+                  {pillar.description}
+                </Text>
+                <View style={styles.features}>
+                  {pillar.features.map((feature) => (
+                    <View key={feature} style={styles.feature}>
+                      <Ionicons name="checkmark" size={17} color={theme.success} />
+                      <Text
+                        style={[
+                          styles.featureText,
+                          { color: theme.textPrimary, fontFamily: theme.fontSansMedium },
+                        ]}
+                      >
+                        {feature}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
               </View>
-            ))}
-          </View>
+            </MotionView>
+          ))}
+        </View>
 
+        <View style={[styles.actionsRow, isMobile && styles.actionsMobile]}>
           <AnimatedPressable
-            style={[
-              styles.cta,
-              {
-                backgroundColor: isDark ? theme.bgElevated : theme.bgCard,
-                borderColor: theme.secondaryLight,
-                shadowColor: theme.shadowNeutral,
-              },
-            ]}
-            onPress={onLearnMore}
+            onPress={onPrimaryAction}
+            pressScale={0.97}
             hoverLift
-            pressScale={0.98}
+            accessibilityRole="button"
+            accessibilityLabel={primaryActionLabel}
+            style={[styles.primaryAction, { backgroundColor: theme.actionPrimary }]}
           >
             <Text
               style={[
-                styles.ctaText,
-                { color: theme.secondaryDark, fontFamily: theme.fontSansSemiBold },
+                styles.primaryActionText,
+                { color: theme.actionPrimaryText, fontFamily: theme.fontSansBold },
               ]}
             >
-              Entrar en mi espacio profesional
+              {primaryActionLabel}
             </Text>
-            <Ionicons name="arrow-forward" size={18} color={theme.secondaryDark} />
+            <Ionicons name="arrow-forward" size={19} color={theme.actionPrimaryText} />
+          </AnimatedPressable>
+
+          {showLoginAction ? (
+            <AnimatedPressable
+              onPress={onLogin}
+              pressScale={0.97}
+              hoverLift={false}
+              accessibilityRole="button"
+              accessibilityLabel="Iniciar sesión como profesional"
+              style={[
+                styles.secondaryAction,
+                { backgroundColor: theme.bgCard, borderColor: theme.borderStrong },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.secondaryActionText,
+                  { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
+                ]}
+              >
+                Iniciar sesión
+              </Text>
+            </AnimatedPressable>
+          ) : null}
+        </View>
+
+        <View style={[styles.clinicLine, { borderTopColor: theme.border }]}>
+          <View style={styles.clinicCopy}>
+            <Ionicons name="business-outline" size={20} color={theme.primary} />
+            <Text
+              style={[
+                styles.clinicText,
+                { color: theme.textSecondary, fontFamily: theme.fontSans },
+              ]}
+            >
+              ¿Gestionas un centro? Accede al espacio específico para clínicas.
+            </Text>
+          </View>
+          <AnimatedPressable
+            onPress={onClinicAccess}
+            hoverLift={false}
+            pressScale={0.97}
+            accessibilityRole="link"
+            accessibilityLabel="Acceso para clínicas"
+            style={styles.clinicAction}
+          >
+            <Text
+              style={[
+                styles.clinicActionText,
+                { color: theme.primary, fontFamily: theme.fontSansSemiBold },
+              ]}
+            >
+              Acceso para clínicas
+            </Text>
+            <Ionicons name="arrow-forward" size={17} color={theme.primary} />
           </AnimatedPressable>
         </View>
       </View>
-    </View>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 60,
+    paddingVertical: 72,
     paddingHorizontal: 20,
   },
   containerDesktop: {
-    paddingVertical: 80,
+    paddingVertical: 88,
     paddingHorizontal: 60,
   },
   content: {
-    maxWidth: 1200,
     width: '100%',
+    maxWidth: 1200,
     alignSelf: 'center',
   },
-  contentDesktop: {
+  intro: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 60,
+    gap: 18,
+    maxWidth: 850,
+    marginBottom: 42,
   },
-  contentTablet: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 40,
+  introRule: {
+    width: 4,
+    borderRadius: 2,
   },
-  illustrationContainer: {
-    flex: 0.4,
-    alignItems: 'center',
-    justifyContent: 'center',
+  introCopy: {
+    flex: 1,
   },
-  illustrationContainerDesktop: {
-    flex: 0.45,
-  },
-  illustrationWrapper: {
-    width: 280,
-    height: 280,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  centralIcon: {
-    width: 110,
-    height: 110,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  floatingBadge: {
-    position: 'absolute',
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  badge1: {
-    top: 26,
-    right: 42,
-  },
-  badge2: {
-    bottom: 42,
-    left: 28,
-  },
-  badge3: {
-    top: 102,
-    left: 18,
-  },
-  textContainer: {
-    alignItems: 'flex-start',
-  },
-  textContainerDesktop: {
-    flex: 0.55,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 20,
-    gap: 6,
-    borderWidth: 1,
-  },
-  badgeText: {
-    fontSize: 13,
+  eyebrow: {
+    fontSize: 12,
+    letterSpacing: 1.5,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 32,
-    marginBottom: 16,
+    fontSize: 35,
+    lineHeight: 43,
+    marginBottom: 13,
   },
   titleDesktop: {
-    fontSize: 40,
+    fontSize: 48,
+    lineHeight: 56,
   },
   subtitle: {
     fontSize: 17,
-    lineHeight: 26,
-    marginBottom: 28,
-    maxWidth: 520,
+    lineHeight: 27,
+    maxWidth: 780,
   },
-  benefitsGrid: {
+  pillars: {
+    gap: 18,
+  },
+  pillarsDesktop: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 32,
+    alignItems: 'stretch',
   },
-  benefitsGridDesktop: {
-    gap: 16,
+  pillarMotion: {
+    flex: 1,
   },
-  benefitItem: {
+  pillar: {
+    height: '100%',
+    minHeight: 390,
+    padding: 30,
+    borderRadius: 20,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 22,
+    elevation: 3,
+  },
+  pillarHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    gap: 8,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
+    gap: 12,
+    marginBottom: 22,
   },
-  benefitItemTwoColumn: {
-    width: '48%',
-  },
-  benefitIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  pillarIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  benefitText: {
-    fontSize: 14,
-    maxWidth: 250,
+  pillarEyebrow: {
+    fontSize: 11,
+    letterSpacing: 1.4,
   },
-  cta: {
+  pillarTitle: {
+    fontSize: 23,
+    lineHeight: 30,
+    marginBottom: 12,
+  },
+  pillarDescription: {
+    fontSize: 15,
+    lineHeight: 23,
+    marginBottom: 23,
+  },
+  features: {
+    gap: 12,
+  },
+  feature: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    gap: 10,
-    borderWidth: 1.5,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 18,
-    elevation: 3,
+    gap: 9,
   },
-  ctaText: {
+  featureText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  actionsRow: {
+    marginTop: 28,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  actionsMobile: {
+    flexDirection: 'column',
+  },
+  primaryAction: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    gap: 9,
+  },
+  primaryActionText: {
     fontSize: 16,
+  },
+  secondaryAction: {
+    minHeight: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  secondaryActionText: {
+    fontSize: 15,
+  },
+  clinicLine: {
+    marginTop: 34,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 18,
+  },
+  clinicCopy: {
+    flex: 1,
+    minWidth: 240,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  clinicText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  clinicAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 7,
+  },
+  clinicActionText: {
+    fontSize: 14,
   },
 });

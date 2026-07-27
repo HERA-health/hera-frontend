@@ -1,65 +1,29 @@
-/**
- * TrustIndicatorsSection
- *
- * Reframed as a trust and privacy section for sensitive mental-health work.
- * Uses theme tokens only.
- */
-
-import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  useWindowDimensions,
-  Animated,
-  Platform,
-} from 'react-native';
+import React from 'react';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { MotionView } from '../../../components/common/MotionView';
 import { useTheme } from '../../../contexts/ThemeContext';
 
-interface CapabilityCard {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  description: string;
-  accent: 'primary' | 'secondary' | 'success' | 'warning' | 'info';
-}
-
-const capabilityCards: CapabilityCard[] = [
+const TRUST_ITEMS = [
   {
-    icon: 'ribbon-outline',
+    icon: 'checkmark-circle-outline' as const,
     title: 'Verificación profesional',
-    description: 'Flujos para revisar documentación y proteger la calidad del acceso profesional.',
-    accent: 'primary',
+    description: 'Los perfiles públicos pasan por un proceso de verificación antes de mostrarse.',
   },
   {
-    icon: 'shield-checkmark-outline',
-    title: 'Privacidad por defecto',
-    description: 'La experiencia se diseña minimizando exposición de datos sensibles y ruido operativo.',
-    accent: 'secondary',
+    icon: 'lock-closed-outline' as const,
+    title: 'Privacidad por diseño',
+    description: 'La experiencia se plantea para reducir la exposición de información sensible.',
   },
   {
-    icon: 'document-text-outline',
-    title: 'Consentimientos claros',
-    description: 'Soporte para consentimiento clínico, aceptación legal y trazabilidad cuando el flujo lo requiere.',
-    accent: 'success',
+    icon: 'document-lock-outline' as const,
+    title: 'Consentimientos y documentación',
+    description: 'Los flujos profesionales reúnen documentos y consentimientos con acceso protegido.',
   },
   {
-    icon: 'folder-open-outline',
-    title: 'Documentación protegida',
-    description: 'Documentos profesionales y clínicos tratados como información privada, no como adjuntos genéricos.',
-    accent: 'warning',
-  },
-  {
-    icon: 'key-outline',
-    title: 'Área clínica segura',
-    description: 'Acceso clínico con desbloqueo dedicado para separar la gestión diaria de la información más sensible.',
-    accent: 'info',
-  },
-  {
-    icon: 'lock-closed-outline',
-    title: 'RGPD y LOPDGDD',
-    description: 'Comunicación alineada con el marco de protección de datos aplicable en España.',
-    accent: 'primary',
+    icon: 'shield-checkmark-outline' as const,
+    title: 'Marco RGPD y LOPDGDD',
+    description: 'La gestión se diseña de acuerdo con el marco europeo y español de protección de datos.',
   },
 ];
 
@@ -67,147 +31,96 @@ export const TrustIndicatorsSection: React.FC = () => {
   const { width } = useWindowDimensions();
   const { theme } = useTheme();
   const isDesktop = width >= 1024;
-  const isTablet = width >= 768 && width < 1024;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: Platform.OS !== 'web',
-    }).start();
-  }, [fadeAnim]);
-
-  const getGridColumns = () => {
-    if (isDesktop) return 3;
-    if (isTablet) return 2;
-    return 1;
-  };
-
-  const getAccentColors = (accent: CapabilityCard['accent']) => {
-    switch (accent) {
-      case 'secondary':
-        return { icon: theme.secondary, bg: theme.secondaryAlpha12 };
-      case 'success':
-        return { icon: theme.success, bg: theme.successBg };
-      case 'warning':
-        return { icon: theme.warning, bg: theme.warningBg };
-      case 'info':
-        return { icon: theme.info, bg: theme.primaryAlpha12 };
-      default:
-        return { icon: theme.primary, bg: theme.primaryAlpha12 };
-    }
-  };
-
-  const renderCards = () => {
-    const columns = getGridColumns();
-    const rows: CapabilityCard[][] = [];
-
-    for (let i = 0; i < capabilityCards.length; i += columns) {
-      rows.push(capabilityCards.slice(i, i + columns));
-    }
-
-    return rows.map((row, rowIndex) => (
-      <View
-        key={rowIndex}
-        style={[
-          styles.row,
-          isDesktop && styles.rowDesktop,
-          isTablet && styles.rowTablet,
-        ]}
-      >
-        {row.map((card, cardIndex) => {
-          const accent = getAccentColors(card.accent);
-
-          return (
-            <Animated.View
-              key={card.title}
-              style={[
-                styles.card,
-                {
-                  backgroundColor: theme.bgCard,
-                  borderColor: theme.border,
-                  shadowColor: theme.shadowNeutral,
-                  opacity: fadeAnim,
-                  transform: [{
-                    translateY: fadeAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    }),
-                  }],
-                },
-                isDesktop && styles.cardDesktop,
-                isTablet && styles.cardTablet,
-              ]}
-            >
-              <View style={[styles.iconContainer, { backgroundColor: accent.bg }]}>
-                <Ionicons name={card.icon} size={26} color={accent.icon} />
-              </View>
-
-              <Text
-                style={[
-                  styles.title,
-                  { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
-                ]}
-              >
-                {card.title}
-              </Text>
-
-              <Text
-                style={[
-                  styles.description,
-                  { color: theme.textSecondary, fontFamily: theme.fontSans },
-                ]}
-              >
-                {card.description}
-              </Text>
-            </Animated.View>
-          );
-        })}
-      </View>
-    ));
-  };
+  const isTablet = width >= 640;
 
   return (
     <View
       style={[
         styles.container,
-        { backgroundColor: theme.bgMuted },
         isDesktop && styles.containerDesktop,
+        { backgroundColor: theme.landingCanvas },
       ]}
     >
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Text
-            style={[
-              styles.eyebrow,
-              { color: theme.primary, fontFamily: theme.fontSansSemiBold },
-            ]}
-          >
-            CONFIANZA
-          </Text>
-          <Text
-            style={[
-              styles.headerTitle,
-              { color: theme.textPrimary, fontFamily: theme.fontDisplay },
-              isDesktop && styles.headerTitleDesktop,
-            ]}
-          >
-            Seriedad para trabajar con información sensible
-          </Text>
-          <Text
-            style={[
-              styles.headerSubtitle,
-              { color: theme.textSecondary, fontFamily: theme.fontSans },
-            ]}
-          >
-            Una plataforma de salud mental no solo tiene que ser cómoda: también
-            debe cuidar la privacidad, la verificación, el consentimiento y cada
-            dato sensible desde el primer contacto.
-          </Text>
-        </View>
+      <View
+        style={[
+          styles.panel,
+          isDesktop && styles.panelDesktop,
+          {
+            backgroundColor: theme.landingTrustPanel,
+            borderColor: theme.landingPanelBorder,
+            shadowColor: theme.shadowCard,
+          },
+        ]}
+      >
+        <View style={styles.content}>
+          <MotionView entering="fadeInUp" style={styles.header}>
+            <Text
+              style={[
+                styles.eyebrow,
+                { color: theme.primary, fontFamily: theme.fontSansSemiBold },
+              ]}
+            >
+              CONFIANZA Y PRIVACIDAD
+            </Text>
+            <Text
+              accessibilityRole="header"
+              style={[
+                styles.title,
+                isDesktop && styles.titleDesktop,
+                { color: theme.textPrimary, fontFamily: theme.fontDisplay },
+              ]}
+            >
+              Seriedad para un contexto sensible
+            </Text>
+            <Text
+              style={[
+                styles.subtitle,
+                { color: theme.textSecondary, fontFamily: theme.fontSans },
+              ]}
+            >
+              Pruebas concretas para que pacientes y profesionales sepan qué pueden
+              esperar de HERA.
+            </Text>
+          </MotionView>
 
-        <View style={styles.grid}>{renderCards()}</View>
+          <View style={[styles.grid, isTablet && styles.gridWide]}>
+            {TRUST_ITEMS.map((item, index) => (
+              <MotionView
+                key={item.title}
+                entering="fadeInUp"
+                delay={70 + index * 55}
+                style={isTablet ? styles.itemMotion : undefined}
+              >
+                <View
+                  style={[
+                    styles.item,
+                    { backgroundColor: theme.bgCard, borderColor: theme.border },
+                  ]}
+                >
+                  <View style={[styles.icon, { backgroundColor: theme.primaryAlpha12 }]}>
+                    <Ionicons name={item.icon} size={23} color={theme.primary} />
+                  </View>
+                  <Text
+                    style={[
+                      styles.itemTitle,
+                      { color: theme.textPrimary, fontFamily: theme.fontSansBold },
+                    ]}
+                  >
+                    {item.title}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.itemDescription,
+                      { color: theme.textSecondary, fontFamily: theme.fontSans },
+                    ]}
+                  >
+                    {item.description}
+                  </Text>
+                </View>
+              </MotionView>
+            ))}
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -215,85 +128,90 @@ export const TrustIndicatorsSection: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 60,
+    paddingVertical: 28,
     paddingHorizontal: 20,
   },
   containerDesktop: {
-    paddingVertical: 100,
+    paddingVertical: 40,
     paddingHorizontal: 60,
   },
-  content: {
-    maxWidth: 1200,
+  panel: {
     width: '100%',
+    maxWidth: 1320,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderRadius: 24,
+    paddingVertical: 48,
+    paddingHorizontal: 22,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 1,
+    shadowRadius: 32,
+    elevation: 3,
+  },
+  panelDesktop: {
+    paddingVertical: 64,
+    paddingHorizontal: 60,
+    borderRadius: 30,
+  },
+  content: {
+    width: '100%',
+    maxWidth: 1200,
     alignSelf: 'center',
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 50,
+    maxWidth: 720,
+    marginBottom: 36,
   },
   eyebrow: {
     fontSize: 12,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
+    letterSpacing: 1.5,
     marginBottom: 12,
-  },
-  headerTitle: {
-    fontSize: 32,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  headerTitleDesktop: {
-    fontSize: 40,
-  },
-  headerSubtitle: {
-    fontSize: 17,
-    textAlign: 'center',
-    maxWidth: 760,
-  },
-  grid: {
-    gap: 20,
-  },
-  row: {
-    gap: 20,
-  },
-  rowDesktop: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  rowTablet: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  card: {
-    borderRadius: 18,
-    padding: 24,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 1,
-    shadowRadius: 20,
-    elevation: 4,
-  },
-  cardDesktop: {
-    flex: 1,
-    maxWidth: 360,
-  },
-  cardTablet: {
-    flex: 1,
-    maxWidth: 340,
-  },
-  iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
   },
   title: {
-    fontSize: 20,
+    fontSize: 34,
+    lineHeight: 42,
+    marginBottom: 11,
+  },
+  titleDesktop: {
+    fontSize: 44,
+    lineHeight: 52,
+  },
+  subtitle: {
+    fontSize: 17,
+    lineHeight: 26,
+  },
+  grid: {
+    gap: 14,
+  },
+  gridWide: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  itemMotion: {
+    width: '48.8%',
+    flexGrow: 1,
+  },
+  item: {
+    height: '100%',
+    minHeight: 210,
+    padding: 24,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  icon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  itemTitle: {
+    fontSize: 18,
+    lineHeight: 24,
     marginBottom: 8,
   },
-  description: {
+  itemDescription: {
     fontSize: 14,
     lineHeight: 22,
   },

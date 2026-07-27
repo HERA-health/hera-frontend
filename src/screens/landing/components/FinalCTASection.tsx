@@ -1,98 +1,151 @@
 import React from 'react';
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { useTheme } from '../../../contexts/ThemeContext';
 
 interface FinalCTASectionProps {
   onFindSpecialist: () => void;
-  onJoinAsProfessional?: () => void;
-  onJoinAsClinic: () => void;
+  professionalActionLabel: string;
+  onProfessionalAction: () => void;
 }
 
 export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
   onFindSpecialist,
-  onJoinAsProfessional,
-  onJoinAsClinic,
+  professionalActionLabel,
+  onProfessionalAction,
 }) => {
   const { width } = useWindowDimensions();
-  const { theme, isDark } = useTheme();
-  const isDesktop = width >= 1024;
-  const foregroundColor = theme.textOnPrimary;
-  const foregroundMutedColor = isDark ? 'rgba(16, 23, 20, 0.74)' : 'rgba(255, 255, 255, 0.9)';
-  const ctaTextColor = isDark ? theme.bg : theme.primaryDark;
-
-  const benefits = [
-    { icon: 'checkmark-circle' as const, text: 'Agenda y seguimiento' },
-    { icon: 'checkmark-circle' as const, text: 'Disponibilidad y sesiones' },
-    { icon: 'checkmark-circle' as const, text: 'Facturación, RGPD y LOPDGDD' },
-  ];
+  const { theme } = useTheme();
+  const isDesktop = width >= 900;
 
   return (
-    <View style={[styles.container, isDesktop && styles.containerDesktop, { backgroundColor: theme.primary }]}>
-      <View style={styles.content}>
-        <Text style={[styles.eyebrow, { color: foregroundMutedColor, fontFamily: theme.fontSansSemiBold }]}>
-          ESPACIO PROFESIONAL
-        </Text>
-
-        <Text
-          style={[
-            styles.title,
-            isDesktop && styles.titleDesktop,
-            { color: foregroundColor, fontFamily: theme.fontDisplay },
-          ]}
-        >
-          Centraliza tu consulta de salud mental en un solo lugar
-        </Text>
-
-        <Text
-          style={[
-            styles.subtitle,
-            isDesktop && styles.subtitleDesktop,
-            { color: foregroundMutedColor, fontFamily: theme.fontSans },
-          ]}
-        >
-          Organiza agenda, pacientes, sesiones, disponibilidad y negocio con una experiencia más clara y más coherente para el trabajo diario en salud mental.
-        </Text>
-
-        <TouchableOpacity
-          style={[styles.cta, isDesktop && styles.ctaDesktop]}
-          onPress={onJoinAsProfessional ?? onFindSpecialist}
-          activeOpacity={0.9}
-        >
-          <Text style={[styles.ctaText, { color: ctaTextColor, fontFamily: theme.fontSansBold }]}>
-            Entrar como profesional
+    <View
+      style={[
+        styles.container,
+        isDesktop && styles.containerDesktop,
+        { backgroundColor: theme.landingCanvas },
+      ]}
+    >
+      <View
+        style={[
+          styles.panel,
+          isDesktop && styles.panelDesktop,
+          {
+            backgroundColor: theme.landingCta,
+            borderColor: theme.landingPanelBorder,
+            shadowColor: theme.shadowStrong,
+          },
+        ]}
+      >
+        <View style={styles.content}>
+          <Text
+            style={[
+              styles.eyebrow,
+              { color: theme.landingCtaMutedText, fontFamily: theme.fontSansSemiBold },
+            ]}
+          >
+            DOS FORMAS DE EMPEZAR
           </Text>
-          <Ionicons name="arrow-forward" size={20} color={ctaTextColor} />
-        </TouchableOpacity>
+          <Text
+            accessibilityRole="header"
+            style={[
+              styles.title,
+              isDesktop && styles.titleDesktop,
+              { color: theme.landingCtaText, fontFamily: theme.fontDisplay },
+            ]}
+          >
+            Empieza por lo que necesitas hoy
+          </Text>
+          <Text
+            style={[
+              styles.subtitle,
+              { color: theme.landingCtaMutedText, fontFamily: theme.fontSans },
+            ]}
+          >
+            Explora apoyo profesional o construye un espacio más claro para tu consulta.
+          </Text>
 
-        <View style={[styles.benefits, isDesktop && styles.benefitsDesktop]}>
-          {benefits.map((benefit) => (
-            <View key={benefit.text} style={styles.benefitItem}>
-              <Ionicons name={benefit.icon} size={18} color={foregroundColor} />
-              <Text style={[styles.benefitText, { color: foregroundColor, fontFamily: theme.fontSansMedium }]}>
-                {benefit.text}
-              </Text>
-            </View>
-          ))}
+          <View style={[styles.doors, isDesktop && styles.doorsDesktop]}>
+            <AnimatedPressable
+              onPress={onFindSpecialist}
+              pressScale={0.98}
+              hoverLift
+              accessibilityRole="link"
+              accessibilityLabel="Explorar profesionales"
+              style={[
+                styles.door,
+                {
+                  backgroundColor: theme.bgCard,
+                  borderColor: theme.borderLight,
+                  shadowColor: theme.shadowNeutral,
+                },
+              ]}
+            >
+              <View style={[styles.icon, { backgroundColor: theme.primaryAlpha12 }]}>
+                <Ionicons name="search-outline" size={24} color={theme.primary} />
+              </View>
+              <View style={styles.doorCopy}>
+                <Text
+                  style={[
+                    styles.doorEyebrow,
+                    { color: theme.textMuted, fontFamily: theme.fontSansSemiBold },
+                  ]}
+                >
+                  BUSCO APOYO
+                </Text>
+                <Text
+                  style={[
+                    styles.doorTitle,
+                    { color: theme.textPrimary, fontFamily: theme.fontSansBold },
+                  ]}
+                >
+                  Explorar profesionales
+                </Text>
+              </View>
+              <Ionicons name="arrow-forward" size={21} color={theme.primary} />
+            </AnimatedPressable>
+
+            <AnimatedPressable
+              onPress={onProfessionalAction}
+              pressScale={0.98}
+              hoverLift
+              accessibilityRole="button"
+              accessibilityLabel={professionalActionLabel}
+              style={[
+                styles.door,
+                {
+                  backgroundColor: theme.bgCard,
+                  borderColor: theme.borderLight,
+                  shadowColor: theme.shadowNeutral,
+                },
+              ]}
+            >
+              <View style={[styles.icon, { backgroundColor: theme.secondaryAlpha12 }]}>
+                <Ionicons name="briefcase-outline" size={24} color={theme.secondaryDark} />
+              </View>
+              <View style={styles.doorCopy}>
+                <Text
+                  style={[
+                    styles.doorEyebrow,
+                    { color: theme.textMuted, fontFamily: theme.fontSansSemiBold },
+                  ]}
+                >
+                  SOY PROFESIONAL
+                </Text>
+                <Text
+                  style={[
+                    styles.doorTitle,
+                    { color: theme.textPrimary, fontFamily: theme.fontSansBold },
+                  ]}
+                >
+                  {professionalActionLabel}
+                </Text>
+              </View>
+              <Ionicons name="arrow-forward" size={21} color={theme.secondaryDark} />
+            </AnimatedPressable>
+          </View>
         </View>
-
-        <TouchableOpacity onPress={onFindSpecialist} activeOpacity={0.8}>
-          <Text style={[styles.secondaryLink, { color: foregroundMutedColor, fontFamily: theme.fontSansSemiBold }]}>
-            ¿Buscas terapia? Encuentra especialistas aquí.
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={onJoinAsClinic} activeOpacity={0.8}>
-          <Text style={[styles.secondaryLink, styles.clinicLink, { color: foregroundMutedColor, fontFamily: theme.fontSansSemiBold }]}>
-            Acceso para clínicas
-          </Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -100,94 +153,101 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 80,
+    paddingVertical: 34,
     paddingHorizontal: 20,
-    position: 'relative',
-    overflow: 'hidden',
   },
   containerDesktop: {
-    paddingVertical: 120,
+    paddingTop: 40,
+    paddingBottom: 48,
+    paddingHorizontal: 60,
+  },
+  panel: {
+    width: '100%',
+    maxWidth: 1400,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderRadius: 24,
+    paddingVertical: 64,
+    paddingHorizontal: 20,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 22 },
+    shadowOpacity: 0.24,
+    shadowRadius: 38,
+    elevation: 5,
+  },
+  panelDesktop: {
+    borderRadius: 30,
+    paddingVertical: 84,
     paddingHorizontal: 60,
   },
   content: {
-    maxWidth: 840,
     width: '100%',
+    maxWidth: 1080,
     alignSelf: 'center',
     alignItems: 'center',
   },
   eyebrow: {
     fontSize: 12,
-    letterSpacing: 0,
-    textTransform: 'uppercase',
-    marginBottom: 16,
+    letterSpacing: 1.5,
+    marginBottom: 12,
+    opacity: 0.78,
   },
   title: {
-    fontSize: 32,
+    fontSize: 35,
+    lineHeight: 43,
     textAlign: 'center',
-    marginBottom: 16,
-    letterSpacing: 0,
+    marginBottom: 12,
   },
   titleDesktop: {
-    fontSize: 44,
+    fontSize: 48,
+    lineHeight: 56,
   },
   subtitle: {
     fontSize: 17,
-    textAlign: 'center',
     lineHeight: 26,
-    marginBottom: 36,
-  },
-  subtitleDesktop: {
-    fontSize: 18,
-    lineHeight: 28,
-  },
-  cta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 18,
-    paddingHorizontal: 36,
-    borderRadius: 14,
-    gap: 10,
-    shadowColor: 'rgba(62, 92, 79, 0.20)',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 1,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  ctaDesktop: {
-    paddingVertical: 20,
-    paddingHorizontal: 48,
-  },
-  ctaText: {
-    fontSize: 17,
-    letterSpacing: 0,
-  },
-  benefits: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 24,
-    marginTop: 32,
-    marginBottom: 24,
-  },
-  benefitsDesktop: {
-    gap: 40,
-  },
-  benefitItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  benefitText: {
-    fontSize: 14,
-  },
-  secondaryLink: {
-    fontSize: 14,
-    textDecorationLine: 'underline',
     textAlign: 'center',
+    opacity: 0.86,
+    marginBottom: 34,
   },
-  clinicLink: {
-    marginTop: 10,
+  doors: {
+    width: '100%',
+    gap: 14,
+  },
+  doorsDesktop: {
+    flexDirection: 'row',
+  },
+  door: {
+    flex: 1,
+    minHeight: 112,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 22,
+    paddingVertical: 20,
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 14,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 2,
+  },
+  icon: {
+    width: 50,
+    height: 50,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doorCopy: {
+    flex: 1,
+  },
+  doorEyebrow: {
+    fontSize: 10,
+    letterSpacing: 1.2,
+    marginBottom: 5,
+  },
+  doorTitle: {
+    fontSize: 17,
+    lineHeight: 23,
   },
 });

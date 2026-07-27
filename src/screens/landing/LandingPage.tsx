@@ -4,17 +4,7 @@
  * Production-ready landing page combining all sections.
  * Premium healthcare meets modern SaaS design.
  *
- * Sections:
- * 1. Hero - Hook visitors in 3 seconds with dual CTAs
- * 2. How It Works - Show simplicity in 3 steps
- * 3. About Us - Explain the product direction with a human tone
- * 4. For Specialists - Product-focused section for professionals
- * 5. Trust Indicators - Show sensitive workflow safeguards
- * 6. Specializations - Show breadth of supported practice areas
- * 7. Testimonials - Reframed as real use cases
- * 8. FAQ - Answer mixed professional and patient questions
- * 9. Final CTA - Convert after they've seen everything
- * 10. Footer - Navigation and legal
+ * One public entry point with distinct patient and professional journeys.
  */
 
 import React, { useRef, useCallback, useEffect, useState } from 'react';
@@ -37,37 +27,54 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { createWebDeferredComponent } from '../../utils/createDeferredComponent';
 import { useWebPageMetadata } from '../../hooks/useWebPageMetadata';
+import * as analyticsService from '../../services/analyticsService';
+import type { ProfessionalSpecialtyValue } from '../../constants/professionalMatchingOptions';
 import {
   LANDING_SECTION_NATIVE_IDS,
+  isLandingSectionAnchor,
   type LandingSectionAnchor,
 } from './types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Landing'>;
 
-type SectionPositions = Partial<Record<LandingSectionAnchor, number>>;
+type SectionLayout = {
+  y: number;
+  height: number;
+};
+type SectionLayouts = Partial<Record<LandingSectionAnchor, SectionLayout>>;
 type DeferredSectionProps = Record<string, never>;
-type SpecialistCTASectionProps = {
-  onLearnMore: () => void;
+type ProfessionalCTASectionProps = {
+  primaryActionLabel: string;
+  showLoginAction: boolean;
+  onPrimaryAction: () => void;
+  onLogin: () => void;
+  onClinicAccess: () => void;
 };
 type FeaturedSpecialistsSectionProps = {
   onOpenSpecialist: (specialistId: string) => void;
   onViewAll: () => void;
 };
 type SpecializationsSectionProps = {
-  onSpecializationPress: (specializationId: string) => void;
+  onSpecializationPress: (specializationId: ProfessionalSpecialtyValue) => void;
 };
-type SharedCTASectionProps = {
+type FinalCTASectionProps = {
   onFindSpecialist: () => void;
-  onJoinAsProfessional: () => void;
-  onJoinAsClinic: () => void;
+  professionalActionLabel: string;
+  onProfessionalAction: () => void;
 };
-type FooterSectionProps = SharedCTASectionProps & {
+type FooterSectionProps = {
+  onFindSpecialist: () => void;
+  professionalActionLabel: string;
+  onProfessionalAction: () => void;
+  onProfessionalLogin: () => void;
+  onClinicAccess: () => void;
   onScrollToSection: (section: LandingSectionAnchor) => void;
 };
 
 const HEADER_SCROLL_THRESHOLD = 50;
 const SCROLL_INDICATOR_THRESHOLD = 80;
 const HEADER_HEIGHT = 80;
+const SCROLL_CONTENT_TOP_PADDING = 70;
 const DEFERRED_SECTIONS_DELAY_MS = 180;
 
 const getRequestedLandingSection = (
@@ -83,11 +90,7 @@ const getRequestedLandingSection = (
 
   const querySection = new URLSearchParams(window.location.search).get('section');
 
-  if (querySection && querySection in LANDING_SECTION_NATIVE_IDS) {
-    return querySection as LandingSectionAnchor;
-  }
-
-  return undefined;
+  return isLandingSectionAnchor(querySection) ? querySection : undefined;
 };
 
 const HowItWorksSection = createWebDeferredComponent<DeferredSectionProps>(
@@ -116,15 +119,7 @@ const AboutUsSection = createWebDeferredComponent<DeferredSectionProps>(
   () => import('./components/AboutUsSection'),
   { displayName: 'DeferredAboutUsSection', exportName: 'AboutUsSection' }
 );
-const TestimonialsSection = createWebDeferredComponent<DeferredSectionProps>(
-  () => require('./components/TestimonialsSection'),
-  () => import('./components/TestimonialsSection'),
-  {
-    displayName: 'DeferredTestimonialsSection',
-    exportName: 'TestimonialsSection',
-  }
-);
-const ForSpecialistsSection = createWebDeferredComponent<SpecialistCTASectionProps>(
+const ForSpecialistsSection = createWebDeferredComponent<ProfessionalCTASectionProps>(
   () => require('./components/ForSpecialistsSection'),
   () => import('./components/ForSpecialistsSection'),
   {
@@ -145,7 +140,7 @@ const FAQSection = createWebDeferredComponent<DeferredSectionProps>(
   () => import('./components/FAQSection'),
   { displayName: 'DeferredFAQSection', exportName: 'FAQSection' }
 );
-const FinalCTASection = createWebDeferredComponent<SharedCTASectionProps>(
+const FinalCTASection = createWebDeferredComponent<FinalCTASectionProps>(
   () => require('./components/FinalCTASection'),
   () => import('./components/FinalCTASection'),
   { displayName: 'DeferredFinalCTASection', exportName: 'FinalCTASection' }
@@ -168,7 +163,7 @@ export const LandingPage: React.FC = () => {
   const requestedLandingSection = getRequestedLandingSection(route.params?.section);
   const { theme, isDark } = useTheme();
   const scrollViewRef = useRef<ScrollView>(null);
-  const sectionPositions = useRef<SectionPositions>({});
+  const sectionLayouts = useRef<SectionLayouts>({});
   const pendingSectionScroll = useRef<LandingSectionAnchor | null>(null);
   const headerScrolledRef = useRef(false);
   const scrollIndicatorVisibleRef = useRef(true);
@@ -199,12 +194,13 @@ export const LandingPage: React.FC = () => {
   }, [revealDeferredSections, showDeferredSections]);
 
   const scrollToSection = useCallback((section: LandingSectionAnchor): boolean => {
-    const yPosition = sectionPositions.current[section];
-    if (yPosition === undefined) {
+    const measuredLayout = sectionLayouts.current[section];
+
+    if (!measuredLayout || measuredLayout.height <= 0) {
       return false;
     }
 
-    const adjustedPosition = Math.max(0, yPosition - HEADER_HEIGHT + 70);
+    const adjustedPosition = Math.max(0, measuredLayout.y - HEADER_HEIGHT + 70);
     scrollViewRef.current?.scrollTo({ y: adjustedPosition, animated: true });
     return true;
   }, []);
@@ -239,11 +235,20 @@ export const LandingPage: React.FC = () => {
 
   const handleSectionLayout = useCallback(
     (section: LandingSectionAnchor) => (event: LayoutChangeEvent) => {
-      sectionPositions.current[section] = event.nativeEvent.layout.y;
+      const { y, height } = event.nativeEvent.layout;
 
-      if (pendingSectionScroll.current === section) {
+      if (height <= 0) {
+        delete sectionLayouts.current[section];
+        return;
+      }
+
+      sectionLayouts.current[section] = { y, height };
+
+      if (
+        pendingSectionScroll.current === section
+        && scrollToSection(section)
+      ) {
         pendingSectionScroll.current = null;
-        scrollToSection(section);
       }
     },
     [scrollToSection]
@@ -309,24 +314,40 @@ export const LandingPage: React.FC = () => {
     verificationSubmitted,
   ]);
 
-  const handleFindSpecialist = useCallback(() => {
-    if (isAuthenticated) {
-      navigation.navigate('PublicSpecialists');
-      return;
-    }
+  const navigateToSpecialists = useCallback(() => {
+    navigation.navigate('PublicSpecialists');
+  }, [navigation]);
 
-    navigation.navigate('Login', { userType: 'CLIENT' });
-  }, [isAuthenticated, navigation]);
+  const handlePatientCTA = useCallback((placement: string) => {
+    analyticsService.track('landing_patient_cta_clicked', {
+      placement,
+      audience: 'patient',
+    });
+    navigateToSpecialists();
+  }, [navigateToSpecialists]);
 
   const handleOpenPublicSpecialist = useCallback((specialistId: string) => {
     navigation.navigate('PublicSpecialistProfile', { specialistId });
   }, [navigation]);
 
   const handleViewAllSpecialists = useCallback(() => {
-    navigation.navigate('PublicSpecialists');
-  }, [navigation]);
+    handlePatientCTA('featured_specialists');
+  }, [handlePatientCTA]);
 
-  const handleJoinAsProfessional = useCallback(() => {
+  const handleProfessionalRegister = useCallback((placement: string) => {
+    analyticsService.track('landing_professional_register_clicked', {
+      placement,
+      audience: 'professional',
+    });
+
+    if (navigateToAuthenticatedWorkspace()) {
+      return;
+    }
+
+    navigation.navigate('Register', { userType: 'PROFESSIONAL' });
+  }, [navigateToAuthenticatedWorkspace, navigation]);
+
+  const handleProfessionalLogin = useCallback(() => {
     if (navigateToAuthenticatedWorkspace()) {
       return;
     }
@@ -334,7 +355,12 @@ export const LandingPage: React.FC = () => {
     navigation.navigate('Login', { userType: 'PROFESSIONAL' });
   }, [navigateToAuthenticatedWorkspace, navigation]);
 
-  const handleJoinAsClinic = useCallback(() => {
+  const handleClinicAccess = useCallback((placement: string) => {
+    analyticsService.track('landing_clinic_access_clicked', {
+      placement,
+      audience: 'clinic',
+    });
+
     if (navigateToAuthenticatedWorkspace()) {
       return;
     }
@@ -343,27 +369,29 @@ export const LandingPage: React.FC = () => {
   }, [navigateToAuthenticatedWorkspace, navigation]);
 
   const handleSpecializationPress = useCallback(
-    (specializationId: string) => {
-      if (isAuthenticated) {
-        navigation.navigate('PublicSpecialists');
-        return;
-      }
-
-      navigation.navigate('Login', {
-        userType: 'CLIENT',
-        specialization: specializationId,
-      });
+    (specializationId: ProfessionalSpecialtyValue) => {
+      navigation.navigate('PublicSpecialists', { specialty: specializationId });
     },
-    [isAuthenticated, navigation]
+    [navigation]
   );
 
-  const handleLearnMoreProfessional = useCallback(() => {
-    if (navigateToAuthenticatedWorkspace()) {
-      return;
-    }
+  const handleExploreProfessionals = useCallback((placement: string) => {
+    analyticsService.track('landing_professional_cta_clicked', {
+      placement,
+      audience: 'professional',
+    });
+    handleScrollToSection('forSpecialists');
+  }, [handleScrollToSection]);
 
-    navigation.navigate('Login', { userType: 'PROFESSIONAL' });
+  const handleAccess = useCallback(() => {
+    if (!navigateToAuthenticatedWorkspace()) {
+      navigation.navigate('Welcome');
+    }
   }, [navigateToAuthenticatedWorkspace, navigation]);
+
+  const professionalActionLabel = isAuthenticated
+    ? 'Ir a mi espacio'
+    : 'Crear cuenta profesional';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -373,11 +401,12 @@ export const LandingPage: React.FC = () => {
       />
 
       <LandingHeader
+        context="landing"
         isScrolled={headerScrolled}
-        showAccessActions={!isAuthenticated}
-        onFindSpecialist={handleFindSpecialist}
-        onJoinAsProfessional={handleJoinAsProfessional}
-        onJoinAsClinic={handleJoinAsClinic}
+        accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
+        onFindSpecialist={() => handlePatientCTA('header')}
+        onExploreProfessionals={() => handleExploreProfessionals('header')}
+        onAccess={handleAccess}
         onScrollToSection={handleScrollToSection}
       />
 
@@ -390,9 +419,8 @@ export const LandingPage: React.FC = () => {
         scrollEventThrottle={24}
       >
         <HeroSection
-          onFindSpecialist={handleFindSpecialist}
-          onJoinAsProfessional={handleJoinAsProfessional}
-          onJoinAsClinic={handleJoinAsClinic}
+          onFindSpecialist={() => handlePatientCTA('hero')}
+          onExploreProfessionals={() => handleExploreProfessionals('hero')}
           showScrollIndicator={showScrollIndicator}
           onScrollIndicatorPress={handleScrollToContent}
         />
@@ -400,14 +428,8 @@ export const LandingPage: React.FC = () => {
         {showDeferredSections && (
           <>
             <View
-              nativeID={LANDING_SECTION_NATIVE_IDS.howItWorks}
-              onLayout={handleSectionLayout('howItWorks')}
-            >
-              <HowItWorksSection />
-            </View>
-
-            <View
               nativeID={LANDING_SECTION_NATIVE_IDS.featuredSpecialists}
+              style={styles.sectionAnchor}
               onLayout={handleSectionLayout('featuredSpecialists')}
             >
               <FeaturedSpecialistsSection
@@ -417,16 +439,30 @@ export const LandingPage: React.FC = () => {
             </View>
 
             <View
-              nativeID={LANDING_SECTION_NATIVE_IDS.forSpecialists}
-              onLayout={handleSectionLayout('forSpecialists')}
+              nativeID={LANDING_SECTION_NATIVE_IDS.howItWorks}
+              style={styles.sectionAnchor}
+              onLayout={handleSectionLayout('howItWorks')}
             >
-              <ForSpecialistsSection onLearnMore={handleLearnMoreProfessional} />
+              <HowItWorksSection />
             </View>
 
-            <TrustIndicatorsSection />
+            <View
+              nativeID={LANDING_SECTION_NATIVE_IDS.forSpecialists}
+              style={styles.sectionAnchor}
+              onLayout={handleSectionLayout('forSpecialists')}
+            >
+              <ForSpecialistsSection
+                primaryActionLabel={professionalActionLabel}
+                showLoginAction={!isAuthenticated}
+                onPrimaryAction={() => handleProfessionalRegister('professional_section')}
+                onLogin={handleProfessionalLogin}
+                onClinicAccess={() => handleClinicAccess('professional_section')}
+              />
+            </View>
 
             <View
               nativeID={LANDING_SECTION_NATIVE_IDS.specializations}
+              style={styles.sectionAnchor}
               onLayout={handleSectionLayout('specializations')}
             >
               <SpecializationsSection
@@ -434,10 +470,11 @@ export const LandingPage: React.FC = () => {
               />
             </View>
 
-            <TestimonialsSection />
+            <TrustIndicatorsSection />
 
             <View
               nativeID={LANDING_SECTION_NATIVE_IDS.about}
+              style={styles.sectionAnchor}
               onLayout={handleSectionLayout('about')}
             >
               <AboutUsSection />
@@ -445,21 +482,24 @@ export const LandingPage: React.FC = () => {
 
             <View
               nativeID={LANDING_SECTION_NATIVE_IDS.faq}
+              style={styles.sectionAnchor}
               onLayout={handleSectionLayout('faq')}
             >
               <FAQSection />
             </View>
 
             <FinalCTASection
-              onFindSpecialist={handleFindSpecialist}
-              onJoinAsProfessional={handleJoinAsProfessional}
-              onJoinAsClinic={handleJoinAsClinic}
+              onFindSpecialist={() => handlePatientCTA('final_cta')}
+              professionalActionLabel={professionalActionLabel}
+              onProfessionalAction={() => handleProfessionalRegister('final_cta')}
             />
 
             <FooterSection
-              onFindSpecialist={handleFindSpecialist}
-              onJoinAsProfessional={handleJoinAsProfessional}
-              onJoinAsClinic={handleJoinAsClinic}
+              onFindSpecialist={() => handlePatientCTA('footer')}
+              professionalActionLabel={professionalActionLabel}
+              onProfessionalAction={() => handleProfessionalRegister('footer')}
+              onProfessionalLogin={handleProfessionalLogin}
+              onClinicAccess={() => handleClinicAccess('footer')}
               onScrollToSection={handleScrollToSection}
             />
           </>
@@ -478,7 +518,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingTop: 70,
+    paddingTop: SCROLL_CONTENT_TOP_PADDING,
+  },
+  sectionAnchor: {
+    alignSelf: 'stretch',
+    width: '100%',
   },
 });
 

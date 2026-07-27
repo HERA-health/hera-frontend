@@ -7,6 +7,8 @@
  * Represents a mental health specialist/psychologist
  */
 import type { ProfessionalType } from './professionalTypes';
+import type { LandingSectionAnchor } from './landingNavigation';
+import type { ProfessionalSpecialtyValue } from './professionalMatchingOptions';
 
 export interface Specialist {
   id: string;
@@ -103,15 +105,7 @@ export interface Feature {
 import type { LegalDocumentKey } from './legal';
 
 export type RootStackParamList = {
-  Landing: {
-    section?:
-      | 'howItWorks'
-      | 'featuredSpecialists'
-      | 'about'
-      | 'forSpecialists'
-      | 'specializations'
-      | 'faq';
-  } | undefined;
+  Landing: { section?: LandingSectionAnchor } | undefined;
   Welcome: undefined;
   Login: { userType: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC'; specialization?: string };
   Register: { userType: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC' };
@@ -138,7 +132,7 @@ export type RootStackParamList = {
   MainStack: undefined;
   Home: undefined;
   Specialists: undefined;
-  PublicSpecialists: undefined;
+  PublicSpecialists: { specialty?: ProfessionalSpecialtyValue } | undefined;
   Sessions: undefined;
   OnDutyPsychologist: undefined;
   Profile: undefined;

@@ -51,6 +51,10 @@ describe('FeaturedSpecialistsSection', () => {
     render(<FeaturedSpecialistsSection onOpenSpecialist={onOpenSpecialist} onViewAll={onViewAll} />);
 
     await waitFor(() => expect(screen.getByText('Dra. Elena Martín')).toBeTruthy());
+    expect(screen.getByText('Encuentra al profesional ideal para ti')).toBeTruthy();
+    expect(
+      screen.getByText(/compara especialidades, modalidad online o presencial y precios/)
+    ).toBeTruthy();
     expect(screen.getByText('4.9 · 12 reseñas')).toBeTruthy();
     expect(screen.queryByText('Psicóloga sanitaria')).toBeNull();
     expect(screen.getByText('75 €')).toBeTruthy();

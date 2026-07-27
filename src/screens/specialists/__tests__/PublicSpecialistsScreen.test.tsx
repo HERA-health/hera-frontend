@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { lightTheme } from '../../../constants/theme';
 import { PublicSpecialistsScreen } from '../PublicSpecialistsScreen';
@@ -8,6 +8,7 @@ import * as specialistsService from '../../../services/specialistsService';
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: jest.fn(),
+  useRoute: jest.fn(),
   useFocusEffect: (effect: () => void | (() => void)) => {
     const ReactModule = require('react');
     ReactModule.useEffect(effect, [effect]);
@@ -19,7 +20,12 @@ jest.mock('../../../contexts/ThemeContext', () => ({
 }));
 
 jest.mock('../../../contexts/AuthContext', () => ({
-  useAuth: () => ({ isAuthenticated: false }),
+  useAuth: () => ({
+    isAuthenticated: false,
+    user: null,
+    legalStatusSnapshot: null,
+    verificationSubmitted: null,
+  }),
 }));
 
 jest.mock('../../../services/specialistsService', () => ({
@@ -28,13 +34,15 @@ jest.mock('../../../services/specialistsService', () => ({
 
 jest.mock('../../landing/components/LandingHeader', () => ({
   LandingHeader: ({
-    onFindSpecialist,
     onLogoPress,
+    onExploreProfessionals,
+    onAccess,
     onScrollToSection,
   }: {
-    onFindSpecialist: () => void;
     onLogoPress: () => void;
-    onScrollToSection: (section: 'featuredSpecialists') => void;
+    onExploreProfessionals: () => void;
+    onAccess: () => void;
+    onScrollToSection: (section: 'featuredSpecialists' | 'about') => void;
   }) => {
     const { Pressable, Text, View } = require('react-native');
     return (
@@ -45,8 +53,14 @@ jest.mock('../../landing/components/LandingHeader', () => ({
         <Pressable onPress={() => onScrollToSection('featuredSpecialists')}>
           <Text>Especialistas</Text>
         </Pressable>
-        <Pressable onPress={onFindSpecialist}>
-          <Text>Busco terapia</Text>
+        <Pressable onPress={() => onScrollToSection('about')}>
+          <Text>Quiénes somos</Text>
+        </Pressable>
+        <Pressable onPress={onExploreProfessionals}>
+          <Text>Para profesionales</Text>
+        </Pressable>
+        <Pressable onPress={onAccess}>
+          <Text>Acceder</Text>
         </Pressable>
       </View>
     );
@@ -54,6 +68,7 @@ jest.mock('../../landing/components/LandingHeader', () => ({
 }));
 
 const mockedUseNavigation = jest.mocked(useNavigation);
+const mockedUseRoute = jest.mocked(useRoute);
 const mockedUseTheme = jest.mocked(useTheme);
 const mockedDirectory = jest.mocked(specialistsService.getPublicSpecialistDirectory);
 
@@ -93,6 +108,7 @@ const createDeferred = <T,>() => {
 describe('PublicSpecialistsScreen', () => {
   const navigate = jest.fn();
   const reset = jest.fn();
+  const getState = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -102,7 +118,13 @@ describe('PublicSpecialistsScreen', () => {
       isDark: false,
       setMode: jest.fn(),
     } as unknown as ReturnType<typeof useTheme>);
-    mockedUseNavigation.mockReturnValue({ navigate, reset } as ReturnType<typeof useNavigation>);
+    getState.mockReturnValue({ routeNames: ['Home', 'RequiredLegalAcceptance'] });
+    mockedUseNavigation.mockReturnValue({
+      navigate,
+      reset,
+      getState,
+    } as ReturnType<typeof useNavigation>);
+    mockedUseRoute.mockReturnValue({ params: undefined } as ReturnType<typeof useRoute>);
   });
 
   it('loads a public page and opens the public profile without authentication', async () => {
@@ -147,6 +169,64 @@ describe('PublicSpecialistsScreen', () => {
     fireEvent.press(screen.getByText('Especialistas'));
 
     expect(navigate).toHaveBeenCalledWith('Landing', { section: 'featuredSpecialists' });
+  });
+
+  it('routes every directory anchor back to the landing and hides redundant search access', async () => {
+    mockedDirectory.mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 12,
+      total: 0,
+      hasMore: false,
+    });
+
+    render(<PublicSpecialistsScreen />);
+
+    await waitFor(() => expect(mockedDirectory).toHaveBeenCalled());
+    expect(screen.queryByText('Busco terapia')).toBeNull();
+    fireEvent.press(screen.getByText('Quiénes somos'));
+    fireEvent.press(screen.getByText('Para profesionales'));
+
+    expect(navigate).toHaveBeenCalledWith('Landing', { section: 'about' });
+    expect(navigate).toHaveBeenCalledWith('Landing', { section: 'forSpecialists' });
+  });
+
+  it('applies a canonical navigation specialty to the public directory request', async () => {
+    mockedUseRoute.mockReturnValue({
+      params: { specialty: 'anxiety' },
+    } as ReturnType<typeof useRoute>);
+    mockedDirectory.mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 12,
+      total: 0,
+      hasMore: false,
+    });
+
+    render(<PublicSpecialistsScreen />);
+
+    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(
+      expect.objectContaining({ specialties: ['anxiety'], page: 1 })
+    ));
+  });
+
+  it('ignores an unknown navigation specialty safely', async () => {
+    mockedUseRoute.mockReturnValue({
+      params: { specialty: 'unknown-specialty' },
+    } as unknown as ReturnType<typeof useRoute>);
+    mockedDirectory.mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 12,
+      total: 0,
+      hasMore: false,
+    });
+
+    render(<PublicSpecialistsScreen />);
+
+    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(
+      expect.objectContaining({ specialties: undefined, page: 1 })
+    ));
   });
 
   it('returns to the landing home when the header logo is pressed', async () => {
