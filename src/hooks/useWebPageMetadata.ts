@@ -94,7 +94,6 @@ export const useWebPageMetadata = ({
         canonical.remove();
         document.title = DEFAULT_TITLE;
         setNamedMeta('description', DEFAULT_DESCRIPTION);
-        setNamedMeta('robots', 'noindex, nofollow');
         setNamedMeta('twitter:title', DEFAULT_TITLE);
         setNamedMeta('twitter:description', DEFAULT_DESCRIPTION);
         setPropertyMeta('og:title', DEFAULT_TITLE);
