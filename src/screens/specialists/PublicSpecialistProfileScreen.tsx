@@ -2,7 +2,7 @@ import { showAppAlert, useAppAlert } from '../../components/common/alert';
 /**
  * PublicSpecialistProfileScreen - Shareable public specialist profile
  *
- * Accessible via deep link: /especialista/:specialistId
+ * Accessible via deep link: /especialista/:profileRef
  * Works without authentication. Shows HERA branded header instead of back button.
  * Auth-aware CTA: unauthenticated users can request an appointment without registering.
  */
@@ -63,7 +63,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     verificationSubmitted,
   } = useAuth();
   const { theme, isDark } = useTheme();
-  const { specialistId } = route.params || {};
+  const { profileRef } = route.params || {};
   const { width } = useWindowDimensions();
 
   const isDesktop = width >= DESKTOP_BREAKPOINT;
@@ -92,14 +92,15 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     && specialist.avatar
     && specialist.pricePerSession > 0
   );
+  const canonicalProfileRef = specialist?.publicSlug ?? profileRef;
 
   useWebPageMetadata({
     title: specialist ? `${specialist.name} | Especialista en HERA` : 'Hera | Perfil público',
     description: specialist
       ? `Consulta el perfil profesional de ${specialist.name}, sus áreas de acompañamiento y modalidades de sesión en HERA.`
       : 'Consulta perfiles públicos de especialistas verificados en HERA.',
-    canonicalPath: specialistId
-      ? `/especialista/${encodeURIComponent(specialistId)}`
+    canonicalPath: canonicalProfileRef
+      ? `/especialista/${encodeURIComponent(canonicalProfileRef)}`
       : '/especialista',
     indexable: hasIndexableProfile,
     openGraphType: 'profile',
@@ -115,11 +116,11 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
       setReviews([]);
       setReviewsVisible(false);
 
-      if (!specialistId) {
-        throw new Error('No specialist ID provided');
+      if (!profileRef) {
+        throw new Error('No specialist profile reference provided');
       }
 
-      const data = await specialistsService.getPublicSpecialistDetails(specialistId);
+      const data = await specialistsService.getPublicSpecialistDetails(profileRef);
 
       if (profileRequestRef.current !== requestId) {
         return;
@@ -145,7 +146,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         setLoading(false);
       }
     }
-  }, [specialistId]);
+  }, [profileRef]);
 
   useFocusEffect(
     useCallback(() => {

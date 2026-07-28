@@ -470,8 +470,10 @@ export const PublicSpecialistsScreen: React.FC = () => {
                   variant="directory"
                   directoryHorizontal={useHorizontalCards}
                   style={styles.resultCard}
-                  href={`/especialista/${encodeURIComponent(specialist.id)}`}
-                  onPress={() => navigation.navigate('PublicSpecialistProfile', { specialistId: specialist.id })}
+                  href={`/especialista/${encodeURIComponent(specialist.publicSlug ?? specialist.id)}`}
+                  onPress={() => navigation.navigate('PublicSpecialistProfile', {
+                    profileRef: specialist.publicSlug ?? specialist.id,
+                  })}
                 />
               ))}
             </View>

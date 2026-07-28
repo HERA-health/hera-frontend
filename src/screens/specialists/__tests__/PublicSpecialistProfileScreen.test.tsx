@@ -127,7 +127,7 @@ describe('PublicSpecialistProfileScreen booking navigation', () => {
     getState.mockReturnValue({ routeNames: ['Booking', 'RequiredLegalAcceptance'] });
     mockedUseNavigation.mockReturnValue({ navigate, reset, getState } as ReturnType<typeof useNavigation>);
     mockedUseRoute.mockReturnValue({
-      params: { specialistId: specialist.id },
+      params: { profileRef: specialist.id },
     } as ReturnType<typeof useRoute>);
     mockedUseTheme.mockReturnValue({
       theme: lightTheme,

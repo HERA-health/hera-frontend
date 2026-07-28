@@ -27,6 +27,7 @@ import {
   createManagedClientSession,
   getAgendaPreferences,
   getManagedSessionSlotOptions,
+  getPublicProfileSlugAvailability,
   getProfessionalClients,
   getProfessionalSessionDetail,
   getProfessionalSessions,
@@ -35,12 +36,73 @@ import {
   isManagedSessionBufferConflictError,
   updateCertificateDocumentMetadata,
   updateComprehensiveProfile,
+  updatePublicProfileSlug,
   uploadCertificateDocument,
 } from '../professionalService';
 import { clearRequestCache } from '../requestCache';
 
 const mockedApi = api as jest.Mocked<typeof api>;
 const mockedBuildMultipartFormData = buildMultipartFormData as jest.MockedFunction<typeof buildMultipartFormData>;
+
+describe('professionalService public profile slug', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('checks availability through the protected professional endpoint', async () => {
+    mockedApi.get.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          slug: 'ruben-vallejo-jara',
+          available: true,
+          ownedByCurrentSpecialist: false,
+          wouldUseChange: true,
+          changeLimitReached: false,
+          remainingChanges: 2,
+        },
+      },
+    });
+
+    await expect(
+      getPublicProfileSlugAvailability('ruben-vallejo-jara')
+    ).resolves.toEqual({
+      slug: 'ruben-vallejo-jara',
+      available: true,
+      ownedByCurrentSpecialist: false,
+      wouldUseChange: true,
+      changeLimitReached: false,
+      remainingChanges: 2,
+    });
+    expect(mockedApi.get).toHaveBeenCalledWith(
+      '/specialists/me/public-slug/availability',
+      { params: { slug: 'ruben-vallejo-jara' } }
+    );
+  });
+
+  it('updates the slug without sending unrelated profile fields', async () => {
+    mockedApi.put.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          publicSlug: 'ruben-vallejo-jara',
+          publicProfilePath: '/especialista/ruben-vallejo-jara',
+          remainingChanges: 1,
+        },
+      },
+    });
+
+    await expect(updatePublicProfileSlug('ruben-vallejo-jara')).resolves.toEqual({
+      publicSlug: 'ruben-vallejo-jara',
+      publicProfilePath: '/especialista/ruben-vallejo-jara',
+      remainingChanges: 1,
+    });
+    expect(mockedApi.put).toHaveBeenCalledWith(
+      '/specialists/me/public-slug',
+      { slug: 'ruben-vallejo-jara' }
+    );
+  });
+});
 
 describe('professionalService.getVerificationStatus', () => {
   beforeEach(() => {

@@ -51,7 +51,7 @@ type ProfessionalCTASectionProps = {
   onClinicAccess: () => void;
 };
 type FeaturedSpecialistsSectionProps = {
-  onOpenSpecialist: (specialistId: string) => void;
+  onOpenSpecialist: (profileRef: string) => void;
   onViewAll: () => void;
 };
 type SpecializationsSectionProps = {
@@ -326,8 +326,8 @@ export const LandingPage: React.FC = () => {
     navigateToSpecialists();
   }, [navigateToSpecialists]);
 
-  const handleOpenPublicSpecialist = useCallback((specialistId: string) => {
-    navigation.navigate('PublicSpecialistProfile', { specialistId });
+  const handleOpenPublicSpecialist = useCallback((profileRef: string) => {
+    navigation.navigate('PublicSpecialistProfile', { profileRef });
   }, [navigation]);
 
   const handleViewAllSpecialists = useCallback(() => {

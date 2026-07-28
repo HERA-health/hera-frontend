@@ -87,6 +87,8 @@ import {
   PROFESSIONAL_SPECIALTY_OPTIONS,
   PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS,
 } from '../../constants/professionalMatchingOptions';
+import { PublicProfileSlugEditor } from '../../components/professional/PublicProfileSlugEditor';
+import { PUBLIC_PROFILE_SLUG_MAX_CHANGES } from '../../utils/publicProfileSlug';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -513,6 +515,10 @@ export function SpecialistProfileScreen() {
 
   // Share profile state
   const [specialistId, setSpecialistId] = useState<string | null>(null);
+  const [savedPublicSlug, setSavedPublicSlug] = useState('');
+  const [publicSlugChangesRemaining, setPublicSlugChangesRemaining] = useState(
+    PUBLIC_PROFILE_SLUG_MAX_CHANGES
+  );
   const [isShareModalVisible, setIsShareModalVisible] = useState(false);
   const [hasCopiedShareUrl, setHasCopiedShareUrl] = useState(false);
   const [isCertificateModalVisible, setIsCertificateModalVisible] = useState(false);
@@ -717,12 +723,13 @@ export function SpecialistProfileScreen() {
   );
 
   const shareProfileUrl = useMemo(() => {
-    if (!specialistId) {
+    const profileRef = savedPublicSlug || specialistId;
+    if (!profileRef) {
       return '';
     }
 
-    return `${getWebAppUrl()}/e/${specialistId}`;
-  }, [specialistId]);
+    return `${getWebAppUrl()}/especialista/${encodeURIComponent(profileRef)}`;
+  }, [savedPublicSlug, specialistId]);
   const isProfessionalVerified = verificationStatus.verificationStatus === 'VERIFIED';
   const canOpenPublicProfile =
     isProfessionalVerified && Boolean(specialistId);
@@ -808,9 +815,22 @@ export function SpecialistProfileScreen() {
           ...mapServiceProfileToFormData(profile),
           avatar: profile.avatar ?? user?.avatar ?? null,
         };
+        let resolvedSpecialistId = profile.id ?? null;
+        let resolvedPublicSlug = profile.publicSlug ?? '';
+
+        if (!resolvedSpecialistId) {
+          const summary = await professionalService.getProfessionalProfile();
+          resolvedSpecialistId = summary?.id ?? null;
+          resolvedPublicSlug = summary?.publicSlug ?? resolvedPublicSlug;
+        }
 
         setProfileData(mappedData);
         setOriginalData(mappedData);
+        setSpecialistId(resolvedSpecialistId);
+        setSavedPublicSlug(resolvedPublicSlug);
+        setPublicSlugChangesRemaining(
+          profile.publicSlugChangesRemaining ?? PUBLIC_PROFILE_SLUG_MAX_CHANGES
+        );
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -859,18 +879,6 @@ export function SpecialistProfileScreen() {
       };
       loadVerificationStatus();
 
-      // Load specialist ID for share link
-      const loadSpecialistId = async () => {
-        try {
-          const profile = await professionalService.getProfessionalProfile();
-          if (profile?.id) {
-            setSpecialistId(profile.id);
-          }
-        } catch (error) {
-          console.error('Error loading specialist ID:', error);
-        }
-      };
-      loadSpecialistId();
     }, [
       loadBillingConfig,
       loadProfile,
@@ -1036,7 +1044,8 @@ export function SpecialistProfileScreen() {
 
   // Navigate to own public profile (as patients see it)
   const handleViewPublicProfile = useCallback(() => {
-    if (!specialistId) {
+    const profileRef = savedPublicSlug || specialistId;
+    if (!profileRef) {
       showAppAlert(appAlert, 'Perfil no disponible', 'No se pudo cargar la vista pública del perfil.');
       return;
     }
@@ -1050,8 +1059,8 @@ export function SpecialistProfileScreen() {
       return;
     }
 
-    navigation.navigate('SpecialistDetail', { specialistId });
-  }, [appAlert, canOpenPublicProfile, specialistId, navigation]);
+    navigation.navigate('PublicSpecialistProfile', { profileRef });
+  }, [appAlert, canOpenPublicProfile, navigation, savedPublicSlug, specialistId]);
 
   // Share profile handler
   const closeShareModal = useCallback(() => {
@@ -1060,11 +1069,11 @@ export function SpecialistProfileScreen() {
   }, []);
 
   const handleShareProfile = useCallback(() => {
-    if (!specialistId) return;
+    if (!shareProfileUrl) return;
 
     setHasCopiedShareUrl(false);
     setIsShareModalVisible(true);
-  }, [specialistId]);
+  }, [shareProfileUrl]);
 
   const handleCopyShareUrl = useCallback(async () => {
     if (!shareProfileUrl) return;
@@ -1522,7 +1531,7 @@ export function SpecialistProfileScreen() {
                 style={{ ...styles.topBarActionButton }}
                 textStyle={{ ...styles.topBarActionText }}
               >
-                {isMobile ? 'Compartir' : 'Compartir perfil'}
+                {isMobile ? 'Enlace' : 'Enlace público'}
               </Button>
             ) : null}
 
@@ -3616,9 +3625,9 @@ export function SpecialistProfileScreen() {
                   <Ionicons name="link-outline" size={14} color={palette.primary} />
                   <Text style={styles.shareModalBadgeText}>Enlace público</Text>
                 </View>
-                <Text style={styles.shareModalTitle}>Compartir perfil</Text>
+                <Text style={styles.shareModalTitle}>Tu enlace público</Text>
                 <Text style={styles.shareModalSubtitle}>
-                  Muestra este enlace, cópialo o compártelo. La nueva versión usa una ruta más corta y limpia.
+                  Personaliza la dirección de tu perfil y cópiala para compartirla con tus pacientes.
                 </Text>
               </View>
 
@@ -3631,18 +3640,16 @@ export function SpecialistProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.shareUrlCard}>
-              <Text style={styles.shareUrlLabel}>Tu enlace para pacientes</Text>
-              <TextInput
-                value={shareProfileUrl}
-                editable={false}
-                selectTextOnFocus
-                style={styles.shareUrlInput}
-              />
-              <Text style={styles.shareUrlHint}>
-                El enlace queda visible para que tambien se pueda copiar manualmente.
-              </Text>
-            </View>
+            <PublicProfileSlugEditor
+              initialSlug={savedPublicSlug}
+              initialRemainingChanges={publicSlugChangesRemaining}
+              variant="dialog"
+              onSaved={(publicSlug, remainingChanges) => {
+                setSavedPublicSlug(publicSlug);
+                setPublicSlugChangesRemaining(remainingChanges);
+                setHasCopiedShareUrl(false);
+              }}
+            />
 
             {hasCopiedShareUrl ? (
               <View style={styles.shareCopiedBanner}>
@@ -3901,40 +3908,6 @@ function createStyles(
     fontFamily: palette.fontSans,
     lineHeight: 21,
     color: palette.textSecondary,
-  },
-  shareUrlCard: {
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.backgroundMuted,
-    gap: spacing.sm,
-  },
-  shareUrlLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    fontFamily: palette.fontSansBold,
-    color: palette.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  shareUrlInput: {
-    borderWidth: 1,
-    borderColor: palette.primaryMuted,
-    borderRadius: borderRadius.md,
-    backgroundColor: palette.cardBg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    fontSize: isMobile ? 14 : 15,
-    fontFamily: palette.fontSans,
-    lineHeight: 22,
-    color: palette.textPrimary,
-  },
-  shareUrlHint: {
-    fontSize: 13,
-    fontFamily: palette.fontSans,
-    lineHeight: 19,
-    color: palette.textMuted,
   },
   shareCopiedBanner: {
     flexDirection: 'row',

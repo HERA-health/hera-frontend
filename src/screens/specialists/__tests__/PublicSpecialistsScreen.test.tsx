@@ -74,6 +74,7 @@ const mockedDirectory = jest.mocked(specialistsService.getPublicSpecialistDirect
 
 const specialist = {
   id: 'specialist-1',
+  publicSlug: 'elena-martin',
   name: 'Dra. Elena Martín',
   avatar: 'https://res.cloudinary.com/hera/image/upload/c_fill,g_face,w_500,h_500,q_auto,f_auto/v1/specialist-1.jpg',
   specialization: 'Ansiedad y estrés',
@@ -151,7 +152,7 @@ describe('PublicSpecialistsScreen', () => {
     expect(screen.queryByText('1 perfil')).toBeNull();
     fireEvent.press(screen.getByText('Dra. Elena Martín'));
 
-    expect(navigate).toHaveBeenCalledWith('PublicSpecialistProfile', { specialistId: 'specialist-1' });
+    expect(navigate).toHaveBeenCalledWith('PublicSpecialistProfile', { profileRef: 'elena-martin' });
   });
 
   it('uses the landing header and routes its specialist link back to the landing section', async () => {

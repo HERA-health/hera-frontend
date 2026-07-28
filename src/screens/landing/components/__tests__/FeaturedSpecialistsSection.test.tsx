@@ -18,6 +18,7 @@ const mockedGetFeaturedSpecialists = jest.mocked(getFeaturedSpecialists);
 
 const specialist = {
   id: 'featured-1',
+  publicSlug: 'elena-martin',
   name: 'Dra. Elena Martín',
   avatar: 'https://res.cloudinary.com/hera/image/upload/c_fill,g_face,w_440,h_440,q_auto,f_auto/v1/featured-1.jpg',
   specialization: 'Psicología sanitaria',
@@ -62,7 +63,7 @@ describe('FeaturedSpecialistsSection', () => {
     fireEvent.press(screen.getByText('Dra. Elena Martín'));
     fireEvent.press(screen.getByText('Ver todos los especialistas'));
 
-    expect(onOpenSpecialist).toHaveBeenCalledWith('featured-1');
+    expect(onOpenSpecialist).toHaveBeenCalledWith('elena-martin');
     expect(onViewAll).toHaveBeenCalledTimes(1);
   });
 

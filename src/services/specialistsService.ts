@@ -21,6 +21,7 @@ interface CacheEntry<T> {
 
 export interface SpecialistData {
   id: string;
+  publicSlug?: string | null;
   userId: string;
   specialization: string;
   professionalType: ProfessionalType | null;
@@ -86,6 +87,7 @@ export interface SpecialistFilters {
 
 export interface PublicSpecialistProfileData {
   id: string;
+  publicSlug?: string | null;
   isPubliclyListed: boolean;
   specialization: string;
   professionalType: ProfessionalType | null;
@@ -134,6 +136,7 @@ export type PublicSpecialistDirectorySort =
 
 export interface PublicSpecialistCard {
   id: string;
+  publicSlug?: string | null;
   name: string;
   avatar: string | null;
   specialization: string;
@@ -374,6 +377,7 @@ export function mapSpecialistToProfile(data: Omit<SpecialistData, 'userId'>): Sp
   const mp = data.matchingProfile as Record<string, unknown> | undefined;
   return {
     id: data.id,
+    publicSlug: data.publicSlug,
     name: data.user.name,
     title: data.professionalTitle || data.specialization,
     professionalType: data.professionalType,
@@ -593,15 +597,15 @@ export const getSpecialistDetails = async (specialistId: string): Promise<Specia
  * Gets the privacy-minimized, unauthenticated view of a public specialist.
  */
 export const getPublicSpecialistDetails = async (
-  specialistId: string
+  profileRef: string
 ): Promise<PublicSpecialistProfileData> => {
-  if (!specialistId || specialistId === 'undefined' || specialistId === 'null' || specialistId.trim() === '') {
-    throw new Error('Invalid specialist ID: Cannot fetch public details for undefined or null specialist');
+  if (!profileRef || profileRef === 'undefined' || profileRef === 'null' || profileRef.trim() === '') {
+    throw new Error('Invalid specialist profile reference');
   }
 
   try {
     const response = await api.get<{ success: boolean; data: PublicSpecialistProfileData }>(
-      `/specialists/public/${encodeURIComponent(specialistId.trim())}`
+      `/specialists/public/${encodeURIComponent(profileRef.trim())}`
     );
     return response.data.data;
   } catch (error: unknown) {

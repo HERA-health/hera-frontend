@@ -18,7 +18,7 @@ import {
 } from '../../../services/specialistsService';
 
 interface FeaturedSpecialistsSectionProps {
-  onOpenSpecialist: (specialistId: string) => void;
+  onOpenSpecialist: (profileRef: string) => void;
   onViewAll: () => void;
 }
 
@@ -105,8 +105,8 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
                 <PublicSpecialistCard
                   specialist={specialist}
                   variant="featured"
-                  href={`/especialista/${encodeURIComponent(specialist.id)}`}
-                  onPress={() => onOpenSpecialist(specialist.id)}
+                  href={`/especialista/${encodeURIComponent(specialist.publicSlug ?? specialist.id)}`}
+                  onPress={() => onOpenSpecialist(specialist.publicSlug ?? specialist.id)}
                 />
               </MotionView>
             ))}

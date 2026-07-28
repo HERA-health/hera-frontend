@@ -4,6 +4,15 @@
   "installCommand": "npm install",
   "headers": [
     {
+      "source": "/sitemap.xml",
+      "headers": [
+        {
+          "key": "x-vercel-enable-rewrite-caching",
+          "value": "1"
+        }
+      ]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         {
@@ -14,6 +23,10 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/sitemap.xml",
+      "destination": "https://api.health-hera.com/sitemap.xml"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

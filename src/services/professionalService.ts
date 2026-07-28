@@ -33,6 +33,7 @@ export interface QuestionnaireSummary {
 
 export interface ProfessionalProfile {
   id: string;
+  publicSlug?: string | null;
   userId: string;
   specialization: string;
   bio: string;
@@ -503,6 +504,10 @@ export const getMeetingLink = async (sessionId: string): Promise<MeetingLinkResp
 // ============================================================================
 
 export interface SpecialistProfileData {
+  id?: string;
+  publicSlug?: string | null;
+  publicSlugChangesRemaining?: number;
+
   // Basic Info
   fullName: string;
   professionalTitle: string;
@@ -612,6 +617,53 @@ export const getComprehensiveProfile = async (): Promise<SpecialistProfileData |
     return null;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo obtener el perfil'));
+  }
+};
+
+export interface PublicProfileSlugAvailability {
+  slug: string;
+  available: boolean;
+  ownedByCurrentSpecialist: boolean;
+  wouldUseChange: boolean;
+  changeLimitReached: boolean;
+  remainingChanges: number;
+}
+
+export interface PublicProfileSlugUpdate {
+  publicSlug: string;
+  publicProfilePath: string;
+  remainingChanges: number;
+}
+
+export const getPublicProfileSlugAvailability = async (
+  slug: string
+): Promise<PublicProfileSlugAvailability> => {
+  try {
+    const response = await api.get<{
+      success: boolean;
+      data: PublicProfileSlugAvailability;
+    }>('/specialists/me/public-slug/availability', {
+      params: { slug },
+    });
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo comprobar la disponibilidad de la URL.'));
+  }
+};
+
+export const updatePublicProfileSlug = async (
+  slug: string
+): Promise<PublicProfileSlugUpdate> => {
+  try {
+    const response = await api.put<{
+      success: boolean;
+      data: PublicProfileSlugUpdate;
+    }>('/specialists/me/public-slug', { slug });
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo guardar la URL pública.'));
   }
 };
 

@@ -8,6 +8,7 @@ import type { TimeSlot as AvailableSlot } from '../../services/sessionsService';
 
 export interface Specialist {
   id: string;
+  publicSlug?: string | null;
   isPubliclyListed?: boolean;
   name: string;
   title: string;

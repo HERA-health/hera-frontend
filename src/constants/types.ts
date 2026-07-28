@@ -186,7 +186,7 @@ export type RootStackParamList = {
   AdminPanel: undefined;
   AdminSpecialistDetail: { specialist: string }; // JSON-serialized PendingSpecialist
   SpecialistDetailAdmin: { specialistId: string };
-  PublicSpecialistProfile: { specialistId: string };
+  PublicSpecialistProfile: { profileRef: string };
 };
 
 export type MainTabParamList = {

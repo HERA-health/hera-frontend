@@ -93,10 +93,10 @@ export const linking: LinkingOptions<RootStackParamList> = {
         },
       },
       PublicSpecialistProfile: {
-        path: 'especialista/:specialistId',
-        alias: ['e/:specialistId'],
+        path: 'especialista/:profileRef',
+        alias: ['e/:profileRef'],
         parse: {
-          specialistId: (specialistId: string) => specialistId,
+          profileRef: (profileRef: string) => profileRef,
         },
       },
       Booking: {
