@@ -17,12 +17,25 @@ describe('public profile slug utilities', () => {
     expect(normalizePublicProfileSlug('Rubén Vallejo-')).toBe('ruben-vallejo');
   });
 
-  it('rejects reserved and internal-looking paths', () => {
-    expect(getPublicProfileSlugValidationMessage('admin')).toBeTruthy();
-    expect(getPublicProfileSlugValidationMessage('especialistas')).toBeTruthy();
+  it('rejects reserved and internal-looking paths with useful guidance', () => {
+    expect(getPublicProfileSlugValidationMessage('admin')).toBe(
+      'Esta dirección está reservada. Prueba con otra, por ejemplo tu nombre y apellidos.'
+    );
+    expect(getPublicProfileSlugValidationMessage('especialistas')).toBe(
+      'Esta dirección está reservada. Prueba con otra, por ejemplo tu nombre y apellidos.'
+    );
     expect(
       getPublicProfileSlugValidationMessage('cm12345678901234567890123')
-    ).toBeTruthy();
+    ).toBe('Ese formato no se puede usar. Prueba con tu nombre y apellidos.');
+  });
+
+  it('explains invalid formats without technical terminology', () => {
+    expect(getPublicProfileSlugValidationMessage('ab')).toBe(
+      'Escribe al menos 3 caracteres para crear tu dirección.'
+    );
+    expect(getPublicProfileSlugValidationMessage('elena-martin-')).toBe(
+      'La dirección debe empezar y terminar con una letra o un número. Usa solo letras, números y guiones.'
+    );
   });
 
   it('accepts a readable custom path', () => {

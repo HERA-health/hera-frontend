@@ -102,6 +102,120 @@ describe('professionalService public profile slug', () => {
       { slug: 'ruben-vallejo-jara' }
     );
   });
+
+  it.each([
+    [
+      'PUBLIC_PROFILE_SLUG_TAKEN',
+      'Esta dirección ya no está disponible. Prueba con otra.',
+    ],
+    [
+      'PUBLIC_PROFILE_SLUG_CHANGE_LIMIT_REACHED',
+      'Has alcanzado el límite de 3 cambios. Puedes volver a usar una de tus direcciones anteriores.',
+    ],
+    [
+      'PUBLIC_PROFILE_SLUG_VERIFICATION_REQUIRED',
+      'Podrás personalizar tu URL cuando aprobemos la verificación de tu perfil profesional.',
+    ],
+    [
+      'PUBLIC_PROFILE_SLUG_ACCOUNT_INACTIVE',
+      'No puedes cambiar la URL mientras tu cuenta esté desactivada. Si crees que es un error, contacta con soporte.',
+    ],
+    [
+      'SPECIALIST_PROFILE_NOT_FOUND',
+      'No hemos encontrado tu perfil profesional. Actualiza la página o contacta con soporte.',
+    ],
+    [
+      'VALIDATION_ERROR',
+      'La dirección no tiene un formato válido. Usa letras, números y guiones.',
+    ],
+    [
+      'RATE_LIMIT_EXCEEDED',
+      'Has hecho demasiados intentos seguidos. Espera un momento y vuelve a probar.',
+    ],
+  ])('maps %s to a clear specialist message', async (code, expectedMessage) => {
+    mockedApi.put.mockRejectedValue({
+      response: {
+        status: 409,
+        data: { code, error: 'Raw backend message' },
+      },
+    });
+
+    await expect(updatePublicProfileSlug('direccion-de-prueba')).rejects.toMatchObject({
+      message: expectedMessage,
+      retryable: code === 'RATE_LIMIT_EXCEEDED',
+    });
+  });
+
+  it('does not expose technical server errors while checking availability', async () => {
+    mockedApi.get.mockRejectedValue({
+      response: {
+        status: 500,
+        data: { error: 'PrismaClientKnownRequestError' },
+      },
+    });
+
+    await expect(
+      getPublicProfileSlugAvailability('elena-martin-terapia')
+    ).rejects.toMatchObject({
+      message: 'No hemos podido comprobar la URL. Revisa tu conexión y pulsa Reintentar.',
+      retryable: true,
+    });
+  });
+
+  it('keeps the session-expired guidance instead of replacing it with a generic error', async () => {
+    mockedApi.put.mockRejectedValue({
+      response: {
+        status: 401,
+        data: { error: 'Invalid or expired token' },
+      },
+    });
+
+    await expect(updatePublicProfileSlug('elena-martin-terapia')).rejects.toMatchObject({
+      message: 'Tu sesión ya no está activa. Vuelve a iniciar sesión para continuar.',
+      retryable: false,
+    });
+  });
+
+  it('shows a clear connection error when the request never reaches the API', async () => {
+    mockedApi.get.mockRejectedValue(new Error('Network Error'));
+
+    await expect(
+      getPublicProfileSlugAvailability('elena-martin-terapia')
+    ).rejects.toMatchObject({
+      message: 'Error de conexión. Verifica tu internet e intenta de nuevo.',
+      retryable: true,
+    });
+  });
+
+  it('uses a non-retryable safe fallback for an unknown client error', async () => {
+    mockedApi.get.mockRejectedValue({
+      response: {
+        status: 403,
+        data: { error: 'Unexpected internal permission detail' },
+      },
+    });
+
+    await expect(
+      getPublicProfileSlugAvailability('elena-martin-terapia')
+    ).rejects.toMatchObject({
+      message: 'No hemos podido comprobar la URL. Actualiza la página o contacta con soporte si el problema continúa.',
+      retryable: false,
+    });
+  });
+
+  it('offers a direct save retry after an unknown server error', async () => {
+    mockedApi.put.mockRejectedValue({
+      response: {
+        status: 503,
+        data: { error: 'Database unavailable' },
+      },
+    });
+
+    await expect(updatePublicProfileSlug('elena-martin-terapia')).rejects.toMatchObject({
+      message: 'No hemos podido guardar la URL. Revisa tu conexión y pulsa Volver a guardar.',
+      retryable: true,
+    });
+  });
 });
 
 describe('professionalService.getVerificationStatus', () => {

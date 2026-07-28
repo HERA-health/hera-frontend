@@ -81,23 +81,23 @@ export const normalizePublicProfileSlugDraft = (value: string): string => (
 
 export const getPublicProfileSlugValidationMessage = (value: string): string | null => {
   if (value.length < PUBLIC_PROFILE_SLUG_MIN_LENGTH) {
-    return `Usa al menos ${PUBLIC_PROFILE_SLUG_MIN_LENGTH} caracteres.`;
+    return `Escribe al menos ${PUBLIC_PROFILE_SLUG_MIN_LENGTH} caracteres para crear tu dirección.`;
   }
 
   if (value.length > PUBLIC_PROFILE_SLUG_MAX_LENGTH) {
-    return `No puede superar ${PUBLIC_PROFILE_SLUG_MAX_LENGTH} caracteres.`;
+    return `La dirección puede tener como máximo ${PUBLIC_PROFILE_SLUG_MAX_LENGTH} caracteres.`;
   }
 
   if (!VALID_PUBLIC_PROFILE_SLUG_PATTERN.test(value)) {
-    return 'Usa solo letras, números y guiones.';
+    return 'La dirección debe empezar y terminar con una letra o un número. Usa solo letras, números y guiones.';
   }
 
   if (RESERVED_PUBLIC_PROFILE_SLUGS.has(value)) {
-    return 'Esta dirección está reservada por HERA.';
+    return 'Esta dirección está reservada. Prueba con otra, por ejemplo tu nombre y apellidos.';
   }
 
   if (INTERNAL_SPECIALIST_ID_PATTERN.test(value)) {
-    return 'Elige una dirección que no parezca un identificador interno.';
+    return 'Ese formato no se puede usar. Prueba con tu nombre y apellidos.';
   }
 
   return null;

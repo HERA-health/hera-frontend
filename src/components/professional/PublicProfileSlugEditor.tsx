@@ -31,6 +31,7 @@ type PublicSlugAvailabilityState =
   | 'error';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
+type PublicSlugErrorAction = 'availability' | 'save';
 
 interface PublicProfileSlugEditorProps {
   initialSlug: string;
@@ -41,6 +42,15 @@ interface PublicProfileSlugEditorProps {
 
 const getErrorMessage = (error: unknown, fallback: string): string => (
   error instanceof Error ? error.message : fallback
+);
+
+const isRetryableError = (error: unknown): boolean => (
+  typeof error === 'object'
+  && error !== null
+  && 'retryable' in error
+  && typeof (error as { retryable?: unknown }).retryable === 'boolean'
+    ? (error as { retryable: boolean }).retryable
+    : true
 );
 
 export const PublicProfileSlugEditor: React.FC<PublicProfileSlugEditorProps> = ({
@@ -57,6 +67,10 @@ export const PublicProfileSlugEditor: React.FC<PublicProfileSlugEditorProps> = (
   const [savedSlug, setSavedSlug] = useState(initialSlug);
   const [draftSlug, setDraftSlug] = useState(initialSlug);
   const [availability, setAvailability] = useState<PublicSlugAvailabilityState>('idle');
+  const [availabilityErrorMessage, setAvailabilityErrorMessage] = useState<string | null>(null);
+  const [availabilityErrorRetryable, setAvailabilityErrorRetryable] = useState(true);
+  const [errorAction, setErrorAction] = useState<PublicSlugErrorAction | null>(null);
+  const [availabilityCheckVersion, setAvailabilityCheckVersion] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [remainingChanges, setRemainingChanges] = useState(initialRemainingChanges);
   const [wouldUseChange, setWouldUseChange] = useState(false);
@@ -66,6 +80,10 @@ export const PublicProfileSlugEditor: React.FC<PublicProfileSlugEditorProps> = (
     setSavedSlug(initialSlug);
     setDraftSlug(initialSlug);
     setAvailability('idle');
+    setAvailabilityErrorMessage(null);
+    setAvailabilityErrorRetryable(true);
+    setErrorAction(null);
+    setAvailabilityCheckVersion(0);
     setRemainingChanges(initialRemainingChanges);
     setWouldUseChange(false);
     setChangeLimitReached(false);
@@ -75,10 +93,15 @@ export const PublicProfileSlugEditor: React.FC<PublicProfileSlugEditorProps> = (
   const isDialog = variant === 'dialog';
   const validationMessage = getPublicProfileSlugValidationMessage(draftSlug);
   const publicProfileUrlPrefix = `${getWebAppUrl()}/especialista/`;
+  const canRetryError = availability === 'error' && availabilityErrorRetryable;
+  const shouldRetrySave = canRetryError && errorAction === 'save';
 
   useEffect(() => {
     if (!hasChanges || validationMessage) {
       setAvailability('idle');
+      setAvailabilityErrorMessage(null);
+      setAvailabilityErrorRetryable(true);
+      setErrorAction(null);
       setWouldUseChange(false);
       setChangeLimitReached(false);
       return;
@@ -86,6 +109,9 @@ export const PublicProfileSlugEditor: React.FC<PublicProfileSlugEditorProps> = (
 
     let active = true;
     setAvailability('checking');
+    setAvailabilityErrorMessage(null);
+    setAvailabilityErrorRetryable(true);
+    setErrorAction(null);
 
     const timeout = setTimeout(() => {
       void professionalService
@@ -95,12 +121,22 @@ export const PublicProfileSlugEditor: React.FC<PublicProfileSlugEditorProps> = (
             setRemainingChanges(result.remainingChanges);
             setWouldUseChange(result.wouldUseChange);
             setChangeLimitReached(result.changeLimitReached);
+            setAvailabilityErrorRetryable(true);
+            setErrorAction(null);
             setAvailability(result.available ? 'available' : 'unavailable');
           }
         })
-        .catch(() => {
+        .catch((error: unknown) => {
           if (active) {
             setAvailability('error');
+            setAvailabilityErrorRetryable(isRetryableError(error));
+            setErrorAction('availability');
+            setAvailabilityErrorMessage(
+              getErrorMessage(
+                error,
+                'No hemos podido comprobar la URL. Revisa tu conexión y pulsa Reintentar.',
+              ),
+            );
           }
         });
     }, 350);
@@ -109,7 +145,7 @@ export const PublicProfileSlugEditor: React.FC<PublicProfileSlugEditorProps> = (
       active = false;
       clearTimeout(timeout);
     };
-  }, [draftSlug, hasChanges, validationMessage]);
+  }, [availabilityCheckVersion, draftSlug, hasChanges, validationMessage]);
 
   const status = useMemo((): {
     icon: IconName;
@@ -141,11 +177,12 @@ export const PublicProfileSlugEditor: React.FC<PublicProfileSlugEditorProps> = (
     }
 
     if (availability === 'available') {
+      const remainingAfterSave = Math.max(0, remainingChanges - 1);
       return {
         icon: 'checkmark-circle',
         message: wouldUseChange
-          ? `Esta URL está disponible y usará 1 de tus ${remainingChanges} cambios restantes.`
-          : 'Esta URL anterior vuelve a estar disponible sin consumir otro cambio.',
+          ? `Esta dirección está disponible. Al guardarla te ${remainingAfterSave === 1 ? 'quedará 1 cambio' : `quedarán ${remainingAfterSave} cambios`}.`
+          : 'Esta es una de tus direcciones anteriores. Puedes volver a usarla sin gastar otro cambio.',
         color: theme.success,
       };
     }
@@ -154,8 +191,8 @@ export const PublicProfileSlugEditor: React.FC<PublicProfileSlugEditorProps> = (
       return {
         icon: 'close-circle',
         message: changeLimitReached
-          ? `Ya has utilizado tus ${PUBLIC_PROFILE_SLUG_MAX_CHANGES} cambios de URL.`
-          : 'Esta URL no está disponible.',
+          ? `Has alcanzado el límite de ${PUBLIC_PROFILE_SLUG_MAX_CHANGES} cambios. Puedes volver a usar una de tus direcciones anteriores.`
+          : 'Esta dirección no está disponible. Prueba con otra.',
         color: theme.warning,
       };
     }
@@ -163,18 +200,20 @@ export const PublicProfileSlugEditor: React.FC<PublicProfileSlugEditorProps> = (
     if (availability === 'error') {
       return {
         icon: 'cloud-offline-outline',
-        message: 'No pudimos comprobarla. Modifica la URL para volver a intentarlo.',
+        message: availabilityErrorMessage
+          ?? 'No hemos podido comprobar la URL. Revisa tu conexión y pulsa Reintentar.',
         color: theme.warning,
       };
     }
 
     return {
       icon: 'link-outline',
-      message: 'Elige una URL breve y fácil de recordar.',
+      message: 'Escribe tu nombre o una combinación breve y fácil de recordar.',
       color: theme.textMuted,
     };
   }, [
     availability,
+    availabilityErrorMessage,
     changeLimitReached,
     hasChanges,
     remainingChanges,
@@ -188,7 +227,7 @@ export const PublicProfileSlugEditor: React.FC<PublicProfileSlugEditorProps> = (
     if (
       !hasChanges
       || validationMessage
-      || availability !== 'available'
+      || (availability !== 'available' && !shouldRetrySave)
       || isSaving
     ) {
       return;
@@ -203,18 +242,28 @@ export const PublicProfileSlugEditor: React.FC<PublicProfileSlugEditorProps> = (
       setWouldUseChange(false);
       setChangeLimitReached(false);
       setAvailability('idle');
+      setAvailabilityErrorMessage(null);
+      setAvailabilityErrorRetryable(true);
+      setErrorAction(null);
       onSaved(result.publicSlug, result.remainingChanges);
       showAppAlert(
         appAlert,
-        'URL pública guardada',
-        'Tus enlaces anteriores seguirán llevando a este perfil.',
+        'URL actualizada',
+        'Ya puedes compartir tu nueva dirección. Tus enlaces anteriores seguirán funcionando.',
       );
     } catch (error: unknown) {
+      const errorMessage = getErrorMessage(
+        error,
+        'No hemos podido guardar la URL. Revisa tu conexión e inténtalo de nuevo.',
+      );
       setAvailability('error');
+      setAvailabilityErrorMessage(errorMessage);
+      setAvailabilityErrorRetryable(isRetryableError(error));
+      setErrorAction('save');
       showAppAlert(
         appAlert,
-        'No se pudo guardar la URL',
-        getErrorMessage(error, 'Comprueba la dirección e inténtalo de nuevo.'),
+        'No hemos podido guardar la URL',
+        errorMessage,
       );
     } finally {
       setIsSaving(false);
@@ -268,17 +317,32 @@ export const PublicProfileSlugEditor: React.FC<PublicProfileSlugEditorProps> = (
         <Button
           variant="outline"
           size="small"
-          onPress={() => void handleSave()}
+          onPress={() => {
+            if (canRetryError) {
+              if (errorAction === 'save') {
+                void handleSave();
+              } else {
+                setAvailabilityCheckVersion((version) => version + 1);
+              }
+              return;
+            }
+            void handleSave();
+          }}
           disabled={
-            !hasChanges
-            || Boolean(validationMessage)
-            || availability !== 'available'
-            || isSaving
+            !canRetryError
+            && (
+              !hasChanges
+              || Boolean(validationMessage)
+              || availability !== 'available'
+              || isSaving
+            )
           }
           loading={isSaving}
           textStyle={styles.saveText}
         >
-          Guardar URL
+          {canRetryError
+            ? (errorAction === 'save' ? 'Volver a guardar' : 'Reintentar')
+            : 'Guardar URL'}
         </Button>
       </View>
     </View>

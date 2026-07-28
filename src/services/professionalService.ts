@@ -1,5 +1,5 @@
 import { api } from './api';
-import { getErrorCode, getErrorMessage, hasResponseData } from '../constants/errors';
+import { getErrorCode, getErrorMessage, hasResponseData, isNetworkError } from '../constants/errors';
 import type { Specialist } from '../constants/types';
 import type { ProfessionalType } from '../constants/professionalTypes';
 import { Platform } from 'react-native';
@@ -635,6 +635,83 @@ export interface PublicProfileSlugUpdate {
   remainingChanges: number;
 }
 
+export class PublicProfileSlugRequestError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean,
+    readonly code?: string,
+  ) {
+    super(message);
+    this.name = 'PublicProfileSlugRequestError';
+  }
+}
+
+const PUBLIC_PROFILE_SLUG_ERROR_MESSAGES: Readonly<Record<string, string>> = {
+  PUBLIC_PROFILE_SLUG_TAKEN: 'Esta dirección ya no está disponible. Prueba con otra.',
+  PUBLIC_PROFILE_SLUG_CHANGE_LIMIT_REACHED:
+    'Has alcanzado el límite de 3 cambios. Puedes volver a usar una de tus direcciones anteriores.',
+  PUBLIC_PROFILE_SLUG_VERIFICATION_REQUIRED:
+    'Podrás personalizar tu URL cuando aprobemos la verificación de tu perfil profesional.',
+  PUBLIC_PROFILE_SLUG_ACCOUNT_INACTIVE:
+    'No puedes cambiar la URL mientras tu cuenta esté desactivada. Si crees que es un error, contacta con soporte.',
+  SPECIALIST_PROFILE_NOT_FOUND:
+    'No hemos encontrado tu perfil profesional. Actualiza la página o contacta con soporte.',
+  VALIDATION_ERROR:
+    'La dirección no tiene un formato válido. Usa letras, números y guiones.',
+  RATE_LIMIT_EXCEEDED:
+    'Has hecho demasiados intentos seguidos. Espera un momento y vuelve a probar.',
+};
+
+const getErrorResponseStatus = (error: unknown): number | null => {
+  if (typeof error !== 'object' || error === null || !('response' in error)) {
+    return null;
+  }
+
+  const response = (error as { response?: { status?: unknown } }).response;
+  return typeof response?.status === 'number' ? response.status : null;
+};
+
+const getPublicProfileSlugRequestError = (
+  error: unknown,
+  retryableFallbackMessage: string,
+  nonRetryableFallbackMessage: string,
+): PublicProfileSlugRequestError => {
+  const code = getErrorCode(error);
+  if (code && PUBLIC_PROFILE_SLUG_ERROR_MESSAGES[code]) {
+    return new PublicProfileSlugRequestError(
+      PUBLIC_PROFILE_SLUG_ERROR_MESSAGES[code],
+      code === 'RATE_LIMIT_EXCEEDED',
+      code,
+    );
+  }
+
+  if (hasResponseData(error)) {
+    const responseError = error.response.data.error;
+    if (responseError === 'Invalid or expired token' || responseError === 'No token provided') {
+      return new PublicProfileSlugRequestError(
+        getErrorMessage(error, nonRetryableFallbackMessage),
+        false,
+      );
+    }
+
+    const status = getErrorResponseStatus(error);
+    const retryable = status === null || status >= 500;
+    return new PublicProfileSlugRequestError(
+      retryable ? retryableFallbackMessage : nonRetryableFallbackMessage,
+      retryable,
+      code,
+    );
+  }
+
+  return new PublicProfileSlugRequestError(
+    isNetworkError(error)
+      ? getErrorMessage(error, retryableFallbackMessage)
+      : retryableFallbackMessage,
+    true,
+    code,
+  );
+};
+
 export const getPublicProfileSlugAvailability = async (
   slug: string
 ): Promise<PublicProfileSlugAvailability> => {
@@ -648,7 +725,11 @@ export const getPublicProfileSlugAvailability = async (
 
     return response.data.data;
   } catch (error: unknown) {
-    throw new Error(getErrorMessage(error, 'No se pudo comprobar la disponibilidad de la URL.'));
+    throw getPublicProfileSlugRequestError(
+      error,
+      'No hemos podido comprobar la URL. Revisa tu conexión y pulsa Reintentar.',
+      'No hemos podido comprobar la URL. Actualiza la página o contacta con soporte si el problema continúa.',
+    );
   }
 };
 
@@ -663,7 +744,11 @@ export const updatePublicProfileSlug = async (
 
     return response.data.data;
   } catch (error: unknown) {
-    throw new Error(getErrorMessage(error, 'No se pudo guardar la URL pública.'));
+    throw getPublicProfileSlugRequestError(
+      error,
+      'No hemos podido guardar la URL. Revisa tu conexión y pulsa Volver a guardar.',
+      'No hemos podido guardar la URL. Revisa la dirección o contacta con soporte si el problema continúa.',
+    );
   }
 };
 

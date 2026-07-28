@@ -77,7 +77,7 @@ describe('PublicProfileSlugEditor', () => {
     await waitFor(() => {
       expect(mockedGetAvailability).toHaveBeenCalledWith('ruben-vallejo-jara');
       expect(
-        screen.getByText('Esta URL está disponible y usará 1 de tus 2 cambios restantes.')
+        screen.getByText('Esta dirección está disponible. Al guardarla te quedará 1 cambio.')
       ).toBeTruthy();
     });
 
@@ -132,10 +132,202 @@ describe('PublicProfileSlugEditor', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Ya has utilizado tus 3 cambios de URL.')).toBeTruthy();
+      expect(
+        screen.getByText(
+          'Has alcanzado el límite de 3 cambios. Puedes volver a usar una de tus direcciones anteriores.'
+        )
+      ).toBeTruthy();
       expect(
         screen.getByRole('button', { name: 'Guardar URL' }).props.accessibilityState.disabled
       ).toBe(true);
+    });
+  });
+
+  it('explains clearly when a public URL cannot be used', async () => {
+    mockedGetAvailability.mockResolvedValue({
+      slug: 'direccion-ocupada',
+      available: false,
+      ownedByCurrentSpecialist: false,
+      wouldUseChange: true,
+      changeLimitReached: false,
+      remainingChanges: 2,
+    });
+
+    render(
+      <PublicProfileSlugEditor
+        initialSlug="elena-martin"
+        onSaved={jest.fn()}
+      />
+    );
+
+    fireEvent.changeText(
+      screen.getByLabelText('URL pública del perfil'),
+      'direccion-ocupada'
+    );
+
+    await act(async () => {
+      jest.advanceTimersByTime(350);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Esta dirección no está disponible. Prueba con otra.')
+      ).toBeTruthy();
+    });
+  });
+
+  it('lets the specialist retry after an availability error', async () => {
+    mockedGetAvailability
+      .mockRejectedValueOnce(
+        new Error(
+          'No hemos podido comprobar la URL. Revisa tu conexión y pulsa Reintentar.'
+        )
+      )
+      .mockResolvedValueOnce({
+        slug: 'elena-martin-terapia',
+        available: true,
+        ownedByCurrentSpecialist: false,
+        wouldUseChange: true,
+        changeLimitReached: false,
+        remainingChanges: 2,
+      });
+
+    render(
+      <PublicProfileSlugEditor
+        initialSlug="elena-martin"
+        onSaved={jest.fn()}
+      />
+    );
+
+    fireEvent.changeText(
+      screen.getByLabelText('URL pública del perfil'),
+      'elena-martin-terapia'
+    );
+
+    await act(async () => {
+      jest.advanceTimersByTime(350);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'No hemos podido comprobar la URL. Revisa tu conexión y pulsa Reintentar.'
+        )
+      ).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('Reintentar'));
+
+    await act(async () => {
+      jest.advanceTimersByTime(350);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockedGetAvailability).toHaveBeenCalledTimes(2);
+      expect(
+        screen.getByText('Esta dirección está disponible. Al guardarla te quedará 1 cambio.')
+      ).toBeTruthy();
+    });
+  });
+
+  it('does not offer a useless retry for a non-retryable account error', async () => {
+    mockedGetAvailability.mockRejectedValue(
+      Object.assign(
+        new Error(
+          'No puedes cambiar la URL mientras tu cuenta esté desactivada. Si crees que es un error, contacta con soporte.'
+        ),
+        { retryable: false }
+      )
+    );
+
+    render(
+      <PublicProfileSlugEditor
+        initialSlug="elena-martin"
+        onSaved={jest.fn()}
+      />
+    );
+
+    fireEvent.changeText(
+      screen.getByLabelText('URL pública del perfil'),
+      'elena-martin-terapia'
+    );
+
+    await act(async () => {
+      jest.advanceTimersByTime(350);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'No puedes cambiar la URL mientras tu cuenta esté desactivada. Si crees que es un error, contacta con soporte.'
+        )
+      ).toBeTruthy();
+      expect(screen.queryByText('Reintentar')).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'Guardar URL' }).props.accessibilityState.disabled
+      ).toBe(true);
+    });
+  });
+
+  it('retries saving directly after a recoverable save error', async () => {
+    const onSaved = jest.fn();
+    mockedGetAvailability.mockResolvedValue({
+      slug: 'elena-martin-terapia',
+      available: true,
+      ownedByCurrentSpecialist: false,
+      wouldUseChange: true,
+      changeLimitReached: false,
+      remainingChanges: 2,
+    });
+    mockedUpdateSlug
+      .mockRejectedValueOnce(
+        Object.assign(
+          new Error(
+            'No hemos podido guardar la URL. Revisa tu conexión y pulsa Volver a guardar.'
+          ),
+          { retryable: true }
+        )
+      )
+      .mockResolvedValueOnce({
+        publicSlug: 'elena-martin-terapia',
+        publicProfilePath: '/especialista/elena-martin-terapia',
+        remainingChanges: 1,
+      });
+
+    render(
+      <PublicProfileSlugEditor
+        initialSlug="elena-martin"
+        onSaved={onSaved}
+      />
+    );
+
+    fireEvent.changeText(
+      screen.getByLabelText('URL pública del perfil'),
+      'elena-martin-terapia'
+    );
+
+    await act(async () => {
+      jest.advanceTimersByTime(350);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Guardar URL')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByText('Guardar URL'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Volver a guardar')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByText('Volver a guardar'));
+
+    await waitFor(() => {
+      expect(mockedUpdateSlug).toHaveBeenCalledTimes(2);
+      expect(onSaved).toHaveBeenCalledWith('elena-martin-terapia', 1);
     });
   });
 });
