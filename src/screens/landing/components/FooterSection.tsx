@@ -31,6 +31,12 @@ interface FooterColumn {
   links: FooterLink[];
 }
 
+interface SocialLink {
+  label: string;
+  href: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+}
+
 interface FooterSectionProps {
   onFindSpecialist: () => void;
   professionalActionLabel: string;
@@ -39,6 +45,24 @@ interface FooterSectionProps {
   onClinicAccess: () => void;
   onScrollToSection: (section: LandingSectionAnchor) => void;
 }
+
+const socialLinks: SocialLink[] = [
+  {
+    label: 'HERA en LinkedIn',
+    href: 'https://www.linkedin.com/company/health-hera',
+    icon: 'logo-linkedin',
+  },
+  {
+    label: 'HERA en Instagram',
+    href: 'https://www.instagram.com/health.hera?igsh=MXdrb3h3Yjd2dWc3Zg==',
+    icon: 'logo-instagram',
+  },
+  {
+    label: 'HERA en TikTok',
+    href: 'https://www.tiktok.com/@hera.health.tech?_r=1&_t=ZN-98QojUsdfqo',
+    icon: 'logo-tiktok',
+  },
+];
 
 export const FooterSection: React.FC<FooterSectionProps> = ({
   onFindSpecialist,
@@ -162,23 +186,29 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
               Un mismo lugar para encontrar al profesional adecuado y para gestionar
               una consulta con calma, privacidad y contexto.
             </Text>
-            <AnimatedPressable
-              onPress={() => {
-                void Linking.openURL('https://www.linkedin.com/in/hera-health').catch(
-                  () => undefined
-                );
-              }}
-              hoverLift={false}
-              pressScale={0.96}
-              accessibilityRole="link"
-              accessibilityLabel="HERA en LinkedIn"
-              style={[
-                styles.socialButton,
-                { backgroundColor: theme.primaryAlpha12, borderColor: theme.border },
-              ]}
-            >
-              <Ionicons name="logo-linkedin" size={19} color={theme.primary} />
-            </AnimatedPressable>
+            <View style={styles.socialLinks}>
+              {socialLinks.map((socialLink) => (
+                <AnimatedPressable
+                  key={socialLink.label}
+                  onPress={() => {
+                    void Linking.openURL(socialLink.href).catch(() => undefined);
+                  }}
+                  hoverLift={false}
+                  pressScale={0.96}
+                  accessibilityRole="link"
+                  accessibilityLabel={socialLink.label}
+                  style={[
+                    styles.socialButton,
+                    {
+                      backgroundColor: theme.primaryAlpha12,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Ionicons name={socialLink.icon} size={19} color={theme.primary} />
+                </AnimatedPressable>
+              ))}
+            </View>
           </View>
 
           <View style={[styles.columns, isTablet && styles.columnsWide]}>
@@ -256,6 +286,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     marginBottom: 20,
+  },
+  socialLinks: {
+    flexDirection: 'row',
+    gap: 10,
   },
   socialButton: {
     width: 40,
