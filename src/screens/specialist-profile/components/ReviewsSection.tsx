@@ -3,17 +3,17 @@ import { ActivityIndicator, View, Text, StyleSheet, TextInput } from 'react-nati
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ReviewsSectionProps } from '../types';
 import { ReviewCard } from './ReviewCard';
-import { spacing, borderRadius, shadows } from '../../../constants/colors';
+import { spacing, borderRadius } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { Theme } from '../../../constants/theme';
 import { AnimatedPressable, Button } from '../../../components/common';
-import { ProfileDisclosureSection } from './ProfileDisclosureSection';
 import {
   canReviewSpecialist,
   requestPublicReviewLink,
   type CanReviewSpecialistReason,
 } from '../../../services/reviewsService';
 import ReviewModal from '../../sessions/components/ReviewModal';
+import { ProfileDisclosureSection } from './ProfileDisclosureSection';
 
 const STRINGS = {
   title: 'Reseñas de clientes',
@@ -67,8 +67,8 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = ({
   const displayedReviews = reviews.slice(0, 3);
   const hasMoreReviews = reviews.length > 3;
   const reviewCountLabel = reviewCount === 1 ? 'reseña' : STRINGS.reviews;
-  const summary = hasReviews
-    ? `${rating.toFixed(1)} ${STRINGS.average} (${reviewCount} ${reviewCountLabel})`
+  const disclosureSummary = reviewCount > 0
+    ? `${rating.toFixed(1)} · ${reviewCount} ${reviewCountLabel} ${reviewCount === 1 ? 'verificada' : 'verificadas'}`
     : STRINGS.emptyTitle;
 
   const canUseDirectReview = Boolean(isAuthenticated && isClient && specialistId);
@@ -151,11 +151,13 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = ({
       <ProfileDisclosureSection
         title={STRINGS.title}
         iconName="star-outline"
-        summary={summary}
+        summary={disclosureSummary}
         defaultExpanded
         testID="reviews-disclosure"
+        variant="surface"
       >
-        <View style={styles.trustRow}>
+        <View style={styles.body}>
+          <View style={styles.trustRow}>
           <View style={styles.trustBadge}>
             <Ionicons name="shield-checkmark-outline" size={15} color={theme.success} />
             <Text style={styles.trustBadgeText}>Sesiones HERA verificadas</Text>
@@ -253,6 +255,8 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = ({
             Los pacientes ya pueden añadir opiniones verificadas después de completar su sesión.
           </Text>
         )}
+
+        </View>
       </ProfileDisclosureSection>
 
       <ReviewModal
@@ -271,10 +275,39 @@ const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
     backgroundColor: theme.bgCard,
     borderRadius: borderRadius.lg,
-    padding: spacing.xl,
     borderWidth: 1,
     borderColor: theme.borderLight,
-    ...shadows.sm,
+  },
+  body: {
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
+  },
+  sectionHeader: {
+    marginBottom: spacing.lg,
+  },
+  sectionHeading: {
+    gap: spacing.xs,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontFamily: theme.fontHeading,
+    color: theme.textPrimary,
+  },
+  ratingSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  ratingValue: {
+    fontSize: 14,
+    fontFamily: theme.fontSansSemiBold,
+    color: theme.textPrimary,
+  },
+  ratingLabel: {
+    fontSize: 12,
+    color: theme.textSecondary,
   },
   trustRow: {
     flexDirection: 'row',
@@ -394,7 +427,7 @@ const createStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 20,
     fontFamily: theme.fontSans,
   },
-  reviewsList: { gap: spacing.sm },
+  reviewsList: { borderTopWidth: 1, borderTopColor: theme.borderLight },
   emptyText: {
     color: theme.textSecondary,
     fontSize: 14,

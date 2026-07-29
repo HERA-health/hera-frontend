@@ -19,7 +19,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { PhotoGallerySectionProps } from '../types';
-import { spacing, borderRadius, shadows } from '../../../constants/colors';
+import { spacing, borderRadius } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { Theme } from '../../../constants/theme';
 import { AnimatedPressable } from '../../../components/common';
@@ -32,7 +32,6 @@ const STRINGS = {
   closeGallery: 'Cerrar galería',
 };
 
-const MAX_DOTS = 5;
 const THUMBNAIL_SIZE = 64;
 const FADE_DURATION = 150;
 
@@ -99,11 +98,8 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
     }
   };
 
-  const carouselCounter = `${String(currentIndex + 1).padStart(2, '0')} / ${String(count).padStart(2, '0')}`;
-  const lightboxCounter = `${String(lightboxIndex + 1).padStart(2, '0')} / ${String(count).padStart(2, '0')}`;
-
-  const dotCount = Math.min(count, MAX_DOTS);
-  const activeDot = count <= MAX_DOTS ? currentIndex : Math.round((currentIndex / (count - 1)) * (MAX_DOTS - 1));
+  const carouselCounter = `${currentIndex + 1} de ${count}`;
+  const lightboxCounter = `${lightboxIndex + 1} de ${count}`;
 
   return (
     <View style={styles.container}>
@@ -113,6 +109,7 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
         summary={`${count} ${count === 1 ? 'foto' : 'fotos'}`}
         defaultExpanded={false}
         testID="photo-gallery-disclosure"
+        variant="surface"
       >
         <AnimatedPressable onPress={openLightbox} style={styles.mainImageWrapper} hoverLift={false} pressScale={0.995}>
           <Animated.Image
@@ -163,20 +160,13 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
                   pressScale={0.97}
                   style={isActive ? [styles.thumbnailWrapper, styles.thumbnailWrapperActive] : styles.thumbnailWrapper}
                 >
-                  <Image source={{ uri: url }} style={[styles.thumbnail, { opacity: isActive ? 1 : 0.68 }]} resizeMode="cover" />
+                  <Image source={{ uri: url }} style={[styles.thumbnail, { opacity: isActive ? 1 : 0.68 }]} resizeMode="contain" />
                 </AnimatedPressable>
               );
             })}
           </ScrollView>
         )}
 
-        {count > 1 && (
-          <View style={styles.dotsRow}>
-            {Array.from({ length: dotCount }).map((_, i) => (
-              <View key={i} style={[styles.dot, i === activeDot && styles.dotActive]} />
-            ))}
-          </View>
-        )}
 
         <Modal visible={lightboxVisible} transparent={false} animationType="fade" onRequestClose={closeLightbox} statusBarTranslucent>
           <View style={styles.lightboxContainer}>
@@ -234,17 +224,33 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
 const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   container: {
     backgroundColor: theme.bgCard,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: theme.borderLight,
-    ...shadows.sm,
+  },
+  header: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+  },
+  title: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontFamily: theme.fontHeading,
+    color: theme.textPrimary,
+  },
+  summary: {
+    marginTop: 2,
+    fontSize: 12,
+    color: theme.textSecondary,
   },
   mainImageWrapper: {
     aspectRatio: 16 / 9,
-    maxHeight: 280,
     width: '100%',
-    backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
+    backgroundColor: isDark ? theme.bgElevated : theme.primaryMuted,
     position: 'relative',
   },
   mainImage: {
@@ -290,7 +296,7 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
-    backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
+    backgroundColor: isDark ? theme.bgElevated : theme.primaryMuted,
   },
   thumbnailWrapperActive: {
     borderColor: theme.primary,
@@ -298,26 +304,6 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   thumbnail: {
     width: THUMBNAIL_SIZE,
     height: THUMBNAIL_SIZE,
-  },
-  dotsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingBottom: spacing.lg,
-    paddingTop: spacing.xs,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: theme.textMuted,
-    opacity: 0.45,
-  },
-  dotActive: {
-    width: 22,
-    backgroundColor: theme.primary,
-    opacity: 1,
   },
   lightboxContainer: {
     flex: 1,

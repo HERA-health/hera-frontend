@@ -25,7 +25,7 @@ describe('PhotoGallerySection', () => {
     jest.clearAllMocks();
   });
 
-  it('starts collapsed and renders the carousel only after opening', () => {
+  it('keeps the gallery collapsed until the user opens it', () => {
     render(
       <PhotoGallerySection
         photoGallery={['https://example.com/one.jpg', 'https://example.com/two.jpg']}
@@ -35,11 +35,14 @@ describe('PhotoGallerySection', () => {
 
     expect(screen.getByText('Galería')).toBeTruthy();
     expect(screen.getByText('2 fotos')).toBeTruthy();
-    expect(screen.queryByLabelText('Judith - 01 / 02')).toBeNull();
+    expect(screen.queryByLabelText('Judith - 1 de 2')).toBeNull();
 
-    fireEvent.press(screen.getByTestId('photo-gallery-disclosure-header'));
-
-    expect(screen.getByLabelText('Judith - 01 / 02')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Abrir Galería'));
+    const mainImage = screen.getByLabelText('Judith - 1 de 2');
+    expect(mainImage).toBeTruthy();
+    expect(mainImage.props.resizeMode).toBe('contain');
+    fireEvent.press(screen.getByLabelText('Cerrar Galería'));
+    expect(screen.queryByLabelText('Judith - 1 de 2')).toBeNull();
   });
 
   it('keeps hook order stable when the gallery appears or disappears', () => {

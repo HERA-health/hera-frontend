@@ -1,56 +1,25 @@
-import { showAppAlert, useAppAlert } from '../../components/common/alert';
-/**
- * PublicSpecialistProfileScreen - Shareable public specialist profile
- *
- * Accessible via deep link: /especialista/:profileRef
- * Works without authentication. Shows HERA branded header instead of back button.
- * Auth-aware CTA: unauthenticated users can request an appointment without registering.
- */
-
-import React, { useState, useRef, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  useWindowDimensions,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
-import * as specialistsService from '../../services/specialistsService';
-import { spacing, borderRadius } from '../../constants/colors';
-import { getGradientColors } from '../../constants/gradients';
+import React, { useCallback, useRef, useState } from 'react';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AnimatedPressable, Button } from '../../components/common';
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
+import { StyledLogo } from '../../components/common/StyledLogo';
+import { spacing } from '../../constants/colors';
+import type { AppNavigationProp, AppRouteProp, RootStackParamList } from '../../constants/types';
+import type { Theme } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import type { Theme } from '../../constants/theme';
-import { StyledLogo } from '../../components/common/StyledLogo';
-
-import {
-  ProfileHero,
-  SpecializationsGrid,
-  ExperienceSection,
-  ReviewsSection,
-  StickyBookingBar,
-  BookingSidebar,
-  PhotoGallerySection,
-  VideoSection,
-  ProfileSkeleton,
-} from '../specialist-profile/components';
-import type { Specialist, Review, CertificateItem } from '../specialist-profile/types';
-import type { AppNavigationProp, AppRouteProp, RootStackParamList } from '../../constants/types';
-import { AnimatedPressable, Button } from '../../components/common';
-import type { TimeSlot } from '../../services/sessionsService';
 import { useWebPageMetadata } from '../../hooks/useWebPageMetadata';
-
-const DESKTOP_BREAKPOINT = 1024;
-const TABLET_BREAKPOINT = 768;
-
-interface SelectedProfileSlot {
-  date: string;
-  slot: TimeSlot;
-}
+import * as specialistsService from '../../services/specialistsService';
+import { SpecialistProfileLayout } from '../specialist-profile/SpecialistProfileLayout';
+import { ProfileSkeleton } from '../specialist-profile/components';
+import type {
+  CertificateItem,
+  Review,
+  SelectedProfileSlot,
+  Specialist,
+} from '../specialist-profile/types';
 
 export const PublicSpecialistProfileScreen: React.FC = () => {
   const route = useRoute<AppRouteProp<'PublicSpecialistProfile'>>();
@@ -63,34 +32,26 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     verificationSubmitted,
   } = useAuth();
   const { theme, isDark } = useTheme();
-  const { profileRef } = route.params || {};
   const { width } = useWindowDimensions();
-
-  const isDesktop = width >= DESKTOP_BREAKPOINT;
-  const isTablet = width >= TABLET_BREAKPOINT && width < DESKTOP_BREAKPOINT;
-  const isMobile = width < TABLET_BREAKPOINT;
-  const styles = createStyles(theme, isDark, isDesktop, isTablet, isMobile);
-
-  const scrollViewRef = useRef<ScrollView>(null);
+  const { profileRef } = route.params ?? {};
+  const isWide = width >= 768;
+  const isMobile = width < 768;
+  const styles = createStyles(theme, isDark, isWide, isMobile);
   const profileRequestRef = useRef(0);
-
   const [specialist, setSpecialist] = useState<Specialist | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsVisible, setReviewsVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [showStickyBar, setShowStickyBar] = useState(false);
   const canBook = specialist
     ? specialist.offersOnline !== false || specialist.offersInPerson === true
     : false;
-
   const hasIndexableProfile = Boolean(
     !loading
     && !error
-    && specialist
-    && specialist.isPubliclyListed === true
+    && specialist?.isPubliclyListed === true
     && specialist.avatar
-    && specialist.pricePerSession > 0
+    && specialist.pricePerSession > 0,
   );
   const canonicalProfileRef = specialist?.publicSlug ?? profileRef;
 
@@ -109,59 +70,55 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   const loadSpecialistDetails = useCallback(async () => {
     const requestId = profileRequestRef.current + 1;
     profileRequestRef.current = requestId;
-
     try {
       setLoading(true);
       setError(false);
       setReviews([]);
       setReviewsVisible(false);
-
-      if (!profileRef) {
-        throw new Error('No specialist profile reference provided');
-      }
+      if (!profileRef) throw new Error('No specialist profile reference provided');
 
       const data = await specialistsService.getPublicSpecialistDetails(profileRef);
-
-      if (profileRequestRef.current !== requestId) {
-        return;
-      }
-
-      const mappedSpecialist = specialistsService.mapPublicSpecialistToProfile(data);
-
-      setSpecialist(mappedSpecialist);
+      if (profileRequestRef.current !== requestId) return;
+      setSpecialist(specialistsService.mapPublicSpecialistToProfile(data));
       setReviewsVisible(data.reviewCount !== null);
-
-      // Reviews: use real data if available
       if (data.reviewCount !== null && data.reviewCount > 0 && data.reviews) {
         setReviews(data.reviews);
       }
-    } catch (err: unknown) {
-      if (profileRequestRef.current !== requestId) {
-        return;
-      }
-      console.error('Error loading public profile:', err);
+    } catch (loadError: unknown) {
+      if (profileRequestRef.current !== requestId) return;
+      console.error('Error loading public profile:', loadError);
       setError(true);
     } finally {
-      if (profileRequestRef.current === requestId) {
-        setLoading(false);
-      }
+      if (profileRequestRef.current === requestId) setLoading(false);
     }
   }, [profileRef]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void loadSpecialistDetails();
+  useFocusEffect(useCallback(() => {
+    void loadSpecialistDetails();
+    return () => { profileRequestRef.current += 1; };
+  }, [loadSpecialistDetails]));
 
-      return () => {
-        profileRequestRef.current += 1;
-      };
-    }, [loadSpecialistDetails])
-  );
-
-  const handleBookSession = useCallback(async (selectedSlot?: SelectedProfileSlot) => {
+  const handleBookSession = useCallback((selectedSlot?: SelectedProfileSlot) => {
     if (!specialist) return;
+    if (!canBook) {
+      showAppAlert(
+        appAlert,
+        'Reserva no disponible',
+        'Este especialista no tiene modalidades de reserva activas en este momento.',
+      );
+      return;
+    }
+    if (isAuthenticated && user?.type !== 'client') {
+      showAppAlert(appAlert, 'Información', 'No puedes reservar sesiones desde esta cuenta.');
+      return;
+    }
+    const bookingRouteIsAvailable = navigation.getState().routeNames.includes('Booking');
+    if (isAuthenticated && (legalStatusSnapshot?.requiresAcceptance || !bookingRouteIsAvailable)) {
+      navigation.navigate('RequiredLegalAcceptance');
+      return;
+    }
 
-    const bookingParams: RootStackParamList['Booking'] = {
+    const params: RootStackParamList['Booking'] = {
       specialistId: specialist.id,
       ...(selectedSlot ? {
         initialDate: selectedSlot.date,
@@ -169,63 +126,30 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         initialSlotEndTime: selectedSlot.slot.endTime,
       } : {}),
     };
-
-    if (!canBook) {
-      showAppAlert(
-        appAlert,
-        'Reserva no disponible',
-        'Este especialista no tiene modalidades de reserva activas en este momento.'
-      );
-      return;
-    }
-
-    if (isAuthenticated && user?.type !== 'client') {
-      showAppAlert(appAlert, 'Información', 'No puedes reservar sesiones desde esta cuenta.');
-      return;
-    }
-
-    const bookingRouteIsAvailable = navigation.getState().routeNames.includes('Booking');
-    if (
-      isAuthenticated
-      && (legalStatusSnapshot?.requiresAcceptance || !bookingRouteIsAvailable)
-    ) {
-      navigation.navigate('RequiredLegalAcceptance');
-      return;
-    }
-
-    navigation.navigate('Booking', bookingParams);
+    navigation.navigate('Booking', params);
   }, [
     appAlert,
     canBook,
-    specialist,
     isAuthenticated,
     legalStatusSnapshot?.requiresAcceptance,
-    user,
     navigation,
+    specialist,
+    user?.type,
   ]);
 
-  const handleBookSessionPress = useCallback(() => {
-    void handleBookSession();
-  }, [handleBookSession]);
-
-  const handleAvailabilitySlotSelect = useCallback((date: string, slot: TimeSlot) => {
-    void handleBookSession({ date, slot });
-  }, [handleBookSession]);
-
   const handleOpenCertificate = useCallback(async (certificate: CertificateItem) => {
-    if (!specialist) {
-      return;
-    }
-
+    if (!specialist) return;
     try {
       await specialistsService.openPublicCertificateDocument(
         specialist.id,
         certificate.id,
         certificate.mimeType,
-        certificate.documentUrl
+        certificate.documentUrl,
       );
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'No se pudo abrir el certificado.';
+    } catch (certificateError: unknown) {
+      const message = certificateError instanceof Error
+        ? certificateError.message
+        : 'No se pudo abrir el certificado.';
       showAppAlert(appAlert, 'Error', message);
     }
   }, [appAlert, specialist]);
@@ -235,7 +159,6 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
       navigation.reset({ index: 0, routes: [{ name: 'Landing' }] });
       return;
     }
-
     const workspaceRoute = legalStatusSnapshot?.requiresAcceptance
       ? 'RequiredLegalAcceptance'
       : user?.type === 'professional'
@@ -243,29 +166,19 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         : user?.type === 'clinic'
           ? 'ClinicDashboard'
           : 'Home';
-
     navigation.reset({ index: 0, routes: [{ name: workspaceRoute }] });
-  }, [isAuthenticated, legalStatusSnapshot?.requiresAcceptance, navigation, user?.type, verificationSubmitted]);
+  }, [
+    isAuthenticated,
+    legalStatusSnapshot?.requiresAcceptance,
+    navigation,
+    user?.type,
+    verificationSubmitted,
+  ]);
 
-  const handleScrollToReviews = useCallback(() => {
-    scrollViewRef.current?.scrollTo({ y: 800, animated: true });
-  }, []);
-
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (isMobile) {
-      const scrollY = event.nativeEvent.contentOffset.y;
-      setShowStickyBar(scrollY > 400);
-    }
-  }, [isMobile]);
-
-  // ============== GRADIENT COLORS ==============
-  const gradientColors = getGradientColors(specialist?.gradientId);
-
-  // ============== HERA BRANDED HEADER ==============
   const renderHeader = () => (
-    <View style={[styles.heraHeader, (isDesktop || isTablet) && styles.heraHeaderDesktop]}>
+    <View style={[styles.header, isWide && styles.headerWide]}>
       <AnimatedPressable
-        style={styles.heraLogoContainer}
+        style={styles.logo}
         onPress={handleGoToLanding}
         hoverLift={false}
         pressScale={0.985}
@@ -275,13 +188,12 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
       >
         <StyledLogo size={36} />
       </AnimatedPressable>
-
-      {!isAuthenticated && (
-        <View style={styles.heraHeaderActions}>
+      {!isAuthenticated ? (
+        <View style={styles.headerActions}>
           <Button
             variant="ghost"
             size="medium"
-            style={styles.heraLoginButton}
+            style={styles.loginButton}
             onPress={() => navigation.navigate('Login', { userType: 'CLIENT' })}
           >
             Iniciar sesión
@@ -289,30 +201,37 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
           <Button
             variant="primary"
             size="medium"
-            style={styles.heraRegisterButton}
+            style={styles.registerButton}
             onPress={() => navigation.navigate('Register', { userType: 'CLIENT' })}
           >
             Crear cuenta
           </Button>
         </View>
-      )}
+      ) : null}
     </View>
   );
 
-  // ============== LOADING ==============
+  const professionalBanner = isAuthenticated && user?.type === 'professional' ? (
+    <View style={styles.professionalBanner}>
+      <Ionicons name="information-circle" size={20} color={theme.info} />
+      <Text style={styles.professionalBannerText}>
+        Estás viendo este perfil como profesional. Los pacientes pueden reservar sesiones desde esta página.
+      </Text>
+    </View>
+  ) : null;
+
   if (loading) {
     return (
-      <View style={styles.screenContainer}>
+      <View style={styles.screen}>
         {renderHeader()}
-        <ProfileSkeleton isDesktop={!isMobile} />
+        <ProfileSkeleton isDesktop={isWide} />
       </View>
     );
   }
 
-  // ============== ERROR ==============
   if (error || !specialist) {
     return (
-      <View style={styles.screenContainer}>
+      <View style={styles.screen}>
         {renderHeader()}
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={64} color={theme.warning} />
@@ -328,246 +247,65 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     );
   }
 
-  // ============== MAIN CONTENT ==============
-  const heroRenderedAbove = isDesktop || isTablet;
-
-  const renderMainContent = (skipHero = false) => (
-    <>
-      {/* Hero Section */}
-      {!skipHero && (
-            <ProfileHero
-              specialist={specialist}
-              onBookPress={handleBookSessionPress}
-              onRatingPress={handleScrollToReviews}
-              gradientColors={gradientColors}
-              bio={specialist.bio}
-          therapeuticApproach={specialist.therapeuticApproach}
-        />
-      )}
-
-      {/* Video Section */}
-      {specialist.presentationVideoUrl ? (
-        <View style={styles.section}>
-          <VideoSection
-            presentationVideoUrl={specialist.presentationVideoUrl}
-            specialistName={specialist.name}
-            gradientColors={gradientColors}
-          />
-        </View>
-      ) : null}
-
-      {/* Specializations Grid */}
-      {specialist.specializations.length > 0 && (
-        <View style={styles.section}>
-          <SpecializationsGrid
-            specializations={specialist.specializations}
-            specializationsDetail={specialist.specializationsDetail}
-          />
-        </View>
-      )}
-
-      {/* Experience & Education Section */}
-      <View style={styles.section}>
-        <ExperienceSection
-          education={specialist.education}
-          experience={specialist.experience}
-          certifications={specialist.certifications}
-          collegiateNumber={specialist.collegiateNumber}
-          experienceYears={specialist.experienceYears}
-          onOpenCertificate={(certificate) => void handleOpenCertificate(certificate)}
-        />
-      </View>
-
-      {reviewsVisible ? (
-        <View style={styles.section}>
-          <ReviewsSection
-            specialistId={specialist.id}
-            specialistName={specialist.name}
-            specialistAvatar={specialist.avatar}
-            reviews={reviews}
-            rating={specialist.rating}
-            reviewCount={specialist.reviewCount}
-            isAuthenticated={isAuthenticated}
-            isClient={user?.type === 'client'}
-            onReviewSubmitted={() => void loadSpecialistDetails()}
-          />
-        </View>
-      ) : null}
-    </>
-  );
-
-  // Professional info text (when a professional views the profile)
-  const isProfessional = isAuthenticated && user?.type === 'professional';
-
-  // ============== PROFESSIONAL BANNER ==============
-  const renderProfessionalBanner = () => {
-    if (!isProfessional) return null;
-    return (
-      <View style={styles.professionalInfoBox}>
-        <Ionicons name="information-circle" size={20} color={theme.info} />
-        <Text style={styles.professionalInfoText}>
-          Estás viendo este perfil como profesional. Los pacientes pueden reservar sesiones desde esta página.
-        </Text>
-      </View>
-    );
-  };
-
-  // ============== DESKTOP/TABLET LAYOUT ==============
-  if (isDesktop || isTablet) {
-    return (
-      <View style={styles.screenContainer}>
-        {renderHeader()}
-        {renderProfessionalBanner()}
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.container}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.twoColumnContainer}>
-            <View style={[styles.leftColumn, isTablet && styles.leftColumnTablet]}>
-              <ProfileHero
-                specialist={specialist}
-                onBookPress={handleBookSessionPress}
-                onRatingPress={handleScrollToReviews}
-                gradientColors={gradientColors}
-                bio={specialist.bio}
-                therapeuticApproach={specialist.therapeuticApproach}
-              />
-              {renderMainContent(heroRenderedAbove)}
-              <View style={styles.bottomSpacer} />
-            </View>
-            <View style={[styles.rightColumn, isTablet && styles.rightColumnTablet]}>
-              <BookingSidebar
-                specialist={specialist}
-                onBookPress={handleBookSessionPress}
-                onSlotSelect={handleAvailabilitySlotSelect}
-                gradientColors={gradientColors}
-                canBook={canBook}
-                showLargePhoto
-              />
-              {specialist.photoGallery && specialist.photoGallery.length > 0 && (
-                <View style={styles.rightColumnGallery}>
-                  <PhotoGallerySection
-                    photoGallery={specialist.photoGallery}
-                    specialistName={specialist.name}
-                  />
-                </View>
-              )}
-            </View>
-          </View>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  // ============== MOBILE LAYOUT ==============
   return (
-    <View style={styles.screenContainer}>
+    <View style={styles.screen}>
       {renderHeader()}
-      {renderProfessionalBanner()}
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-      >
-        <View style={styles.mobileContainer}>
-          <ProfileHero
-            specialist={specialist}
-            onBookPress={handleBookSessionPress}
-            onRatingPress={handleScrollToReviews}
-            gradientColors={gradientColors}
-            bio={specialist.bio}
-            therapeuticApproach={specialist.therapeuticApproach}
-          />
-          <View style={styles.section}>
-            <BookingSidebar
-              specialist={specialist}
-              onBookPress={handleBookSessionPress}
-              onSlotSelect={handleAvailabilitySlotSelect}
-              gradientColors={gradientColors}
-              canBook={canBook}
-              showLargePhoto={false}
-            />
-          </View>
-          {renderMainContent(true)}
-          {specialist.photoGallery && specialist.photoGallery.length > 0 && (
-            <View style={styles.section}>
-              <PhotoGallerySection
-                photoGallery={specialist.photoGallery}
-                specialistName={specialist.name}
-              />
-            </View>
-          )}
-          <View style={styles.bottomSpacerMobile} />
-        </View>
-      </ScrollView>
-
-      <StickyBookingBar
-        specialistName={specialist.name}
-        pricePerSession={specialist.pricePerSession}
-        onBookPress={handleBookSessionPress}
-        visible={showStickyBar}
+      {professionalBanner}
+      <SpecialistProfileLayout
+        specialist={specialist}
+        reviews={reviews}
+        reviewsVisible={reviewsVisible}
         canBook={canBook}
+        isAuthenticated={isAuthenticated}
+        isClient={user?.type === 'client'}
+        onBrowseSpecialists={() => navigation.navigate('PublicSpecialists')}
+        onBookSession={handleBookSession}
+        onOpenCertificate={(certificate) => void handleOpenCertificate(certificate)}
+        onReviewSubmitted={() => void loadSpecialistDetails()}
       />
     </View>
   );
 };
 
-// ============== STYLES ==============
 const createStyles = (
   theme: Theme,
   isDark: boolean,
-  isDesktop: boolean,
-  isTablet: boolean,
-  isMobile: boolean
+  isWide: boolean,
+  isMobile: boolean,
 ) => StyleSheet.create({
-  screenContainer: {
-    flex: 1,
-    backgroundColor: theme.bg,
-  },
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: isMobile ? 32 : 48,
-  },
-
-  // HERA Header
-  heraHeader: {
+  screen: { flex: 1, backgroundColor: theme.bg },
+  header: {
+    minHeight: 72,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: theme.bgCard,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.borderLight,
+    backgroundColor: theme.bgCard,
   },
-  heraHeaderDesktop: {
-    paddingHorizontal: spacing.xxl,
-  },
-  heraLogoContainer: {
+  headerWide: { paddingHorizontal: spacing.xxl },
+  logo: { minHeight: 44, flexDirection: 'row', alignItems: 'center' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  loginButton: { minWidth: isMobile ? 0 : 132 },
+  registerButton: { minWidth: isMobile ? 0 : 148 },
+  professionalBanner: {
     flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 44,
-  },
-  heraHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.borderLight,
+    backgroundColor: isDark ? theme.bgElevated : theme.bgCard,
   },
-  heraLoginButton: {
-    minWidth: isMobile ? 0 : 132,
+  professionalBannerText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    color: theme.textSecondary,
   },
-  heraRegisterButton: {
-    minWidth: isMobile ? 0 : 148,
-  },
-
-  // Error State
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -575,83 +313,20 @@ const createStyles = (
     padding: spacing.xl,
   },
   errorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: theme.textPrimary,
     marginTop: spacing.md,
+    fontSize: 20,
+    fontFamily: theme.fontHeading,
+    color: theme.textPrimary,
   },
   errorText: {
-    fontSize: 15,
-    color: theme.textSecondary,
+    maxWidth: 320,
     marginTop: spacing.sm,
-    textAlign: 'center',
-    maxWidth: 300,
-  },
-  errorButton: {
-    marginTop: spacing.lg,
-    minWidth: 220,
-  },
-
-  // Two Column Layout
-  twoColumnContainer: {
-    flexDirection: 'row',
-    maxWidth: 1240,
-    alignSelf: 'center',
-    width: '100%',
-    paddingHorizontal: spacing.lg,
-    gap: isTablet ? spacing.lg : spacing.xxl,
-    paddingTop: spacing.xl,
-  },
-  leftColumn: {
-    flex: 0.62,
-    minWidth: 0,
-  },
-  leftColumnTablet: {
-    flex: 0.58,
-  },
-  rightColumn: {
-    flex: 0.38,
-    minWidth: 0,
-    alignSelf: 'flex-start',
-  },
-  rightColumnTablet: {
-    flex: 0.42,
-  },
-  rightColumnGallery: {
-    marginTop: spacing.md,
-  },
-  mobileContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-  },
-  section: {
-    marginTop: spacing.xl,
-  },
-  bottomSpacer: {
-    height: 40,
-  },
-  bottomSpacerMobile: {
-    height: 100,
-  },
-
-  // Professional info banner (full-width strip below header)
-  professionalInfoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    backgroundColor: isDark ? theme.bgElevated : theme.bgCard,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.borderLight,
-  },
-  professionalInfoText: {
-    flex: 1,
-    fontSize: 14,
+    fontSize: 15,
+    lineHeight: 21,
     color: theme.textSecondary,
-    lineHeight: 20,
+    textAlign: 'center',
   },
-
+  errorButton: { minWidth: 220, marginTop: spacing.lg },
 });
 
 export default PublicSpecialistProfileScreen;

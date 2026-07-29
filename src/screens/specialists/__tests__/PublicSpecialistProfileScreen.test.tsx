@@ -67,6 +67,14 @@ jest.mock('../../../components/common', () => {
   };
 });
 
+jest.mock('../../specialist-profile/SpecialistProfileLayout', () => {
+  const { Pressable, Text } = require('react-native');
+  return {
+    SpecialistProfileLayout: ({ onBookSession }: { onBookSession: () => void }) => (
+      <Pressable onPress={onBookSession}><Text>Reservar en prueba</Text></Pressable>
+    ),
+  };
+});
 jest.mock('../../specialist-profile/components', () => {
   const { Pressable, Text } = require('react-native');
   const BookingAction = ({ onBookPress }: { onBookPress: () => void }) => (

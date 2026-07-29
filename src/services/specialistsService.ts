@@ -624,6 +624,19 @@ export const getSpecialistPersonalization = async (): Promise<SpecialistPersonal
   }
 };
 
+export const getFavoriteSpecialistStatus = async (
+  specialistId: string
+): Promise<boolean> => {
+  try {
+    const response = await api.get<{ success: boolean; data: { isFavorite: boolean } }>(
+      `/specialists/${encodeURIComponent(specialistId)}/favorite`
+    );
+    return response.data.data.isFavorite;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo cargar el estado del favorito'));
+  }
+};
+
 export const addFavoriteSpecialist = async (specialistId: string): Promise<void> => {
   try {
     await api.post(`/specialists/${specialistId}/favorite`);

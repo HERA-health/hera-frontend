@@ -49,7 +49,7 @@ describe('ReviewsSection', () => {
     jest.clearAllMocks();
   });
 
-  it('starts expanded when there are reviews', () => {
+  it('renders verified reviews inside a collapsible modern surface', () => {
     render(
       <ReviewsSection
         specialistId="specialist-1"
@@ -65,10 +65,15 @@ describe('ReviewsSection', () => {
       />
     );
 
-    expect(screen.getByText('5.0 promedio (1 reseña)')).toBeTruthy();
+    expect(screen.getByText('5.0 · 1 reseña verificada')).toBeTruthy();
     expect(screen.getByText(/Me ayudó mucho/)).toBeTruthy();
     expect(screen.getByText('Sesión verificada')).toBeTruthy();
     expect(screen.getByText('Añadir tu opinión')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Cerrar Reseñas de clientes'));
+    expect(screen.queryByText(/Me ayudó mucho/)).toBeNull();
+    fireEvent.press(screen.getByLabelText('Abrir Reseñas de clientes'));
+    expect(screen.getByText(/Me ayudó mucho/)).toBeTruthy();
   });
 
   it('shows the verified review CTA when there are no reviews', () => {

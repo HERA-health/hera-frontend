@@ -14,7 +14,7 @@ interface ProfileDisclosureSectionProps {
   iconName?: React.ComponentProps<typeof Ionicons>['name'];
   summary?: string;
   testID?: string;
-  variant?: 'card' | 'row';
+  variant?: 'card' | 'row' | 'surface';
 }
 
 export const ProfileDisclosureSection: React.FC<ProfileDisclosureSectionProps> = ({
@@ -31,6 +31,7 @@ export const ProfileDisclosureSection: React.FC<ProfileDisclosureSectionProps> =
   const [expanded, setExpanded] = useState(defaultExpanded);
   const hasContent = React.Children.count(children) > 0;
   const rowVariant = variant === 'row';
+  const surfaceVariant = variant === 'surface';
 
   useEffect(() => {
     setExpanded(defaultExpanded);
@@ -42,9 +43,20 @@ export const ProfileDisclosureSection: React.FC<ProfileDisclosureSectionProps> =
   };
 
   return (
-    <View style={[styles.container, rowVariant && styles.containerRow]} testID={testID}>
+    <View
+      style={[
+        styles.container,
+        rowVariant && styles.containerRow,
+        surfaceVariant && styles.containerSurface,
+      ]}
+      testID={testID}
+    >
       <AnimatedPressable
-        style={[styles.header, rowVariant && styles.headerRow]}
+        style={[
+          styles.header,
+          rowVariant && styles.headerRow,
+          surfaceVariant && styles.headerSurface,
+        ]}
         onPress={handleToggle}
         hoverLift={false}
         pressScale={hasContent ? 0.99 : 1}
@@ -80,7 +92,11 @@ export const ProfileDisclosureSection: React.FC<ProfileDisclosureSectionProps> =
 
       {hasContent && expanded ? (
         <View
-          style={[styles.content, rowVariant && styles.contentRow]}
+          style={[
+            styles.content,
+            rowVariant && styles.contentRow,
+            surfaceVariant && styles.contentSurface,
+          ]}
           testID={testID ? `${testID}-content` : undefined}
         >
           {children}
@@ -105,6 +121,11 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     borderRadius: 0,
     backgroundColor: 'transparent',
   },
+  containerSurface: {
+    borderWidth: 0,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+  },
   header: {
     minHeight: 60,
     flexDirection: 'row',
@@ -117,6 +138,11 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   headerRow: {
     minHeight: 64,
     paddingHorizontal: 0,
+    paddingVertical: spacing.md,
+  },
+  headerSurface: {
+    minHeight: 76,
+    paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
   },
   headerMain: {
@@ -145,8 +171,9 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     minWidth: 0,
   },
   title: {
+    paddingBottom: 1,
     fontSize: 16,
-    lineHeight: 21,
+    lineHeight: 24,
     fontWeight: '700',
     color: theme.textPrimary,
   },
@@ -169,6 +196,10 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   contentRow: {
     paddingHorizontal: 0,
     paddingBottom: spacing.lg,
+  },
+  contentSurface: {
+    paddingHorizontal: 0,
+    paddingBottom: 0,
   },
 });
 

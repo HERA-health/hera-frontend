@@ -1010,7 +1010,7 @@ export function SpecialistProfileScreen() {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.9,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -2146,7 +2146,7 @@ export function SpecialistProfileScreen() {
                   )}
                 </View>
                 <Text style={styles.photoHint}>
-                  Foto profesional, buena iluminación y fondo neutro.
+                  Foto cuadrada de al menos 1200 × 1200, con buena iluminación y fondo neutro.
                 </Text>
               </View>
             </View>

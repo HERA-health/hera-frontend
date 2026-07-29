@@ -99,7 +99,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     container: {
       flex: 1,
       padding: spacing.lg,
-      backgroundColor: theme.bg,
+      backgroundColor: isDark ? theme.bg : theme.bgMuted,
     },
     cards: {
       marginTop: spacing.xl,
@@ -120,7 +120,7 @@ function createStyles(theme: Theme, isDark: boolean) {
     },
     block: {
       overflow: 'hidden',
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgAlt,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.primaryMuted,
     },
     shimmer: {
       ...StyleSheet.absoluteFillObject,

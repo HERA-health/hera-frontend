@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Linking, useWindowDimensions, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, Linking, Image } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { VideoSectionProps } from '../types';
-import { spacing, borderRadius, shadows } from '../../../constants/colors';
+import { spacing, borderRadius } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { Theme } from '../../../constants/theme';
 import { AnimatedPressable } from '../../../components/common';
@@ -24,7 +24,6 @@ export const VideoSection: React.FC<VideoSectionProps> = ({
   presentationVideoUrl,
   specialistName,
 }) => {
-  const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const videoId = extractYouTubeId(presentationVideoUrl);
@@ -41,9 +40,6 @@ export const VideoSection: React.FC<VideoSectionProps> = ({
     }
   };
 
-  const containerWidth = Math.min(width - spacing.xl * 2 - spacing.lg * 2, 600);
-  const videoHeight = containerWidth * (9 / 16);
-
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -51,8 +47,8 @@ export const VideoSection: React.FC<VideoSectionProps> = ({
         <Text style={styles.title}>{STRINGS.title}</Text>
       </View>
 
-      <AnimatedPressable onPress={handlePress} style={styles.thumbnailTouch} hoverLift={false} pressScale={0.99}>
-        <View style={[styles.thumbnailContainer, { height: videoHeight }]}>
+      <AnimatedPressable onPress={handlePress} style={styles.thumbnailTouch} hoverLift={false} pressScale={0.99} accessibilityRole="link">
+        <View style={styles.thumbnailContainer}>
           <View style={styles.darkBase} />
           {thumbUrl && (
             <Image
@@ -69,13 +65,16 @@ export const VideoSection: React.FC<VideoSectionProps> = ({
             <Ionicons name="play" size={28} color="#fff" style={styles.playIcon} />
           </View>
           <View style={styles.bottomLabel}>
-            <Text style={styles.bottomLabelName}>{specialistName}</Text>
             <Text style={styles.bottomLabelSub}>{STRINGS.presentation}</Text>
+            <Text style={styles.bottomLabelName}>Conoce a {specialistName}</Text>
           </View>
         </View>
       </AnimatedPressable>
 
-      <Text style={styles.browserHint}>{STRINGS.openBrowser}</Text>
+      <View style={styles.browserHintRow}>
+        <Ionicons name="open-outline" size={13} color={theme.textMuted} />
+        <Text style={styles.browserHint}>{STRINGS.openBrowser}</Text>
+      </View>
     </View>
   );
 };
@@ -84,23 +83,21 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   container: {
     backgroundColor: theme.bgCard,
     borderRadius: borderRadius.lg,
-    padding: spacing.xl,
     borderWidth: 1,
     borderColor: theme.borderLight,
-    ...shadows.sm,
   },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.lg },
   title: { fontSize: 22, fontWeight: '600', color: theme.textPrimary },
-  thumbnailTouch: { borderRadius: borderRadius.lg, overflow: 'hidden' },
-  thumbnailContainer: { width: '100%', borderRadius: borderRadius.lg, overflow: 'hidden', justifyContent: 'center', alignItems: 'center', position: 'relative' },
+  thumbnailTouch: { overflow: 'hidden' },
+  thumbnailContainer: { width: '100%', aspectRatio: 16 / 9, overflow: 'hidden', justifyContent: 'center', alignItems: 'center', position: 'relative' },
   darkBase: { ...StyleSheet.absoluteFillObject, backgroundColor: '#1A1A1A' },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.25)' },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.28)' },
   playButton: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center', zIndex: 1 },
   playIcon: { marginLeft: 4 },
   bottomLabel: { position: 'absolute', bottom: spacing.md, left: spacing.md, zIndex: 1 },
-  bottomLabelName: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.9)' },
-  bottomLabelSub: { fontSize: 11, color: 'rgba(255,255,255,0.9)' },
-  browserHint: { fontSize: 11, color: theme.textMuted, textAlign: 'center', marginTop: spacing.sm },
-});
+  bottomLabelName: { marginTop: 2, fontSize: 18, fontFamily: theme.fontHeading, color: '#FFFFFF' },
+  bottomLabelSub: { fontSize: 10, fontFamily: theme.fontSansSemiBold, color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', letterSpacing: 0.8 },
+  browserHintRow: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  browserHint: { fontSize: 11, color: theme.textMuted, textAlign: 'center' },});
 
 export default VideoSection;

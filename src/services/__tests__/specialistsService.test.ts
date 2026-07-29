@@ -21,6 +21,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 import {
   addFavoriteSpecialist,
+  getFavoriteSpecialistStatus,
   getFeaturedSpecialists,
   getAllSpecialists,
   getPublicSpecialistDetails,
@@ -63,6 +64,14 @@ describe('specialistsService personalization', () => {
     expect(mockedApi.get).toHaveBeenCalledWith('/specialists/me/personalization');
   });
 
+  it('loads the minimal favorite state for a specialist', async () => {
+    mockedApi.get.mockResolvedValue({
+      data: { success: true, data: { isFavorite: true } },
+    });
+
+    await expect(getFavoriteSpecialistStatus('spec/1')).resolves.toBe(true);
+    expect(mockedApi.get).toHaveBeenCalledWith('/specialists/spec%2F1/favorite');
+  });
   it('favorites and unfavorites specialists through protected endpoints', async () => {
     mockedApi.post.mockResolvedValue({ data: { success: true } });
     mockedApi.delete.mockResolvedValue({ data: { success: true } });

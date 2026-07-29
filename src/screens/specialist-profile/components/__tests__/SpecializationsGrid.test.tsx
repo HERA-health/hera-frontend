@@ -42,16 +42,18 @@ describe('SpecializationsGrid', () => {
     jest.clearAllMocks();
   });
 
-  it('starts collapsed on mobile and expands areas on press', () => {
+  it('starts collapsed on mobile and lets the user open or close all areas', () => {
     render(<SpecializationsGrid specializations={['anxiety', 'depression']} />);
 
     expect(screen.getByText('Áreas de especialización')).toBeTruthy();
     expect(screen.queryByText('Ansiedad')).toBeNull();
 
-    fireEvent.press(screen.getByTestId('specializations-disclosure-header'));
-
+    fireEvent.press(screen.getByLabelText('Abrir Áreas de especialización'));
     expect(screen.getByText('Ansiedad')).toBeTruthy();
     expect(screen.getByText('Depresión')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Cerrar Áreas de especialización'));
+    expect(screen.queryByText('Ansiedad')).toBeNull();
   });
 
   it('starts expanded on desktop when the profile has four or fewer areas', () => {
@@ -92,7 +94,7 @@ describe('SpecializationsGrid', () => {
     expect(screen.queryByText('Manejo del estrés y ataques de pánico.')).toBeNull();
   });
 
-  it('starts collapsed on desktop when the profile has more than four areas', () => {
+  it('starts a long desktop list collapsed and lets the user open it', () => {
     mockUseWindowDimensions.mockReturnValue({
       fontScale: 1,
       height: 900,
@@ -108,5 +110,7 @@ describe('SpecializationsGrid', () => {
 
     expect(screen.getByText('5 áreas')).toBeTruthy();
     expect(screen.queryByText('Ansiedad')).toBeNull();
+    fireEvent.press(screen.getByLabelText('Abrir Áreas de especialización'));
+    expect(screen.getByText('Ansiedad')).toBeTruthy();
   });
 });

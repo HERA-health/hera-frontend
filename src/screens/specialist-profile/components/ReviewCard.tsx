@@ -42,7 +42,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
           <Text style={styles.verifiedBadgeText}>Sesión verificada</Text>
         </View>
       </View>
-      <Text style={styles.reviewText} numberOfLines={4}>"{review.text}"</Text>
+      <Text style={styles.reviewText} numberOfLines={5}>{review.text}</Text>
       <Text style={styles.author}>— {review.authorName}, {formattedDate}</Text>
     </View>
   );
@@ -50,11 +50,9 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
 
 const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   container: {
-    backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
-    borderWidth: 1,
-    borderColor: theme.borderLight,
-    borderRadius: borderRadius.md,
-    padding: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.borderLight,
   },
   header: {
     flexDirection: 'row',

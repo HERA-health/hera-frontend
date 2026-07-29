@@ -116,6 +116,11 @@ export interface Review {
   date: string;
 }
 
+export interface SelectedProfileSlot {
+  date: string;
+  slot: AvailableSlot;
+}
+
 // Props interfaces for components
 export interface ProfileHeroProps {
   specialist: Specialist;
@@ -126,6 +131,10 @@ export interface ProfileHeroProps {
   onSharePress?: () => void;
   bio?: string | null;
   therapeuticApproach?: string;
+  isFavorite?: boolean;
+  favoriteLoading?: boolean;
+  onFavoritePress?: () => void;
+  showFavoriteAction?: boolean;
 }
 
 export interface AboutSectionProps {
@@ -170,14 +179,19 @@ export interface StickyBookingBarProps {
   onBookPress: () => void;
   visible: boolean;
   canBook?: boolean;
+  firstVisitFree?: boolean;
+  selectedSlot?: SelectedProfileSlot | null;
 }
 
 export interface BookingSidebarProps {
   specialist: Specialist;
   onBookPress: () => void;
-  onSlotSelect?: (date: string, slot: AvailableSlot) => void;
-  gradientColors: [string, string];
+  selectedSlot?: SelectedProfileSlot | null;
+  onSlotChange?: (selection: SelectedProfileSlot | null) => void;
   canBook?: boolean;
+  onCtaLayout?: (offsetY: number, height: number) => void;
+  onSlotSelect?: (date: string, slot: AvailableSlot) => void;
+  gradientColors?: [string, string];
   showLargePhoto?: boolean;
 }
 

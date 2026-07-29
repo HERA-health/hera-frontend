@@ -30,7 +30,7 @@ const createSpecialtyMap = (theme: Theme) => ({
   grief: { label: 'Duelo', icon: 'heart-outline' as const, bgColor: theme.secondaryLight, color: theme.secondaryDark, desc: 'Acompañamiento en pérdidas y procesos de duelo.' },
   addiction: { label: 'Adicciones', icon: 'medical-outline' as const, bgColor: theme.successBg, color: theme.success, desc: 'Apoyo en procesos de deshabituación y recaídas.' },
   eating: { label: 'Trastornos alimentarios', icon: 'nutrition-outline' as const, bgColor: theme.warningBg, color: theme.warningAmber, desc: 'Acompañamiento en TCA.' },
-  default: { label: 'Salud mental', icon: 'flower-outline' as const, bgColor: theme.bgAlt, color: theme.primaryDark, desc: 'Apoyo integral y personalizado.' },
+  default: { label: 'Salud mental', icon: 'flower-outline' as const, bgColor: theme.primaryMuted, color: theme.primaryDark, desc: 'Apoyo integral y personalizado.' },
 });
 
 const normalizeSpecializationText = (value: string): string => value.trim().toLocaleLowerCase('es-ES');
@@ -96,6 +96,7 @@ export const SpecializationsGrid: React.FC<SpecializationsGridProps> = ({
         summary={`${specializations.length} ${specializations.length === 1 ? 'área' : 'áreas'}`}
         defaultExpanded={defaultExpanded}
         testID="specializations-disclosure"
+        variant="surface"
       >
         <View style={styles.grid}>
           {specializations.map((specKey, index) => {
@@ -127,31 +128,52 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   container: {
     backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
-    padding: spacing.xl,
     borderWidth: 1,
     borderColor: theme.borderLight,
-    shadowColor: theme.shadowCard,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.8,
-    shadowRadius: 24,
-    elevation: 3,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xl,
+  },
+  headerIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.primaryAlpha12,
+  },
+  title: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontFamily: theme.fontHeading,
+    color: theme.textPrimary,
+  },
+  summary: {
+    marginTop: 2,
+    fontSize: 12,
+    color: theme.textSecondary,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
     justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
   },
   card: {
-    backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
+    backgroundColor: isDark ? theme.bgElevated : theme.primaryMuted,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     minWidth: 0,
-    borderWidth: 1,
-    borderColor: theme.borderLight,
+    borderTopWidth: 1,
+    borderTopColor: theme.borderLight,
   },
   iconBox: {
     width: 48,
@@ -169,7 +191,7 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   },
   cardDescription: {
     fontSize: 13,
-    color: theme.textSecondary,
+    color: isDark ? theme.textSecondary : theme.textPrimary,
     lineHeight: 18,
   },
 });
