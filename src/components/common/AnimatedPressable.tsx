@@ -5,6 +5,7 @@
 import React, { useCallback } from 'react';
 import { Platform, Pressable } from 'react-native';
 import type {
+  AccessibilityRole,
   AccessibilityState,
   GestureResponderEvent,
   Insets,
@@ -29,7 +30,7 @@ interface AnimatedPressableProps {
   hitSlop?: Insets;
   accessibilityLabel?: string;
   accessibilityHint?: string;
-  accessibilityRole?: 'button' | 'checkbox' | 'link' | 'none' | 'radio';
+  accessibilityRole?: AccessibilityRole;
   accessibilityState?: AccessibilityState;
   testID?: string;
   href?: string;

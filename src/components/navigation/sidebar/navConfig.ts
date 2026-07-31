@@ -138,6 +138,21 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
       },
     ],
   },
+  {
+    id: 'support',
+    label: 'Soporte',
+    roles: ['PROFESSIONAL'],
+    items: [
+      {
+        id: 'professional-help',
+        label: 'Ayuda y comentarios',
+        icon: 'help-circle-outline',
+        iconActive: 'help-circle',
+        route: 'ProfessionalHelp',
+        roles: ['PROFESSIONAL'],
+      },
+    ],
+  },
 ];
 
 export const CLINIC_SECTIONS: NavigationSection[] = [

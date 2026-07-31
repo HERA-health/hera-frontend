@@ -108,6 +108,27 @@ export const linking: LinkingOptions<RootStackParamList> = {
           initialSlotEndTime: (initialSlotEndTime: string) => initialSlotEndTime,
         },
       },
+      ProfessionalHelp: {
+        path: 'ayuda',
+        parse: {
+          section: (section: string) => section === 'help' ? 'help' : 'feedback',
+          requestId: (requestId: string) => requestId,
+        },
+      },
+      AdminPanel: {
+        path: 'admin',
+        parse: {
+          initialTab: (initialTab: string) => {
+            if (
+              initialTab === 'management'
+              || initialTab === 'help'
+              || initialTab === 'feedback'
+            ) return initialTab;
+            return 'verifications';
+          },
+          requestId: (requestId: string) => requestId,
+        },
+      },
       PublicSpecialists: 'especialistas',
       Landing: '',
       Login: 'login',

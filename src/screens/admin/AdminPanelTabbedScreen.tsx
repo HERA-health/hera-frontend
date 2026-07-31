@@ -1,4 +1,4 @@
-import React, { ComponentProps, useMemo, useState } from 'react';
+import React, { ComponentProps, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,12 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AdminPanelScreen } from './AdminPanelScreen';
 import { SpecialistManagementScreen } from './SpecialistManagementScreen';
+import { AdminHelpView } from '../../components/specialistContact/AdminHelpView';
+import { AdminFeedbackView } from '../../components/specialistContact/AdminFeedbackView';
+import { getAdminContactSummary } from '../../services/specialistContactService';
+import type { ScreenProps } from '../../constants/types';
 
-type TabKey = 'verifications' | 'management';
+type TabKey = 'verifications' | 'management' | 'help' | 'feedback';
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 interface Tab {
@@ -40,9 +44,26 @@ const TABS: Tab[] = [
     icon: 'people-outline',
     iconActive: 'people',
   },
+  {
+    key: 'help',
+    label: 'Ayuda de especialistas',
+    compactLabel: 'Ayuda',
+    icon: 'chatbubbles-outline',
+    iconActive: 'chatbubbles',
+  },
+  {
+    key: 'feedback',
+    label: 'Comentarios',
+    compactLabel: 'Comentarios',
+    icon: 'sparkles-outline',
+    iconActive: 'sparkles',
+  },
 ];
 
-export function AdminPanelTabbedScreen() {
+export function AdminPanelTabbedScreen({
+  route,
+  navigation,
+}: ScreenProps<'AdminPanel'>) {
   const { user } = useAuth();
   const { theme, isDark } = useTheme();
   const { width } = useWindowDimensions();
@@ -53,7 +74,40 @@ export function AdminPanelTabbedScreen() {
     () => createStyles(theme, isDark, isDesktop, isMobileShell),
     [theme, isDark, isDesktop, isMobileShell],
   );
-  const [activeTab, setActiveTab] = useState<TabKey>('verifications');
+  const [activeTab, setActiveTab] = useState<TabKey>(
+    route.params?.initialTab ?? 'verifications'
+  );
+  const [contactSummary, setContactSummary] = useState({
+    unreadHelpRequests: 0,
+    receivedFeedback: 0,
+  });
+
+  useEffect(() => {
+    if (route.params?.initialTab) {
+      setActiveTab(route.params.initialTab);
+    }
+  }, [route.params?.initialTab]);
+
+  const refreshContactSummary = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const summary = await getAdminContactSummary();
+      setContactSummary({
+        unreadHelpRequests: summary.unreadHelpRequests,
+        receivedFeedback: summary.receivedFeedback,
+      });
+    } catch {
+      // Contact views remain usable if counters cannot be refreshed.
+    }
+  }, [isAdmin]);
+
+  const handleHelpRequestChange = useCallback((requestId?: string) => {
+    navigation.setParams({ initialTab: 'help', requestId });
+  }, [navigation]);
+
+  useEffect(() => {
+    void refreshContactSummary();
+  }, [activeTab, refreshContactSummary]);
 
   if (!isAdmin) {
     return (
@@ -76,7 +130,7 @@ export function AdminPanelTabbedScreen() {
         </View>
         <Text style={styles.headerTitle}>Administración</Text>
         <Text style={styles.headerSubtitle}>
-          Revisión operativa de especialistas y solicitudes de verificación.
+          Verificación, gestión de especialistas y seguimiento de sus comunicaciones.
         </Text>
       </View>
 
@@ -84,13 +138,21 @@ export function AdminPanelTabbedScreen() {
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key;
           const label = isDesktop ? tab.label : tab.compactLabel;
+          const badgeCount = tab.key === 'help'
+            ? contactSummary.unreadHelpRequests
+            : tab.key === 'feedback'
+              ? contactSummary.receivedFeedback
+              : 0;
 
           return (
             <AnimatedPressable
               key={tab.key}
               style={[styles.tab, isActive && styles.tabActive]}
-              onPress={() => setActiveTab(tab.key)}
-              accessibilityRole="button"
+              onPress={() => {
+                setActiveTab(tab.key);
+                navigation.setParams({ initialTab: tab.key, requestId: undefined });
+              }}
+              accessibilityRole="tab"
               accessibilityLabel={`${tab.label}${isActive ? ', seleccionada' : ''}`}
               hoverLift={isDesktop}
               pressScale={0.98}
@@ -103,6 +165,9 @@ export function AdminPanelTabbedScreen() {
               <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]} numberOfLines={1}>
                 {label}
               </Text>
+              {badgeCount > 0 ? (
+                <Text style={styles.tabBadge}>{badgeCount > 99 ? '99+' : badgeCount}</Text>
+              ) : null}
             </AnimatedPressable>
           );
         })}
@@ -111,6 +176,16 @@ export function AdminPanelTabbedScreen() {
       <View style={styles.content}>
         {activeTab === 'verifications' && <AdminPanelScreen />}
         {activeTab === 'management' && <SpecialistManagementScreen />}
+        {activeTab === 'help' && (
+          <AdminHelpView
+            initialRequestId={route.params?.requestId}
+            onSummaryChanged={refreshContactSummary}
+            onRequestChange={handleHelpRequestChange}
+          />
+        )}
+        {activeTab === 'feedback' && (
+          <AdminFeedbackView onSummaryChanged={refreshContactSummary} />
+        )}
       </View>
     </View>
   );
@@ -119,6 +194,7 @@ export function AdminPanelTabbedScreen() {
 const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean, isMobileShell: boolean) => StyleSheet.create({
   container: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: theme.bg,
   },
   centered: {
@@ -157,7 +233,7 @@ const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean, isMobil
     paddingLeft: isMobileShell ? layout.mobileShellLeftInset : spacing.lg,
     paddingTop: isDesktop ? spacing.xl : spacing.lg,
     paddingBottom: spacing.md,
-    maxWidth: isDesktop ? 1040 : undefined,
+    maxWidth: isDesktop ? 1180 : undefined,
     alignSelf: 'center',
     width: '100%',
   },
@@ -198,7 +274,7 @@ const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean, isMobil
     gap: spacing.xs,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
-    maxWidth: isDesktop ? 1040 : undefined,
+    maxWidth: isDesktop ? 1180 : undefined,
     alignSelf: 'center',
     width: '100%',
   },
@@ -228,8 +304,22 @@ const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean, isMobil
     color: theme.primary,
     fontWeight: typography.fontWeights.semibold,
   },
+  tabBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    textAlign: 'center',
+    lineHeight: 20,
+    overflow: 'hidden',
+    color: theme.textOnPrimary,
+    backgroundColor: theme.primary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
   content: {
     flex: 1,
+    minHeight: 0,
   },
 });
 

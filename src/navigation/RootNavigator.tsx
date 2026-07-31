@@ -235,6 +235,10 @@ const ProfessionalHomeRoute = createDeferredLayoutRoute<'ProfessionalHome'>(
   () => require('../screens/professional/ProfessionalHomeScreen'),
   { displayName: 'ProfessionalHomeRoute', exportName: 'ProfessionalHomeScreen' }
 );
+const ProfessionalHelpRoute = createDeferredLayoutRoute<'ProfessionalHelp'>(
+  () => require('../screens/professional/ProfessionalHelpScreen'),
+  { displayName: 'ProfessionalHelpRoute', exportName: 'ProfessionalHelpScreen' }
+);
 const ProfessionalDashboardRoute = createDeferredLayoutRoute<'ProfessionalDashboard'>(
   () => require('../screens/professional/DashboardScreen'),
   { displayName: 'ProfessionalDashboardRoute', exportName: 'DashboardScreen' }
@@ -846,6 +850,11 @@ export function RootNavigator() {
             headerTitle: 'Mi Disponibilidad',
             headerShown: false,
           }}
+        />
+        <Stack.Screen
+          name="ProfessionalHelp"
+          component={ProfessionalHelpRoute}
+          options={{ headerTitle: 'Ayuda y comentarios' }}
         />
         <Stack.Screen
           name="ClientProfile"

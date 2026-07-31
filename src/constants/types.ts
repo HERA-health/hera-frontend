@@ -155,6 +155,10 @@ export type RootStackParamList = {
   Questionnaire: undefined;
   QuestionnaireResults: { results: any[] };
   ProfessionalHome: undefined;
+  ProfessionalHelp: {
+    section?: 'help' | 'feedback';
+    requestId?: string;
+  } | undefined;
   ProfessionalDashboard: undefined;
   ProfessionalClients: undefined;
   ProfessionalClinicPatientDetail: {
@@ -183,7 +187,10 @@ export type RootStackParamList = {
     focusSessionId?: string;
     focusBillingEditor?: boolean;
   };
-  AdminPanel: undefined;
+  AdminPanel: {
+    initialTab?: 'verifications' | 'management' | 'help' | 'feedback';
+    requestId?: string;
+  } | undefined;
   AdminSpecialistDetail: { specialist: string }; // JSON-serialized PendingSpecialist
   SpecialistDetailAdmin: { specialistId: string };
   PublicSpecialistProfile: { profileRef: string };

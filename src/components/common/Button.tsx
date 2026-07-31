@@ -1,5 +1,7 @@
 import React from 'react';
 import {
+  AccessibilityRole,
+  AccessibilityState,
   ActivityIndicator,
   StyleSheet,
   Text,
@@ -26,6 +28,9 @@ interface ButtonProps {
   fullWidth?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  accessibilityLabel?: string;
+  accessibilityRole?: AccessibilityRole;
+  accessibilityState?: AccessibilityState;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -40,6 +45,9 @@ export const Button: React.FC<ButtonProps> = ({
   fullWidth = false,
   style,
   textStyle,
+  accessibilityLabel,
+  accessibilityRole = 'button',
+  accessibilityState,
 }) => {
   const { theme } = useTheme();
   const isDisabled = disabled || loading;
@@ -76,6 +84,9 @@ export const Button: React.FC<ButtonProps> = ({
       pressScale={isDisabled ? 1 : 0.96}
       hoverLift={!isDisabled && (variant === 'primary' || variant === 'secondary')}
       style={baseStyle}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole={accessibilityRole}
+      accessibilityState={{ ...accessibilityState, disabled: isDisabled }}
     >
       {content}
     </AnimatedPressable>

@@ -14,7 +14,7 @@
  * - All UI logic delegated to Sidebar component
  */
 
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { NavigationProp, ParamListBase, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
@@ -24,6 +24,10 @@ import { UserRole, SidebarUser } from './sidebar/types';
 import type { SidebarNotice } from './sidebar/types';
 import { buildSidebarCompletionNotices } from './sidebar/completionNotices';
 import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
+import {
+  getSpecialistContactSummary,
+  subscribeSpecialistContactSummary,
+} from '../../services/specialistContactService';
 
 interface CustomDrawerContentProps {
   currentRoute?: string;
@@ -62,6 +66,7 @@ export function CustomDrawerContent({
     : user?.type === 'clinic'
       ? 'CLINIC'
       : 'CLIENT';
+  const [unreadHelpRequests, setUnreadHelpRequests] = useState(0);
 
   // Create SidebarUser from auth user
   const sidebarUser: SidebarUser = {
@@ -80,14 +85,51 @@ export function CustomDrawerContent({
       ),
     [clinicWorkspace.memberships, shouldLoadClinicAdminAccess, userRole],
   );
+  const refreshContactSummary = useCallback(async () => {
+    if (userRole !== 'PROFESSIONAL') {
+      setUnreadHelpRequests(0);
+      return;
+    }
+    try {
+      const summary = await getSpecialistContactSummary();
+      setUnreadHelpRequests(summary.unreadHelpRequests);
+    } catch {
+      // The sidebar remains usable when the optional badge cannot be refreshed.
+    }
+  }, [userRole]);
+
   const notices = useMemo(
-    () => buildSidebarCompletionNotices(completionSnapshot),
-    [completionSnapshot],
+    () => {
+      const completionNotices = buildSidebarCompletionNotices(completionSnapshot);
+      if (unreadHelpRequests === 0) return completionNotices;
+      return {
+        ...completionNotices,
+        'professional-help': {
+          code: 'UNREAD_SPECIALIST_HELP',
+          label: unreadHelpRequests === 1 ? '1 respuesta nueva' : `${unreadHelpRequests} respuestas nuevas`,
+          tone: 'info' as const,
+          count: unreadHelpRequests,
+          target: { route: 'ProfessionalHelp', params: { section: 'help' } },
+        },
+      };
+    },
+    [completionSnapshot, unreadHelpRequests],
   );
 
   useEffect(() => {
     void refreshCompletion();
   }, [currentRoute, refreshCompletion]);
+
+  useEffect(() => {
+    void refreshContactSummary();
+  }, [currentRoute, refreshContactSummary]);
+
+  useEffect(
+    () => subscribeSpecialistContactSummary(() => {
+      void refreshContactSummary();
+    }),
+    [refreshContactSummary],
+  );
 
   // Navigation handler - delegates to React Navigation
   const handleNavigate = useCallback(
