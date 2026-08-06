@@ -160,12 +160,15 @@ export type RootStackParamList = {
     requestId?: string;
   } | undefined;
   ProfessionalDashboard: undefined;
-  ProfessionalClients: undefined;
+  ProfessionalClients: { openCreatePatient?: boolean } | undefined;
   ProfessionalClinicPatientDetail: {
     clinicId: string;
     clinicPatientId: string;
   };
-  ProfessionalSessions: undefined;
+  ProfessionalSessions: {
+    openCreateSession?: boolean;
+    focusSessionId?: string;
+  } | undefined;
   ProfessionalProfile: {
     initialTab?: ProfessionalProfileTab;
     initialSection?: ProfessionalProfileSection;
@@ -270,7 +273,7 @@ export type ProfessionalSessionTab = 'upcoming' | 'history' | 'pending';
 /**
  * Professional session view mode
  */
-export type SessionViewMode = 'day' | 'week' | 'list';
+export type SessionViewMode = 'day' | 'week' | 'month' | 'list';
 
 /**
  * Session status with display info

@@ -23,7 +23,8 @@ describe('professionalTourDefinitions', () => {
     expect(desktopSteps.some((step) => step.targetId === 'professional.nav.home')).toBe(true);
     expect(desktopSteps.some((step) => step.targetId === 'professional.nav.mobile-menu')).toBe(false);
     expect(mobileSteps.some((step) => step.targetId === 'professional.nav.mobile-menu')).toBe(true);
-    expect(mobileSteps.some((step) => step.targetId === 'professional.home.calendar')).toBe(true);
+    expect(mobileSteps.some((step) => step.targetId === 'professional.home.week-pulse')).toBe(true);
+    expect(definition.version).toBe(2);
   });
 
   it('keeps clinical patient profile guidance manual-only', () => {

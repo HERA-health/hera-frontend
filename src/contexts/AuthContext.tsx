@@ -5,6 +5,7 @@ import React, {
   useEffect,
   ReactNode,
   useCallback,
+  useRef,
 } from 'react';
 import * as authService from '../services/authService';
 import * as professionalService from '../services/professionalService';
@@ -15,6 +16,7 @@ import type { AuthResponse, BackendUserType } from '../services/authService';
 import { clearPersistedClinicalAccessSession } from '../services/secureSessionStorage';
 import type { LegalDocumentKey } from '../constants/legal';
 import type { LegalAcceptanceStatus } from '../services/legalService';
+import { rotateRequestCacheScope } from '../services/requestCache';
 
 export type UserType = 'client' | 'professional' | 'clinic';
 export type PublicUserType = UserType;
@@ -130,8 +132,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [legalStatusSnapshot, setLegalStatusSnapshot] = useState<LegalAcceptanceStatus | null>(null);
   // null = not yet checked, true = submitted, false = not submitted
   const [verificationSubmitted, setVerificationSubmitted] = useState<boolean | null>(null);
+  const authenticatedUserIdRef = useRef<string | null>(null);
+  const authEpochRef = useRef(0);
 
-  const checkVerificationStatus = useCallback(async (mappedUser: User) => {
+  const resetAuthenticatedState = useCallback((): void => {
+    authEpochRef.current += 1;
+    rotateRequestCacheScope();
+    authenticatedUserIdRef.current = null;
+    setUser(null);
+    setLegalStatusSnapshot(null);
+    setVerificationSubmitted(null);
+    setLoading(false);
+    void clearPersistedClinicalAccessSession();
+    try {
+      analyticsService.reset();
+    } catch {
+      // Authentication cleanup must not depend on analytics availability.
+    }
+  }, []);
+
+  const checkVerificationStatus = useCallback(async (mappedUser: User, expectedEpoch: number) => {
+    if (authEpochRef.current !== expectedEpoch) return;
     if (mappedUser.type !== 'professional') {
       setVerificationSubmitted(null);
       return;
@@ -145,16 +166,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const status = await professionalService.getVerificationStatus();
+      if (authEpochRef.current !== expectedEpoch) return;
       setVerificationSubmitted(status.verificationStatus !== 'NOT_SUBMITTED');
     } catch (_err: unknown) {
+      if (authEpochRef.current !== expectedEpoch) return;
       // Keep the status unresolved instead of forcing professionals
       // through verification on transient API failures.
       setVerificationSubmitted(null);
     }
   }, []);
 
-  const syncUserState = useCallback(async (userData: AuthResponse['user']): Promise<User> => {
+  const syncUserState = useCallback(async (
+    userData: AuthResponse['user'],
+    expectedEpoch = authEpochRef.current,
+  ): Promise<User | null> => {
     const mappedUser = mapAuthUser(userData);
+    if (authEpochRef.current !== expectedEpoch) return null;
+    if (authenticatedUserIdRef.current !== mappedUser.id) {
+      rotateRequestCacheScope();
+      authenticatedUserIdRef.current = mappedUser.id;
+    }
     setUser(mappedUser);
 
     try {
@@ -166,13 +197,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // silently ignore analytics errors
     }
 
-    await checkVerificationStatus(mappedUser);
+    await checkVerificationStatus(mappedUser, expectedEpoch);
+    if (authEpochRef.current !== expectedEpoch) return null;
     return mappedUser;
   }, [checkVerificationStatus]);
 
   const refreshCurrentUser = useCallback(async (): Promise<User | null> => {
+    const expectedEpoch = authEpochRef.current;
     const userData = await authService.getCurrentUser();
-    return syncUserState(userData);
+    if (authEpochRef.current !== expectedEpoch) return null;
+    return syncUserState(userData, expectedEpoch);
   }, [syncUserState]);
 
   const markVerificationSubmitted = useCallback(() => {
@@ -181,20 +215,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     registerSessionExpiredHandler(() => {
-      setUser(null);
-      setLegalStatusSnapshot(null);
-      setVerificationSubmitted(null);
-      void clearPersistedClinicalAccessSession();
-      try {
-        analyticsService.reset();
-      } catch {
-        // silently ignore analytics errors
-      }
+      resetAuthenticatedState();
     });
 
     const initialize = async () => {
+      const initializationEpoch = authEpochRef.current;
       try {
         const session = await initializeAuth();
+        if (authEpochRef.current !== initializationEpoch) return;
 
         if (session) {
           try {
@@ -203,17 +231,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (!session.user) {
               throw new Error('No user data available after session refresh');
             }
-            await syncUserState(session.user);
+            await syncUserState(session.user, initializationEpoch);
           }
-          setLegalStatusSnapshot(session.legalStatus);
+          if (authEpochRef.current === initializationEpoch) {
+            setLegalStatusSnapshot(session.legalStatus);
+          }
+        } else {
+          resetAuthenticatedState();
         }
       } catch (_err: unknown) {
+        if (authEpochRef.current !== initializationEpoch) return;
         // Token might be expired or invalid, just continue as logged out
+        resetAuthenticatedState();
         await authService.logout();
-        await clearPersistedClinicalAccessSession();
-        setUser(null);
-        setLegalStatusSnapshot(null);
-        setVerificationSubmitted(null);
       } finally {
         setIsInitialized(true);
       }
@@ -223,53 +253,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       registerSessionExpiredHandler(null);
     };
-  }, [refreshCurrentUser]);
+  }, [refreshCurrentUser, resetAuthenticatedState]);
 
   const login = async (email: string, password: string) => {
+    const operationEpoch = authEpochRef.current + 1;
+    authEpochRef.current = operationEpoch;
     try {
       setLoading(true);
       setError(null);
 
       const response = await authService.login({ email, password });
+      if (authEpochRef.current !== operationEpoch) return response;
 
       try {
         await refreshCurrentUser();
       } catch {
-        await syncUserState(response.user);
+        await syncUserState(response.user, operationEpoch);
       }
-      setLegalStatusSnapshot(response.legalStatus ?? null);
+      if (authEpochRef.current === operationEpoch) {
+        setLegalStatusSnapshot(response.legalStatus ?? null);
+      }
 
       return response;
     } catch (err: unknown) {
-      const errorMessage = getErrorMessage(err, 'Error al iniciar sesión');
-      setError(errorMessage);
+      if (authEpochRef.current === operationEpoch) {
+        const errorMessage = getErrorMessage(err, 'Error al iniciar sesión');
+        setError(errorMessage);
+      }
       throw err;
     } finally {
-      setLoading(false);
+      if (authEpochRef.current === operationEpoch) setLoading(false);
     }
   };
 
   const authenticateWithGoogle = async (data: authService.GoogleAuthData) => {
+    const operationEpoch = authEpochRef.current + 1;
+    authEpochRef.current = operationEpoch;
     try {
       setLoading(true);
       setError(null);
 
       const response = await authService.authenticateWithGoogle(data);
+      if (authEpochRef.current !== operationEpoch) return response;
 
       try {
         await refreshCurrentUser();
       } catch {
-        await syncUserState(response.user);
+        await syncUserState(response.user, operationEpoch);
       }
-      setLegalStatusSnapshot(response.legalStatus ?? null);
+      if (authEpochRef.current === operationEpoch) {
+        setLegalStatusSnapshot(response.legalStatus ?? null);
+      }
 
       return response;
     } catch (err: unknown) {
-      const errorMessage = getErrorMessage(err, 'No se pudo iniciar sesión con Google');
-      setError(errorMessage);
+      if (authEpochRef.current === operationEpoch) {
+        const errorMessage = getErrorMessage(err, 'No se pudo iniciar sesión con Google');
+        setError(errorMessage);
+      }
       throw err;
     } finally {
-      setLoading(false);
+      if (authEpochRef.current === operationEpoch) setLoading(false);
     }
   };
 
@@ -281,6 +325,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     acceptedLegalDocumentKeys: LegalDocumentKey[],
     clinicCommercialName?: string
   ) => {
+    const operationEpoch = authEpochRef.current + 1;
+    authEpochRef.current = operationEpoch;
     try {
       setLoading(true);
       setError(null);
@@ -299,12 +345,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         acceptedLegalDocumentKeys,
         clinicCommercialName,
       });
+      if (authEpochRef.current !== operationEpoch) return response;
 
       const mappedUser: User = {
         ...mapAuthUser(response.user),
         emailVerified: false,
       };
 
+      if (authenticatedUserIdRef.current !== mappedUser.id) {
+        rotateRequestCacheScope();
+        authenticatedUserIdRef.current = mappedUser.id;
+      }
       setUser(mappedUser);
       setLegalStatusSnapshot(response.legalStatus ?? null);
 
@@ -316,37 +367,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return response;
     } catch (err: unknown) {
-      const errorMessage = getErrorMessage(err, 'Error al registrarse');
-      setError(errorMessage);
+      if (authEpochRef.current === operationEpoch) {
+        const errorMessage = getErrorMessage(err, 'Error al registrarse');
+        setError(errorMessage);
+      }
       throw err;
     } finally {
-      setLoading(false);
+      if (authEpochRef.current === operationEpoch) setLoading(false);
     }
   };
 
   const logout = async () => {
+    let logoutEpoch = authEpochRef.current;
     try {
       setLoading(true);
+      resetAuthenticatedState();
+      logoutEpoch = authEpochRef.current;
       await authService.logout();
-      setUser(null);
-      setLegalStatusSnapshot(null);
-      setVerificationSubmitted(null);
-      try {
-        analyticsService.reset();
-      } catch {
-        // silently ignore analytics errors
-      }
     } catch (_err: unknown) {
-      setUser(null);
-      setLegalStatusSnapshot(null);
-      setVerificationSubmitted(null);
-      try {
-        analyticsService.reset();
-      } catch {
-        // silently ignore analytics errors
-      }
+      // Local state was already cleared before contacting the server.
     } finally {
-      setLoading(false);
+      if (authEpochRef.current === logoutEpoch) setLoading(false);
     }
   };
 

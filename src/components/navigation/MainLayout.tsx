@@ -13,12 +13,15 @@ import { useNavigationState } from '@react-navigation/native';
 import { layout, shadows, spacing } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { ProfessionalWorkspaceProvider } from '../../contexts/ProfessionalWorkspaceContext';
 import { AmbientBackground } from '../common/AmbientBackground';
 import { AnimatedPressable } from '../common/AnimatedPressable';
 import { StyledLogo } from '../common/StyledLogo';
 import { ProfessionalTourProvider } from '../onboarding/ProfessionalTourProvider';
 import { TourTarget } from '../onboarding/TourTarget';
 import { CustomDrawerContent } from './CustomDrawerContent';
+import { ProfessionalTopBar } from './ProfessionalTopBar';
+import { isLargeScreenForRole } from './mainLayoutBreakpoints';
 import {
   SIDEBAR_ANIMATIONS,
   SIDEBAR_THEME,
@@ -33,14 +36,14 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
   const { width: windowWidth } = useWindowDimensions();
-  const isLargeScreen = windowWidth >= 768;
+  const { theme } = useTheme();
+  const { user } = useAuth();
+  const isProfessional = user?.type === 'professional';
+  const isLargeScreen = isLargeScreenForRole(windowWidth, isProfessional);
   const mobileSidebarWidth = Math.min(
     SIDEBAR_THEME.width,
     Math.max(layout.mobileDrawerMinWidth, windowWidth - spacing.xl),
   );
-  const { theme } = useTheme();
-  const { user } = useAuth();
-  const isProfessional = user?.type === 'professional';
   const sidebarTheme = getSidebarTheme(theme);
 
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -142,7 +145,7 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
 
   const layoutContent = !isLargeScreen ? (
       <View style={[styles.mobileContainer, { backgroundColor: theme.bg }]}>
-        <AnimatedPressable
+        {!isProfessional ? <AnimatedPressable
           style={[
             styles.mobileMenuButton,
             {
@@ -179,9 +182,14 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
               </View>
             </View>
           </TourTarget>
-        </AnimatedPressable>
+        </AnimatedPressable> : null}
 
-        {children}
+        {isProfessional ? (
+          <View style={styles.professionalContent}>
+            <ProfessionalTopBar currentRoute={currentRoute} onOpenMobileSidebar={openMobileSidebar} />
+            <View style={styles.professionalBody}>{children}</View>
+          </View>
+        ) : children}
 
         {mobileOpen && (
           <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
@@ -215,6 +223,7 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
             >
               <CustomDrawerContent
                 currentRoute={currentRoute}
+                showProfessionalSearch={isProfessional}
                 isUserSectionScrollable
                 isCollapsed={false}
                 onNavigateComplete={closeMobileSidebar}
@@ -245,7 +254,14 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
           onToggleCollapse={handleToggleCollapse}
         />
       </Animated.View>
-      <View style={[styles.content, { backgroundColor: theme.bg }]}>{children}</View>
+      <View style={[styles.content, { backgroundColor: theme.bg }]}>
+        {isProfessional ? (
+          <View style={styles.professionalContent}>
+            <ProfessionalTopBar currentRoute={currentRoute} onOpenMobileSidebar={openMobileSidebar} />
+            <View style={styles.professionalBody}>{children}</View>
+          </View>
+        ) : children}
+      </View>
     </View>
   );
 
@@ -254,9 +270,11 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
   }
 
   return (
-    <ProfessionalTourProvider currentRouteName={currentRoute}>
-      {layoutContent}
-    </ProfessionalTourProvider>
+    <ProfessionalWorkspaceProvider key={user?.id ?? 'professional'} currentRoute={currentRoute}>
+      <ProfessionalTourProvider currentRouteName={currentRoute}>
+        {layoutContent}
+      </ProfessionalTourProvider>
+    </ProfessionalWorkspaceProvider>
   );
 }
 
@@ -276,6 +294,14 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  professionalContent: {
+    flex: 1,
+    minHeight: 0,
+  },
+  professionalBody: {
+    flex: 1,
+    minHeight: 0,
   },
   mobileMenuButton: {
     position: 'absolute',

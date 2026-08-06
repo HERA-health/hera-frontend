@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../AuthContext';
 import {
@@ -21,11 +21,12 @@ const mockedUseAuth = jest.mocked(useAuth);
 const mockedCompletionService = jest.mocked(profileCompletionService);
 
 function Probe(): React.ReactElement {
-  const { snapshot, refresh, setClinicScope } = useProfileCompletion();
+  const { snapshot, status, error, refresh, setClinicScope } = useProfileCompletion();
 
   return (
     <View>
       <Text>{snapshot?.items[0]?.code ?? 'sin-snapshot'}</Text>
+      <Text testID="completion-status">{status}:{error ?? 'sin-error'}</Text>
       <TouchableOpacity accessibilityLabel="Refrescar" onPress={() => { void refresh(); }}>
         <Text>Refrescar</Text>
       </TouchableOpacity>
@@ -65,7 +66,32 @@ describe('ProfileCompletionProvider', () => {
     await waitFor(() => {
       expect(mockedCompletionService.getProfessionalCompletion).toHaveBeenCalledTimes(2);
       expect(screen.getByText('PROFILE_BIO')).toBeTruthy();
+      expect(screen.getByText('stale:offline')).toBeTruthy();
     });
+  });
+
+  it('reports an explicit error and supports retry when no confirmed snapshot exists', async () => {
+    mockedUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      user: { id: 'user-3', type: 'professional' },
+    } as ReturnType<typeof useAuth>);
+    mockedCompletionService.getProfessionalCompletion
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({
+        role: 'PROFESSIONAL',
+        scopeId: 'specialist-3',
+        items: [],
+      });
+
+    const screen = render(
+      <ProfileCompletionProvider>
+        <Probe />
+      </ProfileCompletionProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText('error:offline')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Refrescar'));
+    await waitFor(() => expect(screen.getByText('ready:sin-error')).toBeTruthy());
   });
 
   it('waits for an active clinic scope before loading clinic completion', async () => {
@@ -91,6 +117,43 @@ describe('ProfileCompletionProvider', () => {
     await waitFor(() => {
       expect(mockedCompletionService.getClinicCompletion).toHaveBeenCalledWith('clinic-1');
       expect(screen.getByText('CLINIC_CONTACT')).toBeTruthy();
+    });
+  });
+
+  it('runs one fresh request when refresh is requested during an active load', async () => {
+    let resolveInitial!: (snapshot: Awaited<ReturnType<typeof profileCompletionService.getProfessionalCompletion>>) => void;
+    mockedUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      user: { id: 'user-4', type: 'professional' },
+    } as ReturnType<typeof useAuth>);
+    mockedCompletionService.getProfessionalCompletion
+      .mockReturnValueOnce(new Promise((resolve) => { resolveInitial = resolve; }))
+      .mockResolvedValueOnce({
+        role: 'PROFESSIONAL',
+        scopeId: 'specialist-4',
+        items: [{ code: 'PROFILE_BIO', state: 'ACTION_REQUIRED', severity: 'WARNING' }],
+      });
+
+    const screen = render(
+      <ProfileCompletionProvider>
+        <Probe />
+      </ProfileCompletionProvider>,
+    );
+    await waitFor(() => expect(mockedCompletionService.getProfessionalCompletion).toHaveBeenCalledTimes(1));
+    fireEvent.press(screen.getByLabelText('Refrescar'));
+
+    await act(async () => {
+      resolveInitial({
+        role: 'PROFESSIONAL',
+        scopeId: 'specialist-4',
+        items: [{ code: 'PROFILE_IDENTITY', state: 'ACTION_REQUIRED', severity: 'WARNING' }],
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockedCompletionService.getProfessionalCompletion).toHaveBeenCalledTimes(2);
+      expect(screen.getByText('PROFILE_BIO')).toBeTruthy();
     });
   });
 });

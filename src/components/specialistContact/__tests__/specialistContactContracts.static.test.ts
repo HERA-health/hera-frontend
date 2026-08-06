@@ -15,6 +15,7 @@ describe('specialist contact frontend contracts', () => {
   );
   const service = readSource('services', 'specialistContactService.ts');
   const navConfig = readSource('components', 'navigation', 'sidebar', 'navConfig.ts');
+  const professionalTopBar = readSource('components', 'navigation', 'ProfessionalTopBar.tsx');
   const types = readSource('constants', 'types.ts');
   const rootNavigator = readSource('navigation', 'RootNavigator.tsx');
   const adminTabs = readSource('screens', 'admin', 'AdminPanelTabbedScreen.tsx');
@@ -34,6 +35,8 @@ describe('specialist contact frontend contracts', () => {
     expect(professionalSection).toContain("label: 'Soporte'");
     expect(professionalSection).toContain("label: 'Ayuda y comentarios'");
     expect(professionalSection).toContain("route: 'ProfessionalHelp'");
+    expect(professionalTopBar).toContain('title="Ayuda y comentarios"');
+    expect(professionalTopBar).toContain("navigateSimple('ProfessionalHelp')");
     expect(professionalSection).toContain("roles: ['PROFESSIONAL']");
     expect(types).toContain("section?: 'help' | 'feedback'");
     expect(rootNavigator).toContain('name="ProfessionalHelp"');

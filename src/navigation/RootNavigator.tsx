@@ -808,7 +808,7 @@ export function RootNavigator() {
         <Stack.Screen
           name="ProfessionalDashboard"
           component={ProfessionalDashboardRoute}
-          options={{ headerTitle: 'Dashboard' }}
+          options={{ headerTitle: 'Estadísticas' }}
         />
         <Stack.Screen
           name="ProfessionalClients"
@@ -826,7 +826,7 @@ export function RootNavigator() {
         <Stack.Screen
           name="ProfessionalSessions"
           component={ProfessionalSessionsRoute}
-          options={{ headerTitle: 'Sesiones' }}
+          options={{ headerTitle: 'Agenda' }}
         />
         <Stack.Screen
           name="ProfessionalBilling"

@@ -93,7 +93,7 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
       },
       {
         id: 'sessions',
-        label: 'Sesiones',
+        label: 'Agenda',
         icon: 'calendar-outline',
         iconActive: 'calendar',
         route: 'ProfessionalSessions',
@@ -111,9 +111,9 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
       },
       {
         id: 'dashboard',
-        label: 'Dashboard',
-        icon: 'grid-outline',
-        iconActive: 'grid',
+        label: 'Estadísticas',
+        icon: 'stats-chart-outline',
+        iconActive: 'stats-chart',
         route: 'ProfessionalDashboard',
         roles: ['PROFESSIONAL'],
         tourTargetId: 'professional.nav.dashboard',

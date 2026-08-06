@@ -47,3 +47,7 @@ yarn-error.*
 /ios
 /android
 nul
+
+# Local browser QA artifacts
+/.playwright-cli/
+/output/playwright/

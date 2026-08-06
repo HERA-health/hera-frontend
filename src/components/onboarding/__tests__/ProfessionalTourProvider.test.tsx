@@ -115,14 +115,17 @@ function ProfessionalHomeTargets({
           </TourTarget>
         </>
       ) : null}
-      <TourTarget id="professional.home.calendar" fill>
-        <View testID="professional-home-calendar-target" />
+      <TourTarget id="professional.home.next-session" fill>
+        <View testID="professional-home-next-session-target" />
       </TourTarget>
-      <TourTarget id="professional.home.pending-requests" fill>
-        <View testID="professional-home-pending-target" />
+      <TourTarget id="professional.home.today" fill>
+        <View testID="professional-home-today-target" />
       </TourTarget>
-      <TourTarget id="professional.home.upcoming-sessions" fill>
-        <View testID="professional-home-upcoming-target" />
+      <TourTarget id="professional.home.week-pulse" fill>
+        <View testID="professional-home-week-pulse-target" />
+      </TourTarget>
+      <TourTarget id="professional.home.attention" fill>
+        <View testID="professional-home-attention-target" />
       </TourTarget>
     </View>
   );
@@ -135,7 +138,7 @@ function ManualTourHarness({
 }): React.ReactElement {
   const tour = useProfessionalTour();
 
-  useProfessionalTourStepPreparation('professional.home.calendar', onPrepare);
+  useProfessionalTourStepPreparation('professional.home.next-session', onPrepare);
 
   return (
     <View>
@@ -169,14 +172,17 @@ function SpotlightStyleHarness(): React.ReactElement {
       <TourTarget id="professional.nav.mobile-menu" fill>
         <View testID="professional-nav-mobile-menu-target" />
       </TourTarget>
-      <TourTarget id="professional.home.calendar" fill>
-        <View testID="professional-home-calendar-target" />
+      <TourTarget id="professional.home.next-session" fill>
+        <View testID="professional-home-next-session-target" />
       </TourTarget>
-      <TourTarget id="professional.home.pending-requests" fill>
-        <View testID="professional-home-pending-target" />
+      <TourTarget id="professional.home.today" fill>
+        <View testID="professional-home-today-target" />
       </TourTarget>
-      <TourTarget id="professional.home.upcoming-sessions" fill>
-        <View testID="professional-home-upcoming-target" />
+      <TourTarget id="professional.home.week-pulse" fill>
+        <View testID="professional-home-week-pulse-target" />
+      </TourTarget>
+      <TourTarget id="professional.home.attention" fill>
+        <View testID="professional-home-attention-target" />
       </TourTarget>
       <Pressable
         onPress={() => {
@@ -197,14 +203,17 @@ function UnmeasurableFirstTargetHarness(): React.ReactElement {
       <TourTarget id="professional.nav.home" fill style={{ width: '100%' }}>
         <View testID="professional-nav-home-target" />
       </TourTarget>
-      <TourTarget id="professional.home.calendar" fill>
-        <View testID="professional-home-calendar-target" />
+      <TourTarget id="professional.home.next-session" fill>
+        <View testID="professional-home-next-session-target" />
       </TourTarget>
-      <TourTarget id="professional.home.pending-requests" fill>
-        <View testID="professional-home-pending-target" />
+      <TourTarget id="professional.home.today" fill>
+        <View testID="professional-home-today-target" />
       </TourTarget>
-      <TourTarget id="professional.home.upcoming-sessions" fill>
-        <View testID="professional-home-upcoming-target" />
+      <TourTarget id="professional.home.week-pulse" fill>
+        <View testID="professional-home-week-pulse-target" />
+      </TourTarget>
+      <TourTarget id="professional.home.attention" fill>
+        <View testID="professional-home-attention-target" />
       </TourTarget>
       <Pressable
         onPress={() => {
@@ -225,14 +234,17 @@ function UnmeasurableLaterTargetHarness(): React.ReactElement {
       <TourTarget id="professional.nav.home" fill>
         <View testID="professional-nav-home-target" />
       </TourTarget>
-      <TourTarget id="professional.home.calendar" fill style={{ width: '100%' }}>
-        <View testID="professional-home-calendar-target" />
+      <TourTarget id="professional.home.next-session" fill style={{ width: '100%' }}>
+        <View testID="professional-home-next-session-target" />
       </TourTarget>
-      <TourTarget id="professional.home.pending-requests" fill>
-        <View testID="professional-home-pending-target" />
+      <TourTarget id="professional.home.today" fill>
+        <View testID="professional-home-today-target" />
       </TourTarget>
-      <TourTarget id="professional.home.upcoming-sessions" fill>
-        <View testID="professional-home-upcoming-target" />
+      <TourTarget id="professional.home.week-pulse" fill>
+        <View testID="professional-home-week-pulse-target" />
+      </TourTarget>
+      <TourTarget id="professional.home.attention" fill>
+        <View testID="professional-home-attention-target" />
       </TourTarget>
       <Pressable
         onPress={() => {

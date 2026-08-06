@@ -6,6 +6,8 @@ import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { buildImageFormData, buildMultipartFormData, type UploadAsset } from '../utils/multipartUpload';
 import { cachedGet, clearRequestCache } from './requestCache';
+import { notifyProfessionalHomeChanged } from './dashboardService';
+import { z } from 'zod';
 
 export type ClientSource = 'REGISTERED' | 'MANAGED';
 export type ClientLifecycleFilter = 'ACTIVE' | 'ARCHIVED' | 'ALL';
@@ -262,6 +264,62 @@ export interface GetProfessionalSessionsOptions {
   clientId?: string;
 }
 
+const professionalAgendaItemSchema = z.object({
+  id: z.string(),
+  client: z.object({
+    id: z.string(),
+    displayName: z.string().min(1),
+    avatar: z.string().nullable(),
+  }).strict(),
+  startsAt: z.iso.datetime(),
+  durationMinutes: z.number().int().positive(),
+  status: z.enum(['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED']),
+  type: z.enum(['VIDEO_CALL', 'PHONE_CALL', 'IN_PERSON']),
+  hasInvoice: z.boolean(),
+  origin: z.enum(['PRIVATE', 'CLINIC']),
+  clinicContext: z.object({
+    clinicId: z.string(),
+    clinicName: z.string(),
+    clinicSpecialistId: z.string().nullable(),
+    displayName: z.string().nullable(),
+    professionalTitle: z.string().nullable(),
+  }).strict().nullable(),
+  actions: z.object({
+    canConfirm: z.boolean(),
+    canCancel: z.boolean(),
+    canComplete: z.boolean(),
+    canModifySchedule: z.boolean(),
+    canJoinVideo: z.boolean(),
+    canOpenClinicalNotes: z.boolean(),
+  }).strict(),
+}).strict();
+
+const professionalAgendaResponseSchema = z.object({
+  items: z.array(professionalAgendaItemSchema),
+  summary: z.object({
+    today: z.number().int().nonnegative(),
+    week: z.number().int().nonnegative(),
+    pending: z.number().int().nonnegative(),
+  }).strict(),
+  nextCursor: z.string().nullable(),
+}).strict();
+
+export type ProfessionalAgendaItem = z.infer<typeof professionalAgendaItemSchema>;
+export type ProfessionalAgendaResponse = z.infer<typeof professionalAgendaResponseSchema>;
+export type ProfessionalAgendaQuery =
+  | {
+    view: 'calendar';
+    origin?: ProfessionalSessionOrigin;
+    from: string;
+    to: string;
+  }
+  | {
+    view: 'list';
+    origin?: ProfessionalSessionOrigin;
+    cursor?: string;
+    limit?: number;
+  };
+
 interface GetProfessionalClientsOptions {
   source?: ClientSource | 'ALL';
   lifecycle?: ClientLifecycleFilter;
@@ -295,6 +353,20 @@ export const getProfessionalSessions = async (
       : await api.get('/sessions/professional');
     return response.data.success ? response.data.data : [];
   });
+};
+
+export const getProfessionalAgenda = async (
+  query: ProfessionalAgendaQuery,
+): Promise<ProfessionalAgendaResponse> => {
+  try {
+    const response = await api.get('/sessions/professional/agenda', { params: query });
+    return professionalAgendaResponseSchema.parse(response.data.data);
+  } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      throw new Error('No se pudo validar la información de la Agenda');
+    }
+    throw new Error(getErrorMessage(error, 'No se pudo cargar la Agenda'));
+  }
 };
 
 export const getProfessionalSessionDetail = async (
@@ -392,6 +464,7 @@ export const createManagedClientSession = async (
   try {
     const response = await api.post('/sessions/professional/managed', data);
     clearRequestCache();
+    notifyProfessionalHomeChanged();
     return response.data.data;
   } catch (error: unknown) {
     if (getErrorCode(error) === BUFFER_CONFLICT_REQUIRES_OVERRIDE) {
@@ -414,6 +487,7 @@ export const updateManagedSessionSchedule = async (
   try {
     const response = await api.put(`/sessions/${sessionId}/schedule`, data);
     clearRequestCache();
+    notifyProfessionalHomeChanged();
     return response.data.data;
   } catch (error: unknown) {
     if (getErrorCode(error) === BUFFER_CONFLICT_REQUIRES_OVERRIDE) {
@@ -436,6 +510,7 @@ export const updateManagedClient = async (
   try {
     const response = await api.patch(`/clients/${clientId}/managed`, data);
     clearRequestCache();
+    notifyProfessionalHomeChanged();
     return normalizeClient(response.data.data);
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo actualizar el paciente'));
@@ -467,6 +542,7 @@ export const updateSessionStatus = async (
   try {
     const response = await api.put(`/sessions/${sessionId}/status`, { status });
     clearRequestCache();
+    notifyProfessionalHomeChanged();
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo actualizar el estado de la sesión'));
@@ -830,6 +906,9 @@ export const updateComprehensiveProfile = async (
     if (data.offersInPerson !== undefined) apiData.offersInPerson = data.offersInPerson;
 
     const response = await api.put('/specialists/me/profile', apiData);
+    if (data.autoConfirmSessionRequests !== undefined) {
+      notifyProfessionalHomeChanged();
+    }
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getProfessionalProfileUpdateErrorMessage(error));

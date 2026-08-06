@@ -1,1712 +1,283 @@
-import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
-/**
- * ProfessionalHomeScreen - Calendar-based Professional Dashboard
- * Three-column layout: sidebar (via MainLayout) | calendar | right panel
- * Modernized with HERA theme tokens and dark mode support.
- */
-
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useNavigation } from '@react-navigation/native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
   Linking,
-  Modal,
   ScrollView,
-  StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
-import {
-  borderRadius,
-  layout,
-  shadows,
-  spacing,
-  typography,
-} from '../../constants/colors';
-import { Theme } from '../../constants/theme';
-import { AppNavigationProp } from '../../constants/types';
-import { VerificationBanner } from '../../components/auth';
+import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import { AnimatedPressable, Button } from '../../components/common';
-import { AppointmentDetailSheet } from '../../components/sessions/AppointmentDetailSheet';
 import { TourTarget } from '../../components/onboarding/TourTarget';
+import { useProfessionalTourAutoStart } from '../../components/onboarding/professionalTourContext';
 import {
-  useProfessionalTourAutoStart,
-  useProfessionalTourStepPreparation,
-} from '../../components/onboarding/professionalTourContext';
-import { useProfessionalTourScrollPreparation } from '../../components/onboarding/useProfessionalTourScrollPreparation';
+  ActivationHero,
+  AttentionPanel,
+  NextSessionHero,
+  TodayAgenda,
+  WeeklyPulse,
+} from '../../components/professional/home/ProfessionalHomeCards';
+import { createProfessionalHomeStyles } from '../../components/professional/home/professionalHomeStyles';
+import type { AppNavigationProp } from '../../constants/types';
 import { useAuth } from '../../contexts/AuthContext';
+import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
+import { useProfessionalWorkspace } from '../../contexts/ProfessionalWorkspaceContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getErrorMessage } from '../../constants/errors';
-import * as analyticsService from '../../services/analyticsService';
-import { billingService } from '../../services/billingService';
+import { trackProfessionalWorkspaceEvent } from '../../services/professionalWorkspaceAnalytics';
 import * as professionalService from '../../services/professionalService';
-import { formatTime, getDateLabel } from '../sessions/utils/sessionHelpers';
 
-type CalendarView = 'month' | 'week';
+const MADRID_TIME_ZONE = 'Europe/Madrid';
 
-interface CalendarDay {
-  date: Date;
-  isCurrentMonth: boolean;
-  isToday: boolean;
-  sessions: MappedSession[];
-}
+type HomeAnalyticsModule = 'activation' | 'next_session' | 'attention' | 'today' | 'weekly_summary';
+type HomeAnalyticsAction = 'profile' | 'availability' | 'detail' | 'join' | 'create' | 'agenda' | 'billing' | 'support' | 'statistics';
 
-interface MappedSession {
-  id: string;
-  clientId: string;
-  clientName: string;
-  clientInitial: string;
-  date: string;
-  duration: number;
-  status: string;
-  type: string;
-  origin?: professionalService.ProfessionalSessionOrigin;
-  clinicContext?: professionalService.Session['clinicContext'];
-  actions?: professionalService.Session['actions'];
-}
+const trackHomeAction = (module: HomeAnalyticsModule, action: HomeAnalyticsAction): void => {
+  trackProfessionalWorkspaceEvent({
+    event: 'professional_home_module_action_selected',
+    properties: { module, action },
+  });
+};
 
-const WEEK_VIEW_HOUR_HEIGHT = 48;
-const WEEK_VIEW_START_HOUR = 9;
-const WEEK_VIEW_END_HOUR = 21;
-const WEEK_VIEW_MIN_BLOCK_HEIGHT = 20;
-const WEEK_VIEW_BLOCK_SHORT_THRESHOLD = 40;
-const WEEK_VIEW_TYPE_THRESHOLD = 60;
-const WEEK_VIEW_SESSION_ICON_SIZE = 10;
+const formatLongDate = (iso: string): string => new Intl.DateTimeFormat('es-ES', {
+  timeZone: MADRID_TIME_ZONE,
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+}).format(new Date(iso));
 
-const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-const MONTH_NAMES = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-];
-const SHORT_MONTH_NAMES = [
-  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
-];
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Buenos días';
+const getGreeting = (): string => {
+  const hour = Number(new Intl.DateTimeFormat('es-ES', {
+    timeZone: MADRID_TIME_ZONE,
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date()));
+  if (hour < 13) return 'Buenos días';
   if (hour < 20) return 'Buenas tardes';
   return 'Buenas noches';
-}
+};
 
-function isSameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
-function getMonthDays(year: number, month: number): CalendarDay[] {
-  const today = new Date();
-  const firstDay = new Date(year, month, 1);
-  let startDow = firstDay.getDay() - 1;
-  if (startDow < 0) startDow = 6;
-
-  const days: CalendarDay[] = [];
-
-  for (let i = startDow - 1; i >= 0; i--) {
-    const date = new Date(year, month, -i);
-    days.push({ date, isCurrentMonth: false, isToday: isSameDay(date, today), sessions: [] });
-  }
-
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(year, month, d);
-    days.push({ date, isCurrentMonth: true, isToday: isSameDay(date, today), sessions: [] });
-  }
-
-  while (days.length % 7 !== 0) {
-    const date = new Date(year, month + 1, days.length - (startDow + daysInMonth) + 1);
-    days.push({ date, isCurrentMonth: false, isToday: isSameDay(date, today), sessions: [] });
-  }
-
-  return days;
-}
-
-function getWeekDays(referenceDate: Date): CalendarDay[] {
-  const today = new Date();
-  const dow = referenceDate.getDay();
-  const mondayOffset = dow === 0 ? -6 : 1 - dow;
-  const monday = new Date(referenceDate);
-  monday.setDate(referenceDate.getDate() + mondayOffset);
-
-  const days: CalendarDay[] = [];
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + i);
-    days.push({
-      date,
-      isCurrentMonth: date.getMonth() === referenceDate.getMonth(),
-      isToday: isSameDay(date, today),
-      sessions: [],
-    });
-  }
-  return days;
-}
-
-function dateKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
-function mapSession(s: professionalService.Session): MappedSession {
-  const displayName = s.client?.displayName
-    || [s.client?.firstName, s.client?.lastName].filter(Boolean).join(' ').trim()
-    || s.client?.user?.name
-    || 'Cliente';
-
-  return {
-    id: s.id,
-    clientId: s.clientId,
-    clientName: displayName,
-    clientInitial: displayName[0]?.toUpperCase() ?? 'C',
-    date: s.date,
-    duration: s.bookedDuration ?? s.duration ?? 60,
-    status: s.status,
-    type: s.type,
-    origin: s.origin,
-    clinicContext: s.clinicContext,
-    actions: s.actions,
-  };
-}
-
-function getSessionTypeLabel(type: string): string {
-  switch (type) {
-    case 'VIDEO_CALL':
-      return 'Videollamada';
-    case 'PHONE_CALL':
-      return 'Teléfono';
-    case 'IN_PERSON':
-      return 'Presencial';
-    default:
-      return type;
-  }
-}
-
-function getSessionTypeIcon(type: string): keyof typeof Ionicons.glyphMap {
-  switch (type) {
-    case 'VIDEO_CALL':
-      return 'videocam-outline';
-    case 'PHONE_CALL':
-      return 'call-outline';
-    case 'IN_PERSON':
-      return 'person-outline';
-    default:
-      return 'ellipse-outline';
-  }
-}
-
-function formatEndTime(startDate: string, durationMinutes: number): string {
-  const start = new Date(startDate);
-  const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
-  const hh = String(end.getHours()).padStart(2, '0');
-  const mm = String(end.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
-}
-
-function getCalendarVisibleSessions(sessions: MappedSession[]): MappedSession[] {
-  return sessions.filter((session) => session.status === 'CONFIRMED' || session.status === 'PENDING');
-}
-
-function getSessionStatusTone(theme: Theme, status: string) {
-  switch (status) {
-    case 'CONFIRMED':
-      return theme.status.confirmed;
-    case 'COMPLETED':
-      return theme.status.completed;
-    case 'CANCELLED':
-      return theme.status.cancelled;
-    case 'PENDING':
-    default:
-      return theme.status.pending;
-  }
-}
-
-export function ProfessionalHomeScreen() {
-  const { user } = useAuth();
-  const appAlert = useAppAlert();
-  const { isVisible: isAppAlertVisible } = useAppAlertState();
+export function ProfessionalHomeScreen(): React.ReactElement {
   const navigation = useNavigation<AppNavigationProp>();
+  const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
-  const { theme, isDark } = useTheme();
-  const isDesktop = width >= 768;
-  const isMobile = width < 768;
-  const styles = useMemo(() => createStyles(theme, isDark, isMobile), [theme, isDark, isMobile]);
+  const { theme } = useTheme();
+  const { user } = useAuth();
+  const { snapshot, status: profileStatus } = useProfileCompletion();
+  const {
+    homeData: data,
+    homeStatus,
+    homeError,
+    unreadSupport,
+    supportStatus,
+    refreshHome,
+  } = useProfessionalWorkspace();
+  const isWide = width >= 1280;
+  const isMobile = width < 680;
+  const [joining, setJoining] = useState(false);
+  const entryAnimation = useRef(new Animated.Value(0)).current;
+  const styles = useMemo(
+    () => createProfessionalHomeStyles(theme, isMobile),
+    [isMobile, theme],
+  );
+  const profileItems = snapshot?.role === 'PROFESSIONAL' ? snapshot.items : [];
+  const actionableProfileItems = profileItems.filter((item) => item.state === 'ACTION_REQUIRED');
 
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-  const [sessions, setSessions] = useState<professionalService.Session[]>([]);
-  const [profile, setProfile] = useState<professionalService.ProfessionalProfile | null>(null);
-  const [processingSessionId, setProcessingSessionId] = useState<string | null>(null);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [selectedSessionDetail, setSelectedSessionDetail] =
-    useState<professionalService.ProfessionalSessionDetail | null>(null);
-  const [selectedSessionDetailLoading, setSelectedSessionDetailLoading] = useState(false);
-  const [selectedSessionDetailError, setSelectedSessionDetailError] = useState('');
-  const [dayListDate, setDayListDate] = useState<Date | null>(null);
-  const [dayListSessions, setDayListSessions] = useState<MappedSession[]>([]);
-
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<CalendarView>('month');
-  const [showViewDropdown, setShowViewDropdown] = useState(false);
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
-  const sessionDetailLoadSeqRef = useRef(0);
+  useProfessionalTourAutoStart('professional_home_v1', Boolean(data));
 
   useEffect(() => {
-    analyticsService.trackScreen('professional_dashboard');
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
-    ]).start();
-  }, [fadeAnim, slideAnim]);
+    if (!data) return;
+    Animated.timing(entryAnimation, {
+      toValue: 1,
+      duration: 320,
+      useNativeDriver: true,
+    }).start();
+  }, [data, entryAnimation]);
 
-  const loadData = useCallback(async () => {
+  const openSession = (sessionId: string): void => {
+    navigation.navigate('ProfessionalSessions', { focusSessionId: sessionId });
+  };
+
+  const joinSession = async (sessionId: string): Promise<void> => {
+    setJoining(true);
     try {
-      setLoadError(false);
-      const [sessionsData, profileData] = await Promise.all([
-        professionalService.getProfessionalSessions(),
-        professionalService.getProfessionalProfile(),
-      ]);
-      setSessions(sessionsData);
-      setProfile(profileData);
-    } catch (error) {
-      console.error('Error loading professional home data:', error);
-      setLoadError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const openSessionDetail = useCallback(async (sessionId: string) => {
-    const requestSeq = sessionDetailLoadSeqRef.current + 1;
-    sessionDetailLoadSeqRef.current = requestSeq;
-    setSelectedSessionId(sessionId);
-    setSelectedSessionDetail(null);
-    setSelectedSessionDetailError('');
-    setSelectedSessionDetailLoading(true);
-
-    try {
-      const detail = await professionalService.getProfessionalSessionDetail(sessionId);
-      if (sessionDetailLoadSeqRef.current !== requestSeq) return;
-      setSelectedSessionDetail(detail);
-    } catch (error: unknown) {
-      if (sessionDetailLoadSeqRef.current !== requestSeq) return;
-      setSelectedSessionDetailError(error instanceof Error
-        ? error.message
-        : 'No se pudo cargar el detalle de la cita');
-    } finally {
-      if (sessionDetailLoadSeqRef.current === requestSeq) {
-        setSelectedSessionDetailLoading(false);
-      }
-    }
-  }, []);
-
-  const closeSessionDetail = useCallback(() => {
-    sessionDetailLoadSeqRef.current += 1;
-    setSelectedSessionId(null);
-    setSelectedSessionDetail(null);
-    setSelectedSessionDetailLoading(false);
-    setSelectedSessionDetailError('');
-  }, []);
-
-  const retrySessionDetail = useCallback(() => {
-    if (!selectedSessionId) return;
-    void openSessionDetail(selectedSessionId);
-  }, [openSessionDetail, selectedSessionId]);
-
-  const openSelectedSessionPatient = useCallback(() => {
-    if (!selectedSessionDetail) return;
-    const { clientId } = selectedSessionDetail;
-    closeSessionDetail();
-    navigation.navigate('ClientProfile', { clientId });
-  }, [closeSessionDetail, navigation, selectedSessionDetail]);
-
-  const openSelectedSessionNotes = useCallback(() => {
-    const target = selectedSessionDetail?.clinicalTarget;
-    if (!target) return;
-
-    closeSessionDetail();
-    navigation.navigate('ClientProfile', {
-      clientId: target.clientId,
-      initialTab: 'clinical',
-      clinicalWorkspace: 'sessions',
-      focusSessionId: target.sessionId,
-    });
-  }, [closeSessionDetail, navigation, selectedSessionDetail]);
-
-  const openSelectedSessionInvoice = useCallback(async () => {
-    const invoice = selectedSessionDetail?.invoice;
-    if (!invoice) return;
-
-    if (invoice.status === 'DRAFT') {
-      closeSessionDetail();
-      navigation.navigate('CreateInvoice', { invoiceId: invoice.id });
-      return;
-    }
-
-    try {
-      await billingService.downloadInvoice(invoice.id, invoice.invoiceNumber);
-    } catch (error: unknown) {
-      showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo abrir la factura'));
-    }
-  }, [appAlert, closeSessionDetail, navigation, selectedSessionDetail]);
-
-  const handleJoinSession = useCallback(async (sessionId: string) => {
-    try {
-      const meetingData = await professionalService.getMeetingLink(sessionId);
-      if (!meetingData.canJoin) {
-        showAppAlert(appAlert, 'Aún no es el momento', meetingData.message);
+      const meeting = await professionalService.getMeetingLink(sessionId);
+      if (!meeting.canJoin || !meeting.meetingLink) {
+        showAppAlert(appAlert, 'Aún no es el momento', meeting.message);
         return;
       }
-
-      if (!meetingData.meetingLink) {
-        showAppAlert(appAlert, 'Enlace no disponible', 'No se pudo preparar el enlace de la videollamada.');
+      if (!await Linking.canOpenURL(meeting.meetingLink)) {
+        showAppAlert(appAlert, 'No se pudo abrir', 'Tu dispositivo no puede abrir el enlace de la videollamada.');
         return;
       }
-
-      const supported = await Linking.canOpenURL(meetingData.meetingLink);
-      if (!supported) {
-        showAppAlert(appAlert, 'No se pudo abrir', 'Tu dispositivo no pudo abrir el enlace de la videollamada.');
-        return;
-      }
-
-      await Linking.openURL(meetingData.meetingLink);
+      await Linking.openURL(meeting.meetingLink);
     } catch {
-      showAppAlert(appAlert, 'Error', 'Hubo un problema al unirte a la sesión');
-    }
-  }, [appAlert]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  useProfessionalTourAutoStart('professional_home_v1', !loading && !loadError && !isAppAlertVisible);
-
-  const homeTourScroll = useProfessionalTourScrollPreparation();
-  const prepareHomeCalendarStep = useCallback(() => {
-    if (!isDesktop) {
-      homeTourScroll.scrollToTop();
-    }
-  }, [homeTourScroll, isDesktop]);
-  const prepareHomePendingStep = useCallback(async () => {
-    if (!isDesktop) {
-      await homeTourScroll.prepareTarget('professional.home.pending-requests');
-    }
-  }, [homeTourScroll, isDesktop]);
-  const prepareHomeUpcomingStep = useCallback(async () => {
-    if (!isDesktop) {
-      await homeTourScroll.prepareTarget('professional.home.upcoming-sessions');
-    }
-  }, [homeTourScroll, isDesktop]);
-
-  useProfessionalTourStepPreparation(
-    'professional.home.calendar',
-    prepareHomeCalendarStep,
-  );
-  useProfessionalTourStepPreparation(
-    'professional.home.pending-requests',
-    prepareHomePendingStep,
-  );
-  useProfessionalTourStepPreparation(
-    'professional.home.upcoming-sessions',
-    prepareHomeUpcomingStep,
-  );
-
-  const mappedSessions = useMemo(() => sessions.map(mapSession), [sessions]);
-
-  const sessionsByDate = useMemo(() => {
-    const map = new Map<string, MappedSession[]>();
-    for (const session of mappedSessions) {
-      const key = dateKey(new Date(session.date));
-      const items = map.get(key) || [];
-      items.push(session);
-      map.set(key, items);
-    }
-    return map;
-  }, [mappedSessions]);
-
-  const pendingRequests = useMemo(
-    () => mappedSessions.filter((session) => session.status === 'PENDING' && session.origin !== 'CLINIC'),
-    [mappedSessions],
-  );
-
-  const upcomingSessions = useMemo(() => {
-    const now = new Date();
-    return mappedSessions
-      .filter((session) => session.status === 'CONFIRMED' && new Date(session.date) >= now)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [mappedSessions]);
-
-  const calendarDays = useMemo(() => {
-    const days =
-      viewMode === 'month'
-        ? getMonthDays(currentDate.getFullYear(), currentDate.getMonth())
-        : getWeekDays(currentDate);
-
-    return days.map((day) => ({
-      ...day,
-      sessions: sessionsByDate.get(dateKey(day.date)) || [],
-    }));
-  }, [currentDate, sessionsByDate, viewMode]);
-
-  const navLabel = useMemo(() => {
-    if (viewMode === 'month') {
-      return `${MONTH_NAMES[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
-    }
-
-    const weekDays = getWeekDays(currentDate);
-    const first = weekDays[0].date;
-    const last = weekDays[6].date;
-    const firstMonth = SHORT_MONTH_NAMES[first.getMonth()];
-    const lastMonth = SHORT_MONTH_NAMES[last.getMonth()];
-
-    if (first.getMonth() === last.getMonth()) {
-      return `${first.getDate()}-${last.getDate()} ${firstMonth}`;
-    }
-    return `${first.getDate()} ${firstMonth} - ${last.getDate()} ${lastMonth}`;
-  }, [currentDate, viewMode]);
-
-  const handleNavigatePrev = useCallback(() => {
-    setCurrentDate((prev) => {
-      const next = new Date(prev);
-      if (viewMode === 'month') {
-        next.setMonth(next.getMonth() - 1);
-      } else {
-        next.setDate(next.getDate() - 7);
-      }
-      return next;
-    });
-    setShowViewDropdown(false);
-  }, [viewMode]);
-
-  const handleNavigateNext = useCallback(() => {
-    setCurrentDate((prev) => {
-      const next = new Date(prev);
-      if (viewMode === 'month') {
-        next.setMonth(next.getMonth() + 1);
-      } else {
-        next.setDate(next.getDate() + 7);
-      }
-      return next;
-    });
-    setShowViewDropdown(false);
-  }, [viewMode]);
-
-  const handleConfirmSession = async (sessionId: string) => {
-    if (processingSessionId) return;
-    const request = pendingRequests.find((item) => item.id === sessionId);
-    const clientName = request?.clientName || 'Cliente';
-
-    try {
-      setProcessingSessionId(sessionId);
-      await professionalService.updateSessionStatus(sessionId, 'CONFIRMED');
-      showAppAlert(appAlert, 'Sesión confirmada', `Sesión con ${clientName} confirmada correctamente`);
-      await loadData();
-    } catch {
-      showAppAlert(appAlert, 'Error', 'No se pudo confirmar la sesión');
+      showAppAlert(appAlert, 'No se pudo unir', 'Comprueba la conexión e inténtalo de nuevo.');
     } finally {
-      setProcessingSessionId(null);
+      setJoining(false);
     }
   };
 
-  const handleDeclineSession = async (sessionId: string) => {
-    if (processingSessionId) return;
-    const request = pendingRequests.find((item) => item.id === sessionId);
-    const clientName = request?.clientName || 'Cliente';
-
-    showAppAlert(appAlert, 
-      'Rechazar sesión',
-      `¿Estás seguro de que deseas rechazar la sesión con ${clientName}?`,
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Sí, rechazar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setProcessingSessionId(sessionId);
-              await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
-              showAppAlert(appAlert, 'Sesión rechazada', `La sesión con ${clientName} ha sido rechazada`);
-              await loadData();
-            } catch {
-              showAppAlert(appAlert, 'Error', 'No se pudo rechazar la sesión');
-            } finally {
-              setProcessingSessionId(null);
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const renderTopBar = () => (
-    <Animated.View
-      style={[
-        styles.topBar,
-        { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-      ]}
-    >
-      <View style={styles.greetingBlock}>
-        <Text style={styles.greeting}>
-          {getGreeting()}, {user?.name?.split(' ')[0] || profile?.specialization || 'Hera'}
-        </Text>
-        <Text style={styles.topBarSubtitle}>
-          Tu calendario clínico y seguimiento de sesiones, en un solo espacio.
-        </Text>
-      </View>
-
-      <TourTarget id="professional.home.calendar" fill>
-        <View style={styles.topBarRight}>
-          <View style={styles.navArrows}>
-            <AnimatedPressable
-              onPress={handleNavigatePrev}
-              style={styles.navArrowButton}
-              hoverLift={false}
-              pressScale={0.96}
-            >
-              <Ionicons name="chevron-back" size={18} color={theme.textPrimary} />
-            </AnimatedPressable>
-            <Text style={styles.navLabel}>{navLabel}</Text>
-            <AnimatedPressable
-              onPress={handleNavigateNext}
-              style={styles.navArrowButton}
-              hoverLift={false}
-              pressScale={0.96}
-            >
-              <Ionicons name="chevron-forward" size={18} color={theme.textPrimary} />
-            </AnimatedPressable>
-          </View>
-
-          <View style={styles.viewSelectorContainer}>
-            <AnimatedPressable
-              style={styles.viewSelectorButton}
-              onPress={() => setShowViewDropdown((prev) => !prev)}
-              hoverLift={false}
-              pressScale={0.98}
-            >
-              <Text style={styles.viewSelectorText}>
-                {viewMode === 'month' ? 'Vista mensual' : 'Vista semanal'}
-              </Text>
-              <Ionicons
-                name={showViewDropdown ? 'chevron-up' : 'chevron-down'}
-                size={14}
-                color={theme.textSecondary}
-              />
-            </AnimatedPressable>
-
-            {showViewDropdown && (
-              <View style={styles.viewDropdown}>
-                <AnimatedPressable
-                  style={
-                    viewMode === 'month'
-                      ? [styles.viewDropdownItem, styles.viewDropdownItemActive]
-                      : styles.viewDropdownItem
-                  }
-                  onPress={() => {
-                    setViewMode('month');
-                    setShowViewDropdown(false);
-                  }}
-                  hoverLift={false}
-                  pressScale={0.99}
-                >
-                  <Text
-                    style={
-                      viewMode === 'month'
-                        ? [styles.viewDropdownText, styles.viewDropdownTextActive]
-                        : styles.viewDropdownText
-                    }
-                  >
-                    Vista mensual
-                  </Text>
-                </AnimatedPressable>
-
-                <AnimatedPressable
-                  style={
-                    viewMode === 'week'
-                      ? [styles.viewDropdownItem, styles.viewDropdownItemActive]
-                      : styles.viewDropdownItem
-                  }
-                  onPress={() => {
-                    setViewMode('week');
-                    setShowViewDropdown(false);
-                  }}
-                  hoverLift={false}
-                  pressScale={0.99}
-                >
-                  <Text
-                    style={
-                      viewMode === 'week'
-                        ? [styles.viewDropdownText, styles.viewDropdownTextActive]
-                        : styles.viewDropdownText
-                    }
-                  >
-                    Vista semanal
-                  </Text>
-                </AnimatedPressable>
-              </View>
-            )}
-          </View>
-        </View>
-      </TourTarget>
-    </Animated.View>
-  );
-
-  const renderMonthView = () => (
-    <View style={styles.calendarGrid}>
-      <View style={styles.weekdayHeaderRow}>
-        {WEEKDAY_LABELS.map((label) => (
-          <View key={label} style={styles.weekdayHeaderCell}>
-            <Text style={styles.weekdayHeaderText}>{label}</Text>
-          </View>
-        ))}
-      </View>
-
-      {Array.from({ length: calendarDays.length / 7 }, (_, weekIdx) => (
-        <View key={`week-${weekIdx}`} style={styles.calendarWeekRow}>
-          {calendarDays.slice(weekIdx * 7, weekIdx * 7 + 7).map((day) => {
-            const visibleSessions = getCalendarVisibleSessions(day.sessions);
-            const confirmed = visibleSessions.filter((session) => session.status === 'CONFIRMED');
-            const pending = visibleSessions.filter((session) => session.status === 'PENDING');
-            const pills = [...confirmed.slice(0, 2), ...pending.slice(0, 2)].slice(0, 2);
-            const totalEvents = visibleSessions.length;
-            const extraCount = totalEvents - pills.length;
-
-            return (
-              <View
-                key={dateKey(day.date)}
-                style={[
-                  styles.monthDayCell,
-                  !day.isCurrentMonth && styles.monthDayCellMuted,
-                ]}
-              >
-                <View style={[styles.dayNumberWrapper, day.isToday && styles.dayNumberToday]}>
-                  <Text
-                    style={[
-                      styles.dayNumber,
-                      day.isToday && styles.dayNumberTodayText,
-                      !day.isCurrentMonth && styles.dayNumberMuted,
-                    ]}
-                  >
-                    {day.date.getDate()}
-                  </Text>
-                </View>
-
-                {pills.map((session) => {
-                  const tone = getSessionStatusTone(theme, session.status);
-                  return (
-                    <AnimatedPressable
-                      key={session.id}
-                      onPress={() => void openSessionDetail(session.id)}
-                      hoverLift={false}
-                      pressScale={0.98}
-                      style={[
-                        styles.eventPill,
-                        { backgroundColor: tone.bg, borderColor: tone.border },
-                      ]}
-                    >
-                      <Text style={[styles.eventPillText, { color: tone.text }]} numberOfLines={1}>
-                        {formatTime(session.date)}
-                      </Text>
-                    </AnimatedPressable>
-                  );
-                })}
-
-                {extraCount > 0 && (
-                  <AnimatedPressable
-                    onPress={() => {
-                      setDayListDate(day.date);
-                      setDayListSessions(visibleSessions);
-                    }}
-                    hoverLift={false}
-                    pressScale={0.98}
-                  >
-                    <Text style={styles.extraEventsText}>+{extraCount} más</Text>
-                  </AnimatedPressable>
-                )}
-              </View>
-            );
-          })}
-        </View>
-      ))}
-    </View>
-  );
-
-  const renderWeekView = () => {
-    const totalHours = WEEK_VIEW_END_HOUR - WEEK_VIEW_START_HOUR;
-    const hours = Array.from({ length: totalHours }, (_, i) => i + WEEK_VIEW_START_HOUR);
-    const bodyHeight = totalHours * WEEK_VIEW_HOUR_HEIGHT;
-
+  if (homeStatus === 'loading' && !data) {
     return (
-      <ScrollView style={styles.weekViewScroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.weekGrid}>
-          <View style={styles.weekHeaderRow}>
-            <View style={styles.weekTimeColumn} />
-            {calendarDays.map((day) => (
-              <View
-                key={dateKey(day.date)}
-                style={[styles.weekDayHeader, day.isToday && styles.weekDayHeaderToday]}
-              >
-                <Text style={styles.weekDayHeaderLabel}>
-                  {WEEKDAY_LABELS[(day.date.getDay() + 6) % 7]}
-                </Text>
-                <Text
-                  style={[
-                    styles.weekDayHeaderNumber,
-                    day.isToday && styles.weekDayHeaderNumberToday,
-                  ]}
-                >
-                  {day.date.getDate()}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.weekBody}>
-            <View style={styles.weekTimeColumn}>
-              {hours.map((hour) => (
-                <View key={`hour-${hour}`} style={styles.weekTimeLabelCell}>
-                  <Text style={styles.weekTimeLabel}>{String(hour).padStart(2, '0')}:00</Text>
-                </View>
-              ))}
-            </View>
-
-            {calendarDays.map((day) => (
-              <View
-                key={dateKey(day.date)}
-                style={[
-                  styles.weekDayColumn,
-                  { height: bodyHeight },
-                  day.isToday && styles.weekDayCellToday,
-                ]}
-              >
-                {hours.map((hour) => (
-                  <View
-                    key={`grid-${dateKey(day.date)}-${hour}`}
-                    style={[
-                      styles.weekHourGridLine,
-                      { top: (hour - WEEK_VIEW_START_HOUR) * WEEK_VIEW_HOUR_HEIGHT },
-                    ]}
-                  />
-                ))}
-
-                {day.sessions.map((session) => {
-                  const sessionDate = new Date(session.date);
-                  const sessionHour = sessionDate.getHours();
-                  const sessionMinutes = sessionDate.getMinutes();
-                  const topOffset =
-                    (((sessionHour - WEEK_VIEW_START_HOUR) * 60) + sessionMinutes) / 60 *
-                    WEEK_VIEW_HOUR_HEIGHT;
-                  const blockHeight = Math.max(
-                    (session.duration / 60) * WEEK_VIEW_HOUR_HEIGHT,
-                    WEEK_VIEW_MIN_BLOCK_HEIGHT,
-                  );
-                  const showClientName = blockHeight >= WEEK_VIEW_BLOCK_SHORT_THRESHOLD;
-                  const showType = blockHeight >= WEEK_VIEW_TYPE_THRESHOLD;
-                  const timeRange = `${formatTime(session.date)} - ${formatEndTime(session.date, session.duration)}`;
-                  const tone = getSessionStatusTone(theme, session.status);
-
-                  return (
-                    <AnimatedPressable
-                      key={session.id}
-                      onPress={() => void openSessionDetail(session.id)}
-                      style={[
-                        styles.weekSessionBlock,
-                        {
-                          position: 'absolute',
-                          top: topOffset,
-                          height: blockHeight,
-                          left: 2,
-                          right: 2,
-                          backgroundColor: tone.bg,
-                          borderColor: tone.border,
-                          overflow: 'hidden',
-                        },
-                      ]}
-                      hoverLift={false}
-                      pressScale={0.98}
-                    >
-                      {showClientName && (
-                        <Text style={[styles.weekSessionText, { color: tone.text }]} numberOfLines={1}>
-                          {session.clientName}
-                        </Text>
-                      )}
-                      <Text style={[styles.weekSessionTimeText, { color: tone.text }]} numberOfLines={1}>
-                        {timeRange}
-                      </Text>
-                      {showType && (
-                        <View style={styles.weekSessionTypeRow}>
-                          <Ionicons
-                            name={getSessionTypeIcon(session.type)}
-                            size={WEEK_VIEW_SESSION_ICON_SIZE}
-                            color={tone.text}
-                          />
-                          <Text
-                            style={[styles.weekSessionTypeText, { color: tone.text }]}
-                            numberOfLines={1}
-                          >
-                            {getSessionTypeLabel(session.type)}
-                          </Text>
-                        </View>
-                      )}
-                    </AnimatedPressable>
-                  );
-                })}
-              </View>
-            ))}
-          </View>
+      <View style={[styles.loadingScreen, { backgroundColor: theme.bg }]}>
+        <View style={[styles.loadingMark, { backgroundColor: theme.primaryAlpha12 }]}>
+          <ActivityIndicator color={theme.primary} />
         </View>
-      </ScrollView>
-    );
-  };
-
-  const renderPendingRequests = () => (
-    <TourTarget
-      id="professional.home.pending-requests"
-      fill
-      style={[
-        styles.rightPanelBlock,
-        !isDesktop && styles.rightPanelBlockMobile,
-      ]}
-    >
-      <View style={styles.rightPanelBlockContent}>
-      <View style={styles.rightPanelHeader}>
-        <Text style={styles.rightPanelTitle}>Solicitudes pendientes</Text>
-        <View style={styles.badgeLavender}>
-          <Text style={styles.badgeLavenderText}>{pendingRequests.length}</Text>
-        </View>
-      </View>
-
-      <ScrollView
-        style={styles.rightPanelScroll}
-        showsVerticalScrollIndicator={false}
-        nestedScrollEnabled
-      >
-        {pendingRequests.length > 0 ? (
-          pendingRequests.map((request) => (
-            <View
-              key={request.id}
-              style={styles.requestCard}
-            >
-              <AnimatedPressable
-                onPress={() => void openSessionDetail(request.id)}
-                hoverLift={false}
-                pressScale={0.99}
-                style={styles.requestDetailPressable}
-              >
-              <Text style={styles.requestClientName}>{request.clientName}</Text>
-              <Text style={styles.requestDetail}>
-                {getDateLabel(request.date)} {formatTime(request.date)} · {getSessionTypeLabel(request.type)}
-              </Text>
-              </AnimatedPressable>
-
-              <View style={styles.requestButtons}>
-                <View style={styles.requestButtonSlot}>
-                  <Button
-                    variant="primary"
-                    size="small"
-                    onPress={() => handleConfirmSession(request.id)}
-                    loading={processingSessionId === request.id}
-                    fullWidth
-                  >
-                    Confirmar
-                  </Button>
-                </View>
-                <View style={styles.requestButtonSlot}>
-                  <Button
-                    variant="outline"
-                    size="small"
-                    onPress={() => handleDeclineSession(request.id)}
-                    disabled={processingSessionId === request.id}
-                    fullWidth
-                  >
-                    Rechazar
-                  </Button>
-                </View>
-              </View>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.emptyText}>Sin solicitudes pendientes</Text>
-        )}
-      </ScrollView>
-      </View>
-    </TourTarget>
-  );
-
-  const renderUpcomingSessions = () => (
-    <TourTarget
-      id="professional.home.upcoming-sessions"
-      fill
-      style={[
-        styles.rightPanelBlock,
-        styles.rightPanelBlockBottom,
-        !isDesktop && styles.rightPanelBlockMobile,
-      ]}
-    >
-      <View style={styles.rightPanelBlockContent}>
-      <View style={styles.rightPanelHeader}>
-        <Text style={styles.rightPanelTitle}>Próximas sesiones</Text>
-        <View style={styles.badgeGreen}>
-          <Text style={styles.badgeGreenText}>{upcomingSessions.length}</Text>
-        </View>
-      </View>
-
-      <ScrollView
-        style={styles.rightPanelScroll}
-        showsVerticalScrollIndicator={false}
-        nestedScrollEnabled
-      >
-        {upcomingSessions.length > 0 ? (
-          upcomingSessions.map((session) => (
-            <AnimatedPressable
-              key={session.id}
-              onPress={() => void openSessionDetail(session.id)}
-              hoverLift={false}
-              pressScale={0.99}
-              style={styles.upcomingCard}
-            >
-              <View style={styles.upcomingTimeCol}>
-                <Text style={styles.upcomingDayLabel}>{getDateLabel(session.date)}</Text>
-                <Text style={styles.upcomingTime}>{formatTime(session.date)}</Text>
-              </View>
-              <View style={styles.upcomingInfo}>
-                <Text style={styles.upcomingClientName} numberOfLines={1}>
-                  {session.clientName}
-                </Text>
-                <Text style={styles.upcomingMeta} numberOfLines={1}>
-                  {getSessionTypeLabel(session.type)} · {session.duration} min
-                </Text>
-              </View>
-            </AnimatedPressable>
-          ))
-        ) : (
-          <Text style={styles.emptyText}>No hay sesiones próximas</Text>
-        )}
-      </ScrollView>
-      </View>
-    </TourTarget>
-  );
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={styles.loadingText}>Cargando agenda...</Text>
+        <Text style={[styles.loadingText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Preparando tu día…</Text>
       </View>
     );
   }
 
+  if (!data) {
+    return (
+      <View style={[styles.loadingScreen, { backgroundColor: theme.bg }]}>
+        <Ionicons name="cloud-offline-outline" size={28} color={theme.textMuted} />
+        <Text style={[styles.errorTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>No pudimos cargar tu inicio</Text>
+        <Button onPress={() => { void refreshHome(true); }} size="small">Reintentar</Button>
+      </View>
+    );
+  }
+
+  const firstName = user?.name?.trim().split(/\s+/)[0] || 'Hera';
+  const isNewSpecialist = !data.nextSession && data.week.totalSessions === 0 && profileItems.length > 0;
+  const attentionReady = homeStatus === 'ready'
+    && supportStatus === 'ready'
+    && profileStatus === 'ready'
+    && snapshot !== null;
+
   return (
-    <View style={styles.container}>
-      <VerificationBanner />
-      {renderTopBar()}
-
-      {isDesktop ? (
-        <View style={styles.bodyRow}>
-          <View style={styles.calendarPanel}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {viewMode === 'month' ? renderMonthView() : renderWeekView()}
-            </ScrollView>
-          </View>
-
-          <View style={styles.rightPanel}>
-            {renderPendingRequests()}
-            {renderUpcomingSessions()}
-          </View>
-        </View>
-      ) : (
-        <ScrollView
-          ref={homeTourScroll.scrollRef}
-          style={styles.mobileScroll}
-          onContentSizeChange={homeTourScroll.scrollProps.onContentSizeChange}
-          onLayout={homeTourScroll.scrollProps.onLayout}
-          onScroll={homeTourScroll.scrollProps.onScroll}
-          scrollEventThrottle={homeTourScroll.scrollProps.scrollEventThrottle}
-          showsVerticalScrollIndicator={false}
-          nestedScrollEnabled
-        >
-          <View style={styles.calendarPanelMobile}>
-            {viewMode === 'month' ? renderMonthView() : renderWeekView()}
-          </View>
-          {renderPendingRequests()}
-          {renderUpcomingSessions()}
-          <View style={styles.bottomSpacer} />
-        </ScrollView>
-      )}
-      <Modal
-        visible={Boolean(dayListDate)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setDayListDate(null);
-          setDayListSessions([]);
+    <ScrollView
+      style={[styles.screen, { backgroundColor: theme.bg }]}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator
+    >
+      <Animated.View
+        style={{
+          opacity: entryAnimation,
+          transform: [{
+            translateY: entryAnimation.interpolate({
+              inputRange: [0, 1],
+              outputRange: [8, 0],
+            }),
+          }],
         }}
       >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.dayListSheet}>
-            <View style={styles.dayListHeader}>
-              <View>
-                <Text style={styles.dayListTitle}>
-                  {dayListDate
-                    ? dayListDate.toLocaleDateString('es-ES', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                      })
-                    : 'Citas del día'}
-                </Text>
-                <Text style={styles.dayListSubtitle}>{dayListSessions.length} citas</Text>
-              </View>
-              <Button
-                variant="ghost"
-                size="small"
-                onPress={() => {
-                  setDayListDate(null);
-                  setDayListSessions([]);
-                }}
-              >
-                Cerrar
-              </Button>
-            </View>
-            <ScrollView contentContainerStyle={styles.dayListContent}>
-              {dayListSessions.map((session) => (
-                <AnimatedPressable
-                  key={session.id}
-                  onPress={() => {
-                    setDayListDate(null);
-                    setDayListSessions([]);
-                    void openSessionDetail(session.id);
-                  }}
-                  hoverLift={false}
-                  pressScale={0.99}
-                  style={styles.dayListItem}
-                >
-                  <View style={styles.dayListTime}>
-                    <Text style={styles.dayListTimeText}>{formatTime(session.date)}</Text>
-                  </View>
-                  <View style={styles.dayListCopy}>
-                    <Text style={styles.dayListName}>{session.clientName}</Text>
-                    <Text style={styles.dayListMeta}>
-                      {getSessionTypeLabel(session.type)} · {session.duration} min
-                    </Text>
-                    {session.origin === 'CLINIC' && session.clinicContext ? (
-                      <Text style={styles.dayListMeta}>{session.clinicContext.clinicName}</Text>
-                    ) : null}
-                  </View>
-                </AnimatedPressable>
-              ))}
-            </ScrollView>
+        <View style={styles.pageHeader}>
+          <View style={styles.headerCopy}>
+            <Text style={[styles.kicker, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>TU JORNADA</Text>
+            <Text style={[styles.greeting, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{getGreeting()}, {firstName}</Text>
           </View>
+          <Text style={[styles.date, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>{formatLongDate(new Date().toISOString())}</Text>
         </View>
-      </Modal>
-      <AppointmentDetailSheet
-        visible={Boolean(selectedSessionId)}
-        mode="professional"
-        professionalSession={selectedSessionDetail}
-        loading={selectedSessionDetailLoading}
-        error={selectedSessionDetailError}
-        processing={processingSessionId === selectedSessionId}
-        onClose={closeSessionDetail}
-        onRetry={retrySessionDetail}
-        onOpenPatient={selectedSessionDetail ? openSelectedSessionPatient : undefined}
-        onOpenNotes={selectedSessionDetail?.clinicalTarget ? openSelectedSessionNotes : undefined}
-        onOpenInvoice={selectedSessionDetail?.status === 'COMPLETED' && selectedSessionDetail.invoice
-          ? () => void openSelectedSessionInvoice()
-          : undefined}
-        onJoinVideo={selectedSessionDetail?.actions?.canJoinVideo ? () => {
-          void handleJoinSession(selectedSessionDetail.id);
-        } : undefined}
-      />
-    </View>
+
+        {homeStatus === 'stale' ? (
+          <View style={[styles.errorBanner, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
+            <Ionicons name="refresh-outline" size={18} color={theme.warning} />
+            <Text style={[styles.errorBannerText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{homeError}. Mostramos la última información disponible.</Text>
+            <AnimatedPressable onPress={() => { void refreshHome(true); }} hoverLift={false} style={styles.retryLink}>
+              <Text style={[styles.retryText, { color: theme.link, fontFamily: theme.fontSansSemiBold }]}>Reintentar</Text>
+            </AnimatedPressable>
+          </View>
+        ) : null}
+
+        <View style={[styles.priorityGrid, (!isWide || isNewSpecialist) ? styles.priorityGridStacked : null]}>
+          {isNewSpecialist ? (
+            <ActivationHero
+              pendingSteps={profileItems.length}
+              onProfile={() => {
+                trackHomeAction('activation', 'profile');
+                navigation.navigate('ProfessionalProfile');
+              }}
+              onAvailability={() => {
+                trackHomeAction('activation', 'availability');
+                navigation.navigate('ProfessionalAvailability');
+              }}
+            />
+          ) : (
+            <TourTarget id="professional.home.next-session" fill style={isWide ? styles.priorityColumn : styles.stackedColumn}>
+              <NextSessionHero
+                session={data.nextSession}
+                joining={joining}
+                onOpen={(sessionId) => {
+                  trackHomeAction('next_session', 'detail');
+                  openSession(sessionId);
+                }}
+                onJoin={(sessionId) => {
+                  trackHomeAction('next_session', 'join');
+                  void joinSession(sessionId);
+                }}
+                onCreate={() => {
+                  trackHomeAction('next_session', 'create');
+                  navigation.navigate('ProfessionalSessions', { openCreateSession: true });
+                }}
+              />
+            </TourTarget>
+          )}
+
+          <TourTarget id="professional.home.attention" fill style={isWide && !isNewSpecialist ? styles.priorityColumn : styles.stackedColumn}>
+            <AttentionPanel
+              data={data}
+              profileItems={actionableProfileItems.length}
+              unreadSupport={unreadSupport}
+              ready={attentionReady}
+              onAgenda={() => {
+                trackHomeAction('attention', 'agenda');
+                navigation.navigate('ProfessionalSessions');
+              }}
+              onBilling={() => {
+                trackHomeAction('attention', 'billing');
+                navigation.navigate('ProfessionalBilling');
+              }}
+              onProfile={() => {
+                trackHomeAction('attention', 'profile');
+                navigation.navigate('ProfessionalProfile');
+              }}
+              onSupport={() => {
+                trackHomeAction('attention', 'support');
+                navigation.navigate('ProfessionalHelp', { section: 'help' });
+              }}
+            />
+          </TourTarget>
+        </View>
+
+        <View style={[styles.mainGrid, !isWide ? styles.mainGridStacked : null]}>
+          <TourTarget id="professional.home.today" fill style={isWide ? styles.mainColumn : styles.stackedColumn}>
+            <TodayAgenda
+              sessions={data.today.sessions}
+              onOpen={(sessionId) => {
+                trackHomeAction('today', 'detail');
+                openSession(sessionId);
+              }}
+              onAgenda={() => {
+                trackHomeAction('today', 'agenda');
+                navigation.navigate('ProfessionalSessions');
+              }}
+            />
+          </TourTarget>
+          <TourTarget id="professional.home.week-pulse" fill style={isWide ? styles.mainColumn : styles.stackedColumn}>
+            <WeeklyPulse
+              data={data}
+              onNavigate={(route) => {
+                trackHomeAction(
+                  'weekly_summary',
+                  route === 'ProfessionalSessions'
+                    ? 'agenda'
+                    : route === 'ProfessionalAvailability'
+                      ? 'availability'
+                      : 'statistics',
+                );
+                navigation.navigate(route);
+              }}
+            />
+          </TourTarget>
+        </View>
+      </Animated.View>
+    </ScrollView>
   );
 }
 
-function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.bg,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: theme.bg,
-    },
-    loadingText: {
-      marginTop: spacing.md,
-      fontSize: typography.fontSizes.md,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSansMedium,
-    },
-    topBar: {
-      flexDirection: isMobile ? 'column' : 'row',
-      justifyContent: 'space-between',
-      alignItems: isMobile ? 'stretch' : 'center',
-      paddingHorizontal: spacing.lg,
-      paddingLeft: isMobile ? layout.mobileShellLeftInset : spacing.lg,
-      paddingVertical: spacing.md,
-      backgroundColor: theme.bgAlt,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-      zIndex: 100,
-      overflow: 'visible',
-    },
-    greetingBlock: {
-      gap: 4,
-      paddingVertical: 2,
-      minWidth: 0,
-    },
-    greeting: {
-      fontSize: typography.fontSizes.xl,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansBold,
-    },
-    topBarSubtitle: {
-      fontSize: typography.fontSizes.xs,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
-    },
-    topBarRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: isMobile ? 'space-between' : 'flex-start',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-      width: isMobile ? '100%' as unknown as number : undefined,
-    },
-    navArrows: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-      paddingHorizontal: spacing.xs,
-      paddingVertical: spacing.xs,
-      borderRadius: borderRadius.lg,
-      backgroundColor: theme.bgCard,
-      borderWidth: 1,
-      borderColor: theme.border,
-      shadowColor: theme.shadowCard,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 1,
-      shadowRadius: 12,
-      elevation: 2,
-    },
-    navArrowButton: {
-      width: 36,
-      height: 36,
-      borderRadius: borderRadius.md,
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-      borderWidth: 1,
-      borderColor: theme.border,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    navLabel: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textPrimary,
-      minWidth: isMobile ? 92 : 124,
-      textAlign: 'center',
-      fontFamily: theme.fontSansSemiBold,
-    },
-    viewSelectorContainer: {
-      position: 'relative',
-      zIndex: 10,
-    },
-    viewSelectorButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-      paddingVertical: spacing.xs + 3,
-      paddingHorizontal: spacing.sm + 2,
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: borderRadius.md,
-      backgroundColor: theme.bgCard,
-      shadowColor: theme.shadowCard,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 1,
-      shadowRadius: 12,
-      elevation: 2,
-    },
-    viewSelectorText: {
-      fontSize: typography.fontSizes.xs,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSansMedium,
-    },
-    viewDropdown: {
-      position: 'absolute',
-      top: '100%',
-      right: 0,
-      marginTop: spacing.xs,
-      backgroundColor: theme.bgElevated,
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: borderRadius.md,
-      minWidth: 152,
-      shadowColor: theme.shadowNeutral,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 1,
-      shadowRadius: 18,
-      elevation: 6,
-      zIndex: 1000,
-    },
-    viewDropdownItem: {
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.md,
-    },
-    viewDropdownItemActive: {
-      backgroundColor: theme.secondaryMuted,
-    },
-    viewDropdownText: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
-    },
-    viewDropdownTextActive: {
-      color: theme.selection,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    bodyRow: {
-      flex: 1,
-      flexDirection: 'row',
-    },
-    calendarTourTarget: {
-      flex: 1,
-      minWidth: 0,
-    },
-    calendarTourTargetMobile: {
-      alignSelf: 'stretch',
-    },
-    calendarPanel: {
-      flex: 1,
-      padding: spacing.md,
-    },
-    calendarPanelMobile: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.md,
-    },
-    rightPanel: {
-      width: layout.rightPanelWidth,
-      borderLeftWidth: 1,
-      borderLeftColor: theme.border,
-      backgroundColor: theme.bgAlt,
-    },
-    mobileScroll: {
-      flex: 1,
-    },
-    bottomSpacer: {
-      height: spacing.xxl,
-    },
-    modalBackdrop: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.overlay,
-      padding: spacing.lg,
-    },
-    dayListSheet: {
-      width: '100%',
-      maxWidth: 520,
-      maxHeight: '82%',
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 8,
-      backgroundColor: theme.bgCard,
-      overflow: 'hidden',
-    },
-    dayListHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
-      padding: spacing.lg,
-    },
-    dayListTitle: {
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansBold,
-      fontSize: typography.fontSizes.lg,
-      lineHeight: 24,
-      textTransform: 'capitalize',
-    },
-    dayListSubtitle: {
-      color: theme.textMuted,
-      fontFamily: theme.fontSans,
-      fontSize: typography.fontSizes.sm,
-      lineHeight: 20,
-    },
-    dayListContent: {
-      padding: spacing.lg,
-      gap: spacing.sm,
-    },
-    dayListItem: {
-      minHeight: 68,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      borderWidth: 1,
-      borderColor: theme.borderLight,
-      borderRadius: 8,
-      backgroundColor: theme.bgMuted,
-      padding: spacing.md,
-    },
-    dayListTime: {
-      width: 58,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    dayListTimeText: {
-      color: theme.primary,
-      fontFamily: theme.fontSansBold,
-      fontSize: typography.fontSizes.md,
-      lineHeight: 22,
-    },
-    dayListCopy: {
-      flex: 1,
-      minWidth: 0,
-      gap: 2,
-    },
-    dayListName: {
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansBold,
-      fontSize: typography.fontSizes.md,
-      lineHeight: 22,
-    },
-    dayListMeta: {
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
-      fontSize: typography.fontSizes.sm,
-      lineHeight: 19,
-    },
-    calendarGrid: {
-      backgroundColor: theme.bgCard,
-      borderRadius: borderRadius.lg,
-      borderWidth: 1,
-      borderColor: theme.border,
-      overflow: 'hidden',
-      ...shadows.sm,
-    },
-    weekdayHeaderRow: {
-      flexDirection: 'row',
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-    },
-    weekdayHeaderCell: {
-      flex: 1,
-      paddingVertical: spacing.sm,
-      alignItems: 'center',
-    },
-    weekdayHeaderText: {
-      fontSize: typography.fontSizes.xs,
-      color: theme.textMuted,
-      textTransform: 'uppercase',
-      fontFamily: theme.fontSansSemiBold,
-    },
-    calendarWeekRow: {
-      flexDirection: 'row',
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
-    },
-    monthDayCell: {
-      flex: 1,
-      minHeight: isMobile ? 72 : 80,
-      padding: isMobile ? 4 : spacing.xs,
-      borderRightWidth: 1,
-      borderRightColor: theme.borderLight,
-    },
-    monthDayCellMuted: {
-      opacity: 0.45,
-    },
-    dayNumberWrapper: {
-      width: 24,
-      height: 24,
-      borderRadius: borderRadius.full,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 4,
-    },
-    dayNumberToday: {
-      backgroundColor: theme.selection,
-    },
-    dayNumber: {
-      fontSize: typography.fontSizes.xs,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansMedium,
-    },
-    dayNumberTodayText: {
-      color: theme.actionPrimaryText,
-      fontFamily: theme.fontSansBold,
-    },
-    dayNumberMuted: {
-      color: theme.textMuted,
-    },
-    eventPill: {
-      borderRadius: borderRadius.sm,
-      paddingHorizontal: spacing.xs,
-      paddingVertical: 2,
-      marginBottom: 3,
-      borderWidth: 1,
-    },
-    eventPillText: {
-      fontSize: isMobile ? 9 : 10,
-      fontFamily: theme.fontSansMedium,
-    },
-    extraEventsText: {
-      fontSize: 9,
-      color: theme.textMuted,
-      marginTop: 1,
-      fontFamily: theme.fontSans,
-    },
-    weekViewScroll: {
-      flex: 1,
-    },
-    weekGrid: {
-      backgroundColor: theme.bgCard,
-      borderRadius: borderRadius.lg,
-      borderWidth: 1,
-      borderColor: theme.border,
-      overflow: 'hidden',
-      ...shadows.sm,
-    },
-    weekHeaderRow: {
-      flexDirection: 'row',
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-    },
-    weekTimeColumn: {
-      width: layout.calendarTimeColumnWidth,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    weekDayHeader: {
-      flex: 1,
-      alignItems: 'center',
-      paddingVertical: spacing.sm,
-    },
-    weekDayHeaderToday: {
-      backgroundColor: theme.secondaryMuted,
-    },
-    weekDayHeaderLabel: {
-      fontSize: typography.fontSizes.xs,
-      color: theme.textMuted,
-      fontFamily: theme.fontSansMedium,
-    },
-    weekDayHeaderNumber: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansBold,
-    },
-    weekDayHeaderNumberToday: {
-      color: theme.selection,
-    },
-    weekBody: {
-      flexDirection: 'row',
-    },
-    weekTimeLabelCell: {
-      height: WEEK_VIEW_HOUR_HEIGHT,
-      justifyContent: 'flex-start',
-      alignItems: 'center',
-      paddingTop: 2,
-    },
-    weekTimeLabel: {
-      fontSize: 10,
-      color: theme.textMuted,
-      fontFamily: theme.fontSansMedium,
-    },
-    weekDayColumn: {
-      flex: 1,
-      position: 'relative',
-      borderRightWidth: 1,
-      borderRightColor: theme.borderLight,
-    },
-    weekHourGridLine: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      height: WEEK_VIEW_HOUR_HEIGHT,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
-    },
-    weekDayCellToday: {
-      backgroundColor: theme.secondaryAlpha12,
-    },
-    weekSessionBlock: {
-      borderRadius: borderRadius.sm,
-      paddingHorizontal: spacing.xs,
-      paddingVertical: 3,
-      borderWidth: 1,
-    },
-    weekSessionText: {
-      fontSize: 9,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    weekSessionTimeText: {
-      fontSize: 8,
-      fontFamily: theme.fontSansMedium,
-    },
-    weekSessionTypeRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 2,
-      marginTop: 1,
-    },
-    weekSessionTypeText: {
-      fontSize: 7,
-      flexShrink: 1,
-      fontFamily: theme.fontSansMedium,
-    },
-    rightPanelBlock: {
-      flex: 1,
-      maxHeight: '50%',
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
-    },
-    rightPanelBlockContent: {
-      flex: 1,
-    },
-    rightPanelBlockBottom: {
-      borderBottomWidth: 0,
-    },
-    rightPanelBlockMobile: {
-      maxHeight: layout.mobilePanelHeight,
-      marginHorizontal: spacing.md,
-      marginTop: spacing.md,
-      backgroundColor: theme.bgCard,
-      borderRadius: borderRadius.lg,
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderBottomWidth: 1,
-      ...shadows.sm,
-    },
-    rightPanelHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacing.sm + 2,
-      paddingVertical: spacing.sm,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
-    },
-    rightPanelTitle: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansBold,
-    },
-    rightPanelScroll: {
-      flex: 1,
-      paddingHorizontal: spacing.sm,
-    },
-    badgeLavender: {
-      backgroundColor: theme.secondaryAlpha12,
-      borderWidth: 1,
-      borderColor: theme.secondaryMuted,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 2,
-      borderRadius: borderRadius.full,
-    },
-    badgeLavenderText: {
-      fontSize: typography.fontSizes.xs,
-      color: theme.secondaryDark,
-      fontFamily: theme.fontSansBold,
-    },
-    badgeGreen: {
-      backgroundColor: theme.primaryMuted,
-      borderWidth: 1,
-      borderColor: theme.primaryMuted,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 2,
-      borderRadius: borderRadius.full,
-    },
-    badgeGreenText: {
-      fontSize: typography.fontSizes.xs,
-      color: theme.primary,
-      fontFamily: theme.fontSansBold,
-    },
-    requestCard: {
-      paddingVertical: spacing.sm + 2,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
-    },
-    requestDetailPressable: {
-      width: '100%',
-      marginBottom: spacing.sm,
-    },
-    requestClientName: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textPrimary,
-      marginBottom: 2,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    requestDetail: {
-      fontSize: typography.fontSizes.xs,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
-    },
-    requestButtons: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-    },
-    requestButtonSlot: {
-      flex: 1,
-    },
-    upcomingCard: {
-      flexDirection: 'row',
-      paddingVertical: spacing.sm + 2,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
-      gap: spacing.sm,
-    },
-    upcomingTimeCol: {
-      alignItems: 'center',
-      minWidth: 52,
-      justifyContent: 'center',
-      paddingVertical: spacing.xs,
-      paddingHorizontal: spacing.xs,
-      borderRadius: borderRadius.md,
-      backgroundColor: theme.secondaryMuted,
-    },
-    upcomingDayLabel: {
-      fontSize: 10,
-      color: theme.selection,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    upcomingTime: {
-      fontSize: typography.fontSizes.xs,
-      color: theme.selection,
-      fontFamily: theme.fontSansBold,
-    },
-    upcomingInfo: {
-      flex: 1,
-      justifyContent: 'center',
-    },
-    upcomingClientName: {
-      fontSize: typography.fontSizes.sm,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansSemiBold,
-    },
-    upcomingMeta: {
-      fontSize: typography.fontSizes.xs,
-      color: theme.textSecondary,
-      marginTop: 1,
-      fontFamily: theme.fontSans,
-    },
-    emptyText: {
-      fontSize: typography.fontSizes.xs,
-      color: theme.textMuted,
-      textAlign: 'center',
-      paddingVertical: spacing.xl,
-      fontFamily: theme.fontSans,
-    },
-  });
-}
+export default ProfessionalHomeScreen;

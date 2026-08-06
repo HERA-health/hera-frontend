@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { z } from 'zod';
 import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
@@ -22,7 +22,7 @@ import { TourTarget } from '../../components/onboarding/TourTarget';
 import { useProfessionalTourAutoStart } from '../../components/onboarding/professionalTourContext';
 import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
 import { borderRadius, layout, shadows, spacing, typography } from '../../constants/colors';
-import type { RootStackParamList } from '../../constants/types';
+import type { AppRouteProp, RootStackParamList } from '../../constants/types';
 import type { Theme } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
@@ -171,6 +171,7 @@ function MetricCard({
 
 export function ProfessionalClientsScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const route = useRoute<AppRouteProp<'ProfessionalClients'>>();
   const appAlert = useAppAlert();
   const { isVisible: isAppAlertVisible } = useAppAlertState();
   const { width } = useWindowDimensions();
@@ -463,6 +464,12 @@ export function ProfessionalClientsScreen() {
     }
     setModalVisible(true);
   };
+
+  useEffect(() => {
+    if (!route.params?.openCreatePatient) return;
+    navigation.setParams({ openCreatePatient: undefined });
+    openManagedClientForm();
+  }, [navigation, route.params?.openCreatePatient]);
 
   const updateFormField = <K extends keyof ManagedClientForm>(field: K, value: ManagedClientForm[K]) => {
     setForm((current) => ({ ...current, [field]: value }));

@@ -28,6 +28,8 @@ export type IconName =
   | 'person-outline'
   | 'grid'
   | 'grid-outline'
+  | 'stats-chart'
+  | 'stats-chart-outline'
   | 'people'
   | 'people-outline'
   | 'business'

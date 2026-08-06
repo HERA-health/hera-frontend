@@ -28,6 +28,12 @@ describe('appointment detail robustness contracts', () => {
   const clinicPatientDomainSource = readSource('screens', 'clinic', 'patients', 'clinicPatientDomain.ts');
   const professionalSessionsSource = readSource('screens', 'professional', 'ProfessionalSessionsScreen.tsx');
   const professionalHomeSource = readSource('screens', 'professional', 'ProfessionalHomeScreen.tsx');
+  const professionalHomeCardsSource = readSource(
+    'components',
+    'professional',
+    'home',
+    'ProfessionalHomeCards.tsx',
+  );
   const professionalClinicPatientSource = readSource(
     'screens',
     'professional',
@@ -61,16 +67,16 @@ describe('appointment detail robustness contracts', () => {
     expect(clinicSessionRowSource).not.toMatch(/<AnimatedPressable[\s\S]*style=\{styles\.row\}/);
     expect(professionalCardSource).toContain('<View');
     expect(professionalCardSource).toContain('style={styles.sessionCardDetailPressable}');
-    expect(professionalHomeSource).toContain('style={styles.requestDetailPressable}');
+    expect(professionalHomeSource).toContain('<TodayAgenda');
+    expect(professionalHomeCardsSource).toContain('onPress={() => onOpen(session.id)}');
   });
 
-  it('uses the same visible month sessions for calendar pills and the +N list', () => {
-    expect(professionalHomeSource).toContain('function getCalendarVisibleSessions');
-    expect(professionalHomeSource).toContain('const visibleSessions = getCalendarVisibleSessions(day.sessions)');
-    expect(professionalHomeSource).toContain('const totalEvents = visibleSessions.length');
-    expect(professionalHomeSource).toContain('setDayListSessions(visibleSessions)');
-    expect(professionalHomeSource).toContain('return theme.status.completed');
-    expect(professionalHomeSource).toContain('return theme.status.cancelled');
+  it('keeps monthly calendar sessions and +N disclosure inside Agenda', () => {
+    expect(professionalSessionsSource).toContain('const daySessions = sessions');
+    expect(professionalSessionsSource).toContain('const hiddenCount = Math.max(0, daySessions.length - visibleLimit)');
+    expect(professionalSessionsSource).toContain('daySessions.slice(0, visibleLimit).map');
+    expect(professionalSessionsSource).toContain('>+{hiddenCount} más</Text>');
+    expect(professionalSessionsSource).toContain('const selectedDaySessions = sessionsForDate');
   });
 
   it('loads clinic patient sessions with server-side professional filters', () => {
@@ -106,7 +112,7 @@ describe('appointment detail robustness contracts', () => {
   });
 
   it('closes the appointment detail sheet before navigating to patient files or notes', () => {
-    [professionalSessionsSource, professionalHomeSource, professionalClinicPatientSource].forEach((source) => {
+    [professionalSessionsSource, professionalClinicPatientSource].forEach((source) => {
       expectCloseBeforeClientProfileNavigation(source, 'openSelectedSessionPatient');
       expectCloseBeforeClientProfileNavigation(source, 'openSelectedSessionNotes');
     });
@@ -119,7 +125,7 @@ describe('appointment detail robustness contracts', () => {
     expect(appointmentDetailSheetSource).toContain('Boolean(professionalSession.invoice)');
     expect(appointmentDetailSheetSource).toContain('Ver factura');
 
-    [professionalSessionsSource, professionalHomeSource, professionalClinicPatientSource].forEach((source) => {
+    [professionalSessionsSource, professionalClinicPatientSource].forEach((source) => {
       expect(source).toContain("navigation.navigate('CreateInvoice', { invoiceId: invoice.id });");
       expect(source).toContain('await billingService.downloadInvoice(invoice.id, invoice.invoiceNumber);');
       expect(source).toContain(

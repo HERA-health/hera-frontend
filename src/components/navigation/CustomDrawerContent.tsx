@@ -14,7 +14,7 @@
  * - All UI logic delegated to Sidebar component
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { NavigationProp, ParamListBase, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
@@ -24,10 +24,8 @@ import { UserRole, SidebarUser } from './sidebar/types';
 import type { SidebarNotice } from './sidebar/types';
 import { buildSidebarCompletionNotices } from './sidebar/completionNotices';
 import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
-import {
-  getSpecialistContactSummary,
-  subscribeSpecialistContactSummary,
-} from '../../services/specialistContactService';
+import { ProfessionalQuickSearch } from './ProfessionalQuickSearch';
+import { useOptionalProfessionalWorkspace } from '../../contexts/ProfessionalWorkspaceContext';
 
 interface CustomDrawerContentProps {
   currentRoute?: string;
@@ -36,6 +34,7 @@ interface CustomDrawerContentProps {
   onNavigateComplete?: () => Promise<void> | void;
   onGuideStart?: () => Promise<void> | void;
   onToggleCollapse?: () => void;
+  showProfessionalSearch?: boolean;
 }
 
 /**
@@ -53,10 +52,12 @@ export function CustomDrawerContent({
   onNavigateComplete,
   onGuideStart,
   onToggleCollapse,
+  showProfessionalSearch = false,
 }: CustomDrawerContentProps): React.ReactElement {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { user, logout, verificationSubmitted } = useAuth();
-  const { snapshot: completionSnapshot, refresh: refreshCompletion } = useProfileCompletion();
+  const { snapshot: completionSnapshot } = useProfileCompletion();
+  const professionalWorkspace = useOptionalProfessionalWorkspace();
   const shouldLoadClinicAdminAccess = user?.type === 'professional'
     && verificationSubmitted !== false;
   const clinicWorkspace = useClinicWorkspace({ enabled: shouldLoadClinicAdminAccess });
@@ -66,7 +67,7 @@ export function CustomDrawerContent({
     : user?.type === 'clinic'
       ? 'CLINIC'
       : 'CLIENT';
-  const [unreadHelpRequests, setUnreadHelpRequests] = useState(0);
+  const unreadHelpRequests = professionalWorkspace?.unreadSupport ?? 0;
 
   // Create SidebarUser from auth user
   const sidebarUser: SidebarUser = {
@@ -85,19 +86,6 @@ export function CustomDrawerContent({
       ),
     [clinicWorkspace.memberships, shouldLoadClinicAdminAccess, userRole],
   );
-  const refreshContactSummary = useCallback(async () => {
-    if (userRole !== 'PROFESSIONAL') {
-      setUnreadHelpRequests(0);
-      return;
-    }
-    try {
-      const summary = await getSpecialistContactSummary();
-      setUnreadHelpRequests(summary.unreadHelpRequests);
-    } catch {
-      // The sidebar remains usable when the optional badge cannot be refreshed.
-    }
-  }, [userRole]);
-
   const notices = useMemo(
     () => {
       const completionNotices = buildSidebarCompletionNotices(completionSnapshot);
@@ -114,21 +102,6 @@ export function CustomDrawerContent({
       };
     },
     [completionSnapshot, unreadHelpRequests],
-  );
-
-  useEffect(() => {
-    void refreshCompletion();
-  }, [currentRoute, refreshCompletion]);
-
-  useEffect(() => {
-    void refreshContactSummary();
-  }, [currentRoute, refreshContactSummary]);
-
-  useEffect(
-    () => subscribeSpecialistContactSummary(() => {
-      void refreshContactSummary();
-    }),
-    [refreshContactSummary],
   );
 
   // Navigation handler - delegates to React Navigation
@@ -152,6 +125,9 @@ export function CustomDrawerContent({
 
   return (
     <View style={styles.container}>
+      {showProfessionalSearch && !isCollapsed ? (
+        <ProfessionalQuickSearch drawer onNavigate={onNavigateComplete} />
+      ) : null}
       <Sidebar
         userRole={userRole}
         currentRoute={currentRoute}

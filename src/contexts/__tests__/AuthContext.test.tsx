@@ -16,6 +16,14 @@ jest.mock('../../services/professionalService', () => ({
   getVerificationStatus: jest.fn(),
 }));
 
+jest.mock('../../services/authService', () => ({
+  authenticateWithGoogle: jest.fn(),
+  getCurrentUser: jest.fn(),
+  login: jest.fn(),
+  logout: jest.fn(),
+  register: jest.fn(),
+}));
+
 jest.mock('../../services/analyticsService', () => ({
   identify: jest.fn(),
   reset: jest.fn(),
@@ -29,7 +37,17 @@ jest.mock('../../services/specialistsService', () => ({
   invalidateSpecialistsCache: jest.fn(),
 }));
 
-import { mapAuthUser, mapBackendUserType } from '../AuthContext';
+jest.mock('../../services/requestCache', () => ({
+  rotateRequestCacheScope: jest.fn(),
+}));
+
+import React from 'react';
+import { Text } from 'react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { initializeAuth } from '../../services/api';
+import { rotateRequestCacheScope } from '../../services/requestCache';
+import * as authService from '../../services/authService';
+import { AuthProvider, mapAuthUser, mapBackendUserType, useAuth } from '../AuthContext';
 import type { AuthResponse } from '../../services/authService';
 
 describe('AuthContext user type mapping', () => {
@@ -48,5 +66,66 @@ describe('AuthContext user type mapping', () => {
     };
 
     expect(mapAuthUser(user).type).toBe('clinic');
+  });
+});
+
+function AuthProbe(): React.ReactElement {
+  const { isInitialized, logout, refreshCurrentUser, user } = useAuth();
+  return (
+    <>
+      <Text>{isInitialized ? 'initialized' : 'initializing'}</Text>
+      <Text testID="auth-user">{user?.id ?? 'guest'}</Text>
+      <Text testID="refresh-user" onPress={() => { void refreshCurrentUser(); }}>refresh</Text>
+      <Text testID="logout" onPress={() => { void logout(); }}>logout</Text>
+    </>
+  );
+}
+
+describe('AuthContext cache boundaries', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('rotates the request cache when initialization confirms there is no session', async () => {
+    jest.mocked(initializeAuth).mockResolvedValue(null);
+
+    const screen = render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText('initialized')).toBeTruthy());
+    expect(rotateRequestCacheScope).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores an account response that finishes after logout', async () => {
+    let resolveUser!: (user: AuthResponse['user']) => void;
+    jest.mocked(initializeAuth).mockResolvedValue(null);
+    jest.mocked(authService.getCurrentUser).mockReturnValue(new Promise((resolve) => {
+      resolveUser = resolve;
+    }));
+    jest.mocked(authService.logout).mockResolvedValue(undefined);
+
+    const screen = render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(screen.getByText('initialized')).toBeTruthy());
+
+    fireEvent.press(screen.getByTestId('refresh-user'));
+    fireEvent.press(screen.getByTestId('logout'));
+    await act(async () => {
+      resolveUser({
+        id: 'account-a',
+        email: 'a@example.com',
+        name: 'Account A',
+        userType: 'CLIENT',
+        emailVerified: true,
+        isAdmin: false,
+      });
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId('auth-user').props.children).toBe('guest');
   });
 });

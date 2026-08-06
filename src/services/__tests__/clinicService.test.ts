@@ -97,7 +97,6 @@ jest.mock('../api', () => ({
     put: jest.fn(),
     delete: jest.fn(),
   },
-  getAuthSessionCacheScope: jest.fn(() => 'auth:test-session'),
 }));
 
 jest.mock('../../utils/multipartUpload', () => ({

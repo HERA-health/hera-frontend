@@ -3,6 +3,7 @@ import { getErrorMessage } from '../constants/errors';
 import { Platform, Linking } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { buildImageFormData, type UploadAsset } from '../utils/multipartUpload';
+import { notifyProfessionalHomeChanged } from './dashboardService';
 
 // ============================================================================
 // TYPES
@@ -279,6 +280,7 @@ export const billingService = {
   async createInvoice(data: CreateInvoiceData): Promise<Invoice> {
     try {
       const response = await api.post('/billing/invoices', data);
+      notifyProfessionalHomeChanged();
       return response.data.data;
     } catch (error: unknown) {
       throw new Error(getErrorMessage(error, 'No se pudo crear la factura'));
@@ -297,6 +299,7 @@ export const billingService = {
   async updateInvoice(invoiceId: string, data: UpdateInvoiceData): Promise<Invoice> {
     try {
       const response = await api.put(`/billing/invoices/${invoiceId}`, data);
+      notifyProfessionalHomeChanged();
       return response.data.data;
     } catch (error: unknown) {
       throw new Error(getErrorMessage(error, 'No se pudo actualizar la factura'));
@@ -306,6 +309,7 @@ export const billingService = {
   async sendInvoice(invoiceId: string): Promise<Invoice> {
     try {
       const response = await api.post(`/billing/invoices/${invoiceId}/send`);
+      notifyProfessionalHomeChanged();
       return response.data.data;
     } catch (error: unknown) {
       throw new Error(getErrorMessage(error, 'No se pudo enviar la factura'));
@@ -315,6 +319,7 @@ export const billingService = {
   async cancelInvoice(invoiceId: string): Promise<Invoice> {
     try {
       const response = await api.delete(`/billing/invoices/${invoiceId}`);
+      notifyProfessionalHomeChanged();
       return response.data.data;
     } catch (error: unknown) {
       throw new Error(getErrorMessage(error, 'No se pudo cancelar la factura'));
@@ -324,6 +329,7 @@ export const billingService = {
   async markInvoiceAsPaid(invoiceId: string): Promise<Invoice> {
     try {
       const response = await api.patch(`/billing/invoices/${invoiceId}/paid`);
+      notifyProfessionalHomeChanged();
       return response.data.data;
     } catch (error: unknown) {
       throw new Error(getErrorMessage(error, 'No se pudo marcar la factura como pagada'));
@@ -368,6 +374,7 @@ export const billingService = {
   async updateBillingConfig(config: BillingConfig): Promise<SpecialistBillingData> {
     try {
       const response = await api.put('/billing/config', config);
+      notifyProfessionalHomeChanged();
       return response.data.data;
     } catch (error: unknown) {
       throw new Error(getErrorMessage(error, 'No se pudo actualizar la configuración'));
@@ -395,6 +402,7 @@ export const billingService = {
   async generateInvoiceFromSession(sessionId: string): Promise<SessionInvoiceSummary> {
     try {
       const response = await api.post(`/billing/sessions/${sessionId}/invoice`);
+      notifyProfessionalHomeChanged();
       return response.data.data;
     } catch (error: unknown) {
       throw new Error(getErrorMessage(error, 'No se pudo generar la factura de la sesión'));
@@ -420,6 +428,7 @@ export const billingService = {
         invoiceId,
         sendToPatient,
       });
+      notifyProfessionalHomeChanged();
       return response.data.data;
     } catch (error: unknown) {
       throw new Error(getErrorMessage(error, 'No se pudo enlazar la factura a la sesión'));

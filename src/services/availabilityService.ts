@@ -1,4 +1,5 @@
 import { api } from './api';
+import { notifyProfessionalHomeChanged } from './dashboardService';
 import { z } from 'zod';
 import { getErrorMessage } from '../constants/errors';
 import type {
@@ -189,6 +190,7 @@ export const updateWeeklySchedule = async (
       ? { schedule, scheduleRevision }
       : schedule;
     const response = await api.put('/availability/schedule', requestBody);
+    notifyProfessionalHomeChanged();
     return parseWeeklyScheduleSnapshotResponse(response.data.data, { requireRevision: true });
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo actualizar el horario'));

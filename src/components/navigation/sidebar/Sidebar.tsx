@@ -61,6 +61,7 @@ export function Sidebar({
       isCollapsed={isCollapsed}
     />
   );
+  const shouldShowUserSection = userRole !== 'PROFESSIONAL';
 
   return (
     <View
@@ -158,14 +159,14 @@ export function Sidebar({
           />
         ))}
 
-        {isUserSectionScrollable ? (
+        {shouldShowUserSection && isUserSectionScrollable ? (
           <View style={styles.userSectionInScroll}>
             {userSection}
           </View>
         ) : null}
       </ScrollView>
 
-      {!isUserSectionScrollable ? userSection : null}
+      {shouldShowUserSection && !isUserSectionScrollable ? userSection : null}
     </View>
   );
 }

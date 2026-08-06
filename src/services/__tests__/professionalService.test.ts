@@ -5,7 +5,6 @@ jest.mock('../api', () => ({
     patch: jest.fn(),
     put: jest.fn(),
   },
-  getAuthSessionCacheScope: jest.fn(() => 'auth:test-session'),
 }));
 
 jest.mock('../../utils/multipartUpload', () => ({
@@ -25,6 +24,7 @@ import { api } from '../api';
 import { buildMultipartFormData } from '../../utils/multipartUpload';
 import {
   createManagedClientSession,
+  getProfessionalAgenda,
   getAgendaPreferences,
   getManagedSessionSlotOptions,
   getPublicProfileSlugAvailability,
@@ -40,6 +40,7 @@ import {
   uploadCertificateDocument,
 } from '../professionalService';
 import { clearRequestCache } from '../requestCache';
+import { subscribeProfessionalHomeChanges } from '../dashboardService';
 
 const mockedApi = api as jest.Mocked<typeof api>;
 const mockedBuildMultipartFormData = buildMultipartFormData as jest.MockedFunction<typeof buildMultipartFormData>;
@@ -530,6 +531,86 @@ describe('professionalService cached professional GETs', () => {
   });
 });
 
+describe('professionalService.getProfessionalAgenda', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('validates the minimal paginated Agenda response', async () => {
+    const response = {
+      items: [{
+        id: 'session-1',
+        client: { id: 'client-1', displayName: 'Ana Ruiz', avatar: null },
+        startsAt: '2026-08-04T10:00:00.000Z',
+        durationMinutes: 60,
+        status: 'CONFIRMED',
+        type: 'VIDEO_CALL',
+        hasInvoice: false,
+        origin: 'PRIVATE',
+        clinicContext: null,
+        actions: {
+          canConfirm: false,
+          canCancel: true,
+          canComplete: false,
+          canModifySchedule: true,
+          canJoinVideo: true,
+          canOpenClinicalNotes: true,
+        },
+      }],
+      summary: { today: 1, week: 2, pending: 0 },
+      nextCursor: 'cursor-1',
+    };
+    mockedApi.get.mockResolvedValue({ data: { success: true, data: response } });
+
+    await expect(getProfessionalAgenda({
+      view: 'list',
+      origin: 'PRIVATE',
+      limit: 50,
+    })).resolves.toEqual(response);
+    expect(mockedApi.get).toHaveBeenCalledWith('/sessions/professional/agenda', {
+      params: { view: 'list', origin: 'PRIVATE', limit: 50 },
+    });
+  });
+
+  it('rejects an Agenda response containing unmodelled sensitive fields', async () => {
+    mockedApi.get.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          items: [{
+            id: 'session-1',
+            client: {
+              id: 'client-1',
+              displayName: 'Ana Ruiz',
+              avatar: null,
+              email: 'private@example.test',
+            },
+            startsAt: '2026-08-04T10:00:00.000Z',
+            durationMinutes: 60,
+            status: 'CONFIRMED',
+            type: 'VIDEO_CALL',
+            hasInvoice: false,
+            origin: 'PRIVATE',
+            clinicContext: null,
+            actions: {
+              canConfirm: false,
+              canCancel: true,
+              canComplete: false,
+              canModifySchedule: true,
+              canJoinVideo: true,
+              canOpenClinicalNotes: true,
+            },
+          }],
+          summary: { today: 1, week: 1, pending: 0 },
+          nextCursor: null,
+        },
+      },
+    });
+
+    await expect(getProfessionalAgenda({ view: 'list' })).rejects.toThrow(
+      'No se pudo validar la información de la Agenda',
+    );
+  });
+});
+
 describe('professionalService certificate documents', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -662,6 +743,24 @@ describe('professionalService.createManagedClientSession', () => {
       });
     } catch (error: unknown) {
       expect(isManagedSessionBufferConflictError(error)).toBe(true);
+    }
+  });
+
+  it('notifies the shared professional summary after creating a session', async () => {
+    mockedApi.post.mockResolvedValue({ data: { data: { id: 'session-1' } } });
+    const listener = jest.fn();
+    const unsubscribe = subscribeProfessionalHomeChanges(listener);
+
+    try {
+      await createManagedClientSession({
+        clientId: 'client-1',
+        date: '2026-06-15T10:00:00.000Z',
+        duration: 60,
+        type: 'VIDEO_CALL',
+      });
+      expect(listener).toHaveBeenCalledTimes(1);
+    } finally {
+      unsubscribe();
     }
   });
 });

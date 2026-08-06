@@ -28,14 +28,14 @@ describe('professionalTourStorage', () => {
 
   it('creates a per-user, per-version key', () => {
     expect(getProfessionalTourStorageKey(userId, definition)).toBe(
-      '@hera/professional_tour:professional-1:professional_home_v1:v1',
+      '@hera/professional_tour:professional-1:professional_home_v1:v2',
     );
   });
 
   it('returns false until a tour has been marked as seen', async () => {
     await expect(hasSeenProfessionalTour(userId, definition)).resolves.toBe(false);
     expect(mockedAsyncStorage.getItem).toHaveBeenCalledWith(
-      '@hera/professional_tour:professional-1:professional_home_v1:v1',
+      '@hera/professional_tour:professional-1:professional_home_v1:v2',
     );
   });
 
@@ -54,7 +54,7 @@ describe('professionalTourStorage', () => {
     expect(payload).toMatchObject({
       status: 'skipped',
       tourId: 'professional_home_v1',
-      version: 1,
+      version: 2,
     });
     expect(payload.updatedAt).toEqual(expect.any(String));
   });
@@ -63,7 +63,7 @@ describe('professionalTourStorage', () => {
     await clearProfessionalTourSeen(userId, definition);
 
     expect(mockedAsyncStorage.removeItem).toHaveBeenCalledWith(
-      '@hera/professional_tour:professional-1:professional_home_v1:v1',
+      '@hera/professional_tour:professional-1:professional_home_v1:v2',
     );
   });
 });

@@ -83,6 +83,8 @@ describe('ProfessionalVerificationScreen', () => {
     mockedUseProfileCompletion.mockReturnValue({
       snapshot: null,
       loading: false,
+      status: 'ready',
+      error: null,
       refresh: jest.fn().mockResolvedValue(undefined),
       setClinicScope: jest.fn(),
     });

@@ -9,7 +9,7 @@ describe('documentTitles', () => {
   });
 
   it('formats professional route titles in Spanish', () => {
-    expect(getDocumentTitleForRoute('ProfessionalHome')).toBe('Hera | Agenda profesional');
+    expect(getDocumentTitleForRoute('ProfessionalHome')).toBe('Hera | Inicio');
     expect(getDocumentTitleForRoute('ProfessionalClients')).toBe('Hera | Mis pacientes');
     expect(getDocumentTitleForRoute('ProfessionalBilling')).toBe('Hera | Facturación');
   });
