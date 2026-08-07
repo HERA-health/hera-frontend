@@ -15,11 +15,21 @@ const schedulerModalPath = path.join(
   'professional',
   'ManagedSessionSchedulerModal.tsx',
 );
+const patientSelectorPath = path.join(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  'components',
+  'professional',
+  'ManagedSessionPatientSelector.tsx',
+);
 
 describe('professional scheduling patient terminology', () => {
   const source = [
     fs.readFileSync(sessionsScreenPath, 'utf8'),
     fs.readFileSync(schedulerModalPath, 'utf8'),
+    fs.readFileSync(patientSelectorPath, 'utf8'),
   ].join('\n');
 
   it('uses operational copy instead of managed patient terminology', () => {

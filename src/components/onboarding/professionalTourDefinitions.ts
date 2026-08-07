@@ -121,7 +121,7 @@ export const PROFESSIONAL_TOUR_DEFINITIONS: Record<
         id: 'views',
         targetId: 'professional.sessions.view-tabs',
         title: 'Cambia la vista',
-        body: 'Alterna entre día, semana, mes o lista. En móvil, el mes compacto abre las citas del día debajo.',
+        body: 'La semana es tu punto de partida. Alterna entre día, semana, mes o lista; en móvil, la semana se organiza por días y el mes abre las citas seleccionadas debajo.',
         placement: 'bottom',
       },
       {

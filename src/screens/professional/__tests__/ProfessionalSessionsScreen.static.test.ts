@@ -1,82 +1,102 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const screenPath = path.join(
-  __dirname,
-  '..',
-  'ProfessionalSessionsScreen.tsx',
-);
+const professionalDir = path.join(__dirname, '..');
+const agendaDir = path.join(professionalDir, 'components', 'agenda');
+const read = (...segments: string[]) => fs.readFileSync(path.join(...segments), 'utf8');
 
 describe('ProfessionalSessionsScreen schedule editing contract', () => {
-  const source = fs.readFileSync(screenPath, 'utf8');
+  const screenSource = read(professionalDir, 'ProfessionalSessionsScreen.tsx');
+  const controllerSource = read(agendaDir, 'useProfessionalAgendaController.ts');
+  const utilsSource = read(agendaDir, 'professionalAgendaUtils.ts');
+  const toolbarSource = read(agendaDir, 'ProfessionalAgendaToolbar.tsx');
+  const monthSource = read(agendaDir, 'ProfessionalAgendaMonthView.tsx');
+  const weekSource = read(agendaDir, 'ProfessionalAgendaWeekView.tsx');
+  const cardSource = read(agendaDir, 'ProfessionalAgendaSessionCard.tsx');
+  const listSource = read(agendaDir, 'ProfessionalAgendaListView.tsx');
+  const combinedSource = [screenSource, controllerSource, utilsSource, toolbarSource, monthSource, cardSource, listSource].join('\n');
 
   it('loads private patient details only when opening the edit scheduler', () => {
-    expect(source).toContain('function hydrateSchedulerClientFromSession');
-    expect(source).toContain('function getFirstNonBlank');
-    expect(source).toContain('professionalService.getProfessionalSessionDetail(session.id)');
-    expect(source).toContain('detail.client?.primaryEmail');
-    expect(source).toContain('clientEmail,');
-    expect(source).toContain('email,');
-    expect(source).toContain('primaryEmail: email');
-    expect(source).toContain('getSchedulerClientEmail(client) ?? getSchedulerClientEmail(sessionClient)');
+    expect(screenSource).toContain('function hydrateSchedulerClientFromSession');
+    expect(screenSource).toContain('professionalService.getProfessionalSessionDetail(session.id)');
+    expect(screenSource).toContain('detail.client?.primaryEmail');
+    expect(screenSource).toContain('getSchedulerClientEmail(client) ?? getSchedulerClientEmail(sessionClient)');
   });
 
-  it('renders the patient avatar on professional session cards when available', () => {
-    expect(source).toContain('clientAvatar: session.client.avatar ?? undefined');
-    expect(source).toContain('professional-session-client-avatar-${session.id}');
-    expect(source).toContain('style={styles.sessionAvatarImage}');
+  it('renders patient avatars through the extracted session card', () => {
+    expect(utilsSource).toContain('clientAvatar: session.client.avatar ?? undefined');
+    expect(cardSource).toContain('professional-session-client-avatar-${session.id}');
+    expect(cardSource).toContain('style={styles.avatarImage}');
   });
 
   it('does not expose schedule editing for sessions with linked invoices', () => {
-    expect(source).toContain('hasInvoice: session.hasInvoice');
-    expect(source).toContain('const sessionStarted = session.date.getTime() <= currentTime.getTime()');
-    expect(source).toContain('const canModifySession = !sessionStarted && !session.hasInvoice');
-    expect(source).toContain('{canModifySession ? (');
+    expect(utilsSource).toContain('hasInvoice: session.hasInvoice');
+    expect(screenSource).toContain('const sessionStarted = session.date.getTime() <= currentTime.getTime()');
+    expect(screenSource).toContain('const canModifySession = !sessionStarted && !session.hasInvoice');
+    expect(screenSource).toContain('{canModifySession ? (');
   });
 
-  it('provides one agenda with accessible origin filters and labels', () => {
-    expect(source).toContain("const [originFilter, setOriginFilter] = useState<AgendaOriginFilter>('ALL')");
-    expect(source).toContain('ORIGIN_FILTER_OPTIONS');
-    expect(source).toContain("const origin = originFilter === 'ALL' ? undefined : originFilter");
-    expect(source).toContain("const originLabel = isClinicSession ? 'Clínica' : 'Particular'");
-    expect(source).toContain('<Text style={styles.sideCardTitle}>Origen</Text>');
-    expect(source).toContain('accessibilityLabel={`Mostrar citas: ${option.label}`}');
+  it('starts in week on every viewport and keeps all views available on mobile', () => {
+    expect(controllerSource).toContain("useState<SessionViewMode>('week')");
+    expect(toolbarSource).toContain('VIEW_OPTIONS.map');
+    expect(screenSource).not.toContain("setViewMode('list')");
+    expect(screenSource).toContain('gridEnabled={width >= 900}');
   });
 
-  it('keeps the monthly calendar inside Agenda on desktop and mobile', () => {
-    expect(source).toContain("{ value: 'month', label: 'Mes'");
-    expect(source).toContain("viewMode === 'month' ? renderMonthView() : null");
-    expect(source).toContain('const calendarDays = Array.from({ length: 42 }');
-    expect(source).toContain("<Text style={[styles.monthMore, { color: theme.link }]}>+{hiddenCount} más</Text>");
-    expect(source).toContain('const daySessions = sessionsByDate.get(toCalendarDateKey(day)) ?? []');
-    expect(source).toContain('void openSessionDetail(session.id)');
+  it('provides accessible segmented and compact origin filters', () => {
+    expect(controllerSource).toContain("useState<AgendaOriginFilter>('ALL')");
+    expect(controllerSource).toContain("const origin = originFilter === 'ALL' ? undefined : originFilter");
+    expect(toolbarSource).toContain('<SimpleDropdown');
+    expect(toolbarSource).toContain('accessibilityLabel={`Mostrar citas: ${option.label}`}');
+    expect(screenSource).toContain('<Text style={styles.sideCardTitle}>Origen</Text>');
   });
 
-  it('reloads sessions when the origin changes without reloading unrelated preferences', () => {
-    const loadSessionsBlock = source.slice(
-      source.indexOf('const loadSessions = useCallback'),
-      source.indexOf('const loadSchedulableClients = useCallback'),
+  it('keeps the 42-day month calendar and makes overflow actionable', () => {
+    expect(utilsSource).toContain("{ value: 'month', label: 'Mes'");
+    expect(screenSource).toContain("viewMode === 'month' ? renderMonthView() : null");
+    expect(monthSource).toContain('const calendarDays = Array.from({ length: 42 }');
+    expect(monthSource).toContain('onPress={(event) => openOverflow(event, day)}');
+    expect(monthSource).toContain('<AgendaDayPopover');
+    expect(monthSource).toContain('const hiddenCount = Math.max(0, daySessions.length - visibleLimit)');
+  });
+
+  it('keeps today visibly actionable and uses semantic calendar session surfaces', () => {
+    expect(toolbarSource).toContain('name="today-outline"');
+    expect(toolbarSource).toContain('borderColor: theme.primary');
+    expect(screenSource).toContain('getAgendaStatusPalette(theme, status).text');
+    expect(monthSource).toContain('backgroundColor: statusPalette.background');
+    expect(monthSource).toContain('borderLeftColor: originColor');
+    expect(weekSource).toContain('backgroundColor: statusPalette.background');
+    expect(weekSource).toContain('borderLeftColor: originColor');
+  });
+
+  it('reloads range/origin queries without coupling them to preference loading', () => {
+    const loadAgendaBlock = controllerSource.slice(
+      controllerSource.indexOf('const loadAgenda = useCallback'),
+      controllerSource.indexOf('const loadAgendaPreference = useCallback'),
     );
-    const preferenceBlock = source.slice(
-      source.indexOf('const loadAgendaPreference = useCallback'),
-      source.indexOf('const openManagedSessionScheduler = useCallback'),
-    );
-
-    expect(loadSessionsBlock).toContain('}, [agendaQuery, agendaQueryKey]);');
-    expect(preferenceBlock).toContain('}, []);');
-    expect(source).toContain('sessionsLoadSeqRef.current !== requestSeq');
-    expect(source).toContain('void loadAgendaPreference();');
-    expect(source).toContain('useCallback(() => {\n      void loadSessions();\n    }, [loadSessions])');
+    expect(loadAgendaBlock).toContain('agendaCacheRef.current.get(agendaQueryKey)');
+    expect(loadAgendaBlock).toContain('Date.now() - cachedEntry.loadedAt < AGENDA_CACHE_TTL_MS');
+    expect(controllerSource).toContain('sessionsLoadSeqRef.current !== requestSeq');
+    expect(controllerSource).toContain('void loadAgendaPreference();');
+    expect(controllerSource).toContain('void loadAgenda();');
   });
 
-  it('paginates the list by cursor and merges unique sessions', () => {
-    expect(source).toContain("return { view: 'list', origin, limit: 50 }");
-    expect(source).toContain('cursor: nextCursorRef.current ?? undefined');
-    expect(source).toContain('new Map(');
-    expect(source).toContain('Cargar más');
-    expect(source).not.toContain('Pendientes de confirmación</Text>');
-    expect(source).toContain("{viewMode !== 'list' ? (");
-    expect(source).toContain("viewMode !== 'month' && viewMode !== 'list'");
-    expect(source).not.toContain('const hasSessions = (date: Date)');
+  it('keeps the agenda mounted during background refreshes', () => {
+    expect(controllerSource).toContain('initialLoading: boolean;');
+    expect(controllerSource).toContain('refreshing: boolean;');
+    expect(screenSource).toContain('if (initialLoading)');
+    expect(screenSource).not.toMatch(/if \(refreshing\) \{\s*return/);
+    expect(screenSource).toContain('Actualizando…');
+    expect(screenSource).toContain('setTimeout(() => setShowRefreshIndicator(true), 150)');
+    expect(screenSource).toContain('accessibilityState={{ busy: true }}');
+  });
+
+  it('paginates list queries by cursor and merges unique sessions', () => {
+    expect(controllerSource).toContain("return { view: 'list', origin, limit: 50 }");
+    expect(controllerSource).toContain('cursor: cachedEntry?.nextCursor ?? undefined');
+    expect(controllerSource).toContain('new Map(');
+    expect(listSource).toContain('Cargar más');
+    expect(combinedSource).not.toContain('Pendientes de confirmación</Text>');
   });
 });

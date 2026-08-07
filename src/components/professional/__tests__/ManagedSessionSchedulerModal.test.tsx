@@ -71,6 +71,23 @@ const client: Client = {
   },
 };
 
+const secondClient: Client = {
+  id: 'client-2',
+  userId: null,
+  source: 'MANAGED',
+  firstName: 'Sara',
+  lastName: 'Herrer',
+  email: 'sara@example.com',
+  phone: null,
+  user: {
+    id: null,
+    email: 'sara@example.com',
+    name: 'Sara Herrer',
+    userType: 'CLIENT',
+    avatar: null,
+  },
+};
+
 const pad = (value: number): string => String(value).padStart(2, '0');
 
 const formatDateInput = (date: Date): string =>
@@ -123,6 +140,204 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('keeps patient options collapsed and overlays them only when requested', async () => {
+    render(
+      <ManagedSessionSchedulerModal
+        visible
+        clients={[client, secondClient]}
+        onClose={jest.fn()}
+        onSubmit={jest.fn(() => Promise.resolve())}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockGetManagedSessionSlotOptions).toHaveBeenCalled();
+    });
+
+    const selector = screen.getByTestId('managed-session-client-selector');
+    expect(selector.props.accessibilityState.expanded).toBe(false);
+    expect(screen.getByText('Selecciona un paciente')).toBeTruthy();
+    expect(screen.getByText('Obligatorio para crear la cita')).toBeTruthy();
+    expect(screen.getByText('Selecciona un paciente para indicar dónde se enviará el aviso de la cita.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled).toBe(true);
+    expect(screen.queryByPlaceholderText('Buscar por nombre o email')).toBeNull();
+    expect(screen.queryByText('Sara Herrer')).toBeNull();
+    expect(screen.getByText('Fecha')).toBeTruthy();
+
+    fireEvent.press(selector);
+
+    expect(screen.getByTestId('managed-session-client-selector').props.accessibilityState.expanded).toBe(true);
+    expect(screen.getByPlaceholderText('Buscar por nombre o email')).toBeTruthy();
+    expect(screen.getByText('Sara Herrer')).toBeTruthy();
+    expect(screen.getByText('Fecha')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Sara Herrer'));
+
+    expect(screen.queryByPlaceholderText('Buscar por nombre o email')).toBeNull();
+    expect(screen.getByText('sara@example.com')).toBeTruthy();
+    expect(screen.getByText('Se enviará un aviso de la cita a sara@example.com.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('closes the patient dropdown from another control or Escape and clears the search', async () => {
+    render(
+      <ManagedSessionSchedulerModal
+        visible
+        clients={[client, secondClient]}
+        onClose={jest.fn()}
+        onSubmit={jest.fn(() => Promise.resolve())}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockGetManagedSessionSlotOptions).toHaveBeenCalled();
+    });
+
+    fireEvent.press(screen.getByTestId('managed-session-client-selector'));
+    fireEvent.changeText(screen.getByPlaceholderText('Buscar por nombre o email'), 'Sara');
+    fireEvent.press(screen.getByLabelText('Seleccionar fecha'));
+    expect(screen.queryByPlaceholderText('Buscar por nombre o email')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('managed-session-client-selector'));
+    expect(screen.getByPlaceholderText('Buscar por nombre o email').props.value).toBe('');
+    fireEvent(screen.getByPlaceholderText('Buscar por nombre o email'), 'keyPress', {
+      nativeEvent: { key: 'Escape' },
+    });
+    expect(screen.queryByPlaceholderText('Buscar por nombre o email')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('managed-session-client-selector'));
+    fireEvent.changeText(screen.getByPlaceholderText('Buscar por nombre o email'), 'Sara');
+    fireEvent(screen.getByTestId('managed-session-modal-overlay'), 'touchStart');
+    expect(screen.queryByPlaceholderText('Buscar por nombre o email')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('managed-session-client-selector'));
+    expect(screen.getByPlaceholderText('Buscar por nombre o email').props.value).toBe('');
+  });
+
+  it('allows recovering when the requested initial patient is no longer available', async () => {
+    render(
+      <ManagedSessionSchedulerModal
+        visible
+        clients={[client, secondClient]}
+        initialClientId="missing-client"
+        onClose={jest.fn()}
+        onSubmit={jest.fn(() => Promise.resolve())}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockGetManagedSessionSlotOptions).toHaveBeenCalled();
+    });
+
+    const createButton = screen.getByRole('button', { name: 'Crear cita' });
+    expect(screen.getByTestId('managed-session-client-selector')).toBeTruthy();
+    expect(screen.getByText('Selecciona un paciente')).toBeTruthy();
+    expect(createButton.props.accessibilityState.disabled).toBe(true);
+
+    fireEvent.press(screen.getByTestId('managed-session-client-selector'));
+    fireEvent.press(screen.getByText('Sara Herrer'));
+
+    expect(screen.getByText('sara@example.com')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('preserves configured fields when saving rerenders with a fresh clients array', async () => {
+    const onSubmit = jest.fn(() => Promise.resolve());
+    const renderModal = (saving: boolean) => (
+      <ManagedSessionSchedulerModal
+        visible
+        saving={saving}
+        clients={[{ ...client, user: { ...client.user } }]}
+        initialClientId="client-1"
+        onClose={jest.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+    const { rerender } = render(renderModal(false));
+
+    await waitFor(() => {
+      expect(mockGetManagedSessionSlotOptions).toHaveBeenCalled();
+    });
+
+    fireEvent.changeText(screen.getByTestId('managed-session-time-input'), '14:30');
+    fireEvent.press(screen.getByTestId('managed-session-duration-option-90'));
+    fireEvent.press(screen.getByText('Teléfono'));
+
+    rerender(renderModal(true));
+    expect(screen.getByDisplayValue('14:30')).toBeTruthy();
+
+    rerender(renderModal(false));
+    expect(screen.getByDisplayValue('14:30')).toBeTruthy();
+    fireEvent.press(screen.getByText('Crear cita'));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      clientId: 'client-1',
+      duration: 90,
+      type: 'PHONE_CALL',
+    }));
+  });
+
+  it('hydrates a late initial patient without resetting fields already configured', async () => {
+    const renderModal = (clients: Client[]) => (
+      <ManagedSessionSchedulerModal
+        visible
+        clients={clients}
+        initialClientId="client-1"
+        onClose={jest.fn()}
+        onSubmit={jest.fn(() => Promise.resolve())}
+      />
+    );
+    const { rerender } = render(renderModal([]));
+
+    await waitFor(() => {
+      expect(mockGetManagedSessionSlotOptions).toHaveBeenCalled();
+    });
+
+    fireEvent.changeText(screen.getByTestId('managed-session-time-input'), '14:30');
+    fireEvent.press(screen.getByTestId('managed-session-duration-option-90'));
+    rerender(renderModal([{ ...client, user: { ...client.user } }]));
+
+    await waitFor(() => expect(screen.getByText('lucia@example.com')).toBeTruthy());
+    expect(screen.getByDisplayValue('14:30')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('limits rendered patient results while searching across the complete collection', async () => {
+    const manyClients: Client[] = Array.from({ length: 55 }, (_, index) => ({
+      ...client,
+      id: `client-${index + 1}`,
+      firstName: `Paciente ${index + 1}`,
+      lastName: '',
+      email: `paciente${index + 1}@example.com`,
+      user: {
+        ...client.user,
+        email: `paciente${index + 1}@example.com`,
+        name: `Paciente ${index + 1}`,
+      },
+    }));
+
+    render(
+      <ManagedSessionSchedulerModal
+        visible
+        clients={manyClients}
+        onClose={jest.fn()}
+        onSubmit={jest.fn(() => Promise.resolve())}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockGetManagedSessionSlotOptions).toHaveBeenCalled();
+    });
+
+    fireEvent.press(screen.getByTestId('managed-session-client-selector'));
+    expect(screen.queryByText('Paciente 55')).toBeNull();
+    expect(screen.getByText('Hay 5 resultados más. Escribe para acotar la búsqueda.')).toBeTruthy();
+
+    fireEvent.changeText(screen.getByPlaceholderText('Buscar por nombre o email'), 'paciente55@');
+    expect(screen.getByText('Paciente 55')).toBeTruthy();
   });
 
   it('shows the buffer warning and resubmits with an explicit override', async () => {

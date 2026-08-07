@@ -2,7 +2,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Modal,
   Platform,
   ScrollView,
@@ -43,6 +42,12 @@ import {
   parseManagedSessionTimeToMinutes,
 } from '../../utils/managedSessionSchedulerOptions';
 import { formatMadridDateKey, getMadridDateKey } from '../../utils/madridTime';
+import {
+  getManagedSessionClientEmail,
+  getManagedSessionClientName,
+  ManagedSessionPatientAvatar,
+  ManagedSessionPatientSelector,
+} from './ManagedSessionPatientSelector';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 type FormField = ManagedSessionSchedulerField | 'form';
@@ -118,33 +123,15 @@ const formatDateLabel = (dateKey: string): string => {
   return label.charAt(0).toUpperCase() + label.slice(1);
 };
 
-const getClientName = (client?: Client | null): string => {
-  if (!client) return 'Paciente';
-
-  const managedName = [client.firstName, client.lastName].filter(Boolean).join(' ').trim();
-  return client.displayName || managedName || client.user?.name || 'Paciente';
-};
-
-const getFirstNonBlank = (...values: Array<string | null | undefined>): string | null => {
-  for (const value of values) {
-    const trimmed = value?.trim();
-    if (trimmed) {
-      return trimmed;
-    }
+const getEmailNoticeText = (
+  email: string | null,
+  isEditing: boolean,
+  hasSelectedClient: boolean,
+): string => {
+  if (!hasSelectedClient) {
+    return 'Selecciona un paciente para indicar dónde se enviará el aviso de la cita.';
   }
 
-  return null;
-};
-
-const getClientEmail = (client?: Client | null): string | null => {
-  return getFirstNonBlank(client?.primaryEmail, client?.user?.email, client?.email);
-};
-
-const getClientAvatar = (client?: Client | null): string | null => {
-  return getFirstNonBlank(client?.user?.avatar);
-};
-
-const getEmailNoticeText = (email: string | null, isEditing: boolean): string => {
   if (email) {
     return isEditing
       ? `Se enviará un aviso con los cambios a ${email}.`
@@ -184,7 +171,7 @@ const getInitialClientId = (clients: Client[], initialClientId?: string | null):
     return initialClientId;
   }
 
-  return clients[0]?.id || '';
+  return '';
 };
 
 export function ManagedSessionSchedulerModal({
@@ -206,7 +193,7 @@ export function ManagedSessionSchedulerModal({
   const [timeValue, setTimeValue] = useState('');
   const [durationValue, setDurationValue] = useState('60');
   const [type, setType] = useState<SessionType>('VIDEO_CALL');
-  const [search, setSearch] = useState('');
+  const [clientSelectorOpen, setClientSelectorOpen] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [timeEditedManually, setTimeEditedManually] = useState(false);
@@ -216,22 +203,39 @@ export function ManagedSessionSchedulerModal({
   const [slotOptionsLoading, setSlotOptionsLoading] = useState(false);
   const [slotOptionsError, setSlotOptionsError] = useState<string | null>(null);
   const slotOptionsRequestKeyRef = useRef('');
+  const formInitializationKeyRef = useRef<string | null>(null);
   const isEditing = mode === 'edit';
+  const requestedClientId = initialValues?.clientId ?? initialClientId;
+  const initialDate = initialValues?.date;
+  const initialDuration = initialValues?.duration;
+  const initialType = initialValues?.type;
+  const formInitializationKey = JSON.stringify([
+    mode,
+    editingSessionId ?? null,
+    requestedClientId ?? null,
+    initialDate ?? null,
+    initialDuration ?? null,
+    initialType ?? null,
+  ]);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      formInitializationKeyRef.current = null;
+      return;
+    }
+    if (formInitializationKeyRef.current === formInitializationKey) return;
+    formInitializationKeyRef.current = formInitializationKey;
 
-    const initialStart = initialValues?.date
-      ? new Date(initialValues.date)
+    const initialStart = initialDate
+      ? new Date(initialDate)
       : getDefaultStartDate(new Date(Date.now() + 60 * 60 * 1000));
-    const requestedClientId = initialValues?.clientId ?? initialClientId;
 
     setClientId(getInitialClientId(clients, requestedClientId));
     setDateValue(formatDateInput(initialStart));
     setTimeValue(formatTimeInput(initialStart));
-    setDurationValue(String(initialValues?.duration ?? 60));
-    setType(initialValues?.type ?? 'VIDEO_CALL');
-    setSearch('');
+    setDurationValue(String(initialDuration ?? 60));
+    setType(initialType ?? 'VIDEO_CALL');
+    setClientSelectorOpen(false);
     setDatePickerOpen(false);
     setTimePickerOpen(false);
     setTimeEditedManually(false);
@@ -240,28 +244,54 @@ export function ManagedSessionSchedulerModal({
     setSlotOptions([]);
     setSlotOptionsLoading(false);
     setSlotOptionsError(null);
-  }, [clients, initialClientId, initialValues, visible]);
+  }, [
+    clients,
+    formInitializationKey,
+    initialDate,
+    initialDuration,
+    initialType,
+    requestedClientId,
+    visible,
+  ]);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    setClientId((currentClientId) => {
+      if (currentClientId && clients.some((client) => client.id === currentClientId)) {
+        return currentClientId;
+      }
+      return getInitialClientId(clients, requestedClientId);
+    });
+  }, [clients, requestedClientId, visible]);
 
   const selectedClient = useMemo(
     () => clients.find((client) => client.id === clientId) || null,
     [clientId, clients]
   );
 
-  const filteredClients = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase();
-    if (!query) return clients;
-
-    return clients.filter((client) => {
-      const name = getClientName(client).toLocaleLowerCase();
-      const email = getClientEmail(client)?.toLocaleLowerCase() || '';
-      return name.includes(query) || email.includes(query);
-    });
-  }, [clients, search]);
-
-  const selectedEmail = getClientEmail(selectedClient);
-  const showClientSelector = !initialClientId && !isEditing;
+  const selectedEmail = getManagedSessionClientEmail(selectedClient);
+  const hasValidInitialClient = Boolean(
+    initialClientId && clients.some((client) => client.id === initialClientId),
+  );
+  const showClientSelector = !isEditing && !hasValidInitialClient;
   const isCompact = width < 720;
-  const emailNoticeText = getEmailNoticeText(selectedEmail, isEditing);
+  const emailNoticeText = getEmailNoticeText(selectedEmail, isEditing, Boolean(selectedClient));
+  const emailNoticeColor = !selectedClient
+    ? theme.textMuted
+    : selectedEmail
+      ? theme.primary
+      : theme.warning;
+  const emailNoticeBackground = !selectedClient
+    ? theme.bgMuted
+    : selectedEmail
+      ? theme.primaryAlpha12
+      : theme.warningBg;
+  const emailNoticeBorder = !selectedClient
+    ? theme.border
+    : selectedEmail
+      ? theme.primaryAlpha20
+      : theme.warning;
   const todayDateKey = getMadridDateKey(new Date(Date.now()));
   const selectedDateLabel = dateValue ? formatDateLabel(dateValue) : 'Selecciona fecha';
   const selectedDurationNumber = Number(durationValue);
@@ -412,27 +442,6 @@ export function ManagedSessionSchedulerModal({
     visible,
   ]);
 
-  const renderClientAvatar = (client: Client | null, testID: string) => {
-    const avatar = getClientAvatar(client);
-
-    return (
-      <View style={[styles.avatar, { backgroundColor: theme.primaryAlpha12 }]}>
-        {avatar ? (
-          <Image
-            testID={testID}
-            source={{ uri: avatar }}
-            style={styles.avatarImage}
-            resizeMode="cover"
-          />
-        ) : (
-          <Text style={[styles.avatarText, { color: theme.primary, fontFamily: theme.fontSansBold }]}>
-            {getClientName(client).charAt(0).toUpperCase()}
-          </Text>
-        )}
-      </View>
-    );
-  };
-
   const clearBufferConflict = () => {
     if (bufferConflict) {
       setBufferConflict(null);
@@ -554,7 +563,13 @@ export function ManagedSessionSchedulerModal({
       transparent
       onRequestClose={saving ? undefined : onClose}
     >
-      <View style={[styles.overlay, { backgroundColor: theme.overlay }]}>
+      <View
+        testID="managed-session-modal-overlay"
+        style={[styles.overlay, { backgroundColor: theme.overlay }]}
+        onTouchStart={() => {
+          if (clientSelectorOpen) setClientSelectorOpen(false);
+        }}
+      >
         <Card
           variant="default"
           padding="none"
@@ -595,79 +610,34 @@ export function ManagedSessionSchedulerModal({
             showsVerticalScrollIndicator={Platform.OS === 'web'}
           >
             {showClientSelector ? (
-              <View style={styles.section}>
-                <Text style={[styles.label, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
-                  Paciente
-                </Text>
-                <View style={[styles.inputWrap, { borderColor: theme.border, backgroundColor: theme.bgMuted }]}>
-                  <Ionicons name="search-outline" size={17} color={theme.textMuted} />
-                  <TextInput
-                    value={search}
-                    onChangeText={setSearch}
-                    placeholder="Buscar por nombre o email"
-                    placeholderTextColor={theme.textMuted}
-                    style={[styles.searchInput, { color: theme.textPrimary, fontFamily: theme.fontSans }]}
-                  />
-                </View>
-                <View style={styles.clientList}>
-                  {filteredClients.length > 0 ? (
-                    filteredClients.slice(0, 8).map((client) => {
-                      const active = client.id === clientId;
-                      const email = getClientEmail(client);
-                      return (
-                        <AnimatedPressable
-                          key={client.id}
-                          onPress={() => {
-                            setClientId(client.id);
-                            clearBufferConflict();
-                            clearFieldErrors('clientId', 'form');
-                          }}
-                          hoverLift={false}
-                          style={[
-                            styles.clientRow,
-                            {
-                              borderColor: active ? theme.primary : theme.border,
-                              backgroundColor: active ? theme.primaryAlpha12 : theme.bgAlt,
-                            },
-                          ]}
-                        >
-                          {renderClientAvatar(client, `managed-session-client-avatar-${client.id}`)}
-                          <View style={styles.clientInfo}>
-                            <Text
-                              style={[styles.clientName, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}
-                              numberOfLines={1}
-                            >
-                              {getClientName(client)}
-                            </Text>
-                            <Text
-                              style={[styles.clientEmail, { color: theme.textSecondary, fontFamily: theme.fontSans }]}
-                              numberOfLines={1}
-                            >
-                              {email || 'Sin email'}
-                            </Text>
-                          </View>
-                          {active && <Ionicons name="checkmark-circle" size={20} color={theme.primary} />}
-                        </AnimatedPressable>
-                      );
-                    })
-                  ) : (
-                    <Text style={[styles.emptyText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                      No hay pacientes activos de tu consulta con esa búsqueda.
-                    </Text>
-                  )}
-                </View>
-                {errors.clientId && (
-                  <Text style={[styles.errorText, { color: theme.error, fontFamily: theme.fontSans }]}>
-                    {errors.clientId}
-                  </Text>
-                )}
-              </View>
+              <ManagedSessionPatientSelector
+                clients={clients}
+                selectedClient={selectedClient}
+                selectedClientId={clientId}
+                open={visible && clientSelectorOpen}
+                error={errors.clientId}
+                onOpenChange={(open) => {
+                  setClientSelectorOpen(open);
+                  if (open) {
+                    setDatePickerOpen(false);
+                    setTimePickerOpen(false);
+                  }
+                }}
+                onSelect={(nextClientId) => {
+                  setClientId(nextClientId);
+                  clearBufferConflict();
+                  clearFieldErrors('clientId', 'form');
+                }}
+              />
             ) : (
               <View style={[styles.selectedPatient, { borderColor: theme.border, backgroundColor: theme.bgAlt }]}>
-                {renderClientAvatar(selectedClient, 'managed-session-selected-client-avatar')}
+                <ManagedSessionPatientAvatar
+                  client={selectedClient}
+                  testID="managed-session-selected-client-avatar"
+                />
                 <View style={styles.clientInfo}>
                   <Text style={[styles.clientName, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
-                    {getClientName(selectedClient)}
+                    {getManagedSessionClientName(selectedClient)}
                   </Text>
                   <Text style={[styles.clientEmail, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
                     {selectedEmail || 'Sin email'}
@@ -690,6 +660,7 @@ export function ManagedSessionSchedulerModal({
                 </Text>
                 <AnimatedPressable
                   onPress={() => {
+                    setClientSelectorOpen(false);
                     setDatePickerOpen((current) => !current);
                     setTimePickerOpen(false);
                   }}
@@ -785,7 +756,10 @@ export function ManagedSessionSchedulerModal({
                     value={timeValue}
                     onChangeText={handleTimeTextChange}
                     onBlur={handleTimeTextBlur}
-                    onFocus={() => setDatePickerOpen(false)}
+                    onFocus={() => {
+                      setClientSelectorOpen(false);
+                      setDatePickerOpen(false);
+                    }}
                     placeholder="HH:MM"
                     placeholderTextColor={theme.textMuted}
                     autoCapitalize="none"
@@ -806,6 +780,7 @@ export function ManagedSessionSchedulerModal({
                   />
                   <AnimatedPressable
                     onPress={() => {
+                      setClientSelectorOpen(false);
                       setTimePickerOpen((current) => !current);
                       setDatePickerOpen(false);
                     }}
@@ -1007,6 +982,7 @@ export function ManagedSessionSchedulerModal({
                       key={option}
                       testID={`managed-session-duration-option-${option}`}
                       onPress={() => {
+                        setClientSelectorOpen(false);
                         setDurationValue(String(option));
                         clearBufferConflict();
                         clearFieldErrors('duration', 'time', 'form');
@@ -1053,6 +1029,7 @@ export function ManagedSessionSchedulerModal({
                     <AnimatedPressable
                       key={option.value}
                       onPress={() => {
+                        setClientSelectorOpen(false);
                         setType(option.value);
                         clearBufferConflict();
                         clearFieldErrors('type', 'form');
@@ -1092,15 +1069,15 @@ export function ManagedSessionSchedulerModal({
               style={[
                 styles.notice,
                 {
-                  borderColor: selectedEmail ? theme.primaryAlpha20 : theme.warningBg,
-                  backgroundColor: selectedEmail ? theme.primaryAlpha12 : theme.warningBg,
+                  borderColor: emailNoticeBorder,
+                  backgroundColor: emailNoticeBackground,
                 },
               ]}
             >
               <Ionicons
-                name={selectedEmail ? 'mail-outline' : 'mail-open-outline'}
+                name={!selectedClient ? 'person-add-outline' : selectedEmail ? 'mail-outline' : 'mail-open-outline'}
                 size={18}
-                color={selectedEmail ? theme.primary : theme.warning}
+                color={emailNoticeColor}
               />
               <Text style={[styles.noticeText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
                 {emailNoticeText}
@@ -1169,7 +1146,7 @@ export function ManagedSessionSchedulerModal({
             <Button
               variant="primary"
               onPress={handleSubmit}
-              disabled={saving || clients.length === 0 || selectedSlotIsBlocked}
+              disabled={saving || !clientId || selectedSlotIsBlocked}
               loading={saving}
               icon={<Ionicons name="calendar-outline" size={18} color={theme.textOnPrimary} />}
               style={styles.footerButton}
@@ -1235,32 +1212,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
   },
-  inputWrap: {
-    alignItems: 'center',
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    minHeight: 44,
-    outlineStyle: 'none' as never,
-  },
-  clientList: {
-    gap: spacing.sm,
-  },
-  clientRow: {
-    alignItems: 'center',
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: spacing.sm,
-    minHeight: 60,
-    padding: spacing.sm,
-  },
   selectedPatient: {
     alignItems: 'center',
     borderRadius: borderRadius.md,
@@ -1268,21 +1219,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     padding: spacing.md,
-  },
-  avatar: {
-    alignItems: 'center',
-    borderRadius: 18,
-    height: 36,
-    justifyContent: 'center',
-    overflow: 'hidden',
-    width: 36,
-  },
-  avatarImage: {
-    height: '100%',
-    width: '100%',
-  },
-  avatarText: {
-    fontSize: 15,
   },
   clientInfo: {
     flex: 1,
@@ -1294,10 +1230,6 @@ const styles = StyleSheet.create({
   clientEmail: {
     fontSize: 12,
     marginTop: 2,
-  },
-  emptyText: {
-    fontSize: 13,
-    lineHeight: 19,
   },
   scheduleRow: {
     flexDirection: 'row',

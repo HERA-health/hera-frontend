@@ -27,6 +27,20 @@ describe('appointment detail robustness contracts', () => {
   const clinicPatientsHookSource = readSource('screens', 'clinic', 'patients', 'useClinicPatientsController.ts');
   const clinicPatientDomainSource = readSource('screens', 'clinic', 'patients', 'clinicPatientDomain.ts');
   const professionalSessionsSource = readSource('screens', 'professional', 'ProfessionalSessionsScreen.tsx');
+  const professionalAgendaMonthSource = readSource(
+    'screens',
+    'professional',
+    'components',
+    'agenda',
+    'ProfessionalAgendaMonthView.tsx',
+  );
+  const professionalAgendaCardSource = readSource(
+    'screens',
+    'professional',
+    'components',
+    'agenda',
+    'ProfessionalAgendaSessionCard.tsx',
+  );
   const professionalHomeSource = readSource('screens', 'professional', 'ProfessionalHomeScreen.tsx');
   const professionalHomeCardsSource = readSource(
     'components',
@@ -57,26 +71,22 @@ describe('appointment detail robustness contracts', () => {
       clinicAgendaSource.indexOf('function SessionRow'),
       clinicAgendaSource.indexOf('interface CreateSessionModalProps')
     );
-    const professionalCardSource = professionalSessionsSource.slice(
-      professionalSessionsSource.indexOf('const renderSessionCard'),
-      professionalSessionsSource.indexOf('const renderCalendarDayView')
-    );
-
     expect(clinicSessionRowSource).toContain('<View style={styles.row}>');
     expect(clinicSessionRowSource).toContain('style={styles.detailsButton}');
     expect(clinicSessionRowSource).not.toMatch(/<AnimatedPressable[\s\S]*style=\{styles\.row\}/);
-    expect(professionalCardSource).toContain('<View');
-    expect(professionalCardSource).toContain('style={styles.sessionCardDetailPressable}');
+    expect(professionalAgendaCardSource).toContain('<View>');
+    expect(professionalAgendaCardSource).toContain('style={styles.detailPressable}');
+    expect(professionalAgendaCardSource).toContain('{!compact ? actions : null}');
     expect(professionalHomeSource).toContain('<TodayAgenda');
     expect(professionalHomeCardsSource).toContain('onPress={() => onOpen(session.id)}');
   });
 
   it('keeps monthly calendar sessions and +N disclosure inside Agenda', () => {
-    expect(professionalSessionsSource).toContain('const daySessions = sessions');
-    expect(professionalSessionsSource).toContain('const hiddenCount = Math.max(0, daySessions.length - visibleLimit)');
-    expect(professionalSessionsSource).toContain('daySessions.slice(0, visibleLimit).map');
-    expect(professionalSessionsSource).toContain('>+{hiddenCount} más</Text>');
-    expect(professionalSessionsSource).toContain('const selectedDaySessions = sessionsForDate');
+    expect(professionalAgendaMonthSource).toContain('const daySessions = sessionsByDate.get');
+    expect(professionalAgendaMonthSource).toContain('const hiddenCount = Math.max(0, daySessions.length - visibleLimit)');
+    expect(professionalAgendaMonthSource).toContain('daySessions.slice(0, visibleLimit).map');
+    expect(professionalAgendaMonthSource).toContain('>+{hiddenCount} más</Text>');
+    expect(professionalAgendaMonthSource).toContain('<AgendaDayPopover');
   });
 
   it('loads clinic patient sessions with server-side professional filters', () => {
