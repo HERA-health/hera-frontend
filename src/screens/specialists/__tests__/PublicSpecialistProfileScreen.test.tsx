@@ -5,6 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { lightTheme } from '../../../constants/theme';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { useWebPageMetadata } from '../../../hooks/useWebPageMetadata';
 import * as specialistsService from '../../../services/specialistsService';
 import type { Specialist } from '../../specialist-profile/types';
 import { PublicSpecialistProfileScreen } from '../PublicSpecialistProfileScreen';
@@ -98,6 +99,7 @@ const mockedUseNavigation = jest.mocked(useNavigation);
 const mockedUseRoute = jest.mocked(useRoute);
 const mockedUseAuth = jest.mocked(useAuth);
 const mockedUseTheme = jest.mocked(useTheme);
+const mockedUseWebPageMetadata = jest.mocked(useWebPageMetadata);
 const mockedGetPublicSpecialistDetails = jest.mocked(
   specialistsService.getPublicSpecialistDetails
 );
@@ -107,8 +109,11 @@ const mockedMapPublicSpecialistToProfile = jest.mocked(
 
 const specialist: Specialist = {
   id: 'specialist-1',
+  publicSlug: 'especialista-de-prueba',
+  isPubliclyListed: true,
   name: 'Especialista de prueba',
   title: 'Psicóloga',
+  avatar: 'https://example.com/specialist.jpg',
   bio: 'Perfil profesional',
   rating: 5,
   reviewCount: 0,
@@ -243,5 +248,66 @@ describe('PublicSpecialistProfileScreen booking navigation', () => {
     fireEvent.press(screen.getByTestId('public-specialist-profile-home'));
 
     expect(reset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'Landing' }] });
+  });
+
+  it('keeps the public profile indexable while its data is loading', () => {
+    mockedUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      user: null,
+      legalStatusSnapshot: null,
+      verificationSubmitted: null,
+    } as ReturnType<typeof useAuth>);
+    mockedGetPublicSpecialistDetails.mockImplementation(() => new Promise(() => undefined));
+
+    const { unmount } = render(<PublicSpecialistProfileScreen />);
+
+    expect(mockedUseWebPageMetadata).toHaveBeenLastCalledWith(expect.objectContaining({
+      canonicalPath: `/especialista/${specialist.id}`,
+      indexable: true,
+    }));
+
+    unmount();
+  });
+
+  it('keeps a resolved public profile indexable under its canonical slug', async () => {
+    mockedUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      user: null,
+      legalStatusSnapshot: null,
+      verificationSubmitted: null,
+    } as ReturnType<typeof useAuth>);
+
+    render(<PublicSpecialistProfileScreen />);
+    await screen.findAllByText('Reservar en prueba');
+
+    await waitFor(() => {
+      expect(mockedUseWebPageMetadata).toHaveBeenLastCalledWith(expect.objectContaining({
+        canonicalPath: `/especialista/${specialist.publicSlug}`,
+        indexable: true,
+      }));
+    });
+  });
+
+  it('applies noindex only after resolving a profile that is not publicly listed', async () => {
+    mockedUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      user: null,
+      legalStatusSnapshot: null,
+      verificationSubmitted: null,
+    } as ReturnType<typeof useAuth>);
+    mockedMapPublicSpecialistToProfile.mockReturnValue({
+      ...specialist,
+      isPubliclyListed: false,
+    });
+
+    render(<PublicSpecialistProfileScreen />);
+    await screen.findAllByText('Reservar en prueba');
+
+    await waitFor(() => {
+      expect(mockedUseWebPageMetadata).toHaveBeenLastCalledWith(expect.objectContaining({
+        canonicalPath: `/especialista/${specialist.publicSlug}`,
+        indexable: false,
+      }));
+    });
   });
 });

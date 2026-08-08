@@ -53,6 +53,8 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     && specialist.avatar
     && specialist.pricePerSession > 0,
   );
+  // Crawlers must not observe a transient noindex while public data is still resolving.
+  const shouldIndexProfilePage = loading || hasIndexableProfile;
   const canonicalProfileRef = specialist?.publicSlug ?? profileRef;
 
   useWebPageMetadata({
@@ -63,7 +65,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     canonicalPath: canonicalProfileRef
       ? `/especialista/${encodeURIComponent(canonicalProfileRef)}`
       : '/especialista',
-    indexable: hasIndexableProfile,
+    indexable: shouldIndexProfilePage,
     openGraphType: 'profile',
   });
 
