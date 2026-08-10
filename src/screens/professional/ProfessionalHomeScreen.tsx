@@ -184,19 +184,21 @@ export function ProfessionalHomeScreen(): React.ReactElement {
           </View>
         ) : null}
 
-        <View style={[styles.priorityGrid, (!isWide || isNewSpecialist) ? styles.priorityGridStacked : null]}>
+        <View style={[styles.priorityGrid, !isWide ? styles.priorityGridStacked : null]}>
           {isNewSpecialist ? (
-            <ActivationHero
-              pendingSteps={profileItems.length}
-              onProfile={() => {
-                trackHomeAction('activation', 'profile');
-                navigation.navigate('ProfessionalProfile');
-              }}
-              onAvailability={() => {
-                trackHomeAction('activation', 'availability');
-                navigation.navigate('ProfessionalAvailability');
-              }}
-            />
+            <View style={isWide ? styles.priorityColumn : styles.stackedColumn}>
+              <ActivationHero
+                pendingSteps={profileItems.length}
+                onProfile={() => {
+                  trackHomeAction('activation', 'profile');
+                  navigation.navigate('ProfessionalProfile');
+                }}
+                onAvailability={() => {
+                  trackHomeAction('activation', 'availability');
+                  navigation.navigate('ProfessionalAvailability');
+                }}
+              />
+            </View>
           ) : (
             <TourTarget id="professional.home.next-session" fill style={isWide ? styles.priorityColumn : styles.stackedColumn}>
               <NextSessionHero
@@ -218,7 +220,7 @@ export function ProfessionalHomeScreen(): React.ReactElement {
             </TourTarget>
           )}
 
-          <TourTarget id="professional.home.attention" fill style={isWide && !isNewSpecialist ? styles.priorityColumn : styles.stackedColumn}>
+          <TourTarget id="professional.home.attention" fill style={isWide ? styles.priorityColumn : styles.stackedColumn}>
             <AttentionPanel
               data={data}
               profileItems={actionableProfileItems.length}

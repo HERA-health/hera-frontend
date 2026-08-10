@@ -44,6 +44,13 @@ describe('professional workspace shell hardening', () => {
     expect(home).toContain('profileItems={actionableProfileItems.length}');
   });
 
+  it('keeps the activation and attention cards in equal columns on wide screens', () => {
+    expect(home).toContain('style={[styles.priorityGrid, !isWide ? styles.priorityGridStacked : null]}');
+    expect(home).toContain('style={isWide ? styles.priorityColumn : styles.stackedColumn}');
+    expect(home).not.toContain('!isWide || isNewSpecialist');
+    expect(home).not.toContain('isWide && !isNewSpecialist');
+  });
+
   it('keeps search analytics categorical and results scrollable', () => {
     expect(quickSearch).toContain('<ScrollView');
     expect(quickSearch).toContain("category: 'patient'");
