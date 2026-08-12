@@ -65,6 +65,13 @@ const createDeferredLayoutRoute = <T extends keyof RootStackParamList>(
   return DeferredLayoutRoute;
 };
 
+const ProfessionalShowcaseRoute = createDeferredRoute<'ProfessionalShowcase'>(
+  () => require('../screens/landing/ProfessionalShowcaseScreen'),
+  {
+    displayName: 'ProfessionalShowcaseRoute',
+    exportName: 'ProfessionalShowcaseScreen',
+  }
+);
 const WelcomeRoute = createDeferredRoute<'Welcome'>(
   () => require('../screens/auth/WelcomeScreen'),
   { displayName: 'WelcomeRoute', exportName: 'WelcomeScreen' }
@@ -541,6 +548,10 @@ export function RootNavigator() {
         screenOptions={{ headerShown: false }}
       >
         <Stack.Screen name="Landing" component={LandingPage} />
+        <Stack.Screen
+          name="ProfessionalShowcase"
+          component={ProfessionalShowcaseRoute}
+        />
         <Stack.Screen
           name="PublicSpecialists"
           component={PublicSpecialistsRoute}

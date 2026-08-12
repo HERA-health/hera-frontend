@@ -130,6 +130,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
         },
       },
       PublicSpecialists: 'especialistas',
+      ProfessionalShowcase: 'profesionales/recorrido',
       Landing: '',
       Login: 'login',
       Register: 'register',

@@ -74,6 +74,8 @@ describe('useWebPageMetadata', () => {
 
     unmount();
     expect(document.head.querySelectorAll('link[rel="canonical"]')).toHaveLength(0);
+    expect(document.head.querySelector<HTMLMetaElement>('meta[name="robots"]')?.content)
+      .toBe('index, follow');
   });
 
   it('does not let a previous route cleanup overwrite the active route metadata', () => {

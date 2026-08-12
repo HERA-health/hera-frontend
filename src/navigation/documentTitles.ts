@@ -5,6 +5,7 @@ const BRAND_NAME = 'Hera';
 
 const ROUTE_TITLES: Record<keyof RootStackParamList, string> = {
   Landing: 'Inicio',
+  ProfessionalShowcase: 'Software para psicólogos y especialistas',
   Welcome: 'Bienvenida',
   Login: 'Iniciar sesión',
   Register: 'Crear cuenta',

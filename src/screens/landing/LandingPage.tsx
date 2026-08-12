@@ -28,6 +28,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { createWebDeferredComponent } from '../../utils/createDeferredComponent';
 import { useWebPageMetadata } from '../../hooks/useWebPageMetadata';
 import * as analyticsService from '../../services/analyticsService';
+import { trackProfessionalShowcaseEvent } from '../../services/professionalShowcaseAnalytics';
 import type { ProfessionalSpecialtyValue } from '../../constants/professionalMatchingOptions';
 import {
   LANDING_SECTION_NATIVE_IDS,
@@ -46,6 +47,7 @@ type DeferredSectionProps = Record<string, never>;
 type ProfessionalCTASectionProps = {
   primaryActionLabel: string;
   showLoginAction: boolean;
+  onProductTour: () => void;
   onPrimaryAction: () => void;
   onLogin: () => void;
   onClinicAccess: () => void;
@@ -347,6 +349,14 @@ export const LandingPage: React.FC = () => {
     navigation.navigate('Register', { userType: 'PROFESSIONAL' });
   }, [navigateToAuthenticatedWorkspace, navigation]);
 
+  const handleProfessionalShowcase = useCallback(() => {
+    trackProfessionalShowcaseEvent({
+      event: 'landing_professional_showcase_opened',
+      properties: { placement: 'professional_section' },
+    });
+    navigation.navigate('ProfessionalShowcase');
+  }, [navigation]);
+
   const handleProfessionalLogin = useCallback(() => {
     if (navigateToAuthenticatedWorkspace()) {
       return;
@@ -454,6 +464,7 @@ export const LandingPage: React.FC = () => {
               <ForSpecialistsSection
                 primaryActionLabel={professionalActionLabel}
                 showLoginAction={!isAuthenticated}
+                onProductTour={handleProfessionalShowcase}
                 onPrimaryAction={() => handleProfessionalRegister('professional_section')}
                 onLogin={handleProfessionalLogin}
                 onClinicAccess={() => handleClinicAccess('professional_section')}

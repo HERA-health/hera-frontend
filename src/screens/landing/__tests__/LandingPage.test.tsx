@@ -42,10 +42,11 @@ jest.mock('react-native', () => {
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { lightTheme } from '../../../constants/theme';
+import { darkTheme, lightTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { LandingPage } from '../LandingPage';
 import { LandingHeader } from '../components/LandingHeader';
+import { PROFESSIONAL_PREVIEW_IMAGES } from '../professionalPreviewAssets';
 
 jest.mock('../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
@@ -201,6 +202,7 @@ describe('LandingPage', () => {
     expect(screen.getByText('Hazte visible. Gestiona tu consulta.')).toBeTruthy();
     expect(screen.getByText('VISIBILIDAD')).toBeTruthy();
     expect(screen.getByText('GESTIÓN')).toBeTruthy();
+    expect(screen.getByText('Ver HERA por dentro')).toBeTruthy();
     expect(screen.getByText('Privacidad por diseño')).toBeTruthy();
     expect(screen.getByText('Consentimientos y documentación')).toBeTruthy();
     expect(screen.getByText('Marco RGPD y LOPDGDD')).toBeTruthy();
@@ -314,6 +316,36 @@ describe('LandingPage', () => {
     expect(navigate).toHaveBeenCalledWith('Register', { userType: 'PROFESSIONAL' });
     expect(navigate).toHaveBeenCalledWith('Login', { userType: 'PROFESSIONAL' });
     expect(navigate).toHaveBeenCalledWith('Login', { userType: 'CLINIC' });
+  });
+
+  it('opens the public professional product showcase without registration', () => {
+    render(<LandingPage />);
+
+    fireEvent.press(screen.getByText('Ver HERA por dentro'));
+
+    expect(navigate).toHaveBeenCalledWith('ProfessionalShowcase');
+    expect(navigate).not.toHaveBeenCalledWith('Register', expect.anything());
+  });
+
+  it('matches the professional preview image to the landing theme', () => {
+    const { rerender } = render(<LandingPage />);
+    const imageLabel = 'Vista previa del inicio del espacio profesional de HERA';
+
+    expect(screen.getByLabelText(imageLabel).props.source).toBe(
+      PROFESSIONAL_PREVIEW_IMAGES.light,
+    );
+
+    mockedUseTheme.mockReturnValue({
+      theme: darkTheme,
+      mode: 'dark',
+      isDark: true,
+      setMode: jest.fn(),
+    } as unknown as ReturnType<typeof useTheme>);
+    rerender(<LandingPage />);
+
+    expect(screen.getByLabelText(imageLabel).props.source).toBe(
+      PROFESSIONAL_PREVIEW_IMAGES.dark,
+    );
   });
 
   it('opens the generic welcome selector from the access action', () => {

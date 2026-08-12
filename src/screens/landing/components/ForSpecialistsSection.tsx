@@ -1,14 +1,16 @@
 import React from 'react';
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Image, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { MotionView } from '../../../components/common/MotionView';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { PROFESSIONAL_PREVIEW_IMAGES } from '../professionalPreviewAssets';
 
 interface ForSpecialistsSectionProps {
   primaryActionLabel: string;
   showLoginAction: boolean;
+  onProductTour: () => void;
   onPrimaryAction: () => void;
   onLogin: () => void;
   onClinicAccess: () => void;
@@ -33,17 +35,37 @@ const PILLARS = [
   },
 ];
 
+const PREVIEW_ASPECT_RATIO = 1917 / 866;
+const PREVIEW_TOOLBAR_HEIGHT = 36;
+const DESKTOP_CONTENT_MAX_WIDTH = 1200;
+const DESKTOP_SECTION_HORIZONTAL_PADDING = 120;
+const DESKTOP_PREVIEW_GUTTERS = 84;
+
 export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
   primaryActionLabel,
   showLoginAction,
+  onProductTour,
   onPrimaryAction,
   onLogin,
   onClinicAccess,
 }) => {
   const { width } = useWindowDimensions();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const isDesktop = width >= 1024;
   const isMobile = width < 768;
+  const desktopContentWidth = Math.min(
+    Math.max(width - DESKTOP_SECTION_HORIZONTAL_PADDING, 0),
+    DESKTOP_CONTENT_MAX_WIDTH,
+  );
+  const desktopPreviewWidth = Math.min(
+    620,
+    Math.max(440, (desktopContentWidth - DESKTOP_PREVIEW_GUTTERS) * 0.56),
+  );
+  const desktopPreviewImageHeight = desktopPreviewWidth / PREVIEW_ASPECT_RATIO;
+  const responsivePreviewHeight = Math.min(
+    300,
+    Math.max(140, (Math.min(width, 1200) - 80) / PREVIEW_ASPECT_RATIO),
+  );
 
   return (
     <LinearGradient
@@ -93,6 +115,168 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
               y darte un espacio fiable para cuidar el trabajo que viene después.
             </Text>
           </View>
+        </MotionView>
+
+        <MotionView entering="fadeInUp" delay={70} style={styles.previewMotion}>
+          <AnimatedPressable
+            onPress={onProductTour}
+            href="/profesionales/recorrido"
+            pressScale={0.992}
+            hoverLift
+            accessibilityRole="link"
+            accessibilityLabel="Ver HERA por dentro"
+            style={styles.previewPressable}
+          >
+            <LinearGradient
+              colors={[theme.bgCard, theme.bgAlt]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[
+                styles.preview,
+                isDesktop && styles.previewDesktop,
+                { borderColor: theme.borderStrong, shadowColor: theme.shadowCard },
+              ]}
+            >
+              <View style={[styles.previewCopy, isDesktop && styles.previewCopyDesktop]}>
+                <View style={styles.previewKicker}>
+                  <View style={[styles.previewKickerIcon, { backgroundColor: theme.primaryAlpha12 }]}>
+                    <Ionicons name="sparkles-outline" size={17} color={theme.primary} />
+                  </View>
+                  <Text
+                    style={[
+                      styles.previewKickerText,
+                      { color: theme.primary, fontFamily: theme.fontSansSemiBold },
+                    ]}
+                  >
+                    RECORRIDO INTERACTIVO
+                  </Text>
+                </View>
+
+                <Text
+                  style={[
+                    styles.previewTitle,
+                    isDesktop && styles.previewTitleDesktop,
+                    { color: theme.textPrimary, fontFamily: theme.fontDisplay },
+                  ]}
+                >
+                  Conoce HERA antes de registrarte
+                </Text>
+                <Text
+                  style={[
+                    styles.previewDescription,
+                    { color: theme.textSecondary, fontFamily: theme.fontSans },
+                  ]}
+                >
+                  Explora cómo se conectan la agenda, los pacientes y la gestión de tu
+                  consulta en una visita guiada, sin crear una cuenta.
+                </Text>
+
+                <View style={styles.previewMetaRow}>
+                  <View style={[styles.previewMeta, { backgroundColor: theme.bgMuted }]}>
+                    <Ionicons name="images-outline" size={14} color={theme.primary} />
+                    <Text
+                      style={[
+                        styles.previewMetaText,
+                        { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
+                      ]}
+                    >
+                      6 áreas guiadas
+                    </Text>
+                  </View>
+                  <View style={[styles.previewMeta, { backgroundColor: theme.bgMuted }]}>
+                    <Ionicons name="eye-outline" size={14} color={theme.primary} />
+                    <Text
+                      style={[
+                        styles.previewMetaText,
+                        { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
+                      ]}
+                    >
+                      Sin registro
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={[styles.previewAction, { backgroundColor: theme.actionPrimary }]}>
+                  <Text
+                    style={[
+                      styles.previewActionText,
+                      { color: theme.actionPrimaryText, fontFamily: theme.fontSansBold },
+                    ]}
+                  >
+                    Ver HERA por dentro
+                  </Text>
+                  <Ionicons name="arrow-forward" size={19} color={theme.actionPrimaryText} />
+                </View>
+              </View>
+
+              <View
+                style={[
+                  styles.previewVisual,
+                  isDesktop && styles.previewVisualDesktop,
+                  isDesktop && {
+                    width: desktopPreviewWidth,
+                    height: desktopPreviewImageHeight + PREVIEW_TOOLBAR_HEIGHT,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.previewWindow,
+                    { backgroundColor: theme.bg, borderColor: theme.borderStrong },
+                  ]}
+                >
+                  <View style={[styles.previewToolbar, { borderBottomColor: theme.border }]}>
+                    <View style={styles.previewDots}>
+                      <View style={[styles.previewDot, { backgroundColor: theme.warning }]} />
+                      <View style={[styles.previewDot, { backgroundColor: theme.secondary }]} />
+                      <View style={[styles.previewDot, { backgroundColor: theme.primary }]} />
+                    </View>
+                    <View style={styles.previewToolbarLabel}>
+                      <Ionicons name="shield-checkmark-outline" size={13} color={theme.primary} />
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.previewToolbarText,
+                          { color: theme.textSecondary, fontFamily: theme.fontSansMedium },
+                        ]}
+                      >
+                        Espacio profesional HERA
+                      </Text>
+                    </View>
+                  </View>
+                  <Image
+                    source={PROFESSIONAL_PREVIEW_IMAGES[isDark ? 'dark' : 'light']}
+                    resizeMode="contain"
+                    accessibilityLabel="Vista previa del inicio del espacio profesional de HERA"
+                    style={[
+                      styles.previewImage,
+                      {
+                        height: isDesktop
+                          ? desktopPreviewImageHeight
+                          : responsivePreviewHeight,
+                      },
+                    ]}
+                  />
+                </View>
+                <View
+                  style={[
+                    styles.previewExploreBadge,
+                    { backgroundColor: theme.glassBg, borderColor: theme.glassBorder },
+                  ]}
+                >
+                  <Ionicons name="open-outline" size={14} color={theme.primary} />
+                  <Text
+                    style={[
+                      styles.previewExploreText,
+                      { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
+                    ]}
+                  >
+                    Pulsa para explorar
+                  </Text>
+                </View>
+              </View>
+            </LinearGradient>
+          </AnimatedPressable>
         </MotionView>
 
         <View style={[styles.pillars, isDesktop && styles.pillarsDesktop]}>
@@ -166,20 +350,23 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
           <AnimatedPressable
             onPress={onPrimaryAction}
             pressScale={0.97}
-            hoverLift
+            hoverLift={false}
             accessibilityRole="button"
             accessibilityLabel={primaryActionLabel}
-            style={[styles.primaryAction, { backgroundColor: theme.actionPrimary }]}
+            style={[
+              styles.registerAction,
+              { backgroundColor: theme.bgCard, borderColor: theme.borderStrong },
+            ]}
           >
             <Text
               style={[
-                styles.primaryActionText,
-                { color: theme.actionPrimaryText, fontFamily: theme.fontSansBold },
+                styles.registerActionText,
+                { color: theme.primary, fontFamily: theme.fontSansBold },
               ]}
             >
               {primaryActionLabel}
             </Text>
-            <Ionicons name="arrow-forward" size={19} color={theme.actionPrimaryText} />
+            <Ionicons name="arrow-forward" size={19} color={theme.primary} />
           </AnimatedPressable>
 
           {showLoginAction ? (
@@ -288,6 +475,158 @@ const styles = StyleSheet.create({
     lineHeight: 27,
     maxWidth: 780,
   },
+  previewMotion: {
+    marginBottom: 28,
+  },
+  previewPressable: {
+    width: '100%',
+  },
+  preview: {
+    overflow: 'hidden',
+    padding: 20,
+    borderWidth: 1,
+    borderRadius: 24,
+    gap: 22,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 1,
+    shadowRadius: 30,
+    elevation: 4,
+  },
+  previewDesktop: {
+    minHeight: 292,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 26,
+    gap: 32,
+  },
+  previewCopy: {
+    padding: 4,
+  },
+  previewCopyDesktop: {
+    flex: 1,
+    paddingLeft: 8,
+  },
+  previewKicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginBottom: 14,
+  },
+  previewKickerIcon: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 11,
+  },
+  previewKickerText: {
+    fontSize: 11,
+    letterSpacing: 1.35,
+  },
+  previewTitle: {
+    fontSize: 29,
+    lineHeight: 36,
+    marginBottom: 10,
+  },
+  previewTitleDesktop: {
+    fontSize: 34,
+    lineHeight: 41,
+  },
+  previewDescription: {
+    fontSize: 15,
+    lineHeight: 23,
+    maxWidth: 460,
+  },
+  previewMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 17,
+  },
+  previewMeta: {
+    minHeight: 31,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+  },
+  previewMetaText: {
+    fontSize: 11,
+  },
+  previewAction: {
+    minHeight: 50,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 18,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+  },
+  previewActionText: {
+    fontSize: 15,
+  },
+  previewVisual: {
+    position: 'relative',
+    width: '100%',
+  },
+  previewVisualDesktop: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  previewWindow: {
+    overflow: 'hidden',
+    width: '100%',
+    borderWidth: 1,
+    borderRadius: 18,
+  },
+  previewToolbar: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+  },
+  previewDots: {
+    flexDirection: 'row',
+    gap: 5,
+  },
+  previewDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+  },
+  previewToolbarLabel: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingRight: 30,
+  },
+  previewToolbarText: {
+    fontSize: 10,
+  },
+  previewImage: {
+    width: '100%',
+  },
+  previewExploreBadge: {
+    position: 'absolute',
+    right: 14,
+    bottom: 14,
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderRadius: 999,
+  },
+  previewExploreText: {
+    fontSize: 11,
+  },
   pillars: {
     gap: 18,
   },
@@ -350,7 +689,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   actionsRow: {
-    marginTop: 28,
+    marginTop: 18,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
@@ -358,16 +697,17 @@ const styles = StyleSheet.create({
   actionsMobile: {
     flexDirection: 'column',
   },
-  primaryAction: {
+  registerAction: {
     minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
     borderRadius: 14,
+    borderWidth: 1,
     gap: 9,
   },
-  primaryActionText: {
+  registerActionText: {
     fontSize: 16,
   },
   secondaryAction: {

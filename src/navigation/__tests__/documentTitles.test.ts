@@ -6,6 +6,9 @@ describe('documentTitles', () => {
     expect(getDocumentTitleForRoute('Login')).toBe('Hera | Iniciar sesión');
     expect(getDocumentTitleForRoute('Register')).toBe('Hera | Crear cuenta');
     expect(getDocumentTitleForRoute('PublicSpecialists')).toBe('Hera | Especialistas');
+    expect(getDocumentTitleForRoute('ProfessionalShowcase')).toBe(
+      'Hera | Software para psicólogos y especialistas'
+    );
   });
 
   it('formats professional route titles in Spanish', () => {

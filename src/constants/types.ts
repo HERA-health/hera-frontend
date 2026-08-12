@@ -114,6 +114,7 @@ export interface BookingOfficeLocation {
 
 export type RootStackParamList = {
   Landing: { section?: LandingSectionAnchor } | undefined;
+  ProfessionalShowcase: undefined;
   Welcome: undefined;
   Login: { userType: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC'; specialization?: string };
   Register: { userType: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC' };
