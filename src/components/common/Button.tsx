@@ -11,7 +11,10 @@ import {
 } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { borderRadius, spacing } from '../../constants/colors';
-import { AnimatedPressable } from './AnimatedPressable';
+import {
+  AnimatedPressable,
+  type AnimatedPressableHandle,
+} from './AnimatedPressable';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type ButtonSize = 'small' | 'medium' | 'large';
@@ -31,6 +34,7 @@ interface ButtonProps {
   accessibilityLabel?: string;
   accessibilityRole?: AccessibilityRole;
   accessibilityState?: AccessibilityState;
+  focusRef?: React.Ref<AnimatedPressableHandle>;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -48,6 +52,7 @@ export const Button: React.FC<ButtonProps> = ({
   accessibilityLabel,
   accessibilityRole = 'button',
   accessibilityState,
+  focusRef,
 }) => {
   const { theme } = useTheme();
   const isDisabled = disabled || loading;
@@ -79,6 +84,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <AnimatedPressable
+      focusRef={focusRef}
       onPress={onPress}
       disabled={isDisabled}
       pressScale={isDisabled ? 1 : 0.96}

@@ -18,6 +18,8 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
+export type AnimatedPressableHandle = React.ElementRef<typeof Pressable>;
+
 interface AnimatedPressableProps {
   onPress?: (event: GestureResponderEvent) => void;
   onLongPress?: (event: GestureResponderEvent) => void;
@@ -34,6 +36,7 @@ interface AnimatedPressableProps {
   accessibilityState?: AccessibilityState;
   testID?: string;
   href?: string;
+  focusRef?: React.Ref<AnimatedPressableHandle>;
 }
 
 const AnimatedPressableComponent = Animated.createAnimatedComponent(Pressable);
@@ -68,6 +71,7 @@ export function AnimatedPressable({
   accessibilityState,
   testID,
   href,
+  focusRef,
 }: AnimatedPressableProps) {
   const scale = useSharedValue(1);
   const translateY = useSharedValue(0);
@@ -122,6 +126,7 @@ export function AnimatedPressable({
 
   return (
     <WebLinkAnimatedPressable
+      ref={focusRef}
       {...(Platform.OS === 'web' && href ? { href } : {})}
       onPress={disabled ? undefined : handlePress}
       onLongPress={disabled ? undefined : onLongPress}

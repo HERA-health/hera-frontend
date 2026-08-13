@@ -19,6 +19,7 @@ type AppointmentDetailMode = 'clinic-admin' | 'professional';
 
 interface AppointmentDetailSheetProps {
   visible: boolean;
+  embedded?: boolean;
   mode: AppointmentDetailMode;
   clinicSession?: ClinicSessionDetail | null;
   professionalSession?: ProfessionalSessionDetail | null;
@@ -107,6 +108,7 @@ const getStatusColor = (theme: Theme, status?: string): string => {
 
 export function AppointmentDetailSheet({
   visible,
+  embedded = false,
   mode,
   clinicSession,
   professionalSession,
@@ -120,7 +122,7 @@ export function AppointmentDetailSheet({
   onOpenNotes,
   onOpenPatient,
   onOpenInvoice,
-}: AppointmentDetailSheetProps): React.ReactElement {
+}: AppointmentDetailSheetProps): React.ReactElement | null {
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const detail = mode === 'clinic-admin' ? clinicSession : professionalSession;
@@ -167,10 +169,17 @@ export function AppointmentDetailSheet({
     && Boolean(professionalSession.invoice)
     && Boolean(onOpenInvoice);
 
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
+  if (!visible) return null;
+
+  const content = (
+    <View style={styles.backdrop}>
+      <View
+        style={styles.sheet}
+        role="dialog"
+        accessibilityViewIsModal
+        aria-modal
+        accessibilityLabel={mode === 'clinic-admin' ? 'Detalle de cita' : 'Tu cita'}
+      >
           <View style={styles.header}>
             <View style={styles.headerIcon}>
               <Ionicons name="calendar-clear-outline" size={20} color={theme.primary} />
@@ -365,8 +374,17 @@ export function AppointmentDetailSheet({
               <Text style={styles.stateText}>Selecciona una cita para ver su detalle.</Text>
             </View>
           )}
-        </View>
       </View>
+    </View>
+  );
+
+  if (embedded) {
+    return <View style={styles.embeddedLayer}>{content}</View>;
+  }
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      {content}
     </Modal>
   );
 }
@@ -420,6 +438,10 @@ const createStyles = (theme: Theme) =>
       justifyContent: 'center',
       backgroundColor: theme.overlay,
       padding: spacing.lg,
+    },
+    embeddedLayer: {
+      ...StyleSheet.absoluteFillObject,
+      zIndex: 10,
     },
     sheet: {
       width: '100%',

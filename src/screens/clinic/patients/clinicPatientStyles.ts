@@ -37,10 +37,13 @@ export const createWorkspaceStyles = (theme: Theme, isCompact: boolean) =>
     },
     listPanel: {
       width: '100%',
+      minWidth: 0,
       flex: isCompact ? undefined : 1,
     },
     detailPanel: {
       width: '100%',
+      minWidth: 0,
+      flexShrink: 0,
       maxWidth: isCompact ? undefined : 460,
     },
     emptyPanel: {

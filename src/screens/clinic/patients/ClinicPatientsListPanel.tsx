@@ -1,7 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
+import {
+  AnimatedPressable,
+  type AnimatedPressableHandle,
+} from '../../../components/common/AnimatedPressable';
 import { Button } from '../../../components/common/Button';
 import { Input } from '../../../components/common/Input';
 import { SimpleDropdown, type DropdownOption } from '../../../components/common/SimpleDropdown';
@@ -42,10 +45,11 @@ interface ClinicPatientsListPanelProps {
   onStatusFilterChange: (value: ClinicPatientStatusFilter) => void;
   onAssignmentFilterChange: (value: ClinicPatientAssignmentFilter) => void;
   onSpecialistFilterChange: (value: string) => void;
-  onSelectPatient: (patientId: string) => void;
-  onAdd: () => void;
+  onSelectPatient: (patientId: string, origin: AnimatedPressableHandle | null) => void;
+  onAdd: (origin: AnimatedPressableHandle | null) => void;
   onRetry: () => void;
   onLoadMore: () => void;
+  headingRef?: React.Ref<React.ElementRef<typeof View>>;
 }
 
 export function ClinicPatientsListPanel({
@@ -70,15 +74,19 @@ export function ClinicPatientsListPanel({
   onAdd,
   onRetry,
   onLoadMore,
+  headingRef,
 }: ClinicPatientsListPanelProps): React.ReactElement {
   const { theme } = useTheme();
   const styles = useMemo(() => createListPanelStyles(theme), [theme]);
+  const emptyAddRef = useRef<AnimatedPressableHandle>(null);
 
   return (
     <View style={styles.panel}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Pacientes</Text>
+          <View ref={headingRef} accessible accessibilityRole="header" tabIndex={-1}>
+            <Text style={styles.title}>Pacientes</Text>
+          </View>
           <Text style={styles.text}>
             {loading ? 'Actualizando listado' : `${patients.length} fichas visibles`}
           </Text>
@@ -147,9 +155,10 @@ export function ClinicPatientsListPanel({
             Crea fichas administrativas separadas de pacientes privados y de identidades registradas.
           </Text>
           <Button
+            focusRef={emptyAddRef}
             variant="primary"
             size="medium"
-            onPress={onAdd}
+            onPress={() => onAdd(emptyAddRef.current)}
             disabled={!canManage}
             icon={<Ionicons name="person-add-outline" size={18} color={theme.actionPrimaryText} />}
           >
@@ -163,7 +172,7 @@ export function ClinicPatientsListPanel({
               key={patient.id}
               patient={patient}
               selected={patient.id === selectedPatientId}
-              onPress={() => onSelectPatient(patient.id)}
+              onPress={onSelectPatient}
             />
           ))}
           {pageInfo.hasMore ? (
@@ -188,7 +197,7 @@ export function ClinicPatientsListPanel({
 interface PatientListItemProps {
   patient: ClinicPatientSummary;
   selected: boolean;
-  onPress: () => void;
+  onPress: (patientId: string, origin: AnimatedPressableHandle | null) => void;
 }
 
 function PatientListItem({
@@ -198,13 +207,19 @@ function PatientListItem({
 }: PatientListItemProps): React.ReactElement {
   const { theme } = useTheme();
   const styles = useMemo(() => createListItemStyles(theme), [theme]);
+  const itemRef = useRef<AnimatedPressableHandle>(null);
+  const statusLabel = patient.status === 'ACTIVE' ? 'Activo' : 'Archivado';
+  const assignmentLabel = getAssignmentSubtitle(patient);
 
   return (
     <AnimatedPressable
-      onPress={onPress}
+      focusRef={itemRef}
+      onPress={() => onPress(patient.id, itemRef.current)}
       hoverLift={false}
       pressScale={0.99}
       style={[styles.item, selected ? styles.itemSelected : null]}
+      accessibilityLabel={`${patient.displayName}. Estado: ${statusLabel}. ${assignmentLabel}. Abrir ficha`}
+      accessibilityState={{ selected }}
     >
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{patient.displayName.slice(0, 1).toUpperCase()}</Text>

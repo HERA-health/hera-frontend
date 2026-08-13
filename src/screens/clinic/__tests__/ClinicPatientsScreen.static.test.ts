@@ -93,4 +93,24 @@ describe('ClinicPatientsScreen source guards', () => {
       expect(source).not.toContain('api.');
     });
   });
+
+  it('keeps compact patient navigation adaptive and accessible without changing routes', () => {
+    const listSource = fs.readFileSync(
+      path.join(patientsDir, 'ClinicPatientsListPanel.tsx'),
+      'utf8',
+    );
+    const adaptiveSheetSource = fs.readFileSync(
+      path.join(patientsDir, 'ClinicPatientAdaptiveSheet.tsx'),
+      'utf8',
+    );
+
+    expect(workspaceSource).toContain('width < 940');
+    expect(workspaceSource).toContain('useClinicPatientAdaptiveNavigation');
+    expect(adaptiveSheetSource).toContain('accessibilityViewIsModal');
+    expect(adaptiveSheetSource).toContain('onRequestClose={handleRequestClose}');
+    expect(listSource).toContain('accessibilityState={{ selected }}');
+    expect(screenSource + workspaceSource).not.toContain("navigate('ClinicPatientDetail");
+    expect(workspaceSource).toContain('overlay={controller.selectedSessionId ? appointmentDetail : null}');
+    expect(workspaceSource).toContain('{!isCompact ? appointmentDetail : null}');
+  });
 });
