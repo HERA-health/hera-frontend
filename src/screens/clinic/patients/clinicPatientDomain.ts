@@ -228,6 +228,47 @@ export const getEmptyToNull = (value: string): string | null => {
   return trimmed ? trimmed : null;
 };
 
+export const getAdministrativeBillingFullName = (
+  firstName: string,
+  lastName: string,
+): string => [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
+
+export const copyAdministrativeNameToBilling = (
+  form: ClinicPatientForm,
+): ClinicPatientForm => ({
+  ...form,
+  billingFullName: getAdministrativeBillingFullName(form.firstName, form.lastName),
+});
+
+export const restoreClinicPatientBillingFullName = (
+  form: ClinicPatientForm,
+  previousBillingFullName: string,
+): ClinicPatientForm => ({
+  ...form,
+  billingFullName: previousBillingFullName,
+});
+
+export const updateClinicPatientFormField = (
+  form: ClinicPatientForm,
+  field: ClinicPatientField,
+  value: string,
+  syncBillingFullName: boolean,
+): ClinicPatientForm => {
+  const nextForm: ClinicPatientForm = {
+    ...form,
+    [field]: value,
+  };
+
+  if (syncBillingFullName && (field === 'firstName' || field === 'lastName')) {
+    nextForm.billingFullName = getAdministrativeBillingFullName(
+      nextForm.firstName,
+      nextForm.lastName,
+    );
+  }
+
+  return nextForm;
+};
+
 export const hasPatientDetail = (
   patient: ClinicPatientSummary | ClinicPatientDetail | null,
 ): patient is ClinicPatientDetail =>

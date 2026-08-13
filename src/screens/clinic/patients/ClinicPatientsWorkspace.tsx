@@ -87,7 +87,9 @@ export function ClinicPatientsWorkspace({
       saving={controller.saving}
       feedback={controller.feedback}
       canManage={controller.canManage}
+      sameBillingData={controller.sameBillingData}
       onChange={controller.handleChange}
+      onToggleSameBillingData={controller.handleToggleSameBillingData}
       onSubmit={controller.handleSubmit}
       onCancel={adaptiveNavigation.handleCancelForm}
     />

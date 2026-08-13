@@ -11,6 +11,7 @@ import {
   CLINIC_ASSIGNMENT_HISTORY_PAGE_LIMIT,
   CLINIC_PATIENT_SESSION_PAGE_LIMIT,
   buildPatientSessionRangeIso,
+  copyAdministrativeNameToBilling,
   createErrorFeedback,
   createSuccessFeedback,
   EMPTY_ASSIGNMENT_FORM,
@@ -24,7 +25,9 @@ import {
   mapPatientToForm,
   mergePatientSummaries,
   mergeSummaryIntoDetail,
+  restoreClinicPatientBillingFullName,
   toPatientSummary,
+  updateClinicPatientFormField,
   clinicPatientFormSchema,
   type AssignmentForm,
   type AssignmentPanelMode,
@@ -75,6 +78,7 @@ export function useClinicPatientsController() {
   const [assignmentMode, setAssignmentMode] = useState<AssignmentPanelMode>(null);
   const [assignmentForm, setAssignmentForm] = useState<AssignmentForm>(EMPTY_ASSIGNMENT_FORM);
   const [form, setForm] = useState<ClinicPatientForm>(EMPTY_FORM);
+  const [sameBillingData, setSameBillingData] = useState(false);
   const [errors, setErrors] = useState<ClinicPatientErrors>({});
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
@@ -108,10 +112,16 @@ export function useClinicPatientsController() {
   const specialistsRequestSeq = useRef(0);
   const patientSessionsRequestSeq = useRef(0);
   const sessionDetailRequestSeq = useRef(0);
+  const billingFullNameBeforeCopyRef = useRef('');
 
   const updatePatients = useCallback((nextPatients: clinicService.ClinicPatientSummary[]) => {
     patientsRef.current = nextPatients;
     setPatients(nextPatients);
+  }, []);
+
+  const resetBillingCopy = useCallback(() => {
+    billingFullNameBeforeCopyRef.current = '';
+    setSameBillingData(false);
   }, []);
 
   const canManage = workspace.selectedMembership?.role === 'OWNER'
@@ -180,6 +190,7 @@ export function useClinicPatientsController() {
     setAssignmentMode(null);
     setAssignmentForm(EMPTY_ASSIGNMENT_FORM);
     setForm(EMPTY_FORM);
+    resetBillingCopy();
     setErrors({});
     setPatientsError('');
     setPatientsLoading(false);
@@ -204,7 +215,7 @@ export function useClinicPatientsController() {
     setSelectedSessionDetailLoading(false);
     setSelectedSessionDetailError('');
     setFeedback(null);
-  }, [updatePatients]);
+  }, [resetBillingCopy, updatePatients]);
 
   const reconcileDetailCache = useCallback((summaries: clinicService.ClinicPatientSummary[]) => {
     setPatientDetails((currentDetails) => {
@@ -649,19 +660,21 @@ export function useClinicPatientsController() {
     setPanelMode('create');
     setAssignmentMode(null);
     setForm(EMPTY_FORM);
+    resetBillingCopy();
     setAssignmentForm(EMPTY_ASSIGNMENT_FORM);
     setErrors({});
     setFeedback(null);
-  }, []);
+  }, [resetBillingCopy]);
 
   const handleSelectPatient = useCallback((patientId: string) => {
     setSelectedPatientId(patientId);
     setPanelMode('detail');
     setAssignmentMode(null);
     setAssignmentForm(EMPTY_ASSIGNMENT_FORM);
+    resetBillingCopy();
     setErrors({});
     setFeedback(null);
-  }, []);
+  }, [resetBillingCopy]);
 
   const handleEdit = useCallback(async () => {
     if (!workspace.selectedClinicId || !selectedPatient) return;
@@ -673,25 +686,57 @@ export function useClinicPatientsController() {
 
     if (!detail) return;
 
+    resetBillingCopy();
     setForm(mapPatientToForm(detail));
     setPanelMode('edit');
     setAssignmentMode(null);
     setAssignmentForm(EMPTY_ASSIGNMENT_FORM);
     setErrors({});
     setFeedback(null);
-  }, [loadPatientDetail, selectedPatient, workspace.selectedClinicId]);
+  }, [loadPatientDetail, resetBillingCopy, selectedPatient, workspace.selectedClinicId]);
 
   const handleChange = useCallback((field: ClinicPatientField, value: string) => {
-    setForm((currentForm) => ({ ...currentForm, [field]: value }));
+    setForm((currentForm) => updateClinicPatientFormField(
+      currentForm,
+      field,
+      value,
+      sameBillingData,
+    ));
     setErrors((currentErrors) => {
       const nextErrors = { ...currentErrors, [field]: undefined };
+      if (sameBillingData && (field === 'firstName' || field === 'lastName')) {
+        nextErrors.billingFullName = undefined;
+      }
       if (field === 'phone' && currentErrors.email === CONTACT_METHOD_REQUIRED_MESSAGE) {
         nextErrors.email = undefined;
       }
       return nextErrors;
     });
     setFeedback(null);
-  }, []);
+  }, [sameBillingData]);
+
+  const handleToggleSameBillingData = useCallback(() => {
+    if (saving) return;
+
+    if (sameBillingData) {
+      const previousBillingFullName = billingFullNameBeforeCopyRef.current;
+      setForm((currentForm) => restoreClinicPatientBillingFullName(
+        currentForm,
+        previousBillingFullName,
+      ));
+      resetBillingCopy();
+    } else {
+      billingFullNameBeforeCopyRef.current = form.billingFullName;
+      setForm((currentForm) => copyAdministrativeNameToBilling(currentForm));
+      setSameBillingData(true);
+    }
+
+    setErrors((currentErrors) => ({
+      ...currentErrors,
+      billingFullName: undefined,
+    }));
+    setFeedback(null);
+  }, [form.billingFullName, resetBillingCopy, sameBillingData, saving]);
 
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
@@ -867,11 +912,12 @@ export function useClinicPatientsController() {
   const handleCancelForm = useCallback(() => {
     setPanelMode('detail');
     setForm(EMPTY_FORM);
+    resetBillingCopy();
     setAssignmentMode(null);
     setAssignmentForm(EMPTY_ASSIGNMENT_FORM);
     setErrors({});
     setFeedback(null);
-  }, []);
+  }, [resetBillingCopy]);
 
   const handleSubmit = useCallback(async () => {
     if (!workspace.selectedClinicId || !canManage) {
@@ -903,6 +949,7 @@ export function useClinicPatientsController() {
       setSelectedPatientId(savedPatient.id);
       setPanelMode('detail');
       setForm(EMPTY_FORM);
+      resetBillingCopy();
       setFeedback(createSuccessFeedback(
         panelMode === 'edit' ? 'Ficha actualizada.' : 'Paciente añadido a la clínica.',
       ));
@@ -931,6 +978,7 @@ export function useClinicPatientsController() {
     form,
     loadPatients,
     panelMode,
+    resetBillingCopy,
     rememberPatientDetail,
     selectedPatient,
     workspace.selectedClinicId,
@@ -1319,6 +1367,7 @@ export function useClinicPatientsController() {
     assignmentMode,
     assignmentForm,
     form,
+    sameBillingData,
     errors,
     saving,
     feedback,
@@ -1328,6 +1377,7 @@ export function useClinicPatientsController() {
     handleSelectPatient,
     handleEdit,
     handleChange,
+    handleToggleSameBillingData,
     handleSearchChange,
     handleStatusFilterChange,
     handleAssignmentFilterChange,

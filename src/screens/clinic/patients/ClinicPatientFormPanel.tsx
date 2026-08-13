@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { Button } from '../../../components/common/Button';
 import { Input } from '../../../components/common/Input';
 import { CONTACT_METHOD_REQUIRED_MESSAGE } from '../../../constants/errors';
@@ -25,7 +26,9 @@ interface ClinicPatientFormPanelProps {
   saving: boolean;
   feedback: FeedbackMessage | null;
   canManage: boolean;
+  sameBillingData: boolean;
   onChange: (field: ClinicPatientField, value: string) => void;
+  onToggleSameBillingData: () => void;
   onSubmit: () => void;
   onCancel: () => void;
 }
@@ -37,7 +40,9 @@ export function ClinicPatientFormPanel({
   saving,
   feedback,
   canManage,
+  sameBillingData,
   onChange,
+  onToggleSameBillingData,
   onSubmit,
   onCancel,
 }: ClinicPatientFormPanelProps): React.ReactElement {
@@ -87,6 +92,38 @@ export function ClinicPatientFormPanel({
 
       <View style={styles.fields}>
         <Text style={styles.groupTitle}>Facturación</Text>
+        <AnimatedPressable
+          onPress={onToggleSameBillingData}
+          disabled={disabled}
+          hoverLift={false}
+          pressScale={0.99}
+          accessibilityRole="checkbox"
+          accessibilityLabel="Usar los mismos datos para facturación"
+          accessibilityHint="Copia nombre y apellidos al nombre fiscal"
+          accessibilityState={{ checked: sameBillingData, disabled }}
+          style={[
+            styles.billingCopyControl,
+            sameBillingData ? styles.billingCopyControlSelected : null,
+            disabled ? styles.billingCopyControlDisabled : null,
+          ]}
+        >
+          <View style={[
+            styles.billingCopyCheckbox,
+            sameBillingData ? styles.billingCopyCheckboxSelected : null,
+          ]}>
+            {sameBillingData ? (
+              <Ionicons name="checkmark" size={15} color={theme.textOnPrimary} />
+            ) : null}
+          </View>
+          <View style={styles.billingCopyText}>
+            <Text style={styles.billingCopyLabel}>
+              Usar los mismos datos para facturación
+            </Text>
+            <Text style={styles.billingCopyDescription}>
+              Nombre y apellidos → Nombre fiscal. NIF y dirección fiscal se completan por separado.
+            </Text>
+          </View>
+        </AnimatedPressable>
         {billingFields.map((field) => (
           <Input
             key={field.key}
@@ -95,9 +132,13 @@ export function ClinicPatientFormPanel({
             placeholder={field.placeholder}
             keyboardType={field.keyboardType}
             autoCapitalize={field.autoCapitalize}
-            helperText={field.helperText}
+            helperText={
+              sameBillingData && field.key === 'billingFullName'
+                ? 'Sincronizado con el nombre y los apellidos administrativos.'
+                : field.helperText
+            }
             error={errors[field.key]}
-            editable={!disabled}
+            editable={!disabled && !(sameBillingData && field.key === 'billingFullName')}
             onChangeText={(value) => onChange(field.key, value)}
           />
         ))}

@@ -4,6 +4,11 @@ import {
   PATIENT_SESSION_RANGE_PAST_DAYS,
   buildPatientSessionRangeIso,
   clinicPatientFormSchema,
+  copyAdministrativeNameToBilling,
+  getAdministrativeBillingFullName,
+  mapFormToPayload,
+  restoreClinicPatientBillingFullName,
+  updateClinicPatientFormField,
 } from '../clinicPatientDomain';
 
 const baseForm = {
@@ -45,6 +50,95 @@ describe('clinicPatientFormSchema contact validation', () => {
       ...baseForm,
       phone: '+34 600 000 000',
     }).success).toBe(true);
+  });
+});
+
+describe('clinic patient billing copy', () => {
+  it('normalizes name parts into the billing full name', () => {
+    expect(getAdministrativeBillingFullName('  Lucía  ', '  Martín García '))
+      .toBe('Lucía Martín García');
+    expect(getAdministrativeBillingFullName('', 'Martín')).toBe('Martín');
+  });
+
+  it('keeps billing name synchronized only while the copy option is active', () => {
+    const customizedForm = {
+      ...baseForm,
+      firstName: 'Lucía',
+      lastName: 'Martín',
+      billingFullName: 'Empresa Familiar SL',
+      billingTaxId: 'B12345678',
+      billingAddress: 'Calle Sur 2',
+      billingPostalCode: '28002',
+      billingCity: 'Madrid',
+      billingCountry: 'España',
+    };
+
+    const synchronized = updateClinicPatientFormField(
+      customizedForm,
+      'lastName',
+      'Martín García',
+      true,
+    );
+
+    expect(synchronized).toMatchObject({
+      firstName: 'Lucía',
+      lastName: 'Martín García',
+      billingFullName: 'Lucía Martín García',
+      billingTaxId: 'B12345678',
+      billingAddress: 'Calle Sur 2',
+      billingPostalCode: '28002',
+      billingCity: 'Madrid',
+      billingCountry: 'España',
+    });
+
+    const independent = updateClinicPatientFormField(
+      customizedForm,
+      'lastName',
+      'Martín García',
+      false,
+    );
+    expect(independent.billingFullName).toBe('Empresa Familiar SL');
+  });
+
+  it('restores the previous fiscal name without changing other billing fields', () => {
+    const customizedForm = {
+      ...baseForm,
+      firstName: 'Lucía',
+      lastName: 'Martín',
+      billingFullName: 'Empresa Familiar SL',
+      billingTaxId: 'B12345678',
+      billingAddress: 'Calle Sur 2',
+    };
+    const copied = copyAdministrativeNameToBilling(customizedForm);
+    const restored = restoreClinicPatientBillingFullName(
+      copied,
+      customizedForm.billingFullName,
+    );
+
+    expect(copied.billingFullName).toBe('Lucía Martín');
+    expect(restored).toEqual(customizedForm);
+  });
+
+  it('keeps the UI-only choice out of the patient payload', () => {
+    const payload = mapFormToPayload({
+      ...baseForm,
+      email: 'lucia@example.com',
+      billingFullName: 'Lucía Martín',
+    });
+
+    expect(payload).toEqual({
+      firstName: 'Lucia',
+      lastName: 'Martin',
+      email: 'lucia@example.com',
+      phone: null,
+      billingFullName: 'Lucía Martín',
+      billingTaxId: null,
+      billingAddress: null,
+      billingPostalCode: null,
+      billingCity: null,
+      billingCountry: 'España',
+    });
+    expect(payload).not.toHaveProperty('sameBillingData');
   });
 });
 
