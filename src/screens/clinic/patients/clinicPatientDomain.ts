@@ -7,6 +7,7 @@ import type {
   ClinicPatientPayload,
   ClinicPatientStatusFilter,
   ClinicPatientSummary,
+  UpdateClinicPatientPayload,
 } from '../../../services/clinicService';
 
 export interface ClinicPatientForm {
@@ -25,6 +26,8 @@ export interface ClinicPatientForm {
 export type ClinicPatientField = keyof ClinicPatientForm;
 export type ClinicPatientErrors = Partial<Record<ClinicPatientField, string>>;
 export type PanelMode = 'detail' | 'create' | 'edit';
+export type ClinicPatientDetailTab = 'summary' | 'sessions' | 'consent' | 'billing' | 'activity';
+export type ClinicPatientEditSection = 'summary' | 'billing';
 export type AssignmentPanelMode = 'assign' | 'change' | null;
 
 export type FeedbackMessage = {
@@ -117,6 +120,17 @@ export const ASSIGNMENT_FILTERS: Array<{
   { value: 'UNASSIGNED', label: 'Sin asignar' },
 ];
 
+export const CLINIC_PATIENT_DETAIL_TABS: ReadonlyArray<{
+  key: ClinicPatientDetailTab;
+  label: string;
+}> = [
+  { key: 'summary', label: 'Resumen' },
+  { key: 'sessions', label: 'Citas' },
+  { key: 'consent', label: 'Consentimientos' },
+  { key: 'billing', label: 'Facturación' },
+  { key: 'activity', label: 'Actividad' },
+];
+
 export const identityFields: FieldConfig[] = [
   {
     key: 'firstName',
@@ -194,18 +208,26 @@ const optionalTextString = (
   return value.length >= min;
 }, message);
 
-export const clinicPatientFormSchema = z.object({
+const identityContactSchemaShape = {
   firstName: z.string().trim().min(2, 'Indica el nombre').max(120, 'Máximo 120 caracteres'),
   lastName: z.string().trim().min(2, 'Indica los apellidos').max(160, 'Máximo 160 caracteres'),
   email: z.string().trim().max(180, 'Máximo 180 caracteres'),
   phone: optionalTextString(4, 40, 'Introduce un teléfono válido'),
+};
+
+const billingSchemaShape = {
   billingFullName: optionalTextString(3, 160, 'Introduce el nombre fiscal completo'),
   billingTaxId: optionalTextString(3, 40, 'Introduce un identificador fiscal válido'),
   billingAddress: optionalTextString(3, 240, 'Introduce una dirección fiscal válida'),
   billingPostalCode: optionalTextString(2, 20, 'Introduce un código postal válido'),
   billingCity: optionalTextString(2, 120, 'Introduce una ciudad válida'),
   billingCountry: optionalTextString(2, 80, 'Introduce un país válido'),
-}).superRefine((form, context) => {
+};
+
+const validateContact = (
+  form: Pick<ClinicPatientForm, 'email' | 'phone'>,
+  context: z.RefinementCtx,
+) => {
   if (!form.email && !form.phone) {
     context.addIssue({
       code: 'custom',
@@ -221,7 +243,17 @@ export const clinicPatientFormSchema = z.object({
       message: 'Introduce un email válido',
     });
   }
-});
+};
+
+export const clinicPatientSummaryFormSchema = z
+  .object(identityContactSchemaShape)
+  .superRefine(validateContact);
+
+export const clinicPatientBillingFormSchema = z.object(billingSchemaShape);
+
+export const clinicPatientFormSchema = z
+  .object({ ...identityContactSchemaShape, ...billingSchemaShape })
+  .superRefine(validateContact);
 
 export const getEmptyToNull = (value: string): string | null => {
   const trimmed = value.trim();
@@ -302,6 +334,34 @@ export const mapFormToPayload = (form: ClinicPatientForm): ClinicPatientPayload 
   billingCountry: getEmptyToNull(form.billingCountry) ?? DEFAULT_CLINIC_BILLING_COUNTRY,
 });
 
+export const mapSummaryFormToPayload = (
+  form: Pick<ClinicPatientForm, 'firstName' | 'lastName' | 'email' | 'phone'>,
+): UpdateClinicPatientPayload => ({
+  firstName: form.firstName.trim(),
+  lastName: form.lastName.trim(),
+  email: getEmptyToNull(form.email),
+  phone: getEmptyToNull(form.phone),
+});
+
+export const mapBillingFormToPayload = (
+  form: Pick<
+    ClinicPatientForm,
+    | 'billingFullName'
+    | 'billingTaxId'
+    | 'billingAddress'
+    | 'billingPostalCode'
+    | 'billingCity'
+    | 'billingCountry'
+  >,
+): UpdateClinicPatientPayload => ({
+  billingFullName: getEmptyToNull(form.billingFullName),
+  billingTaxId: getEmptyToNull(form.billingTaxId),
+  billingAddress: getEmptyToNull(form.billingAddress),
+  billingPostalCode: getEmptyToNull(form.billingPostalCode),
+  billingCity: getEmptyToNull(form.billingCity),
+  billingCountry: getEmptyToNull(form.billingCountry) ?? DEFAULT_CLINIC_BILLING_COUNTRY,
+});
+
 export const toPatientSummary = (patient: ClinicPatientDetail): ClinicPatientSummary => ({
   id: patient.id,
   status: patient.status,
@@ -350,7 +410,7 @@ export const createSuccessFeedback = (text: string): FeedbackMessage => ({
 });
 
 export const getValidationErrors = (
-  error: z.ZodError<ClinicPatientForm>,
+  error: z.ZodError,
 ): ClinicPatientErrors => {
   const nextErrors: ClinicPatientErrors = {};
 

@@ -7,6 +7,8 @@ import {
   copyAdministrativeNameToBilling,
   getAdministrativeBillingFullName,
   mapFormToPayload,
+  mapBillingFormToPayload,
+  mapSummaryFormToPayload,
   restoreClinicPatientBillingFullName,
   updateClinicPatientFormField,
 } from '../clinicPatientDomain';
@@ -139,6 +141,38 @@ describe('clinic patient billing copy', () => {
       billingCountry: 'España',
     });
     expect(payload).not.toHaveProperty('sameBillingData');
+  });
+});
+
+describe('clinic patient contextual payloads', () => {
+  it('keeps identity updates separate from billing updates', () => {
+    const form = {
+      ...baseForm,
+      firstName: ' Lucía ',
+      lastName: ' Martín ',
+      email: ' lucia@example.com ',
+      billingFullName: ' Empresa Familiar SL ',
+      billingTaxId: ' B12345678 ',
+      billingAddress: ' Calle Sur 2 ',
+    };
+
+    expect(mapSummaryFormToPayload(form)).toEqual({
+      firstName: 'Lucía',
+      lastName: 'Martín',
+      email: 'lucia@example.com',
+      phone: null,
+    });
+    expect(mapSummaryFormToPayload(form)).not.toHaveProperty('billingFullName');
+
+    expect(mapBillingFormToPayload(form)).toEqual({
+      billingFullName: 'Empresa Familiar SL',
+      billingTaxId: 'B12345678',
+      billingAddress: 'Calle Sur 2',
+      billingPostalCode: null,
+      billingCity: null,
+      billingCountry: 'España',
+    });
+    expect(mapBillingFormToPayload(form)).not.toHaveProperty('firstName');
   });
 });
 

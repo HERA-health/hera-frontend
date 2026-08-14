@@ -20,18 +20,23 @@ import {
   EMPTY_PATIENT_PAGE_INFO,
   getEmptyToNull,
   getValidationErrors,
-  hasPatientDetail,
+  clinicPatientBillingFormSchema,
   mapFormToPayload,
+  mapBillingFormToPayload,
   mapPatientToForm,
+  mapSummaryFormToPayload,
   mergePatientSummaries,
   mergeSummaryIntoDetail,
   restoreClinicPatientBillingFullName,
   toPatientSummary,
   updateClinicPatientFormField,
   clinicPatientFormSchema,
+  clinicPatientSummaryFormSchema,
   type AssignmentForm,
   type AssignmentPanelMode,
   type ClinicPatientErrors,
+  type ClinicPatientDetailTab,
+  type ClinicPatientEditSection,
   type ClinicPatientField,
   type ClinicPatientForm,
   type FeedbackMessage,
@@ -68,6 +73,7 @@ export function useClinicPatientsController() {
   const [patientsLoading, setPatientsLoading] = useState(false);
   const [patientsLoadingMore, setPatientsLoadingMore] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
   const [patientsError, setPatientsError] = useState('');
   const [statusFilter, setStatusFilter] = useState<clinicService.ClinicPatientStatusFilter>('ACTIVE');
   const [assignmentFilter, setAssignmentFilter] = useState<clinicService.ClinicPatientAssignmentFilter>('ALL');
@@ -75,6 +81,8 @@ export function useClinicPatientsController() {
   const [search, setSearch] = useState('');
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [panelMode, setPanelMode] = useState<PanelMode>('detail');
+  const [activeDetailTab, setActiveDetailTab] = useState<ClinicPatientDetailTab>('summary');
+  const [editSection, setEditSection] = useState<ClinicPatientEditSection | null>(null);
   const [assignmentMode, setAssignmentMode] = useState<AssignmentPanelMode>(null);
   const [assignmentForm, setAssignmentForm] = useState<AssignmentForm>(EMPTY_ASSIGNMENT_FORM);
   const [form, setForm] = useState<ClinicPatientForm>(EMPTY_FORM);
@@ -84,6 +92,7 @@ export function useClinicPatientsController() {
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
   const [patientConsents, setPatientConsents] = useState<Record<string, clinicService.ClinicPatientConsentDetail>>({});
   const [consentLoading, setConsentLoading] = useState(false);
+  const [consentError, setConsentError] = useState('');
   const [consentSaving, setConsentSaving] = useState(false);
   const [openingConsentDocumentId, setOpeningConsentDocumentId] = useState<string | null>(null);
   const [assignmentHistory, setAssignmentHistory] = useState<clinicService.ClinicPatientAssignmentHistoryItem[]>([]);
@@ -113,6 +122,7 @@ export function useClinicPatientsController() {
   const patientSessionsRequestSeq = useRef(0);
   const sessionDetailRequestSeq = useRef(0);
   const billingFullNameBeforeCopyRef = useRef('');
+  const detailTabPatientIdRef = useRef<string | null>(null);
 
   const updatePatients = useCallback((nextPatients: clinicService.ClinicPatientSummary[]) => {
     patientsRef.current = nextPatients;
@@ -187,6 +197,8 @@ export function useClinicPatientsController() {
     setSpecialistsError('');
     setSelectedPatientId(null);
     setPanelMode('detail');
+    setActiveDetailTab('summary');
+    setEditSection(null);
     setAssignmentMode(null);
     setAssignmentForm(EMPTY_ASSIGNMENT_FORM);
     setForm(EMPTY_FORM);
@@ -196,8 +208,10 @@ export function useClinicPatientsController() {
     setPatientsLoading(false);
     setPatientsLoadingMore(false);
     setDetailLoading(false);
+    setDetailError('');
     setPatientConsents({});
     setConsentLoading(false);
+    setConsentError('');
     setConsentSaving(false);
     setOpeningConsentDocumentId(null);
     setAssignmentHistory([]);
@@ -280,6 +294,7 @@ export function useClinicPatientsController() {
     const requestId = detailRequestSeq.current + 1;
     detailRequestSeq.current = requestId;
     setDetailLoading(true);
+    setDetailError('');
 
     try {
       const detail = await clinicService.getClinicPatient(clinicId, patientId);
@@ -296,7 +311,9 @@ export function useClinicPatientsController() {
       return reconciledDetail;
     } catch (error: unknown) {
       if (!mountedRef.current || detailRequestSeq.current !== requestId) return null;
-      setFeedback(createErrorFeedback(error, 'No se pudo cargar la ficha del paciente'));
+      const errorFeedback = createErrorFeedback(error, 'No se pudo cargar la ficha del paciente');
+      setDetailError(errorFeedback.text);
+      setFeedback(null);
       return null;
     } finally {
       if (mountedRef.current && detailRequestSeq.current === requestId) {
@@ -309,6 +326,7 @@ export function useClinicPatientsController() {
     const requestId = consentRequestSeq.current + 1;
     consentRequestSeq.current = requestId;
     setConsentLoading(true);
+    setConsentError('');
 
     try {
       const consent = await clinicService.getClinicPatientConsent(clinicId, patientId);
@@ -318,7 +336,12 @@ export function useClinicPatientsController() {
       return consent;
     } catch (error: unknown) {
       if (!mountedRef.current || consentRequestSeq.current !== requestId) return null;
-      setFeedback(createErrorFeedback(error, 'No se pudo cargar el consentimiento del paciente'));
+      const errorFeedback = createErrorFeedback(
+        error,
+        'No se pudo cargar el consentimiento del paciente',
+      );
+      setConsentError(errorFeedback.text);
+      setFeedback(null);
       return null;
     } finally {
       if (mountedRef.current && consentRequestSeq.current === requestId) {
@@ -542,6 +565,13 @@ export function useClinicPatientsController() {
   }, []);
 
   useEffect(() => {
+    if (detailTabPatientIdRef.current === selectedPatientId) return;
+    detailTabPatientIdRef.current = selectedPatientId;
+    setActiveDetailTab('summary');
+    setEditSection(null);
+  }, [selectedPatientId]);
+
+  useEffect(() => {
     const clinicId = workspace.selectedClinicId;
     if (!clinicId) {
       resetClinicState();
@@ -565,19 +595,18 @@ export function useClinicPatientsController() {
   }, [loadSpecialists, workspace.selectedClinicId]);
 
   useEffect(() => {
-    if (!workspace.selectedClinicId || !selectedPatientId || patientDetails[selectedPatientId]) {
+    if (!workspace.selectedClinicId || !selectedPatientId) {
       return;
     }
 
     void loadPatientDetail(workspace.selectedClinicId, selectedPatientId);
-  }, [loadPatientDetail, patientDetails, selectedPatientId, workspace.selectedClinicId]);
+  }, [loadPatientDetail, selectedPatientId, workspace.selectedClinicId]);
 
   useEffect(() => {
     if (
       !workspace.selectedClinicId
       || !selectedPatientId
       || !canManage
-      || patientConsents[selectedPatientId]
     ) {
       return;
     }
@@ -586,7 +615,6 @@ export function useClinicPatientsController() {
   }, [
     canManage,
     loadPatientConsent,
-    patientConsents,
     selectedPatientId,
     workspace.selectedClinicId,
   ]);
@@ -656,44 +684,118 @@ export function useClinicPatientsController() {
   }, [loadPatients, workspace]);
 
   const handleAdd = useCallback(() => {
+    detailRequestSeq.current += 1;
+    consentRequestSeq.current += 1;
     setSelectedPatientId(null);
     setPanelMode('create');
+    setActiveDetailTab('summary');
+    setEditSection(null);
     setAssignmentMode(null);
     setForm(EMPTY_FORM);
     resetBillingCopy();
     setAssignmentForm(EMPTY_ASSIGNMENT_FORM);
     setErrors({});
+    setDetailLoading(false);
+    setDetailError('');
+    setConsentLoading(false);
+    setConsentError('');
     setFeedback(null);
   }, [resetBillingCopy]);
 
   const handleSelectPatient = useCallback((patientId: string) => {
+    const isCurrentPatient = selectedPatientId === patientId;
+    detailRequestSeq.current += 1;
+    consentRequestSeq.current += 1;
     setSelectedPatientId(patientId);
     setPanelMode('detail');
+    setActiveDetailTab('summary');
+    setEditSection(null);
     setAssignmentMode(null);
     setAssignmentForm(EMPTY_ASSIGNMENT_FORM);
     resetBillingCopy();
     setErrors({});
+    setDetailLoading(false);
+    setDetailError('');
+    setConsentLoading(false);
+    setConsentError('');
     setFeedback(null);
-  }, [resetBillingCopy]);
 
-  const handleEdit = useCallback(async () => {
+    if (isCurrentPatient && workspace.selectedClinicId) {
+      void loadPatientDetail(workspace.selectedClinicId, patientId);
+      if (canManage) {
+        void loadPatientConsent(workspace.selectedClinicId, patientId);
+      }
+    }
+  }, [
+    canManage,
+    loadPatientConsent,
+    loadPatientDetail,
+    resetBillingCopy,
+    selectedPatientId,
+    workspace.selectedClinicId,
+  ]);
+
+  const handleEdit = useCallback(async (section: ClinicPatientEditSection) => {
     if (!workspace.selectedClinicId || !selectedPatient) return;
 
     const patientId = selectedPatient.id;
-    const detail = hasPatientDetail(selectedPatient)
-      ? selectedPatient
-      : await loadPatientDetail(workspace.selectedClinicId, patientId);
+    const detail = await loadPatientDetail(workspace.selectedClinicId, patientId);
 
-    if (!detail) return;
+    if (!detail || detail.id !== patientId) return;
 
     resetBillingCopy();
     setForm(mapPatientToForm(detail));
     setPanelMode('edit');
+    setActiveDetailTab(section);
+    setEditSection(section);
     setAssignmentMode(null);
     setAssignmentForm(EMPTY_ASSIGNMENT_FORM);
     setErrors({});
     setFeedback(null);
   }, [loadPatientDetail, resetBillingCopy, selectedPatient, workspace.selectedClinicId]);
+
+  const handleRetryDetail = useCallback(() => {
+    if (!workspace.selectedClinicId || !selectedPatientId || detailLoading) return;
+    setFeedback(null);
+    void loadPatientDetail(workspace.selectedClinicId, selectedPatientId);
+  }, [detailLoading, loadPatientDetail, selectedPatientId, workspace.selectedClinicId]);
+
+  const handleSelectDetailTab = useCallback((tab: ClinicPatientDetailTab) => {
+    setActiveDetailTab(tab);
+    if (
+      tab === 'consent'
+      && workspace.selectedClinicId
+      && selectedPatientId
+      && canManage
+      && !consentLoading
+    ) {
+      void loadPatientConsent(workspace.selectedClinicId, selectedPatientId);
+    }
+  }, [
+    canManage,
+    consentLoading,
+    loadPatientConsent,
+    selectedPatientId,
+    workspace.selectedClinicId,
+  ]);
+
+  const handleRetryConsent = useCallback(() => {
+    if (
+      !workspace.selectedClinicId
+      || !selectedPatientId
+      || !canManage
+      || consentLoading
+    ) return;
+
+    setFeedback(null);
+    void loadPatientConsent(workspace.selectedClinicId, selectedPatientId);
+  }, [
+    canManage,
+    consentLoading,
+    loadPatientConsent,
+    selectedPatientId,
+    workspace.selectedClinicId,
+  ]);
 
   const handleChange = useCallback((field: ClinicPatientField, value: string) => {
     setForm((currentForm) => updateClinicPatientFormField(
@@ -893,7 +995,10 @@ export function useClinicPatientsController() {
 
     try {
       await clinicService.updateClinicSessionStatus(workspace.selectedClinicId, session.id, { status });
-      await loadPatientSessions(workspace.selectedClinicId, selectedPatientId);
+      await Promise.all([
+        loadPatientSessions(workspace.selectedClinicId, selectedPatientId),
+        loadPatientDetail(workspace.selectedClinicId, selectedPatientId),
+      ]);
       return true;
     } catch (error: unknown) {
       setFeedback(createErrorFeedback(error, 'No se pudo actualizar la cita'));
@@ -903,6 +1008,7 @@ export function useClinicPatientsController() {
     }
   }, [
     canManage,
+    loadPatientDetail,
     loadPatientSessions,
     saving,
     selectedPatientId,
@@ -911,6 +1017,7 @@ export function useClinicPatientsController() {
 
   const handleCancelForm = useCallback(() => {
     setPanelMode('detail');
+    setEditSection(null);
     setForm(EMPTY_FORM);
     resetBillingCopy();
     setAssignmentMode(null);
@@ -924,7 +1031,12 @@ export function useClinicPatientsController() {
       return;
     }
 
-    const parsedForm = clinicPatientFormSchema.safeParse(form);
+    const formSchema = panelMode === 'edit'
+      ? editSection === 'billing'
+        ? clinicPatientBillingFormSchema
+        : clinicPatientSummaryFormSchema
+      : clinicPatientFormSchema;
+    const parsedForm = formSchema.safeParse(form);
     if (!parsedForm.success) {
       setErrors(getValidationErrors(parsedForm.error));
       setFeedback(null);
@@ -936,18 +1048,23 @@ export function useClinicPatientsController() {
     setFeedback(null);
 
     try {
-      const payload = mapFormToPayload(parsedForm.data);
       const savedPatient = panelMode === 'edit' && selectedPatient
         ? await clinicService.updateClinicPatient(
           workspace.selectedClinicId,
           selectedPatient.id,
-          payload,
+          editSection === 'billing'
+            ? mapBillingFormToPayload(form)
+            : mapSummaryFormToPayload(form),
         )
-        : await clinicService.createClinicPatient(workspace.selectedClinicId, payload);
+        : await clinicService.createClinicPatient(
+          workspace.selectedClinicId,
+          mapFormToPayload(form),
+        );
 
       rememberPatientDetail(savedPatient);
       setSelectedPatientId(savedPatient.id);
       setPanelMode('detail');
+      setEditSection(null);
       setForm(EMPTY_FORM);
       resetBillingCopy();
       setFeedback(createSuccessFeedback(
@@ -975,6 +1092,7 @@ export function useClinicPatientsController() {
     }
   }, [
     canManage,
+    editSection,
     form,
     loadPatients,
     panelMode,
@@ -1061,6 +1179,7 @@ export function useClinicPatientsController() {
     }
 
     setPanelMode('detail');
+    setActiveDetailTab('summary');
     setAssignmentMode(selectedPatient.activeAssignment ? 'change' : 'assign');
     setAssignmentForm({
       clinicSpecialistId: selectedPatient.activeAssignment?.clinicSpecialistId
@@ -1168,7 +1287,7 @@ export function useClinicPatientsController() {
   ]);
 
   const handleRequestConsent = useCallback(async () => {
-    if (!workspace.selectedClinicId || !selectedPatient || !canManage) {
+    if (!workspace.selectedClinicId || !selectedPatient || !canManage || consentError) {
       return;
     }
 
@@ -1195,16 +1314,24 @@ export function useClinicPatientsController() {
         selectedPatient.id,
       );
       rememberPatientConsent(consent);
+      setConsentError('');
       setFeedback(createSuccessFeedback('Solicitud de consentimiento enviada.'));
     } catch (error: unknown) {
       setFeedback(createErrorFeedback(error, 'No se pudo solicitar el consentimiento digital'));
     } finally {
       setConsentSaving(false);
     }
-  }, [alert, canManage, rememberPatientConsent, selectedPatient, workspace.selectedClinicId]);
+  }, [
+    alert,
+    canManage,
+    consentError,
+    rememberPatientConsent,
+    selectedPatient,
+    workspace.selectedClinicId,
+  ]);
 
   const handleUploadConsentEvidence = useCallback(async (file: UploadAsset) => {
-    if (!workspace.selectedClinicId || !selectedPatient || !canManage) {
+    if (!workspace.selectedClinicId || !selectedPatient || !canManage || consentError) {
       return;
     }
 
@@ -1236,18 +1363,26 @@ export function useClinicPatientsController() {
         file,
       );
       rememberPatientConsent(consent);
+      setConsentError('');
       setFeedback(createSuccessFeedback('Consentimiento firmado registrado.'));
     } catch (error: unknown) {
       setFeedback(createErrorFeedback(error, 'No se pudo subir el consentimiento firmado'));
     } finally {
       setConsentSaving(false);
     }
-  }, [alert, canManage, rememberPatientConsent, selectedPatient, workspace.selectedClinicId]);
+  }, [
+    alert,
+    canManage,
+    consentError,
+    rememberPatientConsent,
+    selectedPatient,
+    workspace.selectedClinicId,
+  ]);
 
   const handleOpenConsentDocument = useCallback(async (
     document: clinicService.ClinicPatientConsentDocument,
   ) => {
-    if (!workspace.selectedClinicId || !selectedPatient || !canManage) {
+    if (!workspace.selectedClinicId || !selectedPatient || !canManage || consentError) {
       return;
     }
 
@@ -1267,7 +1402,7 @@ export function useClinicPatientsController() {
     } finally {
       setOpeningConsentDocumentId(null);
     }
-  }, [canManage, selectedPatient, workspace.selectedClinicId]);
+  }, [canManage, consentError, selectedPatient, workspace.selectedClinicId]);
 
   const handleCloseAssignment = useCallback(async () => {
     if (!workspace.selectedClinicId || !selectedPatient?.activeAssignment || !canManage) {
@@ -1352,7 +1487,9 @@ export function useClinicPatientsController() {
     selectedSessionDetailLoading,
     selectedSessionDetailError,
     detailLoading,
+    detailError,
     consentLoading,
+    consentError,
     consentSaving,
     openingConsentDocumentId,
     specialistsLoading,
@@ -1364,6 +1501,8 @@ export function useClinicPatientsController() {
     clinicSpecialistFilter,
     search,
     panelMode,
+    activeDetailTab,
+    editSection,
     assignmentMode,
     assignmentForm,
     form,
@@ -1376,6 +1515,9 @@ export function useClinicPatientsController() {
     handleAdd,
     handleSelectPatient,
     handleEdit,
+    handleRetryDetail,
+    handleSelectDetailTab,
+    handleRetryConsent,
     handleChange,
     handleToggleSameBillingData,
     handleSearchChange,

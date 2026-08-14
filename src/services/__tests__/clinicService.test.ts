@@ -704,6 +704,18 @@ describe('clinicService', () => {
       createdAt: '2026-05-27T10:00:00.000Z',
       updatedAt: '2026-05-27T10:00:00.000Z',
       archivedAt: null,
+      nextSession: {
+        id: 'session-next',
+        date: '2026-06-01T10:00:00.000Z',
+        duration: 50,
+        type: 'VIDEO_CALL',
+        status: 'CONFIRMED',
+        clinicSpecialist: {
+          id: 'clinic-specialist-1',
+          displayName: 'Dra. Ana Ruiz',
+          professionalTitle: 'Psicóloga sanitaria',
+        },
+      },
     };
 
     getMock.mockResolvedValueOnce({
@@ -737,6 +749,7 @@ describe('clinicService', () => {
       createdAt: '2026-05-27T10:00:00.000Z',
       updatedAt: '2026-05-27T10:00:00.000Z',
       archivedAt: null,
+      nextSession: null,
     };
     const payload = {
       firstName: 'Lucia',
@@ -787,6 +800,7 @@ describe('clinicService', () => {
       createdAt: '2026-05-27T10:00:00.000Z',
       updatedAt: '2026-05-27T10:05:00.000Z',
       archivedAt: '2026-05-27T10:05:00.000Z',
+      nextSession: null,
     };
 
     patchMock.mockResolvedValueOnce({
@@ -835,6 +849,7 @@ describe('clinicService', () => {
       createdAt: '2026-05-27T10:00:00.000Z',
       updatedAt: '2026-05-27T10:05:00.000Z',
       archivedAt: null,
+      nextSession: null,
     };
 
     patchMock.mockResolvedValueOnce({
@@ -2131,6 +2146,7 @@ describe('clinicService', () => {
       billingPostalCode: null,
       billingCity: null,
       billingCountry: null,
+      nextSession: null,
     };
 
     getMock.mockResolvedValueOnce({

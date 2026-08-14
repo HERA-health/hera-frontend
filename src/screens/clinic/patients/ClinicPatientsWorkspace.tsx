@@ -14,7 +14,6 @@ import {
 import { ClinicPatientDetailPanel } from './ClinicPatientDetailPanel';
 import { ClinicPatientFormPanel } from './ClinicPatientFormPanel';
 import { ClinicPatientsListPanel } from './ClinicPatientsListPanel';
-import { hasPatientDetail } from './clinicPatientDomain';
 import { createWorkspaceStyles } from './clinicPatientStyles';
 import { useClinicPatientAdaptiveNavigation } from './useClinicPatientAdaptiveNavigation';
 import { useClinicPatientsController } from './useClinicPatientsController';
@@ -73,13 +72,16 @@ export function ClinicPatientsWorkspace({
     controller.handleSelectClinic,
   ]);
 
-  const compactPanelTitle = controller.panelMode === 'create'
-    ? 'Nuevo paciente'
-    : controller.panelMode === 'edit'
-      ? 'Editar paciente'
-      : controller.selectedPatient?.displayName ?? 'Ficha de paciente';
+  let compactPanelTitle = controller.selectedPatient?.displayName ?? 'Ficha de paciente';
+  if (controller.panelMode === 'create') {
+    compactPanelTitle = 'Nuevo paciente';
+  } else if (controller.assignmentMode) {
+    compactPanelTitle = 'Asignar responsable';
+  } else if (controller.panelMode === 'edit') {
+    compactPanelTitle = controller.editSection === 'billing' ? 'Editar facturación' : 'Editar datos';
+  }
 
-  const secondaryPanel = controller.panelMode === 'create' || controller.panelMode === 'edit' ? (
+  const secondaryPanel = controller.panelMode === 'create' ? (
     <ClinicPatientFormPanel
       mode={controller.panelMode}
       form={controller.form}
@@ -96,11 +98,13 @@ export function ClinicPatientsWorkspace({
   ) : controller.selectedPatient ? (
     <ClinicPatientDetailPanel
       patient={controller.selectedPatient}
-      detailLoading={controller.detailLoading && !hasPatientDetail(controller.selectedPatient)}
+      detailLoading={controller.detailLoading}
+      detailError={controller.detailError}
       saving={controller.saving}
       feedback={controller.feedback}
       consent={controller.selectedPatientConsent}
       consentLoading={controller.consentLoading}
+      consentError={controller.consentError}
       consentSaving={controller.consentSaving}
       openingConsentDocumentId={controller.openingConsentDocumentId}
       assignmentHistory={controller.assignmentHistory}
@@ -113,6 +117,11 @@ export function ClinicPatientsWorkspace({
       patientSessionsLoading={controller.patientSessionsLoading}
       patientSessionsLoadingMore={controller.patientSessionsLoadingMore}
       patientSessionsError={controller.patientSessionsError}
+      activeTab={controller.activeDetailTab}
+      editSection={controller.editSection}
+      form={controller.form}
+      errors={controller.errors}
+      sameBillingData={controller.sameBillingData}
       canManage={controller.canManage}
       assignmentMode={controller.assignmentMode}
       assignmentForm={controller.assignmentForm}
@@ -128,12 +137,19 @@ export function ClinicPatientsWorkspace({
       onRequestConsent={controller.handleRequestConsent}
       onUploadConsentEvidence={controller.handleUploadConsentEvidence}
       onOpenConsentDocument={controller.handleOpenConsentDocument}
+      onRetryConsent={controller.handleRetryConsent}
       onLoadMoreAssignmentHistory={controller.handleLoadMoreAssignmentHistory}
       onRetryAssignmentHistory={controller.handleRetryAssignmentHistory}
       onOpenSessionDetail={controller.handleOpenSessionDetail}
       onLoadMorePatientSessions={controller.handleLoadMorePatientSessions}
       onRetryPatientSessions={controller.handleRetryPatientSessions}
+      onSelectTab={controller.handleSelectDetailTab}
       onEdit={controller.handleEdit}
+      onRetryDetail={controller.handleRetryDetail}
+      onChange={controller.handleChange}
+      onToggleSameBillingData={controller.handleToggleSameBillingData}
+      onSubmitEdit={controller.handleSubmit}
+      onCancelEdit={adaptiveNavigation.handleCancelForm}
       onStatusChange={controller.handleStatusChange}
     />
   ) : (
@@ -270,7 +286,9 @@ export function ClinicPatientsWorkspace({
           visible={adaptiveNavigation.panelOpen}
           title={compactPanelTitle}
           busy={controller.saving || controller.consentSaving}
-          onBack={adaptiveNavigation.handleBack}
+          onBack={controller.assignmentMode
+            ? controller.handleCancelAssignment
+            : adaptiveNavigation.handleBack}
           onDismiss={restoreOriginFocus}
           overlay={controller.selectedSessionId ? appointmentDetail : null}
           onOverlayRequestClose={controller.handleCloseSessionDetail}

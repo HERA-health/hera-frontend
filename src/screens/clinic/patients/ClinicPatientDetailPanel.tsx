@@ -3,6 +3,7 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { Button } from '../../../components/common/Button';
+import { Card } from '../../../components/common/Card';
 import { Input } from '../../../components/common/Input';
 import { SimpleDropdown, type DropdownOption } from '../../../components/common/SimpleDropdown';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -17,10 +18,20 @@ import type {
 } from '../../../services/clinicService';
 import type { UploadAsset } from '../../../utils/multipartUpload';
 import { ClinicPatientConsentPanel } from './ClinicPatientConsentPanel';
+import { ClinicPatientDetailTabs } from './ClinicPatientDetailTabs';
+import {
+  ClinicPatientBillingFields,
+  ClinicPatientIdentityFields,
+} from './ClinicPatientFieldGroups';
 import { StatusBadge } from './ClinicPatientBadges';
 import type {
   AssignmentForm,
   AssignmentPanelMode,
+  ClinicPatientDetailTab,
+  ClinicPatientEditSection,
+  ClinicPatientErrors,
+  ClinicPatientField,
+  ClinicPatientForm,
   FeedbackMessage,
 } from './clinicPatientDomain';
 import {
@@ -33,10 +44,12 @@ import { createDetailStyles } from './clinicPatientStyles';
 interface ClinicPatientDetailPanelProps {
   patient: ClinicPatientSummary | ClinicPatientDetail;
   detailLoading: boolean;
+  detailError: string;
   saving: boolean;
   feedback: FeedbackMessage | null;
   consent: ClinicPatientConsentDetail | null;
   consentLoading: boolean;
+  consentError: string;
   consentSaving: boolean;
   openingConsentDocumentId: string | null;
   assignmentHistory: ClinicPatientAssignmentHistoryItem[];
@@ -49,6 +62,11 @@ interface ClinicPatientDetailPanelProps {
   patientSessionsLoading: boolean;
   patientSessionsLoadingMore: boolean;
   patientSessionsError: string;
+  activeTab: ClinicPatientDetailTab;
+  editSection: ClinicPatientEditSection | null;
+  form: ClinicPatientForm;
+  errors: ClinicPatientErrors;
+  sameBillingData: boolean;
   canManage: boolean;
   assignmentMode: AssignmentPanelMode;
   assignmentForm: AssignmentForm;
@@ -64,12 +82,19 @@ interface ClinicPatientDetailPanelProps {
   onRequestConsent: () => void;
   onUploadConsentEvidence: (file: UploadAsset) => void;
   onOpenConsentDocument: (document: ClinicPatientConsentDocument) => void;
+  onRetryConsent: () => void;
   onLoadMoreAssignmentHistory: () => void;
   onRetryAssignmentHistory: () => void;
   onOpenSessionDetail: (sessionId: string) => void;
   onLoadMorePatientSessions: () => void;
   onRetryPatientSessions: () => void;
-  onEdit: () => void;
+  onSelectTab: (tab: ClinicPatientDetailTab) => void;
+  onEdit: (section: ClinicPatientEditSection) => void;
+  onRetryDetail: () => void;
+  onChange: (field: ClinicPatientField, value: string) => void;
+  onToggleSameBillingData: () => void;
+  onSubmitEdit: () => void;
+  onCancelEdit: () => void;
   onStatusChange: () => void;
 }
 
@@ -97,10 +122,12 @@ const formatSessionDateTime = (value: string): string =>
 export function ClinicPatientDetailPanel({
   patient,
   detailLoading,
+  detailError,
   saving,
   feedback,
   consent,
   consentLoading,
+  consentError,
   consentSaving,
   openingConsentDocumentId,
   assignmentHistory,
@@ -113,6 +140,11 @@ export function ClinicPatientDetailPanel({
   patientSessionsLoading,
   patientSessionsLoadingMore,
   patientSessionsError,
+  activeTab,
+  editSection,
+  form,
+  errors,
+  sameBillingData,
   canManage,
   assignmentMode,
   assignmentForm,
@@ -128,12 +160,19 @@ export function ClinicPatientDetailPanel({
   onRequestConsent,
   onUploadConsentEvidence,
   onOpenConsentDocument,
+  onRetryConsent,
   onLoadMoreAssignmentHistory,
   onRetryAssignmentHistory,
   onOpenSessionDetail,
   onLoadMorePatientSessions,
   onRetryPatientSessions,
+  onSelectTab,
   onEdit,
+  onRetryDetail,
+  onChange,
+  onToggleSameBillingData,
+  onSubmitEdit,
+  onCancelEdit,
   onStatusChange,
 }: ClinicPatientDetailPanelProps): React.ReactElement {
   const { theme } = useTheme();
@@ -141,13 +180,22 @@ export function ClinicPatientDetailPanel({
   const nextStatusLabel = patient.status === 'ACTIVE' ? 'Archivar' : 'Reactivar';
   const nextStatusIcon = patient.status === 'ACTIVE' ? 'archive-outline' : 'refresh-outline';
   const detail = hasPatientDetail(patient) ? patient : null;
+  const activeAssignment = patient.activeAssignment;
+  const responsibleInactive = activeAssignment?.clinicSpecialistStatus === 'INACTIVE';
+  const responsibleLabel = activeAssignment
+    ? `${activeAssignment.clinicSpecialistDisplayName}${responsibleInactive ? ' · Inactivo' : ''}`
+    : 'Sin responsable';
+  const nextSession = detail?.nextSession ?? null;
+  const contextualActionOpen = editSection !== null || assignmentMode !== null;
+  const initials = [patient.firstName, patient.lastName]
+    .filter(Boolean)
+    .map((value) => value?.trim().charAt(0).toUpperCase())
+    .join('')
+    .slice(0, 2) || 'P';
 
   const contactRows = [
     ['Email', patient.email ?? 'Sin email'],
     ['Teléfono', patient.phone ?? 'Sin teléfono'],
-    ['Datos fiscales', patient.billingDataComplete ? 'Completos' : 'Pendientes'],
-    ['Alta', formatDate(patient.createdAt)],
-    ['Última actualización', formatDate(patient.updatedAt)],
   ] as const;
 
   const billingRows = detail ? ([
@@ -160,98 +208,408 @@ export function ClinicPatientDetailPanel({
   ] as const) : [];
 
   return (
-    <View style={styles.panel}>
-      <View style={styles.header}>
-        <View style={styles.headerIcon}>
-          <Ionicons name="medical-outline" size={22} color={theme.primary} />
-        </View>
-        <View style={styles.headerCopy}>
-          <Text style={styles.title}>{patient.displayName}</Text>
-          <Text style={styles.subtitle}>
-            Ficha administrativa separada del área asistencial.
-          </Text>
-        </View>
-        <StatusBadge status={patient.status} />
-      </View>
-
-      <View style={styles.rows}>
-        {contactRows.map(([label, value]) => (
-          <View key={label} style={styles.row}>
-            <Text style={styles.rowLabel}>{label}</Text>
-            <Text style={styles.rowValue}>{value}</Text>
+    <Card variant="outlined" padding="none" style={styles.panel}>
+      <View style={styles.hero}>
+        <View style={styles.header}>
+          <View style={styles.heroAvatar}>
+            <Text style={styles.heroAvatarText}>{initials}</Text>
           </View>
-        ))}
-      </View>
-
-      <ClinicPatientConsentPanel
-        consent={consent}
-        loading={consentLoading}
-        saving={consentSaving}
-        openingDocumentId={openingConsentDocumentId}
-        canManage={canManage}
-        patientStatus={patient.status}
-        onRequestDigitalConsent={onRequestConsent}
-        onUploadEvidence={onUploadConsentEvidence}
-        onOpenDocument={onOpenConsentDocument}
-      />
-
-      <AssignmentSection
-        patient={patient}
-        assignmentMode={assignmentMode}
-        assignmentForm={assignmentForm}
-        specialistOptions={specialistOptions}
-        specialistsLoading={specialistsLoading}
-        specialistsError={specialistsError}
-        saving={saving}
-        canManage={canManage}
-        onStartAssignment={onStartAssignment}
-        onCancelAssignment={onCancelAssignment}
-        onChangeAssignmentSpecialist={onChangeAssignmentSpecialist}
-        onChangeAssignmentReason={onChangeAssignmentReason}
-        onSubmitAssignment={onSubmitAssignment}
-        onCloseAssignment={onCloseAssignment}
-      />
-
-      <AssignmentHistorySection
-        history={assignmentHistory}
-        pageInfo={assignmentHistoryPageInfo}
-        loading={assignmentHistoryLoading}
-        loadingMore={assignmentHistoryLoadingMore}
-        error={assignmentHistoryError}
-        canManage={canManage}
-        onLoadMore={onLoadMoreAssignmentHistory}
-        onRetry={onRetryAssignmentHistory}
-      />
-
-      <PatientSessionsSection
-        sessions={patientSessions}
-        pageInfo={patientSessionsPageInfo}
-        loading={patientSessionsLoading}
-        loadingMore={patientSessionsLoadingMore}
-        error={patientSessionsError}
-        canManage={canManage}
-        onOpenSessionDetail={onOpenSessionDetail}
-        onLoadMore={onLoadMorePatientSessions}
-        onRetry={onRetryPatientSessions}
-      />
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Fiscal</Text>
-        {detailLoading ? <ActivityIndicator color={theme.primary} size="small" /> : null}
-      </View>
-
-      {detail ? (
-        <View style={styles.rows}>
-          {billingRows.map(([label, value]) => (
-            <View key={label} style={styles.row}>
-              <Text style={styles.rowLabel}>{label}</Text>
-              <Text style={styles.rowValue}>{value}</Text>
-            </View>
-          ))}
+          <View style={styles.headerCopy}>
+            <Text style={styles.title}>{patient.displayName}</Text>
+            <Text style={styles.subtitle}>
+              Ficha administrativa de clínica · sin historia clínica ni notas asistenciales
+            </Text>
+          </View>
+          <StatusBadge status={patient.status} />
         </View>
+
+        <View style={styles.heroFacts}>
+          <View style={styles.heroFact}>
+            <Text style={styles.heroFactLabel}>Responsable</Text>
+            <Text style={styles.heroFactValue}>{responsibleLabel}</Text>
+          </View>
+          <View style={styles.heroFact}>
+            <Text style={styles.heroFactLabel}>Próxima cita</Text>
+            <Text style={styles.heroFactValue}>
+              {nextSession
+                ? formatSessionDateTime(nextSession.date)
+                : detail
+                  ? 'Sin cita programada'
+                  : detailLoading ? 'Cargando…' : 'No disponible'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.actions}>
+          <Button
+            variant="outline"
+            size="small"
+            onPress={() => onEdit('summary')}
+            disabled={!canManage || saving || contextualActionOpen || detailLoading || patient.status !== 'ACTIVE'}
+            icon={<Ionicons name="create-outline" size={17} color={theme.primary} />}
+          >
+            Editar datos
+          </Button>
+          {nextSession && patient.status === 'ACTIVE' ? (
+            <Button
+              variant="ghost"
+              size="small"
+              onPress={() => onOpenSessionDetail(nextSession.id)}
+              disabled={!canManage || saving || contextualActionOpen}
+              icon={<Ionicons name="calendar-outline" size={17} color={theme.primary} />}
+            >
+              Abrir cita
+            </Button>
+          ) : null}
+          <Button
+            variant={patient.status === 'ACTIVE' ? 'danger' : 'secondary'}
+            size="small"
+            onPress={onStatusChange}
+            disabled={!canManage || saving || contextualActionOpen}
+            loading={saving}
+            icon={(
+              <Ionicons
+                name={nextStatusIcon}
+                size={17}
+                color={patient.status === 'ACTIVE' ? theme.textOnPrimary : theme.primary}
+              />
+            )}
+          >
+            {nextStatusLabel}
+          </Button>
+        </View>
+      </View>
+
+      {detailError ? (
+        <View
+          accessibilityRole="alert"
+          accessibilityLiveRegion="assertive"
+          style={styles.detailError}
+        >
+          <Ionicons name="alert-circle-outline" size={19} color={theme.error} />
+          <View style={styles.alertCopy}>
+            <Text style={styles.detailErrorTitle}>No se pudo actualizar la ficha</Text>
+            <Text style={styles.alertText}>{detailError}</Text>
+            {detail ? (
+              <Text style={styles.alertText}>Se muestran los últimos datos disponibles.</Text>
+            ) : null}
+          </View>
+          <Button
+            variant="ghost"
+            size="small"
+            onPress={onRetryDetail}
+            disabled={detailLoading}
+            loading={detailLoading}
+          >
+            Reintentar
+          </Button>
+        </View>
+      ) : null}
+
+      {contextualActionOpen ? null : patient.status === 'ARCHIVED' ? (
+        <AnimatedPressable
+          accessibilityRole="button"
+          accessibilityLabel="Paciente archivado. Reactivar paciente"
+          disabled={!canManage || saving}
+          onPress={onStatusChange}
+          style={styles.alert}
+        >
+          <Ionicons name="archive-outline" size={19} color={theme.warning} />
+          <View style={styles.alertCopy}>
+            <Text style={styles.alertTitle}>Paciente archivado</Text>
+            <Text style={styles.alertText}>Reactívalo para recuperar las acciones operativas.</Text>
+          </View>
+        </AnimatedPressable>
       ) : (
-        <Text style={styles.hint}>Cargando datos fiscales de la ficha seleccionada.</Text>
+        <View style={styles.alerts}>
+          {!activeAssignment || responsibleInactive ? (
+            <AnimatedPressable
+              accessibilityRole="button"
+              onPress={() => {
+                onSelectTab('summary');
+                onStartAssignment();
+              }}
+              disabled={!canManage || saving}
+              style={styles.alert}
+            >
+              <Ionicons name="person-add-outline" size={19} color={theme.warning} />
+              <View style={styles.alertCopy}>
+                <Text style={styles.alertTitle}>
+                  {responsibleInactive ? 'Responsable inactivo' : 'Responsable pendiente'}
+                </Text>
+                <Text style={styles.alertText}>Revisa la asignación asistencial del paciente.</Text>
+              </View>
+            </AnimatedPressable>
+          ) : null}
+          {!consentLoading && !consentError && consent && consent.status !== 'GRANTED' ? (
+            <AnimatedPressable
+              accessibilityRole="button"
+              onPress={() => onSelectTab('consent')}
+              disabled={saving}
+              style={styles.alert}
+            >
+              <Ionicons name="document-text-outline" size={19} color={theme.warning} />
+              <View style={styles.alertCopy}>
+                <Text style={styles.alertTitle}>
+                  Consentimiento {consent.status === 'REVOKED' ? 'revocado' : 'pendiente'}
+                </Text>
+                <Text style={styles.alertText}>Consulta el estado y las acciones disponibles.</Text>
+              </View>
+            </AnimatedPressable>
+          ) : null}
+          {!patient.billingDataComplete ? (
+            <AnimatedPressable
+              accessibilityRole="button"
+              accessibilityLabel="Revisar datos fiscales incompletos"
+              onPress={() => onSelectTab('billing')}
+              disabled={saving}
+              style={styles.alert}
+            >
+              <Ionicons name="receipt-outline" size={19} color={theme.warning} />
+              <View style={styles.alertCopy}>
+                <Text style={styles.alertTitle}>Datos fiscales incompletos</Text>
+                <Text style={styles.alertText}>Completa la ficha antes de emitir una factura completa.</Text>
+              </View>
+            </AnimatedPressable>
+          ) : null}
+          {detail && !nextSession ? (
+            <AnimatedPressable
+              accessibilityRole="button"
+              onPress={() => onSelectTab('sessions')}
+              disabled={saving}
+              style={styles.alert}
+            >
+              <Ionicons name="calendar-outline" size={19} color={theme.warning} />
+              <View style={styles.alertCopy}>
+                <Text style={styles.alertTitle}>Sin próxima cita</Text>
+                <Text style={styles.alertText}>Consulta el historial reciente en Citas.</Text>
+              </View>
+            </AnimatedPressable>
+          ) : null}
+        </View>
       )}
+
+      <ClinicPatientDetailTabs
+        activeTab={activeTab}
+        disabled={saving || contextualActionOpen}
+        onSelect={onSelectTab}
+      />
+
+      {activeTab === 'summary' ? (
+        <View style={styles.tabPanel}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderCopy}>
+              <Text style={styles.sectionTitle}>Identidad y contacto</Text>
+              <Text style={styles.hint}>Información administrativa para identificar y contactar.</Text>
+            </View>
+            {detailLoading ? <ActivityIndicator color={theme.primary} size="small" /> : null}
+          </View>
+          {editSection === 'summary' ? (
+            <View style={styles.editor}>
+              <ClinicPatientIdentityFields
+                form={form}
+                errors={errors}
+                disabled={!canManage || saving}
+                onChange={onChange}
+                showTitle={false}
+              />
+              <View style={styles.actions}>
+                <Button variant="ghost" size="medium" onPress={onCancelEdit} disabled={saving}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="primary"
+                  size="medium"
+                  onPress={onSubmitEdit}
+                  loading={saving}
+                  disabled={!canManage || saving}
+                >
+                  Guardar datos
+                </Button>
+              </View>
+            </View>
+          ) : (
+            <>
+              <View style={styles.rows}>
+                {contactRows.map(([label, value]) => (
+                  <View key={label} style={styles.row}>
+                    <Text style={styles.rowLabel}>{label}</Text>
+                    <Text style={styles.rowValue}>{value}</Text>
+                  </View>
+                ))}
+              </View>
+              <Button
+                variant="ghost"
+                size="small"
+                onPress={() => onEdit('summary')}
+                disabled={!canManage || saving || detailLoading || patient.status !== 'ACTIVE'}
+              >
+                Editar identidad y contacto
+              </Button>
+            </>
+          )}
+          {editSection === null ? <AssignmentSection
+            patient={patient}
+            assignmentMode={assignmentMode}
+            assignmentForm={assignmentForm}
+            specialistOptions={specialistOptions}
+            specialistsLoading={specialistsLoading}
+            specialistsError={specialistsError}
+            saving={saving}
+            canManage={canManage}
+            onStartAssignment={onStartAssignment}
+            onCancelAssignment={onCancelAssignment}
+            onChangeAssignmentSpecialist={onChangeAssignmentSpecialist}
+            onChangeAssignmentReason={onChangeAssignmentReason}
+            onSubmitAssignment={onSubmitAssignment}
+            onCloseAssignment={onCloseAssignment}
+          /> : null}
+        </View>
+      ) : null}
+
+      {activeTab === 'sessions' ? (
+        <View style={styles.tabPanel}>
+          {nextSession ? (
+            <AnimatedPressable
+              accessibilityRole="button"
+              accessibilityLabel="Abrir próxima cita"
+              onPress={() => onOpenSessionDetail(nextSession.id)}
+              disabled={!canManage || saving}
+              style={styles.nextSessionCard}
+            >
+              <View style={styles.nextSessionIcon}>
+                <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+              </View>
+              <View style={styles.nextSessionCopy}>
+                <Text style={styles.sectionTitle}>Próxima cita</Text>
+                <Text style={styles.nextSessionDate}>{formatSessionDateTime(nextSession.date)}</Text>
+                <Text style={styles.hint}>
+                  {SESSION_TYPE_LABELS[nextSession.type]} · {nextSession.duration} min · {nextSession.clinicSpecialist?.displayName ?? 'Sin especialista'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+            </AnimatedPressable>
+          ) : null}
+          <PatientSessionsSection
+            sessions={patientSessions}
+            pageInfo={patientSessionsPageInfo}
+            loading={patientSessionsLoading}
+            loadingMore={patientSessionsLoadingMore}
+            error={patientSessionsError}
+            canManage={canManage}
+            onOpenSessionDetail={onOpenSessionDetail}
+            onLoadMore={onLoadMorePatientSessions}
+            onRetry={onRetryPatientSessions}
+          />
+        </View>
+      ) : null}
+
+      {activeTab === 'consent' ? (
+        <ClinicPatientConsentPanel
+          consent={consent}
+          loading={consentLoading}
+          error={consentError}
+          saving={consentSaving}
+          openingDocumentId={openingConsentDocumentId}
+          canManage={canManage}
+          patientStatus={patient.status}
+          onRequestDigitalConsent={onRequestConsent}
+          onUploadEvidence={onUploadConsentEvidence}
+          onOpenDocument={onOpenConsentDocument}
+          onRetry={onRetryConsent}
+        />
+      ) : null}
+
+      {activeTab === 'billing' ? (
+        <View style={styles.tabPanel}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderCopy}>
+              <Text style={styles.sectionTitle}>Datos de facturación</Text>
+              <Text style={styles.hint}>
+                {patient.billingDataComplete ? 'Ficha fiscal completa.' : 'Faltan datos para facturación completa.'}
+              </Text>
+            </View>
+            {detailLoading ? <ActivityIndicator color={theme.primary} size="small" /> : null}
+          </View>
+          {editSection === 'billing' ? (
+            <View style={styles.editor}>
+              <ClinicPatientBillingFields
+                form={form}
+                errors={errors}
+                disabled={!canManage || saving}
+                sameBillingData={sameBillingData}
+                onChange={onChange}
+                onToggleSameBillingData={onToggleSameBillingData}
+                showTitle={false}
+              />
+              <View style={styles.actions}>
+                <Button variant="ghost" size="medium" onPress={onCancelEdit} disabled={saving}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="primary"
+                  size="medium"
+                  onPress={onSubmitEdit}
+                  loading={saving}
+                  disabled={!canManage || saving}
+                >
+                  Guardar facturación
+                </Button>
+              </View>
+            </View>
+          ) : detail ? (
+            <>
+              <View style={styles.rows}>
+                {billingRows.map(([label, value]) => (
+                  <View key={label} style={styles.row}>
+                    <Text style={styles.rowLabel}>{label}</Text>
+                    <Text style={styles.rowValue}>{value}</Text>
+                  </View>
+                ))}
+              </View>
+              <Button
+                variant="ghost"
+                size="small"
+                onPress={() => onEdit('billing')}
+                disabled={!canManage || saving || patient.status !== 'ACTIVE'}
+              >
+                Editar datos fiscales
+              </Button>
+            </>
+          ) : (
+            <Text style={styles.hint}>
+              {detailLoading
+                ? 'Cargando datos fiscales de la ficha seleccionada.'
+                : 'Los datos fiscales no están disponibles.'}
+            </Text>
+          )}
+        </View>
+      ) : null}
+
+      {activeTab === 'activity' ? (
+        <View style={styles.tabPanel}>
+          <View style={styles.rows}>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Alta</Text>
+              <Text style={styles.rowValue}>{formatDateTime(patient.createdAt)}</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Última actualización</Text>
+              <Text style={styles.rowValue}>{formatDateTime(patient.updatedAt)}</Text>
+            </View>
+          </View>
+          <AssignmentHistorySection
+            history={assignmentHistory}
+            pageInfo={assignmentHistoryPageInfo}
+            loading={assignmentHistoryLoading}
+            loadingMore={assignmentHistoryLoadingMore}
+            error={assignmentHistoryError}
+            canManage={canManage}
+            onLoadMore={onLoadMoreAssignmentHistory}
+            onRetry={onRetryAssignmentHistory}
+          />
+        </View>
+      ) : null}
 
       {feedback ? (
         <Text style={[
@@ -260,40 +618,8 @@ export function ClinicPatientDetailPanel({
         ]}>
           {feedback.text}
         </Text>
-      ) : (
-        <Text style={styles.hint}>
-          Mantén esta ficha centrada en datos administrativos; la información asistencial se gestiona por separado.
-        </Text>
-      )}
-
-      <View style={styles.actions}>
-        <Button
-          variant="outline"
-          size="medium"
-          onPress={onEdit}
-          disabled={!canManage || saving || detailLoading}
-          icon={<Ionicons name="create-outline" size={18} color={theme.primary} />}
-        >
-          Editar ficha
-        </Button>
-        <Button
-          variant={patient.status === 'ACTIVE' ? 'danger' : 'secondary'}
-          size="medium"
-          onPress={onStatusChange}
-          disabled={!canManage || saving}
-          loading={saving}
-          icon={(
-            <Ionicons
-              name={nextStatusIcon}
-              size={18}
-              color={patient.status === 'ACTIVE' ? theme.textOnPrimary : theme.primary}
-            />
-          )}
-        >
-          {nextStatusLabel}
-        </Button>
-      </View>
-    </View>
+      ) : null}
+    </Card>
   );
 }
 

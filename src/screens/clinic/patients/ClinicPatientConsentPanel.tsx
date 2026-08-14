@@ -20,6 +20,7 @@ import { formatDate } from './clinicPatientDomain';
 interface ClinicPatientConsentPanelProps {
   consent: ClinicPatientConsentDetail | null;
   loading: boolean;
+  error: string;
   saving: boolean;
   openingDocumentId: string | null;
   canManage: boolean;
@@ -27,6 +28,7 @@ interface ClinicPatientConsentPanelProps {
   onRequestDigitalConsent: () => void;
   onUploadEvidence: (file: UploadAsset) => void;
   onOpenDocument: (document: ClinicPatientConsentDocument) => void;
+  onRetry: () => void;
 }
 
 const STATUS_LABELS: Record<ClinicPatientConsentStatus, string> = {
@@ -77,6 +79,7 @@ const pickConsentPdf = async (): Promise<UploadAsset | null> => {
 export function ClinicPatientConsentPanel({
   consent,
   loading,
+  error,
   saving,
   openingDocumentId,
   canManage,
@@ -84,13 +87,19 @@ export function ClinicPatientConsentPanel({
   onRequestDigitalConsent,
   onUploadEvidence,
   onOpenDocument,
+  onRetry,
 }: ClinicPatientConsentPanelProps): React.ReactElement {
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const status = consent?.status ?? 'PENDING';
+  const status = consent?.status ?? null;
   const method = consent?.method ? METHOD_LABELS[consent.method] : 'Sin método';
   const isGranted = status === 'GRANTED';
-  const canOperate = canManage && patientStatus === 'ACTIVE' && !saving && !loading;
+  const canOperate = Boolean(consent)
+    && !error
+    && canManage
+    && patientStatus === 'ACTIVE'
+    && !saving
+    && !loading;
 
   const handleUpload = async () => {
     const file = await pickConsentPdf();
@@ -107,17 +116,49 @@ export function ClinicPatientConsentPanel({
             Evidencia administrativa separada de historia clínica, sesiones y facturación.
           </Text>
         </View>
-        {loading ? (
+        {loading && !consent ? (
           <ActivityIndicator size="small" color={theme.primary} />
-        ) : (
+        ) : status ? (
           <View style={[styles.statusBadge, isGranted ? styles.statusGranted : styles.statusPending]}>
             <Text style={[styles.statusText, isGranted ? styles.statusTextGranted : styles.statusTextPending]}>
               {STATUS_LABELS[status]}
             </Text>
           </View>
+        ) : (
+          <View style={[styles.statusBadge, styles.statusUnknown]}>
+            <Text style={[styles.statusText, styles.statusTextUnknown]}>No disponible</Text>
+          </View>
         )}
       </View>
 
+      {error ? (
+        <View
+          accessibilityRole="alert"
+          accessibilityLiveRegion="assertive"
+          style={styles.errorBox}
+        >
+          <Ionicons name="alert-circle-outline" size={19} color={theme.error} />
+          <View style={styles.errorCopy}>
+            <Text style={styles.errorTitle}>No se pudo verificar el consentimiento</Text>
+            <Text style={styles.errorText}>{error}</Text>
+            {consent ? (
+              <Text style={styles.errorText}>Se muestran los últimos datos disponibles.</Text>
+            ) : null}
+          </View>
+          <Button
+            variant="ghost"
+            size="small"
+            onPress={onRetry}
+            disabled={loading}
+            loading={loading}
+          >
+            Reintentar
+          </Button>
+        </View>
+      ) : null}
+
+      {consent ? (
+        <>
       <View style={styles.rows}>
         <ConsentRow label="Método" value={method} />
         <ConsentRow label="Versión" value={consent?.version ?? 'Sin versión'} />
@@ -181,7 +222,7 @@ export function ClinicPatientConsentPanel({
                 size="small"
                 onPress={() => onOpenDocument(document)}
                 loading={openingDocumentId === document.id}
-                disabled={Boolean(openingDocumentId)}
+                disabled={Boolean(openingDocumentId) || Boolean(error)}
                 icon={<Ionicons name="download-outline" size={17} color={theme.primary} />}
               >
                 Abrir
@@ -193,6 +234,21 @@ export function ClinicPatientConsentPanel({
         <View style={styles.emptyEvidence}>
           <Ionicons name="document-attach-outline" size={18} color={theme.textMuted} />
           <Text style={styles.emptyEvidenceText}>Todavía no hay PDF firmado asociado.</Text>
+        </View>
+      )}
+        </>
+      ) : (
+        <View style={styles.unavailableState}>
+          {loading ? (
+            <ActivityIndicator size="small" color={theme.primary} />
+          ) : (
+            <Ionicons name="shield-outline" size={20} color={theme.textMuted} />
+          )}
+          <Text style={styles.emptyEvidenceText}>
+            {loading
+              ? 'Verificando el estado del consentimiento…'
+              : 'El estado del consentimiento no está disponible.'}
+          </Text>
         </View>
       )}
     </View>
@@ -260,6 +316,10 @@ const createStyles = (theme: Theme) =>
       backgroundColor: theme.warningBg,
       borderColor: theme.warning,
     },
+    statusUnknown: {
+      backgroundColor: theme.bgCard,
+      borderColor: theme.border,
+    },
     statusText: {
       fontFamily: theme.fontSansSemiBold,
       fontSize: 12,
@@ -270,6 +330,36 @@ const createStyles = (theme: Theme) =>
     },
     statusTextPending: {
       color: theme.warning,
+    },
+    statusTextUnknown: {
+      color: theme.textMuted,
+    },
+    errorBox: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+      borderWidth: 1,
+      borderColor: theme.error,
+      borderRadius: 8,
+      backgroundColor: theme.errorBg,
+      padding: spacing.sm,
+    },
+    errorCopy: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    errorTitle: {
+      color: theme.error,
+      fontFamily: theme.fontSansBold,
+      fontSize: 13,
+      lineHeight: 19,
+    },
+    errorText: {
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+      fontSize: 12,
+      lineHeight: 17,
     },
     rows: {
       gap: spacing.xs,
@@ -394,5 +484,15 @@ const createStyles = (theme: Theme) =>
       fontFamily: theme.fontSans,
       fontSize: 13,
       lineHeight: 19,
+    },
+    unavailableState: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+      borderRadius: 8,
+      backgroundColor: theme.bgCard,
+      padding: spacing.md,
     },
   });

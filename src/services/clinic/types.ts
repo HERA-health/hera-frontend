@@ -162,6 +162,17 @@ export interface ClinicPatientDetail extends ClinicPatientSummary {
   billingPostalCode: string | null;
   billingCity: string | null;
   billingCountry: string | null;
+  nextSession: {
+    id: string;
+    date: string;
+    duration: number;
+    type: ClinicSessionType;
+    status: Extract<ClinicSessionStatus, 'PENDING' | 'CONFIRMED'>;
+    clinicSpecialist: Pick<
+      ClinicSessionSpecialistSummary,
+      'id' | 'displayName' | 'professionalTitle'
+    > | null;
+  } | null;
 }
 
 export type ClinicPatientAssignmentHistoryStatus = 'ACTIVE' | 'ENDED';
