@@ -14,6 +14,11 @@ import type { Theme } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import type { ClinicSessionDetail } from '../../services/clinicService';
 import type { ProfessionalSessionDetail } from '../../services/professionalService';
+import {
+  getSessionStatusLabel,
+  getSessionStatusThemeKey,
+  getSessionTypeLabel,
+} from './sessionPresentation';
 
 type AppointmentDetailMode = 'clinic-admin' | 'professional';
 
@@ -29,24 +34,12 @@ interface AppointmentDetailSheetProps {
   onClose: () => void;
   onRetry?: () => void;
   onCancel?: () => void;
+  onComplete?: () => void;
   onJoinVideo?: () => void;
   onOpenNotes?: () => void;
   onOpenPatient?: () => void;
   onOpenInvoice?: () => void;
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: 'Pendiente',
-  CONFIRMED: 'Confirmada',
-  COMPLETED: 'Completada',
-  CANCELLED: 'Cancelada',
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  VIDEO_CALL: 'Videollamada',
-  PHONE_CALL: 'Llamada',
-  IN_PERSON: 'Presencial',
-};
 
 const FINANCIAL_SOURCE_LABELS: Record<ClinicSessionDetail['financials']['source'], string> = {
   ACTIVE_INVOICE: 'Factura activa',
@@ -91,21 +84,6 @@ const formatTimeRange = (date?: string | null, duration = 0): string => {
   return `${formatTime(date)} - ${formatTime(end.toISOString())}`;
 };
 
-const getStatusColor = (theme: Theme, status?: string): string => {
-  switch (status) {
-    case 'CONFIRMED':
-      return theme.primary;
-    case 'COMPLETED':
-      return theme.success;
-    case 'CANCELLED':
-      return theme.error;
-    case 'PENDING':
-      return theme.warning;
-    default:
-      return theme.textMuted;
-  }
-};
-
 export function AppointmentDetailSheet({
   visible,
   embedded = false,
@@ -118,6 +96,7 @@ export function AppointmentDetailSheet({
   onClose,
   onRetry,
   onCancel,
+  onComplete,
   onJoinVideo,
   onOpenNotes,
   onOpenPatient,
@@ -126,7 +105,8 @@ export function AppointmentDetailSheet({
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const detail = mode === 'clinic-admin' ? clinicSession : professionalSession;
-  const statusColor = getStatusColor(theme, detail?.status);
+  const statusThemeKey = detail ? getSessionStatusThemeKey(detail.status) : null;
+  const statusPalette = statusThemeKey ? theme.status[statusThemeKey] : null;
 
   const patient = mode === 'clinic-admin'
     ? clinicSession?.patient
@@ -217,10 +197,28 @@ export function AppointmentDetailSheet({
             <>
               <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
                 <View style={styles.summaryBand}>
-                  <View style={[styles.statusPill, { borderColor: statusColor, backgroundColor: `${statusColor}14` }]}>
-                    <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-                    <Text style={[styles.statusText, { color: statusColor }]}>
-                      {STATUS_LABELS[detail.status] ?? detail.status}
+                  <View
+                    style={[
+                      styles.statusPill,
+                      {
+                        borderColor: statusPalette?.border ?? theme.border,
+                        backgroundColor: statusPalette?.bg ?? theme.surface,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.statusDot,
+                        { backgroundColor: statusPalette?.text ?? theme.textMuted },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.statusText,
+                        { color: statusPalette?.text ?? theme.textMuted },
+                      ]}
+                    >
+                      {getSessionStatusLabel(detail.status)}
                     </Text>
                   </View>
                   {professionalSession?.origin === 'CLINIC' ? (
@@ -235,7 +233,7 @@ export function AppointmentDetailSheet({
                   <InfoRow label="Fecha" value={formatDate(detail.date)} />
                   <InfoRow label="Hora" value={formatTimeRange(detail.date, duration)} />
                   <InfoRow label="Duración" value={`${duration} min`} />
-                  <InfoRow label="Modalidad" value={TYPE_LABELS[detail.type] ?? detail.type} />
+                  <InfoRow label="Modalidad" value={getSessionTypeLabel(detail.type)} />
                 </Section>
 
                 <Section title="Paciente" icon="person-outline">
@@ -315,6 +313,16 @@ export function AppointmentDetailSheet({
                         disabled={processing}
                       >
                         Cancelar cita
+                      </Button>
+                    ) : null}
+                    {clinicSession?.actions.canComplete && onComplete ? (
+                      <Button
+                        variant="primary"
+                        size="medium"
+                        onPress={onComplete}
+                        disabled={processing}
+                      >
+                        Completar cita
                       </Button>
                     ) : null}
                   </>

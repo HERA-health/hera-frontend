@@ -20,6 +20,7 @@ jest.mock('../../../../services/clinicService', () => ({
   listClinicSessions: jest.fn(),
   listClinicSpecialists: jest.fn(),
   updateClinicPatient: jest.fn(),
+  updateClinicSessionStatus: jest.fn(),
 }));
 jest.mock('../../useClinicWorkspace', () => ({
   useClinicWorkspace: jest.fn(),
@@ -38,6 +39,7 @@ const mockedListClinicPatients = jest.mocked(clinicService.listClinicPatients);
 const mockedListClinicSessions = jest.mocked(clinicService.listClinicSessions);
 const mockedListClinicSpecialists = jest.mocked(clinicService.listClinicSpecialists);
 const mockedUpdateClinicPatient = jest.mocked(clinicService.updateClinicPatient);
+const mockedUpdateClinicSessionStatus = jest.mocked(clinicService.updateClinicSessionStatus);
 
 const patientDetail: clinicService.ClinicPatientDetail = {
   id: 'patient-1',
@@ -59,6 +61,33 @@ const patientDetail: clinicService.ClinicPatientDetail = {
   archivedAt: null,
   activeAssignment: null,
   nextSession: null,
+};
+
+const clinicSession: clinicService.ClinicSessionSummary = {
+  id: 'session-1',
+  date: '2026-08-14T09:00:00.000Z',
+  duration: 50,
+  type: 'IN_PERSON',
+  status: 'CONFIRMED',
+  bookedPrice: 70,
+  bookedCurrency: 'EUR',
+  cancelledAt: null,
+  createdAt: '2026-08-01T09:00:00.000Z',
+  updatedAt: '2026-08-01T09:00:00.000Z',
+  patient: {
+    id: patientDetail.id,
+    displayName: patientDetail.displayName,
+    email: patientDetail.email,
+    phone: patientDetail.phone,
+    status: patientDetail.status,
+  },
+  specialist: {
+    id: 'specialist-1',
+    displayName: 'Dra. Ana Ruiz',
+    professionalTitle: 'Psicóloga sanitaria',
+    status: 'ACTIVE',
+    linkedProfessionalName: 'Ana Ruiz',
+  },
 };
 
 const enableManagedClinic = () => {
@@ -115,7 +144,7 @@ describe('useClinicPatientsController billing copy', () => {
     });
     mockedListClinicSessions.mockResolvedValue({
       items: [],
-      pageInfo: { page: 1, limit: 20, hasMore: false, nextPage: null },
+      pageInfo: { page: 1, limit: 5, hasMore: false, nextPage: null },
     });
     mockedGetClinicPatientConsent.mockResolvedValue({
       clinicPatientId: 'patient-1',
@@ -134,6 +163,10 @@ describe('useClinicPatientsController billing copy', () => {
     mockedCreateClinicPatient.mockResolvedValue(patientDetail);
     mockedGetClinicPatient.mockResolvedValue(patientDetail);
     mockedUpdateClinicPatient.mockResolvedValue(patientDetail);
+    mockedUpdateClinicSessionStatus.mockResolvedValue({
+      ...clinicSession,
+      status: 'COMPLETED',
+    });
   });
 
   afterEach(() => {
@@ -483,5 +516,173 @@ describe('useClinicPatientsController billing copy', () => {
       expect(result.current.selectedPatientConsent?.status).toBe('REVOKED');
       expect(mockedGetClinicPatientConsent).toHaveBeenCalledTimes(3);
     });
+  });
+
+  it('loads five patient sessions only when the appointments tab is opened', async () => {
+    enableManagedClinic();
+    mockedListClinicPatients.mockResolvedValue({
+      items: [patientDetail],
+      pageInfo: { page: 1, limit: 50, hasMore: false, nextPage: null },
+    });
+    const { result } = renderHook(() => useClinicPatientsController());
+
+    await waitFor(() => {
+      expect(result.current.selectedPatientId).toBe('patient-1');
+      expect(result.current.detailLoading).toBe(false);
+    });
+    expect(mockedListClinicSessions).not.toHaveBeenCalled();
+
+    act(() => result.current.handleSelectDetailTab('sessions'));
+
+    await waitFor(() => {
+      expect(mockedListClinicSessions).toHaveBeenCalledWith('clinic-1', expect.objectContaining({
+        clinicPatientId: 'patient-1',
+        page: 1,
+        limit: 5,
+      }));
+    });
+
+    act(() => result.current.handleSelectDetailTab('summary'));
+    act(() => result.current.handleSelectDetailTab('sessions'));
+    await waitFor(() => expect(result.current.patientSessionsLoading).toBe(false));
+    expect(mockedListClinicSessions).toHaveBeenCalledTimes(1);
+  });
+
+  it('discards a pending session response after selecting another patient', async () => {
+    enableManagedClinic();
+    const secondPatient = {
+      ...patientDetail,
+      id: 'patient-2',
+      displayName: 'Mario López',
+      firstName: 'Mario',
+      lastName: 'López',
+      email: 'mario@example.com',
+    };
+    mockedListClinicPatients.mockResolvedValue({
+      items: [patientDetail, secondPatient],
+      pageInfo: { page: 1, limit: 50, hasMore: false, nextPage: null },
+    });
+    mockedGetClinicPatient.mockImplementation(async (_clinicId, patientId) => (
+      patientId === secondPatient.id ? secondPatient : patientDetail
+    ));
+
+    let resolveSessions: (page: clinicService.ClinicSessionListPage) => void = () => undefined;
+    mockedListClinicSessions.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveSessions = resolve;
+    }));
+    const { result } = renderHook(() => useClinicPatientsController());
+
+    await waitFor(() => expect(result.current.selectedPatientId).toBe('patient-1'));
+    act(() => result.current.handleSelectDetailTab('sessions'));
+    await waitFor(() => expect(mockedListClinicSessions).toHaveBeenCalledTimes(1));
+
+    act(() => result.current.handleSelectPatient('patient-2'));
+    resolveSessions({
+      items: [],
+      pageInfo: { page: 1, limit: 5, hasMore: false, nextPage: null },
+    });
+
+    await waitFor(() => {
+      expect(result.current.selectedPatientId).toBe('patient-2');
+      expect(result.current.activeDetailTab).toBe('summary');
+      expect(result.current.patientSessions).toEqual([]);
+    });
+  });
+
+  it('reconciles an updated session without losing loaded pages or page info', async () => {
+    enableManagedClinic();
+    mockedListClinicPatients.mockResolvedValue({
+      items: [patientDetail],
+      pageInfo: { page: 1, limit: 50, hasMore: false, nextPage: null },
+    });
+    const secondSession: clinicService.ClinicSessionSummary = {
+      ...clinicSession,
+      id: 'session-2',
+      date: '2026-08-13T09:00:00.000Z',
+    };
+    const completedSecondSession: clinicService.ClinicSessionSummary = {
+      ...secondSession,
+      status: 'COMPLETED',
+    };
+    mockedListClinicSessions
+      .mockResolvedValueOnce({
+        items: [clinicSession],
+        pageInfo: { page: 1, limit: 5, hasMore: true, nextPage: 2 },
+      })
+      .mockResolvedValueOnce({
+        items: [secondSession],
+        pageInfo: { page: 2, limit: 5, hasMore: false, nextPage: null },
+      });
+    mockedUpdateClinicSessionStatus.mockResolvedValueOnce(completedSecondSession);
+    const { result } = renderHook(() => useClinicPatientsController());
+
+    await waitFor(() => expect(result.current.selectedPatientId).toBe('patient-1'));
+    act(() => result.current.handleSelectDetailTab('sessions'));
+    await waitFor(() => {
+      expect(mockedListClinicSessions).toHaveBeenCalledTimes(1);
+      expect(result.current.patientSessionsPageInfo?.nextPage).toBe(2);
+      expect(result.current.patientSessionsLoading).toBe(false);
+    });
+    act(() => result.current.handleLoadMorePatientSessions());
+    await waitFor(() => {
+      expect(mockedListClinicSessions).toHaveBeenCalledTimes(2);
+      expect(result.current.patientSessions).toHaveLength(2);
+      expect(result.current.patientSessionsLoadingMore).toBe(false);
+    });
+    expect(result.current.patientSessions.map((session) => session.id)).toEqual([
+      'session-1',
+      'session-2',
+    ]);
+    expect(result.current.patientSessionsPageInfo).toEqual({
+      page: 2,
+      limit: 5,
+      hasMore: false,
+      nextPage: null,
+    });
+
+    const detailRequestsBeforeUpdate = mockedGetClinicPatient.mock.calls.length;
+    let updated = false;
+    await act(async () => {
+      updated = await result.current.handleUpdateSessionStatus(secondSession, 'COMPLETED');
+    });
+
+    expect(updated).toBe(true);
+    expect(mockedUpdateClinicSessionStatus).toHaveBeenCalledWith(
+      'clinic-1',
+      'session-2',
+      { status: 'COMPLETED' },
+    );
+    expect(mockedGetClinicPatient).toHaveBeenCalledTimes(detailRequestsBeforeUpdate + 1);
+    expect(mockedListClinicSessions).toHaveBeenCalledTimes(2);
+    expect(result.current.patientSessions).toEqual([clinicSession, completedSecondSession]);
+    expect(result.current.patientSessionsPageInfo).toEqual({
+      page: 2,
+      limit: 5,
+      hasMore: false,
+      nextPage: null,
+    });
+  });
+
+  it('refreshes only the patient detail when the session list was never loaded', async () => {
+    enableManagedClinic();
+    mockedListClinicPatients.mockResolvedValue({
+      items: [patientDetail],
+      pageInfo: { page: 1, limit: 50, hasMore: false, nextPage: null },
+    });
+    const { result } = renderHook(() => useClinicPatientsController());
+
+    await waitFor(() => expect(result.current.selectedPatientId).toBe('patient-1'));
+    const detailRequestsBeforeUpdate = mockedGetClinicPatient.mock.calls.length;
+
+    let updated = false;
+    await act(async () => {
+      updated = await result.current.handleUpdateSessionStatus(clinicSession, 'COMPLETED');
+    });
+
+    expect(updated).toBe(true);
+    expect(mockedListClinicSessions).not.toHaveBeenCalled();
+    expect(mockedGetClinicPatient).toHaveBeenCalledTimes(detailRequestsBeforeUpdate + 1);
+    expect(result.current.patientSessions).toEqual([]);
+    expect(result.current.patientSessionsPageInfo).toBeNull();
   });
 });

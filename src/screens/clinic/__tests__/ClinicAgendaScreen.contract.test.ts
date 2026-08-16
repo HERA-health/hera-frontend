@@ -11,6 +11,14 @@ describe('ClinicAgendaScreen source guards', () => {
     path.join(clinicDir, 'useClinicAgendaController.ts'),
     'utf8',
   );
+  const presentationSource = fs.readFileSync(
+    path.join(clinicDir, '..', '..', 'components', 'sessions', 'sessionPresentation.ts'),
+    'utf8',
+  );
+  const patientsWorkspaceSource = fs.readFileSync(
+    path.join(clinicDir, 'patients', 'ClinicPatientsWorkspace.tsx'),
+    'utf8',
+  );
   const combinedSource = `${screenSource}\n${controllerSource}`;
 
   it('uses clinic domain services instead of raw api calls', () => {
@@ -109,5 +117,30 @@ describe('ClinicAgendaScreen source guards', () => {
     expect(controllerSource).toContain('handleLoadMoreSessions');
     expect(controllerSource).toContain('limit: 50');
     expect(screenSource).toContain('Cargar más citas');
+  });
+
+  it('renders canonical persisted session states without inventing frontend transitions', () => {
+    expect(screenSource).toContain('CLINIC_SESSION_STATUS_LABELS[session.status]');
+    expect(screenSource).toContain('CLINIC_SESSION_STATUS_THEME_KEYS[session.status]');
+    expect(screenSource).not.toContain('const displayStatus');
+    expect(screenSource).not.toMatch(/session\.status === 'CONFIRMED'[\s\S]{0,120}'COMPLETED'/);
+    expect(presentationSource).toContain("PENDING: 'Pendiente'");
+    expect(presentationSource).toContain("CONFIRMED: 'Confirmada'");
+    expect(presentationSource).toContain("COMPLETED: 'Completada'");
+    expect(presentationSource).toContain("CANCELLED: 'Cancelada'");
+    expect(presentationSource).not.toContain('NO_SHOW');
+  });
+
+  it('uses the shared telephone session label', () => {
+    expect(presentationSource).toContain("PHONE_CALL: 'Llamada'");
+    expect(controllerSource).toContain("{ label: 'Llamada', value: 'PHONE_CALL' }");
+  });
+
+  it('confirms terminal clinic session changes from agenda and patient detail', () => {
+    expect(presentationSource).toContain('requestClinicSessionStatusConfirmation');
+    expect(screenSource).toContain('confirmSessionStatusUpdate(session, \'CANCELLED\')');
+    expect(screenSource).toContain("confirmSessionStatusUpdate(selectedDetail, 'COMPLETED', true)");
+    expect(patientsWorkspaceSource).toContain("confirmSelectedSessionStatus('CANCELLED')");
+    expect(patientsWorkspaceSource).toContain("confirmSelectedSessionStatus('COMPLETED')");
   });
 });

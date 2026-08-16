@@ -7,6 +7,7 @@ import type {
   ClinicPatientConsentDetail,
   ClinicPatientDetail,
   ClinicPatientSummary,
+  ClinicSessionSummary,
 } from '../../../../services/clinicService';
 import { ClinicPatientDetailPanel } from '../ClinicPatientDetailPanel';
 import type { ClinicPatientDetailTab, ClinicPatientForm } from '../clinicPatientDomain';
@@ -78,6 +79,37 @@ const pendingConsent: ClinicPatientConsentDetail = {
   activeRequest: null,
 };
 
+const createSession = (
+  id: string,
+  date: string,
+  status: ClinicSessionSummary['status'],
+): ClinicSessionSummary => ({
+  id,
+  date,
+  duration: 50,
+  type: 'VIDEO_CALL',
+  status,
+  bookedPrice: null,
+  bookedCurrency: null,
+  cancelledAt: status === 'CANCELLED' ? date : null,
+  createdAt: '2026-08-01T08:00:00.000Z',
+  updatedAt: '2026-08-01T08:00:00.000Z',
+  patient: {
+    id: patient.id,
+    displayName: patient.displayName,
+    email: patient.email,
+    phone: patient.phone,
+    status: patient.status,
+  },
+  specialist: {
+    id: 'specialist-1',
+    displayName: 'Dra. Ana Ruiz',
+    professionalTitle: 'Psicóloga sanitaria',
+    status: 'ACTIVE',
+    linkedProfessionalName: 'Ana Ruiz',
+  },
+});
+
 interface HarnessProps {
   initialTab?: ClinicPatientDetailTab;
   currentPatient?: ClinicPatientDetail | ClinicPatientSummary;
@@ -85,7 +117,12 @@ interface HarnessProps {
   detailError?: string;
   consent?: ClinicPatientConsentDetail | null;
   consentError?: string;
+  patientSessions?: ClinicSessionSummary[];
+  patientSessionsError?: string;
+  patientSessionsHasMore?: boolean;
   onOpenSessionDetail?: (sessionId: string) => void;
+  onLoadMorePatientSessions?: () => void;
+  onRetryPatientSessions?: () => void;
   onRetryDetail?: () => void;
   onRetryConsent?: () => void;
 }
@@ -97,7 +134,12 @@ function DetailHarness({
   detailError = '',
   consent = pendingConsent,
   consentError = '',
+  patientSessions = [],
+  patientSessionsError = '',
+  patientSessionsHasMore = false,
   onOpenSessionDetail = jest.fn(),
+  onLoadMorePatientSessions = jest.fn(),
+  onRetryPatientSessions = jest.fn(),
   onRetryDetail = jest.fn(),
   onRetryConsent = jest.fn(),
 }: HarnessProps): React.ReactElement {
@@ -120,11 +162,16 @@ function DetailHarness({
       assignmentHistoryLoading={false}
       assignmentHistoryLoadingMore={false}
       assignmentHistoryError=""
-      patientSessions={[]}
-      patientSessionsPageInfo={{ page: 1, limit: 20, hasMore: false, nextPage: null }}
+      patientSessions={patientSessions}
+      patientSessionsPageInfo={{
+        page: 1,
+        limit: 5,
+        hasMore: patientSessionsHasMore,
+        nextPage: patientSessionsHasMore ? 2 : null,
+      }}
       patientSessionsLoading={false}
       patientSessionsLoadingMore={false}
-      patientSessionsError=""
+      patientSessionsError={patientSessionsError}
       activeTab={activeTab}
       editSection={editSection}
       form={form}
@@ -149,8 +196,8 @@ function DetailHarness({
       onLoadMoreAssignmentHistory={jest.fn()}
       onRetryAssignmentHistory={jest.fn()}
       onOpenSessionDetail={onOpenSessionDetail}
-      onLoadMorePatientSessions={jest.fn()}
-      onRetryPatientSessions={jest.fn()}
+      onLoadMorePatientSessions={onLoadMorePatientSessions}
+      onRetryPatientSessions={onRetryPatientSessions}
       onSelectTab={setActiveTab}
       onEdit={jest.fn()}
       onRetryDetail={onRetryDetail}
@@ -219,9 +266,78 @@ describe('ClinicPatientDetailPanel', () => {
     expect(screen.getByText('Datos de facturación')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('tab', { name: 'Citas' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Abrir próxima cita' }));
+    fireEvent.press(screen.getByRole('button', { name: /Abrir próxima cita/ }));
     expect(onOpenSessionDetail).toHaveBeenCalledWith('session-1');
     expect(screen.getByText(patient.displayName)).toBeTruthy();
+  });
+
+  it('highlights the next appointment and separates other upcoming and recent sessions', () => {
+    const onOpenSessionDetail = jest.fn();
+    const nextSession = createSession('session-1', '2099-08-20T10:00:00.000Z', 'CONFIRMED');
+    const upcomingPending = createSession('session-2', '2099-08-21T10:00:00.000Z', 'PENDING');
+    const recentCompleted = createSession('session-3', '2025-08-12T10:00:00.000Z', 'COMPLETED');
+    const recentCancelled = createSession('session-4', '2025-08-11T10:00:00.000Z', 'CANCELLED');
+
+    render(
+      <DetailHarness
+        initialTab="sessions"
+        patientSessions={[nextSession, upcomingPending, recentCancelled, recentCompleted]}
+        onOpenSessionDetail={onOpenSessionDetail}
+      />,
+    );
+
+    expect(screen.getByText('Próximas')).toBeTruthy();
+    expect(screen.getByText('Recientes')).toBeTruthy();
+    expect(screen.getByText('Pendiente')).toBeTruthy();
+    expect(screen.getByText('Completada')).toBeTruthy();
+    expect(screen.getByText('Cancelada')).toBeTruthy();
+    expect(screen.getAllByText('Confirmada')).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /Abrir cita del 20 ago/ })).toBeNull();
+
+    fireEvent.press(screen.getByRole('button', { name: /Abrir cita del 21 ago/ }));
+    expect(onOpenSessionDetail).toHaveBeenCalledWith('session-2');
+  });
+
+  it('shows honest empty and recoverable session states without a create appointment CTA', () => {
+    const onRetryPatientSessions = jest.fn();
+    const { rerender } = render(
+      <DetailHarness
+        initialTab="sessions"
+        currentPatient={{ ...patient, nextSession: null }}
+      />,
+    );
+
+    expect(screen.getAllByText('Sin cita programada')).toHaveLength(2);
+    expect(screen.getByText('No hay citas registradas para este paciente en el periodo consultado.'))
+      .toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Crear cita' })).toBeNull();
+
+    rerender(
+      <DetailHarness
+        initialTab="sessions"
+        currentPatient={{ ...patient, nextSession: null }}
+        patientSessionsError="No se pudieron cargar las citas"
+        onRetryPatientSessions={onRetryPatientSessions}
+      />,
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Reintentar' }));
+    expect(onRetryPatientSessions).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps paginated session history behind an explicit load more action', () => {
+    const onLoadMorePatientSessions = jest.fn();
+    render(
+      <DetailHarness
+        initialTab="sessions"
+        patientSessions={[createSession('session-2', '2099-08-21T10:00:00.000Z', 'PENDING')]}
+        patientSessionsHasMore
+        onLoadMorePatientSessions={onLoadMorePatientSessions}
+      />,
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Cargar más' }));
+    expect(onLoadMorePatientSessions).toHaveBeenCalledTimes(1);
   });
 
   it('shows only the reactivation warning for archived patients', () => {

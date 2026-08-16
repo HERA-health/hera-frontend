@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -9,11 +9,19 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useAppAlert } from '../../components/common/alert';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { AnimatedPressable } from '../../components/common/AnimatedPressable';
 import { DropdownOption, SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { AppointmentDetailSheet } from '../../components/sessions/AppointmentDetailSheet';
+import {
+  CLINIC_SESSION_STATUS_LABELS,
+  CLINIC_SESSION_STATUS_THEME_KEYS,
+  CLINIC_SESSION_TYPE_LABELS,
+  requestClinicSessionStatusConfirmation,
+  type ClinicSessionTerminalStatus,
+} from '../../components/sessions/sessionPresentation';
 import { borderRadius, spacing } from '../../constants/colors';
 import { Theme } from '../../constants/theme';
 import type { ScreenProps } from '../../constants/types';
@@ -26,20 +34,8 @@ import {
   useClinicAgendaController,
   type ClinicAgendaCreateSessionErrors,
   type ClinicAgendaCreateSessionForm,
+  type ClinicStatusUpdatableSession,
 } from './useClinicAgendaController';
-
-const SESSION_STATUS_LABELS: Record<clinicService.ClinicSessionStatus, string> = {
-  PENDING: 'Pendiente',
-  CONFIRMED: 'Confirmada',
-  COMPLETED: 'Completada',
-  CANCELLED: 'Cancelada',
-};
-
-const SESSION_TYPE_LABELS: Record<clinicService.ClinicSessionType, string> = {
-  IN_PERSON: 'Presencial',
-  PHONE_CALL: 'Teléfono',
-  VIDEO_CALL: 'Videollamada',
-};
 
 const formatDate = (value: string): string =>
   new Date(value).toLocaleDateString('es-ES', {
@@ -58,6 +54,7 @@ export function ClinicAgendaScreen({
   navigation,
 }: ScreenProps<'ClinicAgenda'>): React.ReactElement {
   const { theme } = useTheme();
+  const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
   const isCompact = width < 920;
   const isNarrow = width < 620;
@@ -113,6 +110,18 @@ export function ClinicAgendaScreen({
   const selectedDetail = selectedSessionDetail;
   const [selectedPrivateSession, setSelectedPrivateSession] =
     useState<clinicService.ClinicAgendaPrivateSession | null>(null);
+
+  const confirmSessionStatusUpdate = useCallback((
+    session: ClinicStatusUpdatableSession,
+    status: ClinicSessionTerminalStatus,
+    closeDetailAfterSuccess = false,
+  ) => {
+    requestClinicSessionStatusConfirmation(appAlert, status, () => {
+      void handleUpdateStatus(session, status).then((updated) => {
+        if (updated && closeDetailAfterSuccess) handleCloseSessionDetail();
+      });
+    });
+  }, [appAlert, handleCloseSessionDetail, handleUpdateStatus]);
 
   return (
     <ClinicWorkspaceScaffold
@@ -323,7 +332,7 @@ export function ClinicAgendaScreen({
                   session={session}
                   saving={saving}
                   onCancel={session.origin === 'CLINIC' ? () => {
-                    void handleUpdateStatus(session, 'CANCELLED');
+                    confirmSessionStatusUpdate(session, 'CANCELLED');
                   } : undefined}
                   onOpen={() => {
                     if (session.origin === 'CLINIC') {
@@ -381,9 +390,10 @@ export function ClinicAgendaScreen({
             onClose={handleCloseSessionDetail}
             onRetry={handleRetrySessionDetail}
             onCancel={selectedDetail?.actions.canCancel ? () => {
-              void handleUpdateStatus(selectedDetail, 'CANCELLED').then((updated) => {
-                if (updated) handleCloseSessionDetail();
-              });
+              confirmSessionStatusUpdate(selectedDetail, 'CANCELLED', true);
+            } : undefined}
+            onComplete={selectedDetail?.actions.canComplete ? () => {
+              confirmSessionStatusUpdate(selectedDetail, 'COMPLETED', true);
             } : undefined}
           />
           <PrivateAgendaDetailModal
@@ -445,15 +455,7 @@ function SessionRow({
   const styles = useMemo(() => createSessionRowStyles(theme), [theme]);
   const sessionEnded = new Date(session.date).getTime() + session.duration * 60 * 1000 <= Date.now();
   const canAct = !session.readOnly && session.status === 'CONFIRMED' && !sessionEnded;
-  const displayStatus = session.status === 'CONFIRMED' && sessionEnded
-    ? 'COMPLETED'
-    : session.status;
-  const statusStyle = {
-    CONFIRMED: styles.status_CONFIRMED,
-    COMPLETED: styles.status_COMPLETED,
-    CANCELLED: styles.status_CANCELLED,
-    PENDING: styles.status_PENDING,
-  }[displayStatus];
+  const statusPalette = theme.status[CLINIC_SESSION_STATUS_THEME_KEYS[session.status]];
   const originColor = session.origin === 'CLINIC' ? theme.primary : theme.secondaryDark;
 
   return (
@@ -477,8 +479,13 @@ function SessionRow({
       <View style={styles.main}>
         <View style={styles.titleRow}>
            <Text style={styles.patient} numberOfLines={1}>{session.patientName}</Text>
-          <View style={[styles.statusPill, statusStyle]}>
-            <Text style={styles.statusText}>{SESSION_STATUS_LABELS[displayStatus]}</Text>
+          <View style={[
+            styles.statusPill,
+            { backgroundColor: statusPalette.bg, borderColor: statusPalette.border },
+          ]}>
+            <Text style={[styles.statusText, { color: statusPalette.text }]}>
+              {CLINIC_SESSION_STATUS_LABELS[session.status]}
+            </Text>
           </View>
         </View>
         <Text style={styles.meta} numberOfLines={1}>
@@ -486,7 +493,7 @@ function SessionRow({
            {session.specialist.professionalTitle ? ` · ${session.specialist.professionalTitle}` : ''}
         </Text>
         <Text style={styles.meta} numberOfLines={1}>
-           {SESSION_TYPE_LABELS[session.type]} · {session.origin === 'CLINIC' ? 'Clínica' : 'Particular'}
+           {CLINIC_SESSION_TYPE_LABELS[session.type]} · {session.origin === 'CLINIC' ? 'Clínica' : 'Particular'}
         </Text>
       </View>
       </AnimatedPressable>
@@ -565,8 +572,8 @@ function PrivateAgendaDetailModal({
             <DetailRow label="Fecha" value={formatDate(session.date)} />
             <DetailRow label="Hora" value={formatTime(session.date)} />
             <DetailRow label="Duración" value={`${session.duration} min`} />
-            <DetailRow label="Modalidad" value={SESSION_TYPE_LABELS[session.type]} />
-            <DetailRow label="Estado" value={SESSION_STATUS_LABELS[session.status]} />
+            <DetailRow label="Modalidad" value={CLINIC_SESSION_TYPE_LABELS[session.type]} />
+            <DetailRow label="Estado" value={CLINIC_SESSION_STATUS_LABELS[session.status]} />
             <DetailRow label="Profesional" value={session.specialist.displayName} />
           </View>
           <View style={styles.notice}>
@@ -1061,24 +1068,7 @@ const createSessionRowStyles = (theme: Theme) =>
       paddingVertical: 4,
       borderWidth: 1,
     },
-    status_CONFIRMED: {
-      borderColor: theme.primary,
-      backgroundColor: theme.primaryAlpha12,
-    },
-    status_COMPLETED: {
-      borderColor: theme.success,
-      backgroundColor: theme.successBg,
-    },
-    status_CANCELLED: {
-      borderColor: theme.warning,
-      backgroundColor: theme.warningBg,
-    },
-    status_PENDING: {
-      borderColor: theme.secondary,
-      backgroundColor: theme.secondaryAlpha12,
-    },
     statusText: {
-      color: theme.textPrimary,
       fontFamily: theme.fontSansSemiBold,
       fontSize: 12,
       lineHeight: 16,

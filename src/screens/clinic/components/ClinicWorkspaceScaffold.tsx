@@ -54,7 +54,7 @@ export function ClinicWorkspaceScaffold({
   const { user } = useAuth();
   const { setClinicScope } = useProfileCompletion();
   const { width } = useWindowDimensions();
-  const isCompact = width < 768;
+  const isCompact = width < 940;
   const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
 
   useEffect(() => {
@@ -167,6 +167,7 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
     },
     headerCopy: {
       flex: 1,
+      minWidth: 0,
       maxWidth: 760,
     },
     kicker: {

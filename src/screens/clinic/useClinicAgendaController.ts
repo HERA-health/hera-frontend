@@ -30,7 +30,7 @@ export type ClinicAgendaCreateSessionErrors = Partial<
   Record<keyof ClinicAgendaCreateSessionForm | 'clinicSpecialistId', string>
 >;
 
-type ClinicStatusUpdatableSession = Pick<clinicService.ClinicSessionSummary, 'id'>
+export type ClinicStatusUpdatableSession = Pick<clinicService.ClinicSessionSummary, 'id'>
   | clinicService.ClinicAgendaClinicSession;
 
 export const STATUS_OPTIONS: DropdownOption<ClinicAgendaStatusFilter>[] = [
@@ -48,7 +48,7 @@ export const ORIGIN_OPTIONS: DropdownOption<ClinicAgendaOriginFilter>[] = [
 
 export const TYPE_OPTIONS: DropdownOption<ClinicAgendaTypeOption>[] = [
   { label: 'Presencial', value: 'IN_PERSON' },
-  { label: 'Teléfono', value: 'PHONE_CALL' },
+  { label: 'Llamada', value: 'PHONE_CALL' },
 ];
 
 const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;

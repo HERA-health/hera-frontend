@@ -33,4 +33,8 @@ describe('Clinic workspace scaffold titles', () => {
     expect(combinedScreenSources).toContain('title="Nueva factura"');
     expect(combinedScreenSources).toContain('title="Configuración"');
   });
+
+  it('keeps the shared clinic header compact while the patient workspace is compact', () => {
+    expect(scaffoldSource).toContain('const isCompact = width < 940;');
+  });
 });

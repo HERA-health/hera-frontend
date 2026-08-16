@@ -6,6 +6,11 @@ import { Button } from '../../../components/common/Button';
 import { Card } from '../../../components/common/Card';
 import { Input } from '../../../components/common/Input';
 import { SimpleDropdown, type DropdownOption } from '../../../components/common/SimpleDropdown';
+import {
+  CLINIC_SESSION_STATUS_LABELS,
+  CLINIC_SESSION_STATUS_THEME_KEYS,
+  CLINIC_SESSION_TYPE_LABELS,
+} from '../../../components/sessions/sessionPresentation';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type {
   ClinicPatientAssignmentHistoryItem,
@@ -97,19 +102,6 @@ interface ClinicPatientDetailPanelProps {
   onCancelEdit: () => void;
   onStatusChange: () => void;
 }
-
-const SESSION_STATUS_LABELS: Record<ClinicSessionSummary['status'], string> = {
-  PENDING: 'Pendiente',
-  CONFIRMED: 'Confirmada',
-  COMPLETED: 'Completada',
-  CANCELLED: 'Cancelada',
-};
-
-const SESSION_TYPE_LABELS: Record<ClinicSessionSummary['type'], string> = {
-  IN_PERSON: 'Presencial',
-  PHONE_CALL: 'Llamada',
-  VIDEO_CALL: 'Videollamada',
-};
 
 const formatSessionDateTime = (value: string): string =>
   new Date(value).toLocaleDateString('es-ES', {
@@ -469,29 +461,16 @@ export function ClinicPatientDetailPanel({
 
       {activeTab === 'sessions' ? (
         <View style={styles.tabPanel}>
-          {nextSession ? (
-            <AnimatedPressable
-              accessibilityRole="button"
-              accessibilityLabel="Abrir próxima cita"
-              onPress={() => onOpenSessionDetail(nextSession.id)}
-              disabled={!canManage || saving}
-              style={styles.nextSessionCard}
-            >
-              <View style={styles.nextSessionIcon}>
-                <Ionicons name="calendar-outline" size={20} color={theme.primary} />
-              </View>
-              <View style={styles.nextSessionCopy}>
-                <Text style={styles.sectionTitle}>Próxima cita</Text>
-                <Text style={styles.nextSessionDate}>{formatSessionDateTime(nextSession.date)}</Text>
-                <Text style={styles.hint}>
-                  {SESSION_TYPE_LABELS[nextSession.type]} · {nextSession.duration} min · {nextSession.clinicSpecialist?.displayName ?? 'Sin especialista'}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
-            </AnimatedPressable>
-          ) : null}
+          <NextSessionSummaryCard
+            session={nextSession}
+            loading={detailLoading && !detail}
+            unavailable={Boolean(detailError && !detail)}
+            disabled={!canManage || saving}
+            onOpenSessionDetail={onOpenSessionDetail}
+          />
           <PatientSessionsSection
             sessions={patientSessions}
+            nextSessionId={nextSession?.id ?? null}
             pageInfo={patientSessionsPageInfo}
             loading={patientSessionsLoading}
             loadingMore={patientSessionsLoadingMore}
@@ -653,6 +632,7 @@ interface AssignmentHistorySectionProps {
 
 interface PatientSessionsSectionProps {
   sessions: ClinicSessionSummary[];
+  nextSessionId: string | null;
   pageInfo: ClinicPatientListPageInfo | null;
   loading: boolean;
   loadingMore: boolean;
@@ -663,8 +643,99 @@ interface PatientSessionsSectionProps {
   onRetry: () => void;
 }
 
+interface NextSessionSummaryCardProps {
+  session: ClinicPatientDetail['nextSession'];
+  loading: boolean;
+  unavailable: boolean;
+  disabled: boolean;
+  onOpenSessionDetail: (sessionId: string) => void;
+}
+
+function NextSessionSummaryCard({
+  session,
+  loading,
+  unavailable,
+  disabled,
+  onOpenSessionDetail,
+}: NextSessionSummaryCardProps): React.ReactElement {
+  const { theme } = useTheme();
+  const styles = useMemo(() => createDetailStyles(theme), [theme]);
+
+  if (!session) {
+    return (
+      <View style={[styles.nextSessionCard, styles.nextSessionCardEmpty]}>
+        <View style={styles.nextSessionIcon}>
+          {loading ? (
+            <ActivityIndicator color={theme.primary} size="small" />
+          ) : (
+            <Ionicons
+              name={unavailable ? 'cloud-offline-outline' : 'calendar-outline'}
+              size={20}
+              color={unavailable ? theme.error : theme.textMuted}
+            />
+          )}
+        </View>
+        <View style={styles.nextSessionCopy}>
+          <Text style={styles.sectionTitle}>Próxima cita</Text>
+          <Text style={styles.nextSessionDate}>
+            {loading ? 'Consultando agenda…' : unavailable ? 'No disponible' : 'Sin cita programada'}
+          </Text>
+          <Text style={styles.hint}>
+            {loading
+              ? 'Estamos consultando la próxima cita de este paciente.'
+              : unavailable
+              ? 'No se pudo verificar la próxima cita. Reintenta la carga de la ficha.'
+              : 'No hay una cita pendiente o confirmada en el calendario.'}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const statusPalette = theme.status[CLINIC_SESSION_STATUS_THEME_KEYS[session.status]];
+  const accessibilityLabel = [
+    'Abrir próxima cita',
+    formatSessionDateTime(session.date),
+    CLINIC_SESSION_STATUS_LABELS[session.status],
+    session.clinicSpecialist?.displayName ?? 'Sin especialista',
+  ].join(', ');
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={() => onOpenSessionDetail(session.id)}
+      disabled={disabled}
+      style={styles.nextSessionCard}
+    >
+      <View style={styles.nextSessionIcon}>
+        <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+      </View>
+      <View style={styles.nextSessionCopy}>
+        <View style={styles.sessionTitleRow}>
+          <Text style={styles.sectionTitle}>Próxima cita</Text>
+          <View style={[
+            styles.sessionStatusBadge,
+            { backgroundColor: statusPalette.bg, borderColor: statusPalette.border },
+          ]}>
+            <Text style={[styles.sessionStatusText, { color: statusPalette.text }]}>
+              {CLINIC_SESSION_STATUS_LABELS[session.status]}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.nextSessionDate}>{formatSessionDateTime(session.date)}</Text>
+        <Text style={styles.hint}>
+          {CLINIC_SESSION_TYPE_LABELS[session.type]} · {session.duration} min · {session.clinicSpecialist?.displayName ?? 'Sin especialista'}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+    </AnimatedPressable>
+  );
+}
+
 function PatientSessionsSection({
   sessions,
+  nextSessionId,
   pageInfo,
   loading,
   loadingMore,
@@ -676,6 +747,74 @@ function PatientSessionsSection({
 }: PatientSessionsSectionProps): React.ReactElement | null {
   const { theme } = useTheme();
   const styles = useMemo(() => createDetailStyles(theme), [theme]);
+  const { upcomingSessions, recentSessions } = useMemo(() => {
+    const now = Date.now();
+    const visibleSessions = sessions.filter((session) => session.id !== nextSessionId);
+
+    return {
+      upcomingSessions: visibleSessions
+        .filter((session) => new Date(session.date).getTime() >= now)
+        .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime()),
+      recentSessions: visibleSessions
+        .filter((session) => new Date(session.date).getTime() < now)
+        .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()),
+    };
+  }, [nextSessionId, sessions]);
+  const visibleSessionCount = upcomingSessions.length + recentSessions.length;
+
+  const renderSessionGroup = (
+    title: string,
+    groupSessions: ClinicSessionSummary[],
+  ): React.ReactElement | null => {
+    if (groupSessions.length === 0) return null;
+
+    return (
+      <View style={styles.sessionGroup}>
+        <Text style={styles.sessionGroupTitle}>{title}</Text>
+        <View style={styles.historyList}>
+          {groupSessions.map((session) => {
+            const statusPalette = theme.status[CLINIC_SESSION_STATUS_THEME_KEYS[session.status]];
+            return (
+              <AnimatedPressable
+                key={session.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Abrir cita del ${formatSessionDateTime(session.date)}, ${CLINIC_SESSION_STATUS_LABELS[session.status]}, ${session.specialist.displayName}`}
+                onPress={() => onOpenSessionDetail(session.id)}
+                hoverLift={false}
+                pressScale={0.99}
+                style={styles.historyItem}
+              >
+                <View style={[
+                  styles.historyMarker,
+                  { backgroundColor: statusPalette.bg, borderColor: statusPalette.border },
+                ]}>
+                  <Ionicons name="calendar-clear-outline" size={17} color={statusPalette.text} />
+                </View>
+                <View style={styles.historyCopy}>
+                  <View style={styles.sessionTitleRow}>
+                    <Text style={styles.historyName}>{formatSessionDateTime(session.date)}</Text>
+                    <View style={[
+                      styles.sessionStatusBadge,
+                      { backgroundColor: statusPalette.bg, borderColor: statusPalette.border },
+                    ]}>
+                      <Text style={[styles.sessionStatusText, { color: statusPalette.text }]}>
+                        {CLINIC_SESSION_STATUS_LABELS[session.status]}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.historyMeta}>
+                    {CLINIC_SESSION_TYPE_LABELS[session.type]} · {session.duration} min
+                  </Text>
+                  <Text style={styles.historyActor}>{session.specialist.displayName}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+              </AnimatedPressable>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
 
   if (!canManage) {
     return null;
@@ -687,7 +826,7 @@ function PatientSessionsSection({
         <View>
           <Text style={styles.sectionTitle}>Citas</Text>
           <Text style={styles.hint}>
-            Citas recientes y proximas del paciente dentro de la clinica.
+            Próximas y recientes dentro de esta clínica. La próxima cita destacada no se repite.
           </Text>
         </View>
         {loading ? <ActivityIndicator color={theme.primary} size="small" /> : null}
@@ -702,42 +841,19 @@ function PatientSessionsSection({
         </View>
       ) : null}
 
-      {!loading && !error && sessions.length === 0 ? (
+      {!loading && !error && visibleSessionCount === 0 ? (
         <View style={styles.assignmentEmpty}>
           <Ionicons name="calendar-outline" size={18} color={theme.textMuted} />
-          <Text style={styles.hint}>No hay citas registradas para este paciente.</Text>
+          <Text style={styles.hint}>
+            {nextSessionId
+              ? 'No hay más citas próximas o recientes en este periodo.'
+              : 'No hay citas registradas para este paciente en el periodo consultado.'}
+          </Text>
         </View>
       ) : null}
 
-      {sessions.length > 0 ? (
-        <View style={styles.historyList}>
-          {sessions.map((session) => (
-            <AnimatedPressable
-              key={session.id}
-              onPress={() => onOpenSessionDetail(session.id)}
-              hoverLift={false}
-              pressScale={0.99}
-              style={styles.historyItem}
-              accessibilityLabel={`Ver detalle de cita de ${session.patient.displayName}`}
-            >
-              <View style={styles.historyMarker}>
-                <Ionicons name="calendar-clear-outline" size={17} color={theme.primary} />
-              </View>
-              <View style={styles.historyCopy}>
-                <Text style={styles.historyName}>
-                  {formatSessionDateTime(session.date)}
-                </Text>
-                <Text style={styles.historyMeta}>
-                  {SESSION_STATUS_LABELS[session.status]} - {SESSION_TYPE_LABELS[session.type]} - {session.duration} min
-                </Text>
-                <Text style={styles.historyActor}>
-                  {session.specialist.displayName}
-                </Text>
-              </View>
-            </AnimatedPressable>
-          ))}
-        </View>
-      ) : null}
+      {renderSessionGroup('Próximas', upcomingSessions)}
+      {renderSessionGroup('Recientes', recentSessions)}
 
       {pageInfo?.hasMore ? (
         <Button

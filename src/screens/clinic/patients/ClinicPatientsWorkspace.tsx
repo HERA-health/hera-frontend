@@ -2,8 +2,13 @@ import React, { useCallback, useMemo, useRef } from 'react';
 import { Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { AnimatedPressableHandle } from '../../../components/common/AnimatedPressable';
+import { useAppAlert } from '../../../components/common/alert';
 import { Button } from '../../../components/common/Button';
 import { AppointmentDetailSheet } from '../../../components/sessions/AppointmentDetailSheet';
+import {
+  requestClinicSessionStatusConfirmation,
+  type ClinicSessionTerminalStatus,
+} from '../../../components/sessions/sessionPresentation';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { ScreenProps } from '../../../constants/types';
 import { ClinicWorkspaceScaffold } from '../components/ClinicWorkspaceScaffold';
@@ -26,6 +31,7 @@ export function ClinicPatientsWorkspace({
   navigation,
 }: ClinicPatientsWorkspaceProps): React.ReactElement {
   const { theme } = useTheme();
+  const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
   const isCompact = width < 940;
   const styles = useMemo(() => createWorkspaceStyles(theme, isCompact), [isCompact, theme]);
@@ -70,6 +76,23 @@ export function ClinicPatientsWorkspace({
   }, [
     adaptiveNavigation.closePanel,
     controller.handleSelectClinic,
+  ]);
+
+  const confirmSelectedSessionStatus = useCallback((status: ClinicSessionTerminalStatus) => {
+    if (!selectedSessionDetail) return;
+
+    requestClinicSessionStatusConfirmation(appAlert, status, () => {
+      void controller
+        .handleUpdateSessionStatus(selectedSessionDetail, status)
+        .then((updated) => {
+          if (updated) controller.handleCloseSessionDetail();
+        });
+    });
+  }, [
+    appAlert,
+    controller.handleCloseSessionDetail,
+    controller.handleUpdateSessionStatus,
+    selectedSessionDetail,
   ]);
 
   let compactPanelTitle = controller.selectedPatient?.displayName ?? 'Ficha de paciente';
@@ -173,13 +196,12 @@ export function ClinicPatientsWorkspace({
       processing={controller.saving}
       onClose={controller.handleCloseSessionDetail}
       onRetry={controller.handleRetrySessionDetail}
-      onCancel={selectedSessionDetail?.actions.canCancel ? () => {
-        void controller
-          .handleUpdateSessionStatus(selectedSessionDetail, 'CANCELLED')
-          .then((updated) => {
-            if (updated) controller.handleCloseSessionDetail();
-          });
-      } : undefined}
+      onCancel={selectedSessionDetail?.actions.canCancel
+        ? () => confirmSelectedSessionStatus('CANCELLED')
+        : undefined}
+      onComplete={selectedSessionDetail?.actions.canComplete
+        ? () => confirmSelectedSessionStatus('COMPLETED')
+        : undefined}
     />
   );
 

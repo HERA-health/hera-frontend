@@ -632,6 +632,10 @@ export const createDetailStyles = (theme: Theme) =>
       backgroundColor: theme.primaryAlpha12,
       padding: spacing.md,
     },
+    nextSessionCardEmpty: {
+      borderColor: theme.borderLight,
+      backgroundColor: theme.bgMuted,
+    },
     nextSessionIcon: {
       width: 38,
       height: 38,
@@ -661,9 +665,20 @@ export const createDetailStyles = (theme: Theme) =>
     historyList: {
       gap: spacing.sm,
     },
+    sessionGroup: {
+      gap: spacing.sm,
+    },
+    sessionGroupTitle: {
+      color: theme.textSecondary,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 12,
+      lineHeight: 17,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+    },
     historyItem: {
       flexDirection: 'row',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       gap: spacing.md,
       borderWidth: 1,
       borderColor: theme.borderLight,
@@ -684,6 +699,26 @@ export const createDetailStyles = (theme: Theme) =>
       flex: 1,
       minWidth: 0,
       gap: 3,
+    },
+    sessionTitleRow: {
+      minWidth: 0,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+    },
+    sessionStatusBadge: {
+      flexShrink: 0,
+      borderWidth: 1,
+      borderRadius: 999,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 3,
+    },
+    sessionStatusText: {
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 11,
+      lineHeight: 15,
     },
     historyName: {
       color: theme.textPrimary,

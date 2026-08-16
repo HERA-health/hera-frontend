@@ -121,6 +121,7 @@ export function useClinicPatientsController() {
   const specialistsRequestSeq = useRef(0);
   const patientSessionsRequestSeq = useRef(0);
   const sessionDetailRequestSeq = useRef(0);
+  const patientSessionsLoadedForIdRef = useRef<string | null>(null);
   const billingFullNameBeforeCopyRef = useRef('');
   const detailTabPatientIdRef = useRef<string | null>(null);
 
@@ -190,6 +191,7 @@ export function useClinicPatientsController() {
     specialistsRequestSeq.current += 1;
     patientSessionsRequestSeq.current += 1;
     sessionDetailRequestSeq.current += 1;
+    patientSessionsLoadedForIdRef.current = null;
     updatePatients([]);
     setPatientPageInfo(EMPTY_PATIENT_PAGE_INFO);
     setPatientDetails({});
@@ -443,11 +445,15 @@ export function useClinicPatientsController() {
       });
       setPatientSessionsPageInfo(pageResult.pageInfo);
       setPatientSessionsError('');
+      if (!append) {
+        patientSessionsLoadedForIdRef.current = clinicPatientId;
+      }
     } catch (error: unknown) {
       if (!mountedRef.current || patientSessionsRequestSeq.current !== requestId) return;
       if (!append) {
         setPatientSessions([]);
         setPatientSessionsPageInfo(null);
+        patientSessionsLoadedForIdRef.current = null;
       }
       setPatientSessionsError(error instanceof Error
         ? error.message
@@ -567,6 +573,13 @@ export function useClinicPatientsController() {
   useEffect(() => {
     if (detailTabPatientIdRef.current === selectedPatientId) return;
     detailTabPatientIdRef.current = selectedPatientId;
+    patientSessionsRequestSeq.current += 1;
+    patientSessionsLoadedForIdRef.current = null;
+    setPatientSessions([]);
+    setPatientSessionsPageInfo(null);
+    setPatientSessionsLoading(false);
+    setPatientSessionsLoadingMore(false);
+    setPatientSessionsError('');
     setActiveDetailTab('summary');
     setEditSection(null);
   }, [selectedPatientId]);
@@ -644,6 +657,7 @@ export function useClinicPatientsController() {
   useEffect(() => {
     if (!workspace.selectedClinicId || !selectedPatientId || !canManage) {
       patientSessionsRequestSeq.current += 1;
+      patientSessionsLoadedForIdRef.current = null;
       setPatientSessions([]);
       setPatientSessionsPageInfo(null);
       setPatientSessionsLoading(false);
@@ -652,11 +666,19 @@ export function useClinicPatientsController() {
       return;
     }
 
+    if (
+      activeDetailTab !== 'sessions'
+      || patientSessionsLoadedForIdRef.current === selectedPatientId
+    ) {
+      return;
+    }
+
     setPatientSessions([]);
     setPatientSessionsPageInfo(null);
     setPatientSessionsError('');
     void loadPatientSessions(workspace.selectedClinicId, selectedPatientId);
   }, [
+    activeDetailTab,
     canManage,
     loadPatientSessions,
     selectedPatientId,
@@ -699,6 +721,13 @@ export function useClinicPatientsController() {
     setDetailError('');
     setConsentLoading(false);
     setConsentError('');
+    patientSessionsRequestSeq.current += 1;
+    patientSessionsLoadedForIdRef.current = null;
+    setPatientSessions([]);
+    setPatientSessionsPageInfo(null);
+    setPatientSessionsLoading(false);
+    setPatientSessionsLoadingMore(false);
+    setPatientSessionsError('');
     setFeedback(null);
   }, [resetBillingCopy]);
 
@@ -706,6 +735,8 @@ export function useClinicPatientsController() {
     const isCurrentPatient = selectedPatientId === patientId;
     detailRequestSeq.current += 1;
     consentRequestSeq.current += 1;
+    patientSessionsRequestSeq.current += 1;
+    patientSessionsLoadedForIdRef.current = null;
     setSelectedPatientId(patientId);
     setPanelMode('detail');
     setActiveDetailTab('summary');
@@ -718,6 +749,11 @@ export function useClinicPatientsController() {
     setDetailError('');
     setConsentLoading(false);
     setConsentError('');
+    setPatientSessions([]);
+    setPatientSessionsPageInfo(null);
+    setPatientSessionsLoading(false);
+    setPatientSessionsLoadingMore(false);
+    setPatientSessionsError('');
     setFeedback(null);
 
     if (isCurrentPatient && workspace.selectedClinicId) {
@@ -994,11 +1030,18 @@ export function useClinicPatientsController() {
     setFeedback(null);
 
     try {
-      await clinicService.updateClinicSessionStatus(workspace.selectedClinicId, session.id, { status });
-      await Promise.all([
-        loadPatientSessions(workspace.selectedClinicId, selectedPatientId),
-        loadPatientDetail(workspace.selectedClinicId, selectedPatientId),
-      ]);
+      const updatedSession = await clinicService.updateClinicSessionStatus(
+        workspace.selectedClinicId,
+        session.id,
+        { status },
+      );
+      const patientSessionsWereLoaded = patientSessionsLoadedForIdRef.current === selectedPatientId;
+      if (patientSessionsWereLoaded) {
+        setPatientSessions((currentSessions) => currentSessions.map((currentSession) => (
+          currentSession.id === updatedSession.id ? updatedSession : currentSession
+        )));
+      }
+      await loadPatientDetail(workspace.selectedClinicId, selectedPatientId);
       return true;
     } catch (error: unknown) {
       setFeedback(createErrorFeedback(error, 'No se pudo actualizar la cita'));
@@ -1009,7 +1052,6 @@ export function useClinicPatientsController() {
   }, [
     canManage,
     loadPatientDetail,
-    loadPatientSessions,
     saving,
     selectedPatientId,
     workspace.selectedClinicId,
