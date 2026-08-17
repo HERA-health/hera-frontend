@@ -15,8 +15,28 @@ describe('ClinicAgendaScreen source guards', () => {
     path.join(clinicDir, '..', '..', 'components', 'sessions', 'sessionPresentation.ts'),
     'utf8',
   );
+  const schedulerSource = fs.readFileSync(
+    path.join(clinicDir, '..', '..', 'components', 'clinic', 'ClinicSessionSchedulerModal.tsx'),
+    'utf8',
+  );
+  const schedulerDomainSource = fs.readFileSync(
+    path.join(clinicDir, '..', '..', 'components', 'clinic', 'clinicSessionSchedulerDomain.ts'),
+    'utf8',
+  );
   const patientsWorkspaceSource = fs.readFileSync(
     path.join(clinicDir, 'patients', 'ClinicPatientsWorkspace.tsx'),
+    'utf8',
+  );
+  const patientsControllerSource = fs.readFileSync(
+    path.join(clinicDir, 'patients', 'useClinicPatientsController.ts'),
+    'utf8',
+  );
+  const dashboardSource = fs.readFileSync(
+    path.join(clinicDir, 'ClinicDashboardScreen.tsx'),
+    'utf8',
+  );
+  const sessionServiceSource = fs.readFileSync(
+    path.join(clinicDir, '..', '..', 'services', 'clinic', 'sessionService.ts'),
     'utf8',
   );
   const combinedSource = `${screenSource}\n${controllerSource}`;
@@ -32,18 +52,13 @@ describe('ClinicAgendaScreen source guards', () => {
     expect(combinedSource).not.toContain('api.');
   });
 
-  it('keeps session creation administrative and validates the derived specialist', () => {
-    const typeOptions = controllerSource.slice(
-      controllerSource.indexOf('export const TYPE_OPTIONS'),
-      controllerSource.indexOf('const DATE_INPUT_PATTERN'),
-    );
-
-    expect(controllerSource).toContain('createSessionFormSchema');
-    expect(controllerSource).toContain('getPatientSpecialistId');
-    expect(controllerSource).toContain('clinicSpecialistId,');
-    expect(typeOptions).toContain("'IN_PERSON'");
-    expect(typeOptions).toContain("'PHONE_CALL'");
-    expect(typeOptions).not.toContain('VIDEO_CALL');
+  it('shares clinic session creation and derives the specialist from the assignment', () => {
+    expect(screenSource).toContain('<ClinicSessionSchedulerModal');
+    expect(patientsWorkspaceSource).toContain('<ClinicSessionSchedulerModal');
+    expect(schedulerSource).toContain('lockedPatientId');
+    expect(schedulerDomainSource).toContain('activeAssignment.clinicSpecialistId');
+    expect(schedulerDomainSource).toContain("z.enum(['IN_PERSON', 'PHONE_CALL'])");
+    expect(schedulerDomainSource).not.toContain('VIDEO_CALL');
   });
 
   it('keeps editable filters separate from applied filters', () => {
@@ -66,8 +81,8 @@ describe('ClinicAgendaScreen source guards', () => {
     expect(controllerSource).toContain('setTimeout');
     expect(controllerSource).toContain('clearTimeout');
     expect(controllerSource).not.toContain('limit: 200');
-    expect(screenSource).toContain('Buscar paciente');
-    expect(screenSource).toContain('Cargar mas pacientes');
+    expect(schedulerSource).toContain('Buscar paciente');
+    expect(schedulerSource).toContain('Cargar más pacientes');
   });
 
   it('debounces patient searches instead of firing lookup from the input handler', () => {
@@ -84,7 +99,7 @@ describe('ClinicAgendaScreen source guards', () => {
     expect(controllerSource).toContain('toLocalDateInputValue');
     expect(controllerSource).toContain('toLocalStartOfDayIso');
     expect(controllerSource).toContain('toLocalEndOfDayIso');
-    expect(controllerSource).toContain('toLocalDateTimeIso');
+    expect(schedulerDomainSource).toContain('parseMadridDateTime');
     expect(controllerSource).not.toContain('toISOString().slice(0, 10)');
     expect(screenSource).not.toContain('toISOString().slice(0, 10)');
   });
@@ -119,6 +134,20 @@ describe('ClinicAgendaScreen source guards', () => {
     expect(screenSource).toContain('Cargar más citas');
   });
 
+  it('invalidates session consumers only for the affected clinic and patient', () => {
+    expect(sessionServiceSource).toContain('subscribeClinicSessionChanges');
+    expect(sessionServiceSource).toContain('clinicPatientId: session.patient.id');
+    expect(sessionServiceSource).toContain('clinicSpecialistId: session.specialist.id');
+    expect(sessionServiceSource).not.toContain('clearRequestCache');
+    expect(controllerSource).toContain('change.clinicId !== workspace.selectedClinicId');
+    expect(controllerSource).toContain('refreshLoadedAgendaPages');
+    expect(controllerSource).toContain('agendaPageInfo?.page ?? 1');
+    expect(patientsControllerSource).toContain('change.clinicPatientId !== selectedPatientId');
+    expect(patientsControllerSource).toContain('refreshLoadedPatientSessionPages');
+    expect(patientsControllerSource).toContain('pages.at(-1)?.pageInfo');
+    expect(dashboardSource).toContain('change.clinicId !== workspace.selectedClinicId');
+  });
+
   it('renders canonical persisted session states without inventing frontend transitions', () => {
     expect(screenSource).toContain('CLINIC_SESSION_STATUS_LABELS[session.status]');
     expect(screenSource).toContain('CLINIC_SESSION_STATUS_THEME_KEYS[session.status]');
@@ -133,7 +162,8 @@ describe('ClinicAgendaScreen source guards', () => {
 
   it('uses the shared telephone session label', () => {
     expect(presentationSource).toContain("PHONE_CALL: 'Llamada'");
-    expect(controllerSource).toContain("{ label: 'Llamada', value: 'PHONE_CALL' }");
+    expect(schedulerSource).toContain("value: 'PHONE_CALL'");
+    expect(schedulerSource).toContain("label: 'Teléfono'");
   });
 
   it('confirms terminal clinic session changes from agenda and patient detail', () => {

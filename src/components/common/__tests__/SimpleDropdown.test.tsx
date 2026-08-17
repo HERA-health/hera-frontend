@@ -20,7 +20,7 @@ jest.mock('../AnimatedPressable', () => ({
     onPress?: () => void;
     accessibilityLabel?: string;
     accessibilityRole?: 'button' | 'checkbox' | 'radio';
-    accessibilityState?: { checked?: boolean; selected?: boolean };
+    accessibilityState?: { checked?: boolean; selected?: boolean; expanded?: boolean };
   }) => {
     const { Pressable } = require('react-native');
     return (
@@ -102,5 +102,23 @@ describe('SimpleDropdown selection indicators', () => {
     fireEvent.press(screen.getByText('Más recientes'));
     expect(screen.getByRole('radio', { name: 'Más recientes' }).props.accessibilityState)
       .toEqual(expect.objectContaining({ checked: true }));
+  });
+
+  it('exposes its accessible label and expanded state', () => {
+    render(
+      <SimpleDropdown
+        accessibilityLabel="Paciente de la cita"
+        options={options}
+        value={null}
+        onSelect={jest.fn()}
+      />
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Paciente de la cita' });
+    expect(trigger.props.accessibilityState).toEqual({ expanded: false });
+
+    fireEvent.press(trigger);
+    expect(screen.getByRole('button', { name: 'Paciente de la cita' }).props.accessibilityState)
+      .toEqual({ expanded: true });
   });
 });

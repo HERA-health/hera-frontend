@@ -1,6 +1,5 @@
 import api from '../api';
 import { getErrorCode, getErrorMessage } from '../../constants/errors';
-import { clearRequestCache } from '../requestCache';
 import type {
   ClinicSessionListFilters,
   ClinicSessionListPage,
@@ -11,6 +10,34 @@ import type {
   CreateClinicSessionPayload,
   UpdateClinicSessionStatusPayload,
 } from './types';
+
+export interface ClinicSessionChange {
+  clinicId: string;
+  clinicPatientId: string;
+  clinicSpecialistId: string;
+  sessionId: string;
+  mutation: 'CREATED' | 'STATUS_UPDATED';
+}
+
+type ClinicSessionChangeListener = (change: ClinicSessionChange) => void;
+const clinicSessionChangeListeners = new Set<ClinicSessionChangeListener>();
+
+export const subscribeClinicSessionChanges = (
+  listener: ClinicSessionChangeListener,
+): (() => void) => {
+  clinicSessionChangeListeners.add(listener);
+  return () => clinicSessionChangeListeners.delete(listener);
+};
+
+const notifyClinicSessionChanged = (change: ClinicSessionChange): void => {
+  clinicSessionChangeListeners.forEach((listener) => {
+    try {
+      listener(change);
+    } catch {
+      console.warn('No se pudo propagar una actualización local de cita de clínica.');
+    }
+  });
+};
 
 const CLINIC_SESSION_ERROR_MESSAGES: Partial<Record<string, string>> = {
   CLINIC_SESSION_NOT_FOUND:
@@ -141,8 +168,15 @@ export const createClinicSession = async (
       data: ClinicSessionSummary;
     }>(`/clinics/${clinicId}/sessions`, payload);
 
-    clearRequestCache();
-    return response.data.data;
+    const session = response.data.data;
+    notifyClinicSessionChanged({
+      clinicId,
+      clinicPatientId: session.patient.id,
+      clinicSpecialistId: session.specialist.id,
+      sessionId: session.id,
+      mutation: 'CREATED',
+    });
+    return session;
   } catch (error: unknown) {
     throw new Error(getClinicSessionErrorMessage(
       error,
@@ -162,8 +196,15 @@ export const updateClinicSessionStatus = async (
       data: ClinicSessionSummary;
     }>(`/clinics/${clinicId}/sessions/${sessionId}/status`, payload);
 
-    clearRequestCache();
-    return response.data.data;
+    const session = response.data.data;
+    notifyClinicSessionChanged({
+      clinicId,
+      clinicPatientId: session.patient.id,
+      clinicSpecialistId: session.specialist.id,
+      sessionId: session.id,
+      mutation: 'STATUS_UPDATED',
+    });
+    return session;
   } catch (error: unknown) {
     throw new Error(getClinicSessionErrorMessage(
       error,

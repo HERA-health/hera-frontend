@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { AnimatedPressableHandle } from '../../../components/common/AnimatedPressable';
 import { useAppAlert } from '../../../components/common/alert';
 import { Button } from '../../../components/common/Button';
+import { ClinicSessionSchedulerModal } from '../../../components/clinic/ClinicSessionSchedulerModal';
 import { AppointmentDetailSheet } from '../../../components/sessions/AppointmentDetailSheet';
 import {
   requestClinicSessionStatusConfirmation,
@@ -11,6 +12,7 @@ import {
 } from '../../../components/sessions/sessionPresentation';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { ScreenProps } from '../../../constants/types';
+import type { ClinicSessionSummary } from '../../../services/clinicService';
 import { ClinicWorkspaceScaffold } from '../components/ClinicWorkspaceScaffold';
 import {
   ClinicPatientAdaptiveSheet,
@@ -38,6 +40,7 @@ export function ClinicPatientsWorkspace({
   const controller = useClinicPatientsController();
   const listHeadingRef = useRef<React.ElementRef<typeof View>>(null);
   const headerAddRef = useRef<AnimatedPressableHandle>(null);
+  const newSessionButtonRef = useRef<AnimatedPressableHandle>(null);
   const returnFocusRef = useRef<AnimatedPressableHandle | null>(null);
   const clinicName = controller.workspace.selectedMembership?.clinic.commercialName;
   const selectedSessionDetail = controller.selectedSessionDetail;
@@ -94,6 +97,22 @@ export function ClinicPatientsWorkspace({
     controller.handleUpdateSessionStatus,
     selectedSessionDetail,
   ]);
+
+  const restoreSessionButtonFocus = useCallback(() => {
+    setTimeout(() => {
+      focusPatientAccessibilityTarget(newSessionButtonRef.current);
+    }, 0);
+  }, []);
+
+  const handleCloseSessionScheduler = useCallback(() => {
+    controller.handleCloseSessionScheduler();
+    restoreSessionButtonFocus();
+  }, [controller.handleCloseSessionScheduler, restoreSessionButtonFocus]);
+
+  const handlePatientSessionCreated = useCallback((session: ClinicSessionSummary) => {
+    controller.handlePatientSessionCreated(session);
+    restoreSessionButtonFocus();
+  }, [controller.handlePatientSessionCreated, restoreSessionButtonFocus]);
 
   let compactPanelTitle = controller.selectedPatient?.displayName ?? 'Ficha de paciente';
   if (controller.panelMode === 'create') {
@@ -174,6 +193,8 @@ export function ClinicPatientsWorkspace({
       onSubmitEdit={controller.handleSubmit}
       onCancelEdit={adaptiveNavigation.handleCancelForm}
       onStatusChange={controller.handleStatusChange}
+      onCreateSession={controller.handleOpenSessionScheduler}
+      createSessionFocusRef={newSessionButtonRef}
     />
   ) : (
     <View style={styles.statePanel}>
@@ -320,6 +341,16 @@ export function ClinicPatientsWorkspace({
       ) : null}
 
       {!isCompact ? appointmentDetail : null}
+
+      <ClinicSessionSchedulerModal
+        visible={controller.sessionSchedulerVisible}
+        clinicName={clinicName}
+        patients={controller.selectedPatient ? [controller.selectedPatient] : []}
+        lockedPatientId={controller.selectedPatient?.id ?? null}
+        onClose={handleCloseSessionScheduler}
+        onSubmit={controller.handleSubmitPatientSession}
+        onCreated={handlePatientSessionCreated}
+      />
     </>
   );
 }

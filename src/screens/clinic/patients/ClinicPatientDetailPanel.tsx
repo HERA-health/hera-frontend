@@ -1,7 +1,10 @@
 import React, { useMemo } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
+import {
+  AnimatedPressable,
+  type AnimatedPressableHandle,
+} from '../../../components/common/AnimatedPressable';
 import { Button } from '../../../components/common/Button';
 import { Card } from '../../../components/common/Card';
 import { Input } from '../../../components/common/Input';
@@ -91,6 +94,8 @@ interface ClinicPatientDetailPanelProps {
   onLoadMoreAssignmentHistory: () => void;
   onRetryAssignmentHistory: () => void;
   onOpenSessionDetail: (sessionId: string) => void;
+  onCreateSession: () => void;
+  createSessionFocusRef?: React.Ref<AnimatedPressableHandle>;
   onLoadMorePatientSessions: () => void;
   onRetryPatientSessions: () => void;
   onSelectTab: (tab: ClinicPatientDetailTab) => void;
@@ -156,6 +161,8 @@ export function ClinicPatientDetailPanel({
   onLoadMoreAssignmentHistory,
   onRetryAssignmentHistory,
   onOpenSessionDetail,
+  onCreateSession,
+  createSessionFocusRef,
   onLoadMorePatientSessions,
   onRetryPatientSessions,
   onSelectTab,
@@ -174,11 +181,31 @@ export function ClinicPatientDetailPanel({
   const detail = hasPatientDetail(patient) ? patient : null;
   const activeAssignment = patient.activeAssignment;
   const responsibleInactive = activeAssignment?.clinicSpecialistStatus === 'INACTIVE';
+  const contextualActionOpen = editSection !== null || assignmentMode !== null;
+  const canCreateSession = Boolean(
+    canManage
+    && patient.status === 'ACTIVE'
+    && activeAssignment
+    && !responsibleInactive
+    && !saving
+    && !contextualActionOpen
+    && !detailLoading
+  );
+  const createSessionAccessibilityLabel = canCreateSession
+    ? `Nueva cita para ${patient.displayName}`
+    : !canManage
+      ? 'Nueva cita no disponible: acción reservada a propietarios y administradores'
+      : patient.status !== 'ACTIVE'
+        ? 'Nueva cita no disponible: el paciente está archivado'
+        : !activeAssignment
+          ? 'Nueva cita no disponible: asigna primero un responsable'
+          : responsibleInactive
+            ? 'Nueva cita no disponible: el responsable está inactivo'
+            : 'Nueva cita no disponible temporalmente';
   const responsibleLabel = activeAssignment
     ? `${activeAssignment.clinicSpecialistDisplayName}${responsibleInactive ? ' · Inactivo' : ''}`
     : 'Sin responsable';
   const nextSession = detail?.nextSession ?? null;
-  const contextualActionOpen = editSection !== null || assignmentMode !== null;
   const initials = [patient.firstName, patient.lastName]
     .filter(Boolean)
     .map((value) => value?.trim().charAt(0).toUpperCase())
@@ -233,6 +260,17 @@ export function ClinicPatientDetailPanel({
         </View>
 
         <View style={styles.actions}>
+          <Button
+            focusRef={createSessionFocusRef}
+            variant="primary"
+            size="small"
+            onPress={onCreateSession}
+            disabled={!canCreateSession}
+            accessibilityLabel={createSessionAccessibilityLabel}
+            icon={<Ionicons name="calendar-outline" size={17} color={theme.actionPrimaryText} />}
+          >
+            Nueva cita
+          </Button>
           <Button
             variant="outline"
             size="small"

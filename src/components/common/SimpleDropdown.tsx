@@ -23,6 +23,7 @@ export interface SimpleDropdownProps<T> {
   options: readonly DropdownOption<T>[];
   value: T | null;
   onSelect: (value: T) => void;
+  accessibilityLabel?: string;
   placeholder?: string;
   maxHeight?: number;
   optionsMinWidth?: number;
@@ -37,6 +38,7 @@ export function SimpleDropdown<T extends string | number>({
   options,
   value,
   onSelect,
+  accessibilityLabel,
   placeholder = 'Seleccionar...',
   maxHeight = 200,
   optionsMinWidth,
@@ -55,6 +57,9 @@ export function SimpleDropdown<T extends string | number>({
   return (
     <View style={[dropdownStyles.container, open ? dropdownStyles.containerOpen : null]}>
       <AnimatedPressable
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
         style={[
           dropdownStyles.trigger,
           compact && dropdownStyles.triggerCompact,

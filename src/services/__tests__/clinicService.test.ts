@@ -52,6 +52,7 @@ import {
   updateClinicInvoice,
   updateClinicSettlementStatus,
   createClinicSession,
+  subscribeClinicSessionChanges,
   updateClinicPatient,
   updateClinicPatientStatus,
   updateClinicSessionStatus,
@@ -940,6 +941,8 @@ describe('clinicService', () => {
   });
 
   it('uses dedicated clinic session endpoints for agenda operations', async () => {
+    const changes: Parameters<Parameters<typeof subscribeClinicSessionChanges>[0]>[0][] = [];
+    const unsubscribe = subscribeClinicSessionChanges((change) => changes.push(change));
     const session: ClinicSessionSummary = {
       id: 'session-1',
       date: '2026-06-01T10:00:00.000Z',
@@ -1038,6 +1041,23 @@ describe('clinicService', () => {
       '/clinics/clinic-1/sessions/session-1/status',
       { status: 'CANCELLED' },
     );
+    expect(changes).toEqual([
+      {
+        clinicId: 'clinic-1',
+        clinicPatientId: 'clinic-patient-1',
+        clinicSpecialistId: 'clinic-specialist-1',
+        sessionId: 'session-1',
+        mutation: 'CREATED',
+      },
+      {
+        clinicId: 'clinic-1',
+        clinicPatientId: 'clinic-patient-1',
+        clinicSpecialistId: 'clinic-specialist-1',
+        sessionId: 'session-1',
+        mutation: 'STATUS_UPDATED',
+      },
+    ]);
+    unsubscribe();
   });
 
   it('loads the minimal combined agenda projection for the selected professional', async () => {

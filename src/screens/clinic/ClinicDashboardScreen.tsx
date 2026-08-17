@@ -130,6 +130,11 @@ export function ClinicDashboardScreen({
     void loadDashboard(workspace.selectedClinicId);
   }, [loadDashboard, workspace.selectedClinicId]);
 
+  useEffect(() => clinicService.subscribeClinicSessionChanges((change) => {
+    if (change.clinicId !== workspace.selectedClinicId) return;
+    void loadDashboard(change.clinicId);
+  }), [loadDashboard, workspace.selectedClinicId]);
+
   const handleSelectClinic = useCallback((clinicId: string) => {
     void workspace.selectClinic(clinicId);
   }, [workspace]);

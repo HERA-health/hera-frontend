@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -9,11 +9,15 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { ClinicSessionSchedulerModal } from '../../components/clinic/ClinicSessionSchedulerModal';
 import { useAppAlert } from '../../components/common/alert';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
-import { AnimatedPressable } from '../../components/common/AnimatedPressable';
-import { DropdownOption, SimpleDropdown } from '../../components/common/SimpleDropdown';
+import {
+  AnimatedPressable,
+  type AnimatedPressableHandle,
+} from '../../components/common/AnimatedPressable';
+import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { AppointmentDetailSheet } from '../../components/sessions/AppointmentDetailSheet';
 import {
   CLINIC_SESSION_STATUS_LABELS,
@@ -30,10 +34,7 @@ import * as clinicService from '../../services/clinicService';
 import { ClinicWorkspaceScaffold } from './components/ClinicWorkspaceScaffold';
 import {
   STATUS_OPTIONS,
-  TYPE_OPTIONS,
   useClinicAgendaController,
-  type ClinicAgendaCreateSessionErrors,
-  type ClinicAgendaCreateSessionForm,
   type ClinicStatusUpdatableSession,
 } from './useClinicAgendaController';
 
@@ -63,24 +64,27 @@ export function ClinicAgendaScreen({
     [isCompact, isNarrow, theme],
   );
   const {
+    agendaRefreshError,
     agendaLoadingMore,
     agendaPageInfo,
     canManage,
     editableFilters,
     error,
-    form,
-    formErrors,
     handleApplyFilters,
-    handleChangeForm,
-    handleCreateSession,
+    handleCloseCreateModal: closeCreateModal,
     handleLoadMoreSessions,
     handleLoadMorePatientOptions,
     handleOpenCreateModal,
     handleOpenSessionDetail,
     handlePatientLookupSearchChange,
     handleRetry,
+    handleRetryAgendaRefresh,
+    handleRetryPatientLookup,
     handleRetrySessionDetail,
+    handleRetrySpecialists,
     handleSelectClinic,
+    handleSessionCreated: completeSessionCreation,
+    handleSubmitSession,
     handleUpdateStatus,
     handleCloseSessionDetail,
     loading,
@@ -90,18 +94,18 @@ export function ClinicAgendaScreen({
     patientLookupLoading,
     patientLookupLoadingMore,
     patientLookupPageInfo,
+    patientLookupError,
     patientLookupSearch,
     patientOptions,
     patients,
-    selectedFormPatient,
     selectedSessionDetail,
     selectedSessionDetailError,
     selectedSessionDetailLoading,
     selectedSessionId,
     sessions,
     setEditableFilter,
-    setModalVisible,
     saving,
+    specialistsError,
     specialistFilterOptions,
     workspace,
   } = useClinicAgendaController();
@@ -110,6 +114,23 @@ export function ClinicAgendaScreen({
   const selectedDetail = selectedSessionDetail;
   const [selectedPrivateSession, setSelectedPrivateSession] =
     useState<clinicService.ClinicAgendaPrivateSession | null>(null);
+  const newSessionButtonRef = useRef<AnimatedPressableHandle>(null);
+
+  const restoreNewSessionFocus = useCallback(() => {
+    setTimeout(() => {
+      newSessionButtonRef.current?.focus();
+    }, 0);
+  }, []);
+
+  const handleCloseCreateModal = useCallback(() => {
+    closeCreateModal();
+    restoreNewSessionFocus();
+  }, [closeCreateModal, restoreNewSessionFocus]);
+
+  const handleSessionCreated = useCallback((session: clinicService.ClinicSessionSummary) => {
+    completeSessionCreation(session);
+    restoreNewSessionFocus();
+  }, [completeSessionCreation, restoreNewSessionFocus]);
 
   const confirmSessionStatusUpdate = useCallback((
     session: ClinicStatusUpdatableSession,
@@ -144,11 +165,12 @@ export function ClinicAgendaScreen({
           >
             Panel
           </Button>
-          <Button
-            variant="primary"
+              <Button
+                focusRef={newSessionButtonRef}
+                variant="primary"
             size="medium"
             onPress={handleOpenCreateModal}
-            disabled={!canManage || patients.length === 0 || saving}
+            disabled={!canManage || saving}
             icon={<Ionicons name="add-circle-outline" size={18} color={theme.actionPrimaryText} />}
           >
             Nueva cita
@@ -221,6 +243,7 @@ export function ClinicAgendaScreen({
                 <Text style={styles.filterLabel}>Estado</Text>
                 <SimpleDropdown
                   compact
+                  accessibilityLabel="Filtrar agenda por estado"
                   highlightSelection={false}
                   options={STATUS_OPTIONS}
                   value={editableFilters.statusFilter}
@@ -232,17 +255,27 @@ export function ClinicAgendaScreen({
                 <Text style={styles.filterLabel}>Profesional</Text>
                 <SimpleDropdown
                   compact
+                  accessibilityLabel="Filtrar agenda por profesional"
                   highlightSelection={false}
                   options={specialistFilterOptions}
                   value={editableFilters.specialistFilter}
                   onSelect={(value) => setEditableFilter('specialistFilter', value)}
                 />
+                {specialistsError ? (
+                  <View accessibilityRole="alert" style={styles.referenceError}>
+                    <Text style={styles.referenceErrorText}>{specialistsError}</Text>
+                    <Button variant="ghost" size="small" onPress={handleRetrySpecialists}>
+                      Reintentar
+                    </Button>
+                  </View>
+                ) : null}
               </View>
 
               <View style={styles.filterDropdown}>
                 <Text style={styles.filterLabel}>Origen</Text>
                 <SimpleDropdown
                   compact
+                  accessibilityLabel="Filtrar agenda por origen"
                   highlightSelection={false}
                   options={originFilterOptions}
                   value={editableFilters.originFilter}
@@ -273,6 +306,7 @@ export function ClinicAgendaScreen({
               </View>
               <View style={styles.patientFilterControls}>
                 <Input
+                  accessibilityLabel="Buscar paciente para filtrar la agenda"
                   placeholder="Buscar por nombre"
                   value={patientLookupSearch}
                   onChangeText={handlePatientLookupSearchChange}
@@ -282,6 +316,7 @@ export function ClinicAgendaScreen({
                 <View style={styles.patientDropdown}>
                   <SimpleDropdown
                     compact
+                    accessibilityLabel="Filtrar agenda por paciente"
                     highlightSelection={false}
                     options={patientFilterOptions}
                     value={editableFilters.patientFilter}
@@ -300,10 +335,33 @@ export function ClinicAgendaScreen({
                   </Button>
                 ) : null}
               </View>
+              {patientLookupError ? (
+                <View accessibilityRole="alert" style={styles.referenceError}>
+                  <Text style={styles.referenceErrorText}>{patientLookupError}</Text>
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    onPress={handleRetryPatientLookup}
+                    disabled={patientLookupLoading}
+                  >
+                    Reintentar
+                  </Button>
+                </View>
+              ) : null}
             </View>
           </View>
 
           <AgendaOriginLegend />
+
+          {agendaRefreshError ? (
+            <View accessibilityRole="alert" style={styles.refreshNotice}>
+              <Ionicons name="cloud-offline-outline" size={18} color={theme.warning} />
+              <Text style={styles.refreshNoticeText}>{agendaRefreshError}</Text>
+              <Button variant="ghost" size="small" onPress={handleRetryAgendaRefresh}>
+                Reintentar
+              </Button>
+            </View>
+          ) : null}
 
           {loading ? (
             <View style={styles.statePanel}>
@@ -360,24 +418,22 @@ export function ClinicAgendaScreen({
             </View>
           )}
 
-          <CreateSessionModal
+          <ClinicSessionSchedulerModal
             visible={modalVisible}
-            form={form}
-            errors={formErrors}
+            clinicName={clinicName}
+            patients={patients}
             patientOptions={patientOptions}
             patientLookupSearch={patientLookupSearch}
             patientLookupLoading={patientLookupLoading}
             patientLookupLoadingMore={patientLookupLoadingMore}
             patientLookupHasMore={Boolean(patientLookupPageInfo?.hasMore)}
-            selectedPatient={selectedFormPatient}
-            saving={saving}
-            onChange={handleChangeForm}
+            patientLookupError={patientLookupError}
             onLoadMorePatients={handleLoadMorePatientOptions}
             onPatientSearchChange={handlePatientLookupSearchChange}
-            onClose={() => {
-              if (!saving) setModalVisible(false);
-            }}
-            onSubmit={handleCreateSession}
+            onRetryPatientLookup={handleRetryPatientLookup}
+            onClose={handleCloseCreateModal}
+            onSubmit={handleSubmitSession}
+            onCreated={handleSessionCreated}
           />
 
           <AppointmentDetailSheet
@@ -603,148 +659,6 @@ function DetailRow({ label, value }: { label: string; value: string }): React.Re
   );
 }
 
-interface CreateSessionModalProps {
-  visible: boolean;
-  form: ClinicAgendaCreateSessionForm;
-  errors: ClinicAgendaCreateSessionErrors;
-  patientOptions: DropdownOption<string>[];
-  patientLookupSearch: string;
-  patientLookupLoading: boolean;
-  patientLookupLoadingMore: boolean;
-  patientLookupHasMore: boolean;
-  selectedPatient: clinicService.ClinicPatientSummary | null;
-  saving: boolean;
-  onChange: <K extends keyof ClinicAgendaCreateSessionForm>(
-    field: K,
-    value: ClinicAgendaCreateSessionForm[K]
-  ) => void;
-  onLoadMorePatients: () => void;
-  onPatientSearchChange: (search: string) => void;
-  onClose: () => void;
-  onSubmit: () => void;
-}
-
-function CreateSessionModal({
-  visible,
-  form,
-  errors,
-  patientOptions,
-  patientLookupSearch,
-  patientLookupLoading,
-  patientLookupLoadingMore,
-  patientLookupHasMore,
-  selectedPatient,
-  saving,
-  onChange,
-  onLoadMorePatients,
-  onPatientSearchChange,
-  onClose,
-  onSubmit,
-}: CreateSessionModalProps): React.ReactElement {
-  const { theme } = useTheme();
-  const styles = useMemo(() => createModalStyles(theme), [theme]);
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={styles.modal}>
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>Nueva cita</Text>
-              <Text style={styles.subtitle}>Agenda de clínica</Text>
-            </View>
-            <Button variant="ghost" size="small" onPress={onClose} disabled={saving}>
-              Cerrar
-            </Button>
-          </View>
-
-          <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-            <View style={styles.field}>
-              <Text style={styles.label}>Paciente</Text>
-              <Input
-                label="Buscar paciente"
-                value={patientLookupSearch}
-                onChangeText={onPatientSearchChange}
-                containerStyle={styles.lookupInput}
-              />
-              <SimpleDropdown
-                options={patientOptions}
-                value={form.clinicPatientId || null}
-                onSelect={(value) => onChange('clinicPatientId', value)}
-                placeholder="Selecciona paciente"
-                maxHeight={280}
-              />
-              {patientLookupHasMore ? (
-                <Button
-                  variant="ghost"
-                  size="small"
-                  onPress={onLoadMorePatients}
-                  loading={patientLookupLoadingMore}
-                  disabled={patientLookupLoading || patientLookupLoadingMore}
-                >
-                  Cargar mas pacientes
-                </Button>
-              ) : null}
-              {errors.clinicPatientId ? <Text style={styles.error}>{errors.clinicPatientId}</Text> : null}
-            </View>
-
-            <View style={styles.responsiblePanel}>
-              <Text style={styles.responsibleLabel}>Responsable</Text>
-              <Text style={styles.responsibleText}>
-                {selectedPatient?.activeAssignment?.clinicSpecialistDisplayName ?? 'Sin responsable activo'}
-              </Text>
-              {errors.clinicSpecialistId ? <Text style={styles.error}>{errors.clinicSpecialistId}</Text> : null}
-            </View>
-
-            <View style={styles.grid}>
-              <Input
-                label="Fecha"
-                value={form.date}
-                onChangeText={(value) => onChange('date', value)}
-                error={errors.date}
-                containerStyle={styles.gridInput}
-              />
-              <Input
-                label="Hora"
-                value={form.time}
-                onChangeText={(value) => onChange('time', value)}
-                error={errors.time}
-                containerStyle={styles.gridInput}
-              />
-              <Input
-                label="Duración"
-                value={form.duration}
-                onChangeText={(value) => onChange('duration', value)}
-                error={errors.duration}
-                keyboardType="numeric"
-                containerStyle={styles.gridInput}
-              />
-            </View>
-
-            <View style={styles.field}>
-              <Text style={styles.label}>Tipo</Text>
-              <SimpleDropdown
-                options={TYPE_OPTIONS}
-                value={form.type}
-                onSelect={(value) => onChange('type', value)}
-              />
-            </View>
-          </ScrollView>
-
-          <View style={styles.footer}>
-            <Button variant="outline" size="medium" onPress={onClose} disabled={saving}>
-              Cancelar
-            </Button>
-            <Button variant="primary" size="medium" onPress={onSubmit} loading={saving}>
-              Crear cita
-            </Button>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
 const createStyles = (theme: Theme, isCompact: boolean, isNarrow: boolean) =>
   StyleSheet.create({
     workspace: {
@@ -930,6 +844,35 @@ const createStyles = (theme: Theme, isCompact: boolean, isNarrow: boolean) =>
       minWidth: isNarrow ? undefined : 200,
       position: 'relative',
       zIndex: 30,
+    },
+    referenceError: {
+      flexDirection: isNarrow ? 'column' : 'row',
+      alignItems: isNarrow ? 'stretch' : 'center',
+      gap: spacing.xs,
+    },
+    referenceErrorText: {
+      flex: 1,
+      color: theme.error,
+      fontFamily: theme.fontSansMedium,
+      fontSize: 12,
+      lineHeight: 17,
+    },
+    refreshNotice: {
+      flexDirection: isNarrow ? 'column' : 'row',
+      alignItems: isNarrow ? 'stretch' : 'center',
+      gap: spacing.sm,
+      borderWidth: 1,
+      borderColor: theme.warning,
+      borderRadius: borderRadius.lg,
+      backgroundColor: theme.warningBg,
+      padding: spacing.md,
+    },
+    refreshNoticeText: {
+      flex: 1,
+      color: theme.textSecondary,
+      fontFamily: theme.fontSansMedium,
+      fontSize: 13,
+      lineHeight: 19,
     },
     sessionList: {
       gap: spacing.md,
@@ -1211,111 +1154,6 @@ const createPrivateAgendaDetailStyles = (theme: Theme) =>
       fontFamily: theme.fontSans,
       fontSize: 13,
       lineHeight: 19,
-    },
-  });
-
-const createModalStyles = (theme: Theme) =>
-  StyleSheet.create({
-    backdrop: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.overlay,
-      padding: spacing.lg,
-    },
-    modal: {
-      width: '100%',
-      maxWidth: 620,
-      maxHeight: '92%',
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 8,
-      backgroundColor: theme.bgCard,
-      overflow: 'hidden',
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
-      padding: spacing.lg,
-    },
-    title: {
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansBold,
-      fontSize: 20,
-      lineHeight: 26,
-    },
-    subtitle: {
-      color: theme.textMuted,
-      fontFamily: theme.fontSans,
-      fontSize: 13,
-      lineHeight: 18,
-    },
-    body: {
-      padding: spacing.lg,
-      gap: spacing.md,
-    },
-    field: {
-      gap: spacing.xs,
-      position: 'relative',
-      zIndex: 20,
-    },
-    lookupInput: {
-      marginBottom: 0,
-    },
-    label: {
-      color: theme.textSecondary,
-      fontFamily: theme.fontSansMedium,
-      fontSize: 14,
-      lineHeight: 18,
-    },
-    error: {
-      color: theme.error,
-      fontFamily: theme.fontSans,
-      fontSize: 12,
-      lineHeight: 16,
-    },
-    responsiblePanel: {
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 8,
-      backgroundColor: theme.bgMuted,
-      padding: spacing.md,
-      gap: 4,
-    },
-    responsibleLabel: {
-      color: theme.textMuted,
-      fontFamily: theme.fontSansSemiBold,
-      fontSize: 12,
-      lineHeight: 16,
-      textTransform: 'uppercase',
-    },
-    responsibleText: {
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansSemiBold,
-      fontSize: 15,
-      lineHeight: 21,
-    },
-    grid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.md,
-    },
-    gridInput: {
-      flex: 1,
-      minWidth: 150,
-      marginBottom: 0,
-    },
-    footer: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      gap: spacing.sm,
-      borderTopWidth: 1,
-      borderTopColor: theme.border,
-      padding: spacing.lg,
     },
   });
 

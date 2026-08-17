@@ -69,7 +69,7 @@ describe('appointment detail robustness contracts', () => {
   it('keeps appointment action buttons outside parent detail pressables', () => {
     const clinicSessionRowSource = clinicAgendaSource.slice(
       clinicAgendaSource.indexOf('function SessionRow'),
-      clinicAgendaSource.indexOf('interface CreateSessionModalProps')
+      clinicAgendaSource.indexOf('interface PrivateAgendaDetailModalProps')
     );
     expect(clinicSessionRowSource).toContain('<View style={styles.row}>');
     expect(clinicSessionRowSource).toContain('style={styles.detailsButton}');

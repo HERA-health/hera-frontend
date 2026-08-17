@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { z } from 'zod';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import type { DropdownOption } from '../../components/common/SimpleDropdown';
 import * as clinicService from '../../services/clinicService';
@@ -7,7 +6,6 @@ import { useClinicWorkspace } from './useClinicWorkspace';
 
 export type ClinicAgendaStatusFilter = clinicService.ClinicSessionStatus | 'ALL';
 export type ClinicAgendaOriginFilter = clinicService.ClinicAgendaOrigin;
-export type ClinicAgendaTypeOption = Extract<clinicService.ClinicSessionType, 'IN_PERSON' | 'PHONE_CALL'>;
 
 export interface ClinicAgendaFilters {
   startDate: string;
@@ -18,17 +16,14 @@ export interface ClinicAgendaFilters {
   patientFilter: string;
 }
 
-export interface ClinicAgendaCreateSessionForm {
-  clinicPatientId: string;
-  date: string;
-  time: string;
-  duration: string;
-  type: ClinicAgendaTypeOption;
+interface PatientLookupSnapshot {
+  clinicId: string;
+  search: string;
+  patients: clinicService.ClinicPatientSummary[];
+  pageInfo: clinicService.ClinicPatientListPageInfo | null;
+  error: string;
+  wasLoading: boolean;
 }
-
-export type ClinicAgendaCreateSessionErrors = Partial<
-  Record<keyof ClinicAgendaCreateSessionForm | 'clinicSpecialistId', string>
->;
 
 export type ClinicStatusUpdatableSession = Pick<clinicService.ClinicSessionSummary, 'id'>
   | clinicService.ClinicAgendaClinicSession;
@@ -46,13 +41,7 @@ export const ORIGIN_OPTIONS: DropdownOption<ClinicAgendaOriginFilter>[] = [
   { label: 'Solo particulares', value: 'PRIVATE' },
 ];
 
-export const TYPE_OPTIONS: DropdownOption<ClinicAgendaTypeOption>[] = [
-  { label: 'Presencial', value: 'IN_PERSON' },
-  { label: 'Llamada', value: 'PHONE_CALL' },
-];
-
 const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_INPUT_PATTERN = /^\d{2}:\d{2}$/;
 const CLINIC_REFERENCE_PAGE_LIMIT = 25;
 const PATIENT_LOOKUP_DEBOUNCE_MS = 250;
 
@@ -91,15 +80,6 @@ const parseLocalDateInput = (value: string): { year: number; month: number; day:
   return { year, month, day };
 };
 
-const parseLocalTimeInput = (value: string): { hours: number; minutes: number } | null => {
-  if (!TIME_INPUT_PATTERN.test(value)) return null;
-
-  const [hours, minutes] = value.split(':').map(Number);
-  if (hours > 23 || minutes > 59) return null;
-
-  return { hours, minutes };
-};
-
 export const toLocalStartOfDayIso = (date: string): string => {
   const parsed = parseLocalDateInput(date);
   if (!parsed) {
@@ -118,25 +98,6 @@ export const toLocalEndOfDayIso = (date: string): string => {
   return new Date(parsed.year, parsed.month - 1, parsed.day, 23, 59, 59, 999).toISOString();
 };
 
-export const toLocalDateTimeIso = (date: string, time: string): string => {
-  const parsedDate = parseLocalDateInput(date);
-  const parsedTime = parseLocalTimeInput(time);
-
-  if (!parsedDate || !parsedTime) {
-    throw new Error('Usa una fecha y hora válidas.');
-  }
-
-  return new Date(
-    parsedDate.year,
-    parsedDate.month - 1,
-    parsedDate.day,
-    parsedTime.hours,
-    parsedTime.minutes,
-    0,
-    0,
-  ).toISOString();
-};
-
 const createInitialFilters = (baseDate = new Date()): ClinicAgendaFilters => ({
   startDate: toLocalDateInputValue(baseDate),
   endDate: addLocalDaysInputValue(30, baseDate),
@@ -145,32 +106,6 @@ const createInitialFilters = (baseDate = new Date()): ClinicAgendaFilters => ({
   specialistFilter: 'ALL',
   patientFilter: 'ALL',
 });
-
-const createInitialForm = (clinicPatientId = ''): ClinicAgendaCreateSessionForm => ({
-  clinicPatientId,
-  date: toLocalDateInputValue(),
-  time: '10:00',
-  duration: '60',
-  type: 'IN_PERSON',
-});
-
-const createSessionFormSchema = z.object({
-  clinicPatientId: z.string().min(1, 'Selecciona un paciente asignado.'),
-  date: z.string()
-    .regex(DATE_INPUT_PATTERN, 'Usa una fecha válida.')
-    .refine((value) => parseLocalDateInput(value) !== null, 'Usa una fecha válida.'),
-  time: z.string()
-    .regex(TIME_INPUT_PATTERN, 'Usa una hora válida.')
-    .refine((value) => parseLocalTimeInput(value) !== null, 'Usa una hora válida.'),
-  duration: z.coerce.number().int().min(15).max(180),
-  type: z.enum(['IN_PERSON', 'PHONE_CALL']),
-});
-
-const getPatientSpecialistId = (
-  patients: clinicService.ClinicPatientSummary[],
-  clinicPatientId: string,
-): string | null =>
-  patients.find((patient) => patient.id === clinicPatientId)?.activeAssignment?.clinicSpecialistId ?? null;
 
 export const buildClinicAgendaSessionFilters = (
   filters: ClinicAgendaFilters,
@@ -206,7 +141,14 @@ export function useClinicAgendaController() {
   const sessionsRequestSeq = useRef(0);
   const specialistsRequestSeq = useRef(0);
   const patientLookupRequestSeq = useRef(0);
+  const skipNextPatientLookupEffectRef = useRef(false);
   const sessionDetailRequestSeq = useRef(0);
+  const sessionCreationContextRef = useRef<{
+    clinicId: string;
+    clinicPatientId?: string;
+    clinicSpecialistId?: string;
+  } | null>(null);
+  const patientLookupBeforeSchedulerRef = useRef<PatientLookupSnapshot | null>(null);
 
   const [sessions, setSessions] = useState<clinicService.ClinicAgendaItem[]>([]);
   const [agendaPageInfo, setAgendaPageInfo] =
@@ -223,13 +165,14 @@ export function useClinicAgendaController() {
     useState<clinicService.ClinicPatientListPageInfo | null>(null);
   const [patientLookupLoading, setPatientLookupLoading] = useState(false);
   const [patientLookupLoadingMore, setPatientLookupLoadingMore] = useState(false);
+  const [patientLookupError, setPatientLookupError] = useState('');
   const [specialists, setSpecialists] = useState<clinicService.ClinicSpecialist[]>([]);
+  const [specialistsError, setSpecialistsError] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [agendaRefreshError, setAgendaRefreshError] = useState('');
   const [saving, setSaving] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [form, setForm] = useState<ClinicAgendaCreateSessionForm>(() => createInitialForm());
-  const [formErrors, setFormErrors] = useState<ClinicAgendaCreateSessionErrors>({});
   const [editableFilters, setEditableFilters] = useState<ClinicAgendaFilters>(() => createInitialFilters());
   const [appliedFilters, setAppliedFilters] = useState<ClinicAgendaFilters>(() => createInitialFilters());
 
@@ -259,13 +202,17 @@ export function useClinicAgendaController() {
     setPatientLookupPageInfo(null);
     setPatientLookupLoading(false);
     setPatientLookupLoadingMore(false);
+    setPatientLookupError('');
     setSpecialists([]);
+    setSpecialistsError('');
     setLoading(false);
     setError('');
+    setAgendaRefreshError('');
     setSaving(false);
     setModalVisible(false);
-    setForm(createInitialForm());
-    setFormErrors({});
+    sessionCreationContextRef.current = null;
+    patientLookupBeforeSchedulerRef.current = null;
+    skipNextPatientLookupEffectRef.current = false;
     setEditableFilters(initialFilters);
     setAppliedFilters(initialFilters);
   }, [invalidateAgendaRequests]);
@@ -299,11 +246,6 @@ export function useClinicAgendaController() {
     [specialists],
   );
 
-  const selectedFormPatient = useMemo(
-    () => patients.find((patient) => patient.id === form.clinicPatientId) ?? null,
-    [form.clinicPatientId, patients],
-  );
-
   const setEditableFilter = useCallback(<K extends keyof ClinicAgendaFilters>(
     field: K,
     value: ClinicAgendaFilters[K],
@@ -335,10 +277,13 @@ export function useClinicAgendaController() {
     patientLookupRequestSeq.current = requestId;
 
     if (append) {
+      setPatientLookupLoading(false);
       setPatientLookupLoadingMore(true);
     } else {
+      setPatientLookupLoadingMore(false);
       setPatientLookupLoading(true);
     }
+    setPatientLookupError('');
 
     try {
       const patientPage = await clinicService.listClinicPatients(clinicId, {
@@ -359,6 +304,14 @@ export function useClinicAgendaController() {
         return [...currentPatients, ...nextItems];
       });
       setPatientLookupPageInfo(patientPage.pageInfo);
+    } catch (lookupError: unknown) {
+      if (!mountedRef.current || patientLookupRequestSeq.current !== requestId) return;
+      setPatientLookupError(lookupError instanceof Error
+        ? lookupError.message
+        : 'No se pudieron actualizar los pacientes disponibles.');
+      if (!append) {
+        setPatientLookupPageInfo(null);
+      }
     } finally {
       if (mountedRef.current && patientLookupRequestSeq.current === requestId) {
         setPatientLookupLoading(false);
@@ -370,13 +323,21 @@ export function useClinicAgendaController() {
   const loadSpecialists = useCallback(async (clinicId: string) => {
     const requestId = specialistsRequestSeq.current + 1;
     specialistsRequestSeq.current = requestId;
+    setSpecialistsError('');
 
-    const specialistItems = await clinicService.listClinicSpecialists(clinicId, {
-      status: 'ACTIVE',
-    });
+    try {
+      const specialistItems = await clinicService.listClinicSpecialists(clinicId, {
+        status: 'ACTIVE',
+      });
 
-    if (!mountedRef.current || specialistsRequestSeq.current !== requestId) return;
-    setSpecialists(specialistItems);
+      if (!mountedRef.current || specialistsRequestSeq.current !== requestId) return;
+      setSpecialists(specialistItems);
+    } catch (specialistsLoadError: unknown) {
+      if (!mountedRef.current || specialistsRequestSeq.current !== requestId) return;
+      setSpecialistsError(specialistsLoadError instanceof Error
+        ? specialistsLoadError.message
+        : 'No se pudo actualizar el equipo activo.');
+    }
   }, []);
 
   const loadSessions = useCallback(async (
@@ -389,10 +350,13 @@ export function useClinicAgendaController() {
     sessionsRequestSeq.current = requestId;
 
     if (append) {
+      setLoading(false);
       setAgendaLoadingMore(true);
     } else {
+      setAgendaLoadingMore(false);
       setLoading(true);
       setError('');
+      setAgendaRefreshError('');
     }
 
     try {
@@ -419,6 +383,46 @@ export function useClinicAgendaController() {
         setSessions([]);
         setAgendaPageInfo(null);
       }
+    } finally {
+      if (mountedRef.current && sessionsRequestSeq.current === requestId) {
+        setLoading(false);
+        setAgendaLoadingMore(false);
+      }
+    }
+  }, []);
+
+  const refreshLoadedAgendaPages = useCallback(async (
+    clinicId: string,
+    filters: ClinicAgendaFilters,
+    throughPage: number,
+  ) => {
+    const requestId = sessionsRequestSeq.current + 1;
+    sessionsRequestSeq.current = requestId;
+    setAgendaRefreshError('');
+
+    try {
+      const pages = await Promise.all(
+        Array.from({ length: Math.max(1, throughPage) }, (_, index) => (
+          clinicService.getClinicAgenda(
+            clinicId,
+            buildClinicAgendaFilters(filters, index + 1),
+          )
+        )),
+      );
+      if (!mountedRef.current || sessionsRequestSeq.current !== requestId) return;
+
+      const seenKeys = new Set<string>();
+      setSessions(pages.flatMap((page) => page.items).filter((session) => {
+        if (seenKeys.has(session.key)) return false;
+        seenKeys.add(session.key);
+        return true;
+      }));
+      setAgendaPageInfo(pages.at(-1)?.pageInfo ?? null);
+    } catch (refreshError: unknown) {
+      if (!mountedRef.current || sessionsRequestSeq.current !== requestId) return;
+      setAgendaRefreshError(refreshError instanceof Error
+        ? refreshError.message
+        : 'No se pudo actualizar la agenda. Las citas visibles no han cambiado.');
     } finally {
       if (mountedRef.current && sessionsRequestSeq.current === requestId) {
         setLoading(false);
@@ -488,12 +492,16 @@ export function useClinicAgendaController() {
     setPatientLookupPageInfo(null);
     setPatientLookupLoading(false);
     setPatientLookupLoadingMore(false);
+    setPatientLookupError('');
     setSpecialists([]);
+    setSpecialistsError('');
     setLoading(false);
     setError('');
+    setAgendaRefreshError('');
     setModalVisible(false);
-    setForm(createInitialForm());
-    setFormErrors({});
+    sessionCreationContextRef.current = null;
+    patientLookupBeforeSchedulerRef.current = null;
+    skipNextPatientLookupEffectRef.current = false;
     setEditableFilters(initialFilters);
     setAppliedFilters(initialFilters);
     void Promise.all([
@@ -512,6 +520,11 @@ export function useClinicAgendaController() {
   useEffect(() => {
     const clinicId = workspace.selectedClinicId;
     if (!clinicId || !canManage) {
+      return undefined;
+    }
+
+    if (skipNextPatientLookupEffectRef.current) {
+      skipNextPatientLookupEffectRef.current = false;
       return undefined;
     }
 
@@ -634,76 +647,150 @@ export function useClinicAgendaController() {
     workspace.selectedClinicId,
   ]);
 
-  const handleOpenCreateModal = useCallback(() => {
-    if (!canManage) return;
-
-    if (workspace.selectedClinicId && patients.length === 0 && !patientLookupLoading) {
-      void loadPatientLookup(workspace.selectedClinicId, patientLookupSearch, 1, false);
-    }
-
-    const firstPatient = patients[0];
-    setForm(createInitialForm(firstPatient?.id ?? ''));
-    setFormErrors({});
-    setModalVisible(true);
+  const handleRetryPatientLookup = useCallback(() => {
+    if (!workspace.selectedClinicId || !canManage || patientLookupLoading) return;
+    void loadPatientLookup(workspace.selectedClinicId, patientLookupSearch, 1, false);
   }, [
     canManage,
     loadPatientLookup,
     patientLookupLoading,
     patientLookupSearch,
+    workspace.selectedClinicId,
+  ]);
+
+  const handleRetrySpecialists = useCallback(() => {
+    if (!workspace.selectedClinicId || !canManage) return;
+    void loadSpecialists(workspace.selectedClinicId);
+  }, [canManage, loadSpecialists, workspace.selectedClinicId]);
+
+  useEffect(() => clinicService.subscribeClinicSessionChanges((change) => {
+    if (
+      !workspace.selectedClinicId
+      || change.clinicId !== workspace.selectedClinicId
+      || !canManage
+    ) {
+      return;
+    }
+
+    void refreshLoadedAgendaPages(
+      workspace.selectedClinicId,
+      appliedFilters,
+      agendaPageInfo?.page ?? 1,
+    );
+  }), [
+    agendaPageInfo?.page,
+    appliedFilters,
+    canManage,
+    refreshLoadedAgendaPages,
+    workspace.selectedClinicId,
+  ]);
+
+  const handleRetryAgendaRefresh = useCallback(() => {
+    if (!workspace.selectedClinicId || !canManage) return;
+    void refreshLoadedAgendaPages(
+      workspace.selectedClinicId,
+      appliedFilters,
+      agendaPageInfo?.page ?? 1,
+    );
+  }, [
+    agendaPageInfo?.page,
+    appliedFilters,
+    canManage,
+    refreshLoadedAgendaPages,
+    workspace.selectedClinicId,
+  ]);
+
+  const handleOpenCreateModal = useCallback(() => {
+    if (!canManage || !workspace.selectedClinicId) return;
+
+    patientLookupBeforeSchedulerRef.current = {
+      clinicId: workspace.selectedClinicId,
+      search: patientLookupSearch,
+      patients,
+      pageInfo: patientLookupPageInfo,
+      error: patientLookupError,
+      wasLoading: patientLookupLoading || patientLookupLoadingMore,
+    };
+    sessionCreationContextRef.current = {
+      clinicId: workspace.selectedClinicId,
+    };
+
+    if (workspace.selectedClinicId && patients.length === 0 && !patientLookupLoading) {
+      void loadPatientLookup(workspace.selectedClinicId, patientLookupSearch, 1, false);
+    }
+
+    setModalVisible(true);
+  }, [
+    canManage,
+    loadPatientLookup,
+    patientLookupError,
+    patientLookupLoading,
+    patientLookupLoadingMore,
+    patientLookupPageInfo,
+    patientLookupSearch,
     patients,
     workspace.selectedClinicId,
   ]);
 
-  const handleChangeForm = useCallback(<K extends keyof ClinicAgendaCreateSessionForm>(
-    field: K,
-    value: ClinicAgendaCreateSessionForm[K],
-  ) => {
-    setForm((current) => ({ ...current, [field]: value }));
-    setFormErrors((current) => ({ ...current, [field]: undefined }));
-  }, []);
+  const restorePatientLookupBeforeScheduler = useCallback(() => {
+    const snapshot = patientLookupBeforeSchedulerRef.current;
+    patientLookupBeforeSchedulerRef.current = null;
+    if (!snapshot || snapshot.clinicId !== workspace.selectedClinicId) return;
 
-  const handleCreateSession = useCallback(async () => {
-    if (!workspace.selectedClinicId || !canManage) return;
+    patientLookupRequestSeq.current += 1;
+    skipNextPatientLookupEffectRef.current = snapshot.search !== patientLookupSearch;
+    setPatients(snapshot.patients);
+    setPatientLookupSearch(snapshot.search);
+    setPatientLookupPageInfo(snapshot.pageInfo);
+    setPatientLookupError(snapshot.error);
+    setPatientLookupLoading(false);
+    setPatientLookupLoadingMore(false);
 
-    const parsed = createSessionFormSchema.safeParse(form);
-    if (!parsed.success) {
-      const nextErrors: ClinicAgendaCreateSessionErrors = {};
-      parsed.error.issues.forEach((issue) => {
-        const field = issue.path[0] as keyof ClinicAgendaCreateSessionForm;
-        nextErrors[field] = issue.message;
-      });
-      setFormErrors(nextErrors);
+    if (snapshot.wasLoading && canManage) {
+      void loadPatientLookup(snapshot.clinicId, snapshot.search, 1, false);
+    }
+  }, [canManage, loadPatientLookup, patientLookupSearch, workspace.selectedClinicId]);
+
+  const handleCloseCreateModal = useCallback(() => {
+    setModalVisible(false);
+    sessionCreationContextRef.current = null;
+    restorePatientLookupBeforeScheduler();
+  }, [restorePatientLookupBeforeScheduler]);
+
+  const handleSubmitSession = useCallback(async (
+    payload: clinicService.CreateClinicSessionPayload,
+  ): Promise<clinicService.ClinicSessionSummary> => {
+    const clinicId = workspace.selectedClinicId;
+    const context = sessionCreationContextRef.current;
+    if (!clinicId || !canManage || context?.clinicId !== clinicId) {
+      throw new Error('Ya no tienes acceso para crear citas en esta clínica.');
+    }
+
+    sessionCreationContextRef.current = {
+      clinicId,
+      clinicPatientId: payload.clinicPatientId,
+      clinicSpecialistId: payload.clinicSpecialistId,
+    };
+    return clinicService.createClinicSession(clinicId, payload);
+  }, [canManage, workspace.selectedClinicId]);
+
+  const handleSessionCreated = useCallback((session: clinicService.ClinicSessionSummary) => {
+    const context = sessionCreationContextRef.current;
+    if (
+      !context
+      || context.clinicId !== workspace.selectedClinicId
+      || context.clinicPatientId !== session.patient.id
+      || context.clinicSpecialistId !== session.specialist.id
+      || !canManage
+    ) {
       return;
     }
 
-    const clinicSpecialistId = getPatientSpecialistId(patients, parsed.data.clinicPatientId);
-    if (!clinicSpecialistId) {
-      setFormErrors({ clinicSpecialistId: 'El paciente no tiene responsable activo.' });
-      return;
-    }
-
-    try {
-      setSaving(true);
-      await clinicService.createClinicSession(workspace.selectedClinicId, {
-        clinicPatientId: parsed.data.clinicPatientId,
-        clinicSpecialistId,
-        date: toLocalDateTimeIso(parsed.data.date, parsed.data.time),
-        duration: parsed.data.duration,
-        type: parsed.data.type,
-      });
-      setModalVisible(false);
-      showAppAlert(appAlert, 'Cita creada', 'La cita se ha añadido a la agenda.');
-      await reloadAgenda();
-    } catch (createError: unknown) {
-      showAppAlert(
-        appAlert,
-        'No se pudo crear la cita',
-        createError instanceof Error ? createError.message : 'Revisa los datos de la cita',
-      );
-    } finally {
-      setSaving(false);
-    }
-  }, [appAlert, canManage, form, patients, reloadAgenda, workspace.selectedClinicId]);
+    setModalVisible(false);
+    sessionCreationContextRef.current = null;
+    restorePatientLookupBeforeScheduler();
+    showAppAlert(appAlert, 'Cita creada', 'La cita se ha añadido a la agenda.');
+  }, [appAlert, canManage, restorePatientLookupBeforeScheduler, workspace.selectedClinicId]);
 
   const handleUpdateStatus = useCallback(async (
     session: ClinicStatusUpdatableSession,
@@ -716,7 +803,6 @@ export function useClinicAgendaController() {
     try {
       setSaving(true);
       await clinicService.updateClinicSessionStatus(workspace.selectedClinicId, sessionId, { status });
-      await reloadAgenda();
       return true;
     } catch (updateError: unknown) {
       showAppAlert(
@@ -728,28 +814,31 @@ export function useClinicAgendaController() {
     } finally {
       setSaving(false);
     }
-  }, [appAlert, canManage, reloadAgenda, saving, workspace.selectedClinicId]);
+  }, [appAlert, canManage, saving, workspace.selectedClinicId]);
 
   return {
+    agendaRefreshError,
     agendaLoadingMore,
     agendaPageInfo,
     appliedFilters,
     canManage,
     editableFilters,
     error,
-    form,
-    formErrors,
     handleApplyFilters,
-    handleChangeForm,
-    handleCreateSession,
+    handleCloseCreateModal,
     handleLoadMoreSessions,
     handleLoadMorePatientOptions,
     handleOpenCreateModal,
     handleOpenSessionDetail,
     handlePatientLookupSearchChange,
     handleRetry,
+    handleRetryAgendaRefresh,
+    handleRetryPatientLookup,
     handleRetrySessionDetail,
+    handleRetrySpecialists,
     handleSelectClinic,
+    handleSessionCreated,
+    handleSubmitSession,
     handleUpdateStatus,
     handleCloseSessionDetail,
     loading,
@@ -761,18 +850,18 @@ export function useClinicAgendaController() {
     patientLookupLoading,
     patientLookupLoadingMore,
     patientLookupPageInfo,
+    patientLookupError,
     patientLookupSearch,
     patientOptions,
     patients,
-    selectedFormPatient,
     selectedSessionDetail,
     selectedSessionDetailError,
     selectedSessionDetailLoading,
     selectedSessionId,
     sessions,
     setEditableFilter,
-    setModalVisible,
     saving,
+    specialistsError,
     specialistFilterOptions,
     workspace,
   };

@@ -125,6 +125,8 @@ interface HarnessProps {
   onRetryPatientSessions?: () => void;
   onRetryDetail?: () => void;
   onRetryConsent?: () => void;
+  onCreateSession?: () => void;
+  canManage?: boolean;
 }
 
 function DetailHarness({
@@ -142,6 +144,8 @@ function DetailHarness({
   onRetryPatientSessions = jest.fn(),
   onRetryDetail = jest.fn(),
   onRetryConsent = jest.fn(),
+  onCreateSession = jest.fn(),
+  canManage = true,
 }: HarnessProps): React.ReactElement {
   const [activeTab, setActiveTab] = useState<ClinicPatientDetailTab>(initialTab);
 
@@ -177,7 +181,7 @@ function DetailHarness({
       form={form}
       errors={{}}
       sameBillingData={false}
-      canManage
+      canManage={canManage}
       assignmentMode={null}
       assignmentForm={{ clinicSpecialistId: '', reason: '' }}
       specialistOptions={[]}
@@ -206,6 +210,7 @@ function DetailHarness({
       onSubmitEdit={jest.fn()}
       onCancelEdit={jest.fn()}
       onStatusChange={jest.fn()}
+      onCreateSession={onCreateSession}
     />
   );
 }
@@ -223,6 +228,73 @@ describe('ClinicPatientDetailPanel', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     jest.clearAllMocks();
+  });
+
+  it('offers Nueva cita only when the patient has an active responsible specialist', () => {
+    const onCreateSession = jest.fn();
+    const assignedPatient: ClinicPatientDetail = {
+      ...patient,
+      activeAssignment: {
+        id: 'assignment-1',
+        clinicSpecialistId: 'specialist-1',
+        clinicSpecialistDisplayName: 'Dra. Ana Ruiz',
+        clinicSpecialistProfessionalTitle: 'Psicóloga sanitaria',
+        clinicSpecialistStatus: 'ACTIVE',
+        startedAt: '2026-08-01T08:00:00.000Z',
+        reason: null,
+      },
+    };
+
+    render(<DetailHarness currentPatient={assignedPatient} onCreateSession={onCreateSession} />);
+
+    fireEvent.press(screen.getByRole('button', {
+      name: `Nueva cita para ${assignedPatient.displayName}`,
+    }));
+    expect(onCreateSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('explains accessibly why Nueva cita is disabled for an archived patient', () => {
+    render(<DetailHarness currentPatient={{
+      ...patient,
+      status: 'ARCHIVED',
+      archivedAt: '2026-08-13T09:00:00.000Z',
+      nextSession: null,
+    }} />);
+
+    const button = screen.getByRole('button', {
+      name: 'Nueva cita no disponible: el paciente está archivado',
+    });
+    expect(button.props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('explains missing, inactive and unauthorized scheduling contexts', () => {
+    const inactivePatient: ClinicPatientDetail = {
+      ...patient,
+      activeAssignment: {
+        id: 'assignment-1',
+        clinicSpecialistId: 'specialist-1',
+        clinicSpecialistDisplayName: 'Dra. Ana Ruiz',
+        clinicSpecialistProfessionalTitle: 'Psicóloga sanitaria',
+        clinicSpecialistStatus: 'INACTIVE',
+        startedAt: '2026-08-01T08:00:00.000Z',
+        reason: null,
+      },
+    };
+    const view = render(<DetailHarness />);
+
+    expect(screen.getByRole('button', {
+      name: 'Nueva cita no disponible: asigna primero un responsable',
+    }).props.accessibilityState.disabled).toBe(true);
+
+    view.rerender(<DetailHarness currentPatient={inactivePatient} />);
+    expect(screen.getByRole('button', {
+      name: 'Nueva cita no disponible: el responsable está inactivo',
+    }).props.accessibilityState.disabled).toBe(true);
+
+    view.rerender(<DetailHarness currentPatient={inactivePatient} canManage={false} />);
+    expect(screen.getByRole('button', {
+      name: 'Nueva cita no disponible: acción reservada a propietarios y administradores',
+    }).props.accessibilityState.disabled).toBe(true);
   });
 
   it('keeps the five tabs ordered and announces the active tab', () => {
