@@ -120,6 +120,14 @@ export function useClinicPatientsController() {
   const [sessionSchedulerVisible, setSessionSchedulerVisible] = useState(false);
 
   const mountedRef = useRef(true);
+  const consentViewContextRef = useRef({
+    clinicId: workspace.selectedClinicId,
+    patientId: selectedPatientId,
+  });
+  consentViewContextRef.current = {
+    clinicId: workspace.selectedClinicId,
+    patientId: selectedPatientId,
+  };
   const patientsRef = useRef<clinicService.ClinicPatientSummary[]>([]);
   const patientsRequestSeq = useRef(0);
   const detailRequestSeq = useRef(0);
@@ -1503,37 +1511,86 @@ export function useClinicPatientsController() {
   ]);
 
   const handleRequestConsent = useCallback(async () => {
-    if (!workspace.selectedClinicId || !selectedPatient || !canManage || consentError) {
+    if (
+      !workspace.selectedClinicId
+      || !selectedPatient
+      || !canManage
+      || consentError
+      || selectedPatientConsent?.digitalConsentChannel !== 'HERA_ACCOUNT_EMAIL'
+    ) {
       return;
     }
 
+    const clinicId = workspace.selectedClinicId;
+    const patientId = selectedPatient.id;
+    const isActionContextCurrent = (): boolean => (
+      mountedRef.current
+      && consentViewContextRef.current.clinicId === clinicId
+      && consentViewContextRef.current.patientId === patientId
+    );
+
     const confirmed = await alert.confirm({
       title: 'Solicitar consentimiento digital',
-      message: 'Se enviará un enlace al paciente si su ficha está vinculada a una cuenta HERA de paciente.',
+      message: 'Se enviará un enlace al email de la cuenta HERA vinculada. El paciente deberá iniciar sesión para revisarlo y aceptarlo.',
       confirmLabel: 'Solicitar',
     });
 
-    if (!confirmed) {
+    if (!confirmed || !isActionContextCurrent()) {
       return;
     }
 
     setConsentSaving(true);
     setFeedback(null);
 
+    const synchronizeConsent = async (): Promise<void> => {
+      if (!isActionContextCurrent()) return;
+      const synchronizationSequence = consentRequestSeq.current;
+
+      try {
+        const consent = await clinicService.getClinicPatientConsent(clinicId, patientId);
+        if (
+          !isActionContextCurrent()
+          || consentRequestSeq.current !== synchronizationSequence
+        ) return;
+
+        rememberPatientConsent(consent);
+        setConsentError('');
+      } catch (error: unknown) {
+        if (
+          !isActionContextCurrent()
+          || consentRequestSeq.current !== synchronizationSequence
+        ) return;
+
+        setConsentError(createErrorFeedback(
+          error,
+          'No se pudo actualizar el consentimiento del paciente',
+        ).text);
+      }
+    };
+
     try {
-      await clinicService.requestClinicPatientConsent(
-        workspace.selectedClinicId,
-        selectedPatient.id,
-      );
-      const consent = await clinicService.getClinicPatientConsent(
-        workspace.selectedClinicId,
-        selectedPatient.id,
-      );
-      rememberPatientConsent(consent);
-      setConsentError('');
-      setFeedback(createSuccessFeedback('Solicitud de consentimiento enviada.'));
-    } catch (error: unknown) {
-      setFeedback(createErrorFeedback(error, 'No se pudo solicitar el consentimiento digital'));
+      try {
+        await clinicService.requestClinicPatientConsent(clinicId, patientId);
+      } catch (error: unknown) {
+        const errorFeedback = createErrorFeedback(
+          error,
+          'No se pudo solicitar el consentimiento digital',
+        );
+        if (isActionContextCurrent()) {
+          await synchronizeConsent();
+        }
+        if (isActionContextCurrent()) {
+          setFeedback(errorFeedback);
+        }
+        return;
+      }
+
+      if (!isActionContextCurrent()) return;
+
+      await synchronizeConsent();
+      if (isActionContextCurrent()) {
+        setFeedback(createSuccessFeedback('Solicitud de consentimiento enviada.'));
+      }
     } finally {
       setConsentSaving(false);
     }
@@ -1543,6 +1600,7 @@ export function useClinicPatientsController() {
     consentError,
     rememberPatientConsent,
     selectedPatient,
+    selectedPatientConsent,
     workspace.selectedClinicId,
   ]);
 

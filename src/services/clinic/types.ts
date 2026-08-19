@@ -748,6 +748,8 @@ export interface ClinicPatientConsentRequest {
 }
 
 export interface ClinicPatientConsentDetail extends ClinicPatientConsentSummary {
+  hasLinkedHeraAccount: boolean;
+  digitalConsentChannel: 'HERA_ACCOUNT_EMAIL' | null;
   documents: ClinicPatientConsentDocument[];
   events: ClinicPatientConsentEvent[];
   activeRequest: ClinicPatientConsentRequest | null;

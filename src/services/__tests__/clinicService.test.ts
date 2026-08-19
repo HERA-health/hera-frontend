@@ -1599,6 +1599,8 @@ describe('clinicService', () => {
     ];
     const detail: ClinicPatientConsentDetail = {
       ...summaries[0],
+      hasLinkedHeraAccount: false,
+      digitalConsentChannel: null,
       status: 'GRANTED',
       method: 'CLINIC_ADMIN_ATTESTATION',
       requestedAt: '2026-05-28T09:00:00.000Z',
@@ -1714,6 +1716,8 @@ describe('clinicService', () => {
       patientDisplayName: 'Lucia Martin',
       patientEmail: 'lucia@clinic.test',
       patientStatus: 'ACTIVE',
+      hasLinkedHeraAccount: false,
+      digitalConsentChannel: null,
       status: 'GRANTED',
       method: 'CLINIC_ADMIN_ATTESTATION',
       requestedAt: null,

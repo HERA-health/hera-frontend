@@ -20,6 +20,7 @@ jest.mock('../../../../services/clinicService', () => ({
   listClinicPatients: jest.fn(),
   listClinicSessions: jest.fn(),
   listClinicSpecialists: jest.fn(),
+  requestClinicPatientConsent: jest.fn(),
   updateClinicPatient: jest.fn(),
   updateClinicSessionStatus: jest.fn(),
   subscribeClinicSessionChanges: jest.fn(() => jest.fn()),
@@ -41,6 +42,7 @@ const mockedListClinicPatientAssignmentHistory = jest.mocked(
 const mockedListClinicPatients = jest.mocked(clinicService.listClinicPatients);
 const mockedListClinicSessions = jest.mocked(clinicService.listClinicSessions);
 const mockedListClinicSpecialists = jest.mocked(clinicService.listClinicSpecialists);
+const mockedRequestClinicPatientConsent = jest.mocked(clinicService.requestClinicPatientConsent);
 const mockedUpdateClinicPatient = jest.mocked(clinicService.updateClinicPatient);
 const mockedUpdateClinicSessionStatus = jest.mocked(clinicService.updateClinicSessionStatus);
 const mockedSubscribeClinicSessionChanges = jest.mocked(clinicService.subscribeClinicSessionChanges);
@@ -163,6 +165,8 @@ describe('useClinicPatientsController billing copy', () => {
       patientDisplayName: 'Lucía Martín',
       patientEmail: 'lucia@example.com',
       patientStatus: 'ACTIVE',
+      hasLinkedHeraAccount: true,
+      digitalConsentChannel: 'HERA_ACCOUNT_EMAIL',
       status: 'PENDING',
       method: null,
       requestedAt: null,
@@ -174,6 +178,12 @@ describe('useClinicPatientsController billing copy', () => {
     });
     mockedCreateClinicPatient.mockResolvedValue(patientDetail);
     mockedCreateClinicSession.mockResolvedValue(clinicSession);
+    mockedRequestClinicPatientConsent.mockResolvedValue({
+      requestId: 'request-1',
+      status: 'PENDING',
+      expiresAt: '2026-08-20T10:00:00.000Z',
+      createdAt: '2026-08-13T10:00:00.000Z',
+    });
     mockedGetClinicPatient.mockResolvedValue(patientDetail);
     mockedUpdateClinicPatient.mockResolvedValue(patientDetail);
     mockedUpdateClinicSessionStatus.mockResolvedValue({
@@ -500,6 +510,8 @@ describe('useClinicPatientsController billing copy', () => {
       patientDisplayName: patientDetail.displayName,
       patientEmail: patientDetail.email,
       patientStatus: patientDetail.status,
+      hasLinkedHeraAccount: true,
+      digitalConsentChannel: 'HERA_ACCOUNT_EMAIL',
       status: 'GRANTED',
       method: 'DIGITAL_SIGNATURE',
       requestedAt: '2026-08-13T09:00:00.000Z',
@@ -528,6 +540,359 @@ describe('useClinicPatientsController billing copy', () => {
       expect(result.current.activeDetailTab).toBe('consent');
       expect(result.current.selectedPatientConsent?.status).toBe('REVOKED');
       expect(mockedGetClinicPatientConsent).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  it('does not open confirmation or call the backend when digital consent is unavailable', async () => {
+    enableManagedClinic();
+    mockedListClinicPatients.mockResolvedValue({
+      items: [patientDetail],
+      pageInfo: { page: 1, limit: 50, hasMore: false, nextPage: null },
+    });
+    mockedGetClinicPatientConsent.mockResolvedValue({
+      clinicPatientId: patientDetail.id,
+      patientDisplayName: patientDetail.displayName,
+      patientEmail: patientDetail.email,
+      patientStatus: patientDetail.status,
+      hasLinkedHeraAccount: false,
+      digitalConsentChannel: null,
+      status: 'PENDING',
+      method: null,
+      requestedAt: null,
+      grantedAt: null,
+      version: null,
+      documents: [],
+      events: [],
+      activeRequest: null,
+    });
+    const confirm = jest.fn();
+    mockedUseAppAlert.mockReturnValue({ confirm } as unknown as ReturnType<typeof useAppAlert>);
+    const { result } = renderHook(() => useClinicPatientsController());
+
+    await waitFor(() => {
+      expect(result.current.selectedPatientConsent?.digitalConsentChannel).toBeNull();
+    });
+
+    await act(async () => {
+      await result.current.handleRequestConsent();
+    });
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(mockedRequestClinicPatientConsent).not.toHaveBeenCalled();
+  });
+
+  it('confirms the exact HERA account email channel before requesting digital consent', async () => {
+    enableManagedClinic();
+    mockedListClinicPatients.mockResolvedValue({
+      items: [patientDetail],
+      pageInfo: { page: 1, limit: 50, hasMore: false, nextPage: null },
+    });
+    const confirm = jest.fn().mockResolvedValue(true);
+    mockedUseAppAlert.mockReturnValue({ confirm } as unknown as ReturnType<typeof useAppAlert>);
+    const { result } = renderHook(() => useClinicPatientsController());
+
+    await waitFor(() => {
+      expect(result.current.selectedPatientConsent?.digitalConsentChannel)
+        .toBe('HERA_ACCOUNT_EMAIL');
+    });
+
+    await act(async () => {
+      await result.current.handleRequestConsent();
+    });
+
+    expect(confirm).toHaveBeenCalledWith({
+      title: 'Solicitar consentimiento digital',
+      message: 'Se enviará un enlace al email de la cuenta HERA vinculada. El paciente deberá iniciar sesión para revisarlo y aceptarlo.',
+      confirmLabel: 'Solicitar',
+    });
+    expect(mockedRequestClinicPatientConsent).toHaveBeenCalledWith(
+      'clinic-1',
+      patientDetail.id,
+    );
+    expect(result.current.feedback).toEqual({
+      type: 'success',
+      text: 'Solicitud de consentimiento enviada.',
+    });
+  });
+
+  it('refreshes consent availability after the backend rejects a stale digital channel', async () => {
+    enableManagedClinic();
+    mockedListClinicPatients.mockResolvedValue({
+      items: [patientDetail],
+      pageInfo: { page: 1, limit: 50, hasMore: false, nextPage: null },
+    });
+    mockedGetClinicPatientConsent
+      .mockResolvedValueOnce({
+        clinicPatientId: patientDetail.id,
+        patientDisplayName: patientDetail.displayName,
+        patientEmail: patientDetail.email,
+        patientStatus: patientDetail.status,
+        hasLinkedHeraAccount: true,
+        digitalConsentChannel: 'HERA_ACCOUNT_EMAIL',
+        status: 'PENDING',
+        method: null,
+        requestedAt: null,
+        grantedAt: null,
+        version: null,
+        documents: [],
+        events: [],
+        activeRequest: null,
+      })
+      .mockResolvedValueOnce({
+        clinicPatientId: patientDetail.id,
+        patientDisplayName: patientDetail.displayName,
+        patientEmail: patientDetail.email,
+        patientStatus: patientDetail.status,
+        hasLinkedHeraAccount: false,
+        digitalConsentChannel: null,
+        status: 'PENDING',
+        method: null,
+        requestedAt: null,
+        grantedAt: null,
+        version: null,
+        documents: [],
+        events: [],
+        activeRequest: null,
+      });
+    mockedRequestClinicPatientConsent.mockRejectedValueOnce(
+      new Error('Este paciente necesita una cuenta HERA enlazada para usar el consentimiento digital.'),
+    );
+    const confirm = jest.fn().mockResolvedValue(true);
+    mockedUseAppAlert.mockReturnValue({ confirm } as unknown as ReturnType<typeof useAppAlert>);
+    const { result } = renderHook(() => useClinicPatientsController());
+
+    await waitFor(() => {
+      expect(result.current.selectedPatientConsent?.digitalConsentChannel)
+        .toBe('HERA_ACCOUNT_EMAIL');
+    });
+
+    await act(async () => {
+      await result.current.handleRequestConsent();
+    });
+
+    expect(mockedGetClinicPatientConsent).toHaveBeenCalledTimes(2);
+    expect(result.current.selectedPatientConsent).toEqual(expect.objectContaining({
+      hasLinkedHeraAccount: false,
+      digitalConsentChannel: null,
+    }));
+    expect(result.current.feedback).toEqual({
+      type: 'error',
+      text: 'Este paciente necesita una cuenta HERA enlazada para usar el consentimiento digital.',
+    });
+  });
+
+  it('keeps a successful request when only the authoritative refresh fails', async () => {
+    enableManagedClinic();
+    mockedListClinicPatients.mockResolvedValue({
+      items: [patientDetail],
+      pageInfo: { page: 1, limit: 50, hasMore: false, nextPage: null },
+    });
+    mockedGetClinicPatientConsent
+      .mockResolvedValueOnce({
+        clinicPatientId: patientDetail.id,
+        patientDisplayName: patientDetail.displayName,
+        patientEmail: patientDetail.email,
+        patientStatus: patientDetail.status,
+        hasLinkedHeraAccount: true,
+        digitalConsentChannel: 'HERA_ACCOUNT_EMAIL',
+        status: 'PENDING',
+        method: null,
+        requestedAt: null,
+        grantedAt: null,
+        version: null,
+        documents: [],
+        events: [],
+        activeRequest: null,
+      })
+      .mockRejectedValueOnce(new Error('No se pudo sincronizar el consentimiento'));
+    const confirm = jest.fn().mockResolvedValue(true);
+    mockedUseAppAlert.mockReturnValue({ confirm } as unknown as ReturnType<typeof useAppAlert>);
+    const { result } = renderHook(() => useClinicPatientsController());
+
+    await waitFor(() => {
+      expect(result.current.selectedPatientConsent?.digitalConsentChannel)
+        .toBe('HERA_ACCOUNT_EMAIL');
+    });
+
+    await act(async () => {
+      await result.current.handleRequestConsent();
+    });
+
+    expect(mockedRequestClinicPatientConsent).toHaveBeenCalledWith(
+      'clinic-1',
+      patientDetail.id,
+    );
+    expect(result.current.feedback).toEqual({
+      type: 'success',
+      text: 'Solicitud de consentimiento enviada.',
+    });
+    expect(result.current.consentError).toBe('No se pudo sincronizar el consentimiento');
+  });
+
+  it('does not let a stale consent action supersede the next patient load', async () => {
+    enableManagedClinic();
+    const secondPatient: clinicService.ClinicPatientDetail = {
+      ...patientDetail,
+      id: 'patient-2',
+      displayName: 'Mario López',
+      firstName: 'Mario',
+      lastName: 'López',
+      email: 'mario@example.com',
+    };
+    const firstConsent: clinicService.ClinicPatientConsentDetail = {
+      clinicPatientId: patientDetail.id,
+      patientDisplayName: patientDetail.displayName,
+      patientEmail: patientDetail.email,
+      patientStatus: patientDetail.status,
+      hasLinkedHeraAccount: true,
+      digitalConsentChannel: 'HERA_ACCOUNT_EMAIL',
+      status: 'PENDING',
+      method: null,
+      requestedAt: null,
+      grantedAt: null,
+      version: null,
+      documents: [],
+      events: [],
+      activeRequest: null,
+    };
+    const secondConsent: clinicService.ClinicPatientConsentDetail = {
+      ...firstConsent,
+      clinicPatientId: secondPatient.id,
+      patientDisplayName: secondPatient.displayName,
+      patientEmail: secondPatient.email,
+      hasLinkedHeraAccount: false,
+      digitalConsentChannel: null,
+    };
+    mockedListClinicPatients.mockResolvedValue({
+      items: [patientDetail, secondPatient],
+      pageInfo: { page: 1, limit: 50, hasMore: false, nextPage: null },
+    });
+    mockedGetClinicPatient.mockImplementation(async (_clinicId, patientId) => (
+      patientId === secondPatient.id ? secondPatient : patientDetail
+    ));
+    mockedGetClinicPatientConsent.mockImplementation(async (_clinicId, patientId) => (
+      patientId === secondPatient.id ? secondConsent : firstConsent
+    ));
+    let rejectRequest: (error: Error) => void = () => undefined;
+    mockedRequestClinicPatientConsent.mockImplementationOnce(() => new Promise((_, reject) => {
+      rejectRequest = reject;
+    }));
+    const confirm = jest.fn().mockResolvedValue(true);
+    mockedUseAppAlert.mockReturnValue({ confirm } as unknown as ReturnType<typeof useAppAlert>);
+    const { result } = renderHook(() => useClinicPatientsController());
+
+    await waitFor(() => {
+      expect(result.current.selectedPatientConsent?.clinicPatientId).toBe(patientDetail.id);
+    });
+
+    let pendingRequest: Promise<void> = Promise.resolve();
+    await act(async () => {
+      pendingRequest = result.current.handleRequestConsent();
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(mockedRequestClinicPatientConsent).toHaveBeenCalledTimes(1);
+    });
+
+    act(() => result.current.handleSelectPatient(secondPatient.id));
+    await waitFor(() => {
+      expect(result.current.selectedPatientConsent?.clinicPatientId).toBe(secondPatient.id);
+    });
+
+    await act(async () => {
+      rejectRequest(new Error('La cuenta HERA dejó de estar disponible'));
+      await pendingRequest;
+    });
+
+    expect(result.current.selectedPatientId).toBe(secondPatient.id);
+    expect(result.current.selectedPatientConsent).toEqual(secondConsent);
+    expect(result.current.consentError).toBe('');
+    expect(result.current.feedback).toBeNull();
+    expect(mockedGetClinicPatientConsent).toHaveBeenCalledTimes(2);
+  });
+
+  it('reconciles a successful request after reloading the same patient', async () => {
+    enableManagedClinic();
+    const firstConsent: clinicService.ClinicPatientConsentDetail = {
+      clinicPatientId: patientDetail.id,
+      patientDisplayName: patientDetail.displayName,
+      patientEmail: patientDetail.email,
+      patientStatus: patientDetail.status,
+      hasLinkedHeraAccount: true,
+      digitalConsentChannel: 'HERA_ACCOUNT_EMAIL',
+      status: 'PENDING',
+      method: null,
+      requestedAt: null,
+      grantedAt: null,
+      version: null,
+      documents: [],
+      events: [],
+      activeRequest: null,
+    };
+    const refreshedConsent: clinicService.ClinicPatientConsentDetail = {
+      ...firstConsent,
+      requestedAt: '2026-08-18T10:00:00.000Z',
+      version: 'v1',
+      activeRequest: {
+        id: 'request-1',
+        status: 'PENDING',
+        expiresAt: '2026-08-25T10:00:00.000Z',
+        createdAt: '2026-08-18T10:00:00.000Z',
+        version: 'v1',
+      },
+    };
+    mockedListClinicPatients.mockResolvedValue({
+      items: [patientDetail],
+      pageInfo: { page: 1, limit: 50, hasMore: false, nextPage: null },
+    });
+    mockedGetClinicPatientConsent
+      .mockResolvedValueOnce(firstConsent)
+      .mockResolvedValueOnce(firstConsent)
+      .mockResolvedValueOnce(refreshedConsent);
+    let resolveRequest: (result: clinicService.ClinicPatientConsentRequestResult) => void =
+      () => undefined;
+    mockedRequestClinicPatientConsent.mockImplementationOnce(() => (
+      new Promise<clinicService.ClinicPatientConsentRequestResult>((resolve) => {
+        resolveRequest = resolve;
+      })
+    ));
+    const confirm = jest.fn().mockResolvedValue(true);
+    mockedUseAppAlert.mockReturnValue({ confirm } as unknown as ReturnType<typeof useAppAlert>);
+    const { result } = renderHook(() => useClinicPatientsController());
+
+    await waitFor(() => {
+      expect(result.current.selectedPatientConsent?.clinicPatientId).toBe(patientDetail.id);
+    });
+
+    let pendingRequest: Promise<void> = Promise.resolve();
+    await act(async () => {
+      pendingRequest = result.current.handleRequestConsent();
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(mockedRequestClinicPatientConsent).toHaveBeenCalledTimes(1);
+    });
+
+    act(() => result.current.handleSelectPatient(patientDetail.id));
+    await waitFor(() => {
+      expect(mockedGetClinicPatientConsent).toHaveBeenCalledTimes(2);
+    });
+
+    await act(async () => {
+      resolveRequest({
+        requestId: 'request-1',
+        status: 'PENDING',
+        expiresAt: '2026-08-25T10:00:00.000Z',
+        createdAt: '2026-08-18T10:00:00.000Z',
+      });
+      await pendingRequest;
+    });
+
+    expect(mockedGetClinicPatientConsent).toHaveBeenCalledTimes(3);
+    expect(result.current.selectedPatientConsent?.activeRequest?.id).toBe('request-1');
+    expect(result.current.feedback).toEqual({
+      type: 'success',
+      text: 'Solicitud de consentimiento enviada.',
     });
   });
 

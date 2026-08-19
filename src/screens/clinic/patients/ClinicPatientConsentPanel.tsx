@@ -49,6 +49,55 @@ const REQUEST_STATUS_LABELS: Record<ClinicPatientConsentRequestStatus, string> =
   CANCELLED: 'Cancelada',
 };
 
+interface DigitalConsentGuidance {
+  available: boolean;
+  title: string;
+  description: string;
+  unavailableReason: string | null;
+}
+
+const getDigitalConsentGuidance = (
+  consent: ClinicPatientConsentDetail,
+): DigitalConsentGuidance => {
+  if (consent.digitalConsentChannel === 'HERA_ACCOUNT_EMAIL') {
+    return {
+      available: true,
+      title: 'Firma digital disponible',
+      description:
+        'El envío utiliza el email asociado a la cuenta HERA vinculada, aunque pueda coincidir con el email administrativo de esta ficha.',
+      unavailableReason: null,
+    };
+  }
+
+  if (consent.hasLinkedHeraAccount) {
+    return {
+      available: false,
+      title: 'Firma digital no disponible',
+      description:
+        'La cuenta HERA está vinculada, pero no dispone de un email utilizable para este envío. Registra el consentimiento mediante un PDF firmado.',
+      unavailableReason: 'la cuenta HERA vinculada no tiene un email utilizable',
+    };
+  }
+
+  if (consent.patientEmail) {
+    return {
+      available: false,
+      title: 'Firma digital no disponible',
+      description:
+        'La ficha tiene email administrativo, pero el flujo actual no permite enviar allí el consentimiento sin una cuenta HERA vinculada. Registra el consentimiento mediante un PDF firmado.',
+      unavailableReason: 'el paciente no tiene una cuenta HERA vinculada',
+    };
+  }
+
+  return {
+    available: false,
+    title: 'Firma digital no disponible',
+    description:
+      'No hay email administrativo ni una cuenta HERA vinculada. Registra el consentimiento mediante un PDF firmado.',
+    unavailableReason: 'el paciente no tiene email administrativo ni una cuenta HERA vinculada',
+  };
+};
+
 const formatBytes = (bytes: number | null): string => {
   if (!bytes || bytes <= 0) return 'Tamaño no disponible';
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -94,6 +143,7 @@ export function ClinicPatientConsentPanel({
   const status = consent?.status ?? null;
   const method = consent?.method ? METHOD_LABELS[consent.method] : 'Sin método';
   const isGranted = status === 'GRANTED';
+  const digitalGuidance = consent ? getDigitalConsentGuidance(consent) : null;
   const canOperate = Boolean(consent)
     && !error
     && canManage
@@ -180,13 +230,65 @@ export function ClinicPatientConsentPanel({
         </View>
       ) : null}
 
+      {digitalGuidance ? (
+        <View
+          accessible
+          accessibilityLabel={`${digitalGuidance.title}. Email administrativo: ${consent.patientEmail ?? 'no informado'}. Cuenta HERA: ${consent.hasLinkedHeraAccount ? 'vinculada' : 'no vinculada'}. ${digitalGuidance.description}`}
+          accessibilityLiveRegion="polite"
+          style={[
+            styles.deliveryBox,
+            digitalGuidance.available ? styles.deliveryAvailable : styles.deliveryUnavailable,
+          ]}
+        >
+          <View
+            style={[
+              styles.deliveryIcon,
+              digitalGuidance.available
+                ? styles.deliveryIconAvailable
+                : styles.deliveryIconUnavailable,
+            ]}
+          >
+            <Ionicons
+              name={digitalGuidance.available ? 'mail-open-outline' : 'information-circle-outline'}
+              size={19}
+              color={digitalGuidance.available ? theme.success : theme.warning}
+            />
+          </View>
+          <View style={styles.deliveryCopy}>
+            <Text style={styles.deliveryTitle}>{digitalGuidance.title}</Text>
+            <View style={styles.deliveryFacts}>
+              <View style={styles.deliveryFact}>
+                <Ionicons name="at-outline" size={16} color={theme.textMuted} />
+                <View style={styles.deliveryFactCopy}>
+                  <Text style={styles.deliveryFactLabel}>Email administrativo</Text>
+                  <Text style={styles.deliveryFactValue}>{consent.patientEmail ?? 'No informado'}</Text>
+                </View>
+              </View>
+              <View style={styles.deliveryFact}>
+                <Ionicons name="person-circle-outline" size={16} color={theme.textMuted} />
+                <View style={styles.deliveryFactCopy}>
+                  <Text style={styles.deliveryFactLabel}>Cuenta HERA</Text>
+                  <Text style={styles.deliveryFactValue}>
+                    {consent.hasLinkedHeraAccount ? 'Vinculada' : 'No vinculada'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <Text style={styles.deliveryDescription}>{digitalGuidance.description}</Text>
+          </View>
+        </View>
+      ) : null}
+
       <View style={styles.actions}>
         <Button
           variant="outline"
           size="medium"
           onPress={onRequestDigitalConsent}
-          disabled={!canOperate || isGranted}
+          disabled={!canOperate || isGranted || !digitalGuidance?.available}
           loading={saving}
+          accessibilityLabel={digitalGuidance?.available
+            ? 'Solicitar consentimiento digital por email a la cuenta HERA vinculada'
+            : `Solicitar consentimiento digital, no disponible${digitalGuidance?.unavailableReason ? `: ${digitalGuidance.unavailableReason}` : ''}`}
           icon={<Ionicons name="send-outline" size={18} color={theme.primary} />}
         >
           Solicitar digital
@@ -414,6 +516,93 @@ const createStyles = (theme: Theme) =>
       fontFamily: theme.fontSans,
       fontSize: 12,
       lineHeight: 17,
+    },
+    deliveryBox: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: spacing.md,
+    },
+    deliveryAvailable: {
+      backgroundColor: theme.successBg,
+      borderColor: theme.status.confirmed.border,
+    },
+    deliveryUnavailable: {
+      backgroundColor: theme.warningBg,
+      borderColor: theme.warning,
+    },
+    deliveryIcon: {
+      width: 34,
+      height: 34,
+      borderRadius: 8,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    deliveryIconAvailable: {
+      backgroundColor: theme.bgCard,
+      borderColor: theme.status.confirmed.border,
+    },
+    deliveryIconUnavailable: {
+      backgroundColor: theme.bgCard,
+      borderColor: theme.warning,
+    },
+    deliveryCopy: {
+      flex: 1,
+      minWidth: 0,
+      gap: spacing.sm,
+    },
+    deliveryTitle: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSansBold,
+      fontSize: 13,
+      lineHeight: 19,
+    },
+    deliveryFacts: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    deliveryFact: {
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 180,
+      minWidth: 0,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.xs,
+      borderWidth: 1,
+      borderColor: theme.borderLight,
+      borderRadius: 8,
+      backgroundColor: theme.bgCard,
+      padding: spacing.sm,
+    },
+    deliveryFactCopy: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    deliveryFactLabel: {
+      color: theme.textMuted,
+      fontFamily: theme.fontSansSemiBold,
+      fontSize: 11,
+      lineHeight: 15,
+      textTransform: 'uppercase',
+    },
+    deliveryFactValue: {
+      color: theme.textPrimary,
+      fontFamily: theme.fontSans,
+      fontSize: 12,
+      lineHeight: 17,
+      flexShrink: 1,
+    },
+    deliveryDescription: {
+      color: theme.textSecondary,
+      fontFamily: theme.fontSans,
+      fontSize: 12,
+      lineHeight: 18,
     },
     actions: {
       flexDirection: 'row',

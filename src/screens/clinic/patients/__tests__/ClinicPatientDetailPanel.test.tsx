@@ -69,6 +69,8 @@ const pendingConsent: ClinicPatientConsentDetail = {
   patientDisplayName: patient.displayName,
   patientEmail: patient.email,
   patientStatus: patient.status,
+  hasLinkedHeraAccount: true,
+  digitalConsentChannel: 'HERA_ACCOUNT_EMAIL',
   status: 'PENDING',
   method: null,
   requestedAt: null,
@@ -125,6 +127,7 @@ interface HarnessProps {
   onRetryPatientSessions?: () => void;
   onRetryDetail?: () => void;
   onRetryConsent?: () => void;
+  onRequestConsent?: () => void;
   onCreateSession?: () => void;
   canManage?: boolean;
 }
@@ -144,6 +147,7 @@ function DetailHarness({
   onRetryPatientSessions = jest.fn(),
   onRetryDetail = jest.fn(),
   onRetryConsent = jest.fn(),
+  onRequestConsent = jest.fn(),
   onCreateSession = jest.fn(),
   canManage = true,
 }: HarnessProps): React.ReactElement {
@@ -193,7 +197,7 @@ function DetailHarness({
       onChangeAssignmentReason={jest.fn()}
       onSubmitAssignment={jest.fn()}
       onCloseAssignment={jest.fn()}
-      onRequestConsent={jest.fn()}
+      onRequestConsent={onRequestConsent}
       onUploadConsentEvidence={jest.fn()}
       onOpenConsentDocument={jest.fn()}
       onRetryConsent={onRetryConsent}
@@ -489,5 +493,121 @@ describe('ClinicPatientDetailPanel', () => {
 
     fireEvent.press(screen.getByRole('button', { name: 'Reintentar' }));
     expect(onRetryConsent).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the registered-patient channel before enabling digital consent', () => {
+    const onRequestConsent = jest.fn();
+
+    render(
+      <DetailHarness
+        initialTab="consent"
+        onRequestConsent={onRequestConsent}
+      />,
+    );
+
+    expect(screen.getByText('Firma digital disponible')).toBeTruthy();
+    expect(screen.getByText('Email administrativo')).toBeTruthy();
+    expect(screen.getByText('lucia@example.com')).toBeTruthy();
+    expect(screen.getByText('Cuenta HERA')).toBeTruthy();
+    expect(screen.getByText('Vinculada')).toBeTruthy();
+    expect(screen.getByText(
+      'El envío utiliza el email asociado a la cuenta HERA vinculada, aunque pueda coincidir con el email administrativo de esta ficha.',
+    )).toBeTruthy();
+
+    const digitalButton = screen.getByRole('button', {
+      name: 'Solicitar consentimiento digital por email a la cuenta HERA vinculada',
+    });
+    expect(digitalButton.props.accessibilityState).toEqual(expect.objectContaining({ disabled: false }));
+    fireEvent.press(digitalButton);
+    expect(onRequestConsent).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables digital consent and guides an unlinked patient with administrative email to PDF', () => {
+    const onRequestConsent = jest.fn();
+    const unlinkedConsent: ClinicPatientConsentDetail = {
+      ...pendingConsent,
+      hasLinkedHeraAccount: false,
+      digitalConsentChannel: null,
+    };
+
+    render(
+      <DetailHarness
+        initialTab="consent"
+        consent={unlinkedConsent}
+        onRequestConsent={onRequestConsent}
+      />,
+    );
+
+    expect(screen.getByText('Firma digital no disponible')).toBeTruthy();
+    expect(screen.getByText('No vinculada')).toBeTruthy();
+    expect(screen.getByText(
+      'La ficha tiene email administrativo, pero el flujo actual no permite enviar allí el consentimiento sin una cuenta HERA vinculada. Registra el consentimiento mediante un PDF firmado.',
+    )).toBeTruthy();
+
+    const digitalButton = screen.getByRole('button', {
+      name: 'Solicitar consentimiento digital, no disponible: el paciente no tiene una cuenta HERA vinculada',
+    });
+    expect(digitalButton.props.accessibilityState).toEqual(expect.objectContaining({ disabled: true }));
+    fireEvent.press(digitalButton);
+    expect(onRequestConsent).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Subir PDF' }).props.accessibilityState)
+      .toEqual(expect.objectContaining({ disabled: false }));
+  });
+
+  it('explains when neither administrative email nor a linked account is available', () => {
+    render(
+      <DetailHarness
+        initialTab="consent"
+        consent={{
+          ...pendingConsent,
+          patientEmail: null,
+          hasLinkedHeraAccount: false,
+          digitalConsentChannel: null,
+        }}
+      />,
+    );
+
+    expect(screen.getByText('No informado')).toBeTruthy();
+    expect(screen.getByText(
+      'No hay email administrativo ni una cuenta HERA vinculada. Registra el consentimiento mediante un PDF firmado.',
+    )).toBeTruthy();
+  });
+
+  it('keeps digital consent available through HERA when administrative email is absent', () => {
+    render(
+      <DetailHarness
+        initialTab="consent"
+        consent={{
+          ...pendingConsent,
+          patientEmail: null,
+        }}
+      />,
+    );
+
+    expect(screen.getByText('No informado')).toBeTruthy();
+    expect(screen.getByText('Firma digital disponible')).toBeTruthy();
+    expect(screen.getByRole('button', {
+      name: 'Solicitar consentimiento digital por email a la cuenta HERA vinculada',
+    }).props.accessibilityState).toEqual(expect.objectContaining({ disabled: false }));
+  });
+
+  it('represents a linked HERA account without usable email as a degraded state', () => {
+    render(
+      <DetailHarness
+        initialTab="consent"
+        consent={{
+          ...pendingConsent,
+          digitalConsentChannel: null,
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Vinculada')).toBeTruthy();
+    expect(screen.getByText(
+      'La cuenta HERA está vinculada, pero no dispone de un email utilizable para este envío. Registra el consentimiento mediante un PDF firmado.',
+    )).toBeTruthy();
+    expect(screen.getByRole('button', {
+      name: 'Solicitar consentimiento digital, no disponible: la cuenta HERA vinculada no tiene un email utilizable',
+    }).props.accessibilityState).toEqual(expect.objectContaining({ disabled: true }));
   });
 });
