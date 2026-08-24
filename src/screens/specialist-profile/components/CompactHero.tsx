@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   toneOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.08)',
   },
   softOverlay: {

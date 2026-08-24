@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   featuredMedia: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   portrait: {
     width: '100%',

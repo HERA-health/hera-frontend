@@ -71,6 +71,7 @@ const pendingConsent: ClinicPatientConsentDetail = {
   patientStatus: patient.status,
   hasLinkedHeraAccount: true,
   digitalConsentChannel: 'HERA_ACCOUNT_EMAIL',
+  guestConsentActionsEnabled: false,
   status: 'PENDING',
   method: null,
   requestedAt: null,
@@ -128,6 +129,8 @@ interface HarnessProps {
   onRetryDetail?: () => void;
   onRetryConsent?: () => void;
   onRequestConsent?: () => void;
+  onIssueGuestConsent?: () => void;
+  onRequestGuestWithdrawal?: () => void;
   onCreateSession?: () => void;
   canManage?: boolean;
 }
@@ -148,6 +151,8 @@ function DetailHarness({
   onRetryDetail = jest.fn(),
   onRetryConsent = jest.fn(),
   onRequestConsent = jest.fn(),
+  onIssueGuestConsent = jest.fn(),
+  onRequestGuestWithdrawal = jest.fn(),
   onCreateSession = jest.fn(),
   canManage = true,
 }: HarnessProps): React.ReactElement {
@@ -198,6 +203,10 @@ function DetailHarness({
       onSubmitAssignment={jest.fn()}
       onCloseAssignment={jest.fn()}
       onRequestConsent={onRequestConsent}
+      onIssueGuestConsent={onIssueGuestConsent}
+      onResendGuestConsent={jest.fn()}
+      onCancelGuestConsent={jest.fn()}
+      onRequestGuestWithdrawal={onRequestGuestWithdrawal}
       onUploadConsentEvidence={jest.fn()}
       onOpenConsentDocument={jest.fn()}
       onRetryConsent={onRetryConsent}
@@ -522,12 +531,14 @@ describe('ClinicPatientDetailPanel', () => {
     expect(onRequestConsent).toHaveBeenCalledTimes(1);
   });
 
-  it('disables digital consent and guides an unlinked patient with administrative email to PDF', () => {
+  it('uses the same digital action for a patient without a HERA account', () => {
     const onRequestConsent = jest.fn();
+    const onIssueGuestConsent = jest.fn();
     const unlinkedConsent: ClinicPatientConsentDetail = {
       ...pendingConsent,
       hasLinkedHeraAccount: false,
       digitalConsentChannel: null,
+      guestConsentActionsEnabled: true,
     };
 
     render(
@@ -535,23 +546,96 @@ describe('ClinicPatientDetailPanel', () => {
         initialTab="consent"
         consent={unlinkedConsent}
         onRequestConsent={onRequestConsent}
+        onIssueGuestConsent={onIssueGuestConsent}
       />,
     );
 
-    expect(screen.getByText('Firma digital no disponible')).toBeTruthy();
+    expect(screen.getByText('Consentimiento por email disponible')).toBeTruthy();
     expect(screen.getByText('No vinculada')).toBeTruthy();
     expect(screen.getByText(
-      'La ficha tiene email administrativo, pero el flujo actual no permite enviar allí el consentimiento sin una cuenta HERA vinculada. Registra el consentimiento mediante un PDF firmado.',
+      'El paciente no necesita una cuenta HERA. Recibirá un enlace personal y un código para verificar su email antes de decidir.',
     )).toBeTruthy();
 
     const digitalButton = screen.getByRole('button', {
-      name: 'Solicitar consentimiento digital, no disponible: el paciente no tiene una cuenta HERA vinculada',
+      name: 'Solicitar consentimiento digital por email al paciente sin cuenta HERA',
     });
-    expect(digitalButton.props.accessibilityState).toEqual(expect.objectContaining({ disabled: true }));
+    expect(digitalButton.props.accessibilityState).toEqual(expect.objectContaining({ disabled: false }));
     fireEvent.press(digitalButton);
     expect(onRequestConsent).not.toHaveBeenCalled();
+    expect(onIssueGuestConsent).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Enviar por email' })).toBeNull();
+
     expect(screen.getByRole('button', { name: 'Subir PDF' }).props.accessibilityState)
       .toEqual(expect.objectContaining({ disabled: false }));
+  });
+
+  it('describes an accepted guest authorization without suggesting that it will expire', () => {
+    const onRequestConsent = jest.fn();
+    const onIssueGuestConsent = jest.fn();
+    const onRequestGuestWithdrawal = jest.fn();
+    const acceptedGuestConsent: ClinicPatientConsentDetail = {
+      ...pendingConsent,
+      hasLinkedHeraAccount: false,
+      digitalConsentChannel: null,
+      guestConsentActionsEnabled: true,
+      status: 'GRANTED',
+      method: 'EMAIL_LINK_OTP',
+      requestedAt: '2026-08-23T21:17:07.512Z',
+      grantedAt: '2026-08-23T21:18:25.781Z',
+      version: 'clinic-administration-v1',
+      guestRequest: {
+        id: 'guest-request-1',
+        requestKind: 'GRANT',
+        status: 'ACCEPTED',
+        linkDeliveryStatus: 'PROVIDER_ACCEPTED',
+        expiresAt: '2026-08-30T21:17:07.512Z',
+        createdAt: '2026-08-23T21:17:08.378Z',
+      },
+    };
+
+    render(
+      <DetailHarness
+        initialTab="consent"
+        consent={acceptedGuestConsent}
+        onRequestConsent={onRequestConsent}
+        onIssueGuestConsent={onIssueGuestConsent}
+        onRequestGuestWithdrawal={onRequestGuestWithdrawal}
+      />,
+    );
+
+    expect(screen.getByText('Autorización administrativa · v1')).toBeTruthy();
+    expect(screen.getByText('Autorización por email vigente')).toBeTruthy();
+    expect(screen.getByText('Identidad verificada y autorización confirmada.')).toBeTruthy();
+    expect(screen.queryByText(/Caduca el|El enlace caduca el/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Solicitar consentimiento digital/ })).toBeNull();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Solicitar retirada' }));
+    expect(onRequestGuestWithdrawal).toHaveBeenCalledTimes(1);
+    expect(onRequestConsent).not.toHaveBeenCalled();
+    expect(onIssueGuestConsent).not.toHaveBeenCalled();
+  });
+
+  it('uses one clear message when the guest channel is temporarily disabled', () => {
+    render(
+      <DetailHarness
+        initialTab="consent"
+        consent={{
+          ...pendingConsent,
+          hasLinkedHeraAccount: false,
+          digitalConsentChannel: null,
+          guestConsentActionsEnabled: false,
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Consentimiento por email no disponible temporalmente')).toBeTruthy();
+    expect(screen.getByText(
+      'Puedes seguir registrando un PDF firmado. El envío por email volverá a mostrarse cuando el canal esté disponible.',
+    )).toBeTruthy();
+    expect(screen.queryByText('Canal invitado temporalmente no disponible')).toBeNull();
+    expect(screen.getByRole('button', {
+      name: 'Solicitar consentimiento digital, no disponible: el canal por email está temporalmente desactivado',
+    }).props.accessibilityState).toEqual(expect.objectContaining({ disabled: true }));
   });
 
   it('explains when neither administrative email nor a linked account is available', () => {

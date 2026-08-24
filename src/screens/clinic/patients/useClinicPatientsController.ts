@@ -4,7 +4,9 @@ import { useAppAlert } from '../../../components/common/alert/AppAlertContext';
 import { CONTACT_METHOD_REQUIRED_MESSAGE } from '../../../constants/errors';
 import { useAuth } from '../../../contexts/AuthContext';
 import * as clinicService from '../../../services/clinicService';
+import type { ClinicGuestConsentAdminResult } from '../../../services/clinicService';
 import type { UploadAsset } from '../../../utils/multipartUpload';
+import { createSecureRandomUuid } from '../../../utils/secureRandom';
 import { useClinicWorkspace } from '../useClinicWorkspace';
 import {
   CLINIC_PATIENT_PAGE_LIMIT,
@@ -140,6 +142,7 @@ export function useClinicPatientsController() {
   const billingFullNameBeforeCopyRef = useRef('');
   const detailTabPatientIdRef = useRef<string | null>(null);
   const sessionSchedulerContextRef = useRef<ClinicSessionSchedulerContext | null>(null);
+  const guestConsentIdempotencyKeysRef = useRef(new Map<string, string>());
 
   const updatePatients = useCallback((nextPatients: clinicService.ClinicPatientSummary[]) => {
     patientsRef.current = nextPatients;
@@ -366,7 +369,11 @@ export function useClinicPatientsController() {
     }
   }, []);
 
-  const loadPatientConsent = useCallback(async (clinicId: string, patientId: string) => {
+  const loadPatientConsent = useCallback(async (
+    clinicId: string,
+    patientId: string,
+    options: { preserveFeedbackOnError?: boolean } = {},
+  ) => {
     const requestId = consentRequestSeq.current + 1;
     consentRequestSeq.current = requestId;
     setConsentLoading(true);
@@ -385,7 +392,7 @@ export function useClinicPatientsController() {
         'No se pudo cargar el consentimiento del paciente',
       );
       setConsentError(errorFeedback.text);
-      setFeedback(null);
+      if (!options.preserveFeedbackOnError) setFeedback(null);
       return null;
     } finally {
       if (mountedRef.current && consentRequestSeq.current === requestId) {
@@ -1604,6 +1611,149 @@ export function useClinicPatientsController() {
     workspace.selectedClinicId,
   ]);
 
+  const runGuestConsentAdminAction = useCallback(async (input: {
+    actionKey: string;
+    title: string;
+    message: string;
+    confirmLabel: string;
+    successMessage: string;
+    operation: (
+      clinicId: string,
+      patientId: string,
+      idempotencyKey: string
+    ) => Promise<ClinicGuestConsentAdminResult>;
+  }): Promise<void> => {
+    if (!workspace.selectedClinicId || !selectedPatient || !canManage || consentError) return;
+    const clinicId = workspace.selectedClinicId;
+    const patientId = selectedPatient.id;
+    const isActionContextCurrent = (): boolean => (
+      mountedRef.current
+      && consentViewContextRef.current.clinicId === clinicId
+      && consentViewContextRef.current.patientId === patientId
+    );
+    const confirmed = await alert.confirm({
+      title: input.title,
+      message: input.message,
+      confirmLabel: input.confirmLabel,
+    });
+    if (!confirmed || !isActionContextCurrent()) return;
+
+    const mapKey = `${clinicId}:${patientId}:${input.actionKey}`;
+    let idempotencyKey = guestConsentIdempotencyKeysRef.current.get(mapKey);
+    if (!idempotencyKey) {
+      idempotencyKey = createSecureRandomUuid();
+      guestConsentIdempotencyKeysRef.current.set(mapKey, idempotencyKey);
+    }
+    setConsentSaving(true);
+    setFeedback(null);
+    try {
+      const result = await input.operation(clinicId, patientId, idempotencyKey);
+      guestConsentIdempotencyKeysRef.current.delete(mapKey);
+      if (!isActionContextCurrent()) return;
+      setPatientConsents((currentConsents) => {
+        const currentConsent = currentConsents[patientId];
+        if (!currentConsent) return currentConsents;
+        return {
+          ...currentConsents,
+          [patientId]: {
+            ...currentConsent,
+            guestRequest: {
+              id: result.requestId,
+              requestKind: result.requestKind,
+              status: result.status,
+              linkDeliveryStatus: result.linkDeliveryStatus,
+              expiresAt: result.expiresAt,
+              createdAt: result.createdAt,
+            },
+          },
+        };
+      });
+      let mutationFeedback: FeedbackMessage;
+      if (result.linkDeliveryStatus === 'FAILED') {
+        mutationFeedback = createErrorFeedback(
+          new Error('La solicitud se creó, pero el proveedor rechazó el email y ha quedado cancelada.'),
+          'No se pudo entregar el email',
+        );
+      } else if (result.linkDeliveryStatus === 'UNKNOWN' || result.linkDeliveryStatus === 'PENDING') {
+        mutationFeedback = createErrorFeedback(
+          new Error('La solicitud se creó, pero el proveedor no confirmó la entrega. Reenvíala para generar credenciales nuevas.'),
+          'La entrega del email no está confirmada',
+        );
+      } else {
+        mutationFeedback = createSuccessFeedback(input.successMessage);
+      }
+      setFeedback(mutationFeedback);
+      const refreshed = await loadPatientConsent(clinicId, patientId, {
+        preserveFeedbackOnError: true,
+      });
+      if (!refreshed) {
+        if (!isActionContextCurrent()) return;
+        setFeedback({
+          ...mutationFeedback,
+          text: `${mutationFeedback.text} No se pudo actualizar el panel; usa «Reintentar» para sincronizarlo.`,
+        });
+      }
+    } catch (error: unknown) {
+      if (
+        error instanceof clinicService.ClinicGuestConsentAdminRequestError
+        && error.classification !== 'timeout'
+        && error.classification !== 'network'
+        && error.classification !== 'server'
+      ) {
+        guestConsentIdempotencyKeysRef.current.delete(mapKey);
+      }
+      if (isActionContextCurrent()) {
+        setFeedback(createErrorFeedback(error, 'No se pudo completar la operación'));
+      }
+    } finally {
+      setConsentSaving(false);
+    }
+  }, [alert, canManage, consentError, loadPatientConsent, selectedPatient, workspace.selectedClinicId]);
+
+  const handleIssueGuestConsent = useCallback(() => runGuestConsentAdminAction({
+    actionKey: 'ISSUE_GRANT',
+    title: 'Enviar autorización por email',
+    message: 'Se enviará un enlace personal al email administrativo de la ficha. El paciente verificará ese buzón con un código antes de decidir.',
+    confirmLabel: 'Enviar solicitud',
+    successMessage: 'Solicitud invitada enviada.',
+    operation: (clinicId, patientId, key) => clinicService.issueClinicGuestConsent(clinicId, patientId, key),
+  }), [runGuestConsentAdminAction]);
+
+  const handleResendGuestConsent = useCallback(() => {
+    const requestId = selectedPatientConsent?.guestRequest?.id;
+    if (!requestId) return Promise.resolve();
+    return runGuestConsentAdminAction({
+      actionKey: `RESEND:${requestId}`,
+      title: 'Reenviar solicitud',
+      message: 'El enlace y cualquier código anterior dejarán de funcionar. Se crearán credenciales y un documento nuevos.',
+      confirmLabel: 'Reenviar',
+      successMessage: 'Solicitud reenviada con un enlace nuevo.',
+      operation: (clinicId, patientId, key) => clinicService.resendClinicGuestConsent(clinicId, patientId, requestId, key),
+    });
+  }, [runGuestConsentAdminAction, selectedPatientConsent?.guestRequest?.id]);
+
+  const handleCancelGuestConsent = useCallback(() => {
+    const requestId = selectedPatientConsent?.guestRequest?.id;
+    if (!requestId) return Promise.resolve();
+    return runGuestConsentAdminAction({
+      actionKey: `CANCEL:${requestId}`,
+      title: 'Cancelar solicitud',
+      message: 'El enlace, la sesión y los códigos pendientes dejarán de funcionar. La decisión previa del paciente no se modificará.',
+      confirmLabel: 'Cancelar solicitud',
+      successMessage: 'Solicitud cancelada.',
+      operation: (clinicId, patientId) => clinicService.cancelClinicGuestConsent(clinicId, patientId, requestId),
+    });
+  }, [runGuestConsentAdminAction, selectedPatientConsent?.guestRequest?.id]);
+
+  const handleRequestGuestWithdrawal = useCallback(() => runGuestConsentAdminAction({
+    actionKey: 'ISSUE_WITHDRAWAL',
+    title: 'Solicitar retirada de autorización',
+    message: 'La autorización actual seguirá vigente hasta que el paciente verifique su email y confirme expresamente la retirada.',
+    confirmLabel: 'Solicitar retirada',
+    successMessage: 'Solicitud de retirada enviada.',
+    operation: (clinicId, patientId, key) => clinicService.issueClinicGuestConsentWithdrawal(clinicId, patientId, key),
+  }), [runGuestConsentAdminAction]);
+
   const handleUploadConsentEvidence = useCallback(async (file: UploadAsset) => {
     if (!workspace.selectedClinicId || !selectedPatient || !canManage || consentError) {
       return;
@@ -1822,6 +1972,10 @@ export function useClinicPatientsController() {
     handleSubmitAssignment,
     handleCloseAssignment,
     handleRequestConsent,
+    handleIssueGuestConsent,
+    handleResendGuestConsent,
+    handleCancelGuestConsent,
+    handleRequestGuestWithdrawal,
     handleUploadConsentEvidence,
     handleOpenConsentDocument,
   };

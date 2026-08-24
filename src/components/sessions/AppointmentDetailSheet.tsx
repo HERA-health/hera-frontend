@@ -448,7 +448,7 @@ const createStyles = (theme: Theme) =>
       padding: spacing.lg,
     },
     embeddedLayer: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       zIndex: 10,
     },
     sheet: {

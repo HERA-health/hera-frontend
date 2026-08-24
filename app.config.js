@@ -9,7 +9,9 @@ export default {
     userInterfaceStyle: "automatic",
     plugins: [
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      "@react-native-community/datetimepicker",
+      "expo-web-browser"
     ],
     newArchEnabled: true,
     splash: {

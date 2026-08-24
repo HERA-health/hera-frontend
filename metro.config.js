@@ -1,6 +1,4 @@
 const { getDefaultConfig } = require('expo/metro-config');
-const exclusionList = require('metro-config/private/defaults/exclusionList');
-
 const config = getDefaultConfig(__dirname);
 
 const transientNodeModulesPatterns = [
@@ -16,7 +14,7 @@ const blockListPatterns = Array.isArray(currentBlockList)
 
 config.resolver = {
   ...config.resolver,
-  blockList: exclusionList(blockListPatterns),
+  blockList: blockListPatterns,
 };
 
 module.exports = config;

@@ -264,12 +264,12 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     overflow: 'hidden',
   },
   profilePhotoBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: isDark ? 0.26 : 0.34,
     transform: [{ scale: 1.04 }],
   },
   profilePhotoOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: isDark ? 'rgba(12,18,17,0.52)' : 'rgba(255,252,246,0.42)',
   },
   profilePhoto: {

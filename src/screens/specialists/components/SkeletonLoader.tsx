@@ -152,7 +152,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       backgroundColor: isDark ? theme.surfaceMuted : theme.bgAlt,
     },
     shimmerWrap: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       width: 140,
     },
     shimmerBar: {

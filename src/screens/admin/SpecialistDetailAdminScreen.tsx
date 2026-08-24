@@ -1358,7 +1358,7 @@ const createStyles = (theme: Theme, isDark: boolean, isTwoCol: boolean, isWide: 
     flex: 4,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: theme.overlay,
     justifyContent: 'center',
     alignItems: 'center',
@@ -2004,7 +2004,7 @@ const createStyles = (theme: Theme, isDark: boolean, isTwoCol: boolean, isWide: 
     opacity: 0.45,
   },
   dniModalOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.92)',
     justifyContent: 'center',
     alignItems: 'center',

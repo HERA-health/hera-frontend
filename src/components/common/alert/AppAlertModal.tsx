@@ -90,12 +90,12 @@ export function AppAlertModal({ request, onAction, onDismiss }: AppAlertModalPro
         <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
           <AnimatedPressable
             onPress={request.dismissible ? onDismiss : undefined}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             hoverLift={false}
             pressScale={1}
             accessibilityRole="none"
           >
-            <View style={StyleSheet.absoluteFillObject} />
+            <View style={StyleSheet.absoluteFill} />
           </AnimatedPressable>
         </Animated.View>
 
@@ -177,7 +177,7 @@ function createStyles(theme: Theme, isDark: boolean, isCompact: boolean) {
       padding: spacing.lg,
     },
     backdrop: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: isDark ? 'rgba(2, 4, 3, 0.76)' : 'rgba(18, 28, 18, 0.48)',
       ...Platform.select({
         web: {

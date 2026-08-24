@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
+import axios from 'axios';
 import * as WebBrowser from 'expo-web-browser';
+import { z } from 'zod';
 import api from '../api';
 import { getErrorCode, getErrorMessage } from '../../constants/errors';
 import { buildMultipartFormData, type UploadAsset } from '../../utils/multipartUpload';
@@ -8,8 +10,116 @@ import type {
   ClinicPatientConsentListFilters,
   ClinicPatientConsentListPage,
   ClinicPatientConsentRequestResult,
+  ClinicGuestConsentAdminResult,
   ClinicPatientConsentResolution,
 } from './types';
+
+const clinicGuestConsentAdminResultSchema = z.object({
+  requestId: z.string().min(8).max(64),
+  requestKind: z.enum(['GRANT', 'WITHDRAWAL']),
+  status: z.enum(['PENDING', 'ACCEPTED', 'REJECTED', 'REVOKED', 'EXPIRED', 'CANCELLED']),
+  linkDeliveryStatus: z.enum(['PENDING', 'PROVIDER_ACCEPTED', 'FAILED', 'UNKNOWN', 'CANCELLED']),
+  expiresAt: z.string().datetime({ offset: true }),
+  createdAt: z.string().datetime({ offset: true }),
+}).strict();
+
+export type ClinicGuestConsentAdminFailureClassification =
+  | 'timeout'
+  | 'network'
+  | 'server'
+  | 'definitive';
+
+export class ClinicGuestConsentAdminRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly classification: ClinicGuestConsentAdminFailureClassification,
+    public readonly status?: number,
+    public readonly code?: string,
+  ) {
+    super(message);
+    this.name = 'ClinicGuestConsentAdminRequestError';
+  }
+}
+
+const guestAdminRequest = async (
+  url: string,
+  body: Record<string, never> | { channel: 'GUEST_EMAIL' },
+  idempotencyKey?: string,
+): Promise<ClinicGuestConsentAdminResult> => {
+  try {
+    const response = await api.post<{ success: boolean; data: ClinicGuestConsentAdminResult }>(
+      url,
+      body,
+      {
+        timeout: 30000,
+        headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+      },
+    );
+    return clinicGuestConsentAdminResultSchema.parse(response.data.data);
+  } catch (error: unknown) {
+    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+    const classification: ClinicGuestConsentAdminFailureClassification = axios.isAxiosError(error)
+      ? error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT'
+        ? 'timeout'
+        : !error.response
+          ? 'network'
+          : status !== undefined && status >= 500
+            ? 'server'
+            : 'definitive'
+      : error instanceof z.ZodError
+        ? 'server'
+        : 'definitive';
+    throw new ClinicGuestConsentAdminRequestError(
+      getClinicConsentErrorMessage(
+        error,
+        'No se pudo completar la solicitud de consentimiento invitado',
+      ),
+      classification,
+      status,
+      getErrorCode(error),
+    );
+  }
+};
+
+export const issueClinicGuestConsent = (
+  clinicId: string,
+  clinicPatientId: string,
+  idempotencyKey: string,
+): Promise<ClinicGuestConsentAdminResult> => guestAdminRequest(
+  `/clinics/${clinicId}/patients/${clinicPatientId}/consent/guest-requests`,
+  { channel: 'GUEST_EMAIL' },
+  idempotencyKey,
+);
+
+export const resendClinicGuestConsent = (
+  clinicId: string,
+  clinicPatientId: string,
+  requestId: string,
+  idempotencyKey: string,
+): Promise<ClinicGuestConsentAdminResult> => guestAdminRequest(
+  `/clinics/${clinicId}/patients/${clinicPatientId}/consent/guest-requests/${requestId}/resend`,
+  { channel: 'GUEST_EMAIL' },
+  idempotencyKey,
+);
+
+export const cancelClinicGuestConsent = (
+  clinicId: string,
+  clinicPatientId: string,
+  requestId: string,
+): Promise<ClinicGuestConsentAdminResult> => guestAdminRequest(
+  `/clinics/${clinicId}/patients/${clinicPatientId}/consent/guest-requests/${requestId}/cancel`,
+  {},
+);
+
+export const issueClinicGuestConsentWithdrawal = (
+  clinicId: string,
+  clinicPatientId: string,
+  idempotencyKey: string,
+): Promise<ClinicGuestConsentAdminResult> => guestAdminRequest(
+  `/clinics/${clinicId}/patients/${clinicPatientId}/consent/guest-withdrawal-requests`,
+  { channel: 'GUEST_EMAIL' },
+  idempotencyKey,
+);
 
 const CLINIC_CONSENT_ERROR_MESSAGES: Partial<Record<string, string>> = {
   CLINIC_CONSENT_PATIENT_NOT_FOUND:

@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   loadingState: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

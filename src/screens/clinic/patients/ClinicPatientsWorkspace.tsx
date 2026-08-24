@@ -177,6 +177,10 @@ export function ClinicPatientsWorkspace({
       onSubmitAssignment={controller.handleSubmitAssignment}
       onCloseAssignment={controller.handleCloseAssignment}
       onRequestConsent={controller.handleRequestConsent}
+      onIssueGuestConsent={controller.handleIssueGuestConsent}
+      onResendGuestConsent={controller.handleResendGuestConsent}
+      onCancelGuestConsent={controller.handleCancelGuestConsent}
+      onRequestGuestWithdrawal={controller.handleRequestGuestWithdrawal}
       onUploadConsentEvidence={controller.handleUploadConsentEvidence}
       onOpenConsentDocument={controller.handleOpenConsentDocument}
       onRetryConsent={controller.handleRetryConsent}

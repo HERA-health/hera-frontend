@@ -88,6 +88,10 @@ interface ClinicPatientDetailPanelProps {
   onSubmitAssignment: () => void;
   onCloseAssignment: () => void;
   onRequestConsent: () => void;
+  onIssueGuestConsent: () => void;
+  onResendGuestConsent: () => void;
+  onCancelGuestConsent: () => void;
+  onRequestGuestWithdrawal: () => void;
   onUploadConsentEvidence: (file: UploadAsset) => void;
   onOpenConsentDocument: (document: ClinicPatientConsentDocument) => void;
   onRetryConsent: () => void;
@@ -155,6 +159,10 @@ export function ClinicPatientDetailPanel({
   onSubmitAssignment,
   onCloseAssignment,
   onRequestConsent,
+  onIssueGuestConsent,
+  onResendGuestConsent,
+  onCancelGuestConsent,
+  onRequestGuestWithdrawal,
   onUploadConsentEvidence,
   onOpenConsentDocument,
   onRetryConsent,
@@ -531,6 +539,10 @@ export function ClinicPatientDetailPanel({
           canManage={canManage}
           patientStatus={patient.status}
           onRequestDigitalConsent={onRequestConsent}
+          onIssueGuestConsent={onIssueGuestConsent}
+          onResendGuestConsent={onResendGuestConsent}
+          onCancelGuestConsent={onCancelGuestConsent}
+          onRequestGuestWithdrawal={onRequestGuestWithdrawal}
           onUploadEvidence={onUploadConsentEvidence}
           onOpenDocument={onOpenConsentDocument}
           onRetry={onRetryConsent}

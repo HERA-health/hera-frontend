@@ -28,6 +28,8 @@ import {
   type LegalDocumentKey,
 } from './src/constants/legal';
 import { darkTheme, lightTheme } from './src/constants/theme';
+import { ClinicGuestConsentPublicScreen } from './src/screens/clinic/ClinicGuestConsentPublicScreen';
+import { getClinicGuestConsentRequestId } from './src/screens/clinic/clinicGuestConsentRoute';
 
 const heraFonts: Record<string, FontSource> = {
   HeraDisplay: {
@@ -268,9 +270,23 @@ function ThemedApp() {
 export default function App() {
   const [fontsLoaded, fontError] = useFonts(heraFonts);
   const shouldWaitForFonts = Platform.OS !== 'web' && !fontsLoaded && !fontError;
+  const guestConsentRequestId = Platform.OS === 'web' && typeof window !== 'undefined'
+    ? getClinicGuestConsentRequestId(window.location.pathname)
+    : null;
 
   if (shouldWaitForFonts) {
     return <View style={{ flex: 1, backgroundColor: lightTheme.bg }} />;
+  }
+
+  if (guestConsentRequestId) {
+    return (
+      <ErrorBoundary>
+        <SafeAreaProvider>
+          <StatusBar style="auto" />
+          <ClinicGuestConsentPublicScreen requestId={guestConsentRequestId} />
+        </SafeAreaProvider>
+      </ErrorBoundary>
+    );
   }
 
   return (

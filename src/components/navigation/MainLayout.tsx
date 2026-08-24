@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   mobileSidebar: {
     position: 'absolute',

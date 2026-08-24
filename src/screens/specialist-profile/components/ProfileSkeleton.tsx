@@ -123,7 +123,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       backgroundColor: isDark ? theme.surfaceMuted : theme.primaryMuted,
     },
     shimmer: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       width: 140,
     },
   });

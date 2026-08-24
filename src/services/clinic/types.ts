@@ -8,8 +8,10 @@ export type ClinicPatientStatus = 'ACTIVE' | 'ARCHIVED';
 export type ClinicPatientStatusFilter = ClinicPatientStatus | 'ALL';
 export type ClinicPatientAssignmentFilter = 'ALL' | 'ASSIGNED' | 'UNASSIGNED';
 export type ClinicPatientConsentStatus = 'PENDING' | 'GRANTED' | 'REVOKED';
-export type ClinicPatientConsentMethod = 'DIGITAL_SIGNATURE' | 'CLINIC_ADMIN_ATTESTATION';
-export type ClinicPatientConsentRequestStatus = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'CANCELLED';
+export type ClinicPatientConsentMethod = 'DIGITAL_SIGNATURE' | 'CLINIC_ADMIN_ATTESTATION' | 'EMAIL_LINK_OTP';
+export type ClinicPatientConsentRequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'REVOKED' | 'EXPIRED' | 'CANCELLED';
+export type ClinicGuestConsentRequestKind = 'GRANT' | 'WITHDRAWAL';
+export type ClinicGuestConsentDeliveryStatus = 'PENDING' | 'PROVIDER_ACCEPTED' | 'FAILED' | 'UNKNOWN' | 'CANCELLED';
 export type ClinicSessionStatus = 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
 export type ClinicSessionType = 'IN_PERSON' | 'PHONE_CALL' | 'VIDEO_CALL';
 export type ClinicInvoiceStatus = 'DRAFT' | 'SENT' | 'PAID' | 'CANCELLED';
@@ -20,8 +22,18 @@ export type ClinicPatientConsentEventType =
   | 'DOCUMENT_UPLOADED'
   | 'DOCUMENT_DOWNLOADED'
   | 'GRANTED'
-  | 'ACCEPTED';
-export type ClinicPatientConsentActorType = 'CLINIC_ADMIN' | 'CLIENT' | 'SYSTEM';
+  | 'ACCEPTED'
+  | 'REQUEST_CANCELLED'
+  | 'LINK_CONSUMED'
+  | 'OTP_SENT'
+  | 'OTP_FAILED'
+  | 'OTP_VERIFIED'
+  | 'REJECTED'
+  | 'WITHDRAWAL_REQUESTED'
+  | 'REVOKED'
+  | 'DELIVERY_FAILED'
+  | 'DELIVERY_UNKNOWN';
+export type ClinicPatientConsentActorType = 'CLINIC_ADMIN' | 'CLIENT' | 'GUEST_PATIENT' | 'SYSTEM';
 
 export interface ClinicSummary {
   id: string;
@@ -750,9 +762,29 @@ export interface ClinicPatientConsentRequest {
 export interface ClinicPatientConsentDetail extends ClinicPatientConsentSummary {
   hasLinkedHeraAccount: boolean;
   digitalConsentChannel: 'HERA_ACCOUNT_EMAIL' | null;
+  guestConsentActionsEnabled: boolean;
   documents: ClinicPatientConsentDocument[];
   events: ClinicPatientConsentEvent[];
   activeRequest: ClinicPatientConsentRequest | null;
+  guestRequest?: ClinicGuestConsentAdminRequest | null;
+}
+
+export interface ClinicGuestConsentAdminRequest {
+  id: string;
+  requestKind: ClinicGuestConsentRequestKind;
+  status: ClinicPatientConsentRequestStatus;
+  linkDeliveryStatus: ClinicGuestConsentDeliveryStatus;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface ClinicGuestConsentAdminResult {
+  requestId: string;
+  requestKind: ClinicGuestConsentRequestKind;
+  status: ClinicPatientConsentRequestStatus;
+  linkDeliveryStatus: ClinicGuestConsentDeliveryStatus;
+  expiresAt: string;
+  createdAt: string;
 }
 
 export interface ClinicPatientConsentRequestResult {

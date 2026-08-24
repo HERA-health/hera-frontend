@@ -53,7 +53,7 @@ export const VideoSection: React.FC<VideoSectionProps> = ({
           {thumbUrl && (
             <Image
               source={{ uri: thumbUrl }}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
               resizeMode="cover"
               onError={() => {
                 if (videoId) setThumbUrl(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`);
@@ -90,8 +90,8 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   title: { fontSize: 22, fontWeight: '600', color: theme.textPrimary },
   thumbnailTouch: { overflow: 'hidden' },
   thumbnailContainer: { width: '100%', aspectRatio: 16 / 9, overflow: 'hidden', justifyContent: 'center', alignItems: 'center', position: 'relative' },
-  darkBase: { ...StyleSheet.absoluteFillObject, backgroundColor: '#1A1A1A' },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.28)' },
+  darkBase: { ...StyleSheet.absoluteFill, backgroundColor: '#1A1A1A' },
+  overlay: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.28)' },
   playButton: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center', zIndex: 1 },
   playIcon: { marginLeft: 4 },
   bottomLabel: { position: 'absolute', bottom: spacing.md, left: spacing.md, zIndex: 1 },

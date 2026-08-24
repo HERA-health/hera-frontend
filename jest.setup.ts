@@ -1,6 +1,11 @@
 import '@testing-library/jest-native/extend-expect';
 import { jest } from '@jest/globals';
 
+// Expo 57 installs fetch through a lazy getter. Materialize it while Jest's
+// module registry is alive so late cleanup cannot require ExpoModulesCore.
+void globalThis.fetch;
+
+jest.mock('react-native-worklets', () => require('react-native-worklets/lib/module/mock'));
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 
 jest.mock('@react-native-async-storage/async-storage', () => ({

@@ -307,11 +307,11 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
         <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]}>
           <AnimatedPressable
             onPress={handleClose}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             hoverLift={false}
             pressScale={1}
           >
-            <View style={StyleSheet.absoluteFillObject} />
+            <View style={StyleSheet.absoluteFill} />
           </AnimatedPressable>
         </Animated.View>
 
@@ -512,7 +512,7 @@ const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean) =>
       paddingHorizontal: isDesktop ? spacing.xl : spacing.md,
     },
     backdrop: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: isDark ? 'rgba(8,10,14,0.72)' : 'rgba(18,24,18,0.38)',
     },
     card: {

@@ -77,6 +77,8 @@ const formatConsentMethod = (
       return 'Digital HERA';
     case 'CLINIC_ADMIN_ATTESTATION':
       return 'PDF firmado';
+    case 'EMAIL_LINK_OTP':
+      return 'Email verificado';
     case null:
       return 'Sin método';
     default: {
