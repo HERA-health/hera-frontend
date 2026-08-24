@@ -25,7 +25,10 @@ import type { Client } from '../../services/professionalService';
 import { getErrorMessage } from '../../constants/errors';
 import { useClinicalAccessController } from '../../hooks/useClinicalAccessController';
 import { useClinicalWorkspaceData } from '../../hooks/useClinicalWorkspaceData';
-import { hasAcceptedCurrentDataProcessingAgreement } from '../../services/clinicalService';
+import {
+  hasAcceptedCurrentDataProcessingAgreement,
+  type ClinicalGuestConsentAdminResult,
+} from '../../services/clinicalService';
 import { LEGAL_DOCUMENT_VERSION } from '../../constants/legal';
 import { acceptLegalDocuments, getLegalStatus } from '../../services/legalService';
 import type { AppNavigationProp } from '../../constants/types';
@@ -67,6 +70,56 @@ const formatDate = (value?: string | Date | null) =>
         year: 'numeric',
       })
     : 'Sin fecha';
+
+const formatDateTime = (value?: string | Date | null) => value
+  ? new Date(value).toLocaleString('es-ES', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  : 'Sin fecha';
+
+const guestMutationBanner = (
+  result: ClinicalGuestConsentAdminResult,
+  action: 'ISSUE' | 'RESEND' | 'WITHDRAWAL' | 'CANCEL'
+): BannerState => {
+  if (action === 'CANCEL') {
+    return result.status === 'CANCELLED'
+      ? { tone: 'success', message: 'La solicitud pendiente ha quedado cancelada.' }
+      : {
+          tone: 'info',
+          message: result.status === 'EXPIRED'
+            ? 'La solicitud ya había caducado.'
+            : 'La solicitud ya estaba resuelta y no se ha modificado.',
+        };
+  }
+  if (result.linkDeliveryStatus === 'FAILED' || result.status === 'CANCELLED') {
+    return {
+      tone: 'error',
+      message: 'La autorización se preparó, pero el email no pudo entregarse y el envío ha quedado cancelado.',
+    };
+  }
+  if (result.linkDeliveryStatus === 'UNKNOWN') {
+    return {
+      tone: 'warning',
+      message: 'La autorización se ha creado, pero no podemos confirmar la entrega del email. Puedes enviar un enlace nuevo.',
+    };
+  }
+  if (result.linkDeliveryStatus === 'PENDING') {
+    return {
+      tone: 'info',
+      message: `La autorización se ha preparado y estamos confirmando el envío por email. Caduca el ${formatDateTime(result.expiresAt)}.`,
+    };
+  }
+  const subject = action === 'RESEND'
+    ? 'El enlace nuevo se ha enviado por email'
+    : action === 'WITHDRAWAL'
+      ? 'La retirada se ha enviado por email para su confirmación'
+      : 'La autorización se ha enviado por email';
+  return { tone: 'success', message: `${subject}. Caduca el ${formatDateTime(result.expiresAt)}.` };
+};
 
 const getBannerStyles = (
   tone: BannerTone,
@@ -354,15 +407,51 @@ export function ClinicalTab({
   const handleRequestDigitalConsent = useCallback(async () => {
     try {
       const result = await workspaceData.requestDigitalConsent();
-      showBanner(
-        'success',
-        `Solicitud enviada. El enlace estara disponible hasta el ${formatDate(result.expiresAt)}.`
-      );
+      if (!result) return;
+      if ('linkDeliveryStatus' in result) {
+        const feedback = guestMutationBanner(result, 'ISSUE');
+        showBanner(feedback.tone, feedback.message);
+      } else {
+        showBanner('success', `Autorización enviada por email. Disponible hasta el ${formatDate(result.expiresAt)}.`);
+      }
     } catch (error) {
       showBanner(
         'error',
-        getErrorMessage(error, 'No se pudo solicitar el consentimiento digital.')
+        getErrorMessage(error, 'No se pudo enviar la autorización por email.')
       );
+    }
+  }, [showBanner, workspaceData]);
+
+  const handleResendGuestConsent = useCallback(async () => {
+    try {
+      const result = await workspaceData.resendGuestConsent();
+      if (!result) return;
+      const feedback = guestMutationBanner(result, 'RESEND');
+      showBanner(feedback.tone, feedback.message);
+    } catch (error) {
+      showBanner('error', getErrorMessage(error, 'No se pudo enviar un enlace nuevo por email.'));
+    }
+  }, [showBanner, workspaceData]);
+
+  const handleCancelGuestConsent = useCallback(async () => {
+    try {
+      const result = await workspaceData.cancelGuestConsent();
+      if (!result) return;
+      const feedback = guestMutationBanner(result, 'CANCEL');
+      showBanner(feedback.tone, feedback.message);
+    } catch (error) {
+      showBanner('error', getErrorMessage(error, 'No se pudo cancelar la solicitud.'));
+    }
+  }, [showBanner, workspaceData]);
+
+  const handleRequestGuestWithdrawal = useCallback(async () => {
+    try {
+      const result = await workspaceData.requestGuestWithdrawal();
+      if (!result) return;
+      const feedback = guestMutationBanner(result, 'WITHDRAWAL');
+      showBanner(feedback.tone, feedback.message);
+    } catch (error) {
+      showBanner('error', getErrorMessage(error, 'No se pudo enviar la retirada por email.'));
     }
   }, [showBanner, workspaceData]);
 
@@ -370,9 +459,9 @@ export function ClinicalTab({
     async (evidenceDocumentId?: string) => {
       try {
         await workspaceData.attestClinicalConsent('v1', evidenceDocumentId);
-        showBanner('success', 'Consentimiento registrado correctamente en el expediente.');
+        showBanner('success', 'Autorización registrada correctamente en el expediente.');
       } catch (error) {
-        showBanner('error', getErrorMessage(error, 'No se pudo registrar el consentimiento.'));
+        showBanner('error', getErrorMessage(error, 'No se pudo registrar la autorización.'));
       }
     },
     [showBanner, workspaceData]
@@ -505,7 +594,7 @@ export function ClinicalTab({
     ? record.consentStatus === 'GRANTED'
       ? 'Vigente'
       : record.consentStatus === 'REVOKED'
-        ? 'Retirado'
+        ? 'Retirada'
         : 'Pendiente'
     : client.consentOnFile
       ? 'Vigente'
@@ -514,13 +603,13 @@ export function ClinicalTab({
   const consentColor =
     consentLabel === 'Vigente'
       ? theme.status.confirmed.text
-      : consentLabel === 'Retirado'
+      : consentLabel === 'Retirada'
         ? theme.status.cancelled.text
         : theme.status.pending.text;
 
   const sidebarRows: SidebarRow[] = hasActiveSession
     ? [
-        { label: 'Consentimiento', value: consentLabel, color: consentColor },
+        { label: 'Autorización clínica', value: consentLabel, color: consentColor },
         {
           label: 'Retención',
           value: record?.retentionUntil ? formatDate(record.retentionUntil) : 'Abierta',
@@ -538,7 +627,7 @@ export function ClinicalTab({
         },
       ]
     : [
-        { label: 'Consentimiento', value: consentLabel, color: consentColor },
+        { label: 'Autorización clínica', value: consentLabel, color: consentColor },
         {
           label: 'Encargo',
           value: hasAcceptedDpa ? 'Aceptado' : 'Pendiente',
@@ -889,15 +978,20 @@ export function ClinicalTab({
               loadingMoreNotes={workspaceData.loadingMoreNotes}
               loadingMoreDocuments={workspaceData.loadingMoreDocuments}
               loadingMoreConsentEvents={workspaceData.loadingMoreConsentEvents}
+              guestConsentSyncPending={workspaceData.guestConsentSyncPending}
               onSaveNote={handleSaveClinicalNote}
               onOpenDocument={handleOpenClinicalDocument}
               onUploadDocument={handleUploadClinicalDocument}
               onRequestDigitalConsent={handleRequestDigitalConsent}
+              onResendGuestConsent={handleResendGuestConsent}
+              onCancelGuestConsent={handleCancelGuestConsent}
+              onRequestGuestWithdrawal={handleRequestGuestWithdrawal}
               onAttestClinicalConsent={handleAttestClinicalConsent}
               onCloseClinicalProcess={handleCloseClinicalProcess}
               onLoadMoreNotes={workspaceData.loadMoreNotes}
               onLoadMoreDocuments={workspaceData.loadMoreDocuments}
               onLoadMoreConsentEvents={workspaceData.loadMoreConsentEvents}
+              onRetryGuestConsentSync={workspaceData.retryGuestConsentSync}
               tourTargetsActive={tourTargetsActive}
             />
           ) : (

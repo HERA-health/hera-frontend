@@ -10,11 +10,18 @@ import {
   View,
 } from 'react-native';
 import { darkTheme, lightTheme, type Theme } from '../../constants/theme';
-import * as guestService from '../../services/clinicGuestConsentPublicService';
-import { ClinicGuestConsentDocumentFrame } from './ClinicGuestConsentDocumentFrame';
-import { parseClinicGuestConsentFragment } from './clinicGuestConsentRoute';
+import { GuestConsentHttpError } from '../../services/guestConsentHttpClient';
+import { GuestConsentDocumentFrame } from '../consent/GuestConsentDocumentFrame';
+import {
+  getGuestConsentFlowAdapter,
+  type GuestConsentDocumentBytes as AnyDocumentBytes,
+  type GuestConsentFlow,
+  type GuestConsentFlowAdapter,
+  type GuestConsentReadyResolution as ReadyResolution,
+  type GuestConsentResolution as AnyResolution,
+} from '../consent/guestConsentFlowAdapter';
 
-interface Props { requestId: string }
+interface Props { requestId: string; flow?: GuestConsentFlow }
 type Confirmation = 'ACCEPT' | 'REJECT' | null;
 
 interface VolatileBootstrapCredentials {
@@ -24,15 +31,21 @@ interface VolatileBootstrapCredentials {
 }
 
 const volatileCredentials = new Map<string, VolatileBootstrapCredentials>();
+const credentialsKey = (requestId: string, flow: 'clinic' | 'specialist'): string => `${flow}:${requestId}`;
 
-const captureBootstrapCredentials = (requestId: string): VolatileBootstrapCredentials | null => {
-  const captured = volatileCredentials.get(requestId);
+const captureBootstrapCredentials = (
+  requestId: string,
+  flow: GuestConsentFlow,
+  adapter: GuestConsentFlowAdapter
+): VolatileBootstrapCredentials | null => {
+  const key = credentialsKey(requestId, flow);
+  const captured = volatileCredentials.get(key);
   if (captured) {
     if (captured.cleanupTimer) window.clearTimeout(captured.cleanupTimer);
     captured.cleanupTimer = undefined;
     return captured;
   }
-  const token = parseClinicGuestConsentFragment(window.location.hash);
+  const token = adapter.parseFragment(window.location.hash);
   window.history.replaceState(
     null,
     document.title,
@@ -40,12 +53,14 @@ const captureBootstrapCredentials = (requestId: string): VolatileBootstrapCreden
   );
   if (!token) return null;
   const credentials = { token, clientNonce: null };
-  volatileCredentials.set(requestId, credentials);
+  volatileCredentials.set(key, credentials);
   return credentials;
 };
 
 const transientErrorMessage = (error: unknown): string => {
-  if (error instanceof guestService.GuestConsentRequestError) {
+  if (
+    error instanceof GuestConsentHttpError
+  ) {
     if (error.failure === 'TIMEOUT') {
       return 'La respuesta está tardando más de lo esperado. Puedes reintentarlo sin duplicar la operación.';
     }
@@ -61,23 +76,28 @@ const transientErrorMessage = (error: unknown): string => {
     if (error.failure === 'SERVICE_UNAVAILABLE') {
       return 'No podemos confirmar todavía el resultado; compruébalo o inténtalo de nuevo.';
     }
+    if (error.failure === 'OTP_INVALID') {
+      return 'El código no es válido o ha caducado. Compruébalo o solicita uno nuevo.';
+    }
   }
   return 'No se ha podido completar la operación. Inténtalo de nuevo.';
 };
 
-export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.ReactElement {
+export function GuestConsentPublicScreen({ requestId, flow = 'clinic' }: Props): React.ReactElement {
+  const adapter = useMemo(() => getGuestConsentFlowAdapter(flow), [flow]);
   const theme = useColorScheme() === 'dark' ? darkTheme : lightTheme;
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const credentialsRef = useRef<VolatileBootstrapCredentials | null>(
-    captureBootstrapCredentials(requestId)
-  );
+  const credentialsRef = useRef<VolatileBootstrapCredentials | null | undefined>(undefined);
+  if (credentialsRef.current === undefined) {
+    credentialsRef.current = captureBootstrapCredentials(requestId, flow, adapter);
+  }
   const bootstrapAmbiguousRef = useRef(false);
   const stageHeadingRef = useRef<React.ElementRef<typeof View> | null>(null);
   const decisionTriggerRef = useRef<React.ElementRef<typeof Pressable> | null>(null);
   const confirmationRef = useRef<React.ElementRef<typeof View> | null>(null);
   const [started, setStarted] = useState(false);
-  const [resolution, setResolution] = useState<guestService.GuestConsentResolution | null>(null);
-  const [documentBytes, setDocumentBytes] = useState<guestService.GuestConsentDocumentBytes | null>(null);
+  const [resolution, setResolution] = useState<AnyResolution | null>(null);
+  const [documentBytes, setDocumentBytes] = useState<AnyDocumentBytes | null>(null);
   const [documentError, setDocumentError] = useState('');
   const [otp, setOtp] = useState('');
   const [busy, setBusy] = useState(false);
@@ -85,6 +105,26 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
   const [actionError, setActionError] = useState('');
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const [clock, setClock] = useState(() => Date.now());
+  const [serverOffsetMs, setServerOffsetMs] = useState(0);
+  const [rateLimitedUntil, setRateLimitedUntil] = useState(0);
+
+  const rememberRateLimit = useCallback((error: unknown): void => {
+    if (
+      error instanceof GuestConsentHttpError
+      && error.failure === 'RATE_LIMITED'
+      && error.retryAfterSeconds
+    ) {
+      setRateLimitedUntil((current) => Math.max(
+        current,
+        Date.now() + error.retryAfterSeconds! * 1000
+      ));
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (!resolution) return;
+    setServerOffsetMs(new Date(resolution.serverTime).getTime() - Date.now());
+  }, [resolution]);
 
   React.useEffect(() => {
     if (resolution?.stage !== 'OTP_REQUIRED' && resolution?.stage !== 'READY') return undefined;
@@ -106,14 +146,15 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
 
   React.useEffect(() => () => {
     const credentials = credentialsRef.current;
-    if (!credentials || bootstrapAmbiguousRef.current) return;
+    if (!credentials) return;
     credentials.cleanupTimer = window.setTimeout(() => {
-      if (volatileCredentials.get(requestId) === credentials) {
-        volatileCredentials.delete(requestId);
+      const key = credentialsKey(requestId, flow);
+      if (volatileCredentials.get(key) === credentials) {
+        volatileCredentials.delete(key);
       }
-    }, 0);
+    }, bootstrapAmbiguousRef.current ? 15 * 60_000 : 0);
     credentialsRef.current = null;
-  }, [requestId]);
+  }, [flow, requestId]);
 
   React.useEffect(() => {
     if (resolution?.stage === 'READY') {
@@ -126,18 +167,15 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
   }, [resolution?.stage]);
 
   const loadDocument = useCallback(async (
-    readyResolution: Extract<guestService.GuestConsentResolution, { stage: 'READY' }>
+    readyResolution: Extract<AnyResolution, { stage: 'READY' }>
   ): Promise<void> => {
     setDocumentError('');
     try {
-      setDocumentBytes(await guestService.loadGuestConsentDocument(
-        requestId,
-        readyResolution.document
-      ));
+      setDocumentBytes(await adapter.loadDocument(requestId, readyResolution));
     } catch (error: unknown) {
       setDocumentError(transientErrorMessage(error));
     }
-  }, [requestId]);
+  }, [adapter, requestId]);
 
   React.useEffect(() => {
     if (resolution?.stage !== 'READY' || documentBytes || documentError) return;
@@ -145,15 +183,49 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
   }, [documentBytes, documentError, loadDocument, resolution]);
 
   const requestInitialOtp = useCallback(async (
-    current: guestService.GuestConsentResolution
+    current: AnyResolution
   ): Promise<void> => {
     if (current.stage !== 'OTP_REQUIRED' || current.otpDeliveryStatus !== 'NOT_SENT') return;
     try {
-      setResolution(await guestService.requestGuestConsentOtp(requestId));
+      setResolution(await adapter.requestOtp(requestId));
     } catch (error: unknown) {
+      rememberRateLimit(error);
+      const unavailable = (
+        error instanceof GuestConsentHttpError
+      ) && error.failure === 'UNAVAILABLE';
+      if (unavailable) {
+        setResolution(null);
+        setOtp('');
+        setDocumentBytes(null);
+        setFatalError('Este enlace no está disponible o ya ha caducado.');
+        return;
+      }
+      const ambiguous = error instanceof GuestConsentHttpError
+        && ['TIMEOUT', 'NETWORK', 'SERVICE_UNAVAILABLE'].includes(error.failure);
+      if (ambiguous) {
+        try {
+          setResolution(await adapter.resolve(requestId));
+          setActionError('');
+          return;
+        } catch (resolutionError: unknown) {
+          rememberRateLimit(resolutionError);
+          if (
+            resolutionError instanceof GuestConsentHttpError
+            && resolutionError.failure === 'UNAVAILABLE'
+          ) {
+            setResolution(null);
+            setOtp('');
+            setDocumentBytes(null);
+            setFatalError('Este enlace no está disponible o ya ha caducado.');
+            return;
+          }
+          setActionError(transientErrorMessage(resolutionError));
+          return;
+        }
+      }
       setActionError(transientErrorMessage(error));
     }
-  }, [requestId]);
+  }, [adapter, rememberRateLimit, requestId]);
 
   React.useEffect(() => {
     if (
@@ -167,12 +239,17 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
       if (requestInFlight) return;
       requestInFlight = true;
       try {
-        const nextResolution = await guestService.resolveGuestConsent(requestId);
-        if (active) setResolution(nextResolution);
+        const nextResolution = await adapter.resolve(requestId);
+        if (active) {
+          setResolution(nextResolution);
+          setActionError('');
+        }
       } catch (error: unknown) {
         if (
           active
-          && error instanceof guestService.GuestConsentRequestError
+          && (
+            error instanceof GuestConsentHttpError
+          )
           && error.failure === 'UNAVAILABLE'
         ) {
           setResolution(null);
@@ -193,7 +270,7 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
       active = false;
       window.clearInterval(timer);
     };
-  }, [requestId, resolution?.stage, resolution?.stage === 'OTP_REQUIRED'
+  }, [adapter, requestId, resolution?.stage, resolution?.stage === 'OTP_REQUIRED'
     ? resolution.otpDeliveryStatus
     : null]);
 
@@ -204,30 +281,28 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
     setFatalError('');
     try {
       const credentials = credentialsRef.current;
-      let nextResolution: guestService.GuestConsentResolution;
+      let nextResolution: AnyResolution;
       if (credentials) {
-        credentials.clientNonce ??= guestService.generateGuestConsentClientNonce();
-        nextResolution = await guestService.bootstrapGuestConsent(
-          requestId,
-          credentials.token,
-          credentials.clientNonce
-        );
+        credentials.clientNonce ??= adapter.generateNonce();
+        nextResolution = await adapter.bootstrap(requestId, credentials.token, credentials.clientNonce);
         bootstrapAmbiguousRef.current = false;
         credentialsRef.current = null;
-        volatileCredentials.delete(requestId);
+        volatileCredentials.delete(credentialsKey(requestId, flow));
       } else {
-        nextResolution = await guestService.resolveGuestConsent(requestId);
+        nextResolution = await adapter.resolve(requestId);
       }
       setResolution(nextResolution);
       await requestInitialOtp(nextResolution);
     } catch (error: unknown) {
       if (
-        error instanceof guestService.GuestConsentRequestError
+        (
+          error instanceof GuestConsentHttpError
+        )
         && error.failure === 'UNAVAILABLE'
       ) {
         bootstrapAmbiguousRef.current = false;
         credentialsRef.current = null;
-        volatileCredentials.delete(requestId);
+        volatileCredentials.delete(credentialsKey(requestId, flow));
         setFatalError('Este enlace no está disponible o ya ha caducado.');
       } else {
         bootstrapAmbiguousRef.current = Boolean(credentialsRef.current);
@@ -236,10 +311,10 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
     } finally {
       setBusy(false);
     }
-  }, [requestId, requestInitialOtp]);
+  }, [adapter, flow, requestId, requestInitialOtp]);
 
   const runResolutionAction = useCallback(async (
-    task: () => Promise<guestService.GuestConsentResolution>,
+    task: () => Promise<AnyResolution>,
     failureMessage?: string
   ): Promise<void> => {
     setBusy(true);
@@ -252,36 +327,47 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
         setDocumentBytes(null);
       }
     } catch (error: unknown) {
-      const definitiveFailure = error instanceof guestService.GuestConsentRequestError
+      rememberRateLimit(error);
+      const definitiveFailure = (
+        error instanceof GuestConsentHttpError
+      )
         && error.failure === 'UNAVAILABLE';
+      const invalidOtp = (
+        error instanceof GuestConsentHttpError
+      ) && error.failure === 'OTP_INVALID';
+      if (invalidOtp) setOtp('');
       if (definitiveFailure) setOtp('');
-      if (definitiveFailure && !failureMessage) {
+      if (definitiveFailure) {
         setResolution(null);
         setDocumentBytes(null);
         setFatalError('Este enlace no está disponible o ya ha caducado.');
+        setActionError('');
+      } else {
+        setActionError(invalidOtp && failureMessage
+          ? failureMessage
+          : transientErrorMessage(error));
       }
-      setActionError(definitiveFailure && failureMessage
-        ? failureMessage
-        : transientErrorMessage(error));
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [rememberRateLimit]);
 
   const submitDecision = useCallback(async (decision: 'ACCEPT' | 'REJECT'): Promise<void> => {
     setBusy(true);
     setActionError('');
     try {
-      let nextResolution: guestService.GuestConsentResolution;
+      let nextResolution: AnyResolution;
       try {
-        nextResolution = await guestService.decideGuestConsent(requestId, decision);
+        nextResolution = await adapter.decide(requestId, decision);
       } catch (error: unknown) {
-        const ambiguous = error instanceof guestService.GuestConsentRequestError
+        const ambiguous = (
+          error instanceof GuestConsentHttpError
+        )
           && ['TIMEOUT', 'NETWORK', 'SERVICE_UNAVAILABLE'].includes(error.failure);
         if (!ambiguous) throw error;
-        const recovered = await guestService.resolveGuestConsent(requestId);
+        const recovered = await adapter.resolve(requestId);
         nextResolution = recovered.stage === 'READY'
-          ? await guestService.decideGuestConsent(requestId, decision)
+          ? await adapter.decide(requestId, decision)
           : recovered;
       }
       setResolution(nextResolution);
@@ -291,8 +377,11 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
         setDocumentBytes(null);
       }
     } catch (error: unknown) {
+      rememberRateLimit(error);
       if (
-        error instanceof guestService.GuestConsentRequestError
+        (
+          error instanceof GuestConsentHttpError
+        )
         && error.failure === 'UNAVAILABLE'
       ) {
         setResolution(null);
@@ -305,7 +394,7 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
     } finally {
       setBusy(false);
     }
-  }, [requestId]);
+  }, [adapter, rememberRateLimit, requestId]);
 
   const downloadDocument = (): void => {
     if (!documentBytes) return;
@@ -315,20 +404,23 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'consentimiento-hera.html';
+    anchor.download = 'autorizacion-hera.html';
     anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const isWithdrawal = resolution?.stage === 'READY' && resolution.requestKind === 'WITHDRAWAL';
+  const effectiveClock = clock + serverOffsetMs;
   const resendSeconds = resolution?.stage === 'OTP_REQUIRED'
-    ? Math.max(0, Math.ceil((new Date(resolution.canResendAt).getTime() - clock) / 1000))
+    ? Math.max(0, Math.ceil((new Date(resolution.canResendAt).getTime() - effectiveClock) / 1000))
     : 0;
+  const rateLimitSeconds = Math.max(0, Math.ceil((rateLimitedUntil - clock) / 1000));
+  const effectiveResendSeconds = Math.max(resendSeconds, rateLimitSeconds);
   const otpSeconds = resolution?.stage === 'OTP_REQUIRED' && resolution.otpExpiresAt
-    ? Math.max(0, Math.ceil((new Date(resolution.otpExpiresAt).getTime() - clock) / 1000))
+    ? Math.max(0, Math.ceil((new Date(resolution.otpExpiresAt).getTime() - effectiveClock) / 1000))
     : null;
   const requestSeconds = resolution?.stage === 'READY'
-    ? Math.max(0, Math.ceil((new Date(resolution.expiresAt).getTime() - clock) / 1000))
+    ? Math.max(0, Math.ceil((new Date(resolution.expiresAt).getTime() - effectiveClock) / 1000))
     : null;
   const requestExpiryMessage = requestSeconds !== null && requestSeconds <= 300
     ? requestSeconds > 60
@@ -362,15 +454,17 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
         {!started && !fatalError ? (
           <View style={styles.centerState} accessibilityLiveRegion="polite">
             <View style={styles.securityMark}><Text style={styles.securityMarkText}>✓</Text></View>
-            <Text style={styles.eyebrow}>Solicitud protegida</Text>
+            <Text style={styles.eyebrow}>Autorización protegida</Text>
             <View ref={stageHeadingRef} style={styles.stageHeading} tabIndex={-1} role="heading" aria-level={1}>
-              <Text style={styles.title}>Revisa la solicitud de tu clínica</Text>
+              <Text style={styles.title}>
+                {adapter.intro}
+              </Text>
             </View>
             <Text style={[styles.body, styles.centeredCopy]}>
-              Para proteger tus datos, no abriremos el enlace ni enviaremos ningún código hasta que decidas continuar.
+              Para proteger tus datos, no abriremos la autorización ni enviaremos ningún código hasta que pulses el botón.
             </Text>
             <ActionButton
-              label={busy ? 'Comprobando…' : 'Continuar de forma segura'}
+              label={busy ? 'Comprobando…' : 'Continuar y recibir código por email'}
               disabled={busy}
               onPress={() => { void continueFlow(); }}
               theme={theme}
@@ -447,17 +541,21 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
                 label="Verificar código"
                 disabled={busy || otp.length !== 6 || otpSeconds === 0}
                 onPress={() => { void runResolutionAction(
-                  () => guestService.verifyGuestConsentOtp(requestId, otp),
+                  () => adapter.verifyOtp(requestId, otp),
                   'El código no es válido, ha caducado o ha alcanzado el máximo de intentos.'
                 ); }}
                 theme={theme}
               />
               <ActionButton
-                label={resendSeconds > 0 ? `Nuevo código en ${resendSeconds} s` : 'Enviar un código nuevo'}
+                label={resolution.otpDeliveryStatus === 'PROCESSING'
+                  ? 'Confirmando el envío…'
+                  : effectiveResendSeconds > 0
+                    ? `Nuevo código en ${effectiveResendSeconds} s`
+                    : 'Enviar otro código por email'}
                 secondary
-                disabled={busy || resendSeconds > 0}
+                disabled={busy || effectiveResendSeconds > 0 || resolution.otpDeliveryStatus === 'PROCESSING'}
                 onPress={() => { void runResolutionAction(
-                  () => guestService.requestGuestConsentOtp(requestId)
+                  () => adapter.requestOtp(requestId)
                 ); }}
                 theme={theme}
               />
@@ -468,13 +566,19 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
         {!fatalError && resolution?.stage === 'READY' ? (
           <View style={styles.stack}>
             <Text style={styles.eyebrow}>
-              {isWithdrawal ? 'Retirada de autorización' : 'Autorización administrativa'}
+              {isWithdrawal
+                ? 'Retirada de autorización'
+                : adapter.grantLabel}
             </Text>
             <View ref={stageHeadingRef} style={styles.stageHeading} tabIndex={-1} role="heading" aria-level={1}>
-              <Text style={styles.title}>{resolution.clinic.name}</Text>
+              <Text style={styles.title}>
+                {'specialist' in resolution ? resolution.specialist.displayName : resolution.clinic.name}
+              </Text>
             </View>
             <Text style={styles.body}>
-              Solicitud dirigida a {resolution.patient.displayName}. Lee el documento completo antes de decidir.
+              {'specialist' in resolution
+                ? `${resolution.specialist.professionalTitle || 'Profesional de la salud'}${resolution.specialist.licenseNumber ? ` · Colegiado/a ${resolution.specialist.licenseNumber}` : ''}. Lee el documento completo antes de decidir.`
+                : `Autorización dirigida a ${resolution.patient.displayName}. Lee el documento completo antes de decidir.`}
             </Text>
             <Text style={styles.timerText}>
               {`La solicitud caduca el ${formattedRequestExpiry} (hora peninsular).`}
@@ -485,7 +589,7 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
               </Text>
             ) : null}
             {documentBytes ? (
-              <ClinicGuestConsentDocumentFrame
+              <GuestConsentDocumentFrame
                 html={documentBytes.html}
                 borderColor={theme.border}
               />
@@ -559,7 +663,7 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
               <View style={styles.actions}>
                 <ActionButton
                   label={isWithdrawal ? 'Retirar autorización' : 'Autorizar'}
-                  disabled={busy || !documentBytes}
+                  disabled={busy || !documentBytes || requestSeconds === 0}
                   buttonRef={decisionTriggerRef}
                   onPress={() => setConfirmation('ACCEPT')}
                   theme={theme}
@@ -567,7 +671,7 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
                 <ActionButton
                   label="Rechazar"
                   secondary
-                  disabled={busy || !documentBytes}
+                  disabled={busy || !documentBytes || requestSeconds === 0}
                   onPress={() => setConfirmation('REJECT')}
                   theme={theme}
                 />
@@ -596,7 +700,7 @@ export function ClinicGuestConsentPublicScreen({ requestId }: Props): React.Reac
         ) : null}
         {busy && resolution ? <ActivityIndicator color={theme.primary} style={styles.busyOverlay} /> : null}
       </View>
-      <Text style={styles.footer}>HERA · Canal privado de consentimiento · health-hera@gmail.com</Text>
+      <Text style={styles.footer}>HERA · Confirmación privada de autorizaciones · health-hera@gmail.com</Text>
     </ScrollView>
   );
 }
@@ -720,4 +824,5 @@ const createStyles = (theme: Theme) => StyleSheet.create({
   },
 });
 
-export default ClinicGuestConsentPublicScreen;
+export const ClinicGuestConsentPublicScreen = GuestConsentPublicScreen;
+export default GuestConsentPublicScreen;

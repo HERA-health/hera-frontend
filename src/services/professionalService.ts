@@ -12,7 +12,7 @@ import { z } from 'zod';
 export type ClientSource = 'REGISTERED' | 'MANAGED';
 export type ClientLifecycleFilter = 'ACTIVE' | 'ARCHIVED' | 'ALL';
 export type ClinicalConsentStatus = 'PENDING' | 'GRANTED' | 'REVOKED';
-export type ClinicalConsentMethod = 'DIGITAL_SIGNATURE' | 'SPECIALIST_ATTESTATION';
+export type ClinicalConsentMethod = 'DIGITAL_SIGNATURE' | 'SPECIALIST_ATTESTATION' | 'EMAIL_LINK_OTP';
 export type QuestionnaireAvailability = 'NOT_STARTED' | 'AVAILABLE' | 'REQUIRES_REFRESH';
 export type SessionType = 'VIDEO_CALL' | 'PHONE_CALL' | 'IN_PERSON';
 export type ProfessionalSessionOrigin = 'PRIVATE' | 'CLINIC';

@@ -127,7 +127,7 @@ const CLINIC_CONSENT_ERROR_MESSAGES: Partial<Record<string, string>> = {
   CLINIC_CONSENT_PATIENT_ARCHIVED:
     'No se puede gestionar consentimiento de un paciente archivado.',
   CLINIC_CONSENT_DIGITAL_UNAVAILABLE:
-    'Este paciente necesita una cuenta HERA enlazada para usar el consentimiento digital.',
+    'Este paciente necesita una cuenta HERA enlazada para confirmar la autorización desde su cuenta.',
   CLINIC_CONSENT_EMAIL_FAILED:
     'No se pudo enviar el email de consentimiento. Revisa la configuración del correo de la clínica.',
   CLINIC_CONSENT_ALREADY_GRANTED:
@@ -226,7 +226,7 @@ export const requestClinicPatientConsent = async (
   } catch (error: unknown) {
     throw new Error(getClinicConsentErrorMessage(
       error,
-      'No se pudo solicitar el consentimiento digital',
+      'No se pudo enviar la autorización por email',
     ));
   }
 };

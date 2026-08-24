@@ -11,8 +11,8 @@ const ROUTE_TITLES: Record<keyof RootStackParamList, string> = {
   Register: 'Crear cuenta',
   EmailSentVerification: 'Revisa tu correo',
   EmailVerification: 'Verificación de email',
-  ClinicalConsent: 'Consentimiento clínico',
-  ClinicConsent: 'Consentimiento de clínica',
+  ClinicalConsent: 'Autorización del expediente clínico',
+  ClinicConsent: 'Autorización para la gestión en la clínica',
   PublicReview: 'Reseña HERA',
   LegalDocument: 'Documento legal',
   RequiredLegalAcceptance: 'Actualización legal',
@@ -63,7 +63,7 @@ const LEGAL_DOCUMENT_TITLES: Record<LegalDocumentKey, string> = {
   PRIVACY_POLICY: 'Política de privacidad',
   PROFESSIONAL_DATA_PROCESSING_TERMS: 'Condiciones profesionales',
   CLINICAL_MODULE_TERMS: 'Módulo clínico',
-  CLINICAL_PATIENT_CONSENT: 'Consentimiento clínico',
+  CLINICAL_PATIENT_CONSENT: 'Autorización del expediente clínico',
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {

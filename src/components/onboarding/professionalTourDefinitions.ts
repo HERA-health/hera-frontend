@@ -307,15 +307,15 @@ export const PROFESSIONAL_TOUR_DEFINITIONS: Record<
       {
         id: 'consent',
         targetId: 'professional.clinical.consent',
-        title: 'Dos vías de consentimiento clínico',
-        body: 'Este módulo reúne las dos vías. Firma digital de consentimiento clínico para pacientes con cuenta HERA y documento firmado para pacientes sin cuenta HERA. Cuando se completa la vía que corresponde, el consentimiento queda vigente.',
+        title: 'Dos vías para autorizar el expediente clínico',
+        body: 'Este módulo reúne las dos vías. Puedes enviar la autorización por email para que el paciente la confirme en HERA o registrar un documento que ya haya firmado. Cuando se completa la vía correspondiente, la autorización queda vigente.',
         placement: 'bottom',
       },
       {
         id: 'consent-documents',
         targetId: 'professional.clinical.consent-documents',
-        title: 'Documento de consentimiento clínico',
-        body: 'Esta vía vive dentro del mismo módulo de consentimiento. Sube aquí el documento firmado del paciente sin cuenta HERA y regístralo para habilitar el tratamiento de datos clínicos.',
+        title: 'Documento de autorización firmado',
+        body: 'Utiliza esta vía cuando el paciente ya haya firmado el documento fuera de HERA. Adjúntalo aquí y regístralo como evidencia de su autorización.',
         placement: 'bottom',
       },
       {

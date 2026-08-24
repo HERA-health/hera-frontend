@@ -54,7 +54,7 @@ export function ClinicGuestConsentDocumentFrame({
 
   return React.createElement('iframe', {
     ref: frameRef,
-    title: 'Documento completo de consentimiento',
+    title: 'Documento completo de autorización',
     srcDoc: html,
     sandbox: 'allow-same-origin',
     referrerPolicy: 'no-referrer',

@@ -1,5 +1,11 @@
 import { z } from 'zod';
 import getEnvVars from '../config/api';
+import {
+  GuestConsentHttpError,
+  requestGuestConsentDocument,
+  requestGuestConsentJson,
+  type GuestConsentHttpFailure,
+} from './guestConsentHttpClient';
 
 const DATE_TIME_SCHEMA = z.string().datetime({ offset: true });
 const HEX_64_SCHEMA = z.string().regex(/^[a-f0-9]{64}$/);
@@ -7,6 +13,7 @@ const HEX_64_SCHEMA = z.string().regex(/^[a-f0-9]{64}$/);
 const resolutionSchema = z.discriminatedUnion('stage', [
   z.object({
     stage: z.literal('OTP_REQUIRED'),
+    serverTime: DATE_TIME_SCHEMA,
     status: z.literal('PENDING'),
     maskedEmail: z.string().min(5).max(254),
     otpDeliveryStatus: z.enum(['SENT', 'PROCESSING', 'FAILED', 'UNKNOWN', 'NOT_SENT']),
@@ -15,6 +22,7 @@ const resolutionSchema = z.discriminatedUnion('stage', [
   }).strict(),
   z.object({
     stage: z.literal('READY'),
+    serverTime: DATE_TIME_SCHEMA,
     status: z.literal('PENDING'),
     expiresAt: DATE_TIME_SCHEMA,
     requestKind: z.enum(['GRANT', 'WITHDRAWAL']),
@@ -30,6 +38,7 @@ const resolutionSchema = z.discriminatedUnion('stage', [
   }).strict(),
   z.object({
     stage: z.literal('TERMINAL'),
+    serverTime: DATE_TIME_SCHEMA,
     result: z.object({
       status: z.enum(['ACCEPTED', 'REJECTED', 'REVOKED']),
       nextAction: z.enum(['REQUEST_WITHDRAWAL', 'REQUEST_NEW', 'NONE']),
@@ -52,75 +61,24 @@ const envelopeSchema = z.object({
   data: resolutionSchema,
 }).strict();
 
-export type GuestConsentRequestFailure =
-  | 'TIMEOUT'
-  | 'NETWORK'
-  | 'RATE_LIMITED'
-  | 'SERVICE_UNAVAILABLE'
-  | 'UNAVAILABLE';
-
-export class GuestConsentRequestError extends Error {
-  constructor(
-    public readonly failure: GuestConsentRequestFailure,
-    public readonly retryAfterSeconds?: number
-  ) {
-    super(failure);
-    this.name = 'GuestConsentRequestError';
-  }
-}
+export type GuestConsentRequestFailure = GuestConsentHttpFailure;
+export { GuestConsentHttpError as GuestConsentRequestError };
 
 const requestBase = (requestId: string): string =>
   `${getEnvVars().apiUrl}/clinic-consent/guest-requests/${encodeURIComponent(requestId)}`;
 
-const fetchWithTimeout = async (
-  url: string,
-  init: RequestInit,
-  timeoutMs: number
-): Promise<Response> => {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } catch (error: unknown) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new GuestConsentRequestError('TIMEOUT');
-    }
-    throw new GuestConsentRequestError('NETWORK');
-  } finally {
-    window.clearTimeout(timeout);
-  }
-};
-
 const requestJson = async (
   url: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  otpInvalidCode?: string
 ): Promise<GuestConsentResolution> => {
-  const response = await fetchWithTimeout(url, {
-    ...init,
-    credentials: 'include',
-    cache: 'no-store',
-    referrerPolicy: 'no-referrer',
-    headers: {
-      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-      ...init.headers,
-    },
-  }, 15_000);
-  if (response.status === 429) {
-    const retryAfterSeconds = Number.parseInt(response.headers.get('Retry-After') ?? '', 10);
-    throw new GuestConsentRequestError(
-      'RATE_LIMITED',
-      Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-        ? retryAfterSeconds
-        : undefined
-    );
-  }
-  if (response.status >= 500) throw new GuestConsentRequestError('SERVICE_UNAVAILABLE');
-  if (!response.ok) throw new GuestConsentRequestError('UNAVAILABLE');
-  try {
-    return envelopeSchema.parse(await response.json()).data;
-  } catch {
-    throw new GuestConsentRequestError('UNAVAILABLE');
-  }
+  const envelope = await requestGuestConsentJson({
+    url,
+    init,
+    schema: envelopeSchema,
+    otpInvalidCode,
+  });
+  return envelope.data;
 };
 
 const bytesToHex = (bytes: Uint8Array): string =>
@@ -169,7 +127,8 @@ export const verifyGuestConsentOtp = (
   {
     method: 'POST',
     body: JSON.stringify(z.object({ code: z.string().regex(/^\d{6}$/) }).strict().parse({ code })),
-  }
+  },
+  'CLINIC_GUEST_CONSENT_OTP_INVALID'
 );
 
 export const decideGuestConsent = (
@@ -193,33 +152,9 @@ export const loadGuestConsentDocument = async (
   requestId: string,
   descriptor: GuestConsentDocumentDescriptor
 ): Promise<GuestConsentDocumentBytes> => {
-  const response = await fetchWithTimeout(`${requestBase(requestId)}/document`, {
-    credentials: 'include',
-    cache: 'no-store',
-    referrerPolicy: 'no-referrer',
-  }, 30_000);
-  if (response.status === 429) {
-    const retryAfterSeconds = Number.parseInt(response.headers.get('Retry-After') ?? '', 10);
-    throw new GuestConsentRequestError(
-      'RATE_LIMITED',
-      Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-        ? retryAfterSeconds
-        : undefined
-    );
-  }
-  if (response.status >= 500) throw new GuestConsentRequestError('SERVICE_UNAVAILABLE');
-  if (!response.ok) throw new GuestConsentRequestError('UNAVAILABLE');
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.byteLength !== descriptor.sizeBytes) {
-    throw new GuestConsentRequestError('UNAVAILABLE');
-  }
-  const digest = new Uint8Array(await window.crypto.subtle.digest('SHA-256', bytes));
-  if (bytesToHex(digest) !== descriptor.sha256) {
-    throw new GuestConsentRequestError('UNAVAILABLE');
-  }
-  try {
-    return { bytes, html: new TextDecoder('utf-8', { fatal: true }).decode(bytes) };
-  } catch {
-    throw new GuestConsentRequestError('UNAVAILABLE');
-  }
+  return requestGuestConsentDocument({
+    url: `${requestBase(requestId)}/document`,
+    expectedSizeBytes: descriptor.sizeBytes,
+    expectedSha256: descriptor.sha256,
+  });
 };

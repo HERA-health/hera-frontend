@@ -834,7 +834,7 @@ export function ClientProfileScreen() {
           </Text>
         </View>
         <View style={styles.sideRow}>
-          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Consentimiento</Text>
+          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Autorización clínica</Text>
           <Text
             style={[
               textStyles.strong,

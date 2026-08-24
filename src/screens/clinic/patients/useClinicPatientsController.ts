@@ -389,7 +389,7 @@ export function useClinicPatientsController() {
       if (!mountedRef.current || consentRequestSeq.current !== requestId) return null;
       const errorFeedback = createErrorFeedback(
         error,
-        'No se pudo cargar el consentimiento del paciente',
+        'No se pudo cargar la autorización del paciente',
       );
       setConsentError(errorFeedback.text);
       if (!options.preserveFeedbackOnError) setFeedback(null);
@@ -1537,9 +1537,9 @@ export function useClinicPatientsController() {
     );
 
     const confirmed = await alert.confirm({
-      title: 'Solicitar consentimiento digital',
-      message: 'Se enviará un enlace al email de la cuenta HERA vinculada. El paciente deberá iniciar sesión para revisarlo y aceptarlo.',
-      confirmLabel: 'Solicitar',
+      title: 'Enviar autorización por email',
+      message: 'Enviaremos un enlace al email de la cuenta HERA vinculada. El paciente deberá iniciar sesión para revisar la autorización y decidir.',
+      confirmLabel: 'Enviar por email',
     });
 
     if (!confirmed || !isActionContextCurrent()) {
@@ -1570,7 +1570,7 @@ export function useClinicPatientsController() {
 
         setConsentError(createErrorFeedback(
           error,
-          'No se pudo actualizar el consentimiento del paciente',
+          'No se pudo actualizar la autorización del paciente',
         ).text);
       }
     };
@@ -1581,7 +1581,7 @@ export function useClinicPatientsController() {
       } catch (error: unknown) {
         const errorFeedback = createErrorFeedback(
           error,
-          'No se pudo solicitar el consentimiento digital',
+          'No se pudo enviar la autorización por email',
         );
         if (isActionContextCurrent()) {
           await synchronizeConsent();
@@ -1596,7 +1596,7 @@ export function useClinicPatientsController() {
 
       await synchronizeConsent();
       if (isActionContextCurrent()) {
-        setFeedback(createSuccessFeedback('Solicitud de consentimiento enviada.'));
+        setFeedback(createSuccessFeedback('Autorización enviada por email.'));
       }
     } finally {
       setConsentSaving(false);
@@ -1713,9 +1713,9 @@ export function useClinicPatientsController() {
   const handleIssueGuestConsent = useCallback(() => runGuestConsentAdminAction({
     actionKey: 'ISSUE_GRANT',
     title: 'Enviar autorización por email',
-    message: 'Se enviará un enlace personal al email administrativo de la ficha. El paciente verificará ese buzón con un código antes de decidir.',
-    confirmLabel: 'Enviar solicitud',
-    successMessage: 'Solicitud invitada enviada.',
+    message: 'Enviaremos un enlace personal al email de contacto de la ficha. El paciente verificará ese buzón con un código antes de decidir.',
+    confirmLabel: 'Enviar por email',
+    successMessage: 'Autorización enviada por email.',
     operation: (clinicId, patientId, key) => clinicService.issueClinicGuestConsent(clinicId, patientId, key),
   }), [runGuestConsentAdminAction]);
 
@@ -1724,10 +1724,10 @@ export function useClinicPatientsController() {
     if (!requestId) return Promise.resolve();
     return runGuestConsentAdminAction({
       actionKey: `RESEND:${requestId}`,
-      title: 'Reenviar solicitud',
-      message: 'El enlace y cualquier código anterior dejarán de funcionar. Se crearán credenciales y un documento nuevos.',
-      confirmLabel: 'Reenviar',
-      successMessage: 'Solicitud reenviada con un enlace nuevo.',
+      title: 'Enviar un enlace nuevo por email',
+      message: 'Enviaremos al paciente un enlace nuevo por email. El enlace y cualquier código anterior dejarán de funcionar.',
+      confirmLabel: 'Enviar por email',
+      successMessage: 'Enlace nuevo enviado por email.',
       operation: (clinicId, patientId, key) => clinicService.resendClinicGuestConsent(clinicId, patientId, requestId, key),
     });
   }, [runGuestConsentAdminAction, selectedPatientConsent?.guestRequest?.id]);
@@ -1747,10 +1747,10 @@ export function useClinicPatientsController() {
 
   const handleRequestGuestWithdrawal = useCallback(() => runGuestConsentAdminAction({
     actionKey: 'ISSUE_WITHDRAWAL',
-    title: 'Solicitar retirada de autorización',
-    message: 'La autorización actual seguirá vigente hasta que el paciente verifique su email y confirme expresamente la retirada.',
-    confirmLabel: 'Solicitar retirada',
-    successMessage: 'Solicitud de retirada enviada.',
+    title: 'Enviar retirada por email',
+    message: 'Enviaremos al paciente una solicitud por email. La autorización actual seguirá vigente hasta que verifique su email y confirme expresamente la retirada.',
+    confirmLabel: 'Enviar por email',
+    successMessage: 'Retirada enviada por email para su confirmación.',
     operation: (clinicId, patientId, key) => clinicService.issueClinicGuestConsentWithdrawal(clinicId, patientId, key),
   }), [runGuestConsentAdminAction]);
 
@@ -1761,16 +1761,16 @@ export function useClinicPatientsController() {
 
     if (file.mimeType && file.mimeType !== 'application/pdf') {
       setFeedback(createErrorFeedback(
-        new Error('Adjunta el consentimiento firmado en PDF.'),
-        'Adjunta el consentimiento firmado en PDF.',
+        new Error('Adjunta la autorización firmada en PDF.'),
+        'Adjunta la autorización firmada en PDF.',
       ));
       return;
     }
 
     const confirmed = await alert.confirm({
-      title: 'Registrar PDF firmado',
-      message: 'Se guardará la evidencia en almacenamiento privado y el consentimiento quedará marcado como concedido.',
-      confirmLabel: 'Subir PDF',
+      title: 'Registrar autorización firmada',
+      message: 'El documento se guardará en almacenamiento privado y la autorización quedará registrada como concedida.',
+      confirmLabel: 'Registrar documento',
     });
 
     if (!confirmed) {
@@ -1788,9 +1788,9 @@ export function useClinicPatientsController() {
       );
       rememberPatientConsent(consent);
       setConsentError('');
-      setFeedback(createSuccessFeedback('Consentimiento firmado registrado.'));
+      setFeedback(createSuccessFeedback('Autorización firmada registrada.'));
     } catch (error: unknown) {
-      setFeedback(createErrorFeedback(error, 'No se pudo subir el consentimiento firmado'));
+      setFeedback(createErrorFeedback(error, 'No se pudo registrar la autorización firmada'));
     } finally {
       setConsentSaving(false);
     }
@@ -1822,7 +1822,7 @@ export function useClinicPatientsController() {
         document.mimeType,
       );
     } catch (error: unknown) {
-      setFeedback(createErrorFeedback(error, 'No se pudo abrir el documento de consentimiento'));
+      setFeedback(createErrorFeedback(error, 'No se pudo abrir el documento de autorización'));
     } finally {
       setOpeningConsentDocumentId(null);
     }

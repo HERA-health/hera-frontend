@@ -234,10 +234,10 @@ export const LEGAL_DOCUMENTS: Record<LegalDocumentKey, LegalDocumentContent> = {
   CLINICAL_PATIENT_CONSENT: {
     key: 'CLINICAL_PATIENT_CONSENT',
     version: LEGAL_DOCUMENT_VERSION,
-    title: 'Consentimiento clínico del paciente',
+    title: 'Autorización del expediente clínico',
     slug: LEGAL_DOCUMENT_SLUGS.CLINICAL_PATIENT_CONSENT,
     routePath: '/legal/consentimiento-clinico',
-    summary: 'Información que acepta el paciente para permitir seguimiento clínico en HERA.',
+    summary: 'Información que acepta el paciente para autorizar el uso de su expediente clínico en HERA.',
     sections: [
       commonIdentitySection,
       {

@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { UploadAsset } from '../utils/multipartUpload';
 import * as clinicalService from '../services/clinicalService';
+import { resolveClinicalGuestConsentEligibility } from '../services/clinicalGuestConsentEligibility';
+import { createSecureRandomUuid } from '../utils/secureRandom';
 
 interface UseClinicalWorkspaceDataOptions {
   clientId: string;
@@ -8,6 +10,30 @@ interface UseClinicalWorkspaceDataOptions {
   onRequestRefreshClient?: () => Promise<void>;
   onAccessLost?: (message: string) => void;
 }
+
+interface ClinicalWorkspaceContext {
+  clientId: string;
+  generation: number;
+}
+
+const activeRequestFromGuestResult = (
+  result: clinicalService.ClinicalGuestConsentAdminResult
+): clinicalService.ClinicalRecord['activeConsentRequest'] => (
+  result.status === 'PENDING'
+    ? {
+        id: result.requestId,
+        status: result.status,
+        channel: result.channel,
+        requestKind: result.requestKind,
+        linkDeliveryStatus: result.linkDeliveryStatus,
+        expiresAt: result.expiresAt,
+        createdAt: result.createdAt,
+        version: result.requestKind === 'WITHDRAWAL'
+          ? 'specialist-clinical-withdrawal-v1'
+          : 'specialist-clinical-authorization-v1',
+      }
+    : null
+);
 
 const mergeUniqueById = <T extends { id: string }>(current: T[], incoming: T[]) => {
   const map = new Map<string, T>();
@@ -75,6 +101,48 @@ export function useClinicalWorkspaceData({
   const [loadingMoreDocuments, setLoadingMoreDocuments] = useState(false);
   const [loadingMoreSessions, setLoadingMoreSessions] = useState(false);
   const [loadingMoreConsentEvents, setLoadingMoreConsentEvents] = useState(false);
+  const [guestConsentSyncPending, setGuestConsentSyncPending] = useState(false);
+  const activeContextRef = useRef<ClinicalWorkspaceContext>({ clientId, generation: 0 });
+  const guestMutationRef = useRef<{ clientId: string; action: string; key: string } | null>(null);
+  if (activeContextRef.current.clientId !== clientId) {
+    activeContextRef.current = {
+      clientId,
+      generation: activeContextRef.current.generation + 1,
+    };
+  }
+
+  const captureContext = useCallback((): ClinicalWorkspaceContext => ({
+    clientId,
+    generation: activeContextRef.current.generation,
+  }), [clientId]);
+
+  const isCurrentContext = useCallback((context: ClinicalWorkspaceContext): boolean => (
+    activeContextRef.current.clientId === context.clientId
+    && activeContextRef.current.generation === context.generation
+  ), []);
+
+  useEffect(() => {
+    setConsentSubmitting(false);
+    setGuestConsentSyncPending(false);
+    guestMutationRef.current = null;
+  }, [clientId]);
+
+  const guestIdempotencyKey = useCallback((action: string): string => {
+    const current = guestMutationRef.current;
+    if (current?.clientId === clientId && current.action === action) return current.key;
+    const key = createSecureRandomUuid();
+    guestMutationRef.current = { clientId, action, key };
+    return key;
+  }, [clientId]);
+
+  const finishGuestMutationAttempt = useCallback((action: string, error?: unknown): void => {
+    const ambiguous = error instanceof clinicalService.ClinicalGuestConsentAdminRequestError
+      && (error.classification === 'timeout' || error.classification === 'network');
+    if (!error || !ambiguous) {
+      const current = guestMutationRef.current;
+      if (current?.clientId === clientId && current.action === action) guestMutationRef.current = null;
+    }
+  }, [clientId]);
 
   const handleAccessError = useCallback(
     (error: unknown) => {
@@ -90,23 +158,24 @@ export function useClinicalWorkspaceData({
   );
 
   const loadRecord = useCallback(async () => {
+    const context = captureContext();
     if (!token) {
-      setRecord(null);
+      if (isCurrentContext(context)) setRecord(null);
       return null;
     }
 
     try {
       setRecordLoading(true);
       const nextRecord = await clinicalService.getClinicalRecord(clientId, token);
-      setRecord(nextRecord);
+      if (isCurrentContext(context)) setRecord(nextRecord);
       return nextRecord;
     } catch (error) {
       handleAccessError(error);
       return null;
     } finally {
-      setRecordLoading(false);
+      if (isCurrentContext(context)) setRecordLoading(false);
     }
-  }, [clientId, handleAccessError, token]);
+  }, [captureContext, clientId, handleAccessError, isCurrentContext, token]);
 
   useEffect(() => {
     if (!token) {
@@ -337,19 +406,158 @@ export function useClinicalWorkspaceData({
     [handleAccessError, token]
   );
 
+  const applyGuestAdminResult = useCallback((
+    result: clinicalService.ClinicalGuestConsentAdminResult,
+    context: ClinicalWorkspaceContext
+  ): boolean => {
+    if (!isCurrentContext(context)) return false;
+    setRecord((current) => current && isCurrentContext(context) ? {
+      ...current,
+      consentRequestedAt: result.createdAt,
+      activeConsentRequest: activeRequestFromGuestResult(result),
+    } : current);
+    return true;
+  }, [isCurrentContext]);
+
   const requestDigitalConsent = useCallback(
     async (version = 'v1') => {
+      const context = captureContext();
       try {
         setConsentSubmitting(true);
-        const result = await clinicalService.requestDigitalConsent(clientId, version);
-        await Promise.all([loadRecord(), onRequestRefreshClient?.()]);
+        const isGuest = record?.client.source === 'MANAGED'
+          && resolveClinicalGuestConsentEligibility(record) === 'ELIGIBLE';
+        const guestAction = 'ISSUE';
+        let result: Awaited<ReturnType<typeof clinicalService.requestDigitalConsent>> | clinicalService.ClinicalGuestConsentAdminResult;
+        try {
+          result = isGuest
+            ? token
+              ? await clinicalService.requestClinicalGuestConsent(
+                  clientId,
+                  token,
+                  guestIdempotencyKey(guestAction)
+                )
+              : (() => { throw new Error('El área clínica está bloqueada.'); })()
+            : await clinicalService.requestDigitalConsent(clientId, version);
+          if (isGuest) finishGuestMutationAttempt(guestAction);
+        } catch (error: unknown) {
+          if (isGuest) finishGuestMutationAttempt(guestAction, error);
+          throw error;
+        }
+        if (!isCurrentContext(context)) return null;
+        if ('channel' in result) {
+          applyGuestAdminResult(result, context);
+        }
+        if (isGuest) {
+          const [nextRecord, clientRefresh] = await Promise.all([
+            loadRecord(),
+            Promise.allSettled([onRequestRefreshClient?.()]),
+          ]);
+          if (isCurrentContext(context)) {
+            setGuestConsentSyncPending(!nextRecord || clientRefresh.some((item) => item.status === 'rejected'));
+          }
+        } else {
+          await Promise.all([loadRecord(), onRequestRefreshClient?.()]);
+        }
         return result;
       } finally {
-        setConsentSubmitting(false);
+        if (isCurrentContext(context)) setConsentSubmitting(false);
       }
     },
-    [clientId, loadRecord, onRequestRefreshClient]
+    [applyGuestAdminResult, captureContext, clientId, finishGuestMutationAttempt, guestIdempotencyKey, isCurrentContext, loadRecord, onRequestRefreshClient, record, token]
   );
+
+  const refreshAfterGuestMutation = useCallback(async (
+    result: clinicalService.ClinicalGuestConsentAdminResult,
+    context: ClinicalWorkspaceContext
+  ) => {
+    if (!applyGuestAdminResult(result, context)) return null;
+    const [nextRecord, clientRefresh] = await Promise.all([
+      loadRecord(),
+      Promise.allSettled([onRequestRefreshClient?.()]),
+    ]);
+    if (isCurrentContext(context)) {
+      setGuestConsentSyncPending(!nextRecord || clientRefresh.some((item) => item.status === 'rejected'));
+    }
+    return result;
+  }, [applyGuestAdminResult, isCurrentContext, loadRecord, onRequestRefreshClient]);
+
+  const resendGuestConsent = useCallback(async () => {
+    if (!token || !record?.activeConsentRequest || record.activeConsentRequest.channel !== 'GUEST_EMAIL') {
+      throw new Error('No hay una solicitud por email que se pueda reenviar.');
+    }
+    const context = captureContext();
+    try {
+      setConsentSubmitting(true);
+      const action = `RESEND:${record.activeConsentRequest.id}`;
+      try {
+        const result = await clinicalService.resendClinicalGuestConsent(
+          clientId,
+          record.activeConsentRequest.id,
+          token,
+          guestIdempotencyKey(action)
+        );
+        finishGuestMutationAttempt(action);
+        return await refreshAfterGuestMutation(result, context);
+      } catch (error: unknown) {
+        finishGuestMutationAttempt(action, error);
+        throw error;
+      }
+    } finally {
+      if (isCurrentContext(context)) setConsentSubmitting(false);
+    }
+  }, [captureContext, clientId, finishGuestMutationAttempt, guestIdempotencyKey, isCurrentContext, record?.activeConsentRequest, refreshAfterGuestMutation, token]);
+
+  const cancelGuestConsent = useCallback(async () => {
+    if (!token || !record?.activeConsentRequest || record.activeConsentRequest.channel !== 'GUEST_EMAIL') {
+      throw new Error('No hay una solicitud por email que se pueda cancelar.');
+    }
+    const context = captureContext();
+    try {
+      setConsentSubmitting(true);
+      return await refreshAfterGuestMutation(await clinicalService.cancelClinicalGuestConsent(
+        clientId,
+        record.activeConsentRequest.id,
+        token
+      ), context);
+    } finally {
+      if (isCurrentContext(context)) setConsentSubmitting(false);
+    }
+  }, [captureContext, clientId, isCurrentContext, record?.activeConsentRequest, refreshAfterGuestMutation, token]);
+
+  const requestGuestWithdrawal = useCallback(async () => {
+    if (!token) throw new Error('El área clínica está bloqueada.');
+    const context = captureContext();
+    try {
+      setConsentSubmitting(true);
+      const action = 'WITHDRAWAL';
+      try {
+        const result = await clinicalService.requestClinicalGuestWithdrawal(
+          clientId,
+          token,
+          guestIdempotencyKey(action)
+        );
+        finishGuestMutationAttempt(action);
+        return await refreshAfterGuestMutation(result, context);
+      } catch (error: unknown) {
+        finishGuestMutationAttempt(action, error);
+        throw error;
+      }
+    } finally {
+      if (isCurrentContext(context)) setConsentSubmitting(false);
+    }
+  }, [captureContext, clientId, finishGuestMutationAttempt, guestIdempotencyKey, isCurrentContext, refreshAfterGuestMutation, token]);
+
+  const retryGuestConsentSync = useCallback(async () => {
+    const context = captureContext();
+    const [nextRecord, clientRefresh] = await Promise.all([
+      loadRecord(),
+      Promise.allSettled([onRequestRefreshClient?.()]),
+    ]);
+    const pending = !nextRecord || clientRefresh.some((item) => item.status === 'rejected');
+    if (!isCurrentContext(context)) return false;
+    setGuestConsentSyncPending(pending);
+    return !pending;
+  }, [captureContext, isCurrentContext, loadRecord, onRequestRefreshClient]);
 
   const attestClinicalConsent = useCallback(
     async (version = 'v1', evidenceDocumentId?: string) => {
@@ -400,6 +608,7 @@ export function useClinicalWorkspaceData({
     loadingMoreDocuments,
     loadingMoreSessions,
     loadingMoreConsentEvents,
+    guestConsentSyncPending,
     loadRecord,
     loadMoreNotes,
     loadMoreDocuments,
@@ -410,6 +619,10 @@ export function useClinicalWorkspaceData({
     uploadClinicalDocument,
     openClinicalDocument,
     requestDigitalConsent,
+    resendGuestConsent,
+    cancelGuestConsent,
+    requestGuestWithdrawal,
+    retryGuestConsentSync,
     attestClinicalConsent,
     closeClinicalProcess,
   };

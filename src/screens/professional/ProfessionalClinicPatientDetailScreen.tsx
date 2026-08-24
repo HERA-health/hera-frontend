@@ -343,7 +343,7 @@ export function ProfessionalClinicPatientDetailScreen(): React.ReactElement {
 
             <View style={styles.sectionHeader}>
               <Ionicons name="shield-checkmark-outline" size={20} color={theme.primary} />
-              <Text style={styles.sectionTitle}>Consentimiento</Text>
+              <Text style={styles.sectionTitle}>Autorización para la gestión en la clínica</Text>
             </View>
             <View style={styles.rows}>
               <InfoRow label="Estado" value={formatConsentStatus(patient.consent.status)} />

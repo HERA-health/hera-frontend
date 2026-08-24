@@ -28,8 +28,9 @@ import {
   type LegalDocumentKey,
 } from './src/constants/legal';
 import { darkTheme, lightTheme } from './src/constants/theme';
-import { ClinicGuestConsentPublicScreen } from './src/screens/clinic/ClinicGuestConsentPublicScreen';
+import { GuestConsentPublicScreen } from './src/screens/consent/GuestConsentPublicScreen';
 import { getClinicGuestConsentRequestId } from './src/screens/clinic/clinicGuestConsentRoute';
+import { getClinicalGuestConsentRequestId } from './src/screens/clinical/clinicalGuestConsentRoute';
 
 const heraFonts: Record<string, FontSource> = {
   HeraDisplay: {
@@ -273,6 +274,9 @@ export default function App() {
   const guestConsentRequestId = Platform.OS === 'web' && typeof window !== 'undefined'
     ? getClinicGuestConsentRequestId(window.location.pathname)
     : null;
+  const clinicalGuestConsentRequestId = Platform.OS === 'web' && typeof window !== 'undefined'
+    ? getClinicalGuestConsentRequestId(window.location.pathname)
+    : null;
 
   if (shouldWaitForFonts) {
     return <View style={{ flex: 1, backgroundColor: lightTheme.bg }} />;
@@ -283,7 +287,18 @@ export default function App() {
       <ErrorBoundary>
         <SafeAreaProvider>
           <StatusBar style="auto" />
-          <ClinicGuestConsentPublicScreen requestId={guestConsentRequestId} />
+          <GuestConsentPublicScreen requestId={guestConsentRequestId} />
+        </SafeAreaProvider>
+      </ErrorBoundary>
+    );
+  }
+
+  if (clinicalGuestConsentRequestId) {
+    return (
+      <ErrorBoundary>
+        <SafeAreaProvider>
+          <StatusBar style="auto" />
+          <GuestConsentPublicScreen requestId={clinicalGuestConsentRequestId} flow="specialist" />
         </SafeAreaProvider>
       </ErrorBoundary>
     );

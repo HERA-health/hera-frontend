@@ -41,8 +41,8 @@ const METRIC_VISUALS: Record<clinicService.ClinicDashboardMetricKey, MetricVisua
   },
   pendingConsents: {
     icon: 'document-text-outline',
-    label: 'Consentimientos pendientes',
-    helperText: 'Pacientes activos sin consentimiento administrativo concedido.',
+    label: 'Autorizaciones pendientes',
+    helperText: 'Pacientes activos sin autorización para la gestión en la clínica.',
   },
 };
 

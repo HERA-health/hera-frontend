@@ -50,7 +50,7 @@ export function ClinicConsentScreen(): React.ReactElement {
       setResolution(nextResolution);
       setError(null);
     } catch (loadError: unknown) {
-      setError(getErrorMessage(loadError, 'No se pudo abrir la solicitud de consentimiento'));
+      setError(getErrorMessage(loadError, 'No se pudo abrir la autorización'));
     } finally {
       setLoading(false);
     }
@@ -65,9 +65,9 @@ export function ClinicConsentScreen(): React.ReactElement {
       setSubmitting(true);
       const nextResolution = await clinicService.acceptClinicPatientConsentRequest(requestId, token);
       setResolution(nextResolution);
-      setSuccessMessage('Tu consentimiento de clínica ha quedado registrado correctamente.');
+      setSuccessMessage('Tu autorización para la gestión en la clínica ha quedado registrada correctamente.');
     } catch (submitError: unknown) {
-      setError(getErrorMessage(submitError, 'No se pudo aceptar el consentimiento'));
+      setError(getErrorMessage(submitError, 'No se pudo confirmar la autorización'));
     } finally {
       setSubmitting(false);
     }
@@ -91,8 +91,8 @@ export function ClinicConsentScreen(): React.ReactElement {
             <Ionicons name="shield-checkmark-outline" size={22} color={theme.primary} />
           </View>
           <View style={styles.heroCopy}>
-            <Text style={styles.eyebrow}>Consentimiento de clínica</Text>
-            <Text style={styles.title}>Confirma tu autorización administrativa</Text>
+            <Text style={styles.eyebrow}>Autorización para la gestión en la clínica</Text>
+            <Text style={styles.title}>Confirma tu autorización</Text>
             <Text style={styles.subtitle}>
               Esta confirmación pertenece a la gestión de clínica y no abre tu historia clínica,
               notas, sesiones ni facturas.
@@ -153,7 +153,7 @@ export function ClinicConsentScreen(): React.ReactElement {
             <View style={styles.metaStack}>
               <InfoRow
                 label="Estado"
-                value={isGranted ? 'Consentimiento vigente' : isPending ? 'Pendiente de confirmar' : resolution.status}
+                value={isGranted ? 'Autorización vigente' : isPending ? 'Pendiente de confirmar' : resolution.status}
                 accent={isGranted ? theme.success : theme.warning}
               />
               <InfoRow label="Clínica" value={resolution.clinic.name} />
@@ -167,8 +167,8 @@ export function ClinicConsentScreen(): React.ReactElement {
             <View style={styles.stack}>
               <Text style={styles.cardTitle}>Qué estás confirmando</Text>
               <Text style={styles.body}>
-                Autorizas a la clínica indicada a dejar constancia administrativa de tu consentimiento
-                y a conservar la evidencia asociada en HERA.
+                Autorizas a la clínica indicada a gestionar en HERA vuestra relación administrativa
+                y a conservar la evidencia de tu decisión.
               </Text>
 
               {canConfirm ? (
@@ -191,7 +191,7 @@ export function ClinicConsentScreen(): React.ReactElement {
                       {accepted ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
                     </View>
                     <Text style={styles.bodySmall}>
-                      Entiendo y acepto que HERA registre este consentimiento administrativo de clínica.
+                      He leí el documento y confirmo esta autorización para la gestión en la clínica.
                     </Text>
                   </AnimatedPressable>
                   <Button
@@ -201,12 +201,12 @@ export function ClinicConsentScreen(): React.ReactElement {
                     loading={submitting}
                     disabled={!accepted}
                   >
-                    Confirmar consentimiento
+                    Confirmar autorización
                   </Button>
                 </View>
               ) : isGranted ? (
                 <Text style={styles.body}>
-                  Este consentimiento ya consta como vigente.
+                  Esta autorización ya consta como vigente.
                 </Text>
               ) : (
                 <Text style={styles.body}>

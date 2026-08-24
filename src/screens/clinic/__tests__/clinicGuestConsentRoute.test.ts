@@ -25,8 +25,16 @@ describe('clinic guest-consent public entry', () => {
       path.join(root, 'src', 'services', 'clinicGuestConsentPublicService.ts'),
       'utf8'
     );
+    const transport = fs.readFileSync(
+      path.join(root, 'src', 'services', 'guestConsentHttpClient.ts'),
+      'utf8'
+    );
     const screen = fs.readFileSync(
       path.join(root, 'src', 'screens', 'clinic', 'ClinicGuestConsentPublicScreen.tsx'),
+      'utf8'
+    );
+    const adapter = fs.readFileSync(
+      path.join(root, 'src', 'screens', 'consent', 'guestConsentFlowAdapter.ts'),
       'utf8'
     );
     const frame = fs.readFileSync(
@@ -37,17 +45,21 @@ describe('clinic guest-consent public entry', () => {
       headers: Array<{ source: string; headers: Array<{ key: string; value: string }> }>;
     };
     expect(app.indexOf('if (guestConsentRequestId)')).toBeLessThan(app.indexOf('<ThemeProvider>'));
-    expect(service).toContain("credentials: 'include'");
-    expect(service).toContain("cache: 'no-store'");
-    expect(service).not.toMatch(/AsyncStorage|localStorage|sessionStorage|Authorization/);
+    expect(transport).toContain("credentials: 'include'");
+    expect(transport).toContain("cache: 'no-store'");
+    expect(`${service}\n${transport}`).not.toMatch(/AsyncStorage|localStorage|sessionStorage|Authorization/);
+    expect(service).toContain("'CLINIC_GUEST_CONSENT_OTP_INVALID'");
     expect(screen).toContain("window.history.replaceState(");
-    expect(screen).toContain("label={busy ? 'Comprobando…' : 'Continuar de forma segura'}");
-    expect(screen).toContain('Revisa la solicitud de tu clínica');
+    expect(screen).toContain("label={busy ? 'Comprobando…' : 'Continuar y recibir código por email'}");
+    expect(adapter).toContain('Revisa la autorización de tu clínica');
+    expect(adapter).toContain('Revisa la autorización de tu especialista');
     expect(screen).toContain('El código está en camino a');
     expect(screen).toContain('Tu decisión se ha guardado correctamente');
-    expect(screen.indexOf('const continueFlow')).toBeLessThan(screen.indexOf('bootstrapGuestConsent('));
+    expect(screen.indexOf('const continueFlow')).toBeLessThan(screen.lastIndexOf('adapter.bootstrap('));
     expect(screen).toContain("resolution.otpDeliveryStatus !== 'PROCESSING'");
     expect(screen).toContain('20_000');
+    expect(screen).toContain("['TIMEOUT', 'NETWORK', 'SERVICE_UNAVAILABLE']");
+    expect(screen).toContain('Math.max(resendSeconds, rateLimitSeconds)');
     expect(frame).toContain("sandbox: 'allow-same-origin'");
     expect(frame).toContain("addEventListener('click', preventDocumentNavigation)");
     expect(frame).not.toMatch(/allow-scripts|allow-forms|allow-popups|allow-top-navigation/);
@@ -63,7 +75,7 @@ describe('clinic guest-consent public entry', () => {
     expect(csp).toContain("connect-src 'self' https://api.health-hera.com");
     expect(csp).not.toContain('navigate-to');
     expect(csp).not.toMatch(/posthog|googleapis|connect-src \*|script-src[^;]*https:/);
-    const generalOpenerPolicy = vercel.headers.find(({ source }) => source.includes('(?!clinic-consent/).'));
+    const generalOpenerPolicy = vercel.headers.find(({ source }) => source.includes('(?!clinic-consent/'));
     expect(generalOpenerPolicy).toBeDefined();
   });
 });

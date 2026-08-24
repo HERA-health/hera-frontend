@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable, Button, Card } from '../common';
@@ -11,6 +11,7 @@ import type {
   ClinicalDocument,
   ClinicalRecord,
 } from '../../services/clinicalService';
+import { resolveClinicalGuestConsentEligibility } from '../../services/clinicalGuestConsentEligibility';
 import type { ProfessionalTourTargetId } from '../onboarding/professionalTourTypes';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -25,12 +26,17 @@ interface ClinicalConsentPanelProps {
   consentSubmitting: boolean;
   closingProcess: boolean;
   loadingMoreConsentEvents: boolean;
+  guestConsentSyncPending: boolean;
   onUploadConsentDocument: () => void;
   onOpenConsentDocument: (document: ClinicalDocument) => void;
   onRequestDigitalConsent: () => Promise<unknown>;
+  onResendGuestConsent: () => Promise<unknown>;
+  onCancelGuestConsent: () => Promise<unknown>;
+  onRequestGuestWithdrawal: () => Promise<unknown>;
   onAttestClinicalConsent: (evidenceDocumentId?: string) => Promise<unknown>;
   onCloseClinicalProcess: () => Promise<void>;
   onLoadMoreConsentEvents: () => void;
+  onRetryGuestConsentSync: () => Promise<boolean>;
   tourTargetId?: ProfessionalTourTargetId;
   consentDocumentTourTargetId?: ProfessionalTourTargetId;
   tourTargetsActive?: boolean;
@@ -52,6 +58,17 @@ const formatShortDate = (value?: string | Date | null) =>
         day: 'numeric',
         month: 'short',
         year: 'numeric',
+      })
+    : 'Sin fecha';
+
+const formatDateTime = (value?: string | Date | null) =>
+  value
+    ? new Date(value).toLocaleString('es-ES', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
       })
     : 'Sin fecha';
 
@@ -79,28 +96,53 @@ const getDocumentIcon = (mimeType: string) => {
   return 'document-outline' as const;
 };
 
+const getLinkDeliveryLabel = (status: ClinicalRecord['activeConsentRequest'] extends infer _T
+  ? 'PENDING' | 'PROVIDER_ACCEPTED' | 'FAILED' | 'UNKNOWN' | 'CANCELLED' | null
+  : never): string => {
+  switch (status) {
+    case 'PROVIDER_ACCEPTED': return 'enlace enviado';
+    case 'FAILED': return 'no se pudo entregar';
+    case 'UNKNOWN': return 'entrega no confirmada';
+    case 'CANCELLED': return 'envío cancelado';
+    default: return 'preparando el envío';
+  }
+};
+
 const getMethodLabel = (method: ClinicalRecord['consentMethod']) => {
   if (method === 'DIGITAL_SIGNATURE') {
-    return 'Firma digital de consentimiento clínico';
+    return 'Confirmada desde su cuenta HERA';
   }
 
   if (method === 'SPECIALIST_ATTESTATION') {
-    return 'Documento de consentimiento clínico';
+    return 'Documento firmado';
+  }
+
+  if (method === 'EMAIL_LINK_OTP') {
+    return 'Confirmada por email y código';
   }
 
   return 'Pendiente';
 };
 
 const getEventCopy = (event: ClinicalConsentEvent) => {
-  if (event.status === 'REVOKED') {
-    return {
-      title: 'Consentimiento retirado',
-      caption: `${getMethodLabel(event.method)} · ${formatDate(event.createdAt)}`,
-    };
-  }
-
+  const title = (() => {
+    switch (event.eventType) {
+      case 'REQUESTED': return event.requestKind === 'WITHDRAWAL'
+        ? 'Retirada solicitada'
+        : 'Autorización solicitada';
+      case 'DELIVERY_UNKNOWN': return 'Entrega no confirmada';
+      case 'ACCEPTED': return event.requestKind === 'WITHDRAWAL'
+        ? 'Retirada confirmada'
+        : 'Autorización aceptada';
+      case 'REJECTED': return 'Solicitud rechazada';
+      case 'CANCELLED': return 'Solicitud cancelada';
+      case 'EXPIRED': return 'Solicitud caducada';
+      case 'REVOKED': return 'Autorización retirada';
+      default: return 'Autorización registrada';
+    }
+  })();
   return {
-    title: 'Consentimiento registrado',
+    title,
     caption: `${getMethodLabel(event.method)} · ${formatDate(event.createdAt)}`,
   };
 };
@@ -115,12 +157,17 @@ export function ClinicalConsentPanel({
   consentSubmitting,
   closingProcess,
   loadingMoreConsentEvents,
+  guestConsentSyncPending,
   onUploadConsentDocument,
   onOpenConsentDocument,
   onRequestDigitalConsent,
+  onResendGuestConsent,
+  onCancelGuestConsent,
+  onRequestGuestWithdrawal,
   onAttestClinicalConsent,
   onCloseClinicalProcess,
   onLoadMoreConsentEvents,
+  onRetryGuestConsentSync,
   tourTargetId,
   consentDocumentTourTargetId,
   tourTargetsActive = true,
@@ -131,8 +178,25 @@ export function ClinicalConsentPanel({
   const emphasisStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const latestConsentEvidenceDocumentId = consentEvidenceDocuments[0]?.id;
+  const [confirmingGuestEligibility, setConfirmingGuestEligibility] = useState(false);
+  const [confirmingWithdrawal, setConfirmingWithdrawal] = useState(false);
+  const [displayClock, setDisplayClock] = useState(() => Date.now());
   const isRegisteredClient = client.source === 'REGISTERED';
   const isManagedClient = client.source === 'MANAGED';
+  const guestConsentEligibility = resolveClinicalGuestConsentEligibility(record);
+  const usesHeraAccount = isRegisteredClient
+    || guestConsentEligibility === 'HAS_HERA_ACCOUNT';
+
+  useEffect(() => {
+    setConfirmingGuestEligibility(false);
+    setConfirmingWithdrawal(false);
+  }, [client.id]);
+
+  useEffect(() => {
+    if (record.activeConsentRequest?.status !== 'PENDING') return undefined;
+    const timer = setInterval(() => setDisplayClock(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, [record.activeConsentRequest?.status]);
 
   const consentTone =
     record.consentStatus === 'GRANTED'
@@ -141,18 +205,36 @@ export function ClinicalConsentPanel({
         ? theme.status.cancelled
         : theme.status.pending;
 
+  const hasManagedEmail = isManagedClient && [
+    'ELIGIBLE',
+    'FLAG_DISABLED',
+    'INVALID_EMAIL',
+  ].includes(guestConsentEligibility);
+  const guestEmailEligible = isManagedClient
+    && guestConsentEligibility === 'ELIGIBLE';
+  const guestRelationshipUnavailable = [
+    'CLIENT_INACTIVE',
+    'NOT_MANAGED_BY_SPECIALIST',
+  ].includes(guestConsentEligibility);
+  const displayedRequestExpired = Boolean(
+    record.activeConsentRequest?.status === 'PENDING'
+    && new Date(record.activeConsentRequest.expiresAt).getTime() <= displayClock
+  );
+  const hasActiveConsentRequest = Boolean(record.activeConsentRequest && !displayedRequestExpired);
   const canRequestDigitalConsent =
-    isRegisteredClient &&
+    (usesHeraAccount || guestEmailEligible) &&
     record.consentStatus !== 'GRANTED' &&
+    !hasActiveConsentRequest &&
     !record.closedAt;
 
   const canAttestConsent =
     isManagedClient &&
+    !guestRelationshipUnavailable &&
     record.consentStatus !== 'GRANTED' &&
     !record.closedAt;
 
   const consentRequestPending =
-    isRegisteredClient &&
+    hasActiveConsentRequest &&
     record.activeConsentRequest &&
     record.activeConsentRequest.status === 'PENDING';
 
@@ -160,7 +242,7 @@ export function ClinicalConsentPanel({
     record.consentStatus === 'GRANTED'
       ? 'Vigente'
       : record.consentStatus === 'REVOKED'
-        ? 'Retirado'
+        ? 'Retirada'
         : 'Pendiente';
   const statusIconName: IoniconName =
     record.consentStatus === 'GRANTED'
@@ -168,17 +250,31 @@ export function ClinicalConsentPanel({
       : record.consentStatus === 'REVOKED'
         ? 'close-circle-outline'
         : 'time-outline';
-  const digitalMethodDescription = isTablet
-    ? 'Vía para pacientes con cuenta HERA. Al firmar desde su cuenta, el consentimiento queda vigente y se habilita el tratamiento de sus datos clínicos.'
-    : 'Paciente con cuenta HERA: firma desde su cuenta para dejar el consentimiento vigente.';
-  const documentMethodDescription = isTablet
-    ? 'Vía con documento firmado para pacientes sin cuenta HERA. Al registrar el documento, el consentimiento queda vigente y se habilita el tratamiento de sus datos clínicos.'
-    : 'Documento firmado: súbelo y regístralo para dejar el consentimiento vigente.';
-  const digitalMethodPill = isRegisteredClient
-    ? 'Vía de este paciente'
+  const digitalMethodDescription = usesHeraAccount
+    ? 'Enviaremos la autorización por email. El paciente iniciará sesión en HERA para revisarla y decidir.'
+    : guestEmailEligible
+      ? 'Enviaremos por email un enlace privado y un código para que el paciente revise la autorización y decida.'
+      : guestConsentEligibility === 'INVALID_EMAIL'
+        ? 'Corrige el email de contacto para enviar la autorización o utiliza un documento firmado.'
+      : guestConsentEligibility === 'CLIENT_INACTIVE'
+        ? 'La ficha ya no está activa. No se pueden registrar nuevas autorizaciones desde este expediente.'
+      : guestConsentEligibility === 'NOT_MANAGED_BY_SPECIALIST'
+        ? 'Este paciente ya no está gestionado desde este expediente. No se pueden iniciar nuevas solicitudes.'
+      : hasManagedEmail
+        ? 'La confirmación por email está temporalmente desactivada. Puedes utilizar mientras tanto un documento firmado.'
+      : 'Añade un email de contacto válido para enviar la autorización o utiliza un documento firmado.';
+  const documentMethodDescription = guestRelationshipUnavailable
+    ? 'La relación no está activa y no admite nuevas evidencias de autorización.'
     : isTablet
-      ? 'Vía para paciente con cuenta HERA'
-      : 'Cuenta HERA';
+      ? 'Alternativa para registrar una autorización que el paciente ya ha firmado fuera de HERA.'
+      : 'Sube el documento firmado para registrar la autorización.';
+  const digitalMethodPill = usesHeraAccount
+    ? 'Confirmación desde su cuenta HERA'
+    : guestEmailEligible
+      ? 'Confirmación por email y código'
+      : hasManagedEmail
+        ? 'Envío por email no disponible'
+        : 'No disponible';
   const documentMethodPill = isManagedClient
     ? 'Vía de este paciente'
     : isTablet
@@ -188,10 +284,10 @@ export function ClinicalConsentPanel({
     <View style={[styles.header, !isTablet && styles.headerMobile]}>
       <View style={[styles.copy, !isTablet && styles.copyMobile]}>
         <Text style={[styles.title, { color: theme.textPrimary }, displayTitleStyle]}>
-          Consentimiento clínico
+          Autorización del expediente clínico
         </Text>
         <Text style={[styles.description, { color: theme.textSecondary }]}>
-          Dos vías según el tipo de paciente. Ambas dejan el consentimiento vigente cuando se completa la vía que corresponde.
+          Envía al paciente una autorización para usar su expediente clínico en HERA. También puedes registrar un documento firmado.
         </Text>
       </View>
       <View
@@ -229,7 +325,7 @@ export function ClinicalConsentPanel({
         </View>
         <View style={[styles.methodCopy, !isTablet && styles.methodCopyMobile]}>
           <Text style={[styles.methodTitle, !isTablet && styles.methodTitleMobile, { color: theme.textPrimary }, emphasisStyle]}>
-            Firma digital de consentimiento clínico
+            Confirmación digital
           </Text>
           <Text style={[styles.methodDescription, !isTablet && styles.methodDescriptionMobile, { color: theme.textSecondary }]}>
             {digitalMethodDescription}
@@ -247,7 +343,9 @@ export function ClinicalConsentPanel({
         <View style={[styles.methodInfo, { borderColor: theme.border }]}>
           <Ionicons name="mail-outline" size={18} color={theme.primary} />
           <Text style={[styles.methodInfoText, { color: theme.textSecondary }]}>
-            Solicitud activa hasta el {formatDate(record.activeConsentRequest?.expiresAt)}.
+            {record.activeConsentRequest?.channel === 'GUEST_EMAIL'
+              ? `Autorización por email: ${getLinkDeliveryLabel(record.activeConsentRequest.linkDeliveryStatus)}. Activa hasta el ${formatDateTime(record.activeConsentRequest.expiresAt)}.`
+              : `Autorización enviada desde HERA. Activa hasta el ${formatDateTime(record.activeConsentRequest?.expiresAt)}.`}
           </Text>
         </View>
       ) : null}
@@ -257,11 +355,111 @@ export function ClinicalConsentPanel({
           <Button
             variant="secondary"
             size="small"
-            onPress={onRequestDigitalConsent}
+            onPress={() => {
+              if (guestEmailEligible) setConfirmingGuestEligibility(true);
+              else void onRequestDigitalConsent();
+            }}
             loading={consentSubmitting}
           >
-            Solicitar firma digital
+            Enviar autorización por email
           </Button>
+        </View>
+      ) : null}
+
+      {displayedRequestExpired ? (
+        <View style={[styles.methodInfo, { borderColor: theme.border }]}>
+          <Ionicons name="time-outline" size={18} color={theme.textSecondary} />
+          <Text style={[styles.methodInfoText, { color: theme.textSecondary }]}>
+            La solicitud anterior ha caducado. Puedes crear una nueva sin esperar a la sincronización automática.
+          </Text>
+        </View>
+      ) : null}
+
+      {confirmingGuestEligibility ? (
+        <View style={[styles.methodInfo, { borderColor: theme.border, backgroundColor: theme.bgCard }]}>
+          <Ionicons name="person-outline" size={18} color={theme.primary} />
+          <View style={styles.methodCopy}>
+            <Text style={[styles.methodTitle, { color: theme.textPrimary }, emphasisStyle]}>
+              Confirma que esta vía es adecuada
+            </Text>
+            <Text style={[styles.methodInfoText, { color: theme.textSecondary }]}>
+              Confirmo que el paciente es mayor de edad, actúa en su propio nombre y puede decidir por sí mismo. Si no puedes confirmarlo, utiliza el documento firmado.
+            </Text>
+            <View style={styles.methodActions}>
+              <Button variant="primary" size="small" loading={consentSubmitting} onPress={() => {
+                setConfirmingGuestEligibility(false);
+                void onRequestDigitalConsent();
+              }}>
+                Confirmar y enviar por email
+              </Button>
+              <Button variant="ghost" size="small" onPress={() => setConfirmingGuestEligibility(false)}>
+                Volver
+              </Button>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {consentRequestPending && record.activeConsentRequest?.channel === 'GUEST_EMAIL' ? (
+        <View style={[styles.methodActions, !isTablet && styles.methodActionsMobile]}>
+          {record.guestConsentActionsEnabled ? (
+            <Button variant="secondary" size="small" loading={consentSubmitting} onPress={onResendGuestConsent}>
+              Enviar enlace nuevo por email
+            </Button>
+          ) : null}
+          <Button variant="ghost" size="small" disabled={consentSubmitting} onPress={onCancelGuestConsent}>
+            Cancelar solicitud
+          </Button>
+        </View>
+      ) : null}
+
+      {guestConsentSyncPending ? (
+        <View style={[styles.methodInfo, { borderColor: theme.border, backgroundColor: theme.bgCard }]}>
+          <Ionicons name="sync-outline" size={18} color={theme.primary} />
+          <View style={styles.methodCopy}>
+            <Text style={[styles.methodInfoText, { color: theme.textSecondary }]}>
+              La operación se completó, pero esta vista todavía no ha podido sincronizarse.
+            </Text>
+            <Button variant="ghost" size="small" onPress={() => void onRetryGuestConsentSync()}>
+              Reintentar sincronización
+            </Button>
+          </View>
+        </View>
+      ) : null}
+
+      {record.consentStatus === 'GRANTED' && record.consentMethod === 'EMAIL_LINK_OTP' && !hasActiveConsentRequest && record.guestConsentActionsEnabled ? (
+        <View style={[styles.methodActions, !isTablet && styles.methodActionsMobile]}>
+          <Button variant="outline" size="small" loading={consentSubmitting} onPress={() => setConfirmingWithdrawal(true)}>
+            Preparar retirada
+          </Button>
+        </View>
+      ) : null}
+
+      {confirmingWithdrawal ? (
+        <View
+          accessibilityRole="summary"
+          style={[styles.methodInfo, { borderColor: theme.border, backgroundColor: theme.bgCard }]}
+        >
+          <Ionicons name="alert-circle-outline" size={18} color={theme.primary} />
+          <View style={styles.methodCopy}>
+            <Text style={[styles.methodTitle, { color: theme.textPrimary }, emphasisStyle]}>
+              Confirmar retirada por email
+            </Text>
+            <Text style={[styles.methodInfoText, { color: theme.textSecondary }]}>
+              El paciente recibirá una nueva solicitud por email. La autorización seguirá vigente hasta que confirme la retirada. Confirma también que es mayor de edad y actúa en su propio nombre.
+            </Text>
+            <View style={styles.methodActions}>
+              <Button variant="primary" size="small" loading={consentSubmitting} onPress={() => {
+                setConfirmingWithdrawal(false);
+                void onRequestGuestWithdrawal();
+              }}>
+                Enviar retirada por email
+              </Button>
+              <Button variant="ghost" size="small" onPress={() => setConfirmingWithdrawal(false)}>
+                Volver
+              </Button>
+            </View>
+          </View>
         </View>
       ) : null}
     </View>
@@ -285,7 +483,7 @@ export function ClinicalConsentPanel({
         </View>
         <View style={[styles.methodCopy, !isTablet && styles.methodCopyMobile]}>
           <Text style={[styles.methodTitle, !isTablet && styles.methodTitleMobile, { color: theme.textPrimary }, emphasisStyle]}>
-            Documento de consentimiento clínico
+            Documento firmado
           </Text>
           <Text style={[styles.methodDescription, !isTablet && styles.methodDescriptionMobile, { color: theme.textSecondary }]}>
             {documentMethodDescription}
@@ -304,10 +502,10 @@ export function ClinicalConsentPanel({
           <Ionicons name="folder-open-outline" size={22} color={theme.textMuted} />
           <View style={[styles.documentEmptyCopy, !isTablet && styles.documentEmptyCopyMobile]}>
             <Text style={[styles.documentEmptyTitle, !isTablet && styles.documentEmptyTitleMobile, { color: theme.textPrimary }, emphasisStyle]}>
-              No hay documento de consentimiento clínico
+              No hay ningún documento firmado
             </Text>
             <Text style={[styles.documentEmptyDescription, !isTablet && styles.documentEmptyDescriptionMobile, { color: theme.textSecondary }]}>
-              Adjunta aquí el PDF o imagen del consentimiento clínico firmado cuando lo tengas.
+              Adjunta aquí el PDF o la imagen de la autorización firmada cuando la tengas.
             </Text>
           </View>
         </View>
@@ -373,14 +571,14 @@ export function ClinicalConsentPanel({
             loading={consentSubmitting}
             disabled={!latestConsentEvidenceDocumentId}
           >
-            Registrar consentimiento firmado
+            Registrar autorización firmada
           </Button>
         ) : null}
       </View>
 
       {canAttestConsent && !latestConsentEvidenceDocumentId ? (
         <Text style={[styles.helperText, { color: theme.textMuted }]}>
-          Primero adjunta el consentimiento firmado en esta vía.
+          Primero adjunta la autorización firmada.
         </Text>
       ) : null}
     </View>
@@ -425,7 +623,7 @@ export function ClinicalConsentPanel({
         </View>
         <View style={[styles.detailItem, !isTablet && styles.detailItemMobile]}>
           <Text style={[styles.detailLabel, !isTablet && styles.detailLabelMobile, { color: theme.textMuted }, labelStyle]}>
-            Concedido
+            Concedida
           </Text>
           <Text style={[styles.detailValue, !isTablet && styles.detailValueMobile, { color: theme.textPrimary }, emphasisStyle]}>
             {formatDate(record.consentGivenAt)}
@@ -479,7 +677,7 @@ export function ClinicalConsentPanel({
       <View style={styles.timeline}>
         <View style={styles.timelineHeader}>
           <Text style={[styles.timelineTitle, { color: theme.textPrimary }, emphasisStyle]}>
-            Historial de consentimiento
+            Historial de autorizaciones
           </Text>
           <Text style={[styles.timelineCount, { color: theme.textMuted }, labelStyle]}>
             {record.consentEvents.length}
@@ -497,7 +695,13 @@ export function ClinicalConsentPanel({
           <View style={styles.eventList}>
             {record.consentEvents.map((event) => {
               const eventCopy = getEventCopy(event);
-              const eventColor = event.status === 'REVOKED' ? theme.error : theme.success;
+              const eventColor = event.eventType === 'ACCEPTED' || event.eventType === 'CONSENT_RECORDED'
+                ? theme.success
+                : event.eventType === 'REJECTED' || event.eventType === 'REVOKED'
+                  ? theme.error
+                  : event.eventType === 'REQUESTED'
+                    ? theme.status.pending.text
+                    : theme.textMuted;
 
               return (
                 <View

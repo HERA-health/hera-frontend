@@ -1832,7 +1832,7 @@ describe('clinicService', () => {
       'clinic-1',
       'clinic-patient-1',
     )).rejects.toThrow(
-      'Este paciente necesita una cuenta HERA enlazada para usar el consentimiento digital.',
+      'Este paciente necesita una cuenta HERA enlazada para confirmar la autorización desde su cuenta.',
     );
   });
 

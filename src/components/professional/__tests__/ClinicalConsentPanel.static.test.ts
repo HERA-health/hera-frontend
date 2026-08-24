@@ -22,7 +22,7 @@ describe('ClinicalConsentPanel consent status presentation', () => {
 
   it('describes document consent without the old managed patient terminology', () => {
     expect(source).toContain('Vía con documento firmado');
-    expect(source).toContain('pacientes sin cuenta HERA');
+    expect(source).toContain('Documento firmado');
     expect(source).not.toContain('Paciente gestionado');
     expect(source).not.toContain('pacientes gestionados');
     expect(source).not.toContain('Vía para paciente gestionado');

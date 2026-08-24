@@ -322,7 +322,7 @@ describe('ClinicPatientDetailPanel', () => {
       false,
     ]);
     expect(tabs.map((tab) => tab.props.accessibilityLabel))
-      .toEqual(['Resumen', 'Citas', 'Consentimientos', 'Facturación', 'Actividad']);
+      .toEqual(['Resumen', 'Citas', 'Autorizaciones', 'Facturación', 'Actividad']);
   });
 
   it('scrolls a preserved active tab into view after its layout is measured', () => {
@@ -435,7 +435,7 @@ describe('ClinicPatientDetailPanel', () => {
 
     expect(screen.getByText('Paciente archivado')).toBeTruthy();
     expect(screen.queryByText('Responsable pendiente')).toBeNull();
-    expect(screen.queryByText('Consentimiento pendiente')).toBeNull();
+    expect(screen.queryByText('Autorización pendiente')).toBeNull();
     expect(screen.queryByText('Datos fiscales incompletos')).toBeNull();
     expect(screen.queryByText('Sin próxima cita')).toBeNull();
   });
@@ -495,10 +495,10 @@ describe('ClinicPatientDetailPanel', () => {
     );
 
     expect(screen.getByText('No disponible')).toBeTruthy();
-    expect(screen.getByText('No se pudo verificar el consentimiento')).toBeTruthy();
-    expect(screen.queryByText('Consentimiento pendiente')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Solicitar digital' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Subir PDF' })).toBeNull();
+    expect(screen.getByText('No se pudo verificar la autorización')).toBeTruthy();
+    expect(screen.queryByText('Autorización pendiente')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Enviar autorización por email' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Registrar documento firmado' })).toBeNull();
 
     fireEvent.press(screen.getByRole('button', { name: 'Reintentar' }));
     expect(onRetryConsent).toHaveBeenCalledTimes(1);
@@ -514,17 +514,17 @@ describe('ClinicPatientDetailPanel', () => {
       />,
     );
 
-    expect(screen.getByText('Firma digital disponible')).toBeTruthy();
-    expect(screen.getByText('Email administrativo')).toBeTruthy();
+    expect(screen.getByText('Confirmación desde su cuenta HERA')).toBeTruthy();
+    expect(screen.getByText('Email de contacto')).toBeTruthy();
     expect(screen.getByText('lucia@example.com')).toBeTruthy();
     expect(screen.getByText('Cuenta HERA')).toBeTruthy();
     expect(screen.getByText('Vinculada')).toBeTruthy();
     expect(screen.getByText(
-      'El envío utiliza el email asociado a la cuenta HERA vinculada, aunque pueda coincidir con el email administrativo de esta ficha.',
+      'Enviaremos la autorización al email asociado a su cuenta HERA para que pueda revisarla y decidir.',
     )).toBeTruthy();
 
     const digitalButton = screen.getByRole('button', {
-      name: 'Solicitar consentimiento digital por email a la cuenta HERA vinculada',
+      name: 'Enviar la autorización por email a la cuenta HERA vinculada',
     });
     expect(digitalButton.props.accessibilityState).toEqual(expect.objectContaining({ disabled: false }));
     fireEvent.press(digitalButton);
@@ -550,14 +550,14 @@ describe('ClinicPatientDetailPanel', () => {
       />,
     );
 
-    expect(screen.getByText('Consentimiento por email disponible')).toBeTruthy();
+    expect(screen.getByText('Confirmación por email disponible')).toBeTruthy();
     expect(screen.getByText('No vinculada')).toBeTruthy();
     expect(screen.getByText(
       'El paciente no necesita una cuenta HERA. Recibirá un enlace personal y un código para verificar su email antes de decidir.',
     )).toBeTruthy();
 
     const digitalButton = screen.getByRole('button', {
-      name: 'Solicitar consentimiento digital por email al paciente sin cuenta HERA',
+      name: 'Enviar la autorización por email al paciente sin cuenta HERA',
     });
     expect(digitalButton.props.accessibilityState).toEqual(expect.objectContaining({ disabled: false }));
     fireEvent.press(digitalButton);
@@ -565,7 +565,7 @@ describe('ClinicPatientDetailPanel', () => {
     expect(onIssueGuestConsent).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('button', { name: 'Enviar por email' })).toBeNull();
 
-    expect(screen.getByRole('button', { name: 'Subir PDF' }).props.accessibilityState)
+    expect(screen.getByRole('button', { name: 'Registrar documento firmado' }).props.accessibilityState)
       .toEqual(expect.objectContaining({ disabled: false }));
   });
 
@@ -603,13 +603,13 @@ describe('ClinicPatientDetailPanel', () => {
       />,
     );
 
-    expect(screen.getByText('Autorización administrativa · v1')).toBeTruthy();
-    expect(screen.getByText('Autorización por email vigente')).toBeTruthy();
+    expect(screen.getByText('Autorización para la gestión en la clínica · v1')).toBeTruthy();
+    expect(screen.getByText('Autorización confirmada por email')).toBeTruthy();
     expect(screen.getByText('Identidad verificada y autorización confirmada.')).toBeTruthy();
     expect(screen.queryByText(/Caduca el|El enlace caduca el/)).toBeNull();
-    expect(screen.queryByRole('button', { name: /Solicitar consentimiento digital/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Enviar la autorización por email/ })).toBeNull();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Solicitar retirada' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Preparar retirada' }));
     expect(onRequestGuestWithdrawal).toHaveBeenCalledTimes(1);
     expect(onRequestConsent).not.toHaveBeenCalled();
     expect(onIssueGuestConsent).not.toHaveBeenCalled();
@@ -628,13 +628,13 @@ describe('ClinicPatientDetailPanel', () => {
       />,
     );
 
-    expect(screen.getByText('Consentimiento por email no disponible temporalmente')).toBeTruthy();
+    expect(screen.getByText('Confirmación por email no disponible temporalmente')).toBeTruthy();
     expect(screen.getByText(
-      'Puedes seguir registrando un PDF firmado. El envío por email volverá a mostrarse cuando el canal esté disponible.',
+      'Puedes seguir registrando un documento firmado. El envío por email volverá a mostrarse cuando el canal esté disponible.',
     )).toBeTruthy();
     expect(screen.queryByText('Canal invitado temporalmente no disponible')).toBeNull();
     expect(screen.getByRole('button', {
-      name: 'Solicitar consentimiento digital, no disponible: el canal por email está temporalmente desactivado',
+      name: 'Enviar la autorización por email, no disponible: el canal por email está temporalmente desactivado',
     }).props.accessibilityState).toEqual(expect.objectContaining({ disabled: true }));
   });
 
@@ -653,7 +653,7 @@ describe('ClinicPatientDetailPanel', () => {
 
     expect(screen.getByText('No informado')).toBeTruthy();
     expect(screen.getByText(
-      'No hay email administrativo ni una cuenta HERA vinculada. Registra el consentimiento mediante un PDF firmado.',
+      'No hay email de contacto ni una cuenta HERA vinculada. Registra la autorización mediante un documento firmado.',
     )).toBeTruthy();
   });
 
@@ -669,9 +669,9 @@ describe('ClinicPatientDetailPanel', () => {
     );
 
     expect(screen.getByText('No informado')).toBeTruthy();
-    expect(screen.getByText('Firma digital disponible')).toBeTruthy();
+    expect(screen.getByText('Confirmación desde su cuenta HERA')).toBeTruthy();
     expect(screen.getByRole('button', {
-      name: 'Solicitar consentimiento digital por email a la cuenta HERA vinculada',
+      name: 'Enviar la autorización por email a la cuenta HERA vinculada',
     }).props.accessibilityState).toEqual(expect.objectContaining({ disabled: false }));
   });
 
@@ -688,10 +688,10 @@ describe('ClinicPatientDetailPanel', () => {
 
     expect(screen.getByText('Vinculada')).toBeTruthy();
     expect(screen.getByText(
-      'La cuenta HERA está vinculada, pero no dispone de un email utilizable para este envío. Registra el consentimiento mediante un PDF firmado.',
+      'La cuenta HERA está vinculada, pero no dispone de un email utilizable para este envío. Registra la autorización mediante un documento firmado.',
     )).toBeTruthy();
     expect(screen.getByRole('button', {
-      name: 'Solicitar consentimiento digital, no disponible: la cuenta HERA vinculada no tiene un email utilizable',
+      name: 'Enviar la autorización por email, no disponible: la cuenta HERA vinculada no tiene un email utilizable',
     }).props.accessibilityState).toEqual(expect.objectContaining({ disabled: true }));
   });
 });

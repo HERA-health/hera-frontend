@@ -389,7 +389,7 @@ export function ClinicPatientDetailPanel({
               <Ionicons name="document-text-outline" size={19} color={theme.warning} />
               <View style={styles.alertCopy}>
                 <Text style={styles.alertTitle}>
-                  Consentimiento {consent.status === 'REVOKED' ? 'revocado' : 'pendiente'}
+                  Autorización {consent.status === 'REVOKED' ? 'retirada' : 'pendiente'}
                 </Text>
                 <Text style={styles.alertText}>Consulta el estado y las acciones disponibles.</Text>
               </View>

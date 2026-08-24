@@ -24,7 +24,7 @@ const consentDocumentSchema = z.custom<UploadAsset | null>(
       && 'uri' in value
       && typeof value.uri === 'string'
     ),
-  { message: 'Adjunta el consentimiento firmado' }
+  { message: 'Adjunta la autorización firmada' }
 );
 
 export const managedClientSchema = z.object({
@@ -61,7 +61,7 @@ export const managedClientSchema = z.object({
     context.addIssue({
       code: 'custom',
       path: ['consentDocument'],
-      message: 'Adjunta el consentimiento firmado para registrarlo ahora.',
+      message: 'Adjunta la autorización firmada para registrarla ahora.',
     });
   }
 });

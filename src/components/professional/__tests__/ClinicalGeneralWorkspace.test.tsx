@@ -147,9 +147,9 @@ describe('ClinicalGeneralWorkspace', () => {
 
     const consentTarget = screen.getByTestId('tour-target-professional.clinical.consent');
     const consentDocumentsTarget = screen.getByTestId('tour-target-professional.clinical.consent-documents');
-    expect(within(consentTarget).getByText('Consentimiento clínico')).toBeTruthy();
-    expect(within(consentTarget).queryByText('Firma digital de consentimiento clínico')).toBeNull();
-    expect(within(consentDocumentsTarget).getByText('Documento de consentimiento clínico')).toBeTruthy();
+    expect(within(consentTarget).getByText('Autorización del expediente clínico')).toBeTruthy();
+    expect(within(consentTarget).queryByText('Documento firmado')).toBeNull();
+    expect(within(consentDocumentsTarget).getByText('Documento firmado')).toBeTruthy();
     expect(screen.getByTestId('tour-target-professional.clinical.notes')).toBeTruthy();
     expect(screen.getByTestId('tour-target-professional.clinical.questionnaire')).toBeTruthy();
     expect(screen.getByTestId('tour-target-professional.clinical.reports')).toBeTruthy();
@@ -243,22 +243,22 @@ describe('ClinicalGeneralWorkspace', () => {
       />,
     );
 
-    expect(screen.getByText('Consentimiento clínico')).toBeTruthy();
-    expect(screen.getAllByText('Firma digital de consentimiento clínico').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Documento de consentimiento clínico').length).toBeGreaterThan(0);
+    expect(screen.getByText('Autorización del expediente clínico')).toBeTruthy();
+    expect(screen.getByText('Confirmación digital')).toBeTruthy();
+    expect(screen.getByText('Documento firmado')).toBeTruthy();
     expect(
       screen.getByText(
-        'Dos vías según el tipo de paciente. Ambas dejan el consentimiento vigente cuando se completa la vía que corresponde.',
+        'Envía al paciente una autorización para usar su expediente clínico en HERA. También puedes registrar un documento firmado.',
       ),
     ).toBeTruthy();
     expect(
       screen.getByText(
-        'Vía para pacientes con cuenta HERA. Al firmar desde su cuenta, el consentimiento queda vigente y se habilita el tratamiento de sus datos clínicos.',
+        'Enviaremos la autorización por email. El paciente iniciará sesión en HERA para revisarla y decidir.',
       ),
     ).toBeTruthy();
     expect(
       screen.getByText(
-        'Vía con documento firmado para pacientes sin cuenta HERA. Al registrar el documento, el consentimiento queda vigente y se habilita el tratamiento de sus datos clínicos.',
+        'Alternativa para registrar una autorización que el paciente ya ha firmado fuera de HERA.',
       ),
     ).toBeTruthy();
 
@@ -287,10 +287,10 @@ describe('ClinicalGeneralWorkspace', () => {
       />,
     );
 
-    expect(screen.getAllByText('Documento de consentimiento clínico').length).toBeGreaterThan(0);
+    expect(screen.getByText('Documento firmado')).toBeTruthy();
     expect(screen.getByText('consentimiento-firmado.pdf')).toBeTruthy();
     expect(screen.getByText('Adjuntar documento')).toBeTruthy();
-    expect(screen.getByText('Registrar consentimiento firmado')).toBeTruthy();
+    expect(screen.getByText('Registrar autorización firmada')).toBeTruthy();
   });
 
   it('keeps signed consent evidence usable while clinical content actions wait for consent', () => {
@@ -323,7 +323,7 @@ describe('ClinicalGeneralWorkspace', () => {
       />,
     );
 
-    fireEvent.press(screen.getByText('Registrar consentimiento firmado'));
+    fireEvent.press(screen.getByText('Registrar autorización firmada'));
 
     expect(onAttestClinicalConsent).toHaveBeenCalledWith('consent-document-1');
     expect(screen.getByText('Adjuntar documento')).toBeTruthy();
@@ -332,5 +332,48 @@ describe('ClinicalGeneralWorkspace', () => {
     expect(screen.getByPlaceholderText('Escribe aquí una nota general del expediente...').props.editable).toBe(false);
     expect(onUploadDocument).not.toHaveBeenCalled();
     expect(onSaveNote).not.toHaveBeenCalled();
+  });
+
+  it('uses one digital CTA and requires the adult self-acting confirmation for a managed patient', () => {
+    const onRequestDigitalConsent = jest.fn().mockResolvedValue(undefined);
+    render(
+      <ClinicalGeneralWorkspace
+        client={managedClient as never}
+        record={{
+          ...pendingManagedRecord,
+          guestConsentActionsEnabled: true,
+          client: {
+            ...pendingManagedRecord.client,
+            primaryEmail: 'paciente@example.com',
+          },
+        } as never}
+        isTablet
+        noteSaving={false}
+        documentUploading={false}
+        consentSubmitting={false}
+        closingProcess={false}
+        openingDocumentId={null}
+        loadingMoreNotes={false}
+        loadingMoreDocuments={false}
+        loadingMoreConsentEvents={false}
+        onSaveNote={jest.fn()}
+        onOpenDocument={jest.fn()}
+        onUploadDocument={jest.fn()}
+        onRequestDigitalConsent={onRequestDigitalConsent}
+        onAttestClinicalConsent={jest.fn()}
+        onCloseClinicalProcess={jest.fn()}
+        onLoadMoreNotes={jest.fn()}
+        onLoadMoreDocuments={jest.fn()}
+        onLoadMoreConsentEvents={jest.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('Enviar autorización por email')).toHaveLength(1);
+    expect(screen.getByText('Confirmación por email y código')).toBeTruthy();
+    fireEvent.press(screen.getByText('Enviar autorización por email'));
+    expect(onRequestDigitalConsent).not.toHaveBeenCalled();
+    expect(screen.getByText('Confirma que esta vía es adecuada')).toBeTruthy();
+    fireEvent.press(screen.getByText('Confirmar y enviar por email'));
+    expect(onRequestDigitalConsent).toHaveBeenCalledTimes(1);
   });
 });

@@ -73,7 +73,7 @@ export function ClinicalConsentScreen() {
       setResolution(nextResolution);
       setError(null);
     } catch (loadError: unknown) {
-      setError(getErrorMessage(loadError, 'No se pudo abrir la solicitud de consentimiento'));
+      setError(getErrorMessage(loadError, 'No se pudo abrir la autorización'));
     } finally {
       setLoading(false);
     }
@@ -88,9 +88,9 @@ export function ClinicalConsentScreen() {
       setSubmitting(true);
       const nextResolution = await clinicalService.acceptDigitalConsent(requestId, token);
       setResolution(nextResolution);
-      setSuccessMessage('Tu consentimiento ha quedado registrado correctamente.');
+      setSuccessMessage('Tu autorización ha quedado registrada correctamente.');
     } catch (submitError: unknown) {
-      setError(getErrorMessage(submitError, 'No se pudo registrar el consentimiento'));
+      setError(getErrorMessage(submitError, 'No se pudo registrar la autorización'));
     } finally {
       setSubmitting(false);
     }
@@ -101,9 +101,9 @@ export function ClinicalConsentScreen() {
       setSubmitting(true);
       const nextResolution = await clinicalService.revokeDigitalConsent(requestId, token);
       setResolution(nextResolution);
-      setSuccessMessage('Has retirado tu consentimiento clínico.');
+      setSuccessMessage('Has retirado tu autorización del expediente clínico.');
     } catch (submitError: unknown) {
-      setError(getErrorMessage(submitError, 'No se pudo retirar el consentimiento'));
+      setError(getErrorMessage(submitError, 'No se pudo retirar la autorización'));
     } finally {
       setSubmitting(false);
     }
@@ -128,7 +128,7 @@ export function ClinicalConsentScreen() {
           </View>
           <View style={styles.heroCopy}>
             <Text style={[textStyles.eyebrow, { color: theme.textMuted }, labelStyle]}>
-              Consentimiento clínico
+              Autorización del expediente clínico
             </Text>
             <Text style={[textStyles.title, { color: theme.textPrimary }, displayTitleStyle]}>
               Confirma tu autorización en HERA
@@ -189,7 +189,7 @@ export function ClinicalConsentScreen() {
                 <Text style={[textStyles.label, { color: theme.textMuted }, labelStyle]}>Estado</Text>
                 <Text style={[textStyles.strong, { color: isGranted ? theme.success : theme.warning }, emphasisStyle]}>
                   {isGranted
-                    ? 'Consentimiento vigente'
+                    ? 'Autorización vigente'
                     : resolution.status === 'PENDING'
                       ? 'Pendiente de confirmar'
                       : resolution.status}
@@ -217,7 +217,7 @@ export function ClinicalConsentScreen() {
               </Text>
               <Text style={[textStyles.body, { color: theme.textSecondary }]}>
                 Autorizas el tratamiento de tus datos clínicos dentro de HERA para tu atención
-                profesional. Podrás retirar este consentimiento más adelante.
+                profesional. Podrás retirar esta autorización más adelante.
               </Text>
 
               {canConfirm ? (
@@ -245,7 +245,7 @@ export function ClinicalConsentScreen() {
                         style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold }}
                         onPress={() => navigation.navigate('LegalDocument', { documentKey: 'CLINICAL_PATIENT_CONSENT' })}
                       >
-                        consentimiento clínico del paciente
+                        documento de autorización del expediente clínico
                       </Text>
                       .
                     </Text>
@@ -257,13 +257,13 @@ export function ClinicalConsentScreen() {
                     loading={submitting}
                     disabled={!consentDocumentAccepted}
                   >
-                    Confirmar consentimiento
+                    Confirmar autorización
                   </Button>
                 </View>
               ) : canRevoke ? (
                 <View style={styles.contentStack}>
                   <Text style={[textStyles.body, { color: theme.textSecondary }]}>
-                    Tu consentimiento ya está activo. Si necesitas retirarlo, puedes hacerlo desde aquí.
+                    Tu autorización ya está activa. Si necesitas retirarla, puedes hacerlo desde aquí.
                   </Text>
                   <Button
                     variant="secondary"
@@ -271,12 +271,12 @@ export function ClinicalConsentScreen() {
                     onPress={() => void handleRevoke()}
                     loading={submitting}
                   >
-                    Retirar consentimiento
+                    Retirar autorización
                   </Button>
                 </View>
               ) : isGranted ? (
                 <Text style={[textStyles.body, { color: theme.textSecondary }]}>
-                  Tu consentimiento ya consta como vigente. Si necesitas retirarlo, inicia sesión
+                  Tu autorización ya consta como vigente. Si necesitas retirarla, inicia sesión
                   en tu cuenta de paciente y vuelve a este enlace.
                 </Text>
               ) : (

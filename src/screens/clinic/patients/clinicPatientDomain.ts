@@ -126,7 +126,7 @@ export const CLINIC_PATIENT_DETAIL_TABS: ReadonlyArray<{
 }> = [
   { key: 'summary', label: 'Resumen' },
   { key: 'sessions', label: 'Citas' },
-  { key: 'consent', label: 'Consentimientos' },
+  { key: 'consent', label: 'Autorizaciones' },
   { key: 'billing', label: 'Facturación' },
   { key: 'activity', label: 'Actividad' },
 ];

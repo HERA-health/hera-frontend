@@ -25,6 +25,7 @@ interface ClinicalGeneralWorkspaceProps {
   loadingMoreNotes: boolean;
   loadingMoreDocuments: boolean;
   loadingMoreConsentEvents: boolean;
+  guestConsentSyncPending?: boolean;
   onSaveNote: (content: string) => Promise<void>;
   onOpenDocument: (document: ClinicalDocument) => Promise<void>;
   onUploadDocument: (
@@ -32,11 +33,15 @@ interface ClinicalGeneralWorkspaceProps {
     category: 'GENERAL' | 'CONSENT_EVIDENCE' | 'MEDICAL_REPORT'
   ) => Promise<unknown>;
   onRequestDigitalConsent: () => Promise<unknown>;
+  onResendGuestConsent?: () => Promise<unknown>;
+  onCancelGuestConsent?: () => Promise<unknown>;
+  onRequestGuestWithdrawal?: () => Promise<unknown>;
   onAttestClinicalConsent: (evidenceDocumentId?: string) => Promise<void>;
   onCloseClinicalProcess: () => Promise<void>;
   onLoadMoreNotes: () => void;
   onLoadMoreDocuments: () => void;
   onLoadMoreConsentEvents: () => void;
+  onRetryGuestConsentSync?: () => Promise<boolean>;
   tourTargetsActive?: boolean;
 }
 
@@ -83,15 +88,20 @@ export function ClinicalGeneralWorkspace({
   loadingMoreNotes,
   loadingMoreDocuments,
   loadingMoreConsentEvents,
+  guestConsentSyncPending = false,
   onSaveNote,
   onOpenDocument,
   onUploadDocument,
   onRequestDigitalConsent,
+  onResendGuestConsent,
+  onCancelGuestConsent,
+  onRequestGuestWithdrawal,
   onAttestClinicalConsent,
   onCloseClinicalProcess,
   onLoadMoreNotes,
   onLoadMoreDocuments,
   onLoadMoreConsentEvents,
+  onRetryGuestConsentSync,
   tourTargetsActive = true,
 }: ClinicalGeneralWorkspaceProps) {
   const { theme } = useTheme();
@@ -279,12 +289,17 @@ export function ClinicalGeneralWorkspace({
       consentSubmitting={consentSubmitting}
       closingProcess={closingProcess}
       loadingMoreConsentEvents={loadingMoreConsentEvents}
+      guestConsentSyncPending={guestConsentSyncPending}
       onUploadConsentDocument={() => void handleUpload('CONSENT_EVIDENCE')}
       onOpenConsentDocument={(document) => void onOpenDocument(document)}
       onRequestDigitalConsent={onRequestDigitalConsent}
+      onResendGuestConsent={onResendGuestConsent ?? (async () => undefined)}
+      onCancelGuestConsent={onCancelGuestConsent ?? (async () => undefined)}
+      onRequestGuestWithdrawal={onRequestGuestWithdrawal ?? (async () => undefined)}
       onAttestClinicalConsent={onAttestClinicalConsent}
       onCloseClinicalProcess={onCloseClinicalProcess}
       onLoadMoreConsentEvents={onLoadMoreConsentEvents}
+      onRetryGuestConsentSync={onRetryGuestConsentSync ?? (async () => true)}
       tourTargetId="professional.clinical.consent"
       consentDocumentTourTargetId="professional.clinical.consent-documents"
       tourTargetsActive={tourTargetsActive}

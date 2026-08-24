@@ -604,9 +604,9 @@ describe('useClinicPatientsController billing copy', () => {
     });
 
     expect(confirm).toHaveBeenCalledWith({
-      title: 'Solicitar consentimiento digital',
-      message: 'Se enviará un enlace al email de la cuenta HERA vinculada. El paciente deberá iniciar sesión para revisarlo y aceptarlo.',
-      confirmLabel: 'Solicitar',
+      title: 'Enviar autorización por email',
+      message: 'Enviaremos un enlace al email de la cuenta HERA vinculada. El paciente deberá iniciar sesión para revisar la autorización y decidir.',
+      confirmLabel: 'Enviar por email',
     });
     expect(mockedRequestClinicPatientConsent).toHaveBeenCalledWith(
       'clinic-1',
@@ -614,7 +614,7 @@ describe('useClinicPatientsController billing copy', () => {
     );
     expect(result.current.feedback).toEqual({
       type: 'success',
-      text: 'Solicitud de consentimiento enviada.',
+      text: 'Autorización enviada por email.',
     });
   });
 
@@ -730,7 +730,7 @@ describe('useClinicPatientsController billing copy', () => {
     );
     expect(result.current.feedback).toEqual({
       type: 'success',
-      text: 'Solicitud de consentimiento enviada.',
+      text: 'Autorización enviada por email.',
     });
     expect(result.current.consentError).toBe('No se pudo sincronizar el consentimiento');
   });
@@ -900,7 +900,7 @@ describe('useClinicPatientsController billing copy', () => {
     expect(result.current.selectedPatientConsent?.activeRequest?.id).toBe('request-1');
     expect(result.current.feedback).toEqual({
       type: 'success',
-      text: 'Solicitud de consentimiento enviada.',
+      text: 'Autorización enviada por email.',
     });
   });
 

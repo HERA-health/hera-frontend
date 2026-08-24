@@ -1,8 +1,11 @@
 import { api } from './api';
-import { getErrorMessage } from '../constants/errors';
+import axios from 'axios';
+import { getErrorCode, getErrorMessage } from '../constants/errors';
 import { buildMultipartFormData, type UploadAsset } from '../utils/multipartUpload';
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import { z } from 'zod';
+import type { ClinicalGuestConsentEligibility } from './clinicalGuestConsentEligibility';
 import type {
   ClinicalConsentMethod,
   ClinicalConsentStatus,
@@ -68,6 +71,17 @@ export interface ClinicalConsentEvent {
   method: ClinicalConsentMethod;
   version: string;
   evidenceDocumentId?: string | null;
+  eventType:
+    | 'REQUESTED'
+    | 'DELIVERY_UNKNOWN'
+    | 'ACCEPTED'
+    | 'REJECTED'
+    | 'CANCELLED'
+    | 'EXPIRED'
+    | 'REVOKED'
+    | 'CONSENT_RECORDED';
+  requestKind: 'GRANT' | 'WITHDRAWAL' | null;
+  channel: 'HERA_ACCOUNT_EMAIL' | 'GUEST_EMAIL' | null;
   createdAt: string;
 }
 
@@ -123,7 +137,9 @@ export interface ClinicalRecord {
   closedAt: string | null;
   eligibleForManualReview: boolean;
   client: ClinicalRecordClient;
-  activeConsentRequest: ClinicalConsentRequestResolution | null;
+  activeConsentRequest: ClinicalActiveConsentRequest | null;
+  guestConsentActionsEnabled: boolean;
+  guestConsentEligibility?: ClinicalGuestConsentEligibility;
   notes: ClinicalNote[];
   documents: ClinicalDocument[];
   consentEvents: ClinicalConsentEvent[];
@@ -136,12 +152,99 @@ export interface ClinicalRecord {
   };
 }
 
+
+export interface ClinicalActiveConsentRequest {
+  id: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'REVOKED' | 'EXPIRED' | 'CANCELLED';
+  channel: 'HERA_ACCOUNT_EMAIL' | 'GUEST_EMAIL' | null;
+  requestKind: 'GRANT' | 'WITHDRAWAL' | null;
+  linkDeliveryStatus: 'PENDING' | 'PROVIDER_ACCEPTED' | 'FAILED' | 'UNKNOWN' | 'CANCELLED' | null;
+  expiresAt: string;
+  createdAt: string;
+  version: string;
+}
+
 export interface ClinicalConsentRequestResult {
   requestId: string;
   status: 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED' | 'CANCELLED';
   expiresAt: string;
   createdAt: string;
 }
+
+const clinicalGuestAdminResultSchema = z.object({
+  requestId: z.string().min(8).max(64).regex(/^[A-Za-z0-9_-]+$/),
+  channel: z.literal('GUEST_EMAIL'),
+  requestKind: z.enum(['GRANT', 'WITHDRAWAL']),
+  status: z.enum(['PENDING', 'ACCEPTED', 'REJECTED', 'REVOKED', 'EXPIRED', 'CANCELLED']),
+  linkDeliveryStatus: z.enum(['PENDING', 'PROVIDER_ACCEPTED', 'FAILED', 'UNKNOWN', 'CANCELLED']),
+  expiresAt: z.string().datetime(),
+  createdAt: z.string().datetime(),
+  redeemedAt: z.string().datetime().nullable(),
+  rejectedAt: z.string().datetime().nullable(),
+  revokedAt: z.string().datetime().nullable(),
+  expiredAt: z.string().datetime().nullable(),
+  cancelledAt: z.string().datetime().nullable(),
+}).strict();
+export type ClinicalGuestConsentAdminResult = z.infer<typeof clinicalGuestAdminResultSchema>;
+
+export type ClinicalGuestConsentAdminFailureClassification =
+  | 'timeout'
+  | 'network'
+  | 'server'
+  | 'definitive';
+
+export class ClinicalGuestConsentAdminRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly classification: ClinicalGuestConsentAdminFailureClassification,
+    public readonly status?: number,
+    public readonly code?: string
+  ) {
+    super(message);
+    this.name = 'ClinicalGuestConsentAdminRequestError';
+  }
+}
+
+const clinicalGuestAdminRequest = async (
+  url: string,
+  body: Record<string, never> | { channel: 'GUEST_EMAIL'; confirmsAdultAndSelfActing: true },
+  clinicalAccessToken: string,
+  idempotencyKey?: string
+): Promise<ClinicalGuestConsentAdminResult> => {
+  try {
+    const response = await api.post(
+      url,
+      body,
+      {
+        headers: {
+          ...buildClinicalHeaders(clinicalAccessToken),
+          ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
+        },
+        timeout: 30000,
+      }
+    );
+    return clinicalGuestAdminResultSchema.parse(response.data.data);
+  } catch (error: unknown) {
+    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+    const classification: ClinicalGuestConsentAdminFailureClassification = axios.isAxiosError(error)
+      ? error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT'
+        ? 'timeout'
+        : !error.response
+          ? 'network'
+          : status !== undefined && status >= 500
+            ? 'server'
+            : 'definitive'
+      : error instanceof z.ZodError
+        ? 'server'
+        : 'definitive';
+    throw new ClinicalGuestConsentAdminRequestError(
+      getErrorMessage(error, 'No se pudo completar la solicitud de consentimiento por email'),
+      classification,
+      status,
+      getErrorCode(error)
+    );
+  }
+};
 
 export interface ClinicalConsentRequestResolution {
   id: string;
@@ -507,8 +610,60 @@ export const requestDigitalConsent = async (
     );
     return response.data.data;
   } catch (error: unknown) {
-    throw new Error(getErrorMessage(error, 'No se pudo solicitar el consentimiento digital'));
+    throw new Error(getErrorMessage(error, 'No se pudo enviar la autorización por email'));
   }
+};
+
+export const requestClinicalGuestConsent = async (
+  clientId: string,
+  clinicalAccessToken: string,
+  idempotencyKey: string
+): Promise<ClinicalGuestConsentAdminResult> => {
+  return clinicalGuestAdminRequest(
+    `/clinical/records/${clientId}/consent/guest-requests`,
+    { channel: 'GUEST_EMAIL', confirmsAdultAndSelfActing: true },
+    clinicalAccessToken,
+    idempotencyKey
+  );
+};
+
+export const resendClinicalGuestConsent = async (
+  clientId: string,
+  requestId: string,
+  clinicalAccessToken: string,
+  idempotencyKey: string
+): Promise<ClinicalGuestConsentAdminResult> => {
+  return clinicalGuestAdminRequest(
+    `/clinical/records/${clientId}/consent/guest-requests/${requestId}/resend`,
+    {},
+    clinicalAccessToken,
+    idempotencyKey
+  );
+};
+
+export const cancelClinicalGuestConsent = async (
+  clientId: string,
+  requestId: string,
+  clinicalAccessToken: string
+): Promise<ClinicalGuestConsentAdminResult> => {
+  return clinicalGuestAdminRequest(
+    `/clinical/records/${clientId}/consent/guest-requests/${requestId}/cancel`,
+    {},
+    clinicalAccessToken
+  );
+};
+
+export const requestClinicalGuestWithdrawal = async (
+  clientId: string,
+  clinicalAccessToken: string,
+  idempotencyKey: string
+): Promise<ClinicalGuestConsentAdminResult> => {
+  return clinicalGuestAdminRequest(
+    `/clinical/records/${clientId}/consent/guest-withdrawal-requests`,
+    { channel: 'GUEST_EMAIL', confirmsAdultAndSelfActing: true },
+    clinicalAccessToken,
+    idempotencyKey
+  );
 };
 
 export const resolveDigitalConsentRequest = async (

@@ -37,14 +37,14 @@ interface ClinicPatientConsentPanelProps {
 
 const STATUS_LABELS: Record<ClinicPatientConsentStatus, string> = {
   PENDING: 'Pendiente',
-  GRANTED: 'Concedido',
-  REVOKED: 'Revocado',
+  GRANTED: 'Concedida',
+  REVOKED: 'Retirada',
 };
 
 const METHOD_LABELS: Record<ClinicPatientConsentMethod, string> = {
-  DIGITAL_SIGNATURE: 'Digital HERA',
-  CLINIC_ADMIN_ATTESTATION: 'PDF firmado',
-  EMAIL_LINK_OTP: 'Email verificado',
+  DIGITAL_SIGNATURE: 'Confirmada desde su cuenta HERA',
+  CLINIC_ADMIN_ATTESTATION: 'Documento firmado',
+  EMAIL_LINK_OTP: 'Confirmada por email y código',
 };
 
 const REQUEST_STATUS_LABELS: Record<ClinicPatientConsentRequestStatus, string> = {
@@ -83,9 +83,9 @@ const getDigitalConsentGuidance = (
     return {
       channel: 'HERA_ACCOUNT_EMAIL',
       tone: 'positive',
-      title: 'Firma digital disponible',
+      title: 'Confirmación desde su cuenta HERA',
       description:
-        'El envío utiliza el email asociado a la cuenta HERA vinculada, aunque pueda coincidir con el email administrativo de esta ficha.',
+        'Enviaremos la autorización al email asociado a su cuenta HERA para que pueda revisarla y decidir.',
       unavailableReason: null,
     };
   }
@@ -94,9 +94,9 @@ const getDigitalConsentGuidance = (
     return {
       channel: null,
       tone: 'warning',
-      title: 'Firma digital no disponible',
+      title: 'Confirmación digital no disponible',
       description:
-        'La cuenta HERA está vinculada, pero no dispone de un email utilizable para este envío. Registra el consentimiento mediante un PDF firmado.',
+        'La cuenta HERA está vinculada, pero no dispone de un email utilizable para este envío. Registra la autorización mediante un documento firmado.',
       unavailableReason: 'la cuenta HERA vinculada no tiene un email utilizable',
     };
   }
@@ -106,7 +106,7 @@ const getDigitalConsentGuidance = (
       return {
         channel: 'GUEST_EMAIL',
         tone: 'positive',
-        title: 'Autorización por email vigente',
+        title: 'Autorización confirmada por email',
         description: consent.guestConsentActionsEnabled
           ? 'El paciente verificó su email y concedió la autorización. Si quiere retirarla, puedes enviarle una solicitud de confirmación.'
           : 'El paciente verificó su email y concedió la autorización. Las nuevas solicitudes están temporalmente desactivadas.',
@@ -120,7 +120,7 @@ const getDigitalConsentGuidance = (
       return {
         channel: 'GUEST_EMAIL',
         tone: consent.guestConsentActionsEnabled ? 'positive' : 'warning',
-        title: 'Solicitud por email pendiente',
+        title: 'Autorización enviada por email',
         description: consent.guestConsentActionsEnabled
           ? 'El paciente debe abrir el enlace personal y verificar el código recibido por email antes de decidir.'
           : 'La solicitud existente se puede cancelar, pero los nuevos envíos están temporalmente desactivados.',
@@ -134,9 +134,9 @@ const getDigitalConsentGuidance = (
       return {
         channel: 'GUEST_EMAIL',
         tone: 'warning',
-        title: 'Consentimiento por email no disponible temporalmente',
+        title: 'Confirmación por email no disponible temporalmente',
         description:
-          'Puedes seguir registrando un PDF firmado. El envío por email volverá a mostrarse cuando el canal esté disponible.',
+          'Puedes seguir registrando un documento firmado. El envío por email volverá a mostrarse cuando el canal esté disponible.',
         unavailableReason: 'el canal por email está temporalmente desactivado',
       };
     }
@@ -144,7 +144,7 @@ const getDigitalConsentGuidance = (
     return {
       channel: 'GUEST_EMAIL',
       tone: 'positive',
-      title: 'Consentimiento por email disponible',
+      title: 'Confirmación por email disponible',
       description:
         'El paciente no necesita una cuenta HERA. Recibirá un enlace personal y un código para verificar su email antes de decidir.',
       unavailableReason: null,
@@ -154,15 +154,15 @@ const getDigitalConsentGuidance = (
   return {
     channel: null,
     tone: 'warning',
-    title: 'Firma digital no disponible',
+    title: 'Confirmación digital no disponible',
     description:
-      'No hay email administrativo ni una cuenta HERA vinculada. Registra el consentimiento mediante un PDF firmado.',
-    unavailableReason: 'el paciente no tiene email administrativo ni una cuenta HERA vinculada',
+      'No hay email de contacto ni una cuenta HERA vinculada. Registra la autorización mediante un documento firmado.',
+    unavailableReason: 'el paciente no tiene email de contacto ni una cuenta HERA vinculada',
   };
 };
 
 const CONSENT_VERSION_LABELS: Record<string, string> = {
-  'clinic-administration-v1': 'Autorización administrativa · v1',
+  'clinic-administration-v1': 'Autorización para la gestión en la clínica · v1',
   'clinic-administration-withdrawal-v1': 'Retirada de autorización · v1',
 };
 
@@ -275,9 +275,9 @@ export function ClinicPatientConsentPanel({
     <View style={styles.panel}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>Consentimiento de clínica</Text>
+          <Text style={styles.title}>Autorización para la gestión en la clínica</Text>
           <Text style={styles.subtitle}>
-            Evidencia administrativa separada de historia clínica, sesiones y facturación.
+            Permite gestionar en HERA la relación administrativa con el paciente, separada de su expediente clínico.
           </Text>
         </View>
         {loading && !consent ? (
@@ -303,7 +303,7 @@ export function ClinicPatientConsentPanel({
         >
           <Ionicons name="alert-circle-outline" size={19} color={theme.error} />
           <View style={styles.errorCopy}>
-            <Text style={styles.errorTitle}>No se pudo verificar el consentimiento</Text>
+            <Text style={styles.errorTitle}>No se pudo verificar la autorización</Text>
             <Text style={styles.errorText}>{error}</Text>
             {consent ? (
               <Text style={styles.errorText}>Se muestran los últimos datos disponibles.</Text>
@@ -327,7 +327,7 @@ export function ClinicPatientConsentPanel({
         <ConsentRow label="Método" value={method} />
         <ConsentRow label="Versión" value={formatConsentVersion(consent?.version ?? null)} />
         <ConsentRow label="Solicitado" value={formatDate(consent?.requestedAt ?? null)} />
-        <ConsentRow label="Concedido" value={formatDate(consent?.grantedAt ?? null)} />
+        <ConsentRow label="Concedida" value={formatDate(consent?.grantedAt ?? null)} />
       </View>
 
       {consent?.activeRequest ? (
@@ -335,7 +335,7 @@ export function ClinicPatientConsentPanel({
           <Ionicons name="mail-outline" size={18} color={theme.primary} />
           <View style={styles.requestCopy}>
             <Text style={styles.requestTitle}>
-              Solicitud digital {REQUEST_STATUS_LABELS[consent.activeRequest.status].toLowerCase()}
+              Autorización desde HERA {REQUEST_STATUS_LABELS[consent.activeRequest.status].toLowerCase()}
             </Text>
             {consent.activeRequest.status === 'PENDING' ? (
               <Text style={styles.requestMeta}>
@@ -398,7 +398,7 @@ export function ClinicPatientConsentPanel({
       {digitalGuidance ? (
         <View
           accessible
-          accessibilityLabel={`${digitalGuidance.title}. Email administrativo: ${consent.patientEmail ?? 'no informado'}. Cuenta HERA: ${consent.hasLinkedHeraAccount ? 'vinculada' : 'no vinculada'}. ${digitalGuidance.description}`}
+          accessibilityLabel={`${digitalGuidance.title}. Email de contacto: ${consent.patientEmail ?? 'no informado'}. Cuenta HERA: ${consent.hasLinkedHeraAccount ? 'vinculada' : 'no vinculada'}. ${digitalGuidance.description}`}
           accessibilityLiveRegion="polite"
           style={[
             styles.deliveryBox,
@@ -425,7 +425,7 @@ export function ClinicPatientConsentPanel({
               <View style={styles.deliveryFact}>
                 <Ionicons name="at-outline" size={16} color={theme.textMuted} />
                 <View style={styles.deliveryFactCopy}>
-                  <Text style={styles.deliveryFactLabel}>Email administrativo</Text>
+                  <Text style={styles.deliveryFactLabel}>Email de contacto</Text>
                   <Text style={styles.deliveryFactValue}>{consent.patientEmail ?? 'No informado'}</Text>
                 </View>
               </View>
@@ -454,19 +454,19 @@ export function ClinicPatientConsentPanel({
             loading={saving}
             accessibilityLabel={digitalRequestAvailable
               ? digitalGuidance?.channel === 'GUEST_EMAIL'
-                ? 'Solicitar consentimiento digital por email al paciente sin cuenta HERA'
-                : 'Solicitar consentimiento digital por email a la cuenta HERA vinculada'
-              : `Solicitar consentimiento digital, no disponible${digitalGuidance?.unavailableReason ? `: ${digitalGuidance.unavailableReason}` : ''}`}
+                ? 'Enviar la autorización por email al paciente sin cuenta HERA'
+                : 'Enviar la autorización por email a la cuenta HERA vinculada'
+              : `Enviar la autorización por email, no disponible${digitalGuidance?.unavailableReason ? `: ${digitalGuidance.unavailableReason}` : ''}`}
             icon={<Ionicons name="send-outline" size={18} color={theme.primary} />}
           >
-            Solicitar digital
+            Enviar autorización por email
           </Button>
         ) : null}
         {guestPending ? (
           <>
             {guestActionsEnabled ? (
               <Button variant="outline" size="medium" onPress={onResendGuestConsent} disabled={!canOperate} loading={saving}>
-                Reenviar
+                Enviar enlace nuevo por email
               </Button>
             ) : null}
             <Button variant="ghost" size="medium" onPress={onCancelGuestConsent} disabled={!canOperate} loading={saving}>
@@ -476,7 +476,7 @@ export function ClinicPatientConsentPanel({
         ) : null}
         {canRequestGuestWithdrawal ? (
           <Button variant="outline" size="medium" onPress={onRequestGuestWithdrawal} disabled={!canOperate} loading={saving}>
-            Solicitar retirada
+            Preparar retirada
           </Button>
         ) : null}
         <Button
@@ -487,13 +487,13 @@ export function ClinicPatientConsentPanel({
           loading={saving}
           icon={<Ionicons name="cloud-upload-outline" size={18} color={theme.primary} />}
         >
-          Subir PDF
+          Registrar documento firmado
         </Button>
       </View>
 
       {consent?.documents.length ? (
         <View style={styles.documents}>
-          <Text style={styles.documentsTitle}>Evidencias</Text>
+          <Text style={styles.documentsTitle}>Documentos firmados</Text>
           {consent.documents.map((document) => (
             <View key={document.id} style={styles.documentRow}>
               <View style={styles.documentIcon}>
@@ -521,7 +521,7 @@ export function ClinicPatientConsentPanel({
       ) : (
         <View style={styles.emptyEvidence}>
           <Ionicons name="document-attach-outline" size={18} color={theme.textMuted} />
-          <Text style={styles.emptyEvidenceText}>Todavía no hay PDF firmado asociado.</Text>
+          <Text style={styles.emptyEvidenceText}>Todavía no hay ningún documento firmado asociado.</Text>
         </View>
       )}
         </>
@@ -534,8 +534,8 @@ export function ClinicPatientConsentPanel({
           )}
           <Text style={styles.emptyEvidenceText}>
             {loading
-              ? 'Verificando el estado del consentimiento…'
-              : 'El estado del consentimiento no está disponible.'}
+              ? 'Verificando el estado de la autorización…'
+              : 'El estado de la autorización no está disponible.'}
           </Text>
         </View>
       )}

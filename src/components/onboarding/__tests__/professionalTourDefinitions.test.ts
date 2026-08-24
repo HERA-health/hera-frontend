@@ -69,13 +69,13 @@ describe('professionalTourDefinitions', () => {
     expect(allCopy).toContain('año');
     expect(allCopy).toContain('área clínica');
     expect(allCopy).toContain('Sesiones organiza cada cita');
-    expect(allCopy).toContain('Firma digital de consentimiento clínico');
-    expect(allCopy).toContain('Documento de consentimiento clínico');
+    expect(allCopy).toContain('enviar la autorización por email');
+    expect(allCopy).toContain('Documento de autorización firmado');
     expect(allCopy).toContain('Añade pacientes desde tu panel');
     expect(allCopy).toContain('Autoregistrados');
     expect(allCopy).toContain('Añadidos por mí');
-    expect(allCopy).toContain('documento firmado para pacientes sin cuenta HERA');
-    expect(allCopy).toContain('habilitar el tratamiento de datos clínicos');
+    expect(allCopy).toContain('paciente ya haya firmado el documento fuera de HERA');
+    expect(allCopy).toContain('evidencia de su autorización');
     expect(allCopy).not.toContain('pacientes gestionados sin cuenta');
     expect(allCopy).not.toContain('paciente gestionado');
     expect(allCopy).not.toMatch(/\b(facturacion|movil|automaticamente|Evolucion|ano)\b/);
