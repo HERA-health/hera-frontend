@@ -61,7 +61,7 @@ describe('clinic guest-consent public entry', () => {
     expect(csp).toContain("default-src 'none'");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("connect-src 'self' https://api.health-hera.com");
-    expect(csp).toContain("navigate-to 'self' blob:");
+    expect(csp).not.toContain('navigate-to');
     expect(csp).not.toMatch(/posthog|googleapis|connect-src \*|script-src[^;]*https:/);
     const generalOpenerPolicy = vercel.headers.find(({ source }) => source.includes('(?!clinic-consent/).'));
     expect(generalOpenerPolicy).toBeDefined();
