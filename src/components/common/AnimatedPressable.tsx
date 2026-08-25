@@ -42,6 +42,11 @@ interface AnimatedPressableProps {
 const AnimatedPressableComponent = Animated.createAnimatedComponent(Pressable);
 type WebLinkProps = {
   href?: string;
+  'aria-busy'?: boolean;
+  'aria-checked'?: boolean | 'mixed';
+  'aria-disabled'?: boolean;
+  'aria-expanded'?: boolean;
+  'aria-selected'?: boolean;
 };
 
 interface WebPointerModifiers {
@@ -140,6 +145,15 @@ export function AnimatedPressable({
       accessibilityHint={accessibilityHint}
       accessibilityRole={accessibilityRole}
       accessibilityState={accessibilityState}
+      {...(Platform.OS === 'web'
+        ? {
+            'aria-busy': accessibilityState?.busy,
+            'aria-checked': accessibilityState?.checked,
+            'aria-disabled': accessibilityState?.disabled,
+            'aria-expanded': accessibilityState?.expanded,
+            'aria-selected': accessibilityState?.selected,
+          }
+        : {})}
       testID={testID}
       style={[style, animStyle]}
     >

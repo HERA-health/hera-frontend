@@ -12,6 +12,7 @@ jest.mock('../../../services/clinicService', () => ({
   createClinicSession: jest.fn(),
   getClinicAgenda: jest.fn(),
   getClinicSessionDetail: jest.fn(),
+  getClinicSessionSlotOptions: jest.fn(),
   listClinicPatients: jest.fn(),
   listClinicSpecialists: jest.fn(),
   subscribeClinicSessionChanges: jest.fn(() => jest.fn()),
@@ -25,6 +26,7 @@ const mockedUseAppAlert = jest.mocked(useAppAlert);
 const mockedUseClinicWorkspace = jest.mocked(useClinicWorkspace);
 const mockedCreateClinicSession = jest.mocked(clinicService.createClinicSession);
 const mockedGetClinicAgenda = jest.mocked(clinicService.getClinicAgenda);
+const mockedGetClinicSessionSlotOptions = jest.mocked(clinicService.getClinicSessionSlotOptions);
 const mockedListClinicPatients = jest.mocked(clinicService.listClinicPatients);
 const mockedListClinicSpecialists = jest.mocked(clinicService.listClinicSpecialists);
 const mockedSubscribeClinicSessionChanges = jest.mocked(clinicService.subscribeClinicSessionChanges);
@@ -152,6 +154,11 @@ describe('useClinicAgendaController', () => {
     });
     mockedListClinicSpecialists.mockResolvedValue([]);
     mockedGetClinicAgenda.mockResolvedValue({ items: [], pageInfo: pageInfo(1, false) });
+    mockedGetClinicSessionSlotOptions.mockResolvedValue({
+      date: '2030-01-15',
+      duration: 60,
+      slots: [],
+    });
     mockedCreateClinicSession.mockResolvedValue(createdSession);
   });
 
@@ -324,6 +331,16 @@ describe('useClinicAgendaController', () => {
     const { result } = renderHook(() => useClinicAgendaController());
     await waitFor(() => expect(result.current.loading).toBe(false));
     act(() => result.current.handleOpenCreateModal());
+
+    const slotInput: clinicService.GetClinicSessionSlotOptionsInput = {
+      clinicSpecialistId: 'specialist-1',
+      date: '2030-01-15',
+      duration: 50,
+    };
+    await act(async () => {
+      await result.current.handleLoadSessionSlotOptions(slotInput);
+    });
+    expect(mockedGetClinicSessionSlotOptions).toHaveBeenCalledWith('clinic-1', slotInput);
 
     const payload: clinicService.CreateClinicSessionPayload = {
       clinicPatientId: 'patient-1',

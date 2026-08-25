@@ -20,9 +20,20 @@ import { useTheme } from '../../contexts/ThemeContext';
 import type {
   ClinicPatientSummary,
   ClinicSessionSummary,
+  ClinicSessionSlotOption,
+  ClinicSessionSlotOptionsResult,
   CreateClinicSessionPayload,
+  GetClinicSessionSlotOptionsInput,
 } from '../../services/clinicService';
-import { getMadridDateKey } from '../../utils/madridTime';
+import { isClinicSessionConflictError } from '../../services/clinic/sessionErrors';
+import {
+  formatMadridDateKey,
+  getMadridDateKey,
+  MADRID_TIME_ZONE,
+} from '../../utils/madridTime';
+import { getNextMadridSchedulerValue } from '../../utils/schedulerDateTime';
+import { SchedulerDateTimeSelector } from '../scheduling/SchedulerDateTimeSelector';
+import type { SchedulerOpenPanel } from '../scheduling/schedulerTypes';
 import {
   createClinicSessionSchedulerForm,
   type ClinicSessionSchedulerErrors,
@@ -30,6 +41,7 @@ import {
   type ClinicSessionSchedulerType,
   validateClinicSessionSchedulerForm,
 } from './clinicSessionSchedulerDomain';
+import { createClinicSchedulerSlots } from './clinicSessionSchedulerAdapter';
 
 export interface ClinicSessionSchedulerModalProps {
   visible: boolean;
@@ -45,6 +57,9 @@ export interface ClinicSessionSchedulerModalProps {
   onPatientSearchChange?: (search: string) => void;
   onLoadMorePatients?: () => void;
   onRetryPatientLookup?: () => void;
+  onLoadSlotOptions: (
+    input: GetClinicSessionSlotOptionsInput,
+  ) => Promise<ClinicSessionSlotOptionsResult>;
   onClose: () => void;
   onSubmit: (payload: CreateClinicSessionPayload) => Promise<ClinicSessionSummary>;
   onCreated: (session: ClinicSessionSummary) => void;
@@ -70,6 +85,17 @@ const TYPE_OPTIONS: Array<{
   },
 ];
 
+const formatDateLabel = (dateKey: string): string => {
+  const label = formatMadridDateKey(dateKey, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  return label.charAt(0).toUpperCase() + label.slice(1);
+};
+
 export function ClinicSessionSchedulerModal({
   visible,
   clinicName,
@@ -84,6 +110,7 @@ export function ClinicSessionSchedulerModal({
   onPatientSearchChange,
   onLoadMorePatients,
   onRetryPatientLookup,
+  onLoadSlotOptions,
   onClose,
   onSubmit,
   onCreated,
@@ -97,11 +124,24 @@ export function ClinicSessionSchedulerModal({
   ));
   const [errors, setErrors] = useState<ClinicSessionSchedulerErrors>({});
   const [submitting, setSubmitting] = useState(false);
+  const [openSchedulePanel, setOpenSchedulePanel] = useState<SchedulerOpenPanel>(null);
+  const [slotOptions, setSlotOptions] = useState<ClinicSessionSlotOption[]>([]);
+  const [slotOptionsLoading, setSlotOptionsLoading] = useState(false);
+  const [slotOptionsError, setSlotOptionsError] = useState<string | null>(null);
+  const [slotOptionsRefreshKey, setSlotOptionsRefreshKey] = useState(0);
+  const [conflictRefreshPending, setConflictRefreshPending] = useState(false);
+  const [conflictedSelection, setConflictedSelection] = useState<{
+    clinicSpecialistId: string;
+    date: string;
+    duration: number;
+    time: string;
+  } | null>(null);
   const [selectedPatientSnapshot, setSelectedPatientSnapshot] =
     useState<ClinicPatientSummary | null>(null);
   const initializedForOpenRef = useRef(false);
   const openGenerationRef = useRef(0);
   const submittingRef = useRef(false);
+  const slotOptionsRequestKeyRef = useRef('');
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
   const locked = Boolean(lockedPatientId);
@@ -144,6 +184,27 @@ export function ClinicSessionSchedulerModal({
       .join('')
       .slice(0, 2) || 'P'
     : 'P';
+  const selectedDuration = Number(form.duration);
+  const selectedDurationIsValid = Number.isInteger(selectedDuration)
+    && selectedDuration >= 15
+    && selectedDuration <= 180;
+  const selectedAssignment = selectedPatient?.activeAssignment ?? null;
+  const schedulerSlots = useMemo(
+    () => createClinicSchedulerSlots(form.date, slotOptions, new Date(Date.now())),
+    [form.date, slotOptions],
+  );
+  const selectedSchedulerSlot = schedulerSlots.find((slot) => slot.startTime === form.time);
+  const selectedSlotIsBlocked = selectedSchedulerSlot ? !selectedSchedulerSlot.selectable : false;
+  const selectedSlotHasKnownConflict = Boolean(
+    conflictedSelection
+    && selectedAssignment
+    && conflictedSelection.clinicSpecialistId === selectedAssignment.clinicSpecialistId
+    && conflictedSelection.date === form.date
+    && conflictedSelection.duration === selectedDuration
+    && conflictedSelection.time === form.time,
+  );
+  const todayDateKey = getMadridDateKey(new Date(Date.now()));
+  const selectedDateLabel = form.date ? formatDateLabel(form.date) : 'Selecciona fecha';
 
   useEffect(() => {
     openGenerationRef.current += 1;
@@ -154,20 +215,35 @@ export function ClinicSessionSchedulerModal({
       setSubmitting(false);
       setErrors({});
       setSelectedPatientSnapshot(null);
+      setOpenSchedulePanel(null);
+      setSlotOptions([]);
+      setSlotOptionsLoading(false);
+      setSlotOptionsError(null);
+      setSlotOptionsRefreshKey(0);
+      setConflictRefreshPending(false);
+      setConflictedSelection(null);
       return;
     }
 
     if (initializedForOpenRef.current) return;
     initializedForOpenRef.current = true;
 
+    const initialSchedule = getNextMadridSchedulerValue(new Date(Date.now()));
     setForm({
       ...createClinicSessionSchedulerForm(lockedPatientId ?? ''),
-      date: getMadridDateKey(),
+      ...initialSchedule,
     });
     setErrors({});
     setSelectedPatientSnapshot(
       patients.find((patient) => patient.id === lockedPatientId) ?? null,
     );
+    setOpenSchedulePanel(null);
+    setSlotOptions([]);
+    setSlotOptionsLoading(false);
+    setSlotOptionsError(null);
+    setSlotOptionsRefreshKey(0);
+    setConflictRefreshPending(false);
+    setConflictedSelection(null);
   }, [lockedPatientId, visible]);
 
   useEffect(() => {
@@ -175,10 +251,102 @@ export function ClinicSessionSchedulerModal({
     setSelectedPatientSnapshot(currentSelectedPatient);
   }, [currentSelectedPatient, visible]);
 
+  useEffect(() => {
+    if (
+      !visible
+      || !form.date
+      || !selectedDurationIsValid
+      || !selectedAssignment
+      || selectedAssignment.clinicSpecialistStatus !== 'ACTIVE'
+    ) {
+      slotOptionsRequestKeyRef.current = '';
+      setSlotOptions([]);
+      setSlotOptionsLoading(false);
+      setSlotOptionsError(null);
+      return;
+    }
+
+    const requestKey = [
+      selectedAssignment.clinicSpecialistId,
+      form.date,
+      selectedDuration,
+      slotOptionsRefreshKey,
+      openGenerationRef.current,
+    ].join('|');
+    slotOptionsRequestKeyRef.current = requestKey;
+    let cancelled = false;
+    setSlotOptions([]);
+    setSlotOptionsLoading(true);
+    setSlotOptionsError(null);
+
+    onLoadSlotOptions({
+      clinicSpecialistId: selectedAssignment.clinicSpecialistId,
+      date: form.date,
+      duration: selectedDuration,
+    })
+      .then((result) => {
+        if (cancelled || slotOptionsRequestKeyRef.current !== requestKey) return;
+        setSlotOptions(result.slots);
+        setConflictedSelection((current) => {
+          if (
+            !current
+            || current.clinicSpecialistId !== selectedAssignment.clinicSpecialistId
+            || current.date !== form.date
+            || current.duration !== selectedDuration
+          ) {
+            return current;
+          }
+
+          const refreshedSlot = result.slots.find((slot) => slot.startTime === current.time);
+          return refreshedSlot?.selectable ? null : current;
+        });
+      })
+      .catch(() => {
+        if (cancelled || slotOptionsRequestKeyRef.current !== requestKey) return;
+        setSlotOptions([]);
+        setSlotOptionsError('No se pudieron comprobar huecos. Se validará al guardar.');
+      })
+      .finally(() => {
+        if (!cancelled && slotOptionsRequestKeyRef.current === requestKey) {
+          setSlotOptionsLoading(false);
+          setConflictRefreshPending(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    form.date,
+    onLoadSlotOptions,
+    selectedAssignment,
+    selectedDuration,
+    selectedDurationIsValid,
+    slotOptionsRefreshKey,
+    visible,
+  ]);
+
+  useEffect(() => {
+    if (!visible || slotOptions.length === 0) return;
+
+    const selected = slotOptions.find((slot) => slot.startTime === form.time);
+    if (selected?.selectable) return;
+
+    const firstAvailable = slotOptions.find((slot) => (
+      slot.status === 'AVAILABLE' && slot.startTime >= form.time
+    )) ?? slotOptions.find((slot) => slot.status === 'AVAILABLE');
+
+    if (firstAvailable) {
+      setForm((current) => ({ ...current, time: firstAvailable.startTime }));
+      setErrors((current) => ({ ...current, time: undefined, form: undefined }));
+    }
+  }, [form.time, slotOptions, visible]);
+
   const updateField = <K extends keyof ClinicSessionSchedulerForm>(
     field: K,
     value: ClinicSessionSchedulerForm[K],
   ): void => {
+    if (field === 'clinicPatientId') setOpenSchedulePanel(null);
     setForm((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({
       ...current,
@@ -189,11 +357,18 @@ export function ClinicSessionSchedulerModal({
   };
 
   const handleSubmit = async (): Promise<void> => {
-    if (submittingRef.current) return;
+    if (submittingRef.current || conflictRefreshPending || selectedSlotHasKnownConflict) return;
 
     const validation = validateClinicSessionSchedulerForm(form, validationPatients);
     if (!validation.success) {
       setErrors(validation.errors);
+      return;
+    }
+
+    if (selectedSlotIsBlocked) {
+      setErrors({
+        time: selectedSchedulerSlot?.message ?? 'Ese hueco no está disponible. Elige otra hora.',
+      });
       return;
     }
 
@@ -215,6 +390,18 @@ export function ClinicSessionSchedulerModal({
         !visibleRef.current
         || openGenerationRef.current !== submissionGeneration
       ) {
+        return;
+      }
+      if (isClinicSessionConflictError(error)) {
+        setErrors({ time: error.message });
+        setConflictedSelection({
+          clinicSpecialistId: validation.payload.clinicSpecialistId,
+          date: form.date,
+          duration: validation.payload.duration,
+          time: form.time,
+        });
+        setConflictRefreshPending(true);
+        setSlotOptionsRefreshKey((current) => current + 1);
         return;
       }
       setErrors({
@@ -393,29 +580,42 @@ export function ClinicSessionSchedulerModal({
               </View>
             )}
 
-            <View style={styles.scheduleGrid}>
-              <Input
-                label="Fecha"
-                accessibilityLabel="Fecha de la cita"
-                value={form.date}
-                onChangeText={(value) => updateField('date', value)}
-                error={errors.date}
-                helperText="Formato AAAA-MM-DD · Europe/Madrid"
-                editable={!submitting}
-                containerStyle={styles.scheduleInput}
-                leftIcon={<Ionicons name="calendar-outline" size={17} color={theme.primary} />}
-              />
-              <Input
-                label="Hora"
-                accessibilityLabel="Hora de la cita"
-                value={form.time}
-                onChangeText={(value) => updateField('time', value)}
-                error={errors.time}
-                helperText="Formato HH:MM"
-                editable={!submitting}
-                containerStyle={styles.scheduleInput}
-                leftIcon={<Ionicons name="time-outline" size={17} color={theme.primary} />}
-              />
+            <SchedulerDateTimeSelector
+              value={{ date: form.date, time: form.time }}
+              dateLabel={selectedDateLabel}
+              minDate={todayDateKey}
+              timeZone={MADRID_TIME_ZONE}
+              timeZoneLabel="Hora peninsular"
+              slots={schedulerSlots}
+              availabilityState={slotOptionsLoading
+                ? 'loading'
+                : slotOptionsError
+                  ? 'error'
+                  : slotOptions.length > 0
+                    ? 'ready'
+                    : 'idle'}
+              availabilityError={slotOptionsError}
+              openPanel={openSchedulePanel}
+              dateError={errors.date}
+              timeError={errors.time}
+              disabled={submitting}
+              allowManualTimeEntry={false}
+              legendStates={['available', 'unavailable']}
+              legendLabels={{
+                available: 'Disponible',
+                unavailable: 'No disponible',
+                caution: 'Con aviso',
+              }}
+              testIDPrefix="clinic-session"
+              onDateChange={(value) => updateField('date', value)}
+              onTimeChange={(value) => updateField('time', value)}
+              onOpenPanelChange={setOpenSchedulePanel}
+              onRetryAvailability={() => {
+                setSlotOptionsRefreshKey((current) => current + 1);
+              }}
+            />
+
+            <View style={styles.durationField}>
               <Input
                 label="Duración"
                 accessibilityLabel="Duración de la cita en minutos"
@@ -425,7 +625,6 @@ export function ClinicSessionSchedulerModal({
                 helperText="Entre 15 y 180 minutos"
                 keyboardType="numeric"
                 editable={!submitting}
-                containerStyle={styles.scheduleInput}
                 leftIcon={<Ionicons name="hourglass-outline" size={17} color={theme.primary} />}
               />
             </View>
@@ -486,7 +685,13 @@ export function ClinicSessionSchedulerModal({
                 size="medium"
                 onPress={() => { void handleSubmit(); }}
                 loading={submitting}
-                disabled={submitting || !selectedPatient}
+                disabled={
+                  submitting
+                  || conflictRefreshPending
+                  || selectedSlotHasKnownConflict
+                  || !selectedPatient
+                  || selectedSlotIsBlocked
+                }
                 icon={<Ionicons name="calendar-outline" size={18} color={theme.actionPrimaryText} />}
               >
                 Crear cita
@@ -719,16 +924,9 @@ const createStyles = (theme: Theme, compact: boolean) => StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
-  scheduleGrid: {
-    flexDirection: compact ? 'column' : 'row',
-    alignItems: 'flex-start',
-    gap: compact ? 0 : spacing.md,
-  },
-  scheduleInput: {
-    flex: compact ? undefined : 1,
-    width: compact ? '100%' : undefined,
-    minWidth: 0,
-    marginBottom: compact ? spacing.sm : 0,
+  durationField: {
+    maxWidth: compact ? '100%' : 260,
+    width: '100%',
   },
   modalitySection: { gap: spacing.sm },
   typeGrid: { flexDirection: compact ? 'column' : 'row', gap: spacing.sm },

@@ -769,6 +769,27 @@ export interface ClinicPatientConsentDetail extends ClinicPatientConsentSummary 
   guestRequest?: ClinicGuestConsentAdminRequest | null;
 }
 
+export type ClinicSessionSlotStatus = 'AVAILABLE' | 'OCCUPIED' | 'PAST';
+
+export interface ClinicSessionSlotOption {
+  startTime: string;
+  endTime: string;
+  status: ClinicSessionSlotStatus;
+  selectable: boolean;
+}
+
+export interface ClinicSessionSlotOptionsResult {
+  date: string;
+  duration: number;
+  slots: ClinicSessionSlotOption[];
+}
+
+export interface GetClinicSessionSlotOptionsInput {
+  clinicSpecialistId: string;
+  date: string;
+  duration: number;
+}
+
 export interface ClinicGuestConsentAdminRequest {
   id: string;
   requestKind: ClinicGuestConsentRequestKind;

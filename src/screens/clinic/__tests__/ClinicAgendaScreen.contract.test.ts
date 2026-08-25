@@ -65,7 +65,8 @@ describe('ClinicAgendaScreen source guards', () => {
     expect(controllerSource).toContain('editableFilters');
     expect(controllerSource).toContain('appliedFilters');
     expect(controllerSource).toContain('handleApplyFilters');
-    expect(screenSource).toContain('onPress={handleApplyFilters}');
+    expect(screenSource).toContain('handleApplyFilters();');
+    expect(screenSource).toContain('<SchedulerDateRangeSelector');
     expect(screenSource).not.toContain('clinicService.listClinicSessions');
   });
 
@@ -95,10 +96,11 @@ describe('ClinicAgendaScreen source guards', () => {
     expect(handlerSource).not.toContain('loadPatientLookup');
   });
 
-  it('builds local date ranges without UTC day slicing', () => {
-    expect(controllerSource).toContain('toLocalDateInputValue');
-    expect(controllerSource).toContain('toLocalStartOfDayIso');
-    expect(controllerSource).toContain('toLocalEndOfDayIso');
+  it('builds Madrid date ranges without depending on the device timezone', () => {
+    expect(controllerSource).toContain('toMadridDateInputValue');
+    expect(controllerSource).toContain('toMadridStartOfDayIso');
+    expect(controllerSource).toContain('toMadridEndOfDayIso');
+    expect(controllerSource).toContain("from '../../utils/clinicAgendaDateRange'");
     expect(schedulerDomainSource).toContain('parseMadridDateTime');
     expect(controllerSource).not.toContain('toISOString().slice(0, 10)');
     expect(screenSource).not.toContain('toISOString().slice(0, 10)');

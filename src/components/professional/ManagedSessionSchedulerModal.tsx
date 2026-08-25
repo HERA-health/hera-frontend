@@ -1,27 +1,25 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Modal,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
-import { Calendar, DateData } from 'react-native-calendars';
 import { useTheme } from '../../contexts/ThemeContext';
 import { borderRadius, spacing } from '../../constants/colors';
 import { Button } from '../common/Button';
 import { Card } from '../common/Card';
 import { AnimatedPressable } from '../common/AnimatedPressable';
+import { SchedulerDateTimeSelector } from '../scheduling/SchedulerDateTimeSelector';
+import type { SchedulerOpenPanel } from '../scheduling/schedulerTypes';
 import type {
   Client,
   CreateManagedClientSessionInput,
   ManagedSessionSlotOption,
-  ManagedSessionSlotStatus,
   SessionType,
 } from '../../services/professionalService';
 import {
@@ -32,16 +30,21 @@ import { validateManagedSessionSchedulerInput } from '../../utils/managedSession
 import type { ManagedSessionSchedulerField } from '../../utils/managedSessionSchedulerValidation';
 import {
   isManagedSessionDurationOption,
-  isManagedSessionTimeInPast,
   isManagedSessionTimeOption,
   MANAGED_SESSION_DURATION_OPTIONS,
-  MANAGED_SESSION_TIME_END,
-  MANAGED_SESSION_TIME_OPTIONS,
-  MANAGED_SESSION_TIME_START,
-  MANAGED_SESSION_TIME_STEP_MINUTES,
   parseManagedSessionTimeToMinutes,
 } from '../../utils/managedSessionSchedulerOptions';
-import { formatMadridDateKey, getMadridDateKey } from '../../utils/madridTime';
+import {
+  formatMadridDateKey,
+  getMadridDateKey,
+  MADRID_TIME_ZONE,
+} from '../../utils/madridTime';
+import {
+  formatSchedulerMinutesAsTime,
+  getMadridMinutesOfDay,
+  getNextMadridSchedulerValue,
+} from '../../utils/schedulerDateTime';
+import { createProfessionalSchedulerSlots } from './managedSessionSchedulerAdapter';
 import {
   getManagedSessionClientEmail,
   getManagedSessionClientName,
@@ -83,35 +86,6 @@ const sessionTypes: Array<{ value: SessionType; label: string; icon: IconName }>
   { value: 'IN_PERSON', label: 'Presencial', icon: 'location-outline' },
 ];
 
-const pad = (value: number) => String(value).padStart(2, '0');
-
-const getDefaultStartDate = (date: Date): Date => {
-  const rounded = new Date(date);
-  rounded.setSeconds(0, 0);
-
-  const startMinutes = parseManagedSessionTimeToMinutes(MANAGED_SESSION_TIME_START) ?? 0;
-  const endMinutes = parseManagedSessionTimeToMinutes(MANAGED_SESSION_TIME_END) ?? 23 * 60;
-  const currentMinutes = rounded.getHours() * 60 + rounded.getMinutes();
-  const nextStepMinutes =
-    Math.ceil(currentMinutes / MANAGED_SESSION_TIME_STEP_MINUTES) * MANAGED_SESSION_TIME_STEP_MINUTES;
-
-  if (nextStepMinutes > endMinutes) {
-    rounded.setDate(rounded.getDate() + 1);
-    rounded.setHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0);
-    return rounded;
-  }
-
-  const selectedMinutes = Math.max(nextStepMinutes, startMinutes);
-  rounded.setHours(Math.floor(selectedMinutes / 60), selectedMinutes % 60, 0, 0);
-  return rounded;
-};
-
-const formatDateInput = (date: Date): string =>
-  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-
-const formatTimeInput = (date: Date): string =>
-  `${pad(date.getHours())}:${pad(date.getMinutes())}`;
-
 const formatDateLabel = (dateKey: string): string => {
   const label = formatMadridDateKey(dateKey, {
     weekday: 'long',
@@ -143,29 +117,6 @@ const getEmailNoticeText = (
     : 'Este paciente no tiene email. La cita se creará sin aviso por correo.';
 };
 
-const getSlotStatusMessage = (status?: ManagedSessionSlotStatus): string | null => {
-  if (status === 'OCCUPIED') {
-    return 'Ese hueco ya está ocupado. Elige otra hora.';
-  }
-
-  if (status === 'PAST') {
-    return 'Esa hora ya ha pasado. Elige otra franja.';
-  }
-
-  if (status === 'BUFFER_CONFLICT') {
-    return 'Este hueco pisa el descanso configurado entre sesiones.';
-  }
-
-  return null;
-};
-
-const getSlotAccessibilityStatus = (status: ManagedSessionSlotStatus): string => {
-  if (status === 'OCCUPIED') return 'ocupada';
-  if (status === 'PAST') return 'pasada';
-  if (status === 'BUFFER_CONFLICT') return 'en descanso';
-  return 'disponible';
-};
-
 const getInitialClientId = (clients: Client[], initialClientId?: string | null): string => {
   if (initialClientId && clients.some((client) => client.id === initialClientId)) {
     return initialClientId;
@@ -194,14 +145,14 @@ export function ManagedSessionSchedulerModal({
   const [durationValue, setDurationValue] = useState('60');
   const [type, setType] = useState<SessionType>('VIDEO_CALL');
   const [clientSelectorOpen, setClientSelectorOpen] = useState(false);
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [timePickerOpen, setTimePickerOpen] = useState(false);
+  const [openSchedulePanel, setOpenSchedulePanel] = useState<SchedulerOpenPanel>(null);
   const [timeEditedManually, setTimeEditedManually] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<FormField, string>>>({});
   const [bufferConflict, setBufferConflict] = useState<BufferConflictState | null>(null);
   const [slotOptions, setSlotOptions] = useState<ManagedSessionSlotOption[]>([]);
   const [slotOptionsLoading, setSlotOptionsLoading] = useState(false);
   const [slotOptionsError, setSlotOptionsError] = useState<string | null>(null);
+  const [slotOptionsRefreshKey, setSlotOptionsRefreshKey] = useState(0);
   const slotOptionsRequestKeyRef = useRef('');
   const formInitializationKeyRef = useRef<string | null>(null);
   const isEditing = mode === 'edit';
@@ -226,24 +177,28 @@ export function ManagedSessionSchedulerModal({
     if (formInitializationKeyRef.current === formInitializationKey) return;
     formInitializationKeyRef.current = formInitializationKey;
 
-    const initialStart = initialDate
-      ? new Date(initialDate)
-      : getDefaultStartDate(new Date(Date.now() + 60 * 60 * 1000));
+    const initialStart = initialDate ? new Date(initialDate) : null;
+    const initialScheduleValue = initialStart
+      ? {
+          date: getMadridDateKey(initialStart),
+          time: formatSchedulerMinutesAsTime(getMadridMinutesOfDay(initialStart)),
+        }
+      : getNextMadridSchedulerValue(new Date(Date.now()));
 
     setClientId(getInitialClientId(clients, requestedClientId));
-    setDateValue(formatDateInput(initialStart));
-    setTimeValue(formatTimeInput(initialStart));
+    setDateValue(initialScheduleValue.date);
+    setTimeValue(initialScheduleValue.time);
     setDurationValue(String(initialDuration ?? 60));
     setType(initialType ?? 'VIDEO_CALL');
     setClientSelectorOpen(false);
-    setDatePickerOpen(false);
-    setTimePickerOpen(false);
+    setOpenSchedulePanel(null);
     setTimeEditedManually(false);
     setErrors({});
     setBufferConflict(null);
     setSlotOptions([]);
     setSlotOptionsLoading(false);
     setSlotOptionsError(null);
+    setSlotOptionsRefreshKey(0);
   }, [
     clients,
     formInitializationKey,
@@ -297,69 +252,12 @@ export function ManagedSessionSchedulerModal({
   const selectedDurationNumber = Number(durationValue);
   const selectedDurationIsAllowed = isManagedSessionDurationOption(selectedDurationNumber);
   const selectedTimeIsAllowed = isManagedSessionTimeOption(timeValue);
-  const slotOptionsByStart = useMemo(() => {
-    return new Map(slotOptions.map((slot) => [slot.startTime, slot]));
-  }, [slotOptions]);
-  const selectedSlotOption = slotOptionsByStart.get(timeValue);
-  const selectedTimeIsPastFallback = selectedTimeIsAllowed
-    && !selectedSlotOption
-    && isManagedSessionTimeInPast(dateValue, timeValue, new Date(Date.now()));
-  const selectedSlotStatus = selectedSlotOption?.status ?? (selectedTimeIsPastFallback ? 'PAST' : undefined);
-  const selectedSlotMessage = getSlotStatusMessage(selectedSlotStatus);
-  const selectedSlotIsBlocked = selectedSlotOption ? !selectedSlotOption.selectable : selectedTimeIsPastFallback;
-  const selectedTimeHasError = Boolean(errors.time) || !selectedTimeIsAllowed || selectedSlotIsBlocked;
-  const selectedTimeHasWarning = selectedSlotStatus === 'BUFFER_CONFLICT';
-  const timePickerControlColor = selectedTimeHasError
-    ? theme.error
-    : selectedTimeHasWarning
-    ? theme.warning
-    : theme.primary;
-  const timePickerDividerColor = selectedTimeHasError
-    ? theme.error
-    : selectedTimeHasWarning
-    ? theme.warning
-    : theme.border;
-  const timePickerControlBackground = timePickerOpen ? theme.primaryAlpha12 : 'transparent';
-  const calendarMarkedDates = useMemo(
-    () => ({
-      [dateValue]: {
-        selected: true,
-        selectedColor: theme.primary,
-        selectedTextColor: theme.textOnPrimary,
-      },
-    }),
-    [dateValue, theme.primary, theme.textOnPrimary]
+  const schedulerSlots = useMemo(
+    () => createProfessionalSchedulerSlots(dateValue, slotOptions, new Date(Date.now())),
+    [dateValue, slotOptions],
   );
-  const calendarTheme = useMemo(
-    () => ({
-      backgroundColor: 'transparent',
-      calendarBackground: 'transparent',
-      monthTextColor: theme.textPrimary,
-      textMonthFontWeight: '700' as const,
-      textMonthFontSize: 16,
-      textSectionTitleColor: theme.textMuted,
-      textDayHeaderFontWeight: '600' as const,
-      textDayHeaderFontSize: 11,
-      dayTextColor: theme.textPrimary,
-      textDayFontWeight: '500' as const,
-      textDayFontSize: 14,
-      todayTextColor: theme.primary,
-      todayBackgroundColor: 'transparent',
-      selectedDayBackgroundColor: theme.primary,
-      selectedDayTextColor: theme.textOnPrimary,
-      textDisabledColor: theme.textMuted,
-      arrowColor: theme.primary,
-      dotColor: theme.secondary,
-      selectedDotColor: theme.textOnPrimary,
-    }),
-    [
-      theme.primary,
-      theme.secondary,
-      theme.textMuted,
-      theme.textOnPrimary,
-      theme.textPrimary,
-    ]
-  );
+  const selectedSchedulerSlot = schedulerSlots.find((slot) => slot.startTime === timeValue);
+  const selectedSlotIsBlocked = selectedSchedulerSlot ? !selectedSchedulerSlot.selectable : false;
 
   useEffect(() => {
     if (!visible || !dateValue || !selectedDurationIsAllowed) {
@@ -370,7 +268,7 @@ export function ManagedSessionSchedulerModal({
       return;
     }
 
-    const requestKey = `${dateValue}|${selectedDurationNumber}|${editingSessionId ?? ''}`;
+    const requestKey = `${dateValue}|${selectedDurationNumber}|${editingSessionId ?? ''}|${slotOptionsRefreshKey}`;
     slotOptionsRequestKeyRef.current = requestKey;
     let cancelled = false;
     setSlotOptions([]);
@@ -405,6 +303,7 @@ export function ManagedSessionSchedulerModal({
     editingSessionId,
     selectedDurationIsAllowed,
     selectedDurationNumber,
+    slotOptionsRefreshKey,
     visible,
   ]);
 
@@ -413,7 +312,7 @@ export function ManagedSessionSchedulerModal({
       return;
     }
 
-    const currentSlot = slotOptionsByStart.get(timeValue);
+    const currentSlot = slotOptions.find((slot) => slot.startTime === timeValue);
     if (currentSlot?.selectable) {
       return;
     }
@@ -436,7 +335,6 @@ export function ManagedSessionSchedulerModal({
     isEditing,
     selectedTimeIsAllowed,
     slotOptions,
-    slotOptionsByStart,
     timeEditedManually,
     timeValue,
     visible,
@@ -462,35 +360,6 @@ export function ManagedSessionSchedulerModal({
     });
   };
 
-  const handleTimeTextChange = (value: string) => {
-    setTimeValue(value.trim().slice(0, 5));
-    setTimeEditedManually(true);
-    setDatePickerOpen(false);
-    clearBufferConflict();
-    clearFieldErrors('time', 'form');
-  };
-
-  const handleTimeTextBlur = () => {
-    const trimmed = timeValue.trim();
-    const singleDigitHourMatch = trimmed.match(/^(\d):(\d{2})$/);
-
-    if (!singleDigitHourMatch) {
-      if (trimmed !== timeValue) {
-        setTimeValue(trimmed);
-      }
-      return;
-    }
-
-    const hours = Number(singleDigitHourMatch[1]);
-    const minutes = Number(singleDigitHourMatch[2]);
-    if (minutes > 59) {
-      setTimeValue(trimmed);
-      return;
-    }
-
-    setTimeValue(`${pad(hours)}:${pad(minutes)}`);
-  };
-
   const handleSubmit = async () => {
     const validation = validateManagedSessionSchedulerInput({
       clientId,
@@ -507,7 +376,7 @@ export function ManagedSessionSchedulerModal({
 
     if (selectedSlotIsBlocked) {
       setErrors({
-        time: selectedSlotMessage ?? 'Ese hueco no está disponible. Elige otra hora.',
+        time: selectedSchedulerSlot?.message ?? 'Ese hueco no está disponible. Elige otra hora.',
       });
       return;
     }
@@ -619,8 +488,7 @@ export function ManagedSessionSchedulerModal({
                 onOpenChange={(open) => {
                   setClientSelectorOpen(open);
                   if (open) {
-                    setDatePickerOpen(false);
-                    setTimePickerOpen(false);
+                    setOpenSchedulePanel(null);
                   }
                 }}
                 onSelect={(nextClientId) => {
@@ -646,322 +514,54 @@ export function ManagedSessionSchedulerModal({
               </View>
             )}
 
-            <View style={styles.scheduleRow}>
-              <View
-                style={[
-                  styles.scheduleField,
-                  styles.scheduleDateField,
-                  isCompact && styles.scheduleFieldFull,
-                  datePickerOpen && styles.scheduleFieldOpen,
-                ]}
-              >
-                <Text style={[styles.label, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
-                  Fecha
-                </Text>
-                <AnimatedPressable
-                  onPress={() => {
-                    setClientSelectorOpen(false);
-                    setDatePickerOpen((current) => !current);
-                    setTimePickerOpen(false);
-                  }}
-                  hoverLift={false}
-                  pressScale={0.98}
-                  accessibilityLabel="Seleccionar fecha"
-                  style={[
-                    styles.selectorTrigger,
-                    {
-                      borderColor: errors.date ? theme.error : theme.border,
-                      backgroundColor: theme.bgMuted,
-                    },
-                  ]}
-                >
-                  <View style={styles.selectorTextWrap}>
-                    <Text
-                      style={[styles.selectorPrimaryText, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}
-                      numberOfLines={1}
-                    >
-                      {selectedDateLabel}
-                    </Text>
-                    <Text style={[styles.selectorSecondaryText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                      {dateValue}
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name={datePickerOpen ? 'chevron-up-outline' : 'calendar-outline'}
-                    size={19}
-                    color={errors.date ? theme.error : theme.primary}
-                  />
-                </AnimatedPressable>
-                {datePickerOpen && (
-                  <View
-                    style={[
-                      styles.dropdownPanel,
-                      styles.dateDropdownPanel,
-                      isCompact && styles.compactDropdownPanel,
-                      { borderColor: theme.border, backgroundColor: theme.bgElevated },
-                    ]}
-                  >
-                    <Calendar
-                      current={dateValue}
-                      minDate={todayDateKey}
-                      markedDates={calendarMarkedDates}
-                      onDayPress={(day: DateData) => {
-                        setDateValue(day.dateString);
-                        setDatePickerOpen(false);
-                        clearBufferConflict();
-                        clearFieldErrors('date', 'time', 'form');
-                      }}
-                      enableSwipeMonths
-                      theme={calendarTheme}
-                      style={styles.dropdownCalendar}
-                    />
-                  </View>
-                )}
-                {errors.date && (
-                  <Text style={[styles.errorText, { color: theme.error, fontFamily: theme.fontSans }]}>
-                    {errors.date}
-                  </Text>
-                )}
-              </View>
-
-              <View
-                style={[
-                  styles.scheduleField,
-                  styles.scheduleTimeField,
-                  isCompact && styles.scheduleFieldFull,
-                  timePickerOpen && styles.scheduleFieldOpen,
-                ]}
-              >
-                <Text style={[styles.label, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
-                  Hora
-                </Text>
-                <View
-                  style={[
-                    styles.selectorTrigger,
-                    styles.timeSelectorTrigger,
-                    {
-                      borderColor:
-                        selectedTimeHasError
-                          ? theme.error
-                          : selectedTimeHasWarning
-                          ? theme.warning
-                          : theme.border,
-                      backgroundColor: theme.bgMuted,
-                    },
-                  ]}
-                >
-                  <TextInput
-                    testID="managed-session-time-input"
-                    accessibilityLabel="Hora de la cita"
-                    value={timeValue}
-                    onChangeText={handleTimeTextChange}
-                    onBlur={handleTimeTextBlur}
-                    onFocus={() => {
-                      setClientSelectorOpen(false);
-                      setDatePickerOpen(false);
-                    }}
-                    placeholder="HH:MM"
-                    placeholderTextColor={theme.textMuted}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    maxLength={5}
-                    style={[
-                      styles.timeInput,
-                      {
-                        color:
-                          selectedTimeHasError
-                            ? theme.error
-                            : selectedTimeHasWarning
-                            ? theme.warning
-                            : theme.textPrimary,
-                        fontFamily: theme.fontSansSemiBold,
-                      },
-                    ]}
-                  />
-                  <AnimatedPressable
-                    onPress={() => {
-                      setClientSelectorOpen(false);
-                      setTimePickerOpen((current) => !current);
-                      setDatePickerOpen(false);
-                    }}
-                    hoverLift={false}
-                    pressScale={0.92}
-                    accessibilityLabel="Seleccionar hora"
-                    style={[
-                      styles.timePickerButton,
-                      {
-                        backgroundColor: timePickerControlBackground,
-                        borderLeftColor: timePickerDividerColor,
-                      },
-                    ]}
-                  >
-                    {slotOptionsLoading ? (
-                      <ActivityIndicator size="small" color={timePickerControlColor} />
-                    ) : (
-                      <>
-                        <Ionicons
-                          name="time-outline"
-                          size={17}
-                          color={timePickerControlColor}
-                        />
-                        <Ionicons
-                          name={timePickerOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
-                          size={13}
-                          color={timePickerControlColor}
-                        />
-                      </>
-                    )}
-                  </AnimatedPressable>
-                </View>
-                {timePickerOpen && (
-                  <View
-                    style={[
-                      styles.dropdownPanel,
-                      styles.timeDropdownPanel,
-                      isCompact && styles.compactDropdownPanel,
-                      { borderColor: theme.border, backgroundColor: theme.bgElevated },
-                    ]}
-                  >
-                    <View style={[styles.timeLegend, { borderBottomColor: theme.border }]}>
-                      <View style={styles.timeLegendItem}>
-                        <View
-                          style={[
-                            styles.timeLegendSample,
-                            { borderColor: theme.primary, backgroundColor: theme.primaryAlpha12 },
-                          ]}
-                        >
-                          <Ionicons name="checkmark-outline" size={9} color={theme.primary} />
-                        </View>
-                        <Text style={[styles.timeLegendText, { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold }]}>
-                          Disponible
-                        </Text>
-                      </View>
-                      <View style={styles.timeLegendItem}>
-                        <View
-                          style={[
-                            styles.timeLegendSample,
-                            { borderColor: theme.border, backgroundColor: theme.bgMuted },
-                          ]}
-                        >
-                          <Ionicons name="close-outline" size={10} color={theme.textMuted} />
-                        </View>
-                        <Text style={[styles.timeLegendText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                          No disponible
-                        </Text>
-                      </View>
-                      <View style={styles.timeLegendItem}>
-                        <View
-                          style={[
-                            styles.timeLegendSample,
-                            { borderColor: theme.warning, backgroundColor: theme.warningBg },
-                          ]}
-                        >
-                          <Ionicons name="warning-outline" size={9} color={theme.warning} />
-                        </View>
-                        <Text style={[styles.timeLegendText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-                          Descanso
-                        </Text>
-                      </View>
-                    </View>
-                    <ScrollView
-                      nestedScrollEnabled
-                      showsVerticalScrollIndicator={Platform.OS === 'web'}
-                      style={styles.timeOptionsScroll}
-                      contentContainerStyle={styles.timeOptionsGrid}
-                    >
-                      {MANAGED_SESSION_TIME_OPTIONS.map((option) => {
-                        const active = timeValue === option;
-                        const slotOption = slotOptionsByStart.get(option);
-                        const fallbackPast = !slotOption && isManagedSessionTimeInPast(
-                          dateValue,
-                          option,
-                          new Date(Date.now())
-                        );
-                        const status: ManagedSessionSlotStatus = slotOption?.status ?? (
-                          fallbackPast ? 'PAST' : 'AVAILABLE'
-                        );
-                        const disabled = slotOption ? !slotOption.selectable : fallbackPast;
-                        const bufferSlot = status === 'BUFFER_CONFLICT';
-                        const unavailableSlot = status === 'OCCUPIED' || status === 'PAST';
-                        return (
-                          <AnimatedPressable
-                            key={option}
-                            testID={`managed-session-time-option-${option}`}
-                            accessibilityLabel={`Hora ${option}, ${getSlotAccessibilityStatus(status)}`}
-                            accessibilityState={{ selected: active, disabled }}
-                            onPress={() => {
-                              setTimeValue(option);
-                              setTimeEditedManually(false);
-                              setTimePickerOpen(false);
-                              clearBufferConflict();
-                              clearFieldErrors('time', 'form');
-                            }}
-                            disabled={disabled}
-                            hoverLift={false}
-                            style={[
-                              styles.timeOption,
-                              {
-                                borderColor: active
-                                  ? theme.primary
-                                  : bufferSlot
-                                  ? theme.warning
-                                  : theme.border,
-                                backgroundColor: active
-                                  ? theme.primaryAlpha12
-                                  : bufferSlot
-                                  ? theme.warningBg
-                                  : disabled
-                                  ? theme.bgMuted
-                                  : theme.bgElevated,
-                                opacity: unavailableSlot ? 0.46 : 1,
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.timeOptionText,
-                                {
-                                  color: active
-                                    ? theme.primary
-                                    : bufferSlot
-                                    ? theme.warning
-                                    : unavailableSlot
-                                    ? theme.textMuted
-                                    : theme.textSecondary,
-                                  fontFamily: active ? theme.fontSansSemiBold : theme.fontSans,
-                                  textDecorationLine: unavailableSlot ? 'line-through' : 'none',
-                                },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {option}
-                            </Text>
-                            {bufferSlot && (
-                              <Ionicons name="warning-outline" size={11} color={theme.warning} />
-                            )}
-                          </AnimatedPressable>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
-                )}
-                {slotOptionsError && (
-                  <Text style={[styles.warningText, { color: theme.warning, fontFamily: theme.fontSans }]}>
-                    {slotOptionsError}
-                  </Text>
-                )}
-                {selectedSlotOption?.status === 'BUFFER_CONFLICT' && selectedSlotMessage && !errors.time && (
-                  <Text style={[styles.warningText, { color: theme.warning, fontFamily: theme.fontSans }]}>
-                    {selectedSlotMessage}
-                  </Text>
-                )}
-                {(selectedSlotIsBlocked || !selectedTimeIsAllowed || errors.time) && (
-                  <Text style={[styles.errorText, { color: theme.error, fontFamily: theme.fontSans }]}>
-                    {errors.time ?? selectedSlotMessage ?? 'Selecciona una franja horaria de la lista'}
-                  </Text>
-                )}
-              </View>
-            </View>
+            <SchedulerDateTimeSelector
+              value={{ date: dateValue, time: timeValue }}
+              dateLabel={selectedDateLabel}
+              minDate={todayDateKey}
+              timeZone={MADRID_TIME_ZONE}
+              timeZoneLabel="Hora peninsular"
+              slots={schedulerSlots}
+              availabilityState={slotOptionsLoading
+                ? 'loading'
+                : slotOptionsError
+                  ? 'error'
+                  : slotOptions.length > 0
+                    ? 'ready'
+                    : 'idle'}
+              availabilityError={slotOptionsError}
+              openPanel={openSchedulePanel}
+              dateError={errors.date}
+              timeError={errors.time ?? (!selectedTimeIsAllowed
+                ? 'Selecciona una franja horaria de la lista'
+                : undefined)}
+              disabled={saving}
+              legendLabels={{
+                available: 'Disponible',
+                unavailable: 'No disponible',
+                caution: 'Descanso',
+              }}
+              testIDPrefix="managed-session"
+              onDateChange={(nextDate) => {
+                setClientSelectorOpen(false);
+                setDateValue(nextDate);
+                clearBufferConflict();
+                clearFieldErrors('date', 'time', 'form');
+              }}
+              onTimeChange={(nextTime, source) => {
+                setClientSelectorOpen(false);
+                setTimeValue(nextTime);
+                setTimeEditedManually(source === 'manual');
+                clearBufferConflict();
+                clearFieldErrors('time', 'form');
+              }}
+              onOpenPanelChange={(panel) => {
+                setClientSelectorOpen(false);
+                setOpenSchedulePanel(panel);
+              }}
+              onRetryAvailability={() => {
+                setSlotOptionsRefreshKey((current) => current + 1);
+              }}
+            />
 
             <View style={styles.section}>
               <View style={styles.sectionHeaderRow}>
@@ -1231,113 +831,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  scheduleRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-    zIndex: 20,
-  },
-  scheduleField: {
-    gap: spacing.sm,
-    position: 'relative',
-  },
-  scheduleDateField: {
-    flex: 1.5,
-    minWidth: 260,
-  },
-  scheduleTimeField: {
-    flex: 0.8,
-    minWidth: 160,
-  },
-  scheduleFieldFull: {
-    flexBasis: '100%',
-    minWidth: '100%',
-  },
-  scheduleFieldOpen: {
-    zIndex: 1000,
-  },
-  selectorTrigger: {
-    alignItems: 'center',
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: spacing.sm,
-    justifyContent: 'space-between',
-    minHeight: 54,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  timeSelectorTrigger: {
-    gap: spacing.xs,
-    overflow: 'hidden',
-    paddingRight: spacing.xs,
-  },
-  selectorTextWrap: {
-    flex: 1,
-    minWidth: 0,
-  },
-  selectorPrimaryText: {
-    fontSize: 14,
-  },
-  selectorSecondaryText: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  timeInput: {
-    flex: 1,
-    fontSize: 15,
-    minHeight: 34,
-    minWidth: 0,
-    outlineStyle: 'none' as never,
-    padding: 0,
-  },
-  timePickerButton: {
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    borderLeftWidth: 1,
-    flexDirection: 'row',
-    gap: 2,
-    justifyContent: 'center',
-    minHeight: 34,
-    paddingLeft: spacing.sm,
-    paddingRight: spacing.xs,
-    width: 44,
-  },
-  dropdownPanel: {
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    elevation: 12,
-    marginTop: spacing.xs,
-    overflow: 'hidden',
-    position: 'absolute',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 22,
-    top: '100%',
-    zIndex: 1000,
-    ...(Platform.OS === 'web'
-      ? { boxShadow: '0 12px 28px rgba(62, 92, 79, 0.18)' } as Record<string, string>
-      : {}),
-  },
-  dateDropdownPanel: {
-    left: 0,
-    padding: spacing.xs,
-    width: 334,
-  },
-  timeDropdownPanel: {
-    maxHeight: 226,
-    right: 0,
-    width: 292,
-  },
-  compactDropdownPanel: {
-    left: 0,
-    width: '100%',
-  },
-  dropdownCalendar: {
-    borderRadius: borderRadius.md,
-    overflow: 'hidden',
-  },
   sectionHeaderRow: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -1346,60 +839,6 @@ const styles = StyleSheet.create({
   },
   currentValueText: {
     fontSize: 12,
-  },
-  timeOptionsScroll: {
-    flexGrow: 0,
-    maxHeight: 190,
-  },
-  timeLegend: {
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    gap: spacing.xs,
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  timeLegendItem: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 4,
-    minWidth: 0,
-  },
-  timeLegendSample: {
-    alignItems: 'center',
-    borderRadius: 5,
-    borderWidth: 1,
-    height: 14,
-    justifyContent: 'center',
-    width: 18,
-  },
-  timeLegendText: {
-    fontSize: 10,
-    letterSpacing: 0,
-  },
-  timeOptionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    padding: spacing.sm,
-  },
-  timeOption: {
-    alignItems: 'center',
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 3,
-    justifyContent: 'center',
-    minHeight: 36,
-    width: 72,
-  },
-  timeOptionText: {
-    fontSize: 13,
-  },
-  warningText: {
-    fontSize: 12,
-    lineHeight: 17,
   },
   optionRow: {
     flexDirection: 'row',

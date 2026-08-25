@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import type { DropdownOption } from '../../components/common/SimpleDropdown';
 import * as clinicService from '../../services/clinicService';
+import {
+  addMadridDaysInputValue,
+  toMadridDateInputValue,
+  toMadridEndOfDayIso,
+  toMadridStartOfDayIso,
+} from '../../utils/clinicAgendaDateRange';
 import { useClinicWorkspace } from './useClinicWorkspace';
 
 export type ClinicAgendaStatusFilter = clinicService.ClinicSessionStatus | 'ALL';
@@ -41,66 +47,12 @@ export const ORIGIN_OPTIONS: DropdownOption<ClinicAgendaOriginFilter>[] = [
   { label: 'Solo particulares', value: 'PRIVATE' },
 ];
 
-const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const CLINIC_REFERENCE_PAGE_LIMIT = 25;
 const PATIENT_LOOKUP_DEBOUNCE_MS = 250;
 
-const padDatePart = (value: number): string => value.toString().padStart(2, '0');
-
-export const toLocalDateInputValue = (date = new Date()): string =>
-  `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`;
-
-export const addLocalDaysInputValue = (days: number, baseDate = new Date()): string => {
-  const date = new Date(
-    baseDate.getFullYear(),
-    baseDate.getMonth(),
-    baseDate.getDate() + days,
-    baseDate.getHours(),
-    baseDate.getMinutes(),
-    baseDate.getSeconds(),
-    baseDate.getMilliseconds(),
-  );
-  return toLocalDateInputValue(date);
-};
-
-const parseLocalDateInput = (value: string): { year: number; month: number; day: number } | null => {
-  if (!DATE_INPUT_PATTERN.test(value)) return null;
-
-  const [year, month, day] = value.split('-').map(Number);
-  const parsed = new Date(year, month - 1, day);
-
-  if (
-    parsed.getFullYear() !== year
-    || parsed.getMonth() !== month - 1
-    || parsed.getDate() !== day
-  ) {
-    return null;
-  }
-
-  return { year, month, day };
-};
-
-export const toLocalStartOfDayIso = (date: string): string => {
-  const parsed = parseLocalDateInput(date);
-  if (!parsed) {
-    throw new Error('Usa una fecha válida.');
-  }
-
-  return new Date(parsed.year, parsed.month - 1, parsed.day, 0, 0, 0, 0).toISOString();
-};
-
-export const toLocalEndOfDayIso = (date: string): string => {
-  const parsed = parseLocalDateInput(date);
-  if (!parsed) {
-    throw new Error('Usa una fecha válida.');
-  }
-
-  return new Date(parsed.year, parsed.month - 1, parsed.day, 23, 59, 59, 999).toISOString();
-};
-
 const createInitialFilters = (baseDate = new Date()): ClinicAgendaFilters => ({
-  startDate: toLocalDateInputValue(baseDate),
-  endDate: addLocalDaysInputValue(30, baseDate),
+  startDate: toMadridDateInputValue(baseDate),
+  endDate: addMadridDaysInputValue(30, baseDate),
   statusFilter: 'ALL',
   originFilter: 'ALL',
   specialistFilter: 'ALL',
@@ -111,8 +63,8 @@ export const buildClinicAgendaSessionFilters = (
   filters: ClinicAgendaFilters,
   page = 1,
 ): clinicService.ClinicSessionListFilters => ({
-  startDate: toLocalStartOfDayIso(filters.startDate),
-  endDate: toLocalEndOfDayIso(filters.endDate),
+  startDate: toMadridStartOfDayIso(filters.startDate),
+  endDate: toMadridEndOfDayIso(filters.endDate),
   status: filters.statusFilter === 'ALL' ? undefined : filters.statusFilter,
   clinicSpecialistId: filters.specialistFilter === 'ALL' ? undefined : filters.specialistFilter,
   clinicPatientId: filters.patientFilter === 'ALL' ? undefined : filters.patientFilter,
@@ -124,8 +76,8 @@ export const buildClinicAgendaFilters = (
   filters: ClinicAgendaFilters,
   page = 1,
 ): clinicService.ClinicAgendaFilters => ({
-  startDate: toLocalStartOfDayIso(filters.startDate),
-  endDate: toLocalEndOfDayIso(filters.endDate),
+  startDate: toMadridStartOfDayIso(filters.startDate),
+  endDate: toMadridEndOfDayIso(filters.endDate),
   status: filters.statusFilter === 'ALL' ? undefined : filters.statusFilter,
   origin: filters.originFilter,
   clinicSpecialistId: filters.specialistFilter === 'ALL' ? undefined : filters.specialistFilter,
@@ -757,6 +709,17 @@ export function useClinicAgendaController() {
     restorePatientLookupBeforeScheduler();
   }, [restorePatientLookupBeforeScheduler]);
 
+  const handleLoadSessionSlotOptions = useCallback((
+    input: clinicService.GetClinicSessionSlotOptionsInput,
+  ): Promise<clinicService.ClinicSessionSlotOptionsResult> => {
+    const clinicId = workspace.selectedClinicId;
+    if (!clinicId || !canManage) {
+      return Promise.reject(new Error('Ya no tienes acceso para consultar esta agenda.'));
+    }
+
+    return clinicService.getClinicSessionSlotOptions(clinicId, input);
+  }, [canManage, workspace.selectedClinicId]);
+
   const handleSubmitSession = useCallback(async (
     payload: clinicService.CreateClinicSessionPayload,
   ): Promise<clinicService.ClinicSessionSummary> => {
@@ -828,6 +791,7 @@ export function useClinicAgendaController() {
     handleCloseCreateModal,
     handleLoadMoreSessions,
     handleLoadMorePatientOptions,
+    handleLoadSessionSlotOptions,
     handleOpenCreateModal,
     handleOpenSessionDetail,
     handlePatientLookupSearchChange,

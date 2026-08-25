@@ -7,9 +7,14 @@ import type {
   ClinicAgendaFilters,
   ClinicSessionDetail,
   ClinicSessionSummary,
+  ClinicSessionSlotOptionsResult,
   CreateClinicSessionPayload,
+  GetClinicSessionSlotOptionsInput,
   UpdateClinicSessionStatusPayload,
 } from './types';
+import type { ClinicSessionConflictError } from './sessionErrors';
+export { isClinicSessionConflictError } from './sessionErrors';
+export type { ClinicSessionConflictError } from './sessionErrors';
 
 export interface ClinicSessionChange {
   clinicId: string;
@@ -158,6 +163,27 @@ export const getClinicSessionDetail = async (
   }
 };
 
+export const getClinicSessionSlotOptions = async (
+  clinicId: string,
+  input: GetClinicSessionSlotOptionsInput,
+): Promise<ClinicSessionSlotOptionsResult> => {
+  try {
+    const response = await api.get<{
+      success: boolean;
+      data: ClinicSessionSlotOptionsResult;
+    }>(`/clinics/${clinicId}/sessions/slot-options`, {
+      params: input,
+    });
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getClinicSessionErrorMessage(
+      error,
+      'No se pudieron comprobar los huecos disponibles',
+    ));
+  }
+};
+
 export const createClinicSession = async (
   clinicId: string,
   payload: CreateClinicSessionPayload,
@@ -178,6 +204,15 @@ export const createClinicSession = async (
     });
     return session;
   } catch (error: unknown) {
+    if (getErrorCode(error) === 'CLINIC_SESSION_CONFLICT') {
+      const conflict = new Error(getClinicSessionErrorMessage(
+        error,
+        'Ese horario ya no está disponible para el profesional seleccionado.',
+      )) as ClinicSessionConflictError;
+      conflict.code = 'CLINIC_SESSION_CONFLICT';
+      throw conflict;
+    }
+
     throw new Error(getClinicSessionErrorMessage(
       error,
       'No se pudo crear la cita',

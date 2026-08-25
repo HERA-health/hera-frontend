@@ -10,6 +10,10 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ClinicSessionSchedulerModal } from '../../components/clinic/ClinicSessionSchedulerModal';
+import {
+  SchedulerDateRangeSelector,
+  type SchedulerDateRangeOpenField,
+} from '../../components/scheduling/SchedulerDateRangeSelector';
 import { useAppAlert } from '../../components/common/alert';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
@@ -74,6 +78,7 @@ export function ClinicAgendaScreen({
     handleCloseCreateModal: closeCreateModal,
     handleLoadMoreSessions,
     handleLoadMorePatientOptions,
+    handleLoadSessionSlotOptions,
     handleOpenCreateModal,
     handleOpenSessionDetail,
     handlePatientLookupSearchChange,
@@ -114,6 +119,8 @@ export function ClinicAgendaScreen({
   const selectedDetail = selectedSessionDetail;
   const [selectedPrivateSession, setSelectedPrivateSession] =
     useState<clinicService.ClinicAgendaPrivateSession | null>(null);
+  const [dateRangeOpenField, setDateRangeOpenField] =
+    useState<SchedulerDateRangeOpenField>(null);
   const newSessionButtonRef = useRef<AnimatedPressableHandle>(null);
 
   const restoreNewSessionFocus = useCallback(() => {
@@ -169,7 +176,10 @@ export function ClinicAgendaScreen({
                 focusRef={newSessionButtonRef}
                 variant="primary"
             size="medium"
-            onPress={handleOpenCreateModal}
+            onPress={() => {
+              setDateRangeOpenField(null);
+              handleOpenCreateModal();
+            }}
             disabled={!canManage || saving}
             icon={<Ionicons name="add-circle-outline" size={18} color={theme.actionPrimaryText} />}
           >
@@ -220,29 +230,28 @@ export function ClinicAgendaScreen({
                   <Ionicons name="calendar-outline" size={15} color={theme.primary} />
                   <Text style={styles.filterLabel}>Periodo</Text>
                 </View>
-                <View style={styles.periodInputs}>
-                  <Input
-                    label="Desde"
-                    value={editableFilters.startDate}
-                    onChangeText={(value) => setEditableFilter('startDate', value)}
-                    containerStyle={styles.dateInput}
-                    leftIcon={<Ionicons name="calendar-clear-outline" size={16} color={theme.textMuted} />}
-                  />
-                  <View style={styles.periodConnector} />
-                  <Input
-                    label="Hasta"
-                    value={editableFilters.endDate}
-                    onChangeText={(value) => setEditableFilter('endDate', value)}
-                    containerStyle={styles.dateInput}
-                    leftIcon={<Ionicons name="calendar-clear-outline" size={16} color={theme.textMuted} />}
-                  />
-                </View>
+                <SchedulerDateRangeSelector
+                  value={{
+                    startDate: editableFilters.startDate,
+                    endDate: editableFilters.endDate,
+                  }}
+                  openField={dateRangeOpenField}
+                  disabled={!canManage || loading}
+                  maxRangeDays={42}
+                  testIDPrefix="clinic-agenda-range"
+                  onOpenFieldChange={setDateRangeOpenField}
+                  onChange={(range) => {
+                    setEditableFilter('startDate', range.startDate);
+                    setEditableFilter('endDate', range.endDate);
+                  }}
+                />
               </View>
 
               <View style={styles.filterDropdown}>
                 <Text style={styles.filterLabel}>Estado</Text>
                 <SimpleDropdown
                   compact
+                  presentation="portal"
                   accessibilityLabel="Filtrar agenda por estado"
                   highlightSelection={false}
                   options={STATUS_OPTIONS}
@@ -255,6 +264,7 @@ export function ClinicAgendaScreen({
                 <Text style={styles.filterLabel}>Profesional</Text>
                 <SimpleDropdown
                   compact
+                  presentation="portal"
                   accessibilityLabel="Filtrar agenda por profesional"
                   highlightSelection={false}
                   options={specialistFilterOptions}
@@ -275,6 +285,7 @@ export function ClinicAgendaScreen({
                 <Text style={styles.filterLabel}>Origen</Text>
                 <SimpleDropdown
                   compact
+                  presentation="portal"
                   accessibilityLabel="Filtrar agenda por origen"
                   highlightSelection={false}
                   options={originFilterOptions}
@@ -288,7 +299,10 @@ export function ClinicAgendaScreen({
                   variant="primary"
                   size="medium"
                   fullWidth
-                  onPress={handleApplyFilters}
+                  onPress={() => {
+                    setDateRangeOpenField(null);
+                    handleApplyFilters();
+                  }}
                   icon={<Ionicons name="refresh-outline" size={17} color={theme.actionPrimaryText} />}
                 >
                   Actualizar agenda
@@ -316,6 +330,7 @@ export function ClinicAgendaScreen({
                 <View style={styles.patientDropdown}>
                   <SimpleDropdown
                     compact
+                    presentation="portal"
                     accessibilityLabel="Filtrar agenda por paciente"
                     highlightSelection={false}
                     options={patientFilterOptions}
@@ -431,6 +446,7 @@ export function ClinicAgendaScreen({
             onLoadMorePatients={handleLoadMorePatientOptions}
             onPatientSearchChange={handlePatientLookupSearchChange}
             onRetryPatientLookup={handleRetryPatientLookup}
+            onLoadSlotOptions={handleLoadSessionSlotOptions}
             onClose={handleCloseCreateModal}
             onSubmit={handleSubmitSession}
             onCreated={handleSessionCreated}
@@ -758,11 +774,15 @@ const createStyles = (theme: Theme, isCompact: boolean, isNarrow: boolean) =>
       flexWrap: isCompact ? undefined : 'wrap',
       alignItems: isCompact ? 'stretch' : 'flex-end',
       gap: spacing.md,
+      position: 'relative',
     },
     periodFilter: {
-      flex: isCompact ? undefined : 1.55,
-      minWidth: isCompact ? undefined : 300,
+      flexBasis: isCompact ? undefined : 360,
+      flexGrow: isCompact ? undefined : 1.35,
+      flexShrink: isCompact ? undefined : 1,
+      minWidth: isCompact ? undefined : 320,
       gap: spacing.xs,
+      position: 'relative',
     },
     filterLabelRow: {
       flexDirection: 'row',
@@ -770,35 +790,21 @@ const createStyles = (theme: Theme, isCompact: boolean, isNarrow: boolean) =>
       gap: 6,
       minHeight: 18,
     },
-    periodInputs: {
-      flexDirection: 'row',
-      alignItems: 'flex-end',
-      gap: spacing.sm,
-    },
-    dateInput: {
-      flex: 1,
-      minWidth: 0,
-      marginBottom: 0,
-    },
-    periodConnector: {
-      width: 10,
-      height: 1,
-      marginBottom: 22,
-      backgroundColor: theme.border,
-    },
     filterDropdown: {
-      flex: isCompact ? undefined : 1,
-      minWidth: isCompact ? undefined : 156,
+      flexBasis: isCompact ? undefined : 164,
+      flexGrow: isCompact ? undefined : 1,
+      flexShrink: isCompact ? undefined : 1,
+      minWidth: isCompact ? undefined : 150,
       gap: spacing.xs,
       position: 'relative',
-      zIndex: 30,
     },
     professionalFilter: {
-      flex: isCompact ? undefined : 1.2,
-      minWidth: isCompact ? undefined : 190,
+      flexBasis: isCompact ? undefined : 205,
+      flexGrow: isCompact ? undefined : 1.15,
+      flexShrink: isCompact ? undefined : 1,
+      minWidth: isCompact ? undefined : 180,
       gap: spacing.xs,
       position: 'relative',
-      zIndex: 30,
     },
     filterLabel: {
       color: theme.textSecondary,
@@ -807,8 +813,11 @@ const createStyles = (theme: Theme, isCompact: boolean, isNarrow: boolean) =>
       lineHeight: 18,
     },
     filterAction: {
-      width: isCompact ? '100%' : 184,
-      minWidth: isCompact ? undefined : 184,
+      flexBasis: isCompact ? undefined : 198,
+      flexShrink: 0,
+      marginLeft: isCompact ? 0 : 'auto',
+      width: isCompact ? '100%' : 198,
+      minWidth: isCompact ? undefined : 198,
     },
     patientFilter: {
       gap: spacing.sm,
@@ -816,7 +825,6 @@ const createStyles = (theme: Theme, isCompact: boolean, isNarrow: boolean) =>
       backgroundColor: theme.bgMuted,
       padding: spacing.md,
       position: 'relative',
-      zIndex: 25,
     },
     patientFilterHeader: {
       flexDirection: 'row',
@@ -843,7 +851,6 @@ const createStyles = (theme: Theme, isCompact: boolean, isNarrow: boolean) =>
       width: isNarrow ? '100%' : 240,
       minWidth: isNarrow ? undefined : 200,
       position: 'relative',
-      zIndex: 30,
     },
     referenceError: {
       flexDirection: isNarrow ? 'column' : 'row',

@@ -20,6 +20,7 @@ import {
   getClinicRevenueShareSummary,
   getClinicAgenda,
   getClinicSessionDetail,
+  getClinicSessionSlotOptions,
   getClinicInvoice,
   getClinicSettlement,
   getClinicSettlementPreview,
@@ -82,6 +83,7 @@ import {
   type ClinicAgenda,
   type ClinicSessionDetail,
   type ClinicSessionSummary,
+  type ClinicSessionSlotOptionsResult,
   type ClinicSpecialist,
   type LinkedProfessional,
   type ProfessionalClinicContext,
@@ -1058,6 +1060,37 @@ describe('clinicService', () => {
       },
     ]);
     unsubscribe();
+  });
+
+  it('loads clinic slot options through the dedicated minimal endpoint', async () => {
+    const result: ClinicSessionSlotOptionsResult = {
+      date: '2030-01-15',
+      duration: 60,
+      slots: [{
+        startTime: '10:30',
+        endTime: '11:30',
+        status: 'OCCUPIED',
+        selectable: false,
+      }],
+    };
+    getMock.mockResolvedValueOnce({
+      data: { success: true, data: result },
+    } as AxiosResponse<{ success: boolean; data: ClinicSessionSlotOptionsResult }>);
+
+    await expect(getClinicSessionSlotOptions('clinic-1', {
+      clinicSpecialistId: 'clinic-specialist-1',
+      date: '2030-01-15',
+      duration: 60,
+    })).resolves.toBe(result);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/sessions/slot-options', {
+      params: {
+        clinicSpecialistId: 'clinic-specialist-1',
+        date: '2030-01-15',
+        duration: 60,
+      },
+    });
+    expect(result.slots[0]).not.toHaveProperty('patient');
+    expect(result.slots[0]).not.toHaveProperty('origin');
   });
 
   it('loads the minimal combined agenda projection for the selected professional', async () => {

@@ -16,6 +16,7 @@ describe('madridTime', () => {
   it('returns null for invalid date or time values', () => {
     expect(parseMadridDateTime('2026-99-02', '10:30')).toBeNull();
     expect(parseMadridDateTime('2026-01-02', '25:00')).toBeNull();
+    expect(parseMadridDateTime('2026-03-29', '02:30')).toBeNull();
   });
 
   it('formats date keys in Madrid without shifting the day', () => {

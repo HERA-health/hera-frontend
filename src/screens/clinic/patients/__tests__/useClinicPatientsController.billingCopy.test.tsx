@@ -14,6 +14,7 @@ jest.mock('../../../../contexts/AuthContext', () => ({
 jest.mock('../../../../services/clinicService', () => ({
   createClinicPatient: jest.fn(),
   createClinicSession: jest.fn(),
+  getClinicSessionSlotOptions: jest.fn(),
   getClinicPatient: jest.fn(),
   getClinicPatientConsent: jest.fn(),
   listClinicPatientAssignmentHistory: jest.fn(),
@@ -36,6 +37,7 @@ const mockedCreateClinicPatient = jest.mocked(clinicService.createClinicPatient)
 const mockedCreateClinicSession = jest.mocked(clinicService.createClinicSession);
 const mockedGetClinicPatient = jest.mocked(clinicService.getClinicPatient);
 const mockedGetClinicPatientConsent = jest.mocked(clinicService.getClinicPatientConsent);
+const mockedGetClinicSessionSlotOptions = jest.mocked(clinicService.getClinicSessionSlotOptions);
 const mockedListClinicPatientAssignmentHistory = jest.mocked(
   clinicService.listClinicPatientAssignmentHistory,
 );
@@ -179,6 +181,11 @@ describe('useClinicPatientsController billing copy', () => {
     });
     mockedCreateClinicPatient.mockResolvedValue(patientDetail);
     mockedCreateClinicSession.mockResolvedValue(clinicSession);
+    mockedGetClinicSessionSlotOptions.mockResolvedValue({
+      date: '2030-01-15',
+      duration: 60,
+      slots: [],
+    });
     mockedRequestClinicPatientConsent.mockResolvedValue({
       requestId: 'request-1',
       status: 'PENDING',
@@ -1201,6 +1208,16 @@ describe('useClinicPatientsController billing copy', () => {
       patient: { ...clinicSession.patient, id: 'patient-2' },
     }));
     expect(result.current.sessionSchedulerVisible).toBe(true);
+
+    const slotInput: clinicService.GetClinicSessionSlotOptionsInput = {
+      clinicSpecialistId: 'specialist-1',
+      date: '2030-01-15',
+      duration: 50,
+    };
+    await act(async () => {
+      await result.current.handleLoadSessionSlotOptions(slotInput);
+    });
+    expect(mockedGetClinicSessionSlotOptions).toHaveBeenCalledWith('clinic-1', slotInput);
 
     const payload: clinicService.CreateClinicSessionPayload = {
       clinicPatientId: 'patient-1',

@@ -5,14 +5,58 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import type {
   ClinicPatientSummary,
   ClinicSessionSummary,
+  ClinicSessionSlotOptionsResult,
+  GetClinicSessionSlotOptionsInput,
 } from '../../../services/clinicService';
 import { ClinicSessionSchedulerModal } from '../ClinicSessionSchedulerModal';
+
+jest.mock('react-native-calendars', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+
+  return {
+    LocaleConfig: { locales: {}, defaultLocale: 'es' },
+    Calendar: ({ onDayPress, testID }: {
+      onDayPress?: (day: { dateString: string }) => void;
+      testID?: string;
+    }) => (
+      <Text testID={testID ?? 'clinic-scheduler-calendar'} onPress={() => {
+        onDayPress?.({ dateString: '2030-01-15' });
+      }}>
+        calendar
+      </Text>
+    ),
+  };
+});
 
 jest.mock('../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
 }));
 
 const mockedUseTheme = jest.mocked(useTheme);
+const onLoadSlotOptions = jest.fn<
+  Promise<ClinicSessionSlotOptionsResult>,
+  [GetClinicSessionSlotOptionsInput]
+>(async () => ({
+  date: '2030-01-15',
+  duration: 60,
+  slots: [{
+    startTime: '10:30',
+    endTime: '11:30',
+    status: 'AVAILABLE',
+    selectable: true,
+  }],
+}));
+
+const selectCalendarDate = (): void => {
+  fireEvent.press(screen.getByTestId('clinic-session-date-trigger'));
+  fireEvent.press(screen.getByTestId('clinic-session-date-calendar'));
+};
+
+const selectTime = (time: string): void => {
+  fireEvent.press(screen.getByTestId('clinic-session-time-trigger'));
+  fireEvent.press(screen.getByTestId(`clinic-session-time-option-${time}`));
+};
 
 const createDeferred = <T,>() => {
   let resolve!: (value: T) => void;
@@ -76,6 +120,7 @@ const session: ClinicSessionSummary = {
 
 describe('ClinicSessionSchedulerModal', () => {
   beforeEach(() => {
+    onLoadSlotOptions.mockClear();
     mockedUseTheme.mockReturnValue({
       theme: lightTheme,
       mode: 'light',
@@ -98,6 +143,7 @@ describe('ClinicSessionSchedulerModal', () => {
         clinicName="Clínica HERA"
         patients={[patient]}
         lockedPatientId={patient.id}
+        onLoadSlotOptions={onLoadSlotOptions}
         onClose={jest.fn()}
         onSubmit={onSubmit}
         onCreated={onCreated}
@@ -106,8 +152,8 @@ describe('ClinicSessionSchedulerModal', () => {
 
     expect(screen.getByText('Paciente preseleccionado')).toBeTruthy();
     expect(screen.queryByText('Buscar paciente')).toBeNull();
-    fireEvent.changeText(screen.getByLabelText('Fecha de la cita'), '2030-01-15');
-    fireEvent.changeText(screen.getByLabelText('Hora de la cita'), '10:30');
+    selectCalendarDate();
+    selectTime('10:30');
     fireEvent.changeText(screen.getByLabelText('Duración de la cita en minutos'), '50');
     fireEvent.press(screen.getByRole('radio', { name: 'Teléfono, Llamada de voz' }));
     fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
@@ -136,6 +182,7 @@ describe('ClinicSessionSchedulerModal', () => {
         patientOptions={[{ label: patient.displayName, value: patient.id }]}
         patientLookupSearch=""
         onPatientSearchChange={onSearch}
+        onLoadSlotOptions={onLoadSlotOptions}
         onClose={jest.fn()}
         onSubmit={onSubmit}
         onCreated={jest.fn()}
@@ -146,8 +193,8 @@ describe('ClinicSessionSchedulerModal', () => {
     expect(onSearch).toHaveBeenCalledWith('Lucía');
     fireEvent.press(screen.getByText('Selecciona paciente'));
     fireEvent.press(screen.getByRole('button', { name: patient.displayName }));
-    fireEvent.changeText(screen.getByLabelText('Fecha de la cita'), '2030-01-15');
-    fireEvent.changeText(screen.getByLabelText('Hora de la cita'), '10:30');
+    selectCalendarDate();
+    selectTime('10:30');
     fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
 
     await waitFor(() => {
@@ -163,21 +210,22 @@ describe('ClinicSessionSchedulerModal', () => {
       clinicName: 'Clínica HERA',
       patients: [patient],
       lockedPatientId: patient.id,
+      onLoadSlotOptions,
       onClose,
       onSubmit,
       onCreated: jest.fn(),
     };
     const view = render(<ClinicSessionSchedulerModal visible {...props} />);
-    const initialDate = screen.getByLabelText('Fecha de la cita').props.value;
-
-    fireEvent.changeText(screen.getByLabelText('Fecha de la cita'), '2030-02-20');
+    selectCalendarDate();
+    expect(screen.getByText('2030-01-15')).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Cancelar' }));
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onSubmit).not.toHaveBeenCalled();
 
     view.rerender(<ClinicSessionSchedulerModal visible={false} {...props} />);
     view.rerender(<ClinicSessionSchedulerModal visible {...props} />);
-    expect(screen.getByLabelText('Fecha de la cita').props.value).toBe(initialDate);
+    expect(screen.queryByText('2030-01-15')).toBeNull();
+    view.unmount();
   });
 
   it('closes an expanded patient selector before the next opening', () => {
@@ -185,6 +233,7 @@ describe('ClinicSessionSchedulerModal', () => {
       clinicName: 'Clínica HERA',
       patients: [patient],
       patientOptions: [{ label: patient.displayName, value: patient.id }],
+      onLoadSlotOptions,
       onClose: jest.fn(),
       onSubmit: jest.fn(async () => session),
       onCreated: jest.fn(),
@@ -206,6 +255,7 @@ describe('ClinicSessionSchedulerModal', () => {
       clinicName: 'Clínica HERA',
       patientLookupSearch: '',
       onPatientSearchChange: jest.fn(),
+      onLoadSlotOptions,
       onClose: jest.fn(),
       onSubmit,
       onCreated: jest.fn(),
@@ -230,8 +280,8 @@ describe('ClinicSessionSchedulerModal', () => {
     );
 
     expect(screen.getByText(patient.displayName)).toBeTruthy();
-    fireEvent.changeText(screen.getByLabelText('Fecha de la cita'), '2030-01-15');
-    fireEvent.changeText(screen.getByLabelText('Hora de la cita'), '10:30');
+    selectCalendarDate();
+    selectTime('10:30');
     fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
@@ -248,14 +298,15 @@ describe('ClinicSessionSchedulerModal', () => {
       clinicName: 'Clínica HERA',
       patients: [patient],
       lockedPatientId: patient.id,
+      onLoadSlotOptions,
       onClose: jest.fn(),
       onSubmit,
       onCreated,
     };
     const view = render(<ClinicSessionSchedulerModal visible {...props} />);
 
-    fireEvent.changeText(screen.getByLabelText('Fecha de la cita'), '2030-01-15');
-    fireEvent.changeText(screen.getByLabelText('Hora de la cita'), '10:30');
+    selectCalendarDate();
+    selectTime('10:30');
     const createButton = screen.getByRole('button', { name: 'Crear cita' });
     fireEvent.press(createButton);
     fireEvent.press(createButton);
@@ -279,6 +330,7 @@ describe('ClinicSessionSchedulerModal', () => {
       clinicName: 'Clínica HERA',
       patients: [],
       patientOptions: [],
+      onLoadSlotOptions,
       onClose: jest.fn(),
       onSubmit: jest.fn(async () => session),
       onCreated: jest.fn(),
@@ -301,5 +353,144 @@ describe('ClinicSessionSchedulerModal', () => {
     )).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled)
       .toBe(true);
+  });
+
+  it('shows an honest availability error and retries without closing the form', async () => {
+    onLoadSlotOptions
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce({
+        date: '2030-01-15',
+        duration: 60,
+        slots: [],
+      });
+
+    render(
+      <ClinicSessionSchedulerModal
+        visible
+        clinicName="Clínica HERA"
+        patients={[patient]}
+        lockedPatientId={patient.id}
+        onLoadSlotOptions={onLoadSlotOptions}
+        onClose={jest.fn()}
+        onSubmit={jest.fn(async () => session)}
+        onCreated={jest.fn()}
+      />,
+    );
+
+    expect(await screen.findByText('No se pudieron comprobar huecos. Se validará al guardar.')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Reintentar disponibilidad' }));
+    await waitFor(() => expect(onLoadSlotOptions).toHaveBeenCalledTimes(2));
+    await waitFor(() => {
+      expect(screen.queryByText('No se pudieron comprobar huecos. Se validará al guardar.')).toBeNull();
+    });
+  });
+
+  it('discards an obsolete slot response after the date changes', async () => {
+    const first = createDeferred<ClinicSessionSlotOptionsResult>();
+    const second = createDeferred<ClinicSessionSlotOptionsResult>();
+    onLoadSlotOptions
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
+
+    render(
+      <ClinicSessionSchedulerModal
+        visible
+        clinicName="Clínica HERA"
+        patients={[patient]}
+        lockedPatientId={patient.id}
+        onLoadSlotOptions={onLoadSlotOptions}
+        onClose={jest.fn()}
+        onSubmit={jest.fn(async () => session)}
+        onCreated={jest.fn()}
+      />,
+    );
+    selectCalendarDate();
+
+    await act(async () => {
+      second.resolve({
+        date: '2030-01-15',
+        duration: 60,
+        slots: [{
+          startTime: '10:30',
+          endTime: '11:30',
+          status: 'OCCUPIED',
+          selectable: false,
+        }],
+      });
+      await second.promise;
+    });
+    await act(async () => {
+      first.resolve({
+        date: '2026-08-25',
+        duration: 60,
+        slots: [{
+          startTime: '10:30',
+          endTime: '11:30',
+          status: 'AVAILABLE',
+          selectable: true,
+        }],
+      });
+      await first.promise;
+    });
+
+    fireEvent.press(screen.getByTestId('clinic-session-time-trigger'));
+    expect(screen.getByTestId('clinic-session-time-option-10:30').props.accessibilityState.disabled)
+      .toBe(true);
+  });
+
+  it('refreshes slots and associates an authoritative conflict with the time field', async () => {
+    const refresh = createDeferred<ClinicSessionSlotOptionsResult>();
+    const conflict = Object.assign(
+      new Error('Ese horario ya no está disponible para el profesional seleccionado.'),
+      { code: 'CLINIC_SESSION_CONFLICT' as const },
+    );
+    const onSubmit = jest.fn(async () => {
+      throw conflict;
+    });
+
+    render(
+      <ClinicSessionSchedulerModal
+        visible
+        clinicName="Clínica HERA"
+        patients={[patient]}
+        lockedPatientId={patient.id}
+        onLoadSlotOptions={onLoadSlotOptions}
+        onClose={jest.fn()}
+        onSubmit={onSubmit}
+        onCreated={jest.fn()}
+      />,
+    );
+    selectCalendarDate();
+    selectTime('10:30');
+    await waitFor(() => expect(onLoadSlotOptions).toHaveBeenCalled());
+    const requestsBeforeSubmit = onLoadSlotOptions.mock.calls.length;
+    onLoadSlotOptions.mockImplementationOnce(() => refresh.promise);
+    fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
+
+    expect(await screen.findByText(
+      'Ese horario ya no está disponible para el profesional seleccionado.',
+    )).toBeTruthy();
+    const createButton = screen.getByRole('button', { name: 'Crear cita' });
+    expect(createButton.props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(createButton);
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(onLoadSlotOptions.mock.calls.length).toBeGreaterThan(requestsBeforeSubmit);
+    });
+    await act(async () => {
+      refresh.resolve({
+        date: '2030-01-15',
+        duration: 60,
+        slots: [],
+      });
+      await refresh.promise;
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled)
+        .toBe(true);
+    });
+    selectTime('10:45');
+    expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled)
+      .toBe(false);
   });
 });

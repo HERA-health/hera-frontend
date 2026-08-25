@@ -121,4 +121,27 @@ describe('SimpleDropdown selection indicators', () => {
     expect(screen.getByRole('button', { name: 'Paciente de la cita' }).props.accessibilityState)
       .toEqual({ expanded: true });
   });
+
+  it('renders opt-in portal options outside local stacking contexts', () => {
+    const onSelect = jest.fn();
+    render(
+      <SimpleDropdown
+        accessibilityLabel="Estado de agenda"
+        options={options}
+        presentation="portal"
+        value={null}
+        onSelect={onSelect}
+      />
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Estado de agenda' });
+    fireEvent.press(trigger);
+
+    expect(screen.getByTestId('Estado de agenda-options')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Psiquiatra' }));
+
+    expect(onSelect).toHaveBeenCalledWith('PSYCHIATRIST');
+    expect(trigger.props.accessibilityState).toEqual({ expanded: false });
+    expect(screen.queryByTestId('Estado de agenda-options')).toBeNull();
+  });
 });
