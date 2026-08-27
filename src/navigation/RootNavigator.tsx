@@ -160,6 +160,13 @@ const ClinicTeamRoute = createDeferredLayoutRoute<'ClinicTeam'>(
     exportName: 'ClinicTeamScreen',
   }
 );
+const ClinicServicesRoute = createDeferredLayoutRoute<'ClinicServices'>(
+  () => require('../screens/clinic/ClinicServicesScreen'),
+  {
+    displayName: 'ClinicServicesRoute',
+    exportName: 'ClinicServicesScreen',
+  }
+);
 const ClinicPatientsRoute = createDeferredLayoutRoute<'ClinicPatients'>(
   () => require('../screens/clinic/ClinicPatientsScreen'),
   {
@@ -703,6 +710,11 @@ export function RootNavigator() {
           options={{ headerTitle: 'Equipo de clínica' }}
         />
         <Stack.Screen
+          name="ClinicServices"
+          component={ClinicServicesRoute}
+          options={{ headerTitle: 'Servicios de clínica' }}
+        />
+        <Stack.Screen
           name="ClinicPatients"
           component={ClinicPatientsRoute}
           options={{ headerTitle: 'Pacientes de clínica' }}
@@ -894,6 +906,11 @@ export function RootNavigator() {
           name="ClinicTeam"
           component={ClinicTeamRoute}
           options={{ headerTitle: 'Equipo de clínica' }}
+        />
+        <Stack.Screen
+          name="ClinicServices"
+          component={ClinicServicesRoute}
+          options={{ headerTitle: 'Servicios de clínica' }}
         />
         <Stack.Screen
           name="ClinicPatients"

@@ -41,6 +41,11 @@ import {
   markClinicInvoiceAsPaid,
   getMyClinicMemberships,
   listClinicAdministrators,
+  listClinicServices,
+  createClinicService,
+  updateClinicService,
+  updateClinicServiceStatus,
+  setDefaultClinicService,
   listClinicSessions,
   requestClinicPatientConsent,
   resolveClinicPatientConsentRequest,
@@ -85,6 +90,8 @@ import {
   type ClinicSessionSummary,
   type ClinicSessionSlotOptionsResult,
   type ClinicSpecialist,
+  type ClinicServiceCatalog,
+  type ClinicServiceWritePayload,
   type LinkedProfessional,
   type ProfessionalClinicContext,
   type ProfessionalClinicPatientDetail,
@@ -1060,6 +1067,86 @@ describe('clinicService', () => {
       },
     ]);
     unsubscribe();
+  });
+
+  it('uses the dedicated clinic service catalog endpoints and preserves filter names', async () => {
+    const catalog: ClinicServiceCatalog = {
+      activatedAt: null,
+      services: [],
+      specialistOptions: [],
+    };
+    getMock.mockResolvedValueOnce({ data: { success: true, data: catalog } } as AxiosResponse);
+    postMock.mockResolvedValueOnce({ data: { success: true, data: { id: 'service-1' } } } as AxiosResponse);
+    patchMock
+      .mockResolvedValueOnce({ data: { success: true, data: { id: 'service-1' } } } as AxiosResponse)
+      .mockResolvedValueOnce({ data: { success: true, data: { id: 'service-1' } } } as AxiosResponse)
+      .mockResolvedValueOnce({ data: { success: true, data: { id: 'service-1' } } } as AxiosResponse);
+
+    const writePayload: ClinicServiceWritePayload = {
+      name: 'Primera consulta',
+      description: null,
+      durationMinutes: 60,
+      price: 65,
+      modalities: ['IN_PERSON'],
+      clinicSpecialistIds: ['clinic-specialist-1'],
+    };
+    await expect(listClinicServices('clinic-1', { status: 'ARCHIVED', search: 'consulta' })).resolves.toBe(catalog);
+    await createClinicService('clinic-1', writePayload);
+    await updateClinicService('clinic-1', 'service-1', { ...writePayload, version: 2 });
+    await updateClinicServiceStatus('clinic-1', 'service-1', { status: 'ARCHIVED', version: 3 });
+    await setDefaultClinicService('clinic-1', 'service-1', 4);
+
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/services', {
+      params: { status: 'ARCHIVED', search: 'consulta' },
+    });
+    expect(postMock).toHaveBeenCalledWith('/clinics/clinic-1/services', writePayload);
+    expect(patchMock).toHaveBeenNthCalledWith(1, '/clinics/clinic-1/services/service-1', { ...writePayload, version: 2 });
+    expect(patchMock).toHaveBeenNthCalledWith(2, '/clinics/clinic-1/services/service-1/status', { status: 'ARCHIVED', version: 3 });
+    expect(patchMock).toHaveBeenNthCalledWith(3, '/clinics/clinic-1/services/service-1/default', { version: 4 });
+  });
+
+  it('preserves the clinic service conflict code for deliberate draft recovery', async () => {
+    patchMock.mockRejectedValueOnce({
+      response: { data: { code: 'CLINIC_SERVICE_CONFLICT', error: 'Conflict' } },
+    });
+    await expect(updateClinicService('clinic-1', 'service-1', {
+      version: 2,
+      name: 'Seguimiento',
+    })).rejects.toMatchObject({
+      name: 'ClinicServiceRequestError',
+      code: 'CLINIC_SERVICE_CONFLICT',
+    });
+  });
+
+  it('preserves only supported clinic service field metadata', async () => {
+    patchMock
+      .mockRejectedValueOnce({
+        response: {
+          data: {
+            code: 'CLINIC_SERVICE_NAME_CONFLICT',
+            error: 'Duplicado',
+            field: 'name',
+          },
+        },
+      })
+      .mockRejectedValueOnce({
+        response: {
+          data: {
+            code: 'INVALID_CLINIC_SERVICE_DATA',
+            error: 'Inválido',
+            field: 'privateInternalField',
+          },
+        },
+      });
+
+    await expect(updateClinicService('clinic-1', 'service-1', {
+      version: 2,
+      name: 'Seguimiento',
+    })).rejects.toMatchObject({ field: 'name' });
+    await expect(updateClinicService('clinic-1', 'service-1', {
+      version: 2,
+      name: 'Seguimiento',
+    })).rejects.toMatchObject({ field: undefined });
   });
 
   it('loads clinic slot options through the dedicated minimal endpoint', async () => {

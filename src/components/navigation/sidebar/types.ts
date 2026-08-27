@@ -53,6 +53,8 @@ export type IconName =
   | 'shield-outline'
   | 'receipt'
   | 'receipt-outline'
+  | 'pricetags'
+  | 'pricetags-outline'
   | 'heart'
   | 'heart-outline';
 

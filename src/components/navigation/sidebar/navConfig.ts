@@ -186,6 +186,14 @@ export const CLINIC_SECTIONS: NavigationSection[] = [
         roles: ['CLINIC'],
       },
       {
+        id: 'clinic-services',
+        label: 'Servicios',
+        icon: 'pricetags-outline',
+        iconActive: 'pricetags',
+        route: 'ClinicServices',
+        roles: ['CLINIC'],
+      },
+      {
         id: 'clinic-patients',
         label: 'Pacientes',
         icon: 'medical-outline',
@@ -248,6 +256,14 @@ export const PROFESSIONAL_CLINIC_SECTION: NavigationSection = {
       icon: 'shield-outline',
       iconActive: 'shield',
       route: 'ClinicAdministrators',
+      roles: ['PROFESSIONAL'],
+    },
+    {
+      id: 'clinic-services',
+      label: 'Servicios',
+      icon: 'pricetags-outline',
+      iconActive: 'pricetags',
+      route: 'ClinicServices',
       roles: ['PROFESSIONAL'],
     },
     {

@@ -130,6 +130,7 @@ export type RootStackParamList = {
   ClinicSettings: { initialSection?: ClinicSettingsSection } | undefined;
   ClinicAdministrators: undefined;
   ClinicTeam: undefined;
+  ClinicServices: undefined;
   ClinicPatients: undefined;
   ClinicAgenda: undefined;
   ClinicBilling: { initialSection?: ClinicBillingInitialSection } | undefined;

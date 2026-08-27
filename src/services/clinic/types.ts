@@ -4,6 +4,17 @@ export type ClinicMembershipStatus = 'ACTIVE' | 'INACTIVE';
 export type ClinicAdministratorUserType = 'PROFESSIONAL' | 'CLINIC';
 export type ClinicSpecialistStatus = 'ACTIVE' | 'INACTIVE';
 export type ClinicSpecialistStatusFilter = ClinicSpecialistStatus | 'ALL';
+export type ClinicServiceStatus = 'ACTIVE' | 'ARCHIVED';
+export type ClinicServiceStatusFilter = ClinicServiceStatus | 'ALL';
+export type ClinicServiceModality = Extract<ClinicSessionType, 'IN_PERSON' | 'PHONE_CALL'>;
+export type ClinicServiceErrorField =
+  | 'name'
+  | 'description'
+  | 'durationMinutes'
+  | 'price'
+  | 'modalities'
+  | 'clinicSpecialistIds'
+  | 'replacementDefaultServiceId';
 export type ClinicPatientStatus = 'ACTIVE' | 'ARCHIVED';
 export type ClinicPatientStatusFilter = ClinicPatientStatus | 'ALL';
 export type ClinicPatientAssignmentFilter = 'ALL' | 'ASSIGNED' | 'UNASSIGNED';
@@ -185,6 +196,62 @@ export interface ClinicPatientDetail extends ClinicPatientSummary {
       'id' | 'displayName' | 'professionalTitle'
     > | null;
   } | null;
+}
+
+export interface ClinicServiceCatalogItem {
+  id: string;
+  name: string;
+  description: string | null;
+  durationMinutes: number;
+  price: number;
+  currency: 'EUR';
+  modalities: ClinicServiceModality[];
+  status: ClinicServiceStatus;
+  isDefault: boolean;
+  clinicSpecialistIds: string[];
+  activeSpecialistCount: number;
+  version: number;
+}
+
+export interface ClinicServiceSpecialistOption {
+  id: string;
+  displayName: string;
+  status: ClinicSpecialistStatus;
+}
+
+export interface ClinicServiceCatalog {
+  activatedAt: string | null;
+  services: ClinicServiceCatalogItem[];
+  specialistOptions: ClinicServiceSpecialistOption[];
+}
+
+export interface ClinicServiceListFilters {
+  status?: ClinicServiceStatusFilter;
+  search?: string;
+}
+
+export interface ClinicServiceWritePayload {
+  name: string;
+  description?: string | null;
+  durationMinutes: number;
+  price: number;
+  modalities: ClinicServiceModality[];
+  clinicSpecialistIds: string[];
+}
+
+export interface CreateClinicServicePayload extends ClinicServiceWritePayload {
+  isDefault?: boolean;
+}
+
+export type UpdateClinicServicePayload = Partial<ClinicServiceWritePayload> & {
+  version: number;
+};
+
+export interface UpdateClinicServiceStatusPayload {
+  status: ClinicServiceStatus;
+  version: number;
+  replacementDefaultServiceId?: string;
+  clinicSpecialistIds?: string[];
 }
 
 export type ClinicPatientAssignmentHistoryStatus = 'ACTIVE' | 'ENDED';
