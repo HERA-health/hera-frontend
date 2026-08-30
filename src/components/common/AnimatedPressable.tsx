@@ -37,6 +37,8 @@ interface AnimatedPressableProps {
   testID?: string;
   href?: string;
   focusRef?: React.Ref<AnimatedPressableHandle>;
+  onKeyDown?: (event: React.KeyboardEvent) => void;
+  tabIndex?: 0 | -1;
 }
 
 const AnimatedPressableComponent = Animated.createAnimatedComponent(Pressable);
@@ -47,6 +49,8 @@ type WebLinkProps = {
   'aria-disabled'?: boolean;
   'aria-expanded'?: boolean;
   'aria-selected'?: boolean;
+  onKeyDown?: (event: React.KeyboardEvent) => void;
+  tabIndex?: 0 | -1;
 };
 
 interface WebPointerModifiers {
@@ -77,6 +81,8 @@ export function AnimatedPressable({
   testID,
   href,
   focusRef,
+  onKeyDown,
+  tabIndex,
 }: AnimatedPressableProps) {
   const scale = useSharedValue(1);
   const translateY = useSharedValue(0);
@@ -152,6 +158,8 @@ export function AnimatedPressable({
             'aria-disabled': accessibilityState?.disabled,
             'aria-expanded': accessibilityState?.expanded,
             'aria-selected': accessibilityState?.selected,
+            onKeyDown,
+            tabIndex,
           }
         : {})}
       testID={testID}

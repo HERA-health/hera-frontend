@@ -443,6 +443,7 @@ describe('professionalService cached professional GETs', () => {
       status: 'CONFIRMED',
       type: 'VIDEO_CALL',
       origin: 'CLINIC',
+      bookedServiceName: 'Seguimiento emocional',
       clinicContext: {
         clinicId: 'clinic-1',
         clinicName: 'Clínica Hera',
@@ -482,6 +483,7 @@ describe('professionalService cached professional GETs', () => {
     });
 
     await expect(getProfessionalSessionDetail('session-1')).resolves.toBe(detail);
+    expect(detail.bookedServiceName).toBe('Seguimiento emocional');
     expect(mockedApi.get).toHaveBeenCalledWith('/sessions/professional/session-1');
   });
 

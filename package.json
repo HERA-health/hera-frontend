@@ -11,6 +11,7 @@
     "vercel-build": "expo export --platform web",
     "postinstall": "patch-package",
     "test": "jest --runInBand",
+    "test:agenda-regression": "jest --runInBand --runTestsByPath src/utils/__tests__/madridTime.test.ts src/utils/__tests__/managedSessionSchedulerValidation.test.ts src/screens/clinic/__tests__/clinicAgendaDateRange.test.ts src/components/common/__tests__/AnimatedPressable.test.tsx src/components/scheduling/__tests__/SchedulerDateTimeSelector.test.tsx src/components/scheduling/__tests__/SchedulerDateRangeSelector.test.tsx src/components/professional/__tests__/managedSessionSchedulerAdapter.test.ts src/components/professional/__tests__/ManagedSessionSchedulerModal.test.tsx src/components/clinic/__tests__/clinicSessionSchedulerDomain.test.ts src/components/clinic/__tests__/clinicSessionSchedulerAdapter.test.ts src/components/clinic/__tests__/ClinicSessionSchedulerModal.test.tsx src/components/clinic/__tests__/ClinicSessionServicePicker.test.tsx src/components/clinic/__tests__/useClinicSessionServiceOptions.test.ts src/components/sessions/__tests__/AppointmentDetailSheet.test.tsx src/services/__tests__/clinicService.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

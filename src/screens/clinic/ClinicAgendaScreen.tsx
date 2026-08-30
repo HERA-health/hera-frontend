@@ -79,6 +79,7 @@ export function ClinicAgendaScreen({
     handleLoadMoreSessions,
     handleLoadMorePatientOptions,
     handleLoadSessionSlotOptions,
+    handleLoadSessionServiceOptions,
     handleOpenCreateModal,
     handleOpenSessionDetail,
     handlePatientLookupSearchChange,
@@ -447,6 +448,7 @@ export function ClinicAgendaScreen({
             onPatientSearchChange={handlePatientLookupSearchChange}
             onRetryPatientLookup={handleRetryPatientLookup}
             onLoadSlotOptions={handleLoadSessionSlotOptions}
+            onLoadServiceOptions={handleLoadSessionServiceOptions}
             onClose={handleCloseCreateModal}
             onSubmit={handleSubmitSession}
             onCreated={handleSessionCreated}

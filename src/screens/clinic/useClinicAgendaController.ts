@@ -720,6 +720,17 @@ export function useClinicAgendaController() {
     return clinicService.getClinicSessionSlotOptions(clinicId, input);
   }, [canManage, workspace.selectedClinicId]);
 
+  const handleLoadSessionServiceOptions = useCallback((
+    input: clinicService.GetClinicSessionServiceOptionsInput,
+  ): Promise<clinicService.ClinicSessionServiceOptionsResult> => {
+    const clinicId = workspace.selectedClinicId;
+    if (!clinicId || !canManage) {
+      return Promise.reject(new Error('Ya no tienes acceso para consultar los servicios.'));
+    }
+
+    return clinicService.getClinicSessionServiceOptions(clinicId, input);
+  }, [canManage, workspace.selectedClinicId]);
+
   const handleSubmitSession = useCallback(async (
     payload: clinicService.CreateClinicSessionPayload,
   ): Promise<clinicService.ClinicSessionSummary> => {
@@ -792,6 +803,7 @@ export function useClinicAgendaController() {
     handleLoadMoreSessions,
     handleLoadMorePatientOptions,
     handleLoadSessionSlotOptions,
+    handleLoadSessionServiceOptions,
     handleOpenCreateModal,
     handleOpenSessionDetail,
     handlePatientLookupSearchChange,

@@ -407,6 +407,10 @@ export interface ClinicSessionDetail extends ClinicSessionSummary {
   bookedDuration: number | null;
   bookedTariffId: string | null;
   bookedTariffName: string | null;
+  bookedService: {
+    id: string;
+    name: string;
+  } | null;
   financials: ClinicSessionFinancials;
   invoice: {
     id: string;
@@ -479,13 +483,25 @@ export interface ClinicAgenda {
   pageInfo: ClinicPatientListPageInfo;
 }
 
-export interface CreateClinicSessionPayload {
+interface CreateClinicSessionPayloadBase {
   clinicPatientId: string;
   clinicSpecialistId: string;
   date: string;
-  duration: number;
   type: ClinicSessionType;
 }
+
+export type CreateClinicSessionPayload = CreateClinicSessionPayloadBase & (
+  | {
+      duration: number;
+      clinicServiceId?: never;
+      clinicServiceVersion?: never;
+    }
+  | {
+      duration?: never;
+      clinicServiceId: string;
+      clinicServiceVersion: number;
+    }
+);
 
 export interface UpdateClinicSessionStatusPayload {
   status: Extract<ClinicSessionStatus, 'CANCELLED' | 'COMPLETED'>;
@@ -851,10 +867,43 @@ export interface ClinicSessionSlotOptionsResult {
   slots: ClinicSessionSlotOption[];
 }
 
-export interface GetClinicSessionSlotOptionsInput {
+interface GetClinicSessionSlotOptionsBaseInput {
   clinicSpecialistId: string;
   date: string;
-  duration: number;
+}
+
+export type GetClinicSessionSlotOptionsInput = GetClinicSessionSlotOptionsBaseInput & (
+  | {
+      duration: number;
+      clinicServiceId?: never;
+      clinicServiceVersion?: never;
+    }
+  | {
+      duration?: never;
+      clinicServiceId: string;
+      clinicServiceVersion: number;
+    }
+);
+
+export interface ClinicSessionServiceOption {
+  id: string;
+  name: string;
+  description: string | null;
+  durationMinutes: number;
+  price: number;
+  currency: 'EUR';
+  modalities: ClinicServiceModality[];
+  isDefault: boolean;
+  version: number;
+}
+
+export interface ClinicSessionServiceOptionsResult {
+  catalogActivated: boolean;
+  services: ClinicSessionServiceOption[];
+}
+
+export interface GetClinicSessionServiceOptionsInput {
+  clinicSpecialistId: string;
 }
 
 export interface ClinicGuestConsentAdminRequest {

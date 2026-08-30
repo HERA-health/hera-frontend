@@ -1174,6 +1174,25 @@ export function useClinicPatientsController() {
     return clinicService.getClinicSessionSlotOptions(context.clinicId, input);
   }, [canManage, workspace.selectedClinicId]);
 
+  const handleLoadSessionServiceOptions = useCallback((
+    input: clinicService.GetClinicSessionServiceOptionsInput,
+  ): Promise<clinicService.ClinicSessionServiceOptionsResult> => {
+    const context = sessionSchedulerContextRef.current;
+    if (
+      !context
+      || !workspace.selectedClinicId
+      || context.clinicId !== workspace.selectedClinicId
+      || input.clinicSpecialistId !== context.clinicSpecialistId
+      || !canManage
+    ) {
+      return Promise.reject(new Error(
+        'El contexto de clínica o el responsable han cambiado. Cierra y vuelve a abrir el formulario.',
+      ));
+    }
+
+    return clinicService.getClinicSessionServiceOptions(context.clinicId, input);
+  }, [canManage, workspace.selectedClinicId]);
+
   const handleSubmitPatientSession = useCallback(async (
     payload: clinicService.CreateClinicSessionPayload,
   ): Promise<clinicService.ClinicSessionSummary> => {
@@ -1970,6 +1989,7 @@ export function useClinicPatientsController() {
     handleSpecialistFilterChange,
     handleLoadMorePatients,
     handleLoadSessionSlotOptions,
+    handleLoadSessionServiceOptions,
     handleLoadMoreAssignmentHistory,
     handleLoadMorePatientSessions,
     handleRetryAssignmentHistory,

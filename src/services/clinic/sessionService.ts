@@ -8,12 +8,18 @@ import type {
   ClinicSessionDetail,
   ClinicSessionSummary,
   ClinicSessionSlotOptionsResult,
+  ClinicSessionServiceOptionsResult,
   CreateClinicSessionPayload,
   GetClinicSessionSlotOptionsInput,
+  GetClinicSessionServiceOptionsInput,
   UpdateClinicSessionStatusPayload,
 } from './types';
 import type { ClinicSessionConflictError } from './sessionErrors';
-export { isClinicSessionConflictError } from './sessionErrors';
+export {
+  isClinicSessionConflictError,
+  isClinicSessionInvalidSlotError,
+  isClinicSessionServiceRefreshError,
+} from './sessionErrors';
 export type { ClinicSessionConflictError } from './sessionErrors';
 
 export interface ClinicSessionChange {
@@ -48,7 +54,7 @@ const CLINIC_SESSION_ERROR_MESSAGES: Partial<Record<string, string>> = {
   CLINIC_SESSION_NOT_FOUND:
     'No se encontró la cita de clínica.',
   CLINIC_SESSION_CONFLICT:
-    'Ese horario ya no está disponible para el profesional seleccionado.',
+    'Ese horario ya no está disponible. Elige otro hueco.',
   CLINIC_SESSION_PATIENT_NOT_FOUND:
     'No se encontró la ficha del paciente.',
   CLINIC_SESSION_PATIENT_ARCHIVED:
@@ -63,6 +69,16 @@ const CLINIC_SESSION_ERROR_MESSAGES: Partial<Record<string, string>> = {
     'No hay un contexto asistencial activo para esta asignación.',
   CLINIC_SESSION_VIDEO_DISABLED:
     'Las videollamadas de clínica no están activas todavía.',
+  CLINIC_SESSION_SERVICE_REQUIRED:
+    'Selecciona un servicio para crear la cita.',
+  CLINIC_SESSION_SERVICE_UNAVAILABLE:
+    'El servicio ya no está disponible para este profesional.',
+  CLINIC_SESSION_SERVICE_CONFLICT:
+    'El servicio ha cambiado. Revisa sus datos antes de guardar de nuevo.',
+  CLINIC_SESSION_SERVICE_MODALITY_UNAVAILABLE:
+    'La modalidad seleccionada ya no está disponible para este servicio.',
+  CLINIC_SESSION_INVALID_SLOT:
+    'Selecciona una hora entre las 07:00 y las 23:00, en intervalos de 15 minutos (hora peninsular).',
   CLINIC_SESSION_INVALID_STATUS:
     'Revisa el estado o la fecha de la cita antes de continuar.',
   CLINIC_AGENDA_INVALID_RANGE:
@@ -177,9 +193,43 @@ export const getClinicSessionSlotOptions = async (
 
     return response.data.data;
   } catch (error: unknown) {
+    const code = getErrorCode(error);
+    if (
+      code === 'CLINIC_SESSION_SERVICE_REQUIRED'
+      || code === 'CLINIC_SESSION_SERVICE_UNAVAILABLE'
+      || code === 'CLINIC_SESSION_SERVICE_CONFLICT'
+    ) {
+      const refreshError = new Error(getClinicSessionErrorMessage(
+        error,
+        'El servicio ha cambiado. Revisa sus datos antes de continuar.',
+      )) as ClinicSessionConflictError;
+      refreshError.code = code;
+      refreshError.field = 'clinicServiceId';
+      throw refreshError;
+    }
+
     throw new Error(getClinicSessionErrorMessage(
       error,
       'No se pudieron comprobar los huecos disponibles',
+    ));
+  }
+};
+
+export const getClinicSessionServiceOptions = async (
+  clinicId: string,
+  input: GetClinicSessionServiceOptionsInput,
+): Promise<ClinicSessionServiceOptionsResult> => {
+  try {
+    const response = await api.get<{
+      success: boolean;
+      data: ClinicSessionServiceOptionsResult;
+    }>(`/clinics/${clinicId}/sessions/service-options`, { params: input });
+
+    return response.data.data;
+  } catch (error: unknown) {
+    throw new Error(getClinicSessionErrorMessage(
+      error,
+      'No se pudieron cargar los servicios disponibles',
     ));
   }
 };
@@ -204,12 +254,27 @@ export const createClinicSession = async (
     });
     return session;
   } catch (error: unknown) {
-    if (getErrorCode(error) === 'CLINIC_SESSION_CONFLICT') {
+    const code = getErrorCode(error);
+    if (
+      code === 'CLINIC_SESSION_CONFLICT'
+      || code === 'CLINIC_SESSION_INVALID_SLOT'
+      || code === 'CLINIC_SESSION_SERVICE_REQUIRED'
+      || code === 'CLINIC_SESSION_SERVICE_UNAVAILABLE'
+      || code === 'CLINIC_SESSION_SERVICE_CONFLICT'
+      || code === 'CLINIC_SESSION_SERVICE_MODALITY_UNAVAILABLE'
+    ) {
       const conflict = new Error(getClinicSessionErrorMessage(
         error,
-        'Ese horario ya no está disponible para el profesional seleccionado.',
+        'Ese horario ya no está disponible. Elige otro hueco.',
       )) as ClinicSessionConflictError;
-      conflict.code = 'CLINIC_SESSION_CONFLICT';
+      conflict.code = code;
+      conflict.field = code === 'CLINIC_SESSION_SERVICE_MODALITY_UNAVAILABLE'
+        ? 'type'
+        : code === 'CLINIC_SESSION_INVALID_SLOT'
+          ? 'date'
+          : code === 'CLINIC_SESSION_CONFLICT'
+            ? undefined
+            : 'clinicServiceId';
       throw conflict;
     }
 

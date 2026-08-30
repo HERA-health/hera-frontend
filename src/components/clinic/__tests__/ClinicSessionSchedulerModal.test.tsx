@@ -6,6 +6,8 @@ import type {
   ClinicPatientSummary,
   ClinicSessionSummary,
   ClinicSessionSlotOptionsResult,
+  ClinicSessionServiceOptionsResult,
+  GetClinicSessionServiceOptionsInput,
   GetClinicSessionSlotOptionsInput,
 } from '../../../services/clinicService';
 import { ClinicSessionSchedulerModal } from '../ClinicSessionSchedulerModal';
@@ -47,13 +49,32 @@ const onLoadSlotOptions = jest.fn<
     selectable: true,
   }],
 }));
+const onLoadServiceOptions = jest.fn<
+  Promise<ClinicSessionServiceOptionsResult>,
+  [GetClinicSessionServiceOptionsInput]
+>(async () => ({ catalogActivated: false, services: [] }));
 
-const selectCalendarDate = (): void => {
+const selectCalendarDate = async (waitForAvailability = true): Promise<void> => {
+  await waitFor(() => expect(
+    screen.getByTestId('clinic-session-date-trigger').props.accessibilityState.disabled,
+  ).toBe(false));
+  const requestsBeforeSelection = onLoadSlotOptions.mock.calls.length;
   fireEvent.press(screen.getByTestId('clinic-session-date-trigger'));
   fireEvent.press(screen.getByTestId('clinic-session-date-calendar'));
+  await waitFor(() => {
+    expect(onLoadSlotOptions.mock.calls.length).toBeGreaterThan(requestsBeforeSelection);
+  });
+  if (waitForAvailability) {
+    await waitFor(() => {
+      expect(screen.queryByText('Comprobando disponibilidad…')).toBeNull();
+    });
+  }
 };
 
-const selectTime = (time: string): void => {
+const selectTime = async (time: string): Promise<void> => {
+  await waitFor(() => expect(
+    screen.getByTestId('clinic-session-time-trigger').props.accessibilityState.disabled,
+  ).toBe(false));
   fireEvent.press(screen.getByTestId('clinic-session-time-trigger'));
   fireEvent.press(screen.getByTestId(`clinic-session-time-option-${time}`));
 };
@@ -66,6 +87,18 @@ const createDeferred = <T,>() => {
     reject = rejectPromise;
   });
   return { promise, reject, resolve };
+};
+
+const renderModal = async (
+  element: React.ReactElement,
+): Promise<ReturnType<typeof render>> => {
+  const view = render(element);
+  await act(async () => {
+    for (let cycle = 0; cycle < 8; cycle += 1) {
+      await Promise.resolve();
+    }
+  });
+  return view;
 };
 
 const patient: ClinicPatientSummary = {
@@ -88,6 +121,21 @@ const patient: ClinicPatientSummary = {
     clinicSpecialistStatus: 'ACTIVE',
     startedAt: '2026-08-01T08:00:00.000Z',
     reason: null,
+  },
+};
+
+const secondPatient: ClinicPatientSummary = {
+  ...patient,
+  id: 'patient-2',
+  displayName: 'Mario Gómez',
+  firstName: 'Mario',
+  lastName: 'Gómez',
+  email: 'mario@example.com',
+  activeAssignment: {
+    ...patient.activeAssignment!,
+    id: 'assignment-2',
+    clinicSpecialistId: 'specialist-2',
+    clinicSpecialistDisplayName: 'Dr. Pablo León',
   },
 };
 
@@ -120,7 +168,21 @@ const session: ClinicSessionSummary = {
 
 describe('ClinicSessionSchedulerModal', () => {
   beforeEach(() => {
-    onLoadSlotOptions.mockClear();
+    onLoadSlotOptions.mockReset();
+    onLoadSlotOptions.mockImplementation(() => new Promise((resolve) => {
+      setTimeout(() => resolve({
+        date: '2030-01-15',
+        duration: 60,
+        slots: [{
+          startTime: '10:30',
+          endTime: '11:30',
+          status: 'AVAILABLE',
+          selectable: true,
+        }],
+      }), 0);
+    }));
+    onLoadServiceOptions.mockReset();
+    onLoadServiceOptions.mockResolvedValue({ catalogActivated: false, services: [] });
     mockedUseTheme.mockReturnValue({
       theme: lightTheme,
       mode: 'light',
@@ -137,13 +199,14 @@ describe('ClinicSessionSchedulerModal', () => {
     const onSubmit = jest.fn(async () => session);
     const onCreated = jest.fn();
 
-    render(
+    await renderModal(
       <ClinicSessionSchedulerModal
         visible
         clinicName="Clínica HERA"
         patients={[patient]}
         lockedPatientId={patient.id}
         onLoadSlotOptions={onLoadSlotOptions}
+        onLoadServiceOptions={onLoadServiceOptions}
         onClose={jest.fn()}
         onSubmit={onSubmit}
         onCreated={onCreated}
@@ -152,8 +215,10 @@ describe('ClinicSessionSchedulerModal', () => {
 
     expect(screen.getByText('Paciente preseleccionado')).toBeTruthy();
     expect(screen.queryByText('Buscar paciente')).toBeNull();
-    selectCalendarDate();
-    selectTime('10:30');
+    expect(screen.getByLabelText('Modalidades disponibles').props.accessibilityRole)
+      .toBe('radiogroup');
+    await selectCalendarDate();
+    await selectTime('10:30');
     fireEvent.changeText(screen.getByLabelText('Duración de la cita en minutos'), '50');
     fireEvent.press(screen.getByRole('radio', { name: 'Teléfono, Llamada de voz' }));
     fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
@@ -168,13 +233,288 @@ describe('ClinicSessionSchedulerModal', () => {
     expect(onCreated).toHaveBeenCalledWith(session);
   });
 
+  it('uses the default catalog service as the authoritative booking configuration', async () => {
+    onLoadServiceOptions.mockResolvedValueOnce({
+      catalogActivated: true,
+      services: [{
+        id: 'service-1',
+        name: 'Seguimiento telefónico',
+        description: 'Consulta de continuidad',
+        durationMinutes: 45,
+        price: 65,
+        currency: 'EUR',
+        modalities: ['PHONE_CALL'],
+        isDefault: true,
+        version: 4,
+      }],
+    });
+    const onSubmit = jest.fn(async () => session);
+
+    await renderModal(
+      <ClinicSessionSchedulerModal
+        visible
+        clinicName="Clínica HERA"
+        patients={[patient]}
+        lockedPatientId={patient.id}
+        onLoadSlotOptions={onLoadSlotOptions}
+        onLoadServiceOptions={onLoadServiceOptions}
+        onClose={jest.fn()}
+        onSubmit={onSubmit}
+        onCreated={jest.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole('radio', { name: /Seguimiento telefónico/ })).toBeTruthy();
+    expect(screen.queryByLabelText('Duración de la cita en minutos')).toBeNull();
+    expect(screen.queryByRole('radio', { name: 'Presencial, En la clínica' })).toBeNull();
+    expect(screen.getByRole('radio', { name: 'Teléfono, Llamada de voz' }).props.accessibilityState.checked)
+      .toBe(true);
+
+    await selectCalendarDate();
+    await selectTime('10:30');
+    fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
+
+    await waitFor(() => expect(onLoadSlotOptions).toHaveBeenCalledWith({
+      clinicSpecialistId: 'specialist-1',
+      date: '2030-01-15',
+      clinicServiceId: 'service-1',
+      clinicServiceVersion: 4,
+    }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({
+      clinicPatientId: 'patient-1',
+      clinicSpecialistId: 'specialist-1',
+      clinicServiceId: 'service-1',
+      clinicServiceVersion: 4,
+      date: '2030-01-15T09:30:00.000Z',
+      type: 'PHONE_CALL',
+    }));
+  });
+
+  it('blocks creation when an activated catalog has no service for the responsible professional', async () => {
+    onLoadServiceOptions.mockResolvedValueOnce({
+      catalogActivated: true,
+      services: [],
+    });
+
+    await renderModal(
+      <ClinicSessionSchedulerModal
+        visible
+        clinicName="Clínica HERA"
+        patients={[patient]}
+        lockedPatientId={patient.id}
+        onLoadSlotOptions={onLoadSlotOptions}
+        onLoadServiceOptions={onLoadServiceOptions}
+        onClose={jest.fn()}
+        onSubmit={jest.fn(async () => session)}
+        onCreated={jest.fn()}
+      />,
+    );
+
+    expect(await screen.findByText('Sin servicios para este profesional')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled)
+      .toBe(true);
+    expect(onLoadSlotOptions).not.toHaveBeenCalled();
+  });
+
+  it('recovers in place when the catalog is activated after loading legacy mode', async () => {
+    const catalogActivatedError = Object.assign(
+      new Error('Selecciona un servicio para crear la cita.'),
+      {
+        code: 'CLINIC_SESSION_SERVICE_REQUIRED' as const,
+        field: 'clinicServiceId' as const,
+      },
+    );
+    onLoadServiceOptions
+      .mockResolvedValueOnce({ catalogActivated: false, services: [] })
+      .mockResolvedValueOnce({
+        catalogActivated: true,
+        services: [{
+          id: 'service-1',
+          name: 'Consulta activada',
+          description: null,
+          durationMinutes: 45,
+          price: 60,
+          currency: 'EUR',
+          modalities: ['IN_PERSON'],
+          isDefault: true,
+          version: 1,
+        }],
+      });
+    onLoadSlotOptions
+      .mockRejectedValueOnce(catalogActivatedError)
+      .mockResolvedValueOnce({
+        date: '2030-01-15',
+        duration: 45,
+        slots: [{
+          startTime: '10:30',
+          endTime: '11:15',
+          status: 'AVAILABLE',
+          selectable: true,
+        }],
+      });
+
+    await renderModal(
+      <ClinicSessionSchedulerModal
+        visible
+        clinicName="Clínica HERA"
+        patients={[patient]}
+        lockedPatientId={patient.id}
+        onLoadSlotOptions={onLoadSlotOptions}
+        onLoadServiceOptions={onLoadServiceOptions}
+        onClose={jest.fn()}
+        onSubmit={jest.fn(async () => session)}
+        onCreated={jest.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole('radio', { name: /Consulta activada/ })).toBeTruthy();
+    await waitFor(() => expect(onLoadServiceOptions).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(onLoadSlotOptions).toHaveBeenLastCalledWith({
+      clinicSpecialistId: 'specialist-1',
+      date: expect.any(String),
+      clinicServiceId: 'service-1',
+      clinicServiceVersion: 1,
+    }));
+    expect(screen.queryByText('Selecciona un servicio para crear la cita.')).toBeNull();
+    expect(screen.queryByLabelText('Duración de la cita en minutos')).toBeNull();
+  });
+
+  it('requires an explicit new selection when the booked service becomes unavailable', async () => {
+    const serviceUnavailable = Object.assign(
+      new Error('El servicio ya no está disponible para este profesional.'),
+      {
+        code: 'CLINIC_SESSION_SERVICE_UNAVAILABLE' as const,
+        field: 'clinicServiceId' as const,
+      },
+    );
+    onLoadServiceOptions
+      .mockResolvedValueOnce({
+        catalogActivated: true,
+        services: [{
+          id: 'service-1',
+          name: 'Servicio anterior',
+          description: null,
+          durationMinutes: 60,
+          price: 70,
+          currency: 'EUR',
+          modalities: ['IN_PERSON'],
+          isDefault: true,
+          version: 1,
+        }],
+      })
+      .mockResolvedValueOnce({
+        catalogActivated: true,
+        services: [{
+          id: 'service-2',
+          name: 'Servicio actualizado',
+          description: null,
+          durationMinutes: 45,
+          price: 55,
+          currency: 'EUR',
+          modalities: ['IN_PERSON'],
+          isDefault: true,
+          version: 1,
+        }],
+      });
+    const onSubmit = jest.fn()
+      .mockRejectedValueOnce(serviceUnavailable)
+      .mockResolvedValueOnce(session);
+
+    await renderModal(
+      <ClinicSessionSchedulerModal
+        visible
+        clinicName="Clínica HERA"
+        patients={[patient]}
+        lockedPatientId={patient.id}
+        onLoadSlotOptions={onLoadSlotOptions}
+        onLoadServiceOptions={onLoadServiceOptions}
+        onClose={jest.fn()}
+        onSubmit={onSubmit}
+        onCreated={jest.fn()}
+      />,
+    );
+
+    await screen.findByRole('radio', { name: /Servicio anterior/ });
+    await selectCalendarDate();
+    await selectTime('10:30');
+    fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
+
+    const replacement = await screen.findByRole('radio', { name: /Servicio actualizado/ });
+    expect(replacement.props.accessibilityState.checked).toBe(false);
+    expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled)
+      .toBe(true);
+
+    fireEvent.press(replacement);
+    await waitFor(() => expect(
+      screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled,
+    ).toBe(false));
+  });
+
+  it('clears service errors when the patient and responsible context change', async () => {
+    onLoadServiceOptions.mockImplementation(async ({ clinicSpecialistId }) => ({
+      catalogActivated: true,
+      services: [{
+        id: clinicSpecialistId === 'specialist-1' ? 'service-1' : 'service-2',
+        name: clinicSpecialistId === 'specialist-1' ? 'Servicio Lucía' : 'Servicio Mario',
+        description: null,
+        durationMinutes: 60,
+        price: 70,
+        currency: 'EUR',
+        modalities: ['IN_PERSON'],
+        isDefault: true,
+        version: 1,
+      }],
+    }));
+    const serviceConflict = Object.assign(
+      new Error('El servicio ha cambiado. Revisa sus datos antes de guardar de nuevo.'),
+      {
+        code: 'CLINIC_SESSION_SERVICE_CONFLICT' as const,
+        field: 'clinicServiceId' as const,
+      },
+    );
+
+    await renderModal(
+      <ClinicSessionSchedulerModal
+        visible
+        clinicName="Clínica HERA"
+        patients={[patient, secondPatient]}
+        patientOptions={[
+          { label: patient.displayName, value: patient.id },
+          { label: secondPatient.displayName, value: secondPatient.id },
+        ]}
+        onLoadSlotOptions={onLoadSlotOptions}
+        onLoadServiceOptions={onLoadServiceOptions}
+        onClose={jest.fn()}
+        onSubmit={jest.fn(async () => { throw serviceConflict; })}
+        onCreated={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Paciente de la cita' }));
+    fireEvent.press(screen.getByRole('button', { name: patient.displayName }));
+    await screen.findByRole('radio', { name: /Servicio Lucía/ });
+    await selectCalendarDate();
+    await selectTime('10:30');
+    fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
+    expect(await screen.findByText(
+      'El servicio ha cambiado. Revisa sus datos antes de guardar de nuevo.',
+    )).toBeTruthy();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Paciente de la cita' }));
+    fireEvent.press(screen.getByRole('button', { name: secondPatient.displayName }));
+    expect(await screen.findByRole('radio', { name: /Servicio Mario/ })).toBeTruthy();
+    expect(screen.queryByText(
+      'El servicio ha cambiado. Revisa sus datos antes de guardar de nuevo.',
+    )).toBeNull();
+  });
+
   it('keeps selectable mode searchable and leaves backend errors in the open form', async () => {
     const onSearch = jest.fn();
     const onSubmit = jest.fn(async () => {
       throw new Error('Ese horario ya no está disponible.');
     });
 
-    render(
+    await renderModal(
       <ClinicSessionSchedulerModal
         visible
         clinicName="Clínica HERA"
@@ -183,6 +523,7 @@ describe('ClinicSessionSchedulerModal', () => {
         patientLookupSearch=""
         onPatientSearchChange={onSearch}
         onLoadSlotOptions={onLoadSlotOptions}
+        onLoadServiceOptions={onLoadServiceOptions}
         onClose={jest.fn()}
         onSubmit={onSubmit}
         onCreated={jest.fn()}
@@ -193,8 +534,8 @@ describe('ClinicSessionSchedulerModal', () => {
     expect(onSearch).toHaveBeenCalledWith('Lucía');
     fireEvent.press(screen.getByText('Selecciona paciente'));
     fireEvent.press(screen.getByRole('button', { name: patient.displayName }));
-    selectCalendarDate();
-    selectTime('10:30');
+    await selectCalendarDate();
+    await selectTime('10:30');
     fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
 
     await waitFor(() => {
@@ -203,7 +544,7 @@ describe('ClinicSessionSchedulerModal', () => {
     expect(screen.getByText('Nueva cita')).toBeTruthy();
   });
 
-  it('cancels without submitting and resets transient fields when reopened', () => {
+  it('cancels without submitting and resets transient fields when reopened', async () => {
     const onClose = jest.fn();
     const onSubmit = jest.fn(async () => session);
     const props = {
@@ -211,12 +552,13 @@ describe('ClinicSessionSchedulerModal', () => {
       patients: [patient],
       lockedPatientId: patient.id,
       onLoadSlotOptions,
+      onLoadServiceOptions,
       onClose,
       onSubmit,
       onCreated: jest.fn(),
     };
-    const view = render(<ClinicSessionSchedulerModal visible {...props} />);
-    selectCalendarDate();
+    const view = await renderModal(<ClinicSessionSchedulerModal visible {...props} />);
+    await selectCalendarDate();
     expect(screen.getByText('2030-01-15')).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Cancelar' }));
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -234,6 +576,7 @@ describe('ClinicSessionSchedulerModal', () => {
       patients: [patient],
       patientOptions: [{ label: patient.displayName, value: patient.id }],
       onLoadSlotOptions,
+      onLoadServiceOptions,
       onClose: jest.fn(),
       onSubmit: jest.fn(async () => session),
       onCreated: jest.fn(),
@@ -256,11 +599,12 @@ describe('ClinicSessionSchedulerModal', () => {
       patientLookupSearch: '',
       onPatientSearchChange: jest.fn(),
       onLoadSlotOptions,
+      onLoadServiceOptions,
       onClose: jest.fn(),
       onSubmit,
       onCreated: jest.fn(),
     };
-    const view = render(
+    const view = await renderModal(
       <ClinicSessionSchedulerModal
         {...props}
         patients={[patient]}
@@ -280,8 +624,8 @@ describe('ClinicSessionSchedulerModal', () => {
     );
 
     expect(screen.getByText(patient.displayName)).toBeTruthy();
-    selectCalendarDate();
-    selectTime('10:30');
+    await selectCalendarDate();
+    await selectTime('10:30');
     fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
@@ -299,14 +643,15 @@ describe('ClinicSessionSchedulerModal', () => {
       patients: [patient],
       lockedPatientId: patient.id,
       onLoadSlotOptions,
+      onLoadServiceOptions,
       onClose: jest.fn(),
       onSubmit,
       onCreated,
     };
-    const view = render(<ClinicSessionSchedulerModal visible {...props} />);
+    const view = await renderModal(<ClinicSessionSchedulerModal visible {...props} />);
 
-    selectCalendarDate();
-    selectTime('10:30');
+    await selectCalendarDate();
+    await selectTime('10:30');
     const createButton = screen.getByRole('button', { name: 'Crear cita' });
     fireEvent.press(createButton);
     fireEvent.press(createButton);
@@ -331,6 +676,7 @@ describe('ClinicSessionSchedulerModal', () => {
       patients: [],
       patientOptions: [],
       onLoadSlotOptions,
+      onLoadServiceOptions,
       onClose: jest.fn(),
       onSubmit: jest.fn(async () => session),
       onCreated: jest.fn(),
@@ -364,13 +710,14 @@ describe('ClinicSessionSchedulerModal', () => {
         slots: [],
       });
 
-    render(
+    await renderModal(
       <ClinicSessionSchedulerModal
         visible
         clinicName="Clínica HERA"
         patients={[patient]}
         lockedPatientId={patient.id}
         onLoadSlotOptions={onLoadSlotOptions}
+        onLoadServiceOptions={onLoadServiceOptions}
         onClose={jest.fn()}
         onSubmit={jest.fn(async () => session)}
         onCreated={jest.fn()}
@@ -392,19 +739,20 @@ describe('ClinicSessionSchedulerModal', () => {
       .mockImplementationOnce(() => first.promise)
       .mockImplementationOnce(() => second.promise);
 
-    render(
+    await renderModal(
       <ClinicSessionSchedulerModal
         visible
         clinicName="Clínica HERA"
         patients={[patient]}
         lockedPatientId={patient.id}
         onLoadSlotOptions={onLoadSlotOptions}
+        onLoadServiceOptions={onLoadServiceOptions}
         onClose={jest.fn()}
         onSubmit={jest.fn(async () => session)}
         onCreated={jest.fn()}
       />,
     );
-    selectCalendarDate();
+    await selectCalendarDate(false);
 
     await act(async () => {
       second.resolve({
@@ -441,34 +789,35 @@ describe('ClinicSessionSchedulerModal', () => {
   it('refreshes slots and associates an authoritative conflict with the time field', async () => {
     const refresh = createDeferred<ClinicSessionSlotOptionsResult>();
     const conflict = Object.assign(
-      new Error('Ese horario ya no está disponible para el profesional seleccionado.'),
+      new Error('Ese horario ya no está disponible. Elige otro hueco.'),
       { code: 'CLINIC_SESSION_CONFLICT' as const },
     );
     const onSubmit = jest.fn(async () => {
       throw conflict;
     });
 
-    render(
+    await renderModal(
       <ClinicSessionSchedulerModal
         visible
         clinicName="Clínica HERA"
         patients={[patient]}
         lockedPatientId={patient.id}
         onLoadSlotOptions={onLoadSlotOptions}
+        onLoadServiceOptions={onLoadServiceOptions}
         onClose={jest.fn()}
         onSubmit={onSubmit}
         onCreated={jest.fn()}
       />,
     );
-    selectCalendarDate();
-    selectTime('10:30');
+    await selectCalendarDate();
+    await selectTime('10:30');
     await waitFor(() => expect(onLoadSlotOptions).toHaveBeenCalled());
     const requestsBeforeSubmit = onLoadSlotOptions.mock.calls.length;
     onLoadSlotOptions.mockImplementationOnce(() => refresh.promise);
     fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
 
     expect(await screen.findByText(
-      'Ese horario ya no está disponible para el profesional seleccionado.',
+      'Ese horario ya no está disponible. Elige otro hueco.',
     )).toBeTruthy();
     const createButton = screen.getByRole('button', { name: 'Crear cita' });
     expect(createButton.props.accessibilityState.disabled).toBe(true);
@@ -481,7 +830,17 @@ describe('ClinicSessionSchedulerModal', () => {
       refresh.resolve({
         date: '2030-01-15',
         duration: 60,
-        slots: [],
+        slots: [{
+          startTime: '10:30',
+          endTime: '11:30',
+          status: 'AVAILABLE',
+          selectable: true,
+        }, {
+          startTime: '10:45',
+          endTime: '11:45',
+          status: 'AVAILABLE',
+          selectable: true,
+        }],
       });
       await refresh.promise;
     });
@@ -489,8 +848,42 @@ describe('ClinicSessionSchedulerModal', () => {
       expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled)
         .toBe(true);
     });
-    selectTime('10:45');
-    expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled)
-      .toBe(false);
+    await selectTime('10:45');
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled)
+        .toBe(false);
+    });
+  });
+
+  it('keeps the modal open and associates an authoritative invalid slot with time', async () => {
+    const invalidSlot = Object.assign(
+      new Error('Selecciona una hora entre las 07:00 y las 23:00, en intervalos de 15 minutos (hora peninsular).'),
+      { code: 'CLINIC_SESSION_INVALID_SLOT' as const, field: 'date' as const },
+    );
+    const onSubmit = jest.fn(async () => {
+      throw invalidSlot;
+    });
+    const onCreated = jest.fn();
+
+    await renderModal(
+      <ClinicSessionSchedulerModal
+        visible
+        clinicName="Clínica HERA"
+        patients={[patient]}
+        lockedPatientId={patient.id}
+        onLoadSlotOptions={onLoadSlotOptions}
+        onLoadServiceOptions={onLoadServiceOptions}
+        onClose={jest.fn()}
+        onSubmit={onSubmit}
+        onCreated={onCreated}
+      />,
+    );
+    await selectCalendarDate();
+    await selectTime('10:30');
+    fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
+
+    expect(await screen.findByText(invalidSlot.message)).toBeTruthy();
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Crear cita' })).toBeTruthy();
   });
 });

@@ -140,6 +140,16 @@ export function AppointmentDetailSheet({
   const priceCurrency = mode === 'clinic-admin'
     ? clinicSession?.financials.currency
     : professionalSession?.price.currency;
+  const isClinicManagedProfessionalSession = mode === 'professional'
+    && professionalSession?.origin === 'CLINIC';
+  const bookingLabel = mode === 'clinic-admin' || isClinicManagedProfessionalSession
+    ? 'Servicio'
+    : 'Tarifa';
+  const bookingName = mode === 'clinic-admin'
+    ? clinicSession?.bookedService?.name ?? 'Sin servicio asociado'
+    : isClinicManagedProfessionalSession
+      ? professionalSession?.bookedServiceName ?? 'Sin servicio asociado'
+      : professionalSession?.price.tariffName ?? 'Sin tarifa';
   const canShowNotes = mode === 'professional'
     && Boolean(professionalSession?.clinicalTarget)
     && Boolean(onOpenNotes);
@@ -256,12 +266,8 @@ export function AppointmentDetailSheet({
                 <Section title="Precio" icon="cash-outline">
                   <InfoRow label="Importe" value={formatMoney(priceAmount, priceCurrency ?? 'EUR')} />
                   <InfoRow
-                    label="Tarifa"
-                    value={
-                      mode === 'clinic-admin'
-                        ? clinicSession?.bookedTariffName ?? 'Sin tarifa'
-                        : professionalSession?.price.tariffName ?? 'Sin tarifa'
-                    }
+                    label={bookingLabel}
+                    value={bookingName}
                   />
                   {invoice ? (
                     <InfoRow

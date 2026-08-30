@@ -21,5 +21,7 @@ describe('clinic agenda Madrid date ranges', () => {
   it('keeps complete DST transition days', () => {
     expect(toMadridStartOfDayIso('2030-03-31')).toBe('2030-03-30T23:00:00.000Z');
     expect(toMadridEndOfDayIso('2030-03-31')).toBe('2030-03-31T21:59:59.999Z');
+    expect(toMadridStartOfDayIso('2030-10-27')).toBe('2030-10-26T22:00:00.000Z');
+    expect(toMadridEndOfDayIso('2030-10-27')).toBe('2030-10-27T22:59:59.999Z');
   });
 });

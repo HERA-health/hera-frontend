@@ -121,6 +121,7 @@ export interface Session {
 }
 
 export interface ProfessionalSessionDetail extends Session {
+  bookedServiceName: string | null;
   price: {
     amount: number | null;
     currency: string;

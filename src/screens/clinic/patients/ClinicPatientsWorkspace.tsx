@@ -352,6 +352,7 @@ export function ClinicPatientsWorkspace({
         patients={controller.selectedPatient ? [controller.selectedPatient] : []}
         lockedPatientId={controller.selectedPatient?.id ?? null}
         onLoadSlotOptions={controller.handleLoadSessionSlotOptions}
+        onLoadServiceOptions={controller.handleLoadSessionServiceOptions}
         onClose={handleCloseSessionScheduler}
         onSubmit={controller.handleSubmitPatientSession}
         onCreated={handlePatientSessionCreated}

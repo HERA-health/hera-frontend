@@ -22,10 +22,16 @@ import type {
   ClinicSessionSummary,
   ClinicSessionSlotOption,
   ClinicSessionSlotOptionsResult,
+  ClinicSessionServiceOptionsResult,
   CreateClinicSessionPayload,
   GetClinicSessionSlotOptionsInput,
+  GetClinicSessionServiceOptionsInput,
 } from '../../services/clinicService';
-import { isClinicSessionConflictError } from '../../services/clinic/sessionErrors';
+import {
+  isClinicSessionConflictError,
+  isClinicSessionInvalidSlotError,
+  isClinicSessionServiceRefreshError,
+} from '../../services/clinic/sessionErrors';
 import {
   formatMadridDateKey,
   getMadridDateKey,
@@ -42,6 +48,8 @@ import {
   validateClinicSessionSchedulerForm,
 } from './clinicSessionSchedulerDomain';
 import { createClinicSchedulerSlots } from './clinicSessionSchedulerAdapter';
+import { ClinicSessionServicePicker } from './ClinicSessionServicePicker';
+import { useClinicSessionServiceOptions } from './useClinicSessionServiceOptions';
 
 export interface ClinicSessionSchedulerModalProps {
   visible: boolean;
@@ -60,6 +68,9 @@ export interface ClinicSessionSchedulerModalProps {
   onLoadSlotOptions: (
     input: GetClinicSessionSlotOptionsInput,
   ) => Promise<ClinicSessionSlotOptionsResult>;
+  onLoadServiceOptions: (
+    input: GetClinicSessionServiceOptionsInput,
+  ) => Promise<ClinicSessionServiceOptionsResult>;
   onClose: () => void;
   onSubmit: (payload: CreateClinicSessionPayload) => Promise<ClinicSessionSummary>;
   onCreated: (session: ClinicSessionSummary) => void;
@@ -111,6 +122,7 @@ export function ClinicSessionSchedulerModal({
   onLoadMorePatients,
   onRetryPatientLookup,
   onLoadSlotOptions,
+  onLoadServiceOptions,
   onClose,
   onSubmit,
   onCreated,
@@ -149,6 +161,25 @@ export function ClinicSessionSchedulerModal({
   const selectedPatient = currentSelectedPatient ?? (
     selectedPatientSnapshot?.id === form.clinicPatientId ? selectedPatientSnapshot : null
   );
+  const selectedAssignment = selectedPatient?.activeAssignment ?? null;
+  const {
+    catalogActivated,
+    services: serviceOptions,
+    selectedService,
+    selectedServiceId,
+    loading: serviceOptionsLoading,
+    error: serviceOptionsError,
+    selectService,
+    retry: retryServiceOptions,
+    refreshAfterConflict: refreshServiceOptionsAfterConflict,
+  } = useClinicSessionServiceOptions({
+    visible,
+    contextKey: selectedPatient?.id ?? '',
+    clinicSpecialistId: selectedAssignment?.clinicSpecialistStatus === 'ACTIVE'
+      ? selectedAssignment.clinicSpecialistId
+      : null,
+    onLoad: onLoadServiceOptions,
+  });
   const selectablePatientOptions = useMemo(() => {
     if (
       !selectedPatientSnapshot
@@ -184,11 +215,12 @@ export function ClinicSessionSchedulerModal({
       .join('')
       .slice(0, 2) || 'P'
     : 'P';
-  const selectedDuration = Number(form.duration);
+  const selectedDuration = catalogActivated
+    ? selectedService?.durationMinutes ?? Number.NaN
+    : Number(form.duration);
   const selectedDurationIsValid = Number.isInteger(selectedDuration)
     && selectedDuration >= 15
     && selectedDuration <= 180;
-  const selectedAssignment = selectedPatient?.activeAssignment ?? null;
   const schedulerSlots = useMemo(
     () => createClinicSchedulerSlots(form.date, slotOptions, new Date(Date.now())),
     [form.date, slotOptions],
@@ -252,12 +284,36 @@ export function ClinicSessionSchedulerModal({
   }, [currentSelectedPatient, visible]);
 
   useEffect(() => {
+    if (!catalogActivated || !selectedService) return;
+    setForm((current) => {
+      const nextType = selectedService.modalities.includes(current.type)
+        ? current.type
+        : selectedService.modalities.includes('IN_PERSON')
+          ? 'IN_PERSON'
+          : 'PHONE_CALL';
+      return {
+        ...current,
+        duration: String(selectedService.durationMinutes),
+        type: nextType,
+      };
+    });
+    setErrors((current) => ({
+      ...current,
+      duration: undefined,
+      type: undefined,
+      form: undefined,
+    }));
+  }, [catalogActivated, selectedService]);
+
+  useEffect(() => {
     if (
       !visible
       || !form.date
       || !selectedDurationIsValid
       || !selectedAssignment
       || selectedAssignment.clinicSpecialistStatus !== 'ACTIVE'
+      || catalogActivated === null
+      || (catalogActivated && !selectedService)
     ) {
       slotOptionsRequestKeyRef.current = '';
       setSlotOptions([]);
@@ -270,6 +326,8 @@ export function ClinicSessionSchedulerModal({
       selectedAssignment.clinicSpecialistId,
       form.date,
       selectedDuration,
+      selectedService?.id ?? 'legacy',
+      selectedService?.version ?? 0,
       slotOptionsRefreshKey,
       openGenerationRef.current,
     ].join('|');
@@ -279,31 +337,40 @@ export function ClinicSessionSchedulerModal({
     setSlotOptionsLoading(true);
     setSlotOptionsError(null);
 
-    onLoadSlotOptions({
-      clinicSpecialistId: selectedAssignment.clinicSpecialistId,
-      date: form.date,
-      duration: selectedDuration,
-    })
+    const slotInput: GetClinicSessionSlotOptionsInput = catalogActivated && selectedService
+      ? {
+          clinicSpecialistId: selectedAssignment.clinicSpecialistId,
+          date: form.date,
+          clinicServiceId: selectedService.id,
+          clinicServiceVersion: selectedService.version,
+        }
+      : {
+          clinicSpecialistId: selectedAssignment.clinicSpecialistId,
+          date: form.date,
+          duration: selectedDuration,
+        };
+
+    onLoadSlotOptions(slotInput)
       .then((result) => {
         if (cancelled || slotOptionsRequestKeyRef.current !== requestKey) return;
         setSlotOptions(result.slots);
-        setConflictedSelection((current) => {
-          if (
-            !current
-            || current.clinicSpecialistId !== selectedAssignment.clinicSpecialistId
-            || current.date !== form.date
-            || current.duration !== selectedDuration
-          ) {
-            return current;
-          }
-
-          const refreshedSlot = result.slots.find((slot) => slot.startTime === current.time);
-          return refreshedSlot?.selectable ? null : current;
-        });
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (cancelled || slotOptionsRequestKeyRef.current !== requestKey) return;
         setSlotOptions([]);
+        if (isClinicSessionServiceRefreshError(error)) {
+          setErrors((current) => ({
+            ...current,
+            ...(error.code === 'CLINIC_SESSION_SERVICE_REQUIRED'
+              ? { form: error.message, clinicServiceId: undefined }
+              : { clinicServiceId: error.message }),
+          }));
+          refreshServiceOptionsAfterConflict(
+            error.code === 'CLINIC_SESSION_SERVICE_UNAVAILABLE',
+          );
+          setSlotOptionsError('La configuración ha cambiado. Actualizando servicios y disponibilidad…');
+          return;
+        }
         setSlotOptionsError('No se pudieron comprobar huecos. Se validará al guardar.');
       })
       .finally(() => {
@@ -320,8 +387,11 @@ export function ClinicSessionSchedulerModal({
     form.date,
     onLoadSlotOptions,
     selectedAssignment,
+    catalogActivated,
+    selectedService,
     selectedDuration,
     selectedDurationIsValid,
+    refreshServiceOptionsAfterConflict,
     slotOptionsRefreshKey,
     visible,
   ]);
@@ -346,12 +416,22 @@ export function ClinicSessionSchedulerModal({
     field: K,
     value: ClinicSessionSchedulerForm[K],
   ): void => {
-    if (field === 'clinicPatientId') setOpenSchedulePanel(null);
+    const patientChanged = field === 'clinicPatientId';
+    if (patientChanged) {
+      setOpenSchedulePanel(null);
+      setConflictedSelection(null);
+      setConflictRefreshPending(false);
+    }
     setForm((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({
       ...current,
       [field]: undefined,
-      ...(field === 'clinicPatientId' ? { clinicSpecialistId: undefined } : {}),
+      ...(patientChanged ? {
+        clinicSpecialistId: undefined,
+        clinicServiceId: undefined,
+        duration: undefined,
+        type: undefined,
+      } : {}),
       form: undefined,
     }));
   };
@@ -359,7 +439,14 @@ export function ClinicSessionSchedulerModal({
   const handleSubmit = async (): Promise<void> => {
     if (submittingRef.current || conflictRefreshPending || selectedSlotHasKnownConflict) return;
 
-    const validation = validateClinicSessionSchedulerForm(form, validationPatients);
+    const validation = validateClinicSessionSchedulerForm(
+      form,
+      validationPatients,
+      new Date(),
+      catalogActivated
+        ? { catalogActivated: true, service: selectedService }
+        : { catalogActivated: false },
+    );
     if (!validation.success) {
       setErrors(validation.errors);
       return;
@@ -397,10 +484,24 @@ export function ClinicSessionSchedulerModal({
         setConflictedSelection({
           clinicSpecialistId: validation.payload.clinicSpecialistId,
           date: form.date,
-          duration: validation.payload.duration,
+          duration: selectedDuration,
           time: form.time,
         });
         setConflictRefreshPending(true);
+        setSlotOptionsRefreshKey((current) => current + 1);
+        return;
+      }
+      if (isClinicSessionInvalidSlotError(error)) {
+        setErrors({ time: error.message });
+        return;
+      }
+      if (isClinicSessionServiceRefreshError(error)) {
+        setErrors(error.code === 'CLINIC_SESSION_SERVICE_REQUIRED'
+          ? { form: error.message }
+          : { [error.field === 'type' ? 'type' : 'clinicServiceId']: error.message });
+        refreshServiceOptionsAfterConflict(
+          error.code === 'CLINIC_SESSION_SERVICE_UNAVAILABLE',
+        );
         setSlotOptionsRefreshKey((current) => current + 1);
         return;
       }
@@ -580,6 +681,66 @@ export function ClinicSessionSchedulerModal({
               </View>
             )}
 
+            {selectedAssignment ? (
+              <View style={styles.serviceState}>
+                {serviceOptionsLoading && catalogActivated === null ? (
+                  <View accessibilityLiveRegion="polite" style={styles.inlineNotice}>
+                    <Ionicons name="sync-outline" size={17} color={theme.primary} />
+                    <Text style={styles.inlineNoticeText}>Cargando servicios disponibles…</Text>
+                  </View>
+                ) : null}
+                {serviceOptionsError ? (
+                  <View accessibilityRole="alert" style={styles.inlineNotice}>
+                    <Ionicons name="alert-circle-outline" size={18} color={theme.error} />
+                    <Text style={styles.inlineNoticeText}>{serviceOptionsError}</Text>
+                    <Button
+                      variant="ghost"
+                      size="small"
+                      disabled={serviceOptionsLoading || submitting}
+                      onPress={retryServiceOptions}
+                    >
+                      Reintentar
+                    </Button>
+                  </View>
+                ) : null}
+                {catalogActivated && serviceOptions.length > 0 ? (
+                  <ClinicSessionServicePicker
+                    services={serviceOptions}
+                    value={selectedServiceId}
+                    disabled={submitting || serviceOptionsLoading}
+                    error={errors.clinicServiceId}
+                    onChange={(service) => {
+                      selectService(service.id);
+                      setErrors((current) => ({
+                        ...current,
+                        clinicServiceId: undefined,
+                        form: undefined,
+                      }));
+                    }}
+                  />
+                ) : null}
+                {catalogActivated && !serviceOptionsLoading && serviceOptions.length === 0 ? (
+                  <View accessibilityRole="alert" style={styles.emptyCatalog}>
+                    <Ionicons name="briefcase-outline" size={20} color={theme.warning} />
+                    <View style={styles.emptyCatalogCopy}>
+                      <Text style={styles.emptyCatalogTitle}>Sin servicios para este profesional</Text>
+                      <Text style={styles.emptyCatalogText}>
+                        Asigna al responsable a un servicio activo desde «Servicios» antes de crear la cita.
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
+                {catalogActivated === false ? (
+                  <View style={styles.legacyNotice}>
+                    <Ionicons name="information-circle-outline" size={17} color={theme.textSecondary} />
+                    <Text style={styles.legacyNoticeText}>
+                      Esta clínica utiliza temporalmente la configuración anterior de duración manual.
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
             <SchedulerDateTimeSelector
               value={{ date: form.date, time: form.time }}
               dateLabel={selectedDateLabel}
@@ -598,7 +759,13 @@ export function ClinicSessionSchedulerModal({
               openPanel={openSchedulePanel}
               dateError={errors.date}
               timeError={errors.time}
-              disabled={submitting}
+              disabled={
+                submitting
+                || serviceOptionsLoading
+                || catalogActivated === null
+                || Boolean(serviceOptionsError)
+                || (catalogActivated && !selectedService)
+              }
               allowManualTimeEntry={false}
               legendStates={['available', 'unavailable']}
               legendLabels={{
@@ -615,7 +782,23 @@ export function ClinicSessionSchedulerModal({
               }}
             />
 
-            <View style={styles.durationField}>
+            {catalogActivated && selectedService ? (
+              <View style={styles.serviceSummary}>
+                <View style={styles.serviceSummaryIcon}>
+                  <Ionicons name="hourglass-outline" size={18} color={theme.primary} />
+                </View>
+                <View style={styles.serviceSummaryCopy}>
+                  <Text style={styles.serviceSummaryLabel}>Condiciones del servicio</Text>
+                  <Text style={styles.serviceSummaryValue}>
+                    {selectedService.durationMinutes} minutos · {new Intl.NumberFormat('es-ES', {
+                      style: 'currency',
+                      currency: selectedService.currency,
+                    }).format(selectedService.price)}
+                  </Text>
+                </View>
+                <Ionicons name="lock-closed-outline" size={17} color={theme.textMuted} />
+              </View>
+            ) : catalogActivated === false ? <View style={styles.durationField}>
               <Input
                 label="Duración"
                 accessibilityLabel="Duración de la cita en minutos"
@@ -627,12 +810,18 @@ export function ClinicSessionSchedulerModal({
                 editable={!submitting}
                 leftIcon={<Ionicons name="hourglass-outline" size={17} color={theme.primary} />}
               />
-            </View>
+            </View> : null}
 
             <View style={styles.modalitySection}>
               <Text style={styles.sectionTitle}>Modalidad</Text>
-              <View style={styles.typeGrid}>
-                {TYPE_OPTIONS.map((option) => {
+              <View
+                accessibilityLabel="Modalidades disponibles"
+                accessibilityRole="radiogroup"
+                style={styles.typeGrid}
+              >
+                {TYPE_OPTIONS.filter((option) => (
+                  !catalogActivated || selectedService?.modalities.includes(option.value)
+                )).map((option) => {
                   const active = form.type === option.value;
                   return (
                     <AnimatedPressable
@@ -691,6 +880,10 @@ export function ClinicSessionSchedulerModal({
                   || selectedSlotHasKnownConflict
                   || !selectedPatient
                   || selectedSlotIsBlocked
+                  || serviceOptionsLoading
+                  || catalogActivated === null
+                  || Boolean(serviceOptionsError)
+                  || (catalogActivated && !selectedService)
                 }
                 icon={<Ionicons name="calendar-outline" size={18} color={theme.actionPrimaryText} />}
               >
@@ -923,6 +1116,93 @@ const createStyles = (theme: Theme, compact: boolean) => StyleSheet.create({
     fontFamily: theme.fontSans,
     fontSize: 12,
     lineHeight: 17,
+  },
+  serviceState: { gap: spacing.sm },
+  inlineNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: borderRadius.lg,
+    backgroundColor: theme.bgMuted,
+    padding: spacing.md,
+  },
+  inlineNoticeText: {
+    flex: 1,
+    color: theme.textSecondary,
+    fontFamily: theme.fontSans,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  emptyCatalog: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.warning,
+    borderRadius: borderRadius.lg,
+    backgroundColor: theme.bgMuted,
+    padding: spacing.md,
+  },
+  emptyCatalogCopy: { flex: 1, gap: 2 },
+  emptyCatalogTitle: {
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
+    fontSize: 13,
+  },
+  emptyCatalogText: {
+    color: theme.textSecondary,
+    fontFamily: theme.fontSans,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  legacyNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: theme.bgMuted,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  legacyNoticeText: {
+    flex: 1,
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  serviceSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: borderRadius.lg,
+    backgroundColor: theme.bgMuted,
+    padding: spacing.md,
+  },
+  serviceSummaryIcon: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: borderRadius.md,
+    backgroundColor: theme.primaryAlpha12,
+  },
+  serviceSummaryCopy: { flex: 1, gap: 2 },
+  serviceSummaryLabel: {
+    color: theme.textMuted,
+    fontFamily: theme.fontSans,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  serviceSummaryValue: {
+    color: theme.textPrimary,
+    fontFamily: theme.fontSansSemiBold,
+    fontSize: 14,
   },
   durationField: {
     maxWidth: compact ? '100%' : 260,

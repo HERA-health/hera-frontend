@@ -650,7 +650,7 @@ export function ClinicServicesScreen({ navigation }: Props): React.ReactElement 
           <View style={styles.infoBanner}>
             <Ionicons name="information-circle-outline" size={21} color={theme.primary} />
             <Text style={styles.infoText}>
-              El catálogo queda preparado para el equipo. Todavía no modifica automáticamente «Nueva cita»; esa conexión llegará en el siguiente paso.
+              Los servicios activos ya se aplican a «Nueva cita»: determinan de forma segura el precio, la duración y las modalidades disponibles.
             </Text>
           </View>
 

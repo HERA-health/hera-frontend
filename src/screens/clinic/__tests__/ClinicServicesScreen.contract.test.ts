@@ -63,9 +63,9 @@ describe('ClinicServicesScreen production contract', () => {
     expect(editorSource).not.toMatch(/zIndex|position:\s*['"]absolute/);
   });
 
-  it('labels orphaned services and states honestly that scheduling is not connected yet', () => {
+  it('labels orphaned services and states honestly that scheduling uses the catalog', () => {
     expect(screenSource).toContain('Sin profesionales activos');
-    expect(screenSource).toContain('Todavía no modifica automáticamente «Nueva cita»');
+    expect(screenSource).toContain('Los servicios activos ya se aplican a «Nueva cita»');
   });
 
   it('registers the screen in clinic and professional administrator navigation', () => {

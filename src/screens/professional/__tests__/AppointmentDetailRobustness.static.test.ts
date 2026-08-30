@@ -143,4 +143,11 @@ describe('appointment detail robustness contracts', () => {
       );
     });
   });
+
+  it('distinguishes clinic services from private tariffs in professional appointment details', () => {
+    expect(appointmentDetailSheetSource).toContain("professionalSession?.origin === 'CLINIC'");
+    expect(appointmentDetailSheetSource).toContain("? 'Servicio'");
+    expect(appointmentDetailSheetSource).toContain("professionalSession?.bookedServiceName ?? 'Sin servicio asociado'");
+    expect(appointmentDetailSheetSource).toContain("professionalSession?.price.tariffName ?? 'Sin tarifa'");
+  });
 });

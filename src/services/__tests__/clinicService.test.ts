@@ -21,6 +21,7 @@ import {
   getClinicAgenda,
   getClinicSessionDetail,
   getClinicSessionSlotOptions,
+  getClinicSessionServiceOptions,
   getClinicInvoice,
   getClinicSettlement,
   getClinicSettlementPreview,
@@ -89,6 +90,7 @@ import {
   type ClinicSessionDetail,
   type ClinicSessionSummary,
   type ClinicSessionSlotOptionsResult,
+  type ClinicSessionServiceOptionsResult,
   type ClinicSpecialist,
   type ClinicServiceCatalog,
   type ClinicServiceWritePayload,
@@ -1180,6 +1182,117 @@ describe('clinicService', () => {
     expect(result.slots[0]).not.toHaveProperty('origin');
   });
 
+  it('loads minimal scheduling services without using the administration catalog DTO', async () => {
+    const result: ClinicSessionServiceOptionsResult = {
+      catalogActivated: true,
+      services: [{
+        id: 'service-1',
+        name: 'Seguimiento',
+        description: null,
+        durationMinutes: 50,
+        price: 65,
+        currency: 'EUR',
+        modalities: ['IN_PERSON'],
+        isDefault: true,
+        version: 2,
+      }],
+    };
+    getMock.mockResolvedValueOnce({
+      data: { success: true, data: result },
+    } as AxiosResponse<{ success: boolean; data: ClinicSessionServiceOptionsResult }>);
+
+    await expect(getClinicSessionServiceOptions('clinic-1', {
+      clinicSpecialistId: 'clinic-specialist-1',
+    })).resolves.toBe(result);
+    expect(getMock).toHaveBeenCalledWith('/clinics/clinic-1/sessions/service-options', {
+      params: { clinicSpecialistId: 'clinic-specialist-1' },
+    });
+    expect(result.services[0]).not.toHaveProperty('clinicSpecialistIds');
+    expect(result.services[0]).not.toHaveProperty('activeSpecialistCount');
+  });
+
+  it('preserves service conflicts from slot preview so the scheduler can refresh the catalog', async () => {
+    getMock.mockRejectedValueOnce({
+      response: {
+        data: {
+          success: false,
+          code: 'CLINIC_SESSION_SERVICE_CONFLICT',
+          error: 'El servicio ha cambiado.',
+          field: 'clinicServiceId',
+        },
+      },
+    });
+
+    await expect(getClinicSessionSlotOptions('clinic-1', {
+      clinicSpecialistId: 'clinic-specialist-1',
+      date: '2030-01-15',
+      clinicServiceId: 'service-1',
+      clinicServiceVersion: 2,
+    })).rejects.toMatchObject({
+      code: 'CLINIC_SESSION_SERVICE_CONFLICT',
+      field: 'clinicServiceId',
+    });
+  });
+
+  it('preserves catalog activation conflicts from preview and creation for in-place recovery', async () => {
+    const response = {
+      response: {
+        data: {
+          success: false,
+          code: 'CLINIC_SESSION_SERVICE_REQUIRED',
+          error: 'Selecciona un servicio para crear la cita.',
+          field: 'clinicServiceId',
+        },
+      },
+    };
+    getMock.mockRejectedValueOnce(response);
+    postMock.mockRejectedValueOnce(response);
+
+    await expect(getClinicSessionSlotOptions('clinic-1', {
+      clinicSpecialistId: 'clinic-specialist-1',
+      date: '2030-01-15',
+      duration: 60,
+    })).rejects.toMatchObject({
+      code: 'CLINIC_SESSION_SERVICE_REQUIRED',
+      field: 'clinicServiceId',
+    });
+    await expect(createClinicSession('clinic-1', {
+      clinicPatientId: 'clinic-patient-1',
+      clinicSpecialistId: 'clinic-specialist-1',
+      date: '2030-01-15T09:30:00.000Z',
+      duration: 60,
+      type: 'IN_PERSON',
+    })).rejects.toMatchObject({
+      code: 'CLINIC_SESSION_SERVICE_REQUIRED',
+      field: 'clinicServiceId',
+    });
+  });
+
+  it('preserves authoritative invalid-slot errors for field-level recovery', async () => {
+    postMock.mockRejectedValueOnce({
+      response: {
+        data: {
+          success: false,
+          code: 'CLINIC_SESSION_INVALID_SLOT',
+          error: 'Internal text',
+          field: 'date',
+        },
+      },
+    });
+
+    await expect(createClinicSession('clinic-1', {
+      clinicPatientId: 'clinic-patient-1',
+      clinicSpecialistId: 'clinic-specialist-1',
+      date: '2030-01-15T05:45:00.000Z',
+      duration: 60,
+      type: 'IN_PERSON',
+    })).rejects.toMatchObject({
+      code: 'CLINIC_SESSION_INVALID_SLOT',
+      field: 'date',
+      message: 'Selecciona una hora entre las 07:00 y las 23:00, en intervalos de 15 minutos (hora peninsular).',
+    });
+  });
+
   it('loads the minimal combined agenda projection for the selected professional', async () => {
     const agenda: ClinicAgenda = {
       items: [
@@ -1251,6 +1364,7 @@ describe('clinicService', () => {
       bookedDuration: 60,
       bookedTariffId: null,
       bookedTariffName: 'Sesión estándar',
+      bookedService: null,
       cancelledAt: null,
       createdAt: '2026-05-28T10:00:00.000Z',
       updatedAt: '2026-05-28T10:00:00.000Z',
@@ -1316,7 +1430,7 @@ describe('clinicService', () => {
       duration: 60,
       type: 'PHONE_CALL',
     })).rejects.toThrow(
-      'Ese horario ya no está disponible para el profesional seleccionado.',
+      'Ese horario ya no está disponible. Elige otro hueco.',
     );
   });
 
