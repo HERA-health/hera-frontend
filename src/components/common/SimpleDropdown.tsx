@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Pressable,
   Platform,
-  ScrollView,
   useWindowDimensions,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -18,6 +17,7 @@ import {
   AnimatedPressable,
   type AnimatedPressableHandle,
 } from './AnimatedPressable';
+import { VisibleScrollView } from './VisibleScrollView';
 
 export interface DropdownOption<T> {
   label: string;
@@ -122,12 +122,17 @@ export function SimpleDropdown<T extends string | number>({
     );
     const estimatedHeight = Math.min(maxHeight, Math.max(48, options.length * 44));
     const belowTop = anchor.y + anchor.height + spacing.xs;
-    const shouldOpenAbove = belowTop + estimatedHeight > viewportHeight - viewportMargin
-      && anchor.y > estimatedHeight + viewportMargin;
+    const availableBelow = Math.max(0, viewportHeight - belowTop - viewportMargin);
+    const availableAbove = Math.max(0, anchor.y - viewportMargin - spacing.xs);
+    const shouldOpenAbove = estimatedHeight > availableBelow
+      && availableAbove > availableBelow;
+    const availableHeight = shouldOpenAbove ? availableAbove : availableBelow;
+    const resolvedMaxHeight = Math.max(48, Math.min(maxHeight, availableHeight));
+    const resolvedHeight = Math.min(estimatedHeight, resolvedMaxHeight);
     const top = shouldOpenAbove
-      ? Math.max(viewportMargin, anchor.y - estimatedHeight - spacing.xs)
+      ? Math.max(viewportMargin, anchor.y - resolvedHeight - spacing.xs)
       : belowTop;
-    return { left, top, width };
+    return { left, top, width, maxHeight: resolvedMaxHeight };
   }, [anchor, maxHeight, options.length, optionsAlign, optionsMinWidth, presentation, viewportHeight, viewportWidth]);
 
   const renderOptions = (portal: boolean): React.ReactElement => (
@@ -137,11 +142,11 @@ export function SimpleDropdown<T extends string | number>({
         dropdownStyles.optionsList,
         portal ? dropdownStyles.portalOptionsList : null,
         portal && portalLayout ? portalLayout : null,
-        !portal ? { maxHeight, minWidth: optionsMinWidth } : { maxHeight },
+        !portal ? { maxHeight, minWidth: optionsMinWidth } : null,
         !portal && optionsAlign === 'right' ? dropdownStyles.optionsListRight : null,
       ]}
     >
-      <ScrollView nestedScrollEnabled bounces={false}>
+      <VisibleScrollView nestedScrollEnabled bounces={false}>
         {options.map((opt) => {
           const active = opt.value === value;
           const indicatorRole = selectionIndicator === 'checkbox'
@@ -206,7 +211,7 @@ export function SimpleDropdown<T extends string | number>({
             </AnimatedPressable>
           );
         })}
-      </ScrollView>
+      </VisibleScrollView>
     </View>
   );
 
@@ -273,9 +278,10 @@ export function SimpleDropdown<T extends string | number>({
           animationType="fade"
           transparent
           visible
+          statusBarTranslucent
           onRequestClose={() => closeDropdown()}
         >
-          <View style={dropdownStyles.portalLayer}>
+          <View style={dropdownStyles.portalLayer} accessibilityViewIsModal>
             <Pressable
               accessible={false}
               style={StyleSheet.absoluteFill}
@@ -332,7 +338,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       left: -1000,
       right: -1000,
       bottom: -1000,
-      zIndex: 999,
+      zIndex: overlayLayers.popoverBackdrop,
     },
     optionsList: {
       position: 'absolute',
@@ -345,6 +351,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       borderRadius: borderRadius.lg,
       marginTop: spacing.xs,
       zIndex: overlayLayers.popover + 1,
+      overflow: 'hidden',
       ...shadows.md,
       elevation: 10,
       ...(Platform.OS === 'web' ? { boxShadow: '0 4px 12px rgba(0,0,0,0.12)' } as Record<string, string> : {}),
@@ -373,6 +380,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       position: 'absolute',
       right: 0,
       top: 0,
+      zIndex: overlayLayers.popover,
     },
     portalOptionsList: {
       left: 0,

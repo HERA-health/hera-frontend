@@ -1455,6 +1455,8 @@ describe('clinicService', () => {
       simplifiedInvoiceNextNumber: 3,
       fullInvoicePrefix: 'FC',
       fullInvoiceNextNumber: 2,
+      rectifyingInvoicePrefix: 'RC',
+      rectifyingInvoiceNextNumber: 1,
       vatRate: 21,
       applyVat: true,
       vatExemptReason: null,

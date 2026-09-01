@@ -134,6 +134,22 @@ export const getMadridDateKey = (date: Date = new Date()): string => {
   return `${parts.year}-${month}-${day}`;
 };
 
+export const formatMadridInstant = (
+  value: string | Date,
+  options: Intl.DateTimeFormatOptions,
+  locale: string = 'es-ES'
+): string => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return typeof value === 'string' ? value : '';
+  }
+
+  return new Intl.DateTimeFormat(locale, {
+    ...options,
+    timeZone: MADRID_TIME_ZONE,
+  }).format(date);
+};
+
 export const formatMadridDateKey = (
   dateKey: string,
   options: Intl.DateTimeFormatOptions,

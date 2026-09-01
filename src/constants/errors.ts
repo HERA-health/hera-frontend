@@ -132,6 +132,9 @@ export function getErrorMessage(error: unknown, defaultMessage = 'Ha ocurrido un
   // Handle Axios response errors
   if (hasResponseData(error)) {
     const data = error.response.data;
+    if (data.code === 'CLINIC_FINANCE_NOT_AVAILABLE') {
+      return 'La gestión financiera de clínicas todavía no está disponible en este entorno. Se habilitará cuando termine el despliegue.';
+    }
     if (data.error === 'Invalid or expired token' || data.error === 'No token provided') {
       return 'Tu sesión ya no está activa. Vuelve a iniciar sesión para continuar.';
     }
@@ -147,8 +150,9 @@ export function getErrorMessage(error: unknown, defaultMessage = 'Ha ocurrido un
     ) {
       return data.message;
     }
-    if (data.error) return data.error;
+    if (data.error && !/internal server error/i.test(data.error)) return data.error;
     if (data.message) return data.message;
+    return defaultMessage;
   }
 
   // Handle validation errors

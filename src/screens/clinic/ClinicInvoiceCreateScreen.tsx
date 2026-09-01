@@ -232,7 +232,7 @@ function InvoiceCreatePanel({
               loading={patientLookupLoadingMore}
               disabled={patientLookupLoading || patientLookupLoadingMore}
             >
-              Cargar mas pacientes
+              Cargar más pacientes
             </Button>
           ) : null}
           {errors.clinicPatientId || errors.clinicSpecialistId ? (
@@ -330,7 +330,7 @@ function InvoiceCreatePanel({
               loading={sessionLookupLoadingMore}
               disabled={sessionLookupLoading || sessionLookupLoadingMore}
             >
-              Cargar mas citas
+              Cargar más citas
             </Button>
           ) : null}
         </View>

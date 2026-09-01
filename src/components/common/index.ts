@@ -15,6 +15,8 @@ export { Input } from './Input';
 export { Badge } from './Badge';
 export { SimpleDropdown } from './SimpleDropdown';
 export type { DropdownOption, SimpleDropdownProps } from './SimpleDropdown';
+export { VisibleScrollView } from './VisibleScrollView';
+export type { VisibleScrollViewProps } from './VisibleScrollView';
 
 // Design System v5.0 — new components
 export { MotionView } from './MotionView';

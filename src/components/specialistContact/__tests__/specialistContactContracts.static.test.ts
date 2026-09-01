@@ -52,7 +52,7 @@ describe('specialist contact frontend contracts', () => {
     expect(app).toContain("path: 'ayuda'");
     expect(app).toContain("AdminPanel: {");
     expect(app).toContain("path: 'admin'");
-    expect(types).toContain("initialTab?: 'verifications' | 'management' | 'help' | 'feedback'");
+    expect(types).toContain("initialTab?: 'verifications' | 'management' | 'clinics' | 'help' | 'feedback'");
   });
 
   it('keeps compact service and privacy guidance inside help only', () => {

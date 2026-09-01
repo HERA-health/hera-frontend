@@ -521,6 +521,8 @@ export interface ClinicBillingConfig {
   simplifiedInvoiceNextNumber: number;
   fullInvoicePrefix: string | null;
   fullInvoiceNextNumber: number;
+  rectifyingInvoicePrefix: string | null;
+  rectifyingInvoiceNextNumber: number;
   vatRate: number | null;
   applyVat: boolean;
   vatExemptReason: string | null;

@@ -8,3 +8,5 @@ export * from './clinic/professionalService';
 export * from './clinic/consentService';
 export * from './clinic/sessionService';
 export * from './clinic/billingService';
+export * from './clinic/financeService';
+export * from './clinic/financeTypes';

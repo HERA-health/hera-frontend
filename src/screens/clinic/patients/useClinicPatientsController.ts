@@ -140,6 +140,7 @@ export function useClinicPatientsController() {
   const sessionDetailRequestSeq = useRef(0);
   const patientSessionsLoadedForIdRef = useRef<string | null>(null);
   const billingFullNameBeforeCopyRef = useRef('');
+  const sameBillingDataRef = useRef(false);
   const detailTabPatientIdRef = useRef<string | null>(null);
   const sessionSchedulerContextRef = useRef<ClinicSessionSchedulerContext | null>(null);
   const guestConsentIdempotencyKeysRef = useRef(new Map<string, string>());
@@ -151,6 +152,7 @@ export function useClinicPatientsController() {
 
   const resetBillingCopy = useCallback(() => {
     billingFullNameBeforeCopyRef.current = '';
+    sameBillingDataRef.current = false;
     setSameBillingData(false);
   }, []);
 
@@ -982,16 +984,21 @@ export function useClinicPatientsController() {
   const handleToggleSameBillingData = useCallback(() => {
     if (saving) return;
 
-    if (sameBillingData) {
+    if (sameBillingDataRef.current) {
       const previousBillingFullName = billingFullNameBeforeCopyRef.current;
       setForm((currentForm) => restoreClinicPatientBillingFullName(
         currentForm,
         previousBillingFullName,
       ));
-      resetBillingCopy();
+      billingFullNameBeforeCopyRef.current = '';
+      sameBillingDataRef.current = false;
+      setSameBillingData(false);
     } else {
-      billingFullNameBeforeCopyRef.current = form.billingFullName;
-      setForm((currentForm) => copyAdministrativeNameToBilling(currentForm));
+      setForm((currentForm) => {
+        billingFullNameBeforeCopyRef.current = currentForm.billingFullName;
+        return copyAdministrativeNameToBilling(currentForm);
+      });
+      sameBillingDataRef.current = true;
       setSameBillingData(true);
     }
 
@@ -1000,7 +1007,7 @@ export function useClinicPatientsController() {
       billingFullName: undefined,
     }));
     setFeedback(null);
-  }, [form.billingFullName, resetBillingCopy, sameBillingData, saving]);
+  }, [saving]);
 
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);

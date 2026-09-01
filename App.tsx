@@ -171,12 +171,12 @@ const injectWebStyles = (isDark: boolean) => {
     }
 
     /* Custom Scrollbar */
-    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar { display: block !important; width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: ${track}; border-radius: 4px; }
     ::-webkit-scrollbar-thumb { background: ${thumb}; border-radius: 4px; border: 1px solid ${track}; }
     ::-webkit-scrollbar-thumb:hover { background: ${thumbHover}; }
     ::-webkit-scrollbar-corner { background: ${track}; }
-    * { scrollbar-width: thin; scrollbar-color: ${thumb} ${track}; }
+    * { scrollbar-width: thin !important; scrollbar-color: ${thumb} ${track}; }
 
     /* Smooth scrolling */
     html { scroll-behavior: smooth; }

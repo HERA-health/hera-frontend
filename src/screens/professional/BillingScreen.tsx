@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
@@ -20,6 +19,7 @@ import { colors, spacing, borderRadius, typography, shadows, touchTarget, layout
 import { lightTheme, Theme } from '../../constants/theme';
 import { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import { AnimatedPressable, Button } from '../../components/common';
+import { VisibleScrollView } from '../../components/common/VisibleScrollView';
 import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
 import { TourTarget } from '../../components/onboarding/TourTarget';
 import {
@@ -43,6 +43,8 @@ import {
   TariffItem,
 } from '../../services/billingService';
 import * as analyticsService from '../../services/analyticsService';
+import { getMyProfessionalClinicContexts } from '../../services/clinicService';
+import { ProfessionalClinicFinancePanel } from './clinic-finance/ProfessionalClinicFinancePanel';
 
 // ============================================================================
 // CONSTANTS
@@ -378,6 +380,8 @@ export function BillingScreen() {
     () => billingTourScroll.prepareTarget('professional.billing.automation'),
     [billingTourScroll],
   );
+  const [billingArea, setBillingArea] = useState<'clinics' | 'private'>('private');
+  const [hasClinicLinks, setHasClinicLinks] = useState(false);
 
   const handleFiscalEditPress = useCallback(() => {
     if (editingFiscal) {
@@ -495,6 +499,20 @@ export function BillingScreen() {
   useEffect(() => {
     loadConfig();
   }, [loadConfig]);
+
+  useEffect(() => {
+    let active = true;
+    void getMyProfessionalClinicContexts()
+      .then((contexts) => {
+        if (active) setHasClinicLinks(contexts.length > 0);
+      })
+      .catch(() => {
+        if (active) setHasClinicLinks(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (route.params?.initialSection !== 'fiscal' || loading || !isConfigLoaded) return undefined;
@@ -1523,9 +1541,31 @@ export function BillingScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{STRINGS.title}</Text>
+        <View>
+          <Text style={styles.headerTitle}>{STRINGS.title}</Text>
+          <View style={styles.billingAreaTabs} accessibilityRole="tablist">
+            {hasClinicLinks ? <Pressable
+              accessibilityRole="tab"
+              accessibilityState={{ selected: billingArea === 'clinics' }}
+              style={[styles.billingAreaTab, billingArea === 'clinics' && styles.billingAreaTabActive]}
+              onPress={() => setBillingArea('clinics')}
+            >
+              <Ionicons name="business-outline" size={16} color={billingArea === 'clinics' ? theme.textOnPrimary : theme.textSecondary} />
+              <Text style={[styles.billingAreaTabText, billingArea === 'clinics' && styles.billingAreaTabTextActive]}>Clínicas</Text>
+            </Pressable> : null}
+            <Pressable
+              accessibilityRole="tab"
+              accessibilityState={{ selected: billingArea === 'private' }}
+              style={[styles.billingAreaTab, billingArea === 'private' && styles.billingAreaTabActive]}
+              onPress={() => setBillingArea('private')}
+            >
+              <Ionicons name="person-outline" size={16} color={billingArea === 'private' ? theme.textOnPrimary : theme.textSecondary} />
+              <Text style={[styles.billingAreaTabText, billingArea === 'private' && styles.billingAreaTabTextActive]}>Consulta privada</Text>
+            </Pressable>
+          </View>
+        </View>
         <View style={styles.headerActions}>
-          <View style={styles.headerBtnWrap}>
+          {billingArea === 'private' ? <View style={styles.headerBtnWrap}>
             <TourTarget id="professional.billing.new-invoice" fill style={styles.fullWidthTourTarget}>
               <Button
                 variant="primary"
@@ -1537,11 +1577,11 @@ export function BillingScreen() {
                 Nueva factura
               </Button>
             </TourTarget>
-          </View>
+          </View> : null}
         </View>
       </View>
 
-      <ScrollView
+      <VisibleScrollView
         ref={billingTourScroll.scrollRef}
         style={styles.scrollView}
         contentContainerStyle={[
@@ -1552,8 +1592,11 @@ export function BillingScreen() {
         onLayout={billingTourScroll.scrollProps.onLayout}
         onScroll={billingTourScroll.scrollProps.onScroll}
         scrollEventThrottle={billingTourScroll.scrollProps.scrollEventThrottle}
-        showsVerticalScrollIndicator={false}
       >
+        {billingArea === 'clinics' ? (
+          <ProfessionalClinicFinancePanel />
+        ) : (
+          <>
         {/* Stats */}
         {renderStats()}
 
@@ -1581,7 +1624,9 @@ export function BillingScreen() {
             {renderAutomationCard()}
           </>
         )}
-      </ScrollView>
+          </>
+        )}
+      </VisibleScrollView>
 
       {/* Portal: three-dot menu rendered at root level */}
       {openMenuId && portalMenuOptions.length > 0 && (
@@ -1759,6 +1804,33 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean, isMobil
     borderWidth: 1,
     borderColor: theme.border,
     ...shadows.sm,
+  },
+  billingAreaTabs: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    padding: 3,
+    borderRadius: borderRadius.lg,
+    backgroundColor: theme.surfaceMuted,
+  },
+  billingAreaTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+  billingAreaTabActive: {
+    backgroundColor: theme.actionPrimary,
+  },
+  billingAreaTabText: {
+    color: theme.textSecondary,
+    fontFamily: theme.fontBodyStrong,
+    fontSize: typography.fontSizes.sm,
+  },
+  billingAreaTabTextActive: {
+    color: theme.actionPrimaryText,
   },
   cardTargeted: {
     borderColor: theme.primary,

@@ -1,7 +1,6 @@
 import React, { type ReactNode, useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -10,6 +9,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from '../../../components/common/Button';
 import { DropdownOption, SimpleDropdown } from '../../../components/common/SimpleDropdown';
+import { VisibleScrollView } from '../../../components/common/VisibleScrollView';
 import { layout, spacing } from '../../../constants/colors';
 import { Theme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -100,10 +100,9 @@ export function ClinicWorkspaceScaffold({
   };
 
   return (
-    <ScrollView
+    <VisibleScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
     >
       <View style={styles.shell}>
         <View style={styles.header}>
@@ -125,6 +124,7 @@ export function ClinicWorkspaceScaffold({
                   onSelect={onSelectClinic}
                   placeholder="Selecciona clínica"
                   maxHeight={260}
+                  presentation="portal"
                 />
               </View>
             ) : null}
@@ -134,7 +134,7 @@ export function ClinicWorkspaceScaffold({
 
         {content()}
       </View>
-    </ScrollView>
+    </VisibleScrollView>
   );
 }
 
@@ -203,7 +203,6 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
     selector: {
       gap: spacing.xs,
       position: 'relative',
-      zIndex: 10,
     },
     selectorLabel: {
       color: theme.textMuted,

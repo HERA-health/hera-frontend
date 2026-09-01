@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable } from '../../components/common';
+import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { spacing, borderRadius, typography, layout } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
@@ -16,9 +17,14 @@ import { SpecialistManagementScreen } from './SpecialistManagementScreen';
 import { AdminHelpView } from '../../components/specialistContact/AdminHelpView';
 import { AdminFeedbackView } from '../../components/specialistContact/AdminFeedbackView';
 import { getAdminContactSummary } from '../../services/specialistContactService';
+import { AdminClinicFinanceScreen } from './AdminClinicFinanceScreen';
+import {
+  getAdminClinicFinanceSummary,
+  type AdminClinicFinanceSummary,
+} from '../../services/adminClinicFinanceService';
 import type { ScreenProps } from '../../constants/types';
 
-type TabKey = 'verifications' | 'management' | 'help' | 'feedback';
+type TabKey = 'verifications' | 'management' | 'clinics' | 'help' | 'feedback';
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 interface Tab {
@@ -45,6 +51,13 @@ const TABS: Tab[] = [
     iconActive: 'people',
   },
   {
+    key: 'clinics',
+    label: 'Activación de clínicas',
+    compactLabel: 'Clínicas',
+    icon: 'business-outline',
+    iconActive: 'business',
+  },
+  {
     key: 'help',
     label: 'Ayuda de especialistas',
     compactLabel: 'Ayuda',
@@ -65,14 +78,14 @@ export function AdminPanelTabbedScreen({
   navigation,
 }: ScreenProps<'AdminPanel'>) {
   const { user } = useAuth();
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const { width } = useWindowDimensions();
   const isAdmin = user?.isAdmin ?? false;
   const isDesktop = width >= 1024;
   const isMobileShell = width < 768;
   const styles = useMemo(
-    () => createStyles(theme, isDark, isDesktop, isMobileShell),
-    [theme, isDark, isDesktop, isMobileShell],
+    () => createStyles(theme, isDesktop, isMobileShell),
+    [theme, isDesktop, isMobileShell],
   );
   const [activeTab, setActiveTab] = useState<TabKey>(
     route.params?.initialTab ?? 'verifications'
@@ -81,6 +94,7 @@ export function AdminPanelTabbedScreen({
     unreadHelpRequests: 0,
     receivedFeedback: 0,
   });
+  const [clinicFinanceSummary, setClinicFinanceSummary] = useState<AdminClinicFinanceSummary | null>(null);
 
   useEffect(() => {
     if (route.params?.initialTab) {
@@ -105,9 +119,25 @@ export function AdminPanelTabbedScreen({
     navigation.setParams({ initialTab: 'help', requestId });
   }, [navigation]);
 
+  const refreshClinicFinanceSummary = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      setClinicFinanceSummary(await getAdminClinicFinanceSummary());
+    } catch {
+      // The clinics tab remains available if its badge cannot refresh.
+    }
+  }, [isAdmin]);
+
   useEffect(() => {
     void refreshContactSummary();
-  }, [activeTab, refreshContactSummary]);
+    void refreshClinicFinanceSummary();
+  }, [activeTab, refreshClinicFinanceSummary, refreshContactSummary]);
+
+  useEffect(() => {
+    if (activeTab !== 'clinics') return;
+    const timer = setInterval(() => void refreshClinicFinanceSummary(), 60_000);
+    return () => clearInterval(timer);
+  }, [activeTab, refreshClinicFinanceSummary]);
 
   if (!isAdmin) {
     return (
@@ -130,11 +160,24 @@ export function AdminPanelTabbedScreen({
         </View>
         <Text style={styles.headerTitle}>Administración</Text>
         <Text style={styles.headerSubtitle}>
-          Verificación, gestión de especialistas y seguimiento de sus comunicaciones.
+          Verificación, gestión de especialistas, clínicas y seguimiento operativo.
         </Text>
       </View>
 
-      <View style={styles.tabBar} accessibilityRole="tablist">
+      {isMobileShell ? (
+        <View style={styles.mobileTabSelector}>
+          <SimpleDropdown
+            options={TABS.map((tab) => ({ value: tab.key, label: tab.label }))}
+            value={activeTab}
+            onSelect={(tab) => {
+              setActiveTab(tab);
+              navigation.setParams({ initialTab: tab, requestId: undefined });
+            }}
+            accessibilityLabel="Sección de administración"
+            presentation="portal"
+          />
+        </View>
+      ) : <View style={styles.tabBar} accessibilityRole="tablist">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key;
           const label = isDesktop ? tab.label : tab.compactLabel;
@@ -142,6 +185,8 @@ export function AdminPanelTabbedScreen({
             ? contactSummary.unreadHelpRequests
             : tab.key === 'feedback'
               ? contactSummary.receivedFeedback
+              : tab.key === 'clinics'
+                ? clinicFinanceSummary?.pendingRequests ?? 0
               : 0;
 
           return (
@@ -171,11 +216,14 @@ export function AdminPanelTabbedScreen({
             </AnimatedPressable>
           );
         })}
-      </View>
+      </View>}
 
       <View style={styles.content}>
         {activeTab === 'verifications' && <AdminPanelScreen />}
         {activeTab === 'management' && <SpecialistManagementScreen />}
+        {activeTab === 'clinics' && (
+          <AdminClinicFinanceScreen onSummaryChanged={setClinicFinanceSummary} />
+        )}
         {activeTab === 'help' && (
           <AdminHelpView
             initialRequestId={route.params?.requestId}
@@ -191,7 +239,7 @@ export function AdminPanelTabbedScreen({
   );
 }
 
-const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean, isMobileShell: boolean) => StyleSheet.create({
+const createStyles = (theme: Theme, isDesktop: boolean, isMobileShell: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     minHeight: 0,
@@ -270,10 +318,10 @@ const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean, isMobil
   },
   tabBar: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
+    gap: spacing.xl,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
     maxWidth: isDesktop ? 1180 : undefined,
     alignSelf: 'center',
     width: '100%',
@@ -283,17 +331,14 @@ const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean, isMobil
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    minHeight: 42,
+    minHeight: 48,
     paddingVertical: spacing.sm,
-    paddingHorizontal: isDesktop ? spacing.lg : spacing.md,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: isDark ? theme.bgElevated : theme.bgCard,
+    paddingHorizontal: 0,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
   },
   tabActive: {
-    backgroundColor: theme.primaryAlpha12,
-    borderColor: theme.primaryAlpha20,
+    borderBottomColor: theme.primary,
   },
   tabLabel: {
     fontSize: typography.fontSizes.sm,
@@ -320,6 +365,10 @@ const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean, isMobil
   content: {
     flex: 1,
     minHeight: 0,
+  },
+  mobileTabSelector: {
+    paddingHorizontal: layout.mobileShellLeftInset,
+    paddingBottom: spacing.md,
   },
 });
 

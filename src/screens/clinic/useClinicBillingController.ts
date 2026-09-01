@@ -5,6 +5,13 @@ import type { DropdownOption } from '../../components/common/SimpleDropdown';
 import * as clinicService from '../../services/clinicService';
 import { useClinicWorkspace } from './useClinicWorkspace';
 import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
+import {
+  clinicBillingConfigSchema,
+  normalizeIban,
+  normalizeSeries,
+  normalizeSingleLine,
+  normalizeTaxIdentifier,
+} from '../../utils/financialFormValidation';
 
 export type ClinicBillingStatusFilter = clinicService.ClinicInvoiceStatus | 'ALL';
 export type ClinicBillingKindFilter = clinicService.ClinicInvoiceKind | 'ALL';
@@ -36,6 +43,8 @@ export interface ClinicBillingConfigForm {
   simplifiedInvoiceNextNumber: string;
   fullInvoicePrefix: string;
   fullInvoiceNextNumber: string;
+  rectifyingInvoicePrefix: string;
+  rectifyingInvoiceNextNumber: string;
   applyVat: boolean;
   vatRate: string;
   vatExemptReason: string;
@@ -153,6 +162,8 @@ const createConfigForm = (config?: clinicService.ClinicBillingConfig | null): Cl
   simplifiedInvoiceNextNumber: String(config?.simplifiedInvoiceNextNumber ?? 1),
   fullInvoicePrefix: config?.fullInvoicePrefix ?? 'FC',
   fullInvoiceNextNumber: String(config?.fullInvoiceNextNumber ?? 1),
+  rectifyingInvoicePrefix: config?.rectifyingInvoicePrefix ?? 'RC',
+  rectifyingInvoiceNextNumber: String(config?.rectifyingInvoiceNextNumber ?? 1),
   applyVat: config?.applyVat ?? false,
   vatRate: String(config?.vatRate ?? 21),
   vatExemptReason: config?.vatExemptReason ?? '',
@@ -170,25 +181,6 @@ const createInvoiceForm = (clinicPatientId = ''): ClinicBillingInvoiceForm => ({
   sessionDate: '',
   durationMinutes: '',
   internalNotes: '',
-});
-
-const configFormSchema = z.object({
-  legalName: z.string().max(160),
-  taxId: z.string().max(40),
-  fiscalAddress: z.string().max(240),
-  fiscalPostalCode: z.string().max(20),
-  fiscalCity: z.string().max(120),
-  fiscalCountry: z.string().max(80),
-  simplifiedInvoicePrefix: z.string().trim().min(1).max(10),
-  simplifiedInvoiceNextNumber: z.coerce.number().int().min(1),
-  fullInvoicePrefix: z.string().trim().min(1).max(10),
-  fullInvoiceNextNumber: z.coerce.number().int().min(1),
-  applyVat: z.boolean(),
-  vatRate: z.string().refine((value) => VAT_OPTIONS.has(value), 'IVA 0, 10 o 21.'),
-  vatExemptReason: z.string().max(240),
-  bankIban: z.string().max(64),
-  paymentConditions: z.string().max(500),
-  sendInvoiceCopyTo: z.string().email('Email no válido.').or(z.literal('')),
 });
 
 const invoiceFormSchema = z.object({
@@ -395,7 +387,30 @@ export function useClinicBillingController() {
     field: K,
     value: ClinicBillingConfigForm[K],
   ) => {
-    setConfigForm((current) => ({ ...current, [field]: value }));
+    let normalized = value;
+    if (typeof value === 'string') {
+      if (['simplifiedInvoicePrefix', 'fullInvoicePrefix', 'rectifyingInvoicePrefix'].includes(field)) {
+        normalized = normalizeSeries(value, 10) as ClinicBillingConfigForm[K];
+      } else if (field === 'taxId') {
+        normalized = normalizeTaxIdentifier(value) as ClinicBillingConfigForm[K];
+      } else if (field === 'bankIban') {
+        normalized = normalizeIban(value) as ClinicBillingConfigForm[K];
+      } else if (field === 'fiscalPostalCode') {
+        normalized = value.replace(/\D/g, '').slice(0, 5) as ClinicBillingConfigForm[K];
+      } else if (['simplifiedInvoiceNextNumber', 'fullInvoiceNextNumber', 'rectifyingInvoiceNextNumber'].includes(field)) {
+        normalized = value.replace(/\D/g, '').slice(0, 10) as ClinicBillingConfigForm[K];
+      } else if (field !== 'paymentConditions' && field !== 'vatExemptReason') {
+        const limits: Partial<Record<keyof ClinicBillingConfigForm, number>> = {
+          legalName: 160,
+          fiscalAddress: 240,
+          fiscalCity: 120,
+          fiscalCountry: 80,
+          sendInvoiceCopyTo: 254,
+        };
+        normalized = normalizeSingleLine(value, limits[field] ?? 500) as ClinicBillingConfigForm[K];
+      }
+    }
+    setConfigForm((current) => ({ ...current, [field]: normalized }));
     setConfigErrors((current) => ({ ...current, [field]: undefined }));
   }, []);
 
@@ -454,9 +469,17 @@ export function useClinicBillingController() {
     const requestId = summaryRequestSeq.current + 1;
     summaryRequestSeq.current = requestId;
 
-    const summaryResult = await clinicService.getClinicBillingSummary(clinicId);
-    if (!mountedRef.current || summaryRequestSeq.current !== requestId) return;
-    setSummary(summaryResult);
+    try {
+      const summaryResult = await clinicService.getClinicBillingSummary(clinicId);
+      if (!mountedRef.current || summaryRequestSeq.current !== requestId) return;
+      setSummary(summaryResult);
+    } catch (loadError: unknown) {
+      if (!mountedRef.current || summaryRequestSeq.current !== requestId) return;
+      setSummary(null);
+      setError(loadError instanceof Error
+        ? loadError.message
+        : 'No se pudo cargar el resumen de facturación');
+    }
   }, []);
 
   const loadRevenueShareSummary = useCallback(async (
@@ -627,10 +650,16 @@ export function useClinicBillingController() {
     const requestId = referenceRequestSeq.current + 1;
     referenceRequestSeq.current = requestId;
 
-    const configResult = await clinicService.getClinicBillingConfig(clinicId);
-    if (!mountedRef.current || referenceRequestSeq.current !== requestId) return;
-    setConfig(configResult);
-    setConfigForm(createConfigForm(configResult));
+    try {
+      const configResult = await clinicService.getClinicBillingConfig(clinicId);
+      if (!mountedRef.current || referenceRequestSeq.current !== requestId) return;
+      setConfig(configResult);
+      setConfigForm(createConfigForm(configResult));
+    } catch {
+      if (!mountedRef.current || referenceRequestSeq.current !== requestId) return;
+      setConfig(null);
+      setConfigForm(createConfigForm());
+    }
   }, []);
 
   const reloadInvoicesAndSummary = useCallback(async (filters = appliedFilters) => {
@@ -968,7 +997,7 @@ export function useClinicBillingController() {
   const handleSaveConfig = useCallback(async () => {
     if (!workspace.selectedClinicId || !canManage) return;
 
-    const parsed = configFormSchema.safeParse(configForm);
+    const parsed = clinicBillingConfigSchema.safeParse(configForm);
     if (!parsed.success) {
       const nextErrors: ClinicBillingConfigErrors = {};
       parsed.error.issues.forEach((issue) => {
@@ -981,7 +1010,7 @@ export function useClinicBillingController() {
 
     try {
       setSaving(true);
-      const updated = await clinicService.updateClinicBillingConfig(workspace.selectedClinicId, {
+      const nextConfig = {
         legalName: emptyToNull(parsed.data.legalName),
         taxId: emptyToNull(parsed.data.taxId),
         fiscalAddress: emptyToNull(parsed.data.fiscalAddress),
@@ -992,13 +1021,25 @@ export function useClinicBillingController() {
         simplifiedInvoiceNextNumber: parsed.data.simplifiedInvoiceNextNumber,
         fullInvoicePrefix: parsed.data.fullInvoicePrefix,
         fullInvoiceNextNumber: parsed.data.fullInvoiceNextNumber,
+        rectifyingInvoicePrefix: parsed.data.rectifyingInvoicePrefix,
+        rectifyingInvoiceNextNumber: parsed.data.rectifyingInvoiceNextNumber,
         applyVat: parsed.data.applyVat,
         vatRate: Number(parsed.data.vatRate),
-        vatExemptReason: emptyToNull(parsed.data.vatExemptReason),
+        vatExemptReason: parsed.data.applyVat ? null : emptyToNull(parsed.data.vatExemptReason),
         bankIban: emptyToNull(parsed.data.bankIban),
         paymentConditions: emptyToNull(parsed.data.paymentConditions),
         sendInvoiceCopyTo: emptyToNull(parsed.data.sendInvoiceCopyTo),
-      });
+      } satisfies clinicService.UpdateClinicBillingConfigPayload;
+      const payload = Object.fromEntries(
+        Object.entries(nextConfig).filter(([key, value]) => (
+          !config || config[key as keyof clinicService.ClinicBillingConfig] !== value
+        )),
+      ) as clinicService.UpdateClinicBillingConfigPayload;
+      if (Object.keys(payload).length === 0) {
+        showAppAlert(appAlert, 'Sin cambios', 'La configuración ya está actualizada.');
+        return;
+      }
+      const updated = await clinicService.updateClinicBillingConfig(workspace.selectedClinicId, payload);
       setConfig(updated);
       setConfigForm(createConfigForm(updated));
       await refreshCompletion();
@@ -1012,7 +1053,7 @@ export function useClinicBillingController() {
     } finally {
       setSaving(false);
     }
-  }, [appAlert, canManage, configForm, refreshCompletion, workspace.selectedClinicId]);
+  }, [appAlert, canManage, config, configForm, refreshCompletion, workspace.selectedClinicId]);
 
   const handleCreateInvoice = useCallback(async (): Promise<boolean> => {
     if (!workspace.selectedClinicId || !canManage) return false;

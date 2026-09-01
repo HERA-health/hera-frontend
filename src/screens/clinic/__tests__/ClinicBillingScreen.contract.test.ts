@@ -44,7 +44,8 @@ describe('ClinicBillingScreen source guards', () => {
     expect(controllerSource).toContain('editableFilters');
     expect(controllerSource).toContain('appliedFilters');
     expect(controllerSource).toContain('handleApplyFilters');
-    expect(screenSource).toContain('onPress={handleApplyFilters}');
+    expect(screenSource).toContain('onApply={handleApplyFilters}');
+    expect(screenSource).toContain('onPress={onApply}');
     expect(screenSource).not.toContain('clinicService.listClinicInvoices');
   });
 
@@ -69,8 +70,8 @@ describe('ClinicBillingScreen source guards', () => {
     expect(controllerSource).toContain('clearTimeout');
     expect(controllerSource).toContain('setInvoiceForm(createInvoiceForm())');
     expect(controllerSource).not.toContain('limit: 200');
-    expect(screenSource).toContain('Buscar paciente');
-    expect(createScreenSource).toContain('Cargar mas citas');
+    expect(screenSource).toContain('Buscar por paciente');
+    expect(createScreenSource).toContain('Cargar más citas');
   });
 
   it('debounces patient searches and resets invoice form on clinic context changes', () => {
@@ -88,9 +89,38 @@ describe('ClinicBillingScreen source guards', () => {
 
   it('exposes VAT exemption reason and applies compact styles through child panels', () => {
     expect(screenSource).toContain('vatExemptReason');
-    expect(screenSource).toContain('Motivo de exencion IVA');
+    expect(screenSource).toContain('Motivo de exención o no sujeción');
     expect(screenSource).toContain('isCompact={isCompact}');
     expect(screenSource).not.toContain('createStyles(theme, false)');
+  });
+
+  it('uses a responsive two-column billing configuration without narrowing tablet fields', () => {
+    expect(screenSource).toContain('wideLayout={width >= 1280}');
+    expect(screenSource).toContain('styles.configColumnsWide');
+    expect(screenSource).toContain('styles.configColumnWide');
+    expect(screenSource).toContain('maxWidth: layout.contentMaxWidth');
+    expect(screenSource).toContain('>Impuestos</Text>');
+    expect(screenSource).toContain('>Cobro y entrega</Text>');
+  });
+
+  it('presents the previous system as explicit navigation instead of a filter selector', () => {
+    expect(screenSource).toContain("{ key: 'history', label: 'Histórico anterior' }");
+    expect(screenSource).toContain('<HistoricalBillingTabs');
+    expect(screenSource).toContain('accessibilityLabel="Apartado del histórico anterior"');
+    expect(screenSource).toContain('collapseOnMobile={false}');
+    expect(screenSource).not.toContain('placeholder="Histórico anterior"');
+    expect(screenSource).not.toContain('selectedHistory');
+  });
+
+  it('keeps historical invoice search and filters in one responsive work bar', () => {
+    expect(screenSource).toContain('<HistoricalInvoiceFilters');
+    expect(screenSource).toContain('wideLayout={width >= 1180}');
+    expect(screenSource).toContain('styles.filterControlsWide');
+    expect(screenSource).toContain('placeholder="Escribe un nombre"');
+    expect(screenSource).toContain('Aplicar filtros');
+    expect(screenSource).toContain('Crear factura');
+    expect(screenSource).not.toContain('Crear factura del histórico');
+    expect(screenSource).not.toContain('<LegacyNotice');
   });
 
   it('supports manual invoices and explicit invoice generation from completed sessions', () => {
@@ -117,9 +147,9 @@ describe('ClinicBillingScreen source guards', () => {
     expect(screenSource).toContain('Base pagada');
     expect(screenSource).toContain('Especialistas');
     expect(screenSource).toContain('pendingSnapshotInvoiceCount');
-    expect(screenSource).toContain('sin snapshot');
+    expect(screenSource).toContain('no tiene{pendingSnapshotCount === 1 ? \'\' : \'n\'} el reparto guardado');
     expect(screenSource).toContain('Liquidaciones');
-    expect(screenSource).toContain('Registro interno; no realiza transferencia bancaria');
+    expect(screenSource).toContain('Repartos cerrados en el sistema anterior');
     expect(screenSource).toContain('Generar liquidación');
     expect(screenSource).toContain('Ver detalle');
     expect(screenSource).toContain('Marcar revisada');
