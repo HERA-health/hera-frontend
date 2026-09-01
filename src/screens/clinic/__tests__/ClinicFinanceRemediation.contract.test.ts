@@ -25,6 +25,7 @@ describe("clinic finance production remediation contracts", () => {
   const clinicScaffold = read("../components/ClinicWorkspaceScaffold.tsx");
   const professionalBilling = read("../../professional/BillingScreen.tsx");
   const financeService = read("../../../services/clinic/financeService.ts");
+  const billingController = read("../useClinicBillingController.ts");
 
   it("uses the shared cross-platform confirmation surface", () => {
     expect(clinicWorkspace).not.toContain("Alert.alert");
@@ -129,6 +130,18 @@ describe("clinic finance production remediation contracts", () => {
     }
     expect(clinicWorkspace).not.toContain("FINANZAS DE LA CLÍNICA");
     expect(clinicWorkspace).not.toContain("Cada importe, explicado desde su sesión");
+  });
+
+  it("keeps the owner review request available without restoring an activation card", () => {
+    expect(clinicBilling).toContain("Enviar a revisión");
+    expect(clinicBilling).toContain("activationReadiness?.capabilities.canRequestReview");
+    expect(clinicBilling).toContain("activationReadiness?.capabilities.canCancelRequest");
+    expect(clinicBilling).not.toContain("ClinicFinancialActivationCard");
+    expect(billingController).toContain("handleRequestActivationReview");
+    expect(billingController).toContain("handleCancelActivationReview");
+    expect(billingController).toContain("activationCommandRef.current");
+    expect(financeService).toContain("/finance/activation-readiness");
+    expect(financeService).toContain("/finance/activation-requests");
   });
 
   it("uses concise product language instead of technical or overexplained copy", () => {

@@ -35,14 +35,15 @@ describe('admin clinic finance activation contracts', () => {
     expect(screen).toContain('actionError');
   });
 
-  it('keeps activation and readiness exclusively inside HERA administration', () => {
+  it('keeps final activation in HERA while allowing the owner to submit a compact review request', () => {
     expect(screen).toContain('Activar clínica');
     expect(screen).toContain('Iniciar comprobación');
     expect(clinicWorkspace).not.toContain('ClinicFinancialActivationCard');
     expect(clinicWorkspace).not.toContain('ModeBadge');
     expect(clinicWorkspace).not.toContain('Pendiente de preparación');
-    expect(clinicService).not.toContain('/finance/activation-readiness');
-    expect(clinicService).not.toContain('/finance/activation-requests');
+    expect(clinicService).toContain('/finance/activation-readiness');
+    expect(clinicService).toContain('/finance/activation-requests');
+    expect(clinicService).not.toContain('/finance/activate');
   });
 
   it('does not expose detailed financial entities in the global admin contract', () => {

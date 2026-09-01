@@ -1,6 +1,27 @@
 import type { ClinicInvoiceKind, ClinicMembershipRole } from "./types";
 
 export type ClinicFinancialWorkflowMode = "OFF" | "SHADOW" | "ACTIVE";
+export type ClinicFinancialActivationRequestStatus =
+  | "PENDING_REVIEW"
+  | "IN_REVIEW"
+  | "CHANGES_REQUIRED"
+  | "ACTIVATED"
+  | "CANCELLED";
+
+export interface ClinicFinancialActivationReadiness {
+  clinicId: string;
+  mode: ClinicFinancialWorkflowMode;
+  request: {
+    id: string;
+    status: ClinicFinancialActivationRequestStatus;
+    version: number;
+    resolutionReason: string | null;
+  } | null;
+  capabilities: {
+    canRequestReview: boolean;
+    canCancelRequest: boolean;
+  };
+}
 export type ClinicAgreementScope =
   "CLINIC" | "SPECIALIST" | "SPECIALIST_SERVICE" | "SPECIALIST_PATIENT";
 export type ClinicAgreementRelationship =
