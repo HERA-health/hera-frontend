@@ -119,8 +119,10 @@ export function ClinicBillingScreen({
   const {
     canManage,
     config,
+    configError,
     configErrors,
     configForm,
+    configLoading,
     editableFilters,
     error,
     handleApplyFilters,
@@ -273,6 +275,8 @@ export function ClinicBillingScreen({
                 <View style={styles.topGrid}>
                   <ConfigPanel
                     savedConfig={config}
+                    loading={configLoading}
+                    error={configError}
                     form={configForm}
                     errors={configErrors}
                     saving={saving}
@@ -1064,6 +1068,8 @@ function SettlementPanel({
 
 function ConfigPanel({
   savedConfig,
+  loading,
+  error,
   form,
   errors,
   saving,
@@ -1075,6 +1081,8 @@ function ConfigPanel({
   highlighted,
 }: {
   savedConfig: clinicService.ClinicBillingConfig | null;
+  loading: boolean;
+  error: string;
   form: ClinicBillingConfigForm;
   errors: ClinicBillingConfigErrors;
   saving: boolean;
@@ -1123,6 +1131,7 @@ function ConfigPanel({
   }, [hasChanges, validation]);
   const fieldError = (field: keyof ClinicBillingConfigForm): string | undefined => errors[field] ?? liveErrors[field];
   if (!savedConfig) {
+    const hasLoadError = Boolean(error) && !loading;
     return (
       <View style={[styles.panel, styles.configPanel, highlighted ? styles.panelHighlighted : null]}>
         <View style={styles.sectionHeader}>
@@ -1131,15 +1140,22 @@ function ConfigPanel({
             <Text style={styles.sectionSubtitle}>Información que aparecerá en las facturas de la clínica.</Text>
           </View>
         </View>
-        <View style={styles.inlineWarning}>
-          <Ionicons name="alert-circle-outline" size={18} color={theme.warning} />
-          <Text style={styles.inlineWarningText}>
-            No hemos podido cargar esta configuración. No se ha modificado ningún dato; vuelve a intentarlo.
-          </Text>
-        </View>
-        <View style={styles.configRetryAction}>
-          <Button variant="outline" size="medium" onPress={onRetry}>Reintentar</Button>
-        </View>
+        {hasLoadError ? (
+          <>
+            <View accessibilityRole="alert" style={styles.inlineWarning}>
+              <Ionicons name="alert-circle-outline" size={18} color={theme.warning} />
+              <Text style={styles.inlineWarningText}>{error}</Text>
+            </View>
+            <View style={styles.configRetryAction}>
+              <Button variant="outline" size="medium" onPress={onRetry}>Reintentar</Button>
+            </View>
+          </>
+        ) : (
+          <View accessibilityLabel="Cargando datos de facturación" style={styles.configLoadingState}>
+            <ActivityIndicator color={theme.primary} size="small" />
+            <Text style={styles.sectionSubtitle}>Cargando datos de facturación…</Text>
+          </View>
+        )}
       </View>
     );
   }
@@ -1428,6 +1444,12 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
     },
     configRetryAction: {
       alignItems: 'flex-start',
+    },
+    configLoadingState: {
+      minHeight: 112,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
     },
     historyNavigation: {
       flexDirection: isCompact ? 'column' : 'row',

@@ -70,14 +70,16 @@ const statusLabels: Record<string, string> = {
   RECTIFIED: "Rectificada",
 };
 
-const scopeLabels: Record<clinicService.ClinicAgreementScope, string> = {
-  CLINIC: "Acuerdo general con la clínica",
-  SPECIALIST: "Acuerdo específico para ti",
-  SPECIALIST_SERVICE: "Acuerdo para un servicio concreto",
-  SPECIALIST_PATIENT: "Acuerdo para una atención concreta",
+const economicStateLabels: Record<ProfessionalClinicFinance["sessions"][number]["economicState"], string> = {
+  PROJECTED: "Importe previsto",
+  GENERATED: "Importe generado",
+  LIQUIDABLE: "Listo para el cierre",
+  CLOSED: "Incluido en un cierre",
+  BLOCKED: "Configuración pendiente",
+  NOT_APPLICABLE: "Sin importe generado",
 };
 
-type ProfessionalSection = "overview" | "activity" | "agreement" | "closings";
+type ProfessionalSection = "overview" | "activity" | "closings";
 const PROFESSIONAL_SECTIONS = [
   { value: "overview", label: "Resumen" },
   { value: "activity", label: "Actividad" },
@@ -336,7 +338,9 @@ export function ProfessionalClinicFinancePanel({
       </View>
     );
   const totals = finance?.liveSummary ?? {
+    projectedCents: 0,
     generatedCents: 0,
+    blockedSessionCount: 0,
     liquidableCents: 0,
     closedCents: 0,
     invoicedCents: 0,
@@ -376,7 +380,7 @@ export function ProfessionalClinicFinancePanel({
           <Text style={styles.kicker}>CLÍNICAS</Text>
           <Text style={styles.heroTitle}>Tu actividad con clínicas</Text>
           <Text style={styles.heroText}>
-            Consulta tus acuerdos, cierres, facturas y pagos.
+            Consulta tu actividad, cierres, facturas y pagos.
           </Text>
         </View>
         <View style={styles.selector}>
@@ -406,12 +410,19 @@ export function ProfessionalClinicFinancePanel({
         <>
           <FinanceSectionNavigation value={activeSection} options={PROFESSIONAL_SECTIONS} onChange={setActiveSection} accessibilityLabel="Sección de clínicas" />
           {activeSection === "overview" ? <FinanceSummaryStrip items={[
-            { key: "generated", label: "Generado por tus sesiones", value: euro(totals.generatedCents) },
+            { key: "projected", label: "Previsto en citas", value: euro(totals.projectedCents) },
+            { key: "generated", label: "Generado en sesiones completadas", value: euro(totals.generatedCents) },
             { key: "liquidable", label: "Listo para el próximo cierre", value: euro(totals.liquidableCents) },
             { key: "closed", label: "Incluido en cierres", value: euro(totals.closedCents) },
             { key: "invoiced", label: "Facturado a la clínica", value: euro(totals.invoicedCents) },
             { key: "pending", label: "Pendiente de recibir", value: euro(totals.pendingTransferCents) },
             { key: "paid", label: "Pagos registrados", value: euro(totals.paidCents), tone: "success" },
+            ...(totals.blockedSessionCount > 0 ? [{
+              key: "blocked",
+              label: "Sesiones por revisar",
+              value: String(totals.blockedSessionCount),
+              tone: "warning" as const,
+            }] : []),
           ]} /> : null}
           {activeSection === "activity" ? <View style={styles.section}>
             <Text style={styles.kicker}>ACTIVIDAD DEL MES</Text>
@@ -425,6 +436,9 @@ export function ProfessionalClinicFinancePanel({
                   : snapshot?.shareMethod === "FIXED_AMOUNT"
                     ? `${euro(snapshot.professionalFixedCents ?? 0)} fijo`
                     : "Configuración pendiente";
+                const displayedAmount = session.economicState === "PROJECTED"
+                  ? session.professionalAmountCents
+                  : session.generatedCents;
                 return (
                   <View key={session.id} style={styles.card}>
                     <View style={styles.flex}>
@@ -441,7 +455,9 @@ export function ProfessionalClinicFinancePanel({
                     </View>
                     <View>
                       <Text style={styles.cardValue}>
-                        {euro(session.professionalAmountCents)} generado
+                        {session.economicState === "BLOCKED" || session.economicState === "NOT_APPLICABLE"
+                          ? economicStateLabels[session.economicState]
+                          : `${euro(displayedAmount)} · ${economicStateLabels[session.economicState]}`}
                       </Text>
                       <Text style={styles.muted}>
                         {euro(session.liquidableAvailableCents)} listo para el cierre
@@ -459,83 +475,6 @@ export function ProfessionalClinicFinancePanel({
                 onPress={() => void loadMoreSessions()}
               >
                 Ver más sesiones
-              </Button>
-            ) : null}
-          </View> : null}
-          {activeSection === "agreement" ? <View style={styles.section}>
-            <Text style={styles.kicker}>ACUERDO VIGENTE</Text>
-            {finance.agreements.length === 0 ? (
-              <Empty
-                text="La clínica todavía no ha preparado un acuerdo para ti."
-                styles={styles}
-              />
-            ) : (
-              finance.agreements.map((agreement) => {
-                const accepted = agreement.acceptances.length > 0;
-                const value =
-                  agreement.shareMethod === "PERCENTAGE"
-                    ? `${(agreement.professionalShareBps ?? 0) / 100} %`
-                    : euro(agreement.professionalFixedCents ?? 0);
-                return (
-                  <View key={agreement.id} style={styles.card}>
-                    <View style={styles.cardHeader}>
-                      <View style={styles.flex}>
-                        <Text style={styles.cardTitle}>
-                          {scopeLabels[agreement.agreement.scope]}
-                        </Text>
-                        <Text style={styles.cardValue}>{value} para ti</Text>
-                        <Text style={styles.muted}>
-                          {agreement.settlementCondition ===
-                          "PATIENT_COLLECTION"
-                            ? "Se incorpora al cierre según los cobros registrados."
-                            : "Queda listo para el cierre al completar la sesión."}
-                        </Text>
-                      </View>
-                      <Status
-                        label={
-                          accepted
-                            ? agreement.status
-                            : "PENDING_ACCEPTANCE"
-                        }
-                        styles={styles}
-                      />
-                    </View>
-                    {!accepted && agreement.status === "PENDING_ACCEPTANCE" ? (
-                      <Button
-                        loading={saving}
-                        onPress={() =>
-                          void confirmAndRun(
-                            "Aceptar acuerdo",
-                            "Confirma que has revisado el acuerdo. Solo afectará a sesiones futuras.",
-                            "Aceptar",
-                            () => runIdempotent(
-                              `accept-agreement:${agreement.id}:${agreement.version}`,
-                              (idempotencyKey) =>
-                                clinicService.acceptProfessionalClinicAgreement(
-                                  clinicId!,
-                                  agreement.id,
-                                  agreement.version,
-                                  idempotencyKey,
-                                ),
-                            ),
-                          )
-                        }
-                      >
-                        Aceptar versión {agreement.version}
-                      </Button>
-                    ) : null}
-                  </View>
-                );
-              })
-            )}
-            {statementPage?.pageInfo.hasMore ? (
-              <Button
-                variant="outline"
-                loading={loadingMoreStatements}
-                disabled={loadingMoreStatements}
-                onPress={() => void loadMoreStatements()}
-              >
-                Cargar más cierres
               </Button>
             ) : null}
           </View> : null}

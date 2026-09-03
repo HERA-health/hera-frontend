@@ -159,6 +159,8 @@ export function ProfessionalClinicWorkspaceProvider({ children }: { children: Re
     // Clear the selected context immediately so children cannot render data from
     // the previous clinic while the new namespace is loading.
     setSelectedClinicId(null);
+    setStatus('ready');
+    setError(null);
     await Promise.resolve();
     setSelectedClinicId(clinicId);
     await AsyncStorage.setItem(storageKeyFor(userId), clinicId).catch(() => undefined);

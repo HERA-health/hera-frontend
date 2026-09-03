@@ -1,6 +1,12 @@
 name: Clinic finance frontend quality
 
 on:
+  push:
+    branches: [master]
+    paths:
+      - "src/**"
+      - "package*.json"
+      - ".github/workflows/clinic-finance-quality.yml"
   pull_request:
     paths:
       - "src/**"
@@ -19,5 +25,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - run: npm test -- --watch=false
+      - run: npm test -- --runInBand --silent
       - run: npm run build:web
