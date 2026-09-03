@@ -9,7 +9,7 @@ import type {
   CreateManagedClientSessionInput,
   ManagedSessionSlotOptionsResult,
 } from '../../../services/professionalService';
-import { parseMadridDateTime } from '../../../utils/madridTime';
+import { getMadridDateKey, parseMadridDateTime } from '../../../utils/madridTime';
 import { MANAGED_SESSION_TIME_OPTIONS } from '../../../utils/managedSessionSchedulerOptions';
 
 jest.mock('../../../contexts/ThemeContext', () => ({
@@ -88,13 +88,19 @@ const secondClient: Client = {
   },
 };
 
-const pad = (value: number): string => String(value).padStart(2, '0');
+const buildMadridDate = (dateKey: string, time: string): Date => {
+  const parsed = parseMadridDateTime(dateKey, time);
+  if (!parsed) {
+    throw new Error(`Invalid Madrid fixture: ${dateKey} ${time}`);
+  }
 
-const formatDateInput = (date: Date): string =>
-  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return parsed.date;
+};
 
-const formatTimeInput = (date: Date): string =>
-  `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+const buildMadridDateAfter = (base: Date, days: number, time: string): Date => {
+  const targetDayAtNoon = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+  return buildMadridDate(getMadridDateKey(targetDayAtNoon), time);
+};
 
 const buildAvailableSlotOptions = (): ManagedSessionSlotOptionsResult => ({
   date: mockCalendarDate,
@@ -121,11 +127,8 @@ function createDeferred<T>() {
 
 describe('ManagedSessionSchedulerModal buffer override UX', () => {
   beforeEach(() => {
-    const futureNow = new Date();
-    futureNow.setDate(futureNow.getDate() + 1);
-    futureNow.setHours(8, 0, 0, 0);
-    const calendarDate = new Date(futureNow.getTime() + 3 * 24 * 60 * 60 * 1000);
-    mockCalendarDate = formatDateInput(calendarDate);
+    const futureNow = buildMadridDate('2099-01-02', '08:00');
+    mockCalendarDate = getMadridDateKey(new Date(futureNow.getTime() + 3 * 24 * 60 * 60 * 1000));
 
     jest.spyOn(Date, 'now').mockReturnValue(futureNow.getTime());
     mockedUseTheme.mockReturnValue({
@@ -384,8 +387,8 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
   });
 
   it('preloads edit values and resubmits buffer override as a schedule update', async () => {
-    const startsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
-    startsAt.setHours(12, 30, 0, 0);
+    const startsAt = buildMadridDateAfter(new Date(Date.now()), 2, '12:30');
+    const startsAtDateKey = getMadridDateKey(startsAt);
 
     const submissions: CreateManagedClientSessionInput[] = [];
     const bufferError = Object.assign(new Error('buffer conflict'), {
@@ -418,12 +421,12 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     );
 
     expect(screen.getByText('Modificar cita')).toBeTruthy();
-    expect(screen.getByText(formatDateInput(startsAt))).toBeTruthy();
-    expect(screen.getByDisplayValue(formatTimeInput(startsAt))).toBeTruthy();
+    expect(screen.getByText(startsAtDateKey)).toBeTruthy();
+    expect(screen.getByDisplayValue('12:30')).toBeTruthy();
     expect(screen.getByText('75 min')).toBeTruthy();
     await waitFor(() => {
       expect(mockGetManagedSessionSlotOptions).toHaveBeenCalledWith({
-        date: formatDateInput(startsAt),
+        date: startsAtDateKey,
         duration: 75,
         sessionId: 'session-1',
       });
@@ -615,8 +618,8 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
   });
 
   it('clears stale occupied state immediately when duration reloads slot options', async () => {
-    const startsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
-    startsAt.setHours(12, 30, 0, 0);
+    const startsAt = buildMadridDateAfter(new Date(Date.now()), 2, '12:30');
+    const startsAtDateKey = getMadridDateKey(startsAt);
     const firstResponse = buildAvailableSlotOptions();
     firstResponse.slots = firstResponse.slots.map((slot) => (
       slot.startTime === '12:30'
@@ -654,7 +657,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
 
     await waitFor(() => {
       expect(mockGetManagedSessionSlotOptions).toHaveBeenLastCalledWith({
-        date: formatDateInput(startsAt),
+        date: startsAtDateKey,
         duration: 90,
         sessionId: 'session-1',
       });
@@ -667,8 +670,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
   });
 
   it('ignores an older slot response that resolves after a newer duration request', async () => {
-    const startsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
-    startsAt.setHours(12, 30, 0, 0);
+    const startsAt = buildMadridDateAfter(new Date(Date.now()), 2, '12:30');
     const staleResponse = buildAvailableSlotOptions();
     staleResponse.slots = staleResponse.slots.map((slot) => (
       slot.startTime === '12:30'
@@ -743,8 +745,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
   });
 
   it('shows non-standard edit values as invalid until a fixed option is selected', async () => {
-    const startsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
-    startsAt.setHours(12, 32, 0, 0);
+    const startsAt = buildMadridDateAfter(new Date(Date.now()), 2, '12:32');
     const onSubmit = jest.fn(() => Promise.resolve());
 
     render(
@@ -783,8 +784,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
   });
 
   it('does not silently move an edited session when its current slot is occupied', async () => {
-    const startsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
-    startsAt.setHours(12, 30, 0, 0);
+    const startsAt = buildMadridDateAfter(new Date(Date.now()), 2, '12:30');
     const response = buildAvailableSlotOptions();
     response.slots = response.slots.map((slot) => (
       slot.startTime === '12:30'
@@ -824,8 +824,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
   });
 
   it('shows the selected patient avatar when editing a session', async () => {
-    const startsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
-    startsAt.setHours(12, 30, 0, 0);
+    const startsAt = buildMadridDateAfter(new Date(Date.now()), 2, '12:30');
 
     render(
       <ManagedSessionSchedulerModal
@@ -855,8 +854,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
   });
 
   it('uses modification copy when an edited session patient has no email', async () => {
-    const startsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
-    startsAt.setHours(12, 30, 0, 0);
+    const startsAt = buildMadridDateAfter(new Date(Date.now()), 2, '12:30');
     const clientWithoutEmail: Client = {
       ...client,
       email: null,
