@@ -82,7 +82,7 @@ function StateView({
     return (
       <View style={styles.state} accessibilityLiveRegion="polite">
         <ActivityIndicator color={theme.primary} />
-        <Text style={[styles.stateText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Preparando este espacio…</Text>
+        <Text style={[styles.stateText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{message ?? 'Preparando este espacio…'}</Text>
       </View>
     );
   }
@@ -596,7 +596,23 @@ export function ProfessionalClinicWorkspaceScreen({ navigation, route }: Props):
       </View>
     );
   }
-  const context = workspace.selectedContext;
+  const switchingRequestedClinic = Boolean(
+    requestedClinicId
+    && workspace.selectedClinicId !== requestedClinicId
+    && workspace.contexts.some((item) => item.clinic.id === requestedClinicId),
+  );
+  if (switchingRequestedClinic) {
+    return (
+      <View style={[stylesForTheme.screen, { backgroundColor: theme.bg }]}>
+        <StateView status="loading" message="Abriendo la clínica solicitada…" />
+      </View>
+    );
+  }
+  const context = requestedClinicId
+    ? workspace.selectedContext?.clinic.id === requestedClinicId
+      ? workspace.selectedContext
+      : null
+    : workspace.selectedContext;
   if (!context) {
     return (
       <View style={[stylesForTheme.accessScreen, { backgroundColor: theme.bg }]}>
@@ -623,7 +639,11 @@ export function ProfessionalClinicWorkspaceScreen({ navigation, route }: Props):
           {workspace.contexts.length > 1 ? <SimpleDropdown
             value={context.clinic.id}
             options={workspace.contexts.map((item) => ({ label: item.clinic.displayName, value: item.clinic.id, subtitle: item.relationship.professionalTitle ?? undefined }))}
-            onSelect={(clinicId) => { void workspace.selectClinic(clinicId); }}
+            onSelect={(clinicId) => navigation.setParams({
+              clinicId,
+              section: 'home',
+              focusId: undefined,
+            })}
             accessibilityLabel="Cambiar clínica profesional"
             presentation="portal"
           /> : null}
@@ -652,7 +672,7 @@ export function ProfessionalClinicWorkspaceScreen({ navigation, route }: Props):
         </ScrollView>
       </View>
 
-      <ScrollView style={stylesForTheme.contentScroll} contentContainerStyle={stylesForTheme.content} showsVerticalScrollIndicator>
+      <ScrollView key={context.clinic.id} style={stylesForTheme.contentScroll} contentContainerStyle={stylesForTheme.content} showsVerticalScrollIndicator>
         {section === 'home' ? <HomeSection clinicId={context.clinic.id} onOpenSection={openSection} /> : null}
         {section === 'agenda' ? <AgendaSection clinicId={context.clinic.id} focusId={focusId} /> : null}
         {section === 'patients' ? <PatientsSection clinicId={context.clinic.id} navigation={navigation} /> : null}

@@ -16,6 +16,7 @@ describe('professional workspace shell hardening', () => {
   const home = readSource('screens', 'professional', 'ProfessionalHomeScreen.tsx');
   const clinicWorkspace = readSource('screens', 'professional', 'ProfessionalClinicWorkspaceScreen.tsx');
   const clinicWorkspaceService = readSource('services', 'clinic', 'professionalWorkspaceService.ts');
+  const clinicWorkspaceContext = readSource('contexts', 'ProfessionalClinicWorkspaceContext.tsx');
 
   it('keeps the 1040 professional breakpoint without changing other roles', () => {
     expect(mainLayout).toContain('isLargeScreenForRole(windowWidth, isProfessional)');
@@ -37,6 +38,27 @@ describe('professional workspace shell hardening', () => {
     expect(clinicWorkspace).not.toContain('pendiente de activación');
     expect(clinicWorkspace).not.toContain('Nombre revisado por HERA');
     expect(clinicWorkspaceService).not.toContain('nameReview');
+  });
+
+  it('changes clinic context without painting or accepting late data from the persisted clinic', () => {
+    expect(clinicWorkspace).toContain('requestedClinicId !== workspace.selectedClinicId');
+    expect(clinicWorkspace).toContain('switchingRequestedClinic');
+    expect(clinicWorkspace).toContain('Abriendo la clínica solicitada…');
+    expect(clinicWorkspace).toContain('workspace.selectedContext?.clinic.id === requestedClinicId');
+    expect(clinicWorkspace).toContain('key={context.clinic.id}');
+    expect(clinicWorkspace).toContain("section: 'home'");
+    expect(clinicWorkspace).toContain('onSelect={(clinicId) => navigation.setParams');
+    expect(clinicWorkspaceContext).toContain('requestSequence.current += 1');
+    expect(clinicWorkspaceContext).toContain('setSelectedClinicId(null)');
+    expect(clinicWorkspace).toContain('workspace.contexts.length > 1');
+  });
+
+  it('keeps an unauthorized deep link neutral instead of selecting another clinic', () => {
+    expect(clinicWorkspace).toContain('Ya no tienes acceso a esta clínica');
+    expect(clinicWorkspace).toContain('El enlace no ha cambiado tu clínica seleccionada.');
+    const unauthorizedStart = clinicWorkspace.indexOf('Ya no tienes acceso a esta clínica');
+    const unauthorizedBlock = clinicWorkspace.slice(unauthorizedStart, unauthorizedStart + 700);
+    expect(unauthorizedBlock).not.toContain('workspace.selectClinic');
   });
 
   it('only claims all-clear after every source is confirmed', () => {

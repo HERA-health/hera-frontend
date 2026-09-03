@@ -78,6 +78,8 @@ const productLabels: Record<string, string> = {
   SENT: "Entregada",
   FAILED: "Entrega fallida",
   ACCEPTED: "Aceptada",
+  REJECTED: "Rechazado",
+  REVISION_REQUESTED: "Revisión solicitada",
   CORRECTION_REQUESTED: "Corrección solicitada",
   OPEN: "Abierto",
   REVIEW_REQUIRED: "Revisión necesaria",
@@ -319,6 +321,28 @@ function Agreements({
     form.shareMethod === "PERCENTAGE"
       ? `En una sesión de 100 €, el profesional recibe ${euro(Math.round(Number(form.shareValue || 0) * 100))} y la clínica conserva ${euro(10_000 - Math.round(Number(form.shareValue || 0) * 100))}.`
       : `En una sesión de 100 €, el profesional recibe ${euro(Math.round(Number(form.shareValue || 0) * 100))}; si el fijo supera el precio, la sesión quedará bloqueada.`;
+  const openReplacement = (
+    agreement: Controller["agreements"][number],
+    version: Controller["agreements"][number]["versions"][number],
+  ): void => {
+    controller.setAgreementForm({
+      scope: agreement.scope,
+      clinicSpecialistId: agreement.clinicSpecialistId,
+      clinicServiceId: agreement.clinicServiceId,
+      clinicPatientId: agreement.clinicPatientId,
+      relationship: version.relationship,
+      shareMethod: version.shareMethod,
+      shareValue: version.shareMethod === "PERCENTAGE"
+        ? String((version.professionalShareBps ?? 0) / 100)
+        : String((version.professionalFixedCents ?? 0) / 100),
+      settlementCondition: version.settlementCondition,
+      validFrom: getMadridDateKey(),
+      validUntil: "",
+      replacementReason: `Revisión de la versión ${version.version}`,
+    });
+    setStep(0);
+    setWizardOpen(true);
+  };
 
   return (
     <View style={styles.stack}>
@@ -590,7 +614,11 @@ function Agreements({
             version.shareMethod === "PERCENTAGE"
               ? `${(version.professionalShareBps ?? 0) / 100} %`
               : euro(version.professionalFixedCents);
-          const accepted = version.acceptances.length > 0;
+          const readyToActivate = version.requiredProfessionals.length > 0
+            && version.requiredProfessionals.every((professional) => professional.decision === "ACCEPTED");
+          const needsNewVersion = version.requiredProfessionals.some((professional) => (
+            professional.decision === "REJECTED" || professional.decision === "REVISION_REQUESTED"
+          ));
           return (
             <View key={agreement.id} style={styles.listCard}>
               <View style={styles.listTop}>
@@ -615,7 +643,7 @@ function Agreements({
                   tone={
                     version.status === "ACTIVE"
                       ? "success"
-                      : accepted
+                      : readyToActivate
                         ? "info"
                         : "warning"
                   }
@@ -624,13 +652,17 @@ function Agreements({
               </View>
               <View style={styles.listBottom}>
                 <Text style={styles.helper}>
-                  {accepted
+                  {readyToActivate
                     ? `${version.acceptances.length} ${version.acceptances.length === 1 ? "aceptación registrada" : "aceptaciones registradas"}`
-                    : "Pendiente de aceptación profesional"}{" "}
+                    : version.pendingResponseCount > 0
+                      ? `${version.pendingResponseCount} ${version.pendingResponseCount === 1 ? "respuesta pendiente" : "respuestas pendientes"}`
+                      : needsNewVersion
+                        ? "El acuerdo necesita una versión nueva"
+                        : "Pendiente de aceptación profesional"}{" "}
                   · desde {shortDate(version.validFrom)}
                 </Text>
                 {controller.role === "OWNER" &&
-                accepted &&
+                readyToActivate &&
                 version.status === "PENDING_ACCEPTANCE" ? (
                   <Button
                     size="small"
@@ -660,6 +692,39 @@ function Agreements({
                   </Button>
                 ) : null}
               </View>
+              {version.requiredProfessionals.length > 0 ? (
+                <View style={styles.responseList}>
+                  {version.requiredProfessionals.map((professional) => (
+                    <View key={professional.clinicSpecialistId} style={styles.responseRow}>
+                      <View style={styles.flex}>
+                        <Text style={styles.listTitle}>{professional.displayName}</Text>
+                        {professional.professionalTitle ? (
+                          <Text style={styles.listMeta}>{professional.professionalTitle}</Text>
+                        ) : null}
+                        {professional.reason ? (
+                          <Text style={styles.responseReason}>{professional.reason}</Text>
+                        ) : null}
+                      </View>
+                      <Pill
+                        label={professional.decision ?? "PENDING_ACCEPTANCE"}
+                        tone={professional.decision === "ACCEPTED"
+                          ? "success"
+                          : professional.decision === "REJECTED" || professional.decision === "REVISION_REQUESTED"
+                            ? "warning"
+                            : "info"}
+                        styles={styles}
+                      />
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              {needsNewVersion ? (
+                <View style={styles.responseAction}>
+                  <Button size="small" variant="outline" onPress={() => openReplacement(agreement, version)}>
+                    Crear nueva versión
+                  </Button>
+                </View>
+              ) : null}
             </View>
           );
         })
@@ -2130,6 +2195,31 @@ const createStyles = (theme: Theme, compact: boolean) =>
       borderRadius: borderRadius.xl,
       backgroundColor: theme.bgCard,
       gap: spacing.md,
+    },
+    responseList: {
+      borderTopWidth: 1,
+      borderTopColor: theme.borderLight,
+      gap: spacing.sm,
+      paddingTop: spacing.md,
+    },
+    responseRow: {
+      minHeight: 48,
+      flexDirection: compact ? "column" : "row",
+      alignItems: compact ? "stretch" : "center",
+      gap: spacing.sm,
+      padding: spacing.sm,
+      borderRadius: borderRadius.md,
+      backgroundColor: theme.surfaceMuted,
+    },
+    responseReason: {
+      fontFamily: theme.fontBody,
+      color: theme.textSecondary,
+      fontSize: 13,
+      lineHeight: 19,
+      marginTop: spacing.xs,
+    },
+    responseAction: {
+      alignItems: "flex-start",
     },
     listTop: {
       flexDirection: "row",

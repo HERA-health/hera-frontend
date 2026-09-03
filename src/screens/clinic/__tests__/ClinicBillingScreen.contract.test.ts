@@ -94,6 +94,34 @@ describe('ClinicBillingScreen source guards', () => {
     expect(screenSource).not.toContain('createStyles(theme, false)');
   });
 
+  it('does not present an in-flight billing configuration request as an error', () => {
+    expect(controllerSource).toContain("const [configLoading, setConfigLoading] = useState(false)");
+    expect(controllerSource).toContain("const [configError, setConfigError] = useState('')");
+    expect(controllerSource).toContain('setConfigLoading(true)');
+    expect(controllerSource).toContain("setConfigError('')");
+    expect(screenSource).toContain('const hasLoadError = Boolean(error) && !loading');
+    expect(screenSource).toContain('Cargando datos de facturación…');
+    expect(screenSource).not.toContain('No hemos podido cargar esta configuración');
+    expect(screenSource).not.toContain('No se ha modificado ningún dato');
+  });
+
+  it('preserves valid billing data on refresh errors and clears it on a real clinic change', () => {
+    const referenceLoader = controllerSource.slice(
+      controllerSource.indexOf('const loadReferenceData'),
+      controllerSource.indexOf('const reloadInvoicesAndSummary'),
+    );
+    const contextReset = controllerSource.slice(
+      controllerSource.indexOf('const resetBillingContextState'),
+      controllerSource.indexOf('const loadInvoices'),
+    );
+
+    expect(referenceLoader).toContain('setConfigError(loadError instanceof Error');
+    expect(referenceLoader).not.toContain('setConfig(null)');
+    expect(contextReset).toContain('setConfig(null)');
+    expect(contextReset).toContain("setConfigError('')");
+    expect(contextReset).toContain('setConfigLoading(false)');
+  });
+
   it('uses a responsive two-column billing configuration without narrowing tablet fields', () => {
     expect(screenSource).toContain('wideLayout={width >= 1280}');
     expect(screenSource).toContain('styles.configColumnsWide');

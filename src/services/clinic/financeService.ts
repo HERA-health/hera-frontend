@@ -328,22 +328,6 @@ export const getProfessionalClinicFinanceStatementDetail = (
     "No se pudo abrir el cierre.",
   );
 
-export const acceptProfessionalClinicAgreement = (
-  clinicId: string,
-  agreementVersionId: string,
-  expectedVersion: number,
-  idempotencyKey?: string,
-): Promise<unknown> =>
-  request(
-    () =>
-      api.post(
-        `/clinics/${clinicId}/specialist/finance/agreements/${agreementVersionId}/accept`,
-        { expectedVersion },
-        { headers: commandHeaders(idempotencyKey) },
-      ),
-    "No se pudo aceptar el acuerdo.",
-  );
-
 export const acknowledgeProfessionalStatement = (
   clinicId: string,
   statementId: string,

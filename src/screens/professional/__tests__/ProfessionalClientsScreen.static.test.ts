@@ -13,22 +13,17 @@ const domainPath = path.join(
   'managedClientFormDomain.ts',
 );
 
-describe('ProfessionalClientsScreen clinic context wiring', () => {
+describe('ProfessionalClientsScreen private patient boundary', () => {
   const source = fs.readFileSync(screenPath, 'utf8');
   const domainSource = fs.readFileSync(domainPath, 'utf8');
 
-  it('keeps API access inside services and uses paginated clinic patients', () => {
+  it('keeps API access inside services and excludes clinic patient integrations', () => {
     expect(source).not.toMatch(/\bapi\.(get|post|patch|put|delete)\b/);
-    expect(source).toContain('clinicService.listProfessionalClinicPatients');
-    expect(source).toContain('setClinicPatientsPageInfo(page.pageInfo)');
-    expect(source).toContain('clinicPatientsPageInfo.hasMore');
-    expect(source).toContain('Cargar más pacientes');
-  });
-
-  it('resets clinic patient pagination when context or search changes', () => {
-    expect(source).toContain('setClinicPatients([])');
-    expect(source).toContain('setClinicPatientsPageInfo(EMPTY_PROFESSIONAL_CLINIC_PATIENT_PAGE_INFO)');
-    expect(source).toContain('clinicPatientsRequestSeqRef.current += 1');
+    expect(source).toContain('professionalService.getProfessionalClients(sourceFilter, lifecycleFilter)');
+    expect(source).not.toContain('listProfessionalClinicPatients');
+    expect(source).not.toContain('ProfessionalClinicPatientDetail');
+    expect(source).not.toContain('clinicPatientId');
+    expect(source).not.toContain('Selecciona contexto');
   });
 
   it('uses explicit initial consent capture instead of a consent attestation switch', () => {

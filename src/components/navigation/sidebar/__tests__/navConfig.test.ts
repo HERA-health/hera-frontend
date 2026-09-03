@@ -1,6 +1,11 @@
 import { getNavigationSections } from '../navConfig';
 
 describe('professional navigation sections', () => {
+  it('hides Mi clínica when the professional has no active care relationship', () => {
+    const sections = getNavigationSections('PROFESSIONAL', false, false, false);
+    expect(sections.some((section) => section.id === 'professional-clinic-workspace')).toBe(false);
+  });
+
   it('places Mi clínica in a Clínica section before Soporte', () => {
     const sections = getNavigationSections('PROFESSIONAL', false, false, true);
     const clinicIndex = sections.findIndex((section) => section.id === 'professional-clinic-workspace');
@@ -24,5 +29,6 @@ describe('professional navigation sections', () => {
 
     expect(clinicSectionIndexes).toHaveLength(2);
     expect(clinicSectionIndexes.every((index) => index < supportIndex)).toBe(true);
+    expect(sections.find((section) => section.id === 'professional-clinic-workspace')?.items).toHaveLength(1);
   });
 });

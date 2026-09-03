@@ -9,6 +9,8 @@ export type ClinicAgreementSettlementCondition =
   "SESSION_COMPLETED" | "PATIENT_COLLECTION";
 export type ClinicAgreementStatus =
   "DRAFT" | "PENDING_ACCEPTANCE" | "ACTIVE" | "SUPERSEDED" | "ENDED";
+export type ClinicAgreementProfessionalDecision =
+  "ACCEPTED" | "REJECTED" | "REVISION_REQUESTED";
 export type ClinicPaymentMethod =
   "CASH" | "EXTERNAL_CARD" | "BANK_TRANSFER" | "BIZUM" | "VOUCHER" | "OTHER";
 
@@ -167,6 +169,25 @@ export interface ClinicAgreementVersion {
   replacementReason: string | null;
   activatedAt: string | null;
   acceptances: Array<{ clinicSpecialistId: string; acceptedAt: string }>;
+  professionalResponses: Array<{
+    clinicSpecialistId: string;
+    decision: ClinicAgreementProfessionalDecision;
+    reason: string | null;
+    respondedAt: string;
+    clinicSpecialist: {
+      displayName: string;
+      professionalTitle: string | null;
+    };
+  }>;
+  requiredProfessionals: Array<{
+    clinicSpecialistId: string;
+    displayName: string;
+    professionalTitle: string | null;
+    decision: ClinicAgreementProfessionalDecision | null;
+    reason: string | null;
+    respondedAt: string | null;
+  }>;
+  pendingResponseCount: number;
 }
 
 export interface ClinicEconomicAgreement {
@@ -257,7 +278,9 @@ export interface ProfessionalClinicFinance {
   };
   selectedMonth: { year: number; month: number };
   liveSummary: {
+    projectedCents: number;
     generatedCents: number;
+    blockedSessionCount: number;
     liquidableCents: number;
     closedCents: number;
     invoicedCents: number;
@@ -268,8 +291,17 @@ export interface ProfessionalClinicFinance {
     id: string;
     date: string;
     status: string;
+    attendanceOutcome: "ATTENDED" | "PATIENT_NO_SHOW" | null;
+    economicState:
+      | "PROJECTED"
+      | "GENERATED"
+      | "LIQUIDABLE"
+      | "CLOSED"
+      | "BLOCKED"
+      | "NOT_APPLICABLE";
     serviceName: string | null;
     professionalAmountCents: number;
+    generatedCents: number;
     liquidableAvailableCents: number;
     snapshot: {
       id: string;

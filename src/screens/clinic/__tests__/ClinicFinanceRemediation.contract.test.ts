@@ -63,6 +63,18 @@ describe("clinic finance production remediation contracts", () => {
     expect(clinicWorkspace).toContain("obligation.refundableCents");
   });
 
+  it("keeps agreement decisions in Acuerdo and separates projected from generated money", () => {
+    expect(professionalPanel).not.toContain('acceptProfessionalClinicAgreement');
+    expect(professionalPanel).not.toContain('Aceptar acuerdo');
+    expect(professionalPanel).toContain('Previsto en citas');
+    expect(professionalPanel).toContain('Generado en sesiones completadas');
+    expect(professionalPanel).toContain('economicState');
+    expect(clinicWorkspace).toContain('requiredProfessionals');
+    expect(clinicWorkspace).toContain('Crear nueva versión');
+    expect(clinicWorkspace).toContain('Revisión solicitada');
+    expect(clinicWorkspace).toContain('Rechazado');
+  });
+
   it("lets administrators recover an incorrect unissued patient draft safely", () => {
     expect(clinicWorkspace).toContain("Descartar borrador");
     expect(clinicWorkspace).toContain("Se conservará la trazabilidad");

@@ -269,6 +269,8 @@ export function useClinicBillingController() {
   const [settlementError, setSettlementError] = useState('');
   const [settlementLoading, setSettlementLoading] = useState(false);
   const [settlementDetailLoading, setSettlementDetailLoading] = useState(false);
+  const [configLoading, setConfigLoading] = useState(false);
+  const [configError, setConfigError] = useState('');
   const [saving, setSaving] = useState(false);
   const [configForm, setConfigForm] = useState<ClinicBillingConfigForm>(() => createConfigForm());
   const [configErrors, setConfigErrors] = useState<ClinicBillingConfigErrors>({});
@@ -313,6 +315,8 @@ export function useClinicBillingController() {
     setSettlementLoading(false);
     setSettlementDetailLoading(false);
     setConfig(null);
+    setConfigLoading(false);
+    setConfigError('');
     setConfigForm(createConfigForm());
     setConfigErrors({});
     setInvoices([]);
@@ -651,14 +655,21 @@ export function useClinicBillingController() {
     referenceRequestSeq.current = requestId;
 
     try {
+      setConfigLoading(true);
+      setConfigError('');
       const configResult = await clinicService.getClinicBillingConfig(clinicId);
       if (!mountedRef.current || referenceRequestSeq.current !== requestId) return;
       setConfig(configResult);
       setConfigForm(createConfigForm(configResult));
-    } catch {
+    } catch (loadError: unknown) {
       if (!mountedRef.current || referenceRequestSeq.current !== requestId) return;
-      setConfig(null);
-      setConfigForm(createConfigForm());
+      setConfigError(loadError instanceof Error
+        ? loadError.message
+        : 'No se pudieron cargar los datos de facturación');
+    } finally {
+      if (mountedRef.current && referenceRequestSeq.current === requestId) {
+        setConfigLoading(false);
+      }
     }
   }, []);
 
@@ -1165,8 +1176,10 @@ export function useClinicBillingController() {
     completedSessionOptions,
     completedSessionPageInfo,
     config,
+    configError,
     configErrors,
     configForm,
+    configLoading,
     editableFilters,
     error,
     handleApplyFilters,
