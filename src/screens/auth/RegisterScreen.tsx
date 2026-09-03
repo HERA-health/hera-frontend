@@ -196,26 +196,11 @@ export function RegisterScreen() {
         isClinic ? clinicCommercialName : undefined
       );
 
-      if (userType === 'professional') {
-        navigation.navigate('ProfessionalVerification');
-        return;
+      if (userType === 'client') {
+        void authService.sendVerificationEmail(email).catch(() => {
+          // no-op: the user can retry from their profile
+        });
       }
-
-      if (userType === 'clinic') {
-        navigation.navigate('ClinicDashboard');
-        return;
-      }
-
-      try {
-        await authService.sendVerificationEmail(email);
-      } catch {
-        // no-op: the user can retry from the next screen
-      }
-
-      navigation.navigate('EmailSentVerification', {
-        email,
-        userType: 'CLIENT',
-      });
     } catch (error: unknown) {
       setLocalError(getErrorMessage(error, 'Error al registrarse.'));
     }
@@ -247,18 +232,6 @@ export function RegisterScreen() {
         acceptedLegalDocumentKeys,
         clinicCommercialName: isClinic ? clinicCommercialName.trim() : undefined,
       });
-
-      if (userType === 'professional') {
-        navigation.navigate('ProfessionalVerification');
-        return;
-      }
-
-      if (userType === 'clinic') {
-        navigation.navigate('ClinicDashboard');
-        return;
-      }
-
-      navigation.navigate('MainStack');
     } catch (error: unknown) {
       setLocalError(getErrorMessage(error, 'No se pudo continuar con Google.'));
     }
@@ -267,7 +240,6 @@ export function RegisterScreen() {
     clearError,
     clinicCommercialName,
     isClinic,
-    navigation,
     termsAccepted,
     userType,
   ]);
