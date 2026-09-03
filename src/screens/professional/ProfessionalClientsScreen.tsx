@@ -372,9 +372,9 @@ export function ProfessionalClientsScreen() {
     void loadClients();
   }, [loadClients]);
 
-  useEffect(() => {
-    void loadProfessionalClinicContexts();
-  }, [loadProfessionalClinicContexts]);
+  // Clinic patients live exclusively in the contextual "Mi clínica" workspace.
+  // This legacy loader remains during the compatible rollout but is never
+  // invoked from the private patient surface.
 
   useEffect(() => {
     clinicPatientsRequestSeqRef.current += 1;

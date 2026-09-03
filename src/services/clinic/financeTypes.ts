@@ -1,27 +1,5 @@
 import type { ClinicInvoiceKind, ClinicMembershipRole } from "./types";
 
-export type ClinicFinancialWorkflowMode = "OFF" | "SHADOW" | "ACTIVE";
-export type ClinicFinancialActivationRequestStatus =
-  | "PENDING_REVIEW"
-  | "IN_REVIEW"
-  | "CHANGES_REQUIRED"
-  | "ACTIVATED"
-  | "CANCELLED";
-
-export interface ClinicFinancialActivationReadiness {
-  clinicId: string;
-  mode: ClinicFinancialWorkflowMode;
-  request: {
-    id: string;
-    status: ClinicFinancialActivationRequestStatus;
-    version: number;
-    resolutionReason: string | null;
-  } | null;
-  capabilities: {
-    canRequestReview: boolean;
-    canCancelRequest: boolean;
-  };
-}
 export type ClinicAgreementScope =
   "CLINIC" | "SPECIALIST" | "SPECIALIST_SERVICE" | "SPECIALIST_PATIENT";
 export type ClinicAgreementRelationship =
@@ -57,10 +35,6 @@ export interface ClinicFinancialLedgerPage {
 }
 
 export interface ClinicFinanceOverview {
-  workflow: {
-    financialWorkflowMode: ClinicFinancialWorkflowMode;
-    financialWorkflowActivatedAt: string | null;
-  };
   totals: {
     generated: MoneyDto;
     liquidable: MoneyDto;
@@ -280,8 +254,6 @@ export interface PatientPaymentMovementPayload {
 export interface ProfessionalClinicFinance {
   clinic: {
     commercialName: string;
-    financialWorkflowMode: ClinicFinancialWorkflowMode;
-    financialWorkflowActivatedAt: string | null;
   };
   selectedMonth: { year: number; month: number };
   liveSummary: {
@@ -404,6 +376,29 @@ export interface ProfessionalStatement {
     liquidableAt: string;
     explanation: Record<string, unknown>;
   }>;
+}
+
+export interface ProfessionalStatementSummary {
+  id: string;
+  status: string;
+  relationship: ClinicAgreementRelationship;
+  closedBaseCents: number;
+  currency: "EUR";
+  acknowledgedAt: string | null;
+  disputedAt: string | null;
+  period: { year: number; month: number; closedAt: string | null };
+  _count: { lines: number; professionalInvoices: number };
+}
+
+export interface ProfessionalStatementPage {
+  items: ProfessionalStatementSummary[];
+  pageInfo: { page: number; limit: number; total: number; hasMore: boolean };
+}
+
+export interface ProfessionalStatementDetail {
+  statement: ProfessionalStatement;
+  invoices: ProfessionalInvoice[];
+  documents: ProfessionalClinicFinance["documents"];
 }
 
 export interface ClinicFinanceAccess {

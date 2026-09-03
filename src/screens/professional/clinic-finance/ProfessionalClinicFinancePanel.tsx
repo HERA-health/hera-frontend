@@ -22,7 +22,11 @@ import { borderRadius, spacing } from "../../../constants/colors";
 import type { Theme } from "../../../constants/theme";
 import { useTheme } from "../../../contexts/ThemeContext";
 import * as clinicService from "../../../services/clinicService";
-import type { ProfessionalClinicFinance } from "../../../services/clinicService";
+import type {
+  ProfessionalClinicFinance,
+  ProfessionalStatementDetail,
+  ProfessionalStatementPage,
+} from "../../../services/clinicService";
 import {
   formatMadridInstant,
   getMadridDateKey,
@@ -77,20 +81,21 @@ type ProfessionalSection = "overview" | "activity" | "agreement" | "closings";
 const PROFESSIONAL_SECTIONS = [
   { value: "overview", label: "Resumen" },
   { value: "activity", label: "Actividad" },
-  { value: "agreement", label: "Acuerdo" },
   { value: "closings", label: "Cierres y facturas" },
 ] as const;
 
-export function ProfessionalClinicFinancePanel(): React.ReactElement {
+interface ProfessionalClinicFinancePanelProps {
+  clinicId: string;
+}
+
+export function ProfessionalClinicFinancePanel({
+  clinicId,
+}: ProfessionalClinicFinancePanelProps): React.ReactElement {
   const appAlert = useAppAlert();
   const { theme } = useTheme();
   const { width } = useWindowDimensions();
   const compact = width < 760;
   const styles = useMemo(() => createStyles(theme, compact), [compact, theme]);
-  const [contexts, setContexts] = useState<
-    clinicService.ProfessionalClinicContext[]
-  >([]);
-  const [clinicId, setClinicId] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const [year, month] = getMadridDateKey().split("-").map(Number);
     return { year, month };
@@ -100,6 +105,10 @@ export function ProfessionalClinicFinancePanel(): React.ReactElement {
   );
   const [loading, setLoading] = useState(true);
   const [loadingMoreSessions, setLoadingMoreSessions] = useState(false);
+  const [statementPage, setStatementPage] = useState<ProfessionalStatementPage | null>(null);
+  const [statementDetail, setStatementDetail] = useState<ProfessionalStatementDetail | null>(null);
+  const [loadingStatementId, setLoadingStatementId] = useState<string | null>(null);
+  const [loadingMoreStatements, setLoadingMoreStatements] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [series, setSeries] = useState("PC");
@@ -111,28 +120,6 @@ export function ProfessionalClinicFinancePanel(): React.ReactElement {
   const requestGeneration = useRef(0);
   const commandKeys = useRef(new Map<string, string>());
 
-  const loadContexts = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const next = await clinicService.getMyProfessionalClinicContexts();
-      setContexts(next);
-      setClinicId((current) =>
-        current && next.some((item) => item.clinic.id === current)
-          ? current
-          : (next[0]?.clinic.id ?? null),
-      );
-    } catch (loadError: unknown) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "No se pudieron cargar tus clínicas.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   const loadFinance = useCallback(async () => {
     const generation = requestGeneration.current + 1;
     requestGeneration.current = generation;
@@ -141,19 +128,27 @@ export function ProfessionalClinicFinancePanel(): React.ReactElement {
       return;
     }
     setFinance(null);
+    setStatementPage(null);
+    setStatementDetail(null);
     setLoadingMoreSessions(false);
     setLoading(true);
     setError(null);
     try {
-      const nextFinance =
-        await clinicService.getProfessionalClinicFinance(clinicId, {
+      const query = {
           year: selectedMonth.year,
           month: selectedMonth.month,
           page: 1,
-          limit: 50,
-        });
+          limit: 25,
+      };
+      const [nextFinance, nextStatementPage] = await Promise.all([
+        clinicService.getProfessionalClinicFinanceOverview(clinicId, query),
+        activeSection === "closings"
+          ? clinicService.listProfessionalClinicFinanceStatements(clinicId, query)
+          : Promise.resolve(null),
+      ]);
       if (requestGeneration.current !== generation) return;
       setFinance(nextFinance);
+      setStatementPage(nextStatementPage);
     } catch (loadError: unknown) {
       if (requestGeneration.current !== generation) return;
       setError(
@@ -164,7 +159,7 @@ export function ProfessionalClinicFinancePanel(): React.ReactElement {
     } finally {
       if (requestGeneration.current === generation) setLoading(false);
     }
-  }, [clinicId, selectedMonth.month, selectedMonth.year]);
+  }, [activeSection, clinicId, selectedMonth.month, selectedMonth.year]);
 
   const loadMoreSessions = useCallback(async (): Promise<void> => {
     if (!clinicId || !finance?.sessionPageInfo.hasMore || loadingMoreSessions) return;
@@ -173,7 +168,7 @@ export function ProfessionalClinicFinancePanel(): React.ReactElement {
     const requestedMonth = selectedMonth;
     setLoadingMoreSessions(true);
     try {
-      const nextPage = await clinicService.getProfessionalClinicFinance(
+      const nextPage = await clinicService.getProfessionalClinicFinanceOverview(
         requestedClinicId,
         {
           year: requestedMonth.year,
@@ -209,9 +204,51 @@ export function ProfessionalClinicFinancePanel(): React.ReactElement {
     }
   }, [clinicId, finance, loadingMoreSessions, selectedMonth]);
 
-  useEffect(() => {
-    void loadContexts();
-  }, [loadContexts]);
+  const openStatement = useCallback(async (statementId: string): Promise<void> => {
+    const generation = requestGeneration.current;
+    const requestedClinicId = clinicId;
+    setLoadingStatementId(statementId);
+    setError(null);
+    try {
+      const detail = await clinicService.getProfessionalClinicFinanceStatementDetail(
+        requestedClinicId,
+        statementId,
+      );
+      if (requestGeneration.current !== generation || clinicId !== requestedClinicId) return;
+      setStatementDetail(detail);
+    } catch (loadError: unknown) {
+      if (requestGeneration.current !== generation) return;
+      setError(loadError instanceof Error ? loadError.message : "No se pudo abrir el cierre.");
+    } finally {
+      if (requestGeneration.current === generation) setLoadingStatementId(null);
+    }
+  }, [clinicId]);
+
+  const loadMoreStatements = useCallback(async (): Promise<void> => {
+    if (!statementPage?.pageInfo.hasMore || loadingMoreStatements) return;
+    const generation = requestGeneration.current;
+    const requestedClinicId = clinicId;
+    setLoadingMoreStatements(true);
+    try {
+      const nextPage = await clinicService.listProfessionalClinicFinanceStatements(requestedClinicId, {
+        year: selectedMonth.year,
+        month: selectedMonth.month,
+        page: statementPage.pageInfo.page + 1,
+        limit: statementPage.pageInfo.limit,
+      });
+      if (requestGeneration.current !== generation || clinicId !== requestedClinicId) return;
+      setStatementPage((current) => current ? {
+        items: [...current.items, ...nextPage.items],
+        pageInfo: nextPage.pageInfo,
+      } : nextPage);
+    } catch (loadError: unknown) {
+      if (requestGeneration.current !== generation) return;
+      setError(loadError instanceof Error ? loadError.message : "No se pudieron cargar más cierres.");
+    } finally {
+      if (requestGeneration.current === generation) setLoadingMoreStatements(false);
+    }
+  }, [clinicId, loadingMoreStatements, selectedMonth.month, selectedMonth.year, statementPage]);
+
   useEffect(() => {
     void loadFinance();
   }, [loadFinance]);
@@ -298,19 +335,6 @@ export function ProfessionalClinicFinancePanel(): React.ReactElement {
         <Text style={styles.muted}>Cargando información…</Text>
       </View>
     );
-  if (contexts.length === 0)
-    return (
-      <View style={styles.state}>
-        <Ionicons name="business-outline" size={30} color={theme.textMuted} />
-        <Text style={styles.title}>
-          Todavía no tienes una clínica vinculada
-        </Text>
-        <Text style={styles.muted}>
-          Cuando una clínica vincule tu perfil, aparecerá aquí.
-        </Text>
-      </View>
-    );
-
   const totals = finance?.liveSummary ?? {
     generatedCents: 0,
     liquidableCents: 0,
@@ -356,23 +380,6 @@ export function ProfessionalClinicFinancePanel(): React.ReactElement {
           </Text>
         </View>
         <View style={styles.selector}>
-          <Text style={styles.selectorLabel}>Clínica</Text>
-          <SimpleDropdown
-            options={contexts.map((item) => ({
-              label: item.clinic.commercialName,
-              value: item.clinic.id,
-              subtitle: item.responsible.professionalTitle ?? undefined,
-            }))}
-            value={clinicId}
-            onSelect={(nextClinicId) => {
-              requestGeneration.current += 1;
-              setFinance(null);
-              setLoadingMoreSessions(false);
-              setError(null);
-              setClinicId(nextClinicId);
-            }}
-            presentation="portal"
-          />
           <Text style={styles.selectorLabel}>Mes</Text>
           <SimpleDropdown
             options={monthOptions}
@@ -521,20 +528,61 @@ export function ProfessionalClinicFinancePanel(): React.ReactElement {
                 );
               })
             )}
+            {statementPage?.pageInfo.hasMore ? (
+              <Button
+                variant="outline"
+                loading={loadingMoreStatements}
+                disabled={loadingMoreStatements}
+                onPress={() => void loadMoreStatements()}
+              >
+                Cargar más cierres
+              </Button>
+            ) : null}
           </View> : null}
           {activeSection === "closings" ? <View style={styles.section}>
             <Text style={styles.kicker}>CIERRES Y FACTURAS</Text>
-            {finance.statements.length === 0 ? (
+            {!statementPage || statementPage.items.length === 0 ? (
               <Empty
                 text="No hay cierres para este mes."
                 styles={styles}
               />
             ) : (
-              finance.statements.map((statement) => {
-                const invoiceHistory = finance.invoices.filter(
-                  (item) => item.professionalStatementId === statement.id,
-                );
-                const invoice = finance.invoices.find(
+              statementPage.items.map((summary) => {
+                const detail = statementDetail?.statement.id === summary.id ? statementDetail : null;
+                if (!detail) {
+                  return (
+                    <View key={summary.id} style={styles.card}>
+                      <View style={styles.cardHeader}>
+                        <View style={styles.flex}>
+                          <Text style={styles.cardTitle}>
+                            {String(summary.period.month).padStart(2, "0")}/{summary.period.year}
+                          </Text>
+                          <Text style={styles.cardValue}>{euro(summary.closedBaseCents)}</Text>
+                          <Text style={styles.muted}>
+                            {summary._count.lines} {summary._count.lines === 1 ? "sesión" : "sesiones"} ·{" "}
+                            {summary.relationship === "EMPLOYEE" ? "informe laboral" : "factura a la clínica"}
+                            {summary._count.professionalInvoices > 1
+                              ? ` · ${summary._count.professionalInvoices} versiones`
+                              : ""}
+                          </Text>
+                        </View>
+                        <Status label={summary.status} styles={styles} />
+                      </View>
+                      <Button
+                        size="small"
+                        variant="outline"
+                        loading={loadingStatementId === summary.id}
+                        disabled={loadingStatementId !== null}
+                        onPress={() => void openStatement(summary.id)}
+                      >
+                        Abrir detalle
+                      </Button>
+                    </View>
+                  );
+                }
+                const statement = detail.statement;
+                const invoiceHistory = detail.invoices;
+                const invoice = detail.invoices.find(
                   (item) => item.id === statement.latestProfessionalInvoiceId,
                 );
                 const paid = invoiceHistory.reduce(
@@ -547,10 +595,10 @@ export function ProfessionalClinicFinancePanel(): React.ReactElement {
                     ),
                   0,
                 );
-                const statementDocuments = finance.documents.filter(
+                const statementDocuments = detail.documents.filter(
                   (document) => document.resourceId === statement.id,
                 );
-                const invoiceDocuments = finance.documents.filter((document) =>
+                const invoiceDocuments = detail.documents.filter((document) =>
                   invoiceHistory.some(
                     (item) => item.id === document.resourceId,
                   ),
@@ -587,6 +635,9 @@ export function ProfessionalClinicFinancePanel(): React.ReactElement {
                       </View>
                       <Status label={statement.status} styles={styles} />
                     </View>
+                    <Button size="small" variant="ghost" onPress={() => setStatementDetail(null)}>
+                      Cerrar detalle
+                    </Button>
                     {statement.status === "NO_PAYMENT_DUE" ? (
                       <Text style={styles.muted}>
                         Este cierre no requiere factura ni pago.

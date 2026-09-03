@@ -26,6 +26,7 @@ import { buildSidebarCompletionNotices } from './sidebar/completionNotices';
 import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
 import { ProfessionalQuickSearch } from './ProfessionalQuickSearch';
 import { useOptionalProfessionalWorkspace } from '../../contexts/ProfessionalWorkspaceContext';
+import { useOptionalProfessionalClinicWorkspace } from '../../contexts/ProfessionalClinicWorkspaceContext';
 
 interface CustomDrawerContentProps {
   currentRoute?: string;
@@ -58,6 +59,7 @@ export function CustomDrawerContent({
   const { user, logout, verificationSubmitted } = useAuth();
   const { snapshot: completionSnapshot } = useProfileCompletion();
   const professionalWorkspace = useOptionalProfessionalWorkspace();
+  const professionalClinicWorkspace = useOptionalProfessionalClinicWorkspace();
   const shouldLoadClinicAdminAccess = user?.type === 'professional'
     && verificationSubmitted !== false;
   const clinicWorkspace = useClinicWorkspace({ enabled: shouldLoadClinicAdminAccess });
@@ -86,22 +88,38 @@ export function CustomDrawerContent({
       ),
     [clinicWorkspace.memberships, shouldLoadClinicAdminAccess, userRole],
   );
+  const hasProfessionalClinicAccess = userRole === 'PROFESSIONAL' && Boolean(
+    professionalClinicWorkspace?.hasActiveCareLink === true
+    || professionalClinicWorkspace?.contexts.length
+    || professionalClinicWorkspace?.status === 'error',
+  );
   const notices = useMemo(
     () => {
       const completionNotices = buildSidebarCompletionNotices(completionSnapshot);
-      if (unreadHelpRequests === 0) return completionNotices;
-      return {
+      const nextNotices = {
         ...completionNotices,
-        'professional-help': {
+        ...(unreadHelpRequests > 0 ? { 'professional-help': {
           code: 'UNREAD_SPECIALIST_HELP',
           label: unreadHelpRequests === 1 ? '1 respuesta nueva' : `${unreadHelpRequests} respuestas nuevas`,
           tone: 'info' as const,
           count: unreadHelpRequests,
           target: { route: 'ProfessionalHelp', params: { section: 'help' } },
-        },
+        } } : {}),
+        ...(professionalClinicWorkspace?.totalPendingTasks
+          ? { 'professional-clinic': {
+            code: 'PROFESSIONAL_CLINIC_TASKS',
+            label: professionalClinicWorkspace.totalPendingTasks > 9
+              ? '9+ pendientes'
+              : `${professionalClinicWorkspace.totalPendingTasks} pendientes`,
+            tone: 'info' as const,
+            count: professionalClinicWorkspace.totalPendingTasks,
+            target: { route: 'ProfessionalClinicWorkspace', params: { section: 'home' } },
+          } }
+          : {}),
       };
+      return nextNotices;
     },
-    [completionSnapshot, unreadHelpRequests],
+    [completionSnapshot, professionalClinicWorkspace?.totalPendingTasks, unreadHelpRequests],
   );
 
   // Navigation handler - delegates to React Navigation
@@ -137,6 +155,7 @@ export function CustomDrawerContent({
         onGuideStart={onGuideStart}
         isAdmin={user?.isAdmin}
         hasClinicAdminAccess={hasClinicAdminAccess}
+        hasProfessionalClinicAccess={hasProfessionalClinicAccess}
         isUserSectionScrollable={isUserSectionScrollable}
         isCollapsed={isCollapsed}
         onToggleCollapse={onToggleCollapse}

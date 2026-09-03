@@ -301,6 +301,22 @@ export const PROFESSIONAL_CLINIC_SECTION: NavigationSection = {
   ],
 };
 
+export const PROFESSIONAL_CLINIC_WORKSPACE_SECTION: NavigationSection = {
+  id: 'professional-clinic-workspace',
+  label: 'Clínica',
+  roles: ['PROFESSIONAL'],
+  items: [
+    {
+      id: 'professional-clinic',
+      label: 'Mi clínica',
+      icon: 'business-outline',
+      iconActive: 'business',
+      route: 'ProfessionalClinicWorkspace',
+      roles: ['PROFESSIONAL'],
+    },
+  ],
+};
+
 export const ADMIN_SECTION: NavigationSection = {
   id: 'admin',
   label: 'Administración',
@@ -321,11 +337,23 @@ export function getNavigationSections(
   role: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC',
   isAdmin?: boolean,
   hasClinicAdminAccess?: boolean,
+  hasProfessionalClinicAccess?: boolean,
 ): NavigationSection[] {
+  const professionalClinicSections = [
+    ...(hasProfessionalClinicAccess ? [PROFESSIONAL_CLINIC_WORKSPACE_SECTION] : []),
+    ...(hasClinicAdminAccess ? [PROFESSIONAL_CLINIC_SECTION] : []),
+  ];
+  const supportSectionIndex = PROFESSIONAL_SECTIONS.findIndex((section) => section.id === 'support');
+  const clinicSectionIndex = supportSectionIndex === -1
+    ? PROFESSIONAL_SECTIONS.length
+    : supportSectionIndex;
+  const professionalSections = [
+    ...PROFESSIONAL_SECTIONS.slice(0, clinicSectionIndex),
+    ...professionalClinicSections,
+    ...PROFESSIONAL_SECTIONS.slice(clinicSectionIndex),
+  ];
   const sections = role === 'PROFESSIONAL'
-    ? hasClinicAdminAccess
-      ? [...PROFESSIONAL_SECTIONS, PROFESSIONAL_CLINIC_SECTION]
-      : PROFESSIONAL_SECTIONS
+    ? professionalSections
     : role === 'CLINIC'
       ? CLINIC_SECTIONS
       : CLIENT_SECTIONS;

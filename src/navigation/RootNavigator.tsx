@@ -268,6 +268,13 @@ const ProfessionalClinicPatientDetailRoute = createDeferredLayoutRoute<'Professi
     exportName: 'ProfessionalClinicPatientDetailScreen',
   }
 );
+const ProfessionalClinicWorkspaceRoute = createDeferredLayoutRoute<'ProfessionalClinicWorkspace'>(
+  () => require('../screens/professional/ProfessionalClinicWorkspaceScreen'),
+  {
+    displayName: 'ProfessionalClinicWorkspaceRoute',
+    exportName: 'ProfessionalClinicWorkspaceScreen',
+  },
+);
 const ProfessionalSessionsRoute = createDeferredLayoutRoute<'ProfessionalSessions'>(
   () => require('../screens/professional/ProfessionalSessionsScreen'),
   {
@@ -837,6 +844,11 @@ export function RootNavigator() {
           name="ProfessionalClients"
           component={ProfessionalClientsRoute}
           options={{ headerTitle: 'Mis Clientes' }}
+        />
+        <Stack.Screen
+          name="ProfessionalClinicWorkspace"
+          component={ProfessionalClinicWorkspaceRoute}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="ProfessionalClinicPatientDetail"

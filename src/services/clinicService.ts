@@ -10,3 +10,4 @@ export * from './clinic/sessionService';
 export * from './clinic/billingService';
 export * from './clinic/financeService';
 export * from './clinic/financeTypes';
+export * from './clinic/operationalService';

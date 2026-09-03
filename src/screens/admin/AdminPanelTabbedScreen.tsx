@@ -17,14 +17,9 @@ import { SpecialistManagementScreen } from './SpecialistManagementScreen';
 import { AdminHelpView } from '../../components/specialistContact/AdminHelpView';
 import { AdminFeedbackView } from '../../components/specialistContact/AdminFeedbackView';
 import { getAdminContactSummary } from '../../services/specialistContactService';
-import { AdminClinicFinanceScreen } from './AdminClinicFinanceScreen';
-import {
-  getAdminClinicFinanceSummary,
-  type AdminClinicFinanceSummary,
-} from '../../services/adminClinicFinanceService';
 import type { ScreenProps } from '../../constants/types';
 
-type TabKey = 'verifications' | 'management' | 'clinics' | 'help' | 'feedback';
+type TabKey = 'verifications' | 'management' | 'help' | 'feedback';
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 interface Tab {
@@ -49,13 +44,6 @@ const TABS: Tab[] = [
     compactLabel: 'Especialistas',
     icon: 'people-outline',
     iconActive: 'people',
-  },
-  {
-    key: 'clinics',
-    label: 'Activación de clínicas',
-    compactLabel: 'Clínicas',
-    icon: 'business-outline',
-    iconActive: 'business',
   },
   {
     key: 'help',
@@ -94,7 +82,6 @@ export function AdminPanelTabbedScreen({
     unreadHelpRequests: 0,
     receivedFeedback: 0,
   });
-  const [clinicFinanceSummary, setClinicFinanceSummary] = useState<AdminClinicFinanceSummary | null>(null);
 
   useEffect(() => {
     if (route.params?.initialTab) {
@@ -119,25 +106,9 @@ export function AdminPanelTabbedScreen({
     navigation.setParams({ initialTab: 'help', requestId });
   }, [navigation]);
 
-  const refreshClinicFinanceSummary = useCallback(async () => {
-    if (!isAdmin) return;
-    try {
-      setClinicFinanceSummary(await getAdminClinicFinanceSummary());
-    } catch {
-      // The clinics tab remains available if its badge cannot refresh.
-    }
-  }, [isAdmin]);
-
   useEffect(() => {
     void refreshContactSummary();
-    void refreshClinicFinanceSummary();
-  }, [activeTab, refreshClinicFinanceSummary, refreshContactSummary]);
-
-  useEffect(() => {
-    if (activeTab !== 'clinics') return;
-    const timer = setInterval(() => void refreshClinicFinanceSummary(), 60_000);
-    return () => clearInterval(timer);
-  }, [activeTab, refreshClinicFinanceSummary]);
+  }, [activeTab, refreshContactSummary]);
 
   if (!isAdmin) {
     return (
@@ -185,8 +156,6 @@ export function AdminPanelTabbedScreen({
             ? contactSummary.unreadHelpRequests
             : tab.key === 'feedback'
               ? contactSummary.receivedFeedback
-              : tab.key === 'clinics'
-                ? clinicFinanceSummary?.pendingRequests ?? 0
               : 0;
 
           return (
@@ -221,9 +190,6 @@ export function AdminPanelTabbedScreen({
       <View style={styles.content}>
         {activeTab === 'verifications' && <AdminPanelScreen />}
         {activeTab === 'management' && <SpecialistManagementScreen />}
-        {activeTab === 'clinics' && (
-          <AdminClinicFinanceScreen onSummaryChanged={setClinicFinanceSummary} />
-        )}
         {activeTab === 'help' && (
           <AdminHelpView
             initialRequestId={route.params?.requestId}

@@ -53,7 +53,7 @@ const prefix = Linking.createURL('/');
 export const linking: LinkingOptions<RootStackParamList> = {
   prefixes: [prefix, 'hera://'],
   config: {
-    screens: {
+      screens: {
       EmailVerification: {
         path: 'verify',
         parse: {
@@ -132,6 +132,14 @@ export const linking: LinkingOptions<RootStackParamList> = {
           requestId: (requestId: string) => requestId,
         },
       },
+      ProfessionalClinicWorkspace: {
+        path: 'mi-clinica/:clinicId?/:section?',
+        parse: {
+          clinicId: (value: string) => value,
+          section: (value: string) => value as 'home' | 'agenda' | 'patients' | 'agreement' | 'finance' | 'info',
+        },
+      },
+      ProfessionalClinicPatientDetail: 'mi-clinica/:clinicId/pacientes/:clinicPatientId',
       PublicSpecialists: 'especialistas',
       ProfessionalShowcase: 'profesionales/recorrido',
       Landing: '',

@@ -3,8 +3,6 @@ import { z } from 'zod';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import type { DropdownOption } from '../../components/common/SimpleDropdown';
 import * as clinicService from '../../services/clinicService';
-import * as clinicFinanceService from '../../services/clinic/financeService';
-import type { ClinicFinancialActivationReadiness } from '../../services/clinic/financeTypes';
 import { useClinicWorkspace } from './useClinicWorkspace';
 import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
 import {
@@ -237,8 +235,6 @@ export function useClinicBillingController() {
   const referenceRequestSeq = useRef(0);
   const patientLookupRequestSeq = useRef(0);
   const sessionLookupRequestSeq = useRef(0);
-  const activationRequestSeq = useRef(0);
-  const activationCommandRef = useRef<{ action: 'request' | 'cancel'; key: string } | null>(null);
 
   const [summary, setSummary] = useState<clinicService.ClinicBillingSummary | null>(null);
   const [revenueShareSummary, setRevenueShareSummary] =
@@ -274,8 +270,6 @@ export function useClinicBillingController() {
   const [settlementLoading, setSettlementLoading] = useState(false);
   const [settlementDetailLoading, setSettlementDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [activationReadiness, setActivationReadiness] = useState<ClinicFinancialActivationReadiness | null>(null);
-  const [activationLoading, setActivationLoading] = useState(false);
   const [configForm, setConfigForm] = useState<ClinicBillingConfigForm>(() => createConfigForm());
   const [configErrors, setConfigErrors] = useState<ClinicBillingConfigErrors>({});
   const [invoiceForm, setInvoiceForm] = useState<ClinicBillingInvoiceForm>(() => createInvoiceForm());
@@ -289,7 +283,6 @@ export function useClinicBillingController() {
 
   const canManage = workspace.selectedMembership?.role === 'OWNER'
     || workspace.selectedMembership?.role === 'ADMIN';
-  const isOwner = workspace.selectedMembership?.role === 'OWNER';
 
   const invalidateBillingRequests = useCallback(() => {
     invoicesRequestSeq.current += 1;
@@ -300,7 +293,6 @@ export function useClinicBillingController() {
     referenceRequestSeq.current += 1;
     patientLookupRequestSeq.current += 1;
     sessionLookupRequestSeq.current += 1;
-    activationRequestSeq.current += 1;
   }, []);
 
   const resetBillingContextState = useCallback((
@@ -341,9 +333,6 @@ export function useClinicBillingController() {
     setLoadingMore(false);
     setError('');
     setSaving(false);
-    setActivationReadiness(null);
-    setActivationLoading(false);
-    activationCommandRef.current = null;
     setEditableFilters(nextFilters);
     setAppliedFilters(nextFilters);
     setRevenueShareFilters(nextRevenueShareFilters);
@@ -673,19 +662,6 @@ export function useClinicBillingController() {
     }
   }, []);
 
-  const loadActivationReadiness = useCallback(async (clinicId: string) => {
-    const requestId = activationRequestSeq.current + 1;
-    activationRequestSeq.current = requestId;
-    try {
-      const result = await clinicFinanceService.getClinicFinancialActivationReadiness(clinicId);
-      if (!mountedRef.current || activationRequestSeq.current !== requestId) return;
-      setActivationReadiness(result);
-    } catch {
-      if (!mountedRef.current || activationRequestSeq.current !== requestId) return;
-      setActivationReadiness(null);
-    }
-  }, []);
-
   const reloadInvoicesAndSummary = useCallback(async (filters = appliedFilters) => {
     if (!workspace.selectedClinicId || !canManage) return;
 
@@ -715,7 +691,6 @@ export function useClinicBillingController() {
       loadRevenueShareSummary(workspace.selectedClinicId, revenueShareFilters),
       loadSettlementData(workspace.selectedClinicId, settlementFilters),
       loadReferenceData(workspace.selectedClinicId),
-      loadActivationReadiness(workspace.selectedClinicId),
       loadPatientLookup(workspace.selectedClinicId, patientLookupSearch, 1, false),
       loadInvoices(workspace.selectedClinicId, 1, filters),
     ]);
@@ -725,7 +700,6 @@ export function useClinicBillingController() {
     loadInvoices,
     loadPatientLookup,
     loadReferenceData,
-    loadActivationReadiness,
     loadRevenueShareSummary,
     loadSettlementData,
     loadSummary,
@@ -751,14 +725,12 @@ export function useClinicBillingController() {
       loadRevenueShareSummary(clinicId, initialRevenueShareFilters),
       loadSettlementData(clinicId, initialSettlementFilters),
       loadReferenceData(clinicId),
-      loadActivationReadiness(clinicId),
       loadInvoices(clinicId, 1, initialFilters),
     ]);
   }, [
     canManage,
     loadInvoices,
     loadReferenceData,
-    loadActivationReadiness,
     loadRevenueShareSummary,
     loadSettlementData,
     loadSummary,
@@ -1071,7 +1043,6 @@ export function useClinicBillingController() {
       setConfig(updated);
       setConfigForm(createConfigForm(updated));
       await refreshCompletion();
-      await loadActivationReadiness(workspace.selectedClinicId);
       showAppAlert(appAlert, 'Configuración guardada', 'La facturación de clínica se ha actualizado.');
     } catch (saveError: unknown) {
       showAppAlert(
@@ -1082,81 +1053,7 @@ export function useClinicBillingController() {
     } finally {
       setSaving(false);
     }
-  }, [appAlert, canManage, config, configForm, loadActivationReadiness, refreshCompletion, workspace.selectedClinicId]);
-
-  const handleRequestActivationReview = useCallback(async () => {
-    if (
-      !workspace.selectedClinicId
-      || !isOwner
-      || !activationReadiness?.capabilities.canRequestReview
-      || activationLoading
-    ) return;
-    const confirmed = await appAlert.confirm({
-      title: '¿Enviar a revisión?',
-      message: 'HERA comprobará la configuración antes de activar las nuevas operaciones financieras.',
-      confirmLabel: 'Enviar a revisión',
-      cancelLabel: 'Cancelar',
-      tone: 'warning',
-      dismissible: true,
-    });
-    if (!confirmed) return;
-    const command = activationCommandRef.current?.action === 'request'
-      ? activationCommandRef.current
-      : { action: 'request' as const, key: clinicFinanceService.createFinancialCommandKey() };
-    activationCommandRef.current = command;
-    try {
-      setActivationLoading(true);
-      await clinicFinanceService.requestClinicFinancialActivation(workspace.selectedClinicId, command.key);
-      activationCommandRef.current = null;
-      await loadActivationReadiness(workspace.selectedClinicId);
-      showAppAlert(appAlert, 'Solicitud enviada', 'HERA ya puede iniciar la comprobación desde el panel de administración.');
-    } catch (requestError: unknown) {
-      showAppAlert(appAlert, 'No se pudo enviar', requestError instanceof Error ? requestError.message : 'Inténtalo de nuevo.');
-    } finally {
-      setActivationLoading(false);
-    }
-  }, [activationLoading, activationReadiness?.capabilities.canRequestReview, appAlert, isOwner, loadActivationReadiness, workspace.selectedClinicId]);
-
-  const handleCancelActivationReview = useCallback(async () => {
-    const request = activationReadiness?.request;
-    if (
-      !workspace.selectedClinicId
-      || !isOwner
-      || !request
-      || request.status !== 'PENDING_REVIEW'
-      || !activationReadiness.capabilities.canCancelRequest
-      || activationLoading
-    ) return;
-    const confirmed = await appAlert.confirm({
-      title: '¿Cancelar la solicitud?',
-      message: 'Podrás volver a enviarla cuando quieras.',
-      confirmLabel: 'Cancelar solicitud',
-      cancelLabel: 'Volver',
-      tone: 'warning',
-      dismissible: true,
-    });
-    if (!confirmed) return;
-    const command = activationCommandRef.current?.action === 'cancel'
-      ? activationCommandRef.current
-      : { action: 'cancel' as const, key: clinicFinanceService.createFinancialCommandKey() };
-    activationCommandRef.current = command;
-    try {
-      setActivationLoading(true);
-      await clinicFinanceService.cancelClinicFinancialActivationRequest(
-        workspace.selectedClinicId,
-        request.id,
-        request.version,
-        command.key,
-      );
-      activationCommandRef.current = null;
-      await loadActivationReadiness(workspace.selectedClinicId);
-      showAppAlert(appAlert, 'Solicitud cancelada', 'No se iniciará ninguna comprobación.');
-    } catch (cancelError: unknown) {
-      showAppAlert(appAlert, 'No se pudo cancelar', cancelError instanceof Error ? cancelError.message : 'Inténtalo de nuevo.');
-    } finally {
-      setActivationLoading(false);
-    }
-  }, [activationLoading, activationReadiness, appAlert, isOwner, loadActivationReadiness, workspace.selectedClinicId]);
+  }, [appAlert, canManage, config, configForm, refreshCompletion, workspace.selectedClinicId]);
 
   const handleCreateInvoice = useCallback(async (): Promise<boolean> => {
     if (!workspace.selectedClinicId || !canManage) return false;
@@ -1262,10 +1159,7 @@ export function useClinicBillingController() {
   }, [appAlert, canManage, reloadInvoicesAndSummary, saving, workspace.selectedClinicId]);
 
   return {
-    activationLoading,
-    activationReadiness,
     canManage,
-    isOwner,
     completedSessionLoading,
     completedSessionLoadingMore,
     completedSessionOptions,
@@ -1284,8 +1178,6 @@ export function useClinicBillingController() {
     handleLoadMorePatientOptions,
     handlePatientLookupSearchChange,
     handleRetry,
-    handleRequestActivationReview,
-    handleCancelActivationReview,
     handleSaveConfig,
     handleSelectClinic,
     invoiceErrors,

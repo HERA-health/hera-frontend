@@ -47,6 +47,7 @@ const ROUTE_TITLES: Record<keyof RootStackParamList, string> = {
   ProfessionalDashboard: 'Estadísticas',
   ProfessionalClients: 'Mis pacientes',
   ProfessionalClinicPatientDetail: 'Paciente de clínica',
+  ProfessionalClinicWorkspace: 'Mi clínica',
   ProfessionalSessions: 'Agenda',
   ProfessionalProfile: 'Perfil profesional',
   ProfessionalBilling: 'Facturación',

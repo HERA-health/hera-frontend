@@ -11,7 +11,6 @@ describe("clinic finance production remediation contracts", () => {
     "../../professional/clinic-finance/ProfessionalClinicFinancePanel.tsx",
   );
   const clinicBilling = read("../ClinicBillingScreen.tsx");
-  const adminFinance = read("../../admin/AdminClinicFinanceScreen.tsx");
   const financeNavigation = read(
     "../../../components/finance/FinanceSectionNavigation.tsx",
   );
@@ -77,7 +76,6 @@ describe("clinic finance production remediation contracts", () => {
       clinicWorkspace,
       clinicBilling,
       professionalPanel,
-      adminFinance,
       financeNavigation,
     ]) {
       const dropdowns = source.match(/<SimpleDropdown[\s\S]*?\/>/g) ?? [];
@@ -102,7 +100,6 @@ describe("clinic finance production remediation contracts", () => {
 
     for (const source of [
       clinicBilling,
-      adminFinance,
       focusedActionSheet,
       clinicScaffold,
       professionalBilling,
@@ -132,16 +129,14 @@ describe("clinic finance production remediation contracts", () => {
     expect(clinicWorkspace).not.toContain("Cada importe, explicado desde su sesión");
   });
 
-  it("keeps the owner review request available without restoring an activation card", () => {
-    expect(clinicBilling).toContain("Enviar a revisión");
-    expect(clinicBilling).toContain("activationReadiness?.capabilities.canRequestReview");
-    expect(clinicBilling).toContain("activationReadiness?.capabilities.canCancelRequest");
+  it("keeps clinic finance available without an activation or review flow", () => {
+    expect(clinicBilling).not.toContain("Enviar a revisión");
+    expect(clinicBilling).not.toContain("activationReadiness");
     expect(clinicBilling).not.toContain("ClinicFinancialActivationCard");
-    expect(billingController).toContain("handleRequestActivationReview");
-    expect(billingController).toContain("handleCancelActivationReview");
-    expect(billingController).toContain("activationCommandRef.current");
-    expect(financeService).toContain("/finance/activation-readiness");
-    expect(financeService).toContain("/finance/activation-requests");
+    expect(billingController).not.toContain("handleRequestActivationReview");
+    expect(billingController).not.toContain("handleCancelActivationReview");
+    expect(financeService).not.toContain("/finance/activation-readiness");
+    expect(financeService).not.toContain("/finance/activation-requests");
   });
 
   it("uses concise product language instead of technical or overexplained copy", () => {

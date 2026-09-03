@@ -14,6 +14,7 @@ import { layout, shadows, spacing } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ProfessionalWorkspaceProvider } from '../../contexts/ProfessionalWorkspaceContext';
+import { ProfessionalClinicWorkspaceProvider } from '../../contexts/ProfessionalClinicWorkspaceContext';
 import { AmbientBackground } from '../common/AmbientBackground';
 import { AnimatedPressable } from '../common/AnimatedPressable';
 import { StyledLogo } from '../common/StyledLogo';
@@ -271,9 +272,11 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
 
   return (
     <ProfessionalWorkspaceProvider key={user?.id ?? 'professional'} currentRoute={currentRoute}>
-      <ProfessionalTourProvider currentRouteName={currentRoute}>
-        {layoutContent}
-      </ProfessionalTourProvider>
+      <ProfessionalClinicWorkspaceProvider>
+        <ProfessionalTourProvider currentRouteName={currentRoute}>
+          {layoutContent}
+        </ProfessionalTourProvider>
+      </ProfessionalClinicWorkspaceProvider>
     </ProfessionalWorkspaceProvider>
   );
 }

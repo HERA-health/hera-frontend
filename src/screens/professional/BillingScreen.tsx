@@ -43,8 +43,6 @@ import {
   TariffItem,
 } from '../../services/billingService';
 import * as analyticsService from '../../services/analyticsService';
-import { getMyProfessionalClinicContexts } from '../../services/clinicService';
-import { ProfessionalClinicFinancePanel } from './clinic-finance/ProfessionalClinicFinancePanel';
 
 // ============================================================================
 // CONSTANTS
@@ -380,8 +378,6 @@ export function BillingScreen() {
     () => billingTourScroll.prepareTarget('professional.billing.automation'),
     [billingTourScroll],
   );
-  const [billingArea, setBillingArea] = useState<'clinics' | 'private'>('private');
-  const [hasClinicLinks, setHasClinicLinks] = useState(false);
 
   const handleFiscalEditPress = useCallback(() => {
     if (editingFiscal) {
@@ -499,20 +495,6 @@ export function BillingScreen() {
   useEffect(() => {
     loadConfig();
   }, [loadConfig]);
-
-  useEffect(() => {
-    let active = true;
-    void getMyProfessionalClinicContexts()
-      .then((contexts) => {
-        if (active) setHasClinicLinks(contexts.length > 0);
-      })
-      .catch(() => {
-        if (active) setHasClinicLinks(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   useEffect(() => {
     if (route.params?.initialSection !== 'fiscal' || loading || !isConfigLoaded) return undefined;
@@ -1543,29 +1525,9 @@ export function BillingScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>{STRINGS.title}</Text>
-          <View style={styles.billingAreaTabs} accessibilityRole="tablist">
-            {hasClinicLinks ? <Pressable
-              accessibilityRole="tab"
-              accessibilityState={{ selected: billingArea === 'clinics' }}
-              style={[styles.billingAreaTab, billingArea === 'clinics' && styles.billingAreaTabActive]}
-              onPress={() => setBillingArea('clinics')}
-            >
-              <Ionicons name="business-outline" size={16} color={billingArea === 'clinics' ? theme.textOnPrimary : theme.textSecondary} />
-              <Text style={[styles.billingAreaTabText, billingArea === 'clinics' && styles.billingAreaTabTextActive]}>Clínicas</Text>
-            </Pressable> : null}
-            <Pressable
-              accessibilityRole="tab"
-              accessibilityState={{ selected: billingArea === 'private' }}
-              style={[styles.billingAreaTab, billingArea === 'private' && styles.billingAreaTabActive]}
-              onPress={() => setBillingArea('private')}
-            >
-              <Ionicons name="person-outline" size={16} color={billingArea === 'private' ? theme.textOnPrimary : theme.textSecondary} />
-              <Text style={[styles.billingAreaTabText, billingArea === 'private' && styles.billingAreaTabTextActive]}>Consulta privada</Text>
-            </Pressable>
-          </View>
         </View>
         <View style={styles.headerActions}>
-          {billingArea === 'private' ? <View style={styles.headerBtnWrap}>
+          <View style={styles.headerBtnWrap}>
             <TourTarget id="professional.billing.new-invoice" fill style={styles.fullWidthTourTarget}>
               <Button
                 variant="primary"
@@ -1577,7 +1539,7 @@ export function BillingScreen() {
                 Nueva factura
               </Button>
             </TourTarget>
-          </View> : null}
+          </View>
         </View>
       </View>
 
@@ -1593,10 +1555,6 @@ export function BillingScreen() {
         onScroll={billingTourScroll.scrollProps.onScroll}
         scrollEventThrottle={billingTourScroll.scrollProps.scrollEventThrottle}
       >
-        {billingArea === 'clinics' ? (
-          <ProfessionalClinicFinancePanel />
-        ) : (
-          <>
         {/* Stats */}
         {renderStats()}
 
@@ -1622,8 +1580,6 @@ export function BillingScreen() {
             {renderInvoiceDesignCard()}
             {renderNumberingCard()}
             {renderAutomationCard()}
-          </>
-        )}
           </>
         )}
       </VisibleScrollView>

@@ -14,6 +14,8 @@ describe('professional workspace shell hardening', () => {
   const drawer = readSource('components', 'navigation', 'CustomDrawerContent.tsx');
   const quickSearch = readSource('components', 'navigation', 'ProfessionalQuickSearch.tsx');
   const home = readSource('screens', 'professional', 'ProfessionalHomeScreen.tsx');
+  const clinicWorkspace = readSource('screens', 'professional', 'ProfessionalClinicWorkspaceScreen.tsx');
+  const clinicWorkspaceService = readSource('services', 'clinic', 'professionalWorkspaceService.ts');
 
   it('keeps the 1040 professional breakpoint without changing other roles', () => {
     expect(mainLayout).toContain('isLargeScreenForRole(windowWidth, isProfessional)');
@@ -26,6 +28,15 @@ describe('professional workspace shell hardening', () => {
     expect(topBar).not.toContain('getSpecialistContactSummary');
     expect(drawer).not.toContain('getSpecialistContactSummary');
     expect(topBar).not.toContain('dashboardService.getProfessionalHome');
+  });
+
+  it('shows Mi clínica from the active care relationship without rollout or review states', () => {
+    expect(drawer).toContain("professionalClinicWorkspace?.hasActiveCareLink === true");
+    expect(drawer).toContain("professionalClinicWorkspace?.status === 'error'");
+    expect(drawer).not.toContain('hasProfessionalClinicAccess={Boolean(professionalClinicWorkspace?.contexts.length)}');
+    expect(clinicWorkspace).not.toContain('pendiente de activación');
+    expect(clinicWorkspace).not.toContain('Nombre revisado por HERA');
+    expect(clinicWorkspaceService).not.toContain('nameReview');
   });
 
   it('only claims all-clear after every source is confirmed', () => {

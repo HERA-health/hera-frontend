@@ -18,6 +18,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
 import * as clinicService from '../../services/clinicService';
 import { ClinicWorkspaceScaffold } from './components/ClinicWorkspaceScaffold';
+import { ClinicOperationalSettingsPanel } from '../../components/clinic/ClinicOperationalSettingsPanel';
 import { useClinicWorkspace } from './useClinicWorkspace';
 
 interface ClinicSettingsForm {
@@ -389,6 +390,12 @@ export function ClinicSettingsScreen({
               Guardar cambios
             </Button>
           </View>
+          {workspace.selectedClinicId ? (
+            <ClinicOperationalSettingsPanel
+              clinicId={workspace.selectedClinicId}
+              canEdit={canEdit}
+            />
+          ) : null}
         </View>
       )}
     </ClinicWorkspaceScaffold>

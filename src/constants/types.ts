@@ -103,6 +103,7 @@ export interface Feature {
  * Navigation types for type-safe navigation
  */
 import type { LegalDocumentKey } from './legal';
+import type { ProfessionalClinicWorkspaceSection } from '../services/clinic/professionalWorkspaceService';
 
 export interface BookingOfficeLocation {
   street: string;
@@ -167,6 +168,11 @@ export type RootStackParamList = {
     clinicId: string;
     clinicPatientId: string;
   };
+  ProfessionalClinicWorkspace: {
+    clinicId?: string;
+    section?: ProfessionalClinicWorkspaceSection;
+    focusId?: string;
+  } | undefined;
   ProfessionalSessions: {
     openCreateSession?: boolean;
     focusSessionId?: string;
@@ -193,7 +199,7 @@ export type RootStackParamList = {
     focusBillingEditor?: boolean;
   };
   AdminPanel: {
-    initialTab?: 'verifications' | 'management' | 'clinics' | 'help' | 'feedback';
+    initialTab?: 'verifications' | 'management' | 'help' | 'feedback';
     requestId?: string;
   } | undefined;
   AdminSpecialistDetail: { specialist: string }; // JSON-serialized PendingSpecialist

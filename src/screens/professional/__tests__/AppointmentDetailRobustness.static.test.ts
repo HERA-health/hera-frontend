@@ -89,24 +89,17 @@ describe('appointment detail robustness contracts', () => {
     expect(professionalAgendaMonthSource).toContain('<AgendaDayPopover');
   });
 
-  it('loads clinic patient sessions with server-side professional filters', () => {
-    expect(professionalClinicPatientSource).toContain('professionalService.getProfessionalSessions({');
-    expect(professionalClinicPatientSource).toContain("origin: 'CLINIC'");
-    expect(professionalClinicPatientSource).toContain('clinicId,');
-    expect(professionalClinicPatientSource).toContain('clientId: detail.clientId');
-    expect(professionalClinicPatientSource).not.toContain('professionalService.getProfessionalSessions(),');
+  it('loads clinic patient sessions only from the scoped workspace API', () => {
+    expect(professionalClinicPatientSource).toContain('listClinicSessions(clinicId, { clinicPatientId, page: 1, limit: 30 })');
+    expect(professionalClinicPatientSource).toContain('getClinicPatient(clinicId, clinicPatientId)');
+    expect(professionalClinicPatientSource).not.toContain('professionalService.getProfessionalSessions');
+    expect(professionalClinicPatientSource).not.toContain('clientId');
   });
 
-  it('guards clinic patient session detail against stale responses', () => {
-    const openBlock = callbackBlock(professionalClinicPatientSource, 'openSessionDetail');
-    const closeBlock = callbackBlock(professionalClinicPatientSource, 'closeSessionDetail');
-
-    expect(professionalClinicPatientSource).toContain('const sessionDetailLoadSeqRef = useRef(0)');
-    expect(openBlock).toContain('const requestSeq = sessionDetailLoadSeqRef.current + 1');
-    expect(openBlock).toContain('sessionDetailLoadSeqRef.current = requestSeq');
-    expect(openBlock).toContain('if (sessionDetailLoadSeqRef.current !== requestSeq) return');
-    expect(openBlock).toContain('if (sessionDetailLoadSeqRef.current === requestSeq)');
-    expect(closeBlock).toContain('sessionDetailLoadSeqRef.current += 1');
+  it('opens clinic appointments inside Mi clínica instead of a private detail sheet', () => {
+    expect(professionalClinicPatientSource).toContain("navigation.navigate('ProfessionalClinicWorkspace', { clinicId, section: 'agenda', focusId: session.id })");
+    expect(professionalClinicPatientSource).not.toContain('AppointmentDetailSheet');
+    expect(professionalClinicPatientSource).not.toContain('openSessionDetail');
   });
 
   it('loads a focused clinical session folder directly before opening notes', () => {
@@ -122,10 +115,10 @@ describe('appointment detail robustness contracts', () => {
   });
 
   it('closes the appointment detail sheet before navigating to patient files or notes', () => {
-    [professionalSessionsSource, professionalClinicPatientSource].forEach((source) => {
-      expectCloseBeforeClientProfileNavigation(source, 'openSelectedSessionPatient');
-      expectCloseBeforeClientProfileNavigation(source, 'openSelectedSessionNotes');
-    });
+    expectCloseBeforeClientProfileNavigation(professionalSessionsSource, 'openSelectedSessionPatient');
+    expectCloseBeforeClientProfileNavigation(professionalSessionsSource, 'openSelectedSessionNotes');
+    expect(professionalClinicPatientSource).not.toContain("navigation.navigate('ClientProfile'");
+    expect(professionalClinicPatientSource).not.toContain('openSelectedSessionNotes');
   });
 
   it('exposes a linked invoice only from completed professional appointment details', () => {
@@ -135,13 +128,13 @@ describe('appointment detail robustness contracts', () => {
     expect(appointmentDetailSheetSource).toContain('Boolean(professionalSession.invoice)');
     expect(appointmentDetailSheetSource).toContain('Ver factura');
 
-    [professionalSessionsSource, professionalClinicPatientSource].forEach((source) => {
-      expect(source).toContain("navigation.navigate('CreateInvoice', { invoiceId: invoice.id });");
-      expect(source).toContain('await billingService.downloadInvoice(invoice.id, invoice.invoiceNumber);');
-      expect(source).toContain(
-        "onOpenInvoice={selectedSessionDetail?.status === 'COMPLETED' && selectedSessionDetail.invoice"
-      );
-    });
+    expect(professionalSessionsSource).toContain("navigation.navigate('CreateInvoice', { invoiceId: invoice.id });");
+    expect(professionalSessionsSource).toContain('await billingService.downloadInvoice(invoice.id, invoice.invoiceNumber);');
+    expect(professionalSessionsSource).toContain(
+      "onOpenInvoice={selectedSessionDetail?.status === 'COMPLETED' && selectedSessionDetail.invoice"
+    );
+    expect(professionalClinicPatientSource).not.toContain("navigation.navigate('CreateInvoice'");
+    expect(professionalClinicPatientSource).not.toContain('downloadInvoice');
   });
 
   it('distinguishes clinic services from private tariffs in professional appointment details', () => {

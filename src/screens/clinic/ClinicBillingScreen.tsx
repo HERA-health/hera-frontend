@@ -17,7 +17,6 @@ import { Theme } from '../../constants/theme';
 import type { ScreenProps } from '../../constants/types';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as clinicService from '../../services/clinicService';
-import type { ClinicFinancialActivationReadiness } from '../../services/clinic/financeTypes';
 import { clinicBillingConfigSchema, formatIban } from '../../utils/financialFormValidation';
 import { ClinicWorkspaceScaffold } from './components/ClinicWorkspaceScaffold';
 import {
@@ -118,10 +117,7 @@ export function ClinicBillingScreen({
   const [activeSection, setActiveSection] = useState<ClinicBillingSection>('overview');
   const [highlightConfig, setHighlightConfig] = useState(false);
   const {
-    activationLoading,
-    activationReadiness,
     canManage,
-    isOwner,
     config,
     configErrors,
     configForm,
@@ -134,8 +130,6 @@ export function ClinicBillingScreen({
     handleLoadMorePatientOptions,
     handlePatientLookupSearchChange,
     handleRetry,
-    handleRequestActivationReview,
-    handleCancelActivationReview,
     handleSaveConfig,
     handleSelectClinic,
     handleSettlementAction,
@@ -288,11 +282,6 @@ export function ClinicBillingScreen({
                     onSave={handleSaveConfig}
                     onRetry={handleRetry}
                     highlighted={highlightConfig}
-                    activationReadiness={activationReadiness}
-                    activationLoading={activationLoading}
-                    isOwner={isOwner}
-                    onRequestActivation={handleRequestActivationReview}
-                    onCancelActivation={handleCancelActivationReview}
                   />
                 </View>
               ) : null}
@@ -1084,11 +1073,6 @@ function ConfigPanel({
   onSave,
   onRetry,
   highlighted,
-  activationReadiness,
-  activationLoading,
-  isOwner,
-  onRequestActivation,
-  onCancelActivation,
 }: {
   savedConfig: clinicService.ClinicBillingConfig | null;
   form: ClinicBillingConfigForm;
@@ -1103,11 +1087,6 @@ function ConfigPanel({
   onSave: () => void;
   onRetry: () => void;
   highlighted: boolean;
-  activationReadiness: ClinicFinancialActivationReadiness | null;
-  activationLoading: boolean;
-  isOwner: boolean;
-  onRequestActivation: () => void;
-  onCancelActivation: () => void;
 }): React.ReactElement {
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme, isCompact), [isCompact, theme]);
@@ -1143,15 +1122,6 @@ function ConfigPanel({
     }, {});
   }, [hasChanges, validation]);
   const fieldError = (field: keyof ClinicBillingConfigForm): string | undefined => errors[field] ?? liveErrors[field];
-  const activationRequest = activationReadiness?.request;
-  const activationStatus = activationReadiness?.mode === 'ACTIVE'
-    ? 'Nuevas operaciones activas'
-    : activationRequest?.status === 'IN_REVIEW'
-      ? 'Revisión en curso'
-      : activationRequest?.status === 'PENDING_REVIEW'
-        ? 'Solicitud enviada'
-        : null;
-
   if (!savedConfig) {
     return (
       <View style={[styles.panel, styles.configPanel, highlighted ? styles.panelHighlighted : null]}>
@@ -1187,7 +1157,7 @@ function ConfigPanel({
           <View style={styles.formSection}>
             <View><Text style={styles.formSectionTitle}>Identidad y dirección fiscal</Text><Text style={styles.formSectionSubtitle}>Datos legales de la clínica como emisora.</Text></View>
             <View style={styles.formColumns}>
-              <Input label="Razón social" value={form.legalName} onChangeText={(value) => onChange('legalName', value)} error={fieldError('legalName')} maxLength={160} containerStyle={styles.formColumn} />
+              <Input label="Nombre o razón social" value={form.legalName} onChangeText={(value) => onChange('legalName', value)} error={fieldError('legalName')} maxLength={160} containerStyle={styles.formColumn} />
               <Input label="NIF, NIE o CIF" value={form.taxId} onChangeText={(value) => onChange('taxId', value)} error={fieldError('taxId')} maxLength={40} autoCapitalize="characters" containerStyle={styles.formColumn} />
             </View>
             <Input label="Dirección fiscal" value={form.fiscalAddress} onChangeText={(value) => onChange('fiscalAddress', value)} error={fieldError('fiscalAddress')} maxLength={240} />
@@ -1253,13 +1223,6 @@ function ConfigPanel({
       <View style={styles.saveFooter}>
         <View style={styles.saveStatus}><Ionicons name={!hasChanges ? 'checkmark-circle-outline' : validation.success ? 'ellipse-outline' : 'alert-circle-outline'} size={18} color={!hasChanges ? theme.success : validation.success ? theme.warning : theme.error} /><Text style={styles.saveStatusText}>{!hasChanges ? 'Todo guardado' : validation.success ? 'Hay cambios sin guardar' : 'Revisa los campos señalados antes de guardar'}</Text></View>
         <View style={styles.saveActions}>
-          {activationStatus ? <Text style={styles.activationStatus}>{activationStatus}</Text> : null}
-          {isOwner && activationReadiness?.capabilities.canCancelRequest ? (
-            <Button variant="ghost" size="small" onPress={onCancelActivation} loading={activationLoading} disabled={saving || activationLoading}>Cancelar solicitud</Button>
-          ) : null}
-          {isOwner && activationReadiness?.capabilities.canRequestReview ? (
-            <Button variant="outline" size="small" onPress={onRequestActivation} loading={activationLoading} disabled={saving || activationLoading || hasChanges || !validation.success}>Enviar a revisión</Button>
-          ) : null}
           <Button variant="primary" size="medium" onPress={onSave} loading={saving} disabled={saving || !hasChanges || !validation.success} icon={<Ionicons name="save-outline" size={18} color={theme.actionPrimaryText} />}>Guardar cambios</Button>
         </View>
       </View>
@@ -1772,13 +1735,6 @@ const createStyles = (theme: Theme, isCompact: boolean) =>
       alignItems: isCompact ? 'stretch' : 'center',
       justifyContent: 'flex-end',
       gap: spacing.sm,
-    },
-    activationStatus: {
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
-      fontSize: typography.fontSizes.xs,
-      lineHeight: 18,
-      paddingHorizontal: isCompact ? 0 : spacing.xs,
     },
     inlineFields: {
       flexDirection: 'row',

@@ -5,7 +5,6 @@ import api from "../api";
 import { getErrorMessage } from "../../constants/errors";
 import type {
   ClinicEconomicAgreement,
-  ClinicFinancialActivationReadiness,
   ClinicFinanceOverview,
   ClinicFinancialLedgerPage,
   CreateClinicAgreementPayload,
@@ -13,6 +12,8 @@ import type {
   PatientPaymentMovementPayload,
   ProfessionalClinicFinance,
   ProfessionalInvoice,
+  ProfessionalStatementDetail,
+  ProfessionalStatementPage,
   SessionEconomicRevisionPayload,
   SessionEconomicRevisionPreview,
   WorkflowPatientInvoiceDraftPayload,
@@ -41,42 +42,6 @@ export const getClinicFinanceOverview = (
   request(
     () => api.get(`/clinics/${clinicId}/finance`),
     "No se pudo cargar el circuito económico.",
-  );
-
-export const getClinicFinancialActivationReadiness = (
-  clinicId: string,
-): Promise<ClinicFinancialActivationReadiness> =>
-  request(
-    () => api.get(`/clinics/${clinicId}/finance/activation-readiness`),
-    "No se pudo consultar el estado de la activación.",
-  );
-
-export const requestClinicFinancialActivation = (
-  clinicId: string,
-  idempotencyKey: string,
-): Promise<unknown> =>
-  request(
-    () => api.post(
-      `/clinics/${clinicId}/finance/activation-requests`,
-      { expectedMode: "OFF" },
-      { headers: commandHeaders(idempotencyKey) },
-    ),
-    "No se pudo enviar la solicitud de revisión.",
-  );
-
-export const cancelClinicFinancialActivationRequest = (
-  clinicId: string,
-  requestId: string,
-  expectedVersion: number,
-  idempotencyKey: string,
-): Promise<unknown> =>
-  request(
-    () => api.post(
-      `/clinics/${clinicId}/finance/activation-requests/${requestId}/cancel`,
-      { expectedStatus: "PENDING_REVIEW", expectedVersion },
-      { headers: commandHeaders(idempotencyKey) },
-    ),
-    "No se pudo cancelar la solicitud.",
   );
 
 export const listClinicFinancialLedger = (
@@ -305,6 +270,62 @@ export const getProfessionalClinicFinance = (
   request(
     () => api.get(`/clinics/${clinicId}/specialist/finance`, { params: query }),
     "No se pudo cargar tu actividad económica con la clínica.",
+  );
+
+export const getProfessionalClinicFinanceOverview = async (
+  clinicId: string,
+  query?: { year?: number; month?: number; page?: number; limit?: number },
+): Promise<ProfessionalClinicFinance> => {
+  const params = { ...query, page: query?.page ?? 1, limit: query?.limit ?? 25 };
+  type Summary = Pick<ProfessionalClinicFinance, 'clinic' | 'selectedMonth' | 'liveSummary'>;
+  type Activity = {
+    items: Array<Omit<ProfessionalClinicFinance['sessions'][number], 'snapshot'> & {
+      calculation: ({
+        snapshotId: string;
+      } & Omit<NonNullable<ProfessionalClinicFinance['sessions'][number]['snapshot']>, 'id'>) | null;
+    }>;
+    pageInfo: ProfessionalClinicFinance['sessionPageInfo'];
+  };
+  const [summary, activity] = await Promise.all([
+    request<Summary>(
+      () => api.get(`/clinics/${clinicId}/specialist/finance/summary`, { params }),
+      'No se pudo cargar el resumen económico.',
+    ),
+    request<Activity>(
+      () => api.get(`/clinics/${clinicId}/specialist/finance/activity`, { params }),
+      'No se pudo cargar la actividad económica.',
+    ),
+  ]);
+  return {
+    ...summary,
+    sessions: activity.items.map(({ calculation, ...session }) => ({
+      ...session,
+      snapshot: calculation ? { ...calculation, id: calculation.snapshotId } : null,
+    })),
+    sessionPageInfo: activity.pageInfo,
+    agreements: [],
+    statements: [],
+    invoices: [],
+    documents: [],
+  };
+};
+
+export const listProfessionalClinicFinanceStatements = (
+  clinicId: string,
+  query?: { year?: number; month?: number; page?: number; limit?: number },
+): Promise<ProfessionalStatementPage> =>
+  request(
+    () => api.get(`/clinics/${clinicId}/specialist/finance/statements`, { params: query }),
+    "No se pudieron cargar los cierres.",
+  );
+
+export const getProfessionalClinicFinanceStatementDetail = (
+  clinicId: string,
+  statementId: string,
+): Promise<ProfessionalStatementDetail> =>
+  request(
+    () => api.get(`/clinics/${clinicId}/specialist/finance/statements/${statementId}`),
+    "No se pudo abrir el cierre.",
   );
 
 export const acceptProfessionalClinicAgreement = (

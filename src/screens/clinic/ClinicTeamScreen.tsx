@@ -773,8 +773,9 @@ export function ClinicTeamScreen({
                   onSubmit={handleSubmit}
                   onCancel={handleCancelForm}
                 />
-              ) : selectedSpecialist ? (
+              ) : selectedSpecialist && workspace.selectedClinicId ? (
                 <SpecialistDetailPanel
+                  clinicId={workspace.selectedClinicId}
                   specialist={selectedSpecialist}
                   saving={saving}
                   message={message}
@@ -890,6 +891,7 @@ function StatusBadge({ status }: StatusBadgeProps): React.ReactElement {
 }
 
 interface SpecialistDetailPanelProps {
+  clinicId: string;
   specialist: clinicService.ClinicSpecialist;
   saving: boolean;
   message: string;
@@ -908,6 +910,7 @@ interface SpecialistDetailPanelProps {
 }
 
 function SpecialistDetailPanel({
+  clinicId,
   specialist,
   saving,
   message,
@@ -977,6 +980,12 @@ function SpecialistDetailPanel({
         onUnlink={onUnlinkProfessional}
       />
 
+      <ClinicLocationAssignmentsPanel
+        clinicId={clinicId}
+        specialist={specialist}
+        canManage={canManage}
+      />
+
       {message ? (
         <Text style={[
           styles.message,
@@ -1011,6 +1020,92 @@ function SpecialistDetailPanel({
           {nextStatusLabel}
         </Button>
       </View>
+    </View>
+  );
+}
+
+function ClinicLocationAssignmentsPanel({
+  clinicId,
+  specialist,
+  canManage,
+}: {
+  clinicId: string;
+  specialist: clinicService.ClinicSpecialist;
+  canManage: boolean;
+}): React.ReactElement {
+  const { theme } = useTheme();
+  const alert = useAppAlert();
+  const [locations, setLocations] = useState<clinicService.ClinicLocation[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const config = await clinicService.getClinicOperationalConfiguration(clinicId);
+      const activeLocations = config.locations.filter((location) => location.status === 'ACTIVE');
+      setLocations(activeLocations);
+      setSelectedIds(activeLocations
+        .filter((location) => location.specialistLinks.some((link) => link.clinicSpecialistId === specialist.id))
+        .map((location) => location.id));
+    } catch {
+      setLocations([]);
+      setSelectedIds([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [clinicId, specialist.id]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const save = async (): Promise<void> => {
+    setSaving(true);
+    try {
+      await clinicService.replaceClinicSpecialistLocations(clinicId, specialist.id, selectedIds);
+      await load();
+      await alert.success({ title: 'Sedes actualizadas', message: 'El profesional verá únicamente la sede principal y las sedes vinculadas.' });
+    } catch (saveError: unknown) {
+      await alert.error({ title: 'No se pudieron guardar las sedes', message: saveError instanceof Error ? saveError.message : 'Inténtalo de nuevo.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <View style={{ gap: spacing.sm, borderTopWidth: 1, borderTopColor: theme.borderLight, paddingTop: spacing.md }}>
+      <Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansBold, fontSize: 15 }}>Sedes del profesional</Text>
+      <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 13, lineHeight: 19 }}>La sede principal siempre será visible; selecciona las demás sedes operativas.</Text>
+      {loading ? <ActivityIndicator color={theme.primary} /> : locations.length === 0 ? (
+        <Text style={{ color: theme.textMuted, fontFamily: theme.fontSans, fontSize: 13 }}>Crea primero una sede en Configuración.</Text>
+      ) : locations.map((location) => {
+        const selected = selectedIds.includes(location.id);
+        return (
+          <AnimatedPressable
+            key={location.id}
+            onPress={() => setSelectedIds((current) => selected ? current.filter((id) => id !== location.id) : [...current, location.id])}
+            disabled={!canManage || saving || location.isPrimary}
+            style={{
+              minHeight: 48,
+              borderWidth: 1,
+              borderColor: selected || location.isPrimary ? theme.primary : theme.border,
+              backgroundColor: selected || location.isPrimary ? theme.primaryAlpha12 : theme.bgCard,
+              borderRadius: 12,
+              padding: spacing.sm,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.sm,
+            }}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: selected || location.isPrimary, disabled: location.isPrimary }}
+          >
+            <Ionicons name={selected || location.isPrimary ? 'checkbox' : 'square-outline'} size={20} color={theme.primary} />
+            <Text style={{ flex: 1, color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }}>{location.name}</Text>
+            {location.isPrimary ? <Text style={{ color: theme.primary, fontSize: 11 }}>Principal</Text> : null}
+          </AnimatedPressable>
+        );
+      })}
+      {locations.length > 0 ? <Button size="small" variant="outline" onPress={() => { void save(); }} loading={saving} disabled={!canManage}>Guardar sedes</Button> : null}
     </View>
   );
 }

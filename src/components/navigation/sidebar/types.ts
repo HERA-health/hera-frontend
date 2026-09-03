@@ -188,6 +188,8 @@ export interface SidebarProps {
   isAdmin?: boolean;
   /** Whether a professional has clinic owner/admin memberships */
   hasClinicAdminAccess?: boolean;
+  /** Whether a professional has at least one active care workspace */
+  hasProfessionalClinicAccess?: boolean;
   /** Whether the user/profile section should scroll with navigation content */
   isUserSectionScrollable?: boolean;
   /** Whether the sidebar is in collapsed state */

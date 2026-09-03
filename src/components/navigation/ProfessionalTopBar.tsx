@@ -27,6 +27,7 @@ const ROUTE_TITLES: Record<string, { title: string; eyebrow?: string }> = {
   ProfessionalClients: { title: 'Pacientes' },
   ClientProfile: { title: 'Ficha del paciente', eyebrow: 'Pacientes' },
   ProfessionalSessions: { title: 'Agenda' },
+  ProfessionalClinicWorkspace: { title: 'Mi clínica' },
   ProfessionalBilling: { title: 'Facturación' },
   CreateInvoice: { title: 'Nueva factura', eyebrow: 'Facturación' },
   ProfessionalDashboard: { title: 'Estadísticas' },
