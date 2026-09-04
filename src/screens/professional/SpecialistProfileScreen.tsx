@@ -475,7 +475,7 @@ const getInsuranceReviewCopy = (
 // ============================================================================
 
 export function SpecialistProfileScreen() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, refreshCurrentUser } = useAuth();
   const { snapshot: completionSnapshot, refresh: refreshCompletion } = useProfileCompletion();
   const appAlert = useAppAlert();
   const { isVisible: isAppAlertVisible } = useAppAlertState();
@@ -595,6 +595,7 @@ export function SpecialistProfileScreen() {
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatusResponse>({
     verificationStatus: 'NOT_SUBMITTED',
   });
+  const [resumingVerification, setResumingVerification] = useState(false);
 
   const [billingConfig, setBillingConfig] = useState<FullBillingConfig | null>(null);
   const [isBillingConfigLoading, setIsBillingConfigLoading] = useState(false);
@@ -2630,9 +2631,17 @@ export function SpecialistProfileScreen() {
   // RENDER: TAB 2 - CREDENCIALES Y VERIFICACIÓN
   // ============================================================================
 
-  // Handler for navigating to verification screen
-  const handleResubmitVerification = () => {
-    navigation.navigate('ProfessionalVerification');
+  // RootNavigator opens the form when the canonical user state requires it.
+  const handleResubmitVerification = async () => {
+    if (resumingVerification) return;
+    setResumingVerification(true);
+    try {
+      await refreshCurrentUser();
+    } catch (error: unknown) {
+      showAppAlert(appAlert, 'No se pudo abrir la verificación', getErrorMessage(error, 'Inténtalo de nuevo.'));
+    } finally {
+      setResumingVerification(false);
+    }
   };
 
   // Render the professional verification status banner
@@ -2695,6 +2704,7 @@ export function SpecialistProfileScreen() {
               variant="danger"
               size="small"
               onPress={handleResubmitVerification}
+              loading={resumingVerification}
               icon={<Ionicons name="refresh" size={16} color="#FFFFFF" />}
               style={{ ...styles.verificationResubmitButton }}
               textStyle={{ ...styles.verificationResubmitButtonText }}
@@ -2723,6 +2733,7 @@ export function SpecialistProfileScreen() {
             variant="primary"
             size="small"
             onPress={handleResubmitVerification}
+            loading={resumingVerification}
             icon={<Ionicons name="shield-checkmark" size={16} color="#FFFFFF" />}
             style={{ ...styles.verificationSubmitButton }}
             textStyle={{ ...styles.verificationResubmitButtonText }}
@@ -2918,14 +2929,34 @@ export function SpecialistProfileScreen() {
               </Text>
             </View>
             <Button
-              variant={verificationStatus.verificationStatus === 'VERIFIED' ? 'ghost' : 'outline'}
+              variant={
+                verificationStatus.verificationStatus === 'VERIFIED'
+                || verificationStatus.verificationStatus === 'PENDING'
+                  ? 'ghost'
+                  : 'outline'
+              }
               size="small"
-              onPress={verificationStatus.verificationStatus !== 'VERIFIED' ? handleResubmitVerification : () => {}}
-              disabled={verificationStatus.verificationStatus === 'VERIFIED'}
+              onPress={
+                verificationStatus.verificationStatus === 'REJECTED'
+                || verificationStatus.verificationStatus === 'NOT_SUBMITTED'
+                  ? handleResubmitVerification
+                  : () => {}
+              }
+              disabled={
+                verificationStatus.verificationStatus === 'VERIFIED'
+                || verificationStatus.verificationStatus === 'PENDING'
+              }
+              loading={resumingVerification}
               style={{ ...styles.verificationCardButton }}
               textStyle={{ ...styles.verificationCardButtonText }}
             >
-              {verificationStatus.verificationStatus === 'VERIFIED' ? 'Verificado' : 'Verificar'}
+              {verificationStatus.verificationStatus === 'VERIFIED'
+                ? 'Verificado'
+                : verificationStatus.verificationStatus === 'PENDING'
+                  ? 'En revisión'
+                  : verificationStatus.verificationStatus === 'REJECTED'
+                    ? 'Corregir'
+                    : 'Verificar'}
             </Button>
           </View>
         </View>

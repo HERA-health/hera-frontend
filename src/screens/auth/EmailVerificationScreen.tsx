@@ -3,105 +3,93 @@
  * User clicks link in email → App opens this screen → Validates token → Shows success/error
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LoadingState, ErrorState } from '../../components/common';
 import { SuccessScreen } from '../../components/auth';
-import * as authService from '../../services/authService';
+import { verifyEmailLinkOnce } from '../../services/emailVerificationService';
 import { useAuth } from '../../contexts/AuthContext';
 import { getErrorMessage } from '../../constants/errors';
 import { heraLanding } from '../../constants/colors';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
 
 type VerificationState = 'loading' | 'success' | 'error';
+type VerifiedUserType = 'CLIENT' | 'PROFESSIONAL' | 'CLINIC';
 
 export function EmailVerificationScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<AppRouteProp<'EmailVerification'>>();
-  const { user, refreshCurrentUser } = useAuth();
+  const { user, refreshCurrentUser, verificationSubmitted } = useAuth();
 
   const [state, setState] = useState<VerificationState>('loading');
   const [error, setError] = useState<string | null>(null);
+  const [verifiedUserType, setVerifiedUserType] = useState<VerifiedUserType | null>(null);
   const hasVerified = useRef(false);
 
   const { token } = route.params;
 
-  useEffect(() => {
-    // Prevent double verification
-    if (hasVerified.current) return;
+  const verifyEmail = useCallback(async () => {
+    if (!token) {
+      setError('Enlace de verificación inválido. Falta el token.');
+      setState('error');
+      return;
+    }
 
-    const verifyEmail = async () => {
-      // Check if token is present
-      if (!token) {
-        setError('Enlace de verificación inválido. Falta el token.');
-        setState('error');
-        return;
+    try {
+      hasVerified.current = true;
+      const result = await verifyEmailLinkOnce(token);
+      setVerifiedUserType(result.userType);
+
+      if (user) {
+        await refreshCurrentUser();
       }
 
-      try {
-        hasVerified.current = true;
-        await authService.verifyEmail(token);
-
-        if (user) {
-          await refreshCurrentUser();
-        }
-
-        setState('success');
-      } catch (err: unknown) {
-        setError(getErrorMessage(err, 'Error al verificar el correo'));
-        setState('error');
-      }
-    };
-
-    verifyEmail();
+      setState('success');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Error al verificar el correo'));
+      setState('error');
+    }
   }, [refreshCurrentUser, token, user]);
+
+  useEffect(() => {
+    if (hasVerified.current) return;
+    verifyEmail();
+  }, [verifyEmail]);
 
   const handleRetry = () => {
     hasVerified.current = false;
     setError(null);
     setState('loading');
-    // Re-trigger verification by updating state
-    const verifyAgain = async () => {
-      if (!token) {
-        setError('Enlace de verificación inválido. Falta el token.');
-        setState('error');
-        return;
-      }
-
-      try {
-        hasVerified.current = true;
-        await authService.verifyEmail(token);
-
-        if (user) {
-          await refreshCurrentUser();
-        }
-
-        setState('success');
-      } catch (err: unknown) {
-        setError(getErrorMessage(err, 'Error al verificar el correo'));
-        setState('error');
-      }
-    };
-
-    verifyAgain();
+    void verifyEmail();
   };
 
   const handleContinue = () => {
-    // Navigate to login or dashboard
-    if (user) {
-      // User is authenticated, go to dashboard based on type
-      // Professionals have already completed colegiado verification before reaching here
-      const isProfessional = user.type === 'professional';
+    if (user?.type === 'professional' && user.emailVerified !== true) {
       navigation.reset({
         index: 0,
-        routes: [{ name: isProfessional ? 'ProfessionalHome' : 'Home' }],
+        routes: [{ name: 'EmailSentVerification', params: { email: user.email, userType: 'PROFESSIONAL' } }],
+      });
+      return;
+    }
+
+    if (user) {
+      const destination = user.type === 'professional'
+        ? verificationSubmitted === false ? 'ProfessionalVerification' : 'ProfessionalHome'
+        : user.type === 'clinic' ? 'ClinicDashboard' : 'Home';
+      navigation.reset({
+        index: 0,
+        routes: [{ name: destination }],
       });
     } else {
-      // User not authenticated, go to login
+      const loginUserType = verifiedUserType === 'PROFESSIONAL'
+        ? 'PROFESSIONAL'
+        : verifiedUserType === 'CLINIC'
+          ? 'CLINIC'
+          : 'CLIENT';
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Login', params: { userType: 'CLIENT' } }],
+        routes: [{ name: 'Login', params: { userType: loginUserType } }],
       });
     }
   };

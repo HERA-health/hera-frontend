@@ -47,7 +47,13 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { initializeAuth } from '../../services/api';
 import { rotateRequestCacheScope } from '../../services/requestCache';
 import * as authService from '../../services/authService';
-import { AuthProvider, mapAuthUser, mapBackendUserType, useAuth } from '../AuthContext';
+import {
+  AuthProvider,
+  deriveKnownVerificationSubmission,
+  mapAuthUser,
+  mapBackendUserType,
+  useAuth,
+} from '../AuthContext';
 import type { AuthResponse } from '../../services/authService';
 
 describe('AuthContext user type mapping', () => {
@@ -66,6 +72,45 @@ describe('AuthContext user type mapping', () => {
     };
 
     expect(mapAuthUser(user).type).toBe('clinic');
+  });
+
+  it('falls back to the verification endpoint when an older user response omits the submission date', () => {
+    const user = mapAuthUser({
+      id: 'professional-user',
+      email: 'professional@example.com',
+      name: 'Professional Example',
+      userType: 'PROFESSIONAL',
+      emailVerified: true,
+      specialist: {
+        verificationStatus: 'PENDING',
+      },
+    });
+
+    expect(deriveKnownVerificationSubmission(user)).toBeNull();
+  });
+
+  it('distinguishes a submitted request from a new professional explicitly', () => {
+    const pendingUser = mapAuthUser({
+      id: 'professional-user',
+      email: 'professional@example.com',
+      name: 'Professional Example',
+      userType: 'PROFESSIONAL',
+      emailVerified: true,
+      specialist: {
+        verificationStatus: 'PENDING',
+        verificationSubmittedAt: '2026-09-04T19:30:39.242Z',
+      },
+    });
+    const newUser = {
+      ...pendingUser,
+      specialist: {
+        verificationStatus: 'PENDING' as const,
+        verificationSubmittedAt: null,
+      },
+    };
+
+    expect(deriveKnownVerificationSubmission(pendingUser)).toBe(true);
+    expect(deriveKnownVerificationSubmission(newUser)).toBe(false);
   });
 });
 

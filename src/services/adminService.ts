@@ -13,6 +13,7 @@ export interface PendingSpecialist {
   verificationStatus: string;
   verificationSubmittedAt: string | null;
   verificationResolvedAt: string | null;
+  hasColegiadoNumberConflict?: boolean;
   specialization: string;
   createdAt: string;
   user: {
@@ -20,6 +21,8 @@ export interface PendingSpecialist {
     name: string;
     email: string;
     avatar: string | null;
+    emailVerified?: boolean;
+    accountStatus?: AccountStatusType;
   };
 }
 

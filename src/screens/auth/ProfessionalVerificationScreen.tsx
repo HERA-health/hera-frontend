@@ -25,22 +25,18 @@ import { heraLanding, spacing, shadows } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useProfileCompletion } from '../../contexts/ProfileCompletionContext';
-import { useNavigation } from '@react-navigation/native';
 import * as professionalService from '../../services/professionalService';
-import * as authService from '../../services/authService';
 import { getErrorMessage } from '../../constants/errors';
 import * as analyticsService from '../../services/analyticsService';
-import type { AppNavigationProp } from '../../constants/types';
 import type { UploadAsset } from '../../utils/multipartUpload';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import { AnimatedPressable } from '../../components/common/AnimatedPressable';
 
 export function ProfessionalVerificationScreen() {
-  const navigation = useNavigation<AppNavigationProp>();
   const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
   const { theme } = useTheme();
-  const { user, markVerificationSubmitted, logout } = useAuth();
+  const { user, markVerificationSubmitted, logout, refreshCurrentUser } = useAuth();
   const { refresh: refreshCompletion } = useProfileCompletion();
 
   // Responsive breakpoints
@@ -88,6 +84,20 @@ export function ProfessionalVerificationScreen() {
       }),
     ]).start();
   }, []);
+
+  useEffect(() => {
+    if (user?.emailVerified !== true) {
+      return;
+    }
+
+    void professionalService.getVerificationStatus()
+      .then((status) => {
+        if (status.verificationStatus === 'PENDING' || status.verificationStatus === 'VERIFIED') {
+          markVerificationSubmitted();
+        }
+      })
+      .catch(() => undefined);
+  }, [markVerificationSubmitted, user?.emailVerified]);
 
   // Shake animation for errors
   const triggerShake = () => {
@@ -257,30 +267,8 @@ export function ProfessionalVerificationScreen() {
 
       analyticsService.track('verification_submitted');
       markVerificationSubmitted();
-      await refreshCompletion();
-
-      if (user?.email) {
-        try {
-          await authService.sendVerificationEmail(user.email);
-        } catch (_emailError: unknown) {
-          // If sending email fails, still proceed.
-        }
-
-        navigation.reset({
-          index: 0,
-          routes: [
-            {
-              name: 'EmailSentVerification',
-              params: { email: user.email, userType: 'PROFESSIONAL' },
-            },
-          ],
-        });
-      } else {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'ProfessionalHome' }],
-        });
-      }
+      void refreshCurrentUser().catch(() => undefined);
+      void refreshCompletion().catch(() => undefined);
     } catch (error: unknown) {
       setLocalError(getFriendlyVerificationErrorMessage(error));
       triggerShake();
@@ -569,7 +557,7 @@ export function ProfessionalVerificationScreen() {
           <View style={[styles.infoNotice, { backgroundColor: theme.bgAlt, borderColor: theme.border }]}>
             <Ionicons name="information-circle-outline" size={20} color={theme.info} />
             <Text style={[styles.infoNoticeText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-              La verificación del número de colegiado es obligatoria para garantizar la calidad de nuestros profesionales. Tras enviar tus datos, podrás verificar tu email y acceder a la plataforma.
+              La verificación del número de colegiado es obligatoria para garantizar la calidad de nuestros profesionales. Tras enviar tus datos, la solicitud quedará en revisión y podrás acceder a la plataforma.
             </Text>
           </View>
         </View>

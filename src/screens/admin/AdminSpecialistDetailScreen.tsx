@@ -288,6 +288,14 @@ export function AdminSpecialistDetailScreen() {
           <Text style={styles.specialistName}>{specialist.user.name}</Text>
           <Text style={styles.specialistEmail}>{specialist.user.email}</Text>
 
+          {!specialist.user.emailVerified && (
+            <Text style={styles.specialistEmail}>Email pendiente de verificar: no se puede aprobar.</Text>
+          )}
+
+          {specialist.hasColegiadoNumberConflict && (
+            <Text style={styles.specialistEmail}>Aviso: este número de colegiado aparece en otro perfil.</Text>
+          )}
+
           <View style={styles.divider} />
 
           {/* Detail rows */}
@@ -504,9 +512,10 @@ export function AdminSpecialistDetailScreen() {
             styles.actionButton,
             styles.verifyButton,
             pressed && styles.actionButtonPressed,
+            !specialist.user.emailVerified && { opacity: 0.5 },
           ]}
           onPress={() => handleResolve('VERIFIED')}
-          disabled={processing}
+          disabled={processing || !specialist.user.emailVerified}
         >
           <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
           <Text style={styles.actionButtonText}>Verificar</Text>

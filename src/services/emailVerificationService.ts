@@ -1,5 +1,33 @@
 import * as authService from './authService';
+import type { BackendUserType } from './authService';
 import { getErrorCode } from '../constants/errors';
+
+export interface EmailVerificationResult {
+  success: boolean;
+  message: string;
+  userType: BackendUserType;
+}
+
+const verificationRequests = new Map<string, Promise<EmailVerificationResult>>();
+
+/**
+ * A verification token is single-use. React can mount an effect twice in development,
+ * so all callers for the same token must share the first request instead of consuming it twice.
+ */
+export const verifyEmailLinkOnce = (token: string): Promise<EmailVerificationResult> => {
+  const existingRequest = verificationRequests.get(token);
+  if (existingRequest) {
+    return existingRequest;
+  }
+
+  const request = authService.verifyEmail(token).catch((error: unknown) => {
+    verificationRequests.delete(token);
+    throw error;
+  });
+
+  verificationRequests.set(token, request);
+  return request;
+};
 
 export type VerificationResendOutcome = 'sent' | 'already_verified';
 

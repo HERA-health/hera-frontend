@@ -8,6 +8,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useProfileCompletion } from '../../../contexts/ProfileCompletionContext';
 import { ProfessionalVerificationScreen } from '../ProfessionalVerificationScreen';
+import * as professionalService from '../../../services/professionalService';
+import * as ImagePicker from 'expo-image-picker';
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: jest.fn(),
@@ -41,11 +43,15 @@ jest.mock('../../../services/authService', () => ({
 
 jest.mock('../../../services/professionalService', () => ({
   submitVerification: jest.fn(),
+  getVerificationStatus: jest.fn(),
 }));
 
 jest.mock('expo-image-picker', () => ({
   MediaTypeOptions: {
     Images: 'Images',
+  },
+  PermissionStatus: {
+    GRANTED: 'granted',
   },
   launchCameraAsync: jest.fn(),
   launchImageLibraryAsync: jest.fn(),
@@ -62,10 +68,18 @@ const mockedUseProfileCompletion = jest.mocked(useProfileCompletion);
 
 describe('ProfessionalVerificationScreen', () => {
   const logout = jest.fn();
+  const markVerificationSubmitted = jest.fn();
+  const refreshCurrentUser = jest.fn();
+  const refreshCompletion = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
     logout.mockResolvedValue(undefined);
+    refreshCurrentUser.mockResolvedValue(null);
+    refreshCompletion.mockResolvedValue(undefined);
+    jest.mocked(professionalService.getVerificationStatus).mockResolvedValue({
+      verificationStatus: 'NOT_SUBMITTED',
+    });
 
     mockedUseNavigation.mockReturnValue({
       reset: jest.fn(),
@@ -85,7 +99,7 @@ describe('ProfessionalVerificationScreen', () => {
       loading: false,
       status: 'ready',
       error: null,
-      refresh: jest.fn().mockResolvedValue(undefined),
+      refresh: refreshCompletion,
       setClinicScope: jest.fn(),
     });
 
@@ -103,14 +117,14 @@ describe('ProfessionalVerificationScreen', () => {
       error: null,
       legalStatusSnapshot: null,
       verificationSubmitted: false,
-      markVerificationSubmitted: jest.fn(),
+      markVerificationSubmitted,
       login: jest.fn(),
       authenticateWithGoogle: jest.fn(),
       register: jest.fn(),
       logout,
       setUserType: jest.fn(),
       updateUser: jest.fn(),
-      refreshCurrentUser: jest.fn(),
+      refreshCurrentUser,
       clearError: jest.fn(),
     } as unknown as ReturnType<typeof useAuth>);
   });
@@ -158,6 +172,60 @@ describe('ProfessionalVerificationScreen', () => {
 
     await waitFor(() => {
       expect(logout).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('leaves the form state immediately after a successful submission and refreshes canonical status', async () => {
+    mockedUseAuth.mockReturnValue({
+      ...mockedUseAuth(),
+      user: {
+        id: 'professional-1',
+        name: 'Lucía',
+        email: 'lucia@hera.test',
+        type: 'professional',
+        emailVerified: true,
+      },
+    });
+    jest.mocked(ImagePicker.requestMediaLibraryPermissionsAsync).mockResolvedValue({
+      status: ImagePicker.PermissionStatus.GRANTED,
+      granted: true,
+      canAskAgain: true,
+      expires: 'never',
+    });
+    jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValue({
+      canceled: false,
+      assets: [{
+        uri: 'file:///colegiado.png',
+        width: 1200,
+        height: 800,
+        type: 'image',
+        mimeType: 'image/png',
+        fileName: 'colegiado.png',
+      }],
+    });
+    jest.mocked(professionalService.submitVerification).mockResolvedValue({
+      success: true,
+      message: 'Datos de verificación enviados correctamente',
+      data: { verificationStatus: 'PENDING' },
+    });
+
+    render(<ProfessionalVerificationScreen />);
+
+    fireEvent.changeText(screen.getByPlaceholderText('Ej: M-12345'), 'M-12345');
+    fireEvent.press(screen.getByText('Toca para subir foto del carnet de colegiado'));
+    const imageAlertButtons = mockedShowAppAlert.mock.calls[0]?.[3];
+    await act(async () => {
+      imageAlertButtons?.find((button) => button.text === 'Elegir de galería')?.onPress?.();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByText('Cambiar foto')).toBeTruthy());
+    fireEvent.press(screen.getByText(/Acepto que HERA procese/));
+    fireEvent.press(screen.getByText('Enviar para verificación'));
+
+    await waitFor(() => {
+      expect(markVerificationSubmitted).toHaveBeenCalledTimes(1);
+      expect(refreshCurrentUser).toHaveBeenCalledTimes(1);
+      expect(refreshCompletion).toHaveBeenCalledTimes(1);
     });
   });
 });

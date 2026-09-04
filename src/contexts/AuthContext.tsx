@@ -32,6 +32,8 @@ interface User {
   occupation?: string | null;
   avatar?: string | null;
   emailVerified?: boolean;
+  /** Delivery feedback from registration in this session, not verification status. */
+  verificationEmailSent?: boolean;
   isAdmin?: boolean;
   specialist?: {
     verificationStatus?: 'PENDING' | 'VERIFIED' | 'REJECTED' | null;
@@ -103,7 +105,7 @@ export const mapAuthUser = (userData: AuthResponse['user']): User => {
   };
 };
 
-const deriveKnownVerificationSubmission = (user: User): boolean | null => {
+export const deriveKnownVerificationSubmission = (user: User): boolean | null => {
   if (user.type !== 'professional') {
     return null;
   }
@@ -113,12 +115,20 @@ const deriveKnownVerificationSubmission = (user: User): boolean | null => {
     return null;
   }
 
-  if (snapshot.verificationStatus === 'VERIFIED' || snapshot.verificationStatus === 'REJECTED') {
+  if (snapshot.verificationStatus === 'VERIFIED') {
     return true;
   }
 
+  if (snapshot.verificationStatus === 'REJECTED') {
+    return false;
+  }
+
   if (snapshot.verificationStatus === 'PENDING') {
-    return Boolean(snapshot.verificationSubmittedAt);
+    if (snapshot.verificationSubmittedAt === undefined) {
+      return null;
+    }
+
+    return snapshot.verificationSubmittedAt !== null;
   }
 
   return null;
@@ -167,7 +177,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const status = await professionalService.getVerificationStatus();
       if (authEpochRef.current !== expectedEpoch) return;
-      setVerificationSubmitted(status.verificationStatus !== 'NOT_SUBMITTED');
+      setVerificationSubmitted(
+        status.verificationStatus === 'PENDING' || status.verificationStatus === 'VERIFIED'
+      );
     } catch (_err: unknown) {
       if (authEpochRef.current !== expectedEpoch) return;
       // Keep the status unresolved instead of forcing professionals
@@ -350,6 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const mappedUser: User = {
         ...mapAuthUser(response.user),
         emailVerified: false,
+        verificationEmailSent: response.verificationEmailSent,
       };
 
       if (authenticatedUserIdRef.current !== mappedUser.id) {

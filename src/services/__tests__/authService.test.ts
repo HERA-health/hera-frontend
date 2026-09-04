@@ -4,6 +4,7 @@ import {
   authenticateWithGoogle,
   login,
   register,
+  updateUnverifiedProfessionalEmail,
   type AuthResponse,
 } from '../authService';
 import type { LegalAcceptanceStatus } from '../legalService';
@@ -13,6 +14,7 @@ jest.mock('../api', () => ({
   default: {
     delete: jest.fn(),
     get: jest.fn(),
+    patch: jest.fn(),
     post: jest.fn(),
     put: jest.fn(),
   },
@@ -33,6 +35,7 @@ jest.mock('../../utils/multipartUpload', () => ({
 }));
 
 const postMock = api.post as jest.MockedFunction<typeof api.post>;
+const patchMock = api.patch as jest.MockedFunction<typeof api.patch>;
 const setAuthSessionMock = setAuthSession as jest.MockedFunction<typeof setAuthSession>;
 
 const legalStatus: LegalAcceptanceStatus = {
@@ -141,6 +144,28 @@ describe('authService legal status hydration', () => {
 
     expect(setAuthSessionMock).toHaveBeenCalledWith('access-token', 'refresh-token');
     expect(result.legalStatus).toBe(legalStatus);
+  });
+
+  it('updates a professional email in the current account using its normalized value', async () => {
+    patchMock.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: {
+          email: 'professional@example.com',
+          verificationEmailSent: true,
+        },
+      },
+    } as AxiosResponse);
+
+    const result = await updateUnverifiedProfessionalEmail('  Professional@Example.COM ');
+
+    expect(patchMock).toHaveBeenCalledWith('/auth/me/email', {
+      email: 'professional@example.com',
+    });
+    expect(result).toEqual({
+      email: 'professional@example.com',
+      verificationEmailSent: true,
+    });
   });
 
   it('sends clinic Google registration fields through the auth contract', async () => {

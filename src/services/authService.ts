@@ -35,6 +35,7 @@ export interface AuthResponse {
     };
   };
   legalStatus?: LegalAcceptanceStatus;
+  verificationEmailSent?: boolean;
 }
 
 type AuthUserPayload = AuthResponse['user'];
@@ -62,6 +63,7 @@ export interface GoogleAuthData {
 }
 
 const getClientPlatform = (): 'web' | 'mobile' => (Platform.OS === 'web' ? 'web' : 'mobile');
+const normalizeEmail = (value: string): string => value.trim().toLowerCase();
 
 const getGoogleUserTypeMismatchMessage = (
   expectedUserType?: PublicAuthUserType
@@ -86,6 +88,7 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
       '/auth/register',
       {
         ...data,
+        email: normalizeEmail(data.email),
         platform: getClientPlatform(),
       },
       authRequestConfig
@@ -140,6 +143,7 @@ export const login = async (data: LoginData): Promise<AuthResponse> => {
       '/auth/login',
       {
         ...data,
+        email: normalizeEmail(data.email),
         platform: getClientPlatform(),
       },
       authRequestConfig
@@ -323,7 +327,7 @@ export const sendVerificationEmail = async (email: string): Promise<{ success: b
   try {
     const response = await api.post<{ success: boolean; message: string }>(
       '/auth/verify-email/send',
-      { email }
+      { email: normalizeEmail(email) }
     );
 
     if (response.data.success) {
@@ -363,9 +367,15 @@ export const sendVerificationEmail = async (email: string): Promise<{ success: b
 /**
  * Verify email with token
  */
-export const verifyEmail = async (token: string): Promise<{ success: boolean; message: string }> => {
+export const verifyEmail = async (
+  token: string
+): Promise<{ success: boolean; message: string; userType: BackendUserType }> => {
   try {
-    const response = await api.get<{ success: boolean; message: string }>(
+    const response = await api.get<{
+      success: boolean;
+      message: string;
+      userType: BackendUserType;
+    }>(
       `/auth/verify-email/${token}`
     );
 
@@ -373,6 +383,7 @@ export const verifyEmail = async (token: string): Promise<{ success: boolean; me
       return {
         success: true,
         message: response.data.message || 'Correo verificado correctamente',
+        userType: response.data.userType,
       };
     }
 
@@ -410,7 +421,7 @@ export const resendVerificationEmail = async (email: string): Promise<{ success:
   try {
     const response = await api.post<{ success: boolean; message: string }>(
       '/auth/verify-email/resend',
-      { email }
+      { email: normalizeEmail(email) }
     );
 
     if (response.data.success) {
@@ -444,6 +455,41 @@ export const resendVerificationEmail = async (email: string): Promise<{ success:
     }
 
     throw new Error(getErrorMessage(error, 'Error al reenviar correo de verificación'));
+  }
+};
+
+export interface UpdateUnverifiedEmailResult {
+  email: string;
+  verificationEmailSent: boolean;
+}
+
+export const updateUnverifiedProfessionalEmail = async (
+  email: string
+): Promise<UpdateUnverifiedEmailResult> => {
+  try {
+    const response = await api.patch<{
+      success: boolean;
+      data: UpdateUnverifiedEmailResult;
+      message?: string;
+    }>('/auth/me/email', { email: normalizeEmail(email) });
+
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+
+    throw new Error('No se pudo actualizar el correo');
+  } catch (error: unknown) {
+    if (hasResponseData(error)) {
+      const errorCode = error.response.data?.code as string | undefined;
+      if (errorCode === 'EMAIL_EXISTS') {
+        throw new Error('Este email ya está registrado');
+      }
+      if (errorCode === 'ALREADY_VERIFIED') {
+        throw new Error('El correo ya está verificado');
+      }
+    }
+
+    throw new Error(getErrorMessage(error, 'No se pudo actualizar el correo'));
   }
 };
 
@@ -517,7 +563,7 @@ export const requestPasswordReset = async (email: string): Promise<{ success: bo
   try {
     const response = await api.post<{ success: boolean; message: string }>(
       '/auth/password-reset/request',
-      { email }
+      { email: normalizeEmail(email) }
     );
 
     if (response.data.success) {

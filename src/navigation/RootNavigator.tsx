@@ -766,6 +766,28 @@ export function RootNavigator() {
 
   const isProfessional = user?.type === 'professional';
 
+  if (isProfessional && user.emailVerified !== true) {
+    return (
+      <Stack.Navigator
+        key={`professional-email-verification-${user.id}`}
+        initialRouteName="EmailSentVerification"
+        screenOptions={{ headerShown: false }}
+      >
+        <Stack.Screen
+          name="EmailSentVerification"
+          component={EmailSentVerificationRoute}
+          initialParams={{ email: user.email, userType: 'PROFESSIONAL' }}
+        />
+        <Stack.Screen name="EmailVerification" component={EmailVerificationRoute} />
+        <Stack.Screen
+          name="LegalDocument"
+          component={LegalDocumentScreen}
+          options={{ headerShown: false }}
+        />
+      </Stack.Navigator>
+    );
+  }
+
   if (isProfessional && verificationSubmitted === false) {
     return (
       <Stack.Navigator
@@ -776,10 +798,6 @@ export function RootNavigator() {
         <Stack.Screen
           name="ProfessionalVerification"
           component={ProfessionalVerificationRoute}
-        />
-        <Stack.Screen
-          name="EmailSentVerification"
-          component={EmailSentVerificationRoute}
         />
         <Stack.Screen name="EmailVerification" component={EmailVerificationRoute} />
         <Stack.Screen
@@ -972,11 +990,6 @@ export function RootNavigator() {
         <Stack.Screen
           name="ResetPassword"
           component={ResetPasswordRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="ProfessionalVerification"
-          component={ProfessionalVerificationRoute}
           options={{ headerShown: false }}
         />
         <Stack.Screen

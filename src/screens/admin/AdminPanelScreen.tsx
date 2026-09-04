@@ -202,6 +202,22 @@ export function AdminPanelScreen() {
                 styles={styles}
                 theme={theme}
               />
+              {!specialist.user.emailVerified && (
+                <DetailRow
+                  icon="alert-circle-outline"
+                  text="Email pendiente de verificar"
+                  styles={styles}
+                  theme={theme}
+                />
+              )}
+              {specialist.hasColegiadoNumberConflict && (
+                <DetailRow
+                  icon="warning-outline"
+                  text="Número de colegiado coincidente con otro perfil"
+                  styles={styles}
+                  theme={theme}
+                />
+              )}
             </View>
 
             <View style={styles.cardFooter}>

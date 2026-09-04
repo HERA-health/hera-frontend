@@ -11,7 +11,12 @@ type MockAuthState = {
   isAuthenticated: boolean;
   isInitialized: boolean;
   legalStatusSnapshot: null;
-  user: { type: 'client' | 'professional' | 'clinic' } | null;
+  user: {
+    id: string;
+    email: string;
+    emailVerified: boolean;
+    type: 'client' | 'professional' | 'clinic';
+  } | null;
   verificationSubmitted: boolean | null;
 };
 
@@ -106,7 +111,12 @@ describe('post-login routing', () => {
       isAuthenticated: true,
       isInitialized: true,
       legalStatusSnapshot: null,
-      user: { type: userType },
+      user: {
+        id: `${userType}-1`,
+        email: `${userType}@hera.test`,
+        emailVerified: true,
+        type: userType,
+      },
       verificationSubmitted: true,
     };
     view.rerender(
