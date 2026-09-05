@@ -50,6 +50,7 @@ export function ProfessionalTopBar({
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1040;
   const isCompact = !isDesktop;
+  const isBilling = currentRoute === 'ProfessionalBilling';
   const navigation = useNavigation<AppNavigationProp>();
   const { theme, mode, setMode } = useTheme();
   const { user, logout } = useAuth();
@@ -207,21 +208,43 @@ export function ProfessionalTopBar({
 
       <View ref={actionsRef} style={styles.actions}>
         <View style={styles.menuAnchor}>
-          <AnimatedPressable
-            onPress={() => toggleMenu('create')}
-            style={[
-              styles.createButton,
-              isCompact ? styles.createButtonCompact : null,
-              { backgroundColor: theme.actionPrimary },
-            ]}
-            hoverLift={false}
-            pressScale={0.96}
-            accessibilityLabel="Crear"
-            accessibilityState={{ expanded: openMenu === 'create' }}
-          >
-            <Ionicons name="add" size={20} color={theme.actionPrimaryText} />
-            {!isCompact ? <Text style={[styles.createText, { color: theme.actionPrimaryText, fontFamily: theme.fontSansSemiBold }]}>Crear</Text> : null}
-          </AnimatedPressable>
+          <View style={styles.createActions}>
+            {isBilling ? (
+              <TourTarget id="professional.billing.new-invoice">
+                <AnimatedPressable
+                  onPress={() => { trackCreateAction('invoice'); navigateSimple('CreateInvoice'); }}
+                  style={[
+                    styles.createButton,
+                    isCompact ? styles.createButtonCompact : null,
+                    styles.createPrimary,
+                    { backgroundColor: theme.actionPrimary },
+                  ]}
+                  hoverLift={false}
+                  pressScale={0.96}
+                  accessibilityLabel="Nueva factura"
+                >
+                  <Ionicons name={isCompact ? 'receipt-outline' : 'add'} size={20} color={theme.actionPrimaryText} />
+                  {!isCompact ? <Text style={[styles.createText, { color: theme.actionPrimaryText, fontFamily: theme.fontSansSemiBold }]}>Nueva factura</Text> : null}
+                </AnimatedPressable>
+              </TourTarget>
+            ) : null}
+            <AnimatedPressable
+              onPress={() => toggleMenu('create')}
+              style={[
+                styles.createButton,
+                isCompact ? styles.createButtonCompact : null,
+                isBilling ? styles.createDropdown : null,
+                { backgroundColor: theme.actionPrimary },
+              ]}
+              hoverLift={false}
+              pressScale={0.96}
+              accessibilityLabel={isBilling ? 'Más opciones de creación' : 'Crear'}
+              accessibilityState={{ expanded: openMenu === 'create' }}
+            >
+              <Ionicons name={isBilling ? 'chevron-down' : 'add'} size={isBilling ? 16 : 20} color={theme.actionPrimaryText} />
+              {!isCompact && !isBilling ? <Text style={[styles.createText, { color: theme.actionPrimaryText, fontFamily: theme.fontSansSemiBold }]}>Crear</Text> : null}
+            </AnimatedPressable>
+          </View>
           {openMenu === 'create' ? (
             <Popover align="right" width={250}>
               <PopoverHeading title="Crear" subtitle="Empieza desde cualquier pantalla" />
@@ -436,6 +459,9 @@ const styles = StyleSheet.create({
   search: { flex: 1, alignItems: 'center', zIndex: 120 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 8, zIndex: 140 },
   menuAnchor: { position: 'relative' },
+  createActions: { flexDirection: 'row', alignItems: 'center', gap: 1 },
+  createPrimary: { borderTopRightRadius: 0, borderBottomRightRadius: 0 },
+  createDropdown: { width: 40, paddingHorizontal: 0, borderTopLeftRadius: 0, borderBottomLeftRadius: 0 },
   createButton: { height: 42, borderRadius: 13, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
   createButtonCompact: { width: 40, height: 40, paddingHorizontal: 0 },
   createText: { fontSize: 13 },

@@ -15,7 +15,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
-import { colors, spacing, borderRadius, typography, shadows, touchTarget, layout } from '../../constants/colors';
+import { colors, spacing, borderRadius, typography, shadows, touchTarget } from '../../constants/colors';
 import { lightTheme, Theme } from '../../constants/theme';
 import { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import { AnimatedPressable, Button } from '../../components/common';
@@ -49,12 +49,12 @@ import * as analyticsService from '../../services/analyticsService';
 // ============================================================================
 
 const STRINGS = {
-  title: 'Facturación',
   exportMonth: 'Exportar mes',
   newInvoice: ' Nueva factura',
   thisMonth: 'Cobrado este mes',
   thisYear: 'Cobrado este año',
   invoicesMonth: 'Facturas emitidas',
+  paidInvoicesMonth: 'Facturas pagadas',
   pendingSend: 'Pendientes de envío',
   invoiceHistory: 'Historial de facturas',
   tariffs: 'Tarifas',
@@ -344,6 +344,7 @@ export function BillingScreen() {
       await loadInvoices(1, 'all', '');
     } catch (error) {
       setLoadError(true);
+      setSummary(null);
       showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al cargar datos');
     } finally {
       setLoading(false);
@@ -540,6 +541,14 @@ export function BillingScreen() {
   }, []);
 
   // ── Actions ──────────────────────────────────────────────────
+  const refreshSummary = async () => {
+    try {
+      setSummary(await billingService.getSummary());
+    } catch {
+      setSummary(null);
+    }
+  };
+
   const handleSendInvoice = async (invoiceId: string) => {
     const invoice = invoices.find((inv) => inv.id === invoiceId);
     const clientName = invoice?.client?.user?.name || 'el cliente';
@@ -550,6 +559,7 @@ export function BillingScreen() {
         setSendingId(invoiceId);
         await billingService.sendInvoice(invoiceId);
         await loadInvoices(currentPage, activeFilter, debouncedSearch);
+        await refreshSummary();
         showAppAlert(appAlert, 'Éxito', 'Factura enviada correctamente');
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Error al enviar la factura';
@@ -590,7 +600,7 @@ export function BillingScreen() {
         setSendingId(invoice.id);
         await billingService.sendInvoice(invoice.id);
         await loadInvoices(currentPage, activeFilter, debouncedSearch);
-        billingService.getSummary().then(setSummary).catch(() => {});
+        await refreshSummary();
         showAppAlert(appAlert, 'Éxito', STRINGS.resendSuccess);
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Error al reenviar';
@@ -618,7 +628,7 @@ export function BillingScreen() {
         setSendingId(invoice.id);
         await billingService.markInvoiceAsPaid(invoice.id);
         await loadInvoices(currentPage, activeFilter, debouncedSearch);
-        billingService.getSummary().then(setSummary).catch(() => {});
+        await refreshSummary();
         showAppAlert(appAlert, 'Éxito', STRINGS.markAsPaidSuccess);
       } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : 'Error al marcar como pagada';
@@ -647,7 +657,7 @@ export function BillingScreen() {
       try {
         await billingService.cancelInvoice(invoice.id);
         await loadInvoices(currentPage, activeFilter, debouncedSearch);
-        billingService.getSummary().then(setSummary).catch(() => {});
+        await refreshSummary();
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : 'Error al cancelar';
         showAppAlert(appAlert, 'Error', errMsg);
@@ -866,11 +876,23 @@ export function BillingScreen() {
     const monthFull = `${MONTH_NAMES_ES[monthIdx]} ${year}`;
     const monthRange = `Ene — ${MONTH_ABBREV_ES[monthIdx]}`;
 
+    if (!summary) {
+      return (
+        <View style={styles.statsRow}>
+          <Text style={styles.statLabel}>Resumen de facturación no disponible.</Text>
+          <TouchableOpacity accessibilityRole="button" onPress={() => { void (loadError ? loadData() : refreshSummary()); }}>
+            <Text style={styles.statLabel}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.statsRow}>
         <StatCard value={formatCurrency(summary?.totalThisMonth ?? 0)} label={STRINGS.thisMonth} sublabel={monthFull} styles={styles} />
         <StatCard value={formatCurrency(summary?.totalThisYear ?? 0)} label={STRINGS.thisYear} sublabel={monthRange} styles={styles} />
         <StatCard value={String(summary?.invoiceCountThisMonth ?? 0)} label={STRINGS.invoicesMonth} sublabel="Este mes" styles={styles} />
+        <StatCard value={String(summary.paidInvoiceCountThisMonth)} label={STRINGS.paidInvoicesMonth} sublabel="Este mes" styles={styles} />
         <StatCard value={String(summary?.pendingCount ?? 0)} label={STRINGS.pendingSend} sublabel="Requieren revisión" styles={styles} />
       </View>
     );
@@ -1521,28 +1543,6 @@ export function BillingScreen() {
   // ── Main layout ──────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>{STRINGS.title}</Text>
-        </View>
-        <View style={styles.headerActions}>
-          <View style={styles.headerBtnWrap}>
-            <TourTarget id="professional.billing.new-invoice" fill style={styles.fullWidthTourTarget}>
-              <Button
-                variant="primary"
-                size="large"
-                onPress={() => navigation.navigate('CreateInvoice', {})}
-                icon={<Ionicons name="add" size={18} color={theme.textOnPrimary} />}
-                fullWidth
-              >
-                Nueva factura
-              </Button>
-            </TourTarget>
-          </View>
-        </View>
-      </View>
-
       <VisibleScrollView
         ref={billingTourScroll.scrollRef}
         style={styles.scrollView}
@@ -1631,54 +1631,8 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean, isMobil
     backgroundColor: theme.bg,
   },
 
-  // Header
-  header: {
-    backgroundColor: theme.bgCard,
-    paddingHorizontal: spacing.lg,
-    paddingLeft: isDesktop ? spacing.lg : layout.mobileShellLeftInset,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-    flexDirection: isDesktop ? 'row' : 'column',
-    justifyContent: isDesktop ? 'space-between' : 'flex-start',
-    alignItems: isDesktop ? 'center' : 'stretch',
-    gap: isDesktop ? 0 : spacing.md,
-  },
-  headerTitle: {
-    fontSize: isMobile ? typography.fontSizes.xxl : typography.fontSizes.xxxl,
-    color: theme.textPrimary,
-    fontFamily: theme.fontSansBold,
-    flex: isDesktop ? 1 : undefined,
-    textAlign: isDesktop ? 'center' : 'left',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    width: isDesktop ? undefined : '100%' as unknown as number,
-  },
-  headerBtnWrap: {
-    minWidth: isDesktop ? 204 : 0,
-    flex: isDesktop ? undefined : 1,
-  },
   fullWidthTourTarget: {
     width: '100%',
-  },
-  headerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.primary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.lg,
-    gap: spacing.xs,
-    minHeight: touchTarget.minHeight,
-    ...shadows.sm,
-  },
-  headerBtnText: {
-    color: theme.textOnPrimary,
-    fontSize: typography.fontSizes.sm,
-    fontFamily: theme.fontSansSemiBold,
   },
 
   // Scroll

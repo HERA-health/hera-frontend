@@ -187,7 +187,7 @@ export const PROFESSIONAL_TOUR_DEFINITIONS: Record<
         targetId: 'professional.billing.new-invoice',
         title: 'Crea facturas',
         body: 'Este botón abre el flujo para generar facturas completas o simplificadas.',
-        placement: 'left',
+        placement: 'bottom',
       },
       {
         id: 'invoice-list',

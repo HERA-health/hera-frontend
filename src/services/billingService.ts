@@ -13,6 +13,7 @@ export interface BillingSummary {
   totalThisMonth: number;
   totalThisYear: number;
   invoiceCountThisMonth: number;
+  paidInvoiceCountThisMonth: number;
   pendingCount: number;
 }
 
