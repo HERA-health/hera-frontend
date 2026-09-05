@@ -234,7 +234,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
           <Text
             style={[
               styles.bottomText,
-              { color: theme.textMuted, fontFamily: theme.fontSans },
+              { color: theme.textSecondary, fontFamily: theme.fontSans },
             ]}
           >
             © {new Date().getFullYear()} HERA
@@ -242,7 +242,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
           <Text
             style={[
               styles.bottomText,
-              { color: theme.textMuted, fontFamily: theme.fontSans },
+              { color: theme.textSecondary, fontFamily: theme.fontSans },
             ]}
           >
             Hecho con cuidado en España
@@ -292,9 +292,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   socialButton: {
-    width: 40,
+    width: 44,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 24,
     marginBottom: 11,
   },
   divider: {

@@ -42,7 +42,7 @@ export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
       ]}
     >
       <View style={styles.content}>
-        <MotionView entering="fadeInUp" style={styles.header}>
+        <MotionView entering="fadeIn" style={styles.header}>
           <Text
             style={[
               styles.eyebrow,
@@ -76,26 +76,25 @@ export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
           {SPECIALIZATIONS.map((specialization, index) => (
             <MotionView
               key={specialization.id}
-              entering="fadeInUp"
+              entering="fadeIn"
               delay={50 + index * 35}
               style={isTablet ? styles.itemMotion : undefined}
             >
               <AnimatedPressable
                 onPress={() => onSpecializationPress(specialization.id)}
                 pressScale={0.98}
-                hoverLift
+                hoverLift={false}
                 accessibilityRole="link"
                 accessibilityLabel={`Ver especialistas en ${specialization.label}`}
                 style={[
                   styles.item,
                   {
-                    backgroundColor: theme.bgCard,
+                    backgroundColor: 'transparent',
                     borderColor: theme.border,
-                    shadowColor: theme.shadowCard,
                   },
                 ]}
               >
-                <View style={[styles.icon, { backgroundColor: theme.primaryAlpha12 }]}>
+                <View style={[styles.icon, { backgroundColor: 'transparent' }]}>
                   <Ionicons name={specialization.icon} size={22} color={theme.primary} />
                 </View>
                 <Text
@@ -118,7 +117,7 @@ export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 70,
+    paddingVertical: 64,
     paddingHorizontal: 20,
   },
   containerDesktop: {
@@ -133,7 +132,7 @@ const styles = StyleSheet.create({
   },
   header: {
     maxWidth: 760,
-    marginBottom: 38,
+    marginBottom: 40,
   },
   eyebrow: {
     fontSize: 12,
@@ -146,8 +145,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   titleDesktop: {
-    fontSize: 46,
-    lineHeight: 54,
+    fontSize: 44,
+    lineHeight: 52,
   },
   subtitle: {
     fontSize: 17,
@@ -169,20 +168,15 @@ const styles = StyleSheet.create({
     height: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 0,
     paddingVertical: 14,
-    borderRadius: 16,
-    borderWidth: 1,
+    borderBottomWidth: 1,
     gap: 12,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    elevation: 2,
   },
   icon: {
     width: 42,
     height: 42,
-    borderRadius: 13,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -82,7 +82,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
     const borderOpacity = interpolate(scrollProgress.value, [0, 1], [0, 1]);
 
     return {
-      backgroundColor: isDark
+      backgroundColor: context === 'landing' ? theme.landingCanvas : isDark
         ? `rgba(36, 37, 31, ${bgOpacity})`
         : `rgba(250, 248, 243, ${bgOpacity})`,
       borderBottomColor: isDark
@@ -107,10 +107,10 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         styles.container,
         Platform.OS === 'web' && !isMobile && styles.containerWeb,
         containerAnimStyle,
-        webGlassStyle,
+        context !== 'landing' && webGlassStyle,
       ]}
     >
-      {Platform.OS !== 'web' && isScrolled ? (
+      {context !== 'landing' && Platform.OS !== 'web' && isScrolled ? (
         <BlurView
           intensity={55}
           tint={isDark ? 'dark' : 'light'}
@@ -195,6 +195,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
               accessibilityLabel="Explorar profesionales"
               style={[
                 styles.secondaryAction,
+                context === 'landing' && styles.landingAction,
                 { backgroundColor: theme.secondaryAlpha12, borderColor: theme.border },
               ]}
             >
@@ -226,6 +227,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
               accessibilityLabel="Ir a HERA para profesionales"
               style={[
                 styles.secondaryAction,
+                context === 'landing' && styles.landingAction,
                 { backgroundColor: theme.primaryAlpha12, borderColor: theme.border },
               ]}
             >
@@ -244,10 +246,10 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             <AnimatedPressable
               onPress={onAccess}
               pressScale={0.96}
-              hoverLift={!isMobile}
+              hoverLift={context !== 'landing' && !isMobile}
               accessibilityRole="button"
               accessibilityLabel={accessLabel}
-              style={[styles.primaryAction, { backgroundColor: theme.actionPrimary }]}
+              style={[styles.primaryAction, context === 'landing' && styles.landingAction, { backgroundColor: theme.actionPrimary }]}
             >
               <Text
                 style={[
@@ -269,6 +271,10 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
 };
 
 const styles = StyleSheet.create({
+  landingAction: {
+    borderRadius: 8,
+    minHeight: 44,
+  },
   container: {
     position: 'absolute',
     top: 0,

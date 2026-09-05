@@ -1,8 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import {
-  Animated as RNAnimated,
   Image,
-  Platform,
   StyleSheet,
   Text,
   View,
@@ -40,38 +38,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   const isDesktop = width >= 1100;
   const isMobile = width < 768;
   const isCompactMobile = width < 410;
-  const bounceAnim = useRef(new RNAnimated.Value(0)).current;
-
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      bounceAnim.setValue(0);
-      return undefined;
-    }
-
-    const bounceAnimation = RNAnimated.loop(
-      RNAnimated.sequence([
-        RNAnimated.timing(bounceAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        RNAnimated.timing(bounceAnim, {
-          toValue: 0,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    bounceAnimation.start();
-    return () => bounceAnimation.stop();
-  }, [bounceAnim]);
-
-  const bounceTranslate = bounceAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 7],
-  });
-
   return (
     <View
       style={[
@@ -84,12 +50,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
       <View style={[styles.content, isDesktop && styles.contentDesktop]}>
         <View style={[styles.copyColumn, isDesktop && styles.copyColumnDesktop]}>
-          <MotionView entering="fadeInUp" delay={0}>
+          <MotionView entering="fadeIn" delay={0}>
             <View
               style={[
                 styles.eyebrowPill,
                 {
-                  backgroundColor: theme.bgElevated,
+                  backgroundColor: theme.landingCanvas,
                   borderColor: theme.border,
                 },
               ]}
@@ -101,12 +67,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   { color: theme.primary, fontFamily: theme.fontSansSemiBold },
                 ]}
               >
-                PERSONAS Y PROFESIONALES, EN UN MISMO LUGAR
+                PERSONAS, PROFESIONALES Y CLÍNICAS
               </Text>
             </View>
           </MotionView>
 
-          <MotionView entering="fadeInUp" delay={90}>
+          <MotionView entering="fadeIn" delay={90}>
             <View
               accessible
               accessibilityRole="header"
@@ -148,7 +114,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             </View>
           </MotionView>
 
-          <MotionView entering="fadeInUp" delay={170}>
+          <MotionView entering="fadeIn" delay={170}>
             <Text
               style={[
                 styles.subtitle,
@@ -163,14 +129,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           </MotionView>
 
           <MotionView
-            entering="fadeInUp"
+            entering="fadeIn"
             delay={250}
             style={[styles.actions, ...(isMobile ? [styles.actionsMobile] : [])]}
           >
             <AnimatedPressable
               onPress={onFindSpecialist}
               pressScale={0.97}
-              hoverLift
+              hoverLift={false}
               accessibilityRole="link"
               accessibilityLabel="Explorar profesionales"
               style={[
@@ -178,7 +144,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 isMobile && styles.actionMobile,
                 {
                   backgroundColor: theme.actionPrimary,
-                  shadowColor: theme.shadowSecondary,
                 },
               ]}
             >
@@ -226,7 +191,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   <Text
                     style={[
                       styles.proofText,
-                      { color: theme.textSecondary, fontFamily: theme.fontSansMedium },
+                      { color: theme.textPrimary, fontFamily: theme.fontSansMedium },
                     ]}
                   >
                     {proof.label}
@@ -246,16 +211,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             ...(isDesktop ? [styles.visualColumnDesktop] : []),
           ]}
         >
-          <View
-            style={[
-              styles.imageFrame,
-              {
-                backgroundColor: theme.bgCard,
-                borderColor: isDark ? theme.borderStrong : theme.borderLight,
-                shadowColor: isDark ? theme.shadowStrong : theme.shadowSecondary,
-              },
-            ]}
-          >
+          <View style={styles.imageLayout}>
             <Image
               source={HERO_IMAGE}
               resizeMode="cover"
@@ -264,17 +220,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               accessibilityRole="image"
               accessibilityLabel="Profesional de salud mental tomando notas durante una sesión"
             />
-            <View style={[styles.imageCaption, { backgroundColor: theme.glassBg }]}>
-              <Ionicons name="heart-outline" size={16} color={theme.primary} />
-              <Text
-                style={[
-                  styles.imageCaptionText,
-                  { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
-                ]}
-              >
-                Un lugar para encontrar apoyo y cuidar cada consulta.
-              </Text>
-            </View>
           </View>
         </MotionView>
       </View>
@@ -288,19 +233,17 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           accessibilityLabel="Descubrir especialistas"
           style={styles.scrollIndicatorContainer}
         >
-          <RNAnimated.View
-            style={[styles.scrollIndicator, { transform: [{ translateY: bounceTranslate }] }]}
-          >
+          <View style={styles.scrollIndicator}>
             <Text
               style={[
                 styles.scrollIndicatorText,
-                { color: theme.textMuted, fontFamily: theme.fontSans },
+                { color: theme.textSecondary, fontFamily: theme.fontSans },
               ]}
             >
               Descubre HERA
             </Text>
             <Ionicons name="chevron-down" size={20} color={theme.primary} />
-          </RNAnimated.View>
+          </View>
         </AnimatedPressable>
       ) : null}
     </View>
@@ -342,14 +285,13 @@ const styles = StyleSheet.create({
   },
   copyColumnDesktop: {
     flex: 0.52,
-    transform: [{ translateY: -10 }],
   },
   eyebrowPill: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 13,
-    paddingVertical: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
     gap: 8,
@@ -379,14 +321,14 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   titleDivider: {
-    width: 74,
+    width: 96,
     height: 1,
-    marginVertical: 11,
+    marginVertical: 16,
     opacity: 0.72,
   },
   titleDesktop: {
-    fontSize: 58,
-    lineHeight: 67,
+    fontSize: 54,
+    lineHeight: 62,
   },
   titleMobile: {
     fontSize: 41,
@@ -400,7 +342,7 @@ const styles = StyleSheet.create({
     maxWidth: 720,
     fontSize: 17,
     lineHeight: 27,
-    marginBottom: 30,
+    marginBottom: 32,
   },
   subtitleDesktop: {
     fontSize: 18,
@@ -417,25 +359,21 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   primaryAction: {
-    minHeight: 58,
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    borderRadius: 14,
+    borderRadius: 8,
     gap: 9,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 1,
-    shadowRadius: 20,
-    elevation: 5,
   },
   secondaryAction: {
-    minHeight: 58,
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 22,
-    borderRadius: 14,
+    borderRadius: 8,
     borderWidth: 1,
     gap: 9,
   },
@@ -460,6 +398,7 @@ const styles = StyleSheet.create({
   },
   proofText: {
     fontSize: 13,
+    lineHeight: 20,
   },
   visualColumn: {
     width: '100%',
@@ -468,40 +407,17 @@ const styles = StyleSheet.create({
   visualColumnDesktop: {
     flex: 0.48,
   },
-  imageFrame: {
+
+  imageLayout: {
     width: '100%',
     aspectRatio: 16 / 9,
-    borderRadius: 28,
-    borderWidth: 1,
-    padding: 8,
-    shadowOffset: { width: 0, height: 24 },
-    shadowOpacity: 1,
-    shadowRadius: 42,
-    elevation: 9,
-    position: 'relative',
   },
   image: {
     width: '100%',
     height: '100%',
-    borderRadius: 21,
+    borderRadius: 12,
   },
-  imageCaption: {
-    position: 'absolute',
-    left: 26,
-    right: 26,
-    bottom: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 13,
-    gap: 8,
-  },
-  imageCaptionText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-  },
+
   scrollIndicatorContainer: {
     alignItems: 'center',
     paddingTop: 26,

@@ -43,7 +43,7 @@ export const HowItWorksSection: React.FC = () => {
       ]}
     >
       <View style={styles.content}>
-        <MotionView entering="fadeInUp" style={styles.header}>
+        <MotionView entering="fadeIn" style={styles.header}>
           <Text
             style={[
               styles.eyebrow,
@@ -77,7 +77,7 @@ export const HowItWorksSection: React.FC = () => {
           {STEPS.map((step, index) => (
             <MotionView
               key={step.number}
-              entering="fadeInUp"
+              entering="fadeIn"
               delay={80 + index * 70}
               style={isTablet ? styles.stepMotion : undefined}
             >
@@ -85,20 +85,19 @@ export const HowItWorksSection: React.FC = () => {
                 style={[
                   styles.step,
                   {
-                    backgroundColor: theme.bgCard,
+                    backgroundColor: 'transparent',
                     borderColor: theme.border,
-                    shadowColor: theme.shadowCard,
                   },
                 ]}
               >
                 <View style={styles.stepTop}>
-                  <View style={[styles.icon, { backgroundColor: theme.primaryAlpha12 }]}>
+                  <View style={[styles.icon, { backgroundColor: 'transparent' }]}>
                     <Ionicons name={step.icon} size={22} color={theme.primary} />
                   </View>
                   <Text
                     style={[
                       styles.number,
-                      { color: theme.textMuted, fontFamily: theme.fontDisplay },
+                      { color: theme.textSecondary, fontFamily: theme.fontDisplay },
                     ]}
                   >
                     {step.number}
@@ -129,8 +128,8 @@ export const HowItWorksSection: React.FC = () => {
           style={[
             styles.callout,
             {
-              backgroundColor: theme.primaryAlpha12,
-              borderColor: theme.primaryAlpha20,
+              backgroundColor: 'transparent',
+              borderColor: theme.border,
             },
           ]}
         >
@@ -152,7 +151,7 @@ export const HowItWorksSection: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 68,
+    paddingVertical: 64,
     paddingHorizontal: 20,
   },
   containerDesktop: {
@@ -167,7 +166,7 @@ const styles = StyleSheet.create({
   },
   header: {
     maxWidth: 760,
-    marginBottom: 42,
+    marginBottom: 40,
   },
   eyebrow: {
     fontSize: 12,
@@ -181,15 +180,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   titleDesktop: {
-    fontSize: 46,
-    lineHeight: 54,
+    fontSize: 44,
+    lineHeight: 52,
   },
   subtitle: {
     fontSize: 17,
     lineHeight: 26,
   },
   steps: {
-    gap: 16,
+    gap: 32,
   },
   stepsWide: {
     flexDirection: 'row',
@@ -201,13 +200,8 @@ const styles = StyleSheet.create({
   step: {
     height: '100%',
     minHeight: 230,
-    padding: 26,
-    borderWidth: 1,
-    borderRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 20,
-    elevation: 2,
+    paddingVertical: 24,
+    borderTopWidth: 1,
   },
   stepTop: {
     flexDirection: 'row',
@@ -218,7 +212,7 @@ const styles = StyleSheet.create({
   icon: {
     width: 46,
     height: 46,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -239,10 +233,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
-    paddingHorizontal: 20,
-    paddingVertical: 17,
-    borderRadius: 16,
-    borderWidth: 1,
+    paddingHorizontal: 0,
+    paddingVertical: 24,
+    borderTopWidth: 1,
   },
   calloutText: {
     flex: 1,

@@ -34,7 +34,6 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
           {
             backgroundColor: theme.landingCta,
             borderColor: theme.landingPanelBorder,
-            shadowColor: theme.shadowStrong,
           },
         ]}
       >
@@ -70,7 +69,7 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
             <AnimatedPressable
               onPress={onFindSpecialist}
               pressScale={0.98}
-              hoverLift
+              hoverLift={false}
               accessibilityRole="link"
               accessibilityLabel="Explorar profesionales"
               style={[
@@ -78,7 +77,6 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
                 {
                   backgroundColor: theme.bgCard,
                   borderColor: theme.borderLight,
-                  shadowColor: theme.shadowNeutral,
                 },
               ]}
             >
@@ -89,7 +87,7 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
                 <Text
                   style={[
                     styles.doorEyebrow,
-                    { color: theme.textMuted, fontFamily: theme.fontSansSemiBold },
+                    { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
                   ]}
                 >
                   BUSCO APOYO
@@ -109,7 +107,7 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
             <AnimatedPressable
               onPress={onProfessionalAction}
               pressScale={0.98}
-              hoverLift
+              hoverLift={false}
               accessibilityRole="button"
               accessibilityLabel={professionalActionLabel}
               style={[
@@ -117,7 +115,6 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
                 {
                   backgroundColor: theme.bgCard,
                   borderColor: theme.borderLight,
-                  shadowColor: theme.shadowNeutral,
                 },
               ]}
             >
@@ -128,7 +125,7 @@ export const FinalCTASection: React.FC<FinalCTASectionProps> = ({
                 <Text
                   style={[
                     styles.doorEyebrow,
-                    { color: theme.textMuted, fontFamily: theme.fontSansSemiBold },
+                    { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold },
                   ]}
                 >
                   SOY PROFESIONAL
@@ -166,17 +163,13 @@ const styles = StyleSheet.create({
     maxWidth: 1400,
     alignSelf: 'center',
     borderWidth: 1,
-    borderRadius: 24,
+    borderRadius: 12,
     paddingVertical: 64,
     paddingHorizontal: 20,
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 22 },
-    shadowOpacity: 0.24,
-    shadowRadius: 38,
-    elevation: 5,
   },
   panelDesktop: {
-    borderRadius: 30,
+    borderRadius: 12,
     paddingVertical: 84,
     paddingHorizontal: 60,
   },
@@ -190,7 +183,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1.5,
     marginBottom: 12,
-    opacity: 0.78,
   },
   title: {
     fontSize: 35,
@@ -199,14 +191,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   titleDesktop: {
-    fontSize: 48,
-    lineHeight: 56,
+    fontSize: 44,
+    lineHeight: 52,
   },
   subtitle: {
     fontSize: 17,
     lineHeight: 26,
     textAlign: 'center',
-    opacity: 0.86,
     marginBottom: 34,
   },
   doors: {
@@ -223,18 +214,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 22,
     paddingVertical: 20,
-    borderRadius: 18,
+    borderRadius: 12,
     borderWidth: 1,
     gap: 14,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-    elevation: 2,
   },
   icon: {
     width: 50,
     height: 50,
-    borderRadius: 15,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },

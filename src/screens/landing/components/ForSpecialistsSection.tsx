@@ -1,7 +1,6 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
 import { MotionView } from '../../../components/common/MotionView';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -68,23 +67,15 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
   );
 
   return (
-    <LinearGradient
-      colors={[
-        theme.landingCanvas,
-        theme.landingProfessional,
-        theme.landingProfessional,
-        theme.landingCanvas,
-      ]}
-      locations={[0, 0.09, 0.91, 1]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
+    <View
       style={[
+        { backgroundColor: theme.landingProfessional },
         styles.container,
         isDesktop && styles.containerDesktop,
       ]}
     >
       <View style={styles.content}>
-        <MotionView entering="fadeInUp" style={styles.intro}>
+        <MotionView entering="fadeIn" style={styles.intro}>
           <View style={[styles.introRule, { backgroundColor: theme.primary }]} />
           <View style={styles.introCopy}>
             <Text
@@ -117,30 +108,28 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
           </View>
         </MotionView>
 
-        <MotionView entering="fadeInUp" delay={70} style={styles.previewMotion}>
+        <MotionView entering="fadeIn" delay={70} style={styles.previewMotion}>
           <AnimatedPressable
             onPress={onProductTour}
             href="/profesionales/recorrido"
             pressScale={0.992}
-            hoverLift
+            hoverLift={false}
             accessibilityRole="link"
             accessibilityLabel="Ver HERA por dentro"
             style={styles.previewPressable}
           >
-            <LinearGradient
-              colors={[theme.bgCard, theme.bgAlt]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            <View
               style={[
+                { backgroundColor: theme.bgCard },
                 styles.preview,
                 isDesktop && styles.previewDesktop,
-                { borderColor: theme.borderStrong, shadowColor: theme.shadowCard },
+                { borderColor: theme.borderStrong },
               ]}
             >
               <View style={[styles.previewCopy, isDesktop && styles.previewCopyDesktop]}>
                 <View style={styles.previewKicker}>
                   <View style={[styles.previewKickerIcon, { backgroundColor: theme.primaryAlpha12 }]}>
-                    <Ionicons name="sparkles-outline" size={17} color={theme.primary} />
+                    <Ionicons name="albums-outline" size={17} color={theme.primary} />
                   </View>
                   <Text
                     style={[
@@ -215,7 +204,7 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
                   isDesktop && styles.previewVisualDesktop,
                   isDesktop && {
                     width: desktopPreviewWidth,
-                    height: desktopPreviewImageHeight + PREVIEW_TOOLBAR_HEIGHT,
+                    minHeight: desktopPreviewImageHeight + PREVIEW_TOOLBAR_HEIGHT,
                   },
                 ]}
               >
@@ -261,7 +250,7 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
                 <View
                   style={[
                     styles.previewExploreBadge,
-                    { backgroundColor: theme.glassBg, borderColor: theme.glassBorder },
+                    { borderColor: theme.border },
                   ]}
                 >
                   <Ionicons name="open-outline" size={14} color={theme.primary} />
@@ -275,7 +264,7 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
                   </Text>
                 </View>
               </View>
-            </LinearGradient>
+            </View>
           </AnimatedPressable>
         </MotionView>
 
@@ -283,7 +272,7 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
           {PILLARS.map((pillar, index) => (
             <MotionView
               key={pillar.eyebrow}
-              entering="fadeInUp"
+              entering="fadeIn"
               delay={90 + index * 80}
               style={isDesktop ? styles.pillarMotion : undefined}
             >
@@ -291,9 +280,8 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
                 style={[
                   styles.pillar,
                   {
-                    backgroundColor: theme.bgCard,
-                    borderColor: theme.border,
-                    shadowColor: theme.shadowCard,
+                    backgroundColor: 'transparent',
+                    borderColor: theme.borderStrong,
                   },
                 ]}
               >
@@ -378,7 +366,7 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
               accessibilityLabel="Iniciar sesión como profesional"
               style={[
                 styles.secondaryAction,
-                { backgroundColor: theme.bgCard, borderColor: theme.borderStrong },
+                { backgroundColor: 'transparent' },
               ]}
             >
               <Text
@@ -425,13 +413,13 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
           </AnimatedPressable>
         </View>
       </View>
-    </LinearGradient>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 72,
+    paddingVertical: 64,
     paddingHorizontal: 20,
   },
   containerDesktop: {
@@ -447,7 +435,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 18,
     maxWidth: 850,
-    marginBottom: 42,
+    marginBottom: 40,
   },
   introRule: {
     width: 4,
@@ -467,8 +455,8 @@ const styles = StyleSheet.create({
     marginBottom: 13,
   },
   titleDesktop: {
-    fontSize: 48,
-    lineHeight: 56,
+    fontSize: 44,
+    lineHeight: 52,
   },
   subtitle: {
     fontSize: 17,
@@ -485,12 +473,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     padding: 20,
     borderWidth: 1,
-    borderRadius: 24,
+    borderRadius: 12,
     gap: 22,
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 1,
-    shadowRadius: 30,
-    elevation: 4,
   },
   previewDesktop: {
     minHeight: 292,
@@ -555,7 +539,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   previewAction: {
-    minHeight: 50,
+    minHeight: 52,
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
@@ -563,7 +547,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 18,
     paddingHorizontal: 20,
-    borderRadius: 14,
+    borderRadius: 8,
   },
   previewActionText: {
     fontSize: 15,
@@ -580,7 +564,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     width: '100%',
     borderWidth: 1,
-    borderRadius: 18,
+    borderRadius: 12,
   },
   previewToolbar: {
     minHeight: 36,
@@ -613,22 +597,21 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   previewExploreBadge: {
-    position: 'absolute',
-    right: 14,
-    bottom: 14,
+    alignSelf: 'flex-end',
+    marginTop: 8,
     minHeight: 34,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
     paddingHorizontal: 12,
-    borderWidth: 1,
+    borderWidth: 0,
     borderRadius: 999,
   },
   previewExploreText: {
     fontSize: 11,
   },
   pillars: {
-    gap: 18,
+    gap: 32,
   },
   pillarsDesktop: {
     flexDirection: 'row',
@@ -639,14 +622,8 @@ const styles = StyleSheet.create({
   },
   pillar: {
     height: '100%',
-    minHeight: 390,
-    padding: 30,
-    borderRadius: 20,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 1,
-    shadowRadius: 22,
-    elevation: 3,
+    paddingVertical: 32,
+    borderTopWidth: 1,
   },
   pillarHeader: {
     flexDirection: 'row',
@@ -657,7 +634,7 @@ const styles = StyleSheet.create({
   pillarIcon: {
     width: 50,
     height: 50,
-    borderRadius: 15,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -698,12 +675,12 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   registerAction: {
-    minHeight: 56,
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    borderRadius: 14,
+    borderRadius: 8,
     borderWidth: 1,
     gap: 9,
   },
@@ -711,12 +688,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   secondaryAction: {
-    minHeight: 56,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    borderRadius: 14,
-    borderWidth: 1,
+    borderRadius: 8,
+    borderWidth: 0,
   },
   secondaryActionText: {
     fontSize: 15,

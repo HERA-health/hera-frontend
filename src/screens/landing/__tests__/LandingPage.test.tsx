@@ -186,7 +186,7 @@ describe('LandingPage', () => {
   it('presents the two journeys and only concrete trust claims', () => {
     render(<LandingPage />);
 
-    expect(screen.getByText('PERSONAS Y PROFESIONALES, EN UN MISMO LUGAR')).toBeTruthy();
+    expect(screen.getByText('PERSONAS, PROFESIONALES Y CLÍNICAS')).toBeTruthy();
     expect(screen.getByText(/Encuentra apoyo para cuidar tu salud mental/)).toBeTruthy();
     expect(screen.getByText(/Gestiona tu consulta con sencillez/)).toBeTruthy();
     expect(screen.getByTestId('hero-journey-divider')).toBeTruthy();

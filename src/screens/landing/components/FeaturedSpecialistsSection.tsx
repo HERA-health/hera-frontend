@@ -59,7 +59,7 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
   return (
     <View style={[styles.container, { backgroundColor: theme.landingCanvas }]}>
       <View style={styles.content}>
-        <MotionView entering="fadeInUp" style={styles.heading}>
+        <MotionView entering="fadeIn" style={styles.heading}>
           <View style={[styles.eyebrowPill, { backgroundColor: theme.primaryAlpha12, borderColor: theme.primaryAlpha20 }]}>
             <Ionicons name="heart-outline" size={13} color={theme.primary} />
             <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>PARA QUIENES BUSCAN TERAPIA</Text>
@@ -98,13 +98,14 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
             {specialists.map((specialist, index) => (
               <MotionView
                 key={specialist.id}
-                entering="fadeInUp"
+                entering="fadeIn"
                 delay={90 + index * 70}
                 style={cardStyle}
               >
                 <PublicSpecialistCard
                   specialist={specialist}
                   variant="featured"
+                  style={styles.profileCard}
                   href={`/especialista/${encodeURIComponent(specialist.publicSlug ?? specialist.id)}`}
                   onPress={() => onOpenSpecialist(specialist.publicSlug ?? specialist.id)}
                 />
@@ -113,10 +114,11 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
           </ScrollView>
         )}
 
-        <MotionView entering="fadeInUp" delay={210} style={styles.ctaWrap}>
+        <MotionView entering="fadeIn" delay={210} style={styles.ctaWrap}>
           <Button
             variant="primary"
             size="large"
+            style={styles.primaryAction}
             onPress={onViewAll}
             icon={<Ionicons name="arrow-forward" size={18} color={theme.actionPrimaryText} />}
             iconPosition="right"
@@ -130,6 +132,15 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
 };
 
 const styles = StyleSheet.create({
+  profileCard: {
+    borderRadius: 12,
+  },
+  primaryAction: {
+    minHeight: 52,
+    borderRadius: 8,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   container: {
     paddingHorizontal: 20,
     paddingTop: 54,
@@ -142,7 +153,7 @@ const styles = StyleSheet.create({
   },
   heading: {
     alignItems: 'center',
-    marginBottom: 38,
+    marginBottom: 40,
   },
   eyebrowPill: {
     flexDirection: 'row',
@@ -165,8 +176,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   titleDesktop: {
-    fontSize: 48,
-    lineHeight: 56,
+    fontSize: 44,
+    lineHeight: 52,
   },
   subtitle: {
     fontSize: 16,
@@ -211,12 +222,12 @@ const styles = StyleSheet.create({
   skeletonCard: {
     aspectRatio: 1,
     borderWidth: 1,
-    borderRadius: 18,
+    borderRadius: 12,
   },
   statusCard: {
     minHeight: 176,
     borderWidth: 1,
-    borderRadius: 18,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,

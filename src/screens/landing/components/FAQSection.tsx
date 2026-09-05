@@ -107,7 +107,7 @@ export const FAQSection: React.FC = () => {
           { borderTopColor: theme.borderLight },
         ]}
       >
-        <MotionView entering="fadeInUp" delay={0} style={styles.header}>
+        <MotionView entering="fadeIn" delay={0} style={styles.header}>
           <Text
             style={[
               styles.eyebrow,
@@ -142,7 +142,7 @@ export const FAQSection: React.FC = () => {
               {column.map((item, index) => (
                 <MotionView
                   key={item.id}
-                  entering="fadeInUp"
+                  entering="fadeIn"
                   delay={80 + (columnIndex * midpoint + index) * 45}
                 >
                   <FAQCard
@@ -176,9 +176,8 @@ function FAQCard({ item, expanded, onToggle, theme, isDark }: FAQCardProps) {
       style={[
         styles.card,
         {
-          backgroundColor: isDark ? theme.bgCard : theme.bgElevated,
+          backgroundColor: 'transparent',
           borderColor: expanded ? theme.primaryAlpha20 : theme.border,
-          shadowColor: theme.shadowNeutral,
         },
       ]}
     >
@@ -271,7 +270,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 44,
+    marginBottom: 40,
   },
   eyebrow: {
     fontSize: 12,
@@ -302,20 +301,15 @@ const styles = StyleSheet.create({
   columnsDesktop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 18,
+    gap: 32,
   },
   column: {
     flex: 1,
     gap: 14,
   },
   card: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 18,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 18,
-    elevation: 3,
+    borderTopWidth: 1,
+    paddingVertical: 24,
   },
   questionButton: {
     flexDirection: 'row',
@@ -353,6 +347,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 24,
     marginTop: 16,
-    paddingRight: 48,
+    paddingRight: 16,
   },
 });

@@ -48,12 +48,11 @@ export const TrustIndicatorsSection: React.FC = () => {
           {
             backgroundColor: theme.landingTrustPanel,
             borderColor: theme.landingPanelBorder,
-            shadowColor: theme.shadowCard,
           },
         ]}
       >
         <View style={styles.content}>
-          <MotionView entering="fadeInUp" style={styles.header}>
+          <MotionView entering="fadeIn" style={styles.header}>
             <Text
               style={[
                 styles.eyebrow,
@@ -87,17 +86,17 @@ export const TrustIndicatorsSection: React.FC = () => {
             {TRUST_ITEMS.map((item, index) => (
               <MotionView
                 key={item.title}
-                entering="fadeInUp"
+                entering="fadeIn"
                 delay={70 + index * 55}
                 style={isTablet ? styles.itemMotion : undefined}
               >
                 <View
                   style={[
                     styles.item,
-                    { backgroundColor: theme.bgCard, borderColor: theme.border },
+                    { borderColor: theme.borderStrong },
                   ]}
                 >
-                  <View style={[styles.icon, { backgroundColor: theme.primaryAlpha12 }]}>
+                  <View style={[styles.icon, { backgroundColor: 'transparent' }]}>
                     <Ionicons name={item.icon} size={23} color={theme.primary} />
                   </View>
                   <Text
@@ -139,19 +138,15 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 1320,
     alignSelf: 'center',
-    borderWidth: 1,
-    borderRadius: 24,
+    borderWidth: 0,
+    borderRadius: 12,
     paddingVertical: 48,
     paddingHorizontal: 22,
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 1,
-    shadowRadius: 32,
-    elevation: 3,
   },
   panelDesktop: {
     paddingVertical: 64,
     paddingHorizontal: 60,
-    borderRadius: 30,
+    borderRadius: 12,
   },
   content: {
     width: '100%',
@@ -181,27 +176,26 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
   grid: {
-    gap: 14,
+    gap: 32,
   },
   gridWide: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
   itemMotion: {
-    width: '48.8%',
+    width: '47%',
     flexGrow: 1,
   },
   item: {
     height: '100%',
     minHeight: 210,
-    padding: 24,
-    borderRadius: 18,
-    borderWidth: 1,
+    paddingVertical: 24,
+    borderTopWidth: 1,
   },
   icon: {
     width: 46,
     height: 46,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
@@ -212,7 +206,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   itemDescription: {
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 24,
   },
 });

@@ -59,7 +59,7 @@ export const AboutUsSection: React.FC = () => {
         ]}
       >
         <MotionView
-          entering="fadeInUp"
+          entering="fadeIn"
           delay={0}
           style={[
             styles.copyColumn,
@@ -75,7 +75,7 @@ export const AboutUsSection: React.FC = () => {
               },
             ]}
           >
-            <Ionicons name="sparkles-outline" size={14} color={theme.primary} />
+            <Ionicons name="leaf-outline" size={14} color={theme.primary} />
             <Text
               style={[
                 styles.badgeText,
@@ -139,7 +139,7 @@ export const AboutUsSection: React.FC = () => {
         </MotionView>
 
         <MotionView
-          entering="fadeInUp"
+          entering="fadeIn"
           delay={120}
           style={[styles.panel, ...(isDesktop ? [styles.panelDesktop] : [])]}
         >
@@ -147,9 +147,8 @@ export const AboutUsSection: React.FC = () => {
             style={[
               styles.panelSurface,
               {
-                backgroundColor: isDark ? theme.bgCard : theme.bgElevated,
+                backgroundColor: 'transparent',
                 borderColor: theme.border,
-                shadowColor: theme.shadowNeutral,
               },
             ]}
           >
@@ -177,11 +176,10 @@ export const AboutUsSection: React.FC = () => {
             </View>
 
             <View style={styles.principlesList}>
-              {PRINCIPLES.map((principle, index) => (
+              {PRINCIPLES.map((principle) => (
                 <PrincipleRow
                   key={principle.title}
                   principle={principle}
-                  index={index}
                   theme={theme}
                   isDark={isDark}
                 />
@@ -196,14 +194,12 @@ export const AboutUsSection: React.FC = () => {
 
 interface PrincipleRowProps {
   principle: Principle;
-  index: number;
   theme: Theme;
   isDark: boolean;
 }
 
-function PrincipleRow({ principle, index, theme, isDark }: PrincipleRowProps) {
-  const accentColors = [theme.primary, theme.secondary, theme.success];
-  const accentColor = accentColors[index] ?? theme.primary;
+function PrincipleRow({ principle, theme, isDark }: PrincipleRowProps) {
+  const accentColor = theme.primary;
 
   return (
     <View
@@ -244,7 +240,7 @@ function PrincipleRow({ principle, index, theme, isDark }: PrincipleRowProps) {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 60,
+    paddingVertical: 64,
     paddingHorizontal: 20,
   },
   containerDesktop: {
@@ -321,13 +317,8 @@ const styles = StyleSheet.create({
     flex: 0.48,
   },
   panelSurface: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 28,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 1,
-    shadowRadius: 28,
-    elevation: 5,
+    borderTopWidth: 1,
+    paddingVertical: 24,
   },
   panelHeader: {
     flexDirection: 'row',
