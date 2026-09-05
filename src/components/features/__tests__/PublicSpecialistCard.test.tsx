@@ -67,6 +67,36 @@ describe('PublicSpecialistCard', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['featured', 'directory'] as const)('renders initials and an accessible profile without a photo in %s', (variant) => {
+    const onPress = jest.fn();
+    render(
+      <PublicSpecialistCard
+        specialist={{
+          id: 'specialist-no-photo',
+          name: 'Elena Martín',
+          avatar: null,
+          specialization: 'Psicología sanitaria',
+          professionalType: 'PSYCHOLOGIST_HEALTH',
+          professionalTypeLabel: 'Psicóloga sanitaria',
+          pricePerSession: 70,
+          offersOnline: true,
+          offersInPerson: false,
+          yearsInPractice: null,
+          gradientId: 'salvia-lavanda',
+          rating: null,
+          reviewCount: 0,
+        }}
+        variant={variant}
+        onPress={onPress}
+      />
+    );
+
+    expect(screen.getByText('EM')).toBeTruthy();
+    expect(screen.queryByLabelText('Retrato de Elena Martín')).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Abrir el perfil de Elena Martín' }));
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
   it('preserves the browser behavior for modified link clicks', () => {
     const onPress = jest.fn();
     const preventDefault = jest.fn();

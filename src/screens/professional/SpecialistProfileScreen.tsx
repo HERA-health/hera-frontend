@@ -88,6 +88,7 @@ import {
   PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS,
 } from '../../constants/professionalMatchingOptions';
 import { PublicProfileSlugEditor } from '../../components/professional/PublicProfileSlugEditor';
+import { DirectoryVisibilityStatus } from '../../components/professional/DirectoryVisibilityStatus';
 import { PUBLIC_PROFILE_SLUG_MAX_CHANGES } from '../../utils/publicProfileSlug';
 
 // ============================================================================
@@ -220,6 +221,8 @@ interface ProfilePalette {
   backgroundMuted: string;
   border: string;
   cardBackground: string;
+  inputBackground: string;
+  inputFocus: string;
   cardBackgroundDisabled: string;
   cardBg: string;
   info: string;
@@ -271,13 +274,15 @@ const STRINGS = {
   },
 };
 
-function createProfilePalette(theme: Theme, isDark: boolean): ProfilePalette {
+function createProfilePalette(theme: Theme): ProfilePalette {
   return {
     background: theme.bg,
     backgroundMuted: theme.bgMuted,
     border: theme.border,
     cardBackground: theme.surfaceMuted,
-    cardBackgroundDisabled: isDark ? theme.surfaceMuted : theme.borderLight,
+    inputBackground: theme.bgElevated,
+    inputFocus: theme.focus,
+    cardBackgroundDisabled: theme.bgMuted,
     cardBg: theme.bgCard,
     info: theme.info,
     overlay: theme.overlay,
@@ -483,9 +488,11 @@ export function SpecialistProfileScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const isDesktop = windowWidth >= 1024;
   const isMobile = windowWidth < 768;
-  const palette = useMemo(() => createProfilePalette(theme, isDark), [theme, isDark]);
+  const palette = useMemo(() => createProfilePalette(theme), [theme, isDark]);
 
   const [activeTab, setActiveTab] = useState<ProfileTab>('information');
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [directoryStatus, setDirectoryStatus] = useState<professionalService.PublicDirectoryStatus | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
@@ -554,6 +561,7 @@ export function SpecialistProfileScreen() {
   }, []);
 
   useProfessionalTourStepPreparation('professional.profile.tabs', prepareProfileTopStep);
+  useProfessionalTourStepPreparation('professional.profile.visibility', prepareProfileTopStep);
   useProfessionalTourStepPreparation('professional.profile.preview', prepareProfileTopStep);
   useProfessionalTourStepPreparation('professional.profile.save', prepareProfileTopStep);
 
@@ -810,8 +818,10 @@ export function SpecialistProfileScreen() {
     try {
       setIsLoading(true);
       setLoadError(false);
+      setDirectoryStatus(null);
       const profile = await professionalService.getComprehensiveProfile();
       if (profile) {
+        setDirectoryStatus(profile.directoryStatus ?? null);
         const mappedData = {
           ...mapServiceProfileToFormData(profile),
           avatar: profile.avatar ?? user?.avatar ?? null,
@@ -982,6 +992,7 @@ export function SpecialistProfileScreen() {
       assignIfChanged('offersInPerson', 'offersInPerson', profileData.offersInPerson);
 
       const result = await professionalService.updateComprehensiveProfile(updateData);
+      setDirectoryStatus(result.directoryStatus ?? null);
       const mappedData = mapServiceProfileToFormData(result);
 
       if (avatarChanged) {
@@ -1454,62 +1465,15 @@ export function SpecialistProfileScreen() {
   ];
 
   const canShareProfile = isProfessionalVerified && Boolean(specialistId);
-  const visibilityCopy = !isProfessionalVerified
-    ? {
-        icon: 'time-outline' as IconName,
-        label: 'Pendiente de verificación',
-        description: 'Tu perfil se publicará cuando HERA apruebe tu verificación profesional.',
-        badgeStyle: styles.visibilityBadgePending,
-        badgeTextStyle: styles.visibilityBadgeTextPending,
-      }
-    : profileData.profileVisible
-    ? {
-        icon: 'earth-outline' as IconName,
-        label: 'Perfil público',
-        description: 'Apareces en búsquedas y recomendaciones de HERA.',
-        badgeStyle: styles.visibilityBadgePublic,
-        badgeTextStyle: styles.visibilityBadgeTextPublic,
-      }
-    : {
-        icon: 'link-outline' as IconName,
-        label: 'Perfil privado',
-        description: 'No apareces en búsquedas. Tus pacientes y quien tenga tu enlace pueden acceder.',
-        badgeStyle: styles.visibilityBadgePrivate,
-        badgeTextStyle: styles.visibilityBadgeTextPrivate,
-      };
-  const visibilityBadgeIconColor = !isProfessionalVerified
-    ? palette.warningAmber
-    : profileData.profileVisible
-      ? palette.success
-      : palette.primary;
-
   const renderTabNavigation = () => (
     <TourTarget id="professional.profile.tabs" fill style={styles.fullWidthTourTarget}>
       <View style={[styles.tabsContainer, isDesktop && styles.tabsContainerDesktop]}>
         <View style={[styles.topBar, isDesktop ? styles.topBarDesktop : styles.topBarMobile]}>
           <View style={styles.topBarContent}>
             <Text style={styles.topBarTitle}>Editar perfil</Text>
-            <Text style={styles.topBarSubtitle}>
-              Ajusta tu ficha pública, credenciales y condiciones de trabajo.
-            </Text>
           </View>
 
           <View style={styles.topBarActions}>
-            {specialistId ? (
-              <TourTarget id="professional.profile.visibility" fill>
-                <View style={[styles.visibilityBadge, visibilityCopy.badgeStyle]}>
-                  <Ionicons
-                    name={visibilityCopy.icon}
-                    size={14}
-                    color={visibilityBadgeIconColor}
-                  />
-                  <Text style={[styles.visibilityBadgeText, visibilityCopy.badgeTextStyle]}>
-                    {visibilityCopy.label}
-                  </Text>
-                </View>
-              </TourTarget>
-            ) : null}
-
             <TourTarget id="professional.profile.preview" fill>
               <Button
                 variant="outline"
@@ -1535,6 +1499,31 @@ export function SpecialistProfileScreen() {
                 {isMobile ? 'Enlace' : 'Enlace público'}
               </Button>
             ) : null}
+
+            <TourTarget id="professional.profile.visibility" fill>
+              <DirectoryVisibilityStatus
+                status={directoryStatus}
+                hasChanges={hasChanges}
+                inPersonInsurancePending={originalData.offersInPerson && originalData.insuranceReviewStatus !== 'APPROVED'}
+                onAction={(action) => {
+                  if (action === 'pricing') {
+                    if (hasChanges) {
+                      showAppAlert(appAlert, 'Tienes cambios sin guardar', 'Guarda los cambios del perfil antes de ir a configurar el precio.');
+                      return;
+                    }
+                    navigation.navigate('ProfessionalBilling');
+                  } else {
+                    setActiveTab(action);
+                    formScrollRef.current?.scrollTo({ y: 0, animated: true });
+                  }
+                }}
+                onRetry={() => {
+                  void professionalService.getComprehensiveProfile()
+                    .then((profile) => setDirectoryStatus(profile?.directoryStatus ?? null))
+                    .catch(() => setDirectoryStatus(null));
+                }}
+              />
+            </TourTarget>
 
             <TourTarget id="professional.profile.save" fill>
               <Button
@@ -1567,8 +1556,9 @@ export function SpecialistProfileScreen() {
           </View>
         </View>
 
+
         <ScrollView
-          horizontal={!isDesktop}
+          horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={isDesktop ? styles.tabsDesktop : styles.tabsMobile}
         >
@@ -1781,11 +1771,16 @@ export function SpecialistProfileScreen() {
         <TextInput
           style={[
             styles.fieldInput,
+            !disabled && focusedField === label && styles.fieldInputFocused,
             disabled && styles.fieldInputDisabled,
             multiline && styles.fieldInputMultiline,
             multiline && { minHeight: numberOfLines * 24 + 24 },
           ]}
           value={value}
+          accessibilityLabel={label}
+          accessibilityState={{ disabled }}
+          onFocus={() => setFocusedField(label)}
+          onBlur={() => setFocusedField(null)}
           placeholder={placeholder}
           placeholderTextColor={palette.textMuted}
           onChangeText={onChangeText}
@@ -1840,7 +1835,7 @@ export function SpecialistProfileScreen() {
               pressScale={0.985}
             >
               {isSelected && (
-                <Ionicons name="checkmark" size={14} color={palette.textOnCard} />
+                <Ionicons name="checkmark" size={14} color={palette.primary} />
               )}
               <Text style={[
                 styles.chipText,
@@ -2000,7 +1995,9 @@ export function SpecialistProfileScreen() {
         <Text style={styles.sectionTitle}>{STRINGS.miEspacio.videoLabel}</Text>
         <Text style={miEspacioStyles.subtitle}>{STRINGS.miEspacio.videoSubtitle}</Text>
         <TextInput
-          style={styles.fieldInput}
+          style={[styles.fieldInput, focusedField === 'presentationVideo' && styles.fieldInputFocused]}
+          onFocus={() => setFocusedField('presentationVideo')}
+          onBlur={() => setFocusedField(null)}
           value={profileData.presentationVideoUrl}
           onChangeText={(text) => updateField('presentationVideoUrl', text)}
           placeholder={STRINGS.miEspacio.videoPlaceholder}
@@ -2076,7 +2073,7 @@ export function SpecialistProfileScreen() {
                 : `Te quedan ${informationCompletionCount} apartados por completar`}
             </Text>
             <Text style={styles.completionSummaryText}>
-              Los encontrarás señalados debajo. El aviso desaparecerá cuando guardes la información requerida.
+              Estos apartados te ayudan a completar tu ficha; no todos son requisitos para aparecer en el directorio.
             </Text>
           </View>
         </View>
@@ -2147,13 +2144,12 @@ export function SpecialistProfileScreen() {
                   )}
                 </View>
                 <Text style={styles.photoHint}>
-                  Foto cuadrada de al menos 1200 × 1200, con buena iluminación y fondo neutro.
+                  Opcional. Recomendamos una foto cuadrada, nítida y con buena iluminación.
                 </Text>
               </View>
             </View>
 
             <View style={styles.identityFields}>
-              <Text style={styles.panelTitle}>Información básica</Text>
               <View style={styles.formRow}>
                 <View style={styles.formFieldHalf}>
                   {renderFormField(
@@ -2171,7 +2167,7 @@ export function SpecialistProfileScreen() {
                     {
                       placeholder: 'Ej: Psicóloga infantojuvenil',
                       required: false,
-                      helperText: `Opcional. El tipo profesional seleccionado es: ${getProfessionalTypeLabel(profileData.professionalType)}.`,
+                      helperText: 'Opcional. Puedes indicar tu área de trabajo.',
                     }
                   )}
                 </View>
@@ -2191,6 +2187,7 @@ export function SpecialistProfileScreen() {
                   required: false,
                   verified: verificationStatus.verificationStatus === 'VERIFIED',
                   disabled: true,
+                  helperText: 'Se actualiza desde Credenciales.',
                 }
               )}
             </View>
@@ -2229,7 +2226,7 @@ export function SpecialistProfileScreen() {
                   required: true,
                   maxLength: 500,
                   characterCount: true,
-                  helperText: 'Mínimo 150 caracteres para aparecer en búsquedas',
+                  helperText: 'Recomendamos al menos 150 caracteres para presentar tu forma de trabajar.',
                 }
               )}
             </View>
@@ -3349,7 +3346,7 @@ export function SpecialistProfileScreen() {
               <Ionicons
                 name={isSelected ? 'checkmark' : option.icon}
                 size={14}
-                color={isSelected ? palette.textOnCard : palette.textMuted}
+                color={isSelected ? palette.primary : palette.textMuted}
               />
               <Text style={[
                 styles.chipText,
@@ -3373,16 +3370,6 @@ export function SpecialistProfileScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Privacidad</Text>
         <View style={styles.formCard}>
-          <View style={styles.visibilitySummary}>
-            <View style={styles.visibilitySummaryIcon}>
-              <Ionicons name={visibilityCopy.icon} size={20} color={visibilityBadgeIconColor} />
-            </View>
-            <View style={styles.visibilitySummaryCopy}>
-              <Text style={styles.visibilitySummaryTitle}>{visibilityCopy.label}</Text>
-              <Text style={styles.visibilitySummaryText}>{visibilityCopy.description}</Text>
-            </View>
-          </View>
-
           <View style={styles.privacySection}>
             <Text style={styles.privacyLabel}>Visibilidad del perfil</Text>
             <TouchableOpacity
@@ -3399,9 +3386,9 @@ export function SpecialistProfileScreen() {
                 color={palette.primary}
               />
               <View style={styles.visibilityOptionCopy}>
-                <Text style={styles.visibilityOptionTitle}>Público en HERA</Text>
+                <Text style={styles.visibilityOptionTitle}>Aparecer en el directorio</Text>
                 <Text style={styles.visibilityOptionText}>
-                  Se muestra en la lista de especialistas, búsquedas y recomendaciones.
+                  Tu perfil aparecerá cuando cumplas los requisitos de publicación y guardes esta opción.
                 </Text>
               </View>
             </TouchableOpacity>
@@ -3419,9 +3406,9 @@ export function SpecialistProfileScreen() {
                 color={palette.primary}
               />
               <View style={styles.visibilityOptionCopy}>
-                <Text style={styles.visibilityOptionTitle}>Privado con enlace</Text>
+                <Text style={styles.visibilityOptionTitle}>Solo mediante enlace</Text>
                 <Text style={styles.visibilityOptionText}>
-                  No aparece en búsquedas ni recomendaciones. Sigue disponible para tus pacientes y para quien reciba tu enlace.
+                  No aparecerás en el directorio. Con la cuenta activa y la verificación aprobada, tu perfil seguirá accesible para quien tenga tu enlace.
                 </Text>
               </View>
             </TouchableOpacity>
@@ -3447,22 +3434,19 @@ export function SpecialistProfileScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Tab Navigation */}
-      {renderTabNavigation()}
-
-      {/* Main Content Area */}
-      <View style={styles.mainArea}>
-        {/* Form Content */}
-        <ScrollView
-          ref={formScrollRef}
-          style={styles.formArea}
-          contentContainerStyle={styles.formContent}
-          showsVerticalScrollIndicator={true}
-          onScroll={(event) => {
-            formScrollOffsetRef.current = event.nativeEvent.contentOffset.y;
-          }}
-          scrollEventThrottle={16}
-        >
+      {/* Header, requirements and editable fields share one vertical scroll. */}
+      <ScrollView
+        ref={formScrollRef}
+        style={styles.formArea}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={true}
+        onScroll={(event) => {
+          formScrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
+      >
+        {renderTabNavigation()}
+        <View style={styles.formContent}>
           {activeTab === 'mi-espacio' && renderMiEspacioTab()}
           {activeTab === 'information' && renderInformationTab()}
           {activeTab === 'agenda' && renderAgendaReservationsTab()}
@@ -3470,8 +3454,8 @@ export function SpecialistProfileScreen() {
           {activeTab === 'pricing' && renderPricingTab()}
           {activeTab === 'privacy' && renderPrivacyTab()}
           {activeTab === 'account' && renderAccountTab()}
-        </ScrollView>
-      </View>
+        </View>
+      </ScrollView>
 
       <Modal
         visible={isCertificateModalVisible}
@@ -3516,7 +3500,9 @@ export function SpecialistProfileScreen() {
                   onChangeText={(text) => setCertificateDraft(prev => ({ ...prev, name: text }))}
                   placeholder="Ej: EMDR Nivel I"
                   placeholderTextColor={palette.textMuted}
-                  style={styles.fieldInput}
+                  style={[styles.fieldInput, focusedField === 'certificate-name' && styles.fieldInputFocused]}
+                  onFocus={() => setFocusedField('certificate-name')}
+                  onBlur={() => setFocusedField(null)}
                 />
               </View>
 
@@ -3527,7 +3513,9 @@ export function SpecialistProfileScreen() {
                   onChangeText={(text) => setCertificateDraft(prev => ({ ...prev, issuer: text }))}
                   placeholder="Ej: Asociación EMDR España"
                   placeholderTextColor={palette.textMuted}
-                  style={styles.fieldInput}
+                  style={[styles.fieldInput, focusedField === 'certificate-issuer' && styles.fieldInputFocused]}
+                  onFocus={() => setFocusedField('certificate-issuer')}
+                  onBlur={() => setFocusedField(null)}
                 />
               </View>
 
@@ -3538,7 +3526,9 @@ export function SpecialistProfileScreen() {
                   onChangeText={(text) => setCertificateDraft(prev => ({ ...prev, validUntil: text }))}
                   placeholder="YYYY-MM-DD (opcional)"
                   placeholderTextColor={palette.textMuted}
-                  style={styles.fieldInput}
+                  style={[styles.fieldInput, focusedField === 'certificate-validUntil' && styles.fieldInputFocused]}
+                  onFocus={() => setFocusedField('certificate-validUntil')}
+                  onBlur={() => setFocusedField(null)}
                 />
                 <Text style={styles.fieldHint}>
                   Al continuar te pediremos el PDF o la imagen del certificado.
@@ -3767,7 +3757,7 @@ function createStyles(
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
   topBarDesktop: {
@@ -3783,18 +3773,11 @@ function createStyles(
     minWidth: 220,
   },
   topBarTitle: {
-    fontSize: isDesktop ? 28 : 24,
-    lineHeight: isDesktop ? 34 : 30,
+    fontSize: isDesktop ? 22 : 20,
+    lineHeight: isDesktop ? 28 : 26,
     fontWeight: '800',
     fontFamily: palette.fontHeading,
     color: palette.textPrimary,
-  },
-  topBarSubtitle: {
-    marginTop: spacing.xs,
-    fontSize: 14,
-    fontFamily: palette.fontSans,
-    lineHeight: 20,
-    color: palette.textSecondary,
   },
   topBarActions: {
     flexDirection: 'row',
@@ -3803,7 +3786,7 @@ function createStyles(
     gap: spacing.sm,
     flexWrap: 'wrap',
     flexShrink: 1,
-    maxWidth: isMobile ? '100%' : '64%',
+    maxWidth: '100%',
     width: isMobile ? '100%' : undefined,
   },
   topBarActionButton: {
@@ -4000,8 +3983,9 @@ function createStyles(
     borderWidth: 0,
     borderBottomWidth: 3,
     borderBottomColor: 'transparent',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    minHeight: 44,
   },
   tabActive: {
     backgroundColor: palette.primaryMuted,
@@ -4042,10 +4026,6 @@ function createStyles(
   },
 
   // ===== MAIN LAYOUT =====
-  mainArea: {
-    flex: 1,
-    flexDirection: 'row',
-  },
   formArea: {
     flex: 1,
   },
@@ -4159,12 +4139,7 @@ function createStyles(
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.sm,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: palette.warningAmber,
-    borderRadius: borderRadius.lg,
-    backgroundColor: palette.warningLight,
+    paddingVertical: spacing.xs,
   },
   completionSummaryCopy: {
     flex: 1,
@@ -4241,7 +4216,6 @@ function createStyles(
     backgroundColor: palette.cardBg,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
-    ...shadows.md,
   },
 
   // ===== FORM FIELDS =====
@@ -4270,8 +4244,8 @@ function createStyles(
     color: palette.warning,
   },
   fieldInput: {
-    backgroundColor: palette.cardBackground,
-    borderWidth: 2,
+    backgroundColor: palette.inputBackground,
+    borderWidth: 1,
     borderColor: palette.border,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
@@ -4280,6 +4254,14 @@ function createStyles(
     fontFamily: palette.fontSans,
     color: palette.textPrimary,
     minHeight: 48,
+  },
+  fieldInputFocused: {
+    borderColor: palette.inputFocus,
+    shadowColor: palette.inputFocus,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    ...(Platform.OS === 'web' ? { outlineColor: palette.primaryAlpha12, outlineWidth: 3, outlineStyle: 'solid' as const } : {}),
   },
   fieldInputDisabled: {
     backgroundColor: palette.cardBackgroundDisabled,
@@ -4298,7 +4280,6 @@ function createStyles(
     fontSize: 12,
     fontFamily: palette.fontSans,
     color: palette.textMuted,
-    fontStyle: 'italic',
   },
   characterCount: {
     fontSize: 12,
@@ -4344,13 +4325,13 @@ function createStyles(
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.xl,
-    backgroundColor: palette.background,
-    borderWidth: 2,
+    backgroundColor: palette.cardBg,
+    borderWidth: 1,
     borderColor: palette.border,
     gap: spacing.xs,
   },
   chipSelected: {
-    backgroundColor: palette.primary,
+    backgroundColor: palette.primaryMuted,
     borderColor: palette.primary,
   },
   chipDisabled: {
@@ -4363,7 +4344,7 @@ function createStyles(
     color: palette.textSecondary,
   },
   chipTextSelected: {
-    color: palette.textOnCard,
+    color: palette.primary,
   },
   chipTextDisabled: {
     color: palette.textMuted,
@@ -4416,11 +4397,11 @@ function createStyles(
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: palette.border,
   },
   photoButtonDanger: {
-    borderColor: palette.warning,
+    borderWidth: 0,
   },
   photoButtonText: {
     fontSize: 14,

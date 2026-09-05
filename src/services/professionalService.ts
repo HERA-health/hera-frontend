@@ -580,7 +580,19 @@ export const getMeetingLink = async (sessionId: string): Promise<MeetingLinkResp
 // COMPREHENSIVE PROFILE MANAGEMENT
 // ============================================================================
 
+export interface PublicDirectoryStatus {
+  isListed: boolean;
+  requirements: {
+    accountActive: boolean;
+    verified: boolean;
+    visibilityEnabled: boolean;
+    priceConfigured: boolean;
+  };
+  verificationStatus: VerificationStatus;
+}
+
 export interface SpecialistProfileData {
+  directoryStatus?: PublicDirectoryStatus;
   id?: string;
   publicSlug?: string | null;
   publicSlugChangesRemaining?: number;
