@@ -554,71 +554,73 @@ export function RootNavigator() {
     return <LoadingScreen />;
   }
 
+  // Keep the navigator mounted and change group keys to discard the previous flow.
+  // Each group lists its entry screen first, including mandatory onboarding steps.
   if (!isAuthenticated) {
     return (
       <Stack.Navigator
-        key="guest"
-        initialRouteName="Landing"
         screenOptions={{ headerShown: false }}
       >
-        <Stack.Screen name="Landing" component={LandingPage} />
-        <Stack.Screen
-          name="ProfessionalShowcase"
-          component={ProfessionalShowcaseRoute}
-        />
-        <Stack.Screen
-          name="PublicSpecialists"
-          component={PublicSpecialistsRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen name="Welcome" component={WelcomeRoute} />
-        <Stack.Screen name="Login" component={LoginRoute} />
-        <Stack.Screen name="Register" component={RegisterRoute} />
-        <Stack.Screen
-          name="EmailSentVerification"
-          component={EmailSentVerificationRoute}
-        />
-        <Stack.Screen name="EmailVerification" component={EmailVerificationRoute} />
-        <Stack.Screen name="ForgotPassword" component={ForgotPasswordRoute} />
-        <Stack.Screen
-          name="EmailSentPasswordReset"
-          component={EmailSentPasswordResetRoute}
-        />
-        <Stack.Screen name="ResetPassword" component={ResetPasswordRoute} />
-        <Stack.Screen
-          name="ProfessionalVerification"
-          component={ProfessionalVerificationRoute}
-        />
-        <Stack.Screen
-          name="PublicSpecialistProfile"
-          component={PublicSpecialistProfileRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="PublicReview"
-          component={PublicReviewRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Booking"
-          component={PublicBookingRoute}
-          options={{ headerTitle: 'Reservar sesión', headerShown: false }}
-        />
-        <Stack.Screen
-          name="ClinicalConsent"
-          component={ClinicalConsentRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="ClinicConsent"
-          component={ClinicConsentRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="LegalDocument"
-          component={LegalDocumentScreen}
-          options={{ headerShown: false }}
-        />
+        <Stack.Group navigationKey="guest">
+          <Stack.Screen name="Landing" component={LandingPage} />
+          <Stack.Screen
+            name="ProfessionalShowcase"
+            component={ProfessionalShowcaseRoute}
+          />
+          <Stack.Screen
+            name="PublicSpecialists"
+            component={PublicSpecialistsRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen name="Welcome" component={WelcomeRoute} />
+          <Stack.Screen name="Login" component={LoginRoute} />
+          <Stack.Screen name="Register" component={RegisterRoute} />
+          <Stack.Screen
+            name="EmailSentVerification"
+            component={EmailSentVerificationRoute}
+          />
+          <Stack.Screen name="EmailVerification" component={EmailVerificationRoute} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordRoute} />
+          <Stack.Screen
+            name="EmailSentPasswordReset"
+            component={EmailSentPasswordResetRoute}
+          />
+          <Stack.Screen name="ResetPassword" component={ResetPasswordRoute} />
+          <Stack.Screen
+            name="ProfessionalVerification"
+            component={ProfessionalVerificationRoute}
+          />
+          <Stack.Screen
+            name="PublicSpecialistProfile"
+            component={PublicSpecialistProfileRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="PublicReview"
+            component={PublicReviewRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Booking"
+            component={PublicBookingRoute}
+            options={{ headerTitle: 'Reservar sesión', headerShown: false }}
+          />
+          <Stack.Screen
+            name="ClinicalConsent"
+            component={ClinicalConsentRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ClinicConsent"
+            component={ClinicConsentRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="LegalDocument"
+            component={LegalDocumentScreen}
+            options={{ headerShown: false }}
+          />
+        </Stack.Group>
       </Stack.Navigator>
     );
   }
@@ -647,34 +649,34 @@ export function RootNavigator() {
 
     return (
       <Stack.Navigator
-        key="legal-acceptance"
-        initialRouteName="RequiredLegalAcceptance"
         screenOptions={{ headerShown: false }}
       >
-        <Stack.Screen
-          name="PublicSpecialists"
-          component={PublicSpecialistsRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="PublicSpecialistProfile"
-          component={PublicSpecialistProfileRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="RequiredLegalAcceptance"
-          component={RequiredLegalAcceptanceRoute}
-        />
-        <Stack.Screen
-          name="PublicReview"
-          component={PublicReviewRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="LegalDocument"
-          component={LegalDocumentScreen}
-          options={{ headerShown: false }}
-        />
+        <Stack.Group navigationKey="legal-acceptance">
+          <Stack.Screen
+            name="RequiredLegalAcceptance"
+            component={RequiredLegalAcceptanceRoute}
+          />
+          <Stack.Screen
+            name="PublicSpecialists"
+            component={PublicSpecialistsRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="PublicSpecialistProfile"
+            component={PublicSpecialistProfileRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="PublicReview"
+            component={PublicReviewRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="LegalDocument"
+            component={LegalDocumentScreen}
+            options={{ headerShown: false }}
+          />
+        </Stack.Group>
       </Stack.Navigator>
     );
   }
@@ -682,84 +684,84 @@ export function RootNavigator() {
   if (user?.type === 'clinic') {
     return (
       <Stack.Navigator
-        key="clinic"
-        initialRouteName="ClinicDashboard"
         screenOptions={{ headerShown: false }}
       >
-        <Stack.Screen
-          name="PublicSpecialists"
-          component={PublicSpecialistsRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="PublicSpecialistProfile"
-          component={PublicSpecialistProfileRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="ClinicDashboard"
-          component={ClinicDashboardRoute}
-          options={{ headerTitle: 'Panel de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicSettings"
-          component={ClinicSettingsRoute}
-          options={{ headerTitle: 'Configuración de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicAdministrators"
-          component={ClinicAdministratorsRoute}
-          options={{ headerTitle: 'Administradores de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicTeam"
-          component={ClinicTeamRoute}
-          options={{ headerTitle: 'Equipo de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicServices"
-          component={ClinicServicesRoute}
-          options={{ headerTitle: 'Servicios de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicPatients"
-          component={ClinicPatientsRoute}
-          options={{ headerTitle: 'Pacientes de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicAgenda"
-          component={ClinicAgendaRoute}
-          options={{ headerTitle: 'Agenda de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicBilling"
-          component={ClinicBillingRoute}
-          options={{ headerTitle: 'Facturación de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicInvoiceCreate"
-          component={ClinicInvoiceCreateRoute}
-          options={{ headerTitle: 'Nueva factura de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicPending"
-          component={ClinicPendingRoute}
-        />
-        <Stack.Screen
-          name="ClinicConsent"
-          component={ClinicConsentRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="PublicReview"
-          component={PublicReviewRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="LegalDocument"
-          component={LegalDocumentScreen}
-          options={{ headerShown: false }}
-        />
+        <Stack.Group navigationKey="clinic">
+          <Stack.Screen
+            name="ClinicDashboard"
+            component={ClinicDashboardRoute}
+            options={{ headerTitle: 'Panel de clínica' }}
+          />
+          <Stack.Screen
+            name="PublicSpecialists"
+            component={PublicSpecialistsRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="PublicSpecialistProfile"
+            component={PublicSpecialistProfileRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ClinicSettings"
+            component={ClinicSettingsRoute}
+            options={{ headerTitle: 'Configuración de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicAdministrators"
+            component={ClinicAdministratorsRoute}
+            options={{ headerTitle: 'Administradores de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicTeam"
+            component={ClinicTeamRoute}
+            options={{ headerTitle: 'Equipo de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicServices"
+            component={ClinicServicesRoute}
+            options={{ headerTitle: 'Servicios de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicPatients"
+            component={ClinicPatientsRoute}
+            options={{ headerTitle: 'Pacientes de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicAgenda"
+            component={ClinicAgendaRoute}
+            options={{ headerTitle: 'Agenda de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicBilling"
+            component={ClinicBillingRoute}
+            options={{ headerTitle: 'Facturación de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicInvoiceCreate"
+            component={ClinicInvoiceCreateRoute}
+            options={{ headerTitle: 'Nueva factura de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicPending"
+            component={ClinicPendingRoute}
+          />
+          <Stack.Screen
+            name="ClinicConsent"
+            component={ClinicConsentRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="PublicReview"
+            component={PublicReviewRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="LegalDocument"
+            component={LegalDocumentScreen}
+            options={{ headerShown: false }}
+          />
+        </Stack.Group>
       </Stack.Navigator>
     );
   }
@@ -769,21 +771,21 @@ export function RootNavigator() {
   if (isProfessional && user.emailVerified !== true) {
     return (
       <Stack.Navigator
-        key={`professional-email-verification-${user.id}`}
-        initialRouteName="EmailSentVerification"
         screenOptions={{ headerShown: false }}
       >
-        <Stack.Screen
-          name="EmailSentVerification"
-          component={EmailSentVerificationRoute}
-          initialParams={{ email: user.email, userType: 'PROFESSIONAL' }}
-        />
-        <Stack.Screen name="EmailVerification" component={EmailVerificationRoute} />
-        <Stack.Screen
-          name="LegalDocument"
-          component={LegalDocumentScreen}
-          options={{ headerShown: false }}
-        />
+        <Stack.Group navigationKey={`professional-email-verification-${user.id}`}>
+          <Stack.Screen
+            name="EmailSentVerification"
+            component={EmailSentVerificationRoute}
+            initialParams={{ email: user.email, userType: 'PROFESSIONAL' }}
+          />
+          <Stack.Screen name="EmailVerification" component={EmailVerificationRoute} />
+          <Stack.Screen
+            name="LegalDocument"
+            component={LegalDocumentScreen}
+            options={{ headerShown: false }}
+          />
+        </Stack.Group>
       </Stack.Navigator>
     );
   }
@@ -791,45 +793,45 @@ export function RootNavigator() {
   if (isProfessional && verificationSubmitted === false) {
     return (
       <Stack.Navigator
-        key="professional-verification"
-        initialRouteName="ProfessionalVerification"
         screenOptions={{ headerShown: false }}
       >
-        <Stack.Screen
-          name="ProfessionalVerification"
-          component={ProfessionalVerificationRoute}
-        />
-        <Stack.Screen name="EmailVerification" component={EmailVerificationRoute} />
-        <Stack.Screen
-          name="PublicSpecialistProfile"
-          component={PublicSpecialistProfileRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="PublicSpecialists"
-          component={PublicSpecialistsRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="PublicReview"
-          component={PublicReviewRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="ClinicalConsent"
-          component={ClinicalConsentRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="ClinicConsent"
-          component={ClinicConsentRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="LegalDocument"
-          component={LegalDocumentScreen}
-          options={{ headerShown: false }}
-        />
+        <Stack.Group navigationKey="professional-verification">
+          <Stack.Screen
+            name="ProfessionalVerification"
+            component={ProfessionalVerificationRoute}
+          />
+          <Stack.Screen name="EmailVerification" component={EmailVerificationRoute} />
+          <Stack.Screen
+            name="PublicSpecialistProfile"
+            component={PublicSpecialistProfileRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="PublicSpecialists"
+            component={PublicSpecialistsRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="PublicReview"
+            component={PublicReviewRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ClinicalConsent"
+            component={ClinicalConsentRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ClinicConsent"
+            component={ClinicConsentRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="LegalDocument"
+            component={LegalDocumentScreen}
+            options={{ headerShown: false }}
+          />
+        </Stack.Group>
       </Stack.Navigator>
     );
   }
@@ -837,130 +839,262 @@ export function RootNavigator() {
   if (isProfessional) {
     return (
       <Stack.Navigator
-        key="professional"
-        initialRouteName="ProfessionalHome"
         screenOptions={{
           headerShown: false,
         }}
       >
+        <Stack.Group navigationKey="professional">
+          <Stack.Screen
+            name="ProfessionalHome"
+            component={ProfessionalHomeRoute}
+            options={{ headerTitle: 'Panel Profesional' }}
+          />
+          <Stack.Screen
+            name="PublicSpecialists"
+            component={PublicSpecialistsRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ProfessionalDashboard"
+            component={ProfessionalDashboardRoute}
+            options={{ headerTitle: 'Estadísticas' }}
+          />
+          <Stack.Screen
+            name="ProfessionalClients"
+            component={ProfessionalClientsRoute}
+            options={{ headerTitle: 'Mis Clientes' }}
+          />
+          <Stack.Screen
+            name="ProfessionalClinicWorkspace"
+            component={ProfessionalClinicWorkspaceRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ProfessionalClinicPatientDetail"
+            component={ProfessionalClinicPatientDetailRoute}
+            options={{
+              headerTitle: 'Paciente de clínica',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="ProfessionalSessions"
+            component={ProfessionalSessionsRoute}
+            options={{ headerTitle: 'Agenda' }}
+          />
+          <Stack.Screen
+            name="ProfessionalBilling"
+            component={ProfessionalBillingRoute}
+            options={{ headerTitle: 'Facturación' }}
+          />
+          <Stack.Screen
+            name="CreateInvoice"
+            component={CreateInvoiceRoute}
+            options={{ headerTitle: 'Nueva Factura' }}
+          />
+          <Stack.Screen
+            name="ProfessionalProfile"
+            component={ProfessionalProfileRoute}
+            options={{ headerTitle: 'Mi Perfil Profesional' }}
+          />
+          <Stack.Screen
+            name="ProfessionalAvailability"
+            component={ProfessionalAvailabilityRoute}
+            options={{
+              headerTitle: 'Mi Disponibilidad',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="ProfessionalHelp"
+            component={ProfessionalHelpRoute}
+            options={{ headerTitle: 'Ayuda y comentarios' }}
+          />
+          <Stack.Screen
+            name="ClientProfile"
+            component={ClientProfileRoute}
+            options={{
+              headerTitle: 'Perfil del Cliente',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="ClinicDashboard"
+            component={ClinicDashboardRoute}
+            options={{ headerTitle: 'Panel de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicSettings"
+            component={ClinicSettingsRoute}
+            options={{ headerTitle: 'Configuración de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicAdministrators"
+            component={ClinicAdministratorsRoute}
+            options={{ headerTitle: 'Administradores de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicTeam"
+            component={ClinicTeamRoute}
+            options={{ headerTitle: 'Equipo de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicServices"
+            component={ClinicServicesRoute}
+            options={{ headerTitle: 'Servicios de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicPatients"
+            component={ClinicPatientsRoute}
+            options={{ headerTitle: 'Pacientes de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicAgenda"
+            component={ClinicAgendaRoute}
+            options={{ headerTitle: 'Agenda de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicBilling"
+            component={ClinicBillingRoute}
+            options={{ headerTitle: 'Facturación de clínica' }}
+          />
+          <Stack.Screen
+            name="ClinicInvoiceCreate"
+            component={ClinicInvoiceCreateRoute}
+            options={{ headerTitle: 'Nueva factura de clínica' }}
+          />
+          <Stack.Screen
+            name="AdminPanel"
+            component={AdminPanelRoute}
+            options={{ headerTitle: 'Panel de Admin' }}
+          />
+          <Stack.Screen
+            name="AdminSpecialistDetail"
+            component={AdminSpecialistDetailRoute}
+            options={{ headerTitle: 'Detalle del Especialista', headerShown: false }}
+          />
+          <Stack.Screen
+            name="SpecialistDetailAdmin"
+            component={SpecialistDetailAdminRoute}
+            options={{ headerTitle: 'Detalle del Especialista', headerShown: false }}
+          />
+          <Stack.Screen
+            name="EmailSentVerification"
+            component={EmailSentVerificationRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="EmailVerification"
+            component={EmailVerificationRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ResetPassword"
+            component={ResetPasswordRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="SpecialistDetail"
+            component={SpecialistDetailRoute}
+            options={{ headerTitle: 'Perfil del Especialista', headerShown: false }}
+          />
+          <Stack.Screen
+            name="PublicSpecialistProfile"
+            component={PublicSpecialistProfileRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="PublicReview"
+            component={PublicReviewRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ClinicalConsent"
+            component={ClinicalConsentRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ClinicConsent"
+            component={ClinicConsentRoute}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="LegalDocument"
+            component={LegalDocumentScreen}
+            options={{ headerShown: false }}
+          />
+        </Stack.Group>
+      </Stack.Navigator>
+    );
+  }
+
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Group navigationKey="client">
         <Stack.Screen
-          name="PublicSpecialists"
-          component={PublicSpecialistsRoute}
-          options={{ headerShown: false }}
+          name="Home"
+          component={ClientHomeRoute}
+          options={{ headerTitle: 'HERA' }}
         />
         <Stack.Screen
-          name="ProfessionalHome"
-          component={ProfessionalHomeRoute}
-          options={{ headerTitle: 'Panel Profesional' }}
+          name="Specialists"
+          component={SpecialistsRoute}
+          options={{ headerTitle: 'Especialistas' }}
         />
         <Stack.Screen
-          name="ProfessionalDashboard"
-          component={ProfessionalDashboardRoute}
-          options={{ headerTitle: 'Estadísticas' }}
-        />
-        <Stack.Screen
-          name="ProfessionalClients"
-          component={ProfessionalClientsRoute}
-          options={{ headerTitle: 'Mis Clientes' }}
-        />
-        <Stack.Screen
-          name="ProfessionalClinicWorkspace"
-          component={ProfessionalClinicWorkspaceRoute}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="ProfessionalClinicPatientDetail"
-          component={ProfessionalClinicPatientDetailRoute}
+          name="SpecialistDetail"
+          component={SpecialistDetailRoute}
           options={{
-            headerTitle: 'Paciente de clínica',
+            headerTitle: 'Perfil del Especialista',
             headerShown: false,
           }}
         />
         <Stack.Screen
-          name="ProfessionalSessions"
-          component={ProfessionalSessionsRoute}
-          options={{ headerTitle: 'Agenda' }}
-        />
-        <Stack.Screen
-          name="ProfessionalBilling"
-          component={ProfessionalBillingRoute}
-          options={{ headerTitle: 'Facturación' }}
-        />
-        <Stack.Screen
-          name="CreateInvoice"
-          component={CreateInvoiceRoute}
-          options={{ headerTitle: 'Nueva Factura' }}
-        />
-        <Stack.Screen
-          name="ProfessionalProfile"
-          component={ProfessionalProfileRoute}
-          options={{ headerTitle: 'Mi Perfil Profesional' }}
-        />
-        <Stack.Screen
-          name="ProfessionalAvailability"
-          component={ProfessionalAvailabilityRoute}
+          name="Booking"
+          component={BookingRoute}
           options={{
-            headerTitle: 'Mi Disponibilidad',
+            headerTitle: 'Reservar Sesión',
             headerShown: false,
           }}
         />
         <Stack.Screen
-          name="ProfessionalHelp"
-          component={ProfessionalHelpRoute}
-          options={{ headerTitle: 'Ayuda y comentarios' }}
+          name="Sessions"
+          component={SessionsRoute}
+          options={{ headerTitle: 'Mis Sesiones' }}
         />
         <Stack.Screen
-          name="ClientProfile"
-          component={ClientProfileRoute}
+          name="OnDutyPsychologist"
+          component={OnDutyPsychologistRoute}
+          options={{ headerTitle: 'Psicólogo de Guardia' }}
+        />
+        <Stack.Screen
+          name="Profile"
+          component={ProfileRoute}
+          options={{ headerTitle: 'Mi Perfil' }}
+        />
+        <Stack.Screen
+          name="ProfileCompletion"
+          component={ProfileCompletionRoute}
           options={{
-            headerTitle: 'Perfil del Cliente',
+            presentation: 'modal',
             headerShown: false,
           }}
         />
         <Stack.Screen
-          name="ClinicDashboard"
-          component={ClinicDashboardRoute}
-          options={{ headerTitle: 'Panel de clínica' }}
+          name="Questionnaire"
+          component={QuestionnaireRoute}
+          options={{
+            headerShown: false,
+          }}
         />
         <Stack.Screen
-          name="ClinicSettings"
-          component={ClinicSettingsRoute}
-          options={{ headerTitle: 'Configuración de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicAdministrators"
-          component={ClinicAdministratorsRoute}
-          options={{ headerTitle: 'Administradores de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicTeam"
-          component={ClinicTeamRoute}
-          options={{ headerTitle: 'Equipo de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicServices"
-          component={ClinicServicesRoute}
-          options={{ headerTitle: 'Servicios de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicPatients"
-          component={ClinicPatientsRoute}
-          options={{ headerTitle: 'Pacientes de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicAgenda"
-          component={ClinicAgendaRoute}
-          options={{ headerTitle: 'Agenda de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicBilling"
-          component={ClinicBillingRoute}
-          options={{ headerTitle: 'Facturación de clínica' }}
-        />
-        <Stack.Screen
-          name="ClinicInvoiceCreate"
-          component={ClinicInvoiceCreateRoute}
-          options={{ headerTitle: 'Nueva factura de clínica' }}
+          name="QuestionnaireResults"
+          component={QuestionnaireResultsRoute}
+          options={{ headerTitle: 'Tus Resultados' }}
         />
         <Stack.Screen
           name="AdminPanel"
@@ -993,13 +1127,13 @@ export function RootNavigator() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
-          name="SpecialistDetail"
-          component={SpecialistDetailRoute}
-          options={{ headerTitle: 'Perfil del Especialista', headerShown: false }}
-        />
-        <Stack.Screen
           name="PublicSpecialistProfile"
           component={PublicSpecialistProfileRoute}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="PublicSpecialists"
+          component={PublicSpecialistsRoute}
           options={{ headerShown: false }}
         />
         <Stack.Screen
@@ -1022,139 +1156,7 @@ export function RootNavigator() {
           component={LegalDocumentScreen}
           options={{ headerShown: false }}
         />
-      </Stack.Navigator>
-    );
-  }
-
-  return (
-    <Stack.Navigator
-      key="client"
-      initialRouteName="Home"
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Stack.Screen
-        name="Home"
-        component={ClientHomeRoute}
-        options={{ headerTitle: 'HERA' }}
-      />
-      <Stack.Screen
-        name="Specialists"
-        component={SpecialistsRoute}
-        options={{ headerTitle: 'Especialistas' }}
-      />
-      <Stack.Screen
-        name="SpecialistDetail"
-        component={SpecialistDetailRoute}
-        options={{
-          headerTitle: 'Perfil del Especialista',
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="Booking"
-        component={BookingRoute}
-        options={{
-          headerTitle: 'Reservar Sesión',
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="Sessions"
-        component={SessionsRoute}
-        options={{ headerTitle: 'Mis Sesiones' }}
-      />
-      <Stack.Screen
-        name="OnDutyPsychologist"
-        component={OnDutyPsychologistRoute}
-        options={{ headerTitle: 'Psicólogo de Guardia' }}
-      />
-      <Stack.Screen
-        name="Profile"
-        component={ProfileRoute}
-        options={{ headerTitle: 'Mi Perfil' }}
-      />
-      <Stack.Screen
-        name="ProfileCompletion"
-        component={ProfileCompletionRoute}
-        options={{
-          presentation: 'modal',
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="Questionnaire"
-        component={QuestionnaireRoute}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="QuestionnaireResults"
-        component={QuestionnaireResultsRoute}
-        options={{ headerTitle: 'Tus Resultados' }}
-      />
-      <Stack.Screen
-        name="AdminPanel"
-        component={AdminPanelRoute}
-        options={{ headerTitle: 'Panel de Admin' }}
-      />
-      <Stack.Screen
-        name="AdminSpecialistDetail"
-        component={AdminSpecialistDetailRoute}
-        options={{ headerTitle: 'Detalle del Especialista', headerShown: false }}
-      />
-      <Stack.Screen
-        name="SpecialistDetailAdmin"
-        component={SpecialistDetailAdminRoute}
-        options={{ headerTitle: 'Detalle del Especialista', headerShown: false }}
-      />
-      <Stack.Screen
-        name="EmailSentVerification"
-        component={EmailSentVerificationRoute}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="EmailVerification"
-        component={EmailVerificationRoute}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="ResetPassword"
-        component={ResetPasswordRoute}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="PublicSpecialistProfile"
-        component={PublicSpecialistProfileRoute}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="PublicSpecialists"
-        component={PublicSpecialistsRoute}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="PublicReview"
-        component={PublicReviewRoute}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="ClinicalConsent"
-        component={ClinicalConsentRoute}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="ClinicConsent"
-        component={ClinicConsentRoute}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="LegalDocument"
-        component={LegalDocumentScreen}
-        options={{ headerShown: false }}
-      />
+      </Stack.Group>
     </Stack.Navigator>
   );
 }
