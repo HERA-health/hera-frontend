@@ -6,7 +6,8 @@ export type ProfessionalType =
   | 'PSYCHOLOGIST_CLINICAL'
   | 'PSYCHIATRIST'
   | 'OCCUPATIONAL_THERAPIST'
-  | 'MENTAL_HEALTH_NURSE';
+  | 'MENTAL_HEALTH_NURSE'
+  | 'MENTAL_HEALTH_PROFESSIONAL';
 
 export interface ProfessionalTypeOption {
   id: ProfessionalType;
@@ -41,6 +42,11 @@ export const PROFESSIONAL_TYPE_OPTIONS: ProfessionalTypeOption[] = [
     id: 'MENTAL_HEALTH_NURSE',
     label: 'Enfermero/a especialista en salud mental',
     icon: 'heart-circle-outline',
+  },
+  {
+    id: 'MENTAL_HEALTH_PROFESSIONAL',
+    label: 'Profesional de salud mental',
+    icon: 'person-outline',
   },
 ];
 

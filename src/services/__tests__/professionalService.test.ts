@@ -300,6 +300,14 @@ describe('professionalService.updateComprehensiveProfile', () => {
     clearRequestCache();
   });
 
+  it('saves the explicit mental health professional category through the profile endpoint', async () => {
+    const profile = { professionalType: 'MENTAL_HEALTH_PROFESSIONAL' as const };
+    mockedApi.put.mockResolvedValue({ data: { success: true, data: profile } });
+
+    await expect(updateComprehensiveProfile(profile)).resolves.toEqual(profile);
+    expect(mockedApi.put).toHaveBeenCalledWith('/specialists/me/profile', profile);
+  });
+
   it('does not send billing-owned fields through the profile endpoint', async () => {
     mockedApi.put.mockResolvedValue({
       data: {

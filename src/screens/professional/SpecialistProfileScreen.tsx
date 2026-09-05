@@ -2171,7 +2171,7 @@ export function SpecialistProfileScreen() {
                     {
                       placeholder: 'Ej: Psicóloga infantojuvenil',
                       required: false,
-                      helperText: `Opcional. El tipo oficial actual es: ${getProfessionalTypeLabel(profileData.professionalType)}.`,
+                      helperText: `Opcional. El tipo profesional seleccionado es: ${getProfessionalTypeLabel(profileData.professionalType)}.`,
                     }
                   )}
                 </View>
@@ -3329,7 +3329,7 @@ export function SpecialistProfileScreen() {
         Tipo profesional <Text style={styles.required}>*</Text>
       </Text>
       <Text style={styles.fieldHelper}>
-        Es la categoría regulada que verán los pacientes y podrán usar para filtrar.
+        Selecciona el tipo que corresponda a tu formación y habilitación. Los pacientes lo verán en tu perfil y podrán usarlo para filtrar.
       </Text>
       <View style={styles.chipContainer}>
         {PROFESSIONAL_TYPE_OPTIONS.map((option) => {

@@ -302,7 +302,10 @@ describe('PublicSpecialistsScreen', () => {
     ));
   });
 
-  it('uses checkbox selectors for single-choice filters and allows deselection', async () => {
+  it.each([
+    ['Psiquiatra', 'PSYCHIATRIST'],
+    ['Profesional de salud mental', 'MENTAL_HEALTH_PROFESSIONAL'],
+  ])('allows selecting and clearing the %s profile filter', async (label, professionalType) => {
     mockedDirectory.mockResolvedValue({
       items: [],
       page: 1,
@@ -315,13 +318,13 @@ describe('PublicSpecialistsScreen', () => {
     await waitFor(() => expect(mockedDirectory).toHaveBeenCalledTimes(1));
 
     fireEvent.press(screen.getByText('Perfil'));
-    fireEvent.press(screen.getByRole('checkbox', { name: 'Psiquiatra' }));
+    fireEvent.press(screen.getByRole('checkbox', { name: label }));
     await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(
-      expect.objectContaining({ professionalType: 'PSYCHIATRIST' })
+      expect.objectContaining({ professionalType })
     ));
 
-    fireEvent.press(screen.getByText('Psiquiatra'));
-    fireEvent.press(screen.getByRole('checkbox', { name: 'Psiquiatra' }));
+    fireEvent.press(screen.getByText(label));
+    fireEvent.press(screen.getByRole('checkbox', { name: label }));
     await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(
       expect.objectContaining({ professionalType: undefined })
     ));
