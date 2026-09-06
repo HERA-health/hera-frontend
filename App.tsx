@@ -196,6 +196,19 @@ const injectWebStyles = (isDark: boolean) => {
     ::-webkit-scrollbar-corner { background: ${track}; }
     * { scrollbar-width: thin !important; scrollbar-color: ${thumb} ${track}; }
 
+    [data-testid="hera-sidebar-scroll"] { scrollbar-color: transparent transparent; }
+    [data-testid="hera-sidebar-scroll"]:hover,
+    [data-testid="hera-sidebar-scroll"]:focus-within { scrollbar-color: ${thumb} transparent; }
+    [data-testid="hera-sidebar-scroll"]::-webkit-scrollbar-track,
+    [data-testid="hera-sidebar-scroll"]::-webkit-scrollbar-corner { background: transparent; }
+    [data-testid="hera-sidebar-scroll"]::-webkit-scrollbar-thumb { background: transparent; border: 0; }
+    [data-testid="hera-sidebar-scroll"]:hover::-webkit-scrollbar-thumb,
+    [data-testid="hera-sidebar-scroll"]:focus-within::-webkit-scrollbar-thumb { background: ${thumb}; }
+    @media (hover: none) {
+      [data-testid="hera-sidebar-scroll"] { scrollbar-color: ${thumb} transparent; }
+      [data-testid="hera-sidebar-scroll"]::-webkit-scrollbar-thumb { background: ${thumb}; }
+    }
+
     /* Smooth scrolling */
     html { scroll-behavior: smooth; }
 

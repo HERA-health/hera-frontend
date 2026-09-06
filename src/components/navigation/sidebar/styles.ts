@@ -12,22 +12,21 @@ export const containerStyles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 12,
-    paddingTop: 14,
+    paddingTop: 0,
     paddingBottom: spacing.lg,
   },
   scrollContentCollapsed: {
     alignItems: 'center',
     paddingHorizontal: 6,
-    paddingTop: 12,
+    paddingTop: 0,
   },
 });
 
 export const logoStyles = StyleSheet.create({
   headerBlock: {
-    paddingHorizontal: 2,
-    paddingTop: 2,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
+    height: 76,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
   },
   headerRow: {
     flexDirection: 'row',

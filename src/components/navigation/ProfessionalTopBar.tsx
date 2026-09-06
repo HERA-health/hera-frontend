@@ -21,6 +21,7 @@ import { AnimatedPressable } from '../common/AnimatedPressable';
 import { useOptionalProfessionalTour } from '../onboarding/professionalTourContext';
 import { TourTarget } from '../onboarding/TourTarget';
 import { ProfessionalQuickSearch } from './ProfessionalQuickSearch';
+import { NavigationControl } from './NavigationControl';
 
 const ROUTE_TITLES: Record<string, { title: string; eyebrow?: string }> = {
   ProfessionalHome: { title: 'Inicio' },
@@ -184,7 +185,7 @@ export function ProfessionalTopBar({
       style={[
         styles.bar,
         isCompact ? styles.barCompact : null,
-        { backgroundColor: theme.bgElevated, borderBottomColor: theme.borderLight },
+        { backgroundColor: theme.navigationBg, borderBottomColor: theme.navigationBorder },
       ]}
     >
       <View style={[styles.left, isCompact ? styles.leftCompact : null]}>
@@ -201,7 +202,7 @@ export function ProfessionalTopBar({
             style={[
               styles.title,
               isCompact ? styles.titleCompact : null,
-              { color: theme.textPrimary, fontFamily: theme.fontDisplay },
+              { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold },
             ]}
             numberOfLines={1}
           >
@@ -255,7 +256,7 @@ export function ProfessionalTopBar({
                 styles.createButton,
                 isCompact ? styles.createButtonCompact : null,
                 hasPrimaryCreateAction ? styles.createDropdown : null,
-                { backgroundColor: theme.actionPrimary },
+                { backgroundColor: openMenu === 'create' ? theme.primaryDark : theme.actionPrimary },
               ]}
               hoverLift={false}
               pressScale={0.96}
@@ -264,10 +265,11 @@ export function ProfessionalTopBar({
             >
               <Ionicons name={hasPrimaryCreateAction ? 'chevron-down' : 'add'} size={hasPrimaryCreateAction ? 16 : 20} color={theme.actionPrimaryText} />
               {!isCompact && !hasPrimaryCreateAction ? <Text style={[styles.createText, { color: theme.actionPrimaryText, fontFamily: theme.fontSansSemiBold }]}>Crear</Text> : null}
+              {!isCompact && !hasPrimaryCreateAction ? <Ionicons name="chevron-down" size={14} color={theme.actionPrimaryText} /> : null}
             </AnimatedPressable>
           </View>
           {openMenu === 'create' ? (
-            <Popover align="right" width={250}>
+            <Popover align="right" width={250} trailingControls={2}>
               <PopoverHeading title="Crear" subtitle="Empieza desde cualquier pantalla" />
               <MenuRow icon="calendar-outline" title="Nueva cita" onPress={() => { trackCreateAction('session'); navigation.navigate('ProfessionalSessions', { openCreateSession: true }); closeAfterNavigation(); }} />
               <MenuRow icon="person-add-outline" title="Nuevo paciente" onPress={() => { trackCreateAction('patient'); navigation.navigate('ProfessionalClients', { openCreatePatient: true }); closeAfterNavigation(); }} />
@@ -278,14 +280,14 @@ export function ProfessionalTopBar({
 
         <View style={styles.menuAnchor}>
           <TopBarIconButton
-            icon={attentionCount > 0 ? 'notifications' : 'notifications-outline'}
+            icon="notifications-outline"
             label="Centro de atención"
             badge={attentionCount}
             onPress={() => toggleMenu('attention')}
             expanded={openMenu === 'attention'}
           />
           {openMenu === 'attention' ? (
-            <Popover align="right" width={340}>
+            <Popover align="right" width={340} trailingControls={1}>
               <PopoverHeading
                 title="Centro de atención"
                 subtitle={attentionCount > 0
@@ -320,13 +322,11 @@ export function ProfessionalTopBar({
         </View>
 
         <View style={styles.menuAnchor}>
-          <AnimatedPressable
+          <NavigationControl
             onPress={() => toggleMenu('avatar')}
-            style={[styles.avatarButton, { borderColor: openMenu === 'avatar' ? theme.focus : theme.border }]}
-            hoverLift={false}
-            pressScale={0.94}
+            style={styles.avatarButton}
             accessibilityLabel="Abrir menú de usuario"
-            accessibilityState={{ expanded: openMenu === 'avatar' }}
+            expanded={openMenu === 'avatar'}
           >
             {user?.avatar && !avatarFailed ? (
               <Image source={{ uri: user.avatar }} style={styles.avatarImage} onError={() => setAvatarFailed(true)} />
@@ -335,7 +335,7 @@ export function ProfessionalTopBar({
                 <Text style={[styles.avatarInitials, { color: theme.selection, fontFamily: theme.fontSansBold }]}>{initials}</Text>
               </View>
             )}
-          </AnimatedPressable>
+          </NavigationControl>
           {openMenu === 'avatar' ? (
             <Popover align="right" width={286}>
               <View style={styles.accountHeader}>
@@ -371,19 +371,16 @@ function TopBarIconButton({ icon, label, badge, onPress, expanded }: {
 }): React.ReactElement {
   const { theme } = useTheme();
   return (
-    <AnimatedPressable
+    <NavigationControl
       onPress={onPress}
-      style={[styles.iconButton, { backgroundColor: theme.bgMuted, borderColor: theme.borderLight }]}
-      hoverLift={false}
-      pressScale={0.94}
       accessibilityLabel={label}
-      accessibilityState={expanded === undefined ? undefined : { expanded }}
+      expanded={expanded}
     >
       <Ionicons name={icon} size={19} color={theme.textSecondary} />
       {badge && badge > 0 ? (
-        <View style={[styles.badge, { backgroundColor: theme.warning }]}><Text style={[styles.badgeText, { color: theme.textOnPrimary, fontFamily: theme.fontSansBold }]}>{badge > 9 ? '9+' : badge}</Text></View>
+        <View style={[styles.badge, { backgroundColor: theme.warning, borderColor: theme.navigationBg }]}><Text style={[styles.badgeText, { color: theme.textOnPrimary, fontFamily: theme.fontSansBold }]}>{badge > 9 ? '9+' : badge}</Text></View>
       ) : null}
-    </AnimatedPressable>
+    </NavigationControl>
   );
 }
 
@@ -411,9 +408,12 @@ function WorkspaceStatusNotice({ failed, onRetry }: {
   );
 }
 
-function Popover({ children, width }: { children: React.ReactNode; align: 'right'; width: number }): React.ReactElement {
+function Popover({ children, width, trailingControls = 0 }: { children: React.ReactNode; align: 'right'; width: number; trailingControls?: number }): React.ReactElement {
   const { theme } = useTheme();
-  return <View style={[styles.popover, { width, backgroundColor: theme.bgElevated, borderColor: theme.border, shadowColor: theme.shadowStrong }]}>{children}</View>;
+  const { width: viewportWidth } = useWindowDimensions();
+  // Compact menus share the right edge of the toolbar, regardless of their trigger.
+  const right = viewportWidth < 1040 ? -trailingControls * (44 + 8) : 0;
+  return <View style={[styles.popover, { width: Math.min(width, viewportWidth - spacing.sm * 2), right, backgroundColor: theme.bgElevated, borderColor: theme.navigationBorder, shadowColor: theme.shadowStrong }]}>{children}</View>;
 }
 
 function PopoverHeading({ title, subtitle }: { title: string; subtitle: string }): React.ReactElement {
@@ -469,29 +469,28 @@ function AllClear({ automation }: { automation: ProfessionalHomeData['automation
 }
 
 const styles = StyleSheet.create({
-  bar: { height: 76, borderBottomWidth: 1, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.lg, zIndex: 100 },
+  bar: { height: 76, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.lg, zIndex: 100 },
   barCompact: { height: 64, paddingHorizontal: spacing.sm, gap: spacing.sm },
   left: { minWidth: 170, maxWidth: 230, flexDirection: 'row', alignItems: 'center', gap: 9 },
-  leftCompact: { minWidth: 0, flex: 1 },
+  leftCompact: { minWidth: 0, maxWidth: '100%', flex: 1 },
   titleBlock: { flexShrink: 1 },
   eyebrow: { fontSize: 9, letterSpacing: 0.7, textTransform: 'uppercase', marginBottom: 1 },
-  title: { fontSize: 21, letterSpacing: -0.35 },
+  title: { fontSize: 18, letterSpacing: -0.2 },
   titleCompact: { fontSize: 17 },
   search: { flex: 1, alignItems: 'center', zIndex: 120 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 8, zIndex: 140 },
   menuAnchor: { position: 'relative' },
   createActions: { flexDirection: 'row', alignItems: 'center', gap: 1 },
   createPrimary: { borderTopRightRadius: 0, borderBottomRightRadius: 0 },
-  createDropdown: { width: 40, paddingHorizontal: 0, borderTopLeftRadius: 0, borderBottomLeftRadius: 0 },
-  createButton: { height: 42, borderRadius: 13, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
-  createButtonCompact: { width: 40, height: 40, paddingHorizontal: 0 },
+  createDropdown: { width: 44, paddingHorizontal: 0, borderTopLeftRadius: 0, borderBottomLeftRadius: 0 },
+  createButton: { height: 44, borderRadius: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  createButtonCompact: { width: 44, height: 44, paddingHorizontal: 0 },
   createText: { fontSize: 13 },
-  iconButton: { width: 42, height: 42, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  badge: { position: 'absolute', top: -4, right: -4, height: 18, minWidth: 18, borderRadius: 9, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center' },
+  badge: { position: 'absolute', top: -5, right: -5, height: 20, minWidth: 20, borderRadius: 10, borderWidth: 2, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center' },
   badgeText: { fontSize: 9 },
-  avatarButton: { width: 42, height: 42, borderRadius: 15, borderWidth: 1.5, padding: 2 },
-  avatarImage: { width: '100%', height: '100%', borderRadius: 11 },
-  avatarFallback: { flex: 1, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  avatarButton: { borderRadius: 22 },
+  avatarImage: { width: 34, height: 34, borderRadius: 17 },
+  avatarFallback: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   avatarInitials: { fontSize: 11 },
   popover: { position: 'absolute', top: 50, right: 0, borderWidth: 1, borderRadius: 18, padding: 8, shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.2, shadowRadius: 30, elevation: 24, zIndex: 300 },
   popoverHeading: { paddingHorizontal: 10, paddingTop: 7, paddingBottom: 10 },

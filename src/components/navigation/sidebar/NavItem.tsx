@@ -130,7 +130,7 @@ export function NavItem({
           backgroundColor: isActive
             ? sidebarTheme.background.active
             : 'transparent',
-          borderColor: isActive ? sidebarTheme.borderStrong : 'transparent',
+          borderColor: 'transparent',
         },
         isCollapsed ? styles.innerCollapsed : null,
       ]}
@@ -151,9 +151,7 @@ export function NavItem({
         style={[
           styles.iconShell,
           {
-            backgroundColor: isActive
-              ? sidebarTheme.background.hover
-              : 'transparent',
+            backgroundColor: 'transparent',
           },
           isCollapsed ? styles.iconShellCollapsed : null,
         ]}

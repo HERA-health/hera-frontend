@@ -404,17 +404,17 @@ export function getSidebarTheme(theme: Theme): SidebarTheme {
     width: 224,
     collapsedWidth: 72,
     background: {
-      primary: theme.bgAlt,
+      primary: theme.navigationBg,
       secondary: theme.bgCard,
       subtle: theme.bgMuted,
       hover: theme.secondaryAlpha12,
-      active: theme.secondaryMuted,
+      active: theme.navigationActive,
       overlay: theme.overlayLight,
     },
     text: {
       primary: theme.textPrimary,
       secondary: theme.textSecondary,
-      muted: theme.textMuted,
+      muted: theme.textSecondary,
       active: theme.textPrimary,
     },
     icon: {
@@ -422,7 +422,7 @@ export function getSidebarTheme(theme: Theme): SidebarTheme {
       active: theme.selection,
     },
     activeIndicator: theme.selection,
-    border: theme.border,
+    border: theme.navigationBorder,
     borderStrong: theme.borderStrong,
     shadow: theme.shadowCard,
     badge: {

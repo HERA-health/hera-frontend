@@ -11,6 +11,9 @@ export const lightTheme = {
   bgCard: '#FFFDF8',
   bgElevated: '#FFFEFA',
   bgMuted: '#EEF3EF',
+  navigationBg: '#EEF3EF',
+  navigationBorder: '#D8E0D9',
+  navigationActive: '#DDE9E3',
 
   surface: '#FFFDF8',
   surfaceMuted: '#F7F1E8',
@@ -119,6 +122,9 @@ export const darkTheme: typeof lightTheme = {
   bgCard: '#181914',
   bgElevated: '#1F201A',
   bgMuted: '#2D2E27',
+  navigationBg: '#2D2E27',
+  navigationBorder: '#45473C',
+  navigationActive: '#3B4035',
 
   surface: '#181914',
   surfaceMuted: '#2A2B24',

@@ -1,9 +1,9 @@
 import React, { useCallback, useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import Svg, { Rect, Path } from 'react-native-svg';
 import { RootStackParamList } from '../../../constants/types';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { AnimatedPressable } from '../../common/AnimatedPressable';
+import { NavigationControl } from '../NavigationControl';
 import { StyledLogo } from '../../common/StyledLogo';
 import { NavItem } from './NavItem';
 import { getNavigationSections, getSidebarTheme } from './navConfig';
@@ -53,10 +53,6 @@ export function Sidebar({
       ? 'Gestión de clínica'
       : 'Tu espacio de bienestar';
 
-  const collapseButtonBase = {
-    backgroundColor: sidebarTheme.background.subtle,
-    borderColor: sidebarTheme.border,
-  };
   const userSection = (
     <UserSection
       user={user}
@@ -78,80 +74,71 @@ export function Sidebar({
       accessible
       accessibilityLabel="Main navigation"
     >
+      <View
+        style={[
+          logoStyles.headerBlock,
+          {
+            borderColor: sidebarTheme.border,
+          },
+          isCollapsed ? styles.headerBlockCollapsed : null,
+        ]}
+      >
+        <View
+          style={[
+            logoStyles.headerRow,
+            !isCollapsed ? styles.headerRowExpanded : null,
+            isCollapsed ? logoStyles.headerCollapsed : null,
+          ]}
+        >
+          {isCollapsed && onToggleCollapse && (
+            <NavigationControl
+              onPress={onToggleCollapse}
+              accessibilityLabel="Expandir menú"
+              expanded={false}
+            >
+              <SidebarToggleIcon color={sidebarTheme.text.secondary} />
+            </NavigationControl>
+          )}
+
+          {(!isCollapsed || !onToggleCollapse) && <View
+            style={[
+              logoStyles.logoWrap,
+              {
+                backgroundColor: isCollapsed
+                  ? sidebarTheme.background.subtle
+                  : 'transparent',
+              },
+              isCollapsed ? styles.logoWrapCollapsed : styles.logoWrapExpanded,
+            ]}
+          >
+            <StyledLogo
+              size={isCollapsed ? 30 : 44}
+              variant={isCollapsed ? 'mark' : 'wordmark'}
+              tone="brand"
+              tintColor={theme.logoTint}
+            />
+          </View>}
+
+          {!isCollapsed && onToggleCollapse && (
+            <NavigationControl
+              onPress={onToggleCollapse}
+              style={styles.collapseButtonExpanded}
+              accessibilityLabel="Colapsar menú"
+            >
+              <SidebarToggleIcon color={sidebarTheme.text.secondary} />
+            </NavigationControl>
+          )}
+        </View>
+      </View>
+
       <ScrollView
+        testID="hera-sidebar-scroll"
         style={containerStyles.scrollView}
         contentContainerStyle={isCollapsed
           ? [containerStyles.scrollContent, containerStyles.scrollContentCollapsed]
           : containerStyles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View
-          style={[
-            logoStyles.headerBlock,
-            {
-              borderColor: sidebarTheme.border,
-            },
-            isCollapsed ? styles.headerBlockCollapsed : null,
-          ]}
-        >
-          <View
-            style={[
-              logoStyles.headerRow,
-              !isCollapsed ? styles.headerRowExpanded : null,
-              isCollapsed ? logoStyles.headerCollapsed : null,
-            ]}
-          >
-            {isCollapsed && onToggleCollapse && (
-              <AnimatedPressable
-                onPress={onToggleCollapse}
-                hoverLift={false}
-                pressScale={0.92}
-                style={[styles.collapseButton, styles.collapseButtonCollapsed, collapseButtonBase]}
-                accessibilityLabel="Expandir menú"
-              >
-                <Ionicons
-                  name="chevron-forward"
-                  size={16}
-                  color={sidebarTheme.text.secondary}
-                />
-              </AnimatedPressable>
-            )}
-
-            <View
-              style={[
-                logoStyles.logoWrap,
-                {
-                  backgroundColor: isCollapsed
-                    ? sidebarTheme.background.subtle
-                    : 'transparent',
-                },
-                isCollapsed ? styles.logoWrapCollapsed : styles.logoWrapExpanded,
-              ]}
-            >
-              <StyledLogo
-                size={isCollapsed ? 30 : 44}
-                variant={isCollapsed ? 'mark' : 'wordmark'}
-              />
-            </View>
-
-            {!isCollapsed && onToggleCollapse && (
-              <AnimatedPressable
-                onPress={onToggleCollapse}
-                hoverLift={false}
-                pressScale={0.92}
-                style={[styles.collapseButton, styles.collapseButtonExpanded, collapseButtonBase]}
-                accessibilityLabel="Colapsar menú"
-              >
-                <Ionicons
-                  name="chevron-back"
-                  size={16}
-                  color={sidebarTheme.text.secondary}
-                />
-              </AnimatedPressable>
-            )}
-          </View>
-        </View>
-
         {sections.map((section, sectionIndex) => (
           <NavigationSectionComponent
             key={section.id}
@@ -238,9 +225,19 @@ function NavigationSectionComponent({
   );
 }
 
+function SidebarToggleIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.6}>
+      <Rect x={3} y={4} width={18} height={16} rx={3} />
+      <Path d="M9 4v16" />
+    </Svg>
+  );
+}
+
 const styles = StyleSheet.create({
   headerBlockCollapsed: {
-    width: 48,
+    width: '100%',
+    height: 76,
     paddingHorizontal: 0,
     paddingVertical: 0,
     alignItems: 'center',
@@ -248,24 +245,13 @@ const styles = StyleSheet.create({
   },
   headerRowExpanded: {
     minHeight: 56,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     position: 'relative',
-  },
-  collapseButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
   },
   collapseButtonExpanded: {
     position: 'absolute',
     right: 0,
-    top: 12,
-  },
-  collapseButtonCollapsed: {
-    marginBottom: 2,
+    top: 6,
   },
   logoWrapExpanded: {
     width: 132,

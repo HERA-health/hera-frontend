@@ -29,6 +29,20 @@
 ::-webkit-scrollbar-corner { background: var(--hera-scrollbar-track); }
 * { scrollbar-width: thin !important; scrollbar-color: var(--hera-scrollbar-thumb) var(--hera-scrollbar-track); }
 
+/* Navigation shares the shell surface; avoid a contrasting scrollbar gutter. */
+[data-testid="hera-sidebar-scroll"] { scrollbar-color: transparent transparent; }
+[data-testid="hera-sidebar-scroll"]:hover,
+[data-testid="hera-sidebar-scroll"]:focus-within { scrollbar-color: var(--hera-scrollbar-thumb) transparent; }
+[data-testid="hera-sidebar-scroll"]::-webkit-scrollbar-track,
+[data-testid="hera-sidebar-scroll"]::-webkit-scrollbar-corner { background: transparent; }
+[data-testid="hera-sidebar-scroll"]::-webkit-scrollbar-thumb { background: transparent; border: 0; }
+[data-testid="hera-sidebar-scroll"]:hover::-webkit-scrollbar-thumb,
+[data-testid="hera-sidebar-scroll"]:focus-within::-webkit-scrollbar-thumb { background: var(--hera-scrollbar-thumb); }
+@media (hover: none) {
+  [data-testid="hera-sidebar-scroll"] { scrollbar-color: var(--hera-scrollbar-thumb) transparent; }
+  [data-testid="hera-sidebar-scroll"]::-webkit-scrollbar-thumb { background: var(--hera-scrollbar-thumb); }
+}
+
 /* Smooth scrolling */
 html { scroll-behavior: smooth; }
 

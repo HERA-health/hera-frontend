@@ -244,7 +244,8 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
           styles.sidebar,
           {
             width: sidebarWidth,
-            borderRightColor: theme.border,
+            borderRightColor: theme.navigationBorder,
+            borderRightWidth: isProfessional ? 0 : 1,
             backgroundColor: sidebarTheme.background.primary,
           },
         ]}
@@ -255,11 +256,11 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
           onToggleCollapse={handleToggleCollapse}
         />
       </Animated.View>
-      <View style={[styles.content, { backgroundColor: theme.bg }]}>
+      <View style={[styles.content, { backgroundColor: isProfessional ? theme.navigationBg : theme.bg }]}>
         {isProfessional ? (
           <View style={styles.professionalContent}>
             <ProfessionalTopBar currentRoute={currentRoute} onOpenMobileSidebar={openMobileSidebar} />
-            <View style={styles.professionalBody}>{children}</View>
+            <View style={[styles.professionalBody, styles.professionalBodyInset, { borderColor: theme.navigationBorder }]}>{children}</View>
           </View>
         ) : children}
       </View>
@@ -305,6 +306,13 @@ const styles = StyleSheet.create({
   professionalBody: {
     flex: 1,
     minHeight: 0,
+  },
+  professionalBodyInset: {
+    marginRight: 10,
+    marginBottom: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
   mobileMenuButton: {
     position: 'absolute',

@@ -217,8 +217,8 @@ export function ProfessionalQuickSearch({
           styles.inputShell,
           drawer ? styles.drawerInputShell : null,
           {
-            backgroundColor: theme.bgMuted,
-            borderColor: focused ? theme.focus : theme.borderLight,
+            backgroundColor: theme.bgElevated,
+            borderColor: focused ? theme.focus : theme.navigationBorder,
           },
         ]}
       >
@@ -376,7 +376,7 @@ function SearchResultRow({
 const styles = StyleSheet.create({
   wrapper: { width: '100%', maxWidth: 520, zIndex: 80 },
   drawerWrapper: { maxWidth: '100%', paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
-  inputShell: { minHeight: 44, borderWidth: 1, borderRadius: 14, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  inputShell: { minHeight: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 10 },
   drawerInputShell: { minHeight: 48 },
   input: { flex: 1, minWidth: 0, fontSize: 14, paddingVertical: 0, outlineStyle: 'none' } as never,
   results: { position: 'absolute', top: 50, left: 0, right: 0, maxHeight: 520, borderRadius: 18, borderWidth: 1, padding: 8, shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.18, shadowRadius: 32, elevation: 20 },
