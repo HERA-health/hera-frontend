@@ -1,3 +1,4 @@
+import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
@@ -358,6 +359,11 @@ export function BillingScreen() {
     }, [loadData])
   );
 
+  useFocusedRateLimitRecovery(() => {
+    void refreshSummary();
+    void loadInvoices(currentPage, activeFilter, debouncedSearch);
+  });
+
   useProfessionalTourAutoStart(
     'professional_billing_v1',
     !loading && !loadError && !openMenuId && !isAppAlertVisible,
@@ -544,6 +550,7 @@ export function BillingScreen() {
   const refreshSummary = async () => {
     try {
       setSummary(await billingService.getSummary());
+      setLoadError(false);
     } catch {
       setSummary(null);
     }

@@ -1,6 +1,7 @@
 import React from 'react';
-import { AppState, Text } from 'react-native';
+import { AppState, Text, View } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { recordGeneralRateLimit, resetGeneralRateLimit } from '../../services/generalRateLimit';
 
 const homePayload = {
   generatedAt: '2026-08-04T08:00:00.000Z',
@@ -86,12 +87,51 @@ function AttentionProbe(): React.ReactElement {
 
 describe('ProfessionalWorkspaceProvider', () => {
   beforeEach(() => {
+    resetGeneralRateLimit();
     jest.clearAllMocks();
     mockHomeChangeListener = null;
     mockSupportChangeListener = null;
     mockGetCachedProfessionalHome.mockReturnValue(null);
     mockGetProfessionalHome.mockResolvedValue(homePayload);
     mockGetSpecialistContactSummary.mockResolvedValue({ unreadHelpRequests: 0 });
+  });
+
+  it('pauses periodic reads during a 429 and recovers once when the pause expires', async () => {
+    Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
+    jest.useFakeTimers();
+    const view = render(<ProfessionalWorkspaceProvider currentRoute="ProfessionalHome"><StatusProbe /></ProfessionalWorkspaceProvider>);
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { recordGeneralRateLimit(90, undefined); });
+    await act(async () => { jest.advanceTimersByTime(60_000); });
+    expect(mockGetProfessionalHome).toHaveBeenCalledTimes(1);
+    expect(mockGetSpecialistContactSummary).toHaveBeenCalledTimes(1);
+    await act(async () => { jest.advanceTimersByTime(30_000); });
+    expect(mockGetProfessionalHome).toHaveBeenCalledTimes(2);
+    expect(mockGetSpecialistContactSummary).toHaveBeenCalledTimes(2);
+    view.unmount();
+    resetGeneralRateLimit();
+    jest.useRealTimers();
+  });
+
+  it('keeps one timer after repeated route changes and stops polling outside Home', async () => {
+    Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
+    jest.useFakeTimers();
+    const content = (currentRoute: string) => <ProfessionalWorkspaceProvider currentRoute={currentRoute}><StatusProbe /></ProfessionalWorkspaceProvider>;
+    const view = render(content('ProfessionalHome'));
+    await act(async () => { await Promise.resolve(); });
+    for (let i = 0; i < 10; i += 1) {
+      view.rerender(content('ProfessionalClients'));
+      view.rerender(content('ProfessionalSessions'));
+      view.rerender(content('ProfessionalHome'));
+    }
+    await act(async () => { jest.advanceTimersByTime(60_000); });
+    expect(mockGetProfessionalHome).toHaveBeenCalledTimes(2);
+    expect(mockGetSpecialistContactSummary).toHaveBeenCalledTimes(2);
+    view.rerender(content('ProfessionalClients'));
+    await act(async () => { jest.advanceTimersByTime(120_000); });
+    expect(mockGetProfessionalHome).toHaveBeenCalledTimes(2);
+    view.unmount();
+    jest.useRealTimers();
   });
 
   it('loads each shared source once and does not refetch fresh data on route changes', async () => {
@@ -126,6 +166,19 @@ describe('ProfessionalWorkspaceProvider', () => {
     );
 
     await waitFor(() => expect(view.getByText('stale:ready:2026-08-04')).toBeTruthy());
+  });
+
+  it('ignores a late response after the user-keyed workspace has been replaced', async () => {
+    const previousUserRequest = createDeferred<typeof homePayload>();
+    const nextHome = { ...homePayload, today: { ...homePayload.today, date: '2026-09-06' } };
+    mockGetProfessionalHome.mockReturnValueOnce(previousUserRequest.promise).mockResolvedValueOnce(nextHome);
+    const view = render(<View><ProfessionalWorkspaceProvider key="account-a" currentRoute="ProfessionalHome"><StatusProbe /></ProfessionalWorkspaceProvider></View>);
+    view.rerender(<View><ProfessionalWorkspaceProvider key="account-b" currentRoute="ProfessionalHome"><StatusProbe /></ProfessionalWorkspaceProvider></View>);
+    await waitFor(() => expect(view.getByText('ready:ready:2026-09-06')).toBeTruthy());
+    await act(async () => previousUserRequest.resolve(homePayload));
+    expect(view.queryByText('ready:ready:2026-08-04')).toBeNull();
+    expect(view.getByText('ready:ready:2026-09-06')).toBeTruthy();
+    view.unmount();
   });
 
   it('reports an unavailable source instead of treating a first-load error as ready', async () => {

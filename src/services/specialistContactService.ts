@@ -1,3 +1,4 @@
+import { cachedGet } from './requestCache';
 import { Platform } from 'react-native';
 import * as Application from 'expo-application';
 import { api } from './api';
@@ -250,10 +251,12 @@ export const listFeedback = async (
 export const getSpecialistContactSummary = async (): Promise<{
   unreadHelpRequests: number;
 }> => {
-  const response = await api.get<ApiResponse<{ unreadHelpRequests: number }>>(
-    '/specialist-contact/summary'
-  );
-  return response.data.data;
+  return cachedGet('professional:support-summary', async () => {
+    const response = await api.get<ApiResponse<{ unreadHelpRequests: number }>>(
+      '/specialist-contact/summary'
+    );
+    return response.data.data;
+  }, { ttlMs: 0 });
 };
 
 type SummaryListener = () => void;

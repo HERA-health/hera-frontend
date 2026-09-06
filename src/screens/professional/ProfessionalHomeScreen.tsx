@@ -1,3 +1,6 @@
+import { useGeneralRateLimit } from '../../hooks/useGeneralRateLimit';
+import { rateLimitMessage } from '../../services/generalRateLimit';
+import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -61,6 +64,7 @@ const getGreeting = (): string => {
 };
 
 export function ProfessionalHomeScreen(): React.ReactElement {
+  const retryAt = useGeneralRateLimit();
   const navigation = useNavigation<AppNavigationProp>();
   const appAlert = useAppAlert();
   const { width } = useWindowDimensions();
@@ -98,7 +102,7 @@ export function ProfessionalHomeScreen(): React.ReactElement {
   }, [data, entryAnimation]);
 
   const openSession = (sessionId: string): void => {
-    navigation.navigate('ProfessionalSessions', { focusSessionId: sessionId });
+    navigateProfessionalSection(navigation, 'ProfessionalSessions', { focusSessionId: sessionId });
   };
 
   const joinSession = async (sessionId: string): Promise<void> => {
@@ -137,7 +141,8 @@ export function ProfessionalHomeScreen(): React.ReactElement {
       <View style={[styles.loadingScreen, { backgroundColor: theme.bg }]}>
         <Ionicons name="cloud-offline-outline" size={28} color={theme.textMuted} />
         <Text style={[styles.errorTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>No pudimos cargar tu inicio</Text>
-        <Button onPress={() => { void refreshHome(true); }} size="small">Reintentar</Button>
+        <Text style={{ color: theme.textSecondary }}>{retryAt ? rateLimitMessage(retryAt) : homeError}</Text>
+        <Button disabled={retryAt > 0} onPress={() => { void refreshHome(true); }} size="small">Reintentar</Button>
       </View>
     );
   }
@@ -174,11 +179,11 @@ export function ProfessionalHomeScreen(): React.ReactElement {
           <Text style={[styles.date, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}>{formatLongDate(new Date().toISOString())}</Text>
         </View>
 
-        {homeStatus === 'stale' ? (
+        {homeStatus === 'stale' || retryAt > 0 ? (
           <View style={[styles.errorBanner, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
             <Ionicons name="refresh-outline" size={18} color={theme.warning} />
-            <Text style={[styles.errorBannerText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{homeError}. Mostramos la última información disponible.</Text>
-            <AnimatedPressable onPress={() => { void refreshHome(true); }} hoverLift={false} style={styles.retryLink}>
+            <Text style={[styles.errorBannerText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{retryAt ? rateLimitMessage(retryAt) : 'No hemos podido actualizar el inicio.'} Mostramos la última información disponible.</Text>
+            <AnimatedPressable disabled={retryAt > 0} onPress={() => { void refreshHome(true); }} hoverLift={false} style={styles.retryLink}>
               <Text style={[styles.retryText, { color: theme.link, fontFamily: theme.fontSansSemiBold }]}>Reintentar</Text>
             </AnimatedPressable>
           </View>
@@ -191,11 +196,11 @@ export function ProfessionalHomeScreen(): React.ReactElement {
                 pendingSteps={profileItems.length}
                 onProfile={() => {
                   trackHomeAction('activation', 'profile');
-                  navigation.navigate('ProfessionalProfile');
+                  navigateProfessionalSection(navigation, 'ProfessionalProfile');
                 }}
                 onAvailability={() => {
                   trackHomeAction('activation', 'availability');
-                  navigation.navigate('ProfessionalAvailability');
+                  navigateProfessionalSection(navigation, 'ProfessionalAvailability');
                 }}
               />
             </View>
@@ -214,7 +219,7 @@ export function ProfessionalHomeScreen(): React.ReactElement {
                 }}
                 onCreate={() => {
                   trackHomeAction('next_session', 'create');
-                  navigation.navigate('ProfessionalSessions', { openCreateSession: true });
+                  navigateProfessionalSection(navigation, 'ProfessionalSessions', { openCreateSession: true });
                 }}
               />
             </TourTarget>
@@ -228,19 +233,19 @@ export function ProfessionalHomeScreen(): React.ReactElement {
               ready={attentionReady}
               onAgenda={() => {
                 trackHomeAction('attention', 'agenda');
-                navigation.navigate('ProfessionalSessions');
+                navigateProfessionalSection(navigation, 'ProfessionalSessions');
               }}
               onBilling={() => {
                 trackHomeAction('attention', 'billing');
-                navigation.navigate('ProfessionalBilling');
+                navigateProfessionalSection(navigation, 'ProfessionalBilling');
               }}
               onProfile={() => {
                 trackHomeAction('attention', 'profile');
-                navigation.navigate('ProfessionalProfile');
+                navigateProfessionalSection(navigation, 'ProfessionalProfile');
               }}
               onSupport={() => {
                 trackHomeAction('attention', 'support');
-                navigation.navigate('ProfessionalHelp', { section: 'help' });
+                navigateProfessionalSection(navigation, 'ProfessionalHelp', { section: 'help' });
               }}
             />
           </TourTarget>
@@ -256,7 +261,7 @@ export function ProfessionalHomeScreen(): React.ReactElement {
               }}
               onAgenda={() => {
                 trackHomeAction('today', 'agenda');
-                navigation.navigate('ProfessionalSessions');
+                navigateProfessionalSection(navigation, 'ProfessionalSessions');
               }}
             />
           </TourTarget>

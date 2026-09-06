@@ -775,3 +775,12 @@ describe('ProfessionalAvailabilityScreen', () => {
     expect(screen.queryByText('22:30')).toBeNull();
   });
 });
+
+
+jest.mock('@react-navigation/native', () => {
+  const ReactModule = jest.requireActual<typeof React>('react');
+  return {
+    useIsFocused: () => true,
+    useFocusEffect: (effect: () => void | (() => void)) => ReactModule.useEffect(effect, [effect]),
+  };
+});

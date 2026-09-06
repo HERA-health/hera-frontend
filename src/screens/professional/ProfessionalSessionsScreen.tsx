@@ -1,3 +1,6 @@
+import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
+import { useGeneralRateLimit } from '../../hooks/useGeneralRateLimit';
+import { rateLimitMessage } from '../../services/generalRateLimit';
 import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -154,6 +157,7 @@ function hydrateSchedulerClientFromSession(
 
 
 export function ProfessionalSessionsScreen() {
+  const retryAt = useGeneralRateLimit();
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<AppRouteProp<'ProfessionalSessions'>>();
   const appAlert = useAppAlert();
@@ -441,7 +445,7 @@ export function ProfessionalSessionsScreen() {
   }, [navigation, openSessionDetail, route.params?.focusSessionId]);
 
   const handleConfigureAgenda = useCallback(() => {
-    navigation.navigate('ProfessionalProfile', { initialTab: 'agenda' });
+    navigateProfessionalSection(navigation, 'ProfessionalProfile', { initialTab: 'agenda' });
   }, [navigation]);
 
   useProfessionalTourAutoStart(
@@ -895,13 +899,14 @@ export function ProfessionalSessionsScreen() {
           <Ionicons name="alert-circle-outline" size={20} color={theme.warning} />
           <View style={styles.loadErrorCopy}>
             <Text style={styles.loadErrorTitle}>No se pudieron actualizar las sesiones</Text>
-            <Text style={styles.loadErrorMessage}>{loadErrorMessage}</Text>
+            <Text style={styles.loadErrorMessage}>{retryAt ? rateLimitMessage(retryAt) : loadErrorMessage}</Text>
           </View>
         </View>
         <View style={styles.loadErrorAction}>
           <Button
             variant="outline"
             size="small"
+            disabled={retryAt > 0}
             onPress={() => { void refreshAgenda(); }}
             loading={refreshing}
             fullWidth={isMobile}
@@ -917,11 +922,12 @@ export function ProfessionalSessionsScreen() {
     <View style={styles.loadErrorState}>
       <Ionicons name="cloud-offline-outline" size={44} color={theme.warning} />
       <Text style={styles.loadErrorStateTitle}>No se pudieron cargar las sesiones</Text>
-      <Text style={styles.loadErrorStateSubtitle}>{loadErrorMessage}</Text>
+      <Text style={styles.loadErrorStateSubtitle}>{retryAt ? rateLimitMessage(retryAt) : loadErrorMessage}</Text>
       <Button
         variant="primary"
         size="medium"
-        onPress={() => { void refreshAgenda(); }}
+        disabled={retryAt > 0}
+            onPress={() => { void refreshAgenda(); }}
         loading={initialLoading}
       >
         Reintentar
@@ -992,6 +998,7 @@ export function ProfessionalSessionsScreen() {
     <View style={styles.container}>
       <ProfessionalAgendaHeader
         summary={agendaSummary}
+        summaryAvailable={!loadError && !initialLoading && !refreshing}
         nextSession={nextUpcomingSession}
         autoConfirmSessionRequests={autoConfirmSessionRequests}
         loadingClients={loadingSchedulableClients}

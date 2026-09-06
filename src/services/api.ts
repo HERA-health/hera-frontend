@@ -1,3 +1,4 @@
+import { GeneralRateLimitError, getGeneralRateLimitRetryAt, getRateLimitSessionGeneration, isGeneralRead, isGeneralRateLimited, recordGeneralRateLimit } from './generalRateLimit';
 import axios, {
   AxiosError,
   AxiosHeaders,
@@ -260,8 +261,14 @@ export const logoutServerSession = async (): Promise<void> => {
   }
 };
 
+const requestSessions = new WeakMap<object, number>();
+
 api.interceptors.request.use(
   (config) => {
+    requestSessions.set(config, getRateLimitSessionGeneration());
+    if (isGeneralRead(config.url, config.method) && isGeneralRateLimited()) {
+      throw new GeneralRateLimitError(getGeneralRateLimitRetryAt());
+    }
     if (accessToken) {
       setAuthorizationHeader(config, accessToken);
     } else {
@@ -296,7 +303,18 @@ api.interceptors.response.use(
 
     return response;
   },
-  async (error: AxiosError) => {
+  async (error: AxiosError<unknown>) => {
+    if (error instanceof GeneralRateLimitError) return Promise.reject(error);
+    const body = error.response?.data;
+    if (error.response?.status === 429 && typeof body === 'object' && body !== null
+      && (('limiter' in body && body.limiter === 'general')
+        || (!('limiter' in body) && 'message' in body
+          && body.message === 'Demasiadas solicitudes. Por favor, espera un momento antes de intentar de nuevo.'))
+      && error.config && requestSessions.get(error.config) === getRateLimitSessionGeneration()) {
+      recordGeneralRateLimit('retryAfter' in body ? body.retryAfter : undefined, error.response.headers['retry-after']);
+      return Promise.reject(new GeneralRateLimitError(getGeneralRateLimitRetryAt()));
+    }
+
     if (API_DEBUG_LOGGING_ENABLED) {
       console.error('[api] response error', {
         status: error.response?.status,

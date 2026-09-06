@@ -1,3 +1,4 @@
+import { useRateLimitRecovery } from '../hooks/useGeneralRateLimit';
 import React, {
   createContext,
   type ReactNode,
@@ -118,6 +119,8 @@ export function ProfessionalClinicWorkspaceProvider({ children }: { children: Re
       setError(loadError instanceof Error ? loadError.message : 'No se pudieron cargar tus clínicas.');
     }
   }, [selectedClinicId, userId]);
+
+  useRateLimitRecovery(true, () => { void refreshContexts(true); });
 
   useEffect(() => {
     setContexts([]);

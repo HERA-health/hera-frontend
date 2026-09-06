@@ -1,5 +1,6 @@
+import { useRateLimitRecovery } from '../../../../hooks/useGeneralRateLimit';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import type { ProfessionalSession, SessionViewMode } from '../../../../constants/types';
 import { getErrorMessage } from '../../../../constants/errors';
 import * as professionalService from '../../../../services/professionalService';
@@ -84,6 +85,11 @@ export interface ProfessionalAgendaController {
 }
 
 export function useProfessionalAgendaController(): ProfessionalAgendaController {
+  const isFocused = useIsFocused();
+  const pendingMutationRefresh = useRef(false);
+  const inFlightQueries = useRef(new Map<string, number>());
+  const nextRequestSequence = useRef(0);
+  const mounted = useRef(true);
   const [viewMode, setViewMode] = useState<SessionViewMode>('week');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [originFilter, setOriginFilter] = useState<AgendaOriginFilter>('ALL');
@@ -155,12 +161,25 @@ export function useProfessionalAgendaController(): ProfessionalAgendaController 
 
   const loadAgenda = useCallback(async (options: LoadAgendaOptions = {}) => {
     const append = options.append === true;
+    const requestKey = `${agendaQueryKey}:${append ? 'append' : 'replace'}`;
+    const existingSequence = inFlightQueries.current.get(requestKey);
+    if (existingSequence !== undefined) {
+      if (options.invalidateCache) pendingMutationRefresh.current = true;
+      // Returning to this query makes its existing response relevant again.
+      sessionsLoadSeqRef.current = existingSequence;
+      if (!append) {
+        setPendingQueryKey(agendaQueryKey);
+        setLoadError(false);
+        setLoadErrorMessage('');
+      }
+      return;
+    }
     if (options.invalidateCache) clearAgendaCache();
 
     const cachedEntry = agendaCacheRef.current.get(agendaQueryKey) ?? null;
     if (append && !cachedEntry?.nextCursor) return;
 
-    const requestSeq = sessionsLoadSeqRef.current + 1;
+    const requestSeq = ++nextRequestSequence.current;
     sessionsLoadSeqRef.current = requestSeq;
     if (
       !append
@@ -177,6 +196,7 @@ export function useProfessionalAgendaController(): ProfessionalAgendaController 
       return;
     }
 
+    inFlightQueries.current.set(requestKey, requestSeq);
     try {
       if (append) {
         setLoadingMoreRequest({ queryKey: agendaQueryKey, requestSeq });
@@ -230,6 +250,11 @@ export function useProfessionalAgendaController(): ProfessionalAgendaController 
         setLoadErrorMessage(message);
       }
     } finally {
+      inFlightQueries.current.delete(requestKey);
+      if (mounted.current && pendingMutationRefresh.current && inFlightQueries.current.size === 0) {
+        pendingMutationRefresh.current = false;
+        void loadAgendaRef.current({ force: true, invalidateCache: true });
+      }
       if (append) {
         setLoadingMoreRequest((currentRequest) => (
           currentRequest?.queryKey === agendaQueryKey
@@ -245,6 +270,10 @@ export function useProfessionalAgendaController(): ProfessionalAgendaController 
   }, [agendaQuery, agendaQueryKey, clearAgendaCache, writeCacheEntry]);
 
   loadAgendaRef.current = loadAgenda;
+  useRateLimitRecovery(isFocused, () => {
+    void loadAgendaRef.current({ force: true });
+    void loadAgendaPreference();
+  }, { reloadsOnFocus: true });
 
   const loadAgendaPreference = useCallback(async () => {
     try {
@@ -275,8 +304,12 @@ export function useProfessionalAgendaController(): ProfessionalAgendaController 
     }, []),
   );
 
-  useEffect(() => () => {
-    sessionsLoadSeqRef.current += 1;
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      sessionsLoadSeqRef.current = ++nextRequestSequence.current;
+    };
   }, []);
 
   const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate]);

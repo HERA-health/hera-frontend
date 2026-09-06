@@ -1,3 +1,4 @@
+import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -148,11 +149,11 @@ export function ProfessionalTopBar({
 
   const navigateSimple = useCallback((route: 'ProfessionalSessions' | 'ProfessionalBilling' | 'ProfessionalProfile' | 'CreateInvoice' | 'ProfessionalHelp') => {
     switch (route) {
-      case 'ProfessionalSessions': navigation.navigate('ProfessionalSessions'); break;
-      case 'ProfessionalBilling': navigation.navigate('ProfessionalBilling'); break;
-      case 'ProfessionalProfile': navigation.navigate('ProfessionalProfile'); break;
+      case 'ProfessionalSessions': navigateProfessionalSection(navigation, 'ProfessionalSessions'); break;
+      case 'ProfessionalBilling': navigateProfessionalSection(navigation, 'ProfessionalBilling'); break;
+      case 'ProfessionalProfile': navigateProfessionalSection(navigation, 'ProfessionalProfile'); break;
       case 'CreateInvoice': navigation.navigate('CreateInvoice', {}); break;
-      case 'ProfessionalHelp': navigation.navigate('ProfessionalHelp'); break;
+      case 'ProfessionalHelp': navigateProfessionalSection(navigation, 'ProfessionalHelp'); break;
     }
     closeAfterNavigation();
   }, [closeAfterNavigation, navigation]);
@@ -224,11 +225,11 @@ export function ProfessionalTopBar({
                   onPress={() => {
                     if (isClients) {
                       trackCreateAction('patient');
-                      navigation.navigate('ProfessionalClients', { openCreatePatient: true });
+                      navigateProfessionalSection(navigation, 'ProfessionalClients', { openCreatePatient: true });
                       closeAfterNavigation();
                     } else if (isSessions) {
                       trackCreateAction('session');
-                      navigation.navigate('ProfessionalSessions', { openCreateSession: true });
+                      navigateProfessionalSection(navigation, 'ProfessionalSessions', { openCreateSession: true });
                       closeAfterNavigation();
                     } else {
                       trackCreateAction('invoice');
@@ -271,8 +272,8 @@ export function ProfessionalTopBar({
           {openMenu === 'create' ? (
             <Popover align="right" width={250} trailingControls={2}>
               <PopoverHeading title="Crear" subtitle="Empieza desde cualquier pantalla" />
-              <MenuRow icon="calendar-outline" title="Nueva cita" onPress={() => { trackCreateAction('session'); navigation.navigate('ProfessionalSessions', { openCreateSession: true }); closeAfterNavigation(); }} />
-              <MenuRow icon="person-add-outline" title="Nuevo paciente" onPress={() => { trackCreateAction('patient'); navigation.navigate('ProfessionalClients', { openCreatePatient: true }); closeAfterNavigation(); }} />
+              <MenuRow icon="calendar-outline" title="Nueva cita" onPress={() => { trackCreateAction('session'); navigateProfessionalSection(navigation, 'ProfessionalSessions', { openCreateSession: true }); closeAfterNavigation(); }} />
+              <MenuRow icon="person-add-outline" title="Nuevo paciente" onPress={() => { trackCreateAction('patient'); navigateProfessionalSection(navigation, 'ProfessionalClients', { openCreatePatient: true }); closeAfterNavigation(); }} />
               <MenuRow icon="receipt-outline" title="Nueva factura" onPress={() => { trackCreateAction('invoice'); navigateSimple('CreateInvoice'); }} />
             </Popover>
           ) : null}
@@ -315,7 +316,7 @@ export function ProfessionalTopBar({
                 <MenuRow icon="shield-checkmark-outline" title={`${actionableProfileItems.length} pasos de activación`} subtitle="Completar perfil profesional" onPress={() => { trackAttentionAction('profile'); navigateSimple('ProfessionalProfile'); }} tone="warning" />
               ) : null}
               {unreadSupport > 0 ? (
-                <MenuRow icon="chatbubble-ellipses-outline" title={unreadSupport === 1 ? '1 respuesta nueva de soporte' : `${unreadSupport} respuestas nuevas de soporte`} onPress={() => { trackAttentionAction('support'); navigation.navigate('ProfessionalHelp', { section: 'help' }); closeAfterNavigation(); }} />
+                <MenuRow icon="chatbubble-ellipses-outline" title={unreadSupport === 1 ? '1 respuesta nueva de soporte' : `${unreadSupport} respuestas nuevas de soporte`} onPress={() => { trackAttentionAction('support'); navigateProfessionalSection(navigation, 'ProfessionalHelp', { section: 'help' }); closeAfterNavigation(); }} />
               ) : null}
             </Popover>
           ) : null}

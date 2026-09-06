@@ -1,3 +1,4 @@
+import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -73,7 +74,7 @@ export function ProfessionalClinicPatientDetailScreen(): React.ReactElement {
   useEffect(() => { void load(); }, [load]);
 
   const backToPatients = (): void => {
-    navigation.navigate('ProfessionalClinicWorkspace', { clinicId, section: 'patients' });
+    navigateProfessionalSection(navigation, 'ProfessionalClinicWorkspace', { clinicId, section: 'patients' });
   };
 
   return (
@@ -129,7 +130,7 @@ export function ProfessionalClinicPatientDetailScreen(): React.ReactElement {
                 {sessions.map((session) => (
                   <AnimatedPressable
                     key={session.id}
-                    onPress={() => navigation.navigate('ProfessionalClinicWorkspace', { clinicId, section: 'agenda', focusId: session.id })}
+                    onPress={() => navigateProfessionalSection(navigation, 'ProfessionalClinicWorkspace', { clinicId, section: 'agenda', focusId: session.id })}
                     style={styles.sessionItem}
                     accessibilityRole="button"
                     accessibilityLabel={`Abrir cita del ${formatDateTime(session.schedule.startsAt)}`}

@@ -1,3 +1,4 @@
+import { isProfessionalSection, navigateProfessionalSection } from '../../navigation/professionalNavigation';
 /**
  * CustomDrawerContent
  *
@@ -16,7 +17,7 @@
 
 import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { NavigationProp, ParamListBase, useNavigation } from '@react-navigation/native';
+import { CommonActions, NavigationProp, ParamListBase, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useClinicWorkspace } from '../../screens/clinic/useClinicWorkspace';
 import { Sidebar } from './sidebar';
@@ -125,14 +126,22 @@ export function CustomDrawerContent({
   // Navigation handler - delegates to React Navigation
   const handleNavigate = useCallback(
     (route: string) => {
-      navigation.navigate(route);
+      if (isProfessionalSection(route)) {
+        navigateProfessionalSection(navigation, route);
+      } else {
+        navigation.navigate(route);
+      }
       void Promise.resolve(onNavigateComplete?.()).catch(() => undefined);
     },
     [navigation, onNavigateComplete]
   );
 
   const handleNoticeNavigate = useCallback((notice: SidebarNotice) => {
-    navigation.navigate(notice.target.route, notice.target.params);
+    navigation.dispatch(CommonActions.navigate({
+      name: notice.target.route,
+      params: notice.target.params,
+      pop: isProfessionalSection(notice.target.route),
+    }));
     void Promise.resolve(onNavigateComplete?.()).catch(() => undefined);
   }, [navigation, onNavigateComplete]);
 

@@ -1,3 +1,4 @@
+import { resetGeneralRateLimit } from './generalRateLimit';
 const DEFAULT_CACHE_TTL_MS = 5000;
 const MAX_RESPONSE_CACHE_ENTRIES = 100;
 
@@ -8,6 +9,7 @@ interface CacheEntry<T> {
 
 interface CachedGetOptions {
   ttlMs?: number;
+  force?: boolean;
   scope?: string;
 }
 
@@ -59,17 +61,18 @@ export const clearRequestCache = (): void => {
  * not call this function.
  */
 export const rotateRequestCacheScope = (): void => {
+  resetGeneralRateLimit();
   authenticationScopeGeneration += 1;
   clearRequestCache();
 };
 
 export const invalidateRequestCache = (
   cacheKey: string,
-  options: Pick<CachedGetOptions, 'scope'> = {},
+  options: Pick<CachedGetOptions, 'scope'> & { preserveInFlight?: boolean } = {},
 ): void => {
   const scopedKey = getScopedCacheKey(cacheKey, options.scope);
   responseCache.delete(scopedKey);
-  inFlightRequests.delete(scopedKey);
+  if (!options.preserveInFlight) inFlightRequests.delete(scopedKey);
   scopedKeyGenerations.set(scopedKey, (scopedKeyGenerations.get(scopedKey) ?? 0) + 1);
 };
 
@@ -94,7 +97,7 @@ export const cachedGet = async <T>(
 
   const cached = responseCache.get(scopedKey);
 
-  if (cached && cached.expiresAt > now) {
+  if (!options.force && cached && cached.expiresAt > now) {
     return cached.data as T;
   }
 

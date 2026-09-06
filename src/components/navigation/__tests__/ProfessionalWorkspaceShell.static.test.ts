@@ -20,7 +20,11 @@ describe('professional workspace shell hardening', () => {
 
   it('keeps the 1040 professional breakpoint without changing other roles', () => {
     expect(mainLayout).toContain('isLargeScreenForRole(windowWidth, isProfessional)');
-    expect(mainLayout).toContain('<ProfessionalWorkspaceProvider key={user?.id');
+    expect(mainLayout).not.toContain('<ProfessionalWorkspaceProvider');
+    const rootNavigator = readSource('navigation', 'RootNavigator.tsx');
+    expect(rootNavigator.match(/<ProfessionalWorkspaceProvider /g)).toHaveLength(1);
+    expect(rootNavigator.match(/<ProfessionalClinicWorkspaceProvider>/g)).toHaveLength(1);
+    expect(rootNavigator).toContain('<ProfessionalWorkspaceProvider key={user?.id');
   });
 
   it('uses one provider instead of duplicate home and support requests', () => {

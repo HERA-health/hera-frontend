@@ -1,3 +1,4 @@
+import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
@@ -335,6 +336,8 @@ export function DashboardScreen() {
       setLoading(false);
     }
   }, []);
+
+  useFocusedRateLimitRecovery(() => { void loadData(); });
 
   useFocusEffect(
     useCallback(() => {

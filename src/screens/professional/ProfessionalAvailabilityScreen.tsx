@@ -1,5 +1,8 @@
+import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
+import { useFocusEffect } from '@react-navigation/native';
+import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
 import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -440,7 +443,10 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   const canAddExceptionRange = exceptionRangeDraft.canSubmit && !savingExceptionRange;
 
   useEffect(() => { analyticsService.trackScreen('availability'); }, []);
-  useEffect(() => { void loadData(); }, [loadData]);
+  const hasChangesRef = useRef(hasChanges);
+  hasChangesRef.current = hasChanges;
+  useFocusEffect(useCallback(() => { if (!hasChangesRef.current) void loadData(); }, [loadData]));
+  useFocusedRateLimitRecovery(() => { if (!hasChanges) void loadData(); });
   useProfessionalTourAutoStart(
     'professional_availability_v1',
     !loading && !loadError && !showExceptionModal && !showPreviewModal && !isAppAlertVisible,
@@ -847,7 +853,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
             <Button
               variant="secondary"
               size="small"
-              onPress={() => navigation.navigate('ProfessionalBilling')}
+              onPress={() => navigateProfessionalSection(navigation, 'ProfessionalBilling')}
             >
               Facturación
             </Button>

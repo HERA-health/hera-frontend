@@ -192,3 +192,12 @@ describe('ProfessionalContactWorkspace thread safety', () => {
     });
   });
 });
+
+
+jest.mock('@react-navigation/native', () => {
+  const ReactModule = jest.requireActual<typeof React>('react');
+  return {
+    useIsFocused: () => true,
+    useFocusEffect: (effect: () => void | (() => void)) => ReactModule.useEffect(effect, [effect]),
+  };
+});

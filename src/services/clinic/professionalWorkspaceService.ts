@@ -264,12 +264,11 @@ export const getProfessionalClinicContexts = async (
 ): Promise<ProfessionalClinicContext[]> => {
   const cacheKey = 'contexts';
   const scope = scopeFor(userId);
-  if (force) invalidateRequestCache(cacheKey, { scope });
   try {
     return await cachedGet(cacheKey, async () => {
       const response = await api.get('/clinics/specialist/me');
       return parse(apiEnvelope(z.array(contextSchema)), response.data).data;
-    }, { scope, ttlMs: 30_000 });
+    }, { scope, ttlMs: 30_000, force });
   } catch (error: unknown) {
     throw new Error(messageFor(error, 'No se pudieron cargar tus clínicas.'));
   }
@@ -281,12 +280,11 @@ export const getProfessionalClinicAccess = async (
 ): Promise<ProfessionalClinicAccess> => {
   const cacheKey = 'access';
   const scope = scopeFor(userId);
-  if (force) invalidateRequestCache(cacheKey, { scope });
   try {
     return await cachedGet(cacheKey, async () => {
       const response = await api.get('/clinics/specialist/access');
       return parseEnvelopeData(accessSchema, response.data);
-    }, { scope, ttlMs: 30_000 });
+    }, { scope, ttlMs: 30_000, force });
   } catch (error: unknown) {
     throw new Error(messageFor(error, 'No se pudo comprobar tu acceso a clínicas.'));
   }

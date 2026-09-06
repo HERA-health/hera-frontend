@@ -488,6 +488,7 @@ const fetchLegalStatusWithRetry = async (): Promise<LegalAcceptanceStatus> => {
 };
 
 export function RootNavigator() {
+  const [professionalRoute, setProfessionalRoute] = useState<string>('ProfessionalHome');
   const pendingPinReset = useSyncExternalStore(subscribeClinicalPinReset, hasPendingClinicalPinReset, () => false);
   const {
     isAuthenticated,
@@ -847,8 +848,13 @@ export function RootNavigator() {
   }
 
   if (isProfessional) {
+    const { ProfessionalWorkspaceProvider } = require('../contexts/ProfessionalWorkspaceContext') as typeof import('../contexts/ProfessionalWorkspaceContext');
+    const { ProfessionalClinicWorkspaceProvider } = require('../contexts/ProfessionalClinicWorkspaceContext') as typeof import('../contexts/ProfessionalClinicWorkspaceContext');
     return (
+      <ProfessionalWorkspaceProvider key={user?.id} currentRoute={professionalRoute}>
+      <ProfessionalClinicWorkspaceProvider>
       <Stack.Navigator
+        screenListeners={({ route }) => ({ focus: () => setProfessionalRoute(route.name) })}
         screenOptions={{
           headerShown: false,
         }}
@@ -1037,6 +1043,8 @@ export function RootNavigator() {
           {!pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}
         </Stack.Group>
       </Stack.Navigator>
+      </ProfessionalClinicWorkspaceProvider>
+      </ProfessionalWorkspaceProvider>
     );
   }
 

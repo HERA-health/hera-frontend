@@ -1,3 +1,5 @@
+import { useFocusEffect } from '@react-navigation/native';
+import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -316,6 +318,16 @@ export function ProfessionalContactWorkspace({
       setRefreshing(false);
     }
   }, [loadFeedbackList, loadHelpList, section, selectedHelp?.id]);
+
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+  const hasFocused = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (!hasFocused.current) { hasFocused.current = true; return; }
+    void refreshRef.current();
+  }, []));
+  useFocusedRateLimitRecovery(() => { void refreshRef.current(); });
+
 
   const changeSection = (nextSection: ContactSection) => {
     dismissedInitialRequestIdRef.current = selectedHelp?.id ?? initialRequestId ?? null;

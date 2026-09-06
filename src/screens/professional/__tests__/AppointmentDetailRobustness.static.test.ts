@@ -97,7 +97,7 @@ describe('appointment detail robustness contracts', () => {
   });
 
   it('opens clinic appointments inside Mi clínica instead of a private detail sheet', () => {
-    expect(professionalClinicPatientSource).toContain("navigation.navigate('ProfessionalClinicWorkspace', { clinicId, section: 'agenda', focusId: session.id })");
+    expect(professionalClinicPatientSource).toContain("navigateProfessionalSection(navigation, 'ProfessionalClinicWorkspace', { clinicId, section: 'agenda', focusId: session.id })");
     expect(professionalClinicPatientSource).not.toContain('AppointmentDetailSheet');
     expect(professionalClinicPatientSource).not.toContain('openSessionDetail');
   });

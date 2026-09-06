@@ -6,6 +6,7 @@ import { useProfessionalAgendaController } from '../useProfessionalAgendaControl
 jest.mock('@react-navigation/native', () => {
   const ReactModule = jest.requireActual<typeof React>('react');
   return {
+    useIsFocused: () => true,
     useFocusEffect: (effect: () => void | (() => void)) => ReactModule.useEffect(effect, [effect]),
   };
 });
@@ -84,6 +85,73 @@ describe('useProfessionalAgendaController', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it.each([true, false])('reuses a pending date after navigating away and back (first resolves first: %s)', async (firstResolvesFirst) => {
+    const first = createDeferred<professionalService.ProfessionalAgendaResponse>();
+    const second = createDeferred<professionalService.ProfessionalAgendaResponse>();
+    getProfessionalAgendaMock.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const { result, unmount } = renderHook(() => useProfessionalAgendaController());
+    act(() => result.current.navigateDate(1));
+    act(() => result.current.navigateDate(-1));
+    if (firstResolvesFirst) {
+      await act(async () => first.resolve(createAgendaResponse('first')));
+      await act(async () => second.resolve(createAgendaResponse('second')));
+    } else {
+      await act(async () => second.resolve(createAgendaResponse('second')));
+      await act(async () => first.resolve(createAgendaResponse('first')));
+    }
+    expect(getProfessionalAgendaMock).toHaveBeenCalledTimes(2);
+    expect(result.current.sessions.map(item => item.id)).toEqual(['first']);
+    expect(result.current.refreshing).toBe(false);
+    expect(result.current.initialLoading).toBe(false);
+    unmount();
+  });
+
+  it('shows the error of a rejoined date and allows retrying it', async () => {
+    const first = createDeferred<professionalService.ProfessionalAgendaResponse>();
+    const second = createDeferred<professionalService.ProfessionalAgendaResponse>();
+    getProfessionalAgendaMock.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+      .mockResolvedValueOnce(createAgendaResponse('retried'));
+    const { result, unmount } = renderHook(() => useProfessionalAgendaController());
+    act(() => result.current.navigateDate(1));
+    act(() => result.current.navigateDate(-1));
+    await act(async () => first.reject(new Error('Sin conexión')));
+    await act(async () => second.resolve(createAgendaResponse('second')));
+    expect(result.current.loadError).toBe(true);
+    expect(result.current.refreshing).toBe(false);
+    await act(async () => { await result.current.refreshAgenda(); });
+    expect(result.current.sessions[0]?.id).toBe('retried');
+    expect(result.current.loadError).toBe(false);
+    unmount();
+  });
+
+  it('does not confuse request identities after rejoining an earlier date', async () => {
+    const first = createDeferred<professionalService.ProfessionalAgendaResponse>();
+    const second = createDeferred<professionalService.ProfessionalAgendaResponse>();
+    const third = createDeferred<professionalService.ProfessionalAgendaResponse>();
+    getProfessionalAgendaMock.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise).mockReturnValueOnce(third.promise);
+    const { result, unmount } = renderHook(() => useProfessionalAgendaController());
+    act(() => result.current.navigateDate(1));
+    act(() => result.current.navigateDate(-1));
+    act(() => result.current.navigateDate(2));
+    await act(async () => third.resolve(createAgendaResponse('third')));
+    await act(async () => second.reject(new Error('Old failure')));
+    await act(async () => first.resolve(createAgendaResponse('first')));
+    expect(result.current.sessions[0]?.id).toBe('third');
+    expect(result.current.loadError).toBe(false);
+    expect(result.current.refreshing).toBe(false);
+    unmount();
+  });
+
+  it('does not run a queued mutation refresh after unmounting', async () => {
+    const pending = createDeferred<professionalService.ProfessionalAgendaResponse>();
+    getProfessionalAgendaMock.mockReturnValueOnce(pending.promise);
+    const { result, unmount } = renderHook(() => useProfessionalAgendaController());
+    await act(async () => { await result.current.refreshAfterMutation(); });
+    unmount();
+    await act(async () => pending.resolve(createAgendaResponse('old-session')));
+    expect(getProfessionalAgendaMock).toHaveBeenCalledTimes(1);
   });
 
   it('uses the full loading state only before the first successful response', async () => {
@@ -332,6 +400,18 @@ describe('useProfessionalAgendaController', () => {
 
     act(() => result.current.navigateDate(-12));
     await waitFor(() => expect(getProfessionalAgendaMock).toHaveBeenCalledTimes(14));
+    unmount();
+  });
+
+  it('queues one refresh when a mutation invalidates an in-flight agenda request', async () => {
+    const pending = createDeferred<professionalService.ProfessionalAgendaResponse>();
+    getProfessionalAgendaMock.mockReturnValueOnce(pending.promise).mockResolvedValueOnce(createAgendaResponse('updated'));
+    const { result, unmount } = renderHook(() => useProfessionalAgendaController());
+    act(() => { void result.current.refreshAfterMutation(); void result.current.refreshAfterMutation(); });
+    expect(getProfessionalAgendaMock).toHaveBeenCalledTimes(1);
+    await act(async () => pending.resolve(createAgendaResponse('obsolete')));
+    await waitFor(() => expect(result.current.sessions[0]?.id).toBe('updated'));
+    expect(getProfessionalAgendaMock).toHaveBeenCalledTimes(2);
     unmount();
   });
 });

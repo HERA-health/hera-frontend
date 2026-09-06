@@ -1,3 +1,4 @@
+import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -592,7 +593,7 @@ export function ProfessionalClinicWorkspaceScreen({ navigation, route }: Props):
         <Ionicons name="lock-closed-outline" size={32} color={theme.textMuted} />
         <Text style={[stylesForTheme.accessTitle, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>Ya no tienes acceso a esta clínica</Text>
         <Text style={[stylesForTheme.accessText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>El enlace no ha cambiado tu clínica seleccionada.</Text>
-        <Button onPress={() => navigation.navigate('ProfessionalHome')}>Volver al inicio profesional</Button>
+        <Button onPress={() => navigateProfessionalSection(navigation, 'ProfessionalHome')}>Volver al inicio profesional</Button>
       </View>
     );
   }
@@ -619,7 +620,7 @@ export function ProfessionalClinicWorkspaceScreen({ navigation, route }: Props):
         <Ionicons name="business-outline" size={34} color={theme.textMuted} />
         <Text style={[stylesForTheme.accessTitle, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>Mi clínica aún no está disponible</Text>
         <Text style={[stylesForTheme.accessText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Aparecerá cuando formes parte del equipo asistencial de una clínica.</Text>
-        <Button variant="outline" onPress={() => navigation.navigate('ProfessionalHome')}>Volver a consulta privada</Button>
+        <Button variant="outline" onPress={() => navigateProfessionalSection(navigation, 'ProfessionalHome')}>Volver a consulta privada</Button>
       </View>
     );
   }
@@ -648,7 +649,7 @@ export function ProfessionalClinicWorkspaceScreen({ navigation, route }: Props):
             presentation="portal"
           /> : null}
           {context.capabilities.administration.canOpenAdminWorkspace ? <Button size="small" variant="outline" onPress={() => navigation.navigate('ClinicDashboard')}>Administrar esta clínica</Button> : null}
-          <Button size="small" variant="ghost" onPress={() => navigation.navigate('ProfessionalHome')}>Consulta privada</Button>
+          <Button size="small" variant="ghost" onPress={() => navigateProfessionalSection(navigation, 'ProfessionalHome')}>Consulta privada</Button>
         </View>
       </View>
 

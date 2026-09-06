@@ -1,3 +1,4 @@
+import { useRateLimitRecovery } from '../hooks/useGeneralRateLimit';
 import React, {
   createContext,
   type ReactNode,
@@ -91,6 +92,10 @@ export function ProfileCompletionProvider({ children }: { children: ReactNode })
     requestInFlightRef.current = request;
     return request;
   }, [clinicScopeId, isAuthenticated, userType]);
+
+  useRateLimitRecovery(isAuthenticated && userType !== 'client', () => {
+    if (!requestInFlightRef.current) void refresh();
+  });
 
   const setClinicScope = useCallback((clinicId: string | null): void => {
     setClinicScopeId((current) => current === clinicId ? current : clinicId);

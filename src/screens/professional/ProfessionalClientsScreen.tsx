@@ -1,3 +1,5 @@
+import { useGeneralRateLimit, useRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
+import { rateLimitMessage } from '../../services/generalRateLimit';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,7 +14,7 @@ import {
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { z } from 'zod';
 import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/common/alert';
@@ -159,6 +161,12 @@ function MetricCard({
 }
 
 export function ProfessionalClientsScreen() {
+  const retryAt = useGeneralRateLimit();
+  const isFocused = useIsFocused();
+  const clientsRequestSequence = useRef(0);
+  const clientsInFlight = useRef<string | null>(null);
+  const clientsMutationPending = useRef(false);
+  const loadClientsRef = useRef<(afterMutation?: boolean) => Promise<void>>(async () => undefined);
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<AppRouteProp<'ProfessionalClients'>>();
   const appAlert = useAppAlert();
@@ -170,6 +178,7 @@ export function ProfessionalClientsScreen() {
   const isTablet = width >= 768 && width < 1180;
   const isMobile = width < 768;
 
+  const [clientsDataKey, setClientsDataKey] = useState('');
   const [clients, setClients] = useState<professionalService.Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -206,18 +215,36 @@ export function ProfessionalClientsScreen() {
       ? formErrors.email
       : undefined;
 
-  const loadClients = useCallback(async () => {
+  const loadClients = useCallback(async (afterMutation = false) => {
+    const key = JSON.stringify([sourceFilter, lifecycleFilter]);
+    if (clientsInFlight.current === key) {
+      if (afterMutation) clientsMutationPending.current = true;
+      return;
+    }
+    const sequence = ++clientsRequestSequence.current;
+    clientsInFlight.current = key;
     try {
       setLoading(true);
       setError(null);
       const data = await professionalService.getProfessionalClients(sourceFilter, lifecycleFilter);
+      if (sequence !== clientsRequestSequence.current || clientsMutationPending.current) return;
+      setClientsDataKey(key);
       setClients(data);
     } catch (loadError: unknown) {
-      setError(getErrorMessage(loadError, 'No se pudo cargar tu base de pacientes'));
+      if (sequence === clientsRequestSequence.current) setError(getErrorMessage(loadError, 'No se pudo cargar tu base de pacientes'));
     } finally {
-      setLoading(false);
+      if (sequence === clientsRequestSequence.current) {
+        clientsInFlight.current = null;
+        if (clientsMutationPending.current) {
+          clientsMutationPending.current = false;
+          void loadClientsRef.current();
+        } else {
+          setLoading(false);
+        }
+      }
     }
   }, [lifecycleFilter, sourceFilter]);
+  loadClientsRef.current = loadClients;
 
   const loadClinicalAccessStatus = useCallback(async (sessionToken?: string | null) => {
     try {
@@ -241,23 +268,34 @@ export function ProfessionalClientsScreen() {
     }
   }, [syncClinicalAccessToken]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     void loadClients();
-  }, [loadClients]);
+    return () => {
+      clientsRequestSequence.current += 1;
+      clientsInFlight.current = null;
+      clientsMutationPending.current = false;
+    };
+  }, [loadClients]));
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     void loadClinicalAccessStatus();
-  }, [loadClinicalAccessStatus]);
+  }, [loadClinicalAccessStatus]));
+
+  useRateLimitRecovery(isFocused, () => {
+    void loadClients();
+    void loadClinicalAccessStatus();
+  }, { reloadsOnFocus: true });
 
   useProfessionalTourAutoStart(
     'professional_clients_v1',
     !loading && !error && !modalVisible && !sessionModalVisible && !isAppAlertVisible,
   );
 
+  const hasCurrentClientsData = clientsDataKey === JSON.stringify([sourceFilter, lifecycleFilter]);
   const filteredClients = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    return clients.filter((client) => {
+    return (hasCurrentClientsData ? clients : []).filter((client) => {
       if (!query) {
         return true;
       }
@@ -273,7 +311,7 @@ export function ProfessionalClientsScreen() {
 
       return haystacks.some((value) => value.includes(query));
     });
-  }, [clients, searchQuery]);
+  }, [clients, hasCurrentClientsData, searchQuery]);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -544,6 +582,7 @@ export function ProfessionalClientsScreen() {
         result.client,
         ...current.filter((client) => client.id !== result.client.id),
       ]);
+      void loadClientsRef.current(true);
       setModalVisible(false);
       resetForm();
 
@@ -620,7 +659,7 @@ export function ProfessionalClientsScreen() {
       setSessionModalVisible(false);
       setSelectedSessionClient(null);
       showAppAlert(appAlert, 'Cita creada', 'La cita se ha programado correctamente.');
-      await loadClients();
+      await loadClientsRef.current(true);
     } catch (createError: unknown) {
       if (professionalService.isManagedSessionBufferConflictError(createError)) {
         throw createError;
@@ -844,12 +883,12 @@ export function ProfessionalClientsScreen() {
           </Card>
         </TourTarget>
 
-        {error ? (
+        {error || retryAt ? (
           <Card variant="outlined" padding="large" style={stylesForTheme.errorCard}>
             <View style={stylesForTheme.errorRow}>
               <Ionicons name="alert-circle-outline" size={20} color={theme.warning} />
               <Text style={[stylesForTheme.errorText, { color: theme.textSecondary }]}>
-                {error}
+                {retryAt ? rateLimitMessage(retryAt) : error}
               </Text>
             </View>
           </Card>
@@ -867,6 +906,11 @@ export function ProfessionalClientsScreen() {
                 Cargando pacientes...
               </Text>
             </View>
+          ) : error && (!hasCurrentClientsData || clients.length === 0) ? (
+            <Card variant="outlined" padding="large">
+              <Text style={{ color: theme.textPrimary }}>No pudimos cargar los pacientes</Text>
+              <Button disabled={retryAt > 0} onPress={() => { void loadClients(); void loadClinicalAccessStatus(); }}>Reintentar</Button>
+            </Card>
           ) : filteredClients.length === 0 ? (
             <Card variant="outlined" padding="large" style={stylesForTheme.emptyCard}>
                 <Ionicons name="people-outline" size={28} color={theme.textMuted} />

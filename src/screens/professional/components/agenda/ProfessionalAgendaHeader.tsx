@@ -11,6 +11,7 @@ import { formatSessionTimeRange } from './professionalAgendaUtils';
 
 interface ProfessionalAgendaHeaderProps {
   summary: AgendaSummary;
+  summaryAvailable?: boolean;
   nextSession: ProfessionalSession | null;
   autoConfirmSessionRequests: boolean | null;
   loadingClients: boolean;
@@ -21,6 +22,7 @@ interface ProfessionalAgendaHeaderProps {
 
 export function ProfessionalAgendaHeader({
   summary,
+  summaryAvailable = true,
   nextSession,
   autoConfirmSessionRequests,
   loadingClients,
@@ -49,13 +51,13 @@ export function ProfessionalAgendaHeader({
   return (
     <View style={styles.container}>
       <View style={styles.identityRow}>
-        <Text style={styles.summary} accessibilityLabel={`${summary.today} hoy, ${summary.week} esta semana, ${summary.pending} pendientes`}>
+        {summaryAvailable ? <Text style={styles.summary} accessibilityLabel={`${summary.today} hoy, ${summary.week} esta semana, ${summary.pending} pendientes`}>
           <Text style={styles.summaryStrong}>{summary.today}</Text> hoy
           <Text style={styles.summaryDivider}> · </Text>
           <Text style={styles.summaryStrong}>{summary.week}</Text> semana
           <Text style={styles.summaryDivider}> · </Text>
           <Text style={[styles.summaryStrong, { color: theme.warningAmber }]}>{summary.pending}</Text> pendientes
-        </Text>
+        </Text> : <Text style={styles.summary}>Resumen no disponible</Text>}
       </View>
 
       <View style={styles.contextActions}>

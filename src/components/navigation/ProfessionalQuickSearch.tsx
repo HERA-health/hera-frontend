@@ -1,3 +1,4 @@
+import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -150,12 +151,12 @@ export function ProfessionalQuickSearch({
       properties: { category: 'navigation' },
     });
     switch (route) {
-      case 'ProfessionalHome': navigation.navigate('ProfessionalHome'); break;
-      case 'ProfessionalSessions': navigation.navigate('ProfessionalSessions'); break;
-      case 'ProfessionalClients': navigation.navigate('ProfessionalClients'); break;
-      case 'ProfessionalBilling': navigation.navigate('ProfessionalBilling'); break;
-      case 'ProfessionalDashboard': navigation.navigate('ProfessionalDashboard'); break;
-      case 'ProfessionalAvailability': navigation.navigate('ProfessionalAvailability'); break;
+      case 'ProfessionalHome': navigateProfessionalSection(navigation, 'ProfessionalHome'); break;
+      case 'ProfessionalSessions': navigateProfessionalSection(navigation, 'ProfessionalSessions'); break;
+      case 'ProfessionalClients': navigateProfessionalSection(navigation, 'ProfessionalClients'); break;
+      case 'ProfessionalBilling': navigateProfessionalSection(navigation, 'ProfessionalBilling'); break;
+      case 'ProfessionalDashboard': navigateProfessionalSection(navigation, 'ProfessionalDashboard'); break;
+      case 'ProfessionalAvailability': navigateProfessionalSection(navigation, 'ProfessionalAvailability'); break;
     }
     completeNavigation();
   };

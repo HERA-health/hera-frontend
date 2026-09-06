@@ -1,3 +1,5 @@
+import { useRateLimitRecovery } from '../hooks/useGeneralRateLimit';
+import { isGeneralRateLimited, getGeneralRateLimitRetryAt, rateLimitMessage } from '../services/generalRateLimit';
 import React, {
   createContext,
   type ReactNode,
@@ -85,6 +87,11 @@ export function ProfessionalWorkspaceProvider({
     force = false,
     queueIfInFlight = true,
   ): Promise<void> => {
+    if (isGeneralRateLimited()) {
+      setHomeError(rateLimitMessage(getGeneralRateLimitRetryAt()));
+      setHomeStatus(homeDataRef.current ? 'stale' : 'error');
+      return Promise.resolve();
+    }
     if (homeInFlightRef.current) {
       if (force && queueIfInFlight) homeRefreshRequiredRef.current = true;
       return homeInFlightRef.current;
@@ -123,6 +130,11 @@ export function ProfessionalWorkspaceProvider({
   }, []);
 
   const refreshSupport = useCallback((queueIfInFlight = true): Promise<void> => {
+    if (isGeneralRateLimited()) {
+      setSupportError(rateLimitMessage(getGeneralRateLimitRetryAt()));
+      setSupportStatus(supportHasDataRef.current ? 'stale' : 'error');
+      return Promise.resolve();
+    }
     if (supportInFlightRef.current) {
       if (queueIfInFlight) supportRefreshRequiredRef.current = true;
       return supportInFlightRef.current;
@@ -160,6 +172,11 @@ export function ProfessionalWorkspaceProvider({
     return request;
   }, []);
 
+  useRateLimitRecovery(true, () => {
+    void refreshHome(true, false);
+    void refreshSupport(false);
+  });
+
   const refreshAttention = useCallback(async (): Promise<void> => {
     const now = Date.now();
     const refreshes: Promise<void>[] = [];
@@ -185,12 +202,12 @@ export function ProfessionalWorkspaceProvider({
   }, [refreshHome, refreshSupport]);
 
   useEffect(() => {
-    if (currentRoute !== HOME_ROUTE || !isWorkspaceActive()) {
+    if (currentRoute !== HOME_ROUTE) {
       return undefined;
     }
 
     const interval = setInterval(() => {
-      if (isWorkspaceActive()) {
+      if (isWorkspaceActive() && !isGeneralRateLimited()) {
         void refreshHome(true, false);
         void refreshSupport(false);
       }

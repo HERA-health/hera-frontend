@@ -1,3 +1,4 @@
+import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
@@ -323,7 +324,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
       return;
     }
 
-    navigation.navigate('ProfessionalBilling');
+    navigateProfessionalSection(navigation, 'ProfessionalBilling');
   }, [navigation, returnToClientId, sessionContext]);
 
   const invoiceNumberForKind = useCallback(
@@ -750,7 +751,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
               });
               return;
             }
-            navigation.navigate('ProfessionalBilling');
+            navigateProfessionalSection(navigation, 'ProfessionalBilling');
           }}
           hoverLift={false}
           pressScale={0.98}
@@ -1124,7 +1125,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
         <Text style={styles.ivaNote}>{STRINGS.simplifiedLimitNote}</Text>
       ) : null}
       <AnimatedPressable
-        onPress={() => navigation.navigate('ProfessionalBilling')}
+        onPress={() => navigateProfessionalSection(navigation, 'ProfessionalBilling')}
         hoverLift={false}
         pressScale={0.98}
       >

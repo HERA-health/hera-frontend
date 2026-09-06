@@ -137,7 +137,7 @@ export const subscribeProfessionalHomeChanges = (
 };
 
 export const notifyProfessionalHomeChanged = (): void => {
-  invalidateRequestCache(PROFESSIONAL_HOME_CACHE_KEY);
+  invalidateRequestCache(PROFESSIONAL_HOME_CACHE_KEY, { preserveInFlight: true });
   professionalHomeChangeListeners.forEach((listener) => listener());
 };
 
@@ -155,14 +155,10 @@ export const dashboardService = {
     }
   },
   async getProfessionalHome(options?: { force?: boolean }): Promise<ProfessionalHomeData> {
-    if (options?.force) {
-      invalidateRequestCache(PROFESSIONAL_HOME_CACHE_KEY);
-    }
-
     return cachedGet(
       PROFESSIONAL_HOME_CACHE_KEY,
       loadProfessionalHome,
-      { ttlMs: PROFESSIONAL_HOME_CACHE_MS },
+      { ttlMs: PROFESSIONAL_HOME_CACHE_MS, force: options?.force },
     ).catch((error: unknown) => {
         if (error instanceof z.ZodError) {
           throw new Error('No se pudo cargar el inicio profesional');

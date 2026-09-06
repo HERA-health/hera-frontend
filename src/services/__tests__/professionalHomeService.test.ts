@@ -4,6 +4,7 @@ jest.mock('../api', () => ({
 
 import { api } from '../api';
 import { dashboardService } from '../dashboardService';
+import { getSpecialistContactSummary } from '../specialistContactService';
 import { professionalSearchService } from '../professionalSearchService';
 
 const mockedApi = api as jest.Mocked<typeof api>;
@@ -40,6 +41,22 @@ describe('professional home and patient search contracts', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     dashboardService.clearProfessionalHomeCache();
+  });
+
+  it('coalesces 31 simultaneous forced Home refreshes into one HTTP request', async () => {
+    mockedApi.get.mockResolvedValue({ data: { success: true, data: homePayload } });
+    const results = await Promise.all(Array.from({ length: 31 }, () => dashboardService.getProfessionalHome({ force: true })));
+    expect(results).toHaveLength(31);
+    expect(mockedApi.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('coalesces concurrent support reads without caching a stale summary', async () => {
+    mockedApi.get.mockResolvedValue({ data: { data: { unreadHelpRequests: 1 } } });
+    await Promise.all(Array.from({ length: 31 }, () => getSpecialistContactSummary()));
+    expect(mockedApi.get).toHaveBeenCalledTimes(1);
+    mockedApi.get.mockResolvedValue({ data: { data: { unreadHelpRequests: 2 } } });
+    await expect(getSpecialistContactSummary()).resolves.toEqual({ unreadHelpRequests: 2 });
+    expect(mockedApi.get).toHaveBeenCalledTimes(2);
   });
 
   it('validates and caches the minimal professional home DTO', async () => {

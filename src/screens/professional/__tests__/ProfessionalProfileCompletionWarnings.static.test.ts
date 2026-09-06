@@ -33,7 +33,7 @@ describe('professional profile completion warnings', () => {
   });
 
   it('opens the fiscal billing editor directly from the billing summary CTA', () => {
-    expect(source).toContain("navigation.navigate('ProfessionalBilling', { initialSection: 'fiscal' })");
+    expect(source).toContain("navigateProfessionalSection(navigation, 'ProfessionalBilling', { initialSection: 'fiscal' })");
   });
 
   it('uses action-specific alert titles instead of a generic Error heading', () => {

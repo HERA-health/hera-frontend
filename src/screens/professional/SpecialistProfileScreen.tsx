@@ -1,3 +1,5 @@
+import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
+import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
 import { AccountSettingsCard } from '../../components/professional/AccountSettingsCard';
 import { ClinicalPinManager } from '../../components/professional/ClinicalPinManager';
 /**
@@ -867,6 +869,13 @@ export function SpecialistProfileScreen() {
     }
   }, []);
 
+  useFocusedRateLimitRecovery(() => {
+    if (!hasChanges) {
+      void loadProfile();
+      void loadBillingConfig();
+    }
+  });
+
   // Reload both profile data and verification status on every screen focus
   useFocusEffect(
     useCallback(() => {
@@ -1110,7 +1119,7 @@ export function SpecialistProfileScreen() {
   }, [shareProfileUrl]);
 
   const handleOpenBilling = useCallback(() => {
-    navigation.navigate('ProfessionalBilling', { initialSection: 'fiscal' });
+    navigateProfessionalSection(navigation, 'ProfessionalBilling', { initialSection: 'fiscal' });
   }, [navigation]);
 
   const resetCertificateDraft = useCallback(() => {
@@ -1513,7 +1522,7 @@ export function SpecialistProfileScreen() {
                       showAppAlert(appAlert, 'Tienes cambios sin guardar', 'Guarda los cambios del perfil antes de ir a configurar el precio.');
                       return;
                     }
-                    navigation.navigate('ProfessionalBilling');
+                    navigateProfessionalSection(navigation, 'ProfessionalBilling');
                   } else {
                     setActiveTab(action);
                     formScrollRef.current?.scrollTo({ y: 0, animated: true });
