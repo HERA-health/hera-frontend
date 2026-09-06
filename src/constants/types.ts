@@ -139,6 +139,7 @@ export type RootStackParamList = {
   ForgotPassword: undefined;
   EmailSentPasswordReset: { email: string };
   ResetPassword: { token: string };
+  ClinicalPinReset: undefined;
   ProfessionalVerification: undefined;
   MainStack: undefined;
   Home: undefined;

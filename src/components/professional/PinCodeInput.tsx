@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
   NativeSyntheticEvent,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -22,8 +23,10 @@ interface PinCodeInputProps {
   error?: boolean;
 }
 
-const sanitizeDigits = (value: string, length: number): string =>
-  value.replace(/\D/g, '').slice(0, length);
+const sanitizeDigits = (value: string, length: number): string | null => {
+  const compact = value.replace(/\s/g, '');
+  return /^\d*$/.test(compact) ? compact.slice(0, length) : null;
+};
 
 export function PinCodeInput({
   value,
@@ -49,7 +52,8 @@ export function PinCodeInput({
   };
 
   const handleChange = (nextValue: string) => {
-    onChange(sanitizeDigits(nextValue, length));
+    const digits = sanitizeDigits(nextValue, length);
+    if (digits !== null) onChange(digits);
   };
 
   const handleKeyPress = (
@@ -65,13 +69,14 @@ export function PinCodeInput({
   return (
     <AnimatedPressable
       onPress={focusInput}
+      accessibilityLabel={`Introducir ${label || 'PIN clínico'}`}
       hoverLift={false}
       pressScale={0.995}
       style={styles.wrapper}
     >
       {label ? <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text> : null}
 
-      <View style={styles.row}>
+      <View style={styles.row} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         {digits.map((digit, index) => {
           const filled = digit.length > 0;
           const highlighted = isFocused && index === activeIndex;
@@ -110,6 +115,15 @@ export function PinCodeInput({
       </View>
 
       <TextInput
+        accessibilityLabel={label || 'PIN clínico'}
+        accessibilityHint={hint}
+        // The web input is invisible; the cells above render the mask. A password
+        // input here invites browser password autofill even with autocomplete off.
+        secureTextEntry={Platform.OS !== 'web' && masked}
+        autoComplete="off"
+        textContentType="none"
+        autoCorrect={false}
+        importantForAutofill="no"
         ref={inputRef}
         value={value}
         onChangeText={handleChange}
@@ -146,7 +160,7 @@ const styles = StyleSheet.create({
   },
   cell: {
     flex: 1,
-    minWidth: 38,
+    minWidth: 30,
     maxWidth: 54,
     aspectRatio: 1,
     borderRadius: borderRadius.lg,

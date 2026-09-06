@@ -1,3 +1,5 @@
+import { AccountSettingsCard } from '../../components/professional/AccountSettingsCard';
+import { ClinicalPinManager } from '../../components/professional/ClinicalPinManager';
 /**
  * SpecialistProfileScreen - Professional Profile Management
  *
@@ -3290,11 +3292,11 @@ export function SpecialistProfileScreen() {
   // ============================================================================
 
   const renderAccountTab = () => (
-    <View style={styles.tabContent}>
+    <View style={[styles.tabContent, styles.accountGrid]}>
+      <View style={styles.accountColumn}><ClinicalPinManager /></View>
       {/* Account Information */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Información de cuenta</Text>
-        <View style={styles.formCard}>
+      <View style={styles.accountColumn}>
+        <AccountSettingsCard title="Información de cuenta">
           {renderFormField(
             'Email de acceso',
             profileData.email,
@@ -3315,7 +3317,7 @@ export function SpecialistProfileScreen() {
               verified: profileData.phoneVerified,
             }
           )}
-        </View>
+        </AccountSettingsCard>
       </View>
     </View>
   );
@@ -4125,6 +4127,8 @@ function createStyles(
   },
 
   // ===== SECTIONS =====
+  accountGrid: { flexDirection: isDesktop ? 'row' : 'column', alignItems: 'stretch', gap: spacing.lg },
+  accountColumn: { flex: isDesktop ? 1 : undefined, minWidth: 0 },
   section: {
     marginBottom: isMobile ? spacing.md : spacing.lg,
   },

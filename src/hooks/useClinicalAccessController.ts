@@ -1,3 +1,4 @@
+import { subscribeToClinicalPinChange } from '../services/clinicalPinService';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 import * as clinicalService from '../services/clinicalService';
@@ -85,6 +86,10 @@ export function useClinicalAccessController({
     },
     [onAccessLost, syncToken]
   );
+
+  useEffect(() => subscribeToClinicalPinChange(() => {
+    void clearAccessState('El PIN clínico ha cambiado. Vuelve a desbloquear el área clínica.');
+  }), [clearAccessState]);
 
   const refreshStatus = useCallback(
     async (sessionToken?: string | null) => {

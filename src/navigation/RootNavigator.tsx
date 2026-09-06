@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { hasPendingClinicalPinReset, subscribeClinicalPinReset } from '../services/clinicalPinResetIntent';
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   createNativeStackNavigator,
@@ -113,6 +114,10 @@ const EmailSentPasswordResetRoute = createDeferredRoute<'EmailSentPasswordReset'
     displayName: 'EmailSentPasswordResetRoute',
     exportName: 'EmailSentPasswordResetScreen',
   }
+);
+const ClinicalPinResetRoute = createDeferredRoute<'ClinicalPinReset'>(
+  () => require('../screens/clinical/ClinicalPinResetScreen'),
+  { displayName: 'ClinicalPinResetRoute', exportName: 'ClinicalPinResetScreen' }
 );
 const ResetPasswordRoute = createDeferredRoute<'ResetPassword'>(
   () => require('../screens/auth/ResetPasswordScreen'),
@@ -483,6 +488,7 @@ const fetchLegalStatusWithRetry = async (): Promise<LegalAcceptanceStatus> => {
 };
 
 export function RootNavigator() {
+  const pendingPinReset = useSyncExternalStore(subscribeClinicalPinReset, hasPendingClinicalPinReset, () => false);
   const {
     isAuthenticated,
     isInitialized,
@@ -562,6 +568,7 @@ export function RootNavigator() {
         screenOptions={{ headerShown: false }}
       >
         <Stack.Group navigationKey="guest">
+          {pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}
           <Stack.Screen name="Landing" component={LandingPage} />
           <Stack.Screen
             name="ProfessionalShowcase"
@@ -620,6 +627,7 @@ export function RootNavigator() {
             component={LegalDocumentScreen}
             options={{ headerShown: false }}
           />
+          {!pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}
         </Stack.Group>
       </Stack.Navigator>
     );
@@ -687,6 +695,7 @@ export function RootNavigator() {
         screenOptions={{ headerShown: false }}
       >
         <Stack.Group navigationKey="clinic">
+          {pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}
           <Stack.Screen
             name="ClinicDashboard"
             component={ClinicDashboardRoute}
@@ -761,6 +770,7 @@ export function RootNavigator() {
             component={LegalDocumentScreen}
             options={{ headerShown: false }}
           />
+          {!pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}
         </Stack.Group>
       </Stack.Navigator>
     );
@@ -844,6 +854,7 @@ export function RootNavigator() {
         }}
       >
         <Stack.Group navigationKey="professional">
+          {pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}
           <Stack.Screen
             name="ProfessionalHome"
             component={ProfessionalHomeRoute}
@@ -1023,6 +1034,7 @@ export function RootNavigator() {
             component={LegalDocumentScreen}
             options={{ headerShown: false }}
           />
+          {!pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}
         </Stack.Group>
       </Stack.Navigator>
     );
@@ -1035,6 +1047,7 @@ export function RootNavigator() {
       }}
     >
       <Stack.Group navigationKey="client">
+        {pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}
         <Stack.Screen
           name="Home"
           component={ClientHomeRoute}
@@ -1156,6 +1169,7 @@ export function RootNavigator() {
           component={LegalDocumentScreen}
           options={{ headerShown: false }}
         />
+        {!pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}
       </Stack.Group>
     </Stack.Navigator>
   );

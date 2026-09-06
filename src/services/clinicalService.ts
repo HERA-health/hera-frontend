@@ -1,4 +1,5 @@
 import { api } from './api';
+import { ClinicalPinError } from './clinicalPinService';
 import axios from 'axios';
 import { getErrorCode, getErrorMessage } from '../constants/errors';
 import { buildMultipartFormData, type UploadAsset } from '../utils/multipartUpload';
@@ -319,7 +320,7 @@ export const setupClinicalPin = async (pin: string): Promise<void> => {
   try {
     await api.post('/clinical/access/pin/setup', { pin });
   } catch (error: unknown) {
-    throw new Error(getErrorMessage(error, 'No se pudo configurar el PIN clínico'));
+    throw new ClinicalPinError(getErrorMessage(error, 'No se pudo configurar el PIN clínico'), getErrorCode(error));
   }
 };
 
@@ -327,7 +328,7 @@ export const rotateClinicalPin = async (currentPin: string, nextPin: string): Pr
   try {
     await api.post('/clinical/access/pin/rotate', { currentPin, nextPin });
   } catch (error: unknown) {
-    throw new Error(getErrorMessage(error, 'No se pudo actualizar el PIN clínico'));
+    throw new ClinicalPinError(getErrorMessage(error, 'No se pudo actualizar el PIN clínico'), getErrorCode(error));
   }
 };
 

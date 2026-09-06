@@ -1,3 +1,4 @@
+import { captureClinicalPinResetUrl } from './src/services/clinicalPinResetIntent';
 /**
  * HERA App — Main entry point
  * Sets up navigation, providers, fonts, and theming.
@@ -52,6 +53,14 @@ const prefix = Linking.createURL('/');
 
 export const linking: LinkingOptions<RootStackParamList> = {
   prefixes: [prefix, 'hera://'],
+  getInitialURL: async () => captureClinicalPinResetUrl(await Linking.getInitialURL()),
+  subscribe: (listener) => {
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      const cleanUrl = captureClinicalPinResetUrl(url);
+      if (cleanUrl) listener(cleanUrl);
+    });
+    return () => subscription.remove();
+  },
   config: {
       screens: {
       EmailVerification: {
@@ -89,6 +98,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
           documentKey: (documentKey) => LEGAL_DOCUMENT_SLUGS[documentKey as LegalDocumentKey],
         },
       },
+      ClinicalPinReset: 'clinical-pin/reset',
       ResetPassword: {
         path: 'reset',
         parse: {

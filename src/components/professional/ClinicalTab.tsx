@@ -1,3 +1,4 @@
+import { ClinicalPinManager } from './ClinicalPinManager';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -856,13 +857,14 @@ export function ClinicalTab({
                 onChange={setPin}
                 masked={!showPin}
                 label="PIN clínico"
-                hint="Solo tú puedes abrir este expediente"
+                hint="Introduce tu PIN clínico de 6 dígitos para abrir el expediente."
               />
 
               <View style={styles.stateActions}>
                 <Button variant="ghost" size="small" onPress={() => setShowPin((current) => !current)}>
                   {showPin ? 'Ocultar PIN' : 'Mostrar PIN'}
                 </Button>
+                <ClinicalPinManager compact clientId={clientId} />
                 <Button
                   variant="primary"
                   size="small"
