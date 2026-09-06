@@ -906,41 +906,6 @@ export function ClientProfileScreen() {
           setContentHeight(height);
         }}
       >
-      <View style={[styles.topBar, isMobile && styles.topBarMobile]}>
-        <AnimatedPressable
-          onPress={() => navigation.goBack()}
-          hoverLift={false}
-          pressScale={0.97}
-          style={[styles.backButton, { backgroundColor: theme.bgCard, borderColor: theme.border }]}
-        >
-          <Ionicons name="arrow-back" size={18} color={theme.textSecondary} />
-        </AnimatedPressable>
-
-        {isClientArchived ? (
-          <View style={[styles.topBarBadges, isMobile && styles.topBarBadgesMobile]}>
-            <View
-              style={[
-                styles.topBadge,
-                isMobile && styles.topBadgeMobile,
-                { backgroundColor: theme.warningBg },
-              ]}
-            >
-              <Text
-                style={[
-                  textStyles.caption,
-                  styles.topBadgeText,
-                  isMobile && styles.topBadgeTextMobile,
-                  labelStyle,
-                  { color: theme.warning },
-                ]}
-              >
-                Archivado
-              </Text>
-            </View>
-          </View>
-        ) : null}
-      </View>
-
        <TourTarget id="professional.client-profile.hero" fill style={styles.fullWidthTourTarget}>
         <Card variant="default" padding="none" style={styles.heroCard}>
          <View style={[styles.heroSurface, isMobile && styles.heroSurfaceMobile, { backgroundColor: heroSurface[0] }]}>
@@ -952,9 +917,19 @@ export function ClientProfileScreen() {
                 isMobile && styles.heroIdentityMobile,
               ]}
             >
+              <AnimatedPressable
+                onPress={() => navigation.goBack()}
+                accessibilityLabel="Volver"
+                hoverLift={false}
+                pressScale={0.97}
+                style={[styles.backButton, { backgroundColor: theme.bgCard, borderColor: theme.border }]}
+              >
+                <Ionicons name="arrow-back" size={18} color={theme.textSecondary} />
+              </AnimatedPressable>
               <View
                 style={[
                   styles.avatarShell,
+                  isMobile && styles.avatarShellMobile,
                   { backgroundColor: theme.bgCard, borderColor: theme.border },
                 ]}
               >
@@ -966,7 +941,16 @@ export function ClientProfileScreen() {
               </View>
 
                 <View style={[styles.heroCopy, isMobile && styles.heroCopyMobile]}>
-                  <Text style={[textStyles.eyebrow, labelStyle, { color: theme.textMuted }]}>Ficha del paciente</Text>
+                  <View style={styles.heroLabelRow}>
+                    <Text style={[textStyles.eyebrow, labelStyle, { color: theme.textMuted }]}>Ficha del paciente</Text>
+                    {isClientArchived ? (
+                      <View style={[styles.topBadge, { backgroundColor: theme.warningBg }]}>
+                        <Text style={[textStyles.caption, styles.topBadgeText, labelStyle, { color: theme.warning }]}>
+                          Archivado
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
                   <Text style={[textStyles.title, { color: theme.textPrimary }, displayTitleStyle]}>
                     {client.displayName || client.user.name}
                   </Text>
@@ -1423,34 +1407,8 @@ const styles = StyleSheet.create({
   fullWidthTourTarget: {
     width: '100%',
   },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.md,
-    flexWrap: 'wrap',
-  },
-  topBarMobile: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
-    gap: spacing.sm,
-    paddingLeft: layout.mobileShellCompactLeftInset,
-  },
-  topBarBadges: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  topBarBadgesMobile: {
-    width: '100%',
-    flex: 0,
-    flexDirection: 'column',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-start',
-    minWidth: 0,
-    gap: spacing.xs,
-  },
   backButton: {
+    flexShrink: 0,
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -1463,20 +1421,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 8,
   },
-  topBadgeMobile: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 9,
-  },
   topBadgeText: {
     fontWeight: '700',
     fontFamily: lightTheme.fontSansBold,
-  },
-  topBadgeTextMobile: {
-    fontSize: 12,
-    lineHeight: 15,
-    fontFamily: lightTheme.fontSansBold,
-    letterSpacing: 0.2,
   },
   heroCard: {
     overflow: 'hidden',
@@ -1522,6 +1469,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
+  avatarShellMobile: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+  },
   avatarImage: {
     width: '100%',
     height: '100%',
@@ -1531,6 +1483,12 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     fontWeight: '700',
     fontFamily: lightTheme.fontHeading,
+  },
+  heroLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
   heroCopy: {
     flex: 1,

@@ -21,7 +21,7 @@ import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { TourTarget } from '../../components/onboarding/TourTarget';
 import { useProfessionalTourAutoStart } from '../../components/onboarding/professionalTourContext';
 import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
-import { borderRadius, layout, shadows, spacing, typography } from '../../constants/colors';
+import { borderRadius, shadows, spacing, typography } from '../../constants/colors';
 import type { AppRouteProp, RootStackParamList } from '../../constants/types';
 import type { Theme } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -288,10 +288,10 @@ export function ProfessionalClientsScreen() {
   };
 
   useEffect(() => {
-    if (!route.params?.openCreatePatient) return;
+    if (!route.params?.openCreatePatient || dpaStatusLoading || dpaSubmitting) return;
     navigation.setParams({ openCreatePatient: undefined });
-    openManagedClientForm();
-  }, [navigation, route.params?.openCreatePatient]);
+    openManagedClientModal();
+  }, [navigation, route.params?.openCreatePatient, dpaStatusLoading, dpaSubmitting]);
 
   const updateFormField = <K extends keyof ManagedClientForm>(field: K, value: ManagedClientForm[K]) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -800,37 +800,13 @@ export function ProfessionalClientsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[stylesForTheme.hero, isMobile ? stylesForTheme.heroMobile : null]}>
-          <View style={[stylesForTheme.heroTextBlock, isMobile ? stylesForTheme.heroMobileTextBlock : null]}>
-            <Text style={[stylesForTheme.title, { color: theme.textPrimary }]}>Mis pacientes</Text>
-          </View>
-
-          <TourTarget
-            id="professional.clients.new-patient"
-            fill
-            style={isMobile ? stylesForTheme.fullWidthTourTarget : undefined}
-          >
-            <Button
-              variant="primary"
-              size="large"
-              onPress={openManagedClientModal}
-              icon={<Ionicons name="add" size={18} color={theme.actionPrimaryText} />}
-              fullWidth={isMobile}
-              disabled={dpaSubmitting}
-              loading={dpaSubmitting}
-            >
-              Nuevo paciente
-            </Button>
-          </TourTarget>
-        </View>
-
         <TourTarget
           id="professional.clients.filters"
           fill
           style={[stylesForTheme.fullWidthTourTarget, stylesForTheme.filtersTourTarget]}
         >
-          <Card variant="default" padding="large" style={stylesForTheme.toolbarCard}>
-          <View style={stylesForTheme.searchRow}>
+          <Card variant="default" padding="medium" style={[stylesForTheme.toolbarCard, ...(isDesktop ? [stylesForTheme.toolbarCardDesktop] : [])]}>
+          <View style={[stylesForTheme.searchRow, isDesktop && stylesForTheme.searchRowDesktop]}>
             <View style={[stylesForTheme.searchField, { borderColor: theme.border, backgroundColor: theme.bgMuted }]}>
               <Ionicons name="search-outline" size={18} color={theme.textMuted} />
               <TextInput
@@ -844,7 +820,7 @@ export function ProfessionalClientsScreen() {
           </View>
 
           <View style={stylesForTheme.filtersBar}>
-            <View style={stylesForTheme.filterDropdown}>
+            <View style={[stylesForTheme.filterDropdown, isDesktop && stylesForTheme.filterDropdownDesktop]}>
               <Text style={[stylesForTheme.contextLabel, { color: theme.textSecondary }]}>Origen</Text>
               <SimpleDropdown
                 options={FILTERS}
@@ -854,7 +830,7 @@ export function ProfessionalClientsScreen() {
                 maxHeight={180}
               />
             </View>
-            <View style={stylesForTheme.filterDropdown}>
+            <View style={[stylesForTheme.filterDropdown, isDesktop && stylesForTheme.filterDropdownDesktop]}>
               <Text style={[stylesForTheme.contextLabel, { color: theme.textSecondary }]}>Estado</Text>
               <SimpleDropdown
                 options={LIFECYCLE_FILTERS}
@@ -1352,35 +1328,15 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       paddingHorizontal: spacing.md,
       paddingTop: spacing.md,
     },
-    hero: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      gap: spacing.lg,
-      alignItems: 'flex-end',
-      flexWrap: 'wrap',
-    },
-    heroMobile: {
-      paddingLeft: layout.mobileShellCompactLeftInset,
-      alignItems: 'stretch',
-      gap: spacing.md,
-    },
-    heroTextBlock: {
-      flex: 1,
-      minWidth: 280,
-    },
-    heroMobileTextBlock: {
-      minWidth: 0,
-    },
-    title: {
-      ...textStyles.h1,
-      fontWeight: '700',
-      fontFamily: theme.fontHeading,
-    },
     toolbarCard: {
       gap: spacing.md,
       overflow: 'visible',
       position: 'relative',
       zIndex: 40,
+    },
+    toolbarCardDesktop: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
     },
     contextLabel: {
       ...textStyles.caption,
@@ -1399,7 +1355,11 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       position: 'relative',
       zIndex: 1,
     },
+    searchRowDesktop: {
+      flex: 1,
+    },
     searchRow: {
+      minWidth: 0,
       flexDirection: 'row',
       gap: spacing.md,
       flexWrap: 'wrap',
@@ -1413,7 +1373,7 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       flexDirection: 'row',
       gap: spacing.sm,
       flex: 1,
-      minWidth: 260,
+      minWidth: 0,
     },
     searchInput: {
       flex: 1,
@@ -1436,6 +1396,10 @@ const createStyles = (theme: Theme, isDark: boolean) =>
       gap: 6,
       position: 'relative',
       zIndex: 60,
+    },
+    filterDropdownDesktop: {
+      width: 180,
+      minWidth: 0,
     },
     errorCard: {
       borderColor: theme.warning + '35',

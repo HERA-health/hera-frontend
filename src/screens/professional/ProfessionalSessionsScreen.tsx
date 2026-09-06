@@ -429,9 +429,9 @@ export function ProfessionalSessionsScreen() {
   useEffect(() => {
     if (route.params?.openCreateSession) {
       navigation.setParams({ openCreateSession: undefined });
-      void openManagedSessionScheduler();
+      if (!loadingSchedulableClients) void openManagedSessionScheduler();
     }
-  }, [navigation, openManagedSessionScheduler, route.params?.openCreateSession]);
+  }, [navigation, openManagedSessionScheduler, route.params?.openCreateSession, loadingSchedulableClients]);
 
   useEffect(() => {
     const sessionId = route.params?.focusSessionId;
@@ -998,7 +998,6 @@ export function ProfessionalSessionsScreen() {
         isMobile={isMobile}
         onConfigureAgenda={handleConfigureAgenda}
         onJumpToNextSession={jumpToNextSession}
-        onCreateSession={() => { void openManagedSessionScheduler(); }}
       />
       <ProfessionalAgendaToolbar
         viewMode={viewMode}

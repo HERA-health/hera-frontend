@@ -9,7 +9,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { BarChart, PieChart } from 'react-native-gifted-charts';
 import type { barDataItem } from 'react-native-gifted-charts';
-import { colors, spacing, borderRadius, typography, shadows, layout } from '../../constants/colors';
+import { colors, spacing, borderRadius, typography, shadows } from '../../constants/colors';
 import { Theme } from '../../constants/theme';
 import { AnimatedPressable } from '../../components/common';
 import { useAppAlertState } from '../../components/common/alert';
@@ -30,7 +30,6 @@ import type { ProfessionalTourTargetId } from '../../components/onboarding/profe
 // ============================================================================
 
 const STRINGS = {
-  title: 'Dashboard',
   incomeLabel: 'Cobrado este mes',
   sessionsLabel: 'Sesiones este mes',
   patientsLabel: 'Pacientes activos',
@@ -513,11 +512,6 @@ export function DashboardScreen() {
   // ── Render ─────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      {/* Header — same pattern as BillingScreen */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{STRINGS.title}</Text>
-      </View>
-
       <ScrollView
         ref={dashboardTourScroll.scrollRef}
         style={styles.screen}
@@ -680,24 +674,6 @@ function createStyles(theme: Theme, isDark: boolean, isCompactMobile: boolean, i
   container: {
     flex: 1,
     backgroundColor: theme.bg,
-  },
-  header: {
-    backgroundColor: theme.bgCard,
-    paddingHorizontal: spacing.lg,
-    paddingLeft: isMobileShell ? layout.mobileShellLeftInset : spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-    flexDirection: 'row',
-    justifyContent: isMobileShell ? 'flex-start' : 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: isCompactMobile ? typography.fontSizes.xxl : typography.fontSizes.xxxl,
-    color: theme.textPrimary,
-    fontFamily: theme.fontSansBold,
-    textAlign: isMobileShell ? 'left' : 'center',
   },
   screen: {
     flex: 1,

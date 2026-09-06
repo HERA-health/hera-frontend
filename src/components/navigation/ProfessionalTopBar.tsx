@@ -51,6 +51,14 @@ export function ProfessionalTopBar({
   const isDesktop = width >= 1040;
   const isCompact = !isDesktop;
   const isBilling = currentRoute === 'ProfessionalBilling';
+  const isClients = currentRoute === 'ProfessionalClients';
+  const isSessions = currentRoute === 'ProfessionalSessions';
+  const hasPrimaryCreateAction = isBilling || isClients || isSessions;
+  const primaryCreateLabel = isClients ? 'Nuevo paciente' : isSessions ? 'Nueva cita' : 'Nueva factura';
+  const primaryCreateTarget = isClients
+    ? 'professional.clients.new-patient'
+    : isSessions ? 'professional.sessions.new-session' : 'professional.billing.new-invoice';
+  const primaryCreateIcon = isClients ? 'person-add-outline' : isSessions ? 'calendar-outline' : 'receipt-outline';
   const navigation = useNavigation<AppNavigationProp>();
   const { theme, mode, setMode } = useTheme();
   const { user, logout } = useAuth();
@@ -209,10 +217,23 @@ export function ProfessionalTopBar({
       <View ref={actionsRef} style={styles.actions}>
         <View style={styles.menuAnchor}>
           <View style={styles.createActions}>
-            {isBilling ? (
-              <TourTarget id="professional.billing.new-invoice">
+            {hasPrimaryCreateAction ? (
+              <TourTarget id={primaryCreateTarget}>
                 <AnimatedPressable
-                  onPress={() => { trackCreateAction('invoice'); navigateSimple('CreateInvoice'); }}
+                  onPress={() => {
+                    if (isClients) {
+                      trackCreateAction('patient');
+                      navigation.navigate('ProfessionalClients', { openCreatePatient: true });
+                      closeAfterNavigation();
+                    } else if (isSessions) {
+                      trackCreateAction('session');
+                      navigation.navigate('ProfessionalSessions', { openCreateSession: true });
+                      closeAfterNavigation();
+                    } else {
+                      trackCreateAction('invoice');
+                      navigateSimple('CreateInvoice');
+                    }
+                  }}
                   style={[
                     styles.createButton,
                     isCompact ? styles.createButtonCompact : null,
@@ -221,10 +242,10 @@ export function ProfessionalTopBar({
                   ]}
                   hoverLift={false}
                   pressScale={0.96}
-                  accessibilityLabel="Nueva factura"
+                  accessibilityLabel={primaryCreateLabel}
                 >
-                  <Ionicons name={isCompact ? 'receipt-outline' : 'add'} size={20} color={theme.actionPrimaryText} />
-                  {!isCompact ? <Text style={[styles.createText, { color: theme.actionPrimaryText, fontFamily: theme.fontSansSemiBold }]}>Nueva factura</Text> : null}
+                  <Ionicons name={isCompact ? primaryCreateIcon : 'add'} size={20} color={theme.actionPrimaryText} />
+                  {!isCompact ? <Text style={[styles.createText, { color: theme.actionPrimaryText, fontFamily: theme.fontSansSemiBold }]}>{primaryCreateLabel}</Text> : null}
                 </AnimatedPressable>
               </TourTarget>
             ) : null}
@@ -233,16 +254,16 @@ export function ProfessionalTopBar({
               style={[
                 styles.createButton,
                 isCompact ? styles.createButtonCompact : null,
-                isBilling ? styles.createDropdown : null,
+                hasPrimaryCreateAction ? styles.createDropdown : null,
                 { backgroundColor: theme.actionPrimary },
               ]}
               hoverLift={false}
               pressScale={0.96}
-              accessibilityLabel={isBilling ? 'Más opciones de creación' : 'Crear'}
+              accessibilityLabel={hasPrimaryCreateAction ? 'Más opciones de creación' : 'Crear'}
               accessibilityState={{ expanded: openMenu === 'create' }}
             >
-              <Ionicons name={isBilling ? 'chevron-down' : 'add'} size={isBilling ? 16 : 20} color={theme.actionPrimaryText} />
-              {!isCompact && !isBilling ? <Text style={[styles.createText, { color: theme.actionPrimaryText, fontFamily: theme.fontSansSemiBold }]}>Crear</Text> : null}
+              <Ionicons name={hasPrimaryCreateAction ? 'chevron-down' : 'add'} size={hasPrimaryCreateAction ? 16 : 20} color={theme.actionPrimaryText} />
+              {!isCompact && !hasPrimaryCreateAction ? <Text style={[styles.createText, { color: theme.actionPrimaryText, fontFamily: theme.fontSansSemiBold }]}>Crear</Text> : null}
             </AnimatedPressable>
           </View>
           {openMenu === 'create' ? (

@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { AnimatedPressable, Button } from '../../../../components/common';
-import { TourTarget } from '../../../../components/onboarding/TourTarget';
+import { AnimatedPressable } from '../../../../components/common';
 import { borderRadius, layout, spacing, typography } from '../../../../constants/colors';
 import type { Theme } from '../../../../constants/theme';
 import type { ProfessionalSession } from '../../../../constants/types';
@@ -18,7 +17,6 @@ interface ProfessionalAgendaHeaderProps {
   isMobile: boolean;
   onConfigureAgenda: () => void;
   onJumpToNextSession: () => void;
-  onCreateSession: () => void;
 }
 
 export function ProfessionalAgendaHeader({
@@ -29,7 +27,6 @@ export function ProfessionalAgendaHeader({
   isMobile,
   onConfigureAgenda,
   onJumpToNextSession,
-  onCreateSession,
 }: ProfessionalAgendaHeaderProps): React.ReactElement {
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme, isMobile), [isMobile, theme]);
@@ -52,7 +49,6 @@ export function ProfessionalAgendaHeader({
   return (
     <View style={styles.container}>
       <View style={styles.identityRow}>
-        <Text style={styles.title}>Agenda</Text>
         <Text style={styles.summary} accessibilityLabel={`${summary.today} hoy, ${summary.week} esta semana, ${summary.pending} pendientes`}>
           <Text style={styles.summaryStrong}>{summary.today}</Text> hoy
           <Text style={styles.summaryDivider}> · </Text>
@@ -98,18 +94,12 @@ export function ProfessionalAgendaHeader({
           <Ionicons name="settings-outline" size={13} color={theme.textMuted} />
         </AnimatedPressable>
 
-        <TourTarget id="professional.sessions.new-session" fill style={styles.createTarget}>
-          <Button
-            variant="primary"
-            size="small"
-            onPress={onCreateSession}
-            loading={loadingClients}
-            fullWidth={isMobile}
-            icon={<Ionicons name="calendar-outline" size={16} color={theme.textOnPrimary} />}
-          >
-            Nueva cita
-          </Button>
-        </TourTarget>
+        {loadingClients ? (
+          <View style={styles.loadingState} accessibilityState={{ busy: true }} accessibilityLiveRegion="polite">
+            <ActivityIndicator size="small" color={theme.primary} />
+            <Text style={styles.summary}>Preparando cita…</Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -118,10 +108,9 @@ export function ProfessionalAgendaHeader({
 function createStyles(theme: Theme, isMobile: boolean) {
   return StyleSheet.create({
     container: {
-      minHeight: isMobile ? undefined : 52,
       paddingHorizontal: spacing.lg,
       paddingLeft: isMobile ? layout.mobileShellLeftInset : spacing.lg,
-      paddingVertical: isMobile ? spacing.sm : 7,
+      paddingVertical: isMobile ? spacing.sm : spacing.xs,
       backgroundColor: theme.bgAlt,
       borderBottomWidth: 1,
       borderBottomColor: theme.borderLight,
@@ -136,12 +125,6 @@ function createStyles(theme: Theme, isMobile: boolean) {
       alignItems: 'center',
       flexWrap: 'wrap',
       gap: spacing.md,
-    },
-    title: {
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansBold,
-      fontSize: isMobile ? 24 : 26,
-      lineHeight: isMobile ? 30 : 34,
     },
     summary: {
       color: theme.textMuted,
@@ -196,8 +179,10 @@ function createStyles(theme: Theme, isMobile: boolean) {
       fontFamily: theme.fontSansSemiBold,
       fontSize: typography.fontSizes.xs,
     },
-    createTarget: {
-      width: isMobile ? '100%' : undefined,
+    loadingState: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
     },
   });
 }
