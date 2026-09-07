@@ -26,6 +26,7 @@ import { NavigationControl } from './NavigationControl';
 
 const ROUTE_TITLES: Record<string, { title: string; eyebrow?: string }> = {
   ProfessionalHome: { title: 'Inicio' },
+  AdminPanel: { title: 'Panel de administrador' },
   ProfessionalClients: { title: 'Pacientes' },
   ClientProfile: { title: 'Ficha del paciente', eyebrow: 'Pacientes' },
   ProfessionalSessions: { title: 'Agenda' },

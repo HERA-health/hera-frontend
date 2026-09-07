@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { SimpleDropdown } from '../../components/common/SimpleDropdown';
+import { sortPendingSpecialists, type SubmissionOrder } from './pendingSpecialistOrder';
 import { AnimatedPressable, Button } from '../../components/common';
 import { spacing, borderRadius, typography, shadows } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
@@ -59,6 +61,11 @@ export function AdminPanelScreen() {
   const styles = useMemo(() => createStyles(theme, isDark, isDesktop), [theme, isDark, isDesktop]);
 
   const [specialists, setSpecialists] = useState<PendingSpecialist[]>([]);
+  const [submissionOrder, setSubmissionOrder] = useState<SubmissionOrder>('desc');
+  const sortedSpecialists = useMemo(
+    () => sortPendingSpecialists(specialists, submissionOrder),
+    [specialists, submissionOrder],
+  );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,9 +148,20 @@ export function AdminPanelScreen() {
               : `${specialists.length} solicitud${specialists.length !== 1 ? 'es' : ''} pendiente${specialists.length !== 1 ? 's' : ''}`}
           </Text>
         </View>
-        <View style={styles.summaryBadge}>
-          <Ionicons name="shield-checkmark-outline" size={16} color={theme.primary} />
-          <Text style={styles.summaryBadgeText}>Control manual</Text>
+        <View style={styles.sortControl}>
+          <Text style={styles.summaryLabel}>Fecha de envío</Text>
+          <SimpleDropdown<SubmissionOrder>
+            options={[
+              { value: 'desc', label: 'Más recientes primero' },
+              { value: 'asc', label: 'Más antiguas primero' },
+            ]}
+            value={submissionOrder}
+            onSelect={setSubmissionOrder}
+            accessibilityLabel="Ordenar solicitudes por fecha de envío"
+            presentation="portal"
+            selectionIndicator="radio"
+            compact
+          />
         </View>
       </View>
 
@@ -156,7 +174,7 @@ export function AdminPanelScreen() {
       )}
 
       <View style={styles.cardsContainer}>
-        {specialists.map((specialist) => (
+        {sortedSpecialists.map((specialist) => (
           <AnimatedPressable
             key={specialist.id}
             style={styles.card}
@@ -339,21 +357,10 @@ const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean) => Styl
     color: theme.textPrimary,
     fontWeight: typography.fontWeights.bold,
   },
-  summaryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  sortControl: {
+    minWidth: isDesktop ? 220 : undefined,
+    width: isDesktop ? undefined : '100%',
     gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 7,
-    borderRadius: borderRadius.full,
-    backgroundColor: theme.primaryAlpha12,
-    borderWidth: 1,
-    borderColor: theme.primaryAlpha20,
-  },
-  summaryBadgeText: {
-    fontSize: typography.fontSizes.xs,
-    color: theme.primary,
-    fontWeight: typography.fontWeights.semibold,
   },
   emptyContainer: {
     alignItems: 'center',

@@ -8,7 +8,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable } from '../../components/common';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
-import { spacing, borderRadius, typography, layout } from '../../constants/colors';
+import { spacing, typography, layout } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -72,8 +72,8 @@ export function AdminPanelTabbedScreen({
   const isDesktop = width >= 1024;
   const isMobileShell = width < 768;
   const styles = useMemo(
-    () => createStyles(theme, isDesktop, isMobileShell),
-    [theme, isDesktop, isMobileShell],
+    () => createStyles(theme, isDesktop),
+    [theme, isDesktop],
   );
   const [activeTab, setActiveTab] = useState<TabKey>(
     route.params?.initialTab ?? 'verifications'
@@ -124,17 +124,6 @@ export function AdminPanelTabbedScreen({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerEyebrow}>
-          <Ionicons name="business-outline" size={14} color={theme.primary} />
-          <Text style={styles.headerEyebrowText}>Panel interno</Text>
-        </View>
-        <Text style={styles.headerTitle}>Administración</Text>
-        <Text style={styles.headerSubtitle}>
-          Verificación, gestión de especialistas, clínicas y seguimiento operativo.
-        </Text>
-      </View>
-
       {isMobileShell ? (
         <View style={styles.mobileTabSelector}>
           <SimpleDropdown
@@ -205,7 +194,7 @@ export function AdminPanelTabbedScreen({
   );
 }
 
-const createStyles = (theme: Theme, isDesktop: boolean, isMobileShell: boolean) => StyleSheet.create({
+const createStyles = (theme: Theme, isDesktop: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     minHeight: 0,
@@ -242,52 +231,10 @@ const createStyles = (theme: Theme, isDesktop: boolean, isMobileShell: boolean) 
     textAlign: 'center',
     lineHeight: 20,
   },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingLeft: isMobileShell ? layout.mobileShellLeftInset : spacing.lg,
-    paddingTop: isDesktop ? spacing.xl : spacing.lg,
-    paddingBottom: spacing.md,
-    maxWidth: isDesktop ? 1180 : undefined,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  headerEyebrow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
-    backgroundColor: theme.primaryAlpha12,
-    borderWidth: 1,
-    borderColor: theme.primaryAlpha20,
-    marginBottom: spacing.sm,
-  },
-  headerEyebrowText: {
-    color: theme.primary,
-    fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.semibold,
-  },
-  headerTitle: {
-    fontSize: isDesktop ? typography.fontSizes.xxxl : typography.fontSizes.xxl,
-    fontWeight: typography.fontWeights.bold,
-    color: theme.textPrimary,
-    letterSpacing: 0,
-  },
-  headerSubtitle: {
-    marginTop: spacing.xs,
-    maxWidth: 620,
-    fontSize: typography.fontSizes.sm,
-    lineHeight: 21,
-    color: theme.textSecondary,
-  },
   tabBar: {
     flexDirection: 'row',
     gap: spacing.xl,
     paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
     maxWidth: isDesktop ? 1180 : undefined,
     alignSelf: 'center',
     width: '100%',
@@ -333,6 +280,7 @@ const createStyles = (theme: Theme, isDesktop: boolean, isMobileShell: boolean) 
     minHeight: 0,
   },
   mobileTabSelector: {
+    paddingTop: spacing.md,
     paddingHorizontal: layout.mobileShellLeftInset,
     paddingBottom: spacing.md,
   },

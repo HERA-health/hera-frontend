@@ -983,7 +983,7 @@ export function RootNavigator() {
           <Stack.Screen
             name="AdminPanel"
             component={AdminPanelRoute}
-            options={{ headerTitle: 'Panel de Admin' }}
+            options={{ headerTitle: 'Panel de administrador' }}
           />
           <Stack.Screen
             name="AdminSpecialistDetail"
@@ -1120,7 +1120,7 @@ export function RootNavigator() {
         <Stack.Screen
           name="AdminPanel"
           component={AdminPanelRoute}
-          options={{ headerTitle: 'Panel de Admin' }}
+          options={{ headerTitle: 'Panel de administrador' }}
         />
         <Stack.Screen
           name="AdminSpecialistDetail"
