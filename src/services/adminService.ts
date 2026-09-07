@@ -120,6 +120,12 @@ export interface SpecialistFullDetail {
     cancelled: number;
     upcoming: number;
   };
+  /** Unique linked patients, including historical sessions and closed records. */
+  patientStats?: {
+    hera: number;
+    managed: number;
+    total: number;
+  };
 }
 
 const openBlobDocument = async (blobData: BlobPart, mimeType: string): Promise<void> => {

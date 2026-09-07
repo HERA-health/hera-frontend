@@ -173,7 +173,8 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const { specialistId } = route.params;
   const isAdmin = user?.isAdmin ?? false;
-  const isTwoCol = windowWidth >= 768;
+  const [contentWidth, setContentWidth] = useState(windowWidth);
+  const isTwoCol = contentWidth >= 900;
   const isWide = windowWidth >= 1024;
   const styles = useMemo(() => createStyles(theme, isDark, isTwoCol, isWide), [theme, isDark, isTwoCol, isWide]);
 
@@ -223,8 +224,13 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
 
   const showSuccess = useCallback((msg: string) => {
     setSuccessMessage(msg);
-    setTimeout(() => setSuccessMessage(null), 3000);
   }, []);
+
+  useEffect(() => {
+    if (!successMessage) return;
+    const timer = setTimeout(() => setSuccessMessage(null), 3000);
+    return () => clearTimeout(timer);
+  }, [successMessage]);
 
   const handleOpenInsurance = useCallback(async () => {
     if (!specialist || openingDocumentKey === 'insurance') return;
@@ -259,15 +265,16 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
   }, [openingDocumentKey, specialist]);
 
   const handleReviewInsurance = useCallback(async (status: 'APPROVED' | 'REJECTED') => {
-    if (!specialist || !specialist.insuranceUploaded) return;
+    if (!specialist || !specialist.insuranceUploaded || processing || specialist.insuranceReviewStatus === status) return;
 
     const approving = status === 'APPROVED';
+    const revoking = specialist.insuranceReviewStatus === 'APPROVED' && !approving;
     const confirmed = await appAlert.confirm({
-      title: approving ? '¿Aprobar póliza?' : '¿Rechazar póliza?',
+      title: approving ? '¿Aprobar póliza?' : revoking ? '¿Revocar cobertura presencial?' : '¿Rechazar póliza?',
       message: approving
         ? 'La cobertura presencial quedará aprobada y el especialista podrá mostrar modalidad presencial cuando el resto de condiciones lo permita.'
-        : 'La cobertura presencial quedará rechazada y la ubicación presencial seguirá oculta al paciente.',
-      confirmLabel: approving ? 'Aprobar' : 'Rechazar',
+        : 'La cobertura presencial dejará de estar autorizada y la ubicación presencial quedará oculta al paciente.',
+      confirmLabel: approving ? 'Aprobar' : revoking ? 'Revocar' : 'Rechazar',
       cancelLabel: 'Cancelar',
       tone: approving ? 'success' : 'danger',
       destructive: !approving,
@@ -276,18 +283,18 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
 
     if (!confirmed) return;
 
-    setProcessingLabel(status === 'APPROVED' ? 'Aprobando póliza...' : 'Rechazando póliza...');
+    setProcessingLabel(approving ? 'Aprobando póliza...' : revoking ? 'Revocando cobertura...' : 'Rechazando póliza...');
     setProcessing(true);
     try {
       await adminService.reviewSpecialistInsuranceDocument(specialist.id, status);
-      await loadSpecialist();
-      showSuccess(`Póliza ${status === 'APPROVED' ? 'aprobada' : 'rechazada'} correctamente`);
+      setSpecialist(await adminService.getSpecialistDetail(specialist.id));
+      showSuccess(revoking ? 'Cobertura presencial revocada' : `Póliza ${approving ? 'aprobada' : 'rechazada'} correctamente`);
     } catch {
-      setError(`No se pudo ${status === 'APPROVED' ? 'aprobar' : 'rechazar'} la póliza.`);
+      setError('No se pudo completar o actualizar la revisión. Recarga la ficha para comprobar el estado antes de volver a intentarlo.');
     } finally {
       setProcessing(false);
     }
-  }, [appAlert, loadSpecialist, showSuccess, specialist]);
+  }, [appAlert, processing, showSuccess, specialist]);
 
   const handleSuspend = useCallback(async () => {
     if (!specialist || suspendReason.trim().length < 10) return;
@@ -439,20 +446,24 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
       <SpecialistAvatar
         name={specialist.user.name}
         avatarUrl={specialist.user.avatar}
-        size={isTwoCol ? 92 : 82}
+        size={isTwoCol ? 128 : 80}
         styles={styles}
         theme={theme}
       />
-      <Text style={styles.headerName}>{specialist.user.name}</Text>
-      <Text style={styles.headerEmail}>{specialist.user.email}</Text>
-      {specialist.user.phone ? <Text style={styles.headerPhone}>{specialist.user.phone}</Text> : null}
-      <View style={styles.badgeRow}>
-        <StatusBadge tone={verificationBadge} styles={styles} />
-        <StatusBadge tone={accountBadge} styles={styles} />
+      <View style={styles.headerIdentity}>
+        <Text style={styles.headerName}>{specialist.user.name}</Text>
+        <Text style={styles.headerEmail}>{specialist.user.email}</Text>
+        {specialist.user.phone ? <Text style={styles.headerPhone}>{specialist.user.phone}</Text> : null}
       </View>
-      <Text style={styles.headerJoinDate}>
-        Miembro desde: {formatDate(specialist.user.createdAt)}
-      </Text>
+      <View style={styles.headerStatus}>
+        <View style={styles.badgeRow}>
+          <StatusBadge tone={verificationBadge} styles={styles} />
+          <StatusBadge tone={accountBadge} styles={styles} />
+        </View>
+        <Text style={styles.headerJoinDate}>
+          Miembro desde: {formatDate(specialist.user.createdAt)}
+        </Text>
+      </View>
     </View>
   );
 
@@ -494,11 +505,44 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
     </>
   );
 
+  const renderPatients = () => (
+    <View style={styles.patientPanel}>
+      <View style={styles.patientHeading}>
+        <Ionicons name="people-outline" size={22} color={theme.primary} />
+        <Text style={styles.patientTitle}>Pacientes del especialista</Text>
+      </View>
+      {specialist.patientStats ? (
+        <>
+          <View style={styles.patientGrid}>
+            <View style={styles.patientMetric}>
+              <Text style={styles.patientNumber}>{specialist.patientStats.hera}</Text>
+              <Text style={styles.patientLabel}>Con cuenta HERA</Text>
+              <Text style={styles.patientHint}>Registrados en la plataforma</Text>
+            </View>
+            <View style={styles.patientMetric}>
+              <Text style={styles.patientSecondaryNumber}>{specialist.patientStats.managed}</Text>
+              <Text style={styles.patientLabel}>Gestionados</Text>
+              <Text style={styles.patientHint}>Dados de alta por profesionales</Text>
+            </View>
+            <View style={styles.patientMetric}>
+              <Text style={styles.patientSecondaryNumber}>{specialist.patientStats.total}</Text>
+              <Text style={styles.patientLabel}>Total de pacientes</Text>
+              <Text style={styles.patientHint}>Personas únicas vinculadas</Text>
+            </View>
+          </View>
+          <Text style={styles.patientHint}>Histórico de pacientes vinculados por sesiones o expediente, incluidos los archivados. Cada persona cuenta una sola vez.</Text>
+        </>
+      ) : (
+        <Text style={styles.patientHint}>El recuento de pacientes no está disponible. Actualiza la ficha para volver a consultarlo.</Text>
+      )}
+    </View>
+  );
+
   const renderStats = () => (
     <>
-      <Text style={styles.sectionTitle}>Estadísticas</Text>
+      <Text style={styles.sectionTitle}>Actividad de sesiones</Text>
       <View style={styles.statsGrid}>
-        <StatCard label="Total" value={specialist.sessionStats.total} icon="layers-outline" color={theme.primary} bgColor={theme.primaryAlpha12} styles={styles} />
+        <StatCard label="Sesiones totales" value={specialist.sessionStats.total} icon="layers-outline" color={theme.primary} bgColor={theme.primaryAlpha12} styles={styles} />
         <StatCard label="Completadas" value={specialist.sessionStats.completed} icon="checkmark-circle-outline" color={theme.success} bgColor={theme.successBg} styles={styles} />
         <StatCard label="Canceladas" value={specialist.sessionStats.cancelled} icon="close-circle-outline" color={theme.status.cancelled.text} bgColor={theme.status.cancelled.bg} styles={styles} />
         <StatCard label="Próximas" value={specialist.sessionStats.upcoming} icon="time-outline" color={theme.status.pending.text} bgColor={theme.status.pending.bg} styles={styles} />
@@ -569,18 +613,21 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
             </View>
           </View>
 
-          <View style={styles.credentialReviewCard}>
+          <View style={[styles.credentialReviewCard, styles.insuranceCard]}>
             <View style={styles.credentialReviewCopy}>
               <Text style={styles.credentialReviewLabel}>Póliza de responsabilidad civil</Text>
               <Text style={styles.credentialReviewValue}>
                 {specialist.insuranceUploaded
                   ? specialist.insuranceReviewStatus === 'APPROVED'
-                    ? 'Aprobada. El especialista ya puede mostrar presencial.'
+                    ? 'Cobertura autorizada. La visibilidad presencial depende también de la configuración y del estado de la cuenta.'
                     : specialist.insuranceReviewStatus === 'REJECTED'
                       ? 'Rechazada. El especialista no muestra presencial al paciente.'
                       : 'Pendiente de revisión. La ubicación sigue oculta al paciente.'
                   : 'No subida'}
               </Text>
+              {specialist.insuranceReviewedAt ? (
+                <Text style={styles.credentialReviewMeta}>Última revisión: {formatDate(specialist.insuranceReviewedAt, false)}</Text>
+              ) : null}
               {specialist.insuranceRejectedReason ? (
                 <Text style={styles.credentialReviewMeta}>Motivo: {specialist.insuranceRejectedReason}</Text>
               ) : null}
@@ -596,8 +643,12 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
                   theme={theme}
                 />
                 <View style={styles.credentialReviewDecisionRow}>
-                  <PillAction label="Rechazar" tone="danger" onPress={() => void handleReviewInsurance('REJECTED')} styles={styles} theme={theme} />
-                  <PillAction label="Aprobar" tone="success" onPress={() => void handleReviewInsurance('APPROVED')} styles={styles} theme={theme} />
+                  {specialist.insuranceReviewStatus !== 'REJECTED' ? (
+                    <PillAction label={specialist.insuranceReviewStatus === 'APPROVED' ? 'Revocar' : 'Rechazar'} tone="danger" onPress={() => void handleReviewInsurance('REJECTED')} styles={styles} theme={theme} />
+                  ) : null}
+                  {specialist.insuranceReviewStatus !== 'APPROVED' ? (
+                    <PillAction label="Aprobar" tone="success" onPress={() => void handleReviewInsurance('APPROVED')} styles={styles} theme={theme} />
+                  ) : null}
                 </View>
               </View>
             ) : null}
@@ -677,7 +728,7 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)}>
       {processing ? (
         <View style={styles.overlay}>
           <View style={styles.overlayCard}>
@@ -714,34 +765,48 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
           />
         }
       >
-        <AnimatedPressable
-          style={styles.backHeader}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          pressScale={0.98}
-        >
-          <Ionicons name="arrow-back" size={20} color={theme.primary} />
-          <Text style={styles.backHeaderText}>Gestión de especialistas</Text>
-        </AnimatedPressable>
+        <View style={styles.toolbar}>
+          <AnimatedPressable
+            style={styles.backHeader}
+            onPress={() => navigation.goBack()}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            pressScale={0.98}
+          >
+            <Ionicons name="arrow-back" size={20} color={theme.primary} />
+            <Text style={styles.backHeaderText}>Gestión de especialistas</Text>
+          </AnimatedPressable>
+          <AnimatedPressable
+            style={styles.refreshButton}
+            onPress={handleRefresh}
+            disabled={refreshing || processing}
+            accessibilityRole="button"
+            accessibilityLabel="Actualizar ficha"
+          >
+            {refreshing ? <ActivityIndicator size="small" color={theme.primary} /> : <Ionicons name="refresh-outline" size={18} color={theme.primary} />}
+            <Text style={styles.backLinkText}>Actualizar</Text>
+          </AnimatedPressable>
+        </View>
 
+        <View style={styles.overviewGrid}>
+          {renderHeaderCard()}
+          {renderPatients()}
+        </View>
         {isTwoCol ? (
           <View style={styles.twoColWrapper}>
             <View style={styles.leftColumn}>
-              {renderHeaderCard()}
+              {renderStats()}
               {renderProfessionalInfo()}
             </View>
             <View style={styles.rightColumn}>
-              {renderStats()}
               {renderVerification()}
               {renderActions()}
             </View>
           </View>
         ) : (
           <>
-            {renderHeaderCard()}
+            {renderVerification()}
             {renderStats()}
             {renderProfessionalInfo()}
-            {renderVerification()}
             {renderActions()}
           </>
         )}
@@ -1338,10 +1403,24 @@ const createStyles = (theme: Theme, isDark: boolean, isTwoCol: boolean, isWide: 
     alignSelf: 'flex-start',
     gap: spacing.xs,
     minHeight: 44,
-    marginBottom: spacing.lg,
+    flexShrink: 1,
     paddingVertical: spacing.xs,
   },
+  toolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minHeight: 44,
+  },
   backHeaderText: {
+    flexShrink: 1,
     fontSize: typography.fontSizes.md,
     color: theme.primary,
     fontWeight: typography.fontWeights.semibold,
@@ -1352,10 +1431,12 @@ const createStyles = (theme: Theme, isDark: boolean, isTwoCol: boolean, isWide: 
     alignItems: 'flex-start',
   },
   leftColumn: {
-    flex: 6,
+    flex: 1,
+    minWidth: 0,
   },
   rightColumn: {
-    flex: 4,
+    flex: 1,
+    minWidth: 0,
   },
   overlay: {
     ...StyleSheet.absoluteFill,
@@ -1419,11 +1500,16 @@ const createStyles = (theme: Theme, isDark: boolean, isTwoCol: boolean, isWide: 
     fontWeight: typography.fontWeights.medium,
   },
   headerCard: {
+    flex: isTwoCol ? 1 : undefined,
+    minWidth: 0,
     backgroundColor: theme.bgCard,
     borderRadius: borderRadius.xl,
-    padding: spacing.xl,
+    padding: spacing.lg,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    alignContent: 'center',
     borderWidth: 1,
     borderColor: theme.border,
     ...cardShadow(isDark),
@@ -1439,12 +1525,78 @@ const createStyles = (theme: Theme, isDark: boolean, isTwoCol: boolean, isWide: 
     fontWeight: typography.fontWeights.bold,
     color: theme.primary,
   },
+  patientPanel: {
+    flex: isTwoCol ? 1 : undefined,
+    minWidth: 0,
+    backgroundColor: theme.bgCard,
+    borderColor: theme.primaryAlpha20,
+    borderWidth: 1,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  overviewGrid: {
+    flexDirection: isTwoCol ? 'row' : 'column',
+    alignItems: 'stretch',
+    gap: spacing.xl,
+    marginBottom: spacing.xl,
+  },
+  patientHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  patientTitle: {
+    flex: 1,
+    color: theme.textPrimary,
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  patientGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  patientMetric: {
+    flexGrow: 1,
+    flexBasis: isTwoCol ? 110 : 180,
+    padding: spacing.md,
+    backgroundColor: theme.bgMuted,
+    borderRadius: borderRadius.lg,
+    gap: spacing.xs,
+  },
+  patientNumber: {
+    color: theme.primary,
+    fontSize: typography.fontSizes.xxxl,
+    fontWeight: typography.fontWeights.bold,
+  },
+  patientSecondaryNumber: {
+    color: theme.textPrimary,
+    fontSize: typography.fontSizes.xxxl,
+    fontWeight: typography.fontWeights.bold,
+  },
+  patientLabel: {
+    color: theme.textPrimary,
+    fontSize: typography.fontSizes.sm,
+    fontWeight: '600',
+  },
+  patientHint: {
+    color: theme.textSecondary,
+    fontSize: typography.fontSizes.xs,
+    lineHeight: 18,
+  },
+  headerIdentity: {
+    flex: 1,
+    minWidth: 180,
+  },
+  headerStatus: {
+    width: '100%',
+  },
   headerName: {
     fontSize: typography.fontSizes.xxl,
     fontWeight: typography.fontWeights.bold,
     color: theme.textPrimary,
-    textAlign: 'center',
-    marginTop: spacing.md,
+    textAlign: 'left',
   },
   headerEmail: {
     fontSize: typography.fontSizes.sm,
@@ -1461,7 +1613,7 @@ const createStyles = (theme: Theme, isDark: boolean, isTwoCol: boolean, isWide: 
     gap: spacing.sm,
     marginTop: spacing.md,
     flexWrap: 'wrap',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   badge: {
     flexDirection: 'row',
@@ -1617,7 +1769,7 @@ const createStyles = (theme: Theme, isDark: boolean, isTwoCol: boolean, isWide: 
     flexGrow: 1,
     flexShrink: 0,
     width: '48%',
-    minWidth: 180,
+    minWidth: 140,
     backgroundColor: theme.bgCard,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
@@ -1775,11 +1927,20 @@ const createStyles = (theme: Theme, isDark: boolean, isTwoCol: boolean, isWide: 
     fontSize: typography.fontSizes.xs,
     color: theme.textSecondary,
   },
+  insuranceCard: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
   credentialReviewActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: spacing.sm,
-    alignItems: 'flex-end',
+    alignItems: 'center',
   },
   credentialReviewDecisionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   iconAction: {

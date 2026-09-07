@@ -153,11 +153,12 @@ export function AdminSpecialistDetailScreen() {
   }, [openingDocumentKey, specialist]);
 
   const handleReviewInsurance = useCallback(async (status: 'APPROVED' | 'REJECTED') => {
-    if (!specialist || !detail?.insuranceUploaded) {
+    if (!specialist || !detail?.insuranceUploaded || processing || detail.insuranceReviewStatus === status) {
       return;
     }
 
-    const actionLabel = status === 'APPROVED' ? 'aprobar' : 'rechazar';
+    const revoking = detail.insuranceReviewStatus === 'APPROVED' && status === 'REJECTED';
+    const actionLabel = status === 'APPROVED' ? 'aprobar' : revoking ? 'revocar' : 'rechazar';
 
     const executeReview = async () => {
       try {
@@ -169,7 +170,7 @@ export function AdminSpecialistDetailScreen() {
         showAppAlert(
           appAlert,
           'Revisión completada',
-          `La póliza ha quedado ${status === 'APPROVED' ? 'aprobada' : 'rechazada'}.`,
+          revoking ? 'La cobertura presencial ha quedado revocada.' : `La póliza ha quedado ${status === 'APPROVED' ? 'aprobada' : 'rechazada'}.`,
         );
       } catch {
         showAppAlert(appAlert, 'Error', `No se pudo ${actionLabel} la póliza.`);
@@ -179,14 +180,14 @@ export function AdminSpecialistDetailScreen() {
     };
 
     showAppAlert(appAlert,
-      status === 'APPROVED' ? 'Aprobar póliza' : 'Rechazar póliza',
+      status === 'APPROVED' ? 'Aprobar póliza' : revoking ? 'Revocar cobertura presencial' : 'Rechazar póliza',
       `¿Quieres ${actionLabel} esta póliza?`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: status === 'APPROVED' ? 'Aprobar' : 'Rechazar', onPress: () => void executeReview() },
+        { text: status === 'APPROVED' ? 'Aprobar' : revoking ? 'Revocar' : 'Rechazar', onPress: () => void executeReview() },
       ]
     );
-  }, [detail?.insuranceUploaded, specialist]);
+  }, [appAlert, detail, processing, specialist]);
 
   const handleResolve = useCallback(async (status: 'VERIFIED' | 'REJECTED') => {
     if (!specialist) return;
@@ -392,7 +393,7 @@ export function AdminSpecialistDetailScreen() {
                     <Text style={styles.credentialCardDescription}>
                       {detail?.insuranceUploaded
                         ? detail.insuranceReviewStatus === 'APPROVED'
-                          ? 'Aprobada. El especialista ya puede mostrar presencial.'
+                          ? 'Cobertura autorizada. La visibilidad presencial depende también de la configuración y del estado de la cuenta.'
                           : detail.insuranceReviewStatus === 'REJECTED'
                             ? 'Rechazada. El especialista no muestra presencial al paciente.'
                             : 'Pendiente de revisión. La ubicación sigue oculta al paciente.'
@@ -419,20 +420,24 @@ export function AdminSpecialistDetailScreen() {
                       <Text style={styles.reviewDocumentButtonText}>Abrir póliza</Text>
                     </TouchableOpacity>
                     <View style={styles.reviewDecisionRow}>
-                      <TouchableOpacity
-                        style={[styles.insuranceDecisionButton, styles.insuranceDecisionReject]}
-                        onPress={() => void handleReviewInsurance('REJECTED')}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.insuranceDecisionRejectText}>Rechazar</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.insuranceDecisionButton, styles.insuranceDecisionApprove]}
-                        onPress={() => void handleReviewInsurance('APPROVED')}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.insuranceDecisionApproveText}>Aprobar</Text>
-                      </TouchableOpacity>
+                      {detail.insuranceReviewStatus !== 'REJECTED' ? (
+                        <TouchableOpacity
+                          style={[styles.insuranceDecisionButton, styles.insuranceDecisionReject]}
+                          onPress={() => void handleReviewInsurance('REJECTED')}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.insuranceDecisionRejectText}>{detail.insuranceReviewStatus === 'APPROVED' ? 'Revocar' : 'Rechazar'}</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                      {detail.insuranceReviewStatus !== 'APPROVED' ? (
+                        <TouchableOpacity
+                          style={[styles.insuranceDecisionButton, styles.insuranceDecisionApprove]}
+                          onPress={() => void handleReviewInsurance('APPROVED')}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.insuranceDecisionApproveText}>Aprobar</Text>
+                        </TouchableOpacity>
+                      ) : null}
                     </View>
                   </View>
                 ) : null}
