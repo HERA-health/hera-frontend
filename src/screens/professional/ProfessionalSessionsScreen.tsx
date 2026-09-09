@@ -1082,6 +1082,7 @@ export function ProfessionalSessionsScreen() {
         onClose={closeSessionDetail}
         onRetry={retrySessionDetail}
         onOpenPatient={selectedSessionDetail ? openSelectedSessionPatient : undefined}
+        onProposeReferral={selectedSessionDetail && !selectedSessionDetail.clinicContext ? () => { const clientId = selectedSessionDetail.clientId; setSelectedSessionId(null); navigation.navigate('Referrals', { clientId }); } : undefined}
         onOpenNotes={selectedSessionDetail?.clinicalTarget ? openSelectedSessionNotes : undefined}
         onOpenInvoice={selectedSessionDetail?.status === 'COMPLETED' && selectedSessionDetail.invoice
           ? () => void openSelectedSessionInvoice()

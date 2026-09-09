@@ -30,6 +30,11 @@ jest.mock('../../../services/sessionsService', () => ({
   createPublicSession: jest.fn(),
 }));
 
+jest.mock('../../../services/referralService', () => ({
+  getReferralBookingQuote: jest.fn(),
+  bookGuestReferral: jest.fn(),
+}));
+
 jest.mock('../../../services/specialistsService', () => ({
   getPublicSpecialistDetails: jest.fn(),
   mapPublicSpecialistToProfile: jest.fn(),

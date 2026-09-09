@@ -17,6 +17,12 @@ jest.mock('../../services/authService', () => ({
   verifyEmail: jest.fn(),
 }));
 jest.mock('../../services/professionalService', () => ({ getVerificationStatus: jest.fn() }));
+jest.mock('../../contexts/ProfessionalWorkspaceContext', () => ({
+  ProfessionalWorkspaceProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+jest.mock('../../contexts/ProfessionalClinicWorkspaceContext', () => ({
+  ProfessionalClinicWorkspaceProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
 jest.mock('../../services/analyticsService', () => ({ identify: jest.fn(), reset: jest.fn() }));
 jest.mock('../../services/secureSessionStorage', () => ({ clearPersistedClinicalAccessSession: jest.fn() }));
 jest.mock('../../services/requestCache', () => ({ rotateRequestCacheScope: jest.fn() }));

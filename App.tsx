@@ -1,4 +1,5 @@
 import { captureClinicalPinResetUrl } from './src/services/clinicalPinResetIntent';
+import { captureReferralUrl } from './src/services/pendingReferralIntent';
 /**
  * HERA App — Main entry point
  * Sets up navigation, providers, fonts, and theming.
@@ -53,10 +54,10 @@ const prefix = Linking.createURL('/');
 
 export const linking: LinkingOptions<RootStackParamList> = {
   prefixes: [prefix, 'hera://'],
-  getInitialURL: async () => captureClinicalPinResetUrl(await Linking.getInitialURL()),
+  getInitialURL: async () => captureReferralUrl(captureClinicalPinResetUrl(await Linking.getInitialURL())),
   subscribe: (listener) => {
     const subscription = Linking.addEventListener('url', ({ url }) => {
-      const cleanUrl = captureClinicalPinResetUrl(url);
+      const cleanUrl = captureReferralUrl(captureClinicalPinResetUrl(url));
       if (cleanUrl) listener(cleanUrl);
     });
     return () => subscription.remove();
@@ -142,6 +143,8 @@ export const linking: LinkingOptions<RootStackParamList> = {
           requestId: (requestId: string) => requestId,
         },
       },
+      Referrals: { path: 'derivaciones/:id?' },
+      Collaborations: { path: 'colaboradores/:id?' },
       ProfessionalClinicWorkspace: {
         path: 'mi-clinica/:clinicId?/:section?',
         parse: {

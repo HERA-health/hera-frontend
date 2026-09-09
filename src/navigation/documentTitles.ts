@@ -4,6 +4,8 @@ import type { RootStackParamList } from '../constants/types';
 const BRAND_NAME = 'Hera';
 
 const ROUTE_TITLES: Record<keyof RootStackParamList, string> = {
+  Referrals: 'Derivaciones',
+  Collaborations: 'Colaboradores',
   Landing: 'Inicio',
   ClinicalPinReset: 'Restablecer PIN clínico',
   ProfessionalShowcase: 'Software para psicólogos y especialistas',

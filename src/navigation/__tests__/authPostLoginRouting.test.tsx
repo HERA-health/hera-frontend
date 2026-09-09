@@ -33,6 +33,15 @@ jest.mock('../../contexts/AuthContext', () => ({
   useAuth: () => mockAuthState,
 }));
 
+// This suite exercises navigation; workspace data loading has its own tests.
+jest.mock('../../contexts/ProfessionalWorkspaceContext', () => ({
+  ProfessionalWorkspaceProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+jest.mock('../../contexts/ProfessionalClinicWorkspaceContext', () => ({
+  ProfessionalClinicWorkspaceProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 jest.mock('../../services/legalService', () => ({
   getLegalStatus: jest.fn().mockResolvedValue({ requiresAcceptance: false }),
 }));

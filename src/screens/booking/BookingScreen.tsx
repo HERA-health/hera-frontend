@@ -35,6 +35,7 @@ import {
 } from './components';
 import * as analyticsService from '../../services/analyticsService';
 import * as specialistsService from '../../services/specialistsService';
+import { bookGuestReferral, getReferralBookingQuote, type ReferralAccess } from '../../services/referralService';
 import {
   getAvailableBookingSessionTypes,
   getDefaultBookingSessionType,
@@ -57,6 +58,7 @@ import {
 type BookingRouteParams = RootStackParamList['Booking'];
 
 interface BookingScreenProps {
+  referralBooking?: { id: string; access: ReferralAccess };
   route: {
     params: BookingRouteParams;
   };
@@ -118,7 +120,7 @@ const buildInitialSlotSelection = (
   };
 };
 
-export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation }) => {
+export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation, referralBooking }) => {
   const { theme } = useTheme();
   const styles = useMemo(() => createLoadStyles(theme), [theme]);
   const [specialist, setSpecialist] = useState<BookingSpecialist | null>(null);
@@ -168,6 +170,7 @@ export const BookingScreen: React.FC<BookingScreenProps> = ({ route, navigation 
         route={route}
         navigation={navigation}
         specialist={specialist}
+        referralBooking={referralBooking}
       />
     );
   }
@@ -221,6 +224,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   route,
   navigation,
   specialist,
+  referralBooking,
 }) => {
   const appAlert = useAppAlert();
   const { isAuthenticated, user } = useAuth();
@@ -249,7 +253,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const isTablet = width >= BREAKPOINTS.mobile && width < BREAKPOINTS.desktop;
   const isMobile = width < BREAKPOINTS.mobile;
   const isNarrowMobile = width < 360;
-  const isAnonymousBooking = !isAuthenticated;
+  const isAnonymousBooking = !isAuthenticated && !referralBooking;
   const isAuthenticatedClient = isAuthenticated && user?.type === 'client';
   const styles = useMemo(
     () => createStyles(theme, isDark, isMobile),
@@ -350,7 +354,9 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     setQuoteLoading(true);
     setQuoteError(null);
 
-    const quoteRequest = isAnonymousBooking
+    const quoteRequest = referralBooking
+      ? getReferralBookingQuote(referralBooking.id, referralBooking.access, { type: sessionType, duration: slotDuration })
+      : isAnonymousBooking
       ? sessionsService.getPublicBookingQuote({
           specialistId,
           type: sessionType,
@@ -389,6 +395,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     };
   }, [
     availableSessionTypes.length,
+    referralBooking,
     isAnonymousBooking,
     modalityFlags,
     sessionType,
@@ -404,7 +411,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const canConfirmBooking =
     quoteReady
     && (!isAnonymousBooking || publicContactResult.success);
-  const accountCanBook = isAnonymousBooking || isAuthenticatedClient;
+  const accountCanBook = isAnonymousBooking || isAuthenticatedClient || !!referralBooking;
   const hasSelectedAppointment = Boolean(selectedDate && selectedSlot);
   const canAdvanceBooking = hasSelectedAppointment && quoteReady && accountCanBook;
   const primaryActionLabel =
@@ -611,6 +618,13 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
 
       const dateTime = madridDateTime.iso;
 
+      if (referralBooking) {
+        const createdSession = await bookGuestReferral(referralBooking.id, referralBooking.access, { date: dateTime, duration: slotDuration, type: sessionType });
+        bookingCompletedRef.current = true;
+        setPublicBookingSuccess({ status: createdSession.status, date: selectedDate, time: selectedSlot.startTime, type: sessionType });
+        return;
+      }
+
       if (isAnonymousBooking) {
         if (!publicContactResult.success) {
           return;
@@ -692,6 +706,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     selectedSlot,
     appAlert,
     isAuthenticated,
+    referralBooking,
     isAuthenticatedClient,
     isAnonymousBooking,
     specialistId,
@@ -978,7 +993,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
             {isConfirmed ? 'Cita confirmada' : 'Solicitud enviada'}
           </Text>
           <Text style={styles.successSubtitle}>
-            Te enviaremos los detalles por email. Si ya tienes cuenta HERA, la cita quedará vinculada a tu historial.
+            {referralBooking ? 'Tu cita queda vinculada a la identidad verificada de la propuesta. Puedes volver a ella para consultar el estado.' : 'Te enviaremos los detalles por email. Si ya tienes cuenta HERA, la cita quedará vinculada a tu historial.'}
           </Text>
 
           <View style={styles.successDetails}>
@@ -1001,6 +1016,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           </View>
 
           <View style={styles.successActions}>
+            {referralBooking ? <Button fullWidth onPress={() => navigation.goBack()}>Volver a la propuesta</Button> : <>
             <Button
               variant="primary"
               size="medium"
@@ -1017,6 +1033,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
             >
               Iniciar sesión
             </Button>
+            </>}
           </View>
         </View>
       </View>

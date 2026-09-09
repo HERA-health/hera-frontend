@@ -122,6 +122,8 @@ export type RootStackParamList = {
   EmailSentVerification: { email: string; userType: 'CLIENT' | 'PROFESSIONAL' };
   EmailVerification: { token: string };
   ClinicalConsent: { requestId: string; token: string };
+  Referrals: { id?: string; clientId?: string; token?: string; agreementVersionId?: string } | undefined;
+  Collaborations: { id?: string } | undefined;
   ClinicConsent: { requestId: string; token: string };
   PublicReview: { token: string };
   LegalDocument: { documentKey: LegalDocumentKey };

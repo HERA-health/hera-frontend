@@ -18,6 +18,8 @@ export type UserRole = 'CLIENT' | 'PROFESSIONAL' | 'CLINIC';
  * This provides type safety for icon selection
  */
 export type IconName =
+  | 'swap-horizontal'
+  | 'swap-horizontal-outline'
   | 'home'
   | 'home-outline'
   | 'search'

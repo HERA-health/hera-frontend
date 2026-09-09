@@ -482,7 +482,7 @@ export function ClientProfileScreen() {
   );
 
   const handleSaveBilling = useCallback(async () => {
-    if (!client) {
+    if (!client || client.archivedAt) {
       return;
     }
 
@@ -603,8 +603,8 @@ export function ClientProfileScreen() {
           appAlert,
           'Éxito',
           shouldArchive
-            ? 'Paciente archivado. La ficha se ha movido a archivados y no se podrán crear nuevas citas mientras permanezca archivada.'
-            : 'Paciente desarchivado. La ficha vuelve a estar activa y ya se pueden crear nuevas citas para este paciente.'
+            ? 'Tu relación asistencial está archivada. Conservas tu historia; la atención con otros profesionales y las citas existentes continúan.'
+            : 'Tu relación vuelve a estar activa. Si el expediente estaba cerrado, solicita de nuevo el consentimiento asistencial antes de incorporar información clínica.'
         );
       } catch (archiveError: unknown) {
         showAppAlert(
@@ -988,6 +988,7 @@ export function ClientProfileScreen() {
                 variant="outline"
                 size="small"
                 onPress={() => setBillingModalVisible(true)}
+                disabled={isClientArchived}
                 icon={<Ionicons name="create-outline" size={16} color={theme.primary} />}
                 style={styles.heroActionButton}
               >
@@ -1005,6 +1006,8 @@ export function ClientProfileScreen() {
                   Crear cita
                 </Button>
               ) : null}
+
+              <Button variant="outline" size="small" disabled={isClientArchived} onPress={() => navigation.navigate('Referrals', { clientId: client.id })}>Proponer derivación</Button>
 
               <Button
                 variant="secondary"

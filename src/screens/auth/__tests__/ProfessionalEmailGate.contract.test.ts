@@ -12,7 +12,7 @@ describe('professional email-first verification contract', () => {
 
     expect(emailGateIndex).toBeGreaterThan(-1);
     expect(documentGateIndex).toBeGreaterThan(emailGateIndex);
-    expect(source).toContain('initialRouteName="EmailSentVerification"');
+    expect(source).toMatch(/navigationKey=\{`professional-email-verification-\$\{user.id\}`\}>\s*<Stack.Screen\s+name="EmailSentVerification"/);
   });
 
   it('does not send another verification email after uploading the carnet', () => {

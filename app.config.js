@@ -11,7 +11,8 @@ export default {
       "expo-font",
       "expo-secure-store",
       "@react-native-community/datetimepicker",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-sharing"
     ],
     newArchEnabled: true,
     splash: {

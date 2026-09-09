@@ -38,6 +38,7 @@ interface AppointmentDetailSheetProps {
   onJoinVideo?: () => void;
   onOpenNotes?: () => void;
   onOpenPatient?: () => void;
+  onProposeReferral?: () => void;
   onOpenInvoice?: () => void;
 }
 
@@ -100,6 +101,7 @@ export function AppointmentDetailSheet({
   onJoinVideo,
   onOpenNotes,
   onOpenPatient,
+  onProposeReferral,
   onOpenInvoice,
 }: AppointmentDetailSheetProps): React.ReactElement | null {
   const { theme } = useTheme();
@@ -344,6 +346,7 @@ export function AppointmentDetailSheet({
                         Ver ficha
                       </Button>
                     ) : null}
+                    {onProposeReferral ? <Button variant="outline" size="small" onPress={onProposeReferral}>Proponer derivación</Button> : null}
                     {canOpenInvoice ? (
                       <Button
                         variant="outline"

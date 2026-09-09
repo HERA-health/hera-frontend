@@ -23,6 +23,8 @@ interface ManagedSessionPatientSelectorProps {
   selectedClientId: string;
   open: boolean;
   error?: string;
+  placeholderSubtitle?: string;
+  emptySubtitle?: string;
   onOpenChange: (open: boolean) => void;
   onSelect: (clientId: string) => void;
 }
@@ -81,6 +83,8 @@ export function ManagedSessionPatientSelector({
   selectedClientId,
   open,
   error,
+  placeholderSubtitle = 'Obligatorio para crear la cita',
+  emptySubtitle = 'Añade un paciente antes de crear la cita',
   onOpenChange,
   onSelect,
 }: ManagedSessionPatientSelectorProps): React.ReactElement {
@@ -158,8 +162,8 @@ export function ManagedSessionPatientSelector({
   const triggerSubtitle = selectedClient
     ? selectedEmail || 'Sin email'
     : clients.length
-      ? 'Obligatorio para crear la cita'
-      : 'Añade un paciente antes de crear la cita';
+      ? placeholderSubtitle
+      : emptySubtitle;
 
   return (
     <View

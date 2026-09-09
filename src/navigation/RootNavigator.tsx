@@ -1,4 +1,5 @@
 import { hasPendingClinicalPinReset, subscribeClinicalPinReset } from '../services/clinicalPinResetIntent';
+import { getPendingReferralIntent, getPendingCollaborationIntent } from '../services/pendingReferralIntent';
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
@@ -100,6 +101,18 @@ const ClinicalConsentRoute = createDeferredRoute<'ClinicalConsent'>(
   () => require('../screens/clinical/ClinicalConsentScreen'),
   { displayName: 'ClinicalConsentRoute', exportName: 'ClinicalConsentScreen' }
 );
+const DeferredReferralsRoute = createDeferredRoute<'Referrals'>(() => require('../screens/referrals/ReferralsScreen'), { displayName: 'ReferralsRoute', exportName: 'ReferralsScreen' });
+const DeferredCollaborationsRoute = createDeferredRoute<'Collaborations'>(() => require('../screens/collaborations/CollaborationsScreen'), { displayName: 'CollaborationsRoute', exportName: 'CollaborationsScreen' });
+const CollaborationsRoute: React.FC<StackRouteProps<'Collaborations'>> = (props) => {
+  const { isAuthenticated } = useAuth();
+  const content = <DeferredCollaborationsRoute {...props} />;
+  return isAuthenticated ? renderWithMainLayout(content) : content;
+};
+const ReferralsRoute: React.FC<StackRouteProps<'Referrals'>> = (props) => {
+  const { isAuthenticated } = useAuth();
+  const content = <DeferredReferralsRoute {...props} />;
+  return isAuthenticated ? renderWithMainLayout(content) : content;
+};
 const ClinicConsentRoute = createDeferredRoute<'ClinicConsent'>(
   () => require('../screens/clinic/ClinicConsentScreen'),
   { displayName: 'ClinicConsentRoute', exportName: 'ClinicConsentScreen' }
@@ -250,10 +263,20 @@ const OnDutyPsychologistRoute = createDeferredLayoutRoute<'OnDutyPsychologist'>(
     exportName: 'OnDutyPsychologistScreen',
   }
 );
-const ProfessionalHomeRoute = createDeferredLayoutRoute<'ProfessionalHome'>(
+const DeferredProfessionalHomeRoute = createDeferredLayoutRoute<'ProfessionalHome'>(
   () => require('../screens/professional/ProfessionalHomeScreen'),
   { displayName: 'ProfessionalHomeRoute', exportName: 'ProfessionalHomeScreen' }
 );
+const ProfessionalHomeRoute: React.FC<StackRouteProps<'ProfessionalHome'>> = (props) => {
+  useEffect(() => { let active = true; void (async () => {
+    const referralId = await getPendingReferralIntent();
+    const collaborationId = await getPendingCollaborationIntent();
+    if (!active) return;
+    if (referralId) props.navigation.navigate('Referrals', { id: referralId });
+    else if (collaborationId) props.navigation.navigate('Collaborations', { id: collaborationId });
+  })(); return () => { active = false; }; }, [props.navigation]);
+  return <DeferredProfessionalHomeRoute {...props} />;
+};
 const ProfessionalHelpRoute = createDeferredLayoutRoute<'ProfessionalHelp'>(
   () => require('../screens/professional/ProfessionalHelpScreen'),
   { displayName: 'ProfessionalHelpRoute', exportName: 'ProfessionalHelpScreen' }
@@ -362,6 +385,12 @@ const ClientHomeRoute: React.FC<StackRouteProps<'Home'>> = (props) => {
     let active = true;
 
     const consumeIntent = async () => {
+      const referralId = await getPendingReferralIntent();
+      if (!active) return;
+      if (referralId) { props.navigation.navigate('Referrals', { id: referralId }); return; }
+      const collaborationId = await getPendingCollaborationIntent();
+      if (!active) return;
+      if (collaborationId) { props.navigation.navigate('Collaborations', { id: collaborationId }); return; }
       const intent = await consumePendingBookingIntent();
       if (!active || !intent) {
         return;
@@ -614,7 +643,9 @@ export function RootNavigator() {
             options={{ headerTitle: 'Reservar sesión', headerShown: false }}
           />
           <Stack.Screen
-            name="ClinicalConsent"
+            name="Referrals" component={ReferralsRoute} />
+          <Stack.Screen name="Collaborations" component={CollaborationsRoute} />
+          <Stack.Screen name="ClinicalConsent"
             component={ClinicalConsentRoute}
             options={{ headerShown: false }}
           />
@@ -828,7 +859,9 @@ export function RootNavigator() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
-            name="ClinicalConsent"
+            name="Referrals" component={ReferralsRoute} />
+          <Stack.Screen name="Collaborations" component={CollaborationsRoute} />
+          <Stack.Screen name="ClinicalConsent"
             component={ClinicalConsentRoute}
             options={{ headerShown: false }}
           />
@@ -851,9 +884,12 @@ export function RootNavigator() {
     const { ProfessionalWorkspaceProvider } = require('../contexts/ProfessionalWorkspaceContext') as typeof import('../contexts/ProfessionalWorkspaceContext');
     const { ProfessionalClinicWorkspaceProvider } = require('../contexts/ProfessionalClinicWorkspaceContext') as typeof import('../contexts/ProfessionalClinicWorkspaceContext');
     return (
-      <ProfessionalWorkspaceProvider key={user?.id} currentRoute={professionalRoute}>
-      <ProfessionalClinicWorkspaceProvider>
       <Stack.Navigator
+        layout={({ children }) => (
+          <ProfessionalWorkspaceProvider key={user?.id} currentRoute={professionalRoute}>
+            <ProfessionalClinicWorkspaceProvider>{children}</ProfessionalClinicWorkspaceProvider>
+          </ProfessionalWorkspaceProvider>
+        )}
         screenListeners={({ route }) => ({ focus: () => setProfessionalRoute(route.name) })}
         screenOptions={{
           headerShown: false,
@@ -1026,7 +1062,9 @@ export function RootNavigator() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
-            name="ClinicalConsent"
+            name="Referrals" component={ReferralsRoute} />
+          <Stack.Screen name="Collaborations" component={CollaborationsRoute} />
+          <Stack.Screen name="ClinicalConsent"
             component={ClinicalConsentRoute}
             options={{ headerShown: false }}
           />
@@ -1043,8 +1081,6 @@ export function RootNavigator() {
           {!pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}
         </Stack.Group>
       </Stack.Navigator>
-      </ProfessionalClinicWorkspaceProvider>
-      </ProfessionalWorkspaceProvider>
     );
   }
 
@@ -1163,7 +1199,9 @@ export function RootNavigator() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
-          name="ClinicalConsent"
+          name="Referrals" component={ReferralsRoute} />
+          <Stack.Screen name="Collaborations" component={CollaborationsRoute} />
+          <Stack.Screen name="ClinicalConsent"
           component={ClinicalConsentRoute}
           options={{ headerShown: false }}
         />

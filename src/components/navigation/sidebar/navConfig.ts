@@ -39,6 +39,9 @@ export const CLIENT_SECTIONS: NavigationSection[] = [
         roles: ['CLIENT'],
       },
       {
+        id: 'referrals', label: 'Derivaciones', icon: 'swap-horizontal-outline', iconActive: 'swap-horizontal', route: 'Referrals', roles: ['CLIENT'],
+      },
+      {
         id: 'profile',
         label: 'Perfil',
         icon: 'person-outline',
@@ -135,6 +138,19 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         route: 'ProfessionalProfile',
         roles: ['PROFESSIONAL'],
         tourTargetId: 'professional.nav.profile',
+      },
+    ],
+  },
+  {
+    id: 'professional-network',
+    label: 'Red profesional',
+    roles: ['PROFESSIONAL'],
+    items: [
+      {
+        id: 'referrals', label: 'Derivaciones', icon: 'swap-horizontal-outline', iconActive: 'swap-horizontal', route: 'Referrals', roles: ['PROFESSIONAL'],
+      },
+      {
+        id: 'collaborations', label: 'Colaboradores', icon: 'people-outline', iconActive: 'people', route: 'Collaborations', roles: ['PROFESSIONAL'],
       },
     ],
   },

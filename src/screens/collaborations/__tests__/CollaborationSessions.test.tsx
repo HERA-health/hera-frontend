@@ -1,0 +1,23 @@
+import React from 'react';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { CollaborationSessions } from '../CollaborationSessions';
+import type { Collaboration } from '../../../services/collaborationService';
+import * as service from '../../../services/collaborationService';
+jest.mock('../../../services/collaborationService', () => ({ listSessions: jest.fn(), decideFinance: jest.fn() }));
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn() }) }));
+jest.mock('../../../components/common/AnimatedPressable', () => ({ AnimatedPressable: ({ children, onPress, accessibilityLabel, accessibilityRole, accessibilityState, disabled }: { children: React.ReactNode; onPress?: () => void; accessibilityLabel?: string; accessibilityRole?: import('react-native').AccessibilityRole; accessibilityState?: import('react-native').AccessibilityState; disabled?: boolean }) => { const { Pressable } = require('react-native'); return <Pressable onPress={onPress} accessibilityLabel={accessibilityLabel} accessibilityRole={accessibilityRole} accessibilityState={accessibilityState} disabled={disabled}>{children}</Pressable>; } }));
+it('links a refund to the selected original collection and preserves the entered Madrid date and amount', async () => {
+  const collaboration: Collaboration = { id:'agreement',revision:1,role:'RECIPIENT',origin:{id:'a',name:'A'},recipient:{id:'b',name:'B'},terminatedAt:null,terminationReason:null,versions:[],deliveries:[] };
+  jest.mocked(service.listSessions).mockResolvedValue({ items:[{id:'snapshot',sessionId:'s',clientId:'c',referralId:'r',date:'2026-09-01T12:00:00Z',type:'VIDEO_CALL',status:'COMPLETED',attendanceOutcome:'ATTENDED',versionNumber:1,originShareBps:2000,bookedPriceCents:6000,baseCents:6000,exclusionReason:null,netCollectedCents:6000,originAmountCents:1200,movements:[{id:'collection-original',kind:'COLLECTION',grossCents:6000,baseCents:6000,originalId:null,reference:'Referencia original',occurredAt:'2026-09-01T12:00:00Z'}]}],hasMore:false });
+  const run = jest.fn(async (_values: unknown, operation: (key: string) => Promise<unknown>) => { await operation('fixture-command'); return true; });
+  const view=render(<CollaborationSessions collaboration={collaboration} busy={false} run={run} />);
+  fireEvent.press(await view.findByText('Registrar devolución'));
+  fireEvent.changeText(view.getByLabelText('Importe recibido o devuelto, incluidos impuestos (€)'), '12,50');
+  fireEvent.changeText(view.getByLabelText('Fecha del movimiento (AAAA-MM-DD)'), '2026-09-09');
+  fireEvent.changeText(view.getByLabelText('Hora de Madrid (HH:MM)'), '14:30');
+  fireEvent.changeText(view.getByLabelText('Referencia externa o motivo de la corrección'), 'Justificante de prueba');
+  fireEvent.press(view.getByLabelText('Cobro original *'));
+  fireEvent.press(view.getByRole('radio', { name: /Referencia original/ }));
+  fireEvent.press(view.getByText('Guardar registro'));
+  await waitFor(() => expect(service.decideFinance).toHaveBeenCalledWith('agreement', {action:'REFUND',snapshotId:'snapshot',originalId:'collection-original',grossCents:1250,reference:'Justificante de prueba',occurredAt:'2026-09-09T12:30:00.000Z'}, 'fixture-command'));
+});

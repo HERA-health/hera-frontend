@@ -32,8 +32,8 @@ describe('registration post-auth routing', () => {
   it('defines the correct initial workspace for every authenticated user type', () => {
     const source = readSource('../../../navigation/RootNavigator.tsx');
 
-    expect(source).toMatch(/key="client"\s+initialRouteName="Home"/);
-    expect(source).toMatch(/key="professional"\s+initialRouteName="ProfessionalHome"/);
-    expect(source).toMatch(/key="clinic"\s+initialRouteName="ClinicDashboard"/);
+    expect(source).toMatch(/navigationKey="client">[\s\S]*?name="Home"/);
+    expect(source).toMatch(/navigationKey="professional">[\s\S]*?name="ProfessionalHome"/);
+    expect(source).toMatch(/navigationKey="clinic">[\s\S]*?name="ClinicDashboard"/);
   });
 });
