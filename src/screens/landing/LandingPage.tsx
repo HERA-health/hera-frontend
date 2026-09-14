@@ -7,6 +7,7 @@
  * One public entry point with distinct patient and professional journeys.
  */
 
+import { useDirectoryNavigation } from '../../hooks/useDirectoryNavigation';
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import {
   ScrollView,
@@ -328,9 +329,10 @@ export const LandingPage: React.FC = () => {
     navigateToSpecialists();
   }, [navigateToSpecialists]);
 
+  const openDirectory = useDirectoryNavigation();
   const handleOpenPublicSpecialist = useCallback((profileRef: string) => {
-    navigation.navigate('PublicSpecialistProfile', { profileRef });
-  }, [navigation]);
+    void openDirectory(profileRef, true);
+  }, [openDirectory]);
 
   const handleViewAllSpecialists = useCallback(() => {
     handlePatientCTA('featured_specialists');

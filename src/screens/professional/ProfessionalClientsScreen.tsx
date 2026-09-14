@@ -1,3 +1,4 @@
+import { CommissionInfoLink } from '../commissions/CommissionLinks';
 import { useGeneralRateLimit, useRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
 import { rateLimitMessage } from '../../services/generalRateLimit';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -706,6 +707,7 @@ export function ProfessionalClientsScreen() {
 
           <View style={stylesForTheme.clientHeaderInfo}>
             <View style={stylesForTheme.badgeRow}>
+              {client.heraOrigin?.status === 'PENDING' || (client.heraOrigin?.origin === 'HERA_DIRECTORY' && client.heraOrigin.status === 'CONFIRMED') ? <Text style={[stylesForTheme.sourceBadgeText, { color: theme.textSecondary }]}>{client.heraOrigin.status === 'PENDING' ? 'Procedencia en revisión' : 'Directorio HERA'}</Text> : null}
               {client.archivedAt ? (
                 <View
                   style={[
@@ -856,6 +858,7 @@ export function ProfessionalClientsScreen() {
                 style={[stylesForTheme.searchInput, { color: theme.textPrimary }]}
               />
             </View>
+            <CommissionInfoLink compact />
           </View>
 
           <View style={stylesForTheme.filtersBar}>

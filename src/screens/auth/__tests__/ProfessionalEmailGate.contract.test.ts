@@ -5,14 +5,14 @@ const readSource = (...segments: string[]): string =>
   fs.readFileSync(path.join(__dirname, '..', '..', '..', ...segments), 'utf8');
 
 describe('professional email-first verification contract', () => {
-  it('routes unverified professionals to email before document verification', () => {
+  it('routes unverified professionals and patients to email before document verification', () => {
     const source = readSource('navigation', 'RootNavigator.tsx');
-    const emailGateIndex = source.indexOf("isProfessional && user.emailVerified !== true");
+    const emailGateIndex = source.indexOf("(isProfessional || user?.type === 'client') && user.emailVerified !== true");
     const documentGateIndex = source.indexOf('isProfessional && verificationSubmitted === false');
 
     expect(emailGateIndex).toBeGreaterThan(-1);
     expect(documentGateIndex).toBeGreaterThan(emailGateIndex);
-    expect(source).toMatch(/navigationKey=\{`professional-email-verification-\$\{user.id\}`\}>\s*<Stack.Screen\s+name="EmailSentVerification"/);
+    expect(source).toMatch(/navigationKey=\{`email-verification-\$\{user.id\}`\}>\s*<Stack.Screen\s+name="EmailSentVerification"/);
   });
 
   it('does not send another verification email after uploading the carnet', () => {

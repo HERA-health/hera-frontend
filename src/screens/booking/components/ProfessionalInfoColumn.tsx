@@ -45,6 +45,7 @@ interface ProfessionalInfoColumnProps {
   loading?: boolean;
   sticky?: boolean;
   showAction?: boolean;
+  verificationContent?: React.ReactNode;
 }
 
 const STICKY_TOP_OFFSET = 24;
@@ -85,6 +86,7 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
   loading = false,
   sticky = false,
   showAction = true,
+  verificationContent,
 }) => {
   const { theme, isDark } = useTheme();
   const { height: viewportHeight } = useWindowDimensions();
@@ -251,6 +253,7 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
 
       {showAction ? (
         <View style={styles.action}>
+          {verificationContent}
           <Button
             variant="primary"
             size="medium"

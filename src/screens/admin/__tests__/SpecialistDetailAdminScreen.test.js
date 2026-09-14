@@ -4,6 +4,16 @@ import { SpecialistDetailAdminScreen } from '../SpecialistDetailAdminScreen';
 import * as adminService from '../../../services/adminService';
 
 const mockConfirm = jest.fn();
+const mockNavigate = jest.fn();
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => ({ navigate: mockNavigate }),
+  useFocusEffect: effect => require('react').useEffect(effect, [effect]),
+}));
+jest.mock('../../../services/heraCommissionService', () => ({
+  specialistAccounts: jest.fn().mockResolvedValue([
+    { id: 'account-1', mode: 'LIVE', operatorKey: 'Fixture', pendingCents: 2400, creditCents: 0 },
+  ]),
+}));
 jest.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: { isAdmin: true } }) }));
 jest.mock('../../../components/common/alert', () => ({ useAppAlert: () => ({ confirm: mockConfirm }) }));
 jest.mock('../../../services/adminService', () => ({
@@ -34,6 +44,14 @@ const open = async () => {
   await screen.findByText('Especialista de prueba', {}, { timeout: 10000 });
 };
 beforeEach(() => { jest.clearAllMocks(); mockConfirm.mockResolvedValue(false); });
+
+test('shows the persisted HERA balance and opens this specialist’s transfers', async () => {
+  adminService.getSpecialistDetail.mockResolvedValue(detail());
+  await open();
+  await screen.findByText(/Pendiente 24\.00 €/);
+  fireEvent.press(screen.getByText('Gestionar comisiones y transferencias'));
+  expect(mockNavigate).toHaveBeenCalledWith('HeraCommissions', { admin: true, specialistId: 'specialist-1' });
+});
 
 test.each([
   ['APPROVED', false, false, true],

@@ -1,3 +1,4 @@
+import { directoryIntent } from '../../services/heraCommissionService';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
@@ -315,13 +316,16 @@ const SpecialistsScreen: React.FC = () => {
     }
   }, [proximityEnabled, searchQuery, selectedFilters.length, selectedProfessionalTypes.length]);
 
-  const handleSpecialistPress = useCallback((specialistId: string) => {
+  const handleSpecialistPress = useCallback(async (specialistId: string) => {
     const specialist = matchedSpecialists.find((item) => item.id === specialistId)
       || allSpecialists.find((item) => item.id === specialistId);
     const affinity = specialist ? specialist.affinityPercentage / 100 : undefined;
 
-    navigation.navigate('SpecialistDetail', { specialistId, affinity });
-  }, [allSpecialists, matchedSpecialists, navigation]);
+    try {
+      const intent = await directoryIntent(specialistId);
+      navigation.navigate('SpecialistDetail', { specialistId, affinity, intentToken: intent.token });
+    } catch { showAppAlert(appAlert, 'No se pudo abrir el perfil', 'Inténtalo de nuevo.'); }
+  }, [allSpecialists, matchedSpecialists, navigation, appAlert]);
 
   const applyFavoriteState = useCallback((specialistId: string, isFavorite: boolean) => {
     const update = (items: Specialist[]) =>

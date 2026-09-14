@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 
 import { lightTheme } from '../../../constants/theme';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -28,6 +28,8 @@ jest.mock('../../../services/sessionsService', () => ({
   getPublicBookingQuote: jest.fn(),
   createSession: jest.fn(),
   createPublicSession: jest.fn(),
+  requestPublicBooking: jest.fn(),
+  verifyPublicBooking: jest.fn(),
 }));
 
 jest.mock('../../../services/referralService', () => ({
@@ -345,16 +347,17 @@ describe('BookingScreen initial slot preselection', () => {
     fireEvent.press(screen.getByText('select-slot'));
 
     expect(await screen.findByText('Tus datos de contacto')).toBeTruthy();
-    expect(screen.getByText('Completar mis datos')).toBeTruthy();
-
-    fireEvent.press(screen.getByText('Completar mis datos'));
+    const action = screen.getByRole('button', { name: 'Continuar con mi reserva' });
+    expect(action).toBeDisabled();
+    fireEvent.press(action);
+    expect(mockedSessionsService.requestPublicBooking).not.toHaveBeenCalled();
+    fireEvent(screen.getByLabelText('Nombre'), 'blur');
+    fireEvent(screen.getByLabelText('Apellidos'), 'blur');
+    fireEvent(screen.getByLabelText('Correo electrónico'), 'blur');
 
     expect(await screen.findByText('Introduce tu nombre')).toBeTruthy();
     expect(screen.getByText('Introduce tus apellidos')).toBeTruthy();
     expect(screen.getByText('Introduce un email válido')).toBeTruthy();
-    expect(
-      screen.getByText('Acepta la política de privacidad para solicitar la cita')
-    ).toBeTruthy();
 
     fireEvent.press(screen.getByLabelText('Consultar la política de privacidad'));
     expect(navigation.navigate).toHaveBeenCalledWith('LegalDocument', {
@@ -364,9 +367,15 @@ describe('BookingScreen initial slot preselection', () => {
     fireEvent.changeText(screen.getByLabelText('Nombre'), 'María');
     fireEvent.changeText(screen.getByLabelText('Apellidos'), 'García');
     fireEvent.changeText(screen.getByLabelText('Correo electrónico'), 'maria@example.com');
+    expect(action).toBeDisabled();
     fireEvent.press(screen.getByLabelText('Autorizar el uso de datos para gestionar la cita'));
 
-    expect(await screen.findByText('Confirmar cita')).toBeTruthy();
+    expect(action).toBeEnabled();
+    const contact = within(screen.getByTestId('booking-contact-section'));
+    expect(contact.getByLabelText('Nombre')).toBeTruthy();
+    expect(contact.getByRole('button', { name: 'Continuar con mi reserva' })).toBeTruthy();
+    expect(contact.getByText('Revisa tu cita')).toBeTruthy();
+    expect(contact.getByText('En el siguiente paso comprobaremos tu correo con un código para confirmar la cita.')).toBeTruthy();
   });
 
   it('keeps anonymous contact values when the patient changes the appointment', async () => {
@@ -409,9 +418,8 @@ describe('BookingScreen initial slot preselection', () => {
     mockedSessionsService.getAvailableSlots.mockResolvedValue([
       { startTime: '10:00', endTime: '11:00', available: true },
     ]);
-    mockedSessionsService.createPublicSession.mockResolvedValue({
-      status: 'PENDING',
-    } as never);
+    mockedSessionsService.requestPublicBooking.mockResolvedValue({ requestId: 'request-fixture', expiresAt: '2026-06-26T11:00:00Z' });
+    mockedSessionsService.verifyPublicBooking.mockRejectedValueOnce(new Error('Código incorrecto')).mockResolvedValue({ id: 'session-fixture', status: 'PENDING' });
 
     render(
       <BookingScreen
@@ -425,10 +433,61 @@ describe('BookingScreen initial slot preselection', () => {
     fireEvent.changeText(screen.getByLabelText('Apellidos'), 'García');
     fireEvent.changeText(screen.getByLabelText('Correo electrónico'), 'maria@example.com');
     fireEvent.press(screen.getByLabelText('Autorizar el uso de datos para gestionar la cita'));
+    fireEvent.press(await screen.findByText('Continuar con mi reserva'));
+    const code = await screen.findByLabelText('Código de verificación del correo');
+    const confirmation = within(screen.getByTestId('booking-contact-confirmation'));
+    expect(confirmation.getByLabelText('Código de verificación del correo')).toBeTruthy();
+    expect(confirmation.getByRole('button', { name: 'Confirmar cita' })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Confirmar cita' })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Confirmar cita' })).toBeDisabled();
+    fireEvent.changeText(code, '123');
+    expect(screen.getByRole('button', { name: 'Confirmar cita' })).toBeDisabled();
+    expect(mockedSessionsService.verifyPublicBooking).not.toHaveBeenCalled();
+    expect(mockedSessionsService.createPublicSession).not.toHaveBeenCalled();
+    fireEvent.changeText(code, '123456');
+    expect(screen.getByRole('button', { name: 'Confirmar cita' })).toBeEnabled();
     fireEvent.press(await screen.findByText('Confirmar cita'));
+    await waitFor(() => expect(mockedSessionsService.verifyPublicBooking).toHaveBeenCalledTimes(1));
+    expect(screen.getByDisplayValue('123456')).toBeTruthy();
+    fireEvent.press(screen.getByText('Confirmar cita'));
 
     expect(await screen.findByText('Solicitud enviada')).toBeTruthy();
     expect(screen.getByTestId('booking-success-scroll')).toBeTruthy();
+  });
+
+  it('keeps contact details after losing a slot and verifies a new request for the replacement date', async () => {
+    mockedUseAuth.mockReturnValue({ ...mockedUseAuth(), isAuthenticated: false, user: null });
+    mockedSessionsService.getAvailableSlots.mockResolvedValue([
+      { startTime: '10:00', endTime: '11:00', available: true },
+    ]);
+    mockedSessionsService.requestPublicBooking
+      .mockResolvedValueOnce({ requestId: 'first-request', expiresAt: '2026-06-26T11:00:00Z' })
+      .mockResolvedValueOnce({ requestId: 'replacement-request', expiresAt: '2026-06-26T11:00:00Z' });
+    const message = 'Este horario ya no está disponible. Elige otro hueco.';
+    mockedSessionsService.verifyPublicBooking.mockRejectedValueOnce(new Error(message))
+      .mockResolvedValueOnce({ id: 'replacement-session', status: 'PENDING' });
+    render(<BookingScreen route={route} navigation={navigation} />);
+    await screen.findByText('Tus datos de contacto');
+    fireEvent.changeText(screen.getByLabelText('Nombre'), 'María');
+    fireEvent.changeText(screen.getByLabelText('Apellidos'), 'García');
+    fireEvent.changeText(screen.getByLabelText('Correo electrónico'), 'fixture@example.invalid');
+    fireEvent.press(screen.getByLabelText('Autorizar el uso de datos para gestionar la cita'));
+    fireEvent.press(await screen.findByText('Continuar con mi reserva'));
+    fireEvent.changeText(await screen.findByLabelText('Código de verificación del correo'), '123456');
+    fireEvent.press(screen.getByText('Confirmar cita'));
+    await waitFor(() => expect(mockedShowAppAlert).toHaveBeenCalledWith(expect.anything(), expect.any(String), message));
+    expect(screen.queryByText('Solicitud enviada')).toBeNull();
+    expect(screen.getByDisplayValue('fixture@example.invalid')).toBeTruthy();
+    fireEvent.press(screen.getByText('select-second-date'));
+    await waitFor(() => expect(screen.queryByLabelText('Código de verificación del correo')).toBeNull());
+    fireEvent.press(await screen.findByText('select-slot'));
+    fireEvent.press(screen.getByText('Continuar con mi reserva'));
+    fireEvent.changeText(await screen.findByLabelText('Código de verificación del correo'), '654321');
+    fireEvent.press(screen.getByText('Confirmar cita'));
+    await screen.findByText('Solicitud enviada');
+    expect(mockedSessionsService.requestPublicBooking).toHaveBeenCalledTimes(2);
+    expect(mockedSessionsService.requestPublicBooking.mock.calls[1][0].date).not.toBe(mockedSessionsService.requestPublicBooking.mock.calls[0][0].date);
+    expect(mockedSessionsService.verifyPublicBooking).toHaveBeenLastCalledWith('replacement-request', '654321');
   });
 
   it('blocks booking from an authenticated non-patient account with a clear notice', async () => {

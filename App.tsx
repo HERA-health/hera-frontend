@@ -145,6 +145,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
       },
       Referrals: { path: 'derivaciones/:id?' },
       Collaborations: { path: 'colaboradores/:id?' },
+      HeraCommissions: { path: 'comisiones-hera/:accountId?', parse: { admin: (value: string) => value === 'true' } },
       ProfessionalClinicWorkspace: {
         path: 'mi-clinica/:clinicId?/:section?',
         parse: {

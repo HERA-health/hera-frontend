@@ -20,7 +20,7 @@ import type {
 } from '../specialist-profile/types';
 
 interface SpecialistDetailScreenProps {
-  route: { params?: { specialistId?: string; affinity?: number } };
+  route: { params?: { specialistId?: string; affinity?: number; intentToken?: string } };
   navigation: {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
     goBack: () => void;
@@ -83,13 +83,14 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
     analyticsService.track('booking_initiated');
     navigation.navigate('Booking', {
       specialistId: specialist.id,
+      intentToken: route.params?.intentToken,
       ...(selectedSlot ? {
         initialDate: selectedSlot.date,
         initialSlotStartTime: selectedSlot.slot.startTime,
         initialSlotEndTime: selectedSlot.slot.endTime,
       } : {}),
     });
-  }, [appAlert, canBook, navigation, specialist]);
+  }, [appAlert, canBook, navigation, specialist, route.params?.intentToken]);
 
   const handleOpenCertificate = useCallback(async (certificate: CertificateItem) => {
     if (!specialist) return;

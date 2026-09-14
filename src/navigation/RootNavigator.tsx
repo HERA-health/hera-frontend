@@ -102,6 +102,7 @@ const ClinicalConsentRoute = createDeferredRoute<'ClinicalConsent'>(
   { displayName: 'ClinicalConsentRoute', exportName: 'ClinicalConsentScreen' }
 );
 const DeferredReferralsRoute = createDeferredRoute<'Referrals'>(() => require('../screens/referrals/ReferralsScreen'), { displayName: 'ReferralsRoute', exportName: 'ReferralsScreen' });
+const HeraCommissionsRoute = createDeferredLayoutRoute<'HeraCommissions'>(() => require('../screens/commissions/HeraCommissionsScreen'), { displayName: 'HeraCommissionsRoute', exportName: 'HeraCommissionsScreen' });
 const DeferredCollaborationsRoute = createDeferredRoute<'Collaborations'>(() => require('../screens/collaborations/CollaborationsScreen'), { displayName: 'CollaborationsRoute', exportName: 'CollaborationsScreen' });
 const CollaborationsRoute: React.FC<StackRouteProps<'Collaborations'>> = (props) => {
   const { isAuthenticated } = useAuth();
@@ -645,6 +646,7 @@ export function RootNavigator() {
           <Stack.Screen
             name="Referrals" component={ReferralsRoute} />
           <Stack.Screen name="Collaborations" component={CollaborationsRoute} />
+          <Stack.Screen name="HeraCommissions" component={HeraCommissionsRoute} />
           <Stack.Screen name="ClinicalConsent"
             component={ClinicalConsentRoute}
             options={{ headerShown: false }}
@@ -810,16 +812,16 @@ export function RootNavigator() {
 
   const isProfessional = user?.type === 'professional';
 
-  if (isProfessional && user.emailVerified !== true) {
+  if ((isProfessional || user?.type === 'client') && user.emailVerified !== true) {
     return (
       <Stack.Navigator
         screenOptions={{ headerShown: false }}
       >
-        <Stack.Group navigationKey={`professional-email-verification-${user.id}`}>
+        <Stack.Group navigationKey={`email-verification-${user.id}`}>
           <Stack.Screen
             name="EmailSentVerification"
             component={EmailSentVerificationRoute}
-            initialParams={{ email: user.email, userType: 'PROFESSIONAL' }}
+            initialParams={{ email: user.email, userType: isProfessional ? 'PROFESSIONAL' : 'CLIENT' }}
           />
           <Stack.Screen name="EmailVerification" component={EmailVerificationRoute} />
           <Stack.Screen
@@ -861,6 +863,7 @@ export function RootNavigator() {
           <Stack.Screen
             name="Referrals" component={ReferralsRoute} />
           <Stack.Screen name="Collaborations" component={CollaborationsRoute} />
+          <Stack.Screen name="HeraCommissions" component={HeraCommissionsRoute} />
           <Stack.Screen name="ClinicalConsent"
             component={ClinicalConsentRoute}
             options={{ headerShown: false }}
@@ -883,11 +886,15 @@ export function RootNavigator() {
   if (isProfessional) {
     const { ProfessionalWorkspaceProvider } = require('../contexts/ProfessionalWorkspaceContext') as typeof import('../contexts/ProfessionalWorkspaceContext');
     const { ProfessionalClinicWorkspaceProvider } = require('../contexts/ProfessionalClinicWorkspaceContext') as typeof import('../contexts/ProfessionalClinicWorkspaceContext');
+    const { ProfessionalCommissionNotice } = require('../screens/commissions/ProfessionalCommissionNotice') as typeof import('../screens/commissions/ProfessionalCommissionNotice');
     return (
       <Stack.Navigator
         layout={({ children }) => (
           <ProfessionalWorkspaceProvider key={user?.id} currentRoute={professionalRoute}>
-            <ProfessionalClinicWorkspaceProvider>{children}</ProfessionalClinicWorkspaceProvider>
+            <ProfessionalClinicWorkspaceProvider>
+              {!pendingPinReset ? <ProfessionalCommissionNotice key={user.id} /> : null}
+              {children}
+            </ProfessionalClinicWorkspaceProvider>
           </ProfessionalWorkspaceProvider>
         )}
         screenListeners={({ route }) => ({ focus: () => setProfessionalRoute(route.name) })}
@@ -1064,6 +1071,7 @@ export function RootNavigator() {
           <Stack.Screen
             name="Referrals" component={ReferralsRoute} />
           <Stack.Screen name="Collaborations" component={CollaborationsRoute} />
+          <Stack.Screen name="HeraCommissions" component={HeraCommissionsRoute} />
           <Stack.Screen name="ClinicalConsent"
             component={ClinicalConsentRoute}
             options={{ headerShown: false }}
@@ -1201,6 +1209,7 @@ export function RootNavigator() {
         <Stack.Screen
           name="Referrals" component={ReferralsRoute} />
           <Stack.Screen name="Collaborations" component={CollaborationsRoute} />
+          <Stack.Screen name="HeraCommissions" component={HeraCommissionsRoute} />
           <Stack.Screen name="ClinicalConsent"
           component={ClinicalConsentRoute}
           options={{ headerShown: false }}

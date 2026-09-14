@@ -102,6 +102,20 @@ describe('professional verification flow', () => {
     expect(authService.resendVerificationEmail).toHaveBeenCalledWith('old@example.test');
   });
 
+  it('asks patients to verify their email without showing professional document steps', async () => {
+    const patient: authService.AuthResponse['user'] = {
+      id: 'patient-1', email: 'patient@example.test', name: 'Paciente', userType: 'CLIENT', emailVerified: false,
+    };
+    jest.mocked(initializeAuth).mockResolvedValue({ token: 'token', user: patient, legalStatus: null });
+    jest.mocked(authService.getCurrentUser).mockResolvedValue(patient);
+    renderFlow();
+    await waitFor(() => expect(screen.getByText('CONFIRMA TU CUENTA')).toBeTruthy());
+    expect(screen.getByText(/Si tu especialista ya tiene una ficha tuya/)).toBeTruthy();
+    expect(screen.queryByText('Después: carnet profesional')).toBeNull();
+    fireEvent.press(screen.getByText('Reenviar enlace'));
+    await waitFor(() => expect(authService.resendVerificationEmail).toHaveBeenCalledWith(patient.email));
+  });
+
   it.each([true, false])('preserves correction feedback and resend availability when delivery is %s', async (sent) => {
     await registerProfessional();
     jest.mocked(authService.updateUnverifiedProfessionalEmail).mockResolvedValue({

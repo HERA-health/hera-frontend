@@ -27,7 +27,7 @@ export function EmailSentVerificationScreen() {
   const route = useRoute<AppRouteProp<'EmailSentVerification'>>();
   const { theme } = useTheme();
   const { user, logout, refreshCurrentUser, updateUser } = useAuth();
-  const currentEmail = user?.type === 'professional' ? user.email : route.params.email;
+  const currentEmail = user?.email ?? route.params.email;
 
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailDraft, setEmailDraft] = useState(currentEmail);
@@ -136,7 +136,7 @@ export function EmailSentVerificationScreen() {
         <View style={styles.shell}>
           <View style={[styles.stepPill, { backgroundColor: theme.secondaryMuted }]}>
             <Text style={[styles.stepText, { color: theme.secondaryDark, fontFamily: theme.fontSansSemiBold }]}>
-              PASO 1 DE 2 · IDENTIDAD DIGITAL
+              {user?.type === 'client' ? 'CONFIRMA TU CUENTA' : 'PASO 1 DE 2 · IDENTIDAD DIGITAL'}
             </Text>
           </View>
 
@@ -158,7 +158,7 @@ export function EmailSentVerificationScreen() {
               Confirma tu correo antes de continuar
             </Text>
             <Text style={[styles.description, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-              Así vinculamos el carnet profesional y la póliza a una sola cuenta segura.
+              {user?.type === 'client' ? 'Confirma que este correo es tuyo. Si tu especialista ya tiene una ficha tuya, la detectaremos para mantener tus citas en el mismo lugar.' : 'Así vinculamos el carnet profesional y la póliza a una sola cuenta segura.'}
             </Text>
 
             <View style={[styles.emailPanel, { backgroundColor: theme.bgMuted, borderColor: theme.borderLight }]}>
@@ -248,7 +248,7 @@ export function EmailSentVerificationScreen() {
               </Button>
             </View>
 
-            <View style={[styles.nextStep, { borderTopColor: theme.borderLight }]}>
+            {user?.type === 'professional' ? <View style={[styles.nextStep, { borderTopColor: theme.borderLight }]}>
               <View style={[styles.nextStepNumber, { backgroundColor: theme.secondaryMuted }]}>
                 <Text style={[styles.nextStepNumberText, { color: theme.secondaryDark, fontFamily: theme.fontSansSemiBold }]}>2</Text>
               </View>
@@ -260,7 +260,7 @@ export function EmailSentVerificationScreen() {
                   La aplicación abrirá el siguiente paso automáticamente al confirmar tu correo.
                 </Text>
               </View>
-            </View>
+            </View> : null}
           </View>
 
           <Button variant="ghost" onPress={() => void logout()}>

@@ -4,6 +4,8 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { ProfessionalClientsScreen } from '../ProfessionalClientsScreen';
 import * as professionalService from '../../../services/professionalService';
 
+jest.mock('../../../services/heraCommissionService', () => ({ patient: jest.fn(), invitation: jest.fn() }));
+
 let mockIsFocused = true;
 
 jest.mock('@react-navigation/native', () => {

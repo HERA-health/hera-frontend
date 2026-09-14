@@ -122,6 +122,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
 
     const params: RootStackParamList['Booking'] = {
       specialistId: specialist.id,
+      intentToken: route.params?.intentToken,
       ...(selectedSlot ? {
         initialDate: selectedSlot.date,
         initialSlotStartTime: selectedSlot.slot.startTime,
@@ -137,6 +138,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     navigation,
     specialist,
     user?.type,
+    route.params?.intentToken,
   ]);
 
   const handleOpenCertificate = useCallback(async (certificate: CertificateItem) => {

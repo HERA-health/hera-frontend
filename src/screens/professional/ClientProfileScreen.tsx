@@ -1,3 +1,4 @@
+import { PatientCommission } from '../commissions/CommissionLinks';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRef } from 'react';
 import {
@@ -1113,6 +1114,8 @@ export function ClientProfileScreen() {
         </View>
         )
       ) : null}
+
+      {activeTab === 'summary' ? <><PatientCommission clientId={clientId} /></> : null}
 
       {activeTab === 'history' ? (
         <Card variant="default" padding="large">

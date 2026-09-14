@@ -1,3 +1,4 @@
+import { directoryEntryHref } from '../../../services/directoryBookingService';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -106,7 +107,7 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
                   specialist={specialist}
                   variant="featured"
                   style={styles.profileCard}
-                  href={`/especialista/${encodeURIComponent(specialist.publicSlug ?? specialist.id)}`}
+                  href={directoryEntryHref(specialist.publicSlug ?? specialist.id)}
                   onPress={() => onOpenSpecialist(specialist.publicSlug ?? specialist.id)}
                 />
               </MotionView>

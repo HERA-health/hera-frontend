@@ -1,3 +1,5 @@
+import { directoryEntryHref } from '../../services/directoryBookingService';
+import { directoryIntent } from '../../services/heraCommissionService';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -470,10 +472,8 @@ export const PublicSpecialistsScreen: React.FC = () => {
                   variant="directory"
                   directoryHorizontal={useHorizontalCards}
                   style={styles.resultCard}
-                  href={`/especialista/${encodeURIComponent(specialist.publicSlug ?? specialist.id)}`}
-                  onPress={() => navigation.navigate('PublicSpecialistProfile', {
-                    profileRef: specialist.publicSlug ?? specialist.id,
-                  })}
+                  href={directoryEntryHref(specialist.publicSlug ?? specialist.id)}
+                  onPress={async () => { try { const intent = await directoryIntent(specialist.id); navigation.navigate('PublicSpecialistProfile', { profileRef: specialist.publicSlug ?? specialist.id, intentToken: intent.token }); } catch { setError('No se pudo abrir el perfil desde el Directorio. Inténtalo de nuevo.'); } }}
                 />
               ))}
             </View>

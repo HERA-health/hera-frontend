@@ -5,6 +5,11 @@ import { lightTheme } from '../../../../constants/theme';
 import { FeaturedSpecialistsSection } from '../FeaturedSpecialistsSection';
 import { getFeaturedSpecialists } from '../../../../services/specialistsService';
 
+jest.mock('../../../../config/api', () => ({
+  __esModule: true,
+  default: () => ({ apiUrl: 'https://fixture.invalid/api' }),
+}));
+
 jest.mock('../../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
 }));

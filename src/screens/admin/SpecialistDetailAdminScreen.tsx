@@ -1,3 +1,4 @@
+import { AdminCommissionSummary } from '../commissions/CommissionLinks';
 import React, { ComponentProps, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -765,6 +766,7 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
           />
         }
       >
+        <AdminCommissionSummary specialistId={specialistId} />
         <View style={styles.toolbar}>
           <AnimatedPressable
             style={styles.backHeader}

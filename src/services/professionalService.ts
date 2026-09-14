@@ -139,6 +139,8 @@ export interface ProfessionalSessionDetail extends Session {
 }
 
 export interface Client {
+  heraOrigin?: { origin: string; status: string };
+  accountLinkStatus?: string | null;
   id: string;
   userId: string | null;
   source: ClientSource;

@@ -167,6 +167,9 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         route: 'ProfessionalHelp',
         roles: ['PROFESSIONAL'],
       },
+      {
+        id: 'hera-commissions', label: 'Comisiones HERA', icon: 'document-text-outline', iconActive: 'document-text', route: 'HeraCommissions', roles: ['PROFESSIONAL'],
+      },
     ],
   },
 ];

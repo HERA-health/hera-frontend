@@ -181,7 +181,7 @@ export function ClinicalConsentPanel({
   const [confirmingGuestEligibility, setConfirmingGuestEligibility] = useState(false);
   const [confirmingWithdrawal, setConfirmingWithdrawal] = useState(false);
   const [displayClock, setDisplayClock] = useState(() => Date.now());
-  const isRegisteredClient = client.source === 'REGISTERED';
+  const isRegisteredClient = client.source === 'REGISTERED' || client.accountLinkStatus === 'CONFIRMED';
   const isManagedClient = client.source === 'MANAGED';
   const guestConsentEligibility = resolveClinicalGuestConsentEligibility(record);
   const usesHeraAccount = isRegisteredClient

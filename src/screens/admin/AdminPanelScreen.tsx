@@ -139,6 +139,7 @@ export function AdminPanelScreen() {
         />
       }
     >
+      <Button variant="ghost" onPress={() => navigation.navigate('HeraCommissions', { admin: true })}>Comisiones HERA · saldos por especialista</Button>
       <View style={styles.summaryCard}>
         <View>
           <Text style={styles.summaryLabel}>Verificación profesional</Text>

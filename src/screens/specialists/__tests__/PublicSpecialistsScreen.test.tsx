@@ -1,10 +1,13 @@
 import React from 'react';
+jest.mock('../../../config/api', () => ({ __esModule: true, default: () => ({ apiUrl: 'https://fixture.invalid/api' }) }));
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { lightTheme } from '../../../constants/theme';
 import { PublicSpecialistsScreen } from '../PublicSpecialistsScreen';
 import * as specialistsService from '../../../services/specialistsService';
+
+jest.mock('../../../services/heraCommissionService', () => ({ directoryIntent: jest.fn().mockResolvedValue({ token: 'verified-directory-intent' }) }));
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: jest.fn(),
@@ -152,7 +155,7 @@ describe('PublicSpecialistsScreen', () => {
     expect(screen.queryByText('1 perfil')).toBeNull();
     fireEvent.press(screen.getByText('Dra. Elena Martín'));
 
-    expect(navigate).toHaveBeenCalledWith('PublicSpecialistProfile', { profileRef: 'elena-martin' });
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('PublicSpecialistProfile', { profileRef: 'elena-martin', intentToken: 'verified-directory-intent' }));
   });
 
   it('uses the landing header and routes its specialist link back to the landing section', async () => {

@@ -1,5 +1,7 @@
 import { api } from './api';
-import { getErrorMessage } from '../constants/errors';
+import { getErrorCode, getErrorMessage } from '../constants/errors';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { durableCommandKey } from './heraCommissionService';
 
 /**
  * Time slot from available slots API
@@ -62,6 +64,7 @@ interface ApiResponse<T> {
 }
 
 interface CreateSessionRequest {
+  intentToken?: string;
   specialistId: string;
   date: string;
   duration: number;
@@ -82,6 +85,7 @@ interface PublicBookingQuoteRequest {
 }
 
 interface CreatePublicSessionRequest {
+  intentToken?: string;
   specialistId: string;
   date: string;
   duration: number;
@@ -258,5 +262,27 @@ export const getMeetingLink = async (sessionId: string): Promise<MeetingLinkResp
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo obtener el enlace de la videollamada'));
+  }
+};
+
+export const requestPublicBooking = async (input: CreatePublicSessionRequest, attempt = 0) => {
+  const { commandKey, storageKey } = await durableCommandKey(`public-booking:${attempt}`, input);
+  try {
+    return (await api.post<{ requestId: string; expiresAt: string; codeLength?: number }>('/hera-commissions/public-requests', { ...input, commandKey })).data;
+  } catch (error: unknown) {
+    const code = getErrorCode(error);
+    // Only a definitive rejection releases the key. Delivery/network failures
+    // keep it so a retry cannot create a second request after a lost response.
+    if (code === 'HERA_BOOKING_EXPIRED' || code === 'HERA_REQUEST_CHANGED') {
+      await AsyncStorage.removeItem(storageKey);
+    }
+    throw new Error(getErrorMessage(error, 'No se pudo enviar el código. Intenta de nuevo.'));
+  }
+};
+export const verifyPublicBooking = async (requestId: string, code: string) => {
+  try {
+    return (await api.post<{ data: PublicCreatedSession }>('/hera-commissions/public-requests/verify', { requestId, code })).data.data;
+  } catch (error: unknown) {
+    throw new Error(getErrorMessage(error, 'No se pudo confirmar la cita. Intenta de nuevo.'));
   }
 };

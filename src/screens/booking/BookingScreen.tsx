@@ -21,6 +21,8 @@ import { spacing, borderRadius } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AnimatedPressable } from '../../components/common/AnimatedPressable';
 import { Button } from '../../components/common/Button';
+import { BookingEmailVerification } from './components/BookingEmailVerification';
+import { BookingConfirmationPanel } from './components/BookingConfirmationPanel';
 import { StyledLogo } from '../../components/common/StyledLogo';
 import { ThemeToggleButton } from '../../components/common/ThemeToggleButton';
 import type { RootStackParamList } from '../../constants/types';
@@ -318,6 +320,9 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     time: string;
     type: SessionType;
   } | null>(null);
+  const [verification, setVerification] = useState<{ requestId: string; expiresAt: string; codeLength?: number }>();
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationAttempt, setVerificationAttempt] = useState(0);
   const [mobileFooterHeight, setMobileFooterHeight] = useState(120);
 
   useEffect(() => {
@@ -329,6 +334,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       setSessionType(defaultSessionType);
     }
   }, [defaultSessionType, modalityFlags, sessionType]);
+
+  useEffect(() => { setVerification(undefined); setVerificationCode(''); }, [selectedDate, selectedSlot?.startTime, sessionType, publicContact]);
 
   const publicContactResult = useMemo(
     () => publicBookingContactSchema.safeParse(publicContact),
@@ -408,16 +415,19 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     && !quoteLoading
     && !quoteError
     && availableSessionTypes.length > 0;
+  const verificationCodeLength = verification?.codeLength ?? 6;
+  const verificationComplete = verificationCodeLength === 6
+    ? /^\d{6}$/.test(verificationCode)
+    : verificationCode.trim().length === verificationCodeLength;
   const canConfirmBooking =
     quoteReady
-    && (!isAnonymousBooking || publicContactResult.success);
+    && (!isAnonymousBooking || (publicContactResult.success && (!verification || verificationComplete)));
   const accountCanBook = isAnonymousBooking || isAuthenticatedClient || !!referralBooking;
   const hasSelectedAppointment = Boolean(selectedDate && selectedSlot);
   const canAdvanceBooking = hasSelectedAppointment && quoteReady && accountCanBook;
+  const primaryActionDisabled = !canAdvanceBooking || loading || (isAnonymousBooking && (!publicContactResult.success || (!!verification && !verificationComplete)));
   const primaryActionLabel =
-    isAnonymousBooking && hasSelectedAppointment && !publicContactResult.success
-      ? 'Completar mis datos'
-      : 'Confirmar cita';
+    isAnonymousBooking && !verification ? 'Continuar con mi reserva' : 'Confirmar cita';
   const accountMessage =
     isAuthenticated && !isAuthenticatedClient
       ? 'Esta cuenta no puede reservar citas. Accede con una cuenta de paciente o continúa sin iniciar sesión.'
@@ -630,7 +640,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           return;
         }
 
-        const createdSession = await sessionsService.createPublicSession({
+        if (!verification) {
+        const request = await sessionsService.requestPublicBooking({
           specialistId,
           date: dateTime,
           duration: slotDuration,
@@ -638,8 +649,13 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           patient: toPublicBookingPatientPayload(publicContactResult.data),
           privacyAccepted: true,
           privacyVersion: PUBLIC_BOOKING_PRIVACY_VERSION,
-        });
+          intentToken: route.params.intentToken,
+        }, verificationAttempt);
 
+        setVerification(request);
+        return;
+        }
+        const createdSession = await sessionsService.verifyPublicBooking(verification.requestId, verificationCode);
         bookingCompletedRef.current = true;
         analyticsService.track('session_booked', {
           audience: 'anonymous',
@@ -656,6 +672,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
 
       const createdSession = await sessionsService.createSession({
         specialistId,
+        intentToken: route.params.intentToken,
         date: dateTime,
         duration: slotDuration,
         type: sessionType,
@@ -719,6 +736,10 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     navigation,
     modalityFlags,
     publicContactResult,
+    verification,
+    verificationCode,
+    verificationAttempt,
+    route.params.intentToken,
   ]);
 
   const handlePageScroll = useCallback(
@@ -759,6 +780,12 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     }
   }, [loadAvailableSlots, loading, selectedDate]);
 
+  const handleContactBlur = (field: ContactInputField) => {
+    setFocusedContactField(null);
+    const errors = publicContactResult.success ? {} : mapPublicBookingContactErrors(publicContactResult.error);
+    setPublicContactErrors(current => ({ ...current, [field]: errors[field] }));
+  };
+
   const handleMobileFooterLayout = useCallback((event: LayoutChangeEvent) => {
     const nextHeight = Math.ceil(event.nativeEvent.layout.height);
     if (nextHeight > 0) {
@@ -791,6 +818,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
               <Text style={styles.publicContactLabel}>Nombre</Text>
               <TextInput
                 accessibilityLabel="Nombre"
+                editable={!loading}
                 value={publicContact.firstName}
                 onChangeText={(value) => updatePublicContactField('firstName', value)}
                 placeholder="Tu nombre"
@@ -805,7 +833,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
                 autoCapitalize="words"
                 textContentType="givenName"
                 onFocus={() => setFocusedContactField('firstName')}
-                onBlur={() => setFocusedContactField(null)}
+                onBlur={() => handleContactBlur('firstName')}
               />
               {publicContactErrors.firstName ? (
                 <Text
@@ -822,6 +850,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
               <Text style={styles.publicContactLabel}>Apellidos</Text>
               <TextInput
                 accessibilityLabel="Apellidos"
+                editable={!loading}
                 value={publicContact.lastName}
                 onChangeText={(value) => updatePublicContactField('lastName', value)}
                 placeholder="Tus apellidos"
@@ -836,7 +865,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
                 autoCapitalize="words"
                 textContentType="familyName"
                 onFocus={() => setFocusedContactField('lastName')}
-                onBlur={() => setFocusedContactField(null)}
+                onBlur={() => handleContactBlur('lastName')}
               />
               {publicContactErrors.lastName ? (
                 <Text
@@ -854,6 +883,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
             <Text style={styles.publicContactLabel}>Email</Text>
             <TextInput
               accessibilityLabel="Correo electrónico"
+              editable={!loading}
               value={publicContact.email}
               onChangeText={(value) => updatePublicContactField('email', value)}
               placeholder="tu@email.com"
@@ -870,7 +900,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
               keyboardType="email-address"
               textContentType="emailAddress"
               onFocus={() => setFocusedContactField('email')}
-              onBlur={() => setFocusedContactField(null)}
+              onBlur={() => handleContactBlur('email')}
             />
             {publicContactErrors.email ? (
               <Text
@@ -887,6 +917,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
             <Text style={styles.publicContactLabel}>Teléfono opcional</Text>
             <TextInput
               accessibilityLabel="Teléfono opcional"
+              editable={!loading}
               value={publicContact.phone}
               onChangeText={(value) => updatePublicContactField('phone', value)}
               placeholder="+34 600 000 000"
@@ -901,7 +932,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
               keyboardType="phone-pad"
               textContentType="telephoneNumber"
               onFocus={() => setFocusedContactField('phone')}
-              onBlur={() => setFocusedContactField(null)}
+              onBlur={() => handleContactBlur('phone')}
             />
             {publicContactErrors.phone ? (
               <Text
@@ -922,7 +953,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           pressScale={0.98}
           accessibilityRole="checkbox"
           accessibilityLabel="Autorizar el uso de datos para gestionar la cita"
-          accessibilityState={{ checked: publicContact.privacyAccepted }}
+          disabled={loading}
+          accessibilityState={{ checked: publicContact.privacyAccepted, disabled: loading }}
         >
           <View
             style={[
@@ -1042,9 +1074,13 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
 
   const actionHint = !hasSelectedAppointment
     ? 'Selecciona una fecha y una hora para continuar.'
-    : primaryActionLabel === 'Completar mis datos'
-      ? 'Puedes reservar sin crear una cuenta.'
-      : 'Revisa los datos antes de confirmar.';
+    : isAnonymousBooking && !publicContactResult.success
+      ? 'Completa tus datos y acepta la privacidad para continuar. No necesitas crear una cuenta.'
+      : isAnonymousBooking && verification && !verificationComplete
+        ? `Introduce el código de ${verificationCodeLength} ${verificationCodeLength === 6 ? 'dígitos' : 'caracteres'} para confirmar.`
+        : isAnonymousBooking && !verification
+          ? 'En el siguiente paso comprobaremos tu correo con un código para confirmar la cita.'
+          : 'Revisa los datos antes de confirmar.';
 
   const renderBookingHeader = () => (
     <View style={styles.bookingHeader}>
@@ -1145,6 +1181,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     return (
       <View
         ref={contactSectionRef}
+        testID="booking-contact-section"
         style={[styles.contactSection, isNarrowMobile ? styles.narrowSurface : null]}
       >
         <View style={styles.sectionHeading}>
@@ -1160,9 +1197,29 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           </View>
         </View>
         {renderPublicContactCard()}
+        <BookingConfirmationPanel
+          booking={bookingState}
+          duration={slotDuration}
+          bookingQuote={bookingQuote}
+          quoteLoading={quoteLoading}
+          quoteError={quoteError}
+          actionLabel={primaryActionLabel}
+          actionHint={actionHint}
+          disabled={primaryActionDisabled}
+          loading={loading}
+          onConfirm={handlePrimaryAction}
+        >
+          {renderVerification()}
+        </BookingConfirmationPanel>
       </View>
     );
   };
+
+  const renderVerification = () => isAnonymousBooking && verification ? <BookingEmailVerification
+    email={publicContact.email.trim()} code={verificationCode} codeLength={verificationCodeLength} busy={loading}
+    onChange={setVerificationCode}
+    onRestart={() => { setVerification(undefined); setVerificationCode(''); setVerificationAttempt(v => v + 1); }}
+  /> : null;
 
   const renderBookingSummary = (sticky: boolean, showAction = true) => (
     <ProfessionalInfoColumn
@@ -1171,7 +1228,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       availableSessionTypes={availableSessionTypes}
       onPrimaryAction={handlePrimaryAction}
       actionLabel={primaryActionLabel}
-      actionDisabled={!canAdvanceBooking || loading}
+      actionDisabled={primaryActionDisabled}
       actionHint={actionHint}
       accountMessage={accountMessage}
       bookingQuote={bookingQuote}
@@ -1228,23 +1285,24 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       <View style={[styles.bookingLayout, !isDesktop ? styles.bookingLayoutStacked : null]}>
         <View style={styles.mainColumn}>
           {renderScheduleSurface()}
+          {isTablet && isAnonymousBooking ? renderBookingSummary(false, false) : null}
           {renderProgressiveContact()}
           {isMobile && sessionType === 'IN_PERSON' && hasOfficeCoordinates ? (
             <View style={styles.mobileLocationCard}>
               <BookingLocationMap officeLocation={officeLocation} height={150} />
             </View>
           ) : null}
-          {isTablet ? renderBookingSummary(false) : null}
+          {isTablet && !isAnonymousBooking ? renderBookingSummary(false) : null}
         </View>
 
         {isDesktop ? (
           <View style={styles.summaryColumn}>
-            {renderBookingSummary(true)}
+            {renderBookingSummary(true, !isAnonymousBooking)}
           </View>
         ) : null}
       </View>
 
-      {isMobile ? (
+      {isMobile && !isAnonymousBooking ? (
         <View
           style={[
             styles.mobileFooterSpacer,
@@ -1295,7 +1353,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         variant="primary"
         size="medium"
         onPress={handlePrimaryAction}
-        disabled={!canAdvanceBooking || loading}
+        disabled={primaryActionDisabled}
         loading={loading}
         fullWidth
       >
@@ -1337,7 +1395,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       >
         {renderPageContent()}
       </ScrollView>
-      {isMobile ? renderMobileFooter() : null}
+      {isMobile && !isAnonymousBooking ? renderMobileFooter() : null}
     </KeyboardAvoidingView>
   );
 };
@@ -1526,6 +1584,7 @@ const createStyles = (
     summaryColumn: {
       width: 340,
       flexShrink: 0,
+      alignSelf: 'stretch',
     },
     mainSurface: {
       width: '100%',

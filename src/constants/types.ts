@@ -124,6 +124,7 @@ export type RootStackParamList = {
   ClinicalConsent: { requestId: string; token: string };
   Referrals: { id?: string; clientId?: string; token?: string; agreementVersionId?: string } | undefined;
   Collaborations: { id?: string } | undefined;
+  HeraCommissions: { accountId?: string; admin?: boolean; specialistId?: string; clientId?: string } | undefined;
   ClinicConsent: { requestId: string; token: string };
   PublicReview: { token: string };
   LegalDocument: { documentKey: LegalDocumentKey };
@@ -151,8 +152,9 @@ export type RootStackParamList = {
   OnDutyPsychologist: undefined;
   Profile: undefined;
   ProfileCompletion: undefined;
-  SpecialistDetail: { specialistId: string; affinity?: number };
+  SpecialistDetail: { specialistId: string; affinity?: number; intentToken?: string };
   Booking: {
+    intentToken?: string;
     specialistId: string;
     initialDate?: string;
     initialSlotStartTime?: string;
@@ -207,7 +209,7 @@ export type RootStackParamList = {
   } | undefined;
   AdminSpecialistDetail: { specialist: string }; // JSON-serialized PendingSpecialist
   SpecialistDetailAdmin: { specialistId: string };
-  PublicSpecialistProfile: { profileRef: string };
+  PublicSpecialistProfile: { profileRef: string; intentToken?: string };
 };
 
 export type MainTabParamList = {

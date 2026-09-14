@@ -69,6 +69,15 @@ jest.mock('../../../services/specialistsService', () => ({
   getFeaturedSpecialists: jest.fn().mockResolvedValue([]),
 }));
 
+jest.mock('../../../services/heraCommissionService', () => ({
+  directoryIntent: jest.fn().mockResolvedValue({ token: 'fixture-directory-intent' }),
+}));
+
+jest.mock('../../../components/common/alert', () => ({
+  useAppAlert: () => ({ show: jest.fn() }),
+  showAppAlert: jest.fn(),
+}));
+
 jest.mock('../../../services/analyticsService', () => ({
   track: jest.fn(),
 }));

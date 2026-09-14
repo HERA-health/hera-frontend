@@ -4,6 +4,7 @@
  * Follows HERA "Premium Healthcare" design language: sage green + lavender.
  */
 
+import { useDirectoryNavigation } from '../../hooks/useDirectoryNavigation';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
@@ -89,6 +90,7 @@ type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
+  const openDirectory = useDirectoryNavigation();
   const navigation = useNavigation<HomeNavigationProp>();
   const { width } = useWindowDimensions();
   const { user } = useAuth();
@@ -533,7 +535,7 @@ export default function HomeScreen() {
     <AnimatedPressable
       key={specialist.id}
       style={[compact ? styles.specialistCardCompact : styles.specialistCard, { backgroundColor: theme.bgCard, shadowColor: theme.shadowNeutral }]}
-      onPress={() => navigation.navigate('SpecialistDetail', { specialistId: specialist.id })}
+      onPress={() => void openDirectory(specialist.id)}
       pressScale={0.985}
     >
       <View style={styles.specialistAvatarWrap}>

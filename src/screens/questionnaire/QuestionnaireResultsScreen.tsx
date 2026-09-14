@@ -1,3 +1,4 @@
+import { useDirectoryNavigation } from '../../hooks/useDirectoryNavigation';
 import React, { useEffect, useMemo, useRef } from 'react';
 import {
   View,
@@ -46,6 +47,7 @@ const getResultsPalette = (theme: Theme, isDark: boolean) => ({
 type ResultsPalette = ReturnType<typeof getResultsPalette>;
 
 export function QuestionnaireResultsScreen() {
+  const openDirectory = useDirectoryNavigation();
   const navigation = useNavigation<QuestionnaireResultsNavigationProp>();
   const route = useRoute<QuestionnaireResultsRouteProp>();
   const { width } = useWindowDimensions();
@@ -195,7 +197,7 @@ export function QuestionnaireResultsScreen() {
 
             <Button
               onPress={() =>
-                navigation.navigate('SpecialistDetail', { specialistId: specialist.id })
+                void openDirectory(specialist.id)
               }
               size="medium"
               icon={<Ionicons name="arrow-forward" size={16} color="#FFFFFF" />}
