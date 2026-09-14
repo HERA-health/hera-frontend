@@ -15,8 +15,13 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('../../../services/heraCommissionService', () => ({ patient: jest.fn(), invitation: jest.fn() }));
 beforeEach(() => jest.clearAllMocks());
 
-it('shows the scale and example immediately while keeping additional rules expandable', () => {
+it('keeps the example folded and explicitly distinguishes it from real balances', () => {
   const view = render(<CommissionExplanation />);
+  expect(view.queryByText('16 €')).toBeNull();
+  expect(view.getByRole('button', { name: 'Cómo se calculan las comisiones' })).toHaveAccessibilityState({ expanded: false });
+  fireEvent.press(view.getByRole('button', { name: 'Cómo se calculan las comisiones' }));
+  expect(view.getByText(/No es tu tarifa ni un importe que tengas que pagar/)).toBeTruthy();
+  expect(view.getByText('Ejemplo: base de 80 €')).toBeTruthy();
   for (const value of ['20%', '10%', '5%', '16 €', '8 €', '4 €']) expect(view.getByText(value)).toBeTruthy();
   expect(view.getByText('Pacientes propios: sin comisión HERA')).toBeTruthy();
   expect(view.queryByText(/Las gratuitas, canceladas/)).toBeNull();
@@ -24,6 +29,8 @@ it('shows the scale and example immediately while keeping additional rules expan
   expect(view.getByText(/Las gratuitas, canceladas/)).toBeTruthy();
   fireEvent.press(view.getByRole('button', { name: 'Ocultar detalles del cálculo' }));
   expect(view.queryByText(/Las gratuitas, canceladas/)).toBeNull();
+  fireEvent.press(view.getByRole('button', { name: 'Cómo se calculan las comisiones' }));
+  expect(view.queryByText('16 €')).toBeNull();
 });
 
 it('names the compact information button and opens the commission screen', () => {

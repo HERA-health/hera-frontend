@@ -13,11 +13,14 @@ const tiers = [
 
 export function CommissionExplanation({ terms, simulation }: { terms?: Terms | null; simulation?: boolean }) {
   const { theme } = useTheme();
+  const [expanded, setExpanded] = useState(false);
   const [details, setDetails] = useState(false);
   const body = { color: theme.textPrimary, fontFamily: theme.fontSans, fontSize: 14, lineHeight: 21 };
   const label = { ...body, color: theme.textSecondary, fontFamily: theme.fontSansSemiBold, fontSize: 12, lineHeight: 18 };
 
   return <Card style={styles.card}>
+    <Button variant="ghost" accessibilityLabel="Cómo se calculan las comisiones" accessibilityState={{ expanded }} icon={<Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textSecondary} />} iconPosition="right" onPress={() => setExpanded(value => !value)}>Cómo se calculan las comisiones</Button>
+    {expanded ? <>
     <View style={styles.heading}>
       <View style={styles.headingCopy}>
         <Text accessibilityRole="header" style={{ ...body, fontFamily: theme.fontHeading, fontSize: 24, lineHeight: 31 }}>Menos comisión a medida que avanzáis</Text>
@@ -31,13 +34,14 @@ export function CommissionExplanation({ terms, simulation }: { terms?: Terms | n
 
     {simulation ? <Text style={label}>SIMULACIÓN · Estos importes no generan deuda.</Text> : null}
 
+    <WorkflowHint>Ejemplo orientativo con una sesión de 80 € de base. No es tu tarifa ni un importe que tengas que pagar. Tu comisión se calcula con el precio y los cobros reales de cada sesión.</WorkflowHint>
     <View style={[styles.table, { borderColor: theme.border }]}>
       <View style={[styles.row, { backgroundColor: theme.bg }]}>
         <Text style={[label, styles.session]}>Sesión con el mismo paciente</Text>
         <Text style={[label, styles.rate]}>Comisión</Text>
-        <Text style={[label, styles.example]}>Con 80 € de base</Text>
+        <Text style={[label, styles.example]}>Ejemplo: base de 80 €</Text>
       </View>
-      {tiers.map(tier => <View key={tier.session} accessible accessibilityLabel={`${tier.session}: comisión del ${tier.rate}. Por 80 euros de base, ${tier.example} de comisión antes de impuestos.`} style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.border }]}>
+      {tiers.map(tier => <View key={tier.session} accessible accessibilityLabel={`${tier.session}: comisión del ${tier.rate}. Ejemplo con 80 euros de base: ${tier.example} de comisión antes de impuestos; no es tu saldo.`} style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.border }]}>
         <Text style={[body, styles.session]}>{tier.session}</Text>
         <View style={styles.rate}><Text style={{ color: theme.textPrimary, fontFamily: theme.fontHeading, fontSize: 25, lineHeight: 32 }}>{tier.rate}</Text></View>
         <Text style={[body, styles.example, { fontFamily: theme.fontSansSemiBold, fontSize: 17 }]}>{tier.example}</Text>
@@ -62,6 +66,7 @@ export function CommissionExplanation({ terms, simulation }: { terms?: Terms | n
       <WorkflowHint>• Una devolución reduce la comisión sin reiniciar el contador. La escala es independiente para cada paciente y especialista.</WorkflowHint>
       {!terms ? <WorkflowHint>Antes de aceptar verás las condiciones y el tratamiento fiscal aplicables.</WorkflowHint> : null}
     </View> : null}
+    </> : null}
   </Card>;
 }
 
