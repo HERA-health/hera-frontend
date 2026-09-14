@@ -28,6 +28,14 @@ it('shows persisted balances even in OFF and opens the existing account', async 
   expect(await view.findByText(money(3600))).toBeTruthy();
   expect(view.getByText(money(1000))).toBeTruthy();
   expect(view.getByText(money(400))).toBeTruthy();
+  expect(view.getByText(`Vencido: ${money(600)}`)).toBeTruthy();
+  expect(view.queryByText('Devengado sin liquidar')).toBeNull();
+  fireEvent.press(view.getByRole('button', { name: 'Ver desglose de saldos' }));
+  expect(view.getByText('Devengado sin liquidar')).toBeTruthy();
+  expect(view.getByText(money(1800))).toBeTruthy();
+  expect(view.getByText(money(2400))).toBeTruthy();
+  fireEvent.press(view.getByRole('button', { name: 'Ver desglose de saldos' }));
+  expect(view.queryByText('Devengado sin liquidar')).toBeNull();
   expect(view.queryByText(account.operatorKey)).toBeNull();
   expect(service.detail).toHaveBeenCalledWith(account.id, false);
   fireEvent.press(view.getByRole('button', { name: 'Ver mis comisiones' }));

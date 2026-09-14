@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from 'react-native';
 import * as service from '../../services/heraCommissionService';
 import { getErrorMessage } from '../../constants/errors';
 import { Button, Card, Summary, Text, WorkflowHint } from './CommissionElements';
+import { WorkflowBadge, WorkflowEmpty, WorkflowHeading, WorkflowNotice } from '../referrals/WorkflowUI';
 
 function AccountOverview({ account, refresh, onOpen }: {
   account: service.Configuration['accounts'][number];
@@ -25,12 +26,12 @@ function AccountOverview({ account, refresh, onOpen }: {
   }, [account, refresh, retry]);
 
   return <View style={{ gap: 12 }}>
-    <Text title>{account.acceptances[0]?.terms.operatorName ?? 'Resumen de tus comisiones'}</Text>
+    <WorkflowHint>{account.acceptances[0]?.terms.operatorName ?? 'Resumen de tus comisiones'}</WorkflowHint>
     {account.mode === 'SIMULATION' ? <WorkflowHint>Simulación: estos importes son de prueba y no generan deuda.</WorkflowHint> : null}
     {error ? <Card><Text error>{error}</Text><Button variant="outline" onPress={() => setRetry(value => value + 1)}>Reintentar saldos</Button></Card>
-      : balance ? <><Summary value={balance} /><WorkflowHint>Para saber cuánto transferir, consulta «Pendiente documentado». Las estimaciones y los importes sin documentar todavía no son una cantidad a transferir.</WorkflowHint></>
+      : balance ? <Summary value={balance} />
         : <ActivityIndicator accessibilityLabel="Cargando tus saldos de comisiones" />}
-    <Button onPress={() => onOpen(account.id)}>Ver mis comisiones</Button>
+    <Button style={{ alignSelf: 'flex-start' }} onPress={() => onOpen(account.id)}>Ver mis comisiones</Button>
   </View>;
 }
 
@@ -40,15 +41,16 @@ export function ProfessionalCommissionOverview({ config, refresh, onOpen }: {
   onOpen: (id: string) => void;
 }) {
   return <View style={{ gap: 16 }}>
-    <Text title>Mis comisiones</Text>
-    {config.mode === 'OFF' ? <WorkflowHint>Las nuevas comisiones están desactivadas. Si tienes historial o saldos anteriores, puedes consultarlos aquí.</WorkflowHint> : null}
+    <WorkflowHeading title="Mis comisiones" />
+    {config.mode === 'OFF' && config.accounts.length > 0 ? <WorkflowNotice>Las nuevas comisiones del Directorio están desactivadas. Los importes anteriores siguen disponibles.</WorkflowNotice> : null}
     {config.accounts.length ? config.accounts.map(account => <AccountOverview key={account.id} account={account} refresh={refresh} onOpen={onOpen} />)
-      : <Card><Text title>Todavía no tienes comisiones registradas</Text>
-        <Text>{config.mode === 'OFF'
-          ? 'Por ahora no necesitas hacer nada. Cuando activemos las comisiones, te pediremos que revises y aceptes las condiciones. Aquí podrás consultar las comisiones que se generen después, los importes pendientes y las transferencias recibidas por HERA.'
+      : <WorkflowEmpty icon="receipt-outline" title="Todavía no tienes comisiones registradas"
+        description={config.mode === 'OFF'
+          ? 'Las comisiones por pacientes del Directorio están desactivadas. Te avisaremos para revisar las condiciones cuando las activemos.'
           : config.terms && config.canAccept
-            ? 'Revisa y acepta las condiciones que encontrarás a continuación. Después podrás consultar aquí las comisiones que se generen, los importes pendientes y las transferencias recibidas por HERA.'
-            : 'Por ahora no necesitas hacer nada. Te avisaremos cuando puedas revisar las condiciones. Aquí podrás consultar tus comisiones cuando se activen para tu perfil y las hayas aceptado.'}</Text>
-      </Card>}
+            ? 'Revisa las condiciones que encontrarás a continuación. Tras aceptarlas, podrás consultar las comisiones por pacientes del Directorio.'
+            : 'Te avisaremos cuando puedas revisar las condiciones de las comisiones del Directorio.'}
+        action={config.mode === 'OFF' || !config.canAccept ? <WorkflowBadge label="No necesitas hacer nada" /> : undefined}
+      />}
   </View>;
 }

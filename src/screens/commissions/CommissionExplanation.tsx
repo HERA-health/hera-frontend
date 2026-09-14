@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../contexts/ThemeContext';
 import type { Terms } from '../../services/heraCommissionService';
-import { Button, Card, WorkflowHint } from './CommissionElements';
+import { Button, CommissionDisclosure, WorkflowHint } from './CommissionElements';
 
 const tiers = [
   { session: '1.ª sesión', rate: '20%', example: '16 €' },
@@ -13,17 +13,14 @@ const tiers = [
 
 export function CommissionExplanation({ terms, simulation }: { terms?: Terms | null; simulation?: boolean }) {
   const { theme } = useTheme();
-  const [expanded, setExpanded] = useState(false);
   const [details, setDetails] = useState(false);
   const body = { color: theme.textPrimary, fontFamily: theme.fontSans, fontSize: 14, lineHeight: 21 };
   const label = { ...body, color: theme.textSecondary, fontFamily: theme.fontSansSemiBold, fontSize: 12, lineHeight: 18 };
 
-  return <Card style={styles.card}>
-    <Button variant="ghost" accessibilityLabel="Cómo se calculan las comisiones" accessibilityState={{ expanded }} icon={<Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textSecondary} />} iconPosition="right" onPress={() => setExpanded(value => !value)}>Cómo se calculan las comisiones</Button>
-    {expanded ? <>
+  return <CommissionDisclosure title="Cómo se calculan las comisiones" icon="calculator-outline">
     <View style={styles.heading}>
       <View style={styles.headingCopy}>
-        <Text accessibilityRole="header" style={{ ...body, fontFamily: theme.fontHeading, fontSize: 24, lineHeight: 31 }}>Menos comisión a medida que avanzáis</Text>
+        <Text accessibilityRole="header" style={{ ...body, fontFamily: theme.fontHeading, fontSize: 20, lineHeight: 27 }}>Menos comisión a medida que avanzáis</Text>
         <WorkflowHint>Solo por pacientes nuevos que llegan desde el Directorio HERA.</WorkflowHint>
       </View>
       <View style={[styles.badge, { backgroundColor: theme.bg, borderColor: theme.border }]}>
@@ -66,12 +63,10 @@ export function CommissionExplanation({ terms, simulation }: { terms?: Terms | n
       <WorkflowHint>• Una devolución reduce la comisión sin reiniciar el contador. La escala es independiente para cada paciente y especialista.</WorkflowHint>
       {!terms ? <WorkflowHint>Antes de aceptar verás las condiciones y el tratamiento fiscal aplicables.</WorkflowHint> : null}
     </View> : null}
-    </> : null}
-  </Card>;
+  </CommissionDisclosure>;
 }
 
 const styles = StyleSheet.create({
-  card: { gap: 18, padding: 20 },
   heading: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, alignItems: 'center' },
   headingCopy: { flex: 1, minWidth: 230, gap: 6 },
   badge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 7, paddingHorizontal: 11, paddingVertical: 9, borderWidth: 1, borderRadius: 10, flexShrink: 1 },
