@@ -42,6 +42,10 @@ jest.mock('../../contexts/ProfessionalClinicWorkspaceContext', () => ({
   ProfessionalClinicWorkspaceProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+jest.mock('../../services/heraCommissionService', () => ({
+  configuration: jest.fn().mockResolvedValue({ mode: 'OFF', terms: null, canAccept: false, accounts: [], scale: [2000, 1000, 1000, 500] }),
+}));
+
 jest.mock('../../services/legalService', () => ({
   getLegalStatus: jest.fn().mockResolvedValue({ requiresAcceptance: false }),
 }));
