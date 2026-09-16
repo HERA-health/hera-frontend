@@ -135,6 +135,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
           initialTab: (initialTab: string) => {
             if (
               initialTab === 'management'
+              || initialTab === 'commissions'
               || initialTab === 'help'
               || initialTab === 'feedback'
             ) return initialTab;

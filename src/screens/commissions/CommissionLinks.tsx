@@ -6,7 +6,7 @@ import { AppNavigationProp } from '../../constants/types';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getErrorMessage } from '../../constants/errors';
 import * as service from '../../services/heraCommissionService';
-import { Card, Text, Button, WorkflowHint } from './CommissionElements';
+import { Card, Text, Button, WorkflowHint, money } from './CommissionElements';
 
 export function CommissionInfoLink({ compact = false }: { compact?: boolean }) {
  const navigation = useNavigation<AppNavigationProp>(); const { theme } = useTheme();
@@ -53,8 +53,26 @@ const linkStyles = StyleSheet.create({
  details: { borderTopWidth: 1, paddingTop: 16, gap: 12 },
  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
 });
-export function AdminCommissionSummary({ specialistId }: { specialistId: string }) {
- const navigation = useNavigation<AppNavigationProp>(); const [accounts, setAccounts] = useState<service.Balance[]>([]); const [error, setError] = useState('');
- useFocusEffect(useCallback(() => { let active = true; void service.specialistAccounts(specialistId).then(r => { if (active) setAccounts(r); }).catch(e => { if (active) setError(getErrorMessage(e, 'No se pudo cargar el saldo HERA.')); }); return () => { active = false; }; }, [specialistId]));
- return <Card><Text title>Comisiones HERA</Text>{error ? <Text error>{error}</Text> : accounts.map(a => <Text key={a.id}>{a.mode === 'LIVE' ? 'Real' : 'Simulación'} · {a.operatorKey} · Pendiente {(a.pendingCents / 100).toFixed(2)} € · A favor {(a.creditCents / 100).toFixed(2)} €</Text>)}<Button variant="outline" onPress={() => navigation.navigate('HeraCommissions', { admin: true, specialistId })}>Gestionar comisiones y transferencias</Button></Card>;
+export function AdminCommissionSummary({ specialistId, refresh = 0 }: { specialistId: string; refresh?: number }) {
+ const navigation = useNavigation<AppNavigationProp>(); const { theme } = useTheme();
+ const [data, setData] = useState<service.AdminSpecialistSummary>(); const [error, setError] = useState(''); const [retry, setRetry] = useState(0);
+ useFocusEffect(useCallback(() => {
+  let active = true; setData(undefined); setError('');
+  void service.adminSpecialistSummary(specialistId).then(result => { if (active) { setData(result); setError(''); } }).catch(e => { if (active) setError(getErrorMessage(e, 'No se pudo consultar el historial de comisiones.')); });
+  return () => { active = false; };
+ }, [specialistId, refresh, retry]));
+ const history = data?.accounts.filter(a => a.hasHistory) ?? [];
+ return <Card style={linkStyles.card}>
+  <View style={linkStyles.header}>
+   <View style={linkStyles.identity}><Ionicons name="receipt-outline" size={21} color={theme.textSecondary} /><NativeText accessibilityRole="header" style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 16, flexShrink: 1 }}>Comisiones del Directorio</NativeText></View>
+   <Button variant="outline" size="small" onPress={() => navigation.navigate('AdminPanel', { initialTab: 'commissions', commissionSpecialistId: specialistId, commissionAccountId: history.length === 1 ? history[0].id : undefined })}>Ver comisiones del Directorio</Button>
+  </View>
+  {error ? <View style={linkStyles.actions}><Text error>{error}</Text><Button variant="ghost" size="small" onPress={() => setRetry(v => v + 1)}>Reintentar comisiones</Button></View> : !data ? <WorkflowHint>Consultando comisiones…</WorkflowHint> : <>
+   {!history.length ? <WorkflowHint>Aún no hay comisiones registradas.</WorkflowHint> : history.map(a => <View key={a.id} style={{ gap: 4 }}>
+    <Text>{a.operatorName} · {a.mode === 'LIVE' ? 'Real' : 'Simulación'}</Text>
+    <WorkflowHint>{(a.paymentPendingCents ?? a.pendingCents) || a.creditCents || (a.unbilledCents ?? a.undocumentedCents) ? [(a.paymentPendingCents ?? a.pendingCents) ? 'Pendiente de cubrir ' + money(a.paymentPendingCents ?? a.pendingCents) : '', a.creditCents ? 'Crédito ' + money(a.creditCents) : '', (a.unbilledCents ?? a.undocumentedCents) ? 'Sin factura ' + money(a.unbilledCents ?? a.undocumentedCents) : ''].filter(Boolean).join(' · ') : 'Historial disponible · Sin saldo pendiente'}</WorkflowHint>
+   </View>)}
+   <WorkflowHint>{data.mode === 'OFF' ? 'Las nuevas comisiones están desactivadas.' + (history.length ? ' Puedes consultar y gestionar las obligaciones anteriores.' : '') : data.mode === 'SIMULATION' ? 'Las nuevas comisiones se calculan en simulación; no generan deuda real.' : 'Las nuevas comisiones requieren condiciones vigentes y aceptación del especialista; no se generan retroactivamente.'}</WorkflowHint>
+  </>}
+ </Card>;
 }

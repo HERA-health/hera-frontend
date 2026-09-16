@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Animated,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -70,7 +71,7 @@ export const VerificationBanner: React.FC<VerificationBannerProps> = ({
     Animated.timing(fadeAnim, {
       toValue: 0,
       duration: 200,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start(async () => {
       setBannerState('hidden');
       setMessage('');
@@ -140,7 +141,7 @@ export const VerificationBanner: React.FC<VerificationBannerProps> = ({
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }).start();
       } catch {
         fadeAnim.setValue(0);
@@ -149,7 +150,7 @@ export const VerificationBanner: React.FC<VerificationBannerProps> = ({
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }).start();
       }
     };

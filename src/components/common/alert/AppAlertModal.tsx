@@ -56,17 +56,17 @@ export function AppAlertModal({ request, onAction, onDismiss }: AppAlertModalPro
       Animated.timing(backdropOpacity, {
         toValue: 1,
         duration: 160,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.spring(cardTranslateY, {
         toValue: 0,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
         tension: 72,
         friction: 9,
       }),
       Animated.spring(cardScale, {
         toValue: 1,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
         tension: 72,
         friction: 9,
       }),

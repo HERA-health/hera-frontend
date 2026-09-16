@@ -204,7 +204,9 @@ export type RootStackParamList = {
     focusBillingEditor?: boolean;
   };
   AdminPanel: {
-    initialTab?: 'verifications' | 'management' | 'help' | 'feedback';
+    initialTab?: 'verifications' | 'management' | 'commissions' | 'help' | 'feedback';
+    commissionAccountId?: string;
+    commissionSpecialistId?: string;
     requestId?: string;
   } | undefined;
   AdminSpecialistDetail: { specialist: string }; // JSON-serialized PendingSpecialist

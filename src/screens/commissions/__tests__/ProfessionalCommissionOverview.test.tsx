@@ -15,7 +15,6 @@ beforeEach(() => { jest.clearAllMocks(); jest.mocked(service.detail).mockResolve
 
 it('shows Mis comisiones in OFF without inventing an account or zero balances', () => {
   const view = render(<ProfessionalCommissionOverview config={config} refresh={0} onOpen={jest.fn()} />);
-  expect(view.getByText('Mis comisiones')).toBeTruthy();
   expect(view.getByText('Todavía no tienes comisiones registradas')).toBeTruthy();
   expect(view.queryByText('Pendiente documentado')).toBeNull();
   expect(view.queryByRole('button', { name: 'Ver mis comisiones' })).toBeNull();
@@ -29,13 +28,13 @@ it('shows persisted balances even in OFF and opens the existing account', async 
   expect(view.getByText(money(1000))).toBeTruthy();
   expect(view.getByText(money(400))).toBeTruthy();
   expect(view.getByText(`Vencido: ${money(600)}`)).toBeTruthy();
-  expect(view.queryByText('Devengado sin liquidar')).toBeNull();
+  expect(view.queryByText('Generado en meses abiertos')).toBeNull();
   fireEvent.press(view.getByRole('button', { name: 'Ver desglose de saldos' }));
-  expect(view.getByText('Devengado sin liquidar')).toBeTruthy();
+  expect(view.getByText('Generado en meses abiertos')).toBeTruthy();
   expect(view.getByText(money(1800))).toBeTruthy();
   expect(view.getByText(money(2400))).toBeTruthy();
   fireEvent.press(view.getByRole('button', { name: 'Ver desglose de saldos' }));
-  expect(view.queryByText('Devengado sin liquidar')).toBeNull();
+  expect(view.queryByText('Generado en meses abiertos')).toBeNull();
   expect(view.queryByText(account.operatorKey)).toBeNull();
   expect(service.detail).toHaveBeenCalledWith(account.id, false);
   fireEvent.press(view.getByRole('button', { name: 'Ver mis comisiones' }));

@@ -108,12 +108,12 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
       Animated.timing(mobileSlide, {
         toValue: 0,
         duration: SIDEBAR_ANIMATIONS.transitionDuration,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(overlayOpacity, {
         toValue: 1,
         duration: SIDEBAR_ANIMATIONS.transitionDuration,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
   }, [mobileSlide, overlayOpacity]);
@@ -128,12 +128,12 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
         Animated.timing(mobileSlide, {
           toValue: -mobileSidebarWidth,
           duration: SIDEBAR_ANIMATIONS.transitionDuration,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(overlayOpacity, {
           toValue: 0,
           duration: SIDEBAR_ANIMATIONS.transitionDuration,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ]).start(() => {
         setMobileOpen(false);

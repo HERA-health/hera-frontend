@@ -181,6 +181,8 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
 
   const [specialist, setSpecialist] = useState<SpecialistFullDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [patientInfoOpen, setPatientInfoOpen] = useState(false);
+  const [commissionRefresh, setCommissionRefresh] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [processingLabel, setProcessingLabel] = useState('Procesando...');
@@ -204,6 +206,7 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
 
     try {
       setError(null);
+      setCommissionRefresh(v => v + 1);
       const data = await adminService.getSpecialistDetail(specialistId);
       setSpecialist(data);
     } catch (_err: unknown) {
@@ -518,12 +521,12 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
             <View style={styles.patientMetric}>
               <Text style={styles.patientNumber}>{specialist.patientStats.hera}</Text>
               <Text style={styles.patientLabel}>Con cuenta HERA</Text>
-              <Text style={styles.patientHint}>Registrados en la plataforma</Text>
+              <Text style={styles.patientHint}>Cuenta verificada y disponible</Text>
             </View>
             <View style={styles.patientMetric}>
               <Text style={styles.patientSecondaryNumber}>{specialist.patientStats.managed}</Text>
-              <Text style={styles.patientLabel}>Gestionados</Text>
-              <Text style={styles.patientHint}>Dados de alta por profesionales</Text>
+              <Text style={styles.patientLabel}>Sin cuenta HERA</Text>
+              <Text style={styles.patientHint}>Sin cuenta disponible confirmada</Text>
             </View>
             <View style={styles.patientMetric}>
               <Text style={styles.patientSecondaryNumber}>{specialist.patientStats.total}</Text>
@@ -531,7 +534,14 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
               <Text style={styles.patientHint}>Personas únicas vinculadas</Text>
             </View>
           </View>
-          <Text style={styles.patientHint}>Histórico de pacientes vinculados por sesiones o expediente, incluidos los archivados. Cada persona cuenta una sola vez.</Text>
+          <Text style={styles.patientHint}>Pacientes vinculados históricamente, incluidos los archivados. No es la cartera activa.</Text>
+          <AnimatedPressable accessibilityRole="button" accessibilityLabel="Cómo se cuentan los pacientes" accessibilityState={{ expanded: patientInfoOpen }} tabIndex={0} onPress={() => setPatientInfoOpen(v => !v)}
+            onKeyDown={event => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); if (!event.repeat) setPatientInfoOpen(v => !v); } }}
+            style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={[styles.patientHint, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>{patientInfoOpen ? 'Ocultar criterio de recuento' : 'Cómo se cuentan los pacientes'}</Text>
+            <Ionicons name={patientInfoOpen ? 'chevron-up' : 'chevron-down'} size={14} color={theme.primary} />
+          </AnimatedPressable>
+          {patientInfoOpen ? <Text style={styles.patientHint}>Las identidades confirmadas cuentan una sola vez. Se incluyen las citas canceladas. Las cuentas borradas, anónimas o no disponibles se incluyen en «Sin cuenta HERA». El acceso a HERA no indica procedencia del Directorio.</Text> : null}
         </>
       ) : (
         <Text style={styles.patientHint}>El recuento de pacientes no está disponible. Actualiza la ficha para volver a consultarlo.</Text>
@@ -766,7 +776,6 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
           />
         }
       >
-        <AdminCommissionSummary specialistId={specialistId} />
         <View style={styles.toolbar}>
           <AnimatedPressable
             style={styles.backHeader}
@@ -793,6 +802,7 @@ export function SpecialistDetailAdminScreen({ route, navigation }: Props) {
           {renderHeaderCard()}
           {renderPatients()}
         </View>
+        <AdminCommissionSummary key={specialistId} specialistId={specialistId} refresh={commissionRefresh} />
         {isTwoCol ? (
           <View style={styles.twoColWrapper}>
             <View style={styles.leftColumn}>

@@ -19,7 +19,9 @@ import { AdminFeedbackView } from '../../components/specialistContact/AdminFeedb
 import { getAdminContactSummary } from '../../services/specialistContactService';
 import type { ScreenProps } from '../../constants/types';
 
-type TabKey = 'verifications' | 'management' | 'help' | 'feedback';
+import { CommissionWorkspace } from '../commissions/HeraCommissionsScreen';
+
+type TabKey = 'verifications' | 'management' | 'commissions' | 'help' | 'feedback';
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 interface Tab {
@@ -44,6 +46,13 @@ const TABS: Tab[] = [
     compactLabel: 'Especialistas',
     icon: 'people-outline',
     iconActive: 'people',
+  },
+  {
+    key: 'commissions',
+    label: 'Comisiones',
+    compactLabel: 'Comisiones',
+    icon: 'receipt-outline',
+    iconActive: 'receipt',
   },
   {
     key: 'help',
@@ -179,6 +188,10 @@ export function AdminPanelTabbedScreen({
       <View style={styles.content}>
         {activeTab === 'verifications' && <AdminPanelScreen />}
         {activeTab === 'management' && <SpecialistManagementScreen />}
+        {activeTab === 'commissions' && <CommissionWorkspace admin accountId={route.params?.commissionAccountId} specialistId={route.params?.commissionSpecialistId}
+          onOpen={commissionAccountId => navigation.setParams({ commissionAccountId })}
+          onBack={() => navigation.setParams({ commissionAccountId: undefined, commissionSpecialistId: undefined })}
+        />}
         {activeTab === 'help' && (
           <AdminHelpView
             initialRequestId={route.params?.requestId}

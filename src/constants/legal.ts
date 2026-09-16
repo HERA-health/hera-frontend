@@ -8,6 +8,7 @@ export type LegalDocumentKey =
 export const LEGAL_DOCUMENT_VERSION = '2026-04-26';
 
 export const LEGAL_ENTITY = {
+  // Identidad provisional indicada por el titular; completar antes de publicación definitiva.
   responsibleName: 'Sara Herrer Fernández',
   tradeName: 'HERA',
   taxId: 'Pendiente de completar antes de publicación definitiva',

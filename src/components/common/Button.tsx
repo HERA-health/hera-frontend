@@ -228,6 +228,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   content: {
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

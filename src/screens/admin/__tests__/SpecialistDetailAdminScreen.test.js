@@ -10,9 +10,9 @@ jest.mock('@react-navigation/native', () => ({
   useFocusEffect: effect => require('react').useEffect(effect, [effect]),
 }));
 jest.mock('../../../services/heraCommissionService', () => ({
-  specialistAccounts: jest.fn().mockResolvedValue([
-    { id: 'account-1', mode: 'LIVE', operatorKey: 'Fixture', pendingCents: 2400, creditCents: 0 },
-  ]),
+  adminSpecialistSummary: jest.fn().mockResolvedValue({ mode: 'OFF', accounts: [
+    { id: 'account-1', mode: 'LIVE', operatorKey: 'Fixture', operatorName: 'Titular sintético', hasHistory: true, pendingCents: 2400, creditCents: 0 },
+  ] }),
 }));
 jest.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: { isAdmin: true } }) }));
 jest.mock('../../../components/common/alert', () => ({ useAppAlert: () => ({ confirm: mockConfirm }) }));
@@ -48,9 +48,20 @@ beforeEach(() => { jest.clearAllMocks(); mockConfirm.mockResolvedValue(false); }
 test('shows the persisted HERA balance and opens this specialist’s transfers', async () => {
   adminService.getSpecialistDetail.mockResolvedValue(detail());
   await open();
-  await screen.findByText(/Pendiente 24\.00 €/);
-  fireEvent.press(screen.getByText('Gestionar comisiones y transferencias'));
-  expect(mockNavigate).toHaveBeenCalledWith('HeraCommissions', { admin: true, specialistId: 'specialist-1' });
+  await screen.findByText(/Pendiente de cubrir 24,00 €/);
+  fireEvent.press(screen.getByText('Ver comisiones del Directorio'));
+  expect(mockNavigate).toHaveBeenCalledWith('AdminPanel', { initialTab: 'commissions', commissionSpecialistId: 'specialist-1', commissionAccountId: 'account-1' });
+});
+
+test('keeps patient counting criteria behind an accessible disclosure', async () => {
+  adminService.getSpecialistDetail.mockResolvedValue(detail());
+  await open();
+  expect(screen.getByText(/Pacientes vinculados históricamente/)).toBeTruthy();
+  expect(screen.queryByText(/Las identidades confirmadas/)).toBeNull();
+  fireEvent.press(screen.getByRole('button', { name: 'Cómo se cuentan los pacientes' }));
+  expect(screen.getByText(/Las identidades confirmadas/)).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Cómo se cuentan los pacientes' }));
+  expect(screen.queryByText(/Las identidades confirmadas/)).toBeNull();
 });
 
 test.each([
@@ -65,7 +76,7 @@ test.each([
   expect(Boolean(screen.queryByText('Rechazar'))).toBe(reject);
   expect(Boolean(screen.queryByText('Revocar'))).toBe(revoke);
   expect(screen.getByText('Con cuenta HERA')).toBeTruthy();
-  expect(screen.getByText('Gestionados')).toBeTruthy();
+  expect(screen.getByText('Sin cuenta HERA')).toBeTruthy();
 });
 
 test('cancelling revocation leaves coverage unchanged', async () => {
