@@ -26,6 +26,15 @@ beforeEach(() => {
   jest.mocked(service.accept).mockResolvedValue({ accountId: 'account' });
 });
 
+it('keeps the global notice out of the commission workspace without losing its state elsewhere', async () => {
+ const view = render(<ProfessionalCommissionNotice suppressed />);
+ await waitFor(() => expect(service.configuration).toHaveBeenCalled());
+ expect(view.queryByText(title)).toBeNull();
+ view.rerender(<ProfessionalCommissionNotice suppressed={false} />);
+ await view.findByText(title);
+ expect(service.configuration).toHaveBeenCalledTimes(1);
+});
+
 it.each([
   ['OFF', config({ mode: 'OFF', terms: null })],
   ['simulation', config({ mode: 'SIMULATION', terms: { ...terms, mode: 'SIMULATION' } })],

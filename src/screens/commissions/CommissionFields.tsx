@@ -77,9 +77,9 @@ export function CommissionDateField({ label, value, onChangeText, disabled = fal
     <AnimatedPressable focusRef={trigger} accessibilityRole="button" accessibilityLabel={label}
       accessibilityHint={dateLabel} accessibilityState={{ expanded: open, disabled }} disabled={disabled}
       hoverLift={false} pressScale={0.98} onPress={() => { setYear(Number((value || getMadridDateKey()).slice(0, 4))); setOpen(true); }}
-      style={[styles.trigger, { borderColor: open ? theme.primary : theme.border, backgroundColor: open ? theme.primaryAlpha12 : theme.bgMuted, opacity: disabled ? 0.5 : 1 }]}>
+      style={[styles.trigger, monthly && { minHeight: 48 }, { borderColor: open ? theme.primary : theme.border, backgroundColor: open ? theme.primaryAlpha12 : theme.bgMuted, opacity: disabled ? 0.5 : 1 }]}>
       <View style={styles.copy}>
-        <Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 14 }}>{dateLabel}</Text>
+        <Text style={{ color: theme.textPrimary, fontFamily: monthly ? theme.fontSans : theme.fontSansSemiBold, fontSize: 14 }}>{dateLabel}</Text>
         {!monthly && value ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 12, marginTop: 2 }}>{value}</Text> : null}
       </View>
       <Ionicons name={open ? 'chevron-up-outline' : 'calendar-outline'} size={19} color={theme.primary} />

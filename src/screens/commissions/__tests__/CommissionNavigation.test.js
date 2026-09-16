@@ -32,12 +32,13 @@ it.each([undefined, 'account'])('redirects old admin links into administration, 
 it('keeps personal commissions on professional endpoints and returns safely from a direct link', async () => {
  const navigation = nav();
  const view = render(<PersonalScreen navigation={navigation} params={{ accountId: 'account' }} />);
- await view.findByText('Ana');
+ await view.findByText('Sesiones y comisiones');
  expect(service.detail).toHaveBeenCalledWith('account', false, 0);
  expect(view.queryByText('Gestión de comisiones')).toBeNull();
  expect(view.queryByText('Registrar pago recibido')).toBeNull();
  fireEvent.press(view.getByRole('button', { name: 'Volver' }));
- expect(navigation.setParams).toHaveBeenCalledWith({ accountId: undefined });
+ expect(navigation.setParams).not.toHaveBeenCalled();
+ expect(navigation.replace).toHaveBeenCalledWith('ProfessionalHome');
  view.rerender(<PersonalScreen navigation={navigation} />);
  await act(async () => {});
  fireEvent.press(view.getByRole('button', { name: 'Volver' }));
@@ -86,8 +87,9 @@ it.each([null, '2026-09-01T00:00:00Z'])('does not offer acceptance again for an 
  const terms = { id: 'accepted-version', operatorName: 'HERA', mode: 'LIVE', effectiveAt: '2026-01-01', contractText: 'Texto ya aceptado', fiscalTreatment: 'Tratamiento de prueba' };
  service.configuration.mockResolvedValue({ mode: 'LIVE', terms, canAccept: true, accounts: [{ id: 'account', mode: 'LIVE', acceptances: [{ termsId: terms.id, terms, acceptedAt: '2026-01-02', terminatedAt }] }] });
  const view = render(<PersonalScreen navigation={nav()} />);
- await view.findByText('Ver mis comisiones');
- fireEvent.press(view.getByLabelText('Ver condiciones exactas'));
+ await view.findByText('Información');
+ fireEvent.press(view.getByText('Información'));
+ fireEvent.press(view.getByText('Condiciones e historial'));
  expect(view.queryByText('Aceptar condiciones')).toBeNull();
  expect(view.getByText(terminatedAt ? /Este acuerdo ha finalizado/ : /Ya aceptaste estas condiciones/)).toBeTruthy();
 });

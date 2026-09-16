@@ -11,13 +11,13 @@ const tiers = [
   { session: '4.ª y siguientes', rate: '5%', example: '4 €' },
 ];
 
-export function CommissionExplanation({ terms, simulation }: { terms?: Terms | null; simulation?: boolean }) {
+export function CommissionExplanation({ terms, simulation, initiallyOpen = false }: { terms?: Terms | null; simulation?: boolean; initiallyOpen?: boolean }) {
   const { theme } = useTheme();
   const [details, setDetails] = useState(false);
   const body = { color: theme.textPrimary, fontFamily: theme.fontSans, fontSize: 14, lineHeight: 21 };
   const label = { ...body, color: theme.textSecondary, fontFamily: theme.fontSansSemiBold, fontSize: 12, lineHeight: 18 };
 
-  return <CommissionDisclosure title="Cómo se calculan las comisiones" icon="calculator-outline">
+  return <CommissionDisclosure initiallyOpen={initiallyOpen} title="Cómo se calculan las comisiones" icon="calculator-outline">
     <View style={styles.heading}>
       <View style={styles.headingCopy}>
         <Text accessibilityRole="header" style={{ ...body, fontFamily: theme.fontHeading, fontSize: 20, lineHeight: 27 }}>Menos comisión a medida que avanzáis</Text>

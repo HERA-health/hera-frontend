@@ -1,5 +1,5 @@
 import { AdminCommissionBalanceCard } from './AdminCommissionBalanceCard';
-import { CommissionPayments } from './CommissionPayments';
+import { ProfessionalCommissionWorkspace } from './ProfessionalCommissionWorkspace';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CommissionMetrics } from './CommissionLedgerUI';
 import { ActivityIndicator, ScrollView, View, useWindowDimensions } from 'react-native';
@@ -12,11 +12,10 @@ import { CommissionSelect } from './CommissionFields';
 import { ReferralPagination } from '../referrals/ReferralControls';
 import { workflow } from '../referrals/WorkflowUI';
 import * as service from '../../services/heraCommissionService';
-import { Card, Text, Field, Check, Button, WorkflowHeader, WorkflowHint, WorkflowDate, day, getMadridDateKey, money, dateTime, styles, Run } from './CommissionElements';
+import { Card, Text, Field, Button, WorkflowHeader, WorkflowHint, WorkflowDate, day, getMadridDateKey, money, dateTime, styles, Run } from './CommissionElements';
 import { CommissionSessions } from './CommissionSessions';
 import { CashOperations, CommissionIssues, CommissionPeriods, ReceiptForm } from './CommissionOperations';
 import { CommissionExplanation } from './CommissionExplanation';
-import { ProfessionalCommissionOverview } from './ProfessionalCommissionOverview';
 import { CommissionDisclosure } from './CommissionElements';
 import { WorkflowEmpty, WorkflowHeading } from '../referrals/WorkflowUI';
 
@@ -53,8 +52,7 @@ export function HeraCommissionsScreen({ route, navigation }: NativeStackScreenPr
  }, [legacyAdmin, navigation, route.params?.accountId, route.params?.specialistId]);
  if (legacyAdmin) return null;
  return <CommissionWorkspace accountId={route.params?.accountId} clientId={route.params?.clientId} onOpen={accountId => navigation.setParams({ accountId })} onBack={() => {
-  if (route.params?.accountId) navigation.setParams({ accountId: undefined });
-  else if (navigation.canGoBack()) navigation.goBack();
+  if (navigation.canGoBack()) navigation.goBack();
   else navigation.replace('ProfessionalHome');
  }} />;
 }
@@ -63,24 +61,25 @@ export function CommissionWorkspace({ admin = false, accountId, specialistId, cl
  admin?: boolean; accountId?: string; specialistId?: string; clientId?: string;
  onOpen: (accountId: string) => void; onBack: () => void;
 }) {
+ if (!admin) return <ProfessionalCommissionWorkspace accountId={accountId} clientId={clientId} onOpen={onOpen} onBack={onBack} />;
+ return <AdminCommissionWorkspace accountId={accountId} specialistId={specialistId} onOpen={onOpen} onBack={onBack} />;
+}
+
+function AdminCommissionWorkspace({ accountId, specialistId, onOpen, onBack }: { accountId?: string; specialistId?: string; onOpen: (id: string) => void; onBack: () => void }) {
+ const admin = true;
  const { theme } = useTheme();
- const [config, setConfig] = useState<service.Configuration>(); const [data, setData] = useState<service.AccountDetail>(); const [loading, setLoading] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [tab, setTab] = useState('sessions'); const [page, setPage] = useState(0); const [refresh, setRefresh] = useState(0); const [accepted, setAccepted] = useState(false); const [receipt, setReceipt] = useState<{ documentId?: string }>();
- useEffect(() => { setAccepted(false); }, [config?.terms?.id]);
+ const [data, setData] = useState<service.AccountDetail>(); const [loading, setLoading] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [tab, setTab] = useState('sessions'); const [page, setPage] = useState(0); const [refresh, setRefresh] = useState(0); const [receipt, setReceipt] = useState<{ documentId?: string }>();
  const generation = useRef(0); const submitting = useRef(false); const scroll = useRef<ScrollView>(null);
- const load = useCallback(async () => { const g = ++generation.current; setLoading(true); setError(''); try { if (accountId) { const result = await service.detail(accountId, admin, page); if (g === generation.current) setData(result); } else if (!admin) { const result = await service.configuration(); if (g === generation.current) setConfig(result); } } catch(e) { if (g === generation.current) setError(getErrorMessage(e, 'No se pudieron cargar las comisiones.')); } finally { if (g === generation.current) setLoading(false); } }, [accountId, admin, page]);
+ const load = useCallback(async () => { const g = ++generation.current; setLoading(true); setError(''); try { if (accountId) { const result = await service.detail(accountId, admin, page); if (g === generation.current) setData(result); } } catch(e) { if (g === generation.current) setError(getErrorMessage(e, 'No se pudieron cargar las comisiones.')); } finally { if (g === generation.current) setLoading(false); } }, [accountId, admin, page]);
  useFocusEffect(useCallback(() => { void load(); return () => { generation.current++; }; }, [load]));
  useEffect(() => { setData(undefined); setReceipt(undefined); setPage(0); setTab('sessions'); setError(''); scroll.current?.scrollTo({ y: 0, animated: false }); }, [accountId, admin]);
  const run: Run = async operation => { if (submitting.current) return false; submitting.current = true; setBusy(true); setError(''); try { await operation(); return true; } catch(e) { setError(getErrorMessage(e, 'No se pudo guardar. Tus datos se conservan; puedes reintentar.')); scroll.current?.scrollTo({ y: 0, animated: false }); return false; } finally { submitting.current = false; setBusy(false); } };
  const mutate: Run = async operation => { const ok = await run(operation); if (ok) { await load(); setRefresh(v => v + 1); } return ok; };
- const currentAcceptance = config?.accounts.flatMap(account => account.acceptances).find(acceptance => acceptance.termsId === config.terms?.id);
  const open = (id: string) => { setPage(0); setTab('sessions'); onOpen(id); };
- return <ScrollView ref={scroll} style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={[workflow.page, { maxWidth: 1120, paddingBottom: 40 }]} keyboardShouldPersistTaps="handled"><WorkflowHeader title={admin ? "Gestión de comisiones" : "Mis comisiones"} subtitle={admin ? "Seguimiento de las comisiones del Directorio y los abonos recibidos por HERA." : "Solo comisiones por pacientes del Directorio HERA. Tus pacientes propios quedan fuera."} action={<View style={styles.row}>{(!admin || accountId || specialistId) && <Button size="small" variant="ghost" onPress={onBack}>{admin ? accountId ? 'Volver a especialistas' : 'Ver todos los especialistas' : 'Volver'}</Button>}<Button size="small" variant="outline" disabled={busy || loading} onPress={() => { void load(); setRefresh(v => v + 1); }}>Actualizar saldos</Button></View>} />
+ return <ScrollView ref={scroll} style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={[workflow.page, { maxWidth: 1120, paddingBottom: 40 }]} keyboardShouldPersistTaps="handled"><WorkflowHeader title="Gestión de comisiones" subtitle="Seguimiento de las comisiones del Directorio y los abonos recibidos por HERA." action={<View style={styles.row}>{(accountId || specialistId) && <Button size="small" variant="ghost" onPress={onBack}>{accountId ? 'Volver a especialistas' : 'Ver todos los especialistas'}</Button>}<Button size="small" variant="outline" disabled={busy || loading} onPress={() => { void load(); setRefresh(v => v + 1); }}>Actualizar saldos</Button></View>} />
  {error ? <Card><Text error>{error}</Text><Button variant="outline" disabled={busy} onPress={() => void load()}>Recargar datos</Button></Card> : null}{loading ? <ActivityIndicator accessibilityLabel="Cargando comisiones" /> : null}
- {!accountId ? admin ? <AdminBalances specialistId={specialistId} onOpen={open} refresh={refresh} /> : config ? <><ProfessionalCommissionOverview config={config} refresh={refresh} onOpen={open} />
- <CommissionExplanation terms={config.terms} simulation={config.mode === 'SIMULATION'} />
- {config.terms ? <CommissionDisclosure key={config.terms.id} title="Ver condiciones exactas" icon="document-text-outline"><View style={{ width: '100%', maxWidth: 720, gap: 16 }}><Text>{config.terms.contractText}</Text><Text>Fiscalidad de HERA: {config.terms.fiscalTreatment}</Text><Text>Vigencia: {dateTime(config.terms.effectiveAt)} · Titular: {config.terms.operatorName}</Text>{currentAcceptance ? <WorkflowHint>{currentAcceptance.terminatedAt ? 'Este acuerdo ha finalizado. Se conserva lo que aceptaste y tu historial.' : `Ya aceptaste estas condiciones el ${dateTime(currentAcceptance.acceptedAt)}.`}</WorkflowHint> : <><Check label="He leído y acepto esta versión de las condiciones y su tratamiento fiscal" checked={accepted} onChange={setAccepted} disabled={busy} /><Button disabled={busy || !accepted || !config.canAccept} onPress={() => void run(async () => { if (!config.terms) return; const result = await service.accept(config.terms.id); open(result.accountId); })}>Aceptar condiciones</Button></>}</View></CommissionDisclosure> : null}
- </> : null : data && data.summary.id === accountId ? <>
- {admin ? <Card style={{ padding: 18, gap: 14 }}><WorkflowHeading title={data.summary.specialistName} subtitle={data.summary.mode === 'SIMULATION' ? 'Administración · Simulación sin deuda' : 'Administración · Cuenta del especialista'} /><CommissionMetrics items={[
+ {!accountId ? <AdminBalances specialistId={specialistId} onOpen={open} refresh={refresh} /> : data && data.summary.id === accountId ? <>
+ <Card style={{ padding: 18, gap: 14 }}><WorkflowHeading title={data.summary.specialistName} subtitle={data.summary.mode === 'SIMULATION' ? 'Administración · Simulación sin deuda' : 'Administración · Cuenta del especialista'} /><CommissionMetrics items={[
   { label: 'Pendiente de cubrir', value: money(data.summary.paymentPendingCents ?? data.summary.pendingCents), emphasis: true },
   ...(data.summary.appliedCents !== undefined ? [{ label: 'Aplicado a comisiones y facturas', value: money(data.summary.appliedCents) }] : []),
  { label: 'Recibido por HERA', value: money(data.summary.receivedCents) },
@@ -89,20 +88,10 @@ export function CommissionWorkspace({ admin = false, accountId, specialistId, cl
   { label: 'Generado en meses abiertos', value: money(data.summary.accruedCents) },
   { label: 'Sin documentar', value: money(data.summary.unbilledCents ?? data.summary.undocumentedCents) },
   { label: 'Vencido', value: money(data.summary.overdueCents) },
- ]} /><WorkflowHint>Comisión prevista, aún no generada: {money(data.summary.estimatedCents)}. Todavía no es un importe para pagar. Saldo fiscal histórico: {money(data.summary.documentedCents)}. Las correcciones pendientes se excluyen del importe válido para transferir.</WorkflowHint></CommissionDisclosure></Card> : <> <WorkflowHeading title={data.summary.specialistName} />{data.summary.mode === 'SIMULATION' ? <Text>Simulación: estos importes no generan deuda.</Text> : null}{tab !== 'cash' ? <><CommissionMetrics items={[
- { label: 'Pendiente de cubrir', value: money(data.summary.paymentPendingCents ?? data.summary.pendingCents), emphasis: true },
- ...(data.summary.appliedCents !== undefined ? [{ label: 'Aplicado a comisiones y facturas', value: money(data.summary.appliedCents) }] : []),
- { label: 'Recibido por HERA', value: money(data.summary.receivedCents) },
- { label: 'Saldo a tu favor', value: money(data.summary.creditCents) },
- ]} /><CommissionDisclosure title="Ver desglose de saldos"><CommissionMetrics items={[
- { label: 'Generado en meses abiertos', value: money(data.summary.accruedCents) },
- { label: 'Sin documentar', value: money(data.summary.unbilledCents ?? data.summary.undocumentedCents) },
- { label: 'Vencido', value: money(data.summary.overdueCents) },
- ]} /><WorkflowHint>Estimado pendiente de devengo: {money(data.summary.estimatedCents)}. No es deuda exigible. Saldo de documentos antes de ajustes: {money(data.summary.documentedCents)}; las correcciones pendientes se excluyen del importe válido para transferir.</WorkflowHint></CommissionDisclosure></> : null}</>}
- {!admin && tab !== 'cash' ? <Button style={{ alignSelf: 'flex-start', maxWidth: '100%' }} onPress={() => { setPage(0); setTab('cash'); }}>Ver qué pagar y abonos confirmados</Button> : null}
- <ScrollView horizontal style={{ flexGrow: 0, borderBottomWidth: 1, borderColor: theme.border }} contentContainerStyle={{ alignItems: 'center', paddingBottom: 12, gap: 6 }}>{[['sessions',admin ? 'Sesiones' : 'Sesiones y cobros'],['periods',admin ? 'Documentos' : 'Liquidaciones y documentos'],['cash','Abonos a HERA'],['issues','Revisiones'],['terms','Condiciones']].map(([value,label]) => <Button key={value} size="small" accessibilityRole="tab" accessibilityState={{ selected: tab === value }} variant={tab === value ? 'secondary' : 'ghost'} disabled={busy} onPress={() => { setPage(0); setTab(value); }}>{label}</Button>)}</ScrollView>
+ ]} /><WorkflowHint>Comisión prevista, aún no generada: {money(data.summary.estimatedCents)}. Todavía no es un importe para pagar. Saldo fiscal histórico: {money(data.summary.documentedCents)}. Las correcciones pendientes se excluyen del importe válido para transferir.</WorkflowHint></CommissionDisclosure></Card>
+ <ScrollView horizontal style={{ flexGrow: 0, borderBottomWidth: 1, borderColor: theme.border }} contentContainerStyle={{ alignItems: 'center', paddingBottom: 12, gap: 6 }}>{[['sessions','Sesiones'],['periods','Documentos'],['cash','Abonos a HERA'],['issues','Revisiones'],['terms','Condiciones']].map(([value,label]) => <Button key={value} size="small" accessibilityRole="tab" accessibilityState={{ selected: tab === value }} variant={tab === value ? 'secondary' : 'ghost'} disabled={busy} onPress={() => { setPage(0); setTab(value); }}>{label}</Button>)}</ScrollView>
  {receipt ? <ReceiptForm key={receipt.documentId ?? 'unapplied'} data={data} selectedDocument={receipt.documentId} run={mutate} busy={busy} onClose={() => setReceipt(undefined)} /> : null}
- {tab === 'sessions' ? <CommissionSessions key={accountId} accountId={accountId} admin={admin} account={data} onPeriods={() => { setPage(0); setTab('periods'); }} clientId={clientId} run={mutate} busy={busy} refresh={refresh} /> : tab === 'periods' ? <CommissionPeriods data={data} admin={admin} run={mutate} busy={busy} onReceipt={id => setReceipt({ documentId: id })} /> : tab === 'issues' ? <CommissionIssues data={data} admin={admin} run={mutate} busy={busy} /> : tab === 'terms' ? <><CommissionExplanation terms={data.acceptances[0]?.terms} simulation={data.summary.mode === 'SIMULATION'} /><Agreements data={data} admin={admin} run={mutate} busy={busy} /></> : <>
- {admin ? <><Button disabled={busy} onPress={() => setReceipt({})}>Registrar pago recibido</Button><CashOperations data={data} run={mutate} busy={busy} /></> : <CommissionPayments data={data} onDocuments={() => { setPage(0); setTab('periods'); }} />}
+ {tab === 'sessions' ? <CommissionSessions key={accountId} accountId={accountId} admin={admin} account={data} onPeriods={() => { setPage(0); setTab('periods'); }} run={mutate} busy={busy} refresh={refresh} /> : tab === 'periods' ? <CommissionPeriods data={data} admin={admin} run={mutate} busy={busy} onReceipt={id => setReceipt({ documentId: id })} /> : tab === 'issues' ? <CommissionIssues data={data} admin={admin} run={mutate} busy={busy} /> : tab === 'terms' ? <><CommissionExplanation terms={data.acceptances[0]?.terms} simulation={data.summary.mode === 'SIMULATION'} /><Agreements data={data} admin={admin} run={mutate} busy={busy} /></> : <>
+ <Button disabled={busy} onPress={() => setReceipt({})}>Registrar pago recibido</Button><CashOperations data={data} run={mutate} busy={busy} />
  </>}{tab !== 'sessions' ? <ReferralPagination page={page} hasMore={data.hasMore} loading={loading || busy} onChange={setPage} /> : null}</> : null}</ScrollView>;
 }

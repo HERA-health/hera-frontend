@@ -52,7 +52,7 @@ it('opens session documents outside the account page, shows document amounts, ap
  expect(view.getByLabelText('Importe realmente recibido (€)').props.value).toBe('14');
  expect(view.getByLabelText('Aplicar a Factura HERA-002 (€)').props.value).toBe('14');
  expect(view.getByRole('button', { name: 'Guardar recepción manual' })).toBeDisabled();
- fireEvent.press(view.getByText('Cerrar'));
+ await act(async () => { fireEvent.press(view.getByText('Cerrar')); });
  fireEvent.press(view.getByRole('button', { name: 'Filtrar sesiones' }));
  fireEvent.changeText(view.getByLabelText('Referencia del paciente (opcional)'), 'another-patient');
  await waitFor(() => expect(service.sessions).toHaveBeenLastCalledWith('account', true, expect.objectContaining({ clientId: 'another-patient', page: 0 })));
@@ -139,14 +139,15 @@ it('selects a month without typing a date format and lets the specialist open a 
  await view.findByText('Ana de prueba');
  fireEvent.press(view.getByRole('button', { name: 'Filtrar sesiones' }));
  const calls = jest.mocked(service.sessions).mock.calls.length;
- fireEvent.press(view.getByRole('button', { name: 'Mes de liquidación' }));
+ fireEvent.press(view.getByRole('button', { name: 'Mes' }));
  expect(service.sessions).toHaveBeenCalledTimes(calls);
  const year = getMadridDateKey().slice(0, 4);
  fireEvent.press(view.getByRole('button', { name: 'Septiembre de ' + year }));
  await waitFor(() => expect(service.sessions).toHaveBeenLastCalledWith('account', false, expect.objectContaining({ month: year + '-09', page: 0 })));
  await view.findByText('Ana de prueba');
+ fireEvent.press(view.getByText('Ver detalle'));
  fireEvent.press(view.getByText('Solicitar revisión'));
  fireEvent.changeText(view.getByLabelText('Explicación (sin información clínica)'), 'La procedencia necesita revisión');
- fireEvent.press(view.getByText('Enviar solicitud de revisión'));
+ await act(async () => { fireEvent.press(view.getByText('Enviar solicitud de revisión')); });
  await waitFor(() => expect(service.decide).toHaveBeenLastCalledWith('account', false, expect.objectContaining({ action: 'REVIEW', snapshotId: row.id, reason: 'La procedencia necesita revisión' })));
 });

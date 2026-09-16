@@ -21,7 +21,7 @@ export function pendingLiveCommissionTerms(config: service.Configuration): servi
 }
 
 /** Mounted only in the signed-in professional workspace, after the legal/email gates. */
-export function ProfessionalCommissionNotice() {
+export function ProfessionalCommissionNotice({ suppressed = false }: { suppressed?: boolean }) {
   const { theme } = useTheme();
   const [terms, setTerms] = useState<service.Terms | null>(null);
   const [deferred, setDeferred] = useState<string | null>(null);
@@ -79,6 +79,9 @@ export function ProfessionalCommissionNotice() {
       if (Platform.OS === 'web') window.removeEventListener('focus', onFocus);
     };
   }, [accepted, refresh]);
+
+  // The commission workspace owns its agreement and acceptance presentation.
+  if (suppressed) return null;
 
   if (!terms) return loadError ? (
     <View style={[styles.banner, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>

@@ -889,10 +889,10 @@ export function RootNavigator() {
     const { ProfessionalCommissionNotice } = require('../screens/commissions/ProfessionalCommissionNotice') as typeof import('../screens/commissions/ProfessionalCommissionNotice');
     return (
       <Stack.Navigator
-        layout={({ children }) => (
+        layout={({ children, state }) => (
           <ProfessionalWorkspaceProvider key={user?.id} currentRoute={professionalRoute}>
             <ProfessionalClinicWorkspaceProvider>
-              {!pendingPinReset ? <ProfessionalCommissionNotice key={user.id} /> : null}
+              {!pendingPinReset ? <ProfessionalCommissionNotice key={user.id} suppressed={state.routes[state.index]?.name === 'HeraCommissions'} /> : null}
               {children}
             </ProfessionalClinicWorkspaceProvider>
           </ProfessionalWorkspaceProvider>
