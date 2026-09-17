@@ -54,6 +54,8 @@ const ROUTE_TITLES: Record<keyof RootStackParamList, string> = {
   ProfessionalClinicWorkspace: 'Mi clínica',
   ProfessionalSessions: 'Agenda',
   ProfessionalProfile: 'Perfil profesional',
+  GoogleCalendarIntegration: 'Google Calendar',
+  GoogleCalendarSession: 'Cita HERA',
   ProfessionalBilling: 'Facturación',
   CreateInvoice: 'Nueva factura',
   ProfessionalAvailability: 'Disponibilidad',

@@ -1025,6 +1025,10 @@ export function ProfessionalSessionsScreen() {
         onGoToToday={goToToday}
       />
 
+      <View style={{ alignItems: 'flex-end', paddingHorizontal: 16, paddingBottom: 8 }}>
+        <Button variant="ghost" size="small" onPress={() => navigateProfessionalSection(navigation, 'ProfessionalProfile', { initialTab: 'account' })}>Google Calendar</Button>
+      </View>
+
       <View style={styles.body}>
         {isDesktop && (viewMode === 'day' || viewMode === 'week') ? (
           <View style={styles.sideRail}>

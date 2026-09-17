@@ -9,6 +9,7 @@ import React, { useEffect } from 'react';
 import { Platform, View } from 'react-native';
 import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
+import { captureCalendarUrl } from './src/services/googleCalendarIntent';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { FontDisplay, useFonts, type FontSource } from 'expo-font';
@@ -54,16 +55,18 @@ const prefix = Linking.createURL('/');
 
 export const linking: LinkingOptions<RootStackParamList> = {
   prefixes: [prefix, 'hera://'],
-  getInitialURL: async () => captureReferralUrl(captureClinicalPinResetUrl(await Linking.getInitialURL())),
+  getInitialURL: async () => captureCalendarUrl(captureReferralUrl(captureClinicalPinResetUrl(await Linking.getInitialURL()))),
   subscribe: (listener) => {
     const subscription = Linking.addEventListener('url', ({ url }) => {
-      const cleanUrl = captureReferralUrl(captureClinicalPinResetUrl(url));
+      const cleanUrl = captureCalendarUrl(captureReferralUrl(captureClinicalPinResetUrl(url)));
       if (cleanUrl) listener(cleanUrl);
     });
     return () => subscription.remove();
   },
   config: {
       screens: {
+      GoogleCalendarIntegration: 'integrations/google-calendar',
+      GoogleCalendarSession: 'calendar/session/:sessionId',
       EmailVerification: {
         path: 'verify',
         parse: {

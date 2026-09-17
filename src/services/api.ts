@@ -5,6 +5,7 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios';
 import { Platform } from 'react-native';
+import { clearCalendarProof } from './googleCalendarIntent';
 import getEnvVars from '../config/api';
 import {
   clearPersistedRefreshToken,
@@ -187,7 +188,7 @@ export const setAuthSession = async (token: string, refreshToken: string): Promi
 export const clearAuthSession = async (): Promise<void> => {
   clearAccessToken();
   clearWebRefreshToken();
-  await clearPersistedRefreshToken();
+  await Promise.all([clearPersistedRefreshToken(), clearCalendarProof()]);
 };
 
 const refreshAccessToken = async (): Promise<InitializedAuthSession | null> => {

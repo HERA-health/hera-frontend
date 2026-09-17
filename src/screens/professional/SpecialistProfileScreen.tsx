@@ -1,6 +1,7 @@
 import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
 import { AccountSettingsCard } from '../../components/professional/AccountSettingsCard';
+import { GoogleCalendarCard } from '../../components/professional/GoogleCalendarCard';
 import { ClinicalPinManager } from '../../components/professional/ClinicalPinManager';
 /**
  * SpecialistProfileScreen - Professional Profile Management
@@ -3302,6 +3303,7 @@ export function SpecialistProfileScreen() {
 
   const renderAccountTab = () => (
     <View style={[styles.tabContent, styles.accountGrid]}>
+      <View style={styles.accountColumn}><GoogleCalendarCard /></View>
       <View style={styles.accountColumn}><ClinicalPinManager /></View>
       {/* Account Information */}
       <View style={styles.accountColumn}>

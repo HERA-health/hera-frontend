@@ -1,4 +1,5 @@
 import { hasPendingClinicalPinReset, subscribeClinicalPinReset } from '../services/clinicalPinResetIntent';
+import { getCalendarIntent } from '../services/googleCalendarIntent';
 import { getPendingReferralIntent, getPendingCollaborationIntent } from '../services/pendingReferralIntent';
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -27,6 +28,15 @@ import {
 } from '../services/pendingBookingIntentService';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+const GoogleCalendarIntegrationRoute = createDeferredComponent(
+  () => require('../screens/professional/GoogleCalendarScreen'),
+  { displayName: 'GoogleCalendarIntegrationRoute', exportName: 'GoogleCalendarScreen' },
+);
+const GoogleCalendarSessionRoute = createDeferredComponent(
+  () => require('../screens/professional/GoogleCalendarScreen'),
+  { displayName: 'GoogleCalendarSessionRoute', exportName: 'GoogleCalendarSessionScreen' },
+);
 
 type StackRouteProps<T extends keyof RootStackParamList> = NativeStackScreenProps<
   RootStackParamList,
@@ -518,6 +528,7 @@ const fetchLegalStatusWithRetry = async (): Promise<LegalAcceptanceStatus> => {
 };
 
 export function RootNavigator() {
+  const calendarIntent = getCalendarIntent();
   const [professionalRoute, setProfessionalRoute] = useState<string>('ProfessionalHome');
   const pendingPinReset = useSyncExternalStore(subscribeClinicalPinReset, hasPendingClinicalPinReset, () => false);
   const {
@@ -601,6 +612,8 @@ export function RootNavigator() {
         <Stack.Group navigationKey="guest">
           {pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}
           <Stack.Screen name="Landing" component={LandingPage} />
+          <Stack.Screen name="GoogleCalendarIntegration" component={GoogleCalendarIntegrationRoute} />
+          <Stack.Screen name="GoogleCalendarSession" component={GoogleCalendarSessionRoute} />
           <Stack.Screen
             name="ProfessionalShowcase"
             component={ProfessionalShowcaseRoute}
@@ -903,12 +916,16 @@ export function RootNavigator() {
         }}
       >
         <Stack.Group navigationKey="professional">
+          {calendarIntent?.kind === 'connect' ? <Stack.Screen name="GoogleCalendarIntegration" component={GoogleCalendarIntegrationRoute} initialParams={{ attempt: calendarIntent.attempt }} /> : null}
+          {calendarIntent?.kind === 'session' ? <Stack.Screen name="GoogleCalendarSession" component={GoogleCalendarSessionRoute} initialParams={{ sessionId: calendarIntent.sessionId }} /> : null}
           {pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}
           <Stack.Screen
             name="ProfessionalHome"
             component={ProfessionalHomeRoute}
             options={{ headerTitle: 'Panel Profesional' }}
           />
+          {calendarIntent?.kind !== 'connect' ? <Stack.Screen name="GoogleCalendarIntegration" component={GoogleCalendarIntegrationRoute} /> : null}
+          {calendarIntent?.kind !== 'session' ? <Stack.Screen name="GoogleCalendarSession" component={GoogleCalendarSessionRoute} /> : null}
           <Stack.Screen
             name="PublicSpecialists"
             component={PublicSpecialistsRoute}

@@ -114,6 +114,8 @@ export interface BookingOfficeLocation {
 }
 
 export type RootStackParamList = {
+  GoogleCalendarIntegration: { attempt?: string } | undefined;
+  GoogleCalendarSession: { sessionId: string };
   Landing: { section?: LandingSectionAnchor } | undefined;
   ProfessionalShowcase: undefined;
   Welcome: undefined;

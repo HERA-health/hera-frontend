@@ -22,6 +22,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import {
   actOnClinicSession,
   getClinicInformation,
+  getClinicSession,
   getClinicMeetingLink,
   getWorkspaceHome,
   listClinicAgreements,
@@ -249,13 +250,16 @@ function AgendaSection({ clinicId, focusId }: { clinicId: string; focusId?: stri
     setStatus('loading');
     try {
       const page = await listClinicSessions(clinicId, { page: 1, limit: 50 });
-      setSessions(page.items);
+      const focusedSession = focusId ? await getClinicSession(clinicId, focusId) : null;
+      setSessions(focusedSession
+        ? [focusedSession, ...page.items.filter(item => item.id !== focusedSession.id)]
+        : page.items);
       setStatus('ready');
     } catch (loadError: unknown) {
       setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar la agenda.');
       setStatus('error');
     }
-  }, [clinicId]);
+  }, [clinicId, focusId]);
   useEffect(() => { void load(); }, [load]);
   const runAction = async (
     session: ProfessionalClinicSession,
