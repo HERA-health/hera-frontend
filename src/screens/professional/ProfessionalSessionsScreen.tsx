@@ -1005,6 +1005,7 @@ export function ProfessionalSessionsScreen() {
         isMobile={isMobile}
         onConfigureAgenda={handleConfigureAgenda}
         onJumpToNextSession={jumpToNextSession}
+        onOpenGoogleCalendar={() => navigateProfessionalSection(navigation, 'ProfessionalProfile', { initialTab: 'account' })}
       />
       <ProfessionalAgendaToolbar
         viewMode={viewMode}
@@ -1024,10 +1025,6 @@ export function ProfessionalSessionsScreen() {
         onNavigateDate={navigateDate}
         onGoToToday={goToToday}
       />
-
-      <View style={{ alignItems: 'flex-end', paddingHorizontal: 16, paddingBottom: 8 }}>
-        <Button variant="ghost" size="small" onPress={() => navigateProfessionalSection(navigation, 'ProfessionalProfile', { initialTab: 'account' })}>Google Calendar</Button>
-      </View>
 
       <View style={styles.body}>
         {isDesktop && (viewMode === 'day' || viewMode === 'week') ? (

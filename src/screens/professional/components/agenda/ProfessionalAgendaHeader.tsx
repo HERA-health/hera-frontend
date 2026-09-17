@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable } from '../../../../components/common';
 import { borderRadius, layout, spacing, typography } from '../../../../constants/colors';
@@ -18,6 +18,7 @@ interface ProfessionalAgendaHeaderProps {
   isMobile: boolean;
   onConfigureAgenda: () => void;
   onJumpToNextSession: () => void;
+  onOpenGoogleCalendar: () => void;
 }
 
 export function ProfessionalAgendaHeader({
@@ -29,8 +30,11 @@ export function ProfessionalAgendaHeader({
   isMobile,
   onConfigureAgenda,
   onJumpToNextSession,
+  onOpenGoogleCalendar,
 }: ProfessionalAgendaHeaderProps): React.ReactElement {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
+  const [googleHovered, setGoogleHovered] = useState(false);
+  const [googleFocused, setGoogleFocused] = useState(false);
   const styles = useMemo(() => createStyles(theme, isMobile), [isMobile, theme]);
   const modeColor = autoConfirmSessionRequests === null
     ? theme.textSecondary
@@ -96,6 +100,28 @@ export function ProfessionalAgendaHeader({
           <Ionicons name="settings-outline" size={13} color={theme.textMuted} />
         </AnimatedPressable>
 
+        <Pressable
+          onPress={onOpenGoogleCalendar}
+          onHoverIn={() => setGoogleHovered(true)}
+          onHoverOut={() => setGoogleHovered(false)}
+          onFocus={() => setGoogleFocused(true)}
+          onBlur={() => setGoogleFocused(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Configurar Google Calendar"
+          accessibilityHint="Abre los ajustes de vinculación de tu calendario"
+          style={({ pressed }) => [styles.googleCalendar, {
+            backgroundColor: pressed || googleHovered ? (isDark ? '#303134' : '#F0F5FF') : (isDark ? '#202124' : '#FFFFFF'),
+            borderColor: googleFocused ? '#4285F4' : (isDark ? '#5F6368' : '#DADCE0'),
+            boxShadow: googleFocused ? '0 0 0 3px rgba(66, 133, 244, 0.24)' : '0 1px 2px rgba(60, 64, 67, 0.08)',
+          }]}
+        >
+          <Image source={require('../../../../../assets/google-calendar.png')} style={styles.googleIcon} accessible={false} />
+          {!isMobile ? <>
+            <Text style={[styles.googleLabel, { color: isDark ? '#E8EAED' : '#3C4043' }]}>Google Calendar</Text>
+            <Ionicons name="chevron-forward" size={14} color={isDark ? '#9AA0A6' : '#80868B'} />
+          </> : null}
+        </Pressable>
+
         {loadingClients ? (
           <View style={styles.loadingState} accessibilityState={{ busy: true }} accessibilityLiveRegion="polite">
             <ActivityIndicator size="small" color={theme.primary} />
@@ -117,6 +143,7 @@ function createStyles(theme: Theme, isMobile: boolean) {
       borderBottomWidth: 1,
       borderBottomColor: theme.borderLight,
       flexDirection: isMobile ? 'column' : 'row',
+      flexWrap: 'wrap',
       alignItems: isMobile ? 'stretch' : 'center',
       justifyContent: 'space-between',
       gap: spacing.sm,
@@ -142,6 +169,8 @@ function createStyles(theme: Theme, isMobile: boolean) {
     },
     contextActions: {
       minWidth: 0,
+      maxWidth: '100%',
+      flexShrink: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: isMobile ? 'space-between' : 'flex-end',
@@ -181,6 +210,20 @@ function createStyles(theme: Theme, isMobile: boolean) {
       fontFamily: theme.fontSansSemiBold,
       fontSize: typography.fontSizes.xs,
     },
+    googleCalendar: {
+      minHeight: isMobile ? 44 : 38,
+      minWidth: 44,
+      paddingHorizontal: isMobile ? 10 : 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 9,
+      flexShrink: 0,
+    },
+    googleIcon: { width: 22, height: 22 },
+    googleLabel: { fontFamily: theme.fontSansMedium, fontSize: 13 },
     loadingState: {
       flexDirection: 'row',
       alignItems: 'center',
