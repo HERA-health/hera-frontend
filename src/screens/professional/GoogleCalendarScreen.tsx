@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { StackActions, useNavigation, useRoute } from '@react-navigation/native';
 import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -25,7 +25,10 @@ export function GoogleCalendarScreen() {
     if (!attempt) { setBusy(false); clearCalendarIntent(); return; }
     setBusy(true); setError(null);
     void completeGoogleCalendar(user.id, attempt).then(() => {
-      if (active) { clearCalendarIntent(); navigation.setParams({ attempt: undefined }); }
+      if (active) {
+        clearCalendarIntent();
+        navigation.dispatch(StackActions.replace('ProfessionalProfile', { initialTab: 'account' }));
+      }
     }).catch(cause => { if (active) { setError(getErrorMessage(cause)); clearCalendarIntent(); } })
       .finally(() => { if (active) setBusy(false); });
     return () => { active = false; };

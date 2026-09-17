@@ -1,5 +1,6 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { AppState } from 'react-native';
 import { GoogleCalendarCard } from '../GoogleCalendarCard';
 import * as service from '../../../services/googleCalendarService';
 
@@ -43,9 +44,30 @@ test('sync error is visible and can be retried without claiming success', async 
   jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue(connected);
   jest.mocked(service.resyncGoogleCalendar).mockRejectedValue(new Error('No se pudo sincronizar.'));
   render(<GoogleCalendarCard />);
-  await screen.findByText('Calendario actualizado');
-  fireEvent.press(screen.getByText('Sincronizar ahora'));
+  await screen.findByText('Sincronización automática activa');
+  expect(screen.queryByText('Revisar sincronización')).toBeNull();
+  fireEvent.press(screen.getByText('Opciones de sincronización'));
+  fireEvent.press(screen.getByText('Revisar sincronización'));
   await waitFor(() => expect(service.resyncGoogleCalendar).toHaveBeenCalledTimes(1));
   await screen.findByRole('alert');
   expect(screen.getByText('Actualizar estado')).toBeTruthy();
+});
+
+test('pending synchronization updates itself without a manual resync', async () => {
+  jest.useFakeTimers();
+  const originalState = AppState.currentState;
+  AppState.currentState = 'active';
+  try {
+    jest.mocked(service.getGoogleCalendarStatus)
+      .mockResolvedValueOnce({ ...connected, pending: 1, reconciling: true })
+      .mockResolvedValue(connected);
+    render(<GoogleCalendarCard />);
+    await screen.findByText('Actualizando automáticamente…');
+    expect(screen.getByText(/No necesitas pulsar ningún botón/)).toBeTruthy();
+    await act(async () => { jest.advanceTimersByTime(10_000); });
+    expect(screen.getByText('Sincronización automática activa')).toBeTruthy();
+    await act(async () => { jest.advanceTimersByTime(30_000); });
+    expect(service.getGoogleCalendarStatus).toHaveBeenCalledTimes(3);
+    expect(service.resyncGoogleCalendar).not.toHaveBeenCalled();
+  } finally { AppState.currentState = originalState; jest.useRealTimers(); }
 });

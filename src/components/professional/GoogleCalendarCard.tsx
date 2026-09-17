@@ -17,6 +17,7 @@ export function GoogleCalendarCard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
   const generation = useRef(0);
   const mounted = useRef(true);
   const actionRunning = useRef(false);
@@ -37,10 +38,12 @@ export function GoogleCalendarCard() {
   }, [refresh]);
   const pending = status?.status === 'DISCONNECTING' || (status?.status === 'CONNECTED' && (status.pending > 0 || status.reconciling));
   useEffect(() => {
-    if (!pending || busy) return;
-    const timer = setInterval(() => { if (!actionRunning.current) void refresh(); }, 10_000);
+    if ((!pending && status?.status !== 'CONNECTED') || busy) return;
+    const timer = setInterval(() => {
+      if (!actionRunning.current && AppState.currentState === 'active') void refresh();
+    }, pending ? 10_000 : 30_000);
     return () => clearInterval(timer);
-  }, [pending, busy, refresh]);
+  }, [pending, status?.status, busy, refresh]);
 
   const run = async (action: () => Promise<void>) => {
     if (actionRunning.current) return;
@@ -63,7 +66,7 @@ export function GoogleCalendarCard() {
     : status.status === 'REAUTH_REQUIRED' ? 'Vuelve a autorizar el acceso'
     : status.status === 'DISCONNECTED' ? 'Sin conectar'
     : status.failed ? 'Hay citas pendientes de revisar'
-    : pending ? 'Sincronizando citas…' : 'Calendario actualizado';
+    : pending ? 'Actualizando automáticamente…' : 'Sincronización automática activa';
   return <AccountSettingsCard title="Google Calendar" description="Tus citas de HERA, también en tu calendario principal.">
     <View style={[styles.status, { borderLeftColor: needsAttention ? theme.warning : theme.primary }]}>
       <Text accessibilityLiveRegion="polite" style={{ color: theme.textPrimary, fontFamily: theme.fontSans, fontWeight: '600' }}>{label}</Text>
@@ -71,6 +74,9 @@ export function GoogleCalendarCard() {
       {status?.lastSyncedAt && connected ? <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Última sincronización: {new Date(status.lastSyncedAt).toLocaleString('es-ES')}</Text> : null}
       {status && status.pending > 0 && connected ? <Text style={{ color: theme.textSecondary }}>{status.pending} citas por actualizar</Text> : null}
     </View>
+    {connected ? <Text style={[styles.copy, { color: theme.textPrimary, fontFamily: theme.fontSans }]}>
+      Tus citas se crean, actualizan y cancelan en Google automáticamente, normalmente en uno o dos minutos. No necesitas pulsar ningún botón ni mantener HERA abierta.
+    </Text> : null}
     <Text style={[styles.copy, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
       Se mostrarán tus citas privadas y de clínicas, pendientes y confirmadas, con su horario y un enlace a HERA. No se enviarán datos del paciente.
     </Text>
@@ -85,8 +91,14 @@ export function GoogleCalendarCard() {
     {!status && !error ? <ActivityIndicator color={theme.primary} /> : null}
     {status?.enabled ? <View style={styles.actions}>
       {(status.status === 'DISCONNECTED' || status.status === 'REAUTH_REQUIRED') ? <Button loading={busy} onPress={() => { void connect(); }}>{status.status === 'REAUTH_REQUIRED' ? 'Reconectar Google Calendar' : 'Conectar Google Calendar'}</Button> : null}
-      {connected ? <Button variant="outline" loading={busy} onPress={() => { void run(async () => { const next = await resyncGoogleCalendar(); if (mounted.current) setStatus(next); }); }}>Sincronizar ahora</Button> : null}
+      {connected ? <Button variant="ghost" disabled={busy} onPress={() => setShowOptions(value => !value)}>{showOptions ? 'Ocultar opciones' : 'Opciones de sincronización'}</Button> : null}
       {(connected || status.status === 'REAUTH_REQUIRED') && !confirmDisconnect ? <Button variant="ghost" disabled={busy} onPress={() => setConfirmDisconnect(true)}>Desconectar</Button> : null}
+    </View> : null}
+    {connected && (showOptions || Boolean(status.failed)) ? <View style={styles.options}>
+      <Text style={[styles.copy, { color: theme.textSecondary }]}>Si falta alguna cita o has modificado un evento en Google, puedes volver a comprobar las copias de HERA.</Text>
+      <Button variant="outline" loading={busy} disabled={pending} onPress={() => { void run(async () => { const next = await resyncGoogleCalendar(); if (mounted.current) setStatus(next); }); }}>Revisar sincronización</Button>
+      <Text style={[styles.copy, { color: theme.textSecondary }]}>Google muestra las citas en la zona horaria de su calendario. Para ver el horario peninsular, selecciona Europe/Madrid en los ajustes de Google Calendar.</Text>
+      <Button variant="ghost" onPress={() => { void Linking.openURL('https://calendar.google.com/calendar/u/0/r/settings'); }}>Abrir ajustes de Google Calendar</Button>
     </View> : null}
     {confirmDisconnect ? <View style={styles.actions}>
       <Text style={[styles.copy, { color: theme.textPrimary }]}>Las citas ya copiadas permanecerán en Google y dejarán de actualizarse.</Text>
@@ -101,4 +113,5 @@ const styles = StyleSheet.create({
   status: { borderLeftWidth: 3, paddingLeft: 14, gap: 7 },
   copy: { fontSize: 14, lineHeight: 22 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center' },
+  options: { gap: 12 },
 });
