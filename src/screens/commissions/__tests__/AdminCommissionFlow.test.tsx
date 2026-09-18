@@ -12,6 +12,19 @@ const account: service.AccountDetail = { summary, acceptances: [], specialistFis
 const row: service.CommissionSession = { id: 'snapshot', sessionId: 'session', accountId: 'account', relationId: 'relation', position: 1, rateBps: 2000, bookedGrossCents: 8000, baseCents: 8000, serviceTaxCents: 0, potentialCents: 1600, entitledCents: 1600, exclusion: null, revision: 1, session: { date: '2026-09-01T12:00:00Z', clientId: 'patient-reference', patientName: 'Ana de prueba', attendanceOutcome: 'ATTENDED', status: 'COMPLETED' }, relation: { id: 'relation', origin: 'HERA_DIRECTORY', status: 'CONFIRMED', initialCount: 0 }, movements: [], revisions: [], settlement: { state: 'PARTIAL_DOCUMENT', undocumentedCents: 0, documentCount: 1 } };
 beforeEach(() => jest.clearAllMocks());
 
+it.each([false, true])('free sessions explicitly stay outside the commission scale (admin=%s)', async admin => {
+ jest.mocked(service.sessions).mockResolvedValue({ items: [{ ...row, bookedGrossCents: 0, baseCents: null, position: null, entitledCents: 0, potentialCents: null, exclusion: 'FREE_SESSION', settlement: { state: 'NO_COMMISSION', undocumentedCents: 0, documentCount: 0 } }], hasMore: false });
+ const view = render(<CommissionSessions accountId="account" admin={admin} account={account} onPeriods={jest.fn()} run={async () => true} busy={false} refresh={0} />);
+ await view.findByText(admin ? 'No cuenta para la escala' : 'Sesión gratuita: no cuenta para la escala de comisiones');
+ expect(view.queryByText('20%')).toBeNull();
+ expect(view.queryByText('20% de base por confirmar')).toBeNull();
+ if (!admin) {
+  fireEvent.press(view.getByText('Ver detalle'));
+  expect(view.getByText(/Sin posición en la escala/)).toBeTruthy();
+  expect(view.queryByText(/Comisión prevista: Base pendiente/)).toBeNull();
+ }
+});
+
 it('summary separates errors, OFF empty, historical balances and refresh; ignores a stale specialist response', async () => {
  const request = jest.mocked(service.adminSpecialistSummary);
  let resolveFirst: (value: service.AdminSpecialistSummary) => void = () => {};

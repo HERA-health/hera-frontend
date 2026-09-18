@@ -1,137 +1,169 @@
-# HERA Frontend: Agent Guidelines & UI Architecture
+# HERA Frontend
 
-## 1. Repository Context
+Read `../AGENTS.md` for shared scope, correctness, safety and completion rules when available.
 
-HERA consists of two sibling applications:
+The backend is `../hera-backend/`.
 
-- `c:\Users\ruben\Desktop\HERA\hera-frontend`
-- `c:\Users\ruben\Desktop\HERA\hera-backend`
+## 1. Architecture
 
-Features may affect both repositories.
+The application uses Expo, React Native, React Native Web and TypeScript.
 
-Do not assume that a task is frontend-only because the visible change is in the UI.
+Preserve supported web and native behavior.
 
-When a feature depends on persisted data, permissions, business rules or API behavior, inspect the relevant backend contract when necessary.
+Do not introduce DOM-only implementations into shared native code unless the code is intentionally web-specific.
 
-The frontend should present and orchestrate product behavior, not become the source of truth for backend business rules.
+- Screens orchestrate loading, navigation and high-level state.
+- Domain services in `src/services/` own API access.
+- Extract reusable or meaningfully complex UI; do not split trivial markup purely for architectural purity.
+- Keep rendering, transformations and side effects reasonably separated.
+- Preserve the existing state-management approach unless it cannot satisfy the requirement.
+- Keep navigation payloads typed.
+- Reuse shared theme tokens and primitives when they are suitable.
 
----
-
-## 2. Frontend Mission
-
-The frontend should feel:
-
-- premium;
-- calm;
-- trustworthy;
-- clear;
-- modern without unnecessary visual complexity.
-
-Optimize for:
-
-- usability;
-- visual consistency;
-- maintainability;
-- honest product behavior.
-
-Prefer clarity and simplicity over decorative complexity.
+Do not create new component systems, state architectures or abstractions without a concrete need.
 
 ---
 
-## 3. Frontend Architecture
+## 2. Determine the Frontend Task Mode
 
-### Core Rules
+Before investigating, determine whether the task is primarily:
 
-- **Screens as Containers**: Screens orchestrate data loading, navigation and high-level state.
-- **UI in Components**: Extract reusable or meaningfully complex visual sections into components.
-- **Services Own API Access**: Screens and components should use domain services in `src/services/` instead of scattering raw API calls.
-- **Single Responsibility**: Keep rendering, data transformation and side effects reasonably separated.
-- **Strict TypeScript**: Avoid `any`, `@ts-ignore`, unsafe casting and untyped navigation payloads.
-- **Existing Patterns First**: Reuse existing project patterns and primitives when they already solve the problem correctly.
+1. visual/design work;
+2. functional/product behavior;
+3. mixed.
 
-Do not create new architectural layers, component systems or state-management abstractions without a concrete need.
-
-Do not extract trivial components purely for architectural purity.
+Do not automatically apply the full functional workflow to a primarily visual task.
 
 ---
 
-## 4. Implementation Principles
+## 3. Visual / Design Work
 
-Prefer the simplest correct solution that fits the existing architecture.
+For tasks whose main purpose is visual improvement, styling, layout, UX polish or redesign:
 
-When implementing or fixing something:
+- focus investigation on the affected screen, section or components;
+- preserve existing functionality and contracts unless the request explicitly changes them;
+- do not trace backend/persistence flows unless the rendered behavior genuinely depends on them;
+- use the `frontend-design` skill as the primary visual design guidance when available;
+- use HERA's brand, theme and product character as constraints, not as a ceiling on design quality.
 
-1. understand the relevant existing flow before modifying it;
-2. preserve working behavior unless the task intentionally changes it;
-3. reuse existing components, services and patterns where appropriate;
-4. change the smallest reasonable surface of code;
-5. keep the resulting implementation easy to understand and maintain.
+Existing screens are references for:
 
-Avoid:
+- brand;
+- product conventions;
+- behavior.
 
-- unnecessary abstractions;
-- speculative future-proofing;
-- broad unrelated refactors;
-- generic systems for one isolated use case;
-- redesigning healthy code merely because another approach is possible;
-- unnecessary visual complexity.
+They are not layouts that must be mechanically copied.
 
-If multiple approaches are valid, prefer the simplest one that fully satisfies the current requirement.
+Do not preserve weak visual decisions merely because they already exist.
 
-Do not expand the task scope without a concrete reason.
+Within the requested scope, visual work may substantially improve:
 
----
-
-## 5. Proportional Investigation
-
-Investigation and verification must be proportional to the complexity and risk of the task.
-
-For substantial changes:
-
-- inspect the relevant user flow;
-- identify affected screens, components and services;
-- inspect backend contracts when relevant;
-- identify existing patterns to reuse;
-- consider important UX states and edge cases;
-- define clear acceptance criteria.
-
-For small and localized changes, keep the process lightweight.
-
-Do not turn simple UI changes into full-application audits.
-
-Once enough context exists to implement the task safely, stop exploring unrelated areas and proceed.
-
----
-
-## 6. Design System
-
-Use the shared theme and existing design primitives as the primary source of truth for:
-
-- colors;
+- composition;
+- hierarchy;
+- layout;
 - spacing;
 - typography;
-- reusable interaction patterns.
+- density;
+- grouping;
+- surfaces;
+- CTA prominence;
+- information prioritization;
+- responsive composition;
+- interaction feedback.
 
-Prefer shared primitives such as existing buttons, cards, dropdowns, loaders and interaction components when appropriate.
+Prefer purposeful composition over adding decoration.
 
-Do not introduce:
+Avoid generic AI-looking design patterns such as excessive:
 
-- new legacy styling;
-- duplicated color systems;
-- arbitrary design tokens;
-- one-off visual systems without a clear reason.
+- cards;
+- pills;
+- gradients;
+- floating containers;
+- borders;
+- shadows;
+- decorative icons;
+- unnecessary section fragmentation.
 
-Avoid introducing new dependencies on legacy styling such as `heraLanding` when modern shared theme primitives already exist.
+Do not add visual novelty merely to appear creative.
+
+### Visual Verification
+
+Do not judge visual quality only from source code.
+
+When an appropriate runtime/browser is available:
+
+1. render the affected surface;
+2. inspect the real result;
+3. identify the most important visual or interaction weaknesses;
+4. refine them;
+5. inspect the changed result again.
+
+Prefer a small number of purposeful visual iterations over extensive architectural analysis.
+
+Check only the relevant supported viewport/theme variants for the affected surface.
+
+Do not redesign unrelated screens.
 
 ---
 
-## 7. Visual & UX Principles
+## 4. Functional Frontend Work
 
-Maintain clear hierarchy between primary and secondary actions.
+For changes involving behavior, data, navigation or API interactions:
 
-Interfaces should represent their real state honestly.
+- start from the user's entry point;
+- follow the relevant action through component/screen, domain service and server response;
+- inspect the backend contract when behavior depends on backend data or rules;
+- preserve navigation and state consistency;
+- connect every required action to real behavior.
 
-When relevant, handle:
+For affected asynchronous flows, handle relevant cases such as:
+
+- loading;
+- failure;
+- retry;
+- stale responses;
+- duplicate submission;
+- changed selections;
+- refresh/invalidation;
+- persisted state after reload.
+
+Only handle cases that are relevant to the actual flow.
+
+Do not introduce elaborate state machinery for theoretical scenarios that cannot realistically occur.
+
+Check the primary path and the important recovery/failure path.
+
+---
+
+## 5. Mixed Functional + Visual Work
+
+When a feature changes both behavior and presentation:
+
+1. establish the correct functional flow;
+2. preserve the relevant backend contract and state behavior;
+3. then evaluate the rendered result as a visual product surface;
+4. refine the affected experience without expanding the scope.
+
+Functional correctness does not excuse poor presentation.
+
+Visual polish does not excuse broken state or integration behavior.
+
+---
+
+## 6. Design and Interaction Quality
+
+HERA should feel:
+
+- calm;
+- clear;
+- trustworthy;
+- polished;
+- contemporary;
+- intentionally designed.
+
+Maintain a coherent hierarchy and make the most important action or information visually obvious.
+
+When relevant, represent:
 
 - loading;
 - empty;
@@ -140,196 +172,71 @@ When relevant, handle:
 - disabled;
 - retry states.
 
-Do not make unavailable or demo functionality appear fully operational.
-
-Avoid unnecessary:
-
-- gradients;
-- excessive borders;
-- excessive cards;
-- decorative pills;
-- shadows;
-- animations;
-- visual elements that do not improve hierarchy or usability.
-
-The interface should not become visually more complex merely to appear more polished.
-
----
-
-## 8. Responsive & Theme Behavior
-
-Touched functionality should continue to behave correctly across the form factors it supports.
-
-For web-facing changes, consider:
-
-- desktop;
-- tablet;
-- mobile.
+Forms should communicate submission state, prevent harmful duplicate actions and show useful safe errors.
 
 Preserve:
 
-- readability;
-- hierarchy;
-- navigation;
-- CTA visibility;
-- scroll behavior;
-- usable touch targets.
+- keyboard access;
+- visible focus;
+- accessible labels/names;
+- contrast;
+- usable touch targets;
+- reduced-motion preferences when motion is introduced.
 
-When modifying screens or components that support dark mode, preserve correct behavior in both light and dark themes.
+Maintain light/dark behavior where supported.
 
-Do not perform unrelated responsive or dark-mode redesigns outside the scope of the requested change.
-
----
-
-## 9. Navigation
-
-Respect existing navigation context.
-
-Do not unintentionally break:
-
-- sidebars;
-- back navigation;
-- modal escape routes;
-- redirects;
-- deep links;
-- expected post-action navigation.
-
-Users should not become trapped in a newly modified flow.
+For responsive work, verify the layouts materially affected by the change rather than every possible viewport.
 
 ---
 
-## 10. Data, Privacy & Authorization
+## 7. Performance and Public Web
 
-Render only the information required for the current screen or action.
+Avoid without evidence or clear benefit:
 
-Do not expose unnecessary:
-
-- patient data;
-- specialist data;
-- clinical information;
-- internal identifiers;
-- debugging information.
-
-Frontend visibility is not authorization.
-
-Do not implement security-sensitive business rules only in the client when they must be enforced by the backend.
-
----
-
-## 11. Forms & User Actions
-
-When relevant, forms should:
-
-- validate user input for good UX;
-- clearly represent submitting/loading state;
-- prevent accidental duplicate submissions when necessary;
-- display useful server errors;
-- preserve user input after recoverable failures when practical.
-
-Backend validation remains authoritative.
-
-Do not create a second conflicting source of truth for business validation in the frontend.
-
----
-
-## 12. Performance & Public Web
-
-Maintain a reasonable performance mindset.
-
-Avoid without a clear UX benefit:
-
-- eager-loading heavy screens;
-- oversized dependency imports;
+- repeated API calls;
+- eager heavy imports;
 - unnecessary rerenders;
-- repeated API requests;
-- always-running animations;
-- unnecessary client-side work.
+- continuous animation;
+- large client-side payloads.
 
-For public web changes, preserve when relevant:
+Do not micro-optimize without evidence.
 
-- meaningful metadata;
-- crawlable content;
-- semantic structure;
-- reasonable first-render performance;
-- SEO and Core Web Vitals behavior.
+For public routes, preserve relevant:
 
-Do not perform speculative micro-optimizations without evidence.
+- semantic content;
+- metadata;
+- canonicals;
+- crawlability;
+- first-render performance.
 
----
+Do not introduce SEO patterns copied from unrelated frameworks without checking the current Expo web architecture.
 
-## 13. Files & Uploads
-
-For images and documents:
-
-- prefer file/multipart or supported storage upload flows;
-- avoid Base64 conversion by default;
-- avoid holding unnecessarily large binary data in client state.
-
-Respect the backend upload contract.
+Prefer supported file/storage upload flows over Base64 for large assets.
 
 ---
 
-## 14. Verification
+## 8. Verification and Commands
 
-Verification must be proportional to the change.
+Run commands from `hera-frontend/`.
 
-For substantial frontend changes, run the relevant combination of:
+`package.json` is authoritative.
 
-- `npx tsc --noEmit --pretty false`
-- targeted tests
-- `npm test`
-- relevant existing regression suites
+Common checks:
 
-Prefer focused tests while iterating.
+| Purpose | Command |
+| --- | --- |
+| Development | `npm start` |
+| Web development | `npm run web` |
+| Typecheck | `npm run typecheck -- --pretty false` |
+| One test file | `npm test -- --runTestsByPath <path-to-test>` |
+| Agenda regression suite | `npm run test:agenda-regression` |
+| Full test suite, when warranted | `npm test` |
+| Web export when relevant | `npm run build:web` |
 
-When fixing a bug or modifying regression-prone behavior, add a targeted regression test when practical.
+Choose checks based on the change.
 
-Before completing a substantial task:
+For visual work, rendered inspection is more important than broad automated test execution unless behavior also changed.
 
-1. verify the requested behavior;
-2. check the relevant acceptance criteria;
-3. inspect the final diff;
-4. confirm that no unintended changes were introduced;
-5. verify relevant UX states and integration behavior;
-6. correct confirmed problems and rerun affected checks.
+For functional work, verify the affected behavior and relevant failure path.
 
-Typecheck alone is not sufficient proof that a behavioral change is correct.
-
----
-
-## 15. Stop Criteria
-
-Do not perform endless rounds of abstract analysis.
-
-Once:
-
-- the requested behavior is implemented;
-- relevant acceptance criteria are satisfied;
-- appropriate checks pass;
-- the final diff has been reviewed;
-- no known critical or high-severity issue remains;
-
-consider the task complete.
-
-Do not continue exploring alternative architectures, redesign opportunities or hypothetical problems without a concrete reason.
-
----
-
-## 16. Encoding
-
-All frontend source, configuration and documentation files must remain UTF-8 without BOM.
-
-If text shows signs of UTF-8/Windows-1252 corruption, treat it as real file corruption and verify the decoded source before editing.
-
-After fixing encoding problems, reopen the affected file and verify representative strings.
-
----
-
-## 17. Operational Commands
-
-- **Development**: `npm start`
-- **Web**: `npm run web`
-- **Typecheck**: `npx tsc --noEmit --pretty false`
-- **Tests**: `npm test`
-
-Do not run broad or expensive verification unnecessarily when a focused check provides sufficient confidence.
+A successful typecheck or snapshot alone does not prove a usable frontend flow.

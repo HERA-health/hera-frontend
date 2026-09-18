@@ -33,7 +33,7 @@ export function BookingEmailVerification({ email, code, codeLength, busy, onChan
       placeholderTextColor={theme.textMuted}
       style={[styles.input, { color: theme.textPrimary, borderColor: theme.border, backgroundColor: theme.bgCard, fontFamily: theme.fontSansSemiBold }, !shortCode ? { fontSize: 16, letterSpacing: 1 } : null]}
     />
-    <Text style={[styles.hint, { color: theme.textSecondary }]}>Caduca en 20 minutos. Tu cita aún no está confirmada.</Text>
+    <Text style={[styles.hint, { color: theme.textSecondary }]}>Caduca en 5 minutos. Tu cita aún no está confirmada.</Text>
     <Button variant="ghost" size="small" disabled={busy} onPress={onRestart}>Cambiar correo o pedir otro código</Button>
   </View>;
 }
