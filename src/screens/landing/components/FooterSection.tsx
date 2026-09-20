@@ -1,3 +1,4 @@
+import { PrivacyControlsContext } from '../../../components/common/PrivacyPreferences';
 import React, { type CSSProperties } from 'react';
 import {
   Linking,
@@ -72,6 +73,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
   onClinicAccess,
   onScrollToSection,
 }) => {
+  const openPrivacy = React.useContext(PrivacyControlsContext);
   const { width } = useWindowDimensions();
   const { theme } = useTheme();
   const isDesktop = width >= 1024;
@@ -108,6 +110,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
         { label: 'Quiénes somos', section: 'about' },
         { label: 'Política de privacidad', href: getLegalDocumentUrl('PRIVACY_POLICY') },
         { label: 'Términos y condiciones', href: getLegalDocumentUrl('TERMS_OF_SERVICE') },
+        ...(openPrivacy ? [{ label: 'Preferencias de privacidad', onPress: openPrivacy }] : []),
         { label: 'Contacto', href: 'mailto:herahealthtech@gmail.com' },
       ],
     },

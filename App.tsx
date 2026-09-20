@@ -264,6 +264,7 @@ function ThemedApp() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <AuthProvider>
+          <PrivacyControls>
           <View style={{ flex: 1 }}>
           <ProfileCompletionProvider>
             <AlertProvider>
@@ -280,7 +281,7 @@ function ThemedApp() {
             </AlertProvider>
           </ProfileCompletionProvider>
           </View>
-          <PrivacyControls />
+          </PrivacyControls>
         </AuthProvider>
       </SafeAreaProvider>
     </ErrorBoundary>

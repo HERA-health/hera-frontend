@@ -1,3 +1,4 @@
+import { PrivacyPreferencesButton } from '../../components/common/PrivacyPreferences';
 import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
 import { AccountSettingsCard } from '../../components/professional/AccountSettingsCard';
@@ -3465,7 +3466,7 @@ export function SpecialistProfileScreen() {
           {activeTab === 'agenda' && renderAgendaReservationsTab()}
           {activeTab === 'credentials' && renderCredentialsTab()}
           {activeTab === 'pricing' && renderPricingTab()}
-          {activeTab === 'privacy' && renderPrivacyTab()}
+          {activeTab === 'privacy' && <>{renderPrivacyTab()}<PrivacyPreferencesButton /></>}
           {activeTab === 'account' && renderAccountTab()}
         </View>
       </ScrollView>

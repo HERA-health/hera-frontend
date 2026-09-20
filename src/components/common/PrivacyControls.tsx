@@ -1,3 +1,4 @@
+import { PrivacyControlsContext } from './PrivacyPreferences';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Linking, Modal, Platform, ScrollView, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -11,7 +12,7 @@ import { Button } from './Button';
 const VERSION = '2026-09-20';
 const STORAGE = 'hera:visitor-analytics-preference';
 type Preference = { enabled: boolean; version: string; decidedAt: string | null };
-export function PrivacyControls() {
+export function PrivacyControls({ children }: { children?: React.ReactNode }) {
   const { user, isInitialized } = useAuth();
   const { theme } = useTheme();
   const [preference, setPreference] = useState<Preference | null>(null);
@@ -61,10 +62,8 @@ export function PrivacyControls() {
     } catch (cause) { if (revision === generation.current) setError(getErrorMessage(cause)); }
     finally { saving.current = false; setBusy(false); }
   };
-  return <>
-    <View style={{ backgroundColor: theme.bg, paddingHorizontal: 12, alignItems: 'flex-end' }}>
-      <Button size="small" variant="ghost" onPress={() => setOpen(true)}>Preferencias de privacidad</Button>
-    </View>
+  return <PrivacyControlsContext.Provider value={() => setOpen(true)}>
+    {children}
     <Modal visible={open} transparent animationType="fade" onRequestClose={() => { if (!busy) setOpen(false); }}>
       <View style={{ flex: 1, backgroundColor: '#00000066', justifyContent: 'center', padding: 24 }}>
         <ScrollView style={{ maxHeight: '85%', backgroundColor: theme.bgCard, borderRadius: 12, width: '100%', maxWidth: 560, alignSelf: 'center' }} contentContainerStyle={{ padding: 24, gap: 18 }}>
@@ -79,5 +78,5 @@ export function PrivacyControls() {
         </ScrollView>
       </View>
     </Modal>
-  </>;
+  </PrivacyControlsContext.Provider>;
 }

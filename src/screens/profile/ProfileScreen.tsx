@@ -1,3 +1,4 @@
+import { PrivacyPreferencesButton } from '../../components/common/PrivacyPreferences';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Platform,
@@ -466,6 +467,7 @@ const ProfileScreen: React.FC = () => {
             indicatorStyle={isDark ? 'white' : 'black'}
           >
             {content}
+            <PrivacyPreferencesButton />
           </ScrollView>
         </View>
       ) : (
@@ -482,6 +484,7 @@ const ProfileScreen: React.FC = () => {
             indicatorStyle={isDark ? 'white' : 'black'}
           >
             {content}
+            <PrivacyPreferencesButton />
           </ScrollView>
         </>
       )}

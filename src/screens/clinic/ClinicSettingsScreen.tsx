@@ -1,3 +1,4 @@
+import { PrivacyPreferencesButton } from '../../components/common/PrivacyPreferences';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -398,6 +399,7 @@ export function ClinicSettingsScreen({
           ) : null}
         </View>
       )}
+      <PrivacyPreferencesButton />
     </ClinicWorkspaceScaffold>
   );
 }

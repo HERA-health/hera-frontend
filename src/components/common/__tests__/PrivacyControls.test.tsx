@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { PrivacyControls } from '../PrivacyControls';
+import { PrivacyPreferencesButton } from '../PrivacyPreferences';
 import api from '../../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { configureAnalytics } from '../../../services/analyticsService';
@@ -16,8 +17,16 @@ jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({ theme: r
 jest.mock('../../../services/api', () => ({ __esModule: true, default: { get: jest.fn(), put: jest.fn() } }));
 jest.mock('../../../services/analyticsService', () => ({ configureAnalytics: jest.fn(), reset: jest.fn() }));
 beforeEach(async () => { mockUser = null; jest.clearAllMocks(); await AsyncStorage.clear(); });
-test('visitors can reject with no account request and reopen preferences', async () => {
+
+test('the global controller does not render a permanent preferences bar', async () => {
+  await AsyncStorage.setItem('hera:visitor-analytics-preference', JSON.stringify({ enabled: false, version: '2026-09-20' }));
   render(<PrivacyControls />);
+  await waitFor(() => expect(configureAnalytics).toHaveBeenLastCalledWith(false));
+  expect(screen.queryByText('Preferencias de privacidad')).toBeNull();
+  expect(screen.queryByText('Tu privacidad')).toBeNull();
+});
+test('visitors can reject with no account request and reopen preferences', async () => {
+  render(<PrivacyControls><PrivacyPreferencesButton /></PrivacyControls>);
   await screen.findByText('No permitir estadísticas de uso');
   fireEvent.press(screen.getByText('No permitir estadísticas de uso'));
   await waitFor(() => expect(configureAnalytics).toHaveBeenLastCalledWith(false));
@@ -30,10 +39,10 @@ test('a visitor opt-in does not become consent for an authenticated account or a
   await AsyncStorage.setItem('hera:visitor-analytics-preference', JSON.stringify({ enabled: true, version: '2026-09-20' }));
   mockUser = { id: 'account-a' };
   jest.mocked(api.get).mockResolvedValue({ data: { enabled: false, version: '2026-09-20', decidedAt: null } });
-  const view = render(<PrivacyControls />);
+  const view = render(<PrivacyControls><PrivacyPreferencesButton /></PrivacyControls>);
   await screen.findByText('Estadísticas de uso: desactivadas');
   expect(configureAnalytics).not.toHaveBeenCalledWith(true);
-  mockUser = { id: 'account-b' }; view.rerender(<PrivacyControls />);
+  mockUser = { id: 'account-b' }; view.rerender(<PrivacyControls><PrivacyPreferencesButton /></PrivacyControls>);
   await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
   expect(configureAnalytics).not.toHaveBeenCalledWith(true);
 });

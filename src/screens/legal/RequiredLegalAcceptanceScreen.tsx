@@ -1,3 +1,4 @@
+import { PrivacyPreferencesButton } from '../../components/common/PrivacyPreferences';
 import { useAuth } from '../../contexts/AuthContext';
 import { disconnectGoogleCalendar } from '../../services/googleCalendarService';
 import React, { useState } from 'react';
@@ -132,6 +133,7 @@ export function RequiredLegalAcceptanceScreen({
         >
           Aceptar y continuar
         </Button>
+        <PrivacyPreferencesButton />
         <Button variant="ghost" onPress={() => void logout()}>Cerrar sesión</Button>
         {user?.type === 'professional' ? <Button variant="ghost" onPress={() => { void disconnectGoogleCalendar().then(() => setError('Desconexión solicitada. Las copias existentes permanecen en Google.')).catch(err => setError(getErrorMessage(err))); }}>Desconectar Google Calendar</Button> : null}
       </View>
