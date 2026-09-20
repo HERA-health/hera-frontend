@@ -54,6 +54,34 @@ it('filters open reviews through the state selector and clears review filtering 
  await waitFor(() => expect(service.sessions).toHaveBeenLastCalledWith('account', false, expect.objectContaining({ state: undefined, review: false, page: 0 })));
 });
 
+it('explains automatic attribution review without suggesting a debt or a confirmed rate', async () => {
+ jest.mocked(service.sessions).mockResolvedValue({ items: [{ ...row, position: null, baseCents: null, entitledCents: 0, potentialCents: null, exclusion: 'ATTRIBUTION_PENDING', relation: { ...row.relation, origin: 'UNKNOWN', status: 'PENDING', initialCount: null }, settlement: { state: 'REVIEW_PENDING', paymentState: 'PENDING', documentState: 'PENDING', undocumentedCents: 0, documentCount: 0 } }], hasMore: false });
+ jest.mocked(service.detail).mockResolvedValue({ ...detail, summary: { ...detail.summary, issueCount: 1 }, issues: [{ id: 'issue', relationId: 'relation', snapshotId: null, status: 'OPEN', resolution: null, openedAutomatically: true, reason: 'Procedencia o equivalencia de identidad pendiente de acreditar. No generar deuda automática.', context: { origin: 'UNKNOWN', status: 'PENDING', initialCount: null, history: { totalSessions: 3, attendedPaidSessions: 0, countedSessions: 0 } } }] });
+ const view = render(<ProfessionalCommissionWorkspace {...props()} />);
+ await view.findByText('Paciente de prueba');
+ expect(view.getByText('Pendiente de revisión por HERA')).toBeTruthy();
+ expect(view.getByText('Porcentaje pendiente de confirmar')).toBeTruthy();
+ expect(view.queryByText(/Pago pendiente · Factura pendiente/)).toBeNull();
+ expect(view.queryByText('20% de base por confirmar')).toBeNull();
+ expect(view.getByText('Revisiones · 1 abierta')).toBeTruthy();
+ fireEvent.press(view.getByRole('button', { name: 'Ver revisiones' }));
+ expect(view.getByText('Abierta automáticamente por HERA')).toBeTruthy();
+ expect(view.getByText(/Historial con este especialista: 3 citas registradas · 0 sesiones/)).toBeTruthy();
+ expect(view.getByText(/Falta confirmar cómo llegó este paciente/)).toBeTruthy();
+ expect(view.getByText(/registrar un cobro o la asistencia no cierra la revisión/)).toBeTruthy();
+});
+
+it('does not describe a manually requested review as automatic', async () => {
+ jest.mocked(service.detail).mockResolvedValue({ ...detail, issues: [{ id: 'issue', relationId: 'relation', snapshotId: 'snapshot', status: 'RESOLVED', resolution: 'Procedencia confirmada', openedAutomatically: false, reason: 'Revisar mi comisión' }] });
+ const view = render(<ProfessionalCommissionWorkspace {...props()} />);
+ await view.findByText('Paciente de prueba');
+ fireEvent.press(view.getByRole('tab', { name: 'Revisiones y respuestas' }));
+ expect(view.getByText('Revisión solicitada manualmente')).toBeTruthy();
+ expect(view.getByText('Revisar mi comisión')).toBeTruthy();
+ expect(view.getByText('Resolución: Procedencia confirmada')).toBeTruthy();
+ expect(view.queryByText('Abierta automáticamente por HERA')).toBeNull();
+});
+
 it('selects the current real operator, keeps simulation separate and requires selection for ambiguity', () => {
  const other = { ...account, id: 'other', operatorKey: 'other', acceptances: [] };
  const simulation = { ...account, id: 'simulation', mode: 'SIMULATION' as const };

@@ -1,17 +1,28 @@
 import { SimpleDropdown } from '../../../components/common/SimpleDropdown';
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { ReceiptForm, DocumentForm, CommissionPeriods, CashOperations } from '../CommissionOperations';
+import { ReceiptForm, DocumentForm, CommissionPeriods, CashOperations, CommissionIssues } from '../CommissionOperations';
+import { CommissionSelect } from '../CommissionFields';
 import * as DocumentPicker from 'expo-document-picker';
 import * as service from '../../../services/heraCommissionService';
 import type { Run } from '../CommissionElements';
 jest.mock('../../../services/heraCommissionService', () => ({ decide: jest.fn(), upload: jest.fn(), period: jest.fn() }));
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
+beforeEach(() => jest.clearAllMocks());
 const data: service.AccountDetail = {
  summary: { id: 'account', specialistId: 'specialist', specialistName: 'Profesional sintético', operatorKey: 'fixture', mode: 'LIVE', revision: 4, estimatedCents: 0, accruedCents: 0, undocumentedCents: 0, documentedCents: 3600, pendingCents: 3600, overdueCents: 0, receivedCents: 0, creditCents: 0, issueCount: 0 },
  acceptances: [], specialistFiscal: { fiscalName: null, fiscalNif: null, fiscalAddress: null }, periods: [], cash: [], issues: [], hasMore: false,
  documents: [{ id: 'invoice', invoiceNumber: 'HERA-001', dueAt: '2026-09-10T12:00:00Z', totalCents: 3600, appliedCents: 0, remainingCents: 3600, claimableCents: 3600, correctionPending: false, status: 'PENDING', documents: [] }],
 };
+it('requires a resolved origin and does not ask for a directory counter for own patients', async () => {
+ jest.mocked(service.decide).mockReset().mockResolvedValue({ id: 'issue' });
+ const view = render(<CommissionIssues data={{ ...data, issues: [{ id: 'issue', relationId: 'relation', snapshotId: null, status: 'OPEN', reason: 'Origen pendiente', resolution: null }] }} admin busy={false} run={async operation => { await operation(); return true; }} />);
+ expect(view.getByRole('button', { name: 'Resolver con esta evidencia' })).toBeDisabled();
+ act(() => view.UNSAFE_getByType(CommissionSelect).props.onSelect('SPECIALIST_OWN'));
+ fireEvent.changeText(view.getByLabelText('Evidencia y motivo de resolución o diferimiento'), 'Cartera propia documentada');
+ fireEvent.press(view.getByRole('button', { name: 'Resolver con esta evidencia' }));
+ await waitFor(() => expect(service.decide).toHaveBeenCalledWith('account', true, expect.objectContaining({ action: 'RESOLVE', origin: 'SPECIALIST_OWN', initialCount: 0 })));
+});
 it('requires manual confirmation, submits a partial receipt and preserves the form on failure', async () => {
  const decide = jest.mocked(service.decide); decide.mockRejectedValueOnce(new Error('conflict')).mockResolvedValue({ id: 'receipt' });
  const run: Run = async operation => { try { await operation(); return true; } catch { return false; } };

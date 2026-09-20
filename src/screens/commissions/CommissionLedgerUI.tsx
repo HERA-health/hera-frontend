@@ -13,7 +13,7 @@ export const settlementLabels: Record<SettlementState, string> = {
 export function SettlementBadge({ state, settlement }: { state?: SettlementState; settlement?: Settlement }) {
  const { theme } = useTheme();
  const paymentLabel = settlement?.paymentState ? ({ PENDING: 'Pago pendiente', PARTIAL: 'Pago parcial', PAID: 'Pagado' })[settlement.paymentState] : null;
- const label = paymentLabel && !['PENDING_ACTIVITY', 'NO_COMMISSION'].includes(state ?? '') ? `${paymentLabel} · ${settlement?.documentState === 'AVAILABLE' ? 'Factura disponible' : 'Factura pendiente'}${state === 'REVIEW_PENDING' ? ' · Revisión pendiente' : ''}` : state ? settlementLabels[state] : 'Estado contable no disponible';
+ const label = state === 'REVIEW_PENDING' ? 'Pendiente de revisión por HERA' : paymentLabel && !['PENDING_ACTIVITY', 'NO_COMMISSION'].includes(state ?? '') ? `${paymentLabel} · ${settlement?.documentState === 'AVAILABLE' ? 'Factura disponible' : 'Factura pendiente'}` : state ? settlementLabels[state] : 'Estado contable no disponible';
  const pending = state && ['PARTIAL_DOCUMENT', 'PENDING_PAYMENT', 'REVIEW_PENDING', 'DOCUMENT_NOT_READY'].includes(state);
  const tone = state === 'PAID' ? theme.status.confirmed : pending ? theme.status.pending : { bg: theme.bgMuted, text: theme.textSecondary, border: theme.border };
  return <View style={[ledger.badge, { backgroundColor: tone.bg, borderColor: tone.border }]}>
