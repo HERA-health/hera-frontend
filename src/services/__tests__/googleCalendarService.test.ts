@@ -49,7 +49,7 @@ test('native links and event links contain only opaque identifiers', () => {
 test('web connection persists only the completion proof and redirects in the same tab', async () => {
   post.mockResolvedValueOnce({ data: { ...proof, authorizationUrl: 'https://accounts.google.com/oauth' } });
   await connectGoogleCalendar('professional');
-  expect(post).toHaveBeenCalledWith('/integrations/google-calendar/connect', { platform: 'web' }, { headers: { 'x-hera-calendar-client': '1' } });
+  expect(post).toHaveBeenCalledWith('/integrations/google-calendar/connect', { platform: 'web', disclosureVersion: '2026-09-20' }, { headers: { 'x-hera-calendar-client': '1' } });
   expect(assign).toHaveBeenCalledWith('https://accounts.google.com/oauth');
   expect(WebBrowser.openAuthSessionAsync).not.toHaveBeenCalled();
   expect(storage.get('hera_google_calendar_proof')).not.toMatch(/access_token|refresh_token/);

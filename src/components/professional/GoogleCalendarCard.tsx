@@ -1,3 +1,4 @@
+import { getLegalCatalog } from '../../services/legalService';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Linking, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -14,6 +15,7 @@ export function GoogleCalendarCard() {
   const { theme } = useTheme();
   const navigation = useNavigation<AppNavigationProp>();
   const [status, setStatus] = useState<GoogleCalendarStatus | null>(null);
+  const [disclosureVersion, setDisclosureVersion] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
@@ -24,8 +26,10 @@ export function GoogleCalendarCard() {
   const refresh = useCallback(async () => {
     const revision = ++generation.current;
     try {
-      const next = await getGoogleCalendarStatus();
-      if (mounted.current && revision === generation.current) { setStatus(next); setError(null); }
+      const [next, documents] = await Promise.all([getGoogleCalendarStatus(), getLegalCatalog()]);
+      const privacy = documents.find(doc => doc.key === 'PRIVACY_POLICY');
+      if (!privacy) throw new Error('No se pudo cargar la información de privacidad.');
+      if (mounted.current && revision === generation.current) { setStatus(next); setDisclosureVersion(privacy.version); setError(null); }
     } catch (cause) {
       if (mounted.current && revision === generation.current) setError(getErrorMessage(cause));
     }
@@ -55,8 +59,8 @@ export function GoogleCalendarCard() {
     finally { actionRunning.current = false; if (mounted.current) setBusy(false); }
   };
   const connect = () => run(async () => {
-    if (!user) return;
-    const attempt = await connectGoogleCalendar(user.id);
+    if (!user || !disclosureVersion) return;
+    const attempt = await connectGoogleCalendar(user.id, disclosureVersion);
     if (attempt) navigation.navigate('GoogleCalendarIntegration', { attempt });
   });
   const connected = status?.status === 'CONNECTED';
@@ -83,6 +87,8 @@ export function GoogleCalendarCard() {
     <Text style={[styles.copy, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
       Los cambios se gestionan en HERA. Los eventos personales de Google no se importan ni bloquean tu disponibilidad. Google solicitará permiso para gestionar eventos de tus calendarios; HERA solo gestionará sus propias copias. Si desconectas la cuenta, las citas ya copiadas permanecerán en Google y dejarán de actualizarse.
     </Text>
+    <Text style={[styles.copy, { color: theme.textSecondary }]}>Al conectar autorizas la sincronización descrita. Guardamos tu identidad Google y una credencial cifrada; puedes desconectar cuando quieras.</Text>
+    <Button variant="ghost" onPress={() => navigation.navigate('LegalDocument', { documentKey: 'PRIVACY_POLICY', version: disclosureVersion ?? undefined })}>Leer política de privacidad</Button>
     {error ? <Text accessibilityRole="alert" style={{ color: theme.error }}>{error}</Text> : null}
     {status?.errorCode === 'REVOCATION_FAILED' ? <View style={styles.actions}>
       <Text style={[styles.copy, { color: theme.textSecondary }]}>HERA ha dejado de sincronizar. No se pudo retirar el permiso en Google; puedes hacerlo desde tu cuenta.</Text>

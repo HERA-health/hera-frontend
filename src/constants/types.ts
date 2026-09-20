@@ -129,7 +129,7 @@ export type RootStackParamList = {
   HeraCommissions: { accountId?: string; admin?: boolean; specialistId?: string; clientId?: string } | undefined;
   ClinicConsent: { requestId: string; token: string };
   PublicReview: { token: string };
-  LegalDocument: { documentKey: LegalDocumentKey };
+  LegalDocument: { documentKey: LegalDocumentKey; version?: string };
   RequiredLegalAcceptance: undefined;
   ClinicPending: undefined;
   ClinicDashboard: undefined;

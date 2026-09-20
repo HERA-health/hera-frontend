@@ -1,3 +1,4 @@
+import { LEGAL_DOCUMENTS } from '../constants/legal';
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { api } from './api';
@@ -20,8 +21,8 @@ export const resyncGoogleCalendar = async () => (await api.post<GoogleCalendarSt
 export const disconnectGoogleCalendar = async () => (await api.delete<GoogleCalendarStatus>(`${base}/connection`, config)).data;
 export const resolveCalendarSession = async (sessionId: string) => (await api.get<{ id: string; clinicId: string | null }>(`${base}/sessions/${encodeURIComponent(sessionId)}`)).data;
 
-export async function connectGoogleCalendar(userId: string): Promise<string | null> {
-  const { data } = await api.post<{ attemptId: string; proof: string; expiresAt: string; authorizationUrl: string }>(`${base}/connect`, { platform: Platform.OS === 'web' ? 'web' : 'mobile' }, config);
+export async function connectGoogleCalendar(userId: string, disclosureVersion = LEGAL_DOCUMENTS.PRIVACY_POLICY.version): Promise<string | null> {
+  const { data } = await api.post<{ attemptId: string; proof: string; expiresAt: string; authorizationUrl: string }>(`${base}/connect`, { platform: Platform.OS === 'web' ? 'web' : 'mobile', disclosureVersion }, config);
   await saveCalendarProof({ userId, attemptId: data.attemptId, proof: data.proof, expiresAt: data.expiresAt });
   if (Platform.OS === 'web') {
     window.location.assign(data.authorizationUrl);

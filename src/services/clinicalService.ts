@@ -1,3 +1,4 @@
+import { legalProofs } from './legalService';
 import { api } from './api';
 import { ClinicalPinError } from './clinicalPinService';
 import axios from 'axios';
@@ -686,7 +687,7 @@ export const acceptDigitalConsent = async (
   token: string
 ): Promise<ClinicalConsentRequestResolution> => {
   try {
-    const response = await api.post(`/clinical/consent/requests/${requestId}/accept`, { token });
+    const response = await api.post(`/clinical/consent/requests/${requestId}/accept`, { token, documents: legalProofs(['CLINICAL_PATIENT_CONSENT']) });
     return response.data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo registrar el consentimiento'));

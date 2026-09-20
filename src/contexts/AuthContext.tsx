@@ -60,7 +60,8 @@ interface AuthContextType {
     name: string,
     userType: PublicUserType,
     acceptedLegalDocumentKeys: LegalDocumentKey[],
-    clinicCommercialName?: string
+    clinicCommercialName?: string,
+    acceptedLegalDocuments?: authService.RegisterData['acceptedLegalDocuments']
   ) => Promise<AuthResponse>;
   logout: () => Promise<void>;
   setUserType: (type: UserType) => void;
@@ -200,14 +201,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(mappedUser);
 
-    try {
-      analyticsService.identify(mappedUser.id, {
-        userType: mappedUser.type,
-        emailVerified: mappedUser.emailVerified === true,
-      });
-    } catch {
-      // silently ignore analytics errors
-    }
 
     await checkVerificationStatus(mappedUser, expectedEpoch);
     if (authEpochRef.current !== expectedEpoch) return null;
@@ -335,7 +328,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     name: string,
     userType: PublicUserType,
     acceptedLegalDocumentKeys: LegalDocumentKey[],
-    clinicCommercialName?: string
+    clinicCommercialName?: string,
+    acceptedLegalDocuments?: authService.RegisterData['acceptedLegalDocuments']
   ) => {
     const operationEpoch = authEpochRef.current + 1;
     authEpochRef.current = operationEpoch;
@@ -355,6 +349,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name,
         userType: backendUserType,
         acceptedLegalDocumentKeys,
+        acceptedLegalDocuments,
         clinicCommercialName,
       });
       if (authEpochRef.current !== operationEpoch) return response;

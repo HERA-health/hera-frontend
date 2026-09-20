@@ -5,7 +5,7 @@ import { CommissionSelect, CommissionDateField } from '../CommissionFields';
 import * as service from '../../../services/heraCommissionService';
 
 let mockFocused = true;
-jest.mock('@react-navigation/native', () => ({ useFocusEffect: (effect: React.EffectCallback) => require('react').useEffect(() => mockFocused ? effect() : undefined, [effect, mockFocused]) }));
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn() }), useFocusEffect: (effect: React.EffectCallback) => require('react').useEffect(() => mockFocused ? effect() : undefined, [effect, mockFocused]) }));
 jest.mock('../../../services/heraCommissionService', () => ({ configuration: jest.fn(), detail: jest.fn(), sessions: jest.fn(), accept: jest.fn(), decide: jest.fn(), period: jest.fn(), fiscal: jest.fn(), download: jest.fn() }));
 const terms: service.Terms = { id: 'terms', operatorKey: 'operator', operatorName: 'Titular de prueba', mode: 'LIVE', contractText: 'Acuerdo completo de prueba', fiscalTreatment: 'Texto fiscal de prueba', operatorTaxId: '', operatorAddress: '', beneficiary: '', iban: '', effectiveAt: '2026-01-01' };
 const acceptance: service.Acceptance = { id: 'acceptance', termsId: terms.id, terms, acceptedAt: '2026-01-01', terminatedAt: null };
@@ -82,8 +82,8 @@ it('waits for a choice when accounts are ambiguous and opens only the chosen acc
  await waitFor(() => expect(callbacks.onOpen).toHaveBeenCalledWith('other'));
 });
 
-it('requires explicit acceptance, preserves errors and opens the created account', async () => {
- jest.mocked(service.configuration).mockResolvedValue({ ...config, accounts: [] });
+it('simulation retains explicit acceptance, errors and account opening', async () => {
+ jest.mocked(service.configuration).mockResolvedValue({ ...config, mode: 'SIMULATION', accounts: [] });
  jest.mocked(service.accept).mockRejectedValueOnce(new Error('No se pudo aceptar')).mockResolvedValueOnce({ accountId: 'account' });
  const callbacks = props(); const view = render(<ProfessionalCommissionWorkspace {...callbacks} />);
  await view.findByText('Acuerdo completo de prueba');
@@ -241,4 +241,12 @@ it('refreshes sessions after returning from another screen without discarding an
  await act(async () => {});
  expect(view.getByLabelText('Importe recibido del paciente (€)').props.value).toBe('25');
  expect(service.sessions).toHaveBeenCalledTimes(reads);
+});
+
+it('real commissions link to general terms without a second acceptance', async () => {
+ jest.mocked(service.configuration).mockResolvedValue({ ...config, mode: 'LIVE', accounts: [] });
+ const view = render(<ProfessionalCommissionWorkspace {...props()} />);
+ await view.findByText('Consultar términos generales');
+ expect(view.queryByText('Aceptar condiciones')).toBeNull();
+ expect(view.queryByRole('checkbox')).toBeNull();
 });

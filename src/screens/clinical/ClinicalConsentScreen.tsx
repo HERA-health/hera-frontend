@@ -1,3 +1,4 @@
+import { LEGAL_DOCUMENTS } from '../../constants/legal';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -243,7 +244,7 @@ export function ClinicalConsentScreen() {
                       He leído y acepto el{' '}
                       <Text
                         style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold }}
-                        onPress={() => navigation.navigate('LegalDocument', { documentKey: 'CLINICAL_PATIENT_CONSENT' })}
+                        onPress={() => navigation.navigate('LegalDocument', { documentKey: 'CLINICAL_PATIENT_CONSENT', version: LEGAL_DOCUMENTS.CLINICAL_PATIENT_CONSENT.version })}
                       >
                         documento de autorización del expediente clínico
                       </Text>

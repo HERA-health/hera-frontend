@@ -1,3 +1,5 @@
+import { useAuth } from '../../contexts/AuthContext';
+import { disconnectGoogleCalendar } from '../../services/googleCalendarService';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -7,19 +9,22 @@ import { Button } from '../../components/common/Button';
 import { LEGAL_DOCUMENTS, type LegalDocumentKey } from '../../constants/legal';
 import { spacing } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
-import { acceptLegalDocuments, type LegalAcceptanceStatus } from '../../services/legalService';
+import { acceptLegalDocuments, type LegalDocumentStatus, type LegalAcceptanceStatus } from '../../services/legalService';
 import type { AppNavigationProp } from '../../constants/types';
 import { getErrorMessage } from '../../constants/errors';
 
 interface RequiredLegalAcceptanceScreenProps {
   requiredDocumentKeys: LegalDocumentKey[];
+  documents?: LegalDocumentStatus[];
   onAccepted: (status: LegalAcceptanceStatus) => void;
 }
 
 export function RequiredLegalAcceptanceScreen({
   requiredDocumentKeys,
+  documents,
   onAccepted,
 }: RequiredLegalAcceptanceScreenProps) {
+  const { logout, user } = useAuth();
   const navigation = useNavigation<AppNavigationProp>();
   const { theme } = useTheme();
   const [accepted, setAccepted] = useState(false);
@@ -35,7 +40,7 @@ export function RequiredLegalAcceptanceScreen({
     try {
       setLoading(true);
       setError('');
-      const status = await acceptLegalDocuments(requiredDocumentKeys, 'required-gate');
+      const status = await acceptLegalDocuments(requiredDocumentKeys, 'required-gate', documents);
       onAccepted(status);
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'No se pudo registrar la aceptación.'));
@@ -63,11 +68,11 @@ export function RequiredLegalAcceptanceScreen({
 
         <View style={styles.documents}>
           {requiredDocumentKeys.map((key) => {
-            const document = LEGAL_DOCUMENTS[key];
+            const document = documents?.find(doc => doc.key === key) ?? LEGAL_DOCUMENTS[key];
             return (
               <AnimatedPressable
                 key={key}
-                onPress={() => navigation.navigate('LegalDocument', { documentKey: key })}
+                onPress={() => navigation.navigate('LegalDocument', { documentKey: key, version: document.version })}
                 hoverLift={false}
                 pressScale={0.98}
                 style={[styles.documentRow, { borderColor: theme.border, backgroundColor: theme.bgCard }]}
@@ -88,6 +93,8 @@ export function RequiredLegalAcceptanceScreen({
 
         <AnimatedPressable
           onPress={() => setAccepted((value) => !value)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: accepted }}
           hoverLift={false}
           pressScale={0.99}
           style={styles.acceptRow}
@@ -104,7 +111,7 @@ export function RequiredLegalAcceptanceScreen({
             {accepted && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
           </View>
           <Text style={[styles.acceptText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-            He leído y acepto los documentos vigentes indicados arriba.
+            Acepto las condiciones contractuales indicadas y confirmo haber recibido la información de privacidad. Esto no activa analítica ni Google Calendar.
           </Text>
         </AnimatedPressable>
 
@@ -125,6 +132,8 @@ export function RequiredLegalAcceptanceScreen({
         >
           Aceptar y continuar
         </Button>
+        <Button variant="ghost" onPress={() => void logout()}>Cerrar sesión</Button>
+        {user?.type === 'professional' ? <Button variant="ghost" onPress={() => { void disconnectGoogleCalendar().then(() => setError('Desconexión solicitada. Las copias existentes permanecen en Google.')).catch(err => setError(getErrorMessage(err))); }}>Desconectar Google Calendar</Button> : null}
       </View>
     </ScrollView>
   );

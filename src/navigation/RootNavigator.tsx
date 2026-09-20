@@ -1,8 +1,9 @@
+import { subscribeLegalUpdate } from '../services/legalEvents';
 import { hasPendingClinicalPinReset, subscribeClinicalPinReset } from '../services/clinicalPinResetIntent';
 import { getCalendarIntent } from '../services/googleCalendarIntent';
 import { getPendingReferralIntent, getPendingCollaborationIntent } from '../services/pendingReferralIntent';
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { AppState, Platform, StyleSheet, Text, View } from 'react-native';
 import {
   createNativeStackNavigator,
   type NativeStackScreenProps,
@@ -573,6 +574,15 @@ export function RootNavigator() {
     }
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const refresh = () => { void refreshLegalStatus(); };
+    const off = subscribeLegalUpdate(refresh);
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') refresh(); });
+    if (Platform.OS === 'web') window.addEventListener('focus', refresh);
+    return () => { off(); subscription.remove(); if (Platform.OS === 'web') window.removeEventListener('focus', refresh); };
+  }, [isAuthenticated, refreshLegalStatus]);
+
   const handleLegalAccepted = useCallback((nextStatus: LegalAcceptanceStatus) => {
     setLegalStatus(nextStatus);
     setLegalStatusError(false);
@@ -697,6 +707,7 @@ export function RootNavigator() {
   if (legalStatus?.requiresAcceptance) {
     const RequiredLegalAcceptanceRoute = () => (
       <RequiredLegalAcceptanceScreen
+        documents={legalStatus.documents}
         requiredDocumentKeys={legalStatus.missingDocumentKeys}
         onAccepted={handleLegalAccepted}
       />
@@ -899,13 +910,13 @@ export function RootNavigator() {
   if (isProfessional) {
     const { ProfessionalWorkspaceProvider } = require('../contexts/ProfessionalWorkspaceContext') as typeof import('../contexts/ProfessionalWorkspaceContext');
     const { ProfessionalClinicWorkspaceProvider } = require('../contexts/ProfessionalClinicWorkspaceContext') as typeof import('../contexts/ProfessionalClinicWorkspaceContext');
-    const { ProfessionalCommissionNotice } = require('../screens/commissions/ProfessionalCommissionNotice') as typeof import('../screens/commissions/ProfessionalCommissionNotice');
+
     return (
       <Stack.Navigator
         layout={({ children, state }) => (
           <ProfessionalWorkspaceProvider key={user?.id} currentRoute={professionalRoute}>
             <ProfessionalClinicWorkspaceProvider>
-              {!pendingPinReset ? <ProfessionalCommissionNotice key={user.id} suppressed={state.routes[state.index]?.name === 'HeraCommissions'} /> : null}
+
               {children}
             </ProfessionalClinicWorkspaceProvider>
           </ProfessionalWorkspaceProvider>

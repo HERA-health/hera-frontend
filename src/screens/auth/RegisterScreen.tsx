@@ -1,3 +1,5 @@
+import { getLegalCatalog } from '../../services/legalService';
+import { LEGAL_DOCUMENTS, type LegalDocumentContent } from '../../constants/legal';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -63,6 +65,10 @@ export function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [localError, setLocalError] = useState('');
+  const [legalDocuments, setLegalDocuments] = useState<LegalDocumentContent[]>([]);
+  const [legalRevision, setLegalRevision] = useState(0);
+  useEffect(() => { let active = true; setTermsAccepted(false); setLegalDocuments([]); getLegalCatalog().then(docs => { if (active) setLegalDocuments(docs); }).catch(() => { if (active) setLocalError('No se pudieron cargar las condiciones. Reintenta.'); }); return () => { active = false; }; }, [legalRevision]);
+  const currentProofs = (keys: ReturnType<typeof getRequiredRegistrationDocumentKeys>) => keys.map(documentKey => { const doc = legalDocuments.find(item => item.key === documentKey); if (!doc) throw new Error('Espera a que se carguen los documentos.'); return { documentKey, version: doc.version, contentHash: doc.contentHash }; });
 
   useEffect(() => {
     analyticsService.trackScreen('register');
@@ -71,7 +77,7 @@ export function RegisterScreen() {
   const isPasswordValid = validatePassword(password);
   const passwordsMatch = password.length > 0 && confirmPassword.length > 0 && password === confirmPassword;
   const passwordsDontMatch = confirmPassword.length > 0 && password !== confirmPassword;
-  const canSubmit = termsAccepted && isPasswordValid && passwordsMatch && !authLoading;
+  const canSubmit = legalDocuments.length > 0 && termsAccepted && isPasswordValid && passwordsMatch && !authLoading;
   const isClinic = userType === 'clinic';
 
   const introCopy = useMemo(() => {
@@ -128,15 +134,15 @@ export function RegisterScreen() {
   };
 
   const openTerms = () => {
-    navigation.navigate('LegalDocument', { documentKey: 'TERMS_OF_SERVICE' });
+    navigation.navigate('LegalDocument', { documentKey: 'TERMS_OF_SERVICE', version: legalDocuments.find(doc => doc.key === 'TERMS_OF_SERVICE')?.version ?? LEGAL_DOCUMENTS.TERMS_OF_SERVICE.version });
   };
 
   const openPrivacy = () => {
-    navigation.navigate('LegalDocument', { documentKey: 'PRIVACY_POLICY' });
+    navigation.navigate('LegalDocument', { documentKey: 'PRIVACY_POLICY', version: legalDocuments.find(doc => doc.key === 'PRIVACY_POLICY')?.version ?? LEGAL_DOCUMENTS.PRIVACY_POLICY.version });
   };
 
   const openProfessionalTerms = () => {
-    navigation.navigate('LegalDocument', { documentKey: 'PROFESSIONAL_DATA_PROCESSING_TERMS' });
+    navigation.navigate('LegalDocument', { documentKey: 'PROFESSIONAL_DATA_PROCESSING_TERMS', version: legalDocuments.find(doc => doc.key === 'PROFESSIONAL_DATA_PROCESSING_TERMS')?.version ?? LEGAL_DOCUMENTS.PROFESSIONAL_DATA_PROCESSING_TERMS.version });
   };
 
   const handleRegister = async () => {
@@ -193,7 +199,8 @@ export function RegisterScreen() {
         name,
         userType,
         acceptedLegalDocumentKeys,
-        isClinic ? clinicCommercialName : undefined
+        isClinic ? clinicCommercialName : undefined,
+        currentProofs(acceptedLegalDocumentKeys)
       );
 
       if (userType === 'client') {
@@ -203,6 +210,7 @@ export function RegisterScreen() {
       }
     } catch (error: unknown) {
       setLocalError(getErrorMessage(error, 'Error al registrarse.'));
+      setLegalRevision(v => v + 1);
     }
   };
 
@@ -230,10 +238,12 @@ export function RegisterScreen() {
         userType: backendUserType,
         expectedUserType: backendUserType,
         acceptedLegalDocumentKeys,
+        acceptedLegalDocuments: currentProofs(acceptedLegalDocumentKeys),
         clinicCommercialName: isClinic ? clinicCommercialName.trim() : undefined,
       });
     } catch (error: unknown) {
       setLocalError(getErrorMessage(error, 'No se pudo continuar con Google.'));
+      setLegalRevision(v => v + 1);
     }
   }, [
     authenticateWithGoogle,
@@ -242,6 +252,7 @@ export function RegisterScreen() {
     isClinic,
     termsAccepted,
     userType,
+    legalDocuments,
   ]);
 
   return (
@@ -253,6 +264,7 @@ export function RegisterScreen() {
       features={introCopy.features}
       form={
         <View>
+          {legalDocuments.length === 0 ? <Button variant="ghost" onPress={() => setLegalRevision(v => v + 1)}>Reintentar carga de condiciones</Button> : null}
           <View style={styles.header}>
             <AnimatedPressable
               onPress={handleGoBack}
@@ -413,7 +425,7 @@ export function RegisterScreen() {
           </View>
 
           <AnimatedPressable
-            onPress={() => setTermsAccepted((value) => !value)}
+            onPress={() => { if (legalDocuments.length) setTermsAccepted((value) => !value); }}
             hoverLift={false}
             pressScale={0.99}
             style={styles.termsRow}
@@ -430,11 +442,11 @@ export function RegisterScreen() {
               {termsAccepted && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
             </View>
             <Text style={[styles.termsText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-              Acepto la{' '}
+              Confirmo haber recibido la{' '}
               <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openPrivacy}>
                 política de privacidad
               </Text>
-              {userType === 'professional' ? ', los ' : ' y los '}
+              {' y acepto los '}
               <Text style={[styles.inlineLink, { color: theme.primary }]} onPress={openTerms}>
                 términos
               </Text>

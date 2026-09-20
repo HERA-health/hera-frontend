@@ -1,3 +1,4 @@
+import { legalProofs } from './legalService';
 import api, { logoutServerSession, setAuthSession } from './api';
 import { getErrorMessage, hasResponseData } from '../constants/errors';
 import { invalidateSpecialistsCache } from './specialistsService';
@@ -46,6 +47,7 @@ export interface RegisterData {
   name: string;
   userType: BackendUserType;
   acceptedLegalDocumentKeys: LegalDocumentKey[];
+  acceptedLegalDocuments?: ReturnType<typeof legalProofs>;
   clinicCommercialName?: string;
 }
 
@@ -59,6 +61,7 @@ export interface GoogleAuthData {
   userType?: PublicAuthUserType;
   expectedUserType?: PublicAuthUserType;
   acceptedLegalDocumentKeys?: LegalDocumentKey[];
+  acceptedLegalDocuments?: ReturnType<typeof legalProofs>;
   clinicCommercialName?: string;
 }
 
@@ -88,6 +91,7 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
       '/auth/register',
       {
         ...data,
+        ...(data.acceptedLegalDocumentKeys ? { acceptedLegalDocuments: data.acceptedLegalDocuments ?? legalProofs(data.acceptedLegalDocumentKeys) } : {}),
         email: normalizeEmail(data.email),
         platform: getClientPlatform(),
       },
@@ -238,6 +242,7 @@ export const authenticateWithGoogle = async (data: GoogleAuthData): Promise<Auth
       '/auth/google',
       {
         ...data,
+        ...(data.acceptedLegalDocumentKeys ? { acceptedLegalDocuments: data.acceptedLegalDocuments ?? legalProofs(data.acceptedLegalDocumentKeys) } : {}),
         platform: getClientPlatform(),
       },
       authRequestConfig

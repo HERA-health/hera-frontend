@@ -1,3 +1,4 @@
+import { notifyLegalUpdate } from './legalEvents';
 import { GeneralRateLimitError, getGeneralRateLimitRetryAt, getRateLimitSessionGeneration, isGeneralRead, isGeneralRateLimited, recordGeneralRateLimit } from './generalRateLimit';
 import axios, {
   AxiosError,
@@ -307,6 +308,7 @@ api.interceptors.response.use(
   async (error: AxiosError<unknown>) => {
     if (error instanceof GeneralRateLimitError) return Promise.reject(error);
     const body = error.response?.data;
+    if (body && typeof body === 'object' && 'code' in body && (body.code === 'LEGAL_ACCEPTANCE_REQUIRED' || body.code === 'LEGAL_DOCUMENT_VERSION_CHANGED')) notifyLegalUpdate();
     if (error.response?.status === 429 && typeof body === 'object' && body !== null
       && (('limiter' in body && body.limiter === 'general')
         || (!('limiter' in body) && 'message' in body

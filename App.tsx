@@ -1,3 +1,4 @@
+import { PrivacyControls } from './src/components/common/PrivacyControls';
 import { captureClinicalPinResetUrl } from './src/services/clinicalPinResetIntent';
 import { captureReferralUrl } from './src/services/pendingReferralIntent';
 /**
@@ -13,10 +14,8 @@ import { captureCalendarUrl } from './src/services/googleCalendarIntent';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { FontDisplay, useFonts, type FontSource } from 'expo-font';
-import { PostHogProvider, usePostHog } from 'posthog-react-native';
+
 import './src/config/calendarLocale';
-import { POSTHOG_API_KEY, POSTHOG_HOST, ANALYTICS_ENABLED } from './src/config/analytics';
-import { setPostHogClient } from './src/services/analyticsService';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ProfileCompletionProvider } from './src/contexts/ProfileCompletionContext';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
@@ -253,15 +252,6 @@ const injectWebStyles = (isDark: boolean) => {
   document.head.appendChild(style);
 };
 
-/** Bridges PostHogProvider context to our analytics singleton */
-function PostHogBridge() {
-  const posthog = usePostHog();
-  useEffect(() => {
-    if (posthog) setPostHogClient(posthog);
-  }, [posthog]);
-  return null;
-}
-
 /** Inner app that has access to ThemeContext */
 function ThemedApp() {
   const { isDark } = useTheme();
@@ -274,6 +264,7 @@ function ThemedApp() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <AuthProvider>
+          <View style={{ flex: 1 }}>
           <ProfileCompletionProvider>
             <AlertProvider>
               <NavigationContainer
@@ -288,23 +279,14 @@ function ThemedApp() {
               </NavigationContainer>
             </AlertProvider>
           </ProfileCompletionProvider>
+          </View>
+          <PrivacyControls />
         </AuthProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
   );
 
-  if (!ANALYTICS_ENABLED) return appContent;
-
-  return (
-    <PostHogProvider
-      apiKey={POSTHOG_API_KEY}
-      options={{ host: POSTHOG_HOST, enableSessionReplay: false }}
-      autocapture={false}
-    >
-      <PostHogBridge />
-      {appContent}
-    </PostHogProvider>
-  );
+  return appContent;
 }
 
 export default function App() {

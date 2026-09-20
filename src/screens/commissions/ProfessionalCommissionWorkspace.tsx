@@ -1,3 +1,5 @@
+import { useNavigation } from '@react-navigation/native';
+import type { AppNavigationProp } from '../../constants/types';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -47,6 +49,7 @@ export function ProfessionalCommissionWorkspace({ accountId: requestedAccount, c
  accountId?: string; clientId?: string; onOpen: (id: string) => void; onBack: () => void;
 }) {
  const { theme } = useTheme();
+ const navigation = useNavigation<AppNavigationProp>();
  const [width, setWidth] = useState(0);
  const [config, setConfig] = useState<service.Configuration>();
  const [configError, setConfigError] = useState('');
@@ -103,13 +106,14 @@ export function ProfessionalCommissionWorkspace({ accountId: requestedAccount, c
  const wide = width >= 920;
  const panelTitles: Record<Panel, string> = { information: 'Información de comisiones', balance: 'Detalle del saldo', calculation: 'Cómo se calculan las comisiones', terms: 'Condiciones y aceptación', instructions: 'Instrucciones de pago' };
  const conditions = <>
+  <Button variant="outline" onPress={() => navigation.navigate('LegalDocument', { documentKey: 'TERMS_OF_SERVICE' })}>Consultar términos generales</Button>
   {config?.terms ? <>
    <LedgerTitle>Condiciones vigentes · {config.terms.operatorName}</LedgerTitle>
    <Text>{config.terms.contractText}</Text><Text>Fiscalidad: {config.terms.fiscalTreatment}</Text><WorkflowHint>Vigencia: {dateTime(config.terms.effectiveAt)}</WorkflowHint>
-   {acceptance ? <WorkflowHint>{acceptance.terminatedAt ? 'Este acuerdo ha finalizado. Se conserva lo que aceptaste y tu historial.' : `Ya aceptaste estas condiciones el ${dateTime(acceptance.acceptedAt)}.`}</WorkflowHint> : pendingAcceptance ? <>
+   {acceptance ? <WorkflowHint>{acceptance.terminatedAt ? 'Este acuerdo ha finalizado. Se conserva lo que aceptaste y tu historial.' : `Ya aceptaste estas condiciones el ${dateTime(acceptance.acceptedAt)}.`}</WorkflowHint> : pendingAcceptance && config.mode === 'SIMULATION' ? <>
     <Check label="He leído y acepto esta versión de las condiciones y su tratamiento fiscal" checked={accepted} onChange={setAccepted} disabled={busy} />
     <Button style={{ alignSelf: 'flex-start' }} disabled={busy || !accepted || draft} onPress={() => void (async () => { const terms = config.terms; if (!terms) return; if (await run(async () => { const result = await service.accept(terms.id); open(result.accountId); })) { setPanel(undefined); setRefresh(value => value + 1); } })()}>Aceptar condiciones</Button>
-   </> : <WorkflowHint>Estas condiciones todavía no están habilitadas para tu perfil.</WorkflowHint>}
+   </> : pendingAcceptance && config.mode === 'LIVE' && config.accounts.some(a => a.acceptances.some(item => item.terminatedAt)) ? <><WorkflowHint>Tu participación anterior terminó. Puedes reincorporarte con los términos generales vigentes; no cambia tu historial.</WorkflowHint><Button disabled={busy} onPress={() => void mutate(async () => { const terms = config.terms; if (terms) await service.accept(terms.id); })}>Reincorporarme al Directorio</Button></> : <WorkflowHint>La habilitación del Directorio depende de los términos generales y de la verificación profesional.</WorkflowHint>}
   </> : <WorkflowHint>El acuerdo no está disponible. Puedes consultar el historial de tus cuentas anteriores.</WorkflowHint>}
   {current?.acceptances.length ? <><LedgerTitle>Historial de aceptación</LedgerTitle>{current.acceptances.map(item => <AcceptedAgreement key={item.id} acceptance={item} accountId={current.summary.id} run={mutate} busy={busy} />)}</> : null}
  </>;

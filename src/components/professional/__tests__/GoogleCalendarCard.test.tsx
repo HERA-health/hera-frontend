@@ -1,3 +1,4 @@
+jest.mock('../../../services/legalService', () => ({ getLegalCatalog: jest.fn(async () => [{ key: 'PRIVACY_POLICY', version: '2026-09-20' }]) }));
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AppState } from 'react-native';
@@ -21,7 +22,7 @@ test('explains the data exported and starts a real connection action', async () 
   expect(screen.getByText(/No se enviarán datos del paciente/)).toBeTruthy();
   expect(screen.getByText(/no se importan ni bloquean/)).toBeTruthy();
   fireEvent.press(screen.getByText('Conectar Google Calendar'));
-  await waitFor(() => expect(service.connectGoogleCalendar).toHaveBeenCalledWith('professional'));
+  await waitFor(() => expect(service.connectGoogleCalendar).toHaveBeenCalledWith('professional', '2026-09-20'));
 });
 test('disconnect explicitly conserves copies and shows asynchronous disconnect state', async () => {
   jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue(connected);

@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { getLegalCatalog, getLegalDocument } from '../../services/legalService';
+import { Button } from '../../components/common/Button';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -14,7 +16,21 @@ export function LegalDocumentScreen() {
   const navigation = useNavigation<AppNavigationProp>();
   const route = useRoute<LegalDocumentRoute>();
   const { theme, isDark } = useTheme();
-  const document = LEGAL_DOCUMENTS[route.params.documentKey];
+  const [document, setDocument] = useState(LEGAL_DOCUMENTS[route.params.documentKey]);
+  const [loadError, setLoadError] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const version = route.params.version;
+  useEffect(() => {
+    let active = true;
+    setLoadError(false);
+    const request = version ? getLegalDocument(route.params.documentKey, version) : getLegalCatalog().then(docs => {
+      const doc = docs.find(item => item.key === route.params.documentKey);
+      if (!doc) throw new Error('Documento no disponible');
+      return doc;
+    });
+    request.then(doc => { if (active) setDocument(doc); }).catch(() => { if (active) setLoadError(true); });
+    return () => { active = false; };
+  }, [route.params.documentKey, version, retry]);
 
   const goBack = () => {
     if (navigation.canGoBack()) {
@@ -24,6 +40,8 @@ export function LegalDocumentScreen() {
 
     navigation.navigate('Landing');
   };
+
+  if ((version && document.version !== version) || document.key !== route.params.documentKey || loadError) return <View style={{ padding: 24 }}><Text>{loadError ? 'No se pudo cargar esta versión.' : 'Cargando documento…'}</Text><Button onPress={() => setRetry(v => v + 1)}>Reintentar</Button><Button onPress={goBack}>Volver</Button></View>;
 
   return (
     <ScrollView
@@ -54,7 +72,7 @@ export function LegalDocumentScreen() {
             {document.summary}
           </Text>
           <Text style={[styles.version, { color: theme.textMuted, fontFamily: theme.fontSans }]}>
-            Versión {document.version}. Borrador operativo pendiente de revisión legal final.
+            Versión {document.version}. {document.changeSummary}
           </Text>
         </View>
 
@@ -75,6 +93,7 @@ export function LegalDocumentScreen() {
               </Text>
               {section.body.map((paragraph) => (
                 <Text
+                  selectable
                   key={paragraph}
                   style={[styles.paragraph, { color: theme.textSecondary, fontFamily: theme.fontSans }]}
                 >

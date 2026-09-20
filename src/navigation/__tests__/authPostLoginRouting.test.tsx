@@ -50,6 +50,8 @@ jest.mock('../../services/legalService', () => ({
   getLegalStatus: jest.fn().mockResolvedValue({ requiresAcceptance: false }),
 }));
 
+jest.mock('../../services/googleCalendarService', () => ({ disconnectGoogleCalendar: jest.fn() }));
+
 jest.mock('../../services/pendingBookingIntentService', () => ({
   clearPendingBookingIntent: jest.fn().mockResolvedValue(undefined),
   consumePendingBookingIntent: jest.fn().mockResolvedValue(null),

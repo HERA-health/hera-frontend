@@ -1,0 +1,487 @@
+{
+  "TERMS_OF_SERVICE": {
+    "key": "TERMS_OF_SERVICE",
+    "version": "2026-09-20",
+    "title": "Términos y condiciones de HERA",
+    "slug": "terminos",
+    "routePath": "/legal/terminos",
+    "summary": "Condiciones de uso de HERA para pacientes, especialistas y clínicas, incluidas las comisiones del Directorio.",
+    "sections": [
+      {
+        "title": "Responsable y contacto",
+        "body": [
+          "Responsable provisional: Sara Herrer Fernández.",
+          "Nombre comercial: HERA.",
+          "NIF/CIF: Pendiente de completar antes de publicación definitiva.",
+          "Domicilio: Pendiente de completar antes de publicación definitiva.",
+          "Contacto de privacidad, soporte e incidencias: herahealthtech@gmail.com.",
+          "Ámbito principal de operación: España."
+        ]
+      },
+      {
+        "title": "Objeto del servicio",
+        "body": [
+          "HERA es una herramienta digital para gestión profesional, agenda, seguimiento, documentación, facturación operativa y comunicación entre pacientes y especialistas.",
+          "La plataforma no sustituye el criterio clínico, profesional o sanitario del especialista. Cada profesional conserva la responsabilidad sobre la atención que presta."
+        ]
+      },
+      {
+        "title": "Uso permitido",
+        "body": [
+          "La persona usuaria debe usar HERA de forma lícita, diligente y conforme a su rol.",
+          "No está permitido intentar acceder a datos de terceros, compartir credenciales, introducir información falsa o usar la plataforma para emergencias médicas."
+        ]
+      },
+      {
+        "title": "Cuentas y seguridad",
+        "body": [
+          "Cada usuario es responsable de mantener la confidencialidad de sus credenciales.",
+          "HERA puede suspender o bloquear cuentas cuando exista riesgo de seguridad, incumplimiento de condiciones o necesidad legal."
+        ]
+      },
+      {
+        "title": "Limitación sanitaria",
+        "body": [
+          "HERA no presta directamente servicios sanitarios o psicológicos. La atención corresponde al especialista que usa la herramienta.",
+          "Ante urgencias, riesgo vital o crisis, se debe contactar con servicios de emergencia o recursos sanitarios adecuados."
+        ]
+      },
+      {
+        "title": "Usuarios, profesionales y clínicas",
+        "body": [
+          "Los pacientes utilizan HERA para buscar profesionales, reservar y participar en las funciones de seguimiento habilitadas. Los especialistas y las clínicas gestionan su actividad conforme a sus permisos. La verificación de documentación profesional no garantiza resultados asistenciales.",
+          "El profesional debe mantener actualizados sus datos, habilitación, precios y disponibilidad. La clínica administra los accesos de su equipo; pertenecer a una clínica no autoriza el acceso indiscriminado a expedientes.",
+          "Cuando intervengan menores o representantes, corresponde al profesional comprobar la capacidad, representación e información exigibles para la atención y los consentimientos específicos."
+        ]
+      },
+      {
+        "title": "Reservas, atención y cobros",
+        "body": [
+          "Las citas se rigen por la disponibilidad y condiciones comunicadas por el profesional. Una solicitud pendiente no equivale a una cita confirmada. Las cancelaciones y modificaciones se gestionan mediante las funciones disponibles o contactando con el profesional.",
+          "El precio y las condiciones de la prestación corresponden al profesional o centro. Los registros de cobro reflejan pagos externos: no acreditan por sí solos una transferencia ni convierten a HERA en prestador sanitario. Estos términos no establecen penalizaciones automáticas por cancelación.",
+          "Las sugerencias del directorio y los resultados de afinidad orientan la búsqueda; no son diagnóstico, prescripción ni garantía de idoneidad clínica."
+        ]
+      },
+      {
+        "title": "Google Calendar y servicios externos",
+        "body": [
+          "Google Calendar es voluntario e independiente del inicio de sesión con Google. Solo se activa tras la autorización específica de la cuenta elegida. Aceptar estos términos no lo conecta.",
+          "HERA copia citas privadas y de clínicas accesibles al especialista al calendario principal: título genérico, horario y enlace autenticado a HERA. No envía nombres de pacientes, contacto, notas clínicas, importes ni enlaces de videollamada. Los eventos personales de Google no se importan ni bloquean disponibilidad.",
+          "HERA crea, actualiza y elimina sus propias copias. Editarlas en Google no modifica HERA; una actualización o resincronización puede restaurar los campos gestionados por HERA. Cancelar una cita elimina su copia; las completadas pueden permanecer. La sincronización depende de los servicios externos y puede demorarse.",
+          "Al desconectar, las copias existentes permanecen en Google y dejan de actualizarse. El usuario puede eliminarlas y retirar permisos desde Google. Se aplican las condiciones de Google y los ajustes de acceso de su calendario. La política de privacidad detalla el tratamiento."
+        ]
+      },
+      {
+        "title": "Comisiones del Directorio: ámbito",
+        "body": [
+          "Las condiciones comerciales siguientes se aplican a especialistas habilitados para pacientes cuya procedencia del Directorio quede acreditada. No se cobran al paciente por aceptar los términos. La aceptación general y la habilitación profesional son requisitos distintos; la simulación no genera deuda real."
+        ]
+      },
+      {
+        "title": "Directorio · 1. Partes y contacto",
+        "body": [
+          "La titular que opera con el nombre comercial HERA es Sara Herrer Fernández, en España. NIF: Pendiente de completar antes de publicación definitiva. Domicilio: Pendiente de completar antes de publicación definitiva. Contacto para soporte, privacidad y seguridad: herahealthtech@gmail.com. Delegado de protección de datos: pendiente de designación o confirmación.",
+          "La otra parte es el especialista identificado en su cuenta de HERA, que debe mantener actualizados sus datos profesionales y fiscales.",
+          "Esta versión identifica expresamente la información todavía pendiente. Su aceptación no declara que se haya completado ni sustituye los datos que deba contener una factura. HERA completará esa información mediante una nueva versión, conservando el historial de lo aceptado."
+        ]
+      },
+      {
+        "title": "Directorio · 2. Objeto y alcance",
+        "body": [
+          "El acuerdo regula las comisiones por pacientes cuya procedencia del Directorio HERA quede acreditada para ese especialista. No incluye automáticamente pacientes propios, invitados por el especialista, procedentes de otra colaboración o derivación profesional, ni actividad de clínica. La existencia de una cuenta HERA no demuestra procedencia del Directorio. Las dudas de atribución se someten a revisión.",
+          "El especialista mantiene la responsabilidad sobre su actividad, la atención prestada, el precio comunicado al paciente y los cobros que realiza fuera de HERA. Este acuerdo no garantiza un número de pacientes, ingresos ni resultados asistenciales."
+        ]
+      },
+      {
+        "title": "Directorio · 3. Escala y cálculo",
+        "body": [
+          "Por cada paciente y especialista se aplica el 20 % en la primera sesión realmente atendida, el 10 % en la segunda y tercera y el 5 % desde la cuarta. El contador no vuelve a empezar cada mes ni al cambiar de versión del acuerdo.",
+          "La base es el importe del servicio después de descuentos y sin sus impuestos, en euros. Solo se computan servicios privados de precio positivo y efectivamente atendidos. Una reserva, cancelación, inasistencia o sesión gratuita no genera por sí misma una comisión exigible.",
+          "La comisión se devenga proporcionalmente al cobro del paciente registrado por el especialista. Por ejemplo: para una primera sesión con base de 80 euros íntegramente cobrada, la comisión base es 16 euros. El importe fiscal final de la factura HERA, cuando corresponda, se desglosa por separado.",
+          "El registro del cobro al paciente no acredita que HERA haya recibido su comisión. Las devoluciones y correcciones se registran como ajustes; se conserva la evidencia original. La devolución de una sesión realmente prestada no reinicia su posición."
+        ]
+      },
+      {
+        "title": "Directorio · 4. Inicio, aceptación y trazabilidad",
+        "body": [
+          "El especialista puede consultar el texto antes de aceptar. La aplicación registra la versión y la fecha de aceptación en su cuenta. Las nuevas comisiones solo se incorporan conforme a la vigencia, la aceptación y las reglas de procedencia; aceptar no convierte sesiones anteriores ni simulaciones en deuda real.",
+          "El historial de condiciones aceptadas se conserva en Comisiones HERA y en el archivo de términos generales. Una nueva versión general se presenta para su aceptación sin sustituir el texto de las anteriores. No se acepta en nombre del especialista por una acción administrativa."
+        ]
+      },
+      {
+        "title": "Directorio · 5. Registro y liquidación",
+        "body": [
+          "El especialista confirma o corrige la asistencia y registra los cobros externos, devoluciones y bases de servicio de las sesiones afectadas. Las notas deben limitarse a la información económica necesaria, sin contenido clínico.",
+          "Administración revisa y cierra los periodos mensuales conforme al calendario de Europe/Madrid. Cerrar una liquidación no emite una factura: HERA debe aportar el documento fiscal correspondiente, con emisor y destinatario identificados, número, fecha, conceptos, impuestos o retenciones aplicables, importe y vencimiento.",
+          "Las estimaciones y cantidades sin documentar no son instrucciones para pagar. El NIF y domicilio pendientes de HERA deben completarse antes de incorporar facturas. No se presupone que las comisiones estén exentas de impuestos ni que compartan el tratamiento fiscal de la prestación sanitaria. El tratamiento aplicable debe quedar informado en la versión correspondiente y en la documentación, sin cargos ocultos."
+        ]
+      },
+      {
+        "title": "Directorio · 6. Forma de abono y confirmación",
+        "body": [
+          "Pago por Bizum. HERA y el especialista acordarán directamente el número y el destinatario antes del envío. No envíes dinero a un número que no hayas confirmado con HERA. Indica tu nombre y el número de factura en el concepto; si Bizum limita su longitud, comunica también esa referencia a HERA. El abono aparecerá como recibido cuando administración compruebe el Bizum y lo registre.",
+          "El importe y el vencimiento que debe atender el especialista son los indicados en el documento disponible en su cuenta. Si los datos de pago o el documento no están disponibles, debe contactar con HERA antes de enviar dinero. No se establece en esta versión un plazo distinto del vencimiento de la factura.",
+          "HERA no inicia Bizums, no accede a la cuenta bancaria del especialista y no confirma automáticamente los envíos. Administración registra lo efectivamente recibido, su fecha y referencia y lo aplica a los documentos correspondientes. El especialista puede consultar el importe pendiente, los abonos confirmados y el crédito sin aplicar.",
+          "Una transferencia o Bizum parcial reduce el saldo del documento al que se aplica. Si ese documento agrupa varias sesiones, no se asigna ficticiamente el pago a una sesión concreta. El exceso queda como crédito del mismo especialista; las aplicaciones, anulaciones por error y devoluciones conservan su trazabilidad. Anular un registro no acredita una devolución bancaria.",
+          "Si ya se ha enviado un pago, el especialista no debe repetirlo solo porque aún figure pendiente; debe comunicarlo a HERA para que compruebe la recepción."
+        ]
+      },
+      {
+        "title": "Directorio · 7. Revisión y correcciones",
+        "body": [
+          "El especialista puede solicitar revisión de la procedencia, asistencia, base o cálculo desde Comisiones HERA, aportando la explicación económica necesaria. Administración puede corregir o diferir partidas discutidas conforme al flujo disponible. No se borra evidencia ni se reescriben cierres para ocultar ajustes. Cuando cambie una obligación documentada, se aporta la corrección correspondiente antes de solicitar el importe corregido."
+        ]
+      },
+      {
+        "title": "Directorio · 8. Terminación y conservación",
+        "body": [
+          "La terminación se registra con fecha de corte y motivo. Detiene nuevas obligaciones desde ese corte conforme a las reglas del módulo y conserva las ya generadas, las condiciones aceptadas, el historial y el contador. No supone borrar la cuenta clínica ni sus registros. Los abonos y las correcciones de obligaciones anteriores continúan siendo consultables y gestionables."
+        ]
+      },
+      {
+        "title": "Directorio · 9. Privacidad y comunicaciones",
+        "body": [
+          "El acuerdo no autoriza a compartir información clínica para justificar comisiones. HERA limita el seguimiento administrativo a la información económica y de atribución necesaria; el especialista conserva el acceso a sus propios pacientes según sus permisos. La política de privacidad y los consentimientos específicos siguen siendo consultables por sus vías habituales.",
+          "Para dudas o incidencias de este acuerdo y de los pagos: herahealthtech@gmail.com. Los datos de contacto de pago se acuerdan directamente con HERA durante esta fase."
+        ]
+      },
+      {
+        "title": "Directorio · 10. Aceptación",
+        "body": [
+          "Al marcar la casilla y confirmar, el especialista declara haber podido leer esta versión, incluidas sus reglas económicas, el carácter provisional de los datos identificativos pendientes y el procedimiento manual de Bizum. La aceptación queda registrada para su cuenta; no equivale a haber pagado ninguna comisión."
+        ]
+      },
+      {
+        "title": "Reglas operativas de las comisiones",
+        "body": [
+          "Comisiones HERA por pacientes del Directorio: primera sesión 20%; segunda y tercera 10%; cuarta y siguientes 5%. Por paciente y especialista, sin reinicio. Base del servicio después de descuentos y sin impuestos, en EUR. Solo sesiones privadas de precio positivo realmente atendidas. Devengo proporcional al cobro externo registrado, con redondeo acumulativo. Las devoluciones de una prestación real no reinician la escala. Los impuestos y retenciones de HERA se presentan por separado. Reservas anteriores a la aceptación excluidas. Las correcciones de asistencia, orden o procedencia generan ajustes sin reescribir cierres. Cierre mensual Europe/Madrid por administración; el especialista puede solicitar revisión y una partida discutida puede diferirse. Pagos por Bizum o transferencia realizados fuera de HERA y confirmados manualmente por administración. La terminación detiene nuevas obligaciones desde su fecha de corte y conserva el historial y el contador."
+        ]
+      },
+      {
+        "title": "Actualizaciones, continuidad y terminación",
+        "body": [
+          "Cada versión publicada conserva su contenido. Cuando se requiera una nueva aceptación, HERA informará de los cambios antes de continuar con el uso normal. Seguirán disponibles los textos, salida, preferencias de privacidad y desconexión de Google.",
+          "Las nuevas condiciones no reescriben aceptaciones, sesiones, liquidaciones ni deudas anteriores. Un cambio ajeno a las condiciones económicas no reinicia contadores ni genera otro acuerdo económico. Un acuerdo terminado no se reactiva por aceptar cambios generales; la reincorporación requiere una acción expresa.",
+          "La falta de aceptación no equivale al borrado de datos ni extingue obligaciones anteriores. Las solicitudes de baja y derechos pueden dirigirse al contacto indicado, sujetas a las obligaciones aplicables de conservación."
+        ]
+      },
+      {
+        "title": "Disponibilidad, contenidos y reclamaciones",
+        "body": [
+          "HERA puede requerir mantenimiento o sufrir interrupciones. Los usuarios deben comunicar incidencias y accesos indebidos y evitar información innecesaria. No se excluyen responsabilidades ni derechos imperativos.",
+          "Los usuarios conservan los derechos sobre sus contenidos y permiten su tratamiento para prestar las funciones solicitadas. No se autoriza su explotación publicitaria ni el uso clínico por terceros sin legitimación.",
+          "Consultas y reclamaciones: herahealthtech@gmail.com. Se aplicará la legislación correspondiente y se respetarán los derechos y fueros imperativos de consumidores y usuarios."
+        ]
+      },
+      {
+        "title": "Identificación pendiente",
+        "body": [
+          "Se mantienen pendientes los datos fiscales y de domicilio indicados. Esta publicación no afirma que estén completos ni sustituye la documentación fiscal necesaria para facturar. Se actualizarán conservando las versiones anteriores."
+        ]
+      }
+    ],
+    "effectiveAt": "2026-09-20T00:00:00+02:00",
+    "changeSummary": "Condiciones unificadas del Directorio, Google Calendar, destinatarios, seguridad y analítica opcional.",
+    "status": "PUBLISHED_WITH_PENDING_IDENTITY",
+    "publicPath": "/legal/terminos",
+    "contentHash": "dd49d434d76d9f3c283d60482bdc384a4ffe63276608787bfe106cdf28cafd3f"
+  },
+  "PRIVACY_POLICY": {
+    "key": "PRIVACY_POLICY",
+    "version": "2026-09-20",
+    "title": "Política de privacidad",
+    "slug": "privacidad",
+    "routePath": "/legal/privacidad",
+    "summary": "Cómo HERA trata y protege los datos personales, incluidos los de Google, y cómo ejercer tus derechos.",
+    "sections": [
+      {
+        "title": "Responsable y contacto",
+        "body": [
+          "Responsable provisional: Sara Herrer Fernández.",
+          "Nombre comercial: HERA.",
+          "NIF/CIF: Pendiente de completar antes de publicación definitiva.",
+          "Domicilio: Pendiente de completar antes de publicación definitiva.",
+          "Contacto de privacidad, soporte e incidencias: herahealthtech@gmail.com.",
+          "Ámbito principal de operación: España."
+        ]
+      },
+      {
+        "title": "Responsabilidades y alcance",
+        "body": [
+          "HERA trata datos para administrar cuentas, prestar la plataforma, seguridad y gestión de su relación con usuarios. El profesional o clínica determina el tratamiento asistencial que le corresponde; HERA presta funciones de gestión conforme al encargo aplicable. Los roles dependen del tratamiento concreto.",
+          "Esta política no sustituye el encargo profesional ni el consentimiento clínico. Aceptar condiciones o confirmar su lectura no autoriza cualquier tratamiento de salud, analítica o integración externa."
+        ]
+      },
+      {
+        "title": "Datos y finalidades",
+        "body": [
+          "Tratamos identificación y contacto, credenciales, perfil y acreditación profesional, agenda y reservas, comunicaciones, cuestionarios, documentación y consentimientos clínicos, facturación, cobros y evidencias legales y de seguridad. Parte de la información puede revelar salud.",
+          "Se utilizan para las funciones solicitadas, atención por profesionales autorizados, verificación, coordinación y derivaciones autorizadas, administración, soporte, seguridad y obligaciones legales. Las sugerencias de afinidad ayudan a encontrar profesionales; no son diagnósticos ni decisiones clínicas automatizadas.",
+          "Para comisiones se utiliza la procedencia acreditada y la información económica necesaria, sin notas clínicas para justificar revisiones o pagos. Los perfiles públicos muestran los datos previstos para el directorio; los expedientes no se publican."
+        ]
+      },
+      {
+        "title": "Bases jurídicas y opciones",
+        "body": [
+          "La cuenta y el servicio se apoyan en la ejecución de la relación contractual; conservación y cumplimiento, en la normativa aplicable; medidas proporcionadas de seguridad, en la protección del servicio e intereses legítimos correspondientes.",
+          "El profesional o centro debe determinar la base asistencial y la condición aplicable a los datos de salud, informando y obteniendo consentimiento explícito cuando proceda. No se deduce consentimiento clínico de la aceptación general.",
+          "Calendar y analítica son opcionales. Sus autorizaciones se solicitan separadamente y pueden retirarse. Rechazar analítica no limita HERA."
+        ]
+      },
+      {
+        "title": "Google: inicio de sesión",
+        "body": [
+          "Google comunica a HERA tu identificador estable, correo verificado, nombre y fotografía cuando existe, para verificar identidad, vincular cuenta y mostrar perfil. La imagen puede cargarse desde Google.",
+          "Entrar con Google no concede acceso a Calendar. Las credenciales persistentes de Calendar proceden de una autorización independiente."
+        ]
+      },
+      {
+        "title": "Google Calendar: acceso, uso y almacenamiento",
+        "body": [
+          "Al conectar obtenemos identificador estable y correo de la cuenta, permisos y credencial de renovación cifrada para sincronizar sin mantener HERA abierta. Guardamos identificadores de eventos, correspondencias con citas, estados, fechas y códigos técnicos.",
+          "Solicitamos openid, email y calendar.events.owned. Google permite gestionar eventos de calendarios propios; HERA limita el uso al calendario principal y sus propias copias. Consulta identificadores, estado y marca de propiedad para actualizarlas o eliminarlas; no importa eventos personales ni analiza su contenido.",
+          "HERA envía título genérico, inicio, fin, zona horaria y enlace autenticado con identificador de cita. No envía nombres o contacto de pacientes, notas clínicas, importes ni enlaces de videollamada. No añade invitados ni recordatorios. La marca privada no impide accesos concedidos desde Google."
+        ]
+      },
+      {
+        "title": "Destinatarios de datos de Google",
+        "body": [
+          "Google recibe las operaciones de autenticación y sincronización y almacena las copias en la cuenta elegida. Compartir el calendario o la administración de una cuenta Workspace puede afectar a quién ve esas copias.",
+          "Railway procesa solicitudes del servidor y Supabase aloja base de datos y almacenamiento, incluida identidad vinculada, credenciales cifradas y referencias de Calendar. Vercel sirve la web y procesa datos técnicos de acceso. HERA no les autoriza un uso publicitario propio.",
+          "Cloudinary aloja imágenes subidas por usuarios; la integración no le envía credenciales ni eventos Calendar. El correo procesa destinatarios y mensajes necesarios: se selecciona Resend, SendGrid o SMTP, con prioridad de Resend. No recibe tokens ni contenido de Calendar.",
+          "PostHog recibe solo eventos de uso permitidos con consentimiento específico, mediante identificadores exclusivos de analítica. No recibe datos de Google, información clínica, correos ni referencias de pacientes o citas.",
+          "El personal autorizado accede en la medida necesaria y permitida. El acceso humano a datos de Google se limita a autorización afirmativa para datos concretos, necesidades de seguridad, cumplimiento legal y demás supuestos permitidos por Google. Dar soporte no concede acceso clínico indiscriminado."
+        ]
+      },
+      {
+        "title": "Uso limitado de Google",
+        "body": [
+          "El uso y transferencia de información de las API de Google se ajustará a la Google API Services User Data Policy, incluidos los requisitos de Limited Use: https://developers.google.com/terms/api-services-user-data-policy .",
+          "Los datos de Google se utilizan para funciones visibles y autorizadas. No se venden ni transfieren a intermediarios; no se usan para publicidad personalizada, evaluación crediticia o préstamos, ni para desarrollar, mejorar o entrenar modelos generales o no personalizados de inteligencia artificial o aprendizaje automático.",
+          "Las transferencias se limitan a las necesarias para funciones autorizadas, seguridad, obligaciones legales o supuestos corporativos permitidos con el consentimiento previo exigido. Nuevas finalidades requieren información y autorización correspondientes."
+        ]
+      },
+      {
+        "title": "Protección de datos sensibles",
+        "body": [
+          "Las comunicaciones de producción de la integración utilizan HTTPS. Credenciales de renovación persistidas y verificadores OAuth se cifran con AES-256-GCM y una clave del servidor separada del cliente. No se envían al navegador ni a PostHog.",
+          "El acceso se controla por identidad, rol y relación con los recursos. Calendar utiliza estado de un solo uso, PKCE, verificación de identidad y comprobación de la cuenta que completa la conexión. Antes de modificar eventos se comprueba su propiedad.",
+          "Los registros reducen información y ocultan credenciales y datos sensibles; Calendar utiliza códigos de error seguros. Las funciones clínicas incluyen controles adicionales de acceso y trazabilidad. No equivale a cifrado de extremo a extremo ni garantía absoluta contra incidentes.",
+          "Ubicación, copias de seguridad y cifrado de infraestructura dependen de los servicios contratados. No afirmamos que todo dato esté cifrado campo a campo ni alojado exclusivamente en España o la Unión Europea."
+        ]
+      },
+      {
+        "title": "Conservación y eliminación",
+        "body": [
+          "Conservamos datos mientras son necesarios para el servicio y obligaciones aplicables. La baja no elimina automáticamente facturas, evidencias contractuales o expedientes sujetos a conservación. Se bloquea, minimiza o elimina información según finalidad y obligaciones.",
+          "La aplicación contempla retención clínica tras cerrar el proceso; profesional o centro deben comprobar plazos aplicables a actividad y territorio. No se promete un plazo único para documentación sanitaria o fiscal.",
+          "Los intentos Calendar caducan a los diez minutos y el procesador elimina los caducados. Al desconectar se detiene nuevo trabajo, se intenta revocar el permiso y se eliminan las credenciales locales al procesar la desconexión. Se conservan identidad y correspondencias mínimas para reconectar sin duplicados. Las copias permanecen en Google.",
+          "En baja definitiva, el procesador elimina credenciales y correspondencias Calendar. Las copias en Google se gestionan allí. Puedes solicitar eliminación al contacto de privacidad; no se promete borrado instantáneo de copias de seguridad o documentos legalmente conservados."
+        ]
+      },
+      {
+        "title": "Desconectar Google",
+        "body": [
+          "Puedes desconectar desde HERA y retirar permisos en https://myaccount.google.com/connections . Si falla la revocación remota, HERA elimina igualmente las credenciales locales al procesar la desconexión y ofrece retirar el permiso en Google.",
+          "Desconectar Calendar no elimina la cuenta HERA ni afecta por sí solo al inicio de sesión con Google. Cambios en Google no modifican HERA. Antes de ampliar datos o finalidades se informará y solicitará nueva autorización."
+        ]
+      },
+      {
+        "title": "Cookies, almacenamiento y analítica",
+        "body": [
+          "Usamos cookies o almacenamiento del dispositivo para sesión, seguridad, preferencias y finalización de autorizaciones. Puedes cerrar sesión y modificar preferencias.",
+          "PostHog permanece desactivado hasta tu elección opcional. Puedes aceptar, rechazar o retirar desde Preferencias de privacidad. No se activa grabación de sesiones ni captura automática. El identificador analítico es independiente de los identificadores de la base de datos.",
+          "La decisión de visitantes se conserva en el dispositivo; la de usuarios, en su cuenta. No se convierte automáticamente una elección local en consentimiento de otra cuenta. Retirar detiene nuevos envíos y descarta pendientes, sin equivaler al borrado de datos ya tratados legítimamente; puedes solicitarlo al contacto indicado."
+        ]
+      },
+      {
+        "title": "Proveedores y transferencias internacionales",
+        "body": [
+          "Google, Vercel, Railway, Supabase, Cloudinary, correo y PostHog reciben datos necesarios para las funciones descritas. Su infraestructura y soporte pueden implicar tratamiento fuera del Espacio Económico Europeo.",
+          "Regiones y garantías contractuales de cada despliegue requieren comprobación; esta política no afirma residencia exclusiva en Europa ni certificaciones o acuerdos no acreditados. Puedes solicitar información sobre destinatarios y garantías al contacto de privacidad. Las transferencias deben contar con el mecanismo aplicable conforme a la normativa."
+        ]
+      },
+      {
+        "title": "Derechos y contacto",
+        "body": [
+          "Solicita acceso, rectificación, supresión, oposición, limitación, portabilidad o retirada de consentimientos en herahealthtech@gmail.com. Verificaremos tu identidad de forma proporcionada. Para tratamientos asistenciales puede ser necesario acudir también al profesional o centro responsable.",
+          "Puedes reclamar ante la Agencia Española de Protección de Datos: https://www.aepd.es . Retirar consentimiento no afecta a la licitud anterior ni elimina obligaciones de conservación.",
+          "Los datos fiscales, domicilio y situación del delegado de protección de datos marcados pendientes siguen sin completarse. El correo indicado es el contacto disponible."
+        ]
+      },
+      {
+        "title": "Actualizaciones",
+        "body": [
+          "Conservamos las versiones anteriores e informaremos de cambios relevantes. La constancia de información no sustituye consentimientos específicos; continuar navegando no activa nuevos usos opcionales."
+        ]
+      }
+    ],
+    "effectiveAt": "2026-09-20T00:00:00+02:00",
+    "changeSummary": "Condiciones unificadas del Directorio, Google Calendar, destinatarios, seguridad y analítica opcional.",
+    "status": "PUBLISHED_WITH_PENDING_IDENTITY",
+    "publicPath": "/legal/privacidad",
+    "contentHash": "b49b091e3c48f7c526ef96f16777587ad724f84c1174d5bd8b1f4987d34d4997"
+  },
+  "PROFESSIONAL_DATA_PROCESSING_TERMS": {
+    "key": "PROFESSIONAL_DATA_PROCESSING_TERMS",
+    "version": "2026-04-26",
+    "title": "Condiciones profesionales y tratamiento de datos",
+    "slug": "condiciones-profesionales",
+    "routePath": "/legal/condiciones-profesionales",
+    "summary": "Obligaciones de especialistas que usan HERA como herramienta profesional.",
+    "sections": [
+      {
+        "title": "Responsable y contacto",
+        "body": [
+          "Responsable provisional: Sara Herrer Fernández.",
+          "Nombre comercial: HERA.",
+          "NIF/CIF: Pendiente de completar antes de publicación definitiva.",
+          "Domicilio: Pendiente de completar antes de publicación definitiva.",
+          "Contacto de privacidad, soporte e incidencias: herahealthtech@gmail.com.",
+          "Ámbito principal de operación: España."
+        ]
+      },
+      {
+        "title": "Rol profesional",
+        "body": [
+          "El especialista es responsable de usar HERA conforme a su normativa profesional, deber de secreto y obligaciones de protección de datos.",
+          "El especialista debe informar correctamente a sus pacientes cuando use HERA para gestionar datos o documentación."
+        ]
+      },
+      {
+        "title": "Confidencialidad",
+        "body": [
+          "El especialista solo debe acceder a datos necesarios para la atención o gestión legítima del paciente.",
+          "Queda prohibido compartir credenciales, descargar datos sin motivo o usar información fuera del contexto profesional."
+        ]
+      },
+      {
+        "title": "Datos de pacientes",
+        "body": [
+          "Los datos de pacientes deben introducirse de forma proporcionada y exacta.",
+          "No deben subirse documentos innecesarios ni información excesiva para la finalidad asistencial o administrativa."
+        ]
+      },
+      {
+        "title": "Baja y conservación",
+        "body": [
+          "La baja del especialista no implica borrado inmediato de facturas, consentimientos o documentación clínica sujeta a conservación legal.",
+          "HERA podrá bloquear y minimizar datos no necesarios conservando lo obligatorio."
+        ]
+      }
+    ],
+    "effectiveAt": "2026-04-26T00:00:00+02:00",
+    "changeSummary": "Publicación inicial.",
+    "status": "ARCHIVED",
+    "publicPath": "/legal/condiciones-profesionales",
+    "contentHash": "eef41853906fa682578003f45be42fc62036ad7d3a64c44cb96de8b717a031bc"
+  },
+  "CLINICAL_MODULE_TERMS": {
+    "key": "CLINICAL_MODULE_TERMS",
+    "version": "2026-04-26",
+    "title": "Condiciones del módulo clínico",
+    "slug": "modulo-clinico",
+    "routePath": "/legal/modulo-clinico",
+    "summary": "Condiciones reforzadas para usar notas, documentos y consentimientos clínicos.",
+    "sections": [
+      {
+        "title": "Responsable y contacto",
+        "body": [
+          "Responsable provisional: Sara Herrer Fernández.",
+          "Nombre comercial: HERA.",
+          "NIF/CIF: Pendiente de completar antes de publicación definitiva.",
+          "Domicilio: Pendiente de completar antes de publicación definitiva.",
+          "Contacto de privacidad, soporte e incidencias: herahealthtech@gmail.com.",
+          "Ámbito principal de operación: España."
+        ]
+      },
+      {
+        "title": "Acceso clínico",
+        "body": [
+          "El área clínica contiene información especialmente sensible y solo debe usarse para pacientes con relación profesional legítima.",
+          "Los accesos pueden quedar registrados por seguridad, auditoría y cumplimiento."
+        ]
+      },
+      {
+        "title": "Uso de notas y documentos",
+        "body": [
+          "Las notas y documentos clínicos deben ser pertinentes, proporcionados y necesarios para el proceso asistencial.",
+          "No deben guardarse datos de terceros o información no relacionada con la finalidad clínica."
+        ]
+      },
+      {
+        "title": "Consentimiento y retención",
+        "body": [
+          "El especialista debe asegurarse de contar con consentimiento o base jurídica adecuada antes de usar el módulo clínico.",
+          "La documentación clínica puede conservarse durante el plazo legal mínimo aplicable y quedar bloqueada tras el cierre del proceso."
+        ]
+      },
+      {
+        "title": "Seguridad",
+        "body": [
+          "El módulo clínico exige desbloqueo adicional y medidas de seguridad reforzadas.",
+          "El especialista debe cerrar sesión o bloquear el acceso cuando use dispositivos compartidos o no supervisados."
+        ]
+      }
+    ],
+    "effectiveAt": "2026-04-26T00:00:00+02:00",
+    "changeSummary": "Publicación inicial.",
+    "status": "ARCHIVED",
+    "publicPath": "/legal/modulo-clinico",
+    "contentHash": "2a52b1fbea492f079dbe02c883b30c218e96052122c1d7245b86b853742b0297"
+  },
+  "CLINICAL_PATIENT_CONSENT": {
+    "key": "CLINICAL_PATIENT_CONSENT",
+    "version": "2026-04-26",
+    "title": "Autorización del expediente clínico",
+    "slug": "consentimiento-clinico",
+    "routePath": "/legal/consentimiento-clinico",
+    "summary": "Información que acepta el paciente para autorizar el uso de su expediente clínico en HERA.",
+    "sections": [
+      {
+        "title": "Responsable y contacto",
+        "body": [
+          "Responsable provisional: Sara Herrer Fernández.",
+          "Nombre comercial: HERA.",
+          "NIF/CIF: Pendiente de completar antes de publicación definitiva.",
+          "Domicilio: Pendiente de completar antes de publicación definitiva.",
+          "Contacto de privacidad, soporte e incidencias: herahealthtech@gmail.com.",
+          "Ámbito principal de operación: España."
+        ]
+      },
+      {
+        "title": "Qué aceptas",
+        "body": [
+          "Autorizas el tratamiento de información clínica necesaria para tu seguimiento profesional dentro de HERA por parte del especialista que te atiende.",
+          "Puede incluir notas clínicas, documentos, informes, ejercicios, consentimientos, datos de sesiones y registros de acceso."
+        ]
+      },
+      {
+        "title": "Quién accede",
+        "body": [
+          "Debe acceder solo el especialista autorizado y los sistemas estrictamente necesarios para prestar el servicio, seguridad o cumplimiento legal.",
+          "Los accesos relevantes pueden quedar registrados."
+        ]
+      },
+      {
+        "title": "Conservación y retirada",
+        "body": [
+          "La documentación clínica puede conservarse durante los plazos legalmente exigidos, incluso si retiras el consentimiento.",
+          "La retirada impide nuevos tratamientos basados en ese consentimiento, pero no siempre permite borrar documentación ya incorporada a la historia clínica."
+        ]
+      },
+      {
+        "title": "Derechos",
+        "body": [
+          "Puedes ejercer tus derechos escribiendo a herahealthtech@gmail.com.",
+          "En información clínica pueden existir límites legales o profesionales que se explicarán en cada caso."
+        ]
+      }
+    ],
+    "effectiveAt": "2026-04-26T00:00:00+02:00",
+    "changeSummary": "Publicación inicial.",
+    "status": "ARCHIVED",
+    "publicPath": "/legal/consentimiento-clinico",
+    "contentHash": "7bd213843875e388784eb2a82ae787216affb89afea9dbe9eb7436f2df248e0d"
+  }
+}
