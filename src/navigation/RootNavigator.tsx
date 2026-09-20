@@ -540,6 +540,7 @@ export function RootNavigator() {
     verificationSubmitted,
   } = useAuth();
   const [legalStatus, setLegalStatus] = useState<LegalAcceptanceStatus | null>(null);
+  const legalRequestGeneration = useRef(0);
   const [legalLoading, setLegalLoading] = useState(false);
   const [legalStatusError, setLegalStatusError] = useState(false);
   const [legalStatusErrorMessage, setLegalStatusErrorMessage] = useState(
@@ -547,6 +548,7 @@ export function RootNavigator() {
   );
 
   const refreshLegalStatus = useCallback(async () => {
+    const generation = ++legalRequestGeneration.current;
     if (!isAuthenticated) {
       setLegalStatus(null);
       setLegalStatusError(false);
@@ -557,9 +559,11 @@ export function RootNavigator() {
     setLegalLoading(true);
     try {
       const nextStatus = await fetchLegalStatusWithRetry();
+      if (generation !== legalRequestGeneration.current) return;
       setLegalStatus(nextStatus);
       setLegalStatusError(false);
     } catch (error: unknown) {
+      if (generation !== legalRequestGeneration.current) return;
       if (getErrorCode(error) === 'SESSION_EXPIRED') {
         setLegalStatus(null);
         setLegalStatusError(false);
@@ -570,9 +574,9 @@ export function RootNavigator() {
       setLegalStatusErrorMessage(getLegalStatusErrorMessage(error));
       setLegalStatusError(true);
     } finally {
-      setLegalLoading(false);
+      if (generation === legalRequestGeneration.current) setLegalLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -584,11 +588,14 @@ export function RootNavigator() {
   }, [isAuthenticated, refreshLegalStatus]);
 
   const handleLegalAccepted = useCallback((nextStatus: LegalAcceptanceStatus) => {
+    legalRequestGeneration.current++;
+    setLegalLoading(false);
     setLegalStatus(nextStatus);
     setLegalStatusError(false);
   }, []);
 
   useEffect(() => {
+    legalRequestGeneration.current++;
     if (!isInitialized) {
       return;
     }
@@ -705,14 +712,6 @@ export function RootNavigator() {
   }
 
   if (legalStatus?.requiresAcceptance) {
-    const RequiredLegalAcceptanceRoute = () => (
-      <RequiredLegalAcceptanceScreen
-        documents={legalStatus.documents}
-        requiredDocumentKeys={legalStatus.missingDocumentKeys}
-        onAccepted={handleLegalAccepted}
-      />
-    );
-
     return (
       <Stack.Navigator
         screenOptions={{ headerShown: false }}
@@ -720,8 +719,14 @@ export function RootNavigator() {
         <Stack.Group navigationKey="legal-acceptance">
           <Stack.Screen
             name="RequiredLegalAcceptance"
-            component={RequiredLegalAcceptanceRoute}
-          />
+          >
+            {() => <RequiredLegalAcceptanceScreen
+              key={legalStatus.documents.map(doc => `${doc.key}:${doc.version}:${doc.contentHash}`).join('|')}
+              documents={legalStatus.documents}
+              requiredDocumentKeys={legalStatus.missingDocumentKeys}
+              onAccepted={handleLegalAccepted}
+            />}
+          </Stack.Screen>
           <Stack.Screen
             name="PublicSpecialists"
             component={PublicSpecialistsRoute}

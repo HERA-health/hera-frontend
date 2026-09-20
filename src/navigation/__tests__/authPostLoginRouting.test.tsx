@@ -3,7 +3,10 @@ import {
   createNavigationContainerRef,
   NavigationContainer,
 } from '@react-navigation/native';
-import { act, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { acceptLegalDocuments, getLegalStatus } from '../../services/legalService';
+import { notifyLegalUpdate } from '../../services/legalEvents';
+import { LEGAL_DOCUMENTS } from '../../constants/legal';
 import type { RootStackParamList } from '../../constants/types';
 import type { LegalAcceptanceStatus } from '../../services/legalService';
 import { RootNavigator } from '../RootNavigator';
@@ -48,6 +51,7 @@ jest.mock('../../services/heraCommissionService', () => ({
 
 jest.mock('../../services/legalService', () => ({
   getLegalStatus: jest.fn().mockResolvedValue({ requiresAcceptance: false }),
+  acceptLegalDocuments: jest.fn(),
 }));
 
 jest.mock('../../services/googleCalendarService', () => ({ disconnectGoogleCalendar: jest.fn() }));
@@ -110,6 +114,7 @@ jest.mock('../../components/navigation/MainLayout', () => {
 
 describe('post-login routing', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     mockAuthState = {
       isAuthenticated: false,
       isInitialized: true,
@@ -117,6 +122,39 @@ describe('post-login routing', () => {
       user: null,
       verificationSubmitted: null,
     };
+  });
+
+  it('persists acceptance across refresh and remount, ignores stale reads, and prompts for a new version', async () => {
+    const doc = LEGAL_DOCUMENTS.TERMS_OF_SERVICE;
+    const pending: LegalAcceptanceStatus = { documents: [{ ...doc, publicPath: doc.routePath }], requiredDocumentKeys: ['TERMS_OF_SERVICE'], acceptedDocuments: [], missingDocumentKeys: ['TERMS_OF_SERVICE'], requiresAcceptance: true };
+    const accepted: LegalAcceptanceStatus = { ...pending, missingDocumentKeys: [], requiresAcceptance: false, acceptedDocuments: [{ documentKey: doc.key, version: doc.version, acceptedAt: '2026-09-20T12:00:00Z', source: 'required-gate' }] };
+    mockAuthState = { isAuthenticated: true, isInitialized: true, legalStatusSnapshot: pending, user: { id: 'client-1', email: 'client@hera.test', emailVerified: true, type: 'client' }, verificationSubmitted: null };
+    jest.mocked(acceptLegalDocuments).mockResolvedValue(accepted);
+    let resolveStale: (value: LegalAcceptanceStatus) => void = () => { throw new Error('Request not started'); };
+    jest.mocked(getLegalStatus).mockImplementationOnce(() => new Promise(resolve => { resolveStale = resolve; }));
+    const view = render(<NavigationContainer><RootNavigator /></NavigationContainer>);
+    await screen.findByText('Antes de continuar');
+    fireEvent.press(screen.getByRole('checkbox'));
+    act(() => notifyLegalUpdate());
+    fireEvent.press(screen.getByText('Aceptar y continuar'));
+    await screen.findByText('Inicio de paciente');
+    await act(async () => { resolveStale(pending); });
+    expect(screen.queryByText('Antes de continuar')).toBeNull();
+    jest.mocked(getLegalStatus).mockResolvedValue(accepted);
+    act(() => notifyLegalUpdate());
+    await waitFor(() => expect(screen.getByText('Inicio de paciente')).toBeTruthy());
+    expect(acceptLegalDocuments).toHaveBeenCalledTimes(1);
+    view.unmount();
+    mockAuthState.legalStatusSnapshot = null;
+    render(<NavigationContainer><RootNavigator /></NavigationContainer>);
+    await screen.findByText('Inicio de paciente');
+    expect(screen.queryByText('Antes de continuar')).toBeNull();
+    jest.mocked(getLegalStatus).mockResolvedValue({ ...pending, documents: [{ ...pending.documents[0], version: '2026-10-01' }] });
+    act(() => notifyLegalUpdate());
+    await screen.findByText('Antes de continuar');
+    expect(screen.getByText('Versión 2026-10-01')).toBeTruthy();
+    expect(screen.getByRole('checkbox').props.accessibilityState.checked).toBe(false);
+    jest.mocked(getLegalStatus).mockResolvedValue(accepted);
   });
 
   it.each([

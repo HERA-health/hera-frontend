@@ -3,7 +3,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { CommissionWorkspace, HeraCommissionsScreen } from '../HeraCommissionsScreen';
 import * as service from '../../../services/heraCommissionService';
 
-jest.mock('@react-navigation/native', () => ({ useFocusEffect: effect => require('react').useEffect(effect, [effect]) }));
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn() }), useFocusEffect: effect => require('react').useEffect(effect, [effect]) }));
 jest.mock('../../../services/heraCommissionService', () => ({
  operators: jest.fn(), specialistAccounts: jest.fn(), configuration: jest.fn(), detail: jest.fn(), sessions: jest.fn(), balances: jest.fn(),
 }));

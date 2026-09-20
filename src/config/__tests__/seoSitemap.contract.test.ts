@@ -11,11 +11,11 @@ describe('dynamic specialist sitemap deployment contract', () => {
       rewrites: Array<{ source: string; destination: string }>;
     };
 
-    expect(vercelConfig.rewrites[0]).toEqual({
+    expect(vercelConfig.rewrites.find(rule => rule.source === '/sitemap.xml')).toEqual({
       source: '/sitemap.xml',
       destination: 'https://api.health-hera.com/sitemap.xml',
     });
-    expect(vercelConfig.rewrites[1]).toEqual({
+    expect(vercelConfig.rewrites[vercelConfig.rewrites.length - 1]).toEqual({
       source: '/(.*)',
       destination: '/index.html',
     });
