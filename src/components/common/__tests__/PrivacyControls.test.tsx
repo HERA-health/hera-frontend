@@ -18,20 +18,20 @@ jest.mock('../../../services/analyticsService', () => ({ configureAnalytics: jes
 beforeEach(async () => { mockUser = null; jest.clearAllMocks(); await AsyncStorage.clear(); });
 test('visitors can reject with no account request and reopen preferences', async () => {
   render(<PrivacyControls />);
-  await screen.findByText('Rechazar analítica opcional');
-  fireEvent.press(screen.getByText('Rechazar analítica opcional'));
+  await screen.findByText('No permitir estadísticas de uso');
+  fireEvent.press(screen.getByText('No permitir estadísticas de uso'));
   await waitFor(() => expect(configureAnalytics).toHaveBeenLastCalledWith(false));
   expect(api.put).not.toHaveBeenCalled();
   await waitFor(async () => expect(JSON.parse((await AsyncStorage.getItem('hera:visitor-analytics-preference'))!)).toMatchObject({ enabled: false }));
   fireEvent.press(screen.getByText('Preferencias de privacidad'));
-  await screen.findByText('Analítica: desactivada');
+  await screen.findByText('Estadísticas de uso: desactivadas');
 });
 test('a visitor opt-in does not become consent for an authenticated account or another user', async () => {
   await AsyncStorage.setItem('hera:visitor-analytics-preference', JSON.stringify({ enabled: true, version: '2026-09-20' }));
   mockUser = { id: 'account-a' };
   jest.mocked(api.get).mockResolvedValue({ data: { enabled: false, version: '2026-09-20', decidedAt: null } });
   const view = render(<PrivacyControls />);
-  await screen.findByText('Analítica: desactivada');
+  await screen.findByText('Estadísticas de uso: desactivadas');
   expect(configureAnalytics).not.toHaveBeenCalledWith(true);
   mockUser = { id: 'account-b' }; view.rerender(<PrivacyControls />);
   await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));

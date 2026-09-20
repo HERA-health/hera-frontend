@@ -37,7 +37,7 @@ export function PrivacyControls() {
       setPreference(next); setError('');
       configureAnalytics(next?.enabled === true && next.version === VERSION);
       if (!next?.decidedAt) setOpen(true);
-    } catch (cause) { if (revision === generation.current) setError(getErrorMessage(cause, 'No se pudo cargar la preferencia. La analítica sigue desactivada.')); }
+    } catch (cause) { if (revision === generation.current) setError(getErrorMessage(cause, 'No hemos podido cargar tu elección. Las estadísticas de uso siguen desactivadas.')); }
   }, [user?.id]);
   useEffect(() => {
     reset(); setPreference(null); setOpen(false);
@@ -69,11 +69,11 @@ export function PrivacyControls() {
       <View style={{ flex: 1, backgroundColor: '#00000066', justifyContent: 'center', padding: 24 }}>
         <ScrollView style={{ maxHeight: '85%', backgroundColor: theme.bgCard, borderRadius: 12, width: '100%', maxWidth: 560, alignSelf: 'center' }} contentContainerStyle={{ padding: 24, gap: 18 }}>
           <Text accessibilityRole="header" style={{ color: theme.textPrimary, fontSize: 26, fontFamily: theme.fontDisplay }}>Tu privacidad</Text>
-          <Text style={{ color: theme.textSecondary, fontSize: 16, lineHeight: 24, fontFamily: theme.fontSans }}>Usamos almacenamiento necesario para sesión y seguridad. Si lo autorizas, PostHog nos ayuda a medir el uso general de HERA. No enviamos información clínica ni datos de Google. Puedes usar HERA sin analítica y cambiar tu elección cuando quieras.</Text>
-          <Text style={{ color: theme.textSecondary }}>Analítica: {preference?.enabled ? 'activada' : 'desactivada'}</Text>
+          <Text style={{ color: theme.textSecondary, fontSize: 16, lineHeight: 24, fontFamily: theme.fontSans }}>Guardamos lo necesario para que puedas iniciar sesión y usar HERA con seguridad. También puedes permitirnos recoger datos generales sobre cómo se usa la aplicación para mejorarla. Estas estadísticas no incluyen información clínica ni datos de Google. Es opcional: tendrás las mismas funciones elijas lo que elijas y podrás cambiar de opinión cuando quieras.</Text>
+          <Text style={{ color: theme.textSecondary }}>Estadísticas de uso: {preference?.enabled ? 'activadas' : 'desactivadas'}</Text>
           {error ? <Text accessibilityRole="alert" style={{ color: theme.warning }}>{error}</Text> : null}
-          <Button variant="outline" disabled={busy} onPress={() => void save(true)}>Aceptar analítica opcional</Button>
-          <Button variant="outline" disabled={busy} onPress={() => void save(false)}>{preference?.enabled ? 'Retirar consentimiento de analítica' : 'Rechazar analítica opcional'}</Button>
+          <Button variant="outline" disabled={busy} onPress={() => void save(true)}>Permitir estadísticas de uso</Button>
+          <Button variant="outline" disabled={busy} onPress={() => void save(false)}>{preference?.enabled ? 'Desactivar estadísticas de uso' : 'No permitir estadísticas de uso'}</Button>
           <Button variant="ghost" onPress={() => void Linking.openURL('https://health-hera.com/legal/privacidad')}>Leer política de privacidad</Button>
           <Button variant="ghost" disabled={busy} onPress={() => setOpen(false)}>Cerrar</Button>
         </ScrollView>
