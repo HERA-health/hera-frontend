@@ -1,0 +1,16 @@
+[
+  {"from":"2025-09-21","to":"2026-09-20","group":"month","valid":true},
+  {"from":"2025-09-20","to":"2026-09-20","group":"month","valid":false},
+  {"from":"2023-03-01","to":"2024-02-29","group":"month","valid":true},
+  {"from":"2024-02-29","to":"2025-02-27","group":"month","valid":true},
+  {"from":"2024-02-29","to":"2025-02-28","group":"month","valid":false},
+  {"from":"2025-01-31","to":"2026-01-30","group":"month","valid":true},
+  {"from":"2026-06-01","to":"2026-08-29","group":"day","valid":true},
+  {"from":"2026-06-01","to":"2026-08-30","group":"day","valid":false},
+  {"from":"2026-06-01","to":"2026-08-30","group":"week","valid":true},
+  {"from":"2026-03-29","to":"2026-03-29","group":"day","valid":true},
+  {"from":"2026-10-25","to":"2026-10-25","group":"day","valid":true},
+  {"from":"2026-02-30","to":"2026-03-01","group":"day","valid":false},
+  {"from":"2026-12-02","to":"2026-12-02","group":"day","valid":false},
+  {"from":"2026-08-02","to":"2026-08-01","group":"day","valid":false}
+]

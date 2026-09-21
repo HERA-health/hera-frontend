@@ -33,6 +33,7 @@ export interface SchedulerDateRangeSelectorProps {
   openField: SchedulerDateRangeOpenField;
   disabled?: boolean;
   maxRangeDays?: number;
+  maxDate?: string;
   presentation?: 'auto' | 'inline' | 'popover';
   testIDPrefix?: string;
   onChange: (value: SchedulerDateRangeValue) => void;
@@ -131,6 +132,7 @@ export function SchedulerDateRangeSelector({
   openField,
   disabled = false,
   maxRangeDays = 42,
+  maxDate,
   presentation = 'auto',
   testIDPrefix = 'scheduler-range',
   onChange,
@@ -146,8 +148,9 @@ export function SchedulerDateRangeSelector({
   const previousOpenFieldRef = useRef<SchedulerDateRangeOpenField>(null);
   const [popoverAnchor, setPopoverAnchor] = useState<SchedulerPopoverAnchor | null>(null);
   const safeMaxRangeDays = Math.max(1, maxRangeDays);
-  const maxEndDate = addSchedulerDateKeyDays(value.startDate, safeMaxRangeDays - 1)
+  const rangeEndDate = addSchedulerDateKeyDays(value.startDate, safeMaxRangeDays - 1)
     ?? value.startDate;
+  const maxEndDate = maxDate && maxDate < rangeEndDate ? maxDate : rangeEndDate;
 
   const markedDates = useMemo(() => {
     const marked: Record<string, {
@@ -302,6 +305,7 @@ export function SchedulerDateRangeSelector({
     field: Exclude<SchedulerDateRangeOpenField, null>,
     selectedDate: string,
   ): void => {
+    if (maxDate && selectedDate > maxDate) return;
     if (field === 'end') {
       const safeEnd = selectedDate < value.startDate
         ? value.startDate
@@ -320,7 +324,7 @@ export function SchedulerDateRangeSelector({
       onChange({ startDate: selectedDate, endDate: nextEnd });
     }
     onOpenFieldChange(null);
-  }, [maxEndDate, onChange, onOpenFieldChange, safeMaxRangeDays, value]);
+  }, [maxDate, maxEndDate, onChange, onOpenFieldChange, safeMaxRangeDays, value]);
 
   const renderCalendar = (
     field: Exclude<SchedulerDateRangeOpenField, null>,
@@ -350,7 +354,7 @@ export function SchedulerDateRangeSelector({
         density="compact"
         enableSwipeMonths={!inline}
         minDate={field === 'end' ? value.startDate : undefined}
-        maxDate={field === 'end' ? maxEndDate : undefined}
+        maxDate={field === 'end' ? maxEndDate : maxDate}
         markedDates={markedDates}
         markingType="period"
         onSelectDate={(selectedDate) => selectDate(field, selectedDate)}

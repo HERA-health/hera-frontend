@@ -20,8 +20,9 @@ import { getAdminContactSummary } from '../../services/specialistContactService'
 import type { ScreenProps } from '../../constants/types';
 
 import { CommissionWorkspace } from '../commissions/HeraCommissionsScreen';
+import { AdminDashboardScreen, dashboardDefaultFilters } from './AdminDashboardScreen';
 
-type TabKey = 'verifications' | 'management' | 'commissions' | 'help' | 'feedback';
+type TabKey = 'dashboard' | 'verifications' | 'management' | 'commissions' | 'help' | 'feedback';
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 interface Tab {
@@ -33,6 +34,7 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
+  { key: 'dashboard', label: 'Dashboard', compactLabel: 'Dashboard', icon: 'analytics-outline', iconActive: 'analytics' },
   {
     key: 'verifications',
     label: 'Verificaciones pendientes',
@@ -85,7 +87,7 @@ export function AdminPanelTabbedScreen({
     [theme, isDesktop],
   );
   const [activeTab, setActiveTab] = useState<TabKey>(
-    route.params?.initialTab ?? 'verifications'
+    route.params?.initialTab ?? 'dashboard'
   );
   const [contactSummary, setContactSummary] = useState({
     unreadHelpRequests: 0,
@@ -149,7 +151,7 @@ export function AdminPanelTabbedScreen({
       ) : <View style={styles.tabBar} accessibilityRole="tablist">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key;
-          const label = isDesktop ? tab.label : tab.compactLabel;
+          const label = tab.compactLabel;
           const badgeCount = tab.key === 'help'
             ? contactSummary.unreadHelpRequests
             : tab.key === 'feedback'
@@ -186,6 +188,12 @@ export function AdminPanelTabbedScreen({
       </View>}
 
       <View style={styles.content}>
+        {activeTab === 'dashboard' && <AdminDashboardScreen
+          section={route.params?.dashboardSection ?? 'overview'}
+          filters={route.params?.dashboardFilters ?? dashboardDefaultFilters}
+          onChange={(dashboardSection, dashboardFilters) => navigation.setParams({ dashboardSection, dashboardFilters })}
+          onNavigate={initialTab => { setActiveTab(initialTab); navigation.setParams({ initialTab }); }}
+        />}
         {activeTab === 'verifications' && <AdminPanelScreen />}
         {activeTab === 'management' && <SpecialistManagementScreen />}
         {activeTab === 'commissions' && <CommissionWorkspace admin accountId={route.params?.commissionAccountId} specialistId={route.params?.commissionSpecialistId}
@@ -246,13 +254,14 @@ const createStyles = (theme: Theme, isDesktop: boolean) => StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    gap: spacing.xl,
+    gap: spacing.md,
     paddingHorizontal: spacing.lg,
-    maxWidth: isDesktop ? 1180 : undefined,
     alignSelf: 'center',
     width: '100%',
   },
   tab: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

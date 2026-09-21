@@ -94,6 +94,19 @@ describe('SchedulerDateRangeSelector', () => {
     expect(screen.getByText('2030-02-11')).toBeTruthy();
   });
 
+  it('caps both calendars at the supplied date and rejects a future selection', () => {
+    const onChange = jest.fn();
+    const props = { value: { startDate: '2030-01-01', endDate: '2030-01-15' }, maxRangeDays: 366, maxDate: '2030-01-20', onChange, onOpenFieldChange: jest.fn(), presentation: 'inline' as const };
+    const view = render(<SchedulerDateRangeSelector {...props} openField="start" />);
+    expect(screen.getByTestId('scheduler-range-start-calendar').props.accessibilityHint).toContain('|2030-01-20|');
+    fireEvent.press(screen.getByTestId('scheduler-range-start-calendar'));
+    expect(onChange).not.toHaveBeenCalled();
+    view.rerender(<SchedulerDateRangeSelector {...props} openField="end" />);
+    expect(screen.getByTestId('scheduler-range-end-calendar').props.accessibilityHint).toContain('2030-01-01|2030-01-20|');
+    fireEvent.press(screen.getByTestId('scheduler-range-end-calendar'));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('renders with dark theme tokens and exposes controlled expanded state', () => {
     mockedUseTheme.mockReturnValue({
       theme: darkTheme,

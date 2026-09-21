@@ -1,4 +1,5 @@
 import { PrivacyControls } from './src/components/common/PrivacyControls';
+import { parseDashboardFilters, serializeDashboardFilters } from './src/utils/adminMetricsFilters';
 import { captureClinicalPinResetUrl } from './src/services/clinicalPinResetIntent';
 import { captureReferralUrl } from './src/services/pendingReferralIntent';
 /**
@@ -137,14 +138,19 @@ export const linking: LinkingOptions<RootStackParamList> = {
           initialTab: (initialTab: string) => {
             if (
               initialTab === 'management'
+              || initialTab === 'dashboard'
+              || initialTab === 'verifications'
               || initialTab === 'commissions'
               || initialTab === 'help'
               || initialTab === 'feedback'
             ) return initialTab;
-            return 'verifications';
+            return 'dashboard';
           },
+          dashboardSection: (section: string) => section === 'growth' || section === 'demand' || section === 'agenda' || section === 'economy' || section === 'operations' ? section : 'overview',
+          dashboardFilters: parseDashboardFilters,
           requestId: (requestId: string) => requestId,
         },
+        stringify: { dashboardFilters: serializeDashboardFilters },
       },
       Referrals: { path: 'derivaciones/:id?' },
       Collaborations: { path: 'colaboradores/:id?' },

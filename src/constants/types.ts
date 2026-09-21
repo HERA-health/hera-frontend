@@ -206,7 +206,9 @@ export type RootStackParamList = {
     focusBillingEditor?: boolean;
   };
   AdminPanel: {
-    initialTab?: 'verifications' | 'management' | 'commissions' | 'help' | 'feedback';
+    initialTab?: 'dashboard' | 'verifications' | 'management' | 'commissions' | 'help' | 'feedback';
+    dashboardSection?: import('../services/adminMetricsTypes').MetricsSection;
+    dashboardFilters?: import('../services/adminMetricsTypes').MetricsFilters;
     commissionAccountId?: string;
     commissionSpecialistId?: string;
     requestId?: string;
