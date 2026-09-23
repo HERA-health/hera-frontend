@@ -49,8 +49,8 @@ export function ProfessionalTariffsScreen({ navigation }: ScreenProps<'Professio
   const sequence = useRef(0);
   const baseline = useRef('');
   const dirty = !!catalog && JSON.stringify({ draft, free }) !== baseline.current;
-  const compact = width < 640;
-  const wide = width >= 1040;
+  const compact = width < 720;
+  const wide = width >= 1120;
   const publicOptions = draft.filter(o => o.isActive && o.isPublic && !catalog?.restrictions[o.modality] && parsePrivatePrice(o.priceText) !== null);
   const applyCatalog = useCallback((value: PrivateServiceCatalog) => {
     const options = makeDraft(value);
@@ -137,12 +137,12 @@ export function ProfessionalTariffsScreen({ navigation }: ScreenProps<'Professio
                 <View style={[styles.row, compact && styles.vertical]}>
                   <View style={[styles.modalityCell, styles.modalityLabel]}><Ionicons name={modality.icon} size={22} color={theme.primary} /><View><Text style={styles.label}>{modality.label}</Text><Text style={styles.small}>{activeCount ? `${activeCount} ${activeCount === 1 ? 'duración' : 'duraciones'}` : 'Sin activar'}</Text></View></View>
                   <View style={[styles.controls, compact && styles.mobileControls]}>
-                    <View style={styles.durationCell}><SimpleDropdown disabled={saving} accessibilityLabel={`Duración principal de ${modality.label}`} value={main.durationMinutes} options={[...new Set([...options.map(o => o.durationMinutes), 45, 50, 60])].sort((a,b) => a-b).map(d => ({ label: `${d} min`, value: d }))} onSelect={duration => {
+                    <View style={styles.durationCell}><SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Duración principal de ${modality.label}`} value={main.durationMinutes} options={[...new Set([...options.map(o => o.durationMinutes), 45, 50, 60])].sort((a,b) => a-b).map(d => ({ label: `${d} min`, value: d }))} onSelect={duration => {
                       const target = options.find(o => o.durationMinutes === duration) ?? newOption(modality.type, duration);
                       setDraft(rows => [...rows.filter(o => o.id !== target.id).map(o => o.modality === modality.type ? { ...o, isPreferred: false } : o), { ...target, isActive: true, isPreferred: true }]);
                     }} /></View>
                     {priceInput(main)}
-                    <View style={styles.audienceCell}><SimpleDropdown disabled={saving} accessibilityLabel={`Disponibilidad de ${modality.label}`} value={!main.isActive ? 'off' : main.isPublic ? 'public' : 'private'} options={visibility} onSelect={value => setVisibility(main, value)} /></View>
+                    <View style={styles.audienceCell}><SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Disponibilidad de ${modality.label}`} value={!main.isActive ? 'off' : main.isPublic ? 'public' : 'private'} options={visibility} onSelect={value => setVisibility(main, value)} /></View>
                   </View>
                 </View>
                 {!!catalog.restrictions[modality.type] && <View style={styles.restriction}><Text style={styles.small}>{catalog.restrictions[modality.type]}</Text><Button disabled={saving} size="small" variant="ghost" onPress={() => navigation.navigate('ProfessionalProfile')}>Ir al perfil</Button></View>}
@@ -150,7 +150,7 @@ export function ProfessionalTariffsScreen({ navigation }: ScreenProps<'Professio
                 {expanded[modality.type] && <View style={styles.details}>
                   <View style={{ gap: 8 }}>
                     <Text style={styles.small}>Copiar un precio a {modality.label.toLowerCase()}, {main.durationMinutes} min</Text>
-                    <SimpleDropdown disabled={saving} accessibilityLabel={`Copiar precio a ${modality.label}, ${main.durationMinutes} minutos`}
+                    <SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Copiar precio a ${modality.label}, ${main.durationMinutes} minutos`}
                       value={null} placeholder="Elegir precio de otra opción"
                       options={draft.filter(o => o.id !== main.id && o.isActive && parsePrivatePrice(o.priceText) !== null).map(o => ({ value: o.id,
                         label: `${MODALITIES.find(m => m.type === o.modality)?.label} · ${o.durationMinutes} min · ${formatPrivatePrice(parsePrivatePrice(o.priceText) ?? 0)}` }))}
@@ -158,7 +158,7 @@ export function ProfessionalTariffsScreen({ navigation }: ScreenProps<'Professio
                   </View>
                   {options.filter(o => o.id !== main.id).map(option => <View key={option.id} style={[styles.extraRow, compact && styles.vertical]}>
                     <Text style={styles.label}>{option.durationMinutes} min</Text>{priceInput(option)}
-                    <View style={styles.audienceCell}><SimpleDropdown disabled={saving} accessibilityLabel={`Disponibilidad de ${option.durationMinutes} minutos, ${modality.label}`} value={!option.isActive ? 'off' : option.isPublic ? 'public' : 'private'} options={visibility} onSelect={v => setVisibility(option, v)} /></View>
+                    <View style={styles.audienceCell}><SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Disponibilidad de ${option.durationMinutes} minutos, ${modality.label}`} value={!option.isActive ? 'off' : option.isPublic ? 'public' : 'private'} options={visibility} onSelect={v => setVisibility(option, v)} /></View>
                     <Button disabled={saving} size="small" variant="ghost" onPress={() => edit(option.id, { priceText: main.priceText })}>Copiar precio principal</Button>
                   </View>)}
                   {[45,50,60].filter(d => !options.some(o => o.durationMinutes === d)).map(d => <Button key={d} size="small" variant="ghost" onPress={() => setDraft(rows => [...rows, newOption(modality.type, d)])}>Añadir {d} min</Button>)}
@@ -189,24 +189,24 @@ export function ProfessionalTariffsScreen({ navigation }: ScreenProps<'Professio
 const createStyles = (t: Theme) => StyleSheet.create({
   root: { flex: 1, backgroundColor: t.bg }, flex: { flex: 1 },
   toolbar: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 24, borderBottomWidth: 1, borderBottomColor: t.border },
-  heading: { color: t.textPrimary, fontFamily: t.fontSans, fontSize: 22, fontWeight: '700', marginBottom: 6 },
-  title: { color: t.textPrimary, fontFamily: t.fontSans, fontSize: 16, fontWeight: '600' }, label: { color: t.textPrimary, fontFamily: t.fontSans, fontSize: 14, fontWeight: '600' },
+  heading: { color: t.textPrimary, fontFamily: t.fontSansBold, fontSize: 24, marginBottom: 6 },
+  title: { color: t.textPrimary, fontFamily: t.fontSansSemiBold, fontSize: 17 }, label: { color: t.textPrimary, fontFamily: t.fontSansSemiBold, fontSize: 14 },
   secondary: { color: t.textSecondary, fontFamily: t.fontSans, fontSize: 14, lineHeight: 21 }, small: { color: t.textSecondary, fontFamily: t.fontSans, fontSize: 12, lineHeight: 18 },
   scroll: { padding: spacing.lg, gap: 16, maxWidth: layout.contentMaxWidth + 48, width: '100%', alignSelf: 'center', paddingBottom: 48 },
   composition: { flexDirection: 'row', gap: 24, alignItems: 'flex-start' }, vertical: { flexDirection: 'column', alignItems: 'stretch' },
   editor: { flex: 1, gap: 20, minWidth: 0, width: '100%' }, surface: { backgroundColor: t.bgCard, borderWidth: 1, borderColor: t.border, borderRadius: borderRadius.xl, overflow: 'hidden' },
-  sectionTitle: { padding: 20, gap: 4 }, tableHeading: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: t.bgAlt },
+  sectionTitle: { padding: 20, gap: 4 }, tableHeading: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: t.bg },
   overline: { color: t.textSecondary, fontFamily: t.fontSans, fontSize: 10, fontWeight: '700', letterSpacing: 0.7 },
   modalitySection: { padding: 20, borderTopWidth: 1, borderTopColor: t.border, gap: 8 }, row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   modalityLabel: { flexDirection: 'row', alignItems: 'center', gap: 10 }, modalityCell: { width: 142 }, durationCell: { width: 120 }, priceCell: { width: 96 }, audienceCell: { flex: 1, minWidth: 160 },
   controls: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }, mobileControls: { width: '100%', flexWrap: 'wrap' },
-  priceInput: { flexDirection: 'row', alignItems: 'center', minHeight: 44, borderWidth: 1, borderColor: t.border, borderRadius: 8, paddingHorizontal: 10, backgroundColor: t.bg },
+  priceInput: { flexDirection: 'row', alignItems: 'center', minHeight: 48, borderWidth: 1, borderColor: t.border, borderRadius: 12, paddingHorizontal: 12, backgroundColor: t.bgElevated },
   input: { flex: 1, color: t.textPrimary, fontFamily: t.fontSans, fontSize: 16, minHeight: 42, minWidth: 0, padding: 0 }, rowActions: { alignItems: 'flex-start' },
   details: { gap: 12, paddingTop: 8 }, extraRow: { flexDirection: 'row', gap: 12, alignItems: 'center', flexWrap: 'wrap', paddingVertical: 8 },
   restriction: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   policy: { flexDirection: 'row', alignItems: 'center', gap: 20, paddingHorizontal: 4 },
-  preview: { backgroundColor: t.bgAlt, borderRadius: 16, padding: 24, gap: 8, width: '100%' }, previewHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  previewPrice: { color: t.primary, fontFamily: t.fontSans, fontSize: 30, fontWeight: '600', marginTop: 20 }, previewModality: { borderTopWidth: 1, borderTopColor: t.border, paddingTop: 16, marginTop: 12, gap: 8 },
+  preview: { backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 24, gap: 8, width: '100%' }, previewHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  previewPrice: { color: t.textPrimary, fontFamily: t.fontSansBold, fontSize: 36, marginTop: 20 }, previewModality: { borderTopWidth: 1, borderTopColor: t.borderLight, paddingTop: 16, marginTop: 12, gap: 8 },
   previewLine: { flexDirection: 'row', justifyContent: 'space-between' }, previewFooter: { borderTopWidth: 1, borderTopColor: t.border, paddingTop: 16, marginTop: 16, gap: 8 },
   freeNote: { color: t.primary, fontFamily: t.fontSans, fontSize: 13, lineHeight: 20, paddingTop: 16 }, loading: { padding: 48, alignItems: 'center', gap: 16 },
   feedback: { gap: 12, padding: 16, borderWidth: 1, borderColor: t.error, borderRadius: 12 }, error: { color: t.error, fontFamily: t.fontSans, fontSize: 13 }, success: { color: t.success, fontFamily: t.fontSans, fontSize: 14 },

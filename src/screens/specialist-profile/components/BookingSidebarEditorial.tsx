@@ -101,7 +101,7 @@ export const BookingSidebarEditorial: React.FC<BookingSidebarProps> = ({
           <Text style={styles.duration}>Sesión de {slotDuration} minutos</Text>
         </View>
 
-        {specialist.publicOptions?.length ? <SimpleDropdown accessibilityLabel="Modalidad y duración de tu sesión" value={optionId ?? null} options={specialist.publicOptions.map(o => ({ value: o.optionId, label: `${o.modality === 'VIDEO_CALL' ? 'Videollamada' : o.modality === 'IN_PERSON' ? 'Presencial' : 'Llamada'} · ${o.durationMinutes} min · ${formatPrivatePrice(o.priceCents)}` }))} onSelect={id => onOptionChange?.(String(id))} /> : null}
+        {specialist.publicOptions?.length ? <SimpleDropdown presentation="portal" highlightSelection={false} accessibilityLabel="Modalidad y duración de tu sesión" value={optionId ?? null} options={specialist.publicOptions.map(o => ({ value: o.optionId, label: `${o.modality === 'VIDEO_CALL' ? 'Videollamada' : o.modality === 'IN_PERSON' ? 'Presencial' : 'Llamada'} · ${o.durationMinutes} min · ${formatPrivatePrice(o.priceCents)}` }))} onSelect={id => onOptionChange?.(String(id))} /> : null}
 
         {specialist.firstVisitFree ? (
           <View style={styles.freeVisit}>

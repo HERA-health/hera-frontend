@@ -65,9 +65,9 @@ export function SimpleDropdown<T extends string | number>({
   highlightSelection = true,
   presentation = 'inline',
 }: SimpleDropdownProps<T>) {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const { height: viewportHeight, width: viewportWidth } = useWindowDimensions();
-  const dropdownStyles = React.useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const dropdownStyles = React.useMemo(() => createStyles(theme), [theme]);
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<DropdownAnchor | null>(null);
   const triggerRef = React.useRef<AnimatedPressableHandle>(null);
@@ -122,7 +122,7 @@ export function SimpleDropdown<T extends string | number>({
       viewportMargin,
       Math.min(preferredLeft, viewportWidth - width - viewportMargin),
     );
-    const estimatedHeight = Math.min(maxHeight, Math.max(48, options.length * 44));
+    const estimatedHeight = Math.min(maxHeight, Math.max(56, options.length * 48 + 12));
     const belowTop = anchor.y + anchor.height + spacing.xs;
     const availableBelow = Math.max(0, viewportHeight - belowTop - viewportMargin);
     const availableAbove = Math.max(0, anchor.y - viewportMargin - spacing.xs);
@@ -148,7 +148,7 @@ export function SimpleDropdown<T extends string | number>({
         !portal && optionsAlign === 'right' ? dropdownStyles.optionsListRight : null,
       ]}
     >
-      <VisibleScrollView nestedScrollEnabled bounces={false}>
+      <VisibleScrollView nestedScrollEnabled bounces={false} contentContainerStyle={dropdownStyles.optionsContent}>
         {options.map((opt) => {
           const active = opt.value === value;
           const indicatorRole = selectionIndicator === 'checkbox'
@@ -210,6 +210,7 @@ export function SimpleDropdown<T extends string | number>({
                     </Text>
                   ) : null}
                 </View>
+                {selectionIndicator === 'none' && active ? <Ionicons name="checkmark" size={18} color={theme.primary} /> : null}
               </View>
             </AnimatedPressable>
           );
@@ -231,6 +232,7 @@ export function SimpleDropdown<T extends string | number>({
             dropdownStyles.trigger,
             compact && dropdownStyles.triggerCompact,
             selectionHighlighted && dropdownStyles.triggerSelected,
+            open && dropdownStyles.triggerOpen,
           ]}
           onPress={() => {
             if (open) {
@@ -243,7 +245,7 @@ export function SimpleDropdown<T extends string | number>({
           hoverLift={false}
           pressScale={0.98}
         >
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text
               style={[
                 dropdownStyles.triggerText,
@@ -299,7 +301,7 @@ export function SimpleDropdown<T extends string | number>({
   );
 }
 
-function createStyles(theme: Theme, isDark: boolean) {
+function createStyles(theme: Theme) {
   return StyleSheet.create({
     container: {
       position: 'relative',
@@ -314,13 +316,14 @@ function createStyles(theme: Theme, isDark: boolean) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
+      backgroundColor: theme.bgElevated,
       borderWidth: 1,
       borderColor: theme.border,
       borderRadius: borderRadius.lg,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
       minHeight: 48,
+      gap: 12,
     },
     triggerText: {
       fontSize: typography.fontSizes.sm,
@@ -367,9 +370,10 @@ function createStyles(theme: Theme, isDark: boolean) {
       paddingVertical: 7,
     },
     triggerSelected: {
-      backgroundColor: theme.primaryAlpha12,
-      borderColor: theme.primary,
+      backgroundColor: theme.primaryMuted,
+      borderColor: theme.borderStrong,
     },
+    triggerOpen: { borderColor: theme.focus },
     triggerTextSelected: {
       color: theme.primary,
       fontFamily: theme.fontSansSemiBold,
@@ -393,9 +397,13 @@ function createStyles(theme: Theme, isDark: boolean) {
       top: 0,
     },
     option: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      minHeight: 48,
+      justifyContent: 'center',
+      borderRadius: 8,
     },
+    optionsContent: { padding: 6, gap: 2 },
     optionRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -423,7 +431,7 @@ function createStyles(theme: Theme, isDark: boolean) {
       borderRadius: 5,
     },
     optionActive: {
-      backgroundColor: theme.primaryAlpha12,
+      backgroundColor: theme.primaryMuted,
     },
     optionText: {
       fontSize: typography.fontSizes.sm,

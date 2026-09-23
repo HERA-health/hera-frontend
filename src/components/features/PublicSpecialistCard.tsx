@@ -211,16 +211,19 @@ export const PublicSpecialistCard: React.FC<PublicSpecialistCardProps> = ({
             </View>
           ) : null}
 
-          <View style={styles.directoryMetaRow}>
-            <View style={styles.directoryMetaItem}>
+          <View style={[styles.directoryMetaRow, { borderTopColor: theme.borderLight }]}>
+            {!specialist.publicOptions?.length ? <View style={styles.directoryMetaItem}>
               <Ionicons name="videocam-outline" size={14} color={theme.primary} />
               <Text style={[styles.directoryMetaText, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]} numberOfLines={1}>{modality}</Text>
-            </View>
-            {specialist.publicOptions && <View style={{ gap: 4, width: '100%' }}>{['VIDEO_CALL','IN_PERSON','PHONE_CALL'].map(type => {
+            </View> : null}
+            {!!specialist.publicOptions?.length && <View style={styles.directoryOffers}>{(['VIDEO_CALL','IN_PERSON','PHONE_CALL'] as const).map(type => {
               const options = specialist.publicOptions?.filter(o => o.modality === type) ?? [];
               if (!options.length) return null;
               const option = options.find(o => o.optionId === specialist.matchedOptionId) ?? options[0];
-              return <Text key={type} style={{ color: option.optionId === specialist.matchedOptionId ? theme.primary : theme.textSecondary, fontSize: 12 }}>{type === 'VIDEO_CALL' ? 'Videollamada' : type === 'IN_PERSON' ? 'Presencial' : 'Llamada'} · {formatPrice(option.priceCents / 100)} € / {option.durationMinutes} min{options.length > 1 ? ' · más duraciones' : ''}</Text>;
+              return <View key={type} style={styles.directoryOfferRow}>
+                <Ionicons name={type === 'VIDEO_CALL' ? 'videocam-outline' : type === 'IN_PERSON' ? 'location-outline' : 'call-outline'} size={16} color={theme.primary} />
+                <Text style={[styles.directoryOfferText, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]}>{type === 'VIDEO_CALL' ? 'Videollamada' : type === 'IN_PERSON' ? 'Presencial' : 'Llamada'} · {formatPrice(option.priceCents / 100)} € / {option.durationMinutes} min{options.length > 1 ? ' · más duraciones' : ''}</Text>
+              </View>;
             })}</View>}
             <Text style={[styles.directoryPrice, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>{new Set(specialist.publicOptions?.map(o => o.priceCents)).size > 1 ? 'Desde ' : ''}{specialist.pricePerSession === 0 ? 'Sin coste' : formatPrice(specialist.pricePerSession) + ' € / sesión'}</Text>
           </View>
@@ -289,6 +292,8 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   directoryCard: {
+    width: '100%',
+    minWidth: 0,
     borderWidth: 1,
     borderRadius: 18,
     overflow: 'hidden',
@@ -363,6 +368,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   directoryName: {
+    maxWidth: '100%',
+    flexShrink: 1,
     fontSize: 19,
     lineHeight: 24,
   },
@@ -427,12 +434,17 @@ const styles = StyleSheet.create({
   },
   directoryMetaRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
-    marginTop: 'auto',
-    paddingTop: 12,
+    gap: 16,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
   },
+  directoryOffers: { flexGrow: 1, flexShrink: 1, flexBasis: 240, minWidth: 0, gap: 8 },
+  directoryOfferRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  directoryOfferText: { flex: 1, minWidth: 0, fontSize: 13, lineHeight: 20 },
   directoryMetaItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -444,6 +456,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   directoryPrice: {
-    fontSize: 13,
+    fontSize: 17,
+    lineHeight: 24,
+    flexShrink: 0,
+    maxWidth: '100%',
   },
 });
