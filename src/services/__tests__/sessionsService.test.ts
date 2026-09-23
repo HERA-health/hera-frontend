@@ -229,7 +229,8 @@ describe('sessionsService.getBookingQuote', () => {
     ]);
 
     expect(mockedApi.get).toHaveBeenCalledWith(
-      '/specialists/specialist-1/available-slots?date=2026-06-15'
+      '/specialists/specialist-1/available-slots?date=2026-06-15',
+      { params: { optionId: undefined } }
     );
   });
 });

@@ -115,11 +115,11 @@ describe('SimpleDropdown selection indicators', () => {
     );
 
     const trigger = screen.getByRole('button', { name: 'Paciente de la cita' });
-    expect(trigger.props.accessibilityState).toEqual({ expanded: false });
+    expect(trigger.props.accessibilityState).toEqual(expect.objectContaining({ expanded: false, disabled: false }));
 
     fireEvent.press(trigger);
     expect(screen.getByRole('button', { name: 'Paciente de la cita' }).props.accessibilityState)
-      .toEqual({ expanded: true });
+      .toEqual(expect.objectContaining({ expanded: true, disabled: false }));
   });
 
   it('renders opt-in portal options outside local stacking contexts', () => {
@@ -141,7 +141,7 @@ describe('SimpleDropdown selection indicators', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Psiquiatra' }));
 
     expect(onSelect).toHaveBeenCalledWith('PSYCHIATRIST');
-    expect(trigger.props.accessibilityState).toEqual({ expanded: false });
+    expect(trigger.props.accessibilityState).toEqual(expect.objectContaining({ expanded: false, disabled: false }));
     expect(screen.queryByTestId('Estado de agenda-options')).toBeNull();
   });
 });

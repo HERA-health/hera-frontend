@@ -16,6 +16,10 @@ jest.mock('expo-web-browser', () => ({
   openBrowserAsync: jest.fn(),
 }));
 
+jest.mock('../heraCommissionService', () => ({
+  durableCommandKey: jest.fn(async () => ({ commandKey: 'fixture-booking-command' })),
+}));
+
 jest.mock('react-native', () => ({
   Platform: { OS: 'web' },
 }));

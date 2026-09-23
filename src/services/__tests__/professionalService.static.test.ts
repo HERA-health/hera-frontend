@@ -7,7 +7,7 @@ describe('professionalService schedule update contract', () => {
   const source = fs.readFileSync(servicePath, 'utf8');
 
   it('calls the backend schedule endpoint through the professional update route', () => {
-    expect(source).toContain('api.put(`/sessions/${sessionId}/schedule`, data)');
+    expect(source).toContain('api.put(`/sessions/${sessionId}/schedule`, { ...data, commandKey })');
     expect(source).not.toContain('Reinicia o actualiza el backend');
   });
 });
