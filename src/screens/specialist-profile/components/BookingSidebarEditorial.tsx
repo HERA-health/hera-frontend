@@ -101,7 +101,7 @@ export const BookingSidebarEditorial: React.FC<BookingSidebarProps> = ({
           <Text style={styles.duration}>Sesión de {slotDuration} minutos</Text>
         </View>
 
-        {specialist.publicOptions?.length ? <SimpleDropdown presentation="portal" highlightSelection={false} accessibilityLabel="Modalidad y duración de tu sesión" value={optionId ?? null} options={specialist.publicOptions.map(o => ({ value: o.optionId, label: `${o.modality === 'VIDEO_CALL' ? 'Videollamada' : o.modality === 'IN_PERSON' ? 'Presencial' : 'Llamada'} · ${o.durationMinutes} min · ${formatPrivatePrice(o.priceCents)}` }))} onSelect={id => onOptionChange?.(String(id))} /> : null}
+        {specialist.publicOptions?.length ? <View style={styles.optionSelector}><SimpleDropdown presentation="portal" highlightSelection={false} accessibilityLabel="Modalidad y duración de tu sesión" value={optionId ?? null} options={specialist.publicOptions.map(o => ({ value: o.optionId, label: `${o.modality === 'VIDEO_CALL' ? 'Videollamada' : o.modality === 'IN_PERSON' ? 'Presencial' : 'Llamada'} · ${o.durationMinutes} min · ${formatPrivatePrice(o.priceCents)}` }))} onSelect={id => onOptionChange?.(String(id))} /></View> : null}
 
         {specialist.firstVisitFree ? (
           <View style={styles.freeVisit}>
@@ -246,8 +246,9 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   priceRow: { marginTop: spacing.xs, flexDirection: 'row', alignItems: 'baseline', gap: 4 },
   price: { fontSize: 34, lineHeight: 40, fontFamily: theme.fontHeading, color: theme.textPrimary },
   priceSuffix: { fontSize: 14, fontFamily: theme.fontSans, color: theme.textSecondary },
-  durationRow: { marginTop: 2, flexDirection: 'row', alignItems: 'center', gap: 5 },
-  duration: { fontSize: 12, color: theme.textSecondary },
+  durationRow: { marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  duration: { fontSize: 12, lineHeight: 18, fontFamily: theme.fontSans, color: theme.textSecondary },
+  optionSelector: { marginTop: spacing.md },
   freeVisit: {
     marginTop: spacing.md,
     padding: spacing.md,

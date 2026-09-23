@@ -1174,8 +1174,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         officeLocation={officeLocation}
       />
 
-      {(bookingOptions.filter(o => o.modality === sessionType).length > 1 || sessionType === 'PHONE_CALL') && <View style={{ paddingVertical: 12, gap: 12 }}>
-        {bookingOptions.filter(o => o.modality === sessionType).length > 1 && <SimpleDropdown accessibilityLabel="Duración y precio de la sesión" value={selectedOptionId ?? null} options={bookingOptions.filter(o => o.modality === sessionType).map(o => ({ value: o.id, label: o.durationMinutes + ' min · ' + formatPrivatePrice(o.priceCents) }))} onSelect={setSelectedOptionId} />}
+      {(bookingOptions.filter(o => o.modality === sessionType).length > 1 || sessionType === 'PHONE_CALL') && <View style={{ paddingVertical: spacing.md, gap: spacing.md }}>
+        {bookingOptions.filter(o => o.modality === sessionType).length > 1 && <SimpleDropdown presentation="portal" highlightSelection={false} accessibilityLabel="Duración y precio de la sesión" value={selectedOptionId ?? null} options={bookingOptions.filter(o => o.modality === sessionType).map(o => ({ value: o.id, label: o.durationMinutes + ' min · ' + formatPrivatePrice(o.priceCents) }))} onSelect={setSelectedOptionId} />}
         {sessionType === 'PHONE_CALL' && <View style={{ gap: 8 }}><Text style={{ color: theme.textPrimary }}>Tu especialista te llamará al número indicado a la hora de la cita.</Text><TextInput accessibilityLabel="Teléfono para esta cita" value={sessionPhone} onChangeText={setSessionPhone} keyboardType="phone-pad" placeholder="+34 600 000 000" placeholderTextColor={theme.textSecondary} style={{ color: theme.textPrimary, minHeight: 44, borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 12 }} /></View>}
       </View>}
       <View style={styles.scheduleSection}>
