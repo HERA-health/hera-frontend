@@ -9,6 +9,14 @@ import * as sessionsService from '../../../services/sessionsService';
 import * as specialistsService from '../../../services/specialistsService';
 import { BookingScreen } from '../BookingScreen';
 
+jest.mock('../../../services/privateCatalogService', () => ({
+  loadPublicBookingOptions: jest.fn(async () => {
+    const profile = require('../../../services/specialistsService').mapPublicSpecialistToProfile();
+    return ['VIDEO_CALL','IN_PERSON'].filter(type => type === 'VIDEO_CALL' ? profile.offersOnline !== false : profile.offersInPerson === true).map(modality => ({id:modality,modality,durationMinutes:profile.slotDuration ?? 60,priceCents:6000,isActive:true,isPublic:true,isPreferred:true}));
+  }),
+}));
+jest.mock('../../../services/heraCommissionService', () => ({durableCommandKey:jest.fn(async()=>({commandKey:'fixture-command'}))}));
+
 jest.mock('../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
 }));
@@ -30,6 +38,7 @@ jest.mock('../../../services/sessionsService', () => ({
   createPublicSession: jest.fn(),
   requestPublicBooking: jest.fn(),
   verifyPublicBooking: jest.fn(),
+  verifyPublicBookingQuote: jest.fn(async () => ({price:60,basePrice:60,currency:'EUR',quoteReference:'fixture-quote'})),
 }));
 
 jest.mock('../../../services/referralService', () => ({
@@ -164,6 +173,7 @@ describe('BookingScreen initial slot preselection', () => {
       },
     } as unknown as ReturnType<typeof useAuth>);
     mockedSessionsService.getBookingQuote.mockResolvedValue({
+      quoteReference:'fixture-quote',
       specialistId: 'specialist-1',
       duration: 60,
       currency: 'EUR',
@@ -175,6 +185,7 @@ describe('BookingScreen initial slot preselection', () => {
       firstVisitFreeApplied: false,
     });
     mockedSessionsService.getPublicBookingQuote.mockResolvedValue({
+      quoteReference:'fixture-quote',
       specialistId: 'specialist-1',
       duration: 60,
       currency: 'EUR',
@@ -210,7 +221,8 @@ describe('BookingScreen initial slot preselection', () => {
 
     expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledWith(
       'specialist-1',
-      '2026-06-25'
+      '2026-06-25',
+      'VIDEO_CALL'
     );
     expect(mockedShowAppAlert).not.toHaveBeenCalledWith(
       expect.anything(),
@@ -419,7 +431,8 @@ describe('BookingScreen initial slot preselection', () => {
       { startTime: '10:00', endTime: '11:00', available: true },
     ]);
     mockedSessionsService.requestPublicBooking.mockResolvedValue({ requestId: 'request-fixture', expiresAt: '2026-06-26T11:00:00Z' });
-    mockedSessionsService.verifyPublicBooking.mockRejectedValueOnce(new Error('Código incorrecto')).mockResolvedValue({ id: 'session-fixture', status: 'PENDING' });
+    mockedSessionsService.verifyPublicBookingQuote.mockRejectedValueOnce(new Error('Código incorrecto'));
+    mockedSessionsService.verifyPublicBooking.mockResolvedValue({ id: 'session-fixture', status: 'PENDING' });
 
     render(
       <BookingScreen
@@ -437,18 +450,20 @@ describe('BookingScreen initial slot preselection', () => {
     const code = await screen.findByLabelText('Código de verificación del correo');
     const confirmation = within(screen.getByTestId('booking-contact-confirmation'));
     expect(confirmation.getByLabelText('Código de verificación del correo')).toBeTruthy();
-    expect(confirmation.getByRole('button', { name: 'Confirmar cita' })).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: 'Confirmar cita' })).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Confirmar cita' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Verificar y revisar precio' })).toBeDisabled();
     fireEvent.changeText(code, '123');
-    expect(screen.getByRole('button', { name: 'Confirmar cita' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Verificar y revisar precio' })).toBeDisabled();
     expect(mockedSessionsService.verifyPublicBooking).not.toHaveBeenCalled();
     expect(mockedSessionsService.createPublicSession).not.toHaveBeenCalled();
     fireEvent.changeText(code, '123456');
-    expect(screen.getByRole('button', { name: 'Confirmar cita' })).toBeEnabled();
-    fireEvent.press(await screen.findByText('Confirmar cita'));
-    await waitFor(() => expect(mockedSessionsService.verifyPublicBooking).toHaveBeenCalledTimes(1));
+    fireEvent.press(screen.getByText('Verificar y revisar precio'));
+    await waitFor(() => expect(mockedSessionsService.verifyPublicBookingQuote).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockedShowAppAlert).toHaveBeenCalledWith(expect.anything(), expect.any(String), 'Código incorrecto'));
     expect(screen.getByDisplayValue('123456')).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Verificar y revisar precio' })).toBeEnabled());
+    fireEvent.press(screen.getByText('Verificar y revisar precio'));
+    await screen.findByText('Confirmar cita');
+    expect(mockedSessionsService.verifyPublicBooking).not.toHaveBeenCalled();
     fireEvent.press(screen.getByText('Confirmar cita'));
 
     expect(await screen.findByText('Solicitud enviada')).toBeTruthy();
@@ -474,7 +489,8 @@ describe('BookingScreen initial slot preselection', () => {
     fireEvent.press(screen.getByLabelText('Autorizar el uso de datos para gestionar la cita'));
     fireEvent.press(await screen.findByText('Continuar con mi reserva'));
     fireEvent.changeText(await screen.findByLabelText('Código de verificación del correo'), '123456');
-    fireEvent.press(screen.getByText('Confirmar cita'));
+    fireEvent.press(screen.getByText('Verificar y revisar precio'));
+    fireEvent.press(await screen.findByText('Confirmar cita'));
     await waitFor(() => expect(mockedShowAppAlert).toHaveBeenCalledWith(expect.anything(), expect.any(String), message));
     expect(screen.queryByText('Solicitud enviada')).toBeNull();
     expect(screen.getByDisplayValue('fixture@example.invalid')).toBeTruthy();
@@ -483,11 +499,12 @@ describe('BookingScreen initial slot preselection', () => {
     fireEvent.press(await screen.findByText('select-slot'));
     fireEvent.press(screen.getByText('Continuar con mi reserva'));
     fireEvent.changeText(await screen.findByLabelText('Código de verificación del correo'), '654321');
-    fireEvent.press(screen.getByText('Confirmar cita'));
+    fireEvent.press(screen.getByText('Verificar y revisar precio'));
+    fireEvent.press(await screen.findByText('Confirmar cita'));
     await screen.findByText('Solicitud enviada');
     expect(mockedSessionsService.requestPublicBooking).toHaveBeenCalledTimes(2);
     expect(mockedSessionsService.requestPublicBooking.mock.calls[1][0].date).not.toBe(mockedSessionsService.requestPublicBooking.mock.calls[0][0].date);
-    expect(mockedSessionsService.verifyPublicBooking).toHaveBeenLastCalledWith('replacement-request', '654321');
+    expect(mockedSessionsService.verifyPublicBooking).toHaveBeenLastCalledWith('replacement-request', '654321', 'fixture-quote');
   });
 
   it('blocks booking from an authenticated non-patient account with a clear notice', async () => {

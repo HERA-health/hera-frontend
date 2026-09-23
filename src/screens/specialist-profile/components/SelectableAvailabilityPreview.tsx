@@ -11,6 +11,7 @@ import type { SelectedProfileSlot } from '../types';
 
 interface SelectableAvailabilityPreviewProps {
   specialistId: string;
+  optionId?: string;
   nextAvailable?: string | null;
   canBook?: boolean;
   selectedSlot?: SelectedProfileSlot | null;
@@ -52,6 +53,7 @@ const getDayNumberLabel = (dateKey: string): string =>
 
 export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPreviewProps> = ({
   specialistId,
+  optionId,
   nextAvailable,
   canBook = true,
   selectedSlot,
@@ -98,7 +100,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
       setLoadingDate(selectedDate);
       setErrorDate(null);
       try {
-        const slots = await sessionsService.getAvailableSlots(specialistId, selectedDate);
+        const slots = await sessionsService.getAvailableSlots(specialistId, selectedDate, optionId);
         if (!active) return;
         setSlotCache((current) => ({
           ...current,
@@ -115,7 +117,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
     };
     void loadSlots();
     return () => { active = false; };
-  }, [canBook, selectedDate, slotCache, specialistId]);
+  }, [canBook, selectedDate, slotCache, specialistId, optionId]);
 
   if (!canBook) return null;
 

@@ -3219,6 +3219,7 @@ export function SpecialistProfileScreen() {
       )}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Resumen de facturación</Text>
+        <Button variant="outline" onPress={() => navigation.navigate('ProfessionalTariffs')}>Gestionar tarifas y servicios</Button>
         <View style={styles.formCard}>
           <View style={styles.billingSummaryHeader}>
             <View style={styles.billingSummaryIcon}>
@@ -3227,7 +3228,7 @@ export function SpecialistProfileScreen() {
             <View style={styles.billingSummaryCopy}>
               <Text style={styles.billingSummaryTitle}>La facturación se gestiona desde su pantalla dedicada</Text>
               <Text style={styles.billingSummaryText}>
-                Las tarifas públicas, datos fiscales, IBAN, IVA y numeración de facturas se guardan en Facturación.
+                Los precios y modalidades se gestionan en Tarifas y servicios. Los datos fiscales, IBAN y numeración permanecen en Facturación.
               </Text>
             </View>
           </View>
@@ -3239,25 +3240,6 @@ export function SpecialistProfileScreen() {
             </View>
           ) : (
             <>
-              <View style={styles.billingMetricsGrid}>
-                <View style={styles.billingMetricCard}>
-                  <Text style={styles.billingMetricLabel}>Tarifa pública</Text>
-                  <Text style={styles.billingMetricValue}>
-                    {formatBillingAmount(defaultBillingTariff?.price ?? billingConfig?.pricePerSession)}
-                  </Text>
-                  <Text style={styles.billingMetricHint}>
-                    {defaultBillingTariff
-                      ? `${defaultBillingTariff.name} · ${defaultBillingTariff.durationMinutes} min`
-                      : 'Sin tarifa por defecto'}
-                  </Text>
-                </View>
-                <View style={styles.billingMetricCard}>
-                  <Text style={styles.billingMetricLabel}>Tarifas activas</Text>
-                  <Text style={styles.billingMetricValue}>{activeBillingTariffs.length}</Text>
-                  <Text style={styles.billingMetricHint}>Gestionadas en Facturación</Text>
-                </View>
-              </View>
-
               <View style={styles.billingStatusList}>
                 <View style={styles.billingStatusRow}>
                   <Ionicons

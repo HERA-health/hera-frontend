@@ -2,6 +2,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useMemo } from 'react';
 import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { AnimatedPressable, Button } from '../../../components/common';
+import { SimpleDropdown } from '../../../components/common/SimpleDropdown';
+import { formatPrivatePrice } from '../../../utils/privateTariff';
 import { LocationMapPreview } from '../../../components/location';
 import { borderRadius, spacing } from '../../../constants/colors';
 import type { Theme } from '../../../constants/theme';
@@ -37,6 +39,8 @@ const resolveMadridDateKey = (value?: string | null): string | null => {
 
 export const BookingSidebarEditorial: React.FC<BookingSidebarProps> = ({
   specialist,
+  optionId,
+  onOptionChange,
   onBookPress,
   selectedSlot,
   onSlotChange,
@@ -89,13 +93,15 @@ export const BookingSidebarEditorial: React.FC<BookingSidebarProps> = ({
       <View style={styles.summary}>
         <Text style={styles.summaryEyebrow}>TU SESIÓN</Text>
         <View style={styles.priceRow}>
-          <Text style={styles.price}>{specialist.pricePerSession}€</Text>
+          <Text style={styles.price}>{formatPrivatePrice(Math.round(specialist.pricePerSession * 100))}</Text>
           <Text style={styles.priceSuffix}>/ sesión</Text>
         </View>
         <View style={styles.durationRow}>
           <Ionicons name="time-outline" size={14} color={theme.textSecondary} />
           <Text style={styles.duration}>Sesión de {slotDuration} minutos</Text>
         </View>
+
+        {specialist.publicOptions?.length ? <SimpleDropdown accessibilityLabel="Modalidad y duración de tu sesión" value={optionId ?? null} options={specialist.publicOptions.map(o => ({ value: o.optionId, label: `${o.modality === 'VIDEO_CALL' ? 'Videollamada' : o.modality === 'IN_PERSON' ? 'Presencial' : 'Llamada'} · ${o.durationMinutes} min · ${formatPrivatePrice(o.priceCents)}` }))} onSelect={id => onOptionChange?.(String(id))} /> : null}
 
         {specialist.firstVisitFree ? (
           <View style={styles.freeVisit}>
@@ -143,6 +149,8 @@ export const BookingSidebarEditorial: React.FC<BookingSidebarProps> = ({
       {canBook ? (
         <View style={styles.availabilitySection}>
           <SelectableAvailabilityPreview
+            key={optionId}
+            optionId={optionId}
             specialistId={specialist.id}
             nextAvailable={specialist.nextAvailable}
             canBook={canBook}

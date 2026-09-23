@@ -12,6 +12,10 @@ import * as availabilityService from '../../../services/availabilityService';
 import { billingService } from '../../../services/billingService';
 import { ProfessionalAvailabilityScreen } from '../ProfessionalAvailabilityScreen';
 
+jest.mock('../../../navigation/professionalNavigation', () => ({
+  navigateProfessionalSection: jest.fn((navigation: { navigate: (route: string) => void }, route: string) => navigation.navigate(route)),
+}));
+
 jest.mock('react-native-calendars', () => ({
   Calendar: ({ onDayPress }: { onDayPress?: (day: { dateString: string }) => void }) => {
     const React = require('react');
@@ -150,7 +154,7 @@ describe('ProfessionalAvailabilityScreen', () => {
     jest.clearAllMocks();
   });
 
-  it('keeps availability usable when billing config fails to load', async () => {
+  it('loads availability independently of billing and links to tariffs', async () => {
     const props = {
       navigation: { navigate: jest.fn() },
     } as unknown as React.ComponentProps<typeof ProfessionalAvailabilityScreen>;
@@ -160,7 +164,10 @@ describe('ProfessionalAvailabilityScreen', () => {
     await waitFor(() => {
       expect(screen.getAllByText('No disponible').length).toBeGreaterThan(0);
     }, { timeout: 3000 });
-    expect(screen.getByText('No se pudo cargar la configuración de facturación')).toBeTruthy();
+    expect(mockedBillingService.getConfig).not.toHaveBeenCalled();
+    expect(screen.getByText('Duración según la opción reservada')).toBeTruthy();
+    fireEvent.press(screen.getByText('Tarifas y servicios'));
+    expect(props.navigation.navigate).toHaveBeenCalledWith('ProfessionalTariffs');
     await waitFor(() => {
       expect(mockedAvailabilityService.getMyWeeklyScheduleSnapshot).toHaveBeenCalled();
     });

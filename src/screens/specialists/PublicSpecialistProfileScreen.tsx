@@ -44,7 +44,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const canBook = specialist
-    ? specialist.offersOnline !== false || specialist.offersInPerson === true
+    ? specialist.offersOnline !== false || specialist.offersInPerson === true || specialist.offersPhone === true
     : false;
   const hasIndexableProfile = Boolean(
     !loading
@@ -100,7 +100,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     return () => { profileRequestRef.current += 1; };
   }, [loadSpecialistDetails]));
 
-  const handleBookSession = useCallback((selectedSlot?: SelectedProfileSlot) => {
+  const handleBookSession = useCallback((selectedSlot?: SelectedProfileSlot, optionId?: string) => {
     if (!specialist) return;
     if (!canBook) {
       showAppAlert(
@@ -122,6 +122,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
 
     const params: RootStackParamList['Booking'] = {
       specialistId: specialist.id,
+      optionId,
       intentToken: route.params?.intentToken,
       ...(selectedSlot ? {
         initialDate: selectedSlot.date,
@@ -256,6 +257,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
       {renderHeader()}
       {professionalBanner}
       <SpecialistProfileLayout
+        initialOptionId={route.params?.optionId}
         specialist={specialist}
         reviews={reviews}
         reviewsVisible={reviewsVisible}

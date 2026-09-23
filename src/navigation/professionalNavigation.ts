@@ -3,7 +3,7 @@ import type { RootStackParamList } from '../constants/types';
 
 const sections = [
   'ProfessionalHome', 'ProfessionalClients', 'ProfessionalSessions',
-  'ProfessionalBilling', 'ProfessionalDashboard', 'ProfessionalAvailability',
+  'ProfessionalTariffs', 'ProfessionalBilling', 'ProfessionalDashboard', 'ProfessionalAvailability',
   'ProfessionalProfile', 'ProfessionalHelp', 'ProfessionalClinicWorkspace',
 ] as const;
 

@@ -104,6 +104,9 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         tourTargetId: 'professional.nav.sessions',
       },
       {
+        id: 'tariffs', label: 'Tarifas y servicios', icon: 'pricetags-outline', iconActive: 'pricetags', route: 'ProfessionalTariffs', roles: ['PROFESSIONAL'],
+      },
+      {
         id: 'billing',
         label: 'Facturación',
         icon: 'receipt-outline',

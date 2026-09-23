@@ -34,7 +34,8 @@ interface SpecialistProfileLayoutProps {
   isAuthenticated: boolean;
   isClient: boolean;
   onBrowseSpecialists: () => void;
-  onBookSession: (selectedSlot?: SelectedProfileSlot) => void;
+  initialOptionId?: string;
+  onBookSession: (selectedSlot?: SelectedProfileSlot, optionId?: string) => void;
   onOpenCertificate: (certificate: CertificateItem) => void;
   onReviewSubmitted: () => void;
 }
@@ -50,7 +51,8 @@ interface SlotSelectionState {
 }
 
 export const SpecialistProfileLayout: React.FC<SpecialistProfileLayoutProps> = ({
-  specialist,
+  specialist: sourceSpecialist,
+  initialOptionId,
   reviews,
   affinity,
   reviewsVisible = true,
@@ -62,6 +64,9 @@ export const SpecialistProfileLayout: React.FC<SpecialistProfileLayoutProps> = (
   onOpenCertificate,
   onReviewSubmitted,
 }) => {
+  const [optionId, setOptionId] = useState(initialOptionId);
+  const option = sourceSpecialist.publicOptions?.find(o => o.optionId === optionId) ?? sourceSpecialist.publicOptions?.[0];
+  const specialist = option ? { ...sourceSpecialist, pricePerSession: option.priceCents / 100, slotDuration: option.durationMinutes } : sourceSpecialist;
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
@@ -108,10 +113,12 @@ export const SpecialistProfileLayout: React.FC<SpecialistProfileLayoutProps> = (
 
   const booking = (
     <BookingSidebarEditorial
+      optionId={option?.optionId}
+      onOptionChange={id => { setOptionId(id); handleSlotChange(null); }}
       specialist={specialist}
       selectedSlot={selectedSlot}
       onSlotChange={handleSlotChange}
-      onBookPress={() => onBookSession(selectedSlot ?? undefined)}
+      onBookPress={() => onBookSession(selectedSlot ?? undefined, option?.optionId)}
       canBook={canBook}
       onCtaLayout={(y, height) => setCtaLayout({ y, height })}
     />
@@ -155,7 +162,7 @@ export const SpecialistProfileLayout: React.FC<SpecialistProfileLayoutProps> = (
             <ProfileHeroEditorial
               specialist={specialist}
               affinity={affinity}
-              onBookPress={() => onBookSession(selectedSlot ?? undefined)}
+              onBookPress={() => onBookSession(selectedSlot ?? undefined, option?.optionId)}
               onRatingPress={handleScrollToReviews}
               gradientColors={gradientColors}
               onSharePress={() => void shareProfile()}
@@ -260,7 +267,7 @@ export const SpecialistProfileLayout: React.FC<SpecialistProfileLayoutProps> = (
           pricePerSession={specialist.pricePerSession}
           firstVisitFree={specialist.firstVisitFree}
           selectedSlot={selectedSlot}
-          onBookPress={() => onBookSession(selectedSlot ?? undefined)}
+          onBookPress={() => onBookSession(selectedSlot ?? undefined, option?.optionId)}
           visible={showStickyBar}
           canBook={canBook}
         />

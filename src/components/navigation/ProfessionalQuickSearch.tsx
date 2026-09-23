@@ -26,6 +26,7 @@ type QuickNavigationRoute =
   | 'ProfessionalSessions'
   | 'ProfessionalClients'
   | 'ProfessionalBilling'
+  | 'ProfessionalTariffs'
   | 'ProfessionalDashboard'
   | 'ProfessionalAvailability';
 
@@ -40,6 +41,7 @@ const NAVIGATION_RESULTS: NavigationResult[] = [
   { label: 'Inicio', description: 'Resumen de tu día', icon: 'home-outline', route: 'ProfessionalHome' },
   { label: 'Agenda', description: 'Día, semana, mes y lista', icon: 'calendar-outline', route: 'ProfessionalSessions' },
   { label: 'Pacientes', description: 'Gestión de pacientes', icon: 'people-outline', route: 'ProfessionalClients' },
+  { label: 'Tarifas y servicios', description: 'Precios, modalidades y duraciones', icon: 'pricetags-outline', route: 'ProfessionalTariffs' },
   { label: 'Facturación', description: 'Facturas y configuración', icon: 'receipt-outline', route: 'ProfessionalBilling' },
   { label: 'Estadísticas', description: 'Actividad e ingresos', icon: 'stats-chart-outline', route: 'ProfessionalDashboard' },
   { label: 'Disponibilidad', description: 'Configura tu horario base', icon: 'time-outline', route: 'ProfessionalAvailability' },
@@ -154,6 +156,7 @@ export function ProfessionalQuickSearch({
       case 'ProfessionalHome': navigateProfessionalSection(navigation, 'ProfessionalHome'); break;
       case 'ProfessionalSessions': navigateProfessionalSection(navigation, 'ProfessionalSessions'); break;
       case 'ProfessionalClients': navigateProfessionalSection(navigation, 'ProfessionalClients'); break;
+      case 'ProfessionalTariffs': navigateProfessionalSection(navigation, 'ProfessionalTariffs'); break;
       case 'ProfessionalBilling': navigateProfessionalSection(navigation, 'ProfessionalBilling'); break;
       case 'ProfessionalDashboard': navigateProfessionalSection(navigation, 'ProfessionalDashboard'); break;
       case 'ProfessionalAvailability': navigateProfessionalSection(navigation, 'ProfessionalAvailability'); break;

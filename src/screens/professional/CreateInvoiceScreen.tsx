@@ -1,3 +1,4 @@
+import { getProfessionalSessionDetail } from '../../services/professionalService';
 import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
@@ -237,13 +238,15 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   const [issueDate, setIssueDate] = useState(formatDateForDisplay(new Date()));
   const [ivaIncluded, setIvaIncluded] = useState(true);
   const [invoiceNumberPreview, setInvoiceNumberPreview] = useState('');
+  const [sessionAgreement, setSessionAgreement] = useState<{ total: number; vatRate: number; baseImponible: number; vatAmount: number } | null>(null);
   const [allowsZeroTotal, setAllowsZeroTotal] = useState(false);
 
   // ── Derived ──
   const vatRate = useMemo(() => {
+    if (sessionAgreement) return sessionAgreement.vatRate;
     if (!billingConfig) return 0;
     return billingConfig.applyVat ? (billingConfig.vatRate ?? 21) : 0;
-  }, [billingConfig]);
+  }, [billingConfig, sessionAgreement]);
 
   const activeTariffs = useMemo(() => {
     if (!billingConfig?.tariffs) return [];
@@ -278,6 +281,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   }, [lineItems]);
 
   const ivaCalculation = useMemo(() => {
+    if (sessionAgreement) return { baseImponible:sessionAgreement.baseImponible, ivaAmount:sessionAgreement.vatAmount, total:sessionAgreement.total, isExempt:sessionAgreement.vatRate === 0 };
     if (vatRate === 0) {
       return {
         baseImponible: subtotalLines,
@@ -308,7 +312,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
         isExempt: false,
       };
     }
-  }, [subtotalLines, vatRate, ivaIncluded]);
+  }, [subtotalLines, vatRate, ivaIncluded, sessionAgreement]);
 
   const navigateAfterSave = useCallback(() => {
     if (sessionContext && navigation.canGoBack()) {
@@ -384,6 +388,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
           setInvoiceKind(existing.invoiceKind);
           setInvoiceNumberPreview(existing.invoiceNumber);
           setAllowsZeroTotal(existing.total === 0);
+          if (existing.sessionId) setSessionAgreement({total:existing.total,vatRate:existing.vatRate,baseImponible:existing.baseImponible ?? existing.total-existing.vatAmount,vatAmount:existing.vatAmount});
 
           // Build line item from existing data
           const dateStr = existing.sessionDate
@@ -448,6 +453,14 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
           }]);
         }
       }
+      if (sessionContext) {
+        const detail = await getProfessionalSessionDetail(sessionContext.sessionId);
+        if (detail.price.amount == null) throw new Error('La cita no tiene un importe acordado.');
+        setSelectedClientId(detail.clientId);
+        setLineItems([{id:generateId(),concept:detail.price.tariffName ?? STRINGS.defaultConcept,date:formatDateForDisplay(new Date(detail.date)),durationMinutes:detail.bookedDuration ?? detail.duration,unitPrice:String(detail.price.amount)}]);
+        setIvaIncluded(true); setAllowsZeroTotal(detail.price.amount === 0);
+        if (detail.fiscalSnapshot) setSessionAgreement({total:detail.price.amount,vatRate:detail.fiscalSnapshot.vatBasisPoints/100,baseImponible:detail.fiscalSnapshot.baseCents/100,vatAmount:detail.fiscalSnapshot.taxCents/100});
+      }
     } catch (error) {
       showAppAlert(appAlert, 'Error', 'No se pudieron cargar los datos');
     } finally {
@@ -497,6 +510,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   }, []);
 
   const applyTariff = useCallback((tariff: TariffItem) => {
+    if (sessionAgreement) return;
     setLineItems((prev) => {
       const updated = [...prev];
       // Apply to first empty line or the last line
@@ -510,7 +524,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
       };
       return updated;
     });
-  }, []);
+  }, [sessionAgreement]);
 
   // ── Save / Send ──
   const handleSave = useCallback(
@@ -588,7 +602,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
             clientId: selectedClientId,
             invoiceKind,
             concept,
-            subtotal: ivaIncluded ? ivaCalculation.baseImponible : totalAmount,
+            subtotal: sessionAgreement ? sessionAgreement.baseImponible : ivaIncluded ? ivaCalculation.baseImponible : totalAmount,
             vatRate,
             vatAmount: ivaCalculation.ivaAmount,
             sessionDate: sessionDateISO,
@@ -605,7 +619,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
             sessionId: sessionContext?.sessionId || undefined,
             invoiceKind,
             concept,
-            subtotal: ivaIncluded ? ivaCalculation.baseImponible : totalAmount,
+            subtotal: sessionAgreement ? sessionAgreement.total : ivaIncluded ? ivaCalculation.baseImponible : totalAmount,
             vatRate,
             vatAmount: ivaCalculation.ivaAmount,
             sessionDate: sessionDateISO,
@@ -640,6 +654,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
       selectedClientId,
       lineItems,
       ivaIncluded,
+      sessionAgreement,
       ivaCalculation,
       vatRate,
       isEditing,
@@ -916,6 +931,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
         <View style={styles.lineDeleteCol} />
       </View>
 
+      {!!sessionAgreement && <Text style={styles.summaryLabel}>Precio y fiscalidad acordados en la cita</Text>}
       {/* Line items */}
       {lineItems.map((item, index) => (
         <View
@@ -950,9 +966,9 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
           {/* Duration */}
           <View style={[styles.lineDurationCol, { zIndex: 999, overflow: 'visible' as const }]}>
             <SimpleDropdown
-              options={DURATION_OPTIONS}
+              options={sessionAgreement ? [{label: `${item.durationMinutes} min`,value:item.durationMinutes}] : DURATION_OPTIONS}
               value={item.durationMinutes}
-              onSelect={(v) => updateLineItem(item.id, 'durationMinutes', v)}
+              onSelect={(v) => { if (!sessionAgreement) updateLineItem(item.id, 'durationMinutes', v); }}
               placeholder="Min"
             />
           </View>
@@ -961,7 +977,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
           <View style={styles.linePriceCol}>
             <TextInput
               style={styles.lineInput}
-              value={item.unitPrice}
+              editable={!sessionAgreement} value={item.unitPrice}
               onChangeText={(v) => updateLineItem(item.id, 'unitPrice', v)}
               placeholder="0,00"
               placeholderTextColor={theme.textMuted}
@@ -987,7 +1003,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
         </View>
       ))}
 
-      <AnimatedPressable style={styles.addLineBtn} onPress={addLineItem} hoverLift={false} pressScale={0.98}>
+      <AnimatedPressable disabled={!!sessionAgreement} style={styles.addLineBtn} onPress={addLineItem} hoverLift={false} pressScale={0.98}>
         <Ionicons name="add-circle-outline" size={18} color={theme.primary} />
         <Text style={styles.addLineBtnText}>{STRINGS.addLine}</Text>
       </AnimatedPressable>
@@ -1079,7 +1095,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
             <Text style={styles.summaryLabel}>{STRINGS.ivaIncluded}</Text>
             <AnimatedPressable
               style={ivaIncluded ? [styles.toggleTrack, styles.toggleTrackActive] : styles.toggleTrack}
-              onPress={() => setIvaIncluded(!ivaIncluded)}
+              disabled={!!sessionAgreement} onPress={() => setIvaIncluded(!ivaIncluded)}
               hoverLift={false}
               pressScale={0.97}
             >
@@ -1135,7 +1151,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   );
 
   const renderTariffCard = () => {
-    if (activeTariffs.length === 0) return null;
+    if (sessionAgreement || activeTariffs.length === 0) return null;
 
     return (
       <View style={styles.card}>

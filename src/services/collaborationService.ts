@@ -4,7 +4,7 @@ import type { ReferralCandidate } from './referralService';
 export interface Page<T> { items: T[]; hasMore: boolean }
 export interface CollaborationTerms {
   templateId: string; contractText: string;
-  territory: string; object: string; scope: string; terminationClause: string; sessionTypes: Array<'VIDEO_CALL' | 'IN_PERSON'>;
+  territory: string; object: string; scope: string; terminationClause: string; sessionTypes: Array<'VIDEO_CALL' | 'IN_PERSON' | 'PHONE_CALL'>;
   originShareBps: number; validFrom: string; validUntil: string; autonomousAndAuthorized: true;
 }
 export interface CollaborationVersion extends Omit<CollaborationTerms, 'autonomousAndAuthorized'> {

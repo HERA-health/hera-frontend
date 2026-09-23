@@ -154,8 +154,9 @@ export type RootStackParamList = {
   OnDutyPsychologist: undefined;
   Profile: undefined;
   ProfileCompletion: undefined;
-  SpecialistDetail: { specialistId: string; affinity?: number; intentToken?: string };
+  SpecialistDetail: { specialistId: string; affinity?: number; intentToken?: string; optionId?: string };
   Booking: {
+    optionId?: string;
     intentToken?: string;
     specialistId: string;
     initialDate?: string;
@@ -198,6 +199,7 @@ export type RootStackParamList = {
     returnToClientId?: string;
   };
   ProfessionalAvailability: undefined;
+  ProfessionalTariffs: undefined;
   ClientProfile: {
     clientId: string;
     initialTab?: 'summary' | 'history' | 'clinical';
@@ -215,7 +217,7 @@ export type RootStackParamList = {
   } | undefined;
   AdminSpecialistDetail: { specialist: string }; // JSON-serialized PendingSpecialist
   SpecialistDetailAdmin: { specialistId: string };
-  PublicSpecialistProfile: { profileRef: string; intentToken?: string };
+  PublicSpecialistProfile: { profileRef: string; intentToken?: string; optionId?: string };
 };
 
 export type MainTabParamList = {

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { CreateManagedClientSessionInput, SessionType } from '../services/professionalService';
 import { parseMadridDateTime } from './madridTime';
 import {
-  isManagedSessionDurationOption,
+  MANAGED_SESSION_DURATION_OPTIONS,
   isManagedSessionTimeOption,
 } from './managedSessionSchedulerOptions';
 
@@ -37,13 +37,14 @@ const schedulerSchema = z.object({
     .refine(isManagedSessionTimeOption, 'Elige una franja horaria de la lista'),
   duration: z.number()
     .int('Elige una duración de la lista')
-    .refine(isManagedSessionDurationOption, 'Elige una duración de la lista'),
+    .min(15, 'Elige una duración de la lista').max(240, 'Elige una duración de la lista'),
   type: z.enum(['VIDEO_CALL', 'PHONE_CALL', 'IN_PERSON']),
 });
 
 export const validateManagedSessionSchedulerInput = (
   form: ManagedSessionSchedulerForm,
-  now: Date = new Date()
+  now: Date = new Date(),
+  allowedDurations: readonly number[] = MANAGED_SESSION_DURATION_OPTIONS
 ): ManagedSessionSchedulerValidationResult => {
   const parsed = schedulerSchema.safeParse({
     clientId: form.clientId,
@@ -70,6 +71,8 @@ export const validateManagedSessionSchedulerInput = (
 
     return { success: false, errors };
   }
+
+  if (!allowedDurations.includes(parsed.data.duration)) return { success: false, errors: { duration: 'Elige una duración configurada' } };
 
   const startsAt = parseMadridDateTime(parsed.data.date, parsed.data.time);
   if (!startsAt) {

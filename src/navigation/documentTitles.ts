@@ -57,6 +57,7 @@ const ROUTE_TITLES: Record<keyof RootStackParamList, string> = {
   GoogleCalendarIntegration: 'Google Calendar',
   GoogleCalendarSession: 'Cita HERA',
   ProfessionalBilling: 'Facturación',
+  ProfessionalTariffs: 'Tarifas y servicios',
   CreateInvoice: 'Nueva factura',
   ProfessionalAvailability: 'Disponibilidad',
   ClientProfile: 'Ficha de paciente',

@@ -7,6 +7,8 @@ import type { ProfessionalType } from '../../constants/professionalTypes';
 import type { TimeSlot as AvailableSlot } from '../../services/sessionsService';
 
 export interface Specialist {
+  publicOptions?: import('../../services/specialistsService').PublicPriceOption[];
+  offersPhone?: boolean;
   id: string;
   publicSlug?: string | null;
   isPubliclyListed?: boolean;
@@ -184,6 +186,8 @@ export interface StickyBookingBarProps {
 }
 
 export interface BookingSidebarProps {
+  optionId?: string;
+  onOptionChange?: (optionId: string) => void;
   specialist: Specialist;
   onBookPress: () => void;
   selectedSlot?: SelectedProfileSlot | null;

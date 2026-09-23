@@ -199,8 +199,8 @@ export const PROFESSIONAL_TOUR_DEFINITIONS: Record<
       {
         id: 'tariffs',
         targetId: 'professional.billing.tariffs',
-        title: 'Tarifas base',
-        body: 'Configura precios y duraciones. Disponibilidad usa estos datos para mostrar reservas coherentes.',
+        title: 'Tarifas y servicios',
+        body: 'Accede a Tarifas y servicios para configurar el precio, la duración y la visibilidad de cada modalidad.',
         placement: 'left',
       },
       {

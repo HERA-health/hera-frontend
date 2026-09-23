@@ -5,6 +5,7 @@ const STORAGE_KEY = '@hera_pending_booking_intent_v1';
 const INTENT_TTL_MS = 30 * 60 * 1000;
 
 export interface PendingBookingIntent {
+  optionId?: string;
   specialistId: string;
   initialDate: string;
   initialSlotStartTime: string;
@@ -55,6 +56,7 @@ const parsePendingBookingIntent = (value: unknown): PendingBookingIntent | null 
   }
 
   return {
+    ...(readString(value, 'optionId') ? {optionId:readString(value, 'optionId')!} : {}),
     specialistId,
     initialDate,
     initialSlotStartTime,
@@ -117,6 +119,7 @@ export const mapPendingIntentToBookingParams = (
   intent: PendingBookingIntent
 ): RootStackParamList['Booking'] => ({
   specialistId: intent.specialistId,
+  ...(intent.optionId ? {optionId:intent.optionId} : {}),
   initialDate: intent.initialDate,
   initialSlotStartTime: intent.initialSlotStartTime,
   initialSlotEndTime: intent.initialSlotEndTime,

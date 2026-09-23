@@ -1,3 +1,5 @@
+import { formatPrivatePrice } from '../../../utils/privateTariff';
+import { type PrivateServiceOption } from '../../../services/privateCatalogService';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
@@ -17,6 +19,7 @@ import {
 } from './bookingPresentation';
 
 interface BookingModalitySectionProps {
+  prices?: PrivateServiceOption[];
   selectedType: SessionType;
   availableSessionTypes: SessionType[];
   duration: number;
@@ -31,6 +34,7 @@ interface BookingModalitySectionProps {
 }
 
 export const BookingModalitySection: React.FC<BookingModalitySectionProps> = ({
+  prices = [],
   selectedType,
   availableSessionTypes,
   duration,
@@ -70,15 +74,15 @@ export const BookingModalitySection: React.FC<BookingModalitySectionProps> = ({
       accessibilityState={{ busy, disabled }}
       style={styles.section}
     >
-      <View style={styles.headingRow}>
+      <View style={[styles.headingRow, isCompact && { flexWrap: 'wrap' }]}>
         <View style={styles.stepBadge}>
           <Text style={styles.stepBadgeText}>1</Text>
         </View>
-        <View style={styles.headingCopy}>
+        <View style={[styles.headingCopy, isCompact && { flexBasis: '75%' }]}>
           <Text style={styles.eyebrow}>MODALIDAD</Text>
           <Text style={styles.title}>¿Cómo prefieres tener tu sesión?</Text>
         </View>
-        <View style={styles.metrics}>
+        <View style={[styles.metrics, isCompact && { flexBasis: '100%', paddingLeft: 44 }]}>
           <View style={styles.metric}>
             <Ionicons name="time-outline" size={15} color={theme.secondaryDark} />
             <Text style={styles.metricText}>{duration} min</Text>
@@ -99,6 +103,7 @@ export const BookingModalitySection: React.FC<BookingModalitySectionProps> = ({
         >
           {options.map((option) => {
             const selected = option.type === selectedType;
+            const modalityPrices = prices.filter(p => p.modality === option.type).map(p => p.priceCents);
 
             return (
               <AnimatedPressable
@@ -145,7 +150,7 @@ export const BookingModalitySection: React.FC<BookingModalitySectionProps> = ({
                       selected ? styles.optionDescriptionSelected : null,
                     ]}
                   >
-                    {option.description}
+                    {modalityPrices.length ? (new Set(modalityPrices).size > 1 ? 'Desde ' : '') + formatPrivatePrice(Math.min(...modalityPrices)) : option.description}
                   </Text>
                 </View>
                 <View

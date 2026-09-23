@@ -2,6 +2,7 @@ import type { SessionType } from '../../services/sessionsService';
 
 export interface BookingModalityFlags {
   offersOnline?: boolean;
+  offersPhone?: boolean;
   offersInPerson?: boolean;
 }
 
@@ -18,6 +19,7 @@ export const getAvailableBookingSessionTypes = (
     available.push('IN_PERSON');
   }
 
+  if (flags.offersPhone === true) available.push('PHONE_CALL');
   return available;
 };
 

@@ -23,7 +23,7 @@ interface PublicSpecialistCardProps {
 }
 
 const formatPrice = (price: number): string =>
-  new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(price);
+  new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 }).format(price);
 
 const getInitials = (name: string): string =>
   name
@@ -34,6 +34,7 @@ const getInitials = (name: string): string =>
     .join('');
 
 const getModalityLabel = (specialist: PublicSpecialistCardData): string => {
+  if (specialist.offersPhone && !specialist.offersOnline && !specialist.offersInPerson) return 'Llamada';
   if (specialist.offersOnline && specialist.offersInPerson) return 'Online y presencial';
   if (specialist.offersInPerson) return 'Presencial';
   return 'Online';
@@ -215,7 +216,13 @@ export const PublicSpecialistCard: React.FC<PublicSpecialistCardProps> = ({
               <Ionicons name="videocam-outline" size={14} color={theme.primary} />
               <Text style={[styles.directoryMetaText, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]} numberOfLines={1}>{modality}</Text>
             </View>
-            <Text style={[styles.directoryPrice, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>Desde {formatPrice(specialist.pricePerSession)} € / sesión</Text>
+            {specialist.publicOptions && <View style={{ gap: 4, width: '100%' }}>{['VIDEO_CALL','IN_PERSON','PHONE_CALL'].map(type => {
+              const options = specialist.publicOptions?.filter(o => o.modality === type) ?? [];
+              if (!options.length) return null;
+              const option = options.find(o => o.optionId === specialist.matchedOptionId) ?? options[0];
+              return <Text key={type} style={{ color: option.optionId === specialist.matchedOptionId ? theme.primary : theme.textSecondary, fontSize: 12 }}>{type === 'VIDEO_CALL' ? 'Videollamada' : type === 'IN_PERSON' ? 'Presencial' : 'Llamada'} · {formatPrice(option.priceCents / 100)} € / {option.durationMinutes} min{options.length > 1 ? ' · más duraciones' : ''}</Text>;
+            })}</View>}
+            <Text style={[styles.directoryPrice, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>{new Set(specialist.publicOptions?.map(o => o.priceCents)).size > 1 ? 'Desde ' : ''}{specialist.pricePerSession === 0 ? 'Sin coste' : formatPrice(specialist.pricePerSession) + ' € / sesión'}</Text>
           </View>
         </View>
       )}

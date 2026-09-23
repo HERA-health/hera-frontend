@@ -1,3 +1,4 @@
+import { durableCommandKey } from './heraCommissionService';
 import { api } from './api';
 import { getErrorCode, getErrorMessage, hasResponseData, isNetworkError } from '../constants/errors';
 import type { Specialist } from '../constants/types';
@@ -121,6 +122,8 @@ export interface Session {
 }
 
 export interface ProfessionalSessionDetail extends Session {
+  sessionPhone?: string | null;
+  fiscalSnapshot?: { baseCents: number; taxCents: number; vatBasisPoints: number } | null;
   bookedServiceName: string | null;
   price: {
     amount: number | null;
@@ -225,6 +228,7 @@ export interface UpdateClientBillingInput {
 }
 
 export interface CreateManagedClientSessionInput {
+  optionId?: string; quoteReference?: string; sessionPhone?: string; commandKey?: string;
   clientId: string;
   date: string;
   duration: number;
@@ -233,6 +237,7 @@ export interface CreateManagedClientSessionInput {
 }
 
 export interface UpdateManagedSessionScheduleInput {
+  optionId?: string; quoteReference?: string; sessionPhone?: string;
   date: string;
   duration: number;
   type: SessionType;
@@ -465,7 +470,8 @@ export const createManagedClientSession = async (
   data: CreateManagedClientSessionInput
 ): Promise<Session> => {
   try {
-    const response = await api.post('/sessions/professional/managed', data);
+    const { commandKey } = await durableCommandKey('managed-booking', data);
+    const response = await api.post('/sessions/professional/managed', { ...data, commandKey });
     clearRequestCache();
     notifyProfessionalHomeChanged();
     return response.data.data;
@@ -488,7 +494,8 @@ export const updateManagedSessionSchedule = async (
   data: UpdateManagedSessionScheduleInput
 ): Promise<Session> => {
   try {
-    const response = await api.put(`/sessions/${sessionId}/schedule`, data);
+    const { commandKey } = await durableCommandKey(`managed-reschedule:${sessionId}`, data);
+    const response = await api.put(`/sessions/${sessionId}/schedule`, { ...data, commandKey });
     clearRequestCache();
     notifyProfessionalHomeChanged();
     return response.data.data;

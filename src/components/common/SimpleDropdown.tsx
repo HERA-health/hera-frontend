@@ -30,6 +30,7 @@ export interface SimpleDropdownProps<T> {
   value: T | null;
   onSelect: (value: T) => void;
   accessibilityLabel?: string;
+  disabled?: boolean;
   placeholder?: string;
   maxHeight?: number;
   optionsMinWidth?: number;
@@ -53,6 +54,7 @@ export function SimpleDropdown<T extends string | number>({
   value,
   onSelect,
   accessibilityLabel,
+  disabled = false,
   placeholder = 'Seleccionar...',
   maxHeight = 200,
   optionsMinWidth,
@@ -158,6 +160,7 @@ export function SimpleDropdown<T extends string | number>({
           return (
             <AnimatedPressable
               key={String(opt.value)}
+              disabled={disabled}
               style={active ? [dropdownStyles.option, dropdownStyles.optionActive] : dropdownStyles.option}
               onPress={() => {
                 if (active && onClear) {
@@ -222,7 +225,8 @@ export function SimpleDropdown<T extends string | number>({
           focusRef={triggerRef}
           accessibilityLabel={accessibilityLabel}
           accessibilityRole="button"
-          accessibilityState={{ expanded: open }}
+          accessibilityState={{ expanded: open, disabled }}
+          disabled={disabled}
           style={[
             dropdownStyles.trigger,
             compact && dropdownStyles.triggerCompact,

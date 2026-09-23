@@ -1,3 +1,5 @@
+import { loadPrivateCatalog, getManagedBookingQuote, type PrivateServiceOption } from '../../services/privateCatalogService';
+import type { BookingQuote } from '../../services/sessionsService';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -6,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -143,6 +146,11 @@ export function ManagedSessionSchedulerModal({
   const [dateValue, setDateValue] = useState('');
   const [timeValue, setTimeValue] = useState('');
   const [durationValue, setDurationValue] = useState('60');
+  const [catalogOptions, setCatalogOptions] = useState<PrivateServiceOption[]>([]);
+  const [quote, setQuote] = useState<BookingQuote | null>(null);
+  const [quoteError, setQuoteError] = useState('');
+  const [quoteRetry, setQuoteRetry] = useState(0);
+  const [sessionPhone, setSessionPhone] = useState('');
   const [type, setType] = useState<SessionType>('VIDEO_CALL');
   const [clientSelectorOpen, setClientSelectorOpen] = useState(false);
   const [openSchedulePanel, setOpenSchedulePanel] = useState<SchedulerOpenPanel>(null);
@@ -160,6 +168,26 @@ export function ManagedSessionSchedulerModal({
   const initialDate = initialValues?.date;
   const initialDuration = initialValues?.duration;
   const initialType = initialValues?.type;
+  const dateOnlyChange = isEditing && Number(durationValue) === initialDuration && type === initialType;
+  const selectedOption = catalogOptions.find(o => o.modality === type && o.durationMinutes === Number(durationValue));
+  const durationOptions = [...new Set([...catalogOptions.filter(o => o.modality === type).map(o => o.durationMinutes), ...(isEditing && type === initialType && initialDuration ? [initialDuration] : [])])].sort((a,b) => a-b);
+  useEffect(() => {
+    if (!visible) return;
+    let current = true;
+    loadPrivateCatalog().then(value => { if (current) { setCatalogOptions(value.options.filter(o => o.isActive)); setQuoteError(''); } })
+      .catch(() => { if (current) setQuoteError('No se pudieron cargar las tarifas. Cierra y vuelve a abrir la cita.'); });
+    return () => { current = false; };
+  }, [visible]);
+  useEffect(() => {
+    let current = true;
+    setQuote(null);
+    if (!visible || !clientId || !selectedOption || dateOnlyChange) return;
+    setQuoteError('');
+    getManagedBookingQuote({ clientId, optionId: selectedOption.id, duration: selectedOption.durationMinutes, type, ...(editingSessionId ? { sessionId: editingSessionId } : {}) })
+      .then(value => { if (current) setQuote(value); })
+      .catch(e => { if (current) setQuoteError(e instanceof Error ? e.message : 'No se pudo calcular el precio.'); });
+    return () => { current = false; };
+  }, [visible, clientId, selectedOption?.id, type, editingSessionId, dateOnlyChange, quoteRetry]);
   const formInitializationKey = JSON.stringify([
     mode,
     editingSessionId ?? null,
@@ -190,6 +218,7 @@ export function ManagedSessionSchedulerModal({
     setTimeValue(initialScheduleValue.time);
     setDurationValue(String(initialDuration ?? 60));
     setType(initialType ?? 'VIDEO_CALL');
+    setSessionPhone('');
     setClientSelectorOpen(false);
     setOpenSchedulePanel(null);
     setTimeEditedManually(false);
@@ -225,6 +254,8 @@ export function ManagedSessionSchedulerModal({
     [clientId, clients]
   );
 
+  useEffect(() => { setSessionPhone(''); }, [clientId]);
+
   const selectedEmail = getManagedSessionClientEmail(selectedClient);
   const hasValidInitialClient = Boolean(
     initialClientId && clients.some((client) => client.id === initialClientId),
@@ -250,7 +281,7 @@ export function ManagedSessionSchedulerModal({
   const todayDateKey = getMadridDateKey(new Date(Date.now()));
   const selectedDateLabel = dateValue ? formatDateLabel(dateValue) : 'Selecciona fecha';
   const selectedDurationNumber = Number(durationValue);
-  const selectedDurationIsAllowed = isManagedSessionDurationOption(selectedDurationNumber);
+  const selectedDurationIsAllowed = durationOptions.includes(selectedDurationNumber);
   const selectedTimeIsAllowed = isManagedSessionTimeOption(timeValue);
   const schedulerSlots = useMemo(
     () => createProfessionalSchedulerSlots(dateValue, slotOptions, new Date(Date.now())),
@@ -367,7 +398,7 @@ export function ManagedSessionSchedulerModal({
       time: timeValue,
       duration: Number(durationValue),
       type,
-    });
+    }, new Date(), durationOptions);
 
     if (!validation.success) {
       setErrors(validation.errors);
@@ -381,19 +412,23 @@ export function ManagedSessionSchedulerModal({
       return;
     }
 
+    if (!dateOnlyChange && !quote?.quoteReference) { setErrors({ form: quoteError || 'Espera a que se calcule el precio.' }); return; }
+    if (type === 'PHONE_CALL' && !sessionPhone.trim() && !dateOnlyChange) { setErrors({ form: 'Indica el teléfono de destino para esta cita.' }); return; }
+    const input = { ...validation.input, ...(!dateOnlyChange ? { optionId: selectedOption?.id, quoteReference: quote?.quoteReference } : {}), ...(sessionPhone.trim() ? { sessionPhone } : {}) };
     setErrors({});
     try {
-      await onSubmit(validation.input);
+      await onSubmit(input);
       setBufferConflict(null);
     } catch (error: unknown) {
       if (isManagedSessionBufferConflictError(error)) {
         setBufferConflict({
-          input: validation.input,
+          input,
           bufferMinutes: error.bufferMinutes,
         });
         return;
       }
 
+      setQuoteRetry(v => v + 1);
       setErrors({
         form: error instanceof Error
           ? error.message
@@ -415,6 +450,7 @@ export function ManagedSessionSchedulerModal({
       });
       setBufferConflict(null);
     } catch (error: unknown) {
+      setQuoteRetry(v => v + 1);
       setErrors({
         form: error instanceof Error
           ? error.message
@@ -575,7 +611,7 @@ export function ManagedSessionSchedulerModal({
                 )}
               </View>
               <View style={styles.optionRow}>
-                {MANAGED_SESSION_DURATION_OPTIONS.map((option) => {
+                {durationOptions.map((option) => {
                   const active = selectedDurationNumber === option;
                   return (
                     <AnimatedPressable
@@ -727,6 +763,10 @@ export function ManagedSessionSchedulerModal({
               </View>
             )}
 
+            <View style={{ padding: 16, gap: 8, backgroundColor: theme.bgAlt, borderRadius: 12 }}>
+              <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{dateOnlyChange ? 'Se conserva el precio acordado de esta cita' : quote ? (quote.firstVisitFreeApplied ? 'Primera sesión gratuita · 0 €' : quote.price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }) + ' · Precio final') : quoteError || 'Selecciona paciente, modalidad y duración para consultar el precio'}</Text>
+              {type === 'PHONE_CALL' && <><Text style={{ color: theme.textSecondary }}>Llamarás al número indicado a la hora de la cita.</Text><TextInput accessibilityLabel="Teléfono para esta cita" value={sessionPhone} onChangeText={setSessionPhone} placeholder={dateOnlyChange ? 'Conservar teléfono de la cita' : '+34 600 000 000'} placeholderTextColor={theme.textSecondary} keyboardType="phone-pad" style={{ color: theme.textPrimary, borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 12, minHeight: 44 }} /></>}
+            </View>
             {errors.form && (
               <Text style={[styles.errorText, { color: theme.error, fontFamily: theme.fontSans }]}>
                 {errors.form}

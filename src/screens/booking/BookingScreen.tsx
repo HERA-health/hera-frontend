@@ -1,3 +1,7 @@
+import { formatPrivatePrice } from '../../utils/privateTariff';
+import { loadPublicBookingOptions, type PrivateServiceOption } from '../../services/privateCatalogService';
+import { SimpleDropdown } from '../../components/common/SimpleDropdown';
+import { durableCommandKey } from '../../services/heraCommissionService';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
@@ -240,7 +244,12 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const pricePerSession = specialist.pricePerSession;
   const avatar = specialist.avatar;
   const title = specialist.title;
-  const slotDuration = specialist.sessionDuration ?? 60;
+  const [bookingOptions, setBookingOptions] = useState<PrivateServiceOption[]>([]);
+  const [selectedOptionId, setSelectedOptionId] = useState<string | undefined>();
+  const [optionsError, setOptionsError] = useState('');
+  const [quoteRetry, setQuoteRetry] = useState(0);
+  const selectedOption = bookingOptions.find(o => o.id === selectedOptionId);
+  const slotDuration = selectedOption?.durationMinutes ?? specialist.sessionDuration ?? 60;
   const offersOnline = specialist.offersOnline;
   const offersInPerson = specialist.offersInPerson;
   const officeLocation = specialist.officeLocation;
@@ -269,10 +278,11 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const contactSectionRef = useRef<View>(null);
   const modalityFlags = useMemo(
     () => ({
-      offersOnline,
-      offersInPerson,
+      offersOnline: bookingOptions.some(o => o.modality === 'VIDEO_CALL'),
+      offersInPerson: bookingOptions.some(o => o.modality === 'IN_PERSON'),
+      offersPhone: bookingOptions.some(o => o.modality === 'PHONE_CALL'),
     }),
-    [offersInPerson, offersOnline],
+    [bookingOptions],
   );
   const availableSessionTypes = useMemo(
     () => getAvailableBookingSessionTypes(modalityFlags),
@@ -292,6 +302,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const initialSlotRef = useRef<InitialSlotSelection | null>(initialSlotSelection);
   const initialDateLoadRef = useRef<string | null>(initialSlotSelection?.date ?? null);
   const slotsRequestIdRef = useRef(0);
+  const loadedOptionRef = useRef<string | undefined>(undefined);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(
     initialSlotSelection?.date ?? null
@@ -322,6 +333,19 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   } | null>(null);
   const [verification, setVerification] = useState<{ requestId: string; expiresAt: string; codeLength?: number }>();
   const [verificationCode, setVerificationCode] = useState('');
+  const [identityVerified, setIdentityVerified] = useState(false);
+  const [sessionPhone, setSessionPhone] = useState('');
+  useEffect(() => {
+    let current = true;
+    loadPublicBookingOptions(specialistId).then(options => {
+      if (!current) return;
+      setBookingOptions(options);
+      const initial = route.params.optionId ? options.find(o => o.id === route.params.optionId) : options.find(o => o.isPreferred) ?? options[0];
+      if (initial) { setSelectedOptionId(initial.id); setSessionType(initial.modality); }
+      else setOptionsError('La opción seleccionada ya no está disponible. Elige otra para continuar.');
+    }).catch(() => { if (current) setOptionsError('No se pudieron cargar las tarifas. Vuelve a abrir la reserva.'); });
+    return () => { current = false; };
+  }, [specialistId, route.params.optionId]);
   const [verificationAttempt, setVerificationAttempt] = useState(0);
   const [mobileFooterHeight, setMobileFooterHeight] = useState(120);
 
@@ -335,7 +359,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     }
   }, [defaultSessionType, modalityFlags, sessionType]);
 
-  useEffect(() => { setVerification(undefined); setVerificationCode(''); }, [selectedDate, selectedSlot?.startTime, sessionType, publicContact]);
+  useEffect(() => { setVerification(undefined); setVerificationCode(''); setIdentityVerified(false); }, [selectedDate, selectedSlot?.startTime, selectedOptionId, publicContact, sessionPhone]);
 
   const publicContactResult = useMemo(
     () => publicBookingContactSchema.safeParse(publicContact),
@@ -345,7 +369,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   useEffect(() => {
     let isCurrent = true;
 
-    if (!isBookingSessionTypeAvailable(sessionType, modalityFlags) || sessionType === 'PHONE_CALL') {
+    if (!isBookingSessionTypeAvailable(sessionType, modalityFlags) || !selectedOption) {
       setBookingQuote(null);
       setQuoteLoading(false);
       setQuoteError(
@@ -359,17 +383,19 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     }
 
     setQuoteLoading(true);
+    setBookingQuote(null);
     setQuoteError(null);
 
     const quoteRequest = referralBooking
-      ? getReferralBookingQuote(referralBooking.id, referralBooking.access, { type: sessionType, duration: slotDuration })
+      ? getReferralBookingQuote(referralBooking.id, referralBooking.access, { type: sessionType, duration: slotDuration, optionId: selectedOptionId })
       : isAnonymousBooking
       ? sessionsService.getPublicBookingQuote({
           specialistId,
           type: sessionType,
           duration: slotDuration,
+          optionId: selectedOptionId,
         })
-      : sessionsService.getBookingQuote(specialistId, sessionType, slotDuration);
+      : sessionsService.getBookingQuote(specialistId, sessionType, slotDuration, selectedOptionId);
 
     quoteRequest
       .then((quote) => {
@@ -401,6 +427,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       isCurrent = false;
     };
   }, [
+    selectedOptionId,
+    quoteRetry,
     availableSessionTypes.length,
     referralBooking,
     isAnonymousBooking,
@@ -427,12 +455,12 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const canAdvanceBooking = hasSelectedAppointment && quoteReady && accountCanBook;
   const primaryActionDisabled = !canAdvanceBooking || loading || (isAnonymousBooking && (!publicContactResult.success || (!!verification && !verificationComplete)));
   const primaryActionLabel =
-    isAnonymousBooking && !verification ? 'Continuar con mi reserva' : 'Confirmar cita';
+    isAnonymousBooking && !verification ? 'Continuar con mi reserva' : isAnonymousBooking && !identityVerified ? 'Verificar y revisar precio' : 'Confirmar cita';
   const accountMessage =
     isAuthenticated && !isAuthenticatedClient
       ? 'Esta cuenta no puede reservar citas. Accede con una cuenta de paciente o continúa sin iniciar sesión.'
       : null;
-  const quoteIsEstimated = isAnonymousBooking;
+  const quoteIsEstimated = isAnonymousBooking && !identityVerified;
   const displayPrice = bookingQuote?.price ?? pricePerSession;
   const mobileTotalText = quoteLoading
     ? 'Calculando...'
@@ -468,7 +496,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       }
 
       try {
-        const slots = await sessionsService.getAvailableSlots(specialistId, date);
+        const slots = await sessionsService.getAvailableSlots(specialistId, date, selectedOptionId);
         if (!isLatestRequest()) {
           return;
         }
@@ -514,18 +542,20 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         }
       }
     },
-    [appAlert, specialistId],
+    [appAlert, specialistId, selectedOptionId],
   );
 
   useEffect(() => {
+    if (!selectedOptionId || loadedOptionRef.current === selectedOptionId) return;
+    loadedOptionRef.current = selectedOptionId;
     const initialDateToLoad = initialDateLoadRef.current;
-    if (!initialDateToLoad) {
-      return;
+    if (initialDateToLoad) {
+      initialDateLoadRef.current = null;
+      void loadAvailableSlots(initialDateToLoad, { keepInitialSlot: true });
+    } else if (selectedDate) {
+      void loadAvailableSlots(selectedDate);
     }
-
-    initialDateLoadRef.current = null;
-    void loadAvailableSlots(initialDateToLoad, { keepInitialSlot: true });
-  }, [loadAvailableSlots]);
+  }, [selectedOptionId, selectedDate, loadAvailableSlots]);
 
   const handleDateSelect = useCallback(
     (date: string) => {
@@ -554,8 +584,11 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const handleSessionTypeChange = useCallback((type: SessionType) => {
     if (!loading) {
       setSessionType(type);
+      const candidates = bookingOptions.filter(o => o.modality === type);
+      setSelectedOptionId((candidates.find(o => o.isPreferred) ?? candidates[0])?.id);
+      setOptionsError('');
     }
-  }, [loading]);
+  }, [loading, bookingOptions]);
 
   const updatePublicContactField = useCallback(
     <T extends keyof typeof publicContact>(field: T, value: (typeof publicContact)[T]) => {
@@ -591,8 +624,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       return;
     }
 
-    if (sessionType === 'PHONE_CALL') {
-      showBookingMessage(appAlert, 'Error', 'La reserva telefónica no está disponible.');
+    if (sessionType === 'PHONE_CALL' && !sessionPhone.trim()) {
+      showBookingMessage(appAlert, 'Error', 'Confirma el teléfono al que debe llamarte el especialista.');
       return;
     }
 
@@ -629,7 +662,9 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       const dateTime = madridDateTime.iso;
 
       if (referralBooking) {
-        const createdSession = await bookGuestReferral(referralBooking.id, referralBooking.access, { date: dateTime, duration: slotDuration, type: sessionType });
+        const payload = { date: dateTime, duration: slotDuration, type: sessionType, optionId: selectedOptionId, quoteReference: bookingQuote.quoteReference, sessionPhone };
+        const { commandKey } = await durableCommandKey('referral-booking', payload);
+        const createdSession = await bookGuestReferral(referralBooking.id, referralBooking.access, { ...payload, commandKey });
         bookingCompletedRef.current = true;
         setPublicBookingSuccess({ status: createdSession.status, date: selectedDate, time: selectedSlot.startTime, type: sessionType });
         return;
@@ -646,6 +681,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           date: dateTime,
           duration: slotDuration,
           type: sessionType,
+          optionId: selectedOptionId,
+          sessionPhone,
           patient: toPublicBookingPatientPayload(publicContactResult.data),
           privacyAccepted: true,
           privacyVersion: PUBLIC_BOOKING_PRIVACY_VERSION,
@@ -655,11 +692,16 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         setVerification(request);
         return;
         }
-        const createdSession = await sessionsService.verifyPublicBooking(verification.requestId, verificationCode);
+        if (!identityVerified) {
+          const quote = await sessionsService.verifyPublicBookingQuote(verification.requestId, verificationCode);
+          setBookingQuote(quote); setIdentityVerified(true);
+          return;
+        }
+        const createdSession = await sessionsService.verifyPublicBooking(verification.requestId, verificationCode, bookingQuote.quoteReference);
         bookingCompletedRef.current = true;
         analyticsService.track('session_booked', {
           audience: 'anonymous',
-          modality: sessionType === 'IN_PERSON' ? 'in_person' : 'video',
+          modality: sessionType === 'IN_PERSON' ? 'in_person' : sessionType === 'PHONE_CALL' ? 'phone' : 'video',
         });
         setPublicBookingSuccess({
           status: createdSession.status,
@@ -672,6 +714,9 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
 
       const createdSession = await sessionsService.createSession({
         specialistId,
+        optionId: selectedOptionId,
+        quoteReference: bookingQuote.quoteReference,
+        sessionPhone,
         intentToken: route.params.intentToken,
         date: dateTime,
         duration: slotDuration,
@@ -681,7 +726,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       bookingCompletedRef.current = true;
       analyticsService.track('session_booked', {
         audience: 'authenticated',
-        modality: sessionType === 'IN_PERSON' ? 'in_person' : 'video',
+        modality: sessionType === 'IN_PERSON' ? 'in_person' : sessionType === 'PHONE_CALL' ? 'phone' : 'video',
       });
 
       navigation.navigate('Sessions', { refresh: true, showSuccess: true });
@@ -713,12 +758,14 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         error instanceof Error
           ? error.message
           : 'No se pudo crear la cita. Intenta de nuevo.';
+      setIdentityVerified(false); setQuoteRetry(v => v + 1);
       showBookingMessage(appAlert, 'Error', message);
     } finally {
       submissionInFlightRef.current = false;
       setLoading(false);
     }
   }, [
+    selectedOptionId, sessionPhone, identityVerified,
     selectedDate,
     selectedSlot,
     appAlert,
@@ -1002,7 +1049,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     }
 
     const sessionTypeText =
-      publicBookingSuccess.type === 'VIDEO_CALL' ? 'Videollamada' : 'Presencial';
+      publicBookingSuccess.type === 'VIDEO_CALL' ? 'Videollamada' : publicBookingSuccess.type === 'PHONE_CALL' ? 'Llamada' : 'Presencial';
     const formattedDate = formatMadridDateKey(publicBookingSuccess.date, {
       weekday: 'long',
       day: 'numeric',
@@ -1111,7 +1158,9 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
 
   const renderScheduleSurface = () => (
     <View style={[styles.mainSurface, isNarrowMobile ? styles.narrowSurface : null]}>
+      {!!optionsError && <Text accessibilityRole="alert" style={{ color: theme.error }}>{optionsError}</Text>}
       <BookingModalitySection
+        prices={bookingOptions}
         selectedType={sessionType}
         availableSessionTypes={availableSessionTypes}
         duration={slotDuration}
@@ -1125,6 +1174,10 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         officeLocation={officeLocation}
       />
 
+      {(bookingOptions.filter(o => o.modality === sessionType).length > 1 || sessionType === 'PHONE_CALL') && <View style={{ paddingVertical: 12, gap: 12 }}>
+        {bookingOptions.filter(o => o.modality === sessionType).length > 1 && <SimpleDropdown accessibilityLabel="Duración y precio de la sesión" value={selectedOptionId ?? null} options={bookingOptions.filter(o => o.modality === sessionType).map(o => ({ value: o.id, label: o.durationMinutes + ' min · ' + formatPrivatePrice(o.priceCents) }))} onSelect={setSelectedOptionId} />}
+        {sessionType === 'PHONE_CALL' && <View style={{ gap: 8 }}><Text style={{ color: theme.textPrimary }}>Tu especialista te llamará al número indicado a la hora de la cita.</Text><TextInput accessibilityLabel="Teléfono para esta cita" value={sessionPhone} onChangeText={setSessionPhone} keyboardType="phone-pad" placeholder="+34 600 000 000" placeholderTextColor={theme.textSecondary} style={{ color: theme.textPrimary, minHeight: 44, borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 12 }} /></View>}
+      </View>}
       <View style={styles.scheduleSection}>
         <View style={styles.sectionHeading}>
           <View style={styles.sectionStepBadge}>

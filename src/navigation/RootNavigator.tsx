@@ -322,6 +322,11 @@ const ProfessionalSessionsRoute = createDeferredLayoutRoute<'ProfessionalSession
     exportName: 'ProfessionalSessionsScreen',
   }
 );
+const ProfessionalTariffsRoute = createDeferredLayoutRoute<'ProfessionalTariffs'>(
+  () => require('../screens/professional/ProfessionalTariffsScreen'),
+  { displayName: 'ProfessionalTariffsRoute', exportName: 'ProfessionalTariffsScreen' }
+);
+
 const ProfessionalBillingRoute = createDeferredLayoutRoute<'ProfessionalBilling'>(
   () => require('../screens/professional/BillingScreen'),
   { displayName: 'ProfessionalBillingRoute', exportName: 'BillingScreen' }
@@ -975,6 +980,7 @@ export function RootNavigator() {
             component={ProfessionalSessionsRoute}
             options={{ headerTitle: 'Agenda' }}
           />
+          <Stack.Screen name="ProfessionalTariffs" component={ProfessionalTariffsRoute} options={{ headerTitle: 'Tarifas y servicios' }} />
           <Stack.Screen
             name="ProfessionalBilling"
             component={ProfessionalBillingRoute}

@@ -20,7 +20,7 @@ import type {
 } from '../specialist-profile/types';
 
 interface SpecialistDetailScreenProps {
-  route: { params?: { specialistId?: string; affinity?: number; intentToken?: string } };
+  route: { params?: { specialistId?: string; affinity?: number; intentToken?: string; optionId?: string } };
   navigation: {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
     goBack: () => void;
@@ -41,7 +41,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const canBook = specialist
-    ? specialist.offersOnline !== false || specialist.offersInPerson === true
+    ? specialist.offersOnline !== false || specialist.offersInPerson === true || specialist.offersPhone === true
     : false;
 
   const loadSpecialistDetails = useCallback(async () => {
@@ -69,7 +69,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
     void loadSpecialistDetails();
   }, [loadSpecialistDetails]));
 
-  const handleBookSession = useCallback((selectedSlot?: SelectedProfileSlot) => {
+  const handleBookSession = useCallback((selectedSlot?: SelectedProfileSlot, optionId?: string) => {
     if (!specialist) return;
     if (!canBook) {
       showAppAlert(
@@ -83,6 +83,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
     analyticsService.track('booking_initiated');
     navigation.navigate('Booking', {
       specialistId: specialist.id,
+      optionId,
       intentToken: route.params?.intentToken,
       ...(selectedSlot ? {
         initialDate: selectedSlot.date,
@@ -123,6 +124,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
 
   return (
     <SpecialistProfileLayout
+        initialOptionId={route.params?.optionId}
       specialist={specialist}
       reviews={reviews}
       affinity={affinity}

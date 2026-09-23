@@ -64,6 +64,7 @@ interface ApiResponse<T> {
 }
 
 interface CreateSessionRequest {
+  optionId?: string; quoteReference?: string; commandKey?: string; sessionPhone?: string;
   intentToken?: string;
   specialistId: string;
   date: string;
@@ -79,17 +80,19 @@ export interface PublicBookingPatientInput {
 }
 
 interface PublicBookingQuoteRequest {
+  optionId?: string;
   specialistId: string;
   duration: number;
-  type: Exclude<SessionType, 'PHONE_CALL'>;
+  type: SessionType;
 }
 
 interface CreatePublicSessionRequest {
+  optionId?: string; sessionPhone?: string;
   intentToken?: string;
   specialistId: string;
   date: string;
   duration: number;
-  type: Exclude<SessionType, 'PHONE_CALL'>;
+  type: SessionType;
   patient: PublicBookingPatientInput;
   privacyAccepted: true;
   privacyVersion: string;
@@ -111,6 +114,7 @@ export interface PublicCreatedSession {
 }
 
 export interface BookingQuote {
+  optionId?: string; quoteReference?: string; expiresAt?: string; totalCents?: number; baseCents?: number; taxCents?: number;
   specialistId: string;
   duration: number;
   currency: string;
@@ -127,11 +131,12 @@ export interface BookingQuote {
  */
 export const getAvailableSlots = async (
   specialistId: string,
-  date: string // YYYY-MM-DD format
+  date: string, // YYYY-MM-DD format
+  optionId?: string
 ): Promise<TimeSlot[]> => {
   try {
     const url = `/specialists/${specialistId}/available-slots?date=${date}`;
-    const response = await api.get(url);
+    const response = await api.get(url, { params: { optionId } });
     const data = response.data.data as AvailableSlotsResponse | undefined;
     return data?.slotOptions ?? data?.slots ?? [];
   } catch (error: unknown) {
@@ -144,7 +149,8 @@ export const getAvailableSlots = async (
  */
 export const createSession = async (sessionData: CreateSessionRequest): Promise<CreatedSession> => {
   try {
-    const response = await api.post<ApiResponse<CreatedSession>>('/sessions', sessionData);
+    const { commandKey } = await durableCommandKey('private-booking', sessionData);
+    const response = await api.post<ApiResponse<CreatedSession>>('/sessions', { ...sessionData, commandKey });
     if (!response.data.data) {
       throw new Error('No se pudo crear la cita');
     }
@@ -156,8 +162,9 @@ export const createSession = async (sessionData: CreateSessionRequest): Promise<
 
 export const getBookingQuote = async (
   specialistId: string,
-  type: Exclude<SessionType, 'PHONE_CALL'>,
-  duration: number
+  type: SessionType,
+  duration: number,
+  optionId?: string
 ): Promise<BookingQuote> => {
   try {
     const response = await api.get<ApiResponse<BookingQuote>>('/sessions/booking-quote', {
@@ -165,6 +172,7 @@ export const getBookingQuote = async (
         specialistId,
         type,
         duration,
+        optionId,
       },
     });
 
@@ -279,9 +287,12 @@ export const requestPublicBooking = async (input: CreatePublicSessionRequest, at
     throw new Error(getErrorMessage(error, 'No se pudo enviar el código. Intenta de nuevo.'));
   }
 };
-export const verifyPublicBooking = async (requestId: string, code: string) => {
+export const verifyPublicBookingQuote = async (requestId: string, code: string): Promise<BookingQuote> =>
+  (await api.post<{ data: { quote: BookingQuote } }>('/hera-commissions/public-requests/verify', { requestId, code })).data.data.quote;
+
+export const verifyPublicBooking = async (requestId: string, code: string, quoteReference?: string) => {
   try {
-    return (await api.post<{ data: PublicCreatedSession }>('/hera-commissions/public-requests/verify', { requestId, code })).data.data;
+    return (await api.post<{ data: PublicCreatedSession }>('/hera-commissions/public-requests/verify', { requestId, code, quoteReference })).data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo confirmar la cita. Intenta de nuevo.'));
   }

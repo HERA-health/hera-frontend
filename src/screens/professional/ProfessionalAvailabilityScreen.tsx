@@ -12,7 +12,6 @@ import type { ScreenProps } from '../../constants/types';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as analyticsService from '../../services/analyticsService';
 import * as availabilityService from '../../services/availabilityService';
-import { billingService, type FullBillingConfig } from '../../services/billingService';
 import { AnimatedPressable, Button, Card } from '../../components/common';
 import { TourTarget } from '../../components/onboarding/TourTarget';
 import {
@@ -345,8 +344,6 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   const [previewSelectedDate, setPreviewSelectedDate] = useState('');
   const [bufferTime, setBufferTime] = useState(15);
   const [scheduleRevision, setScheduleRevision] = useState<string | null>(null);
-  const [billingConfig, setBillingConfig] = useState<FullBillingConfig | null>(null);
-  const [billingConfigError, setBillingConfigError] = useState<string | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState<QuickPresetId | null>(null);
   const [selectedPresetDays, setSelectedPresetDays] = useState<DayOfWeek[]>([]);
   const [quickPatternsExpanded, setQuickPatternsExpanded] = useState(false);
@@ -355,12 +352,10 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     try {
       setLoading(true);
       setLoadError(false);
-      setBillingConfigError(null);
-      const [scheduleResult, exceptionsResult, bufferResult, billingConfigResult] = await Promise.allSettled([
+      const [scheduleResult, exceptionsResult, bufferResult] = await Promise.allSettled([
         availabilityService.getMyWeeklyScheduleSnapshot(),
         availabilityService.getMyExceptions(),
         availabilityService.getMyBufferTime(),
-        billingService.getConfig(),
       ]);
       const scheduleSnapshot = getSettledValue(scheduleResult, 'No se pudo cargar el horario semanal');
       const exceptionsData = getSettledValue(exceptionsResult, 'No se pudieron cargar las excepciones');
@@ -371,16 +366,6 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
       setExceptions(exceptionsData);
       setBufferTime(savedBufferTime);
 
-      if (billingConfigResult.status === 'fulfilled') {
-        setBillingConfig(billingConfigResult.value);
-        setBillingConfigError(null);
-      } else {
-        setBillingConfig(null);
-        setBillingConfigError(getErrorMessage(
-          billingConfigResult.reason,
-          'No se pudo cargar la configuración de facturación'
-        ));
-      }
     } catch (error: unknown) {
       setLoadError(true);
       showAppAlert(appAlert, 'Error', getErrorMessage(error, 'No se pudo cargar la disponibilidad'));
@@ -389,21 +374,8 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
     }
   }, [appAlert]);
 
-  const defaultTariff = useMemo(
-    () =>
-      billingConfig?.tariffs?.find((tariff) => tariff.isDefault && tariff.isActive)
-      ?? billingConfig?.tariffs?.find((tariff) => tariff.isActive)
-      ?? null,
-    [billingConfig]
-  );
-
-  const billingDuration = defaultTariff?.durationMinutes ?? billingConfig?.slotDuration ?? 60;
-  const billingPrice = defaultTariff?.price ?? billingConfig?.pricePerSession ?? 0;
-  const billingDurationText = billingConfigError
-    ? 'No disponible'
-    : `${billingDuration} min · ${formatCurrency(billingPrice)}`;
-  const billingDurationHint = billingConfigError
-    ?? 'Las reservas públicas usan la tarifa por defecto de Facturación.';
+  const billingDurationText = 'Duración según la opción reservada';
+  const billingDurationHint = 'Gestiona precios y duraciones en Tarifas y servicios. Los descansos se aplican a todas las opciones.';
   const selectedPreset = useMemo(
     () => QUICK_PRESETS.find((preset) => preset.id === selectedPresetId),
     [selectedPresetId]
@@ -845,7 +817,6 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
               </Text>
               <Text style={[
                 styles.billingDurationHint,
-                billingConfigError ? styles.billingDurationHintError : null,
               ]}>
                 {billingDurationHint}
               </Text>
@@ -853,9 +824,9 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
             <Button
               variant="secondary"
               size="small"
-              onPress={() => navigateProfessionalSection(navigation, 'ProfessionalBilling')}
+              onPress={() => navigateProfessionalSection(navigation, 'ProfessionalTariffs')}
             >
-              Facturación
+              Tarifas y servicios
             </Button>
           </View>
         </View>

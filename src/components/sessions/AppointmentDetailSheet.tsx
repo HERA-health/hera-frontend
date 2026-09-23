@@ -246,6 +246,7 @@ export function AppointmentDetailSheet({
                   <InfoRow label="Hora" value={formatTimeRange(detail.date, duration)} />
                   <InfoRow label="Duración" value={`${duration} min`} />
                   <InfoRow label="Modalidad" value={getSessionTypeLabel(detail.type)} />
+                  {mode === 'professional' && detail.type === 'PHONE_CALL' && <InfoRow label="Teléfono confirmado para esta cita" value={professionalSession?.sessionPhone ?? 'Confirma el destino con el paciente'} />}
                 </Section>
 
                 <Section title="Paciente" icon="person-outline">

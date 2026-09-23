@@ -65,6 +65,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
   },
   config: {
       screens: {
+      ProfessionalTariffs: 'profesional/tarifas',
       GoogleCalendarIntegration: 'integrations/google-calendar',
       GoogleCalendarSession: 'calendar/session/:sessionId',
       EmailVerification: {

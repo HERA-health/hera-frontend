@@ -20,6 +20,7 @@ interface CacheEntry<T> {
 }
 
 export interface SpecialistData {
+  publicOptions?: PublicPriceOption[]; offersPhone?: boolean;
   id: string;
   publicSlug?: string | null;
   userId: string;
@@ -86,6 +87,7 @@ export interface SpecialistFilters {
 }
 
 export interface PublicSpecialistProfileData {
+  publicOptions?: PublicPriceOption[]; offersPhone?: boolean;
   id: string;
   publicSlug?: string | null;
   isPubliclyListed: boolean;
@@ -126,7 +128,7 @@ export interface PublicSpecialistProfileData {
   reviews: NonNullable<SpecialistData['reviews']>;
 }
 
-export type PublicSpecialistModality = 'ONLINE' | 'IN_PERSON';
+export type PublicSpecialistModality = 'ONLINE' | 'IN_PERSON' | 'PHONE_CALL';
 export type PublicSpecialistDirectorySort =
   | 'RECENT'
   | 'PRICE_ASC'
@@ -134,7 +136,9 @@ export type PublicSpecialistDirectorySort =
   | 'RATING_DESC'
   | 'REVIEWS_DESC';
 
+export interface PublicPriceOption { specialistId: string; optionId: string; modality: string; durationMinutes: number; priceCents: number }
 export interface PublicSpecialistCard {
+  publicOptions?: PublicPriceOption[]; matchedOptionId?: string | null; offersPhone?: boolean;
   id: string;
   publicSlug?: string | null;
   name: string;
@@ -397,6 +401,7 @@ export function mapSpecialistToProfile(data: Omit<SpecialistData, 'userId'>): Sp
       const types: ('VIDEO_CALL' | 'IN_PERSON' | 'PHONE_CALL')[] = [];
       if (data.offersOnline !== false) types.push('VIDEO_CALL');
       if (data.offersInPerson === true) types.push('IN_PERSON');
+      if (data.offersPhone === true) types.push('PHONE_CALL');
       return types;
     })(),
     education: data.education ?? [],
@@ -421,6 +426,8 @@ export function mapSpecialistToProfile(data: Omit<SpecialistData, 'userId'>): Sp
     } : undefined,
     offersOnline: data.offersOnline ?? true,
     offersInPerson: data.offersInPerson ?? false,
+    offersPhone: data.offersPhone,
+    publicOptions: data.publicOptions,
     gradientId: data.gradientId || undefined,
     photoGallery: data.photoGallery || [],
     presentationVideoUrl: data.presentationVideoUrl || null,

@@ -50,6 +50,7 @@ export interface BookingSessionOption {
 }
 
 export const BOOKING_SESSION_OPTIONS: readonly BookingSessionOption[] = [
+  { type: 'PHONE_CALL', label: 'Llamada', description: 'Tu especialista te llama al número indicado', icon: 'call-outline' },
   {
     type: 'VIDEO_CALL',
     label: 'Videollamada',

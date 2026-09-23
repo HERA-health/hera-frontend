@@ -12,6 +12,15 @@ import type {
 import { getMadridDateKey, parseMadridDateTime } from '../../../utils/madridTime';
 import { MANAGED_SESSION_TIME_OPTIONS } from '../../../utils/managedSessionSchedulerOptions';
 
+jest.mock('../../../services/privateCatalogService', () => ({
+  loadPrivateCatalog: jest.fn(async () => ({ version: 1, firstVisitFree: false, restrictions: {}, options:
+    ['VIDEO_CALL', 'IN_PERSON', 'PHONE_CALL'].flatMap(modality => [45, 50, 60, 75, 90].map(durationMinutes => ({
+      id: `${modality}:${durationMinutes}`, modality, durationMinutes, priceCents: 6000, isActive: true, isPublic: true,
+      isPreferred: durationMinutes === 60, legacyDuration: durationMinutes > 60, version: 1,
+    }))) })),
+  getManagedBookingQuote: jest.fn(async () => ({ price: 60, currency: 'EUR', quoteReference: 'fixture-quote' })),
+}));
+
 jest.mock('../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
 }));
@@ -265,14 +274,16 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     });
 
     fireEvent.changeText(screen.getByTestId('managed-session-time-input'), '14:30');
-    fireEvent.press(screen.getByTestId('managed-session-duration-option-90'));
+    fireEvent.press(await screen.findByTestId('managed-session-duration-option-90'));
     fireEvent.press(screen.getByText('Teléfono'));
+    fireEvent.changeText(screen.getByLabelText('Teléfono para esta cita'), '+34600000000');
 
     rerender(renderModal(true));
     expect(screen.getByDisplayValue('14:30')).toBeTruthy();
 
     rerender(renderModal(false));
     expect(screen.getByDisplayValue('14:30')).toBeTruthy();
+    await act(async () => {});
     fireEvent.press(screen.getByText('Crear cita'));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
@@ -300,7 +311,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     });
 
     fireEvent.changeText(screen.getByTestId('managed-session-time-input'), '14:30');
-    fireEvent.press(screen.getByTestId('managed-session-duration-option-90'));
+    fireEvent.press(await screen.findByTestId('managed-session-duration-option-90'));
     rerender(renderModal([{ ...client, user: { ...client.user } }]));
 
     await waitFor(() => expect(screen.getByText('lucia@example.com')).toBeTruthy());
@@ -366,6 +377,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
       />
     );
 
+    await act(async () => {});
     fireEvent.press(screen.getByText('Crear cita'));
 
     await waitFor(() => {
@@ -472,7 +484,8 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     fireEvent.press(screen.getByTestId('managed-session-calendar'));
     fireEvent.press(screen.getByLabelText('Seleccionar hora'));
     fireEvent.press(screen.getByTestId('managed-session-time-option-14:30'));
-    fireEvent.press(screen.getByTestId('managed-session-duration-option-90'));
+    fireEvent.press(await screen.findByTestId('managed-session-duration-option-90'));
+    await act(async () => {});
     fireEvent.press(screen.getByText('Crear cita'));
 
     await waitFor(() => {
@@ -483,6 +496,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
       date: parseMadridDateTime(mockCalendarDate, '14:30')?.iso,
       duration: 90,
       type: 'VIDEO_CALL',
+      optionId: 'VIDEO_CALL:90', quoteReference:'fixture-quote', sessionPhone:undefined,
     });
   });
 
@@ -502,6 +516,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     fireEvent.press(screen.getByLabelText('Seleccionar fecha'));
     fireEvent.press(screen.getByTestId('managed-session-calendar'));
     fireEvent.changeText(screen.getByTestId('managed-session-time-input'), '14:30');
+    await act(async () => {});
     fireEvent.press(screen.getByText('Crear cita'));
 
     await waitFor(() => {
@@ -512,6 +527,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
       date: parseMadridDateTime(mockCalendarDate, '14:30')?.iso,
       duration: 60,
       type: 'VIDEO_CALL',
+      optionId: 'VIDEO_CALL:60', quoteReference:'fixture-quote', sessionPhone:undefined,
     });
   });
 
@@ -613,6 +629,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
       expect(screen.getByText('Ese hueco ya está ocupado. Elige otra hora.')).toBeTruthy();
     });
 
+    await act(async () => {});
     fireEvent.press(screen.getByText('Crear cita'));
     expect(onSubmit).not.toHaveBeenCalled();
   });
@@ -653,7 +670,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
       expect(screen.getByText('Ese hueco ya está ocupado. Elige otra hora.')).toBeTruthy();
     });
 
-    fireEvent.press(screen.getByTestId('managed-session-duration-option-90'));
+    fireEvent.press(await screen.findByTestId('managed-session-duration-option-90'));
 
     await waitFor(() => {
       expect(mockGetManagedSessionSlotOptions).toHaveBeenLastCalledWith({
@@ -705,7 +722,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     });
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('managed-session-duration-option-90'));
+      fireEvent.press(await screen.findByTestId('managed-session-duration-option-90'));
     });
 
     await waitFor(() => {
@@ -737,6 +754,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
       expect(screen.getByText('No se pudieron comprobar huecos. Se validará al guardar.')).toBeTruthy();
     });
 
+    await act(async () => {});
     fireEvent.press(screen.getByText('Crear cita'));
 
     await waitFor(() => {
@@ -744,7 +762,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     });
   });
 
-  it('shows non-standard edit values as invalid until a fixed option is selected', async () => {
+  it('preserves historic duration while requiring a valid time interval', async () => {
     const startsAt = buildMadridDateAfter(new Date(Date.now()), 2, '12:32');
     const onSubmit = jest.fn(() => Promise.resolve());
 
@@ -772,7 +790,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Elige una franja horaria de la lista')).toBeTruthy();
-      expect(screen.getByText('Elige una duración de la lista')).toBeTruthy();
+      expect(screen.queryByText('Elige una duración configurada')).toBeNull();
     });
     expect(onSubmit).not.toHaveBeenCalled();
 

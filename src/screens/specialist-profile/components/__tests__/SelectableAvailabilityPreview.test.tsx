@@ -110,6 +110,7 @@ describe('SelectableAvailabilityPreview', () => {
       expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledWith(
         'specialist-1',
         '2099-07-30',
+        undefined,
       );
     });
   });
@@ -142,6 +143,7 @@ describe('SelectableAvailabilityPreview', () => {
       expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledWith(
         'specialist-2',
         '2099-07-29',
+        undefined,
       );
       expect(screen.getByText('16:00')).toBeTruthy();
     });

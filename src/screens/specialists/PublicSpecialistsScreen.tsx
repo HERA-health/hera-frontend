@@ -44,6 +44,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'PublicSpeci
 
 const MODALITY_OPTIONS: Array<{ label: string; value: specialistsService.PublicSpecialistModality }> = [
   { label: 'Terapia online', value: 'ONLINE' },
+  { label: 'Llamada', value: 'PHONE_CALL' },
   { label: 'Terapia presencial', value: 'IN_PERSON' },
 ];
 
@@ -472,8 +473,8 @@ export const PublicSpecialistsScreen: React.FC = () => {
                   variant="directory"
                   directoryHorizontal={useHorizontalCards}
                   style={styles.resultCard}
-                  href={directoryEntryHref(specialist.publicSlug ?? specialist.id)}
-                  onPress={async () => { try { const intent = await directoryIntent(specialist.id); navigation.navigate('PublicSpecialistProfile', { profileRef: specialist.publicSlug ?? specialist.id, intentToken: intent.token }); } catch { setError('No se pudo abrir el perfil desde el Directorio. Inténtalo de nuevo.'); } }}
+                  href={directoryEntryHref(specialist.publicSlug ?? specialist.id, specialist.matchedOptionId ?? undefined)}
+                  onPress={async () => { try { const intent = await directoryIntent(specialist.id); navigation.navigate('PublicSpecialistProfile', { profileRef: specialist.publicSlug ?? specialist.id, intentToken: intent.token, optionId: specialist.matchedOptionId ?? undefined }); } catch { setError('No se pudo abrir el perfil desde el Directorio. Inténtalo de nuevo.'); } }}
                 />
               ))}
             </View>

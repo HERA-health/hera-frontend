@@ -86,7 +86,7 @@ describe('validateManagedSessionSchedulerInput', () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.errors.duration).toBe('Elige una duración de la lista');
+      expect(result.errors.duration).toBe('Elige una duración configurada');
     }
   });
 

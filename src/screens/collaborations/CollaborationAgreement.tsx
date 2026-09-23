@@ -28,6 +28,7 @@ export function CollaborationTermsForm({ initial, busy, onSubmit, onCancel, intr
   const territory = 'ES'; const [share, setShare] = useState(String((initial?.originShareBps ?? 2000) / 100));
   const [from, setFrom] = useState(initial ? getMadridDateKey(new Date(initial.validFrom)) : getMadridDateKey()); const [until, setUntil] = useState(initial ? getMadridDateKey(new Date(new Date(initial.validUntil).getTime() - 1)) : '');
   const [online, setOnline] = useState(initial?.sessionTypes.includes('VIDEO_CALL') ?? true); const [inPerson, setInPerson] = useState(initial?.sessionTypes.includes('IN_PERSON') ?? true);
+  const [phone, setPhone] = useState(initial?.sessionTypes.includes('PHONE_CALL') ?? false);
   const [attested, setAttested] = useState(false); const [error, setError] = useState('');
   const [showContract, setShowContract] = useState(false);
   const [configuration, setConfiguration] = useState<Awaited<ReturnType<typeof service.getConfiguration>>>([]);
@@ -35,14 +36,14 @@ export function CollaborationTermsForm({ initial, busy, onSubmit, onCancel, intr
   const [configurationLoading, setConfigurationLoading] = useState(true);
   useEffect(() => { let active = true; setConfigurationLoading(true); void service.getConfiguration().then(data => { if (active) { setConfiguration(data); setError(''); } }).catch(() => { if (active) setError('No se pudo cargar el texto contractual vigente. Reintenta la consulta.'); }).finally(() => { if (active) setConfigurationLoading(false); }); return () => { active = false; }; }, [configAttempt]);
   const template = configuration.find(entry => entry.territory === territory.trim().toUpperCase());
-  useEffect(() => { setAttested(false); }, [template?.templateId, template?.contractText, object, scope, termination, share, from, until, online, inPerson]);
+  useEffect(() => { setAttested(false); }, [template?.templateId, template?.contractText, object, scope, termination, share, from, until, online, inPerson, phone]);
   const save = async () => {
     setError('');
     try {
-      if (!template || !attested || !object.trim() || !scope.trim() || !termination.trim() || (!online && !inPerson)) throw new Error('Revisa el texto contractual, completa las condiciones y confirma tu condición profesional.');
+      if (!template || !attested || !object.trim() || !scope.trim() || !termination.trim() || (!online && !inPerson && !phone)) throw new Error('Revisa el texto contractual, completa las condiciones y confirma tu condición profesional.');
       const originShareBps = toCents(share); if (originShareBps <= 0 || originShareBps >= 10000) throw new Error('El porcentaje debe ser mayor que 0 y menor que 100.');
       const validFrom = dateValue(from); const validUntil = dateValue(until, true); if (validUntil <= validFrom) throw new Error('El fin debe ser posterior al inicio.');
-      await onSubmit({ templateId: template.templateId, contractText: template.contractText, territory: territory.trim().toUpperCase(), object: object.trim(), scope: scope.trim(), terminationClause: termination.trim(), originShareBps, validFrom, validUntil, sessionTypes: [...(online ? ['VIDEO_CALL' as const] : []), ...(inPerson ? ['IN_PERSON' as const] : [])], autonomousAndAuthorized: true });
+      await onSubmit({ templateId: template.templateId, contractText: template.contractText, territory: territory.trim().toUpperCase(), object: object.trim(), scope: scope.trim(), terminationClause: termination.trim(), originShareBps, validFrom, validUntil, sessionTypes: [...(online ? ['VIDEO_CALL' as const] : []), ...(inPerson ? ['IN_PERSON' as const] : []), ...(phone ? ['PHONE_CALL' as const] : [])], autonomousAndAuthorized: true });
     } catch (err) { setError(err instanceof Error ? err.message : 'Revisa los datos.'); }
   };
   return <>
@@ -54,7 +55,7 @@ export function CollaborationTermsForm({ initial, busy, onSubmit, onCancel, intr
         <Field required label="Objeto real de la colaboración" placeholder="Describe la finalidad y las tareas que realizaréis." multiline value={object} onChangeText={setObject} editable={!busy} maxLength={2000} />
         <Field required label="Alcance de los servicios" placeholder="Concreta las prestaciones, la población atendida y los límites del acuerdo." multiline value={scope} onChangeText={setScope} editable={!busy} maxLength={2000} />
         <WorkflowHeading title="Modalidades incluidas" subtitle="Selecciona al menos una modalidad para las sesiones del acuerdo." />
-        <Check label="Consultas online" checked={online} onChange={setOnline} disabled={busy} /><Check label="Consultas presenciales" checked={inPerson} onChange={setInPerson} disabled={busy} />
+        <Check label="Consultas online" checked={online} onChange={setOnline} disabled={busy} /><Check label="Consultas presenciales" checked={inPerson} onChange={setInPerson} disabled={busy} /><Check label="Consultas telefónicas" checked={phone} onChange={setPhone} disabled={busy} />
       </Card>
       <Card>
         <WorkflowHeading number="02" title="Reparto y vigencia" subtitle="A es el profesional de origen. B atiende y factura al paciente." />

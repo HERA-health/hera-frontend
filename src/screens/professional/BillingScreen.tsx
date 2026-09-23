@@ -40,8 +40,6 @@ import {
   InvoiceStatus,
   InvoiceFilters,
   BillingConfig,
-  TariffsConfig,
-  TariffItem,
 } from '../../services/billingService';
 import * as analyticsService from '../../services/analyticsService';
 
@@ -265,8 +263,6 @@ export function BillingScreen() {
   // Specialist billing config (loaded from API)
   const [billingConfig, setBillingConfig] = useState<BillingConfig>({});
   const [isConfigLoaded, setIsConfigLoaded] = useState(false);
-  const [tariffItems, setTariffItems] = useState<TariffItem[]>([]);
-  const [firstVisitFree, setFirstVisitFree] = useState(false);
 
   // Filter state
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
@@ -282,7 +278,6 @@ export function BillingScreen() {
   const menuButtonRefs = useRef<Record<string, View | null>>({});
 
   // Edit state
-  const [editingTariffs, setEditingTariffs] = useState(false);
   const [editingFiscal, setEditingFiscal] = useState(false);
   const [editingNumbering, setEditingNumbering] = useState(false);
   const [highlightFiscal, setHighlightFiscal] = useState(false);
@@ -290,8 +285,6 @@ export function BillingScreen() {
   const [savingInvoiceDesign, setSavingInvoiceDesign] = useState(false);
   const [numberingError, setNumberingError] = useState<string | null>(null);
   // Temp edit values
-  const [tempTariffItems, setTempTariffItems] = useState<TariffItem[]>([]);
-  const [tempFirstVisitFree, setTempFirstVisitFree] = useState(false);
   const [tempFiscal, setTempFiscal] = useState<BillingConfig>({});
   const [tempInvoiceAccentColor, setTempInvoiceAccentColor] = useState(DEFAULT_INVOICE_ACCENT_COLOR);
   const [tempNumbering, setTempNumbering] = useState({
@@ -476,23 +469,6 @@ export function BillingScreen() {
         fullInvoiceNextNumber: config.fullInvoiceNextNumber || 1,
       });
 
-      // Parse tariffs: use JSON array if available, otherwise build from scalar fields
-      const parsedTariffs: TariffItem[] = (s.tariffs && Array.isArray(s.tariffs) && s.tariffs.length > 0)
-        ? (s.tariffs as TariffItem[])
-        : [{
-            id: '1',
-            name: 'Sesión individual',
-            price: s.pricePerSession || 0,
-            durationMinutes: s.slotDuration || 60,
-            isDefault: true,
-            isActive: true,
-          }];
-      setTariffItems(parsedTariffs);
-      setTempTariffItems(parsedTariffs);
-      setFirstVisitFree(s.firstVisitFree || false);
-      setTempFirstVisitFree(s.firstVisitFree || false);
-
-      // Default tariff is now used in CreateInvoiceScreen
     } catch {
       // Config loading failed — defaults are already set
     }
@@ -687,35 +663,6 @@ export function BillingScreen() {
     });
     if (secondConfirmed) {
       void executeDelete();
-    }
-  };
-
-  const handleSaveTariffs = async () => {
-    const defaults = tempTariffItems.filter((t) => t.isDefault);
-    if (defaults.length !== 1) {
-      showAppAlert(appAlert, 'Error', 'Debe haber exactamente una tarifa por defecto');
-      return;
-    }
-    if (!defaults[0].isActive) {
-      showAppAlert(appAlert, 'Error', 'La tarifa por defecto debe estar activa');
-      return;
-    }
-    const actives = tempTariffItems.filter((t) => t.isActive);
-    if (actives.length === 0) {
-      showAppAlert(appAlert, 'Error', 'Debe haber al menos una tarifa activa');
-      return;
-    }
-    try {
-      setSavingConfig(true);
-      await billingService.updateTariffs({ tariffs: tempTariffItems, firstVisitFree: tempFirstVisitFree });
-      setTariffItems(tempTariffItems);
-      setFirstVisitFree(tempFirstVisitFree);
-      setEditingTariffs(false);
-      showAppAlert(appAlert, 'Éxito', 'Tarifas actualizadas');
-    } catch (error) {
-      showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al guardar');
-    } finally {
-      setSavingConfig(false);
     }
   };
 
@@ -1122,146 +1069,12 @@ export function BillingScreen() {
     </TourTarget>
   );
 
-  const handleAddTariff = () => {
-    setTempTariffItems((prev) => [...prev, {
-      id: String(Date.now()),
-      name: '',
-      price: 0,
-      durationMinutes: 60,
-      isDefault: false,
-      isActive: true,
-    }]);
-  };
-
-  const handleUpdateTempTariff = (id: string, field: keyof TariffItem, value: string | number | boolean) => {
-    setTempTariffItems((prev) => prev.map((t) => {
-      if (t.id !== id) {
-        // If setting this one as default, unset others
-        if (field === 'isDefault' && value === true) return { ...t, isDefault: false };
-        return t;
-      }
-      return { ...t, [field]: value };
-    }));
-  };
-
-  const handleDeleteTempTariff = (id: string) => {
-    if (tempTariffItems.length <= 1) {
-      showAppAlert(appAlert, 'Error', 'Debe haber al menos una tarifa');
-      return;
-    }
-    setTempTariffItems((prev) => prev.filter((t) => t.id !== id));
-  };
-
   const renderTariffsCard = () => (
     <TourTarget id="professional.billing.tariffs" fill style={styles.fullWidthTourTarget}>
-      <View style={[styles.card, { zIndex: 10, overflow: 'visible' as const }]}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{STRINGS.tariffs}</Text>
-        <TouchableOpacity onPress={() => {
-          setTempTariffItems(tariffItems);
-          setTempFirstVisitFree(firstVisitFree);
-          setEditingTariffs(!editingTariffs);
-        }}>
-          <Text style={styles.editBtn}>{editingTariffs ? STRINGS.cancel : STRINGS.edit}</Text>
-        </TouchableOpacity>
-      </View>
-      {editingTariffs ? (
-        <View style={styles.editForm}>
-          {tempTariffItems.map((tariff) => (
-            <View key={tariff.id} style={styles.tariffEditRow}>
-              <View style={styles.tariffEditFields}>
-                <TextInput
-                  style={[styles.input, { flex: 1 }]}
-                  value={tariff.name}
-                  onChangeText={(v) => handleUpdateTempTariff(tariff.id, 'name', v)}
-                  placeholder="Nombre de la tarifa"
-                  placeholderTextColor={theme.textMuted}
-                />
-                <View style={styles.tariffPriceRow}>
-                  <TextInput
-                    style={[styles.input, { width: 80 }]}
-                    value={String(tariff.price)}
-                    onChangeText={(v) => handleUpdateTempTariff(tariff.id, 'price', parseFloat(v) || 0)}
-                    keyboardType="numeric"
-                    placeholder="€"
-                    placeholderTextColor={theme.textMuted}
-                  />
-                  <Text style={styles.fieldHint}>€</Text>
-                </View>
-                <View style={styles.formGroup}>
-                  <SimpleDropdown
-                    options={SLOT_OPTIONS.map((opt) => ({ label: opt.label, value: opt.value }))}
-                    value={tariff.durationMinutes}
-                    onSelect={(v) => handleUpdateTempTariff(tariff.id, 'durationMinutes', v)}
-                    placeholder="Duración..."
-                  />
-                </View>
-                <View style={styles.tariffToggles}>
-                  <TouchableOpacity
-                    style={[styles.tariffToggle, tariff.isDefault && styles.tariffToggleActive]}
-                    onPress={() => handleUpdateTempTariff(tariff.id, 'isDefault', true)}
-                  >
-                    <Text style={[styles.tariffToggleText, tariff.isDefault && styles.tariffToggleTextActive]}>
-                      Por defecto
-                    </Text>
-                  </TouchableOpacity>
-                  {tempTariffItems.length > 1 && (
-                    <TouchableOpacity onPress={() => handleDeleteTempTariff(tariff.id)}>
-                      <Ionicons name="trash-outline" size={18} color={theme.warning} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            </View>
-          ))}
-          <TouchableOpacity style={styles.addTariffBtn} onPress={handleAddTariff}>
-            <Ionicons name="add" size={16} color={theme.primary} />
-            <Text style={styles.addTariffBtnText}>Añadir tarifa</Text>
-          </TouchableOpacity>
-          <View style={styles.switchRow}>
-            <Text style={styles.fieldLabel}>{STRINGS.firstSessionFree}</Text>
-            <Switch
-              value={tempFirstVisitFree}
-              onValueChange={setTempFirstVisitFree}
-              trackColor={{ false: colors.neutral.gray300, true: theme.primaryMuted }}
-              thumbColor={tempFirstVisitFree ? theme.primary : colors.neutral.gray400}
-            />
-          </View>
-          <TouchableOpacity style={styles.saveBtn} onPress={handleSaveTariffs} disabled={savingConfig}>
-            {savingConfig ? <ActivityIndicator size="small" color={colors.neutral.white} /> : (
-              <Text style={styles.saveBtnText}>{STRINGS.save}</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={{ gap: spacing.sm }}>
-          {tariffItems.filter((t) => t.isActive).map((tariff) => (
-            <View key={tariff.id} style={styles.tariffDisplayRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.configValue}>
-                  {tariff.name || 'Sin nombre'}
-                  {tariff.isDefault && (
-                    <Text style={styles.defaultBadgeInline}> (por defecto)</Text>
-                  )}
-                </Text>
-                <Text style={styles.configDetail}>
-                  {tariff.price === 0 ? 'Gratis' : formatCurrency(tariff.price)} · {tariff.durationMinutes} min
-                </Text>
-              </View>
-            </View>
-          ))}
-          {tariffItems.some((t) => !t.isActive) && (
-            <Text style={styles.configDetail}>
-              +{tariffItems.filter((t) => !t.isActive).length} tarifa(s) inactiva(s)
-            </Text>
-          )}
-          {firstVisitFree && (
-            <View style={styles.freeBadge}>
-              <Text style={styles.freeBadgeText}>{STRINGS.firstSessionBadge}</Text>
-            </View>
-          )}
-        </View>
-      )}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Tarifas y servicios</Text>
+        <Text style={styles.configDetail}>Configura precios, duraciones y modalidades en tu nueva pantalla de tarifas.</Text>
+        <Button variant="outline" onPress={() => navigation.navigate('ProfessionalTariffs')}>Gestionar tarifas</Button>
       </View>
     </TourTarget>
   );
@@ -2126,73 +1939,6 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean, isMobil
     marginTop: spacing.xs,
   },
 
-  // Tariff editor
-  tariffEditRow: {
-    backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    overflow: 'visible' as const,
-    zIndex: 100,
-  },
-  tariffEditFields: {
-    gap: spacing.sm,
-    overflow: 'visible' as const,
-  },
-  tariffPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flexWrap: 'wrap',
-  },
-  tariffToggles: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  tariffToggle: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-    borderWidth: 1,
-    borderColor: theme.border,
-  },
-  tariffToggleActive: {
-    backgroundColor: theme.primaryMuted,
-    borderColor: theme.primary,
-  },
-  tariffToggleText: {
-    fontSize: typography.fontSizes.xs,
-    color: theme.textSecondary,
-    fontFamily: theme.fontSansMedium,
-  },
-  tariffToggleTextActive: {
-    color: theme.primary,
-    fontFamily: theme.fontSansSemiBold,
-  },
-  tariffDisplayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  defaultBadgeInline: {
-    fontSize: typography.fontSizes.xs,
-    color: theme.primary,
-    fontFamily: theme.fontSansSemiBold,
-  },
-  addTariffBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    alignSelf: 'flex-start',
-  },
-  addTariffBtnText: {
-    fontSize: typography.fontSizes.sm,
-    color: theme.primary,
-    fontFamily: theme.fontSansSemiBold,
-  },
   selectChipSmall: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
