@@ -1,3 +1,4 @@
+import { loadPrivateCatalog, getManagedBookingQuote, type PrivateServiceOption } from '../../../services/privateCatalogService';
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
@@ -15,7 +16,7 @@ import { MANAGED_SESSION_TIME_OPTIONS } from '../../../utils/managedSessionSched
 jest.mock('../../../services/privateCatalogService', () => ({
   loadPrivateCatalog: jest.fn(async () => ({ version: 1, firstVisitFree: false, restrictions: {}, options:
     ['VIDEO_CALL', 'IN_PERSON', 'PHONE_CALL'].flatMap(modality => [45, 50, 60, 75, 90].map(durationMinutes => ({
-      id: `${modality}:${durationMinutes}`, modality, durationMinutes, priceCents: 6000, isActive: true, isPublic: true,
+      id: `${modality}:${durationMinutes}`, serviceId: 'base', serviceKey: 'base', serviceName: 'General', modality, durationMinutes, priceCents: 6000, isActive: true, isPublic: true,
       isPreferred: durationMinutes === 60, legacyDuration: durationMinutes > 60, version: 1,
     }))) })),
   getManagedBookingQuote: jest.fn(async () => ({ price: 60, currency: 'EUR', quoteReference: 'fixture-quote' })),
@@ -135,6 +136,56 @@ function createDeferred<T>() {
 }
 
 describe('ManagedSessionSchedulerModal buffer override UX', () => {
+  it('keeps the agreed price when reselecting the original service or returning to its duration', async () => {
+    jest.mocked(getManagedBookingQuote).mockClear();
+    const onSubmit = jest.fn(async () => {});
+    render(<ManagedSessionSchedulerModal visible clients={[client]} mode="edit" editingSessionId="existing"
+      initialValues={{ clientId: client.id, date: buildMadridDate('2099-01-05', '10:00').toISOString(), duration: 60, type: 'VIDEO_CALL', optionId: 'VIDEO_CALL:60', serviceName: 'General' }}
+      onClose={jest.fn()} onSubmit={onSubmit} />);
+    await screen.findByRole('radio');
+    fireEvent.press(screen.getByRole('radio'));
+    expect(screen.getByText('Se conserva el precio acordado de esta cita')).toBeTruthy();
+    expect(getManagedBookingQuote).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId('managed-session-duration-option-50'));
+    await waitFor(() => expect(getManagedBookingQuote).toHaveBeenCalledWith(expect.objectContaining({ optionId: 'VIDEO_CALL:50' })));
+    jest.mocked(getManagedBookingQuote).mockClear();
+    fireEvent.press(screen.getByTestId('managed-session-duration-option-60'));
+    expect(screen.getByText('Se conserva el precio acordado de esta cita')).toBeTruthy();
+    expect(getManagedBookingQuote).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Guardar cambios' }).props.accessibilityState.disabled).toBe(false));
+    fireEvent.press(screen.getByText('Guardar cambios'));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.not.objectContaining({ optionId: expect.anything() })));
+  });
+
+  it('preserves an archived option when the current modality and duration are pressed', async () => {
+    jest.mocked(getManagedBookingQuote).mockClear();
+    const onSubmit = jest.fn(async () => {});
+    render(<ManagedSessionSchedulerModal visible clients={[client]} mode="edit" editingSessionId="existing"
+      initialValues={{ clientId: client.id, date: buildMadridDate('2099-01-05', '10:00').toISOString(), duration: 60, type: 'VIDEO_CALL', optionId: 'archived-option', serviceName: 'Archivado' }}
+      onClose={jest.fn()} onSubmit={onSubmit} />);
+    await screen.findByRole('radio');
+    fireEvent.press(screen.getByText('Videollamada'));
+    fireEvent.press(screen.getByTestId('managed-session-duration-option-60'));
+    expect(screen.getByText('Se conserva el precio acordado de esta cita')).toBeTruthy();
+    expect(getManagedBookingQuote).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Guardar cambios' }).props.accessibilityState.disabled).toBe(false));
+    fireEvent.press(screen.getByText('Guardar cambios'));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.not.objectContaining({ optionId: expect.anything() })));
+  });
+
+  it('can keep the existing agreement when the catalog cannot load', async () => {
+    jest.mocked(loadPrivateCatalog).mockRejectedValueOnce(new Error('Offline'));
+    jest.mocked(getManagedBookingQuote).mockClear();
+    const onSubmit = jest.fn(async () => {});
+    render(<ManagedSessionSchedulerModal visible clients={[client]} mode="edit" editingSessionId="existing"
+      initialValues={{ clientId: client.id, date: buildMadridDate('2099-01-05', '10:00').toISOString(), duration: 60, type: 'VIDEO_CALL', optionId: 'original-option' }}
+      onClose={jest.fn()} onSubmit={onSubmit} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Guardar cambios' }).props.accessibilityState.disabled).toBe(false));
+    fireEvent.press(screen.getByText('Guardar cambios'));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.not.objectContaining({ optionId: expect.anything() })));
+    expect(getManagedBookingQuote).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     const futureNow = buildMadridDate('2099-01-02', '08:00');
     mockCalendarDate = getMadridDateKey(new Date(futureNow.getTime() + 3 * 24 * 60 * 60 * 1000));
@@ -190,7 +241,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     expect(screen.queryByPlaceholderText('Buscar por nombre o email')).toBeNull();
     expect(screen.getByText('sara@example.com')).toBeTruthy();
     expect(screen.getByText('Se enviará un aviso de la cita a sara@example.com.')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled).toBe(false);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled).toBe(false));
   });
 
   it('closes the patient dropdown from another control or Escape and clears the search', async () => {
@@ -252,7 +303,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     fireEvent.press(screen.getByText('Sara Herrer'));
 
     expect(screen.getByText('sara@example.com')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled).toBe(false);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled).toBe(false));
   });
 
   it('preserves configured fields when saving rerenders with a fresh clients array', async () => {
@@ -316,7 +367,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
 
     await waitFor(() => expect(screen.getByText('lucia@example.com')).toBeTruthy());
     expect(screen.getByDisplayValue('14:30')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled).toBe(false);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Crear cita' }).props.accessibilityState.disabled).toBe(false));
   });
 
   it('limits rendered patient results while searching across the complete collection', async () => {
@@ -786,6 +837,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     expect(screen.getByDisplayValue('12:32')).toBeTruthy();
     expect(screen.getByText('65 min')).toBeTruthy();
 
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Guardar cambios' }).props.accessibilityState.disabled).toBe(false));
     fireEvent.press(screen.getByText('Guardar cambios'));
 
     await waitFor(() => {
@@ -795,7 +847,7 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     expect(onSubmit).not.toHaveBeenCalled();
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('managed-session-duration-option-60'));
+      fireEvent.press(screen.getByText('General'));
     });
 
     expect(screen.queryByText('Elige una duración de la lista')).toBeNull();
@@ -905,4 +957,19 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
       expect(mockGetManagedSessionSlotOptions).toHaveBeenCalled();
     });
   });
+  it('quotes the chosen custom service even when its duration matches General', async () => {
+    const option = (id: string, serviceId: string, serviceName: string): PrivateServiceOption => ({ id, serviceId, serviceKey: serviceId, serviceName, name: serviceName,
+      modality: 'VIDEO_CALL', durationMinutes: 60, priceCents: serviceId === 'base' ? 5000 : 8000, currency: 'EUR',
+      isActive: true, isPublic: true, isPreferred: true, version: 1, legacyDuration: false, legacyTariffId: null });
+    const base = option('base-option', 'base', 'General');
+    const custom = option('custom-option', 'mdr', 'Terapia MDR');
+    jest.mocked(loadPrivateCatalog).mockResolvedValueOnce({ version: 1, firstVisitFree: false, options: [base], restrictions: {}, services: [
+      { id: 'base', key: 'base', name: 'General', description: null, archivedAt: null, version: 1, options: [base] },
+      { id: 'mdr', key: 'mdr', name: 'Terapia MDR', description: null, archivedAt: null, version: 1, options: [custom] },
+    ] });
+    render(<ManagedSessionSchedulerModal visible clients={[client]} initialClientId="client-1" onClose={jest.fn()} onSubmit={jest.fn(async () => {})} />);
+    fireEvent.press(await screen.findByText('Terapia MDR'));
+    await waitFor(() => expect(getManagedBookingQuote).toHaveBeenLastCalledWith(expect.objectContaining({ optionId: 'custom-option', duration: 60 })));
+  });
+
 });

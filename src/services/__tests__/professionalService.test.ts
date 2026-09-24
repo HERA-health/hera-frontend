@@ -580,7 +580,7 @@ describe('professionalService.getProfessionalAgenda', () => {
       limit: 50,
     })).resolves.toEqual(response);
     expect(mockedApi.get).toHaveBeenCalledWith('/sessions/professional/agenda', {
-      params: { view: 'list', origin: 'PRIVATE', limit: 50 },
+      params: { view: 'list', origin: 'PRIVATE', limit: 50, serviceDetails: '1' },
     });
   });
 

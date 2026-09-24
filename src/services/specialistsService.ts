@@ -136,7 +136,7 @@ export type PublicSpecialistDirectorySort =
   | 'RATING_DESC'
   | 'REVIEWS_DESC';
 
-export interface PublicPriceOption { specialistId: string; optionId: string; modality: string; durationMinutes: number; priceCents: number }
+export interface PublicPriceOption { serviceId?: string; serviceKey?: string; serviceName?: string; serviceDescription?: string | null; specialistId: string; optionId: string; modality: string; durationMinutes: number; priceCents: number }
 export interface PublicSpecialistCard {
   publicOptions?: PublicPriceOption[]; matchedOptionId?: string | null; offersPhone?: boolean;
   id: string;

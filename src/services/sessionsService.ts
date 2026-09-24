@@ -114,6 +114,7 @@ export interface PublicCreatedSession {
 }
 
 export interface BookingQuote {
+  serviceId?: string; serviceName?: string;
   optionId?: string; quoteReference?: string; expiresAt?: string; totalCents?: number; baseCents?: number; taxCents?: number;
   specialistId: string;
   duration: number;

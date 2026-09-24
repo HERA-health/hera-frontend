@@ -1,4 +1,6 @@
 import { loadPrivateCatalog, getManagedBookingQuote, type PrivateServiceOption } from '../../services/privateCatalogService';
+import { PrivateServicePicker } from '../scheduling/PrivateServicePicker';
+import { initialPrivateOption, privateOptionForModality } from '../../utils/privateServiceSelection';
 import type { BookingQuote } from '../../services/sessionsService';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -64,6 +66,8 @@ type BufferConflictState = {
 type SchedulerMode = 'create' | 'edit';
 
 export interface ManagedSessionSchedulerInitialValues {
+  optionId?: string | null;
+  serviceName?: string | null;
   clientId: string;
   date: string;
   duration: number;
@@ -147,6 +151,7 @@ export function ManagedSessionSchedulerModal({
   const [timeValue, setTimeValue] = useState('');
   const [durationValue, setDurationValue] = useState('60');
   const [catalogOptions, setCatalogOptions] = useState<PrivateServiceOption[]>([]);
+  const [selectedOptionId, setSelectedOptionId] = useState<string>();
   const [quote, setQuote] = useState<BookingQuote | null>(null);
   const [quoteError, setQuoteError] = useState('');
   const [quoteRetry, setQuoteRetry] = useState(0);
@@ -168,16 +173,28 @@ export function ManagedSessionSchedulerModal({
   const initialDate = initialValues?.date;
   const initialDuration = initialValues?.duration;
   const initialType = initialValues?.type;
-  const dateOnlyChange = isEditing && Number(durationValue) === initialDuration && type === initialType;
-  const selectedOption = catalogOptions.find(o => o.modality === type && o.durationMinutes === Number(durationValue));
-  const durationOptions = [...new Set([...catalogOptions.filter(o => o.modality === type).map(o => o.durationMinutes), ...(isEditing && type === initialType && initialDuration ? [initialDuration] : [])])].sort((a,b) => a-b);
+  const originalOptionId = initialValues?.optionId ?? catalogOptions.find(o =>
+    o.serviceKey === 'base' && o.modality === initialType && o.durationMinutes === initialDuration)?.id;
+  const dateOnlyChange = isEditing && selectedOptionId === originalOptionId
+    && Number(durationValue) === initialDuration && type === initialType;
+  const selectedOption = catalogOptions.find(o => o.id === selectedOptionId && o.modality === type);
+  const durationOptions = [...new Set([...catalogOptions.filter(o => o.modality === type && o.serviceId === selectedOption?.serviceId).map(o => o.durationMinutes), ...(dateOnlyChange && initialDuration ? [initialDuration] : [])])].sort((a,b) => a-b);
   useEffect(() => {
     if (!visible) return;
     let current = true;
-    loadPrivateCatalog().then(value => { if (current) { setCatalogOptions(value.options.filter(o => o.isActive)); setQuoteError(''); } })
+    loadPrivateCatalog().then(value => { if (current) {
+      const options = (value.services ? value.services.filter(s => !s.archivedAt).flatMap(s => s.options) : value.options).filter(o => o.isActive);
+      setCatalogOptions(options); setQuoteError('');
+      const initial = isEditing
+        ? initialValues?.optionId ? options.find(o => o.id === initialValues.optionId)
+          : options.find(o => o.serviceKey === 'base' && o.modality === initialType && o.durationMinutes === initialDuration)
+        : initialPrivateOption(options.filter(o => o.modality === (initialType ?? 'VIDEO_CALL')));
+      setSelectedOptionId(isEditing ? initialValues?.optionId ?? initial?.id : initial?.id);
+      if (!isEditing && initial) setDurationValue(String(initial.durationMinutes));
+    } })
       .catch(() => { if (current) setQuoteError('No se pudieron cargar las tarifas. Cierra y vuelve a abrir la cita.'); });
     return () => { current = false; };
-  }, [visible]);
+  }, [visible, editingSessionId, initialValues?.optionId]);
   useEffect(() => {
     let current = true;
     setQuote(null);
@@ -188,6 +205,11 @@ export function ManagedSessionSchedulerModal({
       .catch(e => { if (current) setQuoteError(e instanceof Error ? e.message : 'No se pudo calcular el precio.'); });
     return () => { current = false; };
   }, [visible, clientId, selectedOption?.id, type, editingSessionId, dateOnlyChange, quoteRetry]);
+  useEffect(() => {
+    if (!visible || !quote?.expiresAt) return;
+    const timer = setTimeout(() => { setQuote(null); setQuoteRetry(v => v + 1); }, Math.max(0, Date.parse(quote.expiresAt) - Date.now()));
+    return () => clearTimeout(timer);
+  }, [visible, quote?.expiresAt]);
   const formInitializationKey = JSON.stringify([
     mode,
     editingSessionId ?? null,
@@ -195,6 +217,7 @@ export function ManagedSessionSchedulerModal({
     initialDate ?? null,
     initialDuration ?? null,
     initialType ?? null,
+    initialValues?.optionId ?? null,
   ]);
 
   useEffect(() => {
@@ -217,6 +240,7 @@ export function ManagedSessionSchedulerModal({
     setDateValue(initialScheduleValue.date);
     setTimeValue(initialScheduleValue.time);
     setDurationValue(String(initialDuration ?? 60));
+    if (isEditing) setSelectedOptionId(initialValues?.optionId ?? undefined);
     setType(initialType ?? 'VIDEO_CALL');
     setSessionPhone('');
     setClientSelectorOpen(false);
@@ -234,6 +258,8 @@ export function ManagedSessionSchedulerModal({
     initialDate,
     initialDuration,
     initialType,
+    initialValues?.optionId,
+    isEditing,
     requestedClientId,
     visible,
   ]);
@@ -412,7 +438,7 @@ export function ManagedSessionSchedulerModal({
       return;
     }
 
-    if (!dateOnlyChange && !quote?.quoteReference) { setErrors({ form: quoteError || 'Espera a que se calcule el precio.' }); return; }
+    if (!dateOnlyChange && (!selectedOption || !quote?.quoteReference || (quote.expiresAt && Date.parse(quote.expiresAt) <= Date.now()))) { setQuoteRetry(v => v + 1); setErrors({ form: quoteError || 'Selecciona un servicio y revisa el precio actualizado.' }); return; }
     if (type === 'PHONE_CALL' && !sessionPhone.trim() && !dateOnlyChange) { setErrors({ form: 'Indica el teléfono de destino para esta cita.' }); return; }
     const input = { ...validation.input, ...(!dateOnlyChange ? { optionId: selectedOption?.id, quoteReference: quote?.quoteReference } : {}), ...(sessionPhone.trim() ? { sessionPhone } : {}) };
     setErrors({});
@@ -599,60 +625,6 @@ export function ManagedSessionSchedulerModal({
               }}
             />
 
-            <View style={styles.section}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.label, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
-                  Duración
-                </Text>
-                {!selectedDurationIsAllowed && (
-                  <Text style={[styles.currentValueText, { color: theme.warning, fontFamily: theme.fontSansSemiBold }]}>
-                    {durationValue} min
-                  </Text>
-                )}
-              </View>
-              <View style={styles.optionRow}>
-                {durationOptions.map((option) => {
-                  const active = selectedDurationNumber === option;
-                  return (
-                    <AnimatedPressable
-                      key={option}
-                      testID={`managed-session-duration-option-${option}`}
-                      onPress={() => {
-                        setClientSelectorOpen(false);
-                        setDurationValue(String(option));
-                        clearBufferConflict();
-                        clearFieldErrors('duration', 'time', 'form');
-                      }}
-                      hoverLift={false}
-                      style={[
-                        styles.pill,
-                        {
-                          borderColor: active ? theme.primary : theme.border,
-                          backgroundColor: active ? theme.primaryAlpha12 : theme.bgMuted,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.pillText,
-                          {
-                            color: active ? theme.primary : theme.textSecondary,
-                            fontFamily: theme.fontSansSemiBold,
-                          },
-                        ]}
-                      >
-                        {option} min
-                      </Text>
-                    </AnimatedPressable>
-                  );
-                })}
-              </View>
-              {(!selectedDurationIsAllowed || errors.duration) && (
-                <Text style={[styles.errorText, { color: theme.error, fontFamily: theme.fontSans }]}>
-                  {errors.duration ?? 'Selecciona una duración de la lista'}
-                </Text>
-              )}
-            </View>
 
             <View style={styles.section}>
               <Text style={[styles.label, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
@@ -665,8 +637,13 @@ export function ManagedSessionSchedulerModal({
                     <AnimatedPressable
                       key={option.value}
                       onPress={() => {
+                        if (type === option.value) return;
                         setClientSelectorOpen(false);
                         setType(option.value);
+                        const next = privateOptionForModality(catalogOptions, selectedOption, option.value);
+                        setSelectedOptionId(next?.id);
+                        setTimeEditedManually(true);
+                        if (!next) setQuoteError('El servicio o su duración no están disponibles en esta modalidad. Elige una alternativa.');
                         clearBufferConflict();
                         clearFieldErrors('type', 'form');
                       }}
@@ -699,6 +676,72 @@ export function ManagedSessionSchedulerModal({
                   );
                 })}
               </View>
+            </View>
+
+            <View style={styles.section}>
+              {dateOnlyChange && <Text style={{ color: theme.textSecondary }}>Servicio reservado: {initialValues?.serviceName ?? 'Condiciones originales'} · {initialDuration} min. Cambiar solo la fecha mantiene sus condiciones.</Text>}
+              <PrivateServicePicker showDuration={false} options={catalogOptions} modality={type} value={selectedOptionId} disabled={saving} onChange={id => {
+                const next = catalogOptions.find(o => o.id === id);
+                if (!next) return;
+                setSelectedOptionId(id); setDurationValue(String(next.durationMinutes)); setTimeEditedManually(true); clearBufferConflict();
+              }} />
+            </View>
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={[styles.label, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>
+                  Duración
+                </Text>
+                {!selectedDurationIsAllowed && (
+                  <Text style={[styles.currentValueText, { color: theme.warning, fontFamily: theme.fontSansSemiBold }]}>
+                    {durationValue} min
+                  </Text>
+                )}
+              </View>
+              <View style={styles.optionRow}>
+                {durationOptions.map((option) => {
+                  const active = selectedDurationNumber === option;
+                  return (
+                    <AnimatedPressable
+                      key={option}
+                      testID={`managed-session-duration-option-${option}`}
+                      onPress={() => {
+                        if (selectedDurationNumber === option) return;
+                        setClientSelectorOpen(false);
+                        setDurationValue(String(option));
+                        setTimeEditedManually(true);
+                        setSelectedOptionId(catalogOptions.find(o => o.serviceId === selectedOption?.serviceId && o.modality === type && o.durationMinutes === option)?.id);
+                        clearBufferConflict();
+                        clearFieldErrors('duration', 'time', 'form');
+                      }}
+                      hoverLift={false}
+                      style={[
+                        styles.pill,
+                        {
+                          borderColor: active ? theme.primary : theme.border,
+                          backgroundColor: active ? theme.primaryAlpha12 : theme.bgMuted,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.pillText,
+                          {
+                            color: active ? theme.primary : theme.textSecondary,
+                            fontFamily: theme.fontSansSemiBold,
+                          },
+                        ]}
+                      >
+                        {option} min
+                      </Text>
+                    </AnimatedPressable>
+                  );
+                })}
+              </View>
+              {(!selectedDurationIsAllowed || errors.duration) && (
+                <Text style={[styles.errorText, { color: theme.error, fontFamily: theme.fontSans }]}>
+                  {errors.duration ?? 'Selecciona una duración de la lista'}
+                </Text>
+              )}
             </View>
 
             <View
@@ -786,7 +829,7 @@ export function ManagedSessionSchedulerModal({
             <Button
               variant="primary"
               onPress={handleSubmit}
-              disabled={saving || !clientId || selectedSlotIsBlocked}
+              disabled={saving || !clientId || selectedSlotIsBlocked || slotOptionsLoading || (!dateOnlyChange && (!selectedOption || !quote?.quoteReference))}
               loading={saving}
               icon={<Ionicons name="calendar-outline" size={18} color={theme.textOnPrimary} />}
               style={styles.footerButton}

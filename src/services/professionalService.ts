@@ -73,6 +73,8 @@ export interface Session {
   duration: number;
   bookedPrice?: number | null;
   bookedCurrency?: string | null;
+  privateOptionId?: string | null;
+  bookedPrivateServiceName?: string | null;
   bookedTariffId?: string | null;
   bookedTariffName?: string | null;
   bookedDuration?: number | null;
@@ -279,6 +281,8 @@ const professionalAgendaItemSchema = z.object({
     displayName: z.string().min(1),
     avatar: z.string().nullable(),
   }).strict(),
+  privateOptionId: z.string().nullable().optional(),
+  bookedPrivateServiceName: z.string().nullable().optional(),
   startsAt: z.iso.datetime(),
   durationMinutes: z.number().int().positive(),
   status: z.enum(['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED']),
@@ -367,7 +371,7 @@ export const getProfessionalAgenda = async (
   query: ProfessionalAgendaQuery,
 ): Promise<ProfessionalAgendaResponse> => {
   try {
-    const response = await api.get('/sessions/professional/agenda', { params: query });
+    const response = await api.get('/sessions/professional/agenda', { params: { ...query, serviceDetails: '1' } });
     return professionalAgendaResponseSchema.parse(response.data.data);
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
@@ -1240,4 +1244,3 @@ export const deleteCertificateDocument = async (certificateId: string): Promise<
     throw new Error(getErrorMessage(error, 'No se pudo eliminar el certificado.'));
   }
 };
-

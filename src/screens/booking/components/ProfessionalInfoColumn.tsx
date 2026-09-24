@@ -184,6 +184,7 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
         </View>
 
         <View style={styles.summaryRows}>
+          {!!bookingQuote?.serviceName && <SummaryRow icon="list-outline" label="Servicio" value={bookingQuote.serviceName} active />}
           <SummaryRow
             icon="calendar-outline"
             label="Fecha"

@@ -101,7 +101,22 @@ export const BookingSidebarEditorial: React.FC<BookingSidebarProps> = ({
           <Text style={styles.duration}>Sesión de {slotDuration} minutos</Text>
         </View>
 
-        {specialist.publicOptions?.length ? <View style={styles.optionSelector}><SimpleDropdown presentation="portal" highlightSelection={false} accessibilityLabel="Modalidad y duración de tu sesión" value={optionId ?? null} options={specialist.publicOptions.map(o => ({ value: o.optionId, label: `${o.modality === 'VIDEO_CALL' ? 'Videollamada' : o.modality === 'IN_PERSON' ? 'Presencial' : 'Llamada'} · ${o.durationMinutes} min · ${formatPrivatePrice(o.priceCents)}` }))} onSelect={id => onOptionChange?.(String(id))} /></View> : null}
+        {specialist.publicOptions?.length ? <View style={styles.optionSelector}>
+          <Text style={{ fontFamily: theme.fontSansSemiBold, color: theme.textPrimary, fontSize: 17 }}>Servicios y tarifas</Text>
+          {[...new Set(specialist.publicOptions.map(o => o.serviceId ?? 'base'))].map(serviceId => {
+            const options = specialist.publicOptions?.filter(o => (o.serviceId ?? 'base') === serviceId) ?? [];
+            const first = options[0];
+            if (!first) return null;
+            return <View key={serviceId} style={{ gap: 8, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+              <Text style={{ fontFamily: theme.fontSansSemiBold, color: theme.textPrimary }}>{first.serviceName ?? 'General'}</Text>
+              {!!first.serviceDescription && <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>{first.serviceDescription}</Text>}
+              <SimpleDropdown presentation="portal" highlightSelection={false} accessibilityLabel={`Modalidad y duración de ${first.serviceName ?? 'General'}`} placeholder="Elegir modalidad y duración"
+                value={options.some(o => o.optionId === optionId) ? optionId ?? null : null}
+                options={options.map(o => ({ value: o.optionId, label: `${o.modality === 'VIDEO_CALL' ? 'Videollamada' : o.modality === 'IN_PERSON' ? 'Presencial' : 'Teléfono'} · ${o.durationMinutes} min · ${formatPrivatePrice(o.priceCents)}` }))}
+                onSelect={id => onOptionChange?.(String(id))} />
+            </View>;
+          })}
+        </View> : null}
 
         {specialist.firstVisitFree ? (
           <View style={styles.freeVisit}>

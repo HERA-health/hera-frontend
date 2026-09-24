@@ -199,7 +199,7 @@ export type RootStackParamList = {
     returnToClientId?: string;
   };
   ProfessionalAvailability: undefined;
-  ProfessionalTariffs: undefined;
+  ProfessionalTariffs: { openCreateService?: boolean } | undefined;
   ClientProfile: {
     clientId: string;
     initialTab?: 'summary' | 'history' | 'clinical';
@@ -341,6 +341,8 @@ export interface ProfessionalStats {
  * Session from professional's perspective
  */
 export interface ProfessionalSession {
+  privateOptionId?: string | null;
+  bookedPrivateServiceName?: string | null;
   id: string;
   clientId: string;
   clientName: string;

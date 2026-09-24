@@ -184,9 +184,11 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
         </AnimatedPressable> : null}
 
         {isProfessional ? (
+          <View key="workspace" style={styles.content}>
           <View style={styles.professionalContent}>
             <ProfessionalTopBar currentRoute={currentRoute} onOpenMobileSidebar={openMobileSidebar} />
             <View style={styles.professionalBody}>{children}</View>
+          </View>
           </View>
         ) : children}
 
@@ -254,7 +256,7 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
           onToggleCollapse={handleToggleCollapse}
         />
       </Animated.View>
-      <View style={[styles.content, { backgroundColor: isProfessional ? theme.navigationBg : theme.bg }]}>
+      <View key="workspace" style={[styles.content, { backgroundColor: isProfessional ? theme.navigationBg : theme.bg }]}>
         {isProfessional ? (
           <View style={styles.professionalContent}>
             <ProfessionalTopBar currentRoute={currentRoute} onOpenMobileSidebar={openMobileSidebar} />

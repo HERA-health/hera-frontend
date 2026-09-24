@@ -57,12 +57,13 @@ export function ProfessionalTopBar({
   const isBilling = currentRoute === 'ProfessionalBilling';
   const isClients = currentRoute === 'ProfessionalClients';
   const isSessions = currentRoute === 'ProfessionalSessions';
-  const hasPrimaryCreateAction = isBilling || isClients || isSessions;
-  const primaryCreateLabel = isClients ? 'Nuevo paciente' : isSessions ? 'Nueva cita' : 'Nueva factura';
+  const isTariffs = currentRoute === 'ProfessionalTariffs';
+  const hasPrimaryCreateAction = isBilling || isClients || isSessions || isTariffs;
+  const primaryCreateLabel = isClients ? 'Nuevo paciente' : isSessions ? 'Nueva cita' : isTariffs ? 'Nuevo servicio' : 'Nueva factura';
   const primaryCreateTarget = isClients
     ? 'professional.clients.new-patient'
-    : isSessions ? 'professional.sessions.new-session' : 'professional.billing.new-invoice';
-  const primaryCreateIcon = isClients ? 'person-add-outline' : isSessions ? 'calendar-outline' : 'receipt-outline';
+    : isSessions ? 'professional.sessions.new-session' : isTariffs ? 'professional.tariffs.new-service' : 'professional.billing.new-invoice';
+  const primaryCreateIcon = isClients ? 'person-add-outline' : isSessions ? 'calendar-outline' : isTariffs ? 'pricetag-outline' : 'receipt-outline';
   const navigation = useNavigation<AppNavigationProp>();
   const { theme, mode, setMode } = useTheme();
   const { user, logout } = useAuth();
@@ -233,6 +234,9 @@ export function ProfessionalTopBar({
                       trackCreateAction('session');
                       navigateProfessionalSection(navigation, 'ProfessionalSessions', { openCreateSession: true });
                       closeAfterNavigation();
+                    } else if (isTariffs) {
+                      navigateProfessionalSection(navigation, 'ProfessionalTariffs', { openCreateService: true });
+                      closeAfterNavigation();
                     } else {
                       trackCreateAction('invoice');
                       navigateSimple('CreateInvoice');
@@ -277,6 +281,7 @@ export function ProfessionalTopBar({
               <MenuRow icon="calendar-outline" title="Nueva cita" onPress={() => { trackCreateAction('session'); navigateProfessionalSection(navigation, 'ProfessionalSessions', { openCreateSession: true }); closeAfterNavigation(); }} />
               <MenuRow icon="person-add-outline" title="Nuevo paciente" onPress={() => { trackCreateAction('patient'); navigateProfessionalSection(navigation, 'ProfessionalClients', { openCreatePatient: true }); closeAfterNavigation(); }} />
               <MenuRow icon="receipt-outline" title="Nueva factura" onPress={() => { trackCreateAction('invoice'); navigateSimple('CreateInvoice'); }} />
+              <MenuRow icon="pricetag-outline" title="Nuevo servicio" onPress={() => { navigateProfessionalSection(navigation, 'ProfessionalTariffs', { openCreateService: true }); closeAfterNavigation(); }} />
             </Popover>
           ) : null}
         </View>

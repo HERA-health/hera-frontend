@@ -76,7 +76,7 @@ export const BookingModalitySection: React.FC<BookingModalitySectionProps> = ({
     >
       <View style={[styles.headingRow, isCompact && { flexWrap: 'wrap' }]}>
         <View style={styles.stepBadge}>
-          <Text style={styles.stepBadgeText}>1</Text>
+          <Text style={styles.stepBadgeText}>2</Text>
         </View>
         <View style={[styles.headingCopy, isCompact && { flexBasis: '75%' }]}>
           <Text style={styles.eyebrow}>MODALIDAD</Text>

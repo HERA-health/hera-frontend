@@ -1,5 +1,7 @@
 import { formatPrivatePrice } from '../../utils/privateTariff';
 import { loadPublicBookingOptions, type PrivateServiceOption } from '../../services/privateCatalogService';
+import { initialPrivateOption, privateOptionForModality } from '../../utils/privateServiceSelection';
+import { PrivateServicePicker } from '../../components/scheduling/PrivateServicePicker';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { durableCommandKey } from '../../services/heraCommissionService';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
@@ -340,7 +342,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     loadPublicBookingOptions(specialistId).then(options => {
       if (!current) return;
       setBookingOptions(options);
-      const initial = route.params.optionId ? options.find(o => o.id === route.params.optionId) : options.find(o => o.isPreferred) ?? options[0];
+      const initial = initialPrivateOption(options, route.params.optionId);
       if (initial) { setSelectedOptionId(initial.id); setSessionType(initial.modality); }
       else setOptionsError('La opción seleccionada ya no está disponible. Elige otra para continuar.');
     }).catch(() => { if (current) setOptionsError('No se pudieron cargar las tarifas. Vuelve a abrir la reserva.'); });
@@ -438,8 +440,21 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     specialistId,
   ]);
 
+  useEffect(() => {
+    if (!bookingQuote?.expiresAt) return;
+    const remaining = Date.parse(bookingQuote.expiresAt) - Date.now();
+    const timer = setTimeout(() => {
+      // The automatic refresh is an estimate for guests, so review their personal price again.
+      setIdentityVerified(false);
+      setBookingQuote(null);
+      setQuoteRetry(v => v + 1);
+    }, Math.max(0, remaining));
+    return () => clearTimeout(timer);
+  }, [bookingQuote?.expiresAt]);
   const quoteReady =
     Boolean(bookingQuote)
+    && !!selectedOption
+    && (!bookingQuote?.expiresAt || Date.parse(bookingQuote.expiresAt) > Date.now())
     && !quoteLoading
     && !quoteError
     && availableSessionTypes.length > 0;
@@ -449,10 +464,11 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     : verificationCode.trim().length === verificationCodeLength;
   const canConfirmBooking =
     quoteReady
+    && !loadingSlots && !slotsError
     && (!isAnonymousBooking || (publicContactResult.success && (!verification || verificationComplete)));
   const accountCanBook = isAnonymousBooking || isAuthenticatedClient || !!referralBooking;
   const hasSelectedAppointment = Boolean(selectedDate && selectedSlot);
-  const canAdvanceBooking = hasSelectedAppointment && quoteReady && accountCanBook;
+  const canAdvanceBooking = hasSelectedAppointment && quoteReady && !loadingSlots && !slotsError && accountCanBook;
   const primaryActionDisabled = !canAdvanceBooking || loading || (isAnonymousBooking && (!publicContactResult.success || (!!verification && !verificationComplete)));
   const primaryActionLabel =
     isAnonymousBooking && !verification ? 'Continuar con mi reserva' : isAnonymousBooking && !identityVerified ? 'Verificar y revisar precio' : 'Confirmar cita';
@@ -483,14 +499,14 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   );
 
   const loadAvailableSlots = useCallback(
-    async (date: string, options: { keepInitialSlot?: boolean } = {}) => {
+    async (date: string, options: { keepInitialSlot?: boolean; keepTime?: string } = {}) => {
       const requestId = slotsRequestIdRef.current + 1;
       slotsRequestIdRef.current = requestId;
       const isLatestRequest = () => slotsRequestIdRef.current === requestId;
 
       setLoadingSlots(true);
       setSlotsError(null);
-      if (!options.keepInitialSlot) {
+      if (!options.keepInitialSlot && !options.keepTime) {
         initialSlotRef.current = null;
         setSelectedSlot(null);
       }
@@ -502,6 +518,11 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         }
 
         setAvailableSlots(slots);
+        if (options.keepTime) {
+          const matching = slots.find(slot => slot.available !== false && slot.startTime === options.keepTime);
+          setSelectedSlot(matching ?? null);
+          if (!matching) setOptionsError(`Este servicio necesita ${slotDuration} minutos. Elige otro horario.`);
+        }
 
         const initialSlot = initialSlotRef.current;
         if (initialSlot?.date === date) {
@@ -542,7 +563,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         }
       }
     },
-    [appAlert, specialistId, selectedOptionId],
+    [appAlert, specialistId, selectedOptionId, slotDuration],
   );
 
   useEffect(() => {
@@ -553,7 +574,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       initialDateLoadRef.current = null;
       void loadAvailableSlots(initialDateToLoad, { keepInitialSlot: true });
     } else if (selectedDate) {
-      void loadAvailableSlots(selectedDate);
+      void loadAvailableSlots(selectedDate, { keepTime: selectedSlot?.startTime });
     }
   }, [selectedOptionId, selectedDate, loadAvailableSlots]);
 
@@ -584,11 +605,11 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const handleSessionTypeChange = useCallback((type: SessionType) => {
     if (!loading) {
       setSessionType(type);
-      const candidates = bookingOptions.filter(o => o.modality === type);
-      setSelectedOptionId((candidates.find(o => o.isPreferred) ?? candidates[0])?.id);
-      setOptionsError('');
+      const next = privateOptionForModality(bookingOptions, selectedOption, type);
+      setSelectedOptionId(next?.id);
+      setOptionsError(next ? '' : 'El servicio o su duración no están disponibles en esta modalidad. Elige una alternativa para continuar.');
     }
-  }, [loading, bookingOptions]);
+  }, [loading, bookingOptions, selectedOption]);
 
   const updatePublicContactField = useCallback(
     <T extends keyof typeof publicContact>(field: T, value: (typeof publicContact)[T]) => {
@@ -1159,29 +1180,10 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const renderScheduleSurface = () => (
     <View style={[styles.mainSurface, isNarrowMobile ? styles.narrowSurface : null]}>
       {!!optionsError && <Text accessibilityRole="alert" style={{ color: theme.error }}>{optionsError}</Text>}
-      <BookingModalitySection
-        prices={bookingOptions}
-        selectedType={sessionType}
-        availableSessionTypes={availableSessionTypes}
-        duration={slotDuration}
-        onSessionTypeChange={handleSessionTypeChange}
-        disabled={loading}
-        busy={loading}
-        bookingQuote={bookingQuote}
-        quoteLoading={quoteLoading}
-        quoteError={quoteError}
-        quoteIsEstimated={quoteIsEstimated}
-        officeLocation={officeLocation}
-      />
-
-      {(bookingOptions.filter(o => o.modality === sessionType).length > 1 || sessionType === 'PHONE_CALL') && <View style={{ paddingVertical: spacing.md, gap: spacing.md }}>
-        {bookingOptions.filter(o => o.modality === sessionType).length > 1 && <SimpleDropdown presentation="portal" highlightSelection={false} accessibilityLabel="Duración y precio de la sesión" value={selectedOptionId ?? null} options={bookingOptions.filter(o => o.modality === sessionType).map(o => ({ value: o.id, label: o.durationMinutes + ' min · ' + formatPrivatePrice(o.priceCents) }))} onSelect={setSelectedOptionId} />}
-        {sessionType === 'PHONE_CALL' && <View style={{ gap: 8 }}><Text style={{ color: theme.textPrimary }}>Tu especialista te llamará al número indicado a la hora de la cita.</Text><TextInput accessibilityLabel="Teléfono para esta cita" value={sessionPhone} onChangeText={setSessionPhone} keyboardType="phone-pad" placeholder="+34 600 000 000" placeholderTextColor={theme.textSecondary} style={{ color: theme.textPrimary, minHeight: 44, borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 12 }} /></View>}
-      </View>}
       <View style={styles.scheduleSection}>
         <View style={styles.sectionHeading}>
           <View style={styles.sectionStepBadge}>
-            <Text style={styles.sectionStepBadgeText}>2</Text>
+            <Text style={styles.sectionStepBadgeText}>1</Text>
           </View>
           <View style={styles.sectionHeadingCopy}>
             <Text style={styles.sectionEyebrow}>FECHA Y HORA</Text>
@@ -1223,6 +1225,26 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           />
         </View>
       </View>
+      <BookingModalitySection
+        prices={bookingOptions}
+        selectedType={sessionType}
+        availableSessionTypes={availableSessionTypes}
+        duration={slotDuration}
+        onSessionTypeChange={handleSessionTypeChange}
+        disabled={loading}
+        busy={loading}
+        bookingQuote={bookingQuote}
+        quoteLoading={quoteLoading}
+        quoteError={quoteError}
+        quoteIsEstimated={quoteIsEstimated}
+        officeLocation={officeLocation}
+      />
+
+      <View style={{ paddingVertical: spacing.md, gap: spacing.md }}>
+        <PrivateServicePicker options={bookingOptions} modality={sessionType} value={selectedOptionId} disabled={loading} onChange={id => { setSelectedOptionId(id); setOptionsError(''); }} />
+        {sessionType === 'PHONE_CALL' && <View style={{ gap: 8 }}><Text style={{ color: theme.textPrimary }}>Tu especialista te llamará al número indicado a la hora de la cita.</Text><TextInput accessibilityLabel="Teléfono para esta cita" value={sessionPhone} onChangeText={setSessionPhone} keyboardType="phone-pad" placeholder="+34 600 000 000" placeholderTextColor={theme.textSecondary} style={{ color: theme.textPrimary, minHeight: 44, borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 12 }} /></View>}
+      </View>
+
     </View>
   );
 

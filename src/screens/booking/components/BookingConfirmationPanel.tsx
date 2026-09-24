@@ -29,6 +29,7 @@ export function BookingConfirmationPanel({
   const quote = getQuotePresentation({ bookingQuote, quoteLoading, quoteError, quoteIsEstimated: true });
   const modality = BOOKING_SESSION_OPTIONS.find(option => option.type === booking.sessionType)?.label;
   const fields = [
+    ...(bookingQuote?.serviceName ? [{ label: 'Servicio', value: bookingQuote.serviceName }] : []),
     { label: 'Fecha', value: booking.selectedDate ? formatBookingDate(booking.selectedDate) : 'Por elegir' },
     { label: 'Hora', value: booking.selectedTime || 'Por elegir' },
     { label: 'Duración', value: `${duration} min` },

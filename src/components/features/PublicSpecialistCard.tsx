@@ -222,7 +222,7 @@ export const PublicSpecialistCard: React.FC<PublicSpecialistCardProps> = ({
               const option = options.find(o => o.optionId === specialist.matchedOptionId) ?? options[0];
               return <View key={type} style={styles.directoryOfferRow}>
                 <Ionicons name={type === 'VIDEO_CALL' ? 'videocam-outline' : type === 'IN_PERSON' ? 'location-outline' : 'call-outline'} size={16} color={theme.primary} />
-                <Text style={[styles.directoryOfferText, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]}>{type === 'VIDEO_CALL' ? 'Videollamada' : type === 'IN_PERSON' ? 'Presencial' : 'Llamada'} · {formatPrice(option.priceCents / 100)} € / {option.durationMinutes} min{options.length > 1 ? ' · más duraciones' : ''}</Text>
+                <Text style={[styles.directoryOfferText, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]}>{option.serviceName ?? 'General'} · {type === 'VIDEO_CALL' ? 'Videollamada' : type === 'IN_PERSON' ? 'Presencial' : 'Llamada'} · {formatPrice(option.priceCents / 100)} € / {option.durationMinutes} min{options.length > 1 ? ' · más opciones' : ''}</Text>
               </View>;
             })}</View>}
             <Text style={[styles.directoryPrice, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>{new Set(specialist.publicOptions?.map(o => o.priceCents)).size > 1 ? 'Desde ' : ''}{specialist.pricePerSession === 0 ? 'Sin coste' : formatPrice(specialist.pricePerSession) + ' € / sesión'}</Text>

@@ -45,6 +45,7 @@ export const PROFESSIONAL_TOUR_TARGET_IDS = [
   'professional.availability.sidebar',
   'professional.availability.save',
   'professional.billing.new-invoice',
+  'professional.tariffs.new-service',
   'professional.billing.invoice-list',
   'professional.billing.tariffs',
   'professional.billing.fiscal',

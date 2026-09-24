@@ -1,213 +1,157 @@
-import { formatPrivatePrice, parsePrivatePrice } from '../../utils/privateTariff';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { usePreventRemove } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
-import { borderRadius, spacing, layout } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
 import type { ScreenProps } from '../../constants/types';
 import { Button } from '../../components/common/Button';
-import { SimpleDropdown } from '../../components/common/SimpleDropdown';
-import { getErrorMessage } from '../../constants/errors';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
-import { loadPrivateCatalog, savePrivateCatalog, type PrivateServiceCatalog, type PrivateServiceOption } from '../../services/privateCatalogService';
-import type { SessionType } from '../../services/sessionsService';
+import { getErrorMessage } from '../../constants/errors';
+import { loadPrivateCatalog, archivePrivateService, savePrivateCatalogSettings, type PrivateServiceCatalog, type PrivateService } from '../../services/privateCatalogService';
+import { formatPrivatePrice } from '../../utils/privateTariff';
+import { ServiceOptionDetails } from './ServiceOptionDetails';
+import { PrivateServiceEditor } from './PrivateServiceEditor';
 
-const MODALITIES = [
-  { type: 'VIDEO_CALL', label: 'Videollamada', icon: 'videocam-outline' },
-  { type: 'IN_PERSON', label: 'Presencial', icon: 'location-outline' },
-  { type: 'PHONE_CALL', label: 'Llamada', icon: 'call-outline' },
-] as const;
-type DraftOption = PrivateServiceOption & { priceText: string; isNew?: boolean };
-const visibility = [{ value: 'public', label: 'Reservable por pacientes' }, { value: 'private', label: 'Solo para mi agenda' }, { value: 'off', label: 'Desactivada' }] as const;
-const makeDraft = (catalog: PrivateServiceCatalog): DraftOption[] => {
-  const options = catalog.options.map(o => ({ ...o, priceText: String(o.priceCents / 100).replace('.', ',') }));
-  return [...options, ...MODALITIES.filter(m => !options.some(o => o.modality === m.type)).map(m => newOption(m.type, 60))];
-};
-const newOption = (modality: SessionType, durationMinutes: number): DraftOption => ({
-  id: `new:${modality}:${durationMinutes}`, serviceId: '', name: 'Sesión individual', modality, durationMinutes,
-  priceCents: 0, priceText: '', currency: 'EUR', isActive: false, isPublic: false, isPreferred: false,
-  version: 0, legacyDuration: false, legacyTariffId: null, isNew: true,
-});
-
-export function ProfessionalTariffsScreen({ navigation }: ScreenProps<'ProfessionalTariffs'>) {
+const modalities = [{ type: 'VIDEO_CALL', label: 'Videollamada' }, { type: 'IN_PERSON', label: 'Presencial' }, { type: 'PHONE_CALL', label: 'Teléfono' }] as const;
+export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'ProfessionalTariffs'>) {
   const { theme } = useTheme();
-  const alert = useAppAlert();
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const alert = useAppAlert();
   const [width, setWidth] = useState(0);
   const [catalog, setCatalog] = useState<PrivateServiceCatalog | null>(null);
-  const [draft, setDraft] = useState<DraftOption[]>([]);
-  const [free, setFree] = useState(false);
-  const [expanded, setExpanded] = useState<Partial<Record<SessionType, boolean>>>({});
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [showErrors, setShowErrors] = useState(false);
-  const [conflict, setConflict] = useState(false);
-  const sequence = useRef(0);
-  const baseline = useRef('');
-  const dirty = !!catalog && JSON.stringify({ draft, free }) !== baseline.current;
-  const compact = width < 720;
-  const wide = width >= 1120;
-  const publicOptions = draft.filter(o => o.isActive && o.isPublic && !catalog?.restrictions[o.modality] && parsePrivatePrice(o.priceText) !== null);
-  const applyCatalog = useCallback((value: PrivateServiceCatalog) => {
-    const options = makeDraft(value);
-    baseline.current = JSON.stringify({ draft: options, free: value.firstVisitFree });
-    setCatalog(value); setDraft(options); setFree(value.firstVisitFree); setConflict(false);
-  }, []);
+  const [archived, setArchived] = useState(false);
+  const [query, setQuery] = useState('');
+  const [editing, setEditing] = useState<PrivateService | null | undefined>(undefined);
+  const [editorSaving, setEditorSaving] = useState(false);
+  const [editorRevision, setEditorRevision] = useState(0);
+  const [editorDirty, setEditorDirty] = useState(false);
+  const [free, setFree] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const trigger = useRef<HTMLElement | null>(null);
+  const dirty = editorDirty || (!!catalog && free !== catalog.firstVisitFree);
+  const apply = useCallback((next: PrivateServiceCatalog) => { setCatalog(next); setFree(next.firstVisitFree); }, []);
   const load = useCallback(async () => {
-    const token = ++sequence.current;
     setLoading(true); setError('');
-    try { const value = await loadPrivateCatalog(); if (token === sequence.current) applyCatalog(value); }
-    catch (e) { if (token === sequence.current) setError(getErrorMessage(e, 'No se pudieron cargar las tarifas.')); }
-    finally { if (token === sequence.current) setLoading(false); }
-  }, [applyCatalog]);
-  useEffect(() => { void load(); return () => { sequence.current++; }; }, [load]);
-  usePreventRemove(dirty, ({ data }) => {
-    showAppAlert(alert, 'Cambios sin guardar', 'Puedes seguir editando o salir y descartar estos cambios.', [
-      { text: 'Seguir editando', style: 'cancel' },
-      { text: 'Descartar y salir', style: 'destructive', onPress: () => navigation.dispatch(data.action) },
-    ]);
-  });
+    try { apply(await loadPrivateCatalog()); } catch (e) { setError(getErrorMessage(e, 'No se pudieron cargar los servicios.')); }
+    finally { setLoading(false); }
+  }, [apply]);
+  useEffect(() => { void load(); }, [load]);
+  usePreventRemove(dirty, ({ data }) => showAppAlert(alert, 'Cambios sin guardar', 'Puedes seguir editando o descartar tus cambios.', [
+    { text: 'Seguir editando', style: 'cancel' }, { text: 'Descartar y salir', style: 'destructive', onPress: () => navigation.dispatch(data.action) },
+  ]));
   useEffect(() => {
     if (Platform.OS !== 'web' || !dirty) return;
     const handler = (event: BeforeUnloadEvent) => { event.preventDefault(); };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
-  const edit = (id: string, patch: Partial<DraftOption>) => { setMessage(''); setDraft(rows => rows.map(o => o.id === id ? { ...o, ...patch } : o)); };
-  const setVisibility = (option: DraftOption, value: string) => {
-    setMessage('');
-    setDraft(rows => {
-      const others = rows.filter(o => o.modality === option.modality && o.id !== option.id && o.isActive);
-      return rows.map(o => o.id === option.id ? { ...o, isActive: value !== 'off', isPublic: value === 'public', isPreferred: value !== 'off' && (option.isPreferred || !others.some(v => v.isPreferred)) }
-        : value === 'off' && option.isPreferred && o.id === others[0]?.id ? { ...o, isPreferred: true } : o);
-    });
+  const returnFocus = () => { if (Platform.OS === 'web') requestAnimationFrame(() => trigger.current?.focus()); };
+  const close = () => {
+    if (editorSaving) return;
+    const discard = () => { setEditing(undefined); setEditorDirty(false); };
+    if (!editorDirty) discard();
+    else showAppAlert(alert, 'Cambios sin guardar', 'Tu borrador aún no está guardado.', [{ text: 'Seguir editando', style: 'cancel' }, { text: 'Descartar cambios', style: 'destructive', onPress: discard }]);
   };
-  const save = async () => {
-    if (!catalog || saving) return;
-    setShowErrors(true); setError(''); setMessage('');
-    if (draft.some(o => (!o.isNew || o.isActive) && parsePrivatePrice(o.priceText) === null)) {
-      setError('Revisa los importes indicados. Usa un máximo de dos decimales.'); return;
-    }
-    setSaving(true);
-    try {
-      const next = await savePrivateCatalog({ version: catalog.version, firstVisitFree: free,
-        options: draft.filter(o => !o.isNew || o.isActive).map(o => ({
-          ...(o.isNew ? {} : { id: o.id }), modality: o.modality, durationMinutes: o.durationMinutes,
-          priceCents: parsePrivatePrice(o.priceText) ?? o.priceCents, isActive: o.isActive, isPublic: o.isPublic, isPreferred: o.isPreferred,
-        })) });
-      applyCatalog(next); setMessage('Tarifas guardadas. Las citas ya reservadas mantienen su precio.');
-    } catch (e) { const text = getErrorMessage(e, 'No se pudieron guardar las tarifas. Tu borrador se conserva.'); setError(text); setConflict(text.includes('otra ventana')); }
-    finally { setSaving(false); }
-  };
-  const priceInput = (option: DraftOption) => <View style={styles.priceCell}>
-    <View style={[styles.priceInput, showErrors && (!option.isNew || option.isActive) && parsePrivatePrice(option.priceText) === null && { borderColor: theme.error }]}>
-      <TextInput accessibilityLabel={`Precio de ${MODALITIES.find(m => m.type === option.modality)?.label}, ${option.durationMinutes} minutos`}
-        value={option.priceText} onChangeText={priceText => edit(option.id, { priceText })} editable={!saving}
-        keyboardType="decimal-pad" placeholder="0,00" placeholderTextColor={theme.textSecondary} style={styles.input} />
-      <Text style={styles.secondary}>€</Text>
-    </View>
-    {showErrors && (!option.isNew || option.isActive) && parsePrivatePrice(option.priceText) === null && <Text style={styles.error}>Importe no válido</Text>}
+  const open = useCallback((service: PrivateService | null) => {
+    if (Platform.OS === 'web' && document.activeElement instanceof HTMLElement) trigger.current = document.activeElement;
+    setEditing(service); setEditorDirty(false); setMessage('');
+  }, []);
+  useEffect(() => {
+    if (!route.params?.openCreateService || !catalog || loading || editing !== undefined) return;
+    navigation.setParams({ openCreateService: undefined });
+    open(null);
+  }, [route.params?.openCreateService, catalog, loading, editing, navigation, open]);
+  const archive = (service: PrivateService) => showAppAlert(alert, 'Archivar servicio', 'Dejará de estar disponible para nuevas reservas. Sus citas y facturas se conservarán.', [
+    { text: 'Cancelar', style: 'cancel' }, { text: 'Archivar', onPress: () => {
+      setBusy(true); setError('');
+      void archivePrivateService(service).then(next => { setCatalog(next); setMessage('Servicio archivado. Puedes restaurarlo desde Archivados.'); })
+        .catch(e => setError(getErrorMessage(e, 'No se pudo archivar el servicio.'))).finally(() => setBusy(false));
+    } },
+  ]);
+  const services = catalog?.services ?? [];
+  const visible = services.filter(s => !!s.archivedAt === archived && s.name.toLocaleLowerCase('es').includes(query.trim().toLocaleLowerCase('es')));
+  const wide = width >= 1120;
+  const compact = width < 720;
+  const serviceActions = (service: PrivateService) => <View style={[styles.actions, styles.row]}>
+    <Button variant="secondary" style={{ borderRadius: 8, paddingHorizontal: 12, alignSelf: 'flex-start' }} size="small" disabled={busy} onPress={() => open(service)}>{archived ? 'Restaurar' : 'Editar'}</Button>
+    {!archived && service.key !== 'base' && <Button variant="ghost" size="small" accessibilityLabel={`Más acciones de ${service.name}`} disabled={busy} onPress={() => archive(service)}>···</Button>}
   </View>;
-  return <View style={styles.root} onLayout={e => setWidth(e.nativeEvent.layout.width)}>
-    <View style={[styles.toolbar, compact && styles.vertical]}>
-      <View style={styles.flex}><Text style={styles.heading}>Tu oferta, de un vistazo</Text><Text style={styles.secondary}>Define cuánto dura y cuánto cuesta cada modalidad de atención.</Text></View>
-      <Button onPress={() => void save()} disabled={!dirty || loading || conflict} loading={saving}>Guardar cambios</Button>
-    </View>
-    {loading ? <View style={styles.loading}><ActivityIndicator color={theme.primary} /><Text style={styles.secondary}>Cargando tus tarifas…</Text></View> : <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-      {!!error && <View accessibilityRole="alert" style={styles.feedback}><Text style={styles.error}>{error}</Text>
-        {!catalog && <Button variant="outline" onPress={() => void load()}>Reintentar</Button>}
-        {conflict && <Button variant="outline" onPress={() => showAppAlert(alert, 'Cargar tarifas actuales', 'Se descartará este borrador y se cargarán los cambios guardados.', [{ text: 'Conservar borrador', style: 'cancel' }, { text: 'Cargar versión actual', onPress: () => void load() }])}>Cargar versión actual</Button>}
-      </View>}
+  return <View style={styles.root} onLayout={event => setWidth(event.nativeEvent.layout.width)}>
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {!!error && <View accessibilityRole="alert" style={styles.feedback}><Text style={styles.error}>{error}</Text><Button variant="ghost" onPress={() => void load()}>Actualizar catálogo</Button></View>}
       {!!message && <Text accessibilityLiveRegion="polite" style={styles.success}>{message}</Text>}
-      {catalog && <View style={[styles.composition, !wide && styles.vertical]}>
-        <View style={styles.editor}>
-          <View style={styles.surface}>
-            <View style={styles.sectionTitle}><Text style={styles.title}>Modalidades y precios</Text><Text style={styles.secondary}>Precio final por sesión</Text></View>
-            {!compact && <View style={styles.tableHeading}><Text style={[styles.overline, styles.modalityCell]}>MODALIDAD</Text><Text style={[styles.overline, styles.durationCell]}>DURACIÓN</Text><Text style={[styles.overline, styles.priceCell]}>PRECIO</Text><Text style={[styles.overline, styles.audienceCell]}>DISPONIBILIDAD</Text></View>}
-            {MODALITIES.map(modality => {
-              const options = draft.filter(o => o.modality === modality.type);
-              const main = options.find(o => o.isActive && o.isPreferred) ?? options.find(o => o.isActive) ?? options[0];
-              if (!main) return null;
-              const activeCount = options.filter(o => o.isActive).length;
-              return <View key={modality.type} style={styles.modalitySection}>
-                <View style={[styles.row, compact && styles.vertical]}>
-                  <View style={[styles.modalityCell, styles.modalityLabel]}><Ionicons name={modality.icon} size={22} color={theme.primary} /><View><Text style={styles.label}>{modality.label}</Text><Text style={styles.small}>{activeCount ? `${activeCount} ${activeCount === 1 ? 'duración' : 'duraciones'}` : 'Sin activar'}</Text></View></View>
-                  <View style={[styles.controls, compact && styles.mobileControls]}>
-                    <View style={styles.durationCell}><SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Duración principal de ${modality.label}`} value={main.durationMinutes} options={[...new Set([...options.map(o => o.durationMinutes), 45, 50, 60])].sort((a,b) => a-b).map(d => ({ label: `${d} min`, value: d }))} onSelect={duration => {
-                      const target = options.find(o => o.durationMinutes === duration) ?? newOption(modality.type, duration);
-                      setDraft(rows => [...rows.filter(o => o.id !== target.id).map(o => o.modality === modality.type ? { ...o, isPreferred: false } : o), { ...target, isActive: true, isPreferred: true }]);
-                    }} /></View>
-                    {priceInput(main)}
-                    <View style={styles.audienceCell}><SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Disponibilidad de ${modality.label}`} value={!main.isActive ? 'off' : main.isPublic ? 'public' : 'private'} options={visibility} onSelect={value => setVisibility(main, value)} /></View>
-                  </View>
-                </View>
-                {!!catalog.restrictions[modality.type] && <View style={styles.restriction}><Text style={styles.small}>{catalog.restrictions[modality.type]}</Text><Button disabled={saving} size="small" variant="ghost" onPress={() => navigation.navigate('ProfessionalProfile')}>Ir al perfil</Button></View>}
-                <View style={styles.rowActions}><Button disabled={saving} size="small" variant="ghost" onPress={() => setExpanded(v => ({ ...v, [modality.type]: !v[modality.type] }))}>{expanded[modality.type] ? 'Ocultar otras duraciones' : 'Otras duraciones'}</Button></View>
-                {expanded[modality.type] && <View style={styles.details}>
-                  <View style={{ gap: 8 }}>
-                    <Text style={styles.small}>Copiar un precio a {modality.label.toLowerCase()}, {main.durationMinutes} min</Text>
-                    <SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Copiar precio a ${modality.label}, ${main.durationMinutes} minutos`}
-                      value={null} placeholder="Elegir precio de otra opción"
-                      options={draft.filter(o => o.id !== main.id && o.isActive && parsePrivatePrice(o.priceText) !== null).map(o => ({ value: o.id,
-                        label: `${MODALITIES.find(m => m.type === o.modality)?.label} · ${o.durationMinutes} min · ${formatPrivatePrice(parsePrivatePrice(o.priceText) ?? 0)}` }))}
-                      onSelect={id => { const source = draft.find(o => o.id === id); if (source) edit(main.id, { priceText: source.priceText }); }} />
-                  </View>
-                  {options.filter(o => o.id !== main.id).map(option => <View key={option.id} style={[styles.extraRow, compact && styles.vertical]}>
-                    <Text style={styles.label}>{option.durationMinutes} min</Text>{priceInput(option)}
-                    <View style={styles.audienceCell}><SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Disponibilidad de ${option.durationMinutes} minutos, ${modality.label}`} value={!option.isActive ? 'off' : option.isPublic ? 'public' : 'private'} options={visibility} onSelect={v => setVisibility(option, v)} /></View>
-                    <Button disabled={saving} size="small" variant="ghost" onPress={() => edit(option.id, { priceText: main.priceText })}>Copiar precio principal</Button>
-                  </View>)}
-                  {[45,50,60].filter(d => !options.some(o => o.durationMinutes === d)).map(d => <Button key={d} size="small" variant="ghost" onPress={() => setDraft(rows => [...rows, newOption(modality.type, d)])}>Añadir {d} min</Button>)}
-                </View>}
-              </View>;
-            })}
+      {loading ? <ActivityIndicator accessibilityLabel="Cargando servicios" color={theme.primary} /> : catalog && <>
+        <View style={[styles.filters, compact && styles.stack]}>
+          <View style={styles.tabs}>
+            {[{ label: 'Activos', value: false }, { label: 'Archivados', value: true }].map(tab => <Pressable key={tab.label} accessibilityRole="tab" accessibilityState={{ selected: archived === tab.value }} onPress={() => setArchived(tab.value)} style={({ pressed }) => [styles.tab, archived === tab.value && styles.selectedTab, pressed && { opacity: 0.75 }]}>
+              <Text style={[styles.tabText, archived === tab.value && styles.selectedTabText]}>{tab.label}</Text>
+            </Pressable>)}
           </View>
-          <View style={styles.policy}><View style={styles.flex}><Text style={styles.title}>Primera sesión gratuita</Text><Text style={styles.secondary}>Una vez por paciente en tu consulta privada, también cuando creas tú la cita.</Text></View><Switch accessibilityLabel="Ofrecer primera sesión gratuita" value={free} onValueChange={setFree} disabled={saving} trackColor={{ true: theme.primary }} /></View>
-          <Text style={styles.small}>Los cambios se aplican a nuevas reservas. Las citas y facturas anteriores conservan sus condiciones.</Text>
+        <View style={styles.policy}><View style={styles.policyText}><Text style={styles.policyTitle}>Primera sesión gratuita</Text><Text style={styles.small}>Una por paciente · todos tus servicios</Text></View>
+          <Switch accessibilityLabel="Ofrecer primera sesión gratuita" value={free} onValueChange={setFree} disabled={busy} trackColor={{ false: theme.textMuted, true: theme.primary }} thumbColor={theme.textOnPrimary} />
+          <Button size="small" variant="secondary" style={{ borderRadius: 8, paddingHorizontal: 12 }} accessibilityLabel="Guardar política de primera sesión gratuita" disabled={free === catalog.firstVisitFree} loading={busy} onPress={() => {
+            setBusy(true); setError('');
+            void savePrivateCatalogSettings(free, catalog.firstVisitFree).then(next => { apply(next); setMessage('Política de primera sesión guardada.'); })
+              .catch(e => setError(getErrorMessage(e, 'No se pudo guardar la política.'))).finally(() => setBusy(false));
+          }}>Guardar</Button>
         </View>
-        <View style={[styles.preview, wide && { width: 320 }]}>
-          <View style={styles.previewHeader}><Ionicons name="eye-outline" size={22} color={theme.primary} /><Text style={styles.title}>Así lo verán tus pacientes</Text></View>
-          <Text style={styles.small}>{dirty ? 'Vista previa · Cambios sin guardar' : 'Tu oferta pública'}</Text>
-          <Text style={styles.previewPrice}>{publicOptions.length ? `${new Set(publicOptions.map(o => parsePrivatePrice(o.priceText))).size > 1 ? 'Desde ' : ''}${formatPrivatePrice(Math.min(...publicOptions.map(o => parsePrivatePrice(o.priceText) ?? 0)))}` : 'Solo agenda privada'}</Text>
-          <Text style={styles.secondary}>{publicOptions.length ? 'por sesión · precio final' : 'No tienes opciones reservables por pacientes.'}</Text>
-          {MODALITIES.map(m => {
-            const rows = publicOptions.filter(o => o.modality === m.type).sort((a,b) => a.durationMinutes-b.durationMinutes);
-            return rows.length ? <View key={m.type} style={styles.previewModality}><Text style={styles.label}>{m.label}</Text>{rows.map(o => <View style={styles.previewLine} key={o.id}><Text style={styles.secondary}>{o.durationMinutes} min</Text><Text style={styles.label}>{formatPrivatePrice(parsePrivatePrice(o.priceText) ?? 0)}</Text></View>)}</View> : null;
-          })}
-          {free && <Text style={styles.freeNote}>Primera sesión sin coste para pacientes elegibles.</Text>}
-          <View style={styles.previewFooter}><Text style={styles.small}>Los horarios disponibles se calculan según la duración elegida y tus descansos.</Text><Button variant="ghost" size="small" onPress={() => navigation.navigate('ProfessionalAvailability')}>Gestionar disponibilidad</Button></View>
+
         </View>
-      </View>}
-    </ScrollView>}
+          {services.length > 8 && <TextInput accessibilityLabel="Buscar servicio" placeholder="Buscar por nombre" placeholderTextColor={theme.textSecondary} value={query} onChangeText={setQuery} style={styles.search} />}
+        <View style={styles.list}>
+          {wide && <View style={styles.columns}><Text style={[styles.overline, styles.nameColumn]}>SERVICIO</Text><View style={[styles.offers, styles.offerColumns]}>{modalities.map(m => <Text key={m.type} style={[styles.overline, styles.modality]}>{m.label.toUpperCase()}</Text>)}</View><Text style={[styles.overline, styles.actions]}>ACCIONES</Text></View>}
+          {visible.map(service => <View key={service.id} style={[styles.service, wide && styles.serviceRow]}>
+            <View style={wide ? styles.nameColumn : [styles.serviceHeader, compact && styles.stack]}>
+              <View style={wide || compact ? styles.mobileIdentity : styles.identity}><Text style={styles.name}>{service.name}</Text>{!!service.description && <Text numberOfLines={2} style={styles.secondary}>{service.description}</Text>}</View>
+              {!wide && serviceActions(service)}
+            </View>
+            <View style={[styles.offers, wide && styles.offerColumns, compact && styles.stack]}>
+              {modalities.map(modality => {
+                const options = service.options.filter(o => o.modality === modality.type && o.isActive);
+                const main = options.find(o => o.isPreferred) ?? options[0];
+                const publicCount = options.filter(o => o.isPublic && !catalog.restrictions[o.modality]).length;
+                return <View key={modality.type} style={compact ? styles.mobileModality : styles.modality}>
+                  {!wide && <Text style={styles.small}>{modality.label}</Text>}
+                  {main ? <View style={{ gap: 4 }}><Text style={styles.price}>{main.durationMinutes} min · {formatPrivatePrice(main.priceCents)}</Text>
+                    {options.length > 1 && <ServiceOptionDetails options={options} title={`${service.name} · ${modality.label}`} restricted={!!catalog.restrictions[modality.type]} />}
+                    {options.length === 1 && <Text style={styles.small}>{archived ? 'Al restaurar: ' : ''}{!publicCount ? 'Solo agenda' : publicCount === options.length ? 'Agenda + reserva online' : `${publicCount} con reserva online`}</Text>}
+                  </View> : <Text style={styles.small}>No disponible</Text>}
+                </View>;
+              })}
+            </View>
+            {wide && serviceActions(service)}
+          </View>)}
+          {!visible.length && <View style={styles.empty}><Text style={styles.name}>{query ? 'No hay servicios con ese nombre' : 'No hay servicios archivados'}</Text><Text style={styles.secondary}>Los servicios archivados conservan sus citas y se pueden restaurar.</Text></View>}
+        </View>
+        <Text style={styles.small}>Los cambios se aplican a nuevas reservas. Las citas anteriores conservan sus condiciones.</Text>
+      </>}
+    </ScrollView>
+    <Modal visible={editing !== undefined && !!catalog} transparent animationType="fade" onRequestClose={close} onDismiss={returnFocus}>
+      <View style={styles.overlay}><View accessibilityViewIsModal style={[styles.panel, compact && { width: '100%' }]}>
+        <View style={styles.panelHeader}><View style={styles.grow}><Text accessibilityRole="header" style={styles.name}>{editing ? editing.archivedAt ? 'Restaurar servicio' : 'Editar servicio' : 'Nuevo servicio'}</Text></View><Button variant="secondary" style={{ borderRadius: 8, paddingHorizontal: 12, alignSelf: 'flex-start' }} size="small" accessibilityLabel="Cerrar editor" disabled={editorSaving} onPress={close}>Cerrar</Button></View>
+        {catalog && editing !== undefined && <PrivateServiceEditor key={editorRevision} navigation={navigation} service={editing} sourceCatalog={catalog} onSavingChange={setEditorSaving} onDirtyChange={setEditorDirty} onClose={close}
+          onReload={async () => { const next = await loadPrivateCatalog(); const current = next.services.find(s => s.id === editing?.id); if (editing && !current) throw new Error('El servicio ya no está disponible. Tu borrador se conserva.'); setCatalog(next); setEditing(current ?? null); setEditorDirty(false); setEditorRevision(v => v + 1); }}
+          onSaved={next => { setCatalog(next); setEditing(undefined); setEditorDirty(false); setMessage('Servicio guardado. Las citas anteriores conservan sus condiciones.'); }} />}
+      </View></View>
+    </Modal>
   </View>;
 }
-
 const createStyles = (t: Theme) => StyleSheet.create({
-  root: { flex: 1, backgroundColor: t.bg }, flex: { flex: 1 },
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 24, borderBottomWidth: 1, borderBottomColor: t.border },
-  heading: { color: t.textPrimary, fontFamily: t.fontSansBold, fontSize: 24, marginBottom: 6 },
-  title: { color: t.textPrimary, fontFamily: t.fontSansSemiBold, fontSize: 17 }, label: { color: t.textPrimary, fontFamily: t.fontSansSemiBold, fontSize: 14 },
-  secondary: { color: t.textSecondary, fontFamily: t.fontSans, fontSize: 14, lineHeight: 21 }, small: { color: t.textSecondary, fontFamily: t.fontSans, fontSize: 12, lineHeight: 18 },
-  scroll: { padding: spacing.lg, gap: 16, maxWidth: layout.contentMaxWidth + 48, width: '100%', alignSelf: 'center', paddingBottom: 48 },
-  composition: { flexDirection: 'row', gap: 24, alignItems: 'flex-start' }, vertical: { flexDirection: 'column', alignItems: 'stretch' },
-  editor: { flex: 1, gap: 20, minWidth: 0, width: '100%' }, surface: { backgroundColor: t.bgCard, borderWidth: 1, borderColor: t.border, borderRadius: borderRadius.xl, overflow: 'hidden' },
-  sectionTitle: { padding: 20, gap: 4 }, tableHeading: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: t.bg },
-  overline: { color: t.textSecondary, fontFamily: t.fontSans, fontSize: 10, fontWeight: '700', letterSpacing: 0.7 },
-  modalitySection: { padding: 20, borderTopWidth: 1, borderTopColor: t.border, gap: 8 }, row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  modalityLabel: { flexDirection: 'row', alignItems: 'center', gap: 10 }, modalityCell: { width: 142 }, durationCell: { width: 120 }, priceCell: { width: 96 }, audienceCell: { flex: 1, minWidth: 160 },
-  controls: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }, mobileControls: { width: '100%', flexWrap: 'wrap' },
-  priceInput: { flexDirection: 'row', alignItems: 'center', minHeight: 48, borderWidth: 1, borderColor: t.border, borderRadius: 12, paddingHorizontal: 12, backgroundColor: t.bgElevated },
-  input: { flex: 1, color: t.textPrimary, fontFamily: t.fontSans, fontSize: 16, minHeight: 42, minWidth: 0, padding: 0 }, rowActions: { alignItems: 'flex-start' },
-  details: { gap: 12, paddingTop: 8 }, extraRow: { flexDirection: 'row', gap: 12, alignItems: 'center', flexWrap: 'wrap', paddingVertical: 8 },
-  restriction: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-  policy: { flexDirection: 'row', alignItems: 'center', gap: 20, paddingHorizontal: 4 },
-  preview: { backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 24, gap: 8, width: '100%' }, previewHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
-  previewPrice: { color: t.textPrimary, fontFamily: t.fontSansBold, fontSize: 36, marginTop: 20 }, previewModality: { borderTopWidth: 1, borderTopColor: t.borderLight, paddingTop: 16, marginTop: 12, gap: 8 },
-  previewLine: { flexDirection: 'row', justifyContent: 'space-between' }, previewFooter: { borderTopWidth: 1, borderTopColor: t.border, paddingTop: 16, marginTop: 16, gap: 8 },
-  freeNote: { color: t.primary, fontFamily: t.fontSans, fontSize: 13, lineHeight: 20, paddingTop: 16 }, loading: { padding: 48, alignItems: 'center', gap: 16 },
-  feedback: { gap: 12, padding: 16, borderWidth: 1, borderColor: t.error, borderRadius: 12 }, error: { color: t.error, fontFamily: t.fontSans, fontSize: 13 }, success: { color: t.success, fontFamily: t.fontSans, fontSize: 14 },
+  root: { flex: 1, backgroundColor: t.bg }, grow: { flex: 1 }, row: { flexDirection: 'row', alignItems: 'center' }, stack: { flexDirection: 'column', alignItems: 'stretch' },
+  secondary: { fontFamily: t.fontSans, fontSize: 14, lineHeight: 21, color: t.textSecondary },
+  content: { padding: 24, gap: 24, width: '100%', maxWidth: 1600, alignSelf: 'center', paddingBottom: 48 }, filters: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }, tabs: { flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: t.bgMuted, padding: 4, borderRadius: 10, gap: 2 }, tab: { minHeight: 40, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, borderRadius: 7 }, selectedTab: { backgroundColor: t.bgCard, boxShadow: '0 1px 3px rgba(0,0,0,0.10)' }, tabText: { fontFamily: t.fontSansSemiBold, fontSize: 14, color: t.textSecondary }, selectedTabText: { color: t.textPrimary },
+  search: { color: t.textPrimary, fontFamily: t.fontSans, fontSize: 14, borderBottomWidth: 1, borderBottomColor: t.border, padding: 12, minWidth: 240 },
+  list: { backgroundColor: t.bgCard, borderWidth: 1, borderColor: t.border, borderRadius: 16, overflow: 'hidden' }, columns: { flexDirection: 'row', backgroundColor: t.surface, padding: 20, gap: 16 },
+  nameColumn: { width: 220, flexShrink: 0, gap: 5 }, offerColumns: { flex: 1, minWidth: 0 },
+  overline: { color: t.textSecondary, fontFamily: t.fontSansSemiBold, fontSize: 10, letterSpacing: 0.8 }, identity: { flex: 1.4, minWidth: 0, gap: 5 }, mobileIdentity: { gap: 5 }, serviceHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 16 }, modality: { flex: 1, minWidth: 0, gap: 8 },
+  service: { padding: 20, borderTopWidth: 1, borderTopColor: t.borderLight, gap: 16 }, offers: { flexDirection: 'row', gap: 16 }, mobileModality: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  name: { fontFamily: t.fontSansSemiBold, fontSize: 17, lineHeight: 24, color: t.textPrimary }, price: { fontFamily: t.fontSansSemiBold, fontSize: 14, color: t.textPrimary }, small: { fontFamily: t.fontSans, fontSize: 12, lineHeight: 18, color: t.textSecondary },
+  serviceRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  optionDetail: { borderTopWidth: 1, borderTopColor: t.borderLight, paddingVertical: 8, gap: 4 },
+  actions: { width: 126, gap: 2 }, policy: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap', maxWidth: '100%' }, policyText: { gap: 2 }, policyTitle: { fontFamily: t.fontSansSemiBold, fontSize: 14, color: t.textPrimary }, empty: { padding: 32, gap: 8 },
+  feedback: { gap: 8, padding: 16, borderWidth: 1, borderColor: t.error, borderRadius: 12 }, error: { color: t.error }, success: { color: t.success, fontFamily: t.fontSans },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.32)', alignItems: 'flex-end' }, panel: { flex: 1, width: '94%', maxWidth: 1120, backgroundColor: t.bg }, panelHeader: { padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderBottomColor: t.border },
 });

@@ -69,6 +69,7 @@ export function ProfessionalAgendaSessionCard({
               </View>
               <View style={styles.clientInfo}>
                 <Text style={styles.clientName}>{session.clientName}</Text>
+                {!!session.bookedPrivateServiceName && <Text style={styles.clientMeta}>{session.bookedPrivateServiceName}</Text>}
                 <Text style={styles.clientMeta}>
                   {formatSessionTimeRange(session)} · {session.duration} min · {getSessionTypeLabel(session.type)}
                 </Text>

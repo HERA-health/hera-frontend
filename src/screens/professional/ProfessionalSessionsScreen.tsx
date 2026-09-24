@@ -274,6 +274,8 @@ export function ProfessionalSessionsScreen() {
       );
       setEditingSession({
         ...session,
+        privateOptionId: detail.privateOptionId,
+        bookedPrivateServiceName: detail.bookedServiceName,
         clientEmail,
         clientSource: detail.client?.source,
         clientUserId: detail.client?.userId ?? null,
@@ -482,6 +484,8 @@ export function ProfessionalSessionsScreen() {
     () => editingSession
       ? {
           clientId: editingSession.clientId,
+          optionId: editingSession.privateOptionId,
+          serviceName: editingSession.bookedPrivateServiceName,
           date: editingSession.date.toISOString(),
           duration: editingSession.duration,
           type: toSchedulerSessionType(editingSession.type),

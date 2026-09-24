@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 
 import { lightTheme } from '../../../constants/theme';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -12,7 +12,7 @@ import { BookingScreen } from '../BookingScreen';
 jest.mock('../../../services/privateCatalogService', () => ({
   loadPublicBookingOptions: jest.fn(async () => {
     const profile = require('../../../services/specialistsService').mapPublicSpecialistToProfile();
-    return ['VIDEO_CALL','IN_PERSON'].filter(type => type === 'VIDEO_CALL' ? profile.offersOnline !== false : profile.offersInPerson === true).map(modality => ({id:modality,modality,durationMinutes:profile.slotDuration ?? 60,priceCents:6000,isActive:true,isPublic:true,isPreferred:true}));
+    return ['VIDEO_CALL','IN_PERSON'].filter(type => type === 'VIDEO_CALL' ? profile.offersOnline !== false : profile.offersInPerson === true).map(modality => ({id:modality,serviceId:'base',serviceKey:'base',serviceName:'General',modality,durationMinutes:profile.slotDuration ?? 60,priceCents:6000,isActive:true,isPublic:true,isPreferred:true}));
   }),
 }));
 jest.mock('../../../services/heraCommissionService', () => ({durableCommandKey:jest.fn(async()=>({commandKey:'fixture-command'}))}));
@@ -468,6 +468,40 @@ describe('BookingScreen initial slot preselection', () => {
 
     expect(await screen.findByText('Solicitud enviada')).toBeTruthy();
     expect(screen.getByTestId('booking-success-scroll')).toBeTruthy();
+  });
+
+  it('requires reviewing the personalized price again when a verified quote expires', async () => {
+    jest.useFakeTimers();
+    try {
+      mockedUseAuth.mockReturnValue({ ...mockedUseAuth(), isAuthenticated: false, user: null });
+      mockedSessionsService.getAvailableSlots.mockResolvedValue([
+        { startTime: '10:00', endTime: '11:00', available: true },
+      ]);
+      mockedSessionsService.requestPublicBooking.mockResolvedValue({ requestId: 'request-fixture', expiresAt: new Date(Date.now() + 900_000).toISOString() });
+      mockedSessionsService.verifyPublicBookingQuote.mockResolvedValueOnce({
+        price: 0, basePrice: 60, currency: 'EUR', quoteReference: 'verified-free-quote',
+        specialistId: 'specialist-1', duration: 60, tariffId: null,
+        tariffName: null, baseTariffName: null, firstVisitFreeApplied: true,
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      });
+      render(<BookingScreen route={route} navigation={navigation} />);
+      await screen.findByText('Tus datos de contacto');
+      fireEvent.changeText(screen.getByLabelText('Nombre'), 'María');
+      fireEvent.changeText(screen.getByLabelText('Apellidos'), 'García');
+      fireEvent.changeText(screen.getByLabelText('Correo electrónico'), 'fixture@example.invalid');
+      fireEvent.press(screen.getByLabelText('Autorizar el uso de datos para gestionar la cita'));
+      fireEvent.press(await screen.findByText('Continuar con mi reserva'));
+      fireEvent.changeText(await screen.findByLabelText('Código de verificación del correo'), '123456');
+      fireEvent.press(screen.getByText('Verificar y revisar precio'));
+      await screen.findByText('Confirmar cita');
+      await act(async () => { jest.advanceTimersByTime(600_000); });
+      expect(await screen.findByText('Verificar y revisar precio')).toBeTruthy();
+      expect(screen.queryByText('Confirmar cita')).toBeNull();
+      expect(screen.getByDisplayValue('123456')).toBeTruthy();
+      expect(mockedSessionsService.verifyPublicBooking).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('keeps contact details after losing a slot and verifies a new request for the replacement date', async () => {
