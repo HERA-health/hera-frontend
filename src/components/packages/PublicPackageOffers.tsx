@@ -23,9 +23,16 @@ export function PublicPackageOffers({ specialistId, anonymous, intentToken, onPr
   useEffect(() => { let current = true; loadPublicPackages(specialistId).then(rows => { if (current) setOffers(rows); }).catch(e => { if (current) setError(getErrorMessage(e, 'No se pudieron cargar los bonos disponibles.')); }); return () => { current = false; }; }, [specialistId]);
   if (!offers.length && !error) return null;
   return <View style={{ gap: 12, paddingVertical: 16 }}>
-    <Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 18 }}>Bonos de sesiones</Text>
-    <Text style={{ color: theme.textSecondary }}>Adquiere un bono y reserva sus sesiones cuando las necesites.</Text>
-    {offers.map(offer => <View key={offer.id} style={{ gap: 8, paddingVertical: 12, borderBottomWidth: 1, borderColor: theme.border }}><Text style={{ color: theme.textPrimary }}>{offer.name} · {offer.sessions} sesiones · {packagePrice(offer.totalCents)}</Text><Button variant="secondary" onPress={() => { setSelected(offer); setMessage(''); }}>Solicitar bono</Button></View>)}
+    <Text accessibilityRole="header" style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 18 }}>¿Quieres un nuevo bono?</Text>
+    <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, lineHeight: 22 }}>Solicita un bono y elige después el horario de cada sesión.</Text>
+    {offers.map(offer => <View key={offer.id} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, paddingVertical: 16, borderBottomWidth: 1, borderColor: theme.border }}>
+      <View style={{ flexGrow: 1, flexShrink: 1, flexBasis: 220, gap: 6 }}>
+        <Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 15 }}>{offer.name}</Text>
+        <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>{offer.sessions} sesiones · {packagePrice(Math.round(offer.totalCents / offer.sessions))} / sesión</Text>
+        <Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }}>{packagePrice(offer.totalCents)} en total</Text>
+      </View>
+      <Button variant="secondary" style={{ alignSelf: 'center', minHeight: 44, paddingVertical: 8, shadowOpacity: 0, elevation: 0 }} onPress={() => { setSelected(offer); setMessage(''); }}>Solicitar bono</Button>
+    </View>)}
     {!!error && <Text accessibilityRole="alert" style={{ color: theme.error }}>{error}</Text>}
     {!!message && <Text accessibilityLiveRegion="polite" style={{ color: theme.success }}>{message}</Text>}
     {selected && (anonymous ? <GuestPackageAcquisition offer={selected} specialistId={specialistId} intentToken={effectiveIntent} onPrivacy={onPrivacy} onClose={() => setSelected(undefined)} onDone={acquired} /> : <PackageAcquisition professional={false} offer={selected} specialistId={specialistId} bookingIntentToken={effectiveIntent} onClose={() => setSelected(undefined)} onAcquired={acquired} />)}

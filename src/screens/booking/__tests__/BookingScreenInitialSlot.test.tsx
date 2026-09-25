@@ -230,14 +230,14 @@ describe('BookingScreen initial slot preselection', () => {
     fireEvent.press(await screen.findByText('Solicitar bono'));
     fireEvent.press(await screen.findByText('Revisar antes de confirmar'));
     fireEvent.press(await screen.findByText('Solicitar y recibir factura'));
-    await screen.findByText(/Bono nuevo.*5 disponibles/);
+    await screen.findByText('5 sesiones disponibles');
     expect(packageService.loadPatientPackages).toHaveBeenCalledTimes(2);
     expect(packageService.acquirePackage).toHaveBeenCalledWith(expect.objectContaining({bookingIntentToken:'single-use-intent'}), undefined);
     await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1','2026-06-25','VIDEO_CALL','acquired'));
     await screen.findByText('slots:10:00:1');
     fireEvent.press(screen.getByText('Sesión individual'));
     await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1','2026-06-25','VIDEO_CALL',undefined));
-    fireEvent.press(screen.getByText(/Bono nuevo.*5 disponibles/));
+    fireEvent.press(screen.getByRole('button', { name: /Bono nuevo/ }));
     await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1','2026-06-25','VIDEO_CALL','acquired'));
     await screen.findByText('slots:10:00:1');
     fireEvent.press(await screen.findByText('Confirmar cita'));

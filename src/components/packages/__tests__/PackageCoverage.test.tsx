@@ -15,7 +15,8 @@ test('proposes the oldest unpaid compatible balance and preserves an explicit in
   const oldest = row('Anterior', 2); load.mockResolvedValue([row('Agotado', 0), oldest, row('Nuevo', 5)]);
   const change = jest.fn(); render(<Coverage change={change} />);
   await waitFor(() => expect(change).toHaveBeenCalledWith('Anterior', oldest));
-  expect(screen.getByText(/Anterior.*Pendiente de pago/)).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Anterior/, selected: true })).toBeTruthy();
+  expect(screen.getByText('2 sesiones disponibles')).toBeTruthy();
   fireEvent.press(screen.getByText('Sesión individual'));
   await waitFor(() => expect(change.mock.calls.at(-1)?.[0]).toBeUndefined());
   expect(screen.queryByText(/Incluida en tu bono/)).toBeNull();
