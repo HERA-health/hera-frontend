@@ -21,7 +21,6 @@ import type { Theme } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as analyticsService from '../../services/analyticsService';
 import * as sessionsService from '../../services/sessionsService';
-import { Card } from '../../components/common';
 import { Button } from '../../components/common/Button';
 import { PatientPackages } from '../../components/packages/PatientPackages';
 import type { AppNavigationProp } from '../../constants/types';
@@ -205,7 +204,7 @@ const SessionsScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.screen}>
-          <Header theme={theme} styles={styles} stats={null} />
+          <Header theme={theme} styles={styles} stats={null} onOpenPackages={() => setShowPackages(true)} />
           <EmptyState
             title="Tu agenda está lista para empezar"
             description="Cuando reserves tus próximas sesiones, las verás aquí organizadas para seguir tu proceso con claridad."
@@ -213,7 +212,6 @@ const SessionsScreen: React.FC = () => {
             actionLabel="Encontrar especialista"
             onAction={handleBrowseSpecialists}
           />
-          <Button variant="secondary" onPress={() => setShowPackages(true)}>Mis bonos</Button>
         </View>
       </SafeAreaView>
     );
@@ -222,8 +220,7 @@ const SessionsScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <Animated.View style={[styles.screen, { opacity: fadeAnim }]}>
-        <Header theme={theme} styles={styles} stats={stats} />
-        <Button variant="secondary" onPress={() => setShowPackages(true)}>Mis bonos</Button>
+        <Header theme={theme} styles={styles} stats={stats} onOpenPackages={() => setShowPackages(true)} />
 
         {useTwoColumns ? (
           <View style={styles.twoColumnLayout}>
@@ -300,9 +297,10 @@ interface HeaderProps {
   theme: Theme;
   styles: ReturnType<typeof createStyles>;
   stats: { upcoming: number; completed: number; total: number } | null;
+  onOpenPackages?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ theme, styles, stats }) => {
+const Header: React.FC<HeaderProps> = ({ theme, styles, stats, onOpenPackages }) => {
   const greeting = (() => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Buenos días';
@@ -319,9 +317,16 @@ const Header: React.FC<HeaderProps> = ({ theme, styles, stats }) => {
           <Text style={styles.headerSubtitle}>Tu camino hacia el bienestar, organizado con claridad.</Text>
         </View>
 
-        <Card variant="outlined" padding="small" style={styles.headerIconShell}>
-          <Ionicons name="calendar-outline" size={24} color={theme.primary} />
-        </Card>
+        {onOpenPackages ? (
+          <Button
+            variant="secondary"
+            onPress={onOpenPackages}
+            icon={<Ionicons name="ticket-outline" size={18} color={theme.textPrimary} />}
+            style={styles.packagesButton}
+          >
+            Mis bonos
+          </Button>
+        ) : null}
       </View>
 
       {stats && stats.total > 0 ? (
@@ -365,13 +370,14 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       backgroundColor: theme.bg,
     },
     headerMainRow: {
-      flexDirection: 'row',
+      flexDirection: width < 600 ? 'column' : 'row',
       justifyContent: 'space-between',
       alignItems: 'flex-start',
       gap: spacing.md,
     },
     headerCopy: {
-      flex: 1,
+      flex: width < 600 ? undefined : 1,
+      minWidth: 0,
     },
     headerGreeting: {
       marginBottom: 6,
@@ -390,13 +396,16 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
       color: theme.textSecondary,
       fontFamily: theme.fontSans,
     },
-    headerIconShell: {
-      width: 58,
-      height: 58,
-      borderRadius: borderRadius.xl,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgCard,
+    packagesButton: {
+      alignSelf: 'flex-start',
+      flexShrink: 0,
+      minHeight: 44,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      borderRadius: borderRadius.full,
+      backgroundColor: isDark ? theme.surfaceMuted : theme.secondaryMuted,
+      shadowOpacity: 0,
+      elevation: 0,
     },
     headerStats: {
       flexDirection: 'row',
