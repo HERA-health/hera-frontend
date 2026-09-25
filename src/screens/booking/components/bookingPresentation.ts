@@ -137,10 +137,10 @@ export const getQuotePresentation = ({
     : quoteError
       ? 'No disponible'
       : bookingQuote
-        ? formatBookingAmount(bookingQuote.price)
+        ? bookingQuote.patientPackageId ? 'Incluida en tu bono' : formatBookingAmount(bookingQuote.price)
         : 'Calculando...';
 
-  const caption = bookingQuote?.firstVisitFreeApplied
+  const caption = bookingQuote?.patientPackageId ? 'Reservarás una sesión del bono. Sin importe adicional ni otra factura.' : bookingQuote?.firstVisitFreeApplied
     ? `Primera sesión gratuita aplicada. Tarifa habitual ${formatBookingAmount(bookingQuote.basePrice)}`
     : quoteError
       ?? (quoteIsEstimated

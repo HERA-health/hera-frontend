@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from '../common/Button';
+import { downloadPackageInvoice } from '../../services/packageService';
+import { showAppAlert, useAppAlert } from '../common/alert';
 import { spacing } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -156,6 +158,8 @@ export function AppointmentDetailSheet({
     && Boolean(professionalSession?.clinicalTarget)
     && Boolean(onOpenNotes);
   const invoice = mode === 'clinic-admin' ? clinicSession?.invoice : professionalSession?.invoice;
+  const packageUse = professionalSession?.packageUses?.[0];
+  const packageAlert = useAppAlert();
   const canOpenInvoice = mode === 'professional'
     && professionalSession?.status === 'COMPLETED'
     && Boolean(professionalSession.invoice)
@@ -348,7 +352,8 @@ export function AppointmentDetailSheet({
                       </Button>
                     ) : null}
                     {onProposeReferral ? <Button variant="outline" size="small" onPress={onProposeReferral}>Proponer derivación</Button> : null}
-                    {canOpenInvoice ? (
+                    {packageUse && <><Text style={{ color: theme.textPrimary }}>Incluida en bono · Sin importe adicional</Text><Button variant="outline" onPress={() => { void downloadPackageInvoice(packageUse.patientPackageId).catch(() => showAppAlert(packageAlert, 'Factura no disponible', 'No se pudo descargar la factura del bono. Reintenta desde la ficha del paciente.')); }}>Ver factura del bono</Button></>}
+                    {canOpenInvoice && !packageUse ? (
                       <Button
                         variant="outline"
                         size="medium"

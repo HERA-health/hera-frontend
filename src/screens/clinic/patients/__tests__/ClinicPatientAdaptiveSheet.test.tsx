@@ -6,6 +6,9 @@ import { useTheme } from '../../../../contexts/ThemeContext';
 import { ClinicPatientAdaptiveSheet } from '../ClinicPatientAdaptiveSheet';
 import { AppointmentDetailSheet } from '../../../../components/sessions/AppointmentDetailSheet';
 
+jest.mock('../../../../services/packageService', () => ({ downloadPackageInvoice: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('../../../../components/common/alert', () => ({ useAppAlert: () => ({ showAlert: jest.fn() }), showAppAlert: jest.fn() }));
+
 jest.mock('../../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
 }));

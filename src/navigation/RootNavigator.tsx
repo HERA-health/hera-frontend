@@ -980,7 +980,7 @@ export function RootNavigator() {
             component={ProfessionalSessionsRoute}
             options={{ headerTitle: 'Agenda' }}
           />
-          <Stack.Screen name="ProfessionalTariffs" component={ProfessionalTariffsRoute} options={{ headerTitle: 'Tarifas y servicios' }} />
+          <Stack.Screen name="ProfessionalTariffs" component={ProfessionalTariffsRoute} options={{ headerTitle: 'Servicios y bonos' }} />
           <Stack.Screen
             name="ProfessionalBilling"
             component={ProfessionalBillingRoute}

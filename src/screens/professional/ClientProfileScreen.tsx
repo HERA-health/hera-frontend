@@ -1,3 +1,5 @@
+import { PatientPackages } from '../../components/packages/PatientPackages';
+import type { PatientPackage } from '../../services/packageService';
 import { PatientCommission } from '../commissions/CommissionLinks';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRef } from 'react';
@@ -34,10 +36,11 @@ import { useTheme } from '../../contexts/ThemeContext';
 import * as professionalService from '../../services/professionalService';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 
-type TabKey = 'summary' | 'history' | 'clinical';
+type TabKey = 'summary' | 'history' | 'clinical' | 'packages';
 
 const TABS: Array<{ key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
   { key: 'summary', label: 'Resumen', icon: 'person-outline' },
+  { key: 'packages', label: 'Bonos', icon: 'albums-outline' },
   { key: 'history', label: 'Historial', icon: 'time-outline' },
   { key: 'clinical', label: 'Área clínica', icon: 'shield-checkmark-outline' },
 ];
@@ -211,6 +214,7 @@ export function ClientProfileScreen() {
   const [savingBilling, setSavingBilling] = useState(false);
   const [billingContactError, setBillingContactError] = useState('');
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
+  const [scheduledPackage, setScheduledPackage] = useState<PatientPackage>();
   const [sessionSaving, setSessionSaving] = useState(false);
   const [archiveSubmitting, setArchiveSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -577,6 +581,7 @@ export function ClientProfileScreen() {
 
   const openSessionScheduler = useCallback(() => {
     if (!canScheduleProfessionalSession) return;
+    setScheduledPackage(undefined);
     setSessionModalVisible(true);
   }, [canScheduleProfessionalSession]);
 
@@ -1117,6 +1122,8 @@ export function ClientProfileScreen() {
 
       {activeTab === 'summary' ? <><PatientCommission clientId={clientId} /></> : null}
 
+      {activeTab === 'packages' && <PatientPackages clientId={clientId} onReserve={row => { setScheduledPackage(row); setSessionModalVisible(true); }} />}
+      {activeTab === 'summary' && <PatientPackages compact clientId={clientId} onReserve={row => { setScheduledPackage(row); setSessionModalVisible(true); }} />}
       {activeTab === 'history' ? (
         <Card variant="default" padding="large">
           <View style={styles.historyHeader}>
@@ -1363,6 +1370,7 @@ export function ClientProfileScreen() {
         visible={sessionModalVisible}
         clients={client ? [client] : []}
         initialClientId={client?.id}
+        initialValues={scheduledPackage && scheduledPackage.snapshot.options[0] ? { clientId, patientPackageId: scheduledPackage.id, optionId: scheduledPackage.snapshot.options[0].id, type: scheduledPackage.snapshot.options[0].modality, duration: scheduledPackage.snapshot.options[0].durationMinutes, date: new Date(Date.now() + 86400000).toISOString() } : undefined}
         saving={sessionSaving}
         onClose={closeSessionScheduler}
         onSubmit={handleCreateManagedSession}

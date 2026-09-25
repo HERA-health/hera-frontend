@@ -1,3 +1,6 @@
+import { PublicPackageOffers } from '../../components/packages/PublicPackageOffers';
+import { PackageCoverage, frozenPackageOptions } from '../../components/packages/PackageCoverage';
+import type { PatientPackage } from '../../services/packageService';
 import { formatPrivatePrice } from '../../utils/privateTariff';
 import { loadPublicBookingOptions, type PrivateServiceOption } from '../../services/privateCatalogService';
 import { initialPrivateOption, privateOptionForModality } from '../../utils/privateServiceSelection';
@@ -247,6 +250,12 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const avatar = specialist.avatar;
   const title = specialist.title;
   const [bookingOptions, setBookingOptions] = useState<PrivateServiceOption[]>([]);
+  const liveBookingOptions = useRef<PrivateServiceOption[]>([]);
+  const acquiredOptions = useRef<PrivateServiceOption[]>([]);
+  const [patientPackageId, setPatientPackageId] = useState<string | undefined>(route.params.patientPackageId);
+  const [packageRevision, setPackageRevision] = useState(0);
+  const [consumedIntent, setConsumedIntent] = useState<string>();
+  const bookingIntentToken = consumedIntent === route.params.intentToken ? undefined : route.params.intentToken;
   const [selectedOptionId, setSelectedOptionId] = useState<string | undefined>();
   const [optionsError, setOptionsError] = useState('');
   const [quoteRetry, setQuoteRetry] = useState(0);
@@ -304,7 +313,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const initialSlotRef = useRef<InitialSlotSelection | null>(initialSlotSelection);
   const initialDateLoadRef = useRef<string | null>(initialSlotSelection?.date ?? null);
   const slotsRequestIdRef = useRef(0);
-  const loadedOptionRef = useRef<string | undefined>(undefined);
+  const loadedSelectionRef = useRef<string | undefined>(undefined);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(
     initialSlotSelection?.date ?? null
@@ -341,7 +350,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     let current = true;
     loadPublicBookingOptions(specialistId).then(options => {
       if (!current) return;
-      setBookingOptions(options);
+      liveBookingOptions.current = options; setBookingOptions([...options.filter(o => !acquiredOptions.current.some(p => p.id === o.id)), ...acquiredOptions.current]);
+      if (acquiredOptions.current.length) return;
       const initial = initialPrivateOption(options, route.params.optionId);
       if (initial) { setSelectedOptionId(initial.id); setSessionType(initial.modality); }
       else setOptionsError('La opción seleccionada ya no está disponible. Elige otra para continuar.');
@@ -361,7 +371,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     }
   }, [defaultSessionType, modalityFlags, sessionType]);
 
-  useEffect(() => { setVerification(undefined); setVerificationCode(''); setIdentityVerified(false); }, [selectedDate, selectedSlot?.startTime, selectedOptionId, publicContact, sessionPhone]);
+  useEffect(() => { setVerification(undefined); setVerificationCode(''); setIdentityVerified(false); }, [selectedDate, selectedSlot?.startTime, selectedOptionId, publicContact, sessionPhone, bookingIntentToken]);
 
   const publicContactResult = useMemo(
     () => publicBookingContactSchema.safeParse(publicContact),
@@ -395,9 +405,9 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           specialistId,
           type: sessionType,
           duration: slotDuration,
-          optionId: selectedOptionId,
+          optionId: selectedOptionId, patientPackageId,
         })
-      : sessionsService.getBookingQuote(specialistId, sessionType, slotDuration, selectedOptionId);
+      : sessionsService.getBookingQuote(specialistId, sessionType, slotDuration, selectedOptionId, patientPackageId);
 
     quoteRequest
       .then((quote) => {
@@ -429,7 +439,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       isCurrent = false;
     };
   }, [
-    selectedOptionId,
+    selectedOptionId, patientPackageId,
     quoteRetry,
     availableSessionTypes.length,
     referralBooking,
@@ -477,13 +487,13 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       ? 'Esta cuenta no puede reservar citas. Accede con una cuenta de paciente o continúa sin iniciar sesión.'
       : null;
   const quoteIsEstimated = isAnonymousBooking && !identityVerified;
-  const displayPrice = bookingQuote?.price ?? pricePerSession;
+  const displayPrice = bookingQuote?.patientPackageId ? 0 : bookingQuote?.price ?? pricePerSession;
   const mobileTotalText = quoteLoading
     ? 'Calculando...'
     : quoteError
       ? 'No disponible'
       : bookingQuote
-        ? formatBookingAmount(displayPrice)
+        ? bookingQuote.patientPackageId ? 'Incluida en tu bono' : formatBookingAmount(displayPrice)
         : 'Calculando...';
   const mobileSpecialistPriceText = bookingQuote
     ? `${mobileTotalText} / sesión`
@@ -498,6 +508,23 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     [selectedDate, selectedSlot, sessionType],
   );
 
+  const selectPackageCoverage = (id: string | undefined, row?: PatientPackage) => {
+    setPatientPackageId(id);
+    const options = row ? frozenPackageOptions(row) : [];
+    acquiredOptions.current = options;
+    const available = [...liveBookingOptions.current.filter(option => !options.some(frozen => frozen.id === option.id)), ...options];
+    setBookingOptions(available);
+    const selection = row ? options : available;
+    const next = selection.find(option => option.id === selectedOptionId) ?? selection[0];
+    if (next) { setSelectedOptionId(next.id); setSessionType(next.modality); setOptionsError(''); }
+  };
+
+  const handlePackageAcquired = (row: PatientPackage) => {
+    setConsumedIntent(route.params.intentToken);
+    setPackageRevision(revision => revision + 1);
+    if (!isAnonymousBooking) selectPackageCoverage(row.id, row);
+  };
+
   const loadAvailableSlots = useCallback(
     async (date: string, options: { keepInitialSlot?: boolean; keepTime?: string } = {}) => {
       const requestId = slotsRequestIdRef.current + 1;
@@ -506,13 +533,15 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
 
       setLoadingSlots(true);
       setSlotsError(null);
+      setAvailableSlots([]);
+      setSelectedSlot(null);
       if (!options.keepInitialSlot && !options.keepTime) {
         initialSlotRef.current = null;
         setSelectedSlot(null);
       }
 
       try {
-        const slots = await sessionsService.getAvailableSlots(specialistId, date, selectedOptionId);
+        const slots = await sessionsService.getAvailableSlots(specialistId, date, selectedOptionId, patientPackageId);
         if (!isLatestRequest()) {
           return;
         }
@@ -563,12 +592,14 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         }
       }
     },
-    [appAlert, specialistId, selectedOptionId, slotDuration],
+    [appAlert, specialistId, selectedOptionId, slotDuration, patientPackageId],
   );
 
   useEffect(() => {
-    if (!selectedOptionId || loadedOptionRef.current === selectedOptionId) return;
-    loadedOptionRef.current = selectedOptionId;
+    if (!selectedOptionId) return;
+    const selectionKey = JSON.stringify([specialistId, selectedDate, selectedOptionId, sessionType, slotDuration, patientPackageId]);
+    if (loadedSelectionRef.current === selectionKey) return;
+    loadedSelectionRef.current = selectionKey;
     const initialDateToLoad = initialDateLoadRef.current;
     if (initialDateToLoad) {
       initialDateLoadRef.current = null;
@@ -576,7 +607,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     } else if (selectedDate) {
       void loadAvailableSlots(selectedDate, { keepTime: selectedSlot?.startTime });
     }
-  }, [selectedOptionId, selectedDate, loadAvailableSlots]);
+  }, [specialistId, selectedOptionId, selectedDate, sessionType, slotDuration, patientPackageId, loadAvailableSlots]);
 
   const handleDateSelect = useCallback(
     (date: string) => {
@@ -585,9 +616,9 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       }
 
       setSelectedDate(date);
-      loadAvailableSlots(date);
+      setSelectedSlot(null);
     },
-    [loadAvailableSlots, loading],
+    [loading],
   );
 
   const handleTimeSelect = useCallback(
@@ -702,12 +733,12 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           date: dateTime,
           duration: slotDuration,
           type: sessionType,
-          optionId: selectedOptionId,
+          optionId: selectedOptionId, patientPackageId,
           sessionPhone,
           patient: toPublicBookingPatientPayload(publicContactResult.data),
           privacyAccepted: true,
           privacyVersion: PUBLIC_BOOKING_PRIVACY_VERSION,
-          intentToken: route.params.intentToken,
+          intentToken: bookingIntentToken,
         }, verificationAttempt);
 
         setVerification(request);
@@ -735,10 +766,10 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
 
       const createdSession = await sessionsService.createSession({
         specialistId,
-        optionId: selectedOptionId,
+        optionId: selectedOptionId, patientPackageId,
         quoteReference: bookingQuote.quoteReference,
         sessionPhone,
-        intentToken: route.params.intentToken,
+        intentToken: bookingIntentToken,
         date: dateTime,
         duration: slotDuration,
         type: sessionType,
@@ -786,7 +817,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       setLoading(false);
     }
   }, [
-    selectedOptionId, sessionPhone, identityVerified,
+    selectedOptionId, patientPackageId, sessionPhone, identityVerified,
     selectedDate,
     selectedSlot,
     appAlert,
@@ -807,7 +838,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     verification,
     verificationCode,
     verificationAttempt,
-    route.params.intentToken,
+    bookingIntentToken,
   ]);
 
   const handlePageScroll = useCallback(
@@ -1241,6 +1272,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       />
 
       <View style={{ paddingVertical: spacing.md, gap: spacing.md }}>
+        {!isAnonymousBooking && !referralBooking && <PackageCoverage key={`${specialistId}:${packageRevision}`} specialistId={specialistId} optionId={selectedOptionId} value={patientPackageId} initialPackageId={patientPackageId} disabled={loading} onChange={selectPackageCoverage} />}
+        {!referralBooking && <PublicPackageOffers specialistId={specialistId} anonymous={isAnonymousBooking} intentToken={bookingIntentToken} onAcquired={handlePackageAcquired} onPrivacy={() => navigation.navigate('LegalDocument', { documentKey: 'PRIVACY_POLICY' })} />}
         <PrivateServicePicker options={bookingOptions} modality={sessionType} value={selectedOptionId} disabled={loading} onChange={id => { setSelectedOptionId(id); setOptionsError(''); }} />
         {sessionType === 'PHONE_CALL' && <View style={{ gap: 8 }}><Text style={{ color: theme.textPrimary }}>Tu especialista te llamará al número indicado a la hora de la cita.</Text><TextInput accessibilityLabel="Teléfono para esta cita" value={sessionPhone} onChangeText={setSessionPhone} keyboardType="phone-pad" placeholder="+34 600 000 000" placeholderTextColor={theme.textSecondary} style={{ color: theme.textPrimary, minHeight: 44, borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 12 }} /></View>}
       </View>

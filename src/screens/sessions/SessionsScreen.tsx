@@ -22,6 +22,9 @@ import { useTheme } from '../../contexts/ThemeContext';
 import * as analyticsService from '../../services/analyticsService';
 import * as sessionsService from '../../services/sessionsService';
 import { Card } from '../../components/common';
+import { Button } from '../../components/common/Button';
+import { PatientPackages } from '../../components/packages/PatientPackages';
+import type { AppNavigationProp } from '../../constants/types';
 import { BrandText } from '../../components/common/BrandText';
 
 import type { ApiSession } from './types';
@@ -40,6 +43,8 @@ const DESKTOP_BREAKPOINT = 1120;
 const TABLET_BREAKPOINT = 860;
 
 const SessionsScreen: React.FC = () => {
+  const rootNavigation = useNavigation<AppNavigationProp>();
+  const [showPackages, setShowPackages] = useState(false);
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<SessionsRouteProp>();
   const appAlert = useAppAlert();
@@ -194,6 +199,8 @@ const SessionsScreen: React.FC = () => {
     );
   }
 
+  if (showPackages) return <SafeAreaView style={styles.safeArea} edges={['top']}><ScrollView contentContainerStyle={{ padding: 24 }}><Button variant="ghost" onPress={() => setShowPackages(false)}>Volver a sesiones</Button><PatientPackages onReserve={row => rootNavigation.navigate('Booking', { specialistId: row.specialistId, patientPackageId: row.id, optionId: row.snapshot.options[0]?.id })} /></ScrollView></SafeAreaView>;
+
   if (sessions.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -206,6 +213,7 @@ const SessionsScreen: React.FC = () => {
             actionLabel="Encontrar especialista"
             onAction={handleBrowseSpecialists}
           />
+          <Button variant="secondary" onPress={() => setShowPackages(true)}>Mis bonos</Button>
         </View>
       </SafeAreaView>
     );
@@ -215,6 +223,7 @@ const SessionsScreen: React.FC = () => {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <Animated.View style={[styles.screen, { opacity: fadeAnim }]}>
         <Header theme={theme} styles={styles} stats={stats} />
+        <Button variant="secondary" onPress={() => setShowPackages(true)}>Mis bonos</Button>
 
         {useTwoColumns ? (
           <View style={styles.twoColumnLayout}>

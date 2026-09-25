@@ -3219,7 +3219,7 @@ export function SpecialistProfileScreen() {
       )}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Resumen de facturación</Text>
-        <Button variant="outline" onPress={() => navigation.navigate('ProfessionalTariffs')}>Gestionar tarifas y servicios</Button>
+        <Button variant="outline" onPress={() => navigation.navigate('ProfessionalTariffs')}>Gestionar servicios y bonos</Button>
         <View style={styles.formCard}>
           <View style={styles.billingSummaryHeader}>
             <View style={styles.billingSummaryIcon}>
@@ -3228,7 +3228,7 @@ export function SpecialistProfileScreen() {
             <View style={styles.billingSummaryCopy}>
               <Text style={styles.billingSummaryTitle}>La facturación se gestiona desde su pantalla dedicada</Text>
               <Text style={styles.billingSummaryText}>
-                Los precios y modalidades se gestionan en Tarifas y servicios. Los datos fiscales, IBAN y numeración permanecen en Facturación.
+                Los precios y modalidades se gestionan en Servicios y bonos. Los datos fiscales, IBAN y numeración permanecen en Facturación.
               </Text>
             </View>
           </View>

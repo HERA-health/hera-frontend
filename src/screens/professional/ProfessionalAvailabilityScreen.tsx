@@ -375,7 +375,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
   }, [appAlert]);
 
   const billingDurationText = 'Duración según la opción reservada';
-  const billingDurationHint = 'Gestiona precios y duraciones en Tarifas y servicios. Los descansos se aplican a todas las opciones.';
+  const billingDurationHint = 'Gestiona precios y duraciones en Servicios y bonos. Los descansos se aplican a todas las opciones.';
   const selectedPreset = useMemo(
     () => QUICK_PRESETS.find((preset) => preset.id === selectedPresetId),
     [selectedPresetId]
@@ -826,7 +826,7 @@ export function ProfessionalAvailabilityScreen({ navigation }: Props) {
               size="small"
               onPress={() => navigateProfessionalSection(navigation, 'ProfessionalTariffs')}
             >
-              Tarifas y servicios
+              Servicios y bonos
             </Button>
           </View>
         </View>

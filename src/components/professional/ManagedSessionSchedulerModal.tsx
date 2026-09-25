@@ -1,3 +1,4 @@
+import { PackageCoverage, frozenPackageOptions } from '../packages/PackageCoverage';
 import { loadPrivateCatalog, getManagedBookingQuote, type PrivateServiceOption } from '../../services/privateCatalogService';
 import { PrivateServicePicker } from '../scheduling/PrivateServicePicker';
 import { initialPrivateOption, privateOptionForModality } from '../../utils/privateServiceSelection';
@@ -66,6 +67,7 @@ type BufferConflictState = {
 type SchedulerMode = 'create' | 'edit';
 
 export interface ManagedSessionSchedulerInitialValues {
+  patientPackageId?: string;
   optionId?: string | null;
   serviceName?: string | null;
   clientId: string;
@@ -151,6 +153,9 @@ export function ManagedSessionSchedulerModal({
   const [timeValue, setTimeValue] = useState('');
   const [durationValue, setDurationValue] = useState('60');
   const [catalogOptions, setCatalogOptions] = useState<PrivateServiceOption[]>([]);
+  const liveCatalogOptions = useRef<PrivateServiceOption[]>([]);
+  const acquiredOptions = useRef<PrivateServiceOption[]>([]);
+  const [patientPackageId, setPatientPackageId] = useState<string | undefined>();
   const [selectedOptionId, setSelectedOptionId] = useState<string>();
   const [quote, setQuote] = useState<BookingQuote | null>(null);
   const [quoteError, setQuoteError] = useState('');
@@ -170,12 +175,13 @@ export function ManagedSessionSchedulerModal({
   const formInitializationKeyRef = useRef<string | null>(null);
   const isEditing = mode === 'edit';
   const requestedClientId = initialValues?.clientId ?? initialClientId;
+  useEffect(() => { acquiredOptions.current = []; setCatalogOptions(liveCatalogOptions.current); setPatientPackageId(initialValues?.clientId === clientId ? initialValues.patientPackageId : undefined); }, [clientId, initialValues?.patientPackageId]);
   const initialDate = initialValues?.date;
   const initialDuration = initialValues?.duration;
   const initialType = initialValues?.type;
   const originalOptionId = initialValues?.optionId ?? catalogOptions.find(o =>
     o.serviceKey === 'base' && o.modality === initialType && o.durationMinutes === initialDuration)?.id;
-  const dateOnlyChange = isEditing && selectedOptionId === originalOptionId
+  const dateOnlyChange = isEditing && patientPackageId === initialValues?.patientPackageId && selectedOptionId === originalOptionId
     && Number(durationValue) === initialDuration && type === initialType;
   const selectedOption = catalogOptions.find(o => o.id === selectedOptionId && o.modality === type);
   const durationOptions = [...new Set([...catalogOptions.filter(o => o.modality === type && o.serviceId === selectedOption?.serviceId).map(o => o.durationMinutes), ...(dateOnlyChange && initialDuration ? [initialDuration] : [])])].sort((a,b) => a-b);
@@ -184,7 +190,8 @@ export function ManagedSessionSchedulerModal({
     let current = true;
     loadPrivateCatalog().then(value => { if (current) {
       const options = (value.services ? value.services.filter(s => !s.archivedAt).flatMap(s => s.options) : value.options).filter(o => o.isActive);
-      setCatalogOptions(options); setQuoteError('');
+      liveCatalogOptions.current = options; setCatalogOptions([...options.filter(o => !acquiredOptions.current.some(p => p.id === o.id)), ...acquiredOptions.current]); setQuoteError('');
+      if (acquiredOptions.current.length) return;
       const initial = isEditing
         ? initialValues?.optionId ? options.find(o => o.id === initialValues.optionId)
           : options.find(o => o.serviceKey === 'base' && o.modality === initialType && o.durationMinutes === initialDuration)
@@ -200,11 +207,11 @@ export function ManagedSessionSchedulerModal({
     setQuote(null);
     if (!visible || !clientId || !selectedOption || dateOnlyChange) return;
     setQuoteError('');
-    getManagedBookingQuote({ clientId, optionId: selectedOption.id, duration: selectedOption.durationMinutes, type, ...(editingSessionId ? { sessionId: editingSessionId } : {}) })
+    getManagedBookingQuote({ clientId, patientPackageId, optionId: selectedOption.id, duration: selectedOption.durationMinutes, type, ...(editingSessionId ? { sessionId: editingSessionId } : {}) })
       .then(value => { if (current) setQuote(value); })
       .catch(e => { if (current) setQuoteError(e instanceof Error ? e.message : 'No se pudo calcular el precio.'); });
     return () => { current = false; };
-  }, [visible, clientId, selectedOption?.id, type, editingSessionId, dateOnlyChange, quoteRetry]);
+  }, [visible, clientId, selectedOption?.id, type, editingSessionId, dateOnlyChange, quoteRetry, patientPackageId]);
   useEffect(() => {
     if (!visible || !quote?.expiresAt) return;
     const timer = setTimeout(() => { setQuote(null); setQuoteRetry(v => v + 1); }, Math.max(0, Date.parse(quote.expiresAt) - Date.now()));
@@ -240,6 +247,7 @@ export function ManagedSessionSchedulerModal({
     setDateValue(initialScheduleValue.date);
     setTimeValue(initialScheduleValue.time);
     setDurationValue(String(initialDuration ?? 60));
+    acquiredOptions.current = []; setPatientPackageId(initialValues?.patientPackageId);
     if (isEditing) setSelectedOptionId(initialValues?.optionId ?? undefined);
     setType(initialType ?? 'VIDEO_CALL');
     setSessionPhone('');
@@ -440,7 +448,7 @@ export function ManagedSessionSchedulerModal({
 
     if (!dateOnlyChange && (!selectedOption || !quote?.quoteReference || (quote.expiresAt && Date.parse(quote.expiresAt) <= Date.now()))) { setQuoteRetry(v => v + 1); setErrors({ form: quoteError || 'Selecciona un servicio y revisa el precio actualizado.' }); return; }
     if (type === 'PHONE_CALL' && !sessionPhone.trim() && !dateOnlyChange) { setErrors({ form: 'Indica el teléfono de destino para esta cita.' }); return; }
-    const input = { ...validation.input, ...(!dateOnlyChange ? { optionId: selectedOption?.id, quoteReference: quote?.quoteReference } : {}), ...(sessionPhone.trim() ? { sessionPhone } : {}) };
+    const input = { ...validation.input, patientPackageId: patientPackageId ?? (isEditing ? null : undefined), ...(!dateOnlyChange ? { optionId: selectedOption?.id, quoteReference: quote?.quoteReference } : {}), ...(sessionPhone.trim() ? { sessionPhone } : {}) };
     setErrors({});
     try {
       await onSubmit(input);
@@ -680,6 +688,7 @@ export function ManagedSessionSchedulerModal({
 
             <View style={styles.section}>
               {dateOnlyChange && <Text style={{ color: theme.textSecondary }}>Servicio reservado: {initialValues?.serviceName ?? 'Condiciones originales'} · {initialDuration} min. Cambiar solo la fecha mantiene sus condiciones.</Text>}
+              {!!clientId && <PackageCoverage key={`${clientId}:${visible}`} clientId={clientId} initialPackageId={initialValues?.clientId === clientId ? initialValues?.patientPackageId : undefined} optionId={selectedOptionId} value={patientPackageId} disabled={saving} onChange={(id, row) => { setPatientPackageId(id); if (row) { const options = frozenPackageOptions(row); acquiredOptions.current = options; setCatalogOptions(previous => [...previous.filter(o => !options.some(p => p.id === o.id)), ...options]); const next = options.find(o => o.id === selectedOptionId) ?? options[0]; if (next) { setSelectedOptionId(next.id); setType(next.modality); setDurationValue(String(next.durationMinutes)); } } else { acquiredOptions.current = []; setCatalogOptions(liveCatalogOptions.current); const next = liveCatalogOptions.current.find(o => o.id === selectedOptionId) ?? liveCatalogOptions.current[0]; if (next) { setSelectedOptionId(next.id); setType(next.modality); setDurationValue(String(next.durationMinutes)); } } }} />}
               <PrivateServicePicker showDuration={false} options={catalogOptions} modality={type} value={selectedOptionId} disabled={saving} onChange={id => {
                 const next = catalogOptions.find(o => o.id === id);
                 if (!next) return;
@@ -807,7 +816,7 @@ export function ManagedSessionSchedulerModal({
             )}
 
             <View style={{ padding: 16, gap: 8, backgroundColor: theme.bgAlt, borderRadius: 12 }}>
-              <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{dateOnlyChange ? 'Se conserva el precio acordado de esta cita' : quote ? (quote.firstVisitFreeApplied ? 'Primera sesión gratuita · 0 €' : quote.price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }) + ' · Precio final') : quoteError || 'Selecciona paciente, modalidad y duración para consultar el precio'}</Text>
+              <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{dateOnlyChange ? 'Se conserva el precio acordado de esta cita' : quote ? (quote.firstVisitFreeApplied ? 'Primera sesión gratuita · 0 €' : quote.patientPackageId ? 'Incluida en tu bono · Sin importe adicional' : quote.price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }) + ' · Precio final') : quoteError || 'Selecciona paciente, modalidad y duración para consultar el precio'}</Text>
               {type === 'PHONE_CALL' && <><Text style={{ color: theme.textSecondary }}>Llamarás al número indicado a la hora de la cita.</Text><TextInput accessibilityLabel="Teléfono para esta cita" value={sessionPhone} onChangeText={setSessionPhone} placeholder={dateOnlyChange ? 'Conservar teléfono de la cita' : '+34 600 000 000'} placeholderTextColor={theme.textSecondary} keyboardType="phone-pad" style={{ color: theme.textPrimary, borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 12, minHeight: 44 }} /></>}
             </View>
             {errors.form && (

@@ -156,6 +156,7 @@ export type RootStackParamList = {
   ProfileCompletion: undefined;
   SpecialistDetail: { specialistId: string; affinity?: number; intentToken?: string; optionId?: string };
   Booking: {
+    patientPackageId?: string;
     optionId?: string;
     intentToken?: string;
     specialistId: string;
@@ -341,6 +342,7 @@ export interface ProfessionalStats {
  * Session from professional's perspective
  */
 export interface ProfessionalSession {
+  packageUses?: Array<{ patientPackageId: string; ordinal: number; status: string }>;
   privateOptionId?: string | null;
   bookedPrivateServiceName?: string | null;
   id: string;

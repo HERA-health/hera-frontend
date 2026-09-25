@@ -166,7 +166,7 @@ describe('ProfessionalAvailabilityScreen', () => {
     }, { timeout: 3000 });
     expect(mockedBillingService.getConfig).not.toHaveBeenCalled();
     expect(screen.getByText('Duración según la opción reservada')).toBeTruthy();
-    fireEvent.press(screen.getByText('Tarifas y servicios'));
+    fireEvent.press(screen.getByText('Servicios y bonos'));
     expect(props.navigation.navigate).toHaveBeenCalledWith('ProfessionalTariffs');
     await waitFor(() => {
       expect(mockedAvailabilityService.getMyWeeklyScheduleSnapshot).toHaveBeenCalled();

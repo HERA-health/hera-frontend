@@ -7,7 +7,16 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { showAppAlert } from '../../../components/common/alert';
 import * as sessionsService from '../../../services/sessionsService';
 import * as specialistsService from '../../../services/specialistsService';
+import * as packageService from '../../../services/packageService';
 import { BookingScreen } from '../BookingScreen';
+
+jest.mock('../../../services/packageService', () => ({
+  loadPatientPackages: jest.fn(), loadPublicPackages: jest.fn(), quotePackage: jest.fn(), acquirePackage: jest.fn(),
+  requestPublicPackage: jest.fn(), quotePublicPackage: jest.fn(), acquirePublicPackage: jest.fn(),
+  packagePrice: (cents: number) => `${cents / 100} EUR`, packageModality: () => 'Vídeo',
+}));
+jest.mock('expo-crypto', () => ({ randomUUID: () => 'package-test-command' }));
+jest.mock('../../../services/professionalService', () => ({ getProfessionalClients: jest.fn().mockResolvedValue([]) }));
 
 jest.mock('../../../services/privateCatalogService', () => ({
   loadPublicBookingOptions: jest.fn(async () => {
@@ -139,6 +148,8 @@ const routeWithoutInitialSlot = {
 
 describe('BookingScreen initial slot preselection', () => {
   beforeEach(() => {
+    jest.mocked(packageService.loadPatientPackages).mockResolvedValue([]);
+    jest.mocked(packageService.loadPublicPackages).mockResolvedValue([]);
     mockedSpecialistsService.getPublicSpecialistDetails.mockResolvedValue({
       id: 'specialist-1',
     } as never);
@@ -202,6 +213,76 @@ describe('BookingScreen initial slot preselection', () => {
     jest.clearAllMocks();
   });
 
+  it('acquisition refreshes and selects coverage, consumes the intent and reloads the same option with its frozen duration', async () => {
+    const offer: packageService.PackageOffer = { id:'offer', name:'Bono nuevo', serviceId:'base', serviceName:'General', sessions:5, totalCents:25000, currency:'EUR', version:1, isPublic:true, archivedAt:null, options:[{id:'VIDEO_CALL',modality:'VIDEO_CALL',durationMinutes:90}] };
+    const snapshot = {...offer,paymentConditions:null};
+    const acquired: packageService.PatientPackage = {id:'acquired',specialistId:'specialist-1',clientId:'client',createdAt:'2026-09-25',snapshot,balance:{total:5,available:5,reserved:0,consumed:0},invoice:null,uses:[],notifications:[]};
+    jest.mocked(packageService.loadPublicPackages).mockResolvedValue([offer]);
+    jest.mocked(packageService.quotePackage).mockResolvedValue({snapshot,quoteReference:'package-quote',expiresAt:'2030-01-01',fiscal:{invoiceKind:'SIMPLIFIED',recipientEmail:'patient@example.invalid',recipient:{fiscalName:'Paciente',fiscalTaxId:null,fiscalAddress:null}}});
+    jest.mocked(packageService.acquirePackage).mockImplementation(async () => {
+      jest.mocked(packageService.loadPatientPackages).mockResolvedValue([acquired]);
+      return acquired;
+    });
+    mockedSessionsService.getAvailableSlots.mockImplementation(async (_specialist, _date, _option, packageId) => [{startTime:'10:00',endTime:packageId ? '11:30' : '11:00',available:true}]);
+    mockedSessionsService.createSession.mockImplementation(() => new Promise(() => undefined));
+    render(<BookingScreen route={{params:{...route.params,intentToken:'single-use-intent'}}} navigation={navigation} />);
+    await screen.findByText('slots:10:00:1');
+    fireEvent.press(await screen.findByText('Solicitar bono'));
+    fireEvent.press(await screen.findByText('Revisar antes de confirmar'));
+    fireEvent.press(await screen.findByText('Solicitar y recibir factura'));
+    await screen.findByText(/Bono nuevo.*5 disponibles/);
+    expect(packageService.loadPatientPackages).toHaveBeenCalledTimes(2);
+    expect(packageService.acquirePackage).toHaveBeenCalledWith(expect.objectContaining({bookingIntentToken:'single-use-intent'}), undefined);
+    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1','2026-06-25','VIDEO_CALL','acquired'));
+    await screen.findByText('slots:10:00:1');
+    fireEvent.press(screen.getByText('Sesión individual'));
+    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1','2026-06-25','VIDEO_CALL',undefined));
+    fireEvent.press(screen.getByText(/Bono nuevo.*5 disponibles/));
+    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenLastCalledWith('specialist-1','2026-06-25','VIDEO_CALL','acquired'));
+    await screen.findByText('slots:10:00:1');
+    fireEvent.press(await screen.findByText('Confirmar cita'));
+    await waitFor(() => expect(mockedSessionsService.createSession).toHaveBeenCalledWith(expect.objectContaining({patientPackageId:'acquired',duration:90,intentToken:undefined})));
+  });
+
+  it('guest acquisition restarts a pending booking verification without its consumed intent', async () => {
+    mockedUseAuth.mockReturnValue({ ...mockedUseAuth(), isAuthenticated:false, user:null });
+    const offer: packageService.PackageOffer = {id:'offer',name:'Bono invitado',serviceId:'base',serviceName:'General',sessions:5,totalCents:25000,currency:'EUR',version:1,isPublic:true,archivedAt:null,options:[{id:'VIDEO_CALL',modality:'VIDEO_CALL',durationMinutes:60}]};
+    const snapshot = {...offer,paymentConditions:null};
+    jest.mocked(packageService.loadPublicPackages).mockResolvedValue([offer]);
+    jest.mocked(packageService.requestPublicPackage).mockResolvedValue({requestId:'package-request',expiresAt:'2030-01-01'});
+    jest.mocked(packageService.quotePublicPackage).mockResolvedValue({snapshot,quoteReference:'package-quote',expiresAt:'2030-01-01',fiscal:{invoiceKind:'SIMPLIFIED',recipientEmail:'guest@example.invalid',recipient:{fiscalName:'Invitado',fiscalTaxId:null,fiscalAddress:null}}});
+    jest.mocked(packageService.acquirePublicPackage).mockResolvedValue({id:'acquired',specialistId:'specialist-1',clientId:'guest',createdAt:'2026-09-25',snapshot,balance:{total:5,available:5,reserved:0,consumed:0},invoice:null,uses:[],notifications:[]});
+    mockedSessionsService.getAvailableSlots.mockResolvedValue([{startTime:'10:00',endTime:'11:00',available:true}]);
+    mockedSessionsService.requestPublicBooking.mockResolvedValue({requestId:'booking-request',expiresAt:'2030-01-01'});
+    render(<BookingScreen route={{params:{...route.params,intentToken:'guest-intent'}}} navigation={navigation} />);
+    await screen.findByText('Tus datos de contacto');
+    fireEvent.changeText(screen.getByLabelText('Nombre'),'Invitado');
+    fireEvent.changeText(screen.getByLabelText('Apellidos'),'Sintético');
+    fireEvent.changeText(screen.getByLabelText('Correo electrónico'),'guest@example.invalid');
+    fireEvent.press(screen.getByLabelText('Autorizar el uso de datos para gestionar la cita'));
+    fireEvent.press(screen.getByText('Continuar con mi reserva'));
+    await screen.findByLabelText('Código de verificación del correo');
+    fireEvent.press(screen.getByText('Solicitar bono'));
+    // The modal owns a separate identity verification for the package acquisition.
+    const names = screen.getAllByLabelText('Nombre');
+    fireEvent.changeText(names[names.length-1],'Invitado');
+    const surnames = screen.getAllByLabelText('Apellidos');
+    fireEvent.changeText(surnames[surnames.length-1],'Sintético');
+    const emails = screen.getAllByLabelText('Correo electrónico');
+    fireEvent.changeText(emails[emails.length-1],'guest@example.invalid');
+    fireEvent(screen.getByLabelText('Aceptar política de privacidad'),'valueChange',true);
+    fireEvent.press(screen.getByText('Verificar mi correo'));
+    fireEvent.changeText(await screen.findByLabelText('Código de verificación'),'123456');
+    fireEvent.press(screen.getByText('Verificar y revisar condiciones'));
+    fireEvent.press(await screen.findByText('Solicitar y recibir factura'));
+    await screen.findByText('Continuar con mi reserva');
+    expect(screen.queryByLabelText('Código de verificación del correo')).toBeNull();
+    fireEvent.press(screen.getByText('Continuar con mi reserva'));
+    await waitFor(() => expect(mockedSessionsService.requestPublicBooking).toHaveBeenCalledTimes(2));
+    expect(mockedSessionsService.requestPublicBooking.mock.calls[0][0].intentToken).toBe('guest-intent');
+    expect(mockedSessionsService.requestPublicBooking.mock.calls[1][0].intentToken).toBeUndefined();
+  });
+
   it('preselects the initial slot only after it is revalidated as available', async () => {
     mockedSessionsService.getAvailableSlots.mockResolvedValue([
       { startTime: '10:00', endTime: '11:00', available: true },
@@ -222,7 +303,7 @@ describe('BookingScreen initial slot preselection', () => {
     expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledWith(
       'specialist-1',
       '2026-06-25',
-      'VIDEO_CALL'
+      'VIDEO_CALL', undefined
     );
     expect(mockedShowAppAlert).not.toHaveBeenCalledWith(
       expect.anything(),

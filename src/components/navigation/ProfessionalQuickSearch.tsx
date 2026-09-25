@@ -41,7 +41,7 @@ const NAVIGATION_RESULTS: NavigationResult[] = [
   { label: 'Inicio', description: 'Resumen de tu día', icon: 'home-outline', route: 'ProfessionalHome' },
   { label: 'Agenda', description: 'Día, semana, mes y lista', icon: 'calendar-outline', route: 'ProfessionalSessions' },
   { label: 'Pacientes', description: 'Gestión de pacientes', icon: 'people-outline', route: 'ProfessionalClients' },
-  { label: 'Tarifas y servicios', description: 'Precios, modalidades y duraciones', icon: 'pricetags-outline', route: 'ProfessionalTariffs' },
+  { label: 'Servicios y bonos', description: 'Precios, modalidades y duraciones', icon: 'pricetags-outline', route: 'ProfessionalTariffs' },
   { label: 'Facturación', description: 'Facturas y configuración', icon: 'receipt-outline', route: 'ProfessionalBilling' },
   { label: 'Estadísticas', description: 'Actividad e ingresos', icon: 'stats-chart-outline', route: 'ProfessionalDashboard' },
   { label: 'Disponibilidad', description: 'Configura tu horario base', icon: 'time-outline', route: 'ProfessionalAvailability' },

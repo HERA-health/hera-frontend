@@ -1,3 +1,5 @@
+import { PackageCatalog } from '../../components/packages/PackageCatalog';
+import { CatalogStatusFilter } from '../../components/common/CatalogStatusFilter';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { usePreventRemove } from '@react-navigation/native';
@@ -17,6 +19,7 @@ export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'Pr
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const alert = useAppAlert();
+  const [catalogTab, setCatalogTab] = useState<'services' | 'packages'>('services');
   const [width, setWidth] = useState(0);
   const [catalog, setCatalog] = useState<PrivateServiceCatalog | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,15 +84,14 @@ export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'Pr
   </View>;
   return <View style={styles.root} onLayout={event => setWidth(event.nativeEvent.layout.width)}>
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <View style={styles.catalogTabs}>{([{ key: 'services', label: 'Servicios' }, { key: 'packages', label: 'Bonos' }] as const).map(tab => <Pressable key={tab.key} accessibilityRole="tab" accessibilityState={{ selected: catalogTab === tab.key }} onPress={() => setCatalogTab(tab.key)} style={({ pressed }) => [styles.catalogTab, catalogTab === tab.key && styles.selectedCatalogTab, pressed && { opacity: 0.75 }]}><Text style={[styles.catalogTabText, catalogTab === tab.key && styles.selectedCatalogTabText]}>{tab.label}</Text></Pressable>)}</View>
+      <View style={catalogTab === 'packages' ? undefined : { display: 'none' }}><PackageCatalog navigation={navigation} /></View>
+      <View style={catalogTab === 'services' ? { gap: 24 } : { display: 'none' }}>
       {!!error && <View accessibilityRole="alert" style={styles.feedback}><Text style={styles.error}>{error}</Text><Button variant="ghost" onPress={() => void load()}>Actualizar catálogo</Button></View>}
       {!!message && <Text accessibilityLiveRegion="polite" style={styles.success}>{message}</Text>}
       {loading ? <ActivityIndicator accessibilityLabel="Cargando servicios" color={theme.primary} /> : catalog && <>
         <View style={[styles.filters, compact && styles.stack]}>
-          <View style={styles.tabs}>
-            {[{ label: 'Activos', value: false }, { label: 'Archivados', value: true }].map(tab => <Pressable key={tab.label} accessibilityRole="tab" accessibilityState={{ selected: archived === tab.value }} onPress={() => setArchived(tab.value)} style={({ pressed }) => [styles.tab, archived === tab.value && styles.selectedTab, pressed && { opacity: 0.75 }]}>
-              <Text style={[styles.tabText, archived === tab.value && styles.selectedTabText]}>{tab.label}</Text>
-            </Pressable>)}
-          </View>
+          <CatalogStatusFilter archived={archived} onChange={setArchived} />
         <View style={styles.policy}><View style={styles.policyText}><Text style={styles.policyTitle}>Primera sesión gratuita</Text><Text style={styles.small}>Una por paciente · todos tus servicios</Text></View>
           <Switch accessibilityLabel="Ofrecer primera sesión gratuita" value={free} onValueChange={setFree} disabled={busy} trackColor={{ false: theme.textMuted, true: theme.primary }} thumbColor={theme.textOnPrimary} />
           <Button size="small" variant="secondary" style={{ borderRadius: 8, paddingHorizontal: 12 }} accessibilityLabel="Guardar política de primera sesión gratuita" disabled={free === catalog.firstVisitFree} loading={busy} onPress={() => {
@@ -128,6 +130,7 @@ export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'Pr
         </View>
         <Text style={styles.small}>Los cambios se aplican a nuevas reservas. Las citas anteriores conservan sus condiciones.</Text>
       </>}
+      </View>
     </ScrollView>
     <Modal visible={editing !== undefined && !!catalog} transparent animationType="fade" onRequestClose={close} onDismiss={returnFocus}>
       <View style={styles.overlay}><View accessibilityViewIsModal style={[styles.panel, compact && { width: '100%' }]}>
@@ -142,7 +145,12 @@ export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'Pr
 const createStyles = (t: Theme) => StyleSheet.create({
   root: { flex: 1, backgroundColor: t.bg }, grow: { flex: 1 }, row: { flexDirection: 'row', alignItems: 'center' }, stack: { flexDirection: 'column', alignItems: 'stretch' },
   secondary: { fontFamily: t.fontSans, fontSize: 14, lineHeight: 21, color: t.textSecondary },
-  content: { padding: 24, gap: 24, width: '100%', maxWidth: 1600, alignSelf: 'center', paddingBottom: 48 }, filters: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }, tabs: { flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: t.bgMuted, padding: 4, borderRadius: 10, gap: 2 }, tab: { minHeight: 40, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, borderRadius: 7 }, selectedTab: { backgroundColor: t.bgCard, boxShadow: '0 1px 3px rgba(0,0,0,0.10)' }, tabText: { fontFamily: t.fontSansSemiBold, fontSize: 14, color: t.textSecondary }, selectedTabText: { color: t.textPrimary },
+  content: { padding: 24, gap: 24, width: '100%', maxWidth: 1600, alignSelf: 'center', paddingBottom: 48 }, filters: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 },
+  catalogTabs: { flexDirection: 'row', gap: 24, borderBottomWidth: 1, borderBottomColor: t.border },
+  catalogTab: { minHeight: 52, paddingHorizontal: 4, justifyContent: 'center', alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent', marginBottom: -1 },
+  selectedCatalogTab: { borderBottomColor: t.primary },
+  catalogTabText: { fontFamily: t.fontSansSemiBold, fontSize: 17, color: t.textSecondary },
+  selectedCatalogTabText: { color: t.textPrimary },
   search: { color: t.textPrimary, fontFamily: t.fontSans, fontSize: 14, borderBottomWidth: 1, borderBottomColor: t.border, padding: 12, minWidth: 240 },
   list: { backgroundColor: t.bgCard, borderWidth: 1, borderColor: t.border, borderRadius: 16, overflow: 'hidden' }, columns: { flexDirection: 'row', backgroundColor: t.surface, padding: 20, gap: 16 },
   nameColumn: { width: 220, flexShrink: 0, gap: 5 }, offerColumns: { flex: 1, minWidth: 0 },

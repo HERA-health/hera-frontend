@@ -880,7 +880,7 @@ export function BillingScreen() {
   };
 
   const handleInvoiceRowPress = (invoice: Invoice) => {
-    if (invoice.status === 'DRAFT') {
+    if (invoice.status === 'DRAFT' && !invoice.patientPackageId) {
       navigation.navigate('CreateInvoice', { invoiceId: invoice.id });
     } else {
       handleDownload(invoice.id, invoice.invoiceNumber);
@@ -889,6 +889,11 @@ export function BillingScreen() {
 
   const getMenuOptions = (invoice: Invoice): Array<{ label: string; onPress: () => void; danger?: boolean }> => {
     const options: Array<{ label: string; onPress: () => void; danger?: boolean }> = [];
+    if (invoice.patientPackageId) {
+      if (!invoice.sentAt) options.push({ label: 'Reintentar entrega', onPress: () => handleSendInvoice(invoice.id) });
+      if (!invoice.paidAt && invoice.total > 0) options.push({ label: STRINGS.markAsPaid, onPress: () => handleMarkAsPaid(invoice) });
+      return options;
+    }
     if (invoice.status === 'SENT' || (invoice.status === 'DRAFT' && invoice.sentAt)) {
       options.push({ label: STRINGS.resend, onPress: () => handleResendInvoice(invoice) });
     }
@@ -938,6 +943,7 @@ export function BillingScreen() {
             {invoice.invoiceKind === 'FULL' ? 'Factura completa' : 'Factura simplificada'}
           </Text>
           <Text style={styles.invoiceDate}>{formatDateShort(invoice.createdAt)}</Text>
+          {invoice.patientPackageId && <Text style={styles.invoiceDate}>Bono · factura no anulable</Text>}
         </Pressable>
         <View style={styles.invoiceRight}>
           <Pressable onPress={() => handleInvoiceRowPress(invoice)}>
@@ -1072,7 +1078,7 @@ export function BillingScreen() {
   const renderTariffsCard = () => (
     <TourTarget id="professional.billing.tariffs" fill style={styles.fullWidthTourTarget}>
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Tarifas y servicios</Text>
+        <Text style={styles.cardTitle}>Servicios y bonos</Text>
         <Text style={styles.configDetail}>Configura precios, duraciones y modalidades en tu nueva pantalla de tarifas.</Text>
         <Button variant="outline" onPress={() => navigation.navigate('ProfessionalTariffs')}>Gestionar tarifas</Button>
       </View>

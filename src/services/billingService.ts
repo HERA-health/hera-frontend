@@ -18,6 +18,7 @@ export interface BillingSummary {
 }
 
 export interface Invoice {
+  patientPackageId?: string | null;
   id: string;
   specialistId: string;
   clientId: string;

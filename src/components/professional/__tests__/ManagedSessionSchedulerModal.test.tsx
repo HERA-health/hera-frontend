@@ -973,3 +973,4 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
   });
 
 });
+jest.mock('../../../services/packageService', () => ({ loadPatientPackages: jest.fn().mockResolvedValue([]) }));

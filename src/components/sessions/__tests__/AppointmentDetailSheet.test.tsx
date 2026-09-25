@@ -104,3 +104,5 @@ describe('AppointmentDetailSheet service and tariff labels', () => {
     expect(screen.queryByText('Servicio')).toBeNull();
   });
 });
+jest.mock('../../../services/packageService', () => ({ downloadPackageInvoice: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('../../common/alert', () => ({ useAppAlert: () => jest.fn(), showAppAlert: jest.fn() }));

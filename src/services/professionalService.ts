@@ -66,6 +66,7 @@ export interface SpecialistCertificate {
 }
 
 export interface Session {
+  packageUses?: Array<{ patientPackageId: string; ordinal: number; status: string; patientPackage: { invoice: { id: string; invoiceNumber: string } | null } }>;
   id: string;
   clientId: string;
   specialistId: string;
@@ -230,7 +231,7 @@ export interface UpdateClientBillingInput {
 }
 
 export interface CreateManagedClientSessionInput {
-  optionId?: string; quoteReference?: string; sessionPhone?: string; commandKey?: string;
+  patientPackageId?: string | null; optionId?: string; quoteReference?: string; sessionPhone?: string; commandKey?: string;
   clientId: string;
   date: string;
   duration: number;
@@ -239,7 +240,7 @@ export interface CreateManagedClientSessionInput {
 }
 
 export interface UpdateManagedSessionScheduleInput {
-  optionId?: string; quoteReference?: string; sessionPhone?: string;
+  patientPackageId?: string | null; optionId?: string; quoteReference?: string; sessionPhone?: string;
   date: string;
   duration: number;
   type: SessionType;

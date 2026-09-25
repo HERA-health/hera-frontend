@@ -64,7 +64,7 @@ interface ApiResponse<T> {
 }
 
 interface CreateSessionRequest {
-  optionId?: string; quoteReference?: string; commandKey?: string; sessionPhone?: string;
+  patientPackageId?: string; optionId?: string; quoteReference?: string; commandKey?: string; sessionPhone?: string;
   intentToken?: string;
   specialistId: string;
   date: string;
@@ -80,14 +80,14 @@ export interface PublicBookingPatientInput {
 }
 
 interface PublicBookingQuoteRequest {
-  optionId?: string;
+  patientPackageId?: string; optionId?: string;
   specialistId: string;
   duration: number;
   type: SessionType;
 }
 
 interface CreatePublicSessionRequest {
-  optionId?: string; sessionPhone?: string;
+  patientPackageId?: string; optionId?: string; sessionPhone?: string;
   intentToken?: string;
   specialistId: string;
   date: string;
@@ -114,8 +114,10 @@ export interface PublicCreatedSession {
 }
 
 export interface BookingQuote {
+  additionalChargeCents?: number;
+  coverage?: { patientPackageId: string; name: string; ordinal: number; balance: { total: number; reserved: number; consumed: number; available: number } } | null;
   serviceId?: string; serviceName?: string;
-  optionId?: string; quoteReference?: string; expiresAt?: string; totalCents?: number; baseCents?: number; taxCents?: number;
+  patientPackageId?: string; optionId?: string; quoteReference?: string; expiresAt?: string; totalCents?: number; baseCents?: number; taxCents?: number;
   specialistId: string;
   duration: number;
   currency: string;
@@ -133,10 +135,11 @@ export interface BookingQuote {
 export const getAvailableSlots = async (
   specialistId: string,
   date: string, // YYYY-MM-DD format
-  optionId?: string
+  optionId?: string,
+  patientPackageId?: string
 ): Promise<TimeSlot[]> => {
   try {
-    const url = `/specialists/${specialistId}/available-slots?date=${date}`;
+    const url = patientPackageId ? `/patient-packages/${encodeURIComponent(patientPackageId)}/available-slots?date=${date}` : `/specialists/${specialistId}/available-slots?date=${date}`;
     const response = await api.get(url, { params: { optionId } });
     const data = response.data.data as AvailableSlotsResponse | undefined;
     return data?.slotOptions ?? data?.slots ?? [];
@@ -165,7 +168,8 @@ export const getBookingQuote = async (
   specialistId: string,
   type: SessionType,
   duration: number,
-  optionId?: string
+  optionId?: string,
+  patientPackageId?: string
 ): Promise<BookingQuote> => {
   try {
     const response = await api.get<ApiResponse<BookingQuote>>('/sessions/booking-quote', {
@@ -173,7 +177,7 @@ export const getBookingQuote = async (
         specialistId,
         type,
         duration,
-        optionId,
+        optionId, patientPackageId,
       },
     });
 

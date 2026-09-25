@@ -37,5 +37,5 @@ export const savePrivateCatalog = async (data: { version: number; firstVisitFree
   (await api.put<{ data: PrivateServiceCatalog }>('/billing/service-catalog', data)).data.data;
 export const loadPublicBookingOptions = async (specialistId: string): Promise<PrivateServiceOption[]> =>
   (await api.get<{ data: PrivateServiceOption[] }>(`/sessions/booking-options/${encodeURIComponent(specialistId)}`)).data.data;
-export const getManagedBookingQuote = async (params: { clientId: string; optionId: string; duration: number; type: SessionType; sessionId?: string }): Promise<BookingQuote> =>
+export const getManagedBookingQuote = async (params: { patientPackageId?: string; clientId: string; optionId: string; duration: number; type: SessionType; sessionId?: string }): Promise<BookingQuote> =>
   (await api.get<{ data: BookingQuote }>('/sessions/professional/booking-quote', { params })).data.data;
