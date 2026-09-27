@@ -46,6 +46,7 @@ export interface Specialist {
   presentationVideoUrl?: string | null;
   yearsInPractice?: number | null;
   languagesSpoken?: string[];
+  religionCode?: string | null;
   verificationStatus?: string;
   firstVisitFree?: boolean;
 }

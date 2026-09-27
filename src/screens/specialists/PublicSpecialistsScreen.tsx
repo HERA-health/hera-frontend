@@ -1,11 +1,14 @@
 import { directoryEntryHref } from '../../services/directoryBookingService';
 import { directoryIntent } from '../../services/heraCommissionService';
+import { ProfileDiscoveryFilters } from '../../components/common/ProfileDiscoveryFilters';
+import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   NativeScrollEvent,
   NativeSyntheticEvent,
   ScrollView,
+  Pressable,
   StatusBar,
   StyleSheet,
   Text,
@@ -74,6 +77,8 @@ const SORT_OPTIONS: ReadonlyArray<{
 ];
 
 type DirectoryFilters = {
+  language?: string;
+  religion?: string;
   q: string;
   professionalType: ProfessionalType | null;
   modality: specialistsService.PublicSpecialistModality | null;
@@ -115,6 +120,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
   const isMobile = width < 720;
   const useHorizontalCards = width >= 820;
   const [queryInput, setQueryInput] = useState('');
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<DirectoryFilters>(() =>
     createInitialFilters(route.params?.specialty)
   );
@@ -150,6 +156,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
     } else {
       activeLoadMoreRequestRef.current = null;
       setLoading(true);
+      setItems([]);
       setLoadingMore(false);
     }
     setError(null);
@@ -157,6 +164,8 @@ export const PublicSpecialistsScreen: React.FC = () => {
     try {
       const response = await specialistsService.getPublicSpecialistDirectory({
         q: filters.q || undefined,
+        language: filters.language,
+        religion: filters.religion,
         professionalType: filters.professionalType ?? undefined,
         modality: filters.modality ?? undefined,
         specialties: filters.specialties.length > 0 ? filters.specialties : undefined,
@@ -190,6 +199,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
       }
     }
   }, [filters]);
+  useDiscoveryRevalidation(useCallback(() => { void loadDirectory(1, false); }, [loadDirectory]));
 
   useEffect(() => {
     mountedRef.current = true;
@@ -292,7 +302,11 @@ export const PublicSpecialistsScreen: React.FC = () => {
     []
   );
 
-  const hasActiveFilters = Boolean(
+  const activeFilterCount = [filters.language, filters.religion, filters.professionalType,
+    filters.modality, filters.minRating, filters.maxPrice, filters.sort !== 'RECENT',
+  ].filter(Boolean).length + filters.specialties.length + filters.approaches.length;
+
+  const hasActiveFilters = Boolean(filters.language || filters.religion ||
     filters.q
     || filters.professionalType
     || filters.modality
@@ -350,6 +364,23 @@ export const PublicSpecialistsScreen: React.FC = () => {
             </Button>
           </View>
 
+          {isMobile ? <View style={styles.mobileFiltersToolbar}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: mobileFiltersOpen }}
+              accessibilityLabel={`Filtros${activeFilterCount ? `, ${activeFilterCount} activos` : ''}`}
+              onPress={() => setMobileFiltersOpen(open => !open)}
+              style={styles.mobileFiltersToggle}
+            >
+              <Ionicons name="options-outline" size={18} color={theme.primary} />
+              <Text style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold }}>Filtros{activeFilterCount ? ` · ${activeFilterCount}` : ''}</Text>
+              <Ionicons name={mobileFiltersOpen ? 'chevron-up' : 'chevron-down'} size={16} color={theme.primary} />
+            </Pressable>
+            {hasActiveFilters ? <Button variant="ghost" size="small" onPress={clearFilters}>Limpiar</Button> : null}
+          </View> : null}
+
+          {!isMobile || mobileFiltersOpen ? <>
+          <ProfileDiscoveryFilters language={filters.language} religion={filters.religion} onChange={values => setFilters(current => ({ ...current, language: values.language, religion: values.religion }))} />
           <View style={styles.filtersRow}>
             <View style={styles.secondaryFilter}>
               <MultiSelectDropdown
@@ -434,10 +465,12 @@ export const PublicSpecialistsScreen: React.FC = () => {
                 highlightSelection={filters.sort !== 'RECENT'}
               />
             </View>
-            {hasActiveFilters ? (
+            {hasActiveFilters && !isMobile ? (
               <Button variant="ghost" size="small" onPress={clearFilters}>Limpiar</Button>
             ) : null}
           </View>
+          {isMobile ? <Button variant="outline" size="small" onPress={() => setMobileFiltersOpen(false)}>Ver especialistas</Button> : null}
+          </> : null}
         </View>
 
         <View style={styles.resultsHeader}>
@@ -571,7 +604,7 @@ const styles = StyleSheet.create({
     minWidth: 240,
   },
   searchFieldMobile: {
-    flexBasis: '100%',
+    minWidth: 0,
   },
   searchRow: {
     width: '100%',
@@ -580,7 +613,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchRowMobile: {
-    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  mobileFiltersToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  mobileFiltersToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 44,
+    paddingHorizontal: 4,
   },
   inputContainer: {
     marginBottom: 0,

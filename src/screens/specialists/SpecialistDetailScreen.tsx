@@ -1,3 +1,4 @@
+import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
@@ -63,6 +64,8 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
       setLoading(false);
     }
   }, [appAlert, navigation, specialistId]);
+
+  useDiscoveryRevalidation(loadSpecialistDetails, false);
 
   useFocusEffect(useCallback(() => {
     analyticsService.trackScreen('specialist_detail');

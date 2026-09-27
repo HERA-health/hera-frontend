@@ -1,3 +1,4 @@
+jest.mock('../../../../hooks/useProfileOptions', () => ({ useProfileOptions: () => ({ options: { languages: [{ value: 'arabic', label: 'Árabe', aliases: ['arabe'] }], religions: [], religionEnabled: false }, error: false, retry: jest.fn() }) }));
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
@@ -67,8 +68,8 @@ describe('ProfileHeroEditorial', () => {
     expect(screen.getByText('Español')).toBeTruthy();
     expect(screen.getByText('Inglés')).toBeTruthy();
     expect(screen.getByText('Francés')).toBeTruthy();
-    expect(screen.getByLabelText('Bandera asociada a Español')).toBeTruthy();
-    expect(screen.getByLabelText('Bandera asociada a Inglés')).toBeTruthy();
+    expect(screen.queryByLabelText('Bandera asociada a Español')).toBeNull();
+    expect(screen.queryByLabelText('Bandera asociada a Inglés')).toBeNull();
     expect(screen.getByText('Videollamada')).toBeTruthy();
     expect(screen.getByText('Presencial')).toBeTruthy();
     expect(screen.getByLabelText(`Fotografía de ${specialist.name}`).props.source.uri).toContain(
@@ -100,13 +101,15 @@ describe('ProfileHeroEditorial', () => {
     fireEvent.press(screen.getByText('Leer más'));
     expect(screen.getByText('Leer menos')).toBeTruthy();
   });
-  it('shows every language and primary area without hidden overflow counters', () => {
+  it('keeps many languages compact and lets visitors expand and collapse the full list', () => {
     renderHero({
       languagesSpoken: ['Español', 'English', 'Catalán', 'Francés'],
       languages: ['Alemán', 'Portugués'],
       specializations: ['anxiety', 'depression', 'trauma', 'couples', 'grief', 'sleep'],
     });
 
+    expect(screen.queryByText('Portugués')).toBeNull();
+    fireEvent.press(screen.getByLabelText('Ver todos los idiomas (6)'));
     ['Español', 'Inglés', 'Catalán', 'Francés', 'Alemán', 'Portugués'].forEach((language) => {
       expect(screen.getByText(language)).toBeTruthy();
     });
@@ -114,19 +117,13 @@ describe('ProfileHeroEditorial', () => {
       expect(screen.getByText(area)).toBeTruthy();
     });
     expect(screen.queryByText(/\+\d+ áreas/)).toBeNull();
+    fireEvent.press(screen.getByLabelText('Ver menos idiomas'));
+    expect(screen.queryByText('Portugués')).toBeNull();
+    expect(screen.getByText('Español')).toBeTruthy();
   });
 
-  it('does not reserve desktop flex-basis heights when facts are stacked on mobile', () => {
+  it('does not render a beliefs row without a published declaration', () => {
     renderHero();
-
-    [
-      'profile-facts-languages',
-      'profile-facts-modality',
-      'profile-facts-specializations',
-    ].forEach((testId) => {
-      const style = StyleSheet.flatten(screen.getByTestId(testId).props.style);
-      expect(style.flexGrow).toBe(0);
-      expect(style.flexBasis).toBe('auto');
-    });
+    expect(screen.queryByTestId('profile-facts-religion')).toBeNull();
   });
 });

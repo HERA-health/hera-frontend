@@ -28,6 +28,7 @@ import { ClinicalPinManager } from '../../components/professional/ClinicalPinMan
  * - Responsive for all devices
  */
 
+import { ProfessionalMatchingEditor } from '../../components/professional/ProfessionalMatchingEditor';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
@@ -89,9 +90,6 @@ import {
   type ProfessionalType,
 } from '../../constants/professionalTypes';
 import {
-  PROFESSIONAL_LANGUAGE_OPTIONS,
-  PROFESSIONAL_SPECIALTY_OPTIONS,
-  PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS,
 } from '../../constants/professionalMatchingOptions';
 import { PublicProfileSlugEditor } from '../../components/professional/PublicProfileSlugEditor';
 import { DirectoryVisibilityStatus } from '../../components/professional/DirectoryVisibilityStatus';
@@ -994,7 +992,7 @@ export function SpecialistProfileScreen() {
       assignIfChanged('photoGallery', 'photoGallery', profileData.photoGallery);
       assignIfChanged('presentationVideoUrl', 'presentationVideoUrl', profileData.presentationVideoUrl);
       assignIfChanged('yearsInPractice', 'yearsInPractice', profileData.yearsInPractice);
-      assignIfChanged('languagesSpoken', 'languagesSpoken', profileData.languagesSpoken);
+
       assignIfChanged('officeAddress', 'officeAddress', profileData.officeAddress);
       assignIfChanged('officeCity', 'officeCity', profileData.officeCity);
       assignIfChanged('officePostalCode', 'officePostalCode', profileData.officePostalCode);
@@ -1816,54 +1814,6 @@ export function SpecialistProfileScreen() {
     );
   };
 
-  const renderChipSelector = (
-    label: string,
-    options: readonly { value: string; label: string }[],
-    selectedValues: string[],
-    field: 'specialties' | 'therapeuticApproaches' | 'languages' | 'sessionTypes',
-    maxSelections?: number
-  ) => (
-    <View style={styles.formField}>
-      <Text style={styles.fieldLabel}>
-        {label}
-        {maxSelections && <Text style={styles.fieldHint}> (máximo {maxSelections})</Text>}
-      </Text>
-      <View style={styles.chipContainer}>
-        {options.map((option) => {
-          const isSelected = selectedValues.includes(option.value);
-          const reachedMax = maxSelections !== undefined && selectedValues.length >= maxSelections;
-          const isDisabled = !isSelected && reachedMax;
-
-          return (
-            <AnimatedPressable
-              key={option.value}
-              style={{
-                ...styles.chip,
-                ...(isSelected ? styles.chipSelected : {}),
-                ...(isDisabled ? styles.chipDisabled : {}),
-              }}
-              onPress={() => !isDisabled && toggleMultiSelect(field, option.value)}
-              disabled={isDisabled}
-              hoverLift={false}
-              pressScale={0.985}
-            >
-              {isSelected && (
-                <Ionicons name="checkmark" size={14} color={palette.primary} />
-              )}
-              <Text style={[
-                styles.chipText,
-                isSelected ? styles.chipTextSelected : null,
-                isDisabled ? styles.chipTextDisabled : null,
-              ]}>
-                {option.label}
-              </Text>
-            </AnimatedPressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-
   // ============================================================================
   // HANDLERS: MI ESPACIO - Gallery
   // ============================================================================
@@ -2424,33 +2374,20 @@ export function SpecialistProfileScreen() {
           highlightedSection === 'matching' ? styles.targetHighlight : null,
         ]}
       >
-        <Text style={styles.sectionTitle}>Especialidades y enfoques</Text>
+        <Text style={styles.sectionTitle}>Tu práctica y tu perfil</Text>
         {renderCompletionWarning(
           'PROFILE_MATCHING',
           'Información profesional pendiente',
           getMatchingCompletionDescription(profileData),
         )}
-        <View style={styles.formCard}>
-          {renderChipSelector(
-            'Especialidades',
-            PROFESSIONAL_SPECIALTY_OPTIONS,
-            profileData.specialties,
-            'specialties',
-            5
-          )}
-          {renderChipSelector(
-            'Enfoques terapéuticos',
-            PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS,
-            profileData.therapeuticApproaches,
-            'therapeuticApproaches'
-          )}
-          {renderChipSelector(
-            'Idiomas',
-            PROFESSIONAL_LANGUAGE_OPTIONS,
-            profileData.languages,
-            'languages'
-          )}
-        </View>
+        <ProfessionalMatchingEditor
+          specialties={profileData.specialties}
+          approaches={profileData.therapeuticApproaches}
+          languages={profileData.languages}
+          profileVisible={originalData.profileVisible}
+          onToggle={toggleMultiSelect}
+          onLanguagesChange={values => { updateField('languages', values); updateField('languagesSpoken', values); }}
+        />
       </View>
 
       <View style={styles.informationLowerGrid}>
@@ -3384,7 +3321,7 @@ export function SpecialistProfileScreen() {
               <View style={styles.visibilityOptionCopy}>
                 <Text style={styles.visibilityOptionTitle}>Aparecer en el directorio</Text>
                 <Text style={styles.visibilityOptionText}>
-                  Tu perfil aparecerá cuando cumplas los requisitos de publicación y guardes esta opción.
+                  Tu perfil aparecerá cuando cumplas los requisitos de publicación y guardes esta opción. Si desactivas esta opción, seguirá accesible por enlace con la información que hayas publicado.
                 </Text>
               </View>
             </TouchableOpacity>

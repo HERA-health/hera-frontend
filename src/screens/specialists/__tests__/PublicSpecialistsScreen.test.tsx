@@ -1,4 +1,7 @@
+jest.mock('../../../hooks/useDiscoveryRevalidation', () => ({ useDiscoveryRevalidation: jest.fn() }));
+jest.mock('../../../hooks/useProfileOptions', () => ({ useProfileOptions: () => ({ options: { languages: [{ value: 'arabic', label: 'Árabe', aliases: ['arabe'] }], religions: [], religionEnabled: false }, error: false, retry: jest.fn() }) }));
 import React from 'react';
+import * as ReactNative from 'react-native';
 jest.mock('../../../config/api', () => ({ __esModule: true, default: () => ({ apiUrl: 'https://fixture.invalid/api' }) }));
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -378,4 +381,29 @@ describe('PublicSpecialistsScreen', () => {
     expect(screen.getByText('Dra. Lucía Nueva')).toBeTruthy();
     expect(screen.queryByText('Dra. Elena Martín')).toBeNull();
   });
+  it('starts mobile filters collapsed and preserves applied criteria when folded', async () => {
+    const previousWindow = ReactNative.Dimensions.get('window');
+    act(() => ReactNative.Dimensions.set({ window: { width: 390, height: 844, scale: 1, fontScale: 1 } }));
+    mockedDirectory.mockResolvedValue({ items: [specialist], page: 1, pageSize: 12, total: 1, hasMore: false });
+    try {
+      render(<PublicSpecialistsScreen />);
+      await waitFor(() => expect(screen.getByText('Dra. Elena Martín')).toBeTruthy());
+      expect(screen.queryByText('Idioma de las sesiones')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Filtros' }).props.accessibilityState.expanded).toBe(false);
+      fireEvent.press(screen.getByRole('button', { name: 'Filtros' }));
+      fireEvent.press(screen.getByText('Cualquiera ▾'));
+      fireEvent.press(screen.getByRole('radio', { name: 'Árabe' }));
+      await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ language: 'arabic' })));
+      fireEvent.press(screen.getByText('Ver especialistas'));
+      expect(screen.queryByText('Idioma de las sesiones')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Filtros, 1 activos' }).props.accessibilityState.expanded).toBe(false);
+      fireEvent.press(screen.getByRole('button', { name: 'Filtros, 1 activos' }));
+      expect(screen.getByText('Árabe ▾')).toBeTruthy();
+      fireEvent.press(screen.getByText('Ver especialistas'));
+      fireEvent.press(screen.getByText('Limpiar'));
+      await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ language: undefined })));
+      expect(screen.getByRole('button', { name: 'Filtros' })).toBeTruthy();
+    } finally { act(() => ReactNative.Dimensions.set({ window: previousWindow })); }
+  });
+
 });

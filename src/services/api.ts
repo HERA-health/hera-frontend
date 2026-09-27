@@ -289,7 +289,7 @@ api.interceptors.request.use(
   },
   (error) => {
     if (API_DEBUG_LOGGING_ENABLED) {
-      console.error('[api] request error', error);
+      console.error('[api] request error');
     }
 
     return Promise.reject(error);

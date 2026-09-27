@@ -219,11 +219,12 @@ export function QuestionnaireResultsScreen() {
             <View style={styles.emptyIconContainer}>
               <Ionicons name="search-outline" size={54} color={palette.textMuted} />
             </View>
-            <Text style={styles.emptyTitle}>No encontramos matches exactos</Text>
+            <Text style={styles.emptyTitle}>No encontramos coincidencias</Text>
             <Text style={styles.emptyDescription}>
-              Aun así, podemos enseñarte especialistas que pueden ayudarte a empezar.
+              No hay especialistas que coincidan con tus requisitos actuales. Puedes revisar tus respuestas o abrir el directorio sin estos requisitos.
             </Text>
             <View style={styles.emptyActions}>
+              <Button onPress={() => navigation.navigate('Questionnaire')}>Revisar idioma y respuestas</Button>
               <Button
                 onPress={() => navigation.navigate('Specialists')}
                 size="large"

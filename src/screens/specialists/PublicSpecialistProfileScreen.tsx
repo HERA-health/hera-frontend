@@ -1,3 +1,4 @@
+import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import React, { useCallback, useRef, useState } from 'react';
@@ -94,6 +95,8 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
       if (profileRequestRef.current === requestId) setLoading(false);
     }
   }, [profileRef]);
+
+  useDiscoveryRevalidation(loadSpecialistDetails, false);
 
   useFocusEffect(useCallback(() => {
     void loadSpecialistDetails();

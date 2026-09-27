@@ -12,7 +12,6 @@ import * as WebBrowser from 'expo-web-browser';
 const SPECIALISTS_CACHE_TTL_MS = 30_000;
 const LEGACY_DEFAULT_SPECIALIST_DESCRIPTION = 'new professional';
 const DEFAULT_SPECIALIST_DESCRIPTION = 'Nuevo especialista en HERA';
-const LEGACY_DEFAULT_LANGUAGE = 'english';
 
 interface CacheEntry<T> {
   data: T;
@@ -53,6 +52,7 @@ export interface SpecialistData {
   presentationVideoUrl?: string | null;
   yearsInPractice?: number | null;
   languagesSpoken?: string[];
+  religionCode?: string | null;
   education?: Array<{ id: string; degree: string; institution: string; startYear: string; endYear: string }>;
   experience?: Array<{ id: string; position: string; organization: string; startYear: string; endYear?: string | null; current?: boolean }>;
   certificates?: Array<{
@@ -74,6 +74,8 @@ export interface SpecialistData {
 }
 
 export interface SpecialistFilters {
+  language?: string;
+  religion?: string;
   specialization?: string;
   professionalType?: ProfessionalType;
   minRating?: number;
@@ -123,6 +125,7 @@ export interface PublicSpecialistProfileData {
   presentationVideoUrl?: string | null;
   yearsInPractice?: number | null;
   languagesSpoken?: string[];
+  religionCode?: string | null;
   slotDuration?: number | null;
   nextAvailable?: string | null;
   reviews: NonNullable<SpecialistData['reviews']>;
@@ -161,6 +164,8 @@ export interface PublicSpecialistDirectoryCard extends PublicSpecialistCard {
 }
 
 export interface PublicSpecialistDirectoryFilters {
+  language?: string;
+  religion?: string;
   q?: string;
   professionalType?: ProfessionalType;
   modality?: PublicSpecialistModality;
@@ -247,6 +252,7 @@ const getAuthCacheKey = (): string => {
 
 const buildSpecialistsQueryParams = (filters?: SpecialistFilters): URLSearchParams => {
   const params = new URLSearchParams();
+  if (filters?.language) params.append('language', filters.language);
 
   if (filters?.specialization) params.append('specialization', filters.specialization);
   if (filters?.professionalType) params.append('professionalType', filters.professionalType);
@@ -273,6 +279,7 @@ const buildPublicDirectoryQueryParams = (
   filters?: PublicSpecialistDirectoryFilters
 ): URLSearchParams => {
   const params = new URLSearchParams();
+  if (filters?.language) params.append('language', filters.language);
   const query = filters?.q?.trim();
 
   if (query && query.length >= 2) params.append('q', query);
@@ -323,13 +330,6 @@ export const normalizeSpecialistLanguages = (languages: unknown): string[] => {
     .filter((language): language is string => typeof language === 'string')
     .map((language) => language.trim())
     .filter(Boolean);
-
-  if (
-    cleanedLanguages.length === 1
-    && cleanedLanguages[0].toLowerCase() === LEGACY_DEFAULT_LANGUAGE
-  ) {
-    return ['spanish'];
-  }
 
   return cleanedLanguages;
 };
@@ -433,6 +433,7 @@ export function mapSpecialistToProfile(data: Omit<SpecialistData, 'userId'>): Sp
     presentationVideoUrl: data.presentationVideoUrl || null,
     yearsInPractice: data.yearsInPractice ?? null,
     languagesSpoken: data.languagesSpoken || [],
+    religionCode: data.religionCode ?? null,
     verificationStatus: data.verificationStatus || undefined,
     firstVisitFree: data.firstVisitFree || false,
     collegiateNumber: data.collegiateNumber || undefined,
@@ -502,6 +503,7 @@ export const getMatchedSpecialists = async (): Promise<MatchedSpecialistsRespons
  * Supports optional filters including proximity-based filtering
  */
 export const getAllSpecialists = async (filters?: SpecialistFilters): Promise<SpecialistData[]> => {
+  if (filters?.religion) return (await api.post<{ success: boolean; data: SpecialistData[] }>('/specialists/search', filters)).data.data;
   const cacheKey = getPublicSpecialistsCacheKey(filters);
   const cached = getFreshCache(publicSpecialistsCache, cacheKey);
   if (cached) {
@@ -561,7 +563,11 @@ export const getFeaturedSpecialists = async (): Promise<PublicSpecialistCard[]> 
  */
 export const getPublicSpecialistDirectory = async (
   filters?: PublicSpecialistDirectoryFilters
-): Promise<PublicSpecialistDirectoryPage> => {
+ ): Promise<PublicSpecialistDirectoryPage> => {
+  if (filters?.religion) {
+    const { specialties, approaches, ...rest } = filters;
+    return (await api.post<{ success: boolean; data: PublicSpecialistDirectoryPage }>('/specialists/directory/search', { ...rest, specialty: specialties, approach: approaches })).data.data;
+  }
   const cacheKey = getPublicDirectoryCacheKey(filters);
   const inFlight = publicDirectoryRequests.get(cacheKey);
   if (inFlight) {

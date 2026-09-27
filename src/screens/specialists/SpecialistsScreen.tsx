@@ -1,5 +1,8 @@
 import { directoryIntent } from '../../services/heraCommissionService';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ProfileDiscoveryFilters } from '../../components/common/ProfileDiscoveryFilters';
+import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
+import { affinityPercentage, combineSpecialistResults } from './specialistDiscoveryResults';
+import React, { useCallback, useRef, useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
   Image,
@@ -115,11 +118,7 @@ const mapSpecialistDataToCard = (
     rating: specialist.rating,
     reviewCount: specialist.reviewCount,
     description: specialistsService.normalizeSpecialistDescription(specialist.description),
-    affinityPercentage: affinityOverride ?? (
-      specialist.affinity
-        ? Math.round((specialist.affinity / 130) * 100)
-        : Math.round((specialist.rating / 5) * 100)
-    ),
+    affinityPercentage: affinityOverride ?? affinityPercentage(specialist.affinity),
     tags: specialist.matchedAttributes || [],
     pricePerSession: specialist.pricePerSession,
     firstVisitFree: specialist.firstVisitFree,
@@ -158,6 +157,9 @@ const SpecialistsScreen: React.FC = () => {
   const gridColumns = isDesktop ? 3 : isTablet ? 2 : 1;
   const gridItemWidth = isDesktop ? '31.8%' : isTablet ? '48.6%' : '100%';
 
+  const discoveryRequest = useRef(0);
+  const [language, setLanguage] = useState<string>();
+  const [religion, setReligion] = useState<string>();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('affinity');
   const [activeTab, setActiveTab] = useState<'specialists' | 'posts'>('specialists');
@@ -187,12 +189,14 @@ const SpecialistsScreen: React.FC = () => {
     forceProximity?: boolean,
     forceMaxDistance?: number,
   ) => {
+    const requestId = ++discoveryRequest.current;
     const useProximity = forceProximity ?? proximityEnabled;
     const useMaxDistance = forceMaxDistance ?? maxDistance;
 
     try {
       setLoading(true);
       setError(null);
+      setAllSpecialists([]);
 
       let matchedData: Specialist[] = [];
       let hasQuestionnaire = false;
@@ -229,7 +233,7 @@ const SpecialistsScreen: React.FC = () => {
         // Best effort. The public list must still render.
       }
 
-      const filters: specialistsService.SpecialistFilters = {};
+      const filters: specialistsService.SpecialistFilters = { language, religion };
       if (selectedProfessionalTypes.length === 1) {
         filters.professionalType = selectedProfessionalTypes[0];
       }
@@ -250,6 +254,7 @@ const SpecialistsScreen: React.FC = () => {
         mapSpecialistDataToCard(specialist, favoriteIds)
       );
 
+      if (requestId !== discoveryRequest.current) return;
       setMatchedSpecialists(matchedData);
       setAllSpecialists(mappedAllSpecialists);
       setFavoriteSpecialistIds(Array.from(favoriteIds));
@@ -266,9 +271,10 @@ const SpecialistsScreen: React.FC = () => {
       setPrimarySession(personalization?.primarySpecialist?.session ?? null);
       setHasCompletedQuestionnaire(hasQuestionnaire);
     } catch (fetchError: unknown) {
+      if (requestId !== discoveryRequest.current) return;
       setError(fetchError instanceof Error ? fetchError.message : 'Error al cargar especialistas');
     } finally {
-      setLoading(false);
+      if (requestId === discoveryRequest.current) setLoading(false);
     }
   }, [
     attributeLabels,
@@ -278,6 +284,7 @@ const SpecialistsScreen: React.FC = () => {
     maxDistance,
     proximityEnabled,
     selectedProfessionalTypes,
+    language, religion,
     user?.type,
   ]);
 
@@ -305,6 +312,8 @@ const SpecialistsScreen: React.FC = () => {
 
     loadClientLocation();
   }, [user?.type]);
+
+  useDiscoveryRevalidation(useCallback(() => { specialistsService.invalidateSpecialistsCache(); void fetchSpecialists(); }, [fetchSpecialists]));
 
   useEffect(() => {
     void fetchSpecialists();
@@ -419,14 +428,12 @@ const SpecialistsScreen: React.FC = () => {
   };
 
   const combinedSpecialists = useMemo(() => {
-    if (proximityEnabled && clientLocation.hasLocation) {
-      return allSpecialists;
-    }
-
-    const matchedIds = new Set(matchedSpecialists.map((item) => item.id));
-    const unmatched = allSpecialists.filter((item) => !matchedIds.has(item.id));
-    return [...matchedSpecialists, ...unmatched];
-  }, [allSpecialists, clientLocation.hasLocation, matchedSpecialists, proximityEnabled]);
+    return combineSpecialistResults(
+      allSpecialists,
+      matchedSpecialists,
+      Boolean(language || religion || (proximityEnabled && clientLocation.hasLocation)),
+    );
+  }, [allSpecialists, clientLocation.hasLocation, matchedSpecialists, proximityEnabled, language, religion]);
 
   const filteredSpecialists = useMemo(() => {
     return combinedSpecialists
@@ -766,7 +773,7 @@ const SpecialistsScreen: React.FC = () => {
           variant="outline"
           onPress={() => {
             setSearchQuery('');
-            setSelectedFilters([]);
+            setSelectedFilters([]); setLanguage(undefined); setReligion(undefined);
             setSelectedProfessionalTypes([]);
           }}
         >
@@ -897,6 +904,7 @@ const SpecialistsScreen: React.FC = () => {
 
           </View>
 
+          <ProfileDiscoveryFilters language={language} religion={religion} onChange={values => { setLanguage(values.language); setReligion(values.religion); setShowAllSpecialists(true); }} />
           <View style={styles.filtersRail}>
             <TopicFilterDropdown
               filters={PROFESSIONAL_TYPE_FILTERS}

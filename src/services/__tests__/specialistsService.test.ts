@@ -29,6 +29,7 @@ import {
   invalidateSpecialistsCache,
   getSpecialistPersonalization,
   mapSpecialistToProfile,
+  normalizeSpecialistLanguages,
   mapPublicSpecialistToProfile,
   openPublicCertificateDocument,
   removeFavoriteSpecialist,
@@ -346,4 +347,29 @@ describe('specialistsService personalization', () => {
       'http://localhost:3000/api/specialists/spec-1/certificates/cert-1/document'
     );
   });
+});
+
+
+describe('profile discovery filter transport', () => {
+  beforeEach(() => { jest.clearAllMocks(); invalidateSpecialistsCache(); });
+  it('sends religion only in POST bodies and does not reuse cached results', async () => {
+    mockedApi.post.mockResolvedValue({ data: { success: true, data: { items: [], total: 0, page: 1, pageSize: 12, hasMore: false } } });
+    await getPublicSpecialistDirectory({ language: 'arabic', religion: 'catholic', specialties: ['anxiety'] });
+    expect(mockedApi.get).not.toHaveBeenCalled();
+    expect(mockedApi.post).toHaveBeenCalledWith('/specialists/directory/search', { language: 'arabic', religion: 'catholic', specialty: ['anxiety'], approach: undefined });
+    await getPublicSpecialistDirectory({ language: 'arabic', religion: 'catholic' });
+    expect(mockedApi.post).toHaveBeenCalledTimes(2);
+    mockedApi.post.mockResolvedValue({ data: { success: true, data: [] } });
+    await getAllSpecialists({ language: 'arabic', religion: 'catholic' });
+    expect(mockedApi.post).toHaveBeenLastCalledWith('/specialists/search', { language: 'arabic', religion: 'catholic' });
+  });
+  it('keeps language-only searches available over GET', async () => {
+    mockedApi.get.mockResolvedValue({ data: { success: true, data: [] } });
+    await getAllSpecialists({ language: 'arabic' });
+    expect(mockedApi.get).toHaveBeenCalledWith('/specialists?language=arabic');
+  });
+});
+
+ test('preserves an English-only declaration instead of inventing Spanish', () => {
+  expect(normalizeSpecialistLanguages(['english'])).toEqual(['english']);
 });

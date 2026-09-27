@@ -1,3 +1,4 @@
+jest.mock('../../../hooks/useProfileOptions', () => ({ useProfileOptions: () => ({ options: { languages: [{ value: 'arabic', label: 'Árabe', aliases: ['arabe'] }], religions: [], religionEnabled: false }, error: false, retry: jest.fn() }) }));
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 

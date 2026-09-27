@@ -1,4 +1,8 @@
+import { renderLanguageIcon } from '../../components/common/LanguageIcon';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
+import { useProfileOptions } from '../../hooks/useProfileOptions';
+import { SearchableProfileSelect } from '../../components/common/SearchableProfileSelect';
+import { optionLabel } from '../../utils/profileOptions';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
@@ -120,6 +124,7 @@ export function QuestionnaireScreen() {
   const isTablet = width >= 768 && width < 1024;
   const isMobile = width < 768;
 
+  const { options: profileOptions, error: optionsError, retry: retryOptions } = useProfileOptions();
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<UserAnswers>({});
   const [loading, setLoading] = useState(false);
@@ -340,6 +345,7 @@ export function QuestionnaireScreen() {
         .join(', ');
     }
 
+    if (questionId === 'q7' && typeof answer === 'string') return answer === 'any' ? 'Indiferente' : optionLabel(profileOptions?.languages ?? [], answer);
     const option = question.options.find((item) => item.value === answer);
     return option ? `${option.emoji || ''} ${option.text}`.trim() : answer;
   };
@@ -433,7 +439,10 @@ export function QuestionnaireScreen() {
       )}
 
       <View style={styles.optionsContainer}>
-        {question.options.map((option) => {
+        {question.id === 'q7' ? <>
+          <SearchableProfileSelect renderIcon={renderLanguageIcon} label="Idioma de las sesiones" options={[{ value: 'any', label: 'Indiferente', aliases: [] }, ...(profileOptions?.languages ?? [])]} values={typeof answers.q7 === 'string' ? [answers.q7] : []} onChange={values => handleOptionSelect(values[0] ?? 'any')} disabled={!profileOptions} emptyLabel="Seleccionar idioma" />
+          {optionsError ? <Button onPress={retryOptions}>Reintentar carga de idiomas</Button> : null}
+        </> : question.options.map((option) => {
           const selected = isOptionSelected(option.value);
           return (
             <AnimatedPressable

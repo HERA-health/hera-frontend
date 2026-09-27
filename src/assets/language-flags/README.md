@@ -1,0 +1,1 @@
+SVGs from https://github.com/lipis/flag-icons (MIT), vendored 2026-09-27. Loaded locally, without external requests. Flags are visual language hints, not declarations of nationality. Languages with no single flag use a globe or sign-language icon.

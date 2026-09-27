@@ -1,3 +1,4 @@
+import { invalidateSpecialistsCache } from './specialistsService';
 import { durableCommandKey } from './heraCommissionService';
 import { api } from './api';
 import { getErrorCode, getErrorMessage, hasResponseData, isNetworkError } from '../constants/errors';
@@ -933,6 +934,7 @@ export const updateComprehensiveProfile = async (
     if (data.offersInPerson !== undefined) apiData.offersInPerson = data.offersInPerson;
 
     const response = await api.put('/specialists/me/profile', apiData);
+    invalidateSpecialistsCache();
     if (data.autoConfirmSessionRequests !== undefined) {
       notifyProfessionalHomeChanged();
     }

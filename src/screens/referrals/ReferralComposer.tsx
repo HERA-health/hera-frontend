@@ -3,7 +3,8 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { SimpleDropdown, type DropdownOption } from '../../components/common/SimpleDropdown';
 import { useTheme } from '../../contexts/ThemeContext';
-import { PROFESSIONAL_LANGUAGE_OPTIONS } from '../../constants/professionalMatchingOptions';
+import { useProfileOptions } from '../../hooks/useProfileOptions';
+import { optionLabel } from '../../utils/profileOptions';
 import { translateSpecialty } from '../../constants/specialties';
 import * as Crypto from 'expo-crypto';
 import { Button } from '../../components/common';
@@ -15,6 +16,7 @@ import { ReferralCard, ReferralCheck, ReferralField, ReferralText, money, styles
 interface Props { clientId: string; access: service.ReferralAccess; initial?: service.ReferralDetail; previousId?: string; agreementVersionId?: string; onSaved: (id: string) => void; onCancel: () => void }
 export function ReferralComposer({ clientId, access, initial, previousId, agreementVersionId, onSaved, onCancel }: Props) {
   const { theme } = useTheme();
+  const { options: profileOptions, error: profileOptionsError, retry: retryProfileOptions } = useProfileOptions();
   const [wide, setWide] = useState(false);
   const [specialization, setSpecialization] = useState('');
   const [options, setOptions] = useState<service.ReferralDirectoryOptions>({ specializations: [], languages: [], capabilities: [] });
@@ -75,7 +77,7 @@ export function ReferralComposer({ clientId, access, initial, previousId, agreem
   const invalidateSearch = () => { requestGeneration.current++; setBusy(false); setResults([]); setSearched(false); setPage(0); setMore(false); setError(''); };
   const clearFilters = () => { setQuery(''); setSpecialization(''); setLanguage(''); setCapability(''); setModality(''); setBudget(''); invalidateSearch(); };
   const hasFilters = Boolean(query || specialization || language || capability || modality || budget);
-  const languageLabel = (value: string) => PROFESSIONAL_LANGUAGE_OPTIONS.find(option => option.value === value)?.label ?? value;
+  const languageLabel = (value: string) => optionLabel(profileOptions?.languages ?? [], value);
   const selectFilter = (setter: (value: string) => void) => (value: string) => { if (submitting.current) return; setter(value); invalidateSearch(); };
   const canSave = selected.length > 0 && Boolean(content.explanation.trim());
   return <View style={composer.root} onLayout={event => setWide(event.nativeEvent.layout.width >= 900)}>
@@ -130,9 +132,10 @@ export function ReferralComposer({ clientId, access, initial, previousId, agreem
           {optionsLoading ? <ActivityIndicator accessibilityLabel="Cargando opciones del directorio" /> : optionsError ? <View style={{ gap: 8 }}><ReferralText error>{optionsError}</ReferralText><Button size="small" variant="outline" onPress={() => setOptionsAttempt(value => value + 1)}>Reintentar filtros</Button></View> : <>
             <ComposerSelect label="Especialidad" value={specialization} onSelect={selectFilter(setSpecialization)} options={[{ value: '', label: 'Todas las especialidades' }, ...options.specializations.map(value => ({ value, label: translateSpecialty(value) }))]} />
             <View style={composer.filterRow}>
-              <View style={composer.filter}><ComposerSelect label="Idioma" value={language} onSelect={selectFilter(setLanguage)} options={[{ value: '', label: 'Cualquier idioma' }, ...options.languages.map(value => ({ value, label: languageLabel(value) }))]} /></View>
+              <View style={composer.filter}><ComposerSelect label="Idioma" value={language} onSelect={selectFilter(setLanguage)} options={[{ value: '', label: 'Cualquier idioma' }, ...(profileOptions?.languages ?? []).map(({ value, label }) => ({ value, label }))]} /></View>
               <View style={composer.filter}><ComposerSelect label="Modalidad" value={modality} onSelect={selectFilter(setModality)} options={[{ value: '', label: 'Cualquier modalidad' }, { value: 'online', label: 'Online' }, { value: 'in-person', label: 'Presencial' }]} /></View>
             </View>
+            {profileOptionsError ? <Button onPress={retryProfileOptions}>Reintentar catálogo de idiomas</Button> : !profileOptions ? <Hint>Cargando idiomas…</Hint> : null}
             <ComposerSelect label="Capacidad declarada" value={capability} onSelect={selectFilter(setCapability)} options={[{ value: '', label: 'Cualquier capacidad' }, ...options.capabilities.map(value => ({ value, label: value }))]} />
             <Hint>Opciones de perfiles que aceptan derivaciones. Cada profesional deberá confirmar su encaje para este caso.</Hint>
           </>}

@@ -1,4 +1,7 @@
+import { LanguageIcon } from '../../../components/common/LanguageIcon';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useProfileOptions } from '../../../hooks/useProfileOptions';
+import { optionLabel } from '../../../utils/profileOptions';
 import React, { useMemo, useState } from 'react';
 import {
   Image,
@@ -16,7 +19,6 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import {
   getCloudinaryProfileImageUrl,
   getProfileLanguageItems,
-  type ProfileLanguageFlag,
 } from '../profilePresentation';
 import type { ProfileHeroProps } from '../types';
 import { APPROACH_TRANSLATIONS } from './AboutSection';
@@ -62,112 +64,6 @@ const IconAction: React.FC<{
   );
 };
 
-interface FlagSegment {
-  color: string;
-  flex?: number;
-}
-
-const getFlagSegments = (flag: ProfileLanguageFlag): {
-  direction: 'row' | 'column';
-  segments: FlagSegment[];
-} | null => {
-  switch (flag) {
-    case 'spain':
-      return {
-        direction: 'column',
-        segments: [
-          { color: '#AA151B', flex: 1 },
-          { color: '#F1BF00', flex: 2 },
-          { color: '#AA151B', flex: 1 },
-        ],
-      };
-    case 'catalonia':
-      return {
-        direction: 'column',
-        segments: Array.from({ length: 9 }, (_, index) => ({
-          color: index % 2 === 0 ? '#FCDD09' : '#DA121A',
-        })),
-      };
-    case 'france':
-      return {
-        direction: 'row',
-        segments: [{ color: '#0055A4' }, { color: '#FFFFFF' }, { color: '#EF4135' }],
-      };
-    case 'germany':
-      return {
-        direction: 'column',
-        segments: [{ color: '#171717' }, { color: '#DD0000' }, { color: '#FFCE00' }],
-      };
-    case 'portugal':
-      return {
-        direction: 'row',
-        segments: [{ color: '#046A38', flex: 2 }, { color: '#DA291C', flex: 3 }],
-      };
-    case 'italy':
-      return {
-        direction: 'row',
-        segments: [{ color: '#009246' }, { color: '#FFFFFF' }, { color: '#CE2B37' }],
-      };
-    default:
-      return null;
-  }
-};
-
-const LanguageFlagVisual: React.FC<{
-  flag: ProfileLanguageFlag;
-  language: string;
-  styles: ReturnType<typeof createStyles>;
-  theme: Theme;
-}> = ({ flag, language, styles, theme }) => {
-  if (flag === 'international') {
-    return (
-      <View
-        accessible
-        accessibilityLabel={`Idioma ${language}`}
-        style={[styles.flagFrame, styles.flagFallback]}
-      >
-        <Ionicons name="globe-outline" size={13} color={theme.primary} />
-      </View>
-    );
-  }
-
-  if (flag === 'united-kingdom') {
-    return (
-      <View
-        accessible
-        accessibilityLabel={`Bandera asociada a ${language}`}
-        style={[styles.flagFrame, styles.flagUnitedKingdom]}
-      >
-        <View style={styles.flagUkWhiteHorizontal} />
-        <View style={styles.flagUkWhiteVertical} />
-        <View style={styles.flagUkRedHorizontal} />
-        <View style={styles.flagUkRedVertical} />
-      </View>
-    );
-  }
-
-  const config = getFlagSegments(flag);
-  if (!config) return null;
-
-  return (
-    <View
-      accessible
-      accessibilityLabel={`Bandera asociada a ${language}`}
-      style={[
-        styles.flagFrame,
-        config.direction === 'row' ? styles.flagRow : styles.flagColumn,
-      ]}
-    >
-      {config.segments.map((segment, index) => (
-        <View
-          key={`${flag}-${index}`}
-          style={{ backgroundColor: segment.color, flex: segment.flex ?? 1 }}
-        />
-      ))}
-    </View>
-  );
-};
-
 export const ProfileHeroEditorial: React.FC<ProfileHeroProps> = ({
   specialist,
   onRatingPress,
@@ -183,9 +79,12 @@ export const ProfileHeroEditorial: React.FC<ProfileHeroProps> = ({
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const [bioExpanded, setBioExpanded] = useState(false);
+  const [languagesExpanded, setLanguagesExpanded] = useState(false);
+  const [factsWidth, setFactsWidth] = useState(0);
   const [verificationExpanded, setVerificationExpanded] = useState(false);
   const horizontal = width >= 768;
-  const languageItems = getProfileLanguageItems(specialist);
+  const { options: profileOptions } = useProfileOptions();
+  const languageItems = getProfileLanguageItems(specialist).map(item => ({ ...item, label: optionLabel(profileOptions?.languages ?? [], item.label) }));
   const translatedSpecializations = specialist.specializations.map(translateSpecialty);
   const displayTitle = getProfessionalTypeLabel(
     specialist.professionalType,
@@ -353,79 +252,67 @@ export const ProfileHeroEditorial: React.FC<ProfileHeroProps> = ({
         </View>
       </View>
 
-      <View style={[styles.factsStrip, horizontal ? styles.factsStripHorizontal : styles.factsStripStacked]}>
-        {languageItems.length > 0 ? (
-          <View
-            testID="profile-facts-languages"
-            style={[
-              styles.factGroup,
-              styles.languagesGroup,
-              !horizontal && styles.factGroupStacked,
-            ]}
-          >
-            <Text style={styles.factLabel}>Idiomas</Text>
-            <View style={styles.factItems}>
-              {languageItems.map((language) => (
-                <View key={language.label} style={styles.factItem}>
-                  <LanguageFlagVisual
-                    flag={language.flag}
-                    language={language.label}
-                    styles={styles}
-                    theme={theme}
-                  />
-                  <Text style={styles.factValue}>{language.label}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {(offersOnline || offersInPerson) ? (
-          <View
-            testID="profile-facts-modality"
-            style={[
-              styles.factGroup,
-              styles.modalityGroup,
-              !horizontal && styles.factGroupStacked,
-            ]}
-          >
-            <Text style={styles.factLabel}>Modalidad</Text>
-            <View style={styles.factItems}>
-              {offersOnline ? (
-                <View style={styles.factItem}>
-                  <Ionicons name="videocam-outline" size={17} color={theme.primary} />
-                  <Text style={styles.factValue}>Videollamada</Text>
-                </View>
-              ) : null}
-              {offersInPerson ? (
-                <View style={styles.factItem}>
-                  <Ionicons name="business-outline" size={17} color={theme.primary} />
-                  <Text style={styles.factValue}>Presencial</Text>
-                </View>
-              ) : null}
-            </View>
-          </View>
-        ) : null}
-
+      <View style={styles.factsStrip} onLayout={event => setFactsWidth(event.nativeEvent.layout.width)}>
         {translatedSpecializations.length > 0 ? (
-          <View
-            testID="profile-facts-specializations"
-            style={[
-              styles.factGroup,
-              styles.specializationsGroup,
-              !horizontal && styles.factGroupStacked,
-            ]}
-          >
+          <View testID="profile-facts-specializations" style={styles.specializationsGroup}>
             <Text style={styles.factLabel}>Áreas principales</Text>
             <View style={styles.tags}>
-              {translatedSpecializations.map((tag) => (
-                <View key={tag} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
-                </View>
+              {translatedSpecializations.map(tag => (
+                <View key={tag} style={styles.tag}><Text style={styles.tagText}>{tag}</Text></View>
               ))}
             </View>
           </View>
         ) : null}
+        <View style={styles.practicalDetails}>
+          <View style={styles.practicalRow}>
+            {languageItems.length > 0 ? (
+              <View testID="profile-facts-languages" style={[styles.factGroup, styles.languagesGroup, factsWidth < 760 && styles.languagesGroupNarrow]}>
+                <Text style={styles.factLabel}>Idiomas</Text>
+                <View style={styles.languageItems}>
+                  {(languagesExpanded ? languageItems : languageItems.slice(0, 3)).map(language => (
+                    <View key={language.label} style={styles.languageItem}>
+                      <LanguageIcon language={profileOptions?.languages.find(option => option.label === language.label)?.value ?? language.label} />
+                      <Text style={styles.languageValue}>{language.label}</Text>
+                    </View>
+                  ))}
+                </View>
+                {languageItems.length > 3 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={languagesExpanded ? 'Ver menos idiomas' : `Ver todos los idiomas (${languageItems.length})`}
+                    accessibilityState={{ expanded: languagesExpanded }}
+                    onPress={() => setLanguagesExpanded(value => !value)}
+                    style={({ pressed }) => [styles.languagesToggle, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.readMoreText}>{languagesExpanded ? 'Ver menos' : `Ver todos (${languageItems.length})`}</Text>
+                    <Ionicons name={languagesExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={theme.primary} />
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
+            {(offersOnline || offersInPerson) ? (
+              <View testID="profile-facts-modality" style={styles.factGroup}>
+                <Text style={styles.factLabel}>Modalidad</Text>
+                <View style={styles.factItems}>
+                  {offersOnline ? <View style={styles.factItem}>
+                    <Ionicons name="videocam-outline" size={18} color={theme.primary} />
+                    <Text style={styles.factValue}>Videollamada</Text>
+                  </View> : null}
+                  {offersInPerson ? <View style={styles.factItem}>
+                    <Ionicons name="business-outline" size={18} color={theme.primary} />
+                    <Text style={styles.factValue}>Presencial</Text>
+                  </View> : null}
+                </View>
+              </View>
+            ) : null}
+          {profileOptions?.religionEnabled && specialist.religionCode ? (
+            <View testID="profile-facts-religion" style={styles.factGroup}>
+              <Text style={styles.factLabel}>Religión o creencias</Text>
+              <Text style={styles.beliefsValue}>{optionLabel(profileOptions.religions, specialist.religionCode)}</Text>
+            </View>
+          ) : null}
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -700,48 +587,87 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     width: '100%',
     borderTopWidth: 1,
     borderTopColor: theme.borderLight,
-    backgroundColor: isDark ? theme.bgElevated : theme.primaryMuted,
-    padding: spacing.lg,
-    gap: spacing.lg,
-  },
-  factsStripHorizontal: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'flex-start',
-  },
-  factsStripStacked: {
-    flexDirection: 'column',
-  },
-  factGroup: {
-    minWidth: 0,
-  },
-  factGroupStacked: {
-    flexGrow: 0,
-    flexBasis: 'auto',
-  },
-  languagesGroup: {
-    flexGrow: 1,
-    flexBasis: 150,
-  },
-  modalityGroup: {
-    flexGrow: 1,
-    flexBasis: 165,
+    backgroundColor: theme.bgCard,
+    padding: spacing.xl,
+    gap: 24,
   },
   specializationsGroup: {
-    flexGrow: 2,
+    minWidth: 0,
+    gap: 10,
+    backgroundColor: isDark ? theme.bgElevated : theme.primaryMuted,
+    padding: 18,
+    borderRadius: 14,
+  },
+  practicalDetails: {
+    width: '100%',
+  },
+  practicalRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: 28,
+    rowGap: 24,
+    alignItems: 'flex-start',
+  },
+  factGroup: {
+    flexGrow: 1,
+    flexBasis: 140,
+    minWidth: 0,
+    gap: 8,
+  },
+  languagesGroup: {
+    flexGrow: 1.8,
     flexBasis: 260,
+  },
+  languagesGroupNarrow: {
+    flexBasis: '100%',
+  },
+  languageItems: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  languageItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.borderLight,
+    maxWidth: '100%',
+  },
+  languageValue: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: theme.fontSansMedium,
+    color: theme.textPrimary,
+    flexShrink: 1,
+  },
+  beliefsValue: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: theme.fontSansMedium,
+    color: theme.textPrimary,
+    flexShrink: 1,
   },
   factLabel: {
     marginBottom: spacing.xs,
-    fontSize: 10,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 20,
     fontFamily: theme.fontSansSemiBold,
-    color: isDark ? theme.textMuted : theme.textPrimary,
-    letterSpacing: 0.7,
-    textTransform: 'uppercase',
+    color: theme.textSecondary,
   },
   factItems: {
+    gap: 10,
+  },
+  languagesToggle: {
+    minHeight: 44,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
+    marginTop: 2,
   },
   factItem: {
     minHeight: 23,

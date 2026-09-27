@@ -1,6 +1,7 @@
 import { PrivacyPreferencesButton } from '../../components/common/PrivacyPreferences';
 import { useAuth } from '../../contexts/AuthContext';
 import { disconnectGoogleCalendar } from '../../services/googleCalendarService';
+import { withdrawReligion } from '../../services/profileDiscoveryService';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -31,6 +32,22 @@ export function RequiredLegalAcceptanceScreen({
   const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [withdrawingReligion, setWithdrawingReligion] = useState(false);
+  const [withdrawalMessage, setWithdrawalMessage] = useState('');
+
+  const removeReligion = async () => {
+    if (withdrawingReligion) return;
+    setWithdrawingReligion(true);
+    setWithdrawalMessage('');
+    try {
+      await withdrawReligion();
+      setWithdrawalMessage('Tu declaración de religión o creencias se ha eliminado.');
+    } catch (err: unknown) {
+      setWithdrawalMessage(getErrorMessage(err, 'No se pudo retirar la declaración. Inténtalo de nuevo.'));
+    } finally {
+      setWithdrawingReligion(false);
+    }
+  };
 
   const submit = async () => {
     if (!accepted) {
@@ -134,6 +151,12 @@ export function RequiredLegalAcceptanceScreen({
           Aceptar y continuar
         </Button>
         <PrivacyPreferencesButton />
+        {user?.type === 'professional' ? <>
+          <Button variant="ghost" loading={withdrawingReligion} disabled={withdrawingReligion} onPress={() => void removeReligion()}>
+            Retirar mi religión o creencias
+          </Button>
+          {withdrawalMessage ? <Text accessibilityLiveRegion="polite" style={{ color: theme.textPrimary, fontFamily: theme.fontSans }}>{withdrawalMessage}</Text> : null}
+        </> : null}
         <Button variant="ghost" onPress={() => void logout()}>Cerrar sesión</Button>
         {user?.type === 'professional' ? <Button variant="ghost" onPress={() => { void disconnectGoogleCalendar().then(() => setError('Desconexión solicitada. Las copias existentes permanecen en Google.')).catch(err => setError(getErrorMessage(err))); }}>Desconectar Google Calendar</Button> : null}
       </View>

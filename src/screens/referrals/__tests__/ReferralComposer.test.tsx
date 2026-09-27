@@ -1,7 +1,9 @@
+jest.mock('../../../services/profileDiscoveryService', () => ({ getProfileOptions: jest.fn().mockResolvedValue({ languages: [{ value: 'spanish', label: 'Español', aliases: [] }], religions: [], religionEnabled: false }) }));
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { ReferralComposer } from '../ReferralComposer';
 import * as service from '../../../services/referralService';
+import { getProfileOptions } from '../../../services/profileDiscoveryService';
 jest.mock('../../../services/referralService', () => ({ getReferralDirectoryOptions: jest.fn(), searchReferralDirectory: jest.fn(), createReferral: jest.fn(), editReferral: jest.fn() }));
 jest.mock('../../../services/collaborationService', () => ({ getReferralCandidate: jest.fn() }));
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'test-command' }));
@@ -31,6 +33,7 @@ test('uses directory values, converts the budget, and preserves selections when 
   fireEvent.changeText(screen.getByLabelText('Presupuesto máximo por sesión (€)'), '60,50');
   fireEvent.press(screen.getByText('Buscar profesionales'));
   await screen.findByText('Profesional A');
+  expect(getProfileOptions).toHaveBeenCalledTimes(1);
   expect(search).toHaveBeenCalledWith(expect.objectContaining({ language: 'spanish', maxPriceCents: 6050, page: 0 }));
   fireEvent.press(screen.getByText('Añadir a Profesional A'));
   fireEvent.changeText(screen.getByLabelText('Nombre o palabra clave'), 'nuevo');
