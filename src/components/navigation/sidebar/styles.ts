@@ -4,11 +4,13 @@ import { spacing } from '../../../constants/colors';
 export const containerStyles = StyleSheet.create({
   sidebar: {
     width: '100%',
-    height: '100%',
+    flex: 1,
+    minHeight: 0,
     flexDirection: 'column',
   },
   scrollView: {
     flex: 1,
+    minHeight: 0,
   },
   scrollContent: {
     paddingHorizontal: 12,

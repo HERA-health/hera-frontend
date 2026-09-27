@@ -5,6 +5,7 @@
  * - No massive prop objects with unused fields
  */
 
+import type { ReactNode } from 'react';
 import { RootStackParamList } from '../../../constants/types';
 import type { ProfessionalTourTargetId } from '../../onboarding/professionalTourTypes';
 
@@ -174,6 +175,8 @@ export interface UserSectionProps {
  * DIP: Depends on abstractions (callbacks) not implementations
  */
 export interface SidebarProps {
+  /** Optional content that scrolls above the navigation items. */
+  scrollHeader?: ReactNode;
   /** Current user's role */
   userRole: UserRole;
   /** Current active route name */

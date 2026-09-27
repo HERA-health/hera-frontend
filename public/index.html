@@ -39,6 +39,13 @@
         height: 100%;
       }
 
+      /* Keep nested screen scroll views inside the visible mobile viewport. */
+      @supports (height: 100dvh) {
+        html {
+          height: 100dvh;
+        }
+      }
+
       body {
         overflow: hidden;
       }

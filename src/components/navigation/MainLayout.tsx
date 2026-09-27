@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigationState } from '@react-navigation/native';
 import { layout, shadows, spacing } from '../../constants/colors';
@@ -222,15 +223,17 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
                 Platform.OS === 'web' ? styles.webFixedSidebar : null,
               ]}
             >
-              <CustomDrawerContent
-                currentRoute={currentRoute}
-                showProfessionalSearch={isProfessional}
-                isUserSectionScrollable
-                isCollapsed={false}
-                onNavigateComplete={closeMobileSidebar}
-                onGuideStart={closeMobileSidebar}
-                onToggleCollapse={closeMobileSidebar}
-              />
+              <SafeAreaView style={styles.content} edges={['top', 'bottom']}>
+                <CustomDrawerContent
+                  currentRoute={currentRoute}
+                  showProfessionalSearch={isProfessional}
+                  isUserSectionScrollable
+                  isCollapsed={false}
+                  onNavigateComplete={closeMobileSidebar}
+                  onGuideStart={closeMobileSidebar}
+                  onToggleCollapse={closeMobileSidebar}
+                />
+              </SafeAreaView>
             </Animated.View>
           </View>
         )}
@@ -285,7 +288,7 @@ const styles = StyleSheet.create({
   },
   mobileContainer: {
     flex: 1,
-    minHeight: Platform.OS === 'web' ? '100vh' as unknown as number : undefined,
+    minHeight: 0,
   },
   sidebar: {
     borderRightWidth: 1,
@@ -294,6 +297,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    minHeight: 0,
   },
   professionalContent: {
     flex: 1,
@@ -371,7 +375,6 @@ const styles = StyleSheet.create({
   },
   webFixedSidebar: {
     position: 'fixed' as unknown as 'absolute',
-    height: '100vh' as unknown as number,
   },
 });
 

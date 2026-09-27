@@ -275,6 +275,7 @@ export function ProfessionalQuickSearch({
             },
           ]}
           keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled={drawer}
           showsVerticalScrollIndicator
         >
           {error ? (

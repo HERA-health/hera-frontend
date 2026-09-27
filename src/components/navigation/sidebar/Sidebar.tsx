@@ -12,6 +12,7 @@ import { UserSection } from './UserSection';
 import { NavigationSection, SidebarProps } from './types';
 
 export function Sidebar({
+  scrollHeader,
   userRole,
   currentRoute,
   onNavigate,
@@ -138,7 +139,9 @@ export function Sidebar({
           ? [containerStyles.scrollContent, containerStyles.scrollContentCollapsed]
           : containerStyles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
+        {scrollHeader}
         {sections.map((section, sectionIndex) => (
           <NavigationSectionComponent
             key={section.id}

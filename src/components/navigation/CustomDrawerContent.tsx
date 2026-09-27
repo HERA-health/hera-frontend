@@ -152,10 +152,10 @@ export function CustomDrawerContent({
 
   return (
     <View style={styles.container}>
-      {showProfessionalSearch && !isCollapsed ? (
-        <ProfessionalQuickSearch drawer onNavigate={onNavigateComplete} />
-      ) : null}
       <Sidebar
+        scrollHeader={showProfessionalSearch && !isCollapsed ? (
+          <ProfessionalQuickSearch drawer onNavigate={onNavigateComplete} />
+        ) : null}
         userRole={userRole}
         currentRoute={currentRoute}
         onNavigate={handleNavigate}
@@ -178,6 +178,7 @@ export function CustomDrawerContent({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    minHeight: 0,
   },
 });
 
