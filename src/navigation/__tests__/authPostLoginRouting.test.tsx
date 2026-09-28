@@ -55,6 +55,14 @@ jest.mock('../../services/legalService', () => ({
 }));
 
 jest.mock('../../services/googleCalendarService', () => ({ disconnectGoogleCalendar: jest.fn() }));
+jest.mock('../../services/profileDiscoveryService', () => ({ withdrawReligion: jest.fn() }));
+jest.mock('../../contexts/ThemeContext', () => ({
+  useTheme: () => ({ theme: require('../../constants/theme').lightTheme, isDark: false }),
+}));
+jest.mock('../../screens/legal/LegalGateLayout', () => ({
+  LegalGateLayout: ({ children }: { children: React.ReactNode }) => children,
+  GatedLegalDocumentScreen: () => null,
+}));
 
 jest.mock('../../services/pendingBookingIntentService', () => ({
   clearPendingBookingIntent: jest.fn().mockResolvedValue(undefined),
@@ -133,13 +141,13 @@ describe('post-login routing', () => {
     let resolveStale: (value: LegalAcceptanceStatus) => void = () => { throw new Error('Request not started'); };
     jest.mocked(getLegalStatus).mockImplementationOnce(() => new Promise(resolve => { resolveStale = resolve; }));
     const view = render(<NavigationContainer><RootNavigator /></NavigationContainer>);
-    await screen.findByText('Antes de continuar');
+    await screen.findByText('Condiciones actualizadas');
     fireEvent.press(screen.getByRole('checkbox'));
     act(() => notifyLegalUpdate());
     fireEvent.press(screen.getByText('Aceptar y continuar'));
     await screen.findByText('Inicio de paciente');
     await act(async () => { resolveStale(pending); });
-    expect(screen.queryByText('Antes de continuar')).toBeNull();
+    expect(screen.queryByText('Condiciones actualizadas')).toBeNull();
     jest.mocked(getLegalStatus).mockResolvedValue(accepted);
     act(() => notifyLegalUpdate());
     await waitFor(() => expect(screen.getByText('Inicio de paciente')).toBeTruthy());
@@ -148,10 +156,10 @@ describe('post-login routing', () => {
     mockAuthState.legalStatusSnapshot = null;
     render(<NavigationContainer><RootNavigator /></NavigationContainer>);
     await screen.findByText('Inicio de paciente');
-    expect(screen.queryByText('Antes de continuar')).toBeNull();
+    expect(screen.queryByText('Condiciones actualizadas')).toBeNull();
     jest.mocked(getLegalStatus).mockResolvedValue({ ...pending, documents: [{ ...pending.documents[0], version: '2026-10-01' }] });
     act(() => notifyLegalUpdate());
-    await screen.findByText('Antes de continuar');
+    await screen.findByText('Condiciones actualizadas');
     expect(screen.getByText('Versión 2026-10-01')).toBeTruthy();
     expect(screen.getByRole('checkbox').props.accessibilityState.checked).toBe(false);
     jest.mocked(getLegalStatus).mockResolvedValue(accepted);
