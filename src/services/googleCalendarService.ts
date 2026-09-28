@@ -11,7 +11,6 @@ export interface GoogleCalendarStatus {
   meetEnabled?: boolean;
   meetDisclosureVersion?: string;
   privacyUpdateRequired?: boolean;
-  pendingMeetings?: number;
   failedDeliveries?: number;
   enabled: boolean;
   status: 'CONNECTED' | 'REAUTH_REQUIRED' | 'DISCONNECTING' | 'DISCONNECTED';

@@ -89,14 +89,16 @@ export function GoogleCalendarCard() {
       throw cause;
     }
   });
-  const connected = status?.status === 'CONNECTED';
+  const needsReauthorization = status?.status === 'REAUTH_REQUIRED'
+    || (status?.status === 'CONNECTED' && Boolean(status.privacyUpdateRequired));
+  const connected = status?.status === 'CONNECTED' && !needsReauthorization;
   const meetUnavailable = status?.meetAssignmentsEnabled === false;
   const meetActive = connected && status.enabled && status.meetEnabled && status.videoProviderPreference === 'GOOGLE_MEET' && !status.privacyUpdateRequired && !meetUnavailable;
-  const needsAttention = status?.status === 'REAUTH_REQUIRED' || Boolean(status?.failed);
+  const needsAttention = needsReauthorization || Boolean(status?.failed);
   const canActivate = connected && status.enabled && status.meetAssignmentsEnabled && !meetActive;
   const label = !status ? 'Cargando conexión…' : !status.enabled ? 'Disponible próximamente'
     : status.status === 'DISCONNECTING' ? 'Desconectando…'
-    : status.status === 'REAUTH_REQUIRED' ? 'Vuelve a autorizar el acceso'
+    : needsReauthorization ? 'Vuelve a autorizar el acceso'
     : status.status === 'DISCONNECTED' ? 'Sin conectar'
     : status.failed ? 'Hay citas pendientes de revisar'
     : pending ? 'Actualizando automáticamente…' : 'Sincronización automática activa';
@@ -107,7 +109,7 @@ export function GoogleCalendarCard() {
     setPrivacyDialog(null); setConfirmMeet(null); setConfirmDisconnect(false);
   };
   const dialogOpen = Boolean(privacyDialog || confirmMeet || confirmDisconnect);
-  const dialogTitle = confirmMeet ? 'Activa Google Meet' : confirmDisconnect ? 'Desconectar Google Calendar' : privacyDialog === 'connect' ? 'Conecta tu calendario' : 'Datos compartidos y privacidad';
+  const dialogTitle = confirmMeet ? 'Activa Google Meet' : confirmDisconnect ? 'Desconectar Google Calendar' : privacyDialog === 'connect' ? needsReauthorization ? 'Renueva la autorización de Google' : 'Conecta tu calendario' : 'Datos compartidos y privacidad';
 
   return <>
     <AccountSettingsCard title="Calendario y videollamadas">
@@ -121,15 +123,17 @@ export function GoogleCalendarCard() {
           </View>
         </View>
         {status?.email && <Text selectable style={[styles.account, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>{status.email}</Text>}
-        <Text style={copy}>{connected
+        <Text style={copy}>{needsReauthorization && status?.privacyUpdateRequired
+          ? 'Hemos actualizado la información de privacidad. Reconecta la misma cuenta para continuar con Calendar y activar Meet.'
+          : connected
           ? 'Tus citas de HERA, actualizadas automáticamente en tu calendario.'
           : 'Sincroniza tus citas de HERA con tu calendario principal.'}</Text>
         {!!status?.pending && connected && <Text style={copy}>{status.pending} citas por actualizar</Text>}
         {!status && !error && <ActivityIndicator color={theme.primary} />}
-        {status?.enabled && (status.status === 'DISCONNECTED' || status.status === 'REAUTH_REQUIRED') && <Button
+        {status?.enabled && (status.status === 'DISCONNECTED' || needsReauthorization) && <Button
           style={compact ? styles.stretch : styles.start} loading={busy} disabled={!disclosureVersion}
           onPress={() => setPrivacyDialog('connect')}>
-          {status.status === 'REAUTH_REQUIRED' ? 'Reconectar Google Calendar' : 'Conectar Google Calendar'}
+          {needsReauthorization ? 'Reconectar Google Calendar' : 'Conectar Google Calendar'}
         </Button>}
         {(connected || status?.status === 'REAUTH_REQUIRED') && <AnimatedPressable
           onPress={() => setShowOptions(value => !value)} disabled={busy} hoverLift={false}
@@ -154,7 +158,7 @@ export function GoogleCalendarCard() {
           <Image source={require('../../../assets/google-meet.png')} style={styles.productLogo} resizeMode="contain" accessible={false} />
           <View style={styles.headerCopy}>
             <Text style={heading}>Google Meet</Text>
-            <Text style={[styles.caption, { color: meetActive ? theme.success : theme.textSecondary }]}>{!status ? 'Comprobando…' : meetActive ? 'Google Meet activo' : status.videoProviderPreference === 'GOOGLE_MEET' ? 'Necesita atención' : !status.enabled || !status.meetAssignmentsEnabled ? 'Activación no disponible' : connected && !status.privacyUpdateRequired ? 'Listo para activar' : 'Necesita Google Calendar'}</Text>
+            <Text style={[styles.caption, { color: meetActive ? theme.success : theme.textSecondary }]}>{!status ? 'Comprobando…' : meetActive ? 'Google Meet activo' : status.videoProviderPreference === 'GOOGLE_MEET' ? 'Necesita atención' : !status.enabled || !status.meetAssignmentsEnabled ? 'Activación no disponible' : needsReauthorization ? 'Renueva la autorización de Calendar' : connected ? 'Listo para activar' : 'Necesita Google Calendar'}</Text>
           </View>
         </View>
         {meetActive ? <>
@@ -163,14 +167,12 @@ export function GoogleCalendarCard() {
           {meetUnavailable ? 'Google Meet no está disponible temporalmente para nuevas citas. Puedes elegir Daily en las otras opciones de videollamada.' : 'Revisa la conexión y la activación de Meet para preparar nuevas videollamadas.'}
         </Text> : <>
           <Text style={copy}>{status?.meetAssignmentsEnabled && status.enabled
-            ? connected ? 'Un enlace de Meet para cada cita, disponible en HERA y en los correos.' : 'Conecta Calendar y activa Meet para tus próximas videollamadas.'
+            ? connected || needsReauthorization ? 'Un enlace de Meet para cada cita, disponible en HERA y en los correos.' : 'Conecta Calendar y activa Meet para tus próximas videollamadas.'
             : 'Las videollamadas de HERA siguen disponibles sin conectar Google.'}</Text>
         </>}
         {canActivate && <Button style={compact ? styles.stretch : styles.start} disabled={busy || status.privacyUpdateRequired || !status.activationConnection || !status.meetDisclosureVersion || !status.email} onPress={() => {
           if (status.activationConnection && status.meetDisclosureVersion && status.email) setConfirmMeet({ email: status.email, disclosureVersion: status.meetDisclosureVersion, connection: { ...status.activationConnection } });
         }}>Activar Google Meet</Button>}
-        {connected && status.privacyUpdateRequired && <Text style={[...copy, { color: theme.warning }]}>La privacidad ha cambiado. Vuelve a autorizar Google cuando la conexión lo solicite.</Text>}
-        {!!status?.pendingMeetings && <Text style={[...copy, { color: theme.warning }]}>Videollamadas pendientes: {status.pendingMeetings}</Text>}
         {!!status?.failedDeliveries && <Text style={[...copy, { color: theme.error }]}>Hay accesos por correo pendientes de entrega: {status.failedDeliveries}</Text>}
       </View>
       </View>

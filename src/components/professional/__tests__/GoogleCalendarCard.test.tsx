@@ -15,6 +15,25 @@ const disconnected: service.GoogleCalendarStatus = { enabled: true, status: 'DIS
 const connected: service.GoogleCalendarStatus = { ...disconnected, status: 'CONNECTED', email: 'professional@example.invalid', activationConnection: { id: 'connection-a', generation: 1 } };
 beforeEach(() => { jest.clearAllMocks(); });
 
+test.each(['CONNECTED', 'REAUTH_REQUIRED'] as const)('outdated privacy offers immediate renewal from %s and hides the obsolete meeting count', async status => {
+  const oldStatus = { ...connected, status, privacyUpdateRequired: true, pendingMeetings: 10,
+    meetAssignmentsEnabled: true, videoProviderPreference: 'DAILY' as const };
+  jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue(oldStatus);
+  jest.mocked(service.connectGoogleCalendar).mockResolvedValue(null);
+  render(<GoogleCalendarCard />);
+  fireEvent.press(await screen.findByText('Reconectar Google Calendar'));
+  expect(screen.queryByText('Sincronización automática activa')).toBeNull();
+  expect(screen.queryByText('Activar Google Meet')).toBeNull();
+  expect(screen.queryByText(/Videollamadas pendientes/)).toBeNull();
+  expect(screen.getByText('Renueva la autorización de Calendar')).toBeTruthy();
+  expect(screen.getByText('Renueva la autorización de Google')).toBeTruthy();
+  expect(service.connectGoogleCalendar).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByText('Continuar con Google'));
+  await waitFor(() => expect(service.connectGoogleCalendar).toHaveBeenCalledWith('professional', '2026-09-27'));
+  expect(service.disconnectGoogleCalendar).not.toHaveBeenCalled();
+  expect(service.setVideoPreference).not.toHaveBeenCalled();
+});
+
 test('existing Calendar requires explicit Meet consent and keeps OAuth separate', async () => {
   jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, meetEnabled: false, meetAssignmentsEnabled: true, meetDisclosureVersion: '2026-09-27', videoProviderPreference: 'DAILY' });
   jest.mocked(service.setVideoPreference).mockResolvedValue({ ...connected, meetEnabled: true, videoProviderPreference: 'GOOGLE_MEET' });
