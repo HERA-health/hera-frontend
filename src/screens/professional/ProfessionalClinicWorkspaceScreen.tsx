@@ -1,10 +1,11 @@
+import { openSessionMeeting } from '../../utils/openSessionMeeting';
+import { SessionMeetingControls } from '../../components/professional/SessionMeetingControls';
 import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -243,6 +244,7 @@ function AgendaSection({ clinicId, focusId }: { clinicId: string; focusId?: stri
   const [error, setError] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
   const [reschedulingId, setReschedulingId] = useState<string | null>(null);
+  const [meetingDetailsId, setMeetingDetailsId] = useState<string | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleTime, setRescheduleTime] = useState('');
   const load = useCallback(async () => {
@@ -296,8 +298,7 @@ function AgendaSection({ clinicId, focusId }: { clinicId: string; focusId?: stri
   const join = async (sessionId: string): Promise<void> => {
     setSavingId(sessionId);
     try {
-      const meeting = await getClinicMeetingLink(clinicId, sessionId);
-      await Linking.openURL(meeting.meetingLink);
+      await openSessionMeeting(sessionId, () => getClinicMeetingLink(clinicId, sessionId));
     } catch (joinError: unknown) {
       showAppAlert(appAlert, 'Videollamada no disponible', joinError instanceof Error ? joinError.message : 'Inténtalo de nuevo.');
     } finally {
@@ -359,7 +360,9 @@ function AgendaSection({ clinicId, focusId }: { clinicId: string; focusId?: stri
               {session.actions.canReschedule ? <Button size="small" variant="outline" onPress={() => openReschedule(session)} disabled={savingId === session.id}>Reprogramar</Button> : null}
               {session.actions.canCancel ? <Button size="small" variant="ghost" onPress={() => { void runAction(session, 'CANCEL'); }} disabled={savingId === session.id}>Cancelar</Button> : null}
               {session.actions.canJoinVideo ? <Button size="small" variant="secondary" onPress={() => { void join(session.id); }} loading={savingId === session.id}>Entrar en videollamada</Button> : null}
+              {session.schedule.modality === 'VIDEO_CALL' && session.status === 'CONFIRMED' && session.patient.hasHeraAccount && <Button size="small" variant="ghost" onPress={() => setMeetingDetailsId(value => value === session.id ? null : session.id)}>Estado de videollamada</Button>}
             </View>
+            {(focusId === session.id || meetingDetailsId === session.id) && session.schedule.modality === 'VIDEO_CALL' && session.status === 'CONFIRMED' && session.patient.hasHeraAccount && <SessionMeetingControls sessionId={session.id} />}
             {!session.patient.hasHeraAccount && session.schedule.modality === 'VIDEO_CALL' ? (
               <Text style={[styles.inlineWarning, { color: theme.warning }]}>La videollamada requiere una cuenta HERA vinculada.</Text>
             ) : null}

@@ -12,6 +12,7 @@ import { UserSection } from './UserSection';
 import { NavigationSection, SidebarProps } from './types';
 
 export function Sidebar({
+  locked = false,
   scrollHeader,
   userRole,
   currentRoute,
@@ -64,7 +65,7 @@ export function Sidebar({
       isCollapsed={isCollapsed}
     />
   );
-  const shouldShowUserSection = userRole !== 'PROFESSIONAL';
+  const shouldShowUserSection = !locked && userRole !== 'PROFESSIONAL';
 
   return (
     <View
@@ -145,7 +146,7 @@ export function Sidebar({
         {sections.map((section, sectionIndex) => (
           <NavigationSectionComponent
             key={section.id}
-            section={section}
+            section={locked ? { ...section, items: section.items.map(item => ({ ...item, disabled: true })) } : section}
             currentRoute={currentRoute}
             onNavigate={onNavigate}
             showDivider={sectionIndex > 0}

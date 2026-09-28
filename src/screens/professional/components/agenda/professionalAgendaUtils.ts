@@ -164,6 +164,7 @@ export function mapAgendaItem(
     clientId: session.client.id,
     clientName: session.client.displayName,
     clientInitial: session.client.displayName[0]?.toLocaleUpperCase('es-ES') ?? 'P',
+    meetingStatus: session.meetingStatus,
     date: new Date(session.startsAt),
     duration: session.durationMinutes,
     status,

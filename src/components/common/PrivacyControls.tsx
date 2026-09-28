@@ -1,4 +1,4 @@
-import { PrivacyControlsContext } from './PrivacyPreferences';
+import { PrivacyControlsContext, PrivacyControlsVisibleContext } from './PrivacyPreferences';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Linking, Modal, Platform, ScrollView, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -63,6 +63,7 @@ export function PrivacyControls({ children }: { children?: React.ReactNode }) {
     finally { saving.current = false; setBusy(false); }
   };
   return <PrivacyControlsContext.Provider value={() => setOpen(true)}>
+    <PrivacyControlsVisibleContext.Provider value={open}>
     {children}
     <Modal visible={open} transparent animationType="fade" onRequestClose={() => { if (!busy) setOpen(false); }}>
       <View style={{ flex: 1, backgroundColor: '#00000066', justifyContent: 'center', padding: 24 }}>
@@ -78,5 +79,6 @@ export function PrivacyControls({ children }: { children?: React.ReactNode }) {
         </ScrollView>
       </View>
     </Modal>
+    </PrivacyControlsVisibleContext.Provider>
   </PrivacyControlsContext.Provider>;
 }

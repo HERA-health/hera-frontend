@@ -38,6 +38,7 @@ export interface VideoCallSession {
   date: string | Date;
   duration: number;
   meetingLink?: string | null;
+  meetingStatus?: 'NONE' | 'REQUIRES_GOOGLE' | 'PENDING' | 'READY' | 'ERROR' | 'INACTIVE';
 }
 
 /**
@@ -152,6 +153,8 @@ export const getVideoCallButtonState = (session: VideoCallSession): VideoCallBut
     return 'COMPLETED';
   }
 
+  if (now >= joinWindowStart && session.meetingStatus && session.meetingStatus !== 'READY') return 'NO_LINK';
+
   // Check if currently in session (between start and end of join window)
   if (now >= sessionStart && now <= joinWindowEnd) {
     return 'IN_PROGRESS';
@@ -213,8 +216,8 @@ export const getVideoCallButtonLabel = (
 
     case 'NO_LINK':
       return {
-        primary: 'Enlace no disponible',
-        helper: 'Estamos preparando tu videollamada',
+        primary: 'Consultar videollamada',
+        helper: session.meetingStatus === 'PENDING' ? 'Estamos preparando tu videollamada' : 'La videollamada necesita atención del profesional',
         icon: 'alert-circle-outline',
       };
   }
@@ -266,7 +269,7 @@ export const getVideoCallButtonStyle = (state: VideoCallButtonState): VideoCallB
       return {
         backgroundColor: VIDEO_CALL_BUTTON_COLORS.warningBg,
         textColor: VIDEO_CALL_BUTTON_COLORS.warningText,
-        disabled: true,
+        disabled: false,
       };
   }
 };
@@ -275,7 +278,7 @@ export const getVideoCallButtonStyle = (state: VideoCallButtonState): VideoCallB
  * Determines if the button should be clickable
  */
 export const isVideoCallButtonClickable = (state: VideoCallButtonState): boolean => {
-  return state === 'READY' || state === 'IN_PROGRESS';
+  return state === 'READY' || state === 'IN_PROGRESS' || state === 'NO_LINK';
 };
 
 /**

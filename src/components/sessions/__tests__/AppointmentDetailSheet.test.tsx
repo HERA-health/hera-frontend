@@ -1,3 +1,4 @@
+jest.mock('../../professional/SessionMeetingControls', () => ({ SessionMeetingControls: () => null }));
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { lightTheme } from '../../../constants/theme';

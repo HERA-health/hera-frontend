@@ -1,7 +1,7 @@
 {
   "TERMS_OF_SERVICE": {
     "key": "TERMS_OF_SERVICE",
-    "version": "2026-09-20",
+    "version": "2026-09-27",
     "title": "Términos y condiciones de HERA",
     "slug": "terminos",
     "routePath": "/legal/terminos",
@@ -66,7 +66,7 @@
         "title": "Google Calendar y servicios externos",
         "body": [
           "Google Calendar es voluntario e independiente del inicio de sesión con Google. Solo se activa tras la autorización específica de la cuenta elegida. Aceptar estos términos no lo conecta.",
-          "HERA copia citas privadas y de clínicas accesibles al especialista al calendario principal: título genérico, horario y enlace autenticado a HERA. No envía nombres de pacientes, contacto, notas clínicas, importes ni enlaces de videollamada. Los eventos personales de Google no se importan ni bloquean disponibilidad.",
+          "HERA copia citas privadas y de clínicas accesibles al especialista al calendario principal: título genérico, horario y enlace autenticado a HERA. No envía nombres de pacientes, contacto, notas clínicas, importes ni contenido clínico de las videollamadas. Los eventos personales de Google no se importan ni bloquean disponibilidad.",
           "HERA crea, actualiza y elimina sus propias copias. Editarlas en Google no modifica HERA; una actualización o resincronización puede restaurar los campos gestionados por HERA. Cancelar una cita elimina su copia; las completadas pueden permanecer. La sincronización depende de los servicios externos y puede demorarse.",
           "Al desconectar, las copias existentes permanecen en Google y dejan de actualizarse. El usuario puede eliminarlas y retirar permisos desde Google. Se aplican las condiciones de Google y los ajustes de acceso de su calendario. La política de privacidad detalla el tratamiento."
         ]
@@ -178,17 +178,27 @@
         "body": [
           "Se mantienen pendientes los datos fiscales y de domicilio indicados. Esta publicación no afirma que estén completos ni sustituye la documentación fiscal necesaria para facturar. Se actualizarán conservando las versiones anteriores."
         ]
+      },
+      {
+        "title": "Videollamadas con Google Meet",
+        "body": [
+          "El especialista puede activar voluntariamente Google Meet sobre su conexión de Calendar, tras aceptar este aviso. HERA solicita una conferencia distinta por sesión confirmada de vídeo en el calendario principal de la cuenta organizadora. La activación no cambia automáticamente las citas que ya tienen proveedor. Daily permanece como alternativa explícita; un error de Google no cambia el proveedor.",
+          "Además de los datos de Calendar descritos, HERA consulta y conserva identificadores y estado de conferencia y su enlace de acceso. Se entrega el enlace vigente al paciente y al especialista en HERA y en los correos transaccionales. No se añade al paciente como invitado de Calendar ni se envían nombres, contactos, notas clínicas o importes al evento. El paciente no necesita vincular Google a HERA para participar.",
+          "El audio y vídeo se procesan en Google Meet bajo las condiciones y políticas aplicables a la cuenta utilizada. La integración no solicita grabaciones, transcripciones ni funciones de inteligencia artificial. No controla las funciones que los participantes activen manualmente en Google. Estas reuniones no se presentan como cifradas de extremo a extremo por defecto.",
+          "El especialista debe entrar con la cuenta organizadora vinculada, admitir al paciente correcto y finalizar la reunión al terminar. Las políticas de Google o del administrador de Workspace pueden restringir invitados. La ventana de acceso de HERA no limita la validez de un enlace copiado o enviado por correo. Cancelar, borrar el evento o desconectar OAuth no garantiza invalidar un código externo; los enlaces ya enviados no pueden retirarse.",
+          "Al desconectar Google se detienen nuevas operaciones y sincronización, pero las reuniones ya preparadas pueden seguir disponibles para sus participantes autorizados. Una cuenta organizadora distinta se aplica a nuevas citas y no sustituye las existentes. El uso clínico requiere comprobar las condiciones contractuales y de privacidad aplicables a las cuentas concretas; no se presupone que una cuenta personal esté cubierta por un acuerdo de tratamiento de Workspace."
+        ]
       }
     ],
-    "effectiveAt": "2026-09-20T00:00:00+02:00",
-    "changeSummary": "Condiciones unificadas del Directorio, Google Calendar, destinatarios, seguridad y analítica opcional.",
+    "effectiveAt": "2026-09-27T00:00:00+02:00",
+    "changeSummary": "Activación voluntaria de Google Meet, entrega de accesos por correo y límites de control de los enlaces.",
     "status": "PUBLISHED_WITH_PENDING_IDENTITY",
     "publicPath": "/legal/terminos",
-    "contentHash": "dd49d434d76d9f3c283d60482bdc384a4ffe63276608787bfe106cdf28cafd3f"
+    "contentHash": "5cf6e36239ec7779e1b18f95a46e8d063a77faef2143d95246bb5692cc50391d"
   },
   "PRIVACY_POLICY": {
     "key": "PRIVACY_POLICY",
-    "version": "2026-09-20",
+    "version": "2026-09-27",
     "title": "Política de privacidad",
     "slug": "privacidad",
     "routePath": "/legal/privacidad",
@@ -240,7 +250,7 @@
         "body": [
           "Al conectar obtenemos identificador estable y correo de la cuenta, permisos y credencial de renovación cifrada para sincronizar sin mantener HERA abierta. Guardamos identificadores de eventos, correspondencias con citas, estados, fechas y códigos técnicos.",
           "Solicitamos openid, email y calendar.events.owned. Google permite gestionar eventos de calendarios propios; HERA limita el uso al calendario principal y sus propias copias. Consulta identificadores, estado y marca de propiedad para actualizarlas o eliminarlas; no importa eventos personales ni analiza su contenido.",
-          "HERA envía título genérico, inicio, fin, zona horaria y enlace autenticado con identificador de cita. No envía nombres o contacto de pacientes, notas clínicas, importes ni enlaces de videollamada. No añade invitados ni recordatorios. La marca privada no impide accesos concedidos desde Google."
+          "HERA envía título genérico, inicio, fin, zona horaria y enlace autenticado con identificador de cita. No envía nombres o contacto de pacientes, notas clínicas, importes ni contenido clínico de las videollamadas. No añade invitados ni recordatorios. La marca privada no impide accesos concedidos desde Google."
         ]
       },
       {
@@ -248,7 +258,7 @@
         "body": [
           "Google recibe las operaciones de autenticación y sincronización y almacena las copias en la cuenta elegida. Compartir el calendario o la administración de una cuenta Workspace puede afectar a quién ve esas copias.",
           "Railway procesa solicitudes del servidor y Supabase aloja base de datos y almacenamiento, incluida identidad vinculada, credenciales cifradas y referencias de Calendar. Vercel sirve la web y procesa datos técnicos de acceso. HERA no les autoriza un uso publicitario propio.",
-          "Cloudinary aloja imágenes subidas por usuarios; la integración no le envía credenciales ni eventos Calendar. El correo procesa destinatarios y mensajes necesarios: se selecciona Resend, SendGrid o SMTP, con prioridad de Resend. No recibe tokens ni contenido de Calendar.",
+          "Cloudinary aloja imágenes subidas por usuarios; la integración no le envía credenciales ni eventos Calendar. El correo procesa destinatarios y mensajes necesarios: se selecciona Resend, SendGrid o SMTP, con prioridad de Resend. No recibe tokens. Puede recibir el enlace de videollamada para entregarlo a los participantes autorizados.",
           "PostHog recibe solo eventos de uso permitidos con consentimiento específico, mediante identificadores exclusivos de analítica. No recibe datos de Google, información clínica, correos ni referencias de pacientes o citas.",
           "El personal autorizado accede en la medida necesaria y permitida. El acceso humano a datos de Google se limita a autorización afirmativa para datos concretos, necesidades de seguridad, cumplimiento legal y demás supuestos permitidos por Google. Dar soporte no concede acceso clínico indiscriminado."
         ]
@@ -314,13 +324,23 @@
         "body": [
           "Conservamos las versiones anteriores e informaremos de cambios relevantes. La constancia de información no sustituye consentimientos específicos; continuar navegando no activa nuevos usos opcionales."
         ]
+      },
+      {
+        "title": "Videollamadas con Google Meet",
+        "body": [
+          "El especialista puede activar voluntariamente Google Meet sobre su conexión de Calendar, tras aceptar este aviso. HERA solicita una conferencia distinta por sesión confirmada de vídeo en el calendario principal de la cuenta organizadora. La activación no cambia automáticamente las citas que ya tienen proveedor. Daily permanece como alternativa explícita; un error de Google no cambia el proveedor.",
+          "Además de los datos de Calendar descritos, HERA consulta y conserva identificadores y estado de conferencia y su enlace de acceso. Se entrega el enlace vigente al paciente y al especialista en HERA y en los correos transaccionales. No se añade al paciente como invitado de Calendar ni se envían nombres, contactos, notas clínicas o importes al evento. El paciente no necesita vincular Google a HERA para participar.",
+          "El audio y vídeo se procesan en Google Meet bajo las condiciones y políticas aplicables a la cuenta utilizada. La integración no solicita grabaciones, transcripciones ni funciones de inteligencia artificial. No controla las funciones que los participantes activen manualmente en Google. Estas reuniones no se presentan como cifradas de extremo a extremo por defecto.",
+          "El especialista debe entrar con la cuenta organizadora vinculada, admitir al paciente correcto y finalizar la reunión al terminar. Las políticas de Google o del administrador de Workspace pueden restringir invitados. La ventana de acceso de HERA no limita la validez de un enlace copiado o enviado por correo. Cancelar, borrar el evento o desconectar OAuth no garantiza invalidar un código externo; los enlaces ya enviados no pueden retirarse.",
+          "Al desconectar Google se detienen nuevas operaciones y sincronización, pero las reuniones ya preparadas pueden seguir disponibles para sus participantes autorizados. Una cuenta organizadora distinta se aplica a nuevas citas y no sustituye las existentes. El uso clínico requiere comprobar las condiciones contractuales y de privacidad aplicables a las cuentas concretas; no se presupone que una cuenta personal esté cubierta por un acuerdo de tratamiento de Workspace."
+        ]
       }
     ],
-    "effectiveAt": "2026-09-20T00:00:00+02:00",
-    "changeSummary": "Condiciones unificadas del Directorio, Google Calendar, destinatarios, seguridad y analítica opcional.",
+    "effectiveAt": "2026-09-27T00:00:00+02:00",
+    "changeSummary": "Activación voluntaria de Google Meet, entrega de accesos por correo y límites de control de los enlaces.",
     "status": "PUBLISHED_WITH_PENDING_IDENTITY",
     "publicPath": "/legal/privacidad",
-    "contentHash": "b49b091e3c48f7c526ef96f16777587ad724f84c1174d5bd8b1f4987d34d4997"
+    "contentHash": "191f591c0e9dbfb7385f13cf3077cba84afa7e516966b49ccceeae1aa893e9d3"
   },
   "PROFESSIONAL_DATA_PROCESSING_TERMS": {
     "key": "PROFESSIONAL_DATA_PROCESSING_TERMS",

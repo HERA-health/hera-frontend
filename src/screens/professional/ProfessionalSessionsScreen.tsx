@@ -1,3 +1,4 @@
+import { openSessionMeeting } from '../../utils/openSessionMeeting';
 import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import { useGeneralRateLimit } from '../../hooks/useGeneralRateLimit';
 import { rateLimitMessage } from '../../services/generalRateLimit';
@@ -5,7 +6,6 @@ import { showAppAlert, useAppAlert, useAppAlertState } from '../../components/co
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -58,7 +58,6 @@ import {
   isVideoCallButtonClickable,
 } from '../../utils/videoCallUtils';
 
-const PENDING_VIDEO_MEETING_LINK = 'https://hera.local/pending-video-link';
 
 function getFirstNonBlank(...values: Array<string | null | undefined>): string | null {
   for (const value of values) {
@@ -80,7 +79,7 @@ function getSchedulerClientAvatar(client?: professionalService.Client | null): s
 }
 
 function isProfessionalVideoSession(session: ProfessionalSession): boolean {
-  return session.type === 'video' || Boolean(session.meetingLink);
+  return session.type === 'video';
 }
 
 function getProfessionalVideoCallSession(session: ProfessionalSession) {
@@ -89,7 +88,8 @@ function getProfessionalVideoCallSession(session: ProfessionalSession) {
     type: 'VIDEO_CALL',
     date: session.date,
     duration: session.duration,
-    meetingLink: session.meetingLink || PENDING_VIDEO_MEETING_LINK,
+    meetingLink: session.meetingLink,
+    meetingStatus: session.meetingStatus,
   };
 }
 
@@ -594,26 +594,9 @@ export function ProfessionalSessionsScreen() {
 
   const handleJoinSession = useCallback(async (sessionId: string) => {
     try {
-      const meetingData = await professionalService.getMeetingLink(sessionId);
-      if (!meetingData.canJoin) {
-        showAppAlert(appAlert, 'Aún no es el momento', meetingData.message);
-        return;
-      }
-
-      if (!meetingData.meetingLink) {
-        showAppAlert(appAlert, 'Enlace no disponible', 'No se pudo preparar el enlace de la videollamada.');
-        return;
-      }
-
-      const supported = await Linking.canOpenURL(meetingData.meetingLink);
-      if (!supported) {
-        showAppAlert(appAlert, 'No se pudo abrir', 'Tu dispositivo no pudo abrir el enlace de la videollamada.');
-        return;
-      }
-
-      await Linking.openURL(meetingData.meetingLink);
-    } catch {
-      showAppAlert(appAlert, 'Error', 'Hubo un problema al unirte a la sesión');
+      await openSessionMeeting(sessionId, () => professionalService.getMeetingLink(sessionId));
+    } catch (error) {
+      showAppAlert(appAlert, 'Videollamada', error instanceof Error ? error.message : 'No se pudo abrir la videollamada.');
     }
   }, [appAlert]);
 

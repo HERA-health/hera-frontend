@@ -14,6 +14,7 @@ import LoadingScreen from '../screens/LoadingScreen';
 import { LandingPage } from '../screens/landing';
 import { LegalDocumentScreen } from '../screens/legal/LegalDocumentScreen';
 import { RequiredLegalAcceptanceScreen } from '../screens/legal/RequiredLegalAcceptanceScreen';
+import { GatedLegalDocumentScreen } from '../screens/legal/LegalGateLayout';
 import { getLegalStatus, type LegalAcceptanceStatus } from '../services/legalService';
 import { getErrorCode, getErrorMessage } from '../constants/errors';
 import { Button } from '../components/common/Button';
@@ -29,15 +30,6 @@ import {
 } from '../services/pendingBookingIntentService';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-
-const GoogleCalendarIntegrationRoute = createDeferredComponent(
-  () => require('../screens/professional/GoogleCalendarScreen'),
-  { displayName: 'GoogleCalendarIntegrationRoute', exportName: 'GoogleCalendarScreen' },
-);
-const GoogleCalendarSessionRoute = createDeferredComponent(
-  () => require('../screens/professional/GoogleCalendarScreen'),
-  { displayName: 'GoogleCalendarSessionRoute', exportName: 'GoogleCalendarSessionScreen' },
-);
 
 type StackRouteProps<T extends keyof RootStackParamList> = NativeStackScreenProps<
   RootStackParamList,
@@ -77,6 +69,19 @@ const createDeferredLayoutRoute = <T extends keyof RootStackParamList>(
 
   return DeferredLayoutRoute;
 };
+
+const GoogleCalendarIntegrationRoute = createDeferredLayoutRoute<'GoogleCalendarIntegration'>(
+  () => require('../screens/professional/GoogleCalendarScreen'),
+  { displayName: 'GoogleCalendarIntegrationRoute', exportName: 'GoogleCalendarScreen' },
+);
+const GoogleCalendarSessionRoute = createDeferredLayoutRoute<'GoogleCalendarSession'>(
+  () => require('../screens/professional/GoogleCalendarScreen'),
+  { displayName: 'GoogleCalendarSessionRoute', exportName: 'GoogleCalendarSessionScreen' },
+);
+const ProfessionalLegalDocumentRoute = createDeferredLayoutRoute<'LegalDocument'>(
+  () => require('../screens/legal/LegalDocumentScreen'),
+  { displayName: 'ProfessionalLegalDocumentRoute', exportName: 'LegalDocumentScreen' },
+);
 
 const ProfessionalShowcaseRoute = createDeferredRoute<'ProfessionalShowcase'>(
   () => require('../screens/landing/ProfessionalShowcaseScreen'),
@@ -749,7 +754,7 @@ export function RootNavigator() {
           />
           <Stack.Screen
             name="LegalDocument"
-            component={LegalDocumentScreen}
+            component={GatedLegalDocumentScreen}
             options={{ headerShown: false }}
           />
         </Stack.Group>
@@ -1122,7 +1127,7 @@ export function RootNavigator() {
           />
           <Stack.Screen
             name="LegalDocument"
-            component={LegalDocumentScreen}
+            component={ProfessionalLegalDocumentRoute}
             options={{ headerShown: false }}
           />
           {!pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from '../common/Button';
+import { SessionMeetingControls } from '../professional/SessionMeetingControls';
 import { downloadPackageInvoice } from '../../services/packageService';
 import { showAppAlert, useAppAlert } from '../common/alert';
 import { spacing } from '../../constants/colors';
@@ -261,6 +262,8 @@ export function AppointmentDetailSheet({
                     <InfoRow label="Estado" value={patient.status === 'ACTIVE' ? 'Activo' : 'Archivado'} />
                   ) : null}
                 </Section>
+
+                {mode === 'professional' && detail.type === 'VIDEO_CALL' && detail.status === 'CONFIRMED' && <Section title="Videollamada" icon="videocam-outline"><SessionMeetingControls sessionId={detail.id} /></Section>}
 
                 <Section title="Profesional" icon="medkit-outline">
                   <InfoRow label="Nombre" value={professionalName ?? 'Sin profesional'} />

@@ -175,6 +175,8 @@ export interface UserSectionProps {
  * DIP: Depends on abstractions (callbacks) not implementations
  */
 export interface SidebarProps {
+  /** Keep the navigation visible but unavailable while a mandatory gate is open. */
+  locked?: boolean;
   /** Optional content that scrolls above the navigation items. */
   scrollHeader?: ReactNode;
   /** Current user's role */

@@ -507,6 +507,7 @@ export function SpecialistProfileScreen() {
   const styles = useMemo(() => createStyles(palette, isDesktop, isMobile), [palette, isDesktop, isMobile]);
   const miEspacioStyles = useMemo(() => createMiEspacioStyles(palette), [palette]);
   const formScrollRef = useRef<ScrollView | null>(null);
+  const tabsScrollRef = useRef<ScrollView | null>(null);
   const formScrollOffsetRef = useRef(0);
   const sectionRefs = useRef<Record<ProfessionalProfileSection, View | null>>({
     identity: null,
@@ -563,6 +564,12 @@ export function SpecialistProfileScreen() {
   const prepareProfileTopStep = useCallback(() => {
     formScrollRef.current?.scrollTo({ y: 0, animated: false });
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'account') return;
+    const frame = requestAnimationFrame(() => tabsScrollRef.current?.scrollToEnd({ animated: false }));
+    return () => cancelAnimationFrame(frame);
+  }, [activeTab]);
 
   useProfessionalTourStepPreparation('professional.profile.tabs', prepareProfileTopStep);
   useProfessionalTourStepPreparation('professional.profile.visibility', prepareProfileTopStep);
@@ -1570,6 +1577,9 @@ export function SpecialistProfileScreen() {
 
         <ScrollView
           horizontal
+          ref={tabsScrollRef}
+          onLayout={() => { if (activeTab === 'account') tabsScrollRef.current?.scrollToEnd({ animated: false }); }}
+          onContentSizeChange={() => { if (activeTab === 'account') tabsScrollRef.current?.scrollToEnd({ animated: false }); }}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={isDesktop ? styles.tabsDesktop : styles.tabsMobile}
         >
@@ -3222,8 +3232,9 @@ export function SpecialistProfileScreen() {
   // ============================================================================
 
   const renderAccountTab = () => (
-    <View style={[styles.tabContent, styles.accountGrid]}>
-      <View style={styles.accountColumn}><GoogleCalendarCard /></View>
+    <View style={styles.tabContent}>
+      <GoogleCalendarCard />
+      <View style={styles.accountGrid}>
       <View style={styles.accountColumn}><ClinicalPinManager /></View>
       {/* Account Information */}
       <View style={styles.accountColumn}>
@@ -3249,6 +3260,7 @@ export function SpecialistProfileScreen() {
             }
           )}
         </AccountSettingsCard>
+      </View>
       </View>
     </View>
   );

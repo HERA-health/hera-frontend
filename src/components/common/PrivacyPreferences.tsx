@@ -2,6 +2,7 @@ import React, { createContext, useContext } from 'react';
 import { Button } from './Button';
 
 export const PrivacyControlsContext = createContext<(() => void) | null>(null);
+export const PrivacyControlsVisibleContext = createContext(false);
 export function PrivacyPreferencesButton() {
   const open = useContext(PrivacyControlsContext);
   if (!open) return null;

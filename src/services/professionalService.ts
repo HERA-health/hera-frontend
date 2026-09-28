@@ -83,6 +83,7 @@ export interface Session {
   status: string;
   type: SessionType | string;
   meetingLink?: string | null;
+  meetingStatus?: 'NONE' | 'REQUIRES_GOOGLE' | 'PENDING' | 'READY' | 'ERROR' | 'INACTIVE';
   createdAt?: string;
   updatedAt?: string;
   client?: {
@@ -286,6 +287,7 @@ const professionalAgendaItemSchema = z.object({
   privateOptionId: z.string().nullable().optional(),
   bookedPrivateServiceName: z.string().nullable().optional(),
   startsAt: z.iso.datetime(),
+  meetingStatus: z.enum(['NONE', 'REQUIRES_GOOGLE', 'PENDING', 'READY', 'ERROR', 'INACTIVE']).optional(),
   durationMinutes: z.number().int().positive(),
   status: z.enum(['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED']),
   type: z.enum(['VIDEO_CALL', 'PHONE_CALL', 'IN_PERSON']),
@@ -373,7 +375,7 @@ export const getProfessionalAgenda = async (
   query: ProfessionalAgendaQuery,
 ): Promise<ProfessionalAgendaResponse> => {
   try {
-    const response = await api.get('/sessions/professional/agenda', { params: { ...query, serviceDetails: '1' } });
+    const response = await api.get('/sessions/professional/agenda', { params: { ...query, serviceDetails: '1', meetingDetails: '1' } });
     return professionalAgendaResponseSchema.parse(response.data.data);
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
@@ -569,6 +571,10 @@ export const updateSessionStatus = async (
  * Meeting link response interface
  */
 export interface MeetingLinkResponse {
+  provider: 'GOOGLE_MEET' | 'DAILY' | null;
+  preparationStatus: 'NONE' | 'REQUIRES_GOOGLE' | 'PENDING' | 'READY' | 'ERROR' | 'INACTIVE';
+  reasonCode: string | null;
+  retryAfterSeconds?: number;
   meetingLink: string | null;
   canJoin: boolean;
   sessionDate: string;

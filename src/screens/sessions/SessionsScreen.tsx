@@ -1,8 +1,8 @@
+import { openSessionMeeting } from '../../utils/openSessionMeeting';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
-  Linking,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -131,25 +131,7 @@ const SessionsScreen: React.FC = () => {
 
   const handleJoinSession = useCallback(async (sessionId: string) => {
     try {
-      const meetingData = await sessionsService.getMeetingLink(sessionId);
-
-      if (!meetingData.canJoin) {
-        showAppAlert(appAlert, 'Todavía no', meetingData.message);
-        return;
-      }
-
-      if (!meetingData.meetingLink) {
-        showAppAlert(appAlert, 'Error', 'No se pudo obtener el enlace de la videollamada.');
-        return;
-      }
-
-      const supported = await Linking.canOpenURL(meetingData.meetingLink);
-      if (!supported) {
-        showAppAlert(appAlert, 'Error', 'No se pudo abrir el enlace de la videollamada.');
-        return;
-      }
-
-      await Linking.openURL(meetingData.meetingLink);
+      await openSessionMeeting(sessionId, () => sessionsService.getMeetingLink(sessionId));
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Hubo un problema al unirte a la sesión.';
       showAppAlert(appAlert, 'Error', message);

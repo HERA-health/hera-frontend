@@ -55,6 +55,7 @@ export interface ClientSession {
   status: SessionStatus;
   type: SessionType;
   meetingLink?: string | null;
+  meetingStatus?: 'NONE' | 'REQUIRES_GOOGLE' | 'PENDING' | 'READY' | 'ERROR' | 'INACTIVE';
   hasReview?: boolean;
   specialist: ClientSessionSpecialist;
 }
@@ -256,6 +257,10 @@ export const cancelSession = async (sessionId: string): Promise<void> => {
  * Meeting link response interface
  */
 export interface MeetingLinkResponse {
+  provider: 'GOOGLE_MEET' | 'DAILY' | null;
+  preparationStatus: 'NONE' | 'REQUIRES_GOOGLE' | 'PENDING' | 'READY' | 'ERROR' | 'INACTIVE';
+  reasonCode: string | null;
+  retryAfterSeconds?: number;
   meetingLink: string | null;
   canJoin: boolean;
   sessionDate: string;

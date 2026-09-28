@@ -34,8 +34,25 @@ jest.mock('../../contexts/ThemeContext', () => ({
   useTheme: () => ({ theme: require('../../constants/theme').lightTheme, isDark: false }),
 }));
 jest.mock('../../components/navigation/MainLayout', () => ({
-  MainLayout: ({ children }: { children: React.ReactNode }) => children,
+  MainLayout: ({ children }: { children: React.ReactNode }) => {
+    const ReactModule = require('react');
+    const { View, Text } = require('react-native');
+    return ReactModule.createElement(View, null, ReactModule.createElement(Text, null, 'Menú de HERA'), children);
+  },
 }));
+jest.mock('../../screens/professional/GoogleCalendarScreen', () => {
+  const ReactModule = require('react');
+  const { Text } = require('react-native');
+  return {
+    GoogleCalendarScreen: () => ReactModule.createElement(Text, null, 'Configuración de Google'),
+    GoogleCalendarSessionScreen: () => ReactModule.createElement(Text, null, 'Abriendo cita de Calendar'),
+  };
+});
+jest.mock('../../screens/legal/LegalDocumentScreen', () => {
+  const ReactModule = require('react');
+  const { Text } = require('react-native');
+  return { LegalDocumentScreen: () => ReactModule.createElement(Text, null, 'Documento de privacidad') };
+});
 jest.mock('../../screens/landing', () => {
   const ReactModule = require('react');
   const { Text, View } = require('react-native');
@@ -90,6 +107,28 @@ describe('professional verification flow', () => {
     jest.mocked(initializeAuth).mockResolvedValue(null);
     jest.mocked(authService.getCurrentUser).mockResolvedValue(professional);
     jest.mocked(authService.resendVerificationEmail).mockResolvedValue({ success: true, message: 'Correo reenviado' });
+  });
+
+  it('keeps the application layout around Calendar configuration and session resolution', async () => {
+    const verifiedUser: authService.AuthResponse['user'] = {
+      ...professional, emailVerified: true,
+      specialist: { verificationStatus: 'VERIFIED', verificationSubmittedAt: '2026-09-04T10:00:00Z' },
+    };
+    jest.mocked(authService.getCurrentUser).mockResolvedValue(verifiedUser);
+    jest.mocked(initializeAuth).mockResolvedValue({ token: 'token', user: verifiedUser, legalStatus: null });
+    const navigationRef = createNavigationContainerRef<RootStackParamList>();
+    render(<AuthProvider><NavigationContainer ref={navigationRef}><RootNavigator /></NavigationContainer></AuthProvider>);
+    await screen.findByText('Actualizar cuenta profesional');
+    await waitFor(() => expect(navigationRef.isReady()).toBe(true));
+    act(() => navigationRef.navigate('GoogleCalendarIntegration'));
+    await screen.findByText('Configuración de Google');
+    expect(screen.getByText('Menú de HERA')).toBeTruthy();
+    act(() => navigationRef.navigate('GoogleCalendarSession', { sessionId: 'synthetic-session' }));
+    await screen.findByText('Abriendo cita de Calendar');
+    expect(screen.getByText('Menú de HERA')).toBeTruthy();
+    act(() => navigationRef.navigate('LegalDocument', { documentKey: 'PRIVACY_POLICY' }));
+    await screen.findByText('Documento de privacidad');
+    expect(screen.getByText('Menú de HERA')).toBeTruthy();
   });
 
   it('reports failed registration delivery and allows recovery through resend', async () => {

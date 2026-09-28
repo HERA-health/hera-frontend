@@ -1,3 +1,4 @@
+import { openSessionMeeting } from '../../utils/openSessionMeeting';
 import { useGeneralRateLimit } from '../../hooks/useGeneralRateLimit';
 import { rateLimitMessage } from '../../services/generalRateLimit';
 import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
@@ -7,7 +8,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  Linking,
   ScrollView,
   Text,
   View,
@@ -16,6 +16,7 @@ import {
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import { AnimatedPressable, Button } from '../../components/common';
 import { TourTarget } from '../../components/onboarding/TourTarget';
+import { GoogleMeetInvitation } from '../../components/professional/GoogleMeetInvitation';
 import { useProfessionalTourAutoStart } from '../../components/onboarding/professionalTourContext';
 import {
   ActivationHero,
@@ -108,18 +109,9 @@ export function ProfessionalHomeScreen(): React.ReactElement {
   const joinSession = async (sessionId: string): Promise<void> => {
     setJoining(true);
     try {
-      const meeting = await professionalService.getMeetingLink(sessionId);
-      if (!meeting.canJoin || !meeting.meetingLink) {
-        showAppAlert(appAlert, 'Aún no es el momento', meeting.message);
-        return;
-      }
-      if (!await Linking.canOpenURL(meeting.meetingLink)) {
-        showAppAlert(appAlert, 'No se pudo abrir', 'Tu dispositivo no puede abrir el enlace de la videollamada.');
-        return;
-      }
-      await Linking.openURL(meeting.meetingLink);
-    } catch {
-      showAppAlert(appAlert, 'No se pudo unir', 'Comprueba la conexión e inténtalo de nuevo.');
+      await openSessionMeeting(sessionId, () => professionalService.getMeetingLink(sessionId));
+    } catch (error) {
+      showAppAlert(appAlert, 'Videollamada', error instanceof Error ? error.message : 'No se pudo abrir la videollamada.');
     } finally {
       setJoining(false);
     }
@@ -251,6 +243,7 @@ export function ProfessionalHomeScreen(): React.ReactElement {
           </TourTarget>
         </View>
 
+        <GoogleMeetInvitation />
         <View style={[styles.mainGrid, !isWide ? styles.mainGridStacked : null]}>
           <TourTarget id="professional.home.today" fill style={isWide ? styles.mainColumn : styles.stackedColumn}>
             <TodayAgenda

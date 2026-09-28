@@ -1,4 +1,5 @@
 import { PackageCoverage, frozenPackageOptions } from '../packages/PackageCoverage';
+import { VideoSetupNotice } from './VideoSetupNotice';
 import { loadPrivateCatalog, getManagedBookingQuote, type PrivateServiceOption } from '../../services/privateCatalogService';
 import { PrivateServicePicker } from '../scheduling/PrivateServicePicker';
 import { initialPrivateOption, privateOptionForModality } from '../../utils/privateServiceSelection';
@@ -548,6 +549,7 @@ export function ManagedSessionSchedulerModal({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={Platform.OS === 'web'}
           >
+            {visible && type === 'VIDEO_CALL' && !isEditing && <VideoSetupNotice onClose={onClose} />}
             {showClientSelector ? (
               <ManagedSessionPatientSelector
                 clients={clients}

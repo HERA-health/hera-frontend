@@ -68,6 +68,7 @@ export interface Session {
   duration: number; // in minutes
   status: 'scheduled' | 'completed' | 'cancelled';
   meetingLink?: string;
+  meetingStatus?: 'NONE' | 'REQUIRES_GOOGLE' | 'PENDING' | 'READY' | 'ERROR' | 'INACTIVE';
   type: 'video' | 'audio' | 'chat' | 'in_person';
 }
 
@@ -353,6 +354,7 @@ export interface ProfessionalSession {
   duration: number; // in minutes
   status: 'scheduled' | 'completed' | 'cancelled' | 'pending';
   meetingLink?: string;
+  meetingStatus?: 'NONE' | 'REQUIRES_GOOGLE' | 'PENDING' | 'READY' | 'ERROR' | 'INACTIVE';
   type: 'video' | 'audio' | 'chat' | 'in_person';
   clientEmail?: string | null;
   clientSource?: 'REGISTERED' | 'MANAGED';

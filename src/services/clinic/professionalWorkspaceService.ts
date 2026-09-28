@@ -406,8 +406,12 @@ export const rescheduleClinicSession = async (
 };
 
 export const getClinicMeetingLink = async (clinicId: string, sessionId: string) => {
-  const response = await api.get(`/clinics/${clinicId}/specialist/sessions/${sessionId}/meeting-link`);
-  return parse(apiEnvelope(z.object({ meetingLink: z.url(), availableUntil: isoDateTime }).strict()), response.data).data;
+  const response = await api.get(`/clinics/${clinicId}/specialist/sessions/${sessionId}/meeting-link`, { params: { meetingDetails: '1' } });
+  return parse(apiEnvelope(z.object({ meetingLink: z.url().nullable(), availableUntil: isoDateTime,
+    provider: z.enum(['GOOGLE_MEET', 'DAILY']).nullable(),
+    preparationStatus: z.enum(['NONE', 'REQUIRES_GOOGLE', 'PENDING', 'READY', 'ERROR', 'INACTIVE']),
+    canJoin: z.boolean(), reasonCode: z.string().nullable(), retryAfterSeconds: z.number().int().positive().optional(),
+  }).strict()), response.data).data;
 };
 
 export const listClinicAgreements = async (clinicId: string): Promise<ProfessionalClinicAgreement[]> => {

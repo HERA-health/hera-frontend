@@ -37,6 +37,9 @@ const ROUTE_TITLES: Record<string, { title: string; eyebrow?: string }> = {
   ProfessionalDashboard: { title: 'Estadísticas' },
   ProfessionalAvailability: { title: 'Disponibilidad' },
   ProfessionalProfile: { title: 'Perfil profesional' },
+  GoogleCalendarIntegration: { title: 'Calendario y Meet', eyebrow: 'Ajustes' },
+  GoogleCalendarSession: { title: 'Abrir cita', eyebrow: 'Agenda' },
+  LegalDocument: { title: 'Información legal' },
   ProfessionalHelp: { title: 'Ayuda y comentarios' },
 };
 

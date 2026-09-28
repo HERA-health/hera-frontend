@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { api } from '../api';
 import { captureCalendarUrl, clearCalendarIntent, clearCalendarProof, getCalendarIntent, readCalendarProof, saveCalendarProof } from '../googleCalendarIntent';
-import { completeGoogleCalendar, connectGoogleCalendar } from '../googleCalendarService';
+import { completeGoogleCalendar, connectGoogleCalendar, setVideoPreference } from '../googleCalendarService';
 
 jest.mock('../api', () => ({ api: { get: jest.fn(), post: jest.fn(), delete: jest.fn() } }));
 jest.mock('expo-web-browser', () => ({ openAuthSessionAsync: jest.fn(), WebBrowserResultType: { CANCEL: 'cancel' } }));
@@ -49,7 +49,7 @@ test('native links and event links contain only opaque identifiers', () => {
 test('web connection persists only the completion proof and redirects in the same tab', async () => {
   post.mockResolvedValueOnce({ data: { ...proof, authorizationUrl: 'https://accounts.google.com/oauth' } });
   await connectGoogleCalendar('professional');
-  expect(post).toHaveBeenCalledWith('/integrations/google-calendar/connect', { platform: 'web', disclosureVersion: '2026-09-20' }, { headers: { 'x-hera-calendar-client': '1' } });
+  expect(post).toHaveBeenCalledWith('/integrations/google-calendar/connect', { platform: 'web', disclosureVersion: '2026-09-27' }, { headers: { 'x-hera-calendar-client': '1' } });
   expect(assign).toHaveBeenCalledWith('https://accounts.google.com/oauth');
   expect(WebBrowser.openAuthSessionAsync).not.toHaveBeenCalled();
   expect(storage.get('hera_google_calendar_proof')).not.toMatch(/access_token|refresh_token/);
@@ -80,4 +80,14 @@ test('closing the native auth browser stops completion and clears its proof', as
   await expect(connectGoogleCalendar('professional')).resolves.toBeNull();
   const secureStore = jest.requireMock('expo-secure-store');
   expect(secureStore.deleteItemAsync).toHaveBeenCalled();
+});
+
+test('Meet activation sends the displayed organizer generation while Daily needs no Google account', async () => {
+  post.mockResolvedValue({ data: { status: 'CONNECTED' } });
+  await setVideoPreference('GOOGLE_MEET', '2026-09-27', { id: 'connection-shown', generation: 4 });
+  expect(post).toHaveBeenLastCalledWith('/integrations/google-calendar/video-preference', {
+    provider: 'GOOGLE_MEET', disclosureVersion: '2026-09-27', expectedConnection: { id: 'connection-shown', generation: 4 },
+  }, { headers: { 'x-hera-calendar-client': '1' } });
+  await setVideoPreference('DAILY');
+  expect(post).toHaveBeenLastCalledWith('/integrations/google-calendar/video-preference', { provider: 'DAILY' }, { headers: { 'x-hera-calendar-client': '1' } });
 });

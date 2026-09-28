@@ -6,7 +6,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getErrorMessage } from '../../constants/errors';
 import { Button } from '../../components/common/Button';
-import { GoogleCalendarCard } from '../../components/professional/GoogleCalendarCard';
 import { completeGoogleCalendar, resolveCalendarSession } from '../../services/googleCalendarService';
 import { clearCalendarIntent, getCalendarIntent } from '../../services/googleCalendarIntent';
 
@@ -22,7 +21,12 @@ export function GoogleCalendarScreen() {
   useEffect(() => {
     if (user?.type !== 'professional') return;
     let active = true;
-    if (!attempt) { setBusy(false); clearCalendarIntent(); return; }
+    if (!attempt) {
+      clearCalendarIntent();
+      // A direct link can mount this screen before the navigator is ready.
+      const frame = requestAnimationFrame(() => navigation.dispatch(StackActions.replace('ProfessionalProfile', { initialTab: 'account' })));
+      return () => cancelAnimationFrame(frame);
+    }
     setBusy(true); setError(null);
     void completeGoogleCalendar(user.id, attempt).then(() => {
       if (active) {
@@ -40,7 +44,6 @@ export function GoogleCalendarScreen() {
         : <>
           {busy ? <><ActivityIndicator color={theme.primary} /><Text style={{ color: theme.textPrimary }}>Completando la vinculación con Google…</Text></> : null}
           {error ? <Text accessibilityRole="alert" style={{ color: theme.error }}>{error}</Text> : null}
-          {!busy ? <GoogleCalendarCard /> : null}
           <Button variant="ghost" onPress={() => { clearCalendarIntent(); navigation.navigate('ProfessionalProfile', { initialTab: 'account' }); }}>Volver a ajustes de cuenta</Button>
         </>}
     </View>
@@ -75,4 +78,4 @@ export function GoogleCalendarSessionScreen() {
       : <ActivityIndicator color={theme.primary} />}
   </View>;
 }
-const styles = StyleSheet.create({ page: { flexGrow: 1, padding: 24, gap: 18 }, content: { width: '100%', maxWidth: 700, alignSelf: 'center', gap: 18 } });
+const styles = StyleSheet.create({ page: { flexGrow: 1, padding: 20, gap: 18 }, content: { width: '100%', maxWidth: 880, alignSelf: 'center', gap: 12 } });
