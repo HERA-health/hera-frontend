@@ -25,21 +25,22 @@ test('an ongoing failed session can retry without offering a provider change', a
   expect(screen.queryByText('Usar alternativa para esta sesión')).toBeNull();
 });
 
-test('alternative requires explicit confirmation and sends the displayed revision once', async () => {
-  let finish: (() => void) | undefined;
-  jest.mocked(service.commandSessionMeeting).mockImplementation(() => new Promise(resolve => { finish = () => resolve(pending); }));
+test('provider changes are never offered, even if an older backend permits them', async () => {
   render(<SessionMeetingControls sessionId="session" />);
-  fireEvent.press(await screen.findByText('Usar alternativa para esta sesión'));
+  await screen.findByText('Estamos preparando la videollamada.');
+  expect(screen.queryByText('Usar alternativa para esta sesión')).toBeNull();
+  expect(screen.queryByText(/Daily/)).toBeNull();
   expect(service.commandSessionMeeting).not.toHaveBeenCalled();
-  fireEvent.press(screen.getByText('Conservar acceso actual'));
-  expect(service.commandSessionMeeting).not.toHaveBeenCalled();
-  fireEvent.press(screen.getByText('Usar alternativa para esta sesión'));
-  const confirm = screen.getByText('Confirmar cambio a Daily');
-  fireEvent.press(confirm);
-  fireEvent.press(confirm);
-  expect(service.commandSessionMeeting).toHaveBeenCalledTimes(1);
-  expect(service.commandSessionMeeting).toHaveBeenCalledWith('session', 'USE_DAILY', 2);
-  await act(async () => { finish?.(); });
+});
+
+test('an internal fallback failure offers recovery without sending the user to Google setup', async () => {
+  jest.mocked(service.getProfessionalMeetingStatus).mockResolvedValue({ ...pending, provider: 'DAILY', preparationStatus: 'ERROR', organizerEmail: null });
+  render(<SessionMeetingControls sessionId="fallback" />);
+  await screen.findByText('Reintentar preparación');
+  expect(screen.queryByText('Configurar videollamadas')).toBeNull();
+  expect(screen.queryByText('Revisar conexión de Google')).toBeNull();
+  expect(screen.queryByText(/Daily/)).toBeNull();
+  expect(screen.getByText(/Si el problema persiste, contacta con soporte/)).toBeTruthy();
 });
 
 test('pending polling is bounded and stops when unmounted', async () => {
@@ -78,7 +79,7 @@ test('the creation notice leads to existing settings and does not create or swit
   const close = jest.fn();
   jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ enabled: true, status: 'DISCONNECTED', email: null, pending: 0, failed: 0, lastSyncedAt: null, errorCode: null, reconciling: false, videoProviderPreference: 'GOOGLE_MEET', meetEnabled: false });
   render(<VideoSetupNotice onClose={close} />);
-  fireEvent.press(await screen.findByText('Configurar videollamadas'));
+  fireEvent.press(await screen.findByText('Revisar conexión de Google'));
   await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('ProfessionalProfile', { initialTab: 'account' }));
   expect(close).toHaveBeenCalledTimes(1);
   expect(service.commandSessionMeeting).not.toHaveBeenCalled();
@@ -90,7 +91,8 @@ test('closed rollout warns even when the specialist already authorized Meet', as
   render(<VideoSetupNotice onClose={close} />);
   await screen.findByText(/Google Meet no está disponible temporalmente/);
   expect(screen.queryByText(/Completa la configuración de Google/)).toBeNull();
-  fireEvent.press(screen.getByText('Ver opciones de videollamada'));
+  expect(screen.queryByText(/Daily/)).toBeNull();
+  fireEvent.press(screen.getByText('Revisar conexión de Google'));
   expect(mockNavigate).toHaveBeenCalledWith('ProfessionalProfile', { initialTab: 'account' });
   expect(close).toHaveBeenCalledTimes(1);
   expect(service.commandSessionMeeting).not.toHaveBeenCalled();
@@ -102,4 +104,15 @@ test('Daily specialists do not receive a Google configuration warning while roll
   await act(async () => {});
   expect(screen.queryByText('Ver opciones de videollamada')).toBeNull();
   expect(screen.queryByText('Configurar videollamadas')).toBeNull();
+});
+
+test('an unknown configuration can be checked again without directing the user to reconnect Google', async () => {
+  const close = jest.fn();
+  jest.mocked(service.getGoogleCalendarStatus).mockRejectedValueOnce(new Error('Network unavailable'))
+    .mockResolvedValueOnce({ enabled: true, status: 'CONNECTED', email: 'organizer@example.invalid', pending: 0, failed: 0, lastSyncedAt: null, errorCode: null, reconciling: false, videoProviderPreference: 'GOOGLE_MEET', meetEnabled: true, meetAssignmentsEnabled: true });
+  render(<VideoSetupNotice onClose={close} />);
+  fireEvent.press(await screen.findByText('Reintentar comprobación'));
+  await waitFor(() => expect(service.getGoogleCalendarStatus).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.queryByText('No se pudo comprobar la configuración de videollamadas.')).toBeNull());
+  expect(mockNavigate).not.toHaveBeenCalled(); expect(close).not.toHaveBeenCalled();
 });

@@ -12,8 +12,10 @@ export function VideoSetupNotice({ onClose }: { onClose: () => void }) {
   const [needed, setNeeded] = useState(false);
   const [meetUnavailable, setMeetUnavailable] = useState(false);
   const [error, setError] = useState(false);
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
     let active = true;
+    setError(false);
     void getGoogleCalendarStatus().then(status => {
       if (active) {
         const unavailable = status.videoProviderPreference === 'GOOGLE_MEET' && status.meetAssignmentsEnabled === false;
@@ -22,10 +24,11 @@ export function VideoSetupNotice({ onClose }: { onClose: () => void }) {
       }
     }).catch(() => { if (active) setError(true); });
     return () => { active = false; };
-  }, []);
+  }, [retry]);
   if (!needed && !error) return null;
   return <View style={{ gap: 8 }}>
-    <Text style={{ color: theme.warning }}>{error ? 'No se pudo comprobar la configuración de videollamadas.' : meetUnavailable ? 'Google Meet no está disponible temporalmente para nuevas citas. Puedes elegir Daily en las otras opciones de videollamada.' : 'Completa la configuración de Google para que esta cita tenga su enlace de videollamada.'}</Text>
-    <Button variant="outline" onPress={() => { onClose(); navigation.navigate('ProfessionalProfile', { initialTab: 'account' }); }}>{meetUnavailable ? 'Ver opciones de videollamada' : 'Configurar videollamadas'}</Button>
+    <Text style={{ color: theme.warning }}>{error ? 'No se pudo comprobar la configuración de videollamadas.' : meetUnavailable ? 'Google Meet no está disponible temporalmente. HERA preparará el acceso a la videollamada automáticamente.' : 'Revisa la conexión de Google para tus próximas citas con Meet. HERA preparará el acceso a la videollamada automáticamente.'}</Text>
+    {error ? <Button variant="outline" onPress={() => setRetry(value => value + 1)}>Reintentar comprobación</Button>
+      : <Button variant="outline" onPress={() => { onClose(); navigation.navigate('ProfessionalProfile', { initialTab: 'account' }); }}>Revisar conexión de Google</Button>}
   </View>;
 }

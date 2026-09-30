@@ -23,7 +23,8 @@ export function GoogleMeetInvitation() {
       void AsyncStorage.getItem(storageKey).then(async dismissed => {
         if (!active || dismissed === 'hidden') return;
         const status = await getGoogleCalendarStatus();
-        if (active && status.enabled && status.meetAssignmentsEnabled && status.videoProviderPreference === 'DAILY' && status.status !== 'DISCONNECTING') {
+        if (active && status.videoSetupCompleted === false && !status.meetEnabled && status.enabled
+          && status.meetAssignmentsEnabled && status.status !== 'DISCONNECTING') {
           setInvitation({ userId, connected: status.status === 'CONNECTED' && !status.privacyUpdateRequired });
         }
       }).catch(() => {

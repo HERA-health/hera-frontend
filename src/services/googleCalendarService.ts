@@ -7,6 +7,7 @@ import { captureCalendarUrl, clearCalendarProof, getCalendarIntent, readCalendar
 export interface GoogleCalendarStatus {
   activationConnection?: { id: string; generation: number } | null;
   videoProviderPreference?: 'GOOGLE_MEET' | 'DAILY';
+  videoSetupCompleted?: boolean;
   meetAssignmentsEnabled?: boolean;
   meetEnabled?: boolean;
   meetDisclosureVersion?: string;
@@ -27,10 +28,10 @@ export const getGoogleCalendarStatus = async () => (await api.get<GoogleCalendar
 export const resyncGoogleCalendar = async () => (await api.post<GoogleCalendarStatus>(`${base}/resync`, {}, config)).data;
 export const disconnectGoogleCalendar = async () => (await api.delete<GoogleCalendarStatus>(`${base}/connection`, config)).data;
 export const resolveCalendarSession = async (sessionId: string) => (await api.get<{ id: string; clinicId: string | null }>(`${base}/sessions/${encodeURIComponent(sessionId)}`)).data;
-export const setVideoPreference = async (provider: 'GOOGLE_MEET' | 'DAILY', disclosureVersion?: string,
+export const setVideoPreference = async (provider: 'GOOGLE_MEET', disclosureVersion?: string,
   expectedConnection?: { id: string; generation: number }) =>
   (await api.post<GoogleCalendarStatus>(`${base}/video-preference`,
-    provider === 'DAILY' ? { provider } : { provider, disclosureVersion, expectedConnection }, config)).data;
+    { provider, disclosureVersion, expectedConnection }, config)).data;
 
 export interface ProfessionalMeetingStatus {
   provider: 'GOOGLE_MEET' | 'DAILY' | null;
@@ -48,7 +49,7 @@ export interface ProfessionalMeetingStatus {
 }
 export const getProfessionalMeetingStatus = async (id: string) =>
   (await api.get<ProfessionalMeetingStatus>(`${base}/sessions/${encodeURIComponent(id)}/meeting`)).data;
-export const commandSessionMeeting = async (id: string, command: 'RETRY' | 'USE_DAILY', expectedRevision: number) =>
+export const commandSessionMeeting = async (id: string, command: 'RETRY', expectedRevision: number) =>
   (await api.post<ProfessionalMeetingStatus>(`${base}/sessions/${encodeURIComponent(id)}/meeting`, { command, expectedRevision, confirmed: true }, config)).data;
 
 export async function connectGoogleCalendar(userId: string, disclosureVersion = LEGAL_DOCUMENTS.PRIVACY_POLICY.version): Promise<string | null> {

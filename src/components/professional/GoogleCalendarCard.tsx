@@ -12,7 +12,11 @@ import { AnimatedPressable } from '../common/AnimatedPressable';
 import { AccountSettingsCard } from './AccountSettingsCard';
 import { connectGoogleCalendar, disconnectGoogleCalendar, getGoogleCalendarStatus, resyncGoogleCalendar, setVideoPreference, type GoogleCalendarStatus } from '../../services/googleCalendarService';
 
-export function GoogleCalendarCard() {
+export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = false, onBeforeConnect }: {
+  videoSetup?: boolean;
+  hasUnsavedChanges?: boolean;
+  onBeforeConnect?: () => Promise<boolean>;
+} = {}) {
   const { user } = useAuth();
   const { theme } = useTheme();
   const navigation = useNavigation<AppNavigationProp>();
@@ -20,9 +24,9 @@ export function GoogleCalendarCard() {
   const [disclosureVersion, setDisclosureVersion] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pollingPaused, setPollingPaused] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
-  const [showVideoOptions, setShowVideoOptions] = useState(false);
   const [privacyDialog, setPrivacyDialog] = useState<'connect' | 'read' | null>(null);
   const { width } = useWindowDimensions();
   const compact = width < 680;
@@ -40,7 +44,10 @@ export function GoogleCalendarCard() {
       const [next, documents] = await Promise.all([getGoogleCalendarStatus(), getLegalCatalog()]);
       const privacy = documents.find(doc => doc.key === 'PRIVACY_POLICY');
       if (!privacy) throw new Error('No se pudo cargar la información de privacidad.');
-      if (mounted.current && revision === generation.current) { setStatus(next); setDisclosureVersion(privacy.version); setError(null); }
+      if (mounted.current && revision === generation.current) {
+        setStatus(next); setDisclosureVersion(privacy.version); setError(null);
+        if (next.status !== 'DISCONNECTING' && !next.pending && !next.reconciling) setPollingPaused(false);
+      }
     } catch (cause) {
       if (mounted.current && revision === generation.current) setError(getErrorMessage(cause));
     }
@@ -56,7 +63,7 @@ export function GoogleCalendarCard() {
     if ((!pending && status?.status !== 'CONNECTED') || busy) return;
     let checks = 0;
     const timer = setInterval(() => {
-      if (++checks > 6) { clearInterval(timer); return; }
+      if (++checks > 6) { clearInterval(timer); setPollingPaused(true); return; }
       if (!actionRunning.current && AppState.currentState === 'active') void refresh();
     }, pending ? 10_000 : 30_000);
     return () => clearInterval(timer);
@@ -73,6 +80,11 @@ export function GoogleCalendarCard() {
   };
   const connect = () => run(async () => {
     if (!user || !disclosureVersion) return;
+    // Web OAuth leaves HERA; preserve profile edits before starting it.
+    if (onBeforeConnect && !await onBeforeConnect()) {
+      if (mounted.current) setPrivacyDialog(null);
+      return;
+    }
     const attempt = await connectGoogleCalendar(user.id, disclosureVersion);
     if (mounted.current) setPrivacyDialog(null);
     if (attempt) navigation.navigate('GoogleCalendarIntegration', { attempt });
@@ -96,6 +108,8 @@ export function GoogleCalendarCard() {
   const meetActive = connected && status.enabled && status.meetEnabled && status.videoProviderPreference === 'GOOGLE_MEET' && !status.privacyUpdateRequired && !meetUnavailable;
   const needsAttention = needsReauthorization || Boolean(status?.failed);
   const canActivate = connected && status.enabled && status.meetAssignmentsEnabled && !meetActive;
+  const guidedSetup = videoSetup && status?.videoSetupCompleted === false && status.enabled
+    && status.meetAssignmentsEnabled === true && !meetActive && status.status !== 'DISCONNECTING';
   const label = !status ? 'Cargando conexión…' : !status.enabled ? 'Disponible próximamente'
     : status.status === 'DISCONNECTING' ? 'Desconectando…'
     : needsReauthorization ? 'Vuelve a autorizar el acceso'
@@ -112,13 +126,21 @@ export function GoogleCalendarCard() {
   const dialogTitle = confirmMeet ? 'Activa Google Meet' : confirmDisconnect ? 'Desconectar Google Calendar' : privacyDialog === 'connect' ? needsReauthorization ? 'Renueva la autorización de Google' : 'Conecta tu calendario' : 'Datos compartidos y privacidad';
 
   return <>
-    <AccountSettingsCard title="Calendario y videollamadas">
+    <AccountSettingsCard title={guidedSetup ? 'Prepara tus videollamadas con Google Meet' : 'Calendario y videollamadas'}>
+      {guidedSetup && <View style={styles.setupIntro}>
+        <Text accessibilityLiveRegion="polite" style={[styles.sectionTitle, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
+          {connected ? 'Paso 2 de 2 · Activa Google Meet' : 'Paso 1 de 2 · Conecta tu cuenta de Google'}
+        </Text>
+        <Text style={copy}>{connected
+          ? 'Calendar ya está conectado. Acepta la activación de Meet para preparar los enlaces de tus nuevas citas.'
+          : 'Primero sincroniza tus citas con Google Calendar. Después podrás activar un enlace de Meet para cada videollamada.'}</Text>
+      </View>}
       <View onLayout={event => setContentWidth(event.nativeEvent.layout.width)} style={[styles.columns, twoColumns && styles.columnsWide]}>
       <View style={[styles.section, styles.column, twoColumns ? styles.calendarDividerWide : styles.calendarDividerCompact, { borderColor: theme.borderLight }]}>
         <View style={styles.sectionHeader}>
           <Image source={require('../../../assets/google-calendar.png')} style={styles.productLogo} resizeMode="contain" accessible={false} />
           <View style={styles.headerCopy}>
-            <Text style={heading}>Google Calendar</Text>
+            <Text style={heading}>{guidedSetup ? '1. Google Calendar' : 'Google Calendar'}</Text>
             <Text accessibilityLiveRegion="polite" style={[styles.caption, { color: needsAttention ? theme.warning : theme.textSecondary }]}>{label}</Text>
           </View>
         </View>
@@ -133,7 +155,7 @@ export function GoogleCalendarCard() {
         {status?.enabled && (status.status === 'DISCONNECTED' || needsReauthorization) && <Button
           style={compact ? styles.stretch : styles.start} loading={busy} disabled={!disclosureVersion}
           onPress={() => setPrivacyDialog('connect')}>
-          {needsReauthorization ? 'Reconectar Google Calendar' : 'Conectar Google Calendar'}
+          {needsReauthorization ? 'Reconectar Google Calendar' : guidedSetup ? 'Conectar Google y continuar' : 'Conectar Google Calendar'}
         </Button>}
         {(connected || status?.status === 'REAUTH_REQUIRED') && <AnimatedPressable
           onPress={() => setShowOptions(value => !value)} disabled={busy} hoverLift={false}
@@ -157,14 +179,14 @@ export function GoogleCalendarCard() {
         <View style={styles.sectionHeader}>
           <Image source={require('../../../assets/google-meet.png')} style={styles.productLogo} resizeMode="contain" accessible={false} />
           <View style={styles.headerCopy}>
-            <Text style={heading}>Google Meet</Text>
+            <Text style={heading}>{guidedSetup ? '2. Google Meet' : 'Google Meet'}</Text>
             <Text style={[styles.caption, { color: meetActive ? theme.success : theme.textSecondary }]}>{!status ? 'Comprobando…' : meetActive ? 'Google Meet activo' : status.videoProviderPreference === 'GOOGLE_MEET' ? 'Necesita atención' : !status.enabled || !status.meetAssignmentsEnabled ? 'Activación no disponible' : needsReauthorization ? 'Renueva la autorización de Calendar' : connected ? 'Listo para activar' : 'Necesita Google Calendar'}</Text>
           </View>
         </View>
-        {meetActive ? <>
+        {guidedSetup && !connected ? <Text style={copy}>El siguiente paso, cuando conectes Calendar. Podrás revisar la cuenta organizadora antes de activar Meet.</Text> : meetActive ? <>
           <Text style={copy}>Un enlace por cita, en HERA y en los correos. Entra con la cuenta de Google conectada.</Text>
         </> : status?.videoProviderPreference === 'GOOGLE_MEET' ? <Text style={[...copy, { color: theme.warning }]}>
-          {meetUnavailable ? 'Google Meet no está disponible temporalmente para nuevas citas. Puedes elegir Daily en las otras opciones de videollamada.' : 'Revisa la conexión y la activación de Meet para preparar nuevas videollamadas.'}
+          {meetUnavailable ? 'Google Meet no está disponible temporalmente para nuevas citas. HERA preparará el acceso a tus videollamadas automáticamente.' : 'Revisa la conexión y la activación de Meet. HERA preparará el acceso a tus videollamadas automáticamente.'}
         </Text> : <>
           <Text style={copy}>{status?.meetAssignmentsEnabled && status.enabled
             ? connected || needsReauthorization ? 'Un enlace de Meet para cada cita, disponible en HERA y en los correos.' : 'Conecta Calendar y activa Meet para tus próximas videollamadas.'
@@ -183,15 +205,8 @@ export function GoogleCalendarCard() {
           <Ionicons name="shield-checkmark-outline" size={17} color={theme.textSecondary} />
           <Text style={[styles.link, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Datos compartidos y privacidad</Text>
         </AnimatedPressable>
-        <AnimatedPressable onPress={() => setShowVideoOptions(value => !value)} hoverLift={false} disabled={busy} accessibilityRole="button" accessibilityState={{ expanded: showVideoOptions }} style={styles.disclosure}>
-          <Text style={[styles.link, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Videollamadas · Otras opciones</Text>
-          <Ionicons name={showVideoOptions ? 'chevron-up' : 'chevron-down'} size={17} color={theme.textSecondary} />
-        </AnimatedPressable>
       </View>
-      {showVideoOptions && <View style={[styles.details, { borderColor: theme.borderLight }]}>
-        <Text style={copy}>Daily permite videollamadas sin conectar Google. Esta preferencia se aplica a nuevas citas; no sustituye enlaces ya asignados.</Text>
-        <Button variant="outline" size="small" style={styles.start} loading={busy} onPress={() => { void run(async () => { const next = await setVideoPreference('DAILY'); if (mounted.current) setStatus(next); }); }}>Usar videollamadas sin Google</Button>
-      </View>}
+      {pending && pollingPaused && !error && <Button variant="ghost" size="small" disabled={busy} style={styles.start} onPress={() => { void refresh(); }}>Actualizar estado</Button>}
       {status?.errorCode === 'REVOCATION_FAILED' && <View style={styles.section}>
         <Text style={copy}>HERA ha dejado de sincronizar. No se pudo retirar el permiso en Google; puedes hacerlo desde tu cuenta.</Text>
         <Button variant="outline" size="small" style={styles.start} onPress={() => { void Linking.openURL('https://myaccount.google.com/connections'); }}>Revisar permisos en Google</Button>
@@ -225,6 +240,7 @@ export function GoogleCalendarCard() {
               <Text style={copy}>Los cambios se gestionan en HERA. Los eventos personales de Google no se importan ni bloquean tu disponibilidad. Google solicitará permiso para gestionar eventos de tus calendarios; HERA solo gestionará sus propias copias.</Text>
               <Text style={copy}>Si desconectas la cuenta, las citas ya copiadas permanecerán en Google y dejarán de actualizarse. Guardamos tu identidad Google y una credencial cifrada; puedes desconectar cuando quieras.</Text>
               {privacyDialog === 'connect' && <Text style={copy}>Al continuar autorizas esta sincronización. Activar Meet será un paso adicional.</Text>}
+              {privacyDialog === 'connect' && hasUnsavedChanges && <Text style={copy}>Antes de abrir Google guardaremos los cambios pendientes de tu perfil.</Text>}
               <Button variant="ghost" size="small" style={styles.start} onPress={() => { closeDialog(); navigation.navigate('LegalDocument', { documentKey: 'PRIVACY_POLICY', version: disclosureVersion ?? undefined }); }}>Leer política de privacidad</Button>
             </>}
             {error && <Text accessibilityRole="alert" style={[...copy, { color: theme.error }]}>{error}</Text>}
@@ -248,6 +264,7 @@ export function GoogleCalendarCard() {
 }
 
 const styles = StyleSheet.create({
+  setupIntro: { gap: 8 },
   section: { gap: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   headerCopy: { flex: 1, gap: 3 },

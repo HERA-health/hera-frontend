@@ -82,12 +82,10 @@ test('closing the native auth browser stops completion and clears its proof', as
   expect(secureStore.deleteItemAsync).toHaveBeenCalled();
 });
 
-test('Meet activation sends the displayed organizer generation while Daily needs no Google account', async () => {
+test('Meet activation sends the displayed organizer generation', async () => {
   post.mockResolvedValue({ data: { status: 'CONNECTED' } });
   await setVideoPreference('GOOGLE_MEET', '2026-09-27', { id: 'connection-shown', generation: 4 });
   expect(post).toHaveBeenLastCalledWith('/integrations/google-calendar/video-preference', {
     provider: 'GOOGLE_MEET', disclosureVersion: '2026-09-27', expectedConnection: { id: 'connection-shown', generation: 4 },
   }, { headers: { 'x-hera-calendar-client': '1' } });
-  await setVideoPreference('DAILY');
-  expect(post).toHaveBeenLastCalledWith('/integrations/google-calendar/video-preference', { provider: 'DAILY' }, { headers: { 'x-hera-calendar-client': '1' } });
 });

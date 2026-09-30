@@ -14,7 +14,7 @@ jest.mock('@react-navigation/native', () => ({
 }));
 jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(), setItem: jest.fn() }));
 jest.mock('../../../services/googleCalendarService', () => ({ getGoogleCalendarStatus: jest.fn() }));
-const status: GoogleCalendarStatus = { enabled: true, meetAssignmentsEnabled: true, videoProviderPreference: 'DAILY', status: 'DISCONNECTED', email: null, pending: 0, failed: 0, lastSyncedAt: null, errorCode: null, reconciling: false };
+const status: GoogleCalendarStatus = { enabled: true, meetAssignmentsEnabled: true, videoProviderPreference: 'DAILY', videoSetupCompleted: false, status: 'DISCONNECTED', email: null, pending: 0, failed: 0, lastSyncedAt: null, errorCode: null, reconciling: false };
 beforeEach(() => {
   jest.resetAllMocks(); mockUser = { id: 'professional-a', type: 'professional' };
   jest.mocked(AsyncStorage.getItem).mockResolvedValue(null);
@@ -37,7 +37,7 @@ test('a connected calendar only needs the Meet activation invitation', async () 
 
 test.each([
   { enabled: false }, { meetAssignmentsEnabled: false }, { meetAssignmentsEnabled: undefined },
-  { videoProviderPreference: 'GOOGLE_MEET' as const }, { status: 'DISCONNECTING' as const },
+  { videoSetupCompleted: true }, { videoSetupCompleted: undefined }, { meetEnabled: true }, { status: 'DISCONNECTING' as const },
 ])('does not promote unavailable or already selected Meet: %p', async change => {
   jest.mocked(getGoogleCalendarStatus).mockResolvedValue({ ...status, ...change });
   render(<GoogleMeetInvitation />);
@@ -68,7 +68,7 @@ test('refreshing after activation removes the invitation', async () => {
   const first = render(<GoogleMeetInvitation />);
   await screen.findByText('Configurar Google Meet');
   first.unmount();
-  jest.mocked(getGoogleCalendarStatus).mockResolvedValue({ ...status, videoProviderPreference: 'GOOGLE_MEET' });
+  jest.mocked(getGoogleCalendarStatus).mockResolvedValue({ ...status, videoProviderPreference: 'GOOGLE_MEET', videoSetupCompleted: true });
   render(<GoogleMeetInvitation />);
   await act(async () => {});
   expect(screen.queryByText('Configurar Google Meet')).toBeNull();

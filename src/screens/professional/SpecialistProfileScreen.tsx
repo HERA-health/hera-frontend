@@ -3,6 +3,7 @@ import { navigateProfessionalSection } from '../../navigation/professionalNaviga
 import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
 import { AccountSettingsCard } from '../../components/professional/AccountSettingsCard';
 import { GoogleCalendarCard } from '../../components/professional/GoogleCalendarCard';
+import { VideoCallSetupPrompt } from '../../components/professional/VideoCallSetupPrompt';
 import { ClinicalPinManager } from '../../components/professional/ClinicalPinManager';
 /**
  * SpecialistProfileScreen - Professional Profile Management
@@ -502,6 +503,7 @@ export function SpecialistProfileScreen() {
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [isUploadingGalleryPhoto, setIsUploadingGalleryPhoto] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const profileSaveRunning = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const styles = useMemo(() => createStyles(palette, isDesktop, isMobile), [palette, isDesktop, isMobile]);
@@ -942,15 +944,16 @@ export function SpecialistProfileScreen() {
     });
   }, []);
 
-  const handleSave = useCallback(async () => {
-    if (!hasChanges) return;
+  const handleSave = useCallback(async (notifySuccess = true): Promise<boolean> => {
+    if (profileSaveRunning.current) return false;
+    if (!hasChanges) return true;
 
     if (profileData.offersInPerson && !profileData.insuranceUploaded) {
       showAppAlert(appAlert, 
         'Falta la póliza',
         'Para activar las sesiones presenciales necesitamos una póliza de responsabilidad civil subida y guardada en HERA.'
       );
-      return;
+      return false;
     }
 
     if (!profileData.professionalType) {
@@ -959,9 +962,10 @@ export function SpecialistProfileScreen() {
         'Falta el tipo profesional',
         'Selecciona tu tipo profesional regulado para guardar el perfil.'
       );
-      return;
+      return false;
     }
 
+    profileSaveRunning.current = true;
     setIsSaving(true);
     try {
       const updateData: Partial<ServiceProfileData> = {
@@ -1020,7 +1024,8 @@ export function SpecialistProfileScreen() {
       setProfileData(mappedData);
       setOriginalData(mappedData);
       await refreshCompletion();
-      showAppAlert(appAlert, 'Cambios guardados', 'Tu perfil ha sido actualizado correctamente');
+      if (notifySuccess) showAppAlert(appAlert, 'Cambios guardados', 'Tu perfil ha sido actualizado correctamente');
+      return true;
     } catch (error: unknown) {
       console.error('Error saving profile:', error);
       showAppAlert(
@@ -1028,10 +1033,18 @@ export function SpecialistProfileScreen() {
         'No se pudo guardar el perfil',
         getErrorMessage(error, 'Revisa los datos introducidos e inténtalo de nuevo.'),
       );
+      return false;
     } finally {
+      profileSaveRunning.current = false;
       setIsSaving(false);
     }
   }, [hasChanges, originalData, profileData, refreshCompletion, updateUser]);
+
+  const handleVideoSetup = async () => {
+    if (!await handleSave(false)) return;
+    setActiveTab('account');
+    formScrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
 
   const handleImagePick = useCallback(async () => {
     if (isUploadingAvatar) return;
@@ -2231,6 +2244,8 @@ export function SpecialistProfileScreen() {
                     profileData.offersOnline && styles.modalityOptionSelected,
                   ]}
                   onPress={() => updateField('offersOnline', !profileData.offersOnline)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: profileData.offersOnline }}
                   activeOpacity={0.7}
                 >
                   <Ionicons
@@ -2248,6 +2263,8 @@ export function SpecialistProfileScreen() {
                     profileData.offersInPerson && styles.modalityOptionSelected,
                   ]}
                   onPress={() => updateField('offersInPerson', !profileData.offersInPerson)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: profileData.offersInPerson }}
                   activeOpacity={0.7}
                 >
                   <Ionicons
@@ -2259,6 +2276,12 @@ export function SpecialistProfileScreen() {
                   <Text style={styles.modalityText}>Sesiones presenciales</Text>
                 </TouchableOpacity>
               </View>
+
+              {profileData.offersOnline && <VideoCallSetupPrompt
+                hasUnsavedChanges={hasChanges}
+                busy={isSaving}
+                onSetup={() => { void handleVideoSetup(); }}
+              />}
 
               {profileData.offersInPerson ? (
                 <View
@@ -3233,7 +3256,7 @@ export function SpecialistProfileScreen() {
 
   const renderAccountTab = () => (
     <View style={styles.tabContent}>
-      <GoogleCalendarCard />
+      <GoogleCalendarCard videoSetup={profileData.offersOnline} hasUnsavedChanges={hasChanges} onBeforeConnect={() => handleSave(false)} />
       <View style={styles.accountGrid}>
       <View style={styles.accountColumn}><ClinicalPinManager /></View>
       {/* Account Information */}
