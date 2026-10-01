@@ -20,7 +20,7 @@ const MODALITIES = [
   { type: 'PHONE_CALL', label: 'Teléfono', icon: 'call-outline' },
 ] as const;
 type DraftOption = PrivateServiceOption & { priceText: string; isNew?: boolean; visibilityChosen?: boolean };
-const visibility = [{ value: 'public', label: 'Agenda + reserva online' }, { value: 'private', label: 'Solo agenda' }, { value: 'off', label: 'Desactivada' }] as const;
+const visibility = [{ value: 'public', label: 'Tú y tus pacientes' }, { value: 'private', label: 'Solo tú' }, { value: 'off', label: 'Opción desactivada' }] as const;
 const makeDraft = (catalog: PrivateServiceCatalog): DraftOption[] => {
   const options = catalog.options.map(o => ({ ...o, priceText: String(o.priceCents / 100).replace('.', ',') }));
   return [...options, ...MODALITIES.filter(m => !options.some(o => o.modality === m.type)).map(m => newOption(m.type, 60))];
@@ -76,7 +76,7 @@ export function PrivateServiceEditor({ navigation, service, sourceCatalog, onSav
     }
     if (!name.trim() || name.trim().length > 80 || description.trim().length > 240) { setError('Revisa el nombre y la descripción.'); return; }
     if (service?.key !== 'base' && !draft.some(o => o.isActive)) { setError('Activa al menos una modalidad y configura su precio.'); return; }
-    if (draft.some(o => o.isNew && o.isActive && !o.visibilityChosen)) { setError('Elige la disponibilidad de cada opción nueva.'); return; }
+    if (draft.some(o => o.isNew && o.isActive && !o.visibilityChosen)) { setError('Elige quién puede reservar cada opción nueva.'); return; }
     setSaving(true); onSavingChange(true);
     try {
       const next = await savePrivateService(service?.id, { version: catalog.version, name: name.trim(), description: description.trim() || null, ...(service?.archivedAt ? { restore: true } : {}),
@@ -117,7 +117,16 @@ export function PrivateServiceEditor({ navigation, service, sourceCatalog, onSav
           </View>
           <View style={styles.surface}>
             <View style={styles.sectionTitle}><Text style={styles.title}>Modalidades</Text>
-              <Text style={styles.small}>Las opciones activas siempre están disponibles en tu agenda. La reserva online permite que también las reserven tus pacientes.</Text>
+              <View style={styles.availabilityGuide}>
+                <View style={styles.availabilityHint}>
+                  <Ionicons name="calendar-outline" size={16} color={theme.textSecondary} />
+                  <Text style={styles.availabilityCopy}><Text style={styles.availabilityLabel}>Solo tú</Text> · Creas las citas desde tu agenda.</Text>
+                </View>
+                <View style={styles.availabilityHint}>
+                  <Ionicons name="globe-outline" size={16} color={theme.primary} />
+                  <Text style={styles.availabilityCopy}><Text style={styles.availabilityLabel}>Tú y tus pacientes</Text> · También pueden pedir cita desde el directorio o el enlace de tu perfil.</Text>
+                </View>
+              </View>
             </View>
             <View style={styles.modalityTabs}>{MODALITIES.map(m => <Pressable key={m.type} accessibilityRole="tab" accessibilityState={{ selected: selectedModality === m.type }} onPress={() => setSelectedModality(m.type)} style={[styles.modalityTab, width < 720 && { flexDirection: 'column' }, selectedModality === m.type && { borderBottomColor: theme.primary, backgroundColor: theme.surface }]}><Ionicons name={m.icon} size={18} color={selectedModality === m.type ? theme.primary : theme.textSecondary} /><Text style={styles.label}>{m.label}</Text></Pressable>)}</View>
 
@@ -140,7 +149,7 @@ export function PrivateServiceEditor({ navigation, service, sourceCatalog, onSav
                       ]);
                     }} /></View>
                     {priceInput(main)}
-                    <View style={styles.audienceCell}><Text style={styles.small}>Disponibilidad</Text><SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Disponibilidad de ${modality.label}`} value={main.isNew && !main.visibilityChosen ? null : !main.isActive ? 'off' : main.isPublic ? 'public' : 'private'} placeholder="Elige disponibilidad" options={visibility} onSelect={value => setVisibility(main, value)} /></View>
+                    <View style={styles.audienceCell}><Text style={styles.small}>¿Quién puede reservar?</Text><SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Quién puede reservar: ${modality.label}`} value={main.isNew && !main.visibilityChosen ? null : !main.isActive ? 'off' : main.isPublic ? 'public' : 'private'} placeholder="Elige una opción" options={visibility} onSelect={value => setVisibility(main, value)} /></View>
                   </View>}
                 </View>
                 {service?.key === 'base' && main.legacyTariffId && <Text style={styles.small}>{main.name}</Text>}
@@ -149,7 +158,7 @@ export function PrivateServiceEditor({ navigation, service, sourceCatalog, onSav
                 {activeCount > 0 && expanded[modality.type] && <View style={styles.details}>
                   {options.filter(o => o.id !== main.id).map(option => <View key={option.id} style={styles.extraRow}>
                     <View><Text style={styles.label}>{option.durationMinutes} min</Text>{service?.key === 'base' && option.legacyTariffId && <Text style={styles.small}>Tarifa anterior: {option.name}</Text>}</View>{priceInput(option)}
-                    <View style={styles.audienceCell}><Text style={styles.small}>Disponibilidad</Text><SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Disponibilidad de ${option.durationMinutes} minutos, ${modality.label}`} value={option.isNew && !option.visibilityChosen ? null : !option.isActive ? 'off' : option.isPublic ? 'public' : 'private'} placeholder="Elige disponibilidad" options={visibility} onSelect={v => setVisibility(option, v)} /></View>
+                    <View style={styles.audienceCell}><Text style={styles.small}>¿Quién puede reservar?</Text><SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Quién puede reservar: ${option.durationMinutes} minutos, ${modality.label}`} value={option.isNew && !option.visibilityChosen ? null : !option.isActive ? 'off' : option.isPublic ? 'public' : 'private'} placeholder="Elige una opción" options={visibility} onSelect={v => setVisibility(option, v)} /></View>
                   </View>)}
                   {[45,50,60].filter(d => !options.some(o => o.durationMinutes === d)).map(d => <Button key={d} disabled={saving} size="small" variant="ghost" onPress={() => setDraft(rows => [...rows, newOption(modality.type, d)])}>Añadir {d} min</Button>)}
                 </View>}
@@ -164,8 +173,8 @@ export function PrivateServiceEditor({ navigation, service, sourceCatalog, onSav
           <Text style={styles.small}>{service?.archivedAt ? 'Vista previa al restaurar' : dirty ? 'Vista previa · Cambios sin guardar' : 'Reserva online'}</Text>
           <Text style={styles.title}>{name.trim() || 'Nombre del servicio'}</Text>
           {!!description.trim() && <Text style={styles.secondary}>{description.trim()}</Text>}
-          <Text style={styles.previewPrice}>{publicOptions.length ? `${new Set(publicOptions.map(o => parsePrivatePrice(o.priceText))).size > 1 ? 'Desde ' : ''}${formatPrivatePrice(Math.min(...publicOptions.map(o => parsePrivatePrice(o.priceText) ?? 0)))}` : 'Solo agenda'}</Text>
-          <Text style={styles.secondary}>{publicOptions.length ? 'por sesión · precio final' : 'No tienes opciones reservables por pacientes.'}</Text>
+          <Text style={styles.previewPrice}>{publicOptions.length ? `${new Set(publicOptions.map(o => parsePrivatePrice(o.priceText))).size > 1 ? 'Desde ' : ''}${formatPrivatePrice(Math.min(...publicOptions.map(o => parsePrivatePrice(o.priceText) ?? 0)))}` : 'Solo tú'}</Text>
+          <Text style={styles.secondary}>{publicOptions.length ? 'por sesión · precio final' : 'Tus pacientes no pueden reservar este servicio online.'}</Text>
           {MODALITIES.map(m => {
             const rows = publicOptions.filter(o => o.modality === m.type).sort((a,b) => a.durationMinutes-b.durationMinutes);
             return rows.length ? <View key={m.type} style={styles.previewModality}><Text style={styles.label}>{m.label}</Text>{rows.map(o => <View style={styles.previewLine} key={o.id}><Text style={styles.secondary}>{o.durationMinutes} min</Text><Text style={styles.label}>{formatPrivatePrice(parsePrivatePrice(o.priceText) ?? 0)}</Text></View>)}</View> : null;
@@ -191,6 +200,10 @@ const createStyles = (t: Theme) => StyleSheet.create({
   composition: { flexDirection: 'row', gap: 24, alignItems: 'flex-start' }, vertical: { flexDirection: 'column', alignItems: 'stretch' },
   editor: { flex: 1, gap: 16, minWidth: 0, width: '100%' }, surface: { backgroundColor: t.bgCard, borderWidth: 1, borderColor: t.border, borderRadius: borderRadius.xl, overflow: 'hidden' },
   sectionTitle: { padding: 16, gap: 6 }, tableHeading: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: t.bg },
+  availabilityGuide: { gap: 10, marginTop: 6 },
+  availabilityHint: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  availabilityCopy: { flex: 1, color: t.textSecondary, fontFamily: t.fontSans, fontSize: 13, lineHeight: 20 },
+  availabilityLabel: { color: t.textPrimary, fontFamily: t.fontSansSemiBold },
   overline: { color: t.textSecondary, fontFamily: t.fontSans, fontSize: 10, fontWeight: '700', letterSpacing: 0.7 },
   modalitySection: { padding: 20, borderTopWidth: 1, borderTopColor: t.border, gap: 8 }, row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   modalityLabel: { flexDirection: 'row', alignItems: 'center', gap: 10 }, modalityCell: { width: 142 }, durationCell: { width: 124, gap: 6 }, priceCell: { width: 104, gap: 6 }, audienceCell: { flex: 1, minWidth: 160, gap: 6 },

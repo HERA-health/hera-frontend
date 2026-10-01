@@ -119,7 +119,7 @@ export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'Pr
                   {!wide && <Text style={styles.small}>{modality.label}</Text>}
                   {main ? <View style={{ gap: 4 }}><Text style={styles.price}>{main.durationMinutes} min · {formatPrivatePrice(main.priceCents)}</Text>
                     {options.length > 1 && <ServiceOptionDetails options={options} title={`${service.name} · ${modality.label}`} restricted={!!catalog.restrictions[modality.type]} />}
-                    {options.length === 1 && <Text style={styles.small}>{archived ? 'Al restaurar: ' : ''}{!publicCount ? 'Solo agenda' : publicCount === options.length ? 'Agenda + reserva online' : `${publicCount} con reserva online`}</Text>}
+                    {options.length === 1 && <Text style={styles.small}>{archived ? 'Al restaurar: ' : ''}{!publicCount ? 'Reservas: solo tú' : publicCount === options.length ? 'Reservas: tú y tus pacientes' : `${publicCount} con reserva online`}</Text>}
                   </View> : <Text style={styles.small}>No disponible</Text>}
                 </View>;
               })}

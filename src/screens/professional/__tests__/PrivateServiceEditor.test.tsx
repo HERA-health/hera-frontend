@@ -31,7 +31,7 @@ test.each([45, 50])('creates a %i minute service without an unwanted 60 minute o
   fireEvent(screen.getByLabelText('Activar Videollamada'), 'valueChange', true);
   fireEvent(dropdown('Duración principal de Videollamada'), 'select', duration);
   fireEvent.changeText(screen.getByLabelText(`Precio de Videollamada, ${duration} minutos`), '50');
-  fireEvent(dropdown('Disponibilidad de Videollamada'), 'select', 'public');
+  fireEvent(dropdown('Quién puede reservar: Videollamada'), 'select', 'public');
   fireEvent.press(screen.getByText('Guardar servicio'));
   await waitFor(() => expect(input.onSaved).toHaveBeenCalled());
   expect(jest.mocked(savePrivateService).mock.calls[0][1].options).toEqual([
@@ -45,7 +45,7 @@ test('changing the preferred duration preserves existing configured variants', a
   render(<PrivateServiceEditor {...input} />);
   fireEvent(dropdown('Duración principal de Videollamada'), 'select', 45);
   fireEvent.changeText(screen.getByLabelText('Precio de Videollamada, 45 minutos'), '40');
-  fireEvent(dropdown('Disponibilidad de Videollamada'), 'select', 'private');
+  fireEvent(dropdown('Quién puede reservar: Videollamada'), 'select', 'private');
   fireEvent.press(screen.getByText('Guardar servicio'));
   await waitFor(() => expect(input.onSaved).toHaveBeenCalled());
   expect(jest.mocked(savePrivateService).mock.calls[0][1].options).toEqual(expect.arrayContaining([
@@ -91,7 +91,7 @@ test('new options require an explicit price and visibility; activating does not 
   expect(await screen.findByText('Importe no válido')).toBeTruthy();
   fireEvent.changeText(screen.getByLabelText('Precio de Videollamada, 60 minutos'), '0');
   fireEvent.press(screen.getByText('Guardar servicio'));
-  expect(await screen.findByText('Elige la disponibilidad de cada opción nueva.')).toBeTruthy();
+  expect(await screen.findByText('Elige quién puede reservar cada opción nueva.')).toBeTruthy();
   expect(savePrivateService).not.toHaveBeenCalled();
 });
 

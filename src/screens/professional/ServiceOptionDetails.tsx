@@ -28,7 +28,7 @@ export function ServiceOptionDetails({ options, title, restricted }: { options: 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}><Text style={{ flex: 1, fontFamily: t.fontSansSemiBold, fontSize: 14, color: t.textPrimary }}>{title}</Text><Pressable accessibilityRole="button" accessibilityLabel="Cerrar duraciones" onPress={close} style={{ padding: 8 }}><Ionicons name="close" size={18} color={t.textSecondary} /></Pressable></View>
           <ScrollView>{options.slice().sort((a,b) => a.durationMinutes-b.durationMinutes).map(o => <View key={o.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, borderTopWidth: 1, borderTopColor: t.borderLight }}>
             <Text style={{ width: 52, color: t.textPrimary, fontFamily: t.fontSansSemiBold, fontSize: 13 }}>{o.durationMinutes} min</Text>
-            <View style={{ flex: 1 }}><Text style={{ fontSize: 11, color: t.textSecondary, fontFamily: t.fontSans }}>{o.isPublic && !restricted ? 'Agenda + online' : 'Solo agenda'}{o.isPreferred ? ' · Principal' : ''}</Text></View>
+            <View style={{ flex: 1 }}><Text style={{ fontSize: 11, lineHeight: 16, color: t.textSecondary, fontFamily: t.fontSans }}>{o.isPublic && !restricted ? 'Reservas: tú y tus pacientes' : 'Reservas: solo tú'}{o.isPreferred ? ' · Principal' : ''}</Text></View>
             <Text style={{ color: t.textPrimary, fontFamily: t.fontSansSemiBold, fontSize: 13 }}>{formatPrivatePrice(o.priceCents)}</Text>
           </View>)}</ScrollView>
         </Pressable>
