@@ -5,6 +5,7 @@ import { lightTheme } from '../../../../constants/theme';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { ClinicPatientAdaptiveSheet } from '../ClinicPatientAdaptiveSheet';
 import { AppointmentDetailSheet } from '../../../../components/sessions/AppointmentDetailSheet';
+jest.mock('@react-navigation/native', () => ({ ...jest.requireActual('@react-navigation/native'), useNavigation: () => ({ navigate: jest.fn() }) }));
 
 jest.mock('../../../../services/packageService', () => ({ downloadPackageInvoice: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('../../../../components/professional/SessionMeetingControls', () => ({ SessionMeetingControls: () => null }));

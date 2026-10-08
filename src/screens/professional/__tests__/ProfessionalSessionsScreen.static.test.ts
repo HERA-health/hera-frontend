@@ -29,10 +29,10 @@ describe('ProfessionalSessionsScreen schedule editing contract', () => {
     expect(cardSource).toContain('style={styles.avatarImage}');
   });
 
-  it('does not expose schedule editing for sessions with linked invoices', () => {
+  it('requires the server schedule permission and a session that has not started', () => {
     expect(utilsSource).toContain('hasInvoice: session.hasInvoice');
     expect(screenSource).toContain('const sessionStarted = session.date.getTime() <= currentTime.getTime()');
-    expect(screenSource).toContain('const canModifySession = !sessionStarted && !session.hasInvoice');
+    expect(screenSource).toContain('const canModifySession = !sessionStarted && (actions?.canModifySchedule ?? false)');
     expect(screenSource).toContain('{canModifySession ? (');
   });
 
