@@ -68,6 +68,7 @@ type BufferConflictState = {
 type SchedulerMode = 'create' | 'edit';
 
 export interface ManagedSessionSchedulerInitialValues {
+  paidOnline?: boolean;
   patientPackageId?: string;
   optionId?: string | null;
   serviceName?: string | null;
@@ -449,7 +450,7 @@ export function ManagedSessionSchedulerModal({
 
     if (!dateOnlyChange && (!selectedOption || !quote?.quoteReference || (quote.expiresAt && Date.parse(quote.expiresAt) <= Date.now()))) { setQuoteRetry(v => v + 1); setErrors({ form: quoteError || 'Selecciona un servicio y revisa el precio actualizado.' }); return; }
     if (type === 'PHONE_CALL' && !sessionPhone.trim() && !dateOnlyChange) { setErrors({ form: 'Indica el teléfono de destino para esta cita.' }); return; }
-    const input = { ...validation.input, patientPackageId: patientPackageId ?? (isEditing ? null : undefined), ...(!dateOnlyChange ? { optionId: selectedOption?.id, quoteReference: quote?.quoteReference } : {}), ...(sessionPhone.trim() ? { sessionPhone } : {}) };
+    const input = { ...validation.input, patientPackageId: initialValues?.paidOnline ? undefined : patientPackageId ?? (isEditing ? null : undefined), ...(!dateOnlyChange ? { optionId: selectedOption?.id, quoteReference: quote?.quoteReference } : {}), ...(sessionPhone.trim() ? { sessionPhone } : {}) };
     setErrors({});
     try {
       await onSubmit(input);
@@ -646,6 +647,7 @@ export function ManagedSessionSchedulerModal({
                   return (
                     <AnimatedPressable
                       key={option.value}
+                      disabled={Boolean(initialValues?.paidOnline)}
                       onPress={() => {
                         if (type === option.value) return;
                         setClientSelectorOpen(false);
@@ -689,9 +691,10 @@ export function ManagedSessionSchedulerModal({
             </View>
 
             <View style={styles.section}>
+              {initialValues?.paidOnline && <Text style={{ color: theme.textSecondary }}>Esta cita está pagada. Puedes cambiar su fecha y hora conservando el servicio y el importe. Para cambiar las condiciones económicas, cancela y gestiona la devolución desde Cobros.</Text>}
               {dateOnlyChange && <Text style={{ color: theme.textSecondary }}>Servicio reservado: {initialValues?.serviceName ?? 'Condiciones originales'} · {initialDuration} min. Cambiar solo la fecha mantiene sus condiciones.</Text>}
-              {!!clientId && <PackageCoverage key={`${clientId}:${visible}`} clientId={clientId} initialPackageId={initialValues?.clientId === clientId ? initialValues?.patientPackageId : undefined} optionId={selectedOptionId} value={patientPackageId} disabled={saving} onChange={(id, row) => { setPatientPackageId(id); if (row) { const options = frozenPackageOptions(row); acquiredOptions.current = options; setCatalogOptions(previous => [...previous.filter(o => !options.some(p => p.id === o.id)), ...options]); const next = options.find(o => o.id === selectedOptionId) ?? options[0]; if (next) { setSelectedOptionId(next.id); setType(next.modality); setDurationValue(String(next.durationMinutes)); } } else { acquiredOptions.current = []; setCatalogOptions(liveCatalogOptions.current); const next = liveCatalogOptions.current.find(o => o.id === selectedOptionId) ?? liveCatalogOptions.current[0]; if (next) { setSelectedOptionId(next.id); setType(next.modality); setDurationValue(String(next.durationMinutes)); } } }} />}
-              <PrivateServicePicker showDuration={false} options={catalogOptions} modality={type} value={selectedOptionId} disabled={saving} onChange={id => {
+              {!!clientId && <PackageCoverage key={`${clientId}:${visible}`} clientId={clientId} initialPackageId={initialValues?.clientId === clientId ? initialValues?.patientPackageId : undefined} optionId={selectedOptionId} value={patientPackageId} disabled={saving || initialValues?.paidOnline} onChange={(id, row) => { setPatientPackageId(id); if (row) { const options = frozenPackageOptions(row); acquiredOptions.current = options; setCatalogOptions(previous => [...previous.filter(o => !options.some(p => p.id === o.id)), ...options]); const next = options.find(o => o.id === selectedOptionId) ?? options[0]; if (next) { setSelectedOptionId(next.id); setType(next.modality); setDurationValue(String(next.durationMinutes)); } } else { acquiredOptions.current = []; setCatalogOptions(liveCatalogOptions.current); const next = liveCatalogOptions.current.find(o => o.id === selectedOptionId) ?? liveCatalogOptions.current[0]; if (next) { setSelectedOptionId(next.id); setType(next.modality); setDurationValue(String(next.durationMinutes)); } } }} />}
+              <PrivateServicePicker showDuration={false} options={catalogOptions} modality={type} value={selectedOptionId} disabled={saving || initialValues?.paidOnline} onChange={id => {
                 const next = catalogOptions.find(o => o.id === id);
                 if (!next) return;
                 setSelectedOptionId(id); setDurationValue(String(next.durationMinutes)); setTimeEditedManually(true); clearBufferConflict();
@@ -715,6 +718,7 @@ export function ManagedSessionSchedulerModal({
                     <AnimatedPressable
                       key={option}
                       testID={`managed-session-duration-option-${option}`}
+                      disabled={Boolean(initialValues?.paidOnline)}
                       onPress={() => {
                         if (selectedDurationNumber === option) return;
                         setClientSelectorOpen(false);

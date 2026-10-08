@@ -1,213 +1,184 @@
 # HERA Frontend
 
-Read `../AGENTS.md` for shared scope, correctness, safety and completion rules when available.
+Read `../AGENTS.md` for shared scope, risk, correctness, privacy and completion rules when available.
 
 The backend is `../hera-backend/`.
 
 ## 1. Architecture
 
-The application uses Expo, React Native, React Native Web and TypeScript.
+The application uses Expo, React Native, React Native Web and TypeScript. Preserve supported web and native behavior.
 
-Preserve supported web and native behavior.
+Do not introduce DOM-only implementations into shared native code unless intentionally web-specific.
 
-Do not introduce DOM-only implementations into shared native code unless the code is intentionally web-specific.
+Do not introduce NativeWind, Tailwind, a second styling system, a new state library or a new component system unless the task explicitly requires it and the architectural benefit is concrete.
 
-- Screens orchestrate loading, navigation and high-level state.
-- Domain services in `src/services/` own API access.
-- Extract reusable or meaningfully complex UI; do not split trivial markup purely for architectural purity.
-- Keep rendering, transformations and side effects reasonably separated.
-- Preserve the existing state-management approach unless it cannot satisfy the requirement.
-- Keep navigation payloads typed.
-- Reuse shared theme tokens and primitives when they are suitable.
+Use the existing frontend shape:
 
-Do not create new component systems, state architectures or abstractions without a concrete need.
+- screens orchestrate loading, navigation and high-level state;
+- `src/services/` owns API access;
+- extract reusable or meaningfully complex UI, but do not split trivial markup for purity;
+- keep rendering, transformations and side effects reasonably separated;
+- preserve existing state-management patterns unless they cannot satisfy the requirement;
+- keep navigation payloads typed;
+- reuse theme tokens and shared primitives when suitable.
 
 ---
 
-## 2. Determine the Frontend Task Mode
+## 2. Determine the frontend task mode
 
-Before investigating, determine whether the task is primarily:
+Before investigating, classify the task as primarily:
 
-1. visual/design work;
+1. visual/design;
 2. functional/product behavior;
 3. mixed.
 
-Do not automatically apply the full functional workflow to a primarily visual task.
+Do not apply the full functional workflow to a primarily visual task.
+
+For low-risk visual/public-product work, keep investigation narrow and delivery fast. For sensitive behavior, follow the shared high-risk rules in `../AGENTS.md`.
 
 ---
 
-## 3. Visual / Design Work
+## 3. Visual and design work
 
-For tasks whose main purpose is visual improvement, styling, layout, UX polish or redesign:
+For styling, layout, UX polish or redesign:
 
-- focus investigation on the affected screen, section or components;
-- preserve existing functionality and contracts unless the request explicitly changes them;
-- do not trace backend/persistence flows unless the rendered behavior genuinely depends on them;
-- use the `frontend-design` skill as the primary visual design guidance when available;
-- use HERA's brand, theme and product character as constraints, not as a ceiling on design quality.
+- focus on the affected screen/section/components;
+- preserve functionality and contracts unless the request changes them;
+- do not trace backend/persistence unless rendered behavior depends on it;
+- use the `frontend-design` skill when available;
+- use HERA's brand and product character as constraints, not as a ceiling on design quality.
 
-Existing screens are references for:
-
-- brand;
-- product conventions;
-- behavior.
-
-They are not layouts that must be mechanically copied.
+Existing HERA screens are references for brand, behavior and strong patterns. They are not layouts that must be mechanically copied.
 
 Do not preserve weak visual decisions merely because they already exist.
 
-Within the requested scope, visual work may substantially improve:
+### HERA visual character
 
-- composition;
-- hierarchy;
-- layout;
-- spacing;
-- typography;
-- density;
-- grouping;
-- surfaces;
-- CTA prominence;
-- information prioritization;
-- responsive composition;
-- interaction feedback.
+HERA should feel calm, trustworthy, contemporary, intentionally designed and premium without becoming ornamental.
 
-Prefer purposeful composition over adding decoration.
+Public-facing surfaces may feel more editorial; authenticated product UI should remain clear, efficient and product-focused.
 
-Avoid generic AI-looking design patterns such as excessive:
+Favor:
 
-- cards;
-- pills;
-- gradients;
-- floating containers;
-- borders;
-- shadows;
-- decorative icons;
-- unnecessary section fragmentation.
+- warm neutral space;
+- restrained sage/green surfaces;
+- strong display typography for important public headings;
+- clean sans-serif product typography;
+- deliberate whitespace;
+- limited, purposeful borders and shadows;
+- real product UI or meaningful imagery when demonstrating HERA.
 
-Do not add visual novelty merely to appear creative.
+Do not interpret healthcare as sterile white-and-blue SaaS. Do not interpret premium as excessive gradients, glassmorphism or decoration.
 
-### Visual Verification
+### Composition
 
-Do not judge visual quality only from source code.
+Prefer:
 
-When an appropriate runtime/browser is available:
+- one dominant visual idea per section;
+- one clearly dominant CTA when applicable;
+- strong hierarchy before decoration;
+- readable content widths;
+- coherent grouping without wrapping every group in a card;
+- asymmetric/editorial composition when it improves hierarchy;
+- large, useful product imagery when explaining value.
 
-1. render the affected surface;
-2. inspect the real result;
-3. identify the most important visual or interaction weaknesses;
-4. refine them;
-5. inspect the changed result again.
+Avoid excessive cards, pills, gradients, floating containers, borders, shadows, decorative icons and unnecessary section fragmentation.
 
-Prefer a small number of purposeful visual iterations over extensive architectural analysis.
+### Public web direction
 
-Check only the relevant supported viewport/theme variants for the affected surface.
+For landing pages, the public directory, public profiles and professional/clinic marketing surfaces, desktop web is a first-class design target.
 
-Do not redesign unrelated screens.
+Do not design desktop as a stretched mobile layout.
+
+On desktop:
+
+- constrain content width instead of filling the viewport;
+- keep long copy reasonably narrow;
+- use whitespace as part of the composition;
+- use two-column compositions when a strong visual/product preview benefits the section;
+- make the primary action understandable within a few seconds;
+- prefer a clear page narrative over showing every capability at once.
+
+On mobile, preserve the same hierarchy rather than merely stacking every desktop block.
+
+### Tokens, typography and responsive layout
+
+Prefer existing `ThemeContext`, `spacing`, `borderRadius`, `layout`, typography and shared primitives where they express the intended design.
+
+Do not hardcode brand colors when a suitable theme token exists.
+
+Exact local dimensions are acceptable when they express deliberate composition and no suitable token exists. Do not create a global token for every one-off value.
+
+When a touched area introduces another repeated responsive threshold, prefer an existing/shared breakpoint over a new magic number. Do not refactor unrelated screens solely to standardize breakpoints.
+
+Use display typography for major editorial headings and sans-serif typography for body/product UI. Avoid arbitrary font sizes when an existing semantic scale or nearby strong HERA reference expresses the intended hierarchy.
 
 ---
 
-## 4. Functional Frontend Work
+## 4. Visual quality bar and verification
 
-For changes involving behavior, data, navigation or API interactions:
+A visual task is not complete merely because the requested elements exist, function and use theme tokens.
+
+For substantial visual work:
+
+1. inspect the current rendered surface;
+2. inspect 2-3 relevant high-quality HERA references;
+3. identify the intended focal point and primary action;
+4. identify the most important hierarchy/composition weaknesses;
+5. implement the change;
+6. inspect the rendered result;
+7. perform at least one focused refinement pass.
+
+Before completion, verify:
+
+- clear visual hierarchy;
+- correct HERA typography;
+- balanced spacing and density;
+- appropriate content width/alignment;
+- obvious primary action when applicable;
+- coherent grouping;
+- sensible use of available screen space;
+- no unnecessary empty space or excessive scrolling;
+- no generic/default third-party styling when supported customization exists;
+- no element noticeably weaker or inconsistent with the surrounding product.
+
+Functional correctness and correct token usage alone are not sufficient visual acceptance criteria.
+
+When embedding customizable third-party UI, adapt supported typography, colors, spacing, borders and controls to HERA without unsupported hacks.
+
+---
+
+## 5. Functional frontend work
+
+For behavior, data, navigation or API changes:
 
 - start from the user's entry point;
-- follow the relevant action through component/screen, domain service and server response;
-- inspect the backend contract when behavior depends on backend data or rules;
+- follow the relevant action through screen/component, domain service and server response;
+- inspect the backend contract when behavior depends on backend data/rules;
 - preserve navigation and state consistency;
 - connect every required action to real behavior.
 
-For affected asynchronous flows, handle relevant cases such as:
+Handle only relevant asynchronous states such as loading, failure, retry, stale responses, duplicate submission, changed selections, refresh/invalidation and persisted state after reload.
 
-- loading;
-- failure;
-- retry;
-- stale responses;
-- duplicate submission;
-- changed selections;
-- refresh/invalidation;
-- persisted state after reload.
+Do not introduce elaborate state machinery for theoretical scenarios.
 
-Only handle cases that are relevant to the actual flow.
+Check the primary path and important recovery/failure path.
 
-Do not introduce elaborate state machinery for theoretical scenarios that cannot realistically occur.
-
-Check the primary path and the important recovery/failure path.
+For mixed work, establish correct behavior first, then evaluate and refine the rendered product surface. Functional correctness does not excuse poor presentation; visual polish does not excuse broken behavior.
 
 ---
 
-## 5. Mixed Functional + Visual Work
+## 6. Interaction, accessibility, performance and public web
 
-When a feature changes both behavior and presentation:
-
-1. establish the correct functional flow;
-2. preserve the relevant backend contract and state behavior;
-3. then evaluate the rendered result as a visual product surface;
-4. refine the affected experience without expanding the scope.
-
-Functional correctness does not excuse poor presentation.
-
-Visual polish does not excuse broken state or integration behavior.
-
----
-
-## 6. Design and Interaction Quality
-
-HERA should feel:
-
-- calm;
-- clear;
-- trustworthy;
-- polished;
-- contemporary;
-- intentionally designed.
-
-Maintain a coherent hierarchy and make the most important action or information visually obvious.
-
-When relevant, represent:
-
-- loading;
-- empty;
-- success;
-- error;
-- disabled;
-- retry states.
+When relevant, represent loading, empty, success, error, disabled and retry states.
 
 Forms should communicate submission state, prevent harmful duplicate actions and show useful safe errors.
 
-Preserve:
+Preserve keyboard access, visible focus, accessible labels/names, contrast, usable touch targets, reduced-motion preferences and light/dark behavior where supported.
 
-- keyboard access;
-- visible focus;
-- accessible labels/names;
-- contrast;
-- usable touch targets;
-- reduced-motion preferences when motion is introduced.
+Avoid without evidence or clear benefit: repeated API calls, eager heavy imports, unnecessary rerenders, continuous animation and large client-side payloads.
 
-Maintain light/dark behavior where supported.
-
-For responsive work, verify the layouts materially affected by the change rather than every possible viewport.
-
----
-
-## 7. Performance and Public Web
-
-Avoid without evidence or clear benefit:
-
-- repeated API calls;
-- eager heavy imports;
-- unnecessary rerenders;
-- continuous animation;
-- large client-side payloads.
-
-Do not micro-optimize without evidence.
-
-For public routes, preserve relevant:
-
-- semantic content;
-- metadata;
-- canonicals;
-- crawlability;
-- first-render performance.
+For public routes, preserve relevant semantic content, metadata, canonicals, crawlability and first-render performance.
 
 Do not introduce SEO patterns copied from unrelated frameworks without checking the current Expo web architecture.
 
@@ -215,13 +186,9 @@ Prefer supported file/storage upload flows over Base64 for large assets.
 
 ---
 
-## 8. Verification and Commands
+## 7. Verification and commands
 
-Run commands from `hera-frontend/`.
-
-`package.json` is authoritative.
-
-Common checks:
+Run commands from `hera-frontend/`. `package.json` is authoritative.
 
 | Purpose | Command |
 | --- | --- |
@@ -237,6 +204,8 @@ Choose checks based on the change.
 
 For visual work, rendered inspection is more important than broad automated test execution unless behavior also changed.
 
-For functional work, verify the affected behavior and relevant failure path.
+For functional work, verify affected behavior and the relevant failure path.
+
+For responsive work, verify only materially affected viewport/theme variants.
 
 A successful typecheck or snapshot alone does not prove a usable frontend flow.

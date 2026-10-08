@@ -69,6 +69,6 @@ export function PackageCatalog({ navigation }: { navigation: AppNavigationProp }
       {conflict && editing && <Button variant="secondary" disabled={busy} onPress={() => { setBusy(true); void loadPackageCatalog().then(catalog => { const current = catalog.data.find(row => row.id === editing.id); if (current) { setEditing(current); setOffers(catalog.data); setConflict(false); setError(`Hemos cargado los últimos cambios del bono sin borrar lo que has escrito. Revisa los datos antes de guardar.`); } }).catch(e => setError(getErrorMessage(e, 'No se pudo actualizar la versión.'))).finally(() => setBusy(false)); }}>Cargar últimos cambios sin borrar los míos</Button>}
       <Button loading={busy} onPress={() => void save()}>{editing?.archivedAt ? 'Restaurar y guardar' : 'Guardar bono'}</Button><Button variant="ghost" disabled={busy} onPress={close}>Cerrar</Button>
     </ScrollView></View></Modal>
-    {assigning && <PackageAcquisition offer={assigning} onClose={() => setAssigning(undefined)} onAcquired={() => { setAssigning(undefined); setMessage('Bono asignado. El paciente ya puede usarlo y recibirá la factura por correo.'); }} />}
+    {assigning && <PackageAcquisition offer={assigning} onClose={() => setAssigning(undefined)} onAcquired={row => { setAssigning(undefined); setMessage(row.payment?.required ? 'Bono asignado. El paciente recibirá su factura y podrá pagar para reservar.' : 'Bono asignado. El paciente puede usarlo y recibirá la factura por correo.'); }} />}
   </View>;
 }

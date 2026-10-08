@@ -67,6 +67,7 @@ export interface SpecialistCertificate {
 }
 
 export interface Session {
+  paymentBooking?: { id: string; status: string; totalCents: number; paidAt: string | null; acceptanceDeadline: string | null } | null;
   packageUses?: Array<{ patientPackageId: string; ordinal: number; status: string; patientPackage: { invoice: { id: string; invoiceNumber: string } | null } }>;
   id: string;
   clientId: string;
@@ -278,6 +279,7 @@ export interface GetProfessionalSessionsOptions {
 }
 
 const professionalAgendaItemSchema = z.object({
+  paymentBooking: z.object({ id: z.string(), status: z.string(), totalCents: z.number().int(), paidAt: z.iso.datetime().nullable(), acceptanceDeadline: z.iso.datetime().nullable() }).nullable().optional(),
   id: z.string(),
   client: z.object({
     id: z.string(),

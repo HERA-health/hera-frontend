@@ -1,3 +1,4 @@
+import { SESSION_PAYMENTS_VISIBLE } from '../../config/sessionPayments';
 import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
@@ -50,8 +51,8 @@ import * as analyticsService from '../../services/analyticsService';
 const STRINGS = {
   exportMonth: 'Exportar mes',
   newInvoice: ' Nueva factura',
-  thisMonth: 'Cobrado este mes',
-  thisYear: 'Cobrado este año',
+  thisMonth: 'Cobros menos devoluciones · mes',
+  thisYear: 'Cobros menos devoluciones · año',
   invoicesMonth: 'Facturas emitidas',
   paidInvoicesMonth: 'Facturas pagadas',
   pendingSend: 'Pendientes de envío',
@@ -209,8 +210,8 @@ interface StatCardProps {
 const StatCard: React.FC<StatCardProps> = ({ value, label, sublabel, styles }) => (
   <View style={styles.statCard}>
     <Text style={styles.statValue} numberOfLines={1}>{value}</Text>
-    <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
-    <Text style={styles.statSublabel} numberOfLines={1}>{sublabel}</Text>
+    <Text style={styles.statLabel}>{label}</Text>
+    <Text style={styles.statSublabel}>{sublabel}</Text>
   </View>
 );
 
@@ -842,12 +843,15 @@ export function BillingScreen() {
     }
 
     return (
+      <View style={{ gap: 8 }}>
       <View style={styles.statsRow}>
-        <StatCard value={formatCurrency(summary?.totalThisMonth ?? 0)} label={STRINGS.thisMonth} sublabel={monthFull} styles={styles} />
-        <StatCard value={formatCurrency(summary?.totalThisYear ?? 0)} label={STRINGS.thisYear} sublabel={monthRange} styles={styles} />
+        <StatCard value={summary.refundsAwaitingBankDate ? '—' : formatCurrency(summary.totalThisMonth)} label={STRINGS.thisMonth} sublabel={`${monthFull}\nBruto ${formatCurrency(summary.grossThisMonth)} · Devuelto ${formatCurrency(summary.refundedThisMonth)}`} styles={styles} />
+        <StatCard value={summary.refundsAwaitingBankDate ? '—' : formatCurrency(summary.totalThisYear)} label={STRINGS.thisYear} sublabel={`${monthRange}\nBruto ${formatCurrency(summary.grossThisYear)} · Devuelto ${formatCurrency(summary.refundedThisYear)}`} styles={styles} />
         <StatCard value={String(summary?.invoiceCountThisMonth ?? 0)} label={STRINGS.invoicesMonth} sublabel="Este mes" styles={styles} />
         <StatCard value={String(summary.paidInvoiceCountThisMonth)} label={STRINGS.paidInvoicesMonth} sublabel="Este mes" styles={styles} />
         <StatCard value={String(summary?.pendingCount ?? 0)} label={STRINGS.pendingSend} sublabel="Requieren revisión" styles={styles} />
+      </View>
+      <Text style={styles.statSublabel}>Los importes no descuentan comisiones ni ajustes por disputas y no representan el saldo bancario.{summary.refundsAwaitingBankDate > 0 ? ' Hay devoluciones pendientes de conciliación bancaria; el total se actualizará cuando se verifique su fecha.' : ''}</Text>
       </View>
     );
   };
@@ -889,6 +893,12 @@ export function BillingScreen() {
 
   const getMenuOptions = (invoice: Invoice): Array<{ label: string; onPress: () => void; danger?: boolean }> => {
     const options: Array<{ label: string; onPress: () => void; danger?: boolean }> = [];
+    if (invoice.paymentBookingId) {
+      const bookingId = invoice.paymentBookingId;
+      if (SESSION_PAYMENTS_VISIBLE) options.push({ label: 'Consultar cobro y devoluciones', onPress: () => navigation.navigate('SessionPayment', { bookingId }) });
+      options.push({ label: invoice.sentAt ? STRINGS.resend : 'Reintentar entrega', onPress: () => handleResendInvoice(invoice) });
+      return options;
+    }
     if (invoice.patientPackageId) {
       if (!invoice.sentAt) options.push({ label: 'Reintentar entrega', onPress: () => handleSendInvoice(invoice.id) });
       if (!invoice.paidAt && invoice.total > 0) options.push({ label: STRINGS.markAsPaid, onPress: () => handleMarkAsPaid(invoice) });

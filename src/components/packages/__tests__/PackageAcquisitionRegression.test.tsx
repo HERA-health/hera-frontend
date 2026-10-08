@@ -1,4 +1,5 @@
 import React from 'react';
+jest.mock('../../../services/packagePaymentService', () => ({ storePackagePaymentAccess: jest.fn() }));
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { PackageAcquisition } from '../PackageAcquisition';
 import { PublicPackageOffers } from '../PublicPackageOffers';

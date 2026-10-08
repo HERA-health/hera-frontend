@@ -1,3 +1,4 @@
+import { getPayment, paymentAmount, cancelPayment } from '../../services/sessionPaymentService';
 import { openSessionMeeting } from '../../utils/openSessionMeeting';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -105,9 +106,14 @@ const SessionsScreen: React.FC = () => {
   }, []);
 
   const handleCancelSession = useCallback(async (sessionId: string) => {
+    const bookingId = sessions.find(s => s.id === sessionId)?.paymentBooking?.id;
+    let expectedRefundCents = 0;
+    let message = '¿Seguro que quieres cancelar esta sesión?';
+    if (bookingId) { try { const payment = await getPayment(bookingId, false); expectedRefundCents = payment.cancellationRefundCents; message += ` Se solicitará una devolución de ${paymentAmount(payment.cancellationRefundCents)}.`; } catch { showAppAlert(appAlert, 'Error', 'No se pudo comprobar el importe de devolución. Vuelve a intentarlo.'); return; } }
+
     showAppAlert(appAlert, 
       'Cancelar sesión',
-      '¿Seguro que quieres cancelar esta sesión?',
+      message,
       [
         { text: 'No', style: 'cancel' },
         {
@@ -115,7 +121,7 @@ const SessionsScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await sessionsService.cancelSession(sessionId);
+              if (bookingId) await cancelPayment(bookingId, false, expectedRefundCents); else await sessionsService.cancelSession(sessionId);
               analyticsService.track('session_cancelled', { sessionId });
               showAppAlert(appAlert, 'Sesión cancelada', 'La sesión se ha cancelado correctamente.');
               await loadSessions();
@@ -127,7 +133,7 @@ const SessionsScreen: React.FC = () => {
         },
       ]
     );
-  }, [loadSessions]);
+  }, [loadSessions, sessions, appAlert]);
 
   const handleJoinSession = useCallback(async (sessionId: string) => {
     try {

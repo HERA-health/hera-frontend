@@ -1,6 +1,9 @@
+import { PaymentConditions } from '../../components/payments/PaymentConditions';
+import { storePaymentAccess, type PaymentAcceptance } from '../../services/sessionPaymentService';
 import { PublicPackageOffers } from '../../components/packages/PublicPackageOffers';
 import { PackageCoverage, frozenPackageOptions } from '../../components/packages/PackageCoverage';
 import type { PatientPackage } from '../../services/packageService';
+import { getErrorCode, getErrorMessage } from '../../constants/errors';
 import { formatPrivatePrice } from '../../utils/privateTariff';
 import { loadPublicBookingOptions, type PrivateServiceOption } from '../../services/privateCatalogService';
 import { initialPrivateOption, privateOptionForModality } from '../../utils/privateServiceSelection';
@@ -76,6 +79,7 @@ interface BookingScreenProps {
   navigation: {
     navigate: (screen: string, params?: Record<string, unknown>) => void;
     goBack: () => void;
+    addListener?: (event: 'focus', callback: () => void) => () => void;
   };
 }
 
@@ -254,6 +258,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const acquiredOptions = useRef<PrivateServiceOption[]>([]);
   const [patientPackageId, setPatientPackageId] = useState<string | undefined>(route.params.patientPackageId);
   const [packageRevision, setPackageRevision] = useState(0);
+  const [packagePaymentError, setPackagePaymentError] = useState('');
+  useEffect(() => navigation.addListener?.('focus', () => { setPackageRevision(n => n + 1); setPackagePaymentError(''); }), [navigation]);
   const [consumedIntent, setConsumedIntent] = useState<string>();
   const bookingIntentToken = consumedIntent === route.params.intentToken ? undefined : route.params.intentToken;
   const [selectedOptionId, setSelectedOptionId] = useState<string | undefined>();
@@ -324,6 +330,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const [loading, setLoading] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState<string | null>(null);
+  const [paymentAcceptance, setPaymentAcceptance] = useState<PaymentAcceptance>();
   const [bookingQuote, setBookingQuote] = useState<BookingQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
@@ -422,6 +429,11 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           return;
         }
 
+        if (['PACKAGE_PAYMENT_REQUIRED', 'PACKAGE_PAYMENT_REVIEW'].includes(getErrorCode(error) ?? '')) {
+          setPackagePaymentError(getErrorMessage(error, 'Consulta el pago de tu bono antes de reservar.'));
+          setBookingQuote(null); setQuoteError(null); return;
+        }
+
         const message =
           error instanceof Error
             ? error.message
@@ -439,7 +451,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       isCurrent = false;
     };
   }, [
-    selectedOptionId, patientPackageId,
+    selectedOptionId, patientPackageId, packageRevision,
     quoteRetry,
     availableSessionTypes.length,
     referralBooking,
@@ -481,7 +493,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const canAdvanceBooking = hasSelectedAppointment && quoteReady && !loadingSlots && !slotsError && accountCanBook;
   const primaryActionDisabled = !canAdvanceBooking || loading || (isAnonymousBooking && (!publicContactResult.success || (!!verification && !verificationComplete)));
   const primaryActionLabel =
-    isAnonymousBooking && !verification ? 'Continuar con mi reserva' : isAnonymousBooking && !identityVerified ? 'Verificar y revisar precio' : 'Confirmar cita';
+    isAnonymousBooking && !verification ? 'Continuar con mi reserva' : isAnonymousBooking && !identityVerified ? 'Verificar y revisar precio' : bookingQuote?.payment?.mode === 'ONLINE' ? 'Continuar al pago' : 'Confirmar cita';
   const accountMessage =
     isAuthenticated && !isAuthenticatedClient
       ? 'Esta cuenta no puede reservar citas. Accede con una cuenta de paciente o continúa sin iniciar sesión.'
@@ -509,6 +521,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   );
 
   const selectPackageCoverage = (id: string | undefined, row?: PatientPackage) => {
+    setPackagePaymentError('');
     setPatientPackageId(id);
     const options = row ? frozenPackageOptions(row) : [];
     acquiredOptions.current = options;
@@ -522,6 +535,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const handlePackageAcquired = (row: PatientPackage) => {
     setConsumedIntent(route.params.intentToken);
     setPackageRevision(revision => revision + 1);
+    if (row.payment?.required || row.payment?.issueCode) { navigation.navigate('PackagePayment', { patientPackageId: row.id }); return; }
     if (!isAnonymousBooking) selectPackageCoverage(row.id, row);
   };
 
@@ -578,6 +592,11 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           return;
         }
 
+        if (['PACKAGE_PAYMENT_REQUIRED', 'PACKAGE_PAYMENT_REVIEW'].includes(getErrorCode(error) ?? '')) {
+          setPackagePaymentError(getErrorMessage(error, 'Consulta el pago de tu bono antes de reservar.'));
+          setSlotsError(null); setAvailableSlots([]); return;
+        }
+
         initialSlotRef.current = null;
         const message =
           error instanceof Error
@@ -597,7 +616,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
 
   useEffect(() => {
     if (!selectedOptionId) return;
-    const selectionKey = JSON.stringify([specialistId, selectedDate, selectedOptionId, sessionType, slotDuration, patientPackageId]);
+    const selectionKey = JSON.stringify([specialistId, selectedDate, selectedOptionId, sessionType, slotDuration, patientPackageId, packageRevision]);
     if (loadedSelectionRef.current === selectionKey) return;
     loadedSelectionRef.current = selectionKey;
     const initialDateToLoad = initialDateLoadRef.current;
@@ -607,7 +626,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     } else if (selectedDate) {
       void loadAvailableSlots(selectedDate, { keepTime: selectedSlot?.startTime });
     }
-  }, [specialistId, selectedOptionId, selectedDate, sessionType, slotDuration, patientPackageId, loadAvailableSlots]);
+  }, [specialistId, selectedOptionId, selectedDate, sessionType, slotDuration, patientPackageId, packageRevision, loadAvailableSlots]);
 
   const handleDateSelect = useCallback(
     (date: string) => {
@@ -700,6 +719,9 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       return;
     }
 
+    if (bookingQuote.payment?.mode === 'ONLINE' && (!isAnonymousBooking || identityVerified) && !paymentAcceptance) {
+      showBookingMessage(appAlert, 'Condiciones del pago', 'Indica tu país de residencia, completa los datos fiscales necesarios y acepta las condiciones.'); return;
+    }
     submissionInFlightRef.current = true;
 
     try {
@@ -714,9 +736,13 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       const dateTime = madridDateTime.iso;
 
       if (referralBooking) {
-        const payload = { date: dateTime, duration: slotDuration, type: sessionType, optionId: selectedOptionId, quoteReference: bookingQuote.quoteReference, sessionPhone };
+        const payload = { paymentAcceptance, date: dateTime, duration: slotDuration, type: sessionType, optionId: selectedOptionId, quoteReference: bookingQuote.quoteReference, sessionPhone };
         const { commandKey } = await durableCommandKey('referral-booking', payload);
         const createdSession = await bookGuestReferral(referralBooking.id, referralBooking.access, { ...payload, commandKey });
+        if (createdSession.kind === 'payment') {
+          if (createdSession.accessToken) await storePaymentAccess(createdSession.bookingId, createdSession.accessToken);
+          bookingCompletedRef.current = true; navigation.navigate('SessionPayment', { bookingId: createdSession.bookingId }); return;
+        }
         bookingCompletedRef.current = true;
         setPublicBookingSuccess({ status: createdSession.status, date: selectedDate, time: selectedSlot.startTime, type: sessionType });
         return;
@@ -749,7 +775,11 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           setBookingQuote(quote); setIdentityVerified(true);
           return;
         }
-        const createdSession = await sessionsService.verifyPublicBooking(verification.requestId, verificationCode, bookingQuote.quoteReference);
+        const createdSession = await sessionsService.verifyPublicBooking(verification.requestId, verificationCode, bookingQuote.quoteReference, paymentAcceptance);
+        if (createdSession.kind === 'payment') {
+          if (createdSession.accessToken) await storePaymentAccess(createdSession.bookingId, createdSession.accessToken);
+          bookingCompletedRef.current = true; navigation.navigate('SessionPayment', { bookingId: createdSession.bookingId }); return;
+        }
         bookingCompletedRef.current = true;
         analyticsService.track('session_booked', {
           audience: 'anonymous',
@@ -765,6 +795,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       }
 
       const createdSession = await sessionsService.createSession({
+        paymentAcceptance,
         specialistId,
         optionId: selectedOptionId, patientPackageId,
         quoteReference: bookingQuote.quoteReference,
@@ -775,7 +806,11 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         type: sessionType,
       });
 
-      bookingCompletedRef.current = true;
+      if (createdSession.kind === 'payment') {
+          if (createdSession.accessToken) await storePaymentAccess(createdSession.bookingId, createdSession.accessToken);
+          bookingCompletedRef.current = true; navigation.navigate('SessionPayment', { bookingId: createdSession.bookingId }); return;
+        }
+        bookingCompletedRef.current = true;
       analyticsService.track('session_booked', {
         audience: 'authenticated',
         modality: sessionType === 'IN_PERSON' ? 'in_person' : sessionType === 'PHONE_CALL' ? 'phone' : 'video',
@@ -806,6 +841,11 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
         );
       }, 400);
     } catch (error: unknown) {
+      if (['PACKAGE_PAYMENT_REQUIRED', 'PACKAGE_PAYMENT_REVIEW'].includes(getErrorCode(error) ?? '')) {
+        setPackagePaymentError(getErrorMessage(error, 'Consulta el pago de tu bono antes de reservar.'));
+        setQuoteRetry(v => v + 1);
+        return;
+      }
       const message =
         error instanceof Error
           ? error.message
@@ -817,7 +857,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       setLoading(false);
     }
   }, [
-    selectedOptionId, patientPackageId, sessionPhone, identityVerified,
+    selectedOptionId, patientPackageId, packageRevision, sessionPhone, identityVerified, paymentAcceptance,
     selectedDate,
     selectedSlot,
     appAlert,
@@ -1272,12 +1312,14 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       />
 
       <View style={{ paddingVertical: spacing.md, gap: spacing.md }}>
-        {!isAnonymousBooking && !referralBooking && <PackageCoverage key={`${specialistId}:${packageRevision}`} specialistId={specialistId} optionId={selectedOptionId} value={patientPackageId} initialPackageId={patientPackageId} disabled={loading} onChange={selectPackageCoverage} />}
+        {!isAnonymousBooking && !referralBooking && <PackageCoverage key={`${specialistId}:${packageRevision}`} specialistId={specialistId} optionId={selectedOptionId} value={patientPackageId} initialPackageId={patientPackageId} disabled={loading} onPay={id => navigation.navigate('PackagePayment', { patientPackageId: id })} onChange={selectPackageCoverage} />}
+        {!!packagePaymentError && patientPackageId && <View style={{ gap: 8 }}><Text accessibilityRole="alert" style={{ color: theme.textSecondary }}>{packagePaymentError}</Text><Button variant="secondary" onPress={() => navigation.navigate('PackagePayment', { patientPackageId })}>Consultar pago del bono</Button></View>}
         {!referralBooking && <PublicPackageOffers specialistId={specialistId} anonymous={isAnonymousBooking} intentToken={bookingIntentToken} onAcquired={handlePackageAcquired} onPrivacy={() => navigation.navigate('LegalDocument', { documentKey: 'PRIVACY_POLICY' })} />}
         <PrivateServicePicker options={bookingOptions} modality={sessionType} value={selectedOptionId} disabled={loading} onChange={id => { setSelectedOptionId(id); setOptionsError(''); }} />
         {sessionType === 'PHONE_CALL' && <View style={{ gap: 8 }}><Text style={{ color: theme.textPrimary }}>Tu especialista te llamará al número indicado a la hora de la cita.</Text><TextInput accessibilityLabel="Teléfono para esta cita" value={sessionPhone} onChangeText={setSessionPhone} keyboardType="phone-pad" placeholder="+34 600 000 000" placeholderTextColor={theme.textSecondary} style={{ color: theme.textPrimary, minHeight: 44, borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 12 }} /></View>}
       </View>
 
+      {bookingQuote && (!isAnonymousBooking || identityVerified || referralBooking) && <PaymentConditions key={`${bookingQuote.payment?.termsVersion}:${bookingQuote.payment?.fullInvoiceRequired}`} quote={bookingQuote} value={paymentAcceptance} onChange={setPaymentAcceptance} />}
     </View>
   );
 

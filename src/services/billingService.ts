@@ -10,6 +10,11 @@ import { notifyProfessionalHomeChanged } from './dashboardService';
 // ============================================================================
 
 export interface BillingSummary {
+  grossThisMonth: number;
+  grossThisYear: number;
+  refundedThisMonth: number;
+  refundedThisYear: number;
+  refundsAwaitingBankDate: number;
   totalThisMonth: number;
   totalThisYear: number;
   invoiceCountThisMonth: number;
@@ -18,6 +23,7 @@ export interface BillingSummary {
 }
 
 export interface Invoice {
+  paymentBookingId?: string | null;
   patientPackageId?: string | null;
   id: string;
   specialistId: string;

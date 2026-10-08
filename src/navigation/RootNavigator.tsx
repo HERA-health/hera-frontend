@@ -1,3 +1,4 @@
+import { SESSION_PAYMENTS_VISIBLE } from '../config/sessionPayments';
 import { subscribeLegalUpdate } from '../services/legalEvents';
 import { hasPendingClinicalPinReset, subscribeClinicalPinReset } from '../services/clinicalPinResetIntent';
 import { getCalendarIntent } from '../services/googleCalendarIntent';
@@ -332,6 +333,10 @@ const ProfessionalTariffsRoute = createDeferredLayoutRoute<'ProfessionalTariffs'
   { displayName: 'ProfessionalTariffsRoute', exportName: 'ProfessionalTariffsScreen' }
 );
 
+const PackagePaymentRoute = createDeferredRoute<'PackagePayment'>(() => require('../screens/payments/PackagePaymentScreen'), { displayName: 'PackagePaymentRoute', exportName: 'PackagePaymentScreen' });
+const SessionPaymentRoute = createDeferredRoute<'SessionPayment'>(() => require('../screens/payments/SessionPaymentScreen'), { displayName: 'SessionPaymentRoute', exportName: 'SessionPaymentScreen' });
+const ProfessionalPaymentsRoute = createDeferredLayoutRoute<'ProfessionalPayments'>(() => require('../screens/payments/ProfessionalPaymentsScreen'), { displayName: 'ProfessionalPaymentsRoute', exportName: 'ProfessionalPaymentsScreen' });
+
 const ProfessionalBillingRoute = createDeferredLayoutRoute<'ProfessionalBilling'>(
   () => require('../screens/professional/BillingScreen'),
   { displayName: 'ProfessionalBillingRoute', exportName: 'BillingScreen' }
@@ -639,6 +644,7 @@ export function RootNavigator() {
         <Stack.Group navigationKey="guest">
           {pendingPinReset ? <Stack.Screen name="ClinicalPinReset" component={ClinicalPinResetRoute} /> : null}
           <Stack.Screen name="Landing" component={LandingPage} />
+          {SESSION_PAYMENTS_VISIBLE && <><Stack.Screen name="SessionPayment" component={SessionPaymentRoute} /><Stack.Screen name="PackagePayment" component={PackagePaymentRoute} /></>}
           <Stack.Screen name="GoogleCalendarIntegration" component={GoogleCalendarIntegrationRoute} />
           <Stack.Screen name="GoogleCalendarSession" component={GoogleCalendarSessionRoute} />
           <Stack.Screen
@@ -986,6 +992,8 @@ export function RootNavigator() {
             options={{ headerTitle: 'Agenda' }}
           />
           <Stack.Screen name="ProfessionalTariffs" component={ProfessionalTariffsRoute} options={{ headerTitle: 'Servicios y bonos' }} />
+          {SESSION_PAYMENTS_VISIBLE && <><Stack.Screen name="SessionPayment" component={SessionPaymentRoute} /><Stack.Screen name="PackagePayment" component={PackagePaymentRoute} /></>}
+          {SESSION_PAYMENTS_VISIBLE && <Stack.Screen name="ProfessionalPayments" component={ProfessionalPaymentsRoute} />}
           <Stack.Screen
             name="ProfessionalBilling"
             component={ProfessionalBillingRoute}
@@ -1170,6 +1178,7 @@ export function RootNavigator() {
             headerShown: false,
           }}
         />
+        {SESSION_PAYMENTS_VISIBLE && <><Stack.Screen name="SessionPayment" component={SessionPaymentRoute} /><Stack.Screen name="PackagePayment" component={PackagePaymentRoute} /></>}
         <Stack.Screen
           name="Sessions"
           component={SessionsRoute}

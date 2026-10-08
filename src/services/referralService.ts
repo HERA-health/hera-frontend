@@ -1,6 +1,7 @@
+import type { PaymentAcceptance } from './sessionPaymentService';
 import api from './api';
 import { buildMultipartFormData, type UploadAsset } from '../utils/multipartUpload';
-import type { BookingQuote, SessionStatus, SessionType } from './sessionsService';
+import type { BookingQuote, BookingResult, SessionStatus, SessionType } from './sessionsService';
 
 export type ReferralStatus = 'DRAFT' | 'PENDING_PATIENT' | 'PENDING_RECIPIENT' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED' | 'EXPIRED';
 export type ReferralPurpose = 'TRANSFER' | 'COMPLEMENTARY';
@@ -44,4 +45,4 @@ export const uploadReferralDocument = async (id: string, revision: number, file:
 export const removeReferralDocument = async (id: string, documentId: string, revision: number, access: ReferralAccess) => api.delete(`${path(id, access)}/documents/${encodeURIComponent(documentId)}`, { data: { revision }, headers: referralHeaders(access) });
 export const downloadReferralDocument = async (id: string, documentId: string, access: ReferralAccess): Promise<ArrayBuffer> => (await api.get(`${path(id, access)}/documents/${encodeURIComponent(documentId)}`, { responseType: 'arraybuffer', headers: referralHeaders(access) })).data;
 export const getReferralBookingQuote = async (id: string, access: ReferralAccess, input: { type: SessionType; duration: number; optionId?: string }): Promise<BookingQuote> => (await api.post(`${path(id, access)}/booking/quote`, input, { headers: referralHeaders(access) })).data;
-export const bookGuestReferral = async (id: string, access: ReferralAccess, input: { type: SessionType; duration: number; date: string; optionId?: string; quoteReference?: string; sessionPhone?: string; commandKey?: string }): Promise<{ id: string; status: SessionStatus }> => (await api.post(`${path(id, access)}/booking/create`, input, { headers: referralHeaders(access) })).data;
+export const bookGuestReferral = async (id: string, access: ReferralAccess, input: { paymentAcceptance?: PaymentAcceptance; type: SessionType; duration: number; date: string; optionId?: string; quoteReference?: string; sessionPhone?: string; commandKey?: string }): Promise<BookingResult> => (await api.post(`${path(id, access)}/booking/create`, input, { headers: referralHeaders(access) })).data;

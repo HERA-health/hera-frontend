@@ -191,6 +191,9 @@ export type RootStackParamList = {
     initialTab?: ProfessionalProfileTab;
     initialSection?: ProfessionalProfileSection;
   } | undefined;
+  ProfessionalPayments: undefined;
+  SessionPayment: { bookingId: string };
+  PackagePayment: { patientPackageId: string };
   ProfessionalBilling: { initialSection?: ProfessionalBillingSection } | undefined;
   CreateInvoice: {
     invoiceId?: string;
@@ -343,6 +346,7 @@ export interface ProfessionalStats {
  * Session from professional's perspective
  */
 export interface ProfessionalSession {
+  paymentBooking?: { id: string; status: string; totalCents: number; paidAt: string | null; acceptanceDeadline: string | null } | null;
   packageUses?: Array<{ patientPackageId: string; ordinal: number; status: string }>;
   privateOptionId?: string | null;
   bookedPrivateServiceName?: string | null;

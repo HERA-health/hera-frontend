@@ -1,3 +1,6 @@
+import { SESSION_PAYMENTS_VISIBLE } from '../../config/sessionPayments';
+import { useNavigation } from '@react-navigation/native';
+import type { AppNavigationProp } from '../../constants/types';
 import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
@@ -108,6 +111,7 @@ export function AppointmentDetailSheet({
   onOpenInvoice,
 }: AppointmentDetailSheetProps): React.ReactElement | null {
   const { theme } = useTheme();
+  const navigation = useNavigation<AppNavigationProp>();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const detail = mode === 'clinic-admin' ? clinicSession : professionalSession;
   const statusThemeKey = detail ? getSessionStatusThemeKey(detail.status) : null;
@@ -273,6 +277,7 @@ export function AppointmentDetailSheet({
                   ) : null}
                 </Section>
 
+                {SESSION_PAYMENTS_VISIBLE && professionalSession?.paymentBooking && <Button variant="outline" onPress={() => { onClose(); navigation.navigate('SessionPayment', { bookingId: professionalSession.paymentBooking!.id }); }}>Ver cobro, devoluciones y documentos</Button>}
                 <Section title="Precio" icon="cash-outline">
                   <InfoRow label="Importe" value={formatMoney(priceAmount, priceCurrency ?? 'EUR')} />
                   <InfoRow

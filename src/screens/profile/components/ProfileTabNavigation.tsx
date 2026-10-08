@@ -1,3 +1,4 @@
+import { SESSION_PAYMENTS_VISIBLE } from '../../../config/sessionPayments';
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -33,7 +34,7 @@ export const ProfileTabNavigation: React.FC<ProfileTabNavigationProps> = ({
   if (isDesktop) {
     return (
       <View style={styles.desktopWrap}>
-        {tabs.map((tab) => {
+        {tabs.filter(tab => tab.id !== 'payment' || SESSION_PAYMENTS_VISIBLE).map((tab) => {
           const active = activeTab === tab.id;
 
           return (
@@ -70,7 +71,7 @@ export const ProfileTabNavigation: React.FC<ProfileTabNavigationProps> = ({
 
   return (
     <View style={styles.mobileWrap}>
-      {tabs.map((tab) => {
+      {tabs.filter(tab => tab.id !== 'payment' || SESSION_PAYMENTS_VISIBLE).map((tab) => {
         const active = activeTab === tab.id;
 
         return (

@@ -1,3 +1,4 @@
+import type { PaymentAcceptance, PaymentRequired } from './sessionPaymentService';
 import { api } from './api';
 import { getErrorCode, getErrorMessage } from '../constants/errors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -44,6 +45,7 @@ export interface ClientSessionSpecialist {
 }
 
 export interface ClientSession {
+  paymentBooking?: { id: string; status: string; totalCents: number; paidAt: string | null; acceptanceDeadline: string | null } | null;
   id: string;
   date: string;
   duration: number;
@@ -65,6 +67,7 @@ interface ApiResponse<T> {
 }
 
 interface CreateSessionRequest {
+  paymentAcceptance?: PaymentAcceptance;
   patientPackageId?: string; optionId?: string; quoteReference?: string; commandKey?: string; sessionPhone?: string;
   intentToken?: string;
   specialistId: string;
@@ -99,6 +102,7 @@ interface CreatePublicSessionRequest {
   privacyVersion: string;
 }
 
+export type BookingResult = (CreatedSession & { kind?: 'session' }) | PaymentRequired;
 export interface CreatedSession {
   id: string;
   status: SessionStatus;
@@ -115,6 +119,7 @@ export interface PublicCreatedSession {
 }
 
 export interface BookingQuote {
+  payment?: { mode: 'ONLINE' | 'EXTERNAL' | 'FREE' | 'PACKAGE'; available: boolean; termsVersion: string; fullInvoiceRequired: boolean };
   additionalChargeCents?: number;
   coverage?: { patientPackageId: string; name: string; ordinal: number; balance: { total: number; reserved: number; consumed: number; available: number } } | null;
   serviceId?: string; serviceName?: string;
@@ -152,10 +157,10 @@ export const getAvailableSlots = async (
 /**
  * Create a new session booking
  */
-export const createSession = async (sessionData: CreateSessionRequest): Promise<CreatedSession> => {
+export const createSession = async (sessionData: CreateSessionRequest): Promise<BookingResult> => {
   try {
     const { commandKey } = await durableCommandKey('private-booking', sessionData);
-    const response = await api.post<ApiResponse<CreatedSession>>('/sessions', { ...sessionData, commandKey });
+    const response = await api.post<ApiResponse<BookingResult>>('/sessions', { ...sessionData, commandKey });
     if (!response.data.data) {
       throw new Error('No se pudo crear la cita');
     }
@@ -300,9 +305,9 @@ export const requestPublicBooking = async (input: CreatePublicSessionRequest, at
 export const verifyPublicBookingQuote = async (requestId: string, code: string): Promise<BookingQuote> =>
   (await api.post<{ data: { quote: BookingQuote } }>('/hera-commissions/public-requests/verify', { requestId, code })).data.data.quote;
 
-export const verifyPublicBooking = async (requestId: string, code: string, quoteReference?: string) => {
+export const verifyPublicBooking = async (requestId: string, code: string, quoteReference?: string, paymentAcceptance?: PaymentAcceptance) => {
   try {
-    return (await api.post<{ data: PublicCreatedSession }>('/hera-commissions/public-requests/verify', { requestId, code, quoteReference })).data.data;
+    return (await api.post<{ data: BookingResult }>('/hera-commissions/public-requests/verify', { requestId, code, quoteReference, paymentAcceptance })).data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo confirmar la cita. Intenta de nuevo.'));
   }

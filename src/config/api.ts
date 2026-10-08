@@ -1,8 +1,7 @@
 const DEFAULT_DEV_API_URL = 'http://localhost:3000/api';
 const DEFAULT_PROD_API_URL = 'https://api.health-hera.com/api';
 
-const readEnvUrl = (key: string, fallback: string): string => {
-  const rawValue = process.env[key];
+const readEnvUrl = (rawValue: string | undefined, fallback: string): string => {
   if (typeof rawValue !== 'string') {
     return fallback;
   }
@@ -13,10 +12,11 @@ const readEnvUrl = (key: string, fallback: string): string => {
 
 const ENV = {
   dev: {
-    apiUrl: readEnvUrl('EXPO_PUBLIC_API_URL_DEV', DEFAULT_DEV_API_URL),
+    // Expo only embeds public variables referenced with static dot notation.
+    apiUrl: readEnvUrl(process.env.EXPO_PUBLIC_API_URL_DEV, DEFAULT_DEV_API_URL),
   },
   prod: {
-    apiUrl: readEnvUrl('EXPO_PUBLIC_API_URL', DEFAULT_PROD_API_URL),
+    apiUrl: readEnvUrl(process.env.EXPO_PUBLIC_API_URL, DEFAULT_PROD_API_URL),
   },
 };
 

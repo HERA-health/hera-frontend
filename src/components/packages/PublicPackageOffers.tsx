@@ -8,16 +8,22 @@ import { loadPublicPackages, packagePrice, packageModality, requestPublicPackage
 import { getErrorMessage, getErrorCode } from '../../constants/errors';
 import { LEGAL_DOCUMENT_VERSION } from '../../constants/legal';
 import { PackageBillingFields, emptyPackageBilling } from './PackageBillingFields';
+import { PackagePaymentConditions } from './PackagePaymentConditions';
+import { storePackagePaymentAccess, type PackagePaymentAcceptance } from '../../services/packagePaymentService';
 
 export function PublicPackageOffers({ specialistId, anonymous, intentToken, onPrivacy, onAcquired }: { specialistId: string; anonymous: boolean; intentToken?: string; onPrivacy: () => void; onAcquired?: (row: PatientPackage) => void }) {
   const { theme } = useTheme(); const [offers, setOffers] = useState<PackageOffer[]>([]); const [selected, setSelected] = useState<PackageOffer>();
   const [error, setError] = useState(''); const [message, setMessage] = useState('');
   const [consumedIntent, setConsumedIntent] = useState<string>();
   const effectiveIntent = consumedIntent === intentToken ? undefined : intentToken;
-  const acquired = (row: PatientPackage) => {
+  const acquired = async (row: PatientPackage) => {
+    if (row.paymentAccessToken) {
+      try { await storePackagePaymentAccess(row.id, row.paymentAccessToken); }
+      catch { setError('El bono se ha creado. Recupera el acceso al pago mediante el código de correo.'); }
+    }
     setSelected(undefined);
     setConsumedIntent(intentToken);
-    setMessage('Bono adquirido. Recibirás la factura por correo. La adquisición no reserva un horario.');
+    setMessage(row.payment?.required ? 'Bono creado, pendiente de pago. Continúa para pagar. La adquisición no reserva un horario.' : 'Bono adquirido. Recibirás la factura por correo. La adquisición no reserva un horario.');
     onAcquired?.(row);
   };
   useEffect(() => { let current = true; loadPublicPackages(specialistId).then(rows => { if (current) setOffers(rows); }).catch(e => { if (current) setError(getErrorMessage(e, 'No se pudieron cargar los bonos disponibles.')); }); return () => { current = false; }; }, [specialistId]);
@@ -40,18 +46,21 @@ export function PublicPackageOffers({ specialistId, anonymous, intentToken, onPr
 }
 
 function GuestPackageAcquisition({ offer, specialistId, intentToken, onPrivacy, onClose, onDone }: { offer: PackageOffer; specialistId: string; intentToken?: string; onPrivacy: () => void; onClose: () => void; onDone: (row: PatientPackage) => void }) {
+  const [paymentAcceptance, setPaymentAcceptance] = useState<PackagePaymentAcceptance>();
   const { theme } = useTheme(); const [firstName, setFirstName] = useState(''); const [lastName, setLastName] = useState(''); const [email, setEmail] = useState('');
   const [accepted, setAccepted] = useState(false); const [requestId, setRequestId] = useState<string>(); const [code, setCode] = useState(''); const [quote, setQuote] = useState<PackageQuote>();
   const [billing, setBilling] = useState(emptyPackageBilling);
   const [billingRequired, setBillingRequired] = useState(offer.totalCents > 40000);
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const commandKey = useRef(Crypto.randomUUID());
   const requestSubmission = useRef<PublicPackageRequest | undefined>(undefined);
+  const acquisitionSubmission = useRef<Parameters<typeof acquirePublicPackage> | undefined>(undefined);
   useEffect(() => {
     requestSubmission.current = undefined;
     commandKey.current = Crypto.randomUUID();
   }, [firstName, lastName, email, accepted, billing]);
   const restartVerification = () => {
     setRequestId(undefined); setCode(''); setQuote(undefined);
+    acquisitionSubmission.current = undefined; setPaymentAcceptance(undefined);
     requestSubmission.current = undefined;
     commandKey.current = Crypto.randomUUID();
   };
@@ -66,7 +75,8 @@ function GuestPackageAcquisition({ offer, specialistId, intentToken, onPrivacy, 
       } else if (!quote) {
         setQuote(await quotePublicPackage(requestId, code));
       } else {
-        onDone(await acquirePublicPackage(requestId, code, quote.quoteReference));
+        acquisitionSubmission.current ??= [requestId, code, quote.quoteReference, paymentAcceptance];
+        onDone(await acquirePublicPackage(...acquisitionSubmission.current));
       }
     } catch (e) {
       const errorCode = getErrorCode(e);
@@ -87,12 +97,13 @@ function GuestPackageAcquisition({ offer, specialistId, intentToken, onPrivacy, 
     <Text accessibilityRole="header" style={{ ...text, fontSize: 24, fontFamily: theme.fontHeading }}>{conditions.name}</Text><Text style={text}>{conditions.sessions} sesiones · {packagePrice(conditions.totalCents)}</Text>
     <Text style={text}>{conditions.serviceName} · {conditions.options.map(option => `${packageModality(option.modality)} · ${option.durationMinutes} min`).join(' / ')}</Text>
     {!requestId ? <><TextInput style={field} editable={!busy} accessibilityLabel="Nombre" placeholder="Nombre" placeholderTextColor={theme.textMuted} value={firstName} onChangeText={setFirstName} /><TextInput style={field} editable={!busy} accessibilityLabel="Apellidos" placeholder="Apellidos" placeholderTextColor={theme.textMuted} value={lastName} onChangeText={setLastName} /><TextInput style={field} editable={!busy} accessibilityLabel="Correo electrónico" placeholder="Correo electrónico" placeholderTextColor={theme.textMuted} autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} /><View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}><Switch disabled={busy} accessibilityLabel="Aceptar política de privacidad" value={accepted} onValueChange={setAccepted} /><Button variant="ghost" onPress={onPrivacy}>Política de privacidad</Button></View></> : !quote && <><Text style={text}>Introduce el código que hemos enviado a tu correo.</Text><TextInput accessibilityLabel="Código de verificación" keyboardType="number-pad" maxLength={6} style={field} value={code} onChangeText={setCode} /></>}
-    <Text style={text}>Recibirás una factura al confirmar. Podrás usar el bono desde su adquisición. Sin caducidad ni pagos parciales. No se admiten anulaciones ni devoluciones automatizadas en esta versión.</Text>
+    <Text style={text}>Recibirás una factura al confirmar. {quote?.payment?.mode === 'ONLINE' ? 'Podrás reservar con el bono cuando confirmemos su pago.' : quote?.payment?.mode === 'EXTERNAL' ? 'Puedes usar el bono desde su adquisición y acordar el cobro con tu especialista.' : 'Revisa el modo de pago antes de adquirir el bono.'} Sin caducidad ni pagos parciales. HERA no gestiona anulaciones ni devoluciones del bono desde esta pantalla.</Text>
+    {quote?.payment?.mode === 'ONLINE' && <PackagePaymentConditions key={quote.quoteReference} policy={quote.payment} value={paymentAcceptance} onChange={setPaymentAcceptance} disabled={busy || Boolean(acquisitionSubmission.current)} />}
     {quote?.snapshot.paymentConditions && <Text style={text}>{quote.snapshot.paymentConditions}</Text>}
     {billingRequired && <PackageBillingFields value={billing} onChange={setBilling} disabled={busy || Boolean(requestId)} />}
     {quote?.fiscal && <Text style={text}>Factura para {quote.fiscal.recipient.fiscalName} · {quote.fiscal.recipientEmail}</Text>}
     {!!error && <Text accessibilityRole="alert" style={{ color: theme.error }}>{error}</Text>}
-    <Button loading={busy} disabled={!requestId && !accepted} onPress={() => void run()}>{quote ? 'Solicitar y recibir factura' : requestId ? 'Verificar y revisar condiciones' : 'Verificar mi correo'}</Button>
+    <Button loading={busy} disabled={(!requestId && !accepted) || (quote?.payment?.mode === 'ONLINE' && (!paymentAcceptance || !quote.payment.available))} onPress={() => void run()}>{quote ? quote.payment?.mode === 'ONLINE' ? 'Adquirir y continuar al pago' : 'Solicitar y recibir factura' : requestId ? 'Verificar y revisar condiciones' : 'Verificar mi correo'}</Button>
     {requestId && !quote && <Button variant="ghost" disabled={busy} onPress={restartVerification}>Solicitar un código nuevo</Button>}
     <Button variant="ghost" disabled={busy} onPress={onClose}>Cerrar</Button>
   </ScrollView></View></Modal>;

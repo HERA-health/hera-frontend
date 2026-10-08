@@ -1,3 +1,4 @@
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn() }) }));
 jest.mock('../../professional/SessionMeetingControls', () => ({ SessionMeetingControls: () => null }));
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';

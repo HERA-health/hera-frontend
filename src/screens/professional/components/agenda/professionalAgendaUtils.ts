@@ -171,6 +171,7 @@ export function mapAgendaItem(
     type,
     clientAvatar: session.client.avatar ?? undefined,
     hasInvoice: session.hasInvoice,
+    paymentBooking: session.paymentBooking,
     origin: session.origin,
     privateOptionId: session.privateOptionId,
     bookedPrivateServiceName: session.bookedPrivateServiceName,

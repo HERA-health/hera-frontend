@@ -13,9 +13,10 @@ export function frozenPackageOptions(row: PatientPackage): PrivateServiceOption[
     serviceKey: 'package', priceCents: Math.round(row.snapshot.totalCents / row.snapshot.sessions), currency: 'EUR',
     isActive: true, isPublic: true, isPreferred: false, version: 1, legacyDuration: false, legacyTariffId: null }));
 }
-export function PackageCoverage({ clientId, specialistId, optionId, value, onChange, disabled, initialPackageId }: {
+export function PackageCoverage({ clientId, specialistId, optionId, value, onChange, disabled, initialPackageId, onPay }: {
   clientId?: string; specialistId?: string; optionId?: string; value?: string; initialPackageId?: string; disabled?: boolean;
   onChange: (id: string | undefined, row?: PatientPackage) => void;
+  onPay?: (id: string) => void;
 }) {
   const { theme } = useTheme(); const [rows, setRows] = useState<PatientPackage[]>([]); const [loading, setLoading] = useState(true);
   const [error, setError] = useState(''); const [retry, setRetry] = useState(0); const [chosen, setChosen] = useState(false);
@@ -26,7 +27,8 @@ export function PackageCoverage({ clientId, specialistId, optionId, value, onCha
   }, [clientId, specialistId, retry]);
   useEffect(() => {
     if (loading || chosen || (!optionId && !initialPackageId)) return;
-    const proposed = rows.find(p => p.id === initialPackageId) ?? rows.find(p => p.balance.available > 0 && p.snapshot.options.some(o => o.id === optionId));
+    const eligible = rows.filter(p => clientId || p.payment?.canReserve !== false);
+    const proposed = eligible.find(p => p.id === initialPackageId) ?? eligible.find(p => p.balance.available > 0 && p.snapshot.options.some(o => o.id === optionId));
     if (proposed) { setChosen(true); onChange(proposed.id, proposed); }
   }, [rows, optionId, loading, chosen, initialPackageId, onChange]);
   if (!loading && !error && !rows.length) return null;
@@ -40,7 +42,7 @@ export function PackageCoverage({ clientId, specialistId, optionId, value, onCha
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
       {rows.map(row => {
         const selected = value === row.id;
-        const unavailable = Boolean(disabled || (row.balance.available === 0 && !selected));
+        const unavailable = Boolean(disabled || (!clientId && row.payment?.canReserve === false) || (row.balance.available === 0 && !selected));
         return <AnimatedPressable key={row.id} hoverLift={false} pressScale={0.99} accessibilityState={{ selected, disabled: unavailable }} disabled={unavailable} onPress={() => { setChosen(true); onChange(row.id, row); }} style={{ width: '100%', maxWidth: 420, flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: selected ? theme.primary : theme.border, backgroundColor: selected ? theme.secondaryMuted : theme.bgCard, opacity: unavailable ? 0.55 : 1 }}>
           <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={selected ? theme.primary : theme.textMuted} />
           <View style={{ flex: 1, gap: 6 }}>
@@ -52,6 +54,10 @@ export function PackageCoverage({ clientId, specialistId, optionId, value, onCha
         </AnimatedPressable>;
       })}
     </View>
-    {!!value && <Text style={{ color: theme.textSecondary }}>Incluida en tu bono · reservarás una sesión. No se genera otra factura.</Text>}
+    {!clientId && rows.filter(row => row.payment?.canReserve === false).map(row => <View key={`payment:${row.id}`} style={{ gap: 8 }}>
+      <Text style={{ color: theme.textSecondary }}>{row.snapshot.name}: {row.payment?.issueCode ? 'El cobro necesita revisión. Contacta con tu especialista.' : 'Pendiente de pago. Confirma el cobro antes de reservar.'}</Text>
+      {onPay && <Button variant="secondary" disabled={disabled} onPress={() => onPay(row.id)}>{row.payment?.issueCode ? 'Consultar pago del bono' : row.payment?.checkoutUrl ? 'Continuar pago' : 'Pagar bono'}</Button>}
+    </View>)}
+    {!!value && (clientId || rows.find(row => row.id === value)?.payment?.canReserve !== false) && <Text style={{ color: theme.textSecondary }}>Incluida en tu bono · reservarás una sesión. No se genera otra factura.</Text>}
   </View>;
 }

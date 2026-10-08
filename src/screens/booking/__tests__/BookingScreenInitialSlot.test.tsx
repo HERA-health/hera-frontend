@@ -1,4 +1,7 @@
+jest.mock("@expo/vector-icons", () => ({ Feather: () => null }));
+jest.mock('../../../services/sessionPaymentService', () => ({ storePaymentAccess: jest.fn(), paymentAmount: (cents: number) => `${cents / 100} EUR` }));
 import React from 'react';
+jest.mock('../../../services/packagePaymentService', () => ({ storePackagePaymentAccess: jest.fn() }));
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 
 import { lightTheme } from '../../../constants/theme';
@@ -281,6 +284,23 @@ describe('BookingScreen initial slot preselection', () => {
     await waitFor(() => expect(mockedSessionsService.requestPublicBooking).toHaveBeenCalledTimes(2));
     expect(mockedSessionsService.requestPublicBooking.mock.calls[0][0].intentToken).toBe('guest-intent');
     expect(mockedSessionsService.requestPublicBooking.mock.calls[1][0].intentToken).toBeUndefined();
+  });
+
+  it('requires explicit payment conditions and opens the pending payment instead of showing a booked session', async () => {
+    const quote = await mockedSessionsService.getBookingQuote('specialist-1', 'VIDEO_CALL', 60);
+    mockedSessionsService.getBookingQuote.mockResolvedValue({...quote,payment:{mode:'ONLINE',available:true,termsVersion:'session-payments-2026-10-04',fullInvoiceRequired:false}});
+    mockedSessionsService.getAvailableSlots.mockResolvedValue([{startTime:'10:00',endTime:'11:00',available:true}]);
+    mockedSessionsService.createSession.mockResolvedValue({kind:'payment',id:'payment-1',bookingId:'payment-1',status:'CHECKOUT',expiresAt:'2030-01-01',checkoutUrl:'https://checkout.stripe.com/fixture'});
+    render(<BookingScreen route={route} navigation={navigation}/>);
+    await screen.findByText('Pago y cancelación');
+    fireEvent.press(await screen.findByText('Continuar al pago'));
+    expect(mockedSessionsService.createSession).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByText(/Seleccionar país/));
+    fireEvent.press(screen.getByText('España'));
+    fireEvent.press(screen.getByText(/Acepto estas condiciones de pago y cancelación/));
+    fireEvent.press(screen.getByText('Continuar al pago'));
+    await waitFor(()=>expect(navigation.navigate).toHaveBeenCalledWith('SessionPayment',{bookingId:'payment-1'}));
+    expect(mockedSessionsService.createSession).toHaveBeenCalledWith(expect.objectContaining({paymentAcceptance:{country:'ES',termsVersion:'session-payments-2026-10-04'}}));
   });
 
   it('preselects the initial slot only after it is revalidated as available', async () => {
@@ -619,7 +639,7 @@ describe('BookingScreen initial slot preselection', () => {
     await screen.findByText('Solicitud enviada');
     expect(mockedSessionsService.requestPublicBooking).toHaveBeenCalledTimes(2);
     expect(mockedSessionsService.requestPublicBooking.mock.calls[1][0].date).not.toBe(mockedSessionsService.requestPublicBooking.mock.calls[0][0].date);
-    expect(mockedSessionsService.verifyPublicBooking).toHaveBeenLastCalledWith('replacement-request', '654321', 'fixture-quote');
+    expect(mockedSessionsService.verifyPublicBooking).toHaveBeenLastCalledWith('replacement-request', '654321', 'fixture-quote', undefined);
   });
 
   it('blocks booking from an authenticated non-patient account with a clear notice', async () => {

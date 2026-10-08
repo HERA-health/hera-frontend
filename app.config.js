@@ -12,7 +12,8 @@ export default {
       "expo-secure-store",
       "@react-native-community/datetimepicker",
       "expo-web-browser",
-      "expo-sharing"
+      "expo-sharing",
+        ["@stripe/stripe-react-native", {}]
     ],
     newArchEnabled: true,
     splash: {

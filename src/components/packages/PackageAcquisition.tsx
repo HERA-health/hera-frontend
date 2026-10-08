@@ -6,6 +6,8 @@ import { Button } from '../common/Button';
 import { getErrorMessage, getErrorCode } from '../../constants/errors';
 import { getProfessionalClients, type Client } from '../../services/professionalService';
 import { acquirePackage, quotePackage, packagePrice, packageModality, type PackageOffer, type PackageQuote, type PatientPackage } from '../../services/packageService';
+import { PackagePaymentConditions } from './PackagePaymentConditions';
+import type { PackagePaymentAcceptance } from '../../services/packagePaymentService';
 import { PackageBillingFields, emptyPackageBilling } from './PackageBillingFields';
 
 export function PackageAcquisition({ offer, clientId: presetClientId, specialistId, professional = true, bookingIntentToken, onClose, onAcquired }: {
@@ -16,6 +18,7 @@ export function PackageAcquisition({ offer, clientId: presetClientId, specialist
   const [clientId, setClientId] = useState(presetClientId);
   const [search, setSearch] = useState('');
   const [quote, setQuote] = useState<PackageQuote>();
+  const [paymentAcceptance, setPaymentAcceptance] = useState<PackagePaymentAcceptance>();
   const [billing, setBilling] = useState(emptyPackageBilling);
   const [billingRequired, setBillingRequired] = useState(offer.totalCents > 40000);
   const [paid, setPaid] = useState(false);
@@ -28,7 +31,7 @@ export function PackageAcquisition({ offer, clientId: presetClientId, specialist
   useEffect(() => { setQuote(undefined); submission.current = undefined; command.current = Crypto.randomUUID(); }, [clientId, paid, date, billing]);
   const review = async () => {
     setBusy(true); setError('');
-    try { setQuote(await quotePackage(offer.id, professional ? clientId : undefined, specialistId, billingRequired ? billing : undefined)); }
+    try { setPaymentAcceptance(undefined); setQuote(await quotePackage(offer.id, professional ? clientId : undefined, specialistId, billingRequired ? billing : undefined)); }
     catch (e) {
       if (getErrorCode(e) === 'PACKAGE_BILLING_REQUIRED') setBillingRequired(true);
       setError(getErrorMessage(e, 'No se pudieron consultar las condiciones.'));
@@ -40,7 +43,7 @@ export function PackageAcquisition({ offer, clientId: presetClientId, specialist
     setBusy(true); setError('');
     try {
       const paidAt = professional && paid ? new Date(`${date}T00:00:00`).toISOString() : undefined;
-      submission.current ??= { packageId: offer.id, quoteReference: quote.quoteReference, commandKey: command.current, specialistId, paidAt, bookingIntentToken, billing: billingRequired ? billing : undefined };
+      submission.current ??= { packageId: offer.id, quoteReference: quote.quoteReference, commandKey: command.current, specialistId, paidAt, bookingIntentToken, billing: billingRequired ? billing : undefined, ...(paymentAcceptance ? { paymentAcceptance } : {}) };
       const acquired = await acquirePackage(submission.current, professional ? clientId : undefined);
       onAcquired(acquired);
     } catch (e) {
@@ -70,16 +73,19 @@ export function PackageAcquisition({ offer, clientId: presetClientId, specialist
           <TextInput accessibilityLabel="Buscar paciente" placeholder="Buscar paciente" placeholderTextColor={theme.textMuted} style={field} value={search} onChangeText={setSearch} editable={!busy} />
           {clients.filter(c => (c.displayName ?? c.user?.name ?? '').toLocaleLowerCase().includes(search.toLocaleLowerCase())).slice(0, 15).map(c => <Button key={c.id} variant={clientId === c.id ? 'primary' : 'ghost'} disabled={busy || Boolean(submission.current)} onPress={() => setClientId(c.id)}>{c.displayName ?? c.user?.name ?? 'Paciente'}</Button>)}
         </View>}
-        <Text style={text}>{professional ? 'Al confirmar, se creará la factura y se enviará al paciente por correo. Podrá usar el bono aunque todavía no haya pagado.' : 'Al confirmar, se creará tu factura y la recibirás por correo. Podrás usar el bono aunque todavía no hayas pagado.'}</Text>
+        <Text style={text}>{quote?.payment?.mode === 'ONLINE'
+          ? professional ? 'Al confirmar, se creará la factura y se enviará al paciente. Para reservar por su cuenta deberá tener el cobro confirmado; puedes seguir agendando manualmente.' : 'Al confirmar, se creará tu bono y su factura. Continuarás al pago y podrás reservar cuando confirmemos el cobro.'
+          : quote?.payment?.mode === 'EXTERNAL' ? 'La factura se enviará por correo. El bono puede utilizarse desde su adquisición; acuerda el cobro con el especialista.' : 'Al confirmar, se creará el bono y su factura. Revisa las condiciones y el modo de pago antes de continuar.'}</Text>
         <Text style={{ ...text, color: theme.textSecondary }}>Cada cita reserva una sesión del bono. La sesión se descuenta al completar la cita.</Text>
         <Text style={{ ...text, color: theme.textSecondary }}>El bono no caduca. Una vez confirmado, no se puede anular el bono ni su factura, ni gestionar devoluciones desde HERA.</Text>
         {professional && conditions.totalCents > 0 && <View style={{ gap: 8 }}><View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}><Switch accessibilityLabel="Ya he recibido el pago completo" value={paid} onValueChange={setPaid} disabled={busy || Boolean(submission.current)} /><Text style={{ ...text, flex: 1 }}>Ya he recibido el pago completo</Text></View>{paid && <TextInput accessibilityLabel="Fecha del cobro, año mes día" value={date} onChangeText={setDate} style={field} placeholder="AAAA-MM-DD" editable={!busy && !submission.current} />}</View>}
         {quote?.snapshot.paymentConditions && <Text style={text}>{quote.snapshot.paymentConditions}</Text>}
+        {!professional && quote?.payment?.mode === 'ONLINE' && <PackagePaymentConditions key={quote.quoteReference} policy={quote.payment} value={paymentAcceptance} onChange={setPaymentAcceptance} disabled={busy || Boolean(submission.current)} />}
         {billingRequired && <PackageBillingFields value={billing} onChange={setBilling} disabled={busy || Boolean(submission.current)} />}
         {quote?.fiscal && <Text style={text}>Factura para {quote.fiscal.recipient.fiscalName} · {quote.fiscal.recipientEmail}{quote.fiscal.recipient.fiscalTaxId ? ` · ${quote.fiscal.recipient.fiscalTaxId}` : ''}</Text>}
         {!!error && <Text accessibilityRole="alert" style={{ color: theme.error }}>{error}</Text>}
         {busy && <ActivityIndicator color={theme.primary} />}
-        {quote ? <Button loading={busy} onPress={() => void confirm()}>{professional ? 'Asignar y enviar factura' : 'Solicitar y recibir factura'}</Button> : <Button disabled={professional && !clientId} loading={busy} onPress={() => void review()}>Revisar antes de confirmar</Button>}
+        {quote ? <Button loading={busy} disabled={!professional && quote.payment?.mode === 'ONLINE' && (!paymentAcceptance || !quote.payment.available)} onPress={() => void confirm()}>{professional ? 'Asignar y enviar factura' : quote.payment?.mode === 'ONLINE' ? 'Adquirir y continuar al pago' : 'Solicitar y recibir factura'}</Button> : <Button disabled={professional && !clientId} loading={busy} onPress={() => void review()}>Revisar antes de confirmar</Button>}
         {quote && !!error && !submission.current && <Button variant="ghost" disabled={busy} onPress={() => void review()}>Consultar condiciones actualizadas</Button>}
         <Button variant="ghost" disabled={busy} onPress={onClose}>Cerrar</Button>
       </ScrollView>

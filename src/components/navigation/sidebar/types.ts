@@ -18,7 +18,7 @@ export type UserRole = 'CLIENT' | 'PROFESSIONAL' | 'CLINIC';
  * Supported icon names from Ionicons
  * This provides type safety for icon selection
  */
-export type IconName =
+export type IconName = 'cash' | 'cash-outline'
   | 'swap-horizontal'
   | 'swap-horizontal-outline'
   | 'home'

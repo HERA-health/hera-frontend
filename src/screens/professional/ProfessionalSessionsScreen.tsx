@@ -1,3 +1,4 @@
+import { getPayment, paymentAmount, cancelPayment, type SessionPayment } from '../../services/sessionPaymentService';
 import { openSessionMeeting } from '../../utils/openSessionMeeting';
 import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import { useGeneralRateLimit } from '../../hooks/useGeneralRateLimit';
@@ -487,6 +488,7 @@ export function ProfessionalSessionsScreen() {
           clientId: editingSession.clientId,
           optionId: editingSession.privateOptionId, patientPackageId: editingSession.packageUses?.[0]?.patientPackageId,
           serviceName: editingSession.bookedPrivateServiceName,
+          paidOnline: Boolean(editingSession.paymentBooking),
           date: editingSession.date.toISOString(),
           duration: editingSession.duration,
           type: toSchedulerSessionType(editingSession.type),
@@ -544,7 +546,10 @@ export function ProfessionalSessionsScreen() {
   const handleRejectSession = useCallback(
     async (sessionId: string, clientName: string) => {
       if (processingSessionId) return;
-      showAppAlert(appAlert, 'Rechazar sesión', `¿Seguro que quieres rechazar la sesión con ${clientName}?`, [
+      let cancellationPayment: SessionPayment | undefined;
+      let message = `¿Seguro que quieres rechazar la sesión con ${clientName}?`;
+      try { const detail = await professionalService.getProfessionalSessionDetail(sessionId); if (detail.paymentBooking) { const payment = await getPayment(detail.paymentBooking.id, false); cancellationPayment = payment; message += ` Se solicitará una devolución de ${paymentAmount(payment.cancellationRefundCents)}.`; } } catch { showAppAlert(appAlert, 'Error', 'No se pudo comprobar la devolución. Vuelve a intentarlo.'); return; }
+      showAppAlert(appAlert, 'Rechazar sesión', message, [
         { text: 'No', style: 'cancel' },
         {
           text: 'Sí, rechazar',
@@ -552,7 +557,7 @@ export function ProfessionalSessionsScreen() {
           onPress: async () => {
             try {
               setProcessingSessionId(sessionId);
-              await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
+              if (cancellationPayment) await cancelPayment(cancellationPayment.id, false, cancellationPayment.cancellationRefundCents); else await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
               await refreshAfterMutation();
             } catch {
               showAppAlert(appAlert, 'Error', 'No se pudo rechazar la sesión');
@@ -569,7 +574,10 @@ export function ProfessionalSessionsScreen() {
   const handleCancelSession = useCallback(
     async (sessionId: string, clientName: string) => {
       if (processingSessionId) return;
-      showAppAlert(appAlert, 'Cancelar cita', `¿Seguro que quieres cancelar la cita con ${clientName}?`, [
+      let cancellationPayment: SessionPayment | undefined;
+      let message = `¿Seguro que quieres cancelar la cita con ${clientName}?`;
+      try { const detail = await professionalService.getProfessionalSessionDetail(sessionId); if (detail.paymentBooking) { const payment = await getPayment(detail.paymentBooking.id, false); cancellationPayment = payment; message += ` Se solicitará una devolución de ${paymentAmount(payment.cancellationRefundCents)}.`; } } catch { showAppAlert(appAlert, 'Error', 'No se pudo comprobar la devolución. Vuelve a intentarlo.'); return; }
+      showAppAlert(appAlert, 'Cancelar cita', message, [
         { text: 'No', style: 'cancel' },
         {
           text: 'Sí, cancelar',
@@ -577,7 +585,7 @@ export function ProfessionalSessionsScreen() {
           onPress: async () => {
             try {
               setProcessingSessionId(sessionId);
-              await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
+              if (cancellationPayment) await cancelPayment(cancellationPayment.id, false, cancellationPayment.cancellationRefundCents); else await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
               showAppAlert(appAlert, 'Cita cancelada', 'La cita se ha cancelado correctamente.');
               await refreshAfterMutation();
             } catch {
@@ -666,7 +674,7 @@ export function ProfessionalSessionsScreen() {
         const canJoin = isVideoCallButtonClickable(buttonState);
         const sessionStarted = session.date.getTime() <= currentTime.getTime();
         const sessionEnded = session.date.getTime() + session.duration * 60 * 1000 <= currentTime.getTime();
-        const canModifySession = !sessionStarted && !session.hasInvoice && (actions?.canModifySchedule ?? false);
+        const canModifySession = !sessionStarted && (actions?.canModifySchedule ?? false);
         const canCancelSession = !sessionEnded && (actions?.canCancel ?? true);
         const canJoinSession = Boolean(actions?.canJoinVideo) && canJoin;
 

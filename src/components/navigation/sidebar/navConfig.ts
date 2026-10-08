@@ -7,6 +7,7 @@
 
 import { lightTheme, type Theme } from '../../../constants/theme';
 import { NavigationSection, SidebarTheme } from './types';
+import { SESSION_PAYMENTS_VISIBLE } from '../../../config/sessionPayments';
 
 export const CLIENT_SECTIONS: NavigationSection[] = [
   {
@@ -106,6 +107,9 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
       {
         id: 'tariffs', label: 'Servicios y bonos', icon: 'pricetags-outline', iconActive: 'pricetags', route: 'ProfessionalTariffs', roles: ['PROFESSIONAL'],
       },
+      ...((SESSION_PAYMENTS_VISIBLE ? [{
+        id: 'payments', label: 'Cobros', icon: 'cash-outline', iconActive: 'cash', route: 'ProfessionalPayments', roles: ['PROFESSIONAL'],
+      }] : []) satisfies NavigationSection['items']),
       {
         id: 'billing',
         label: 'Facturación',

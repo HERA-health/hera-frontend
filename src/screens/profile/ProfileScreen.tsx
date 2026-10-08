@@ -25,24 +25,11 @@ import ProfileDatePickerModal from './components/ProfileDatePickerModal';
 import ProfileInformationSection from './components/ProfileInformationSection';
 import ProfilePaymentSection from './components/ProfilePaymentSection';
 import ProfileTabNavigation from './components/ProfileTabNavigation';
-import { formatCardNumber, formatExpiry, formatPhoneNumber } from './profileUtils';
+import { formatPhoneNumber } from './profileUtils';
 import type {
-  CardFormState,
-  PaymentMethod,
   ProfileFormData,
   ProfileLocationData,
-  Transaction,
 } from './types';
-
-const mockPaymentMethod: PaymentMethod | null = null;
-const mockTransactions: Transaction[] = [];
-
-const initialCardForm: CardFormState = {
-  number: '',
-  expiry: '',
-  cvv: '',
-  name: '',
-};
 
 const buildProfileFormData = (user: ReturnType<typeof useAuth>['user']): ProfileFormData => ({
   fullName: user?.name || '',
@@ -77,11 +64,6 @@ const ProfileScreen: React.FC = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(user?.birthDate || new Date(1990, 0, 1));
-
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(mockPaymentMethod);
-  const [transactions] = useState<Transaction[]>(mockTransactions);
-  const [isAddingCard, setIsAddingCard] = useState(false);
-  const [cardForm, setCardForm] = useState<CardFormState>(initialCardForm);
 
   const [locationData, setLocationData] = useState<ProfileLocationData>(buildLocationData);
   const [isSavingLocation, setIsSavingLocation] = useState(false);
@@ -353,62 +335,6 @@ const ProfileScreen: React.FC = () => {
     setShowDatePicker(false);
   }, []);
 
-  const handleAddCard = useCallback(() => {
-    setIsAddingCard(true);
-  }, []);
-
-  const handleCancelAddCard = useCallback(() => {
-    setIsAddingCard(false);
-    setCardForm(initialCardForm);
-  }, []);
-
-  const handleCardFormChange = useCallback((updates: Partial<CardFormState>) => {
-    setCardForm((prev) => ({
-      ...prev,
-      ...updates,
-      number: updates.number !== undefined ? formatCardNumber(updates.number) : prev.number,
-      expiry: updates.expiry !== undefined ? formatExpiry(updates.expiry) : prev.expiry,
-      cvv: updates.cvv !== undefined ? updates.cvv.replace(/\D/g, '').slice(0, 4) : prev.cvv,
-    }));
-  }, []);
-
-  const handleSaveCard = useCallback(() => {
-    const normalizedNumber = cardForm.number.replace(/\s/g, '');
-    if (normalizedNumber.length < 16 || !cardForm.expiry || !cardForm.cvv || !cardForm.name) {
-      showAppAlert(appAlert, 'Error', 'Por favor, completa todos los campos de la tarjeta.');
-      return;
-    }
-
-    const [expiryMonth = '', expiryYear = ''] = cardForm.expiry.split('/');
-    const newCard: PaymentMethod = {
-      id: Date.now().toString(),
-      type: normalizedNumber.startsWith('4') ? 'visa' : 'mastercard',
-      last4: normalizedNumber.slice(-4),
-      expiryMonth,
-      expiryYear,
-      isDefault: true,
-    };
-
-    setPaymentMethod(newCard);
-    setIsAddingCard(false);
-    setCardForm(initialCardForm);
-    showAppAlert(appAlert, 'Tarjeta añadida', 'Tu método de pago se ha guardado correctamente.');
-  }, [cardForm]);
-
-  const handleRemoveCard = useCallback(() => {
-    showAppAlert(appAlert, 'Eliminar tarjeta', '¿Estás seguro de que quieres eliminar este método de pago?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: () => {
-          setPaymentMethod(null);
-          showAppAlert(appAlert, 'Tarjeta eliminada', 'Tu método de pago ha sido eliminado.');
-        },
-      },
-    ]);
-  }, []);
-
   const content = activeTab === 'information' ? (
     <ProfileInformationSection
       user={user}
@@ -432,17 +358,7 @@ const ProfileScreen: React.FC = () => {
       onSaveProfile={handleSaveProfile}
     />
   ) : (
-    <ProfilePaymentSection
-      paymentMethod={paymentMethod}
-      transactions={transactions}
-      isAddingCard={isAddingCard}
-      cardForm={cardForm}
-      onAddCard={handleAddCard}
-      onCancelAddCard={handleCancelAddCard}
-      onSaveCard={handleSaveCard}
-      onRemoveCard={handleRemoveCard}
-      onCardFormChange={handleCardFormChange}
-    />
+    <ProfilePaymentSection />
   );
 
   return (

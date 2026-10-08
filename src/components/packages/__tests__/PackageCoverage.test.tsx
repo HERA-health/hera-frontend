@@ -28,3 +28,21 @@ test('a failed balance request exposes retry and never invents coverage', async 
   fireEvent.press(screen.getByText('Reintentar bonos'));
   await waitFor(() => expect(change).toHaveBeenCalledWith('Bono', expect.objectContaining({ id: 'Bono' })));
 });
+
+test('online unpaid packages are not selected automatically and expose payment outside the agenda', async () => {
+  const unpaid = { ...row('Pendiente', 5), payment: { mode: 'ONLINE' as const, available: true, termsVersion: 'v1', status: 'UNPAID', required: true, canReserve: false, canPay: true, issueCode: null, checkoutUrl: null, paidAt: null, totalCents: 25000 } };
+  load.mockResolvedValue([unpaid]);
+  const change = jest.fn(), pay = jest.fn();
+  render(<PackageCoverage specialistId="specialist" optionId="option" initialPackageId="Pendiente" onChange={change} onPay={pay} />);
+  fireEvent.press(await screen.findByText('Pagar bono'));
+  expect(change).not.toHaveBeenCalled(); expect(pay).toHaveBeenCalledWith('Pendiente');
+  expect(screen.queryByText(/Incluida en tu bono/)).toBeNull();
+});
+
+test('professional manual scheduling can select an unpaid online package', async () => {
+  const unpaid = { ...row('Pendiente', 5), payment: { mode: 'ONLINE' as const, available: true, termsVersion: 'v1', status: 'UNPAID', required: true, canReserve: false, canPay: true, issueCode: null, checkoutUrl: null, paidAt: null, totalCents: 25000 } };
+  load.mockResolvedValue([unpaid]);
+  const change = jest.fn();
+  render(<PackageCoverage clientId="client" specialistId="specialist" optionId="option" onChange={change} />);
+  await waitFor(() => expect(change).toHaveBeenCalledWith('Pendiente', unpaid));
+});

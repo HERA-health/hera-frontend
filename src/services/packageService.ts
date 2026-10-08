@@ -3,6 +3,7 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { api } from './api';
 import type { SessionType } from './sessionsService';
+import type { PackagePaymentAcceptance, PackagePaymentPolicy, PackagePaymentState } from './packagePaymentService';
 
 export interface PackageOption { id: string; modality: SessionType; durationMinutes: number }
 export interface PackageOffer {
@@ -14,6 +15,8 @@ export interface PackageSnapshot {
   options: PackageOption[]; paymentConditions: string | null;
 }
 export interface PatientPackage {
+  payment?: PackagePaymentState;
+  paymentAccessToken?: string;
   id: string; specialistId: string; clientId: string; createdAt: string; snapshot: PackageSnapshot;
   balance: { total: number; consumed: number; reserved: number; available: number };
   invoice: { id: string; invoiceNumber: string; total: number; status: string; paidAt: string | null; sentAt: string | null } | null;
@@ -22,7 +25,7 @@ export interface PatientPackage {
   events?: Array<{ kind: string; createdAt: string; details: { origin?: string; sessionId?: string } }>;
 }
 export interface PackageBilling { billingFullName: string; billingTaxId: string; billingAddress: string; billingPostalCode: string; billingCity: string; billingCountry: string }
-export interface PackageQuote { snapshot: PackageSnapshot; quoteReference: string; expiresAt: string; fiscal: { invoiceKind: string; recipientEmail: string; recipient: { fiscalName: string; fiscalTaxId: string | null; fiscalAddress: string | null } } }
+export interface PackageQuote { payment?: PackagePaymentPolicy; snapshot: PackageSnapshot; quoteReference: string; expiresAt: string; fiscal: { invoiceKind: string; recipientEmail: string; recipient: { fiscalName: string; fiscalTaxId: string | null; fiscalAddress: string | null } } }
 export interface PackageCatalogInput { version: number; name: string; serviceId: string; optionIds: string[]; sessions: number; totalCents: number; isPublic: boolean; restore?: boolean }
 export const loadPackageCatalog = async () => (await api.get<{ data: PackageOffer[]; acquisitionsEnabled: boolean }>('/billing/package-catalog')).data;
 export const savePackageCatalog = async (id: string | undefined, input: PackageCatalogInput) =>
@@ -33,7 +36,7 @@ export const loadPatientPackages = async (clientId?: string) => (await api.get<{
 export const loadPatientPackage = async (id: string) => (await api.get<{ data: PatientPackage }>(`/patient-packages/${encodeURIComponent(id)}`)).data.data;
 const acquisitionPath = (clientId?: string) => clientId ? `/professional/clients/${encodeURIComponent(clientId)}/packages` : '/patient-packages';
 export const quotePackage = async (packageId: string, clientId?: string, specialistId?: string, billing?: PackageBilling) => (await api.post<{ data: PackageQuote }>(`${acquisitionPath(clientId)}/quote`, { packageId, specialistId, billing })).data.data;
-export const acquirePackage = async (input: { packageId: string; quoteReference: string; commandKey: string; specialistId?: string; paidAt?: string; bookingIntentToken?: string; billing?: PackageBilling }, clientId?: string) => (await api.post<{ data: PatientPackage }>(acquisitionPath(clientId), input)).data.data;
+export const acquirePackage = async (input: { packageId: string; quoteReference: string; commandKey: string; specialistId?: string; paidAt?: string; bookingIntentToken?: string; billing?: PackageBilling; paymentAcceptance?: PackagePaymentAcceptance }, clientId?: string) => (await api.post<{ data: PatientPackage }>(acquisitionPath(clientId), input)).data.data;
 export interface PublicPackageRequest {
   packageId: string; specialistId: string; commandKey: string; intentToken?: string;
   patient: { firstName: string; lastName: string; email: string };
@@ -43,8 +46,8 @@ export const requestPublicPackage = async (input: PublicPackageRequest) =>
   (await api.post<{ data: { requestId: string; expiresAt: string } }>('/public/patient-packages/request', input)).data.data;
 export const quotePublicPackage = async (requestId: string, code: string) =>
   (await api.post<{ data: PackageQuote }>('/public/patient-packages/verify', { requestId, code })).data.data;
-export const acquirePublicPackage = async (requestId: string, code: string, quoteReference: string) =>
-  (await api.post<{ data: PatientPackage }>('/public/patient-packages/verify', { requestId, code, quoteReference })).data.data;
+export const acquirePublicPackage = async (requestId: string, code: string, quoteReference: string, paymentAcceptance?: PackagePaymentAcceptance) =>
+  (await api.post<{ data: PatientPackage }>('/public/patient-packages/verify', { requestId, code, quoteReference, paymentAcceptance })).data.data;
 export async function downloadPackageInvoice(id: string) {
   const response = await api.get<ArrayBuffer>(`/patient-packages/${encodeURIComponent(id)}/pdf`, { responseType: 'arraybuffer' });
   if (Platform.OS === 'web') {

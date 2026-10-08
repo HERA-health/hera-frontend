@@ -1,3 +1,4 @@
+import { SESSION_PAYMENTS_VISIBLE } from './src/config/sessionPayments';
 import { PrivacyControls } from './src/components/common/PrivacyControls';
 import { parseDashboardFilters, serializeDashboardFilters } from './src/utils/adminMetricsFilters';
 import { captureClinicalPinResetUrl } from './src/services/clinicalPinResetIntent';
@@ -65,6 +66,11 @@ export const linking: LinkingOptions<RootStackParamList> = {
   },
   config: {
       screens: {
+      ...(SESSION_PAYMENTS_VISIBLE ? {
+        ProfessionalPayments: 'profesional/cobros',
+        SessionPayment: 'pagos/reserva/:bookingId',
+        PackagePayment: 'pagos/bono/:patientPackageId',
+      } : {}),
       ProfessionalTariffs: 'profesional/tarifas',
       GoogleCalendarIntegration: 'integrations/google-calendar',
       GoogleCalendarSession: 'calendar/session/:sessionId',
