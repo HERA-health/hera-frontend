@@ -37,7 +37,7 @@ const schedulerSchema = z.object({
     .refine(isManagedSessionTimeOption, 'Elige una franja horaria de la lista'),
   duration: z.number()
     .int('Elige una duración de la lista')
-    .min(15, 'Elige una duración de la lista').max(240, 'Elige una duración de la lista'),
+    .min(5, 'Elige una duración de la lista').max(240, 'Elige una duración de la lista'),
   type: z.enum(['VIDEO_CALL', 'PHONE_CALL', 'IN_PERSON']),
 });
 

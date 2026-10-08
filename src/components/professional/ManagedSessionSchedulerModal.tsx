@@ -654,6 +654,8 @@ export function ManagedSessionSchedulerModal({
                         setType(option.value);
                         const next = privateOptionForModality(catalogOptions, selectedOption, option.value);
                         setSelectedOptionId(next?.id);
+                        if (next) setDurationValue(String(next.durationMinutes));
+                        setQuoteError('');
                         setTimeEditedManually(true);
                         if (!next) setQuoteError('El servicio o su duración no están disponibles en esta modalidad. Elige una alternativa.');
                         clearBufferConflict();

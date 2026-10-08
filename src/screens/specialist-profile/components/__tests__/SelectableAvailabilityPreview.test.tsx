@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { lightTheme } from '../../../../constants/theme';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import * as sessionsService from '../../../../services/sessionsService';
@@ -30,6 +30,24 @@ describe('SelectableAvailabilityPreview', () => {
   });
 
   afterEach(() => jest.clearAllMocks());
+
+  it('loads the new service duration and ignores a late response from the previous option', async () => {
+    const oldSlot = { startTime: '09:00', endTime: '10:00', available: true };
+    const newSlot = { startTime: '12:05', endTime: '12:10', available: true };
+    let resolveOld: (slots: typeof oldSlot[]) => void = () => {};
+    mockedSessionsService.getAvailableSlots.mockImplementation((_id, _date, optionId) => optionId === 'old'
+      ? new Promise(resolve => { resolveOld = resolve; }) : Promise.resolve([newSlot]));
+    const onSlotChange = jest.fn();
+    const base = { specialistId: 'specialist-1', nextAvailable: '2099-07-29', onSlotChange };
+    const view = render(<SelectableAvailabilityPreview {...base} optionId="old" />);
+    view.rerender(<SelectableAvailabilityPreview {...base} optionId="new" />);
+    await waitFor(() => expect(screen.getByText('12:05')).toBeTruthy());
+    await act(async () => resolveOld([oldSlot]));
+    expect(screen.queryByText('09:00')).toBeNull();
+    fireEvent.press(screen.getByText('12:05'));
+    expect(onSlotChange).toHaveBeenLastCalledWith({ date: '2099-07-29', slot: newSlot });
+    expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledWith('specialist-1', '2099-07-29', 'new');
+  });
 
   it('selects a slot without navigating and deselects it on a second press', async () => {
     const onSlotChange = jest.fn();

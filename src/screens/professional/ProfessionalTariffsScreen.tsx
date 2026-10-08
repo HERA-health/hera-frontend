@@ -11,7 +11,7 @@ import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import { getErrorMessage } from '../../constants/errors';
 import { loadPrivateCatalog, archivePrivateService, savePrivateCatalogSettings, type PrivateServiceCatalog, type PrivateService } from '../../services/privateCatalogService';
 import { formatPrivatePrice } from '../../utils/privateTariff';
-import { ServiceOptionDetails } from './ServiceOptionDetails';
+import { principalPrivateOption } from '../../utils/privateServiceDraft';
 import { PrivateServiceEditor } from './PrivateServiceEditor';
 
 const modalities = [{ type: 'VIDEO_CALL', label: 'Videollamada' }, { type: 'IN_PERSON', label: 'Presencial' }, { type: 'PHONE_CALL', label: 'Teléfono' }] as const;
@@ -113,12 +113,12 @@ export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'Pr
             <View style={[styles.offers, wide && styles.offerColumns, compact && styles.stack]}>
               {modalities.map(modality => {
                 const options = service.options.filter(o => o.modality === modality.type && o.isActive);
-                const main = options.find(o => o.isPreferred) ?? options[0];
+                const main = principalPrivateOption(options);
                 const publicCount = options.filter(o => o.isPublic && !catalog.restrictions[o.modality]).length;
                 return <View key={modality.type} style={compact ? styles.mobileModality : styles.modality}>
                   {!wide && <Text style={styles.small}>{modality.label}</Text>}
                   {main ? <View style={{ gap: 4 }}><Text style={styles.price}>{main.durationMinutes} min · {formatPrivatePrice(main.priceCents)}</Text>
-                    {options.length > 1 && <ServiceOptionDetails options={options} title={`${service.name} · ${modality.label}`} restricted={!!catalog.restrictions[modality.type]} />}
+                    {options.length > 1 && <Text style={styles.small}>Pendiente de simplificación · Revisa el servicio para conservar su opción principal.</Text>}
                     {options.length === 1 && <Text style={styles.small}>{archived ? 'Al restaurar: ' : ''}{!publicCount ? 'Reservas: solo tú' : publicCount === options.length ? 'Reservas: tú y tus pacientes' : `${publicCount} con reserva online`}</Text>}
                   </View> : <Text style={styles.small}>No disponible</Text>}
                 </View>;

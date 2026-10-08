@@ -10,5 +10,7 @@ export function initialPrivateOption(options: PrivateServiceOption[], preferredI
 
 export function privateOptionForModality(options: PrivateServiceOption[], current: PrivateServiceOption | undefined, modality: SessionType) {
   if (!current) return undefined;
-  return options.find(o => o.serviceId === current.serviceId && o.modality === modality && o.durationMinutes === current.durationMinutes);
+  const candidates = options.filter(o => o.serviceId === current.serviceId && o.modality === modality);
+  return candidates.find(o => o.durationMinutes === current.durationMinutes)
+    ?? (candidates.length === 1 ? candidates[0] : undefined);
 }

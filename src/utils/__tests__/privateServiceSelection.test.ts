@@ -15,8 +15,10 @@ test('General is the default; multiple custom services require a choice', () => 
   expect(initialPrivateOption(options.filter(o => o.serviceKey !== 'base'))).toBeUndefined();
   expect(initialPrivateOption(options.filter(o => o.serviceKey === 'mdr'))?.id).toBe('mdr');
 });
-test('modality changes preserve only the same service and duration', () => {
-  expect(privateOptionForModality(options, options[0], 'IN_PERSON')).toBeUndefined();
+test('modality changes use the same duration or the unique alternative within the service', () => {
+  expect(privateOptionForModality(options, options[0], 'IN_PERSON')?.id).toBe('mdr-office');
+  expect(privateOptionForModality([...options, make('other-duration', 'mdr', 'IN_PERSON', 75)], options[0], 'IN_PERSON')).toBeUndefined();
+  expect(privateOptionForModality(options, options[1], 'IN_PERSON')).toBeUndefined();
   const compatible = make('mdr-office-50', 'mdr', 'IN_PERSON');
   expect(privateOptionForModality([...options, compatible], options[0], 'IN_PERSON')?.id).toBe(compatible.id);
 });

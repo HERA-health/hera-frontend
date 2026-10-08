@@ -40,6 +40,8 @@ export interface SimpleDropdownProps<T> {
   onClear?: () => void;
   highlightSelection?: boolean;
   presentation?: 'inline' | 'portal';
+  triggerLabel?: string;
+  keyboardNavigation?: boolean;
 }
 
 interface DropdownAnchor {
@@ -64,6 +66,8 @@ export function SimpleDropdown<T extends string | number>({
   onClear,
   highlightSelection = true,
   presentation = 'inline',
+  triggerLabel,
+  keyboardNavigation = false,
 }: SimpleDropdownProps<T>) {
   const { theme } = useTheme();
   const { height: viewportHeight, width: viewportWidth } = useWindowDimensions();
@@ -71,6 +75,7 @@ export function SimpleDropdown<T extends string | number>({
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<DropdownAnchor | null>(null);
   const triggerRef = React.useRef<AnimatedPressableHandle>(null);
+  const optionRefs = React.useRef<Array<AnimatedPressableHandle | null>>([]);
   const selected = options.find((o) => o.value === value);
   const selectionHighlighted = Boolean(selected && highlightSelection);
 
@@ -81,6 +86,10 @@ export function SimpleDropdown<T extends string | number>({
       setTimeout(() => triggerRef.current?.focus(), 0);
     }
   }, []);
+
+  React.useEffect(() => {
+    if (disabled && open) closeDropdown();
+  }, [disabled, open, closeDropdown]);
 
   const measureTrigger = React.useCallback((): void => {
     const trigger = triggerRef.current;
@@ -137,6 +146,15 @@ export function SimpleDropdown<T extends string | number>({
     return { left, top, width, maxHeight: resolvedMaxHeight };
   }, [anchor, maxHeight, options.length, optionsAlign, optionsMinWidth, presentation, viewportHeight, viewportWidth]);
 
+  React.useEffect(() => {
+    if (!open || !keyboardNavigation || Platform.OS !== 'web' || (presentation === 'portal' && !portalLayout)) return;
+    const timer = setTimeout(() => {
+      const index = Math.max(0, options.findIndex(option => option.value === value));
+      optionRefs.current[index]?.focus();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [open, keyboardNavigation, portalLayout, presentation, options, value]);
+
   const renderOptions = (portal: boolean): React.ReactElement => (
     <View
       testID={accessibilityLabel ? `${accessibilityLabel}-options` : undefined}
@@ -149,7 +167,7 @@ export function SimpleDropdown<T extends string | number>({
       ]}
     >
       <VisibleScrollView nestedScrollEnabled bounces={false} contentContainerStyle={dropdownStyles.optionsContent}>
-        {options.map((opt) => {
+        {options.map((opt, index) => {
           const active = opt.value === value;
           const indicatorRole = selectionIndicator === 'checkbox'
             ? 'checkbox'
@@ -160,6 +178,15 @@ export function SimpleDropdown<T extends string | number>({
           return (
             <AnimatedPressable
               key={String(opt.value)}
+              focusRef={ref => { optionRefs.current[index] = ref; }}
+              onKeyDown={event => {
+                if (!keyboardNavigation || !['ArrowDown', 'ArrowUp', 'Home', 'End', 'Tab'].includes(event.key)) return;
+                event.preventDefault();
+                const direction = event.key === 'ArrowUp' || (event.key === 'Tab' && event.shiftKey) ? -1 : 1;
+                const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1
+                  : (index + direction + options.length) % options.length;
+                optionRefs.current[next]?.focus();
+              }}
               disabled={disabled}
               style={active ? [dropdownStyles.option, dropdownStyles.optionActive] : dropdownStyles.option}
               onPress={() => {
@@ -249,14 +276,14 @@ export function SimpleDropdown<T extends string | number>({
             <Text
               style={[
                 dropdownStyles.triggerText,
-                !selected && dropdownStyles.placeholderText,
+                !selected && !triggerLabel && dropdownStyles.placeholderText,
                 selectionHighlighted && dropdownStyles.triggerTextSelected,
               ]}
               numberOfLines={1}
             >
-              {selected ? selected.label : placeholder}
+              {triggerLabel ?? (selected ? selected.label : placeholder)}
             </Text>
-            {selected?.subtitle && (
+            {!triggerLabel && selected?.subtitle && (
               <Text style={dropdownStyles.subtitleText} numberOfLines={1}>
                 {selected.subtitle}
               </Text>

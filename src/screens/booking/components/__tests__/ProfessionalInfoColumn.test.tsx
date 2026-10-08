@@ -53,6 +53,16 @@ describe('ProfessionalInfoColumn', () => {
     jest.clearAllMocks();
   });
 
+  it('updates the selected service duration independently of the specialist default', () => {
+    const props = { specialist: baseSpecialist, booking: baseBooking,
+      availableSessionTypes: [baseBooking.sessionType], onPrimaryAction: jest.fn(), actionLabel: 'Confirmar cita' };
+    const view = render(<ProfessionalInfoColumn {...props} duration={37} />);
+    expect(screen.getByLabelText('Duración: 37 min')).toBeTruthy();
+    view.rerender(<ProfessionalInfoColumn {...props} duration={5} />);
+    expect(screen.getByLabelText('Duración: 5 min')).toBeTruthy();
+    expect(screen.queryByLabelText('Duración: 37 min')).toBeNull();
+  });
+
   it('does not show a fallback price when booking quote failed', () => {
     render(
       <ProfessionalInfoColumn

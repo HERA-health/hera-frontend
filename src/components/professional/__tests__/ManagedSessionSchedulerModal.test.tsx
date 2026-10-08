@@ -958,6 +958,22 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
       expect(mockGetManagedSessionSlotOptions).toHaveBeenCalled();
     });
   });
+  it('updates duration, slots and quote when changing to a modality with a different duration', async () => {
+    const video: PrivateServiceOption = { id: 'video-50', serviceId: 'base', serviceKey: 'base', serviceName: 'General', name: 'General',
+      modality: 'VIDEO_CALL', durationMinutes: 50, priceCents: 5000, currency: 'EUR', isActive: true, isPublic: true,
+      isPreferred: true, version: 1, legacyDuration: false, legacyTariffId: null };
+    const office: PrivateServiceOption = { ...video, id: 'office-5', modality: 'IN_PERSON', durationMinutes: 5, priceCents: 1000 };
+    jest.mocked(loadPrivateCatalog).mockResolvedValueOnce({ version: 1, firstVisitFree: false, restrictions: {}, options: [video, office], services: [
+      { id: 'base', key: 'base', name: 'General', description: null, archivedAt: null, version: 1, options: [video, office] },
+    ] });
+    render(<ManagedSessionSchedulerModal visible clients={[client]} initialClientId="client-1" onClose={jest.fn()} onSubmit={jest.fn(async () => {})} />);
+    await waitFor(() => expect(getManagedBookingQuote).toHaveBeenLastCalledWith(expect.objectContaining({ optionId: video.id, duration: 50 })));
+    fireEvent.press(screen.getByText('Presencial'));
+    await waitFor(() => expect(getManagedBookingQuote).toHaveBeenLastCalledWith(expect.objectContaining({ optionId: office.id, duration: 5, type: 'IN_PERSON' })));
+    expect(screen.getByTestId('managed-session-duration-option-5')).toBeTruthy();
+    await waitFor(() => expect(mockGetManagedSessionSlotOptions).toHaveBeenLastCalledWith(expect.objectContaining({ duration: 5 })));
+  });
+
   it('quotes the chosen custom service even when its duration matches General', async () => {
     const option = (id: string, serviceId: string, serviceName: string): PrivateServiceOption => ({ id, serviceId, serviceKey: serviceId, serviceName, name: serviceName,
       modality: 'VIDEO_CALL', durationMinutes: 60, priceCents: serviceId === 'base' ? 5000 : 8000, currency: 'EUR',

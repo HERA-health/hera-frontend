@@ -4,16 +4,19 @@ import {
   ActivityIndicator,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
 import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
+import { CompactTimeSlotPicker } from '../../../components/common/CompactTimeSlotPicker';
 import { borderRadius, spacing } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { TimeSlot } from '../../../services/sessionsService';
 import { formatMadridDateKey } from '../../../utils/madridTime';
 
 interface TimeSlotsColumnProps {
+  availabilityKey?: string;
   selectedDate: string | null;
   availableSlots: TimeSlot[];
   selectedTime: string | null;
@@ -33,6 +36,7 @@ const formatDate = (dateString: string): string =>
   });
 
 export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
+  availabilityKey = '',
   selectedDate,
   availableSlots,
   selectedTime,
@@ -44,27 +48,11 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
   busy = false,
 }) => {
   const { theme, isDark } = useTheme();
+  const { width } = useWindowDimensions();
   const styles = useMemo(
-    () => createStyles(theme, isDark),
-    [isDark, theme],
+    () => createStyles(theme, isDark, width < 940),
+    [isDark, theme, width],
   );
-  const slotGroups = useMemo(() => {
-    const groups = [
-      { key: 'morning', label: 'Mañana', icon: 'sunny-outline' as const, slots: [] as TimeSlot[] },
-      { key: 'afternoon', label: 'Tarde', icon: 'partly-sunny-outline' as const, slots: [] as TimeSlot[] },
-      { key: 'evening', label: 'Noche', icon: 'moon-outline' as const, slots: [] as TimeSlot[] },
-    ];
-
-    availableSlots.forEach((slot) => {
-      const hour = Number(slot.startTime.split(':')[0]);
-      if (hour < 12) groups[0].slots.push(slot);
-      else if (hour < 18) groups[1].slots.push(slot);
-      else groups[2].slots.push(slot);
-    });
-
-    return groups.filter((group) => group.slots.length > 0);
-  }, [availableSlots]);
-
   const headingSubtitle = selectedDate
     ? formatDate(selectedDate)
     : 'Selecciona primero una fecha';
@@ -120,7 +108,7 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
     );
   }
 
-  if (availableSlots.length === 0) {
+  if (!availableSlots.some(slot => slot.available !== false)) {
     return (
       <View accessibilityState={{ busy, disabled }} style={styles.container}>
         <ColumnHeading subtitle={headingSubtitle} />
@@ -137,74 +125,34 @@ export const TimeSlotsColumn: React.FC<TimeSlotsColumnProps> = ({
     <View accessibilityState={{ busy, disabled }} style={styles.container}>
       <ColumnHeading subtitle={headingSubtitle} />
 
-      <View
-        accessibilityRole="radiogroup"
-        accessibilityLabel="Horarios disponibles"
-        accessibilityState={{ busy, disabled }}
-        style={styles.slotGroups}
-      >
-        {slotGroups.map((group) => (
-          <View key={group.key} style={styles.slotGroup}>
-            <View style={styles.slotGroupHeader}>
-              <View style={styles.slotGroupTitleWrap}>
-                <Ionicons name={group.icon} size={14} color={theme.secondaryDark} />
-                <Text style={styles.slotGroupTitle}>{group.label}</Text>
-              </View>
-              <Text style={styles.slotGroupCount}>
-                {group.slots.filter((slot) => slot.available !== false).length}
-              </Text>
-            </View>
-
-            <View style={styles.slotsGrid}>
-              {group.slots.map((slot) => {
-                const slotUnavailable = slot.available === false;
-                const slotDisabled = disabled || busy || slotUnavailable;
-                const selected = !slotUnavailable && selectedTime === slot.startTime;
-
-                return (
-                  <AnimatedPressable
-                    key={`${slot.startTime}-${slot.endTime}`}
-                    onPress={() => onTimeSelect(slot)}
-                    disabled={slotDisabled}
-                    accessibilityRole="radio"
-                    accessibilityLabel={
-                      slotUnavailable
-                        ? `${slot.startTime}, no disponible`
-                        : `Seleccionar las ${slot.startTime}`
-                    }
-                    accessibilityState={{
-                      checked: selected,
-                      disabled: slotDisabled,
-                    }}
-                    style={[
-                      styles.slotButton,
-                      slotDisabled ? styles.slotButtonDisabled : null,
-                      selected ? styles.slotButtonSelected : null,
-                    ]}
-                  >
-                    <View style={styles.slotButtonCopy}>
-                      <Text
-                        style={[
-                          styles.slotButtonText,
-                          slotDisabled ? styles.slotButtonTextDisabled : null,
-                          selected ? styles.slotButtonTextSelected : null,
-                        ]}
-                      >
-                        {slot.startTime}
-                      </Text>
-                      {slotUnavailable ? (
-                        <Text style={styles.slotUnavailableText}>No disponible</Text>
-                      ) : null}
-                    </View>
-                    {selected ? (
-                      <Ionicons name="checkmark" size={16} color={theme.textOnPrimary} />
-                    ) : null}
-                  </AnimatedPressable>
-                );
-              })}
-            </View>
-          </View>
-        ))}
+      <View accessibilityRole="radiogroup" accessibilityLabel="Horarios disponibles">
+        <CompactTimeSlotPicker
+          slots={availableSlots}
+          selectedTime={selectedTime}
+          resetKey={`${availabilityKey}-${selectedDate}-${availableSlots[0]?.endTime}`}
+          disabled={disabled || busy}
+          onSelect={onTimeSelect}
+          renderSlot={(slot) => {
+            const selected = selectedTime === slot.startTime;
+            return (
+              <AnimatedPressable
+                key={slot.startTime}
+                onPress={() => onTimeSelect(slot)}
+                disabled={disabled || busy}
+                accessibilityRole="radio"
+                accessibilityLabel={`Seleccionar las ${slot.startTime}`}
+                accessibilityState={{ checked: selected, disabled: disabled || busy }}
+                style={[styles.slotButton, (disabled || busy) && styles.slotButtonDisabled, selected && styles.slotButtonSelected]}
+              >
+                <Ionicons name="time-outline" size={16} color={selected ? theme.textOnPrimary : theme.primary} accessible={false} />
+                <Text style={[styles.slotButtonText, (disabled || busy) && styles.slotButtonTextDisabled, selected && styles.slotButtonTextSelected]}>
+                  {slot.startTime}
+                </Text>
+                {selected && <Ionicons name="checkmark" size={16} color={theme.textOnPrimary} />}
+              </AnimatedPressable>
+            );
+          }}
+        />
       </View>
     </View>
   );
@@ -223,7 +171,7 @@ const ColumnHeading: React.FC<{ subtitle: string }> = ({ subtitle }) => {
         <Ionicons name="time-outline" size={17} color={theme.primary} />
       </View>
       <View style={styles.headingCopy}>
-        <Text style={styles.title}>Elige una hora</Text>
+        <Text style={styles.title}>Elige la hora de inicio</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
       </View>
     </View>
@@ -282,10 +230,13 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 const createStyles = (
   theme: ReturnType<typeof useTheme>['theme'],
   isDark: boolean,
+  stacked = false,
 ) =>
   StyleSheet.create({
     container: {
-      flex: 1,
+      flexGrow: 1,
+      flexShrink: 0,
+      flexBasis: stacked ? 'auto' : 0,
       width: '100%',
       minWidth: 0,
       gap: spacing.sm,
@@ -319,42 +270,9 @@ const createStyles = (
       fontSize: 11,
       lineHeight: 16,
     },
-    slotGroups: {
-      gap: spacing.md,
-      paddingBottom: spacing.sm,
-    },
-    slotGroup: {
-      gap: spacing.sm,
-    },
-    slotGroupHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    slotGroupTitleWrap: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-    },
-    slotGroupTitle: {
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansSemiBold,
-      fontSize: 12,
-    },
-    slotGroupCount: {
-      color: theme.textSecondary,
-      fontFamily: theme.fontSansSemiBold,
-      fontSize: 10,
-    },
-    slotsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
     slotButton: {
-      width: '31%',
+      width: '100%',
       minWidth: 0,
-      maxWidth: 150,
       minHeight: 46,
       flexGrow: 0,
       flexShrink: 1,
@@ -377,12 +295,6 @@ const createStyles = (
       borderColor: theme.primary,
       backgroundColor: theme.primary,
     },
-    slotButtonCopy: {
-      flexShrink: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      minWidth: 0,
-    },
     slotButtonText: {
       color: theme.textPrimary,
       fontFamily: theme.fontSansSemiBold,
@@ -393,13 +305,6 @@ const createStyles = (
     },
     slotButtonTextSelected: {
       color: theme.textOnPrimary,
-    },
-    slotUnavailableText: {
-      marginTop: 1,
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
-      fontSize: 9,
-      lineHeight: 12,
     },
     emptyState: {
       minHeight: 190,

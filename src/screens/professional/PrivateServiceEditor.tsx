@@ -1,6 +1,6 @@
 import { formatPrivatePrice, parsePrivatePrice } from '../../utils/privateTariff';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import axios from 'axios';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -8,28 +8,16 @@ import { borderRadius, spacing } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
 import type { ScreenProps } from '../../constants/types';
 import { Button } from '../../components/common/Button';
+import { AnimatedPressable } from '../../components/common/AnimatedPressable';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { getErrorMessage } from '../../constants/errors';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
-import { savePrivateService, type PrivateServiceCatalog, type PrivateServiceOption, type PrivateService } from '../../services/privateCatalogService';
-import type { SessionType } from '../../services/sessionsService';
+import { savePrivateService, type CatalogOptionInput, type PrivateServiceCatalog, type PrivateService } from '../../services/privateCatalogService';
+import { PRIVATE_MODALITIES, makePrivateServiceDraft, hasSharedPrivateValues, needsPrivateServiceSimplification,
+  parsePrivateDuration, type PrivateServiceDraftOption } from '../../utils/privateServiceDraft';
 
-const MODALITIES = [
-  { type: 'VIDEO_CALL', label: 'Videollamada', icon: 'videocam-outline' },
-  { type: 'IN_PERSON', label: 'Presencial', icon: 'location-outline' },
-  { type: 'PHONE_CALL', label: 'Teléfono', icon: 'call-outline' },
-] as const;
-type DraftOption = PrivateServiceOption & { priceText: string; isNew?: boolean; visibilityChosen?: boolean };
-const visibility = [{ value: 'public', label: 'Tú y tus pacientes' }, { value: 'private', label: 'Solo tú' }, { value: 'off', label: 'Opción desactivada' }] as const;
-const makeDraft = (catalog: PrivateServiceCatalog): DraftOption[] => {
-  const options = catalog.options.map(o => ({ ...o, priceText: String(o.priceCents / 100).replace('.', ',') }));
-  return [...options, ...MODALITIES.filter(m => !options.some(o => o.modality === m.type)).map(m => newOption(m.type, 60))];
-};
-const newOption = (modality: SessionType, durationMinutes: number): DraftOption => ({
-  id: `new:${modality}:${durationMinutes}`, serviceId: '', name: 'Sesión individual', modality, durationMinutes,
-  priceCents: 0, priceText: '', currency: 'EUR', isActive: false, isPublic: false, isPreferred: false,
-  version: 0, legacyDuration: false, legacyTariffId: null, isNew: true,
-});
+const sharedLabel = 'Misma duración y precio para todas las modalidades';
+const visibility = [{ value: 'public', label: 'Tú y tus pacientes' }, { value: 'private', label: 'Solo tú' }] as const;
 
 export function PrivateServiceEditor({ navigation, service, sourceCatalog, onSaved, onClose, onDirtyChange, onSavingChange, onReload }: {
   navigation: Pick<ScreenProps<'ProfessionalTariffs'>['navigation'], 'navigate'>; service: PrivateService | null;
@@ -41,181 +29,229 @@ export function PrivateServiceEditor({ navigation, service, sourceCatalog, onSav
   const alert = useAppAlert();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [width, setWidth] = useState(0);
-  const [catalog] = useState<PrivateServiceCatalog>({ ...sourceCatalog, options: service?.options ?? [], version: service?.version ?? 0 });
   const [name, setName] = useState(service?.name ?? '');
   const [description, setDescription] = useState(service?.description ?? '');
-  const [draft, setDraft] = useState<DraftOption[]>(() => makeDraft(catalog));
-  const free = sourceCatalog.firstVisitFree;
-  const [expanded, setExpanded] = useState<Partial<Record<SessionType, boolean>>>({});
-
-  const [selectedModality, setSelectedModality] = useState<SessionType>('VIDEO_CALL');
+  const [draft, setDraft] = useState(() => makePrivateServiceDraft(service?.options ?? []));
+  const [shared, setShared] = useState(() => hasSharedPrivateValues(draft));
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
   const [showErrors, setShowErrors] = useState(false);
   const [conflict, setConflict] = useState(false);
-  const baseline = useRef(JSON.stringify({ draft: makeDraft(catalog), name: service?.name ?? '', description: service?.description ?? '' }));
-  const dirty = JSON.stringify({ draft, name, description }) !== baseline.current;
+  const baseline = useRef(JSON.stringify({ draft, name, description, shared }));
+  const dirty = JSON.stringify({ draft, name, description, shared }) !== baseline.current;
+  const simplify = needsPrivateServiceSimplification(service?.options ?? []);
+  const active = draft.filter(o => o.isActive);
+  const common = active[0] ?? draft[0];
   const wide = width >= 960;
-  const publicOptions = draft.filter(o => o.isActive && o.isPublic && !catalog.restrictions[o.modality] && parsePrivatePrice(o.priceText) !== null);
+  const prices = active.map(o => parsePrivatePrice(o.priceText));
+  const completePrices = prices.filter((p): p is number => p !== null);
+  const previewPrice = active.length && completePrices.length === active.length
+    ? `${new Set(completePrices).size > 1 ? 'Desde ' : ''}${formatPrivatePrice(Math.min(...completePrices))}` : 'Precio pendiente';
   useEffect(() => { onDirtyChange(dirty); }, [dirty, onDirtyChange]);
-  const edit = (id: string, patch: Partial<DraftOption>) => { setMessage(''); setDraft(rows => rows.map(o => o.id === id ? { ...o, ...patch } : o)); };
-  const setVisibility = (option: DraftOption, value: string) => {
-    setMessage('');
-    setDraft(rows => {
-      const others = rows.filter(o => o.modality === option.modality && o.id !== option.id && o.isActive);
-      return rows.map(o => o.id === option.id ? { ...o, visibilityChosen: true, isActive: value !== 'off', isPublic: value === 'public', isPreferred: value !== 'off' && (option.isPreferred || !others.some(v => v.isPreferred)) }
-        : value === 'off' && option.isPreferred && o.id === others[0]?.id ? { ...o, isPreferred: true } : o);
+
+  const editValues = (id: string, patch: Pick<Partial<PrivateServiceDraftOption>, 'durationText' | 'priceText'>) =>
+    setDraft(rows => rows.map(o => shared || o.id === id ? { ...o, ...patch } : o));
+  const toggleShared = (enabled: boolean) => {
+    if (enabled) setDraft(rows => {
+      const reference = rows.find(o => o.isActive) ?? rows[0];
+      return rows.map(o => ({ ...o, durationText: reference.durationText, priceText: reference.priceText }));
     });
+    setShared(enabled);
   };
+  const toggleModality = (id: string) => setDraft(rows => {
+    const reference = rows.find(o => o.isActive) ?? rows[0];
+    return rows.map(o => o.id !== id ? o : { ...o, isActive: !o.isActive,
+      ...(shared && !o.isActive ? { durationText: reference.durationText, priceText: reference.priceText } : {}) });
+  });
   const save = async () => {
-    if (!catalog || saving) return;
-    setShowErrors(true); setError(''); setMessage('');
-    if (draft.some(o => (!o.isNew || o.isActive) && parsePrivatePrice(o.priceText) === null)) {
-      setError('Revisa los importes indicados. Usa un máximo de dos decimales.'); return;
+    if (savingRef.current || conflict) return;
+    setShowErrors(true); setError('');
+    if (!name.trim() || name.trim().length > 80 || description.trim().length > 240) {
+      setError('Revisa el nombre y la descripción.'); return;
     }
-    if (!name.trim() || name.trim().length > 80 || description.trim().length > 240) { setError('Revisa el nombre y la descripción.'); return; }
-    if (service?.key !== 'base' && !draft.some(o => o.isActive)) { setError('Activa al menos una modalidad y configura su precio.'); return; }
-    if (draft.some(o => o.isNew && o.isActive && !o.visibilityChosen)) { setError('Elige quién puede reservar cada opción nueva.'); return; }
-    setSaving(true); onSavingChange(true);
+    if (!active.length) { setError('Selecciona al menos una modalidad.'); return; }
+    const options: CatalogOptionInput[] = [];
+    for (const option of active) {
+      const durationMinutes = parsePrivateDuration(option.durationText);
+      const priceCents = parsePrivatePrice(option.priceText);
+      if (durationMinutes === null || priceCents === null) {
+        setError('Revisa la duración (de 5 a 240 minutos) y el precio (máximo dos decimales).'); return;
+      }
+      if (!option.visibilityChosen) { setError('Elige quién puede reservar cada modalidad.'); return; }
+      options.push({ ...(option.isNew ? {} : { id: option.id }), modality: option.modality,
+        durationMinutes, priceCents, isActive: true, isPublic: option.isPublic, isPreferred: true });
+    }
+    savingRef.current = true; setSaving(true); onSavingChange(true);
     try {
-      const next = await savePrivateService(service?.id, { version: catalog.version, name: name.trim(), description: description.trim() || null, ...(service?.archivedAt ? { restore: true } : {}),
-        options: draft.filter(o => !o.isNew || o.isActive).map(o => ({
-          ...(o.isNew ? {} : { id: o.id }), modality: o.modality, durationMinutes: o.durationMinutes,
-          priceCents: parsePrivatePrice(o.priceText) ?? o.priceCents, isActive: o.isActive, isPublic: o.isPublic, isPreferred: o.isPreferred,
-        })) });
+      const next = await savePrivateService(service?.id, { version: service?.version ?? 0, name: name.trim(),
+        description: description.trim() || null, ...(service?.archivedAt ? { restore: true } : {}), options });
       onSaved(next);
-    } catch (e) { const text = getErrorMessage(e, 'No se pudieron guardar las tarifas. Tu borrador se conserva.'); setError(text); setConflict(axios.isAxiosError(e) && e.response?.data?.code === 'CATALOG_VERSION_CONFLICT'); }
-    finally { setSaving(false); onSavingChange(false); }
+    } catch (e) {
+      setError(getErrorMessage(e, 'No se pudo guardar el servicio. Tu borrador se conserva.'));
+      setConflict(axios.isAxiosError(e) && e.response?.data?.code === 'CATALOG_VERSION_CONFLICT');
+    } finally { savingRef.current = false; setSaving(false); onSavingChange(false); }
   };
-  const priceInput = (option: DraftOption) => <View style={styles.priceCell}><Text style={styles.small}>Precio por sesión</Text>
-    <View style={[styles.priceInput, showErrors && (!option.isNew || option.isActive) && parsePrivatePrice(option.priceText) === null && { borderColor: theme.error }]}>
-      <TextInput accessibilityLabel={`Precio de ${MODALITIES.find(m => m.type === option.modality)?.label}, ${option.durationMinutes} minutos`}
-        value={option.priceText} onChangeText={priceText => edit(option.id, { priceText })} editable={!saving}
-        keyboardType="decimal-pad" placeholder="0,00" placeholderTextColor={theme.textSecondary} style={styles.input} />
-      <Text style={styles.secondary}>€</Text>
+  const valueInputs = (option: PrivateServiceDraftOption, label: string) => <View style={styles.valueRow}>
+    <View style={styles.valueCell}>
+      <Text style={styles.small}>Duración</Text>
+      <View style={[styles.numberField, showErrors && parsePrivateDuration(option.durationText) === null && styles.invalid]}>
+        <TextInput accessibilityLabel={`Duración ${label}`} value={option.durationText}
+          onChangeText={durationText => editValues(option.id, { durationText })} editable={!saving}
+          keyboardType="number-pad" placeholder="60" placeholderTextColor={theme.textSecondary} style={styles.input} />
+        <Text style={styles.secondary}>min</Text>
+      </View>
+      {showErrors && parsePrivateDuration(option.durationText) === null && <Text style={styles.error}>Entre 5 y 240 minutos enteros</Text>}
     </View>
-    {showErrors && (!option.isNew || option.isActive) && parsePrivatePrice(option.priceText) === null && <Text style={styles.error}>Importe no válido</Text>}
+    <View style={styles.valueCell}>
+      <Text style={styles.small}>Precio por sesión</Text>
+      <View style={[styles.numberField, showErrors && parsePrivatePrice(option.priceText) === null && styles.invalid]}>
+        <TextInput accessibilityLabel={`Precio ${label}`} value={option.priceText}
+          onChangeText={priceText => editValues(option.id, { priceText })} editable={!saving}
+          keyboardType="decimal-pad" placeholder="0,00" placeholderTextColor={theme.textSecondary} style={styles.input} />
+        <Text style={styles.secondary}>€</Text>
+      </View>
+      {showErrors && parsePrivatePrice(option.priceText) === null && <Text style={styles.error}>Importe no válido</Text>}
+    </View>
   </View>;
+
   return <View style={styles.root} onLayout={e => setWidth(e.nativeEvent.layout.width)}>
-    <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={[styles.scroll, width < 480 && { padding: 16 }]} keyboardShouldPersistTaps="handled">
       {!!error && <View accessibilityRole="alert" style={styles.feedback}><Text style={styles.error}>{error}</Text>
         {conflict && <Button variant="outline" onPress={() => showAppAlert(alert, 'Cargar versión actual', 'Se descartará este borrador y se cargarán los cambios guardados.', [
           { text: 'Conservar borrador', style: 'cancel' }, { text: 'Cargar versión actual', onPress: () => { void onReload().catch(e => setError(getErrorMessage(e, 'No se pudo actualizar. Tu borrador se conserva.'))); } },
         ])}>Cargar versión actual</Button>}
       </View>}
-      {!!message && <Text accessibilityLiveRegion="polite" style={styles.success}>{message}</Text>}
-      {catalog && <View style={[styles.composition, !wide && styles.vertical]}>
+      <View style={[styles.composition, !wide && styles.vertical]}>
         <View style={styles.editor}>
           <View style={styles.identity}>
             <Text style={styles.label}>Nombre del servicio</Text>
-            <TextInput autoFocus accessibilityLabel="Nombre del servicio" value={name} onChangeText={setName} editable={!saving} maxLength={80} placeholder="Nombre del servicio" placeholderTextColor={theme.textSecondary} style={styles.textField} />
+            <TextInput autoFocus accessibilityLabel="Nombre del servicio" value={name} onChangeText={setName} editable={!saving}
+              maxLength={80} placeholder="Nombre del servicio" placeholderTextColor={theme.textSecondary} style={styles.textField} />
             {showErrors && !name.trim() && <Text style={styles.error}>Introduce un nombre</Text>}
             <View style={styles.fieldHeading}><Text style={styles.label}>Descripción · opcional</Text><Text style={styles.small}>{description.length}/240</Text></View>
-            <TextInput accessibilityLabel="Descripción pública" value={description} onChangeText={setDescription} editable={!saving} maxLength={240} multiline placeholder="Explica brevemente en qué consiste" placeholderTextColor={theme.textSecondary} style={[styles.textField, { minHeight: 64 }]} />
-            {!!service?.archivedAt && <Text style={styles.freeNote}>Al guardar se restaurará este servicio. Revisa las opciones públicas en la vista previa antes de continuar.</Text>}
+            <TextInput accessibilityLabel="Descripción pública" value={description} onChangeText={setDescription} editable={!saving} maxLength={240}
+              multiline placeholder="Explica brevemente en qué consiste" placeholderTextColor={theme.textSecondary} style={[styles.textField, { minHeight: 64 }]} />
+            {!!service?.archivedAt && <Text style={styles.note}>Al guardar se restaurará este servicio. Revisa sus modalidades antes de continuar.</Text>}
           </View>
+          {simplify && <View style={styles.notice}>
+            <Text style={styles.label}>Revisa la simplificación de este servicio</Text>
+            <Text style={styles.small}>Hemos seleccionado la duración principal de cada modalidad. Al guardar, solo quedarán disponibles las opciones de la vista previa.</Text>
+            {PRIVATE_MODALITIES.map(m => {
+              const extras = service?.options.filter(o => o.isActive && o.modality === m.type && !draft.some(d => d.id === o.id)) ?? [];
+              return extras.length ? <Text key={m.type} style={styles.small}>{m.label} · Se retirarán: {extras.map(o => `${o.durationMinutes} min · ${formatPrivatePrice(o.priceCents)}`).join('; ')}.</Text> : null;
+            })}
+            <Text style={styles.small}>Las citas, facturas y bonos adquiridos conservan sus condiciones. Las plantillas de bonos que incluyan opciones retiradas necesitarán revisión antes de nuevas adquisiciones.</Text>
+          </View>}
           <View style={styles.surface}>
-            <View style={styles.sectionTitle}><Text style={styles.title}>Modalidades</Text>
-              <View style={styles.availabilityGuide}>
-                <View style={styles.availabilityHint}>
-                  <Ionicons name="calendar-outline" size={16} color={theme.textSecondary} />
-                  <Text style={styles.availabilityCopy}><Text style={styles.availabilityLabel}>Solo tú</Text> · Creas las citas desde tu agenda.</Text>
-                </View>
-                <View style={styles.availabilityHint}>
-                  <Ionicons name="globe-outline" size={16} color={theme.primary} />
-                  <Text style={styles.availabilityCopy}><Text style={styles.availabilityLabel}>Tú y tus pacientes</Text> · También pueden pedir cita desde el directorio o el enlace de tu perfil.</Text>
-                </View>
-              </View>
+            <View style={styles.sectionHeading}><Text style={styles.title}>Modalidades</Text><Text style={styles.secondary}>Elige cómo ofreces este servicio</Text></View>
+            <View style={styles.chips}>{draft.map(option => {
+              const modality = PRIVATE_MODALITIES.find(m => m.type === option.modality)!;
+              return <AnimatedPressable key={option.id} accessibilityRole="checkbox" accessibilityLabel={modality.label}
+                accessibilityState={{ checked: option.isActive, disabled: saving }} disabled={saving} onPress={() => toggleModality(option.id)}
+                hoverLift={false} pressScale={1}
+                onKeyDown={event => {
+                  if (event.key === ' ') {
+                    event.preventDefault();
+                    if (!saving && !event.repeat) toggleModality(option.id);
+                  }
+                }}
+                style={[styles.chip, option.isActive && styles.selectedChip]}>
+                <Ionicons name={modality.icon} size={18} color={option.isActive ? theme.primary : theme.textSecondary} />
+                <Text style={styles.label}>{modality.label}</Text>
+                <Ionicons name={option.isActive ? 'checkbox' : 'square-outline'} size={18} color={option.isActive ? theme.primary : theme.textSecondary} />
+              </AnimatedPressable>;
+            })}</View>
+            {showErrors && !active.length && <Text style={styles.error}>Selecciona al menos una modalidad</Text>}
+            <View style={styles.switchRow}>
+              <Switch accessibilityLabel={sharedLabel} value={shared} onValueChange={toggleShared} disabled={saving}
+                trackColor={{ false: theme.textMuted, true: theme.primary }} thumbColor={theme.textOnPrimary} />
+              <Text style={[styles.label, styles.flex]}>{sharedLabel}</Text>
             </View>
-            <View style={styles.modalityTabs}>{MODALITIES.map(m => <Pressable key={m.type} accessibilityRole="tab" accessibilityState={{ selected: selectedModality === m.type }} onPress={() => setSelectedModality(m.type)} style={[styles.modalityTab, width < 720 && { flexDirection: 'column' }, selectedModality === m.type && { borderBottomColor: theme.primary, backgroundColor: theme.surface }]}><Ionicons name={m.icon} size={18} color={selectedModality === m.type ? theme.primary : theme.textSecondary} /><Text style={styles.label}>{m.label}</Text></Pressable>)}</View>
-
-            {MODALITIES.filter(m => m.type === selectedModality).map(modality => {
-              const options = draft.filter(o => o.modality === modality.type);
-              const main = options.find(o => o.isActive && o.isPreferred) ?? options.find(o => o.isActive) ?? options[0];
-              if (!main) return null;
-              const activeCount = options.filter(o => o.isActive).length;
-              return <View key={modality.type} style={styles.modalitySection}>
-                <View style={[styles.row, styles.vertical]}>
-                  <View style={[styles.modalityLabel, { width: '100%' }]}><Ionicons name={modality.icon} size={22} color={theme.primary} /><View><Text style={styles.label}>{modality.label}</Text><Text style={styles.small}>{activeCount ? `${activeCount} ${activeCount === 1 ? 'duración' : 'duraciones'}` : 'Sin activar'}</Text></View><View style={{ flex: 1 }} /><Switch accessibilityLabel={`Activar ${modality.label}`} value={activeCount > 0} disabled={saving} trackColor={{ false: theme.textMuted, true: theme.primary }} thumbColor={theme.textOnPrimary} onValueChange={enabled => setDraft(rows => rows.map(o => o.modality !== modality.type ? o : enabled ? o.id === main.id ? { ...o, isActive: true, isPreferred: true } : o : { ...o, isActive: false, isPublic: false, isPreferred: false }))} /></View>
-                  {activeCount > 0 && <View style={[styles.controls, styles.mobileControls]}>
-                    <View style={styles.durationCell}><Text style={styles.small}>Duración principal</Text><SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Duración principal de ${modality.label}`} value={main.durationMinutes} options={[...new Set([...options.map(o => o.durationMinutes), 45, 50, 60])].sort((a,b) => a-b).map(d => ({ label: `${d} min`, value: d }))} onSelect={duration => {
-                      const target = options.find(o => o.durationMinutes === duration) ?? newOption(modality.type, duration);
-                      const replacePlaceholder = main.isNew && !main.priceText.trim() && !main.visibilityChosen;
-                      setDraft(rows => [
-                        ...rows.filter(o => o.id !== target.id && !(replacePlaceholder && o.id === main.id))
-                          .map(o => o.modality === modality.type ? { ...o, isPreferred: false } : o),
-                        { ...target, isActive: true, isPreferred: true },
-                      ]);
-                    }} /></View>
-                    {priceInput(main)}
-                    <View style={styles.audienceCell}><Text style={styles.small}>¿Quién puede reservar?</Text><SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Quién puede reservar: ${modality.label}`} value={main.isNew && !main.visibilityChosen ? null : !main.isActive ? 'off' : main.isPublic ? 'public' : 'private'} placeholder="Elige una opción" options={visibility} onSelect={value => setVisibility(main, value)} /></View>
-                  </View>}
-                </View>
-                {service?.key === 'base' && main.legacyTariffId && <Text style={styles.small}>{main.name}</Text>}
-                {!!catalog.restrictions[modality.type] && <View style={styles.restriction}><Text style={styles.small}>{catalog.restrictions[modality.type]}</Text><Button disabled={saving} size="small" variant="ghost" onPress={() => navigation.navigate('ProfessionalProfile')}>Ir al perfil</Button></View>}
-                {activeCount > 0 && <View style={styles.rowActions}><Button disabled={saving} size="small" variant="secondary" style={{ alignSelf: 'flex-start', borderRadius: 8, paddingHorizontal: 10 }} onPress={() => setExpanded(v => ({ ...v, [modality.type]: !v[modality.type] }))}>{expanded[modality.type] ? 'Cerrar otras duraciones' : `Otras duraciones${options.length > 1 ? ` · ${options.length - 1}` : ''}`}</Button></View>}
-                {activeCount > 0 && expanded[modality.type] && <View style={styles.details}>
-                  {options.filter(o => o.id !== main.id).map(option => <View key={option.id} style={styles.extraRow}>
-                    <View><Text style={styles.label}>{option.durationMinutes} min</Text>{service?.key === 'base' && option.legacyTariffId && <Text style={styles.small}>Tarifa anterior: {option.name}</Text>}</View>{priceInput(option)}
-                    <View style={styles.audienceCell}><Text style={styles.small}>¿Quién puede reservar?</Text><SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Quién puede reservar: ${option.durationMinutes} minutos, ${modality.label}`} value={option.isNew && !option.visibilityChosen ? null : !option.isActive ? 'off' : option.isPublic ? 'public' : 'private'} placeholder="Elige una opción" options={visibility} onSelect={v => setVisibility(option, v)} /></View>
-                  </View>)}
-                  {[45,50,60].filter(d => !options.some(o => o.durationMinutes === d)).map(d => <Button key={d} disabled={saving} size="small" variant="ghost" onPress={() => setDraft(rows => [...rows, newOption(modality.type, d)])}>Añadir {d} min</Button>)}
-                </View>}
+            {shared && valueInputs(common, 'común')}
+            {shared && <Text style={styles.small}>{active.length ? `Se aplicará a ${active.map(o => PRIVATE_MODALITIES.find(m => m.type === o.modality)?.label).join(', ')}.` : 'Selecciona las modalidades a las que se aplicarán estos valores.'} Desactiva la opción para configurar valores distintos.</Text>}
+            {!shared && active.map(option => <View key={option.id} style={styles.modalityRow}>
+              <Text style={styles.label}>{PRIVATE_MODALITIES.find(m => m.type === option.modality)?.label}</Text>
+              {valueInputs(option, `de ${PRIVATE_MODALITIES.find(m => m.type === option.modality)?.label}`)}
+            </View>)}
+          </View>
+          {!!active.length && <View style={styles.surface}>
+            <Text style={styles.title}>¿Quién puede reservar?</Text>
+            <Text style={styles.small}>Solo tú: creas las citas desde tu agenda. Tú y tus pacientes: también pueden reservar online desde tu perfil.</Text>
+            {active.map(option => {
+              const label = PRIVATE_MODALITIES.find(m => m.type === option.modality)?.label;
+              const restriction = sourceCatalog.restrictions[option.modality];
+              return <View key={option.id} style={styles.audienceRow}>
+                <Text style={styles.label}>{label}</Text>
+                <SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Quién puede reservar: ${label}`}
+                  value={option.visibilityChosen ? option.isPublic ? 'public' : 'private' : null} placeholder="Elige una opción" options={visibility}
+                  onSelect={value => setDraft(rows => rows.map(o => o.id === option.id ? { ...o, isPublic: value === 'public', visibilityChosen: true } : o))} />
+                {showErrors && !option.visibilityChosen && <Text style={styles.error}>Elige quién puede reservar</Text>}
+                {!!restriction && <View style={styles.restriction}><Text style={[styles.small, styles.flex]}>{restriction}</Text><Button disabled={saving} size="small" variant="ghost" onPress={() => navigation.navigate('ProfessionalProfile')}>Ir al perfil</Button></View>}
               </View>;
             })}
-          </View>
-
+          </View>}
           <Text style={styles.small}>Los cambios se aplican a nuevas reservas. Las citas y facturas anteriores conservan sus condiciones.</Text>
         </View>
         <View style={[styles.preview, wide && { width: 280 }]}>
           <View style={styles.previewHeader}><Ionicons name="eye-outline" size={22} color={theme.primary} /><Text style={styles.title}>Vista previa</Text></View>
-          <Text style={styles.small}>{service?.archivedAt ? 'Vista previa al restaurar' : dirty ? 'Vista previa · Cambios sin guardar' : 'Reserva online'}</Text>
+          <Text style={styles.small}>{service?.archivedAt ? 'Al restaurar el servicio' : dirty || simplify ? 'Cambios sin guardar' : 'Configuración del servicio'}</Text>
           <Text style={styles.title}>{name.trim() || 'Nombre del servicio'}</Text>
           {!!description.trim() && <Text style={styles.secondary}>{description.trim()}</Text>}
-          <Text style={styles.previewPrice}>{publicOptions.length ? `${new Set(publicOptions.map(o => parsePrivatePrice(o.priceText))).size > 1 ? 'Desde ' : ''}${formatPrivatePrice(Math.min(...publicOptions.map(o => parsePrivatePrice(o.priceText) ?? 0)))}` : 'Solo tú'}</Text>
-          <Text style={styles.secondary}>{publicOptions.length ? 'por sesión · precio final' : 'Tus pacientes no pueden reservar este servicio online.'}</Text>
-          {MODALITIES.map(m => {
-            const rows = publicOptions.filter(o => o.modality === m.type).sort((a,b) => a.durationMinutes-b.durationMinutes);
-            return rows.length ? <View key={m.type} style={styles.previewModality}><Text style={styles.label}>{m.label}</Text>{rows.map(o => <View style={styles.previewLine} key={o.id}><Text style={styles.secondary}>{o.durationMinutes} min</Text><Text style={styles.label}>{formatPrivatePrice(parsePrivatePrice(o.priceText) ?? 0)}</Text></View>)}</View> : null;
+          <Text style={styles.previewPrice}>{previewPrice}</Text>
+          <Text style={styles.small}>por sesión · precio final</Text>
+          {!active.length && <Text style={styles.secondary}>Selecciona al menos una modalidad.</Text>}
+          {active.map(option => {
+            const modality = PRIVATE_MODALITIES.find(m => m.type === option.modality)!;
+            const duration = parsePrivateDuration(option.durationText);
+            const price = parsePrivatePrice(option.priceText);
+            return <View key={option.id} style={styles.previewModality}>
+              <View style={styles.previewHeader}><Ionicons name={modality.icon} size={16} color={theme.primary} /><Text style={styles.label}>{modality.label}</Text></View>
+              <View style={styles.previewLine}><Text style={styles.secondary}>{duration === null ? 'Duración pendiente' : `${duration} min`}</Text><Text style={styles.label}>{price === null ? 'Precio pendiente' : formatPrivatePrice(price)}</Text></View>
+              <Text style={styles.small}>{!option.visibilityChosen ? 'Reserva pendiente de configurar' : !option.isPublic ? 'Reservas: solo tú' : sourceCatalog.restrictions[option.modality] ? 'Reserva online no disponible · revisa tu perfil' : 'Reservas: tú y tus pacientes'}</Text>
+            </View>;
           })}
-          {free && <Text style={styles.freeNote}>Primera sesión sin coste para pacientes elegibles.</Text>}
+          {sourceCatalog.firstVisitFree && <Text style={styles.note}>Primera sesión sin coste para pacientes elegibles.</Text>}
         </View>
-      </View>}
+      </View>
     </ScrollView>
-    <View style={[styles.toolbar, width < 480 && { gap: 8, paddingHorizontal: 16 }]}><View style={styles.flex}><Text style={styles.small}>{dirty ? 'Cambios sin guardar' : 'Sin cambios'}</Text></View><Button variant="ghost" disabled={saving} onPress={onClose}>Cancelar</Button><Button disabled={(!dirty && !service?.archivedAt) || conflict} loading={saving} onPress={() => void save()}>{service?.archivedAt ? 'Restaurar y guardar' : 'Guardar servicio'}</Button></View>
+    <View style={[styles.toolbar, width < 480 && { gap: 8, paddingHorizontal: 16 }]}>
+      <View style={styles.flex}><Text style={styles.small}>{dirty || simplify ? 'Cambios sin guardar' : 'Sin cambios'}</Text></View>
+      <Button variant="ghost" disabled={saving} onPress={onClose}>Cancelar</Button>
+      <Button disabled={(!dirty && !simplify && !service?.archivedAt) || conflict} loading={saving} onPress={() => void save()}>{service?.archivedAt ? 'Restaurar y guardar' : 'Guardar servicio'}</Button>
+    </View>
   </View>;
 }
 
 const createStyles = (t: Theme) => StyleSheet.create({
   root: { flex: 1, backgroundColor: t.bg }, flex: { flex: 1 },
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, borderTopWidth: 1, borderBottomColor: t.border },
-  heading: { color: t.textPrimary, fontFamily: t.fontSansBold, fontSize: 24, marginBottom: 6 },
-  title: { color: t.textPrimary, fontFamily: t.fontSansSemiBold, fontSize: 17 }, label: { color: t.textPrimary, fontFamily: t.fontSansSemiBold, fontSize: 14 },
-  secondary: { color: t.textSecondary, fontFamily: t.fontSans, fontSize: 14, lineHeight: 21 }, small: { color: t.textSecondary, fontFamily: t.fontSans, fontSize: 12, lineHeight: 18 },
-  scroll: { padding: spacing.lg, gap: 16, maxWidth: 1120, width: '100%', alignSelf: 'center', paddingBottom: 48 },
-  fixedName: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: t.border, borderRadius: 10, backgroundColor: t.surface, padding: 14, gap: 10 }, identity: { gap: 10 }, textField: { borderWidth: 1, borderColor: t.border, borderRadius: 10, padding: 14, color: t.textPrimary, backgroundColor: t.bgCard, fontFamily: t.fontSans, fontSize: 15 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, borderTopWidth: 1, borderTopColor: t.border },
+  title: { color: t.textPrimary, fontFamily: t.fontSansSemiBold, fontSize: 17 },
+  label: { color: t.textPrimary, fontFamily: t.fontSansSemiBold, fontSize: 14, lineHeight: 20 },
+  secondary: { color: t.textSecondary, fontFamily: t.fontSans, fontSize: 14, lineHeight: 21 },
+  small: { color: t.textSecondary, fontFamily: t.fontSans, fontSize: 12, lineHeight: 18 },
+  scroll: { padding: spacing.lg, gap: 16, maxWidth: 1120, width: '100%', alignSelf: 'center', paddingBottom: 32 },
+  identity: { gap: 10 }, textField: { borderWidth: 1, borderColor: t.border, borderRadius: 10, padding: 14, color: t.textPrimary, backgroundColor: t.bgCard, fontFamily: t.fontSans, fontSize: 15 },
   fieldHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalityTabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: t.border }, modalityTab: { flex: 1, minHeight: 52, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 6, padding: 8, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   composition: { flexDirection: 'row', gap: 24, alignItems: 'flex-start' }, vertical: { flexDirection: 'column', alignItems: 'stretch' },
-  editor: { flex: 1, gap: 16, minWidth: 0, width: '100%' }, surface: { backgroundColor: t.bgCard, borderWidth: 1, borderColor: t.border, borderRadius: borderRadius.xl, overflow: 'hidden' },
-  sectionTitle: { padding: 16, gap: 6 }, tableHeading: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: t.bg },
-  availabilityGuide: { gap: 10, marginTop: 6 },
-  availabilityHint: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  availabilityCopy: { flex: 1, color: t.textSecondary, fontFamily: t.fontSans, fontSize: 13, lineHeight: 20 },
-  availabilityLabel: { color: t.textPrimary, fontFamily: t.fontSansSemiBold },
-  overline: { color: t.textSecondary, fontFamily: t.fontSans, fontSize: 10, fontWeight: '700', letterSpacing: 0.7 },
-  modalitySection: { padding: 20, borderTopWidth: 1, borderTopColor: t.border, gap: 8 }, row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  modalityLabel: { flexDirection: 'row', alignItems: 'center', gap: 10 }, modalityCell: { width: 142 }, durationCell: { width: 124, gap: 6 }, priceCell: { width: 104, gap: 6 }, audienceCell: { flex: 1, minWidth: 160, gap: 6 },
-  controls: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }, mobileControls: { width: '100%', flexWrap: 'wrap' },
-  priceInput: { flexDirection: 'row', alignItems: 'center', minHeight: 48, borderWidth: 1, borderColor: t.border, borderRadius: 12, paddingHorizontal: 12, backgroundColor: t.bgElevated },
-  input: { flex: 1, color: t.textPrimary, fontFamily: t.fontSans, fontSize: 16, minHeight: 42, minWidth: 0, padding: 0 }, rowActions: { alignItems: 'flex-start' },
-  details: { gap: 12, paddingTop: 8 }, extraRow: { flexDirection: 'row', gap: 12, alignItems: 'center', flexWrap: 'wrap', paddingVertical: 8 },
-  restriction: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-  policy: { flexDirection: 'row', alignItems: 'center', gap: 20, paddingHorizontal: 4 },
-  preview: { backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 24, gap: 8, width: '100%' }, previewHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
-  previewPrice: { color: t.textPrimary, fontFamily: t.fontSansBold, fontSize: 36, marginTop: 20 }, previewModality: { borderTopWidth: 1, borderTopColor: t.borderLight, paddingTop: 16, marginTop: 12, gap: 8 },
-  previewLine: { flexDirection: 'row', justifyContent: 'space-between' }, previewFooter: { borderTopWidth: 1, borderTopColor: t.border, paddingTop: 16, marginTop: 16, gap: 8 },
-  freeNote: { color: t.primary, fontFamily: t.fontSans, fontSize: 13, lineHeight: 20, paddingTop: 16 }, loading: { padding: 48, alignItems: 'center', gap: 16 },
-  feedback: { gap: 12, padding: 16, borderWidth: 1, borderColor: t.error, borderRadius: 12 }, error: { color: t.error, fontFamily: t.fontSans, fontSize: 13 }, success: { color: t.success, fontFamily: t.fontSans, fontSize: 14 },
+  editor: { flex: 1, gap: 20, minWidth: 0, width: '100%' },
+  surface: { backgroundColor: t.bgCard, borderWidth: 1, borderColor: t.border, borderRadius: borderRadius.xl, padding: 20, gap: 16 },
+  sectionHeading: { gap: 4 }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: t.border, borderRadius: 24 },
+  selectedChip: { backgroundColor: t.primaryAlpha12, borderColor: t.primary },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  valueRow: { flexDirection: 'row', gap: 12 }, valueCell: { flex: 1, minWidth: 0, gap: 6 },
+  numberField: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, borderWidth: 1, borderColor: t.border, borderRadius: 10, paddingHorizontal: 12, backgroundColor: t.bgElevated },
+  input: { flex: 1, color: t.textPrimary, fontFamily: t.fontSans, fontSize: 16, minHeight: 44, minWidth: 0, padding: 0 },
+  invalid: { borderColor: t.error }, modalityRow: { gap: 10, borderTopWidth: 1, borderTopColor: t.borderLight, paddingTop: 16 },
+  audienceRow: { gap: 8 }, restriction: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  notice: { padding: 16, gap: 8, borderRadius: 12, backgroundColor: t.surface, borderLeftWidth: 3, borderLeftColor: t.primary },
+  preview: { backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 20, gap: 10, width: '100%' },
+  previewHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  previewPrice: { color: t.textPrimary, fontFamily: t.fontSansBold, fontSize: 30, marginTop: 10 },
+  previewModality: { borderTopWidth: 1, borderTopColor: t.borderLight, paddingTop: 14, marginTop: 6, gap: 6 },
+  previewLine: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 },
+  note: { color: t.primary, fontFamily: t.fontSans, fontSize: 13, lineHeight: 20, paddingTop: 12 },
+  feedback: { gap: 12, padding: 16, borderWidth: 1, borderColor: t.error, borderRadius: 12 },
+  error: { color: t.error, fontFamily: t.fontSans, fontSize: 13 },
 });

@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable } from '../../../components/common';
+import { CompactTimeSlotPicker } from '../../../components/common/CompactTimeSlotPicker';
 import { borderRadius, spacing } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import * as sessionsService from '../../../services/sessionsService';
@@ -71,7 +72,7 @@ export const ProfileAvailabilityPreview: React.FC<ProfileAvailabilityPreviewProp
     () => Array.from({ length: 7 }, (_, index) => addDaysToDateKey(startDate, index)),
     [startDate],
   );
-  const previousStartDateRef = useRef(startDate);
+  const previousStartDateRef = useRef(`${specialistId}:${startDate}`);
 
   const [selectedDate, setSelectedDate] = useState(dates[0]);
   const [slotCache, setSlotCache] = useState<Record<string, TimeSlot[]>>({});
@@ -79,21 +80,22 @@ export const ProfileAvailabilityPreview: React.FC<ProfileAvailabilityPreviewProp
   const [errorDate, setErrorDate] = useState<string | null>(null);
 
   useEffect(() => {
-    if (previousStartDateRef.current === startDate) {
+    if (previousStartDateRef.current === `${specialistId}:${startDate}`) {
       return;
     }
 
-    previousStartDateRef.current = startDate;
+    previousStartDateRef.current = `${specialistId}:${startDate}`;
     setSelectedDate(dates[0]);
-    setSlotCache({});
     setErrorDate(null);
-  }, [dates, startDate]);
+  }, [dates, startDate, specialistId]);
+
+  const cacheKey = `${specialistId}:${selectedDate}`;
 
   useEffect(() => {
     let active = true;
 
     const loadSlots = async () => {
-      if (!canBook || slotCache[selectedDate]) {
+      if (!canBook || slotCache[cacheKey]) {
         return;
       }
 
@@ -110,13 +112,13 @@ export const ProfileAvailabilityPreview: React.FC<ProfileAvailabilityPreviewProp
 
         setSlotCache((current) => ({
           ...current,
-          [selectedDate]: selectableSlots,
+          [cacheKey]: selectableSlots,
         }));
       } catch {
         if (active) {
           setSlotCache((current) => ({
             ...current,
-            [selectedDate]: [],
+            [cacheKey]: [],
           }));
           setErrorDate(selectedDate);
         }
@@ -132,9 +134,9 @@ export const ProfileAvailabilityPreview: React.FC<ProfileAvailabilityPreviewProp
     return () => {
       active = false;
     };
-  }, [canBook, selectedDate, slotCache, specialistId]);
+  }, [canBook, cacheKey, selectedDate, slotCache, specialistId]);
 
-  const selectedSlots = slotCache[selectedDate] ?? [];
+  const selectedSlots = slotCache[cacheKey] ?? [];
   const loading = loadingDate === selectedDate;
   const hasError = errorDate === selectedDate;
 
@@ -211,7 +213,7 @@ export const ProfileAvailabilityPreview: React.FC<ProfileAvailabilityPreviewProp
               onPress={() => {
                 setSlotCache((current) => {
                   const nextCache = { ...current };
-                  delete nextCache[selectedDate];
+                  delete nextCache[cacheKey];
                   return nextCache;
                 });
                 setErrorDate(null);
@@ -229,8 +231,11 @@ export const ProfileAvailabilityPreview: React.FC<ProfileAvailabilityPreviewProp
             <Text style={styles.stateText}>No hay horas libres este día.</Text>
           </View>
         ) : (
-          <View style={styles.slotGrid}>
-            {selectedSlots.map((slot) => (
+          <CompactTimeSlotPicker
+            slots={selectedSlots}
+            resetKey={`${specialistId}-${selectedDate}`}
+            onSelect={slot => onSlotSelect(selectedDate, slot)}
+            renderSlot={(slot) => (
               <AnimatedPressable
                 key={`${selectedDate}-${slot.startTime}`}
                 onPress={() => onSlotSelect(selectedDate, slot)}
@@ -240,11 +245,11 @@ export const ProfileAvailabilityPreview: React.FC<ProfileAvailabilityPreviewProp
                 accessibilityLabel={`Elegir ${slot.startTime}`}
                 style={styles.slotButton}
               >
-                <Ionicons name="time-outline" size={14} color={theme.primary} />
+                <Ionicons name="time-outline" size={16} color={theme.primary} accessible={false} />
                 <Text style={styles.slotText}>{slot.startTime}</Text>
               </AnimatedPressable>
-            ))}
-          </View>
+            )}
+          />
         )}
       </View>
     </View>
@@ -337,13 +342,9 @@ const createStyles = (
   slotsArea: {
     minHeight: 78,
   },
-  slotGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
   slotButton: {
-    minWidth: 82,
+    width: '100%',
+    minWidth: 0,
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',

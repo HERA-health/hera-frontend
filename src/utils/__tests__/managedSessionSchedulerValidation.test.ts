@@ -102,3 +102,8 @@ describe('validateManagedSessionSchedulerInput', () => {
     }
   });
 });
+
+ test.each([5, 10, 37, 240])('accepts a configured %i minute service', duration => {
+  expect(validateManagedSessionSchedulerInput({ ...baseForm, duration }, new Date('2026-01-01T08:00:00Z'), [duration]).success).toBe(true);
+  expect(validateManagedSessionSchedulerInput({ ...baseForm, duration }, new Date('2026-01-01T08:00:00Z'), [60]).success).toBe(false);
+ });

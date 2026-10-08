@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AnimatedPressable } from '../../../components/common';
+import { CompactTimeSlotPicker } from '../../../components/common/CompactTimeSlotPicker';
 import { borderRadius, spacing } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import * as sessionsService from '../../../services/sessionsService';
@@ -67,7 +68,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
     [startDate],
   );
   const dateScrollRef = useRef<ScrollView>(null);
-  const previousAvailabilityContextRef = useRef({ specialistId, startDate });
+  const previousAvailabilityContextRef = useRef({ specialistId, startDate, optionId });
   const [selectedDate, setSelectedDate] = useState(selectedSlot?.date ?? dates[0]);
   const [slotCache, setSlotCache] = useState<Record<string, TimeSlot[]>>({});
   const [loadingDate, setLoadingDate] = useState<string | null>(null);
@@ -83,20 +84,22 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
     if (
       previousContext.specialistId === specialistId
       && previousContext.startDate === startDate
+      && previousContext.optionId === optionId
     ) return;
-    previousAvailabilityContextRef.current = { specialistId, startDate };
+    previousAvailabilityContextRef.current = { specialistId, startDate, optionId };
     setSelectedDate(dates[0]);
-    setSlotCache({});
     setErrorDate(null);
     dateScrollRef.current?.scrollTo({ x: 0, animated: false });
     setDateScrollMetrics((current) => ({ ...current, offsetX: 0 }));
     onSlotChange(null);
-  }, [dates, onSlotChange, specialistId, startDate]);
+  }, [dates, onSlotChange, specialistId, startDate, optionId]);
+
+  const cacheKey = `${specialistId}:${optionId ?? 'default'}:${selectedDate}`;
 
   useEffect(() => {
     let active = true;
     const loadSlots = async () => {
-      if (!canBook || slotCache[selectedDate]) return;
+      if (!canBook || slotCache[cacheKey]) return;
       setLoadingDate(selectedDate);
       setErrorDate(null);
       try {
@@ -104,11 +107,11 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
         if (!active) return;
         setSlotCache((current) => ({
           ...current,
-          [selectedDate]: slots.filter((slot) => slot.available !== false),
+          [cacheKey]: slots.filter((slot) => slot.available !== false),
         }));
       } catch {
         if (active) {
-          setSlotCache((current) => ({ ...current, [selectedDate]: [] }));
+          setSlotCache((current) => ({ ...current, [cacheKey]: [] }));
           setErrorDate(selectedDate);
         }
       } finally {
@@ -117,11 +120,11 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
     };
     void loadSlots();
     return () => { active = false; };
-  }, [canBook, selectedDate, slotCache, specialistId, optionId]);
+  }, [canBook, cacheKey, selectedDate, slotCache, specialistId, optionId]);
 
   if (!canBook) return null;
 
-  const selectedSlots = slotCache[selectedDate] ?? [];
+  const selectedSlots = slotCache[cacheKey] ?? [];
   const loading = loadingDate === selectedDate;
   const hasError = errorDate === selectedDate;
   const maximumDateScroll = Math.max(
@@ -253,7 +256,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
               onPress={() => {
                 setSlotCache((current) => {
                   const next = { ...current };
-                  delete next[selectedDate];
+                  delete next[cacheKey];
                   return next;
                 });
                 setErrorDate(null);
@@ -269,8 +272,12 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
             <Text style={styles.stateText}>No hay horas libres este día.</Text>
           </View>
         ) : (
-          <View style={styles.slotGrid}>
-            {selectedSlots.map((slot) => {
+          <CompactTimeSlotPicker
+            slots={selectedSlots}
+            selectedTime={selectedSlot?.date === selectedDate ? selectedSlot.slot.startTime : null}
+            resetKey={`${specialistId}-${selectedDate}-${optionId}`}
+            onSelect={slot => onSlotChange({ date: selectedDate, slot })}
+            renderSlot={(slot) => {
               const active = selectedSlot?.date === selectedDate
                 && selectedSlot.slot.startTime === slot.startTime;
               return (
@@ -284,16 +291,12 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
                   onPress={() => onSlotChange(active ? null : { date: selectedDate, slot })}
                   style={[styles.slotButton, active && styles.slotButtonSelected]}
                 >
-                  <Ionicons
-                    name={active ? 'checkmark-circle' : 'time-outline'}
-                    size={15}
-                    color={active ? theme.textOnPrimary : theme.primary}
-                  />
+                  <Ionicons name="time-outline" size={16} color={active ? theme.textOnPrimary : theme.primary} accessible={false} />
                   <Text style={[styles.slotText, active && styles.slotTextSelected]}>{slot.startTime}</Text>
                 </AnimatedPressable>
               );
-            })}
-          </View>
+            }}
+          />
         )}
       </View>
     </View>
@@ -380,9 +383,9 @@ const createStyles = (
   },
   dateTextSelected: { color: theme.textOnPrimary },
   slotsArea: { minHeight: 78 },
-  slotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   slotButton: {
-    minWidth: 82,
+    width: '100%',
+    minWidth: 0,
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',

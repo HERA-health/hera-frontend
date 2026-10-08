@@ -23,88 +23,131 @@ beforeEach(() => {
   jest.mocked(useTheme).mockReturnValue({ theme: lightTheme, isDark: false, mode: 'light', setMode: jest.fn() });
 });
 
-test.each([45, 50])('creates a %i minute service without an unwanted 60 minute option', async duration => {
-  const input = props();
-  jest.mocked(savePrivateService).mockResolvedValue(catalog);
+const sharedSwitch = () => screen.getByLabelText('Misma duración y precio para todas las modalidades');
+const chooseAudience = (label = 'Videollamada', value = 'public') => fireEvent(dropdown(`Quién puede reservar: ${label}`), 'select', value);
+
+test.each([5, 10, 45, 50, 75, 240])('creates only the selected %i minute option', async duration => {
+  const input = props(); jest.mocked(savePrivateService).mockResolvedValue(catalog);
   render(<PrivateServiceEditor {...input} service={null} />);
   fireEvent.changeText(screen.getByLabelText('Nombre del servicio'), 'Nuevo');
-  fireEvent(screen.getByLabelText('Activar Videollamada'), 'valueChange', true);
-  fireEvent(dropdown('Duración principal de Videollamada'), 'select', duration);
-  fireEvent.changeText(screen.getByLabelText(`Precio de Videollamada, ${duration} minutos`), '50');
-  fireEvent(dropdown('Quién puede reservar: Videollamada'), 'select', 'public');
+  fireEvent.press(screen.getByRole('checkbox', { name: 'Videollamada' }));
+  fireEvent.changeText(screen.getByLabelText('Duración común'), String(duration));
+  fireEvent.changeText(screen.getByLabelText('Precio común'), '50,50');
+  chooseAudience();
   fireEvent.press(screen.getByText('Guardar servicio'));
   await waitFor(() => expect(input.onSaved).toHaveBeenCalled());
   expect(jest.mocked(savePrivateService).mock.calls[0][1].options).toEqual([
-    expect.objectContaining({ durationMinutes: duration, priceCents: 5000, isPublic: true, isPreferred: true }),
+    { modality: 'VIDEO_CALL', durationMinutes: duration, priceCents: 5050, isActive: true, isPublic: true, isPreferred: true },
   ]);
 });
 
-test('changing the preferred duration preserves existing configured variants', async () => {
-  const input = props();
-  jest.mocked(savePrivateService).mockResolvedValue(catalog);
+test('shared values apply to newly selected modalities without publishing them', async () => {
+  const input = props(); jest.mocked(savePrivateService).mockResolvedValue(catalog);
   render(<PrivateServiceEditor {...input} />);
-  fireEvent(dropdown('Duración principal de Videollamada'), 'select', 45);
-  fireEvent.changeText(screen.getByLabelText('Precio de Videollamada, 45 minutos'), '40');
-  fireEvent(dropdown('Quién puede reservar: Videollamada'), 'select', 'private');
+  fireEvent.changeText(screen.getByLabelText('Duración común'), '37');
+  fireEvent.changeText(screen.getByLabelText('Precio común'), '0');
+  fireEvent.press(screen.getByRole('checkbox', { name: 'Teléfono' }));
+  fireEvent.press(screen.getByText('Guardar servicio'));
+  expect(savePrivateService).not.toHaveBeenCalled();
+  expect(await screen.findByText('Elige quién puede reservar cada modalidad.')).toBeTruthy();
+  chooseAudience('Teléfono', 'private');
+  fireEvent.press(screen.getByText('Guardar servicio'));
+  await waitFor(() => expect(input.onSaved).toHaveBeenCalled());
+  const options = jest.mocked(savePrivateService).mock.calls[0][1].options;
+  expect(options).toHaveLength(2);
+  expect(options.every(o => o.durationMinutes === 37 && o.priceCents === 0)).toBe(true);
+  expect(options.find(o => o.modality === 'PHONE_CALL')?.isPublic).toBe(false);
+});
+
+test('distinct existing values open independently; shared mode copies the first selected modality', async () => {
+  const second = { ...service.options[0], id: 'phone', modality: 'PHONE_CALL' as const, durationMinutes: 75, priceCents: 8500 };
+  const input = props(); jest.mocked(savePrivateService).mockResolvedValue(catalog);
+  render(<PrivateServiceEditor {...input} service={{ ...service, options: [...service.options, second] }} />);
+  expect(sharedSwitch().props.value).toBe(false);
+  expect(screen.getByLabelText('Duración de Teléfono').props.value).toBe('75');
+  fireEvent.changeText(screen.getByLabelText('Precio de Teléfono'), '90.75');
   fireEvent.press(screen.getByText('Guardar servicio'));
   await waitFor(() => expect(input.onSaved).toHaveBeenCalled());
   expect(jest.mocked(savePrivateService).mock.calls[0][1].options).toEqual(expect.arrayContaining([
-    expect.objectContaining({ id: 'option', durationMinutes: 50, priceCents: 6000, isActive: true, isPublic: true, isPreferred: false }),
-    expect.objectContaining({ durationMinutes: 45, priceCents: 4000, isPublic: false, isPreferred: true }),
+    expect.objectContaining({ id: 'option', durationMinutes: 50, priceCents: 6000 }),
+    expect.objectContaining({ id: 'phone', durationMinutes: 75, priceCents: 9075 }),
   ]));
+  fireEvent(sharedSwitch(), 'valueChange', true);
+  expect(screen.getByLabelText('Duración común').props.value).toBe('50');
+  fireEvent(sharedSwitch(), 'valueChange', false);
+  expect(screen.getByLabelText('Duración de Teléfono').props.value).toBe('50');
+  expect(screen.getByLabelText('Precio de Teléfono').props.value).toBe('60');
 });
 
-test('renamed General still displays its legacy tariff detail', () => {
-  render(<PrivateServiceEditor {...props()} service={{ ...service, key: 'base', name: 'Mi consulta', options: [
-    { ...service.options[0], name: 'Consulta prolongada', legacyTariffId: 'legacy' },
-  ] }} />);
-  expect(screen.getByDisplayValue('Mi consulta')).toBeTruthy();
-  expect(screen.getByText('Consulta prolongada')).toBeTruthy();
-});
-test('decimal input saves one service without global policy and keeps its expected version', async () => {
+test('legacy options are retired only on save; the principal ID and price survive', async () => {
   const input = props(); jest.mocked(savePrivateService).mockResolvedValue(catalog);
-  render(<PrivateServiceEditor {...input} />);
-  fireEvent.changeText(screen.getByLabelText('Precio de Videollamada, 50 minutos'), '50,50');
+  const legacy = { ...service, key: 'base', name: 'General', options: [
+    { ...service.options[0], id: 'extra', durationMinutes: 75, isPreferred: false }, ...service.options,
+  ] };
+  render(<PrivateServiceEditor {...input} service={legacy} />);
+  expect(screen.getByText('Revisa la simplificación de este servicio')).toBeTruthy();
+  expect(screen.queryByText('Otras duraciones')).toBeNull();
+  expect(screen.queryByText('Sesión individual')).toBeNull();
+  expect(input.onDirtyChange).toHaveBeenLastCalledWith(false);
+  expect(savePrivateService).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByText('Cancelar'));
+  expect(input.onClose).toHaveBeenCalled();
+  expect(savePrivateService).not.toHaveBeenCalled();
   fireEvent.press(screen.getByText('Guardar servicio'));
-  await waitFor(() => expect(input.onSaved).toHaveBeenCalledWith(catalog));
-  const saved = jest.mocked(savePrivateService).mock.calls[0];
-  expect(saved[0]).toBe('mdr'); expect(saved[1].version).toBe(3);
-  expect(saved[1].options[0].priceCents).toBe(5050);
-  expect(saved[1]).not.toHaveProperty('firstVisitFree');
+  await waitFor(() => expect(input.onSaved).toHaveBeenCalled());
+  expect(jest.mocked(savePrivateService).mock.calls[0][1].options).toEqual([
+    expect.objectContaining({ id: 'option', durationMinutes: 50, priceCents: 6000, isPreferred: true }),
+  ]);
 });
-test('conflicts preserve the name and price draft and prevent blind resubmission', async () => {
+
+test.each(['4', '241', '5.5', '', '-10'])('rejects invalid duration %s', async value => {
+  render(<PrivateServiceEditor {...props()} />);
+  fireEvent.changeText(screen.getByLabelText('Duración común'), value);
+  fireEvent.press(screen.getByText('Guardar servicio'));
+  expect(await screen.findByText('Entre 5 y 240 minutos enteros')).toBeTruthy();
+  expect(savePrivateService).not.toHaveBeenCalled();
+});
+
+test.each(['', '-1', '50.505'])('rejects invalid price %s', async value => {
+  render(<PrivateServiceEditor {...props()} />);
+  fireEvent.changeText(screen.getByLabelText('Precio común'), value);
+  fireEvent.press(screen.getByText('Guardar servicio'));
+  expect(await screen.findByText('Importe no válido')).toBeTruthy();
+  expect(savePrivateService).not.toHaveBeenCalled();
+});
+
+test('General also requires an active modality; deselection and reactivation reuse its option', async () => {
+  const input = props(); jest.mocked(savePrivateService).mockResolvedValue(catalog);
+  render(<PrivateServiceEditor {...input} service={{ ...service, key: 'base' }} />);
+  fireEvent.press(screen.getByRole('checkbox', { name: 'Videollamada' }));
+  fireEvent.press(screen.getByText('Guardar servicio'));
+  expect(await screen.findAllByText('Selecciona al menos una modalidad.')).toHaveLength(2);
+  expect(savePrivateService).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole('checkbox', { name: 'Videollamada' }));
+  fireEvent.changeText(screen.getByLabelText('Duración común'), '60');
+  fireEvent.press(screen.getByText('Guardar servicio'));
+  await waitFor(() => expect(input.onSaved).toHaveBeenCalled());
+  expect(jest.mocked(savePrivateService).mock.calls[0][1].options[0].id).toBe('option');
+});
+
+test('preview includes internal modalities and incomplete values remain pending', () => {
+  render(<PrivateServiceEditor {...props()} service={{ ...service, options: [{ ...service.options[0], isPublic: false }] }} />);
+  expect(screen.getByText('Reservas: solo tú')).toBeTruthy();
+  expect(screen.getByText('50 min')).toBeTruthy();
+  fireEvent.changeText(screen.getByLabelText('Duración común'), '');
+  fireEvent.changeText(screen.getByLabelText('Precio común'), '');
+  expect(screen.getByText('Duración pendiente')).toBeTruthy();
+  expect(screen.getAllByText('Precio pendiente')).toHaveLength(2);
+});
+
+test('conflicts preserve the draft and prevent blind resubmission', async () => {
   jest.mocked(savePrivateService).mockRejectedValue({ isAxiosError: true, response: { data: { code: 'CATALOG_VERSION_CONFLICT', message: 'El servicio ha cambiado.' } } });
   render(<PrivateServiceEditor {...props()} />);
   fireEvent.changeText(screen.getByLabelText('Nombre del servicio'), 'Mi borrador');
-  fireEvent.changeText(screen.getByLabelText('Precio de Videollamada, 50 minutos'), '75');
+  fireEvent.changeText(screen.getByLabelText('Precio común'), '75');
   fireEvent.press(screen.getByText('Guardar servicio'));
   await screen.findByText('Cargar versión actual');
   expect(screen.getByDisplayValue('Mi borrador')).toBeTruthy();
   expect(screen.getByDisplayValue('75')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Guardar servicio' }).props.accessibilityState.disabled).toBe(true);
-});
-test('new options require an explicit price and visibility; activating does not publish', async () => {
-  render(<PrivateServiceEditor {...props()} service={null} />);
-  fireEvent.changeText(screen.getByLabelText('Nombre del servicio'), 'Nuevo');
-  fireEvent(screen.getByLabelText('Activar Videollamada'), 'valueChange', true);
-  fireEvent.press(screen.getByText('Guardar servicio'));
-  expect(await screen.findByText('Importe no válido')).toBeTruthy();
-  fireEvent.changeText(screen.getByLabelText('Precio de Videollamada, 60 minutos'), '0');
-  fireEvent.press(screen.getByText('Guardar servicio'));
-  expect(await screen.findByText('Elige quién puede reservar cada opción nueva.')).toBeTruthy();
-  expect(savePrivateService).not.toHaveBeenCalled();
-});
-
-
-test('base service name is editable and additional durations open only on request', () => {
-  const base: PrivateService = { ...service, key: 'base', name: 'General', options: [service.options[0], { ...service.options[0], id: 'extra', durationMinutes: 75, isPreferred: false, isPublic: false, legacyDuration: true }] };
-  render(<PrivateServiceEditor {...props()} service={base} />);
-  fireEvent.changeText(screen.getByLabelText('Nombre del servicio'), 'Consulta personalizada');
-  expect(screen.getByDisplayValue('Consulta personalizada')).toBeTruthy();
-  expect(screen.queryByLabelText('Precio de Videollamada, 75 minutos')).toBeNull();
-  fireEvent.press(screen.getByText('Otras duraciones · 1'));
-  expect(screen.getByLabelText('Precio de Videollamada, 75 minutos')).toBeTruthy();
-  fireEvent.changeText(screen.getByLabelText('Precio de Videollamada, 75 minutos'), '85');
-  expect(screen.getByDisplayValue('85')).toBeTruthy();
-  expect(screen.getByLabelText('Precio de Videollamada, 50 minutos').props.value).toBe('60');
 });

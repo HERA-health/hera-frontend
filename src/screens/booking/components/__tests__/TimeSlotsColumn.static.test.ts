@@ -8,21 +8,6 @@ const bookingScreenPath = path.join(__dirname, '..', '..', 'BookingScreen.tsx');
 describe('TimeSlotsColumn disabled slot UX', () => {
   const source = fs.readFileSync(timeSlotsColumnPath, 'utf8');
 
-  it('renders unavailable backend slot options as disabled neutral choices', () => {
-    expect(source).toContain('slot.available === false');
-    expect(source).toContain('disabled={slotDisabled}');
-    expect(source).toContain('Elige una hora');
-    expect(source).toContain('No disponible');
-    expect(source).toContain('slotButtonDisabled');
-  });
-
-  it('keeps incomplete slot rows aligned without stretching the final option', () => {
-    expect(source).toContain("width: '31%'");
-    expect(source).toContain('maxWidth: 150');
-    expect(source).toContain('flexGrow: 0');
-    expect(source).not.toContain('flexGrow: 1');
-  });
-
   it('allows narrow layouts to shrink without horizontal clipping', () => {
     expect(source).toContain('minWidth: 0');
     expect(source).not.toContain('minWidth: 260');

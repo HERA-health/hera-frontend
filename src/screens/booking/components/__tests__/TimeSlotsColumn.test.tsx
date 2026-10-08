@@ -42,10 +42,8 @@ describe('TimeSlotsColumn disabled slot UX', () => {
       />
     );
 
-    expect(screen.getByText('Elige una hora')).toBeTruthy();
-    expect(screen.getByText('No disponible')).toBeTruthy();
-
-    fireEvent.press(screen.getByText('10:15'));
+    expect(screen.getByText('Elige la hora de inicio')).toBeTruthy();
+    expect(screen.queryByText('10:15')).toBeNull();
     expect(onTimeSelect).not.toHaveBeenCalled();
 
     fireEvent.press(screen.getByText('11:30'));

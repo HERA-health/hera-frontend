@@ -1284,6 +1284,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
             ]}
           />
           <TimeSlotsColumn
+            availabilityKey={`${specialistId}:${selectedOptionId}:${sessionType}`}
             selectedDate={selectedDate}
             availableSlots={availableSlots}
             selectedTime={selectedSlot?.startTime || null}
@@ -1374,6 +1375,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const renderBookingSummary = (sticky: boolean, showAction = true) => (
     <ProfessionalInfoColumn
       specialist={specialist}
+      duration={slotDuration}
       booking={bookingState}
       availableSessionTypes={availableSessionTypes}
       onPrimaryAction={handlePrimaryAction}

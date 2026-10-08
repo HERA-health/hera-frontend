@@ -31,6 +31,7 @@ import { BookingLocationMap } from './BookingLocationMap';
 
 interface ProfessionalInfoColumnProps {
   specialist: BookingSpecialist;
+  duration?: number;
   booking: BookingSelection;
   availableSessionTypes: SessionType[];
   onPrimaryAction: () => void;
@@ -72,6 +73,7 @@ export const canUseStickyBookingSummary = ({
 
 export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
   specialist,
+  duration = specialist.sessionDuration ?? 60,
   booking,
   availableSessionTypes,
   onPrimaryAction,
@@ -200,7 +202,7 @@ export const ProfessionalInfoColumn: React.FC<ProfessionalInfoColumnProps> = ({
           <SummaryRow
             icon="hourglass-outline"
             label="Duración"
-            value={`${specialist.sessionDuration ?? 60} min`}
+            value={`${duration} min`}
             active
           />
           {booking.sessionType === 'IN_PERSON' ? (
