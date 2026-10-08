@@ -107,19 +107,20 @@ export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'Pr
           {wide && <View style={styles.columns}><Text style={[styles.overline, styles.nameColumn]}>SERVICIO</Text><View style={[styles.offers, styles.offerColumns]}>{modalities.map(m => <Text key={m.type} style={[styles.overline, styles.modality]}>{m.label.toUpperCase()}</Text>)}</View><Text style={[styles.overline, styles.actions]}>ACCIONES</Text></View>}
           {visible.map(service => <View key={service.id} style={[styles.service, wide && styles.serviceRow]}>
             <View style={wide ? styles.nameColumn : [styles.serviceHeader, compact && styles.stack]}>
-              <View style={wide || compact ? styles.mobileIdentity : styles.identity}><Text style={styles.name}>{service.name}</Text>{!!service.description && <Text numberOfLines={2} style={styles.secondary}>{service.description}</Text>}</View>
+              <View style={wide || compact ? styles.mobileIdentity : styles.identity}><Text style={styles.name}>{service.name}</Text>
+                <Text style={styles.small}>{service.options.some(o => o.isActive && o.isPublic) ? 'Pública' : 'Privada'}</Text>
+                {!!service.description && <Text numberOfLines={2} style={styles.secondary}>{service.description}</Text>}</View>
               {!wide && serviceActions(service)}
             </View>
             <View style={[styles.offers, wide && styles.offerColumns, compact && styles.stack]}>
               {modalities.map(modality => {
                 const options = service.options.filter(o => o.modality === modality.type && o.isActive);
                 const main = principalPrivateOption(options);
-                const publicCount = options.filter(o => o.isPublic && !catalog.restrictions[o.modality]).length;
                 return <View key={modality.type} style={compact ? styles.mobileModality : styles.modality}>
                   {!wide && <Text style={styles.small}>{modality.label}</Text>}
                   {main ? <View style={{ gap: 4 }}><Text style={styles.price}>{main.durationMinutes} min · {formatPrivatePrice(main.priceCents)}</Text>
                     {options.length > 1 && <Text style={styles.small}>Pendiente de simplificación · Revisa el servicio para conservar su opción principal.</Text>}
-                    {options.length === 1 && <Text style={styles.small}>{archived ? 'Al restaurar: ' : ''}{!publicCount ? 'Reservas: solo tú' : publicCount === options.length ? 'Reservas: tú y tus pacientes' : `${publicCount} con reserva online`}</Text>}
+                    {main.isPublic && !!catalog.restrictions[modality.type] && <Text style={styles.small}>{archived ? 'Al restaurar: ' : ''}Reserva online no disponible · Revisa tu perfil.</Text>}
                   </View> : <Text style={styles.small}>No disponible</Text>}
                 </View>;
               })}

@@ -974,6 +974,32 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     await waitFor(() => expect(mockGetManagedSessionSlotOptions).toHaveBeenLastCalledWith(expect.objectContaining({ duration: 5 })));
   });
 
+  it('preselects assigned private rates on patient change, preserves manual choice and existing appointments', async () => {
+    const base: PrivateServiceOption = { id: 'base-option', serviceId: 'base', serviceKey: 'base', serviceName: 'General', name: 'General', modality: 'VIDEO_CALL', durationMinutes: 60, priceCents: 6000, currency: 'EUR', isActive: true, isPublic: true, isPreferred: true, version: 1, legacyDuration: false, legacyTariffId: null };
+    const reduced = { ...base, id: 'reduced-option', serviceId: 'reduced', serviceKey: 'reduced', serviceName: 'Reducida', isPublic: false, priceCents: 3500, durationMinutes: 50 };
+    const catalog = { version: 1, firstVisitFree: false, restrictions: {}, options: [base], services: [
+      { id: 'base', key: 'base', name: 'General', description: null, archivedAt: null, version: 1, options: [base] },
+      { id: 'reduced', key: 'reduced', name: 'Reducida', description: null, archivedAt: null, version: 1, options: [reduced], assignedClientIds: [client.id] },
+    ] };
+    jest.mocked(loadPrivateCatalog).mockResolvedValueOnce(catalog);
+    const input = { visible: true, clients: [client, secondClient], onClose: jest.fn(), onSubmit: jest.fn(async () => {}) };
+    const view = render(<ManagedSessionSchedulerModal {...input} />);
+    await screen.findByText('Reducida');
+    fireEvent.press(screen.getByTestId('managed-session-client-selector'));
+    fireEvent.press(screen.getByText('Lucia Gomez'));
+    await waitFor(() => expect(getManagedBookingQuote).toHaveBeenLastCalledWith(expect.objectContaining({ clientId: client.id, optionId: reduced.id, duration: 50 })));
+    fireEvent.press(screen.getByText('General'));
+    await waitFor(() => expect(getManagedBookingQuote).toHaveBeenLastCalledWith(expect.objectContaining({ optionId: base.id })));
+    fireEvent.press(screen.getByTestId('managed-session-client-selector'));
+    fireEvent.press(screen.getByText('Sara Herrer'));
+    await waitFor(() => expect(getManagedBookingQuote).toHaveBeenLastCalledWith(expect.objectContaining({ clientId: secondClient.id, optionId: base.id })));
+    view.unmount();
+    jest.mocked(loadPrivateCatalog).mockResolvedValueOnce(catalog);
+    render(<ManagedSessionSchedulerModal {...input} mode="edit" editingSessionId="existing" initialValues={{ clientId: client.id, date: '2026-01-03T10:00:00Z', duration: 60, type: 'VIDEO_CALL', optionId: base.id }} />);
+    await screen.findByText('Reducida');
+    expect(screen.getByRole('radio', { name: /General, 60 minutos/ }).props.accessibilityState.checked).toBe(true);
+  });
+
   it('quotes the chosen custom service even when its duration matches General', async () => {
     const option = (id: string, serviceId: string, serviceName: string): PrivateServiceOption => ({ id, serviceId, serviceKey: serviceId, serviceName, name: serviceName,
       modality: 'VIDEO_CALL', durationMinutes: 60, priceCents: serviceId === 'base' ? 5000 : 8000, currency: 'EUR',

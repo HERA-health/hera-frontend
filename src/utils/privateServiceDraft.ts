@@ -7,7 +7,7 @@ export const PRIVATE_MODALITIES = [
 ] as const;
 
 export type PrivateServiceDraftOption = PrivateServiceOption & {
-  durationText: string; priceText: string; isNew: boolean; visibilityChosen: boolean;
+  durationText: string; priceText: string; isNew: boolean;
 };
 
 export function principalPrivateOption(options: PrivateServiceOption[]) {
@@ -19,11 +19,11 @@ export function makePrivateServiceDraft(options: PrivateServiceOption[]): Privat
   return PRIVATE_MODALITIES.map(({ type }) => {
     const prior = principalPrivateOption(options.filter(o => o.modality === type));
     if (prior) return { ...prior, durationText: String(prior.durationMinutes),
-      priceText: String(prior.priceCents / 100).replace('.', ','), isNew: false, visibilityChosen: true };
+      priceText: String(prior.priceCents / 100).replace('.', ','), isNew: false };
     return { id: `new:${type}`, serviceId: '', name: '', modality: type, durationMinutes: 60,
       durationText: '60', priceCents: 0, priceText: '', currency: 'EUR', isActive: false,
       isPublic: false, isPreferred: false, version: 0, legacyDuration: false, legacyTariffId: null,
-      isNew: true, visibilityChosen: false };
+      isNew: true };
   });
 }
 

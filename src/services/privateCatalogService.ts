@@ -14,12 +14,17 @@ export interface PrivateServiceCatalog {
   restrictions: Partial<Record<SessionType, string>>;
 }
 export interface PrivateService {
+  assignedClientIds?: string[];
   id: string; key: string; name: string; description: string | null;
   archivedAt: string | null; version: number; options: PrivateServiceOption[];
 }
 export interface PrivateServiceInput {
+  assignedClientIds?: string[];
   version: number; name: string; description: string | null; restore?: boolean; options: CatalogOptionInput[];
 }
+export interface ServiceAssignmentPatient { id: string; name: string }
+export const loadServiceAssignmentPatients = async (): Promise<ServiceAssignmentPatient[]> =>
+  (await api.get<{ data: ServiceAssignmentPatient[] }>('/billing/service-catalog/patients')).data.data;
 export const savePrivateService = async (id: string | undefined, input: PrivateServiceInput): Promise<PrivateServiceCatalog> =>
   (await (id ? api.put<{ data: PrivateServiceCatalog }>(`/billing/service-catalog/services/${encodeURIComponent(id)}`, input)
     : api.post<{ data: PrivateServiceCatalog }>('/billing/service-catalog/services', input))).data.data;
@@ -33,8 +38,6 @@ export interface CatalogOptionInput {
 }
 export const loadPrivateCatalog = async (): Promise<PrivateServiceCatalog> =>
   (await api.get<{ data: PrivateServiceCatalog }>('/billing/service-catalog')).data.data;
-export const savePrivateCatalog = async (data: { version: number; firstVisitFree: boolean; options: CatalogOptionInput[] }): Promise<PrivateServiceCatalog> =>
-  (await api.put<{ data: PrivateServiceCatalog }>('/billing/service-catalog', data)).data.data;
 export const loadPublicBookingOptions = async (specialistId: string): Promise<PrivateServiceOption[]> =>
   (await api.get<{ data: PrivateServiceOption[] }>(`/sessions/booking-options/${encodeURIComponent(specialistId)}`)).data.data;
 export const getManagedBookingQuote = async (params: { patientPackageId?: string; clientId: string; optionId: string; duration: number; type: SessionType; sessionId?: string }): Promise<BookingQuote> =>

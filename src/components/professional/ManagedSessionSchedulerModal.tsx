@@ -155,6 +155,8 @@ export function ManagedSessionSchedulerModal({
   const [timeValue, setTimeValue] = useState('');
   const [durationValue, setDurationValue] = useState('60');
   const [catalogOptions, setCatalogOptions] = useState<PrivateServiceOption[]>([]);
+  const [serviceAssignments, setServiceAssignments] = useState<Record<string, string[]>>({});
+  const assignedServiceIds = Object.keys(serviceAssignments).filter(id => serviceAssignments[id].includes(clientId));
   const liveCatalogOptions = useRef<PrivateServiceOption[]>([]);
   const acquiredOptions = useRef<PrivateServiceOption[]>([]);
   const [patientPackageId, setPatientPackageId] = useState<string | undefined>();
@@ -192,6 +194,7 @@ export function ManagedSessionSchedulerModal({
     let current = true;
     loadPrivateCatalog().then(value => { if (current) {
       const options = (value.services ? value.services.filter(s => !s.archivedAt).flatMap(s => s.options) : value.options).filter(o => o.isActive);
+      setServiceAssignments(Object.fromEntries((value.services ?? []).filter(s => !s.archivedAt && s.options.every(o => !o.isActive || !o.isPublic)).map(s => [s.id, s.assignedClientIds ?? []])));
       liveCatalogOptions.current = options; setCatalogOptions([...options.filter(o => !acquiredOptions.current.some(p => p.id === o.id)), ...acquiredOptions.current]); setQuoteError('');
       if (acquiredOptions.current.length) return;
       const initial = isEditing
@@ -204,6 +207,17 @@ export function ManagedSessionSchedulerModal({
       .catch(() => { if (current) setQuoteError('No se pudieron cargar las tarifas. Cierra y vuelve a abrir la cita.'); });
     return () => { current = false; };
   }, [visible, editingSessionId, initialValues?.optionId]);
+  useEffect(() => {
+    if (!visible || isEditing || !clientId || acquiredOptions.current.length) return;
+    const options = liveCatalogOptions.current;
+    const assigned = options.filter(o => !o.isPublic && serviceAssignments[o.serviceId]?.includes(clientId));
+    const next = assigned.find(o => o.modality === type) ?? assigned[0]
+      ?? initialPrivateOption(options.filter(o => o.modality === type));
+    setSelectedOptionId(next?.id);
+    if (next) { setType(next.modality); setDurationValue(String(next.durationMinutes)); }
+    // Apply the default only when entering/changing a patient or loading the catalogue.
+    // Manual service/modality choices and acquired package conditions take precedence afterwards.
+  }, [visible, isEditing, clientId, serviceAssignments]);
   useEffect(() => {
     let current = true;
     setQuote(null);
@@ -696,7 +710,7 @@ export function ManagedSessionSchedulerModal({
               {initialValues?.paidOnline && <Text style={{ color: theme.textSecondary }}>Esta cita está pagada. Puedes cambiar su fecha y hora conservando el servicio y el importe. Para cambiar las condiciones económicas, cancela y gestiona la devolución desde Cobros.</Text>}
               {dateOnlyChange && <Text style={{ color: theme.textSecondary }}>Servicio reservado: {initialValues?.serviceName ?? 'Condiciones originales'} · {initialDuration} min. Cambiar solo la fecha mantiene sus condiciones.</Text>}
               {!!clientId && <PackageCoverage key={`${clientId}:${visible}`} clientId={clientId} initialPackageId={initialValues?.clientId === clientId ? initialValues?.patientPackageId : undefined} optionId={selectedOptionId} value={patientPackageId} disabled={saving || initialValues?.paidOnline} onChange={(id, row) => { setPatientPackageId(id); if (row) { const options = frozenPackageOptions(row); acquiredOptions.current = options; setCatalogOptions(previous => [...previous.filter(o => !options.some(p => p.id === o.id)), ...options]); const next = options.find(o => o.id === selectedOptionId) ?? options[0]; if (next) { setSelectedOptionId(next.id); setType(next.modality); setDurationValue(String(next.durationMinutes)); } } else { acquiredOptions.current = []; setCatalogOptions(liveCatalogOptions.current); const next = liveCatalogOptions.current.find(o => o.id === selectedOptionId) ?? liveCatalogOptions.current[0]; if (next) { setSelectedOptionId(next.id); setType(next.modality); setDurationValue(String(next.durationMinutes)); } } }} />}
-              <PrivateServicePicker showDuration={false} options={catalogOptions} modality={type} value={selectedOptionId} disabled={saving || initialValues?.paidOnline} onChange={id => {
+              <PrivateServicePicker assignedServiceIds={assignedServiceIds} showDuration={false} options={catalogOptions} modality={type} value={selectedOptionId} disabled={saving || initialValues?.paidOnline} onChange={id => {
                 const next = catalogOptions.find(o => o.id === id);
                 if (!next) return;
                 setSelectedOptionId(id); setDurationValue(String(next.durationMinutes)); setTimeEditedManually(true); clearBufferConflict();

@@ -18,3 +18,13 @@ test('same duration and price remain distinct services and emit exact option ids
   expect(onChange).toHaveBeenCalledWith('mdr');
   expect(screen.getAllByRole('radio')).toHaveLength(2);
 });
+
+test('assigned private service comes first and other private services remain selectable', () => {
+  const onChange = jest.fn();
+  render(<PrivateServicePicker options={[option('base', 'General'), { ...option('private', 'Reducida'), isPublic: false }, { ...option('other', 'Acuerdo'), isPublic: false }]}
+    assignedServiceIds={['private']} modality="VIDEO_CALL" value="private" onChange={onChange} />);
+  expect(screen.getAllByRole('radio')[0].props.accessibilityLabel).toContain('Reducida');
+  expect(screen.getByText('Privada · Asignada a este paciente')).toBeTruthy();
+  fireEvent.press(screen.getByText('Acuerdo'));
+  expect(onChange).toHaveBeenCalledWith('other');
+});

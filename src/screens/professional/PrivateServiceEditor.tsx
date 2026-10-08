@@ -9,7 +9,7 @@ import type { Theme } from '../../constants/theme';
 import type { ScreenProps } from '../../constants/types';
 import { Button } from '../../components/common/Button';
 import { AnimatedPressable } from '../../components/common/AnimatedPressable';
-import { SimpleDropdown } from '../../components/common/SimpleDropdown';
+import { ServicePatientAssignments } from './ServicePatientAssignments';
 import { getErrorMessage } from '../../constants/errors';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import { savePrivateService, type CatalogOptionInput, type PrivateServiceCatalog, type PrivateService } from '../../services/privateCatalogService';
@@ -17,7 +17,10 @@ import { PRIVATE_MODALITIES, makePrivateServiceDraft, hasSharedPrivateValues, ne
   parsePrivateDuration, type PrivateServiceDraftOption } from '../../utils/privateServiceDraft';
 
 const sharedLabel = 'Misma duración y precio para todas las modalidades';
-const visibility = [{ value: 'public', label: 'Tú y tus pacientes' }, { value: 'private', label: 'Solo tú' }] as const;
+const visibility = [
+  { value: true, label: 'Tarifa pública', icon: 'globe-outline', text: 'Aparece en tu perfil y en el directorio. Cualquier paciente puede reservarla online.' },
+  { value: false, label: 'Tarifa privada', icon: 'lock-closed-outline', text: 'No es visible para los pacientes. Solo tú la aplicas desde la agenda a quien quieras.' },
+] as const;
 
 export function PrivateServiceEditor({ navigation, service, sourceCatalog, onSaved, onClose, onDirtyChange, onSavingChange, onReload }: {
   navigation: Pick<ScreenProps<'ProfessionalTariffs'>['navigation'], 'navigate'>; service: PrivateService | null;
@@ -33,13 +36,16 @@ export function PrivateServiceEditor({ navigation, service, sourceCatalog, onSav
   const [description, setDescription] = useState(service?.description ?? '');
   const [draft, setDraft] = useState(() => makePrivateServiceDraft(service?.options ?? []));
   const [shared, setShared] = useState(() => hasSharedPrivateValues(draft));
+  const [isPublic, setIsPublic] = useState(() => !service || service.options.filter(o => o.isActive).every(o => o.isPublic));
+  const [assignedClientIds, setAssignedClientIds] = useState(service?.assignedClientIds ?? []);
+  const mixedVisibility = new Set(service?.options.filter(o => o.isActive).map(o => o.isPublic)).size > 1;
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [error, setError] = useState('');
   const [showErrors, setShowErrors] = useState(false);
   const [conflict, setConflict] = useState(false);
-  const baseline = useRef(JSON.stringify({ draft, name, description, shared }));
-  const dirty = JSON.stringify({ draft, name, description, shared }) !== baseline.current;
+  const baseline = useRef(JSON.stringify({ draft, name, description, shared, isPublic, assignedClientIds }));
+  const dirty = mixedVisibility || JSON.stringify({ draft, name, description, shared, isPublic, assignedClientIds }) !== baseline.current;
   const simplify = needsPrivateServiceSimplification(service?.options ?? []);
   const active = draft.filter(o => o.isActive);
   const common = active[0] ?? draft[0];
@@ -78,14 +84,13 @@ export function PrivateServiceEditor({ navigation, service, sourceCatalog, onSav
       if (durationMinutes === null || priceCents === null) {
         setError('Revisa la duración (de 5 a 240 minutos) y el precio (máximo dos decimales).'); return;
       }
-      if (!option.visibilityChosen) { setError('Elige quién puede reservar cada modalidad.'); return; }
       options.push({ ...(option.isNew ? {} : { id: option.id }), modality: option.modality,
-        durationMinutes, priceCents, isActive: true, isPublic: option.isPublic, isPreferred: true });
+        durationMinutes, priceCents, isActive: true, isPublic, isPreferred: true });
     }
     savingRef.current = true; setSaving(true); onSavingChange(true);
     try {
       const next = await savePrivateService(service?.id, { version: service?.version ?? 0, name: name.trim(),
-        description: description.trim() || null, ...(service?.archivedAt ? { restore: true } : {}), options });
+        description: description.trim() || null, ...(service?.archivedAt ? { restore: true } : {}), options, assignedClientIds: isPublic ? [] : assignedClientIds });
       onSaved(next);
     } catch (e) {
       setError(getErrorMessage(e, 'No se pudo guardar el servicio. Tu borrador se conserva.'));
@@ -175,26 +180,31 @@ export function PrivateServiceEditor({ navigation, service, sourceCatalog, onSav
               {valueInputs(option, `de ${PRIVATE_MODALITIES.find(m => m.type === option.modality)?.label}`)}
             </View>)}
           </View>
-          {!!active.length && <View style={styles.surface}>
-            <Text style={styles.title}>¿Quién puede reservar?</Text>
-            <Text style={styles.small}>Solo tú: creas las citas desde tu agenda. Tú y tus pacientes: también pueden reservar online desde tu perfil.</Text>
-            {active.map(option => {
-              const label = PRIVATE_MODALITIES.find(m => m.type === option.modality)?.label;
-              const restriction = sourceCatalog.restrictions[option.modality];
-              return <View key={option.id} style={styles.audienceRow}>
-                <Text style={styles.label}>{label}</Text>
-                <SimpleDropdown presentation="portal" highlightSelection={false} disabled={saving} accessibilityLabel={`Quién puede reservar: ${label}`}
-                  value={option.visibilityChosen ? option.isPublic ? 'public' : 'private' : null} placeholder="Elige una opción" options={visibility}
-                  onSelect={value => setDraft(rows => rows.map(o => o.id === option.id ? { ...o, isPublic: value === 'public', visibilityChosen: true } : o))} />
-                {showErrors && !option.visibilityChosen && <Text style={styles.error}>Elige quién puede reservar</Text>}
-                {!!restriction && <View style={styles.restriction}><Text style={[styles.small, styles.flex]}>{restriction}</Text><Button disabled={saving} size="small" variant="ghost" onPress={() => navigation.navigate('ProfessionalProfile')}>Ir al perfil</Button></View>}
-              </View>;
-            })}
-          </View>}
+          <View style={styles.surface}>
+            <Text style={styles.title}>Visibilidad de la tarifa</Text>
+            {mixedVisibility && <Text style={styles.small}>Este servicio tenía distinta visibilidad por modalidad. Al guardar se aplicará la selección a todas; hemos seleccionado privada para evitar publicar tarifas internas.</Text>}
+            <View style={[styles.visibilityCards, width < 640 && styles.vertical]}>{visibility.map(choice => <AnimatedPressable
+              key={String(choice.value)} accessibilityRole="radio" accessibilityLabel={choice.label}
+              accessibilityState={{ checked: isPublic === choice.value, disabled: saving }} disabled={saving}
+              onPress={() => setIsPublic(choice.value)} hoverLift={false} pressScale={1}
+              onKeyDown={event => { if (event.key === ' ') { event.preventDefault(); if (!saving && !event.repeat) setIsPublic(choice.value); } }}
+              style={[styles.visibilityCard, isPublic === choice.value && styles.selectedChip]}>
+              <View style={styles.previewHeader}><Ionicons name={choice.icon} size={18} color={theme.primary} />
+                <Text style={[styles.label, styles.flex]}>{choice.label}</Text><Ionicons name={isPublic === choice.value ? 'radio-button-on' : 'radio-button-off'} size={18} color={theme.primary} /></View>
+              <Text style={styles.small}>{choice.text}</Text>
+            </AnimatedPressable>)}</View>
+            {isPublic && active.map(option => sourceCatalog.restrictions[option.modality] ? <View key={option.id} style={styles.restriction}>
+              <Text style={[styles.small, styles.flex]}>{sourceCatalog.restrictions[option.modality]}</Text>
+              <Button disabled={saving} size="small" variant="ghost" onPress={() => navigation.navigate('ProfessionalProfile')}>Ir al perfil</Button>
+            </View> : null)}
+            {!isPublic && <ServicePatientAssignments value={assignedClientIds} onChange={setAssignedClientIds} disabled={saving} />}
+          </View>
           <Text style={styles.small}>Los cambios se aplican a nuevas reservas. Las citas y facturas anteriores conservan sus condiciones.</Text>
         </View>
         <View style={[styles.preview, wide && { width: 280 }]}>
           <View style={styles.previewHeader}><Ionicons name="eye-outline" size={22} color={theme.primary} /><Text style={styles.title}>Vista previa</Text></View>
+          <Text style={styles.label}>{isPublic ? 'Pública · Visible en tu perfil' : 'Privada · No visible en tu perfil'}</Text>
+          <Text style={styles.small}>{isPublic ? 'Así la verán tus pacientes al reservar' : 'Solo disponible desde tu agenda'}</Text>
           <Text style={styles.small}>{service?.archivedAt ? 'Al restaurar el servicio' : dirty || simplify ? 'Cambios sin guardar' : 'Configuración del servicio'}</Text>
           <Text style={styles.title}>{name.trim() || 'Nombre del servicio'}</Text>
           {!!description.trim() && <Text style={styles.secondary}>{description.trim()}</Text>}
@@ -208,7 +218,7 @@ export function PrivateServiceEditor({ navigation, service, sourceCatalog, onSav
             return <View key={option.id} style={styles.previewModality}>
               <View style={styles.previewHeader}><Ionicons name={modality.icon} size={16} color={theme.primary} /><Text style={styles.label}>{modality.label}</Text></View>
               <View style={styles.previewLine}><Text style={styles.secondary}>{duration === null ? 'Duración pendiente' : `${duration} min`}</Text><Text style={styles.label}>{price === null ? 'Precio pendiente' : formatPrivatePrice(price)}</Text></View>
-              <Text style={styles.small}>{!option.visibilityChosen ? 'Reserva pendiente de configurar' : !option.isPublic ? 'Reservas: solo tú' : sourceCatalog.restrictions[option.modality] ? 'Reserva online no disponible · revisa tu perfil' : 'Reservas: tú y tus pacientes'}</Text>
+              {isPublic && !!sourceCatalog.restrictions[option.modality] && <Text style={styles.small}>Reserva online no disponible · revisa tu perfil</Text>}
             </View>;
           })}
           {sourceCatalog.firstVisitFree && <Text style={styles.note}>Primera sesión sin coste para pacientes elegibles.</Text>}
@@ -244,7 +254,9 @@ const createStyles = (t: Theme) => StyleSheet.create({
   numberField: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, borderWidth: 1, borderColor: t.border, borderRadius: 10, paddingHorizontal: 12, backgroundColor: t.bgElevated },
   input: { flex: 1, color: t.textPrimary, fontFamily: t.fontSans, fontSize: 16, minHeight: 44, minWidth: 0, padding: 0 },
   invalid: { borderColor: t.error }, modalityRow: { gap: 10, borderTopWidth: 1, borderTopColor: t.borderLight, paddingTop: 16 },
-  audienceRow: { gap: 8 }, restriction: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  visibilityCards: { flexDirection: 'row', gap: 12 },
+  visibilityCard: { flex: 1, padding: 14, gap: 8, borderWidth: 1, borderColor: t.border, borderRadius: 12 },
+  restriction: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   notice: { padding: 16, gap: 8, borderRadius: 12, backgroundColor: t.surface, borderLeftWidth: 3, borderLeftColor: t.primary },
   preview: { backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: 16, padding: 20, gap: 10, width: '100%' },
   previewHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
