@@ -1,9 +1,12 @@
 import React from 'react';
+import { useDiscoveryRevalidation } from '../../../../hooks/useDiscoveryRevalidation';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { lightTheme } from '../../../../constants/theme';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import * as sessionsService from '../../../../services/sessionsService';
 import { SelectableAvailabilityPreview } from '../SelectableAvailabilityPreview';
+
+jest.mock('../../../../hooks/useDiscoveryRevalidation', () => ({ useDiscoveryRevalidation: jest.fn() }));
 
 jest.mock('../../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
@@ -167,5 +170,35 @@ describe('SelectableAvailabilityPreview', () => {
     });
     expect(screen.queryByText('09:00')).toBeNull();
     expect(onSlotChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('revalidates the visible date without clearing a valid selection, then removes an unavailable slot', async () => {
+    const slot = { startTime: '11:05', endTime: '12:05', available: true };
+    const onSlotChange = jest.fn();
+    render(<SelectableAvailabilityPreview
+      specialistId="specialist-1"
+      nextAvailable="2099-07-29"
+      selectedSlot={{ date: '2099-07-29', slot }}
+      onSlotChange={onSlotChange}
+    />);
+    await screen.findByText('11:05');
+    const reload = () => jest.mocked(useDiscoveryRevalidation).mock.calls.at(-1)![0]();
+    await act(async () => { reload(); });
+    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledTimes(2));
+    expect(onSlotChange).not.toHaveBeenCalled();
+    mockedSessionsService.getAvailableSlots.mockResolvedValueOnce([]);
+    await act(async () => { reload(); });
+    await waitFor(() => expect(onSlotChange).toHaveBeenCalledWith(null));
+  });
+
+  it('does not start another availability request while a slow read is pending', async () => {
+    let resolve: (slots: sessionsService.TimeSlot[]) => void = () => undefined;
+    mockedSessionsService.getAvailableSlots.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+    render(<SelectableAvailabilityPreview specialistId="specialist-1" nextAvailable="2099-07-29" onSlotChange={jest.fn()} />);
+    await waitFor(() => expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledTimes(1));
+    await act(async () => { jest.mocked(useDiscoveryRevalidation).mock.calls.at(-1)![0](); });
+    expect(mockedSessionsService.getAvailableSlots).toHaveBeenCalledTimes(1);
+    await act(async () => resolve([{ startTime: '11:05', endTime: '12:05', available: true }]));
+    expect(screen.getByText('11:05')).toBeTruthy();
   });
 });

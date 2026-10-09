@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AnimatedPressable } from '../../../components/common';
 import { CompactTimeSlotPicker } from '../../../components/common/CompactTimeSlotPicker';
@@ -8,6 +8,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import * as sessionsService from '../../../services/sessionsService';
 import type { TimeSlot } from '../../../services/sessionsService';
 import { formatMadridDateKey, getMadridDateKey } from '../../../utils/madridTime';
+import { useDiscoveryRevalidation } from '../../../hooks/useDiscoveryRevalidation';
 import type { SelectedProfileSlot } from '../types';
 
 interface SelectableAvailabilityPreviewProps {
@@ -73,6 +74,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
   const [slotCache, setSlotCache] = useState<Record<string, TimeSlot[]>>({});
   const [loadingDate, setLoadingDate] = useState<string | null>(null);
   const [errorDate, setErrorDate] = useState<string | null>(null);
+  const activeSlotRequest = useRef<{ cacheKey: string } | null>(null);
   const [dateScrollMetrics, setDateScrollMetrics] = useState<DateScrollMetrics>({
     contentWidth: 0,
     offsetX: 0,
@@ -95,32 +97,48 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
   }, [dates, onSlotChange, specialistId, startDate, optionId]);
 
   const cacheKey = `${specialistId}:${optionId ?? 'default'}:${selectedDate}`;
+  useDiscoveryRevalidation(useCallback(() => {
+    if (!canBook || activeSlotRequest.current?.cacheKey === cacheKey) return;
+    setSlotCache(current => {
+      const updated = { ...current };
+      delete updated[cacheKey];
+      return updated;
+    });
+  }, [cacheKey, canBook]), false);
 
   useEffect(() => {
     let active = true;
     const loadSlots = async () => {
       if (!canBook || slotCache[cacheKey]) return;
+      const request = { cacheKey };
+      activeSlotRequest.current = request;
       setLoadingDate(selectedDate);
       setErrorDate(null);
       try {
         const slots = await sessionsService.getAvailableSlots(specialistId, selectedDate, optionId);
         if (!active) return;
+        const availableSlots = slots.filter((slot) => slot.available !== false);
         setSlotCache((current) => ({
           ...current,
-          [cacheKey]: slots.filter((slot) => slot.available !== false),
+          [cacheKey]: availableSlots,
         }));
+        if (selectedSlot?.date === selectedDate && !availableSlots.some(slot =>
+          slot.startTime === selectedSlot.slot.startTime && slot.endTime === selectedSlot.slot.endTime
+        )) onSlotChange(null);
       } catch {
         if (active) {
           setSlotCache((current) => ({ ...current, [cacheKey]: [] }));
           setErrorDate(selectedDate);
+          onSlotChange(null);
         }
       } finally {
+        if (activeSlotRequest.current === request) activeSlotRequest.current = null;
         if (active) setLoadingDate(null);
       }
     };
     void loadSlots();
     return () => { active = false; };
-  }, [canBook, cacheKey, selectedDate, slotCache, specialistId, optionId]);
+  }, [canBook, cacheKey, selectedDate, slotCache, specialistId, optionId, selectedSlot, onSlotChange]);
 
   if (!canBook) return null;
 

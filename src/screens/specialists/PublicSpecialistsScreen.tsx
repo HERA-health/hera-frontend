@@ -135,6 +135,10 @@ export const PublicSpecialistsScreen: React.FC = () => {
   const mountedRef = useRef(true);
   const requestSequenceRef = useRef(0);
   const activeLoadMoreRequestRef = useRef<number | null>(null);
+  const activeRefreshRequestRef = useRef<number | null>(null);
+  const loadedFiltersRef = useRef<DirectoryFilters | null>(null);
+  const pageRef = useRef(1);
+  const [refreshing, setRefreshing] = useState(false);
 
   useWebPageMetadata({
     title: 'Hera | Especialistas',
@@ -142,27 +146,35 @@ export const PublicSpecialistsScreen: React.FC = () => {
     canonicalPath: '/especialistas',
   });
 
-  const loadDirectory = useCallback(async (nextPage: number, append: boolean) => {
-    if (append && activeLoadMoreRequestRef.current !== null) {
+  const loadDirectory = useCallback(async (nextPage: number, append: boolean, refresh = false) => {
+    if ((append || refresh) && (activeLoadMoreRequestRef.current !== null || activeRefreshRequestRef.current !== null)) {
       return;
     }
+    const preserveResults = refresh && loadedFiltersRef.current === filters;
+    const pagesToLoad = preserveResults ? pageRef.current : 1;
 
     const requestId = requestSequenceRef.current + 1;
     requestSequenceRef.current = requestId;
 
-    if (append) {
+    if (preserveResults) {
+      activeRefreshRequestRef.current = requestId;
+      setRefreshing(true);
+    } else if (append) {
       activeLoadMoreRequestRef.current = requestId;
       setLoadingMore(true);
     } else {
       activeLoadMoreRequestRef.current = null;
+      activeRefreshRequestRef.current = null;
+      loadedFiltersRef.current = null;
       setLoading(true);
       setItems([]);
       setLoadingMore(false);
+      setRefreshing(false);
     }
     setError(null);
 
     try {
-      const response = await specialistsService.getPublicSpecialistDirectory({
+      const responses = await Promise.all(Array.from({ length: pagesToLoad }, (_, index) => specialistsService.getPublicSpecialistDirectory({
         q: filters.q || undefined,
         language: filters.language,
         religion: filters.religion,
@@ -173,14 +185,17 @@ export const PublicSpecialistsScreen: React.FC = () => {
         minRating: filters.minRating ?? undefined,
         maxPrice: filters.maxPrice ?? undefined,
         sort: filters.sort,
-        page: nextPage,
-      });
+        page: preserveResults ? index + 1 : nextPage,
+      })));
+      const response = [...responses].reverse().find(result => result.items.length > 0) ?? responses[0];
 
       if (!mountedRef.current || requestSequenceRef.current !== requestId) {
         return;
       }
 
-      setItems((currentItems) => append ? [...currentItems, ...response.items] : response.items);
+      setItems((currentItems) => append ? [...currentItems, ...response.items] : responses.flatMap(result => result.items));
+      loadedFiltersRef.current = filters;
+      pageRef.current = response.page;
       setPage(response.page);
       setHasMore(response.hasMore);
     } catch (loadError: unknown) {
@@ -192,14 +207,17 @@ export const PublicSpecialistsScreen: React.FC = () => {
       if (activeLoadMoreRequestRef.current === requestId) {
         activeLoadMoreRequestRef.current = null;
       }
+      if (activeRefreshRequestRef.current === requestId) activeRefreshRequestRef.current = null;
 
       if (mountedRef.current && requestSequenceRef.current === requestId) {
         setLoading(false);
         setLoadingMore(false);
+        setRefreshing(false);
       }
     }
   }, [filters]);
-  useDiscoveryRevalidation(useCallback(() => { void loadDirectory(1, false); }, [loadDirectory]));
+  const refreshDirectory = useCallback(() => loadDirectory(1, false, true), [loadDirectory]);
+  useDiscoveryRevalidation(refreshDirectory);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -208,6 +226,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
       mountedRef.current = false;
       requestSequenceRef.current += 1;
       activeLoadMoreRequestRef.current = null;
+      activeRefreshRequestRef.current = null;
     };
   }, []);
 
@@ -477,12 +496,20 @@ export const PublicSpecialistsScreen: React.FC = () => {
           <Text style={[styles.resultsTitle, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>Especialistas disponibles</Text>
         </View>
 
+        {error && items.length > 0 ? (
+          <View style={[styles.notice, { backgroundColor: theme.bgCard, borderColor: theme.border }]} accessibilityRole="alert">
+            <Text style={[styles.noticeText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+              {error} Puedes seguir consultando los últimos resultados disponibles.
+            </Text>
+            <Button variant="outline" size="small" onPress={() => void refreshDirectory()}>Reintentar</Button>
+          </View>
+        ) : null}
         {loading ? (
           <View style={styles.loadingState}>
             <ActivityIndicator size="large" color={theme.primary} />
             <Text style={[styles.loadingText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Cargando perfiles verificados…</Text>
           </View>
-        ) : error ? (
+        ) : error && items.length === 0 ? (
           <View style={[styles.notice, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>
             <Ionicons name="cloud-offline-outline" size={28} color={theme.textMuted} />
             <Text style={[styles.noticeTitle, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>No hemos podido cargar el directorio</Text>
@@ -513,7 +540,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
             </View>
             {hasMore ? (
               <View style={styles.loadMoreWrap}>
-                <Button variant="outline" size="medium" loading={loadingMore} onPress={() => void loadDirectory(page + 1, true)}>
+                <Button variant="outline" size="medium" loading={loadingMore || refreshing} onPress={() => void loadDirectory(page + 1, true)}>
                   Cargar más especialistas
                 </Button>
               </View>

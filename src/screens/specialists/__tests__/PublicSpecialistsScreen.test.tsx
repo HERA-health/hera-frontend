@@ -1,6 +1,7 @@
 jest.mock('../../../hooks/useDiscoveryRevalidation', () => ({ useDiscoveryRevalidation: jest.fn() }));
 jest.mock('../../../hooks/useProfileOptions', () => ({ useProfileOptions: () => ({ options: { languages: [{ value: 'arabic', label: 'Árabe', aliases: ['arabe'] }], religions: [], religionEnabled: false }, error: false, retry: jest.fn() }) }));
 import React from 'react';
+import { useDiscoveryRevalidation } from '../../../hooks/useDiscoveryRevalidation';
 import * as ReactNative from 'react-native';
 jest.mock('../../../config/api', () => ({ __esModule: true, default: () => ({ apiUrl: 'https://fixture.invalid/api' }) }));
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
@@ -404,6 +405,32 @@ describe('PublicSpecialistsScreen', () => {
       await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ language: undefined })));
       expect(screen.getByRole('button', { name: 'Filtros' })).toBeTruthy();
     } finally { act(() => ReactNative.Dimensions.set({ window: previousWindow })); }
+  });
+
+  it('keeps loaded pages visible while refreshing and after a recoverable failure', async () => {
+    const second = { ...specialist, id: 'specialist-2', name: 'Dra. Segunda' };
+    mockedDirectory.mockImplementation(async filters => ({
+      items: filters?.page === 2 ? [second] : [specialist],
+      page: filters?.page ?? 1, pageSize: 12, total: 13, hasMore: filters?.page !== 2,
+    }));
+    render(<PublicSpecialistsScreen />);
+    await screen.findByText('Dra. Elena Martín');
+    fireEvent.press(screen.getByText('Cargar más especialistas'));
+    await screen.findByText('Dra. Segunda');
+    const request = createDeferred<specialistsService.PublicSpecialistDirectoryPage>();
+    mockedDirectory.mockReturnValueOnce(request.promise);
+    const reload = jest.mocked(useDiscoveryRevalidation).mock.calls.at(-1)![0];
+    let pending: void | Promise<unknown>;
+    act(() => { pending = reload(); });
+    expect(screen.getByText('Dra. Elena Martín')).toBeTruthy();
+    expect(screen.getByText('Dra. Segunda')).toBeTruthy();
+    await act(async () => { request.reject(new Error('Error de conexión')); await pending; });
+    expect(screen.getByText('Dra. Segunda')).toBeTruthy();
+    expect(screen.getByText(/Puedes seguir consultando los últimos resultados/)).toBeTruthy();
+    fireEvent.press(screen.getByText('Reintentar'));
+    await waitFor(() => expect(screen.queryByText(/Puedes seguir consultando los últimos resultados/)).toBeNull());
+    expect(screen.getByText('Dra. Segunda')).toBeTruthy();
+    expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
   });
 
 });

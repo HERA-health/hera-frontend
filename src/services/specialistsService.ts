@@ -1,4 +1,5 @@
 import { api } from './api';
+import { isAxiosError } from 'axios';
 import { getErrorMessage } from '../constants/errors';
 import type { Specialist } from '../screens/specialist-profile/types';
 import type { ProfessionalType } from '../constants/professionalTypes';
@@ -215,6 +216,7 @@ const publicSpecialistsCache = new Map<string, CacheEntry<SpecialistData[]>>();
 const publicSpecialistsRequests = new Map<string, Promise<SpecialistData[]>>();
 const featuredSpecialistsRequests = new Map<string, Promise<PublicSpecialistCard[]>>();
 const publicDirectoryRequests = new Map<string, Promise<PublicSpecialistDirectoryPage>>();
+const publicProfileRequests = new Map<string, Promise<PublicSpecialistProfileData>>();
 
 const getFreshCache = <T>(cache: Map<string, CacheEntry<T>>, key: string): T | null => {
   const cached = cache.get(key);
@@ -305,6 +307,7 @@ export const invalidateSpecialistsCache = (): void => {
   publicSpecialistsRequests.clear();
   featuredSpecialistsRequests.clear();
   publicDirectoryRequests.clear();
+  publicProfileRequests.clear();
 };
 
 export const normalizeSpecialistDescription = (description?: string | null): string => {
@@ -616,15 +619,29 @@ export const getPublicSpecialistDetails = async (
     throw new Error('Invalid specialist profile reference');
   }
 
-  try {
-    const response = await api.get<{ success: boolean; data: PublicSpecialistProfileData }>(
-      `/specialists/public/${encodeURIComponent(profileRef.trim())}`
+  const key = profileRef.trim();
+  const existing = publicProfileRequests.get(key);
+  if (existing) return existing;
+  const request = api.get<{ success: boolean; data: PublicSpecialistProfileData }>(
+    `/specialists/public/${encodeURIComponent(key)}`
+  ).then(response => response.data.data).catch((error: unknown) => {
+    throw new PublicSpecialistProfileError(
+      getErrorMessage(error, 'Error al cargar el perfil público del especialista'),
+      isAxiosError(error) ? error.response?.status : undefined,
     );
-    return response.data.data;
-  } catch (error: unknown) {
-    throw new Error(getErrorMessage(error, 'Error al cargar el perfil público del especialista'));
-  }
+  }).finally(() => {
+    if (publicProfileRequests.get(key) === request) publicProfileRequests.delete(key);
+  });
+  publicProfileRequests.set(key, request);
+  return request;
 };
+
+export class PublicSpecialistProfileError extends Error {
+  constructor(message: string, readonly status?: number) {
+    super(message);
+    this.name = 'PublicSpecialistProfileError';
+  }
+}
 
 export const getSpecialistPersonalization = async (): Promise<SpecialistPersonalizationResponse> => {
   try {

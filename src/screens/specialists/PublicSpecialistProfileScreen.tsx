@@ -1,13 +1,14 @@
 import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useRef, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { AnimatedPressable, Button } from '../../components/common';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import { StyledLogo } from '../../components/common/StyledLogo';
 import { spacing } from '../../constants/colors';
-import type { AppNavigationProp, AppRouteProp, RootStackParamList } from '../../constants/types';
+import type { AppRouteProp, RootStackParamList } from '../../constants/types';
 import type { Theme } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -24,7 +25,7 @@ import type {
 
 export const PublicSpecialistProfileScreen: React.FC = () => {
   const route = useRoute<AppRouteProp<'PublicSpecialistProfile'>>();
-  const navigation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'PublicSpecialistProfile'>>();
   const appAlert = useAppAlert();
   const {
     isAuthenticated,
@@ -39,11 +40,13 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   const isMobile = width < 768;
   const styles = createStyles(theme, isDark, isWide, isMobile);
   const profileRequestRef = useRef(0);
+  const loadedProfileRef = useRef<string | null>(null);
   const [specialist, setSpecialist] = useState<Specialist | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsVisible, setReviewsVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const canBook = specialist
     ? specialist.offersOnline !== false || specialist.offersInPerson === true || specialist.offersPhone === true
     : false;
@@ -73,28 +76,47 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   const loadSpecialistDetails = useCallback(async () => {
     const requestId = profileRequestRef.current + 1;
     profileRequestRef.current = requestId;
+    const refreshing = loadedProfileRef.current === profileRef;
     try {
-      setLoading(true);
+      if (!refreshing) {
+        setLoading(true);
+        setReviews([]);
+        setReviewsVisible(false);
+      }
       setError(false);
-      setReviews([]);
-      setReviewsVisible(false);
+      setRefreshError(null);
       if (!profileRef) throw new Error('No specialist profile reference provided');
 
       const data = await specialistsService.getPublicSpecialistDetails(profileRef);
       if (profileRequestRef.current !== requestId) return;
+      loadedProfileRef.current = profileRef;
       setSpecialist(specialistsService.mapPublicSpecialistToProfile(data));
       setReviewsVisible(data.reviewCount !== null);
-      if (data.reviewCount !== null && data.reviewCount > 0 && data.reviews) {
-        setReviews(data.reviews);
-      }
+      setReviews(data.reviewCount !== null && data.reviewCount > 0 ? data.reviews : []);
     } catch (loadError: unknown) {
       if (profileRequestRef.current !== requestId) return;
-      console.error('Error loading public profile:', loadError);
-      setError(true);
+      const unavailable = loadError instanceof specialistsService.PublicSpecialistProfileError
+        && (loadError.status === 403 || loadError.status === 404 || loadError.status === 410);
+      if (refreshing && !unavailable) {
+        setRefreshError(loadError instanceof Error ? loadError.message : 'No se pudo actualizar el perfil.');
+        // Do not retain an optional sensitive declaration after a failed revalidation.
+        setSpecialist(current => current ? { ...current, religionCode: null } : null);
+      } else {
+        loadedProfileRef.current = null;
+        setSpecialist(null);
+        setReviews([]);
+        setError(true);
+      }
     } finally {
       if (profileRequestRef.current === requestId) setLoading(false);
     }
   }, [profileRef]);
+
+  const handleBrowseSpecialists = useCallback(() => {
+    // popTo preserves the directory's filters/scroll and replaces a direct-link profile
+    // with the directory when it isn't already in the navigation stack.
+    navigation.popTo('PublicSpecialists', undefined, { merge: true });
+  }, [navigation]);
 
   useDiscoveryRevalidation(loadSpecialistDetails, false);
 
@@ -259,6 +281,14 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     <View style={styles.screen}>
       {renderHeader()}
       {professionalBanner}
+      {refreshError ? (
+        <View style={{ padding: spacing.md, backgroundColor: theme.bgCard }} accessibilityRole="alert">
+          <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>
+            No hemos podido actualizar el perfil. Mostramos la última información disponible. {refreshError}
+          </Text>
+          <Button variant="outline" size="small" onPress={() => void loadSpecialistDetails()}>Reintentar</Button>
+        </View>
+      ) : null}
       <SpecialistProfileLayout
         initialOptionId={route.params?.optionId}
         specialist={specialist}
@@ -267,7 +297,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         canBook={canBook}
         isAuthenticated={isAuthenticated}
         isClient={user?.type === 'client'}
-        onBrowseSpecialists={() => navigation.navigate('PublicSpecialists')}
+        onBrowseSpecialists={handleBrowseSpecialists}
         onBookSession={handleBookSession}
         onOpenCertificate={(certificate) => void handleOpenCertificate(certificate)}
         onReviewSubmitted={() => void loadSpecialistDetails()}

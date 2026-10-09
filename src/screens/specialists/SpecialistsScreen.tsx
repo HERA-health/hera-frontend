@@ -313,7 +313,7 @@ const SpecialistsScreen: React.FC = () => {
     loadClientLocation();
   }, [user?.type]);
 
-  useDiscoveryRevalidation(useCallback(() => { specialistsService.invalidateSpecialistsCache(); void fetchSpecialists(); }, [fetchSpecialists]));
+  useDiscoveryRevalidation(fetchSpecialists);
 
   useEffect(() => {
     void fetchSpecialists();

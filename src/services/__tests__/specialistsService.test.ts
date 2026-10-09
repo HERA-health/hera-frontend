@@ -178,6 +178,31 @@ describe('specialistsService personalization', () => {
     expect(mapped.isPubliclyListed).toBe(false);
   });
 
+  it('coalesces public profile reads in flight, then revalidates instead of caching', async () => {
+    const payload = { id: 'public-1' };
+    let resolve: (value: { data: { success: boolean; data: typeof payload } }) => void = () => undefined;
+    mockedApi.get.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+    const first = getPublicSpecialistDetails('public-1');
+    const second = getPublicSpecialistDetails(' public-1 ');
+    expect(mockedApi.get).toHaveBeenCalledTimes(1);
+    resolve({ data: { success: true, data: payload } });
+    await expect(Promise.all([first, second])).resolves.toEqual([payload, payload]);
+    mockedApi.get.mockResolvedValueOnce({ data: { success: true, data: payload } });
+    await getPublicSpecialistDetails('public-1');
+    expect(mockedApi.get).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves a withdrawn profile status and allows a fresh retry after failure', async () => {
+    mockedApi.get.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 404, data: { error: 'Specialist not found' } },
+    });
+    await expect(getPublicSpecialistDetails('withdrawn')).rejects.toMatchObject({ status: 404 });
+    mockedApi.get.mockResolvedValueOnce({ data: { success: true, data: { id: 'withdrawn' } } });
+    await expect(getPublicSpecialistDetails('withdrawn')).resolves.toEqual({ id: 'withdrawn' });
+    expect(mockedApi.get).toHaveBeenCalledTimes(2);
+  });
+
   it('requests only the selected public directory page and filters', async () => {
     const payload = {
       items: [],
