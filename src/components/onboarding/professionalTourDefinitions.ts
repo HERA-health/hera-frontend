@@ -229,7 +229,7 @@ export const PROFESSIONAL_TOUR_DEFINITIONS: Record<
         id: 'tabs',
         targetId: 'professional.profile.tabs',
         title: 'Perfil por secciones',
-        body: 'Las pestañas separan información pública, mi espacio, credenciales, facturación, privacidad y cuenta.',
+        body: 'Cada apartado tiene su espacio. Calendar y Meet están en Google; tu PIN y los datos de acceso, en Cuenta.',
         placement: 'bottom',
       },
       {

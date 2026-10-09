@@ -1001,7 +1001,7 @@ export function ProfessionalSessionsScreen() {
         isMobile={isMobile}
         onConfigureAgenda={handleConfigureAgenda}
         onJumpToNextSession={jumpToNextSession}
-        onOpenGoogleCalendar={() => navigateProfessionalSection(navigation, 'ProfessionalProfile', { initialTab: 'account' })}
+        onOpenGoogleCalendar={() => navigateProfessionalSection(navigation, 'ProfessionalProfile', { initialTab: 'google' })}
       />
       <ProfessionalAgendaToolbar
         viewMode={viewMode}

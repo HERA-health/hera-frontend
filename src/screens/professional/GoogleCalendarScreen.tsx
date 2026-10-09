@@ -24,14 +24,14 @@ export function GoogleCalendarScreen() {
     if (!attempt) {
       clearCalendarIntent();
       // A direct link can mount this screen before the navigator is ready.
-      const frame = requestAnimationFrame(() => navigation.dispatch(StackActions.replace('ProfessionalProfile', { initialTab: 'account' })));
+      const frame = requestAnimationFrame(() => navigation.dispatch(StackActions.replace('ProfessionalProfile', { initialTab: 'google' })));
       return () => cancelAnimationFrame(frame);
     }
     setBusy(true); setError(null);
     void completeGoogleCalendar(user.id, attempt).then(() => {
       if (active) {
         clearCalendarIntent();
-        navigation.dispatch(StackActions.replace('ProfessionalProfile', { initialTab: 'account' }));
+        navigation.dispatch(StackActions.replace('ProfessionalProfile', { initialTab: 'google' }));
       }
     }).catch(cause => { if (active) { setError(getErrorMessage(cause)); clearCalendarIntent(); } })
       .finally(() => { if (active) setBusy(false); });
@@ -44,7 +44,7 @@ export function GoogleCalendarScreen() {
         : <>
           {busy ? <><ActivityIndicator color={theme.primary} /><Text style={{ color: theme.textPrimary }}>Completando la vinculación con Google…</Text></> : null}
           {error ? <Text accessibilityRole="alert" style={{ color: theme.error }}>{error}</Text> : null}
-          <Button variant="ghost" onPress={() => { clearCalendarIntent(); navigation.navigate('ProfessionalProfile', { initialTab: 'account' }); }}>Volver a ajustes de cuenta</Button>
+          <Button variant="ghost" onPress={() => { clearCalendarIntent(); navigation.navigate('ProfessionalProfile', { initialTab: 'google' }); }}>Volver a ajustes de Google</Button>
         </>}
     </View>
   </ScrollView>;

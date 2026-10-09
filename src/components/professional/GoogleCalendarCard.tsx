@@ -103,19 +103,36 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
   });
   const needsReauthorization = status?.status === 'REAUTH_REQUIRED'
     || (status?.status === 'CONNECTED' && Boolean(status.privacyUpdateRequired));
+  const credentialStorageError = status?.errorCode === 'CALENDAR_CREDENTIAL_STORAGE_ERROR';
   const connected = status?.status === 'CONNECTED' && !needsReauthorization;
   const meetUnavailable = status?.meetAssignmentsEnabled === false;
-  const meetActive = connected && status.enabled && status.meetEnabled && status.videoProviderPreference === 'GOOGLE_MEET' && !status.privacyUpdateRequired && !meetUnavailable;
-  const needsAttention = needsReauthorization || Boolean(status?.failed);
-  const canActivate = connected && status.enabled && status.meetAssignmentsEnabled && !meetActive;
+  const meetActive = Boolean(connected && status.enabled && status.meetEnabled && status.videoProviderPreference === 'GOOGLE_MEET' && !status.privacyUpdateRequired && !meetUnavailable && !credentialStorageError);
+  const calendarActive = connected && status.enabled && !credentialStorageError;
+  const needsAttention = needsReauthorization || credentialStorageError;
+  const canActivate = connected && status.enabled && status.meetAssignmentsEnabled && !meetActive && !credentialStorageError;
+  const meetNeedsCalendar = Boolean(status?.enabled && status.meetAssignmentsEnabled === true
+    && status.status === 'DISCONNECTED' && !credentialStorageError);
   const guidedSetup = videoSetup && status?.videoSetupCompleted === false && status.enabled
-    && status.meetAssignmentsEnabled === true && !meetActive && status.status !== 'DISCONNECTING';
+    && status.meetAssignmentsEnabled === true && !meetActive && !credentialStorageError && status.status !== 'DISCONNECTING';
   const label = !status ? 'Cargando conexión…' : !status.enabled ? 'Disponible próximamente'
     : status.status === 'DISCONNECTING' ? 'Desconectando…'
+    : credentialStorageError ? 'La integración necesita revisión'
     : needsReauthorization ? 'Vuelve a autorizar el acceso'
     : status.status === 'DISCONNECTED' ? 'Sin conectar'
-    : status.failed ? 'Hay citas pendientes de revisar'
-    : pending ? 'Actualizando automáticamente…' : 'Sincronización automática activa';
+    : 'Conectado';
+  const meetLabel = !status ? 'Comprobando…' : credentialStorageError ? 'Preparación pausada'
+    : meetActive ? 'Activo' : !status.enabled || !status.meetAssignmentsEnabled ? 'Activación no disponible'
+    : meetNeedsCalendar ? 'Necesita Calendar'
+    : needsReauthorization ? 'Renueva Calendar' : canActivate ? 'Listo para activar' : status.videoProviderPreference === 'GOOGLE_MEET' ? 'Necesita atención'
+    : connected ? 'Listo para activar' : 'Sin activar';
+  const renderStatus = (product: string, text: string, active: boolean, attention: boolean, requiresCalendar = false) => (
+    <View style={[styles.statusBadge, { backgroundColor: active ? theme.successBg : attention ? theme.warningBg : theme.bgCard }]}>
+      <Ionicons name={active ? 'checkmark-circle' : attention ? 'information-circle-outline' : requiresCalendar ? 'lock-closed-outline' : 'ellipse-outline'}
+        size={18} color={active ? theme.success : attention ? theme.warning : theme.textSecondary} />
+      <Text accessibilityLabel={`${product}: ${text}`} accessibilityLiveRegion="polite"
+        style={[styles.statusText, { color: active ? theme.success : attention ? theme.warning : theme.textSecondary, fontFamily: theme.fontSansSemiBold }]}>{text}</Text>
+    </View>
+  );
   const copy = [styles.copy, { color: theme.textSecondary, fontFamily: theme.fontSans }];
   const heading = [styles.sectionTitle, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }];
   const closeDialog = () => {
@@ -136,56 +153,46 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
           : 'Primero sincroniza tus citas con Google Calendar. Después podrás activar un enlace de Meet para cada videollamada.'}</Text>
       </View>}
       <View onLayout={event => setContentWidth(event.nativeEvent.layout.width)} style={[styles.columns, twoColumns && styles.columnsWide]}>
-      <View style={[styles.section, styles.column, twoColumns ? styles.calendarDividerWide : styles.calendarDividerCompact, { borderColor: theme.borderLight }]}>
+      <View style={[styles.section, styles.productPanel, styles.column, twoColumns && styles.columnWide, { backgroundColor: calendarActive ? theme.successLight : theme.bgMuted }]}>
         <View style={styles.sectionHeader}>
           <Image source={require('../../../assets/google-calendar.png')} style={styles.productLogo} resizeMode="contain" accessible={false} />
           <View style={styles.headerCopy}>
             <Text style={heading}>{guidedSetup ? '1. Google Calendar' : 'Google Calendar'}</Text>
-            <Text accessibilityLiveRegion="polite" style={[styles.caption, { color: needsAttention ? theme.warning : theme.textSecondary }]}>{label}</Text>
+            {renderStatus('Google Calendar', label, calendarActive, needsAttention)}
           </View>
         </View>
         {status?.email && <Text selectable style={[styles.account, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>{status.email}</Text>}
-        <Text style={copy}>{needsReauthorization && status?.privacyUpdateRequired
+        <Text style={copy}>{credentialStorageError
+          ? 'La integración necesita revisión técnica. Contacta con soporte para continuar con Calendar y Meet.'
+          : needsReauthorization && status?.privacyUpdateRequired
           ? 'Hemos actualizado la información de privacidad. Reconecta la misma cuenta para continuar con Calendar y activar Meet.'
+          : needsReauthorization
+          ? 'Google necesita que renueves el permiso. Reconecta la misma cuenta para continuar sincronizando tus citas.'
           : connected
-          ? 'Tus citas de HERA, actualizadas automáticamente en tu calendario.'
+          ? 'Tus citas de HERA se sincronizan automáticamente con tu calendario.'
           : 'Sincroniza tus citas de HERA con tu calendario principal.'}</Text>
-        {!!status?.pending && connected && <Text style={copy}>{status.pending} citas por actualizar</Text>}
         {!status && !error && <ActivityIndicator color={theme.primary} />}
         {status?.enabled && (status.status === 'DISCONNECTED' || needsReauthorization) && <Button
           style={compact ? styles.stretch : styles.start} loading={busy} disabled={!disclosureVersion}
           onPress={() => setPrivacyDialog('connect')}>
           {needsReauthorization ? 'Reconectar Google Calendar' : guidedSetup ? 'Conectar Google y continuar' : 'Conectar Google Calendar'}
         </Button>}
-        {(connected || status?.status === 'REAUTH_REQUIRED') && <AnimatedPressable
-          onPress={() => setShowOptions(value => !value)} disabled={busy} hoverLift={false}
-          accessibilityRole="button" accessibilityState={{ expanded: showOptions }} style={styles.disclosure}>
-          <Text style={[styles.link, { color: theme.link, fontFamily: theme.fontSansSemiBold }]}>Opciones de sincronización</Text>
-          <Ionicons name={showOptions ? 'chevron-up' : 'chevron-down'} color={theme.link} size={17} />
-        </AnimatedPressable>}
-        {(showOptions || Boolean(status?.failed)) && <View style={[styles.details, { borderColor: theme.borderLight }]}>
-          {connected && <>
-            <Text style={copy}>Las actualizaciones suelen tardar uno o dos minutos. No necesitas pulsar ningún botón ni mantener HERA abierta.</Text>
-            {status.lastSyncedAt && <Text style={copy}>Última sincronización: {new Date(status.lastSyncedAt).toLocaleString('es-ES')}</Text>}
-            <Button variant="outline" size="small" style={styles.start} loading={busy} disabled={pending} onPress={() => { void run(async () => { const next = await resyncGoogleCalendar(); if (mounted.current) setStatus(next); }); }}>Revisar sincronización</Button>
-            <Text style={copy}>Para ver el horario peninsular, selecciona Europe/Madrid en los ajustes de Google Calendar.</Text>
-            <Button variant="ghost" size="small" style={styles.start} onPress={() => { void Linking.openURL('https://calendar.google.com/calendar/u/0/r/settings'); }}>Abrir ajustes de Google Calendar</Button>
-          </>}
-          <Button variant="ghost" size="small" style={styles.start} disabled={busy} onPress={() => setConfirmDisconnect(true)}>Desconectar</Button>
-        </View>}
       </View>
 
-      <View style={[styles.section, styles.column]}>
+      <View style={[styles.section, styles.productPanel, styles.column, twoColumns && styles.columnWide, { backgroundColor: meetActive ? theme.successLight : theme.bgMuted }]}>
         <View style={styles.sectionHeader}>
           <Image source={require('../../../assets/google-meet.png')} style={styles.productLogo} resizeMode="contain" accessible={false} />
           <View style={styles.headerCopy}>
             <Text style={heading}>{guidedSetup ? '2. Google Meet' : 'Google Meet'}</Text>
-            <Text style={[styles.caption, { color: meetActive ? theme.success : theme.textSecondary }]}>{!status ? 'Comprobando…' : meetActive ? 'Google Meet activo' : status.videoProviderPreference === 'GOOGLE_MEET' ? 'Necesita atención' : !status.enabled || !status.meetAssignmentsEnabled ? 'Activación no disponible' : needsReauthorization ? 'Renueva la autorización de Calendar' : connected ? 'Listo para activar' : 'Necesita Google Calendar'}</Text>
+            {renderStatus('Google Meet', meetLabel, meetActive, needsAttention || (!meetActive && !canActivate && !meetNeedsCalendar && status?.videoProviderPreference === 'GOOGLE_MEET'), meetNeedsCalendar)}
           </View>
         </View>
-        {guidedSetup && !connected ? <Text style={copy}>El siguiente paso, cuando conectes Calendar. Podrás revisar la cuenta organizadora antes de activar Meet.</Text> : meetActive ? <>
-          <Text style={copy}>Un enlace por cita, en HERA y en los correos. Entra con la cuenta de Google conectada.</Text>
-        </> : status?.videoProviderPreference === 'GOOGLE_MEET' ? <Text style={[...copy, { color: theme.warning }]}>
+        {credentialStorageError ? <Text style={copy}>La preparación de enlaces está pausada mientras se revisa la integración. Las citas ya preparadas conservan su enlace.</Text> : meetNeedsCalendar ? <View style={[styles.dependencyHint, { backgroundColor: theme.bgCard }]}>
+          <Ionicons name="link-outline" size={18} color={theme.textSecondary} accessible={false} />
+          <Text style={[styles.dependencyCopy, { color: theme.textSecondary, fontFamily: theme.fontSansSemiBold }]}>Para activar Meet, primero conecta Google Calendar.</Text>
+        </View> : guidedSetup && !connected ? <Text style={copy}>El siguiente paso, cuando conectes Calendar. Podrás revisar la cuenta organizadora antes de activar Meet.</Text> : meetActive ? <>
+          <Text style={copy}>Un enlace por cita, en HERA y en los correos. Entra con tu cuenta de Google conectada.</Text>
+        </> : status?.videoProviderPreference === 'GOOGLE_MEET' && !canActivate ? <Text style={[...copy, { color: theme.warning }]}>
           {meetUnavailable ? 'Google Meet no está disponible temporalmente para nuevas citas. Revisa la integración para continuar con Meet.' : 'Revisa la conexión y la activación de Meet para continuar con tus videollamadas.'}
         </Text> : <>
           <Text style={copy}>{status?.meetAssignmentsEnabled && status.enabled
@@ -199,13 +206,37 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
       </View>
       </View>
 
-      <View style={[styles.footer, { borderColor: theme.borderLight }]}>
-        <Text style={[styles.caption, styles.footnote, { color: theme.textSecondary }]}>Las citas ya preparadas conservan su enlace.</Text>
+      <View style={styles.utilityActions}>
+        {(connected || status?.status === 'REAUTH_REQUIRED') && <AnimatedPressable
+          onPress={() => setShowOptions(value => !value)} disabled={busy} hoverLift={false}
+          accessibilityRole="button" accessibilityState={{ expanded: showOptions }} style={[styles.disclosure, styles.optionsTrigger, { backgroundColor: theme.bgMuted }]}>
+          <Ionicons name="options-outline" color={theme.link} size={17} />
+          <Text style={[styles.link, { color: theme.link, fontFamily: theme.fontSansSemiBold }]}>Opciones de sincronización</Text>
+          <Ionicons name={showOptions ? 'chevron-up' : 'chevron-down'} color={theme.link} size={17} />
+        </AnimatedPressable>}
         <AnimatedPressable onPress={() => setPrivacyDialog('read')} hoverLift={false} disabled={busy} accessibilityRole="button" style={styles.disclosure}>
           <Ionicons name="shield-checkmark-outline" size={17} color={theme.textSecondary} />
           <Text style={[styles.link, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Datos compartidos y privacidad</Text>
         </AnimatedPressable>
       </View>
+        {showOptions && (connected || status?.status === 'REAUTH_REQUIRED') && <View style={[styles.details, { backgroundColor: theme.bgMuted }]}>
+          {connected && <>
+            <Text style={[...copy, { fontFamily: theme.fontSansSemiBold }]}>{pending ? 'Actualizando automáticamente…' : 'Sincronización automática'}</Text>
+            {!!status.pending && <Text style={copy}>{status.pending} {status.pending === 1 ? 'cita' : 'citas'} por actualizar</Text>}
+            {!!status.failed && <Text style={copy}>{status.failed} {status.failed === 1 ? 'cita con actualización pendiente' : 'citas con actualización pendiente'}. Puedes revisar la sincronización desde aquí.</Text>}
+            <Text style={copy}>Las actualizaciones suelen tardar uno o dos minutos. No necesitas pulsar ningún botón ni mantener HERA abierta.</Text>
+            {status.lastSyncedAt && <Text style={copy}>Última sincronización: {new Date(status.lastSyncedAt).toLocaleString('es-ES')}</Text>}
+            <Text style={copy}>Para ver el horario peninsular, selecciona Europe/Madrid en los ajustes de Google Calendar.</Text>
+          </>}
+          <View style={styles.optionActions}>
+            {connected && <>
+              <Button variant="outline" size="small" loading={busy} disabled={pending} onPress={() => { void run(async () => { const next = await resyncGoogleCalendar(); if (mounted.current) setStatus(next); }); }}>Revisar sincronización</Button>
+              <Button variant="ghost" size="small" onPress={() => { void Linking.openURL('https://calendar.google.com/calendar/u/0/r/settings'); }}>Abrir ajustes de Google Calendar</Button>
+            </>}
+            <Button variant="ghost" size="small" disabled={busy} onPress={() => setConfirmDisconnect(true)}>Desconectar</Button>
+          </View>
+        </View>}
+      <Text style={[styles.caption, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Las citas ya preparadas conservan su enlace.</Text>
       {pending && pollingPaused && !error && <Button variant="ghost" size="small" disabled={busy} style={styles.start} onPress={() => { void refresh(); }}>Actualizar estado</Button>}
       {status?.errorCode === 'REVOCATION_FAILED' && <View style={styles.section}>
         <Text style={copy}>HERA ha dejado de sincronizar. No se pudo retirar el permiso en Google; puedes hacerlo desde tu cuenta.</Text>
@@ -272,13 +303,17 @@ const styles = StyleSheet.create({
   setupIntro: { gap: 8 },
   section: { gap: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  headerCopy: { flex: 1, gap: 3 },
-  productLogo: { width: 40, height: 40 },
-  columns: { flexDirection: 'column', gap: 24 },
-  columnsWide: { flexDirection: 'row', gap: 28 },
-  column: { flex: 1, minWidth: 0 },
-  calendarDividerWide: { paddingRight: 28, borderRightWidth: 1 },
-  calendarDividerCompact: { paddingBottom: 24, borderBottomWidth: 1 },
+  headerCopy: { flex: 1, minWidth: 0, gap: 6 },
+  productLogo: { width: 44, height: 44 },
+  productPanel: { padding: 18, borderRadius: 16 },
+  dependencyHint: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 12, borderRadius: 10 },
+  dependencyCopy: { flex: 1, minWidth: 0, fontSize: 13, lineHeight: 20 },
+  statusBadge: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, maxWidth: '100%' },
+  statusText: { fontSize: 13, lineHeight: 18, flexShrink: 1 },
+  columns: { flexDirection: 'column', gap: 14 },
+  columnsWide: { flexDirection: 'row', alignItems: 'stretch', gap: 16 },
+  column: { minWidth: 0, flexShrink: 0 },
+  columnWide: { flex: 1 },
   sectionTitle: { fontSize: 16, lineHeight: 23 },
   caption: { fontSize: 12, lineHeight: 19 },
   account: { fontSize: 14, lineHeight: 22, flexShrink: 1 },
@@ -287,9 +322,10 @@ const styles = StyleSheet.create({
   stretch: { alignSelf: 'stretch' },
   disclosure: { flexDirection: 'row', gap: 8, alignItems: 'center', minHeight: 44, alignSelf: 'flex-start' },
   link: { fontSize: 13, lineHeight: 20, flexShrink: 1 },
-  details: { borderTopWidth: 1, paddingTop: 14, gap: 12 },
-  footer: { borderTopWidth: 1, paddingTop: 12, flexDirection: 'row', flexWrap: 'wrap', columnGap: 24, alignItems: 'center' },
-  footnote: { flexGrow: 1, flexBasis: '100%', marginBottom: 4 },
+  optionsTrigger: { paddingHorizontal: 12, borderRadius: 10 },
+  details: { padding: 16, borderRadius: 14, gap: 10 },
+  optionActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  utilityActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', columnGap: 16, rowGap: 4 },
   feedback: { padding: 14, borderRadius: 10, gap: 8 },
   overlay: { flex: 1, backgroundColor: 'rgba(18, 28, 18, 0.48)', padding: 16, justifyContent: 'center', alignItems: 'center' },
   dialog: { width: '100%', maxWidth: 560, maxHeight: '90%', borderWidth: 1, borderRadius: 20, overflow: 'hidden' },

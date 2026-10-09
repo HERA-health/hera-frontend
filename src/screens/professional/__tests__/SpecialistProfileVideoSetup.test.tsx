@@ -8,9 +8,10 @@ import { showAppAlert } from '../../../components/common/alert';
 const mockNavigation = { navigate: jest.fn(), setParams: jest.fn() };
 const mockRefreshCompletion = jest.fn(async () => undefined);
 const mockUpdateUser = jest.fn();
+let mockRouteParams: { initialTab?: 'google' | 'account' } | undefined;
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => mockNavigation,
-  useRoute: () => ({ params: undefined }),
+  useRoute: () => ({ params: mockRouteParams }),
   useFocusEffect: (callback: () => void) => require('react').useEffect(callback, [callback]),
 }));
 jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../../constants/theme').lightTheme, isDark: false }) }));
@@ -45,6 +46,7 @@ const profile: professionalService.SpecialistProfileData = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRouteParams = undefined;
   jest.mocked(professionalService.getComprehensiveProfile).mockResolvedValue(profile);
   jest.mocked(professionalService.getVerificationStatus).mockResolvedValue({ verificationStatus: 'NOT_SUBMITTED' });
   jest.mocked(calendarService.getGoogleCalendarStatus).mockResolvedValue({
@@ -53,7 +55,7 @@ beforeEach(() => {
   });
 });
 
-test('enabling online sessions offers setup and persists the modality before opening account settings', async () => {
+test('enabling online sessions persists the modality before opening the Google tab', async () => {
   let finishSave: (value: professionalService.SpecialistProfileData) => void = () => { throw new Error('Save not started'); };
   jest.mocked(professionalService.updateComprehensiveProfile).mockImplementation(() => new Promise(resolve => { finishSave = resolve; }));
   render(<SpecialistProfileScreen />);
@@ -63,6 +65,7 @@ test('enabling online sessions offers setup and persists the modality before ope
   expect(screen.queryByText('Paso 1 de 2 · Conecta tu cuenta de Google')).toBeNull();
   await act(async () => { finishSave({ ...profile, offersOnline: true }); });
   await screen.findByText('Paso 1 de 2 · Conecta tu cuenta de Google');
+  expect(screen.getByRole('tab', { name: 'Google', selected: true })).toBeTruthy();
   expect(calendarService.connectGoogleCalendar).not.toHaveBeenCalled();
   expect(showAppAlert).not.toHaveBeenCalled();
 });
@@ -79,4 +82,36 @@ test('a rejected profile save keeps the selected modality and does not advance t
     expect(screen.queryByText('Paso 1 de 2 · Conecta tu cuenta de Google')).toBeNull();
     expect(calendarService.connectGoogleCalendar).not.toHaveBeenCalled();
   } finally { spy.mockRestore(); }
+});
+
+test('account settings exclude Google and switching tabs preserves unsaved account edits', async () => {
+  render(<SpecialistProfileScreen />);
+  fireEvent.press(await screen.findByRole('tab', { name: 'Cuenta' }));
+  expect(screen.getByText('Información de cuenta')).toBeTruthy();
+  expect(screen.queryByText('Calendario y videollamadas')).toBeNull();
+  fireEvent.changeText(screen.getByLabelText('Teléfono'), '+34 600 123 456');
+  fireEvent.press(screen.getByRole('tab', { name: 'Google' }));
+  await screen.findByText('Calendario y videollamadas');
+  expect(screen.queryByText('Información de cuenta')).toBeNull();
+  expect(calendarService.connectGoogleCalendar).not.toHaveBeenCalled();
+  expect(professionalService.updateComprehensiveProfile).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole('tab', { name: 'Cuenta' }));
+  expect(screen.getByLabelText('Teléfono').props.value).toBe('+34 600 123 456');
+});
+
+test('a Google navigation entry opens the new tab without exposing account settings', async () => {
+  mockRouteParams = { initialTab: 'google' };
+  render(<SpecialistProfileScreen />);
+  await screen.findByText('Calendario y videollamadas');
+  expect(screen.getByRole('tab', { name: 'Google', selected: true })).toBeTruthy();
+  expect(screen.queryByText('Información de cuenta')).toBeNull();
+  expect(mockNavigation.setParams).toHaveBeenCalledWith({ initialTab: undefined, initialSection: undefined });
+});
+
+test('existing account navigation still opens account settings', async () => {
+  mockRouteParams = { initialTab: 'account' };
+  render(<SpecialistProfileScreen />);
+  await screen.findByText('Información de cuenta');
+  expect(screen.getByRole('tab', { name: 'Cuenta', selected: true })).toBeTruthy();
+  expect(screen.queryByText('Calendario y videollamadas')).toBeNull();
 });

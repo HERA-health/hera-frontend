@@ -69,6 +69,6 @@ export function GoogleMeetInvitation() {
   return <GoogleMeetInvitationModal connected={invitation.connected} renewing={invitation.renewing}
     onDismiss={dismiss} onConfigure={() => {
       dismiss();
-      navigation.navigate('ProfessionalProfile', { initialTab: 'account' });
+      navigation.navigate('ProfessionalProfile', { initialTab: 'google' });
     }} />;
 }

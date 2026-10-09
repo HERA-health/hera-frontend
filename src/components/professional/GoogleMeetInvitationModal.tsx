@@ -79,7 +79,7 @@ export function GoogleMeetInvitationModal({ connected, renewing, onDismiss, onCo
             </Button>
             <Button fullWidth={compact} variant="ghost" onPress={onDismiss}>Ahora no</Button>
           </View>
-          <Text style={[styles.footer, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Siempre disponible en Tu perfil → Cuenta.</Text>
+          <Text style={[styles.footer, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Siempre disponible en Editar perfil → Google.</Text>
         </View>
       </View>
     </View>

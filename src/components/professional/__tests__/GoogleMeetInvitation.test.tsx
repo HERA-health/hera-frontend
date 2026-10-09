@@ -44,7 +44,7 @@ test('invites Daily users without changing their provider and explains both step
   render(<GoogleMeetInvitation />);
   await screen.findByText(/Ahora puedes conectar Google Calendar con HERA/);
   fireEvent.press(screen.getByText('Configurar Google Meet'));
-  expect(mockNavigate).toHaveBeenCalledWith('ProfessionalProfile', { initialTab: 'account' });
+  expect(mockNavigate).toHaveBeenCalledWith('ProfessionalProfile', { initialTab: 'google' });
   expect(setVideoPreference).not.toHaveBeenCalled();
   expect(connectGoogleCalendar).not.toHaveBeenCalled();
   expect(AsyncStorage.setItem).toHaveBeenCalledWith(discoveryKey(), 'hidden');
@@ -111,7 +111,7 @@ test.each([{ status: 'REAUTH_REQUIRED' as const, meetEnabled: true },
       ? /Tu calendario sigue conectado/
       : /reconecta la misma cuenta de Google/);
     fireEvent.press(screen.getByText('Renovar conexión'));
-    expect(mockNavigate).toHaveBeenCalledWith('ProfessionalProfile', { initialTab: 'account' });
+    expect(mockNavigate).toHaveBeenCalledWith('ProfessionalProfile', { initialTab: 'google' });
     expect(setVideoPreference).not.toHaveBeenCalled();
     expect(connectGoogleCalendar).not.toHaveBeenCalled();
   });

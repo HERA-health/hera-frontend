@@ -29,6 +29,6 @@ export function VideoSetupNotice({ onClose }: { onClose: () => void }) {
   return <View style={{ gap: 8 }}>
     <Text style={{ color: theme.warning }}>{error ? 'No se pudo comprobar la configuración de videollamadas.' : meetUnavailable ? 'Google Meet no está disponible temporalmente. Revisa la integración para continuar con Meet.' : 'Revisa la conexión de Google para continuar con tus próximas citas con Meet.'}</Text>
     {error ? <Button variant="outline" onPress={() => setRetry(value => value + 1)}>Reintentar comprobación</Button>
-      : <Button variant="outline" onPress={() => { onClose(); navigation.navigate('ProfessionalProfile', { initialTab: 'account' }); }}>Revisar conexión de Google</Button>}
+      : <Button variant="outline" onPress={() => { onClose(); navigation.navigate('ProfessionalProfile', { initialTab: 'google' }); }}>Revisar conexión de Google</Button>}
   </View>;
 }

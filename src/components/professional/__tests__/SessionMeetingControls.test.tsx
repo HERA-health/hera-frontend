@@ -80,7 +80,7 @@ test('the creation notice leads to existing settings and does not create or swit
   jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ enabled: true, status: 'DISCONNECTED', email: null, pending: 0, failed: 0, lastSyncedAt: null, errorCode: null, reconciling: false, videoProviderPreference: 'GOOGLE_MEET', meetEnabled: false });
   render(<VideoSetupNotice onClose={close} />);
   fireEvent.press(await screen.findByText('Revisar conexión de Google'));
-  await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('ProfessionalProfile', { initialTab: 'account' }));
+  await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('ProfessionalProfile', { initialTab: 'google' }));
   expect(close).toHaveBeenCalledTimes(1);
   expect(service.commandSessionMeeting).not.toHaveBeenCalled();
 });
@@ -93,7 +93,7 @@ test('closed rollout warns even when the specialist already authorized Meet', as
   expect(screen.queryByText(/Completa la configuración de Google/)).toBeNull();
   expect(screen.queryByText(/Daily/)).toBeNull();
   fireEvent.press(screen.getByText('Revisar conexión de Google'));
-  expect(mockNavigate).toHaveBeenCalledWith('ProfessionalProfile', { initialTab: 'account' });
+  expect(mockNavigate).toHaveBeenCalledWith('ProfessionalProfile', { initialTab: 'google' });
   expect(close).toHaveBeenCalledTimes(1);
   expect(service.commandSessionMeeting).not.toHaveBeenCalled();
 });

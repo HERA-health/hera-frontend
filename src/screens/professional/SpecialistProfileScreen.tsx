@@ -568,7 +568,7 @@ export function SpecialistProfileScreen() {
   }, []);
 
   useEffect(() => {
-    if (activeTab !== 'account') return;
+    if (activeTab !== 'account' && activeTab !== 'google') return;
     const frame = requestAnimationFrame(() => tabsScrollRef.current?.scrollToEnd({ animated: false }));
     return () => cancelAnimationFrame(frame);
   }, [activeTab]);
@@ -1042,7 +1042,7 @@ export function SpecialistProfileScreen() {
 
   const handleVideoSetup = async () => {
     if (!await handleSave(false)) return;
-    setActiveTab('account');
+    setActiveTab('google');
     formScrollRef.current?.scrollTo({ y: 0, animated: false });
   };
 
@@ -1492,6 +1492,7 @@ export function SpecialistProfileScreen() {
       pendingCount: billingCompletionCount,
     },
     { id: 'privacy', label: 'Privacidad', icon: 'eye-outline' },
+    { id: 'google', label: 'Google', icon: 'logo-google' },
     { id: 'account', label: 'Cuenta', icon: 'settings-outline' },
   ];
 
@@ -1591,21 +1592,27 @@ export function SpecialistProfileScreen() {
         <ScrollView
           horizontal
           ref={tabsScrollRef}
-          onLayout={() => { if (activeTab === 'account') tabsScrollRef.current?.scrollToEnd({ animated: false }); }}
-          onContentSizeChange={() => { if (activeTab === 'account') tabsScrollRef.current?.scrollToEnd({ animated: false }); }}
+          onLayout={() => { if (activeTab === 'account' || activeTab === 'google') tabsScrollRef.current?.scrollToEnd({ animated: false }); }}
+          onContentSizeChange={() => { if (activeTab === 'account' || activeTab === 'google') tabsScrollRef.current?.scrollToEnd({ animated: false }); }}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={isDesktop ? styles.tabsDesktop : styles.tabsMobile}
         >
           {tabs.map((tab) => (
             <AnimatedPressable
               key={tab.id}
+              accessibilityRole="tab"
+              accessibilityLabel={tab.label}
+              accessibilityState={{ selected: activeTab === tab.id }}
               style={{
                 ...styles.tab,
                 ...(isDesktop ? styles.tabDesktop : {}),
                 ...(activeTab === tab.id ? styles.tabActive : {}),
                 ...(isDesktop && activeTab === tab.id ? styles.tabActiveDesktop : {}),
               }}
-              onPress={() => setActiveTab(tab.id)}
+              onPress={() => {
+                setActiveTab(tab.id);
+                formScrollRef.current?.scrollTo({ y: 0, animated: false });
+              }}
               hoverLift={false}
               pressScale={0.985}
             >
@@ -1767,6 +1774,7 @@ export function SpecialistProfileScreen() {
       verified?: boolean;
       maxLength?: number;
       characterCount?: boolean;
+      compactSpacing?: boolean;
     }
   ) => {
     const {
@@ -1780,10 +1788,11 @@ export function SpecialistProfileScreen() {
       verified,
       maxLength,
       characterCount = false,
+      compactSpacing = false,
     } = options || {};
 
     return (
-      <View style={styles.formField}>
+      <View style={[styles.formField, compactSpacing && { marginBottom: 0 }]}>
         <View style={styles.labelRow}>
           <Text style={styles.fieldLabel}>
             {label}
@@ -3254,9 +3263,14 @@ export function SpecialistProfileScreen() {
   // RENDER: TAB 4 - CUENTA Y SEGURIDAD
   // ============================================================================
 
-  const renderAccountTab = () => (
-    <View style={styles.tabContent}>
+  const renderGoogleTab = () => (
+    <View style={[styles.tabContent, styles.settingsContent]}>
       <GoogleCalendarCard videoSetup={profileData.offersOnline} hasUnsavedChanges={hasChanges} onBeforeConnect={() => handleSave(false)} />
+    </View>
+  );
+
+  const renderAccountTab = () => (
+    <View style={[styles.tabContent, styles.settingsContent]}>
       <View style={styles.accountGrid}>
       <View style={styles.accountColumn}><ClinicalPinManager /></View>
       {/* Account Information */}
@@ -3270,6 +3284,7 @@ export function SpecialistProfileScreen() {
               disabled: true,
               verified: profileData.emailVerified === true,
               helperText: 'El email no se puede modificar por seguridad',
+              compactSpacing: true,
             }
           )}
           {renderFormField(
@@ -3278,6 +3293,7 @@ export function SpecialistProfileScreen() {
             (text) => updateField('phone', text),
             {
               placeholder: '+34 600 123 456',
+              compactSpacing: true,
               keyboardType: 'phone-pad',
               verified: profileData.phoneVerified,
             }
@@ -3422,6 +3438,7 @@ export function SpecialistProfileScreen() {
           {activeTab === 'pricing' && renderPricingTab()}
           {activeTab === 'privacy' && <>{renderPrivacyTab()}<PrivacyPreferencesButton /></>}
           {activeTab === 'account' && renderAccountTab()}
+          {activeTab === 'google' && renderGoogleTab()}
         </View>
       </ScrollView>
 
@@ -4093,7 +4110,8 @@ function createStyles(
   },
 
   // ===== SECTIONS =====
-  accountGrid: { flexDirection: isDesktop ? 'row' : 'column', alignItems: 'stretch', gap: spacing.lg },
+  settingsContent: { width: '100%', maxWidth: 1120, alignSelf: 'flex-start' },
+  accountGrid: { flexDirection: isDesktop ? 'row' : 'column', alignItems: isDesktop ? 'flex-start' : 'stretch', gap: spacing.lg },
   accountColumn: { flex: isDesktop ? 1 : undefined, minWidth: 0 },
   section: {
     marginBottom: isMobile ? spacing.md : spacing.lg,

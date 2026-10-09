@@ -239,6 +239,7 @@ export type ProfessionalProfileTab =
   | 'credentials'
   | 'pricing'
   | 'privacy'
+  | 'google'
   | 'account';
 
 export type ProfessionalProfileSection =

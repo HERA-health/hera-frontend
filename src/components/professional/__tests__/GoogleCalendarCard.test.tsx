@@ -16,6 +16,88 @@ const disconnected: service.GoogleCalendarStatus = { enabled: true, status: 'DIS
 const connected: service.GoogleCalendarStatus = { ...disconnected, status: 'CONNECTED', email: 'professional@example.invalid', activationConnection: { id: 'connection-a', generation: 1 } };
 beforeEach(() => { jest.clearAllMocks(); });
 
+test.each([false, true])('Calendar stays visibly connected with Meet activation set to %s', async meetEnabled => {
+  jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, videoSetupCompleted: true,
+    meetEnabled, meetAssignmentsEnabled: true, videoProviderPreference: meetEnabled ? 'GOOGLE_MEET' : 'DAILY' });
+  render(<GoogleCalendarCard />);
+  await screen.findByLabelText('Google Calendar: Conectado');
+  if (meetEnabled) {
+    expect(screen.getByLabelText('Google Meet: Activo')).toBeTruthy();
+    expect(screen.queryByText('Activar Google Meet')).toBeNull();
+  } else {
+    expect(screen.getByLabelText('Google Meet: Listo para activar')).toBeTruthy();
+    expect(screen.queryByLabelText('Google Meet: Activo')).toBeNull();
+    expect(screen.getByText('Activar Google Meet')).toBeTruthy();
+  }
+});
+
+test('disconnected products never display active indicators', async () => {
+  jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...disconnected, meetAssignmentsEnabled: true });
+  render(<GoogleCalendarCard />);
+  await screen.findByLabelText('Google Calendar: Sin conectar');
+  expect(screen.getByLabelText('Google Meet: Necesita Calendar')).toBeTruthy();
+  expect(screen.getByText('Para activar Meet, primero conecta Google Calendar.')).toBeTruthy();
+  expect(screen.getByText('Conectar Google Calendar')).toBeTruthy();
+  expect(screen.queryByText('Activar Google Meet')).toBeNull();
+  expect(screen.queryByLabelText('Google Calendar: Conectado')).toBeNull();
+  expect(screen.queryByLabelText('Google Meet: Activo')).toBeNull();
+});
+
+test('the Calendar prerequisite clears when the connection is ready', async () => {
+  jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, meetAssignmentsEnabled: true,
+    videoProviderPreference: 'DAILY', meetEnabled: false });
+  render(<GoogleCalendarCard />);
+  await screen.findByLabelText('Google Meet: Listo para activar');
+  expect(screen.queryByText('Para activar Meet, primero conecta Google Calendar.')).toBeNull();
+  expect(screen.getByText('Activar Google Meet')).toBeTruthy();
+  expect(service.setVideoPreference).not.toHaveBeenCalled();
+});
+
+test('a saved Meet preference awaiting activation shows the next step rather than an outage', async () => {
+  jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, meetAssignmentsEnabled: true,
+    videoProviderPreference: 'GOOGLE_MEET', meetEnabled: false });
+  render(<GoogleCalendarCard />);
+  await screen.findByLabelText('Google Meet: Listo para activar');
+  expect(screen.queryByText('Necesita atención')).toBeNull();
+  expect(screen.queryByLabelText('Google Meet: Activo')).toBeNull();
+});
+
+test('failed synchronization does not force open options or prevent their collapse', async () => {
+  jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, failed: 2, pending: 1 });
+  render(<GoogleCalendarCard />);
+  await screen.findByText('Conectado');
+  expect(screen.queryByText('Hay citas pendientes de revisar')).toBeNull();
+  expect(screen.queryByText('1 cita por actualizar')).toBeNull();
+  expect(screen.queryByText(/citas con actualización pendiente/)).toBeNull();
+  expect(screen.queryByText('Desconectar')).toBeNull();
+  fireEvent.press(screen.getByText('Opciones de sincronización'));
+  expect(screen.getByText('1 cita por actualizar')).toBeTruthy();
+  expect(screen.getByText(/2 citas con actualización pendiente/)).toBeTruthy();
+  expect(screen.getByText('Desconectar')).toBeTruthy();
+  fireEvent.press(screen.getByText('Opciones de sincronización'));
+  expect(screen.queryByText('Desconectar')).toBeNull();
+});
+
+test('a credential storage problem is technical review, not renewed consent or healthy Meet', async () => {
+  jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, errorCode: 'CALENDAR_CREDENTIAL_STORAGE_ERROR', failed: 1,
+    meetEnabled: true, meetAssignmentsEnabled: true, videoProviderPreference: 'GOOGLE_MEET' });
+  render(<GoogleCalendarCard videoSetup />);
+  await screen.findByText('La integración necesita revisión');
+  expect(screen.getByText('Preparación pausada')).toBeTruthy();
+  expect(screen.queryByText('Reconectar Google Calendar')).toBeNull();
+  expect(screen.queryByLabelText('Google Meet: Activo')).toBeNull();
+  expect(screen.queryByText('Activar Google Meet')).toBeNull();
+  expect(screen.queryByText('Paso 2 de 2 · Activa Google Meet')).toBeNull();
+  expect(service.connectGoogleCalendar).not.toHaveBeenCalled();
+});
+
+test('a real revoked permission explains why the same account needs reconnecting', async () => {
+  jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, status: 'REAUTH_REQUIRED', errorCode: 'REAUTH_REQUIRED' });
+  render(<GoogleCalendarCard />);
+  await screen.findByText('Google necesita que renueves el permiso. Reconecta la misma cuenta para continuar sincronizando tus citas.');
+  expect(screen.getByText('Reconectar Google Calendar')).toBeTruthy();
+});
+
 test('guided setup leads from Calendar to a separate Meet activation after OAuth', async () => {
   jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...disconnected, meetAssignmentsEnabled: true, videoProviderPreference: 'DAILY' });
   const first = render(<GoogleCalendarCard videoSetup />);
@@ -33,7 +115,7 @@ test('guided setup leads from Calendar to a separate Meet activation after OAuth
   fireEvent.press(screen.getByText('Activar Google Meet'));
   expect(service.setVideoPreference).not.toHaveBeenCalled();
   fireEvent.press(screen.getByText('Aceptar y activar Google Meet'));
-  await screen.findByText('Google Meet activo');
+  await screen.findByLabelText('Google Meet: Activo');
   expect(screen.queryByText('Paso 2 de 2 · Activa Google Meet')).toBeNull();
 });
 
@@ -70,10 +152,10 @@ test.each(['CONNECTED', 'REAUTH_REQUIRED'] as const)('outdated privacy offers im
   jest.mocked(service.connectGoogleCalendar).mockResolvedValue(null);
   render(<GoogleCalendarCard />);
   fireEvent.press(await screen.findByText('Reconectar Google Calendar'));
-  expect(screen.queryByText('Sincronización automática activa')).toBeNull();
+  expect(screen.queryByLabelText('Google Calendar: Conectado')).toBeNull();
   expect(screen.queryByText('Activar Google Meet')).toBeNull();
   expect(screen.queryByText(/Videollamadas pendientes/)).toBeNull();
-  expect(screen.getByText('Renueva la autorización de Calendar')).toBeTruthy();
+  expect(screen.getByLabelText('Google Meet: Renueva Calendar')).toBeTruthy();
   expect(screen.getByText('Renueva la autorización de Google')).toBeTruthy();
   expect(service.connectGoogleCalendar).not.toHaveBeenCalled();
   fireEvent.press(screen.getByText('Continuar con Google'));
@@ -145,7 +227,7 @@ test('closed Meet rollout explains the limitation without changing an existing p
   jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, meetEnabled: true, meetAssignmentsEnabled: false, videoProviderPreference: 'GOOGLE_MEET' });
   render(<GoogleCalendarCard />);
   await screen.findByText(/Google Meet no está disponible temporalmente/);
-  expect(screen.queryByText(/Google Meet activo/)).toBeNull();
+  expect(screen.queryByLabelText('Google Meet: Activo')).toBeNull();
   expect(screen.queryByText('Activar Google Meet')).toBeNull();
   expect(service.setVideoPreference).not.toHaveBeenCalled();
   expect(screen.getByText(/Revisa la integración para continuar con Meet/)).toBeTruthy();
@@ -190,7 +272,7 @@ test('revoked credentials offer reconnection and pending jobs remain visible', a
   render(<GoogleCalendarCard />);
   await screen.findByText('Vuelve a autorizar el acceso');
   expect(screen.getByText('Reconectar Google Calendar')).toBeTruthy();
-  expect(screen.queryByText(/Google Meet activo/)).toBeNull();
+  expect(screen.queryByLabelText('Google Meet: Activo')).toBeNull();
 });
 
 test('connected Daily keeps privacy available without repeating the full disclosure', async () => {
@@ -213,7 +295,7 @@ test('sync error is visible and can be retried without claiming success', async 
   jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue(connected);
   jest.mocked(service.resyncGoogleCalendar).mockRejectedValue(new Error('No se pudo sincronizar.'));
   render(<GoogleCalendarCard />);
-  await screen.findByText('Sincronización automática activa');
+  await screen.findByText('Conectado');
   expect(screen.queryByText('Revisar sincronización')).toBeNull();
   fireEvent.press(screen.getByText('Opciones de sincronización'));
   fireEvent.press(screen.getByText('Revisar sincronización'));
@@ -231,11 +313,13 @@ test('pending synchronization updates itself without a manual resync', async () 
       .mockResolvedValueOnce({ ...connected, pending: 1, reconciling: true })
       .mockResolvedValue(connected);
     render(<GoogleCalendarCard />);
-    await screen.findByText('Actualizando automáticamente…');
+    await screen.findByText('Conectado');
     fireEvent.press(screen.getByText('Opciones de sincronización'));
+    expect(screen.getByText('Actualizando automáticamente…')).toBeTruthy();
     expect(screen.getByText(/No necesitas pulsar ningún botón/)).toBeTruthy();
     await act(async () => { jest.advanceTimersByTime(10_000); });
-    expect(screen.getByText('Sincronización automática activa')).toBeTruthy();
+    expect(screen.getByText('Sincronización automática')).toBeTruthy();
+    expect(screen.queryByText('1 cita por actualizar')).toBeNull();
     await act(async () => { jest.advanceTimersByTime(30_000); });
     expect(service.getGoogleCalendarStatus).toHaveBeenCalledTimes(3);
     expect(service.resyncGoogleCalendar).not.toHaveBeenCalled();
@@ -248,12 +332,12 @@ test('slow synchronization remains refreshable after bounded automatic polling s
   try {
     jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, pending: 1 });
     render(<GoogleCalendarCard />);
-    await screen.findByText('Actualizando automáticamente…');
+    await screen.findByText('Conectado');
     for (let tick = 0; tick < 7; tick++) await act(async () => { jest.advanceTimersByTime(10_000); });
     expect(service.getGoogleCalendarStatus).toHaveBeenCalledTimes(7);
     jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue(connected);
     fireEvent.press(screen.getByText('Actualizar estado'));
-    await screen.findByText('Sincronización automática activa');
+    await waitFor(() => expect(screen.queryByText('Actualizar estado')).toBeNull());
     expect(service.resyncGoogleCalendar).not.toHaveBeenCalled();
   } finally { AppState.currentState = previous; jest.useRealTimers(); }
 });

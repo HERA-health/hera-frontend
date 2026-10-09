@@ -63,7 +63,7 @@ export function SessionMeetingControls({ sessionId }: { sessionId: string }) {
     {status?.organizerEmail && <Text selectable style={{ color: theme.textSecondary }}>Cuenta organizadora: {status.organizerEmail}{!status.organizerConnected ? '. Necesita reconexión; el acceso preparado se conserva, pero ya no se sincroniza.' : ''}</Text>}
     {status?.deliveryErrorCode && <Text style={{ color: theme.warning }}>{status.deliveryErrorCode === 'MEETING_RECIPIENT_MISSING' ? 'Falta un correo válido del paciente para entregar el acceso.' : 'No se ha podido entregar el acceso por correo. HERA reintentará según su política de entrega; si persiste, contacta con soporte.'}</Text>}
     {!!error && <Text accessibilityRole="alert" style={{ color: theme.error }}>{error}</Text>}
-    {status?.provider === 'GOOGLE_MEET' && (status.preparationStatus === 'REQUIRES_GOOGLE' || status.preparationStatus === 'ERROR') && <Button variant="outline" onPress={() => navigation.navigate('ProfessionalProfile', { initialTab: 'account' })}>Revisar conexión de Google</Button>}
+    {status?.provider === 'GOOGLE_MEET' && (status.preparationStatus === 'REQUIRES_GOOGLE' || status.preparationStatus === 'ERROR') && <Button variant="outline" onPress={() => navigation.navigate('ProfessionalProfile', { initialTab: 'google' })}>Revisar conexión de Google</Button>}
     {status?.canRetryPreparation && <Button variant="ghost" loading={busy} onPress={() => { void command(); }}>Reintentar preparación</Button>}
     <Button variant="ghost" disabled={busy} onPress={() => setRefresh(value => value + 1)}>Actualizar estado</Button>
   </View>;
