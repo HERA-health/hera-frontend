@@ -1,7 +1,7 @@
 {
   "TERMS_OF_SERVICE": {
     "key": "TERMS_OF_SERVICE",
-    "version": "2026-09-27",
+    "version": "2026-10-09",
     "title": "Términos y condiciones de HERA",
     "slug": "terminos",
     "routePath": "/legal/terminos",
@@ -180,25 +180,29 @@
         ]
       },
       {
-        "title": "Videollamadas con Google Meet",
+        "title": "Videollamadas con Google Meet y respaldo de emergencia",
         "body": [
-          "El especialista puede activar voluntariamente Google Meet sobre su conexión de Calendar, tras aceptar este aviso. HERA solicita una conferencia distinta por sesión confirmada de vídeo en el calendario principal de la cuenta organizadora. La activación no cambia automáticamente las citas que ya tienen proveedor. Daily permanece como alternativa explícita; un error de Google no cambia el proveedor.",
-          "Además de los datos de Calendar descritos, HERA consulta y conserva identificadores y estado de conferencia y su enlace de acceso. Se entrega el enlace vigente al paciente y al especialista en HERA y en los correos transaccionales. No se añade al paciente como invitado de Calendar ni se envían nombres, contactos, notas clínicas o importes al evento. El paciente no necesita vincular Google a HERA para participar.",
-          "El audio y vídeo se procesan en Google Meet bajo las condiciones y políticas aplicables a la cuenta utilizada. La integración no solicita grabaciones, transcripciones ni funciones de inteligencia artificial. No controla las funciones que los participantes activen manualmente en Google. Estas reuniones no se presentan como cifradas de extremo a extremo por defecto.",
+          "El especialista puede activar voluntariamente Google Meet sobre su conexión de Calendar, tras aceptar este aviso. HERA solicita una conferencia distinta por sesión confirmada de vídeo en el calendario principal de la cuenta organizadora. Meet es el proveedor principal para quienes lo hayan activado, también en reservas inmediatas y sesiones ya iniciadas dentro de la ventana de recuperación. La activación no sustituye los enlaces ya publicados ni convierte las citas que ya utilizan Daily.",
+          "La preparación del enlace de Google Meet puede tardar unos minutos. HERA mantiene la misma solicitud mientras Google la prepara. La cercanía de la cita, una demora normal o errores temporales aislados no cambian por sí solos el proveedor. Si Google devuelve una conferencia propia válida antes de decidir el respaldo, HERA publica ese enlace.",
+          "Daily puede activarse automáticamente como respaldo de emergencia si la credencial de Google está revocada o no puede recuperarse, si Google rechaza los permisos necesarios para gestionar el evento propio o si declara fallida la creación de la conferencia en dos intentos, tras una única recreación automática.",
+          "Si Google mantiene la conferencia pendiente, el respaldo por demora solo puede activarse cuando hayan transcurrido al menos diez minutos desde la primera operación real de preparación contra Google y la cita ya haya empezado. Antes de cambiar, HERA realiza una última consulta; solo utiliza Daily si la conferencia sigue pendiente. En caso de errores temporales de red, tiempos de espera agotados, límites de uso o indisponibilidad de Google, el respaldo exige además al menos tres fallos consecutivos y una última comprobación fallida. El tiempo de espera en la cola de HERA no inicia ese plazo. En una cita futura, alcanzar diez minutos o tres fallos temporales no basta para cambiar a Daily.",
+          "Una configuración incoherente o desactivada, una aceptación pendiente, un fallo interno de HERA o una conferencia de propiedad o validez dudosas bloquean la preparación y requieren revisión; no justifican un cambio silencioso a Daily. No se prepara un proveedor para sesiones canceladas, completadas, sin autorización o fuera de su ventana de recuperación. HERA muestra al especialista el motivo del respaldo. Una respuesta tardía de Google no sustituye Daily después del cambio, y un fallo en la entrega del correo no decide el proveedor.",
+          "Además de los datos de Calendar descritos, HERA consulta y conserva identificadores y estado de conferencia y su enlace de acceso. Se entrega el enlace vigente al paciente y al especialista en HERA y en los correos transaccionales. No se añade al paciente como invitado de Calendar ni se envían nombres, contactos, notas clínicas o importes al evento. El paciente no necesita vincular Google a HERA para participar. HERA conserva el inicio de preparación, contadores técnicos de recuperación y, cuando corresponde, el motivo y la fecha del respaldo para mantener y diagnosticar este comportamiento. Al crear una sala Daily se envían su identificador técnico y la configuración necesaria, sin nombres, contactos, notas clínicas ni importes.",
+          "Cuando se utiliza Meet, el audio y vídeo se procesan en Google Meet bajo las condiciones y políticas aplicables a la cuenta utilizada. Cuando se utiliza Daily, el audio, vídeo y datos técnicos de conexión necesarios para la llamada se procesan mediante Daily conforme a sus condiciones y política de privacidad: https://www.daily.co/legal/privacy/ . La integración no solicita grabaciones, transcripciones ni funciones de inteligencia artificial. No controla las funciones que los participantes activen manualmente en Google. Estas reuniones no se presentan como cifradas de extremo a extremo por defecto.",
           "El especialista debe entrar con la cuenta organizadora vinculada, admitir al paciente correcto y finalizar la reunión al terminar. Las políticas de Google o del administrador de Workspace pueden restringir invitados. La ventana de acceso de HERA no limita la validez de un enlace copiado o enviado por correo. Cancelar, borrar el evento o desconectar OAuth no garantiza invalidar un código externo; los enlaces ya enviados no pueden retirarse.",
           "Al desconectar Google se detienen nuevas operaciones y sincronización, pero las reuniones ya preparadas pueden seguir disponibles para sus participantes autorizados. Una cuenta organizadora distinta se aplica a nuevas citas y no sustituye las existentes. El uso clínico requiere comprobar las condiciones contractuales y de privacidad aplicables a las cuentas concretas; no se presupone que una cuenta personal esté cubierta por un acuerdo de tratamiento de Workspace."
         ]
       }
     ],
-    "effectiveAt": "2026-09-27T00:00:00+02:00",
-    "changeSummary": "Activación voluntaria de Google Meet, entrega de accesos por correo y límites de control de los enlaces.",
+    "effectiveAt": "2026-10-09T00:00:00+02:00",
+    "changeSummary": "Google Meet como proveedor principal, preparación asíncrona y Daily como respaldo automático únicamente en emergencias definidas. Se conservan los enlaces publicados y las versiones anteriores; no se modifican las condiciones económicas.",
     "status": "PUBLISHED_WITH_PENDING_IDENTITY",
     "publicPath": "/legal/terminos",
-    "contentHash": "5cf6e36239ec7779e1b18f95a46e8d063a77faef2143d95246bb5692cc50391d"
+    "contentHash": "849e3fcadc3518893f7175422c521e716453f367ef6cb3c8d93a696cf0fa395e"
   },
   "PRIVACY_POLICY": {
     "key": "PRIVACY_POLICY",
-    "version": "2026-09-27",
+    "version": "2026-10-09",
     "title": "Política de privacidad",
     "slug": "privacidad",
     "routePath": "/legal/privacidad",
@@ -307,7 +311,7 @@
       {
         "title": "Proveedores y transferencias internacionales",
         "body": [
-          "Google, Vercel, Railway, Supabase, Cloudinary, correo y PostHog reciben datos necesarios para las funciones descritas. Su infraestructura y soporte pueden implicar tratamiento fuera del Espacio Económico Europeo.",
+          "Google, Daily, Vercel, Railway, Supabase, Cloudinary, correo y PostHog reciben datos necesarios para las funciones descritas. Su infraestructura y soporte pueden implicar tratamiento fuera del Espacio Económico Europeo.",
           "Regiones y garantías contractuales de cada despliegue requieren comprobación; esta política no afirma residencia exclusiva en Europa ni certificaciones o acuerdos no acreditados. Puedes solicitar información sobre destinatarios y garantías al contacto de privacidad. Las transferencias deben contar con el mecanismo aplicable conforme a la normativa."
         ]
       },
@@ -326,21 +330,25 @@
         ]
       },
       {
-        "title": "Videollamadas con Google Meet",
+        "title": "Videollamadas con Google Meet y respaldo de emergencia",
         "body": [
-          "El especialista puede activar voluntariamente Google Meet sobre su conexión de Calendar, tras aceptar este aviso. HERA solicita una conferencia distinta por sesión confirmada de vídeo en el calendario principal de la cuenta organizadora. La activación no cambia automáticamente las citas que ya tienen proveedor. Daily permanece como alternativa explícita; un error de Google no cambia el proveedor.",
-          "Además de los datos de Calendar descritos, HERA consulta y conserva identificadores y estado de conferencia y su enlace de acceso. Se entrega el enlace vigente al paciente y al especialista en HERA y en los correos transaccionales. No se añade al paciente como invitado de Calendar ni se envían nombres, contactos, notas clínicas o importes al evento. El paciente no necesita vincular Google a HERA para participar.",
-          "El audio y vídeo se procesan en Google Meet bajo las condiciones y políticas aplicables a la cuenta utilizada. La integración no solicita grabaciones, transcripciones ni funciones de inteligencia artificial. No controla las funciones que los participantes activen manualmente en Google. Estas reuniones no se presentan como cifradas de extremo a extremo por defecto.",
+          "El especialista puede activar voluntariamente Google Meet sobre su conexión de Calendar, tras aceptar este aviso. HERA solicita una conferencia distinta por sesión confirmada de vídeo en el calendario principal de la cuenta organizadora. Meet es el proveedor principal para quienes lo hayan activado, también en reservas inmediatas y sesiones ya iniciadas dentro de la ventana de recuperación. La activación no sustituye los enlaces ya publicados ni convierte las citas que ya utilizan Daily.",
+          "La preparación del enlace de Google Meet puede tardar unos minutos. HERA mantiene la misma solicitud mientras Google la prepara. La cercanía de la cita, una demora normal o errores temporales aislados no cambian por sí solos el proveedor. Si Google devuelve una conferencia propia válida antes de decidir el respaldo, HERA publica ese enlace.",
+          "Daily puede activarse automáticamente como respaldo de emergencia si la credencial de Google está revocada o no puede recuperarse, si Google rechaza los permisos necesarios para gestionar el evento propio o si declara fallida la creación de la conferencia en dos intentos, tras una única recreación automática.",
+          "Si Google mantiene la conferencia pendiente, el respaldo por demora solo puede activarse cuando hayan transcurrido al menos diez minutos desde la primera operación real de preparación contra Google y la cita ya haya empezado. Antes de cambiar, HERA realiza una última consulta; solo utiliza Daily si la conferencia sigue pendiente. En caso de errores temporales de red, tiempos de espera agotados, límites de uso o indisponibilidad de Google, el respaldo exige además al menos tres fallos consecutivos y una última comprobación fallida. El tiempo de espera en la cola de HERA no inicia ese plazo. En una cita futura, alcanzar diez minutos o tres fallos temporales no basta para cambiar a Daily.",
+          "Una configuración incoherente o desactivada, una aceptación pendiente, un fallo interno de HERA o una conferencia de propiedad o validez dudosas bloquean la preparación y requieren revisión; no justifican un cambio silencioso a Daily. No se prepara un proveedor para sesiones canceladas, completadas, sin autorización o fuera de su ventana de recuperación. HERA muestra al especialista el motivo del respaldo. Una respuesta tardía de Google no sustituye Daily después del cambio, y un fallo en la entrega del correo no decide el proveedor.",
+          "Además de los datos de Calendar descritos, HERA consulta y conserva identificadores y estado de conferencia y su enlace de acceso. Se entrega el enlace vigente al paciente y al especialista en HERA y en los correos transaccionales. No se añade al paciente como invitado de Calendar ni se envían nombres, contactos, notas clínicas o importes al evento. El paciente no necesita vincular Google a HERA para participar. HERA conserva el inicio de preparación, contadores técnicos de recuperación y, cuando corresponde, el motivo y la fecha del respaldo para mantener y diagnosticar este comportamiento. Al crear una sala Daily se envían su identificador técnico y la configuración necesaria, sin nombres, contactos, notas clínicas ni importes.",
+          "Cuando se utiliza Meet, el audio y vídeo se procesan en Google Meet bajo las condiciones y políticas aplicables a la cuenta utilizada. Cuando se utiliza Daily, el audio, vídeo y datos técnicos de conexión necesarios para la llamada se procesan mediante Daily conforme a sus condiciones y política de privacidad: https://www.daily.co/legal/privacy/ . La integración no solicita grabaciones, transcripciones ni funciones de inteligencia artificial. No controla las funciones que los participantes activen manualmente en Google. Estas reuniones no se presentan como cifradas de extremo a extremo por defecto.",
           "El especialista debe entrar con la cuenta organizadora vinculada, admitir al paciente correcto y finalizar la reunión al terminar. Las políticas de Google o del administrador de Workspace pueden restringir invitados. La ventana de acceso de HERA no limita la validez de un enlace copiado o enviado por correo. Cancelar, borrar el evento o desconectar OAuth no garantiza invalidar un código externo; los enlaces ya enviados no pueden retirarse.",
           "Al desconectar Google se detienen nuevas operaciones y sincronización, pero las reuniones ya preparadas pueden seguir disponibles para sus participantes autorizados. Una cuenta organizadora distinta se aplica a nuevas citas y no sustituye las existentes. El uso clínico requiere comprobar las condiciones contractuales y de privacidad aplicables a las cuentas concretas; no se presupone que una cuenta personal esté cubierta por un acuerdo de tratamiento de Workspace."
         ]
       }
     ],
-    "effectiveAt": "2026-09-27T00:00:00+02:00",
-    "changeSummary": "Activación voluntaria de Google Meet, entrega de accesos por correo y límites de control de los enlaces.",
+    "effectiveAt": "2026-10-09T00:00:00+02:00",
+    "changeSummary": "Google Meet como proveedor principal, preparación asíncrona y Daily como respaldo automático únicamente en emergencias definidas. Se conservan los enlaces publicados y las versiones anteriores; no se modifican las condiciones económicas.",
     "status": "PUBLISHED_WITH_PENDING_IDENTITY",
     "publicPath": "/legal/privacidad",
-    "contentHash": "191f591c0e9dbfb7385f13cf3077cba84afa7e516966b49ccceeae1aa893e9d3"
+    "contentHash": "efa4e9139ce38f3b5292379e36c63784acc4c720769ebf7a0e14d4b80255af97"
   },
   "PROFESSIONAL_DATA_PROCESSING_TERMS": {
     "key": "PROFESSIONAL_DATA_PROCESSING_TERMS",

@@ -186,7 +186,7 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
         {guidedSetup && !connected ? <Text style={copy}>El siguiente paso, cuando conectes Calendar. Podrás revisar la cuenta organizadora antes de activar Meet.</Text> : meetActive ? <>
           <Text style={copy}>Un enlace por cita, en HERA y en los correos. Entra con la cuenta de Google conectada.</Text>
         </> : status?.videoProviderPreference === 'GOOGLE_MEET' ? <Text style={[...copy, { color: theme.warning }]}>
-          {meetUnavailable ? 'Google Meet no está disponible temporalmente para nuevas citas. HERA preparará el acceso a tus videollamadas automáticamente.' : 'Revisa la conexión y la activación de Meet. HERA preparará el acceso a tus videollamadas automáticamente.'}
+          {meetUnavailable ? 'Google Meet no está disponible temporalmente para nuevas citas. Revisa la integración para continuar con Meet.' : 'Revisa la conexión y la activación de Meet para continuar con tus videollamadas.'}
         </Text> : <>
           <Text style={copy}>{status?.meetAssignmentsEnabled && status.enabled
             ? connected || needsReauthorization ? 'Un enlace de Meet para cada cita, disponible en HERA y en los correos.' : 'Conecta Calendar y activa Meet para tus próximas videollamadas.'
@@ -233,8 +233,13 @@ export function GoogleCalendarCard({ videoSetup = false, hasUnsavedChanges = fal
                 <Text selectable style={[styles.account, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>{confirmMeet.email}</Text>
               </View>
               <Text style={copy}>Autorizas a HERA a crear una reunión distinta de Google Meet por cita de vídeo en el calendario principal de {confirmMeet.email}. Los participantes recibirán su acceso por HERA y correo. No se enviarán datos clínicos al evento.</Text>
-              <Text style={copy}>Las citas con proveedor asignado conservarán su acceso.</Text>
-              <Text style={copy}>El audio y vídeo transcurren en Google. Debes admitir al paciente correcto y finalizar la reunión. Desconectar o borrar el evento no invalida necesariamente un enlace copiado. Revisa las condiciones aplicables a tu cuenta antes del uso clínico.</Text>
+              <Text style={copy}>Google Meet será el proveedor principal, también en reservas inmediatas. El enlace puede tardar unos minutos en prepararse. Daily se utilizará automáticamente solo como respaldo de emergencia ante problemas que impidan disponer de Meet, según la política de privacidad. HERA mostrará el motivo del cambio; si se usa Daily, la llamada transcurrirá mediante ese servicio.</Text>
+              <Text style={copy}>Los enlaces ya preparados y las citas que ya utilizan Daily conservarán su acceso.</Text>
+              <Button variant="ghost" size="small" style={styles.start} onPress={() => {
+                const version = confirmMeet.disclosureVersion;
+                closeDialog(); navigation.navigate('LegalDocument', { documentKey: 'PRIVACY_POLICY', version });
+              }}>Leer condiciones del respaldo de emergencia</Button>
+              <Text style={copy}>Cuando se utiliza Meet, el audio y vídeo transcurren en Google. Debes admitir al paciente correcto y finalizar la reunión. Desconectar o borrar el evento no invalida necesariamente un enlace copiado. Revisa las condiciones aplicables a tu cuenta antes del uso clínico.</Text>
             </> : confirmDisconnect ? <Text style={copy}>Las citas ya copiadas permanecerán en Google y dejarán de actualizarse. Los enlaces Meet preparados pueden seguir funcionando; desconectar no borra las reuniones.</Text> : <>
               <Text style={copy}>Se mostrarán tus citas privadas y de clínicas, pendientes y confirmadas, con su horario y un enlace a HERA. No se enviarán datos del paciente.</Text>
               <Text style={copy}>Los cambios se gestionan en HERA. Los eventos personales de Google no se importan ni bloquean tu disponibilidad. Google solicitará permiso para gestionar eventos de tus calendarios; HERA solo gestionará sus propias copias.</Text>

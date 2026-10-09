@@ -27,7 +27,7 @@ test('an ongoing failed session can retry without offering a provider change', a
 
 test('provider changes are never offered, even if an older backend permits them', async () => {
   render(<SessionMeetingControls sessionId="session" />);
-  await screen.findByText('Estamos preparando la videollamada.');
+  await screen.findByText('Estamos preparando Google Meet. Puede tardar unos minutos.');
   expect(screen.queryByText('Usar alternativa para esta sesión')).toBeNull();
   expect(screen.queryByText(/Daily/)).toBeNull();
   expect(service.commandSessionMeeting).not.toHaveBeenCalled();
@@ -62,7 +62,7 @@ test('errors offer explicit refresh without a permanent loading label', async ()
   await screen.findByText('Conexión no disponible');
   expect(screen.queryByText('Consultando videollamada…')).toBeNull();
   fireEvent.press(screen.getByText('Actualizar estado'));
-  await screen.findByText('Estamos preparando la videollamada.');
+  await screen.findByText('Estamos preparando Google Meet. Puede tardar unos minutos.');
 });
 
 test('a stale status from another selected session is ignored', async () => {
@@ -70,7 +70,7 @@ test('a stale status from another selected session is ignored', async () => {
   jest.mocked(service.getProfessionalMeetingStatus).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const view = render(<SessionMeetingControls sessionId="old" />);
   view.rerender(<SessionMeetingControls sessionId="new" />);
-  await screen.findByText('Estamos preparando la videollamada.');
+  await screen.findByText('Estamos preparando Google Meet. Puede tardar unos minutos.');
   await act(async () => { finish?.({ ...pending, preparationStatus: 'READY' }); });
   expect(screen.queryByText('Videollamada preparada. Usa el botón habitual para entrar.')).toBeNull();
 });
@@ -115,4 +115,26 @@ test('an unknown configuration can be checked again without directing the user t
   await waitFor(() => expect(service.getGoogleCalendarStatus).toHaveBeenCalledTimes(2));
   await waitFor(() => expect(screen.queryByText('No se pudo comprobar la configuración de videollamadas.')).toBeNull());
   expect(mockNavigate).not.toHaveBeenCalled(); expect(close).not.toHaveBeenCalled();
+});
+
+
+test.each([
+  ['REAUTH_REQUIRED', /Google necesita una nueva autorización/],
+  ['PERMISSION_DENIED', /Google ha rechazado los permisos/],
+  ['MEET_CREATION_FAILED', /dos intentos/],
+  ['MEET_PREPARATION_TIMEOUT', /tras diez minutos/],
+  ['MEET_TEMPORARY_ERROR', /tras varios intentos/],
+])('emergency Daily explains its reason: %s', async (fallbackReasonCode, explanation) => {
+  jest.mocked(service.getProfessionalMeetingStatus).mockResolvedValue({ ...pending, provider: 'DAILY', preparationStatus: 'READY',
+    fallbackReasonCode, fallbackAt: '2026-10-09T10:00:00Z', organizerEmail: null });
+  render(<SessionMeetingControls sessionId="fallback" />);
+  await screen.findByText(explanation);
+  expect(screen.queryByText(/Google Meet preparado/)).toBeNull();
+});
+
+test('prepared Daily from an older backend has no invented emergency warning', async () => {
+  jest.mocked(service.getProfessionalMeetingStatus).mockResolvedValue({ ...pending, provider: 'DAILY', preparationStatus: 'READY', organizerEmail: null });
+  render(<SessionMeetingControls sessionId="legacy" />);
+  await screen.findByText('Videollamada preparada. Usa el botón habitual para entrar.');
+  expect(screen.queryByText(/Daily de emergencia/)).toBeNull();
 });

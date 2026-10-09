@@ -34,6 +34,8 @@ export const setVideoPreference = async (provider: 'GOOGLE_MEET', disclosureVers
     { provider, disclosureVersion, expectedConnection }, config)).data;
 
 export interface ProfessionalMeetingStatus {
+  fallbackReasonCode?: string | null;
+  fallbackAt?: string | null;
   provider: 'GOOGLE_MEET' | 'DAILY' | null;
   preparationStatus: 'NONE' | 'REQUIRES_GOOGLE' | 'PENDING' | 'READY' | 'ERROR' | 'INACTIVE';
   canJoin: boolean;

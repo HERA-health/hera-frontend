@@ -1,13 +1,14 @@
-jest.mock('../../../services/legalService', () => ({ getLegalCatalog: jest.fn(async () => [{ key: 'PRIVACY_POLICY', version: '2026-09-27' }]) }));
+jest.mock('../../../services/legalService', () => ({ getLegalCatalog: jest.fn(async () => [{ key: 'PRIVACY_POLICY', version: '2026-10-09' }]) }));
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AppState } from 'react-native';
 import { GoogleCalendarCard } from '../GoogleCalendarCard';
 import * as service from '../../../services/googleCalendarService';
+const mockNavigate = jest.fn();
 
 jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../../constants/theme').lightTheme }) }));
 jest.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'professional', type: 'professional' } }) }));
-jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn() }) }));
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }) }));
 jest.mock('../../../services/googleCalendarService', () => ({
   setVideoPreference: jest.fn(), getGoogleCalendarStatus: jest.fn(), connectGoogleCalendar: jest.fn(), disconnectGoogleCalendar: jest.fn(), resyncGoogleCalendar: jest.fn(),
 }));
@@ -25,7 +26,7 @@ test('guided setup leads from Calendar to a separate Meet activation after OAuth
   first.unmount();
 
   // Returning from OAuth mounts the account settings with the saved online modality.
-  jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, meetAssignmentsEnabled: true, meetDisclosureVersion: '2026-09-27', videoProviderPreference: 'DAILY' });
+  jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, meetAssignmentsEnabled: true, meetDisclosureVersion: '2026-10-09', videoProviderPreference: 'DAILY' });
   jest.mocked(service.setVideoPreference).mockResolvedValue({ ...connected, meetAssignmentsEnabled: true, meetEnabled: true, videoProviderPreference: 'GOOGLE_MEET' });
   render(<GoogleCalendarCard videoSetup />);
   await screen.findByText('Paso 2 de 2 · Activa Google Meet');
@@ -76,29 +77,41 @@ test.each(['CONNECTED', 'REAUTH_REQUIRED'] as const)('outdated privacy offers im
   expect(screen.getByText('Renueva la autorización de Google')).toBeTruthy();
   expect(service.connectGoogleCalendar).not.toHaveBeenCalled();
   fireEvent.press(screen.getByText('Continuar con Google'));
-  await waitFor(() => expect(service.connectGoogleCalendar).toHaveBeenCalledWith('professional', '2026-09-27'));
+  await waitFor(() => expect(service.connectGoogleCalendar).toHaveBeenCalledWith('professional', '2026-10-09'));
   expect(service.disconnectGoogleCalendar).not.toHaveBeenCalled();
   expect(service.setVideoPreference).not.toHaveBeenCalled();
 });
 
 test('existing Calendar requires explicit Meet consent and keeps OAuth separate', async () => {
-  jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, meetEnabled: false, meetAssignmentsEnabled: true, meetDisclosureVersion: '2026-09-27', videoProviderPreference: 'DAILY' });
+  jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, meetEnabled: false, meetAssignmentsEnabled: true, meetDisclosureVersion: '2026-10-09', videoProviderPreference: 'DAILY' });
   jest.mocked(service.setVideoPreference).mockResolvedValue({ ...connected, meetEnabled: true, videoProviderPreference: 'GOOGLE_MEET' });
   render(<GoogleCalendarCard />);
   fireEvent.press(await screen.findByText('Activar Google Meet'));
+  expect(screen.getByText(/Daily se utilizará automáticamente solo como respaldo de emergencia/)).toBeTruthy();
+  expect(screen.getByText('Leer condiciones del respaldo de emergencia')).toBeTruthy();
   expect(service.setVideoPreference).not.toHaveBeenCalled();
   fireEvent.press(screen.getByText('Ahora no'));
   expect(service.setVideoPreference).not.toHaveBeenCalled();
   fireEvent.press(screen.getByText('Activar Google Meet'));
   fireEvent.press(screen.getByText('Aceptar y activar Google Meet'));
-  await waitFor(() => expect(service.setVideoPreference).toHaveBeenCalledWith('GOOGLE_MEET', '2026-09-27', { id: 'connection-a', generation: 1 }));
+  await waitFor(() => expect(service.setVideoPreference).toHaveBeenCalledWith('GOOGLE_MEET', '2026-10-09', { id: 'connection-a', generation: 1 }));
   expect(service.connectGoogleCalendar).not.toHaveBeenCalled();
+});
+
+test('the emergency disclosure opens the exact privacy version shown before accepting', async () => {
+  jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue({ ...connected, meetEnabled: false,
+    meetAssignmentsEnabled: true, meetDisclosureVersion: '2026-10-09', videoProviderPreference: 'DAILY' });
+  render(<GoogleCalendarCard />);
+  fireEvent.press(await screen.findByText('Activar Google Meet'));
+  fireEvent.press(screen.getByText('Leer condiciones del respaldo de emergencia'));
+  expect(mockNavigate).toHaveBeenCalledWith('LegalDocument', { documentKey: 'PRIVACY_POLICY', version: '2026-10-09' });
+  expect(service.setVideoPreference).not.toHaveBeenCalled();
 });
 
 test('account refresh never substitutes an organizer in an open acceptance', async () => {
   jest.useFakeTimers();
   const previous = AppState.currentState; AppState.currentState = 'active';
-  const activatable = { ...connected, meetEnabled: false, meetAssignmentsEnabled: true, meetDisclosureVersion: '2026-09-27', videoProviderPreference: 'DAILY' as const };
+  const activatable = { ...connected, meetEnabled: false, meetAssignmentsEnabled: true, meetDisclosureVersion: '2026-10-09', videoProviderPreference: 'DAILY' as const };
   try {
     jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue(activatable);
     jest.mocked(service.setVideoPreference).mockRejectedValueOnce(new Error('La conexión de Google ha cambiado.'));
@@ -109,7 +122,7 @@ test('account refresh never substitutes an organizer in an open acceptance', asy
     await act(async () => { jest.advanceTimersByTime(30_000); });
     expect(screen.getByText(/principal de professional@example.invalid/)).toBeTruthy();
     fireEvent.press(screen.getByText('Aceptar y activar Google Meet'));
-    await waitFor(() => expect(service.setVideoPreference).toHaveBeenCalledWith('GOOGLE_MEET', '2026-09-27', connected.activationConnection));
+    await waitFor(() => expect(service.setVideoPreference).toHaveBeenCalledWith('GOOGLE_MEET', '2026-10-09', connected.activationConnection));
     await screen.findByText('La conexión de Google ha cambiado.');
     expect(screen.queryByText('Aceptar y activar Google Meet')).toBeNull();
     fireEvent.press(screen.getByText('Activar Google Meet'));
@@ -135,7 +148,7 @@ test('closed Meet rollout explains the limitation without changing an existing p
   expect(screen.queryByText(/Google Meet activo/)).toBeNull();
   expect(screen.queryByText('Activar Google Meet')).toBeNull();
   expect(service.setVideoPreference).not.toHaveBeenCalled();
-  expect(screen.getByText(/HERA preparará el acceso a tus videollamadas automáticamente/)).toBeTruthy();
+  expect(screen.getByText(/Revisa la integración para continuar con Meet/)).toBeTruthy();
   expect(screen.queryByText(/Daily/)).toBeNull();
 });
 
@@ -147,7 +160,7 @@ test('closed Meet rollout still allows Calendar connection without promising vid
   expect(screen.queryByText('Conectar Google para mis videollamadas')).toBeNull();
   expect(service.connectGoogleCalendar).not.toHaveBeenCalled();
   fireEvent.press(screen.getByText('Continuar con Google'));
-  await waitFor(() => expect(service.connectGoogleCalendar).toHaveBeenCalledWith('professional', '2026-09-27'));
+  await waitFor(() => expect(service.connectGoogleCalendar).toHaveBeenCalledWith('professional', '2026-10-09'));
 });
 test('explains the data exported and starts a real connection action', async () => {
   jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue(disconnected);
@@ -158,7 +171,7 @@ test('explains the data exported and starts a real connection action', async () 
   expect(screen.getByText(/No se enviarán datos del paciente/)).toBeTruthy();
   expect(screen.getByText(/no se importan ni bloquean/)).toBeTruthy();
   fireEvent.press(screen.getByText('Continuar con Google'));
-  await waitFor(() => expect(service.connectGoogleCalendar).toHaveBeenCalledWith('professional', '2026-09-27'));
+  await waitFor(() => expect(service.connectGoogleCalendar).toHaveBeenCalledWith('professional', '2026-10-09'));
 });
 test('disconnect explicitly conserves copies and shows asynchronous disconnect state', async () => {
   jest.mocked(service.getGoogleCalendarStatus).mockResolvedValue(connected);
