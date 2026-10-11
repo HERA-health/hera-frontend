@@ -7,6 +7,7 @@ jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate:
 jest.mock('../../../services/heraCommissionService', () => ({
  operators: jest.fn(), specialistAccounts: jest.fn(), configuration: jest.fn(), detail: jest.fn(), sessions: jest.fn(), balances: jest.fn(),
 }));
+jest.mock('../../../services/professionalService', () => ({ getProfessionalSessionDetail: jest.fn() }));
 const summary = { id: 'account', specialistName: 'Ana', specialistId: 'specialist', mode: 'LIVE', operatorKey: 'internal-key', pendingCents: 1400, receivedCents: 1000, undocumentedCents: 300, creditCents: 0, overdueCents: 0, accruedCents: 0, issueCount: 0 };
 const account = { summary, acceptances: [], specialistFiscal: {}, periods: [], documents: [], cash: [], issues: [], hasMore: false };
 const nav = () => ({ canGoBack: jest.fn(() => false), goBack: jest.fn(), replace: jest.fn(), setParams: jest.fn() });
