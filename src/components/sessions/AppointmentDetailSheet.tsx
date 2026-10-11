@@ -217,6 +217,15 @@ export function AppointmentDetailSheet({
           ) : detail ? (
             <>
               <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+                {mode === 'professional' && professionalSession?.status !== 'COMPLETED' && professionalSession?.status !== 'CANCELLED' && professionalSession?.invoiceCompletionIssue ? (
+                  <Section title="Datos fiscales pendientes" icon="alert-circle-outline">
+                    <Text style={styles.stateText}>{professionalSession.invoiceCompletionIssue}</Text>
+                    <Button variant="outline" onPress={() => {
+                      onClose();
+                      navigation.navigate('ClientProfile', { clientId: professionalSession.clientId, initialTab: 'summary', focusBillingEditor: true });
+                    }}>Completar datos fiscales del paciente</Button>
+                  </Section>
+                ) : null}
                 <View style={styles.summaryBand}>
                   <View
                     style={[

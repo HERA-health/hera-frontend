@@ -128,6 +128,7 @@ export interface Session {
 }
 
 export interface ProfessionalSessionDetail extends Session {
+  invoiceCompletionIssue?: string | null;
   sessionPhone?: string | null;
   fiscalSnapshot?: { baseCents: number; taxCents: number; vatBasisPoints: number } | null;
   bookedServiceName: string | null;

@@ -3,6 +3,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { ReferralDetailView } from '../ReferralDetail';
 import * as service from '../../../services/referralService';
 jest.mock('../../../services/referralService', () => ({ getReferral: jest.fn(), decideReferral: jest.fn(), downloadReferralDocument: jest.fn(), uploadReferralDocument: jest.fn(), removeReferralDocument: jest.fn(), retryReferralNotifications: jest.fn(), closePrivateCare: jest.fn() }));
+jest.mock('../../../services/professionalService', () => ({ getProfessionalSessionDetail: jest.fn() }));
 jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn() }) }));
 jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: () => ({ theme: require('../../../constants/theme').lightTheme }) }));
 jest.mock('expo-crypto', () => ({ randomUUID: () => '5f4ad245-35b1-4315-aad1-bbd149d53d50' }));

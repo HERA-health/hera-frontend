@@ -335,6 +335,25 @@ describe('useClinicPatientsController billing copy', () => {
     );
   });
 
+  it('preserves independent fiscal identity when form updates and both toggles are batched', () => {
+    enableManagedClinic();
+    const { result } = renderHook(() => useClinicPatientsController());
+    act(() => result.current.handleAdd());
+    act(() => {
+      result.current.handleChange('firstName', 'Lucía');
+      result.current.handleChange('lastName', 'Martín');
+      result.current.handleChange('billingFullName', 'Empresa Familiar SL');
+    });
+    act(() => {
+      result.current.handleChange('billingTaxId', 'B12345678');
+      result.current.handleToggleSameBillingData();
+      result.current.handleToggleSameBillingData();
+    });
+    expect(result.current.sameBillingData).toBe(false);
+    expect(result.current.form.billingFullName).toBe('Empresa Familiar SL');
+    expect(result.current.form.billingTaxId).toBe('B12345678');
+  });
+
   it('submits only the fields owned by each contextual editor', async () => {
     enableManagedClinic();
     mockedListClinicPatients.mockResolvedValue({

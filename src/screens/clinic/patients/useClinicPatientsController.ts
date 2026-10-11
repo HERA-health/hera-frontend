@@ -994,10 +994,8 @@ export function useClinicPatientsController() {
       sameBillingDataRef.current = false;
       setSameBillingData(false);
     } else {
-      setForm((currentForm) => {
-        billingFullNameBeforeCopyRef.current = currentForm.billingFullName;
-        return copyAdministrativeNameToBilling(currentForm);
-      });
+      billingFullNameBeforeCopyRef.current = form.billingFullName;
+      setForm(copyAdministrativeNameToBilling);
       sameBillingDataRef.current = true;
       setSameBillingData(true);
     }
@@ -1007,7 +1005,7 @@ export function useClinicPatientsController() {
       billingFullName: undefined,
     }));
     setFeedback(null);
-  }, [saving]);
+  }, [saving, form.billingFullName]);
 
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
