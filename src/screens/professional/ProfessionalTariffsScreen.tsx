@@ -85,7 +85,7 @@ export function ProfessionalTariffsScreen({ navigation, route }: ScreenProps<'Pr
   return <View style={styles.root} onLayout={event => setWidth(event.nativeEvent.layout.width)}>
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.catalogTabs}>{([{ key: 'services', label: 'Servicios' }, { key: 'packages', label: 'Bonos' }] as const).map(tab => <Pressable key={tab.key} accessibilityRole="tab" accessibilityState={{ selected: catalogTab === tab.key }} onPress={() => setCatalogTab(tab.key)} style={({ pressed }) => [styles.catalogTab, catalogTab === tab.key && styles.selectedCatalogTab, pressed && { opacity: 0.75 }]}><Text style={[styles.catalogTabText, catalogTab === tab.key && styles.selectedCatalogTabText]}>{tab.label}</Text></Pressable>)}</View>
-      <View style={catalogTab === 'packages' ? undefined : { display: 'none' }}><PackageCatalog navigation={navigation} /></View>
+      <View style={catalogTab === 'packages' ? undefined : { display: 'none' }}><PackageCatalog navigation={navigation} active={catalogTab === 'packages'} onServicesChanged={apply} /></View>
       <View style={catalogTab === 'services' ? { gap: 24 } : { display: 'none' }}>
       {!!error && <View accessibilityRole="alert" style={styles.feedback}><Text style={styles.error}>{error}</Text><Button variant="ghost" onPress={() => void load()}>Actualizar catálogo</Button></View>}
       {!!message && <Text accessibilityLiveRegion="polite" style={styles.success}>{message}</Text>}

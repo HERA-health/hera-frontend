@@ -1,3 +1,5 @@
+import { PackageAssignment } from '../packages/PackageAssignment';
+import type { PatientPackage } from '../../services/packageService';
 import { PackageCoverage, frozenPackageOptions } from '../packages/PackageCoverage';
 import { VideoSetupNotice } from './VideoSetupNotice';
 import { loadPrivateCatalog, getManagedBookingQuote, type PrivateServiceOption } from '../../services/privateCatalogService';
@@ -160,6 +162,8 @@ export function ManagedSessionSchedulerModal({
   const liveCatalogOptions = useRef<PrivateServiceOption[]>([]);
   const acquiredOptions = useRef<PrivateServiceOption[]>([]);
   const [patientPackageId, setPatientPackageId] = useState<string | undefined>();
+  const [packageRevision, setPackageRevision] = useState(0);
+  const [packageNotice, setPackageNotice] = useState('');
   const [selectedOptionId, setSelectedOptionId] = useState<string>();
   const [quote, setQuote] = useState<BookingQuote | null>(null);
   const [quoteError, setQuoteError] = useState('');
@@ -179,7 +183,14 @@ export function ManagedSessionSchedulerModal({
   const formInitializationKeyRef = useRef<string | null>(null);
   const isEditing = mode === 'edit';
   const requestedClientId = initialValues?.clientId ?? initialClientId;
-  useEffect(() => { acquiredOptions.current = []; setCatalogOptions(liveCatalogOptions.current); setPatientPackageId(initialValues?.clientId === clientId ? initialValues.patientPackageId : undefined); }, [clientId, initialValues?.patientPackageId]);
+  useEffect(() => { setPackageNotice(''); acquiredOptions.current = []; setCatalogOptions(liveCatalogOptions.current); setPatientPackageId(initialValues?.clientId === clientId ? initialValues.patientPackageId : undefined); }, [clientId, initialValues?.patientPackageId]);
+  const selectPackageCoverage = (id: string | undefined, row?: PatientPackage) => {
+    setPatientPackageId(id);
+    const options = row ? frozenPackageOptions(row) : liveCatalogOptions.current;
+    acquiredOptions.current = row ? options : []; setCatalogOptions(options);
+    const next = options.find(o => o.id === selectedOptionId) ?? options[0];
+    if (next) { setSelectedOptionId(next.id); setType(next.modality); setDurationValue(String(next.durationMinutes)); }
+  };
   const initialDate = initialValues?.date;
   const initialDuration = initialValues?.duration;
   const initialType = initialValues?.type;
@@ -195,7 +206,7 @@ export function ManagedSessionSchedulerModal({
     loadPrivateCatalog().then(value => { if (current) {
       const options = (value.services ? value.services.filter(s => !s.archivedAt).flatMap(s => s.options) : value.options).filter(o => o.isActive);
       setServiceAssignments(Object.fromEntries((value.services ?? []).filter(s => !s.archivedAt && s.options.every(o => !o.isActive || !o.isPublic)).map(s => [s.id, s.assignedClientIds ?? []])));
-      liveCatalogOptions.current = options; setCatalogOptions([...options.filter(o => !acquiredOptions.current.some(p => p.id === o.id)), ...acquiredOptions.current]); setQuoteError('');
+      liveCatalogOptions.current = options; setCatalogOptions(acquiredOptions.current.length ? acquiredOptions.current : options); setQuoteError('');
       if (acquiredOptions.current.length) return;
       const initial = isEditing
         ? initialValues?.optionId ? options.find(o => o.id === initialValues.optionId)
@@ -709,7 +720,16 @@ export function ManagedSessionSchedulerModal({
             <View style={styles.section}>
               {initialValues?.paidOnline && <Text style={{ color: theme.textSecondary }}>Esta cita está pagada. Puedes cambiar su fecha y hora conservando el servicio y el importe. Para cambiar las condiciones económicas, cancela y gestiona la devolución desde Cobros.</Text>}
               {dateOnlyChange && <Text style={{ color: theme.textSecondary }}>Servicio reservado: {initialValues?.serviceName ?? 'Condiciones originales'} · {initialDuration} min. Cambiar solo la fecha mantiene sus condiciones.</Text>}
-              {!!clientId && <PackageCoverage key={`${clientId}:${visible}`} clientId={clientId} initialPackageId={initialValues?.clientId === clientId ? initialValues?.patientPackageId : undefined} optionId={selectedOptionId} value={patientPackageId} disabled={saving || initialValues?.paidOnline} onChange={(id, row) => { setPatientPackageId(id); if (row) { const options = frozenPackageOptions(row); acquiredOptions.current = options; setCatalogOptions(previous => [...previous.filter(o => !options.some(p => p.id === o.id)), ...options]); const next = options.find(o => o.id === selectedOptionId) ?? options[0]; if (next) { setSelectedOptionId(next.id); setType(next.modality); setDurationValue(String(next.durationMinutes)); } } else { acquiredOptions.current = []; setCatalogOptions(liveCatalogOptions.current); const next = liveCatalogOptions.current.find(o => o.id === selectedOptionId) ?? liveCatalogOptions.current[0]; if (next) { setSelectedOptionId(next.id); setType(next.modality); setDurationValue(String(next.durationMinutes)); } } }} />}
+              {!!clientId && <PackageCoverage key={`${clientId}:${visible}`} clientId={clientId} refreshKey={packageRevision} firstVisitFreeApplied={quote?.firstVisitFreeApplied}
+                initialPackageId={patientPackageId ?? (initialValues?.clientId === clientId ? initialValues?.patientPackageId : undefined)}
+                optionId={selectedOptionId} value={patientPackageId} disabled={saving || initialValues?.paidOnline} onChange={selectPackageCoverage} />}
+              {!!clientId && !isEditing && <PackageAssignment key={`assignment:${clientId}:${visible}`} clientId={clientId} disabled={saving} onAcquired={row => {
+                selectPackageCoverage(row.id, row); setPackageRevision(revision => revision + 1);
+                setSlotOptionsRefreshKey(revision => revision + 1);
+                setPackageNotice('Bono asignado y factura creada. Si cierras o falla esta cita, el bono se conserva sin consumir una sesión.');
+              }} />}
+              {!!packageNotice && <Text accessibilityLiveRegion="polite" style={{ color: theme.textSecondary }}>{packageNotice}</Text>}
+
               <PrivateServicePicker assignedServiceIds={assignedServiceIds} showDuration={false} options={catalogOptions} modality={type} value={selectedOptionId} disabled={saving || initialValues?.paidOnline} onChange={id => {
                 const next = catalogOptions.find(o => o.id === id);
                 if (!next) return;

@@ -5,14 +5,16 @@ import { api } from './api';
 import type { SessionType } from './sessionsService';
 import type { PackagePaymentAcceptance, PackagePaymentPolicy, PackagePaymentState } from './packagePaymentService';
 
-export interface PackageOption { id: string; modality: SessionType; durationMinutes: number }
+export interface PackageOption { id: string; modality: SessionType; durationMinutes: number; priceCents?: number }
 export interface PackageOffer {
   id: string; name: string; serviceId: string; serviceName: string; sessions: number; totalCents: number;
   currency: string; version: number; isPublic: boolean; archivedAt: string | null; options: PackageOption[];
+  description?: string | null; serviceVersion?: number;
 }
 export interface PackageSnapshot {
   name: string; serviceId: string; serviceName: string; sessions: number; totalCents: number;
   options: PackageOption[]; paymentConditions: string | null;
+  description?: string | null;
 }
 export interface PatientPackage {
   payment?: PackagePaymentState;
@@ -26,7 +28,7 @@ export interface PatientPackage {
 }
 export interface PackageBilling { billingFullName: string; billingTaxId: string; billingAddress: string; billingPostalCode: string; billingCity: string; billingCountry: string }
 export interface PackageQuote { payment?: PackagePaymentPolicy; snapshot: PackageSnapshot; quoteReference: string; expiresAt: string; fiscal: { invoiceKind: string; recipientEmail: string; recipient: { fiscalName: string; fiscalTaxId: string | null; fiscalAddress: string | null } } }
-export interface PackageCatalogInput { version: number; name: string; serviceId: string; optionIds: string[]; sessions: number; totalCents: number; isPublic: boolean; restore?: boolean }
+export interface PackageCatalogInput { version: number; name?: string; description?: string | null; serviceVersion?: number; serviceId: string; optionIds: string[]; sessions: number; totalCents: number; isPublic: boolean; restore?: boolean }
 export const loadPackageCatalog = async () => (await api.get<{ data: PackageOffer[]; acquisitionsEnabled: boolean }>('/billing/package-catalog')).data;
 export const savePackageCatalog = async (id: string | undefined, input: PackageCatalogInput) =>
   (await (id ? api.put<{ data: PackageOffer[] }>(`/billing/package-catalog/${encodeURIComponent(id)}`, input) : api.post<{ data: PackageOffer[] }>('/billing/package-catalog', input))).data.data;

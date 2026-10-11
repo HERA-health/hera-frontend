@@ -11,6 +11,8 @@ import { showAppAlert } from '../../../components/common/alert';
 import * as sessionsService from '../../../services/sessionsService';
 import * as specialistsService from '../../../services/specialistsService';
 import * as packageService from '../../../services/packageService';
+import { loadPublicBookingOptions, type PrivateServiceOption } from '../../../services/privateCatalogService';
+import { patientPackage } from '../../../components/packages/testing/packageFixtures';
 import { BookingScreen } from '../BookingScreen';
 
 jest.mock('../../../services/packageService', () => ({
@@ -70,8 +72,10 @@ jest.mock('../components', () => {
   const renderText = (value: string) => ReactMock.createElement(Text, null, value);
 
   return {
-    BookingModalitySection: ({ disabled }: { disabled?: boolean }) =>
-      renderText(disabled ? 'modality-disabled' : 'modality'),
+    BookingModalitySection: ({ disabled, prices }: { disabled?: boolean; prices: Array<{ modality: string }> }) =>
+      ReactMock.createElement(ReactMock.Fragment, null,
+        renderText(disabled ? 'modality-disabled' : 'modality'),
+        renderText(`modality-options:${prices.map(option => option.modality).join(',')}`)),
     ProfessionalInfoColumn: ({ booking }: { booking: { selectedDate: string | null; selectedTime: string | null } }) =>
       renderText(`booking:${booking.selectedDate ?? 'none'}:${booking.selectedTime ?? 'none'}`),
     CompactCalendarColumn: ({
@@ -662,6 +666,23 @@ describe('BookingScreen initial slot preselection', () => {
 
     expect(await screen.findByText('Esta cuenta no puede reservar citas.')).toBeTruthy();
     expect(screen.queryByText('Tus datos de contacto')).toBeNull();
+  });
+
+  it('keeps frozen package coverage when public tariffs arrive after the package selection', async () => {
+    let finish!: (options: PrivateServiceOption[]) => void;
+    jest.mocked(loadPublicBookingOptions).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const acquired = { ...patientPackage, id: 'phone-package', specialistId: 'specialist-1',
+      snapshot: { ...patientPackage.snapshot, options: [{ id: 'frozen-phone', modality: 'PHONE_CALL' as const, durationMinutes: 37 }] } };
+    jest.mocked(packageService.loadPatientPackages).mockResolvedValue([acquired]);
+    render(<BookingScreen route={{ params: { ...routeWithoutInitialSlot.params, patientPackageId: acquired.id } }} navigation={navigation} />);
+    await screen.findByText('modality-options:PHONE_CALL');
+    await act(async () => { finish([{ id: 'live-video', serviceId: 'base', serviceKey: 'base', serviceName: 'General', name: 'General',
+      modality: 'VIDEO_CALL', durationMinutes: 60, priceCents: 6000, currency: 'EUR', isActive: true, isPublic: true,
+      isPreferred: true, version: 1, legacyDuration: false, legacyTariffId: null }]); });
+    expect(screen.getByText('modality-options:PHONE_CALL')).toBeTruthy();
+    expect(screen.queryByText('modality-options:VIDEO_CALL,PHONE_CALL')).toBeNull();
+    fireEvent.press(screen.getByText('Sesión individual'));
+    await screen.findByText('modality-options:VIDEO_CALL');
   });
 
   it('renders the consultation map in the mobile flow for an in-person profile', async () => {

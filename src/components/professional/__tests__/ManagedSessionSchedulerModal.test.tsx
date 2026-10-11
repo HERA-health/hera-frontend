@@ -1,6 +1,13 @@
 jest.mock('../VideoSetupNotice', () => ({ VideoSetupNotice: () => null }));
 import { loadPrivateCatalog, getManagedBookingQuote, type PrivateServiceOption } from '../../../services/privateCatalogService';
 import React from 'react';
+import { patientPackage } from '../../packages/testing/packageFixtures';
+import { loadPatientPackages } from '../../../services/packageService';
+const mockAssignedPackage = { ...patientPackage, snapshot: { ...patientPackage.snapshot, options: [{ ...patientPackage.snapshot.options[2], durationMinutes: 37 }] } };
+jest.mock('../../packages/PackageAssignment', () => ({ PackageAssignment: ({ onAcquired }: { onAcquired: (row: typeof mockAssignedPackage) => void }) => {
+  const React = require('react'); const { Text } = require('react-native');
+  return React.createElement(Text, { onPress: () => onAcquired(mockAssignedPackage) }, 'Asignar bono sintético');
+} }));
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { lightTheme } from '../../../constants/theme';
@@ -1015,5 +1022,19 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
     await waitFor(() => expect(getManagedBookingQuote).toHaveBeenLastCalledWith(expect.objectContaining({ optionId: 'custom-option', duration: 60 })));
   });
 
+  it('assigns a package without losing the appointment draft or its quote when balance reloads', async () => {
+    jest.mocked(loadPatientPackages).mockClear().mockResolvedValueOnce([]).mockResolvedValue([mockAssignedPackage]);
+    jest.mocked(getManagedBookingQuote).mockClear();
+    render(<ManagedSessionSchedulerModal visible clients={[client]} initialClientId={client.id} onClose={jest.fn()} onSubmit={jest.fn(async () => {})} />);
+    await waitFor(() => expect(mockGetManagedSessionSlotOptions).toHaveBeenCalled());
+    fireEvent.press(screen.getByText('Asignar bono sintético'));
+    await waitFor(() => expect(getManagedBookingQuote).toHaveBeenCalledWith(expect.objectContaining({ patientPackageId: 'acquired', optionId: 'option-2', type: 'PHONE_CALL', duration: 37 })));
+    await screen.findByText(/Bono asignado y factura creada/);
+    await waitFor(() => expect(loadPatientPackages).toHaveBeenCalledTimes(2));
+    expect(screen.getByText(/Precio final/)).toBeTruthy();
+    expect(screen.getByTestId('managed-session-duration-option-37')).toBeTruthy();
+    expect(screen.queryByTestId('managed-session-duration-option-60')).toBeNull();
+    jest.mocked(loadPatientPackages).mockResolvedValue([]);
+  });
 });
 jest.mock('../../../services/packageService', () => ({ loadPatientPackages: jest.fn().mockResolvedValue([]) }));

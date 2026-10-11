@@ -13,7 +13,9 @@ export function frozenPackageOptions(row: PatientPackage): PrivateServiceOption[
     serviceKey: 'package', priceCents: Math.round(row.snapshot.totalCents / row.snapshot.sessions), currency: 'EUR',
     isActive: true, isPublic: true, isPreferred: false, version: 1, legacyDuration: false, legacyTariffId: null }));
 }
-export function PackageCoverage({ clientId, specialistId, optionId, value, onChange, disabled, initialPackageId, onPay }: {
+export function PackageCoverage({ clientId, specialistId, optionId, value, onChange, disabled, initialPackageId, onPay, refreshKey, firstVisitFreeApplied }: {
+  refreshKey?: number;
+  firstVisitFreeApplied?: boolean;
   clientId?: string; specialistId?: string; optionId?: string; value?: string; initialPackageId?: string; disabled?: boolean;
   onChange: (id: string | undefined, row?: PatientPackage) => void;
   onPay?: (id: string) => void;
@@ -21,10 +23,10 @@ export function PackageCoverage({ clientId, specialistId, optionId, value, onCha
   const { theme } = useTheme(); const [rows, setRows] = useState<PatientPackage[]>([]); const [loading, setLoading] = useState(true);
   const [error, setError] = useState(''); const [retry, setRetry] = useState(0); const [chosen, setChosen] = useState(false);
   useEffect(() => {
-    let current = true; setLoading(true); setError(''); setChosen(false);
+    let current = true; setRows([]); setLoading(true); setError(''); setChosen(false);
     loadPatientPackages(clientId).then(data => { if (current) setRows(data.filter(p => !specialistId || p.specialistId === specialistId)); }).catch(e => { if (current) setError(getErrorMessage(e, 'No se pudieron consultar los bonos.')); }).finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
-  }, [clientId, specialistId, retry]);
+  }, [clientId, specialistId, retry, refreshKey]);
   useEffect(() => {
     if (loading || chosen || (!optionId && !initialPackageId)) return;
     const eligible = rows.filter(p => clientId || p.payment?.canReserve !== false);
@@ -58,6 +60,6 @@ export function PackageCoverage({ clientId, specialistId, optionId, value, onCha
       <Text style={{ color: theme.textSecondary }}>{row.snapshot.name}: {row.payment?.issueCode ? 'El cobro necesita revisión. Contacta con tu especialista.' : 'Pendiente de pago. Confirma el cobro antes de reservar.'}</Text>
       {onPay && <Button variant="secondary" disabled={disabled} onPress={() => onPay(row.id)}>{row.payment?.issueCode ? 'Consultar pago del bono' : row.payment?.checkoutUrl ? 'Continuar pago' : 'Pagar bono'}</Button>}
     </View>)}
-    {!!value && (clientId || rows.find(row => row.id === value)?.payment?.canReserve !== false) && <Text style={{ color: theme.textSecondary }}>Incluida en tu bono · reservarás una sesión. No se genera otra factura.</Text>}
+    {!!value && (clientId || rows.find(row => row.id === value)?.payment?.canReserve !== false) && <Text style={{ color: theme.textSecondary }}>{firstVisitFreeApplied ? 'La primera sesión es gratuita. No se consume una sesión del bono.' : 'Incluida en tu bono · reservarás una sesión. No se genera otra factura.'}</Text>}
   </View>;
 }

@@ -58,8 +58,9 @@ export function PackageAcquisition({ offer, clientId: presetClientId, specialist
   const text = { color: theme.textPrimary, fontFamily: theme.fontSans };
   const conditions = quote?.snapshot ?? offer;
   const conditionsChanged = quote && (offer.totalCents !== conditions.totalCents || offer.sessions !== conditions.sessions
+    || (offer.description ?? null) !== (conditions.description ?? null)
     || offer.name !== conditions.name || offer.serviceName !== conditions.serviceName
-    || JSON.stringify(offer.options.map(o => [o.id, o.modality, o.durationMinutes])) !== JSON.stringify(conditions.options.map(o => [o.id, o.modality, o.durationMinutes])));
+    || JSON.stringify(offer.options.map(o => [o.id, o.modality, o.durationMinutes, o.priceCents])) !== JSON.stringify(conditions.options.map(o => [o.id, o.modality, o.durationMinutes, o.priceCents])));
   const field = { ...text, borderWidth: 1, borderColor: theme.border, borderRadius: 8, padding: 12 };
   return <Modal visible transparent animationType="fade" onRequestClose={() => { if (!busy) onClose(); }}>
     <View style={{ flex: 1, backgroundColor: '#0006', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
@@ -67,6 +68,7 @@ export function PackageAcquisition({ offer, clientId: presetClientId, specialist
         <Text accessibilityRole="header" style={{ ...text, fontSize: 24, fontFamily: theme.fontHeading }}>{professional ? 'Asignar bono' : 'Solicitar bono'}</Text>
         <Text style={{ ...text, fontSize: 18 }}>{conditions.name} · {packagePrice(conditions.totalCents)}</Text>
         <Text style={text}>{conditions.serviceName} · {conditions.sessions} sesiones</Text>
+        {!!conditions.description && <Text style={text}>{conditions.description}</Text>}
         <Text style={text}>{conditions.options.map(o => `${packageModality(o.modality)} · ${o.durationMinutes} min`).join(' / ')}</Text>
         {conditionsChanged && <Text accessibilityRole="alert" style={text}>Las condiciones del bono han cambiado. Revisa estos datos actualizados antes de confirmar.</Text>}
         {professional && !presetClientId && <View style={{ gap: 8 }}>

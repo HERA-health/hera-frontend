@@ -12,6 +12,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import * as analyticsService from '../../services/analyticsService';
 import * as specialistsService from '../../services/specialistsService';
 import { SpecialistProfileLayout } from '../specialist-profile/SpecialistProfileLayout';
+import { ProfilePackages } from '../../components/packages/ProfilePackages';
 import { ProfileSkeleton } from '../specialist-profile/components';
 import type {
   CertificateItem,
@@ -127,6 +128,7 @@ export const SpecialistDetailScreen: React.FC<SpecialistDetailScreenProps> = ({
 
   return (
     <SpecialistProfileLayout
+      packageSection={<ProfilePackages specialistId={specialist.id} intentToken={route.params?.intentToken} />}
         initialOptionId={route.params?.optionId}
       specialist={specialist}
       reviews={reviews}

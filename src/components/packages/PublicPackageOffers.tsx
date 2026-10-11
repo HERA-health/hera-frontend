@@ -11,7 +11,7 @@ import { PackageBillingFields, emptyPackageBilling } from './PackageBillingField
 import { PackagePaymentConditions } from './PackagePaymentConditions';
 import { storePackagePaymentAccess, type PackagePaymentAcceptance } from '../../services/packagePaymentService';
 
-export function PublicPackageOffers({ specialistId, anonymous, intentToken, onPrivacy, onAcquired }: { specialistId: string; anonymous: boolean; intentToken?: string; onPrivacy: () => void; onAcquired?: (row: PatientPackage) => void }) {
+export function PublicPackageOffers({ specialistId, anonymous, intentToken, onPrivacy, onAcquired, onBeforeAcquire }: { specialistId: string; anonymous: boolean; intentToken?: string; onPrivacy: () => void; onAcquired?: (row: PatientPackage) => void; onBeforeAcquire?: () => boolean }) {
   const { theme } = useTheme(); const [offers, setOffers] = useState<PackageOffer[]>([]); const [selected, setSelected] = useState<PackageOffer>();
   const [error, setError] = useState(''); const [message, setMessage] = useState('');
   const [consumedIntent, setConsumedIntent] = useState<string>();
@@ -26,7 +26,8 @@ export function PublicPackageOffers({ specialistId, anonymous, intentToken, onPr
     setMessage(row.payment?.required ? 'Bono creado, pendiente de pago. Continúa para pagar. La adquisición no reserva un horario.' : 'Bono adquirido. Recibirás la factura por correo. La adquisición no reserva un horario.');
     onAcquired?.(row);
   };
-  useEffect(() => { let current = true; loadPublicPackages(specialistId).then(rows => { if (current) setOffers(rows); }).catch(e => { if (current) setError(getErrorMessage(e, 'No se pudieron cargar los bonos disponibles.')); }); return () => { current = false; }; }, [specialistId]);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => { let current = true; setOffers([]); setSelected(undefined); setError(''); setMessage(''); loadPublicPackages(specialistId).then(rows => { if (current) setOffers(rows); }).catch(e => { if (current) setError(getErrorMessage(e, 'No se pudieron cargar los bonos disponibles.')); }); return () => { current = false; }; }, [specialistId, retry]);
   if (!offers.length && !error) return null;
   return <View style={{ gap: 12, paddingVertical: 16 }}>
     <Text accessibilityRole="header" style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 18 }}>¿Quieres un nuevo bono?</Text>
@@ -34,12 +35,14 @@ export function PublicPackageOffers({ specialistId, anonymous, intentToken, onPr
     {offers.map(offer => <View key={offer.id} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, paddingVertical: 16, borderBottomWidth: 1, borderColor: theme.border }}>
       <View style={{ flexGrow: 1, flexShrink: 1, flexBasis: 220, gap: 6 }}>
         <Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 15 }}>{offer.name}</Text>
+        {!!offer.description && <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>{offer.description}</Text>}
+        <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>{offer.serviceName} · {offer.options.map(option => `${packageModality(option.modality)} · ${option.durationMinutes} min`).join(' / ')}</Text>
         <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>{offer.sessions} sesiones · {packagePrice(Math.round(offer.totalCents / offer.sessions))} / sesión</Text>
         <Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }}>{packagePrice(offer.totalCents)} en total</Text>
       </View>
-      <Button variant="secondary" style={{ alignSelf: 'center', minHeight: 44, paddingVertical: 8, shadowOpacity: 0, elevation: 0 }} onPress={() => { setSelected(offer); setMessage(''); }}>Solicitar bono</Button>
+      <Button variant="secondary" style={{ alignSelf: 'center', minHeight: 44, paddingVertical: 8, shadowOpacity: 0, elevation: 0 }} onPress={() => { if (onBeforeAcquire && !onBeforeAcquire()) return; setSelected(offer); setMessage(''); }}>Solicitar bono</Button>
     </View>)}
-    {!!error && <Text accessibilityRole="alert" style={{ color: theme.error }}>{error}</Text>}
+    {!!error && <><Text accessibilityRole="alert" style={{ color: theme.error }}>{error}</Text><Button variant="ghost" onPress={() => setRetry(n => n + 1)}>Reintentar bonos disponibles</Button></>}
     {!!message && <Text accessibilityLiveRegion="polite" style={{ color: theme.success }}>{message}</Text>}
     {selected && (anonymous ? <GuestPackageAcquisition offer={selected} specialistId={specialistId} intentToken={effectiveIntent} onPrivacy={onPrivacy} onClose={() => setSelected(undefined)} onDone={acquired} /> : <PackageAcquisition professional={false} offer={selected} specialistId={specialistId} bookingIntentToken={effectiveIntent} onClose={() => setSelected(undefined)} onAcquired={acquired} />)}
   </View>;
@@ -96,6 +99,7 @@ function GuestPackageAcquisition({ offer, specialistId, intentToken, onPrivacy, 
   return <Modal visible transparent animationType="fade" onRequestClose={() => { if (!busy) onClose(); }}><View style={{ flex: 1, backgroundColor: '#0006', alignItems: 'center', justifyContent: 'center', padding: 16 }}><ScrollView accessibilityViewIsModal style={{ maxWidth: 600, width: '100%', maxHeight: '90%', backgroundColor: theme.bgCard, borderRadius: 16 }} contentContainerStyle={{ padding: 24, gap: 16 }} keyboardShouldPersistTaps="handled">
     <Text accessibilityRole="header" style={{ ...text, fontSize: 24, fontFamily: theme.fontHeading }}>{conditions.name}</Text><Text style={text}>{conditions.sessions} sesiones · {packagePrice(conditions.totalCents)}</Text>
     <Text style={text}>{conditions.serviceName} · {conditions.options.map(option => `${packageModality(option.modality)} · ${option.durationMinutes} min`).join(' / ')}</Text>
+    {!!conditions.description && <Text style={text}>{conditions.description}</Text>}
     {!requestId ? <><TextInput style={field} editable={!busy} accessibilityLabel="Nombre" placeholder="Nombre" placeholderTextColor={theme.textMuted} value={firstName} onChangeText={setFirstName} /><TextInput style={field} editable={!busy} accessibilityLabel="Apellidos" placeholder="Apellidos" placeholderTextColor={theme.textMuted} value={lastName} onChangeText={setLastName} /><TextInput style={field} editable={!busy} accessibilityLabel="Correo electrónico" placeholder="Correo electrónico" placeholderTextColor={theme.textMuted} autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} /><View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}><Switch disabled={busy} accessibilityLabel="Aceptar política de privacidad" value={accepted} onValueChange={setAccepted} /><Button variant="ghost" onPress={onPrivacy}>Política de privacidad</Button></View></> : !quote && <><Text style={text}>Introduce el código que hemos enviado a tu correo.</Text><TextInput accessibilityLabel="Código de verificación" keyboardType="number-pad" maxLength={6} style={field} value={code} onChangeText={setCode} /></>}
     <Text style={text}>Recibirás una factura al confirmar. {quote?.payment?.mode === 'ONLINE' ? 'Podrás reservar con el bono cuando confirmemos su pago.' : quote?.payment?.mode === 'EXTERNAL' ? 'Puedes usar el bono desde su adquisición y acordar el cobro con tu especialista.' : 'Revisa el modo de pago antes de adquirir el bono.'} Sin caducidad ni pagos parciales. HERA no gestiona anulaciones ni devoluciones del bono desde esta pantalla.</Text>
     {quote?.payment?.mode === 'ONLINE' && <PackagePaymentConditions key={quote.quoteReference} policy={quote.payment} value={paymentAcceptance} onChange={setPaymentAcceptance} disabled={busy || Boolean(acquisitionSubmission.current)} />}

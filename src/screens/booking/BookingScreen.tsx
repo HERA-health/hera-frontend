@@ -357,7 +357,8 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     let current = true;
     loadPublicBookingOptions(specialistId).then(options => {
       if (!current) return;
-      liveBookingOptions.current = options; setBookingOptions([...options.filter(o => !acquiredOptions.current.some(p => p.id === o.id)), ...acquiredOptions.current]);
+      liveBookingOptions.current = options;
+      setBookingOptions(acquiredOptions.current.length ? acquiredOptions.current : options);
       if (acquiredOptions.current.length) return;
       const initial = initialPrivateOption(options, route.params.optionId);
       if (initial) { setSelectedOptionId(initial.id); setSessionType(initial.modality); }
@@ -525,7 +526,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     setPatientPackageId(id);
     const options = row ? frozenPackageOptions(row) : [];
     acquiredOptions.current = options;
-    const available = [...liveBookingOptions.current.filter(option => !options.some(frozen => frozen.id === option.id)), ...options];
+    const available = row ? options : liveBookingOptions.current;
     setBookingOptions(available);
     const selection = row ? options : available;
     const next = selection.find(option => option.id === selectedOptionId) ?? selection[0];
@@ -1313,7 +1314,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       />
 
       <View style={{ paddingVertical: spacing.md, gap: spacing.md }}>
-        {!isAnonymousBooking && !referralBooking && <PackageCoverage key={`${specialistId}:${packageRevision}`} specialistId={specialistId} optionId={selectedOptionId} value={patientPackageId} initialPackageId={patientPackageId} disabled={loading} onPay={id => navigation.navigate('PackagePayment', { patientPackageId: id })} onChange={selectPackageCoverage} />}
+        {!isAnonymousBooking && !referralBooking && <PackageCoverage key={`${specialistId}:${packageRevision}`} specialistId={specialistId} firstVisitFreeApplied={bookingQuote?.firstVisitFreeApplied} optionId={selectedOptionId} value={patientPackageId} initialPackageId={patientPackageId} disabled={loading} onPay={id => navigation.navigate('PackagePayment', { patientPackageId: id })} onChange={selectPackageCoverage} />}
         {!!packagePaymentError && patientPackageId && <View style={{ gap: 8 }}><Text accessibilityRole="alert" style={{ color: theme.textSecondary }}>{packagePaymentError}</Text><Button variant="secondary" onPress={() => navigation.navigate('PackagePayment', { patientPackageId })}>Consultar pago del bono</Button></View>}
         {!referralBooking && <PublicPackageOffers specialistId={specialistId} anonymous={isAnonymousBooking} intentToken={bookingIntentToken} onAcquired={handlePackageAcquired} onPrivacy={() => navigation.navigate('LegalDocument', { documentKey: 'PRIVACY_POLICY' })} />}
         <PrivateServicePicker options={bookingOptions} modality={sessionType} value={selectedOptionId} disabled={loading} onChange={id => { setSelectedOptionId(id); setOptionsError(''); }} />

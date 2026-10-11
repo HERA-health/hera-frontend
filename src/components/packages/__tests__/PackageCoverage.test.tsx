@@ -46,3 +46,9 @@ test('professional manual scheduling can select an unpaid online package', async
   render(<PackageCoverage clientId="client" specialistId="specialist" optionId="option" onChange={change} />);
   await waitFor(() => expect(change).toHaveBeenCalledWith('Pendiente', unpaid));
 });
+test('a free first visit does not promise a package reservation', async () => {
+  load.mockResolvedValue([row('Disponible', 5)]);
+  render(<PackageCoverage clientId="client" value="Disponible" optionId="option" firstVisitFreeApplied onChange={jest.fn()} />);
+  await screen.findByText('La primera sesión es gratuita. No se consume una sesión del bono.');
+  expect(screen.queryByText(/reservarás una sesión/)).toBeNull();
+});

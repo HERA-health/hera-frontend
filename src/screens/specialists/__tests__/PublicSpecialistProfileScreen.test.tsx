@@ -1,4 +1,5 @@
 import React from 'react';
+jest.mock('../../../components/packages/ProfilePackages', () => ({ ProfilePackages: () => null }));
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { useDiscoveryRevalidation } from '../../../hooks/useDiscoveryRevalidation';
 import { useNavigation, useRoute } from '@react-navigation/native';

@@ -1,0 +1,7 @@
+import type { PrivateService, PrivateServiceCatalog } from '../../../services/privateCatalogService';
+import type { PackageOffer, PatientPackage } from '../../../services/packageService';
+export const service: PrivateService = { id: 'service', key: 'therapy', name: 'General', description: null, archivedAt: null, version: 3,
+  options: (['VIDEO_CALL', 'IN_PERSON', 'PHONE_CALL'] as const).map((modality, i) => ({ id: `option-${i}`, serviceId: 'service', serviceName: 'General', name: 'General', modality, durationMinutes: 50 + i * 10, priceCents: 6000 + i * 2000, currency: 'EUR', isActive: true, isPublic: true, isPreferred: true, version: 3, legacyDuration: false, legacyTariffId: null })) };
+export const catalog: PrivateServiceCatalog = { services: [service], version: 3, firstVisitFree: false, options: [], restrictions: {} };
+export const offer: PackageOffer = { id: 'offer', name: 'Diez sesiones', description: 'Descripción del bono', serviceId: service.id, serviceName: service.name, serviceVersion: 3, sessions: 10, totalCents: 54000, version: 1, currency: 'EUR', isPublic: false, archivedAt: null, options: service.options.map(({ id, modality, durationMinutes, priceCents }) => ({ id, modality, durationMinutes, priceCents })) };
+export const patientPackage: PatientPackage = { id: 'acquired', clientId: 'client-1', specialistId: 'specialist', createdAt: '2026-10-11T10:00:00Z', snapshot: { ...offer, paymentConditions: null }, balance: { total: 10, consumed: 0, reserved: 0, available: 10 }, invoice: null, uses: [], notifications: [] };

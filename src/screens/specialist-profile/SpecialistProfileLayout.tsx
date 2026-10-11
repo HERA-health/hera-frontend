@@ -26,6 +26,7 @@ import { StickyBookingBarEditorial } from './components/StickyBookingBarEditoria
 import { VideoSection } from './components/VideoSection';
 
 interface SpecialistProfileLayoutProps {
+  packageSection?: React.ReactNode;
   specialist: Specialist;
   reviews: Review[];
   affinity?: number;
@@ -51,6 +52,7 @@ interface SlotSelectionState {
 }
 
 export const SpecialistProfileLayout: React.FC<SpecialistProfileLayoutProps> = ({
+  packageSection,
   specialist: sourceSpecialist,
   initialOptionId,
   reviews,
@@ -183,6 +185,7 @@ export const SpecialistProfileLayout: React.FC<SpecialistProfileLayoutProps> = (
               </View>
             ) : null}
 
+            {packageSection ? <View style={styles.section}>{packageSection}</View> : null}
             {specialist.presentationVideoUrl ? (
               <View style={styles.section}>
                 <VideoSection
