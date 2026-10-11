@@ -9,6 +9,19 @@ import { professionalSearchService } from '../professionalSearchService';
 
 const mockedApi = api as jest.Mocked<typeof api>;
 
+const homeSessionPayload = {
+  id: 'session-1',
+  patient: { id: 'patient-1', displayName: 'Ana Ruiz' },
+  startsAt: '2026-08-04T10:00:00.000Z',
+  durationMinutes: 60,
+  status: 'CONFIRMED',
+  type: 'VIDEO_CALL',
+  origin: 'PRIVATE',
+  clinicName: null,
+  inProgress: false,
+  canJoinVideo: true,
+};
+
 const homePayload = {
   generatedAt: '2026-08-02T22:30:00.000Z',
   timeZone: 'Europe/Madrid',
@@ -74,6 +87,39 @@ describe('professional home and patient search contracts', () => {
     });
 
     await expect(dashboardService.getProfessionalHome({ force: true })).rejects.toThrow(
+      'No se pudo cargar el inicio profesional',
+    );
+  });
+
+  it.each([
+    { origin: 'PRIVATE', serviceName: 'Terapia General', clinicName: null },
+    { origin: 'CLINIC', serviceName: 'Terapia de pareja', clinicName: 'Clínica de prueba' },
+    { origin: 'PRIVATE', serviceName: null, clinicName: null },
+  ])('preserves the booked service in the Home DTO: $origin / $serviceName', async (service) => {
+    const session = { ...homeSessionPayload, ...service };
+    mockedApi.get.mockResolvedValue({
+      data: { success: true, data: { ...homePayload, nextSession: session } },
+    });
+
+    const home = await dashboardService.getProfessionalHome();
+    expect(home.nextSession).toEqual(session);
+  });
+
+  it('accepts older Home responses without a service name without inventing one', async () => {
+    mockedApi.get.mockResolvedValue({
+      data: { success: true, data: { ...homePayload, nextSession: homeSessionPayload } },
+    });
+
+    const home = await dashboardService.getProfessionalHome();
+    expect(home.nextSession?.serviceName).toBeNull();
+  });
+
+  it.each([42, '   '])('rejects an invalid service name: %p', async (serviceName) => {
+    mockedApi.get.mockResolvedValue({
+      data: { success: true, data: { ...homePayload, nextSession: { ...homeSessionPayload, serviceName } } },
+    });
+
+    await expect(dashboardService.getProfessionalHome()).rejects.toThrow(
       'No se pudo cargar el inicio profesional',
     );
   });

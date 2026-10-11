@@ -76,6 +76,7 @@ const homeSessionSchema = z.object({
   status: z.enum(['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED']),
   type: z.enum(['IN_PERSON', 'VIDEO_CALL', 'PHONE_CALL']),
   origin: z.enum(['PRIVATE', 'CLINIC']),
+  serviceName: z.string().trim().min(1).nullable().default(null),
   clinicName: z.string().nullable(),
   inProgress: z.boolean(),
   canJoinVideo: z.boolean(),

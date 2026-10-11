@@ -26,6 +26,14 @@ const formatTime = (iso: string): string => new Intl.DateTimeFormat('es-ES', {
   minute: '2-digit',
 }).format(new Date(iso));
 
+const formatSessionDate = (iso: string): string => new Intl.DateTimeFormat('es-ES', {
+  timeZone: MADRID_TIME_ZONE,
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+}).format(new Date(iso));
+
 const formatShortCalendarDate = (date: string): string => new Intl.DateTimeFormat('es-ES', {
   day: 'numeric',
   month: 'short',
@@ -76,7 +84,14 @@ export function NextSessionHero({ session, joining, onOpen, onJoin, onCreate }: 
           <View style={[styles.liveDot, { backgroundColor: session.inProgress ? theme.textOnPrimary : theme.secondaryLight }]} />
           <Text style={[styles.liveText, { color: theme.textOnPrimary, fontFamily: theme.fontSansSemiBold }]}>{session.inProgress ? 'EN CURSO' : 'PRÓXIMA CITA'}</Text>
         </View>
-        <Text style={[styles.heroOrigin, { color: theme.landingCtaMutedText, fontFamily: theme.fontSansSemiBold }]}>{session.origin === 'CLINIC' ? session.clinicName ?? 'Clínica' : 'Consulta particular'}</Text>
+        <View style={styles.heroServiceBlock}>
+          <Text style={[styles.heroService, { color: theme.textOnPrimary, fontFamily: theme.fontSansSemiBold }]}>{session.serviceName ?? 'Servicio no especificado'}</Text>
+          {session.origin === 'CLINIC' ? <Text style={[styles.heroOrigin, { color: theme.landingCtaMutedText, fontFamily: theme.fontSans }]}>{session.clinicName ?? 'Clínica'}</Text> : null}
+        </View>
+      </View>
+      <View style={styles.heroDateRow}>
+        <Ionicons name="calendar-outline" size={15} color={theme.landingCtaMutedText} />
+        <Text style={[styles.heroDate, { color: theme.textOnPrimary, fontFamily: theme.fontSansSemiBold }]}>{formatSessionDate(session.startsAt)}</Text>
       </View>
       <View style={styles.heroBody}>
         <View style={styles.heroTimeBlock}>
