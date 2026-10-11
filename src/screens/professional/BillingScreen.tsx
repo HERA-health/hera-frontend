@@ -39,10 +39,11 @@ import {
   BillingSummary,
   Invoice,
   InvoiceStatus,
-  InvoiceFilters,
   BillingConfig,
 } from '../../services/billingService';
 import * as analyticsService from '../../services/analyticsService';
+import { subscribeProfessionalHomeChanges } from '../../services/dashboardService';
+import { useBillingInvoiceList } from './useBillingInvoiceList';
 
 // ============================================================================
 // CONSTANTS
@@ -155,7 +156,6 @@ const getStatusColors = (theme: Theme): Record<InvoiceStatus, { bg: string; text
   CANCELLED: { bg: theme.status.cancelled.bg, text: theme.status.cancelled.text, label: 'Cancelada' },
 });
 
-const INVOICES_PER_PAGE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
 const DEFAULT_INVOICE_ACCENT_COLOR = lightTheme.primary;
 const INVOICE_ACCENT_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
@@ -251,19 +251,22 @@ export function BillingScreen() {
 
   // Data state
   const [summary, setSummary] = useState<BillingSummary | null>(null);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [invoicesLoading, setInvoicesLoading] = useState(false);
-
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalInvoices, setTotalInvoices] = useState(0);
+  const summaryRequestSequence = useRef(0);
+  const { invoices, invoicesLoading, invoiceListError, currentPage, setCurrentPage,
+    totalPages, totalInvoices, loadInvoices } = useBillingInvoiceList();
 
   // Specialist billing config (loaded from API)
   const [billingConfig, setBillingConfig] = useState<BillingConfig>({});
   const [isConfigLoaded, setIsConfigLoaded] = useState(false);
+  const [configLoadError, setConfigLoadError] = useState(false);
+  const missingFiscalFields = [
+    { value: billingConfig.fiscalName, label: STRINGS.fiscalName },
+    { value: billingConfig.fiscalNif, label: STRINGS.nif },
+    { value: billingConfig.fiscalAddress, label: STRINGS.fiscalAddress },
+  ].filter(({ value }) => !value?.trim()).map(({ label }) => label);
+  const fiscalDataRequiredMessage = `Para utilizar la facturación automática, completa y guarda estos datos fiscales: ${missingFiscalFields.join(', ')}.`;
 
   // Filter state
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
@@ -303,54 +306,48 @@ export function BillingScreen() {
   const [savingConfig, setSavingConfig] = useState(false);
 
 
-  // ── Load invoices (paginated) ────────────────────────────────
-  const loadInvoices = useCallback(async (page: number, filter: FilterTab, clientName: string) => {
+  useEffect(() => () => { summaryRequestSequence.current += 1; }, []);
+
+  const refreshSummary = useCallback(async () => {
+    const request = ++summaryRequestSequence.current;
     try {
-      setInvoicesLoading(true);
-      const filters: InvoiceFilters = {
-        page,
-        limit: INVOICES_PER_PAGE,
-      };
-      if (filter !== 'all') {
-        filters.status = filter;
-      }
-      if (clientName.trim()) {
-        filters.clientName = clientName.trim();
-      }
-      const result = await billingService.getInvoices(filters);
-      setInvoices(result.invoices);
-      setTotalPages(result.totalPages);
-      setTotalInvoices(result.total);
-      setCurrentPage(result.page);
-    } catch (error) {
-      showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al cargar facturas');
+      setLoadError(false);
+      const result = await billingService.getSummary();
+      if (request !== summaryRequestSequence.current) return;
+      setSummary(result);
+    } catch {
+      if (request !== summaryRequestSequence.current) return;
+      setLoadError(true);
+      setSummary(null);
     } finally {
-      setInvoicesLoading(false);
+      if (request === summaryRequestSequence.current) setLoading(false);
     }
   }, []);
 
-  // ── Load data ────────────────────────────────────────────────
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setLoadError(false);
-      const summaryData = await billingService.getSummary();
-      setSummary(summaryData);
-      await loadInvoices(1, 'all', '');
-    } catch (error) {
-      setLoadError(true);
-      setSummary(null);
-      showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al cargar datos');
-    } finally {
-      setLoading(false);
-    }
-  }, [loadInvoices]);
+  const loadData = useCallback(() => Promise.all([
+    refreshSummary(), loadInvoices(currentPage, activeFilter, debouncedSearch),
+  ]), [refreshSummary, loadInvoices, currentPage, activeFilter, debouncedSearch]);
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
+      setActiveFilter('all');
+      setSearchQuery('');
+      setDebouncedSearch('');
+      setCurrentPage(1);
+      void refreshSummary();
       analyticsService.trackScreen('billing');
-    }, [loadData])
+    }, [refreshSummary, setCurrentPage])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadInvoices(currentPage, activeFilter, debouncedSearch);
+      return subscribeProfessionalHomeChanges(() => {
+        void refreshSummary();
+        setCurrentPage(1);
+        if (currentPage === 1) void loadInvoices(1, activeFilter, debouncedSearch);
+      });
+    }, [loadInvoices, refreshSummary, currentPage, activeFilter, debouncedSearch, setCurrentPage])
   );
 
   useFocusedRateLimitRecovery(() => {
@@ -360,7 +357,7 @@ export function BillingScreen() {
 
   useProfessionalTourAutoStart(
     'professional_billing_v1',
-    !loading && !loadError && !openMenuId && !isAppAlertVisible,
+    !loading && !loadError && isConfigLoaded && !openMenuId && !isAppAlertVisible,
   );
 
   const prepareBillingInvoiceListStep = useCallback(
@@ -423,20 +420,10 @@ export function BillingScreen() {
     };
   }, [searchQuery]);
 
-  // ── Fetch when filter/search/page changes ──────────────────
-  const initialLoadDone = useRef(false);
-  useEffect(() => {
-    if (!loading && initialLoadDone.current) {
-      loadInvoices(currentPage, activeFilter, debouncedSearch);
-    }
-    if (!loading) {
-      initialLoadDone.current = true;
-    }
-  }, [currentPage, activeFilter, debouncedSearch, loadInvoices, loading]);
-
   // Load specialist billing config from API
   const loadConfig = useCallback(async () => {
     setIsConfigLoaded(false);
+    setConfigLoadError(false);
     try {
       const s = await billingService.getConfig();
       const config: BillingConfig = {
@@ -469,11 +456,10 @@ export function BillingScreen() {
         fullInvoicePrefix: config.fullInvoicePrefix || 'F',
         fullInvoiceNextNumber: config.fullInvoiceNextNumber || 1,
       });
-
+      setIsConfigLoaded(true);
     } catch {
-      // Config loading failed — defaults are already set
+      setConfigLoadError(true);
     }
-    setIsConfigLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -524,15 +510,6 @@ export function BillingScreen() {
   }, []);
 
   // ── Actions ──────────────────────────────────────────────────
-  const refreshSummary = async () => {
-    try {
-      setSummary(await billingService.getSummary());
-      setLoadError(false);
-    } catch {
-      setSummary(null);
-    }
-  };
-
   const handleSendInvoice = async (invoiceId: string) => {
     const invoice = invoices.find((inv) => inv.id === invoiceId);
     const clientName = invoice?.client?.user?.name || 'el cliente';
@@ -542,8 +519,6 @@ export function BillingScreen() {
       try {
         setSendingId(invoiceId);
         await billingService.sendInvoice(invoiceId);
-        await loadInvoices(currentPage, activeFilter, debouncedSearch);
-        await refreshSummary();
         showAppAlert(appAlert, 'Éxito', 'Factura enviada correctamente');
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Error al enviar la factura';
@@ -583,8 +558,6 @@ export function BillingScreen() {
       try {
         setSendingId(invoice.id);
         await billingService.sendInvoice(invoice.id);
-        await loadInvoices(currentPage, activeFilter, debouncedSearch);
-        await refreshSummary();
         showAppAlert(appAlert, 'Éxito', STRINGS.resendSuccess);
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Error al reenviar';
@@ -611,8 +584,6 @@ export function BillingScreen() {
       try {
         setSendingId(invoice.id);
         await billingService.markInvoiceAsPaid(invoice.id);
-        await loadInvoices(currentPage, activeFilter, debouncedSearch);
-        await refreshSummary();
         showAppAlert(appAlert, 'Éxito', STRINGS.markAsPaidSuccess);
       } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : 'Error al marcar como pagada';
@@ -640,8 +611,6 @@ export function BillingScreen() {
     const executeDelete = async () => {
       try {
         await billingService.cancelInvoice(invoice.id);
-        await loadInvoices(currentPage, activeFilter, debouncedSearch);
-        await refreshSummary();
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : 'Error al cancelar';
         showAppAlert(appAlert, 'Error', errMsg);
@@ -670,8 +639,14 @@ export function BillingScreen() {
   const handleSaveFiscal = async () => {
     try {
       setSavingConfig(true);
-      await billingService.updateBillingConfig(tempFiscal);
-      setBillingConfig((prev) => ({ ...prev, ...tempFiscal }));
+      const updated = await billingService.updateBillingConfig({
+        fiscalName: tempFiscal.fiscalName, fiscalNif: tempFiscal.fiscalNif, fiscalAddress: tempFiscal.fiscalAddress,
+        vatRate: tempFiscal.vatRate, applyVat: tempFiscal.applyVat,
+        bankIban: tempFiscal.bankIban, paymentConditions: tempFiscal.paymentConditions,
+      });
+      setBillingConfig(prev => ({ ...prev, fiscalName: updated.fiscalName ?? '', fiscalNif: updated.fiscalNif ?? '',
+        fiscalAddress: updated.fiscalAddress ?? '', vatRate: updated.vatRate ?? undefined, applyVat: updated.applyVat,
+        bankIban: updated.bankIban ?? '', paymentConditions: updated.paymentConditions ?? '' }));
       setEditingFiscal(false);
       await refreshCompletion();
       showAppAlert(appAlert, 'Éxito', 'Datos fiscales actualizados');
@@ -775,7 +750,12 @@ export function BillingScreen() {
     field: 'autoGenerateInvoice' | 'autoSendToClient',
     value: boolean
   ) => {
+    if (savingConfig) return;
     const prevConfig = billingConfig;
+    if (value && missingFiscalFields.length > 0) {
+      showAppAlert(appAlert, 'Completa tus datos fiscales', fiscalDataRequiredMessage);
+      return;
+    }
     if (field === 'autoSendToClient' && value && !billingConfig.autoGenerateInvoice) {
       showAppAlert(
         appAlert,
@@ -791,13 +771,17 @@ export function BillingScreen() {
         }
       : { autoSendToClient: value };
 
+    setSavingConfig(true);
     setBillingConfig((c) => ({ ...c, ...nextConfig }));
     try {
-      await billingService.updateBillingConfig(nextConfig);
+      const updated = await billingService.updateBillingConfig(nextConfig);
+      setBillingConfig(c => ({ ...c, autoGenerateInvoice: updated.autoGenerateInvoice, autoSendToClient: updated.autoSendToClient }));
     } catch (error) {
       // Revert on error
       setBillingConfig(prevConfig);
       showAppAlert(appAlert, 'Error', error instanceof Error ? error.message : 'Error al guardar');
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -814,15 +798,6 @@ export function BillingScreen() {
   };
 
 
-  // ── Loading state ────────────────────────────────────────────
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </View>
-    );
-  }
-
   // ── Render helpers ───────────────────────────────────────────
   const renderStats = () => {
     const now = new Date();
@@ -830,6 +805,8 @@ export function BillingScreen() {
     const year = now.getFullYear();
     const monthFull = `${MONTH_NAMES_ES[monthIdx]} ${year}`;
     const monthRange = `Ene — ${MONTH_ABBREV_ES[monthIdx]}`;
+
+    if (loading) return <ActivityIndicator size="small" color={theme.primary} />;
 
     if (!summary) {
       return (
@@ -1070,17 +1047,25 @@ export function BillingScreen() {
             <ActivityIndicator size="small" color={theme.primary} />
           </View>
         )}
-        {invoices.length === 0 && !invoicesLoading ? (
+        {invoiceListError ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>No se pudieron cargar las facturas</Text>
+            <Text style={styles.emptyDesc}>{invoiceListError}</Text>
+            <Button variant="outline" onPress={() => void loadInvoices(currentPage, activeFilter, debouncedSearch)}>Reintentar</Button>
+          </View>
+        ) : invoices.length === 0 && !invoicesLoading ? (
           <View style={styles.emptyState}>
             <Ionicons name="document-text-outline" size={48} color={theme.textMuted} />
-            <Text style={styles.emptyTitle}>{STRINGS.emptyTitle}</Text>
-            <Text style={styles.emptyDesc}>{STRINGS.emptyDesc}</Text>
+            <Text style={styles.emptyTitle}>{activeFilter !== 'all' || debouncedSearch.trim()
+              ? 'No hay facturas que coincidan con estos filtros' : STRINGS.emptyTitle}</Text>
+            <Text style={styles.emptyDesc}>{activeFilter !== 'all' || debouncedSearch.trim()
+              ? 'Prueba a cambiar el estado o la búsqueda.' : STRINGS.emptyDesc}</Text>
           </View>
         ) : (
           invoices.map(renderInvoiceRow)
         )}
       </View>
-      {renderPagination()}
+      {!invoiceListError && renderPagination()}
       </View>
     </TourTarget>
   );
@@ -1174,18 +1159,18 @@ export function BillingScreen() {
       <View style={[styles.card, highlightFiscal ? styles.cardTargeted : null]}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{STRINGS.fiscalData}</Text>
-        <TouchableOpacity onPress={handleFiscalEditPress}>
+        <TouchableOpacity accessibilityLabel="Editar datos fiscales" onPress={handleFiscalEditPress}>
           <Text style={styles.editBtn}>{editingFiscal ? STRINGS.cancel : STRINGS.edit}</Text>
         </TouchableOpacity>
       </View>
       {editingFiscal ? (
         <View style={styles.editForm}>
           <Text style={styles.fieldLabel}>{STRINGS.fiscalName}</Text>
-          <TextInput style={styles.input} value={tempFiscal.fiscalName || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, fiscalName: v }))} />
+          <TextInput accessibilityLabel={STRINGS.fiscalName} style={styles.input} value={tempFiscal.fiscalName || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, fiscalName: v }))} />
           <Text style={styles.fieldLabel}>{STRINGS.nif}</Text>
-          <TextInput style={styles.input} value={tempFiscal.fiscalNif || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, fiscalNif: v }))} />
+          <TextInput accessibilityLabel={STRINGS.nif} style={styles.input} value={tempFiscal.fiscalNif || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, fiscalNif: v }))} />
           <Text style={styles.fieldLabel}>{STRINGS.fiscalAddress}</Text>
-          <TextInput style={styles.input} value={tempFiscal.fiscalAddress || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, fiscalAddress: v }))} />
+          <TextInput accessibilityLabel={STRINGS.fiscalAddress} style={styles.input} value={tempFiscal.fiscalAddress || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, fiscalAddress: v }))} />
           <Text style={styles.fieldLabel}>{STRINGS.vat}</Text>
           <SimpleDropdown
             options={VAT_OPTIONS.map((opt) => ({ label: opt.label, value: opt.value }))}
@@ -1197,7 +1182,7 @@ export function BillingScreen() {
           <TextInput style={styles.input} value={tempFiscal.bankIban || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, bankIban: v }))} />
           <Text style={styles.fieldLabel}>{STRINGS.paymentConditions}</Text>
           <TextInput style={styles.input} value={tempFiscal.paymentConditions || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, paymentConditions: v }))} placeholder="Transferencia bancaria" placeholderTextColor={theme.textMuted} />
-          <TouchableOpacity style={styles.saveBtn} onPress={handleSaveFiscal} disabled={savingConfig}>
+          <TouchableOpacity accessibilityLabel="Guardar datos fiscales" style={styles.saveBtn} onPress={handleSaveFiscal} disabled={savingConfig}>
             {savingConfig ? <ActivityIndicator size="small" color={colors.neutral.white} /> : (
               <Text style={styles.saveBtnText}>{STRINGS.save}</Text>
             )}
@@ -1323,6 +1308,8 @@ export function BillingScreen() {
     );
   };
 
+  const automaticGenerationDisabled = savingConfig || (!billingConfig.autoGenerateInvoice && missingFiscalFields.length > 0);
+  const automaticSendDisabled = savingConfig || (!billingConfig.autoSendToClient && missingFiscalFields.length > 0);
   const renderAutomationCard = () => (
     <TourTarget id="professional.billing.automation" fill style={styles.fullWidthTourTarget}>
       <View style={styles.card}>
@@ -1333,18 +1320,25 @@ export function BillingScreen() {
           <Text style={styles.automationDesc}>{STRINGS.autoGenerateDesc}</Text>
         </View>
         <Switch
+          accessibilityLabel={STRINGS.autoGenerate}
+          accessibilityState={{ disabled: automaticGenerationDisabled }}
+          disabled={automaticGenerationDisabled}
           value={billingConfig.autoGenerateInvoice || false}
           onValueChange={(v) => handleToggleAutomation('autoGenerateInvoice', v)}
           trackColor={{ false: colors.neutral.gray300, true: theme.primaryMuted }}
           thumbColor={billingConfig.autoGenerateInvoice ? theme.primary : colors.neutral.gray400}
         />
       </View>
+      {missingFiscalFields.length > 0 && <Text style={styles.configHint}>{fiscalDataRequiredMessage}</Text>}
       <View style={styles.automationItem}>
         <View style={styles.automationText}>
           <Text style={styles.automationLabel}>{STRINGS.autoSend}</Text>
           <Text style={styles.automationDesc}>{STRINGS.autoSendDesc}</Text>
         </View>
         <Switch
+          accessibilityLabel={STRINGS.autoSend}
+          accessibilityState={{ disabled: automaticSendDisabled }}
+          disabled={automaticSendDisabled}
           value={!!billingConfig.autoGenerateInvoice && !!billingConfig.autoSendToClient}
           onValueChange={(v) => handleToggleAutomation('autoSendToClient', v)}
           trackColor={{ false: colors.neutral.gray300, true: theme.primaryMuted }}
@@ -1371,6 +1365,25 @@ export function BillingScreen() {
     </TourTarget>
   );
 
+
+  const renderBillingConfiguration = () => {
+    if (!isConfigLoaded) return (
+      <View style={styles.card}>
+        {configLoadError ? (
+          <>
+            <Text style={styles.cardTitle}>No se pudo cargar la configuración de facturación</Text>
+            <Button variant="outline" onPress={() => void loadConfig()}>Reintentar configuración</Button>
+          </>
+        ) : (
+          <>
+            <ActivityIndicator size="small" color={theme.primary} />
+            <Text style={styles.configDetail}>Cargando configuración de facturación…</Text>
+          </>
+        )}
+      </View>
+    );
+    return <>{renderFiscalCard()}{renderInvoiceDesignCard()}{renderNumberingCard()}{renderAutomationCard()}</>;
+  };
 
   // ── Portal menu ─────────────────────────────────────────────
   const openMenuInvoice = openMenuId ? invoices.find((inv) => inv.id === openMenuId) : null;
@@ -1402,20 +1415,14 @@ export function BillingScreen() {
             </View>
             <View style={styles.sideColumn}>
               {renderTariffsCard()}
-              {renderFiscalCard()}
-              {renderInvoiceDesignCard()}
-              {renderNumberingCard()}
-              {renderAutomationCard()}
+              {renderBillingConfiguration()}
             </View>
           </View>
         ) : (
           <>
             {renderInvoiceList()}
             {renderTariffsCard()}
-            {renderFiscalCard()}
-            {renderInvoiceDesignCard()}
-            {renderNumberingCard()}
-            {renderAutomationCard()}
+            {renderBillingConfiguration()}
           </>
         )}
       </VisibleScrollView>
@@ -1460,13 +1467,6 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean, isMobil
     flex: 1,
     backgroundColor: theme.bg,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.bg,
-  },
-
   fullWidthTourTarget: {
     width: '100%',
   },

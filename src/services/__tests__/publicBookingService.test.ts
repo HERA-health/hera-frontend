@@ -31,6 +31,16 @@ const response = { data: { requestId: 'request-fixture', expiresAt: '2026-10-20T
 const rejection = (code: string, message: string) => Object.assign(new Error('Request failed with status code 409'), { response: { data: { code, message } } });
 beforeEach(async () => { post.mockReset(); await AsyncStorage.clear(); });
 
+it('sends complete fiscal data only when confirming the verified public booking', async () => {
+  const billing = { billingFullName: 'Paciente sintético', billingTaxId: '00000001R', billingAddress: 'Dirección sintética',
+    billingPostalCode: '28001', billingCity: 'Madrid', billingCountry: 'España' };
+  post.mockResolvedValue({ data: { data: { id: 'session', status: 'PENDING' } } });
+  await verifyPublicBooking('request', '123456', 'quote', undefined, billing);
+  expect(post).toHaveBeenCalledWith('/hera-commissions/public-requests/verify', {
+    requestId: 'request', code: '123456', quoteReference: 'quote', paymentAcceptance: undefined, billing,
+  });
+});
+
 it.each([
   ['HERA_BOOKING_EMAIL_FAILED', 'No se pudo enviar el código. Conserva el formulario y reintenta.'],
   ['REQUEST_TIMEOUT', 'La solicitud ha tardado demasiado. Intenta de nuevo.'],

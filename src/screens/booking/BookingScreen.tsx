@@ -3,6 +3,7 @@ import { storePaymentAccess, type PaymentAcceptance } from '../../services/sessi
 import { PublicPackageOffers } from '../../components/packages/PublicPackageOffers';
 import { PackageCoverage, frozenPackageOptions } from '../../components/packages/PackageCoverage';
 import type { PatientPackage } from '../../services/packageService';
+import { PackageBillingFields, emptyPackageBilling } from '../../components/packages/PackageBillingFields';
 import { getErrorCode, getErrorMessage } from '../../constants/errors';
 import { formatPrivatePrice } from '../../utils/privateTariff';
 import { loadPublicBookingOptions, type PrivateServiceOption } from '../../services/privateCatalogService';
@@ -332,6 +333,9 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const [slotsError, setSlotsError] = useState<string | null>(null);
   const [paymentAcceptance, setPaymentAcceptance] = useState<PaymentAcceptance>();
   const [bookingQuote, setBookingQuote] = useState<BookingQuote | null>(null);
+  const [sessionBilling, setSessionBilling] = useState({ ...emptyPackageBilling, billingCountry: '' });
+  const needsExternalBilling = Boolean(bookingQuote && !bookingQuote.billingDataComplete && !patientPackageId && bookingQuote.payment?.mode !== 'ONLINE'
+    && (bookingQuote.totalCents ?? Math.round(bookingQuote.price * 100)) > 40000);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [publicContact, setPublicContact] = useState({
@@ -723,6 +727,11 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
     if (bookingQuote.payment?.mode === 'ONLINE' && (!isAnonymousBooking || identityVerified) && !paymentAcceptance) {
       showBookingMessage(appAlert, 'Condiciones del pago', 'Indica tu país de residencia, completa los datos fiscales necesarios y acepta las condiciones.'); return;
     }
+    if (needsExternalBilling && (!isAnonymousBooking || identityVerified || referralBooking)
+      && !Object.values(sessionBilling).every(value => value.trim())) {
+      showBookingMessage(appAlert, 'Datos para la factura completa', 'Esta sesión requiere una factura completa. Completa todos los datos fiscales antes de confirmar la cita.');
+      return;
+    }
     submissionInFlightRef.current = true;
 
     try {
@@ -737,7 +746,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       const dateTime = madridDateTime.iso;
 
       if (referralBooking) {
-        const payload = { paymentAcceptance, date: dateTime, duration: slotDuration, type: sessionType, optionId: selectedOptionId, quoteReference: bookingQuote.quoteReference, sessionPhone };
+        const payload = { paymentAcceptance, ...(needsExternalBilling ? { billing: sessionBilling } : {}), date: dateTime, duration: slotDuration, type: sessionType, optionId: selectedOptionId, quoteReference: bookingQuote.quoteReference, sessionPhone };
         const { commandKey } = await durableCommandKey('referral-booking', payload);
         const createdSession = await bookGuestReferral(referralBooking.id, referralBooking.access, { ...payload, commandKey });
         if (createdSession.kind === 'payment') {
@@ -776,7 +785,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
           setBookingQuote(quote); setIdentityVerified(true);
           return;
         }
-        const createdSession = await sessionsService.verifyPublicBooking(verification.requestId, verificationCode, bookingQuote.quoteReference, paymentAcceptance);
+        const createdSession = await sessionsService.verifyPublicBooking(verification.requestId, verificationCode, bookingQuote.quoteReference, paymentAcceptance, needsExternalBilling ? sessionBilling : undefined);
         if (createdSession.kind === 'payment') {
           if (createdSession.accessToken) await storePaymentAccess(createdSession.bookingId, createdSession.accessToken);
           bookingCompletedRef.current = true; navigation.navigate('SessionPayment', { bookingId: createdSession.bookingId }); return;
@@ -796,6 +805,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       }
 
       const createdSession = await sessionsService.createSession({
+        ...(needsExternalBilling ? { billing: sessionBilling } : {}),
         paymentAcceptance,
         specialistId,
         optionId: selectedOptionId, patientPackageId,
@@ -858,7 +868,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       setLoading(false);
     }
   }, [
-    selectedOptionId, patientPackageId, packageRevision, sessionPhone, identityVerified, paymentAcceptance,
+    selectedOptionId, patientPackageId, packageRevision, sessionPhone, identityVerified, paymentAcceptance, needsExternalBilling, sessionBilling,
     selectedDate,
     selectedSlot,
     appAlert,
@@ -1322,6 +1332,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       </View>
 
       {bookingQuote && (!isAnonymousBooking || identityVerified || referralBooking) && <PaymentConditions key={`${bookingQuote.payment?.termsVersion}:${bookingQuote.payment?.fullInvoiceRequired}`} quote={bookingQuote} value={paymentAcceptance} onChange={setPaymentAcceptance} />}
+      {needsExternalBilling && (!isAnonymousBooking || identityVerified || referralBooking) && <PackageBillingFields value={sessionBilling} onChange={setSessionBilling} disabled={loading} description="Se guardarán para la facturación de tus sesiones con este especialista." />}
     </View>
   );
 

@@ -4,6 +4,7 @@ import { CollaborationSessions } from '../CollaborationSessions';
 import type { Collaboration } from '../../../services/collaborationService';
 import * as service from '../../../services/collaborationService';
 jest.mock('../../../services/collaborationService', () => ({ listSessions: jest.fn(), decideFinance: jest.fn() }));
+jest.mock('../../../services/professionalService', () => ({ getProfessionalSessionDetail: jest.fn() }));
 jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn() }) }));
 jest.mock('../../../components/common/AnimatedPressable', () => ({ AnimatedPressable: ({ children, onPress, accessibilityLabel, accessibilityRole, accessibilityState, disabled }: { children: React.ReactNode; onPress?: () => void; accessibilityLabel?: string; accessibilityRole?: import('react-native').AccessibilityRole; accessibilityState?: import('react-native').AccessibilityState; disabled?: boolean }) => { const { Pressable } = require('react-native'); return <Pressable onPress={onPress} accessibilityLabel={accessibilityLabel} accessibilityRole={accessibilityRole} accessibilityState={accessibilityState} disabled={disabled}>{children}</Pressable>; } }));
 it('links a refund to the selected original collection and preserves the entered Madrid date and amount', async () => {

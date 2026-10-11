@@ -1,7 +1,8 @@
-jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn() }) }));
+const mockNavigate = jest.fn();
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }) }));
 jest.mock('../../professional/SessionMeetingControls', () => ({ SessionMeetingControls: () => null }));
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, fireEvent } from '@testing-library/react-native';
 import { lightTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { ProfessionalSessionDetail } from '../../../services/professionalService';
@@ -104,6 +105,16 @@ describe('AppointmentDetailSheet service and tariff labels', () => {
     expect(screen.getByText('Tarifa')).toBeTruthy();
     expect(screen.getByText('Sesión estándar')).toBeTruthy();
     expect(screen.queryByText('Servicio')).toBeNull();
+  });
+  it('shows missing patient fiscal data before completion and opens the scoped billing editor', () => {
+    const onClose = jest.fn();
+    const issue = 'Faltan datos fiscales del paciente: NIF, Dirección fiscal.';
+    render(<AppointmentDetailSheet visible embedded mode="professional" onClose={onClose}
+      professionalSession={buildProfessionalSession({ invoiceCompletionIssue: issue })} />);
+    expect(screen.getByText(issue)).toBeTruthy();
+    fireEvent.press(screen.getByText('Completar datos fiscales del paciente'));
+    expect(onClose).toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('ClientProfile', { clientId: 'client-1', initialTab: 'summary', focusBillingEditor: true });
   });
 });
 jest.mock('../../../services/packageService', () => ({ downloadPackageInvoice: jest.fn().mockResolvedValue(undefined) }));

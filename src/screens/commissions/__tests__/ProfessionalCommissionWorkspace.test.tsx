@@ -7,6 +7,7 @@ import * as service from '../../../services/heraCommissionService';
 let mockFocused = true;
 jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn() }), useFocusEffect: (effect: React.EffectCallback) => require('react').useEffect(() => mockFocused ? effect() : undefined, [effect, mockFocused]) }));
 jest.mock('../../../services/heraCommissionService', () => ({ configuration: jest.fn(), detail: jest.fn(), sessions: jest.fn(), accept: jest.fn(), decide: jest.fn(), period: jest.fn(), fiscal: jest.fn(), download: jest.fn() }));
+jest.mock('../../../services/professionalService', () => ({ getProfessionalSessionDetail: jest.fn() }));
 const terms: service.Terms = { id: 'terms', operatorKey: 'operator', operatorName: 'Titular de prueba', mode: 'LIVE', contractText: 'Acuerdo completo de prueba', fiscalTreatment: 'Texto fiscal de prueba', operatorTaxId: '', operatorAddress: '', beneficiary: '', iban: '', effectiveAt: '2026-01-01' };
 const acceptance: service.Acceptance = { id: 'acceptance', termsId: terms.id, terms, acceptedAt: '2026-01-01', terminatedAt: null };
 const account: service.Configuration['accounts'][number] = { id: 'account', mode: 'LIVE', operatorKey: terms.operatorKey, acceptances: [acceptance] };

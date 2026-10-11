@@ -1,4 +1,5 @@
 import type { PaymentAcceptance, PaymentRequired } from './sessionPaymentService';
+import type { PackageBilling } from './packageService';
 import { api } from './api';
 import { getErrorCode, getErrorMessage } from '../constants/errors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -67,6 +68,7 @@ interface ApiResponse<T> {
 }
 
 interface CreateSessionRequest {
+  billing?: PackageBilling;
   paymentAcceptance?: PaymentAcceptance;
   patientPackageId?: string; optionId?: string; quoteReference?: string; commandKey?: string; sessionPhone?: string;
   intentToken?: string;
@@ -119,6 +121,7 @@ export interface PublicCreatedSession {
 }
 
 export interface BookingQuote {
+  billingDataComplete?: boolean;
   payment?: { mode: 'ONLINE' | 'EXTERNAL' | 'FREE' | 'PACKAGE'; available: boolean; termsVersion: string; fullInvoiceRequired: boolean };
   additionalChargeCents?: number;
   coverage?: { patientPackageId: string; name: string; ordinal: number; balance: { total: number; reserved: number; consumed: number; available: number } } | null;
@@ -305,9 +308,9 @@ export const requestPublicBooking = async (input: CreatePublicSessionRequest, at
 export const verifyPublicBookingQuote = async (requestId: string, code: string): Promise<BookingQuote> =>
   (await api.post<{ data: { quote: BookingQuote } }>('/hera-commissions/public-requests/verify', { requestId, code })).data.data.quote;
 
-export const verifyPublicBooking = async (requestId: string, code: string, quoteReference?: string, paymentAcceptance?: PaymentAcceptance) => {
+export const verifyPublicBooking = async (requestId: string, code: string, quoteReference?: string, paymentAcceptance?: PaymentAcceptance, billing?: PackageBilling) => {
   try {
-    return (await api.post<{ data: BookingResult }>('/hera-commissions/public-requests/verify', { requestId, code, quoteReference, paymentAcceptance })).data.data;
+    return (await api.post<{ data: BookingResult }>('/hera-commissions/public-requests/verify', { requestId, code, quoteReference, paymentAcceptance, ...(billing ? { billing } : {}) })).data.data;
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudo confirmar la cita. Intenta de nuevo.'));
   }

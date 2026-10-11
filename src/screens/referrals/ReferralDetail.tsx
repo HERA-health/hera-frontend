@@ -11,8 +11,10 @@ import { ReferralCard, ReferralCheck, ReferralText, dateTime, money, referralSta
 import { ReferralComposer } from './ReferralComposer';
 import { BookingScreen } from '../booking/BookingScreen';
 import { openPrivateDocument } from '../../utils/openPrivateDocument';
+import { SessionInvoiceCompletionNotice } from '../../components/sessions/SessionInvoiceCompletionNotice';
 
 export function ReferralDetailView({ id, access, onBack }: { id: string; access: service.ReferralAccess; onBack: () => void }) {
+  const [invoiceBlocked, setInvoiceBlocked] = useState(true);
   const navigation = useNavigation<AppNavigationProp>();
   const [detail, setDetail] = useState<service.ReferralDetail | null>(null); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false);
   const [error, setError] = useState(''); const [message, setMessage] = useState(''); const [selected, setSelected] = useState('');
@@ -37,6 +39,7 @@ export function ReferralDetailView({ id, access, onBack }: { id: string; access:
   };
   const decide = (action: service.ReferralDecision['action']) => {
     if (!detail) return;
+    if (action === 'CONFIRM_ATTENDANCE' && invoiceBlocked) return;
     const values = { revision: detail.revision, action, ...(action === 'CONFIRM_ATTENDANCE' ? { sessionId: detail.milestones.confirmableSession?.id } : {}), ...(action === 'AUTHORIZE' ? { recipientId: selected, adultAndSelfDeciding: true as const, coordinationAuthorized: coordination } : {}), ...(action === 'ACCEPT' ? { competentAndAvailable: true as const } : {}), ...(action === 'REJECT' ? { reasonCode: detail.role === 'PATIENT' ? 'PATIENT_CHOICE' as const : reasonCode } : {}) };
     const fingerprint = JSON.stringify(values);
     if (pending.current?.fingerprint !== fingerprint) pending.current = { fingerprint, input: { ...values, commandKey: Crypto.randomUUID() } };
@@ -78,7 +81,7 @@ export function ReferralDetailView({ id, access, onBack }: { id: string; access:
     </ReferralCard> : null}
     {detail.role === 'RECIPIENT' && detail.status === 'PENDING_RECIPIENT' ? <ReferralCard><ReferralText title>Valora el caso</ReferralText><ReferralCheck label="Confirmo mi competencia, encaje y disponibilidad para atender este caso" checked={competent} onChange={setCompetent} disabled={busy} /><Button disabled={!competent} loading={busy} onPress={() => decide('ACCEPT')}>Aceptar el caso</Button><ReferralText>Si necesitas más información, el origen preparará una revisión y el paciente deberá autorizarla de nuevo.</ReferralText><Button variant="outline" disabled={busy} onPress={() => decide('REQUEST_INFORMATION')}>Pedir una nueva revisión con más información</Button><WorkflowSelect label="Motivo si rechazas el caso" value={reasonCode ?? "OTHER"} options={[{ value: "CAPACITY", label: "Sin disponibilidad" }, { value: "COMPETENCE", label: "Fuera de mi competencia" }, { value: "OTHER", label: "Otro motivo" }]} onSelect={value => { if (!busy) setReasonCode(value); }} /><Button variant="ghost" disabled={busy} onPress={() => decide('REJECT')}>Rechazar el caso</Button></ReferralCard> : null}
     {detail.status === 'ACCEPTED' ? <ReferralCard><ReferralText title>Relación asistencial aceptada</ReferralText><ReferralText>{detail.milestones.visible ? ((detail.milestones.booked ? 'Cita reservada' : 'Sin cita registrada') + ' · ' + (detail.milestones.attended ? 'Primera atención realizada' : 'Primera atención pendiente')) : 'El paciente no ha autorizado el seguimiento de citas y atención.'}</ReferralText><ReferralText>La aceptación del caso, la autorización para compartir y el consentimiento asistencial son decisiones separadas.</ReferralText>
-      {detail.role === 'RECIPIENT' && detail.milestones.confirmableSession ? <><ReferralText>La cita del {dateTime(detail.milestones.confirmableSession.date)} ha terminado por horario. Confirma únicamente si la atención ocurrió realmente.</ReferralText><Button disabled={busy} onPress={() => decide('CONFIRM_ATTENDANCE')}>Confirmar primera atención realizada</Button></> : null}
+      {detail.role === 'RECIPIENT' && detail.milestones.confirmableSession ? <><ReferralText>La cita del {dateTime(detail.milestones.confirmableSession.date)} ha terminado por horario. Confirma únicamente si la atención ocurrió realmente.</ReferralText><SessionInvoiceCompletionNotice sessionId={detail.milestones.confirmableSession.id} onBlockedChange={setInvoiceBlocked} /><Button disabled={busy || invoiceBlocked} onPress={() => decide('CONFIRM_ATTENDANCE')}>Confirmar primera atención realizada</Button></> : null}
       {detail.role === 'PATIENT' && detail.recipientId ? <Button onPress={() => access.guestSession ? setBooking(true) : navigation.navigate('Booking', { specialistId: detail.recipientId! })}>Reservar con {candidate?.user.name || 'el profesional'}</Button> : null}
       {detail.role === 'RECIPIENT' && detail.client ? <Button onPress={() => navigation.navigate('ClientProfile', { clientId: detail.client!.id, initialTab: 'clinical' })}>Abrir mi ficha y gestionar el consentimiento</Button> : null}
       {detail.role === 'ORIGIN' && detail.purpose === 'TRANSFER' && detail.client ? <><ReferralText>Cierra tu relación solo cuando hayas acordado la transición. Las citas existentes se gestionan por separado.</ReferralText><Button variant="outline" disabled={busy} onPress={() => void run(() => service.closePrivateCare(detail.client!.id), 'Tu relación asistencial se ha cerrado. La identidad del paciente y su atención con el receptor se conservan.')}>Cerrar mi relación asistencial</Button></> : null}

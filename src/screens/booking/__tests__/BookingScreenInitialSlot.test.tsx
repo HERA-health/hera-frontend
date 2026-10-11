@@ -336,6 +336,49 @@ describe('BookingScreen initial slot preselection', () => {
     );
   });
 
+  it('requires patient fiscal data for an external full invoice and submits it with the booking', async () => {
+    const quote = await mockedSessionsService.getBookingQuote('specialist-1', 'VIDEO_CALL', 60);
+    mockedSessionsService.getBookingQuote.mockResolvedValue({ ...quote, price: 500, totalCents: 50000,
+      payment: { mode: 'EXTERNAL', available: true, termsVersion: 'session-payments-2026-10-04', fullInvoiceRequired: true } });
+    mockedSessionsService.getAvailableSlots.mockResolvedValue([{ startTime: '10:00', endTime: '11:00', available: true }]);
+    mockedSessionsService.createSession.mockReset().mockImplementation(() => new Promise(() => undefined));
+    render(<BookingScreen route={route} navigation={navigation} />);
+    await screen.findByText('Datos para la factura completa');
+    fireEvent.press(await screen.findByText('Confirmar cita'));
+    expect(mockedSessionsService.createSession).not.toHaveBeenCalled();
+    for (const [label, value] of [['Nombre fiscal', 'Paciente sintético'], ['NIF / documento fiscal', '00000001R'],
+      ['Dirección fiscal', 'Dirección sintética'], ['Código postal', '28001'], ['Localidad', 'Madrid'], ['País', 'España']]) {
+      fireEvent.changeText(screen.getByLabelText(label), value);
+    }
+    fireEvent.press(screen.getByText('Confirmar cita'));
+    await waitFor(() => expect(mockedSessionsService.createSession).toHaveBeenCalledWith(expect.objectContaining({
+      billing: { billingFullName: 'Paciente sintético', billingTaxId: '00000001R', billingAddress: 'Dirección sintética',
+        billingPostalCode: '28001', billingCity: 'Madrid', billingCountry: 'España' },
+    })));
+  });
+
+  it('reuses complete saved fiscal data for another external full-invoice booking', async () => {
+    const quote = await mockedSessionsService.getBookingQuote('specialist-1', 'VIDEO_CALL', 60);
+    mockedSessionsService.getBookingQuote.mockResolvedValue({ ...quote, price: 500, totalCents: 50000, billingDataComplete: true,
+      payment: { mode: 'EXTERNAL', available: true, termsVersion: 'session-payments-2026-10-04', fullInvoiceRequired: true } });
+    mockedSessionsService.getAvailableSlots.mockResolvedValue([{ startTime: '10:00', endTime: '11:00', available: true }]);
+    mockedSessionsService.createSession.mockReset().mockImplementation(() => new Promise(() => undefined));
+    render(<BookingScreen route={route} navigation={navigation} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Confirmar cita' })).toBeEnabled());
+    fireEvent.press(screen.getByRole('button', { name: 'Confirmar cita' }));
+    await waitFor(() => expect(mockedSessionsService.createSession).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('Datos para la factura completa')).toBeNull();
+    expect(mockedSessionsService.createSession.mock.calls[0][0]).not.toHaveProperty('billing');
+  });
+
+  it('does not collect additional fiscal data for an external simplified invoice', async () => {
+    mockedSessionsService.getAvailableSlots.mockResolvedValue([{ startTime: '10:00', endTime: '11:00', available: true }]);
+    render(<BookingScreen route={route} navigation={navigation} />);
+    await screen.findByText('slots:10:00:1');
+    expect(screen.queryByText('Datos para la factura completa')).toBeNull();
+    expect(screen.queryByLabelText('NIF / documento fiscal')).toBeNull();
+  });
+
   it('keeps the date but clears the initial slot when it is no longer available', async () => {
     mockedSessionsService.getAvailableSlots.mockResolvedValue([
       { startTime: '10:00', endTime: '11:00', available: false },
@@ -643,7 +686,7 @@ describe('BookingScreen initial slot preselection', () => {
     await screen.findByText('Solicitud enviada');
     expect(mockedSessionsService.requestPublicBooking).toHaveBeenCalledTimes(2);
     expect(mockedSessionsService.requestPublicBooking.mock.calls[1][0].date).not.toBe(mockedSessionsService.requestPublicBooking.mock.calls[0][0].date);
-    expect(mockedSessionsService.verifyPublicBooking).toHaveBeenLastCalledWith('replacement-request', '654321', 'fixture-quote', undefined);
+    expect(mockedSessionsService.verifyPublicBooking).toHaveBeenLastCalledWith('replacement-request', '654321', 'fixture-quote', undefined, undefined);
   });
 
   it('blocks booking from an authenticated non-patient account with a clear notice', async () => {

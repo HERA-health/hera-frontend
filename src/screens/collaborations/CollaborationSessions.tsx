@@ -9,6 +9,7 @@ import * as service from '../../services/collaborationService';
 import { getMadridDateKey, formatMadridInstant, parseMadridDateTime } from '../../utils/madridTime';
 import { ReferralCard as Card, ReferralText as Text, ReferralField as Field, dateTime, money, styles } from '../referrals/ReferralElements';
 import { type CollaborationRun, toCents } from './CollaborationAgreement';
+import { SessionInvoiceCompletionNotice } from '../../components/sessions/SessionInvoiceCompletionNotice';
 
 export const exclusionLabel = (reason: string | null) => reason ? ({
   NO_CURRENT_AGREEMENT_AT_BOOKING: 'No había un acuerdo vigente al reservar', BOOKING_AFTER_TERMINATION: 'Reserva posterior al fin del acuerdo',
@@ -19,11 +20,14 @@ export const exclusionLabel = (reason: string | null) => reason ? ({
 } as Record<string, string>)[reason] ?? 'Sesión excluida; revisa sus condiciones' : 'Asistencia elegible';
 
 function SessionActions({ session, collaborationId, busy, run, refresh }: { session: service.CollaborationSession; collaborationId: string; busy: boolean; run: CollaborationRun; refresh: () => Promise<void> }) {
+  const [invoiceBlocked, setInvoiceBlocked] = useState(true);
+  const needsInvoiceCheck = session.bookedPriceCents > 40000;
   const [mode, setMode] = useState<'COLLECT' | 'REFUND' | 'CORRECT_BASE' | 'ATTENDANCE' | null>(null);
   const [gross, setGross] = useState(''); const [base, setBase] = useState(''); const [serviceBase, setServiceBase] = useState(String((session.baseCents ?? session.bookedPriceCents) / 100)); const [reference, setReference] = useState('');
   const [original, setOriginal] = useState(''); const [outcome, setOutcome] = useState<'ATTENDED' | 'PATIENT_NO_SHOW'>('ATTENDED');
   const [day, setDay] = useState(getMadridDateKey()); const [time, setTime] = useState(formatMadridInstant(new Date(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }));
   const save = async () => {
+    if (mode === 'ATTENDANCE' && outcome === 'ATTENDED' && needsInvoiceCheck && invoiceBlocked) return;
     const values = { mode, snapshotId: session.id, gross, base, serviceBase, reference, original, outcome, day, time };
     if (await run(values, key => {
       if (!mode || !reference.trim()) throw new Error('Añade una referencia o un motivo.');
@@ -40,12 +44,13 @@ function SessionActions({ session, collaborationId, busy, run, refresh }: { sess
   };
   return <><View style={styles.row}>{([['COLLECT', 'Registrar cobro'], ['REFUND', 'Registrar devolución'], ['CORRECT_BASE', 'Corregir base'], ['ATTENDANCE', 'Confirmar asistencia']] as const).map(([value, label]) => <Button key={value} size="small" variant={mode === value ? 'secondary' : 'outline'} disabled={busy} onPress={() => setMode(value)}>{label}</Button>)}</View>
     {mode ? <Card><Text title>{mode === 'COLLECT' ? 'Cobro externo del paciente' : mode === 'REFUND' ? 'Devolución vinculada al cobro original' : mode === 'CORRECT_BASE' ? 'Corrección de la base del servicio' : 'Resultado de la atención'}</Text>
+      {mode === 'ATTENDANCE' && outcome === 'ATTENDED' && needsInvoiceCheck ? <SessionInvoiceCompletionNotice sessionId={session.sessionId} onBlockedChange={setInvoiceBlocked} /> : null}
       {mode === 'COLLECT' || mode === 'REFUND' ? <><Field label="Importe recibido o devuelto, incluidos impuestos (€)" keyboardType="decimal-pad" value={gross} onChangeText={setGross} /><WorkflowDate label="Fecha del movimiento (AAAA-MM-DD)" value={day} onChangeText={setDay} disabled={busy} /><Field required label="Hora de Madrid (HH:MM)" placeholder="Ej. 16:30" maxLength={5} value={time} onChangeText={setTime} editable={!busy} /></> : null}
       {mode === 'COLLECT' ? <><Field label="Parte del cobro que corresponde a base, sin impuestos (€)" keyboardType="decimal-pad" value={base} onChangeText={setBase} /><Text>El anticipo queda registrado. Solo libera reparto cuando se confirme la atención realizada.</Text></> : null}
       {mode === 'COLLECT' || mode === 'CORRECT_BASE' ? <Field label="Base total del servicio tras descuentos, excluidos impuestos (€)" keyboardType="decimal-pad" value={serviceBase} onChangeText={setServiceBase} /> : null}
       {mode === 'REFUND' ? <WorkflowSelect label="Cobro original *" value={original} options={[{ value: '', label: 'Selecciona el cobro que devuelves' }, ...session.movements.filter(m => m.kind === 'COLLECTION').map(m => ({ value: m.id, label: `${dateTime(m.occurredAt)} · ${money(m.grossCents)} · ${m.reference}` }))]} onSelect={value => { if (!busy) setOriginal(value); }} /> : null}
       {mode === 'ATTENDANCE' ? <WorkflowSelect label="Resultado de la atención *" value={outcome} options={[{ value: 'ATTENDED', label: 'Atención realizada' }, { value: 'PATIENT_NO_SHOW', label: 'Paciente ausente' }]} onSelect={value => { if (!busy) setOutcome(value); }} /> : null}
-      <Field label="Referencia externa o motivo de la corrección" value={reference} onChangeText={setReference} maxLength={2000} multiline /><View style={styles.row}><Button loading={busy} disabled={!reference.trim() || (mode === 'REFUND' && !original)} onPress={() => void save()}>Guardar registro</Button><Button variant="ghost" disabled={busy} onPress={() => setMode(null)}>Cancelar</Button></View>
+      <Field label="Referencia externa o motivo de la corrección" value={reference} onChangeText={setReference} maxLength={2000} multiline /><View style={styles.row}><Button loading={busy} disabled={!reference.trim() || (mode === 'REFUND' && !original) || (mode === 'ATTENDANCE' && outcome === 'ATTENDED' && needsInvoiceCheck && invoiceBlocked)} onPress={() => void save()}>Guardar registro</Button><Button variant="ghost" disabled={busy} onPress={() => setMode(null)}>Cancelar</Button></View>
     </Card> : null}</>;
 }
 
