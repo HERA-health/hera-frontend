@@ -20,6 +20,29 @@ beforeEach(() => {
 const sharedSwitch = () => screen.getByLabelText('Misma duración y precio para todas las modalidades');
 const chooseAudience = (value = 'public') => fireEvent.press(screen.getByRole('radio', { name: value === 'public' ? 'Tarifa pública' : 'Tarifa privada' }));
 
+test.each([true, false])('duration can be visibly cleared and replaced (shared: %s)', async shared => {
+  const input = props(); jest.mocked(savePrivateService).mockResolvedValue(catalog);
+  render(<PrivateServiceEditor {...input} service={{ ...service, options: [{ ...service.options[0], durationMinutes: 60 }] }} />);
+  if (!shared) fireEvent(sharedSwitch(), 'valueChange', false);
+  const label = shared ? 'Duración común' : 'Duración de Videollamada';
+  expect(screen.getByLabelText(label).props.value).toBe('60');
+
+  fireEvent.changeText(screen.getByLabelText(label), '');
+  expect(screen.getByLabelText(label).props.value).toBe('');
+  expect(screen.getByLabelText(label).props.placeholder).toBeUndefined();
+  expect(screen.getByText('Duración pendiente')).toBeTruthy();
+  fireEvent.press(screen.getByText('Guardar servicio'));
+  expect(await screen.findByText('Entre 5 y 240 minutos enteros')).toBeTruthy();
+  expect(savePrivateService).not.toHaveBeenCalled();
+
+  fireEvent.changeText(screen.getByLabelText(label), '45');
+  fireEvent.press(screen.getByText('Guardar servicio'));
+  await waitFor(() => expect(input.onSaved).toHaveBeenCalled());
+  expect(savePrivateService).toHaveBeenCalledWith(service.id, expect.objectContaining({
+    options: [expect.objectContaining({ id: 'option', durationMinutes: 45 })],
+  }));
+});
+
 test.each([5, 10, 45, 50, 75, 240])('creates only the selected %i minute option', async duration => {
   const input = props(); jest.mocked(savePrivateService).mockResolvedValue(catalog);
   render(<PrivateServiceEditor {...input} service={null} />);

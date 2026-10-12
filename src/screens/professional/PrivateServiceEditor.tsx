@@ -103,7 +103,7 @@ export function PrivateServiceEditor({ navigation, service, sourceCatalog, onSav
       <View style={[styles.numberField, showErrors && parsePrivateDuration(option.durationText) === null && styles.invalid]}>
         <TextInput accessibilityLabel={`Duración ${label}`} value={option.durationText}
           onChangeText={durationText => editValues(option.id, { durationText })} editable={!saving}
-          keyboardType="number-pad" placeholder="60" placeholderTextColor={theme.textSecondary} style={styles.input} />
+          keyboardType="number-pad" style={styles.input} />
         <Text style={styles.secondary}>min</Text>
       </View>
       {showErrors && parsePrivateDuration(option.durationText) === null && <Text style={styles.error}>Entre 5 y 240 minutos enteros</Text>}
