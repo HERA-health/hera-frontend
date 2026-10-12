@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react-native';
 import { useNavigation } from '@react-navigation/native';
 import { AppState, Platform } from 'react-native';
 import { useDiscoveryRevalidation } from '../useDiscoveryRevalidation';
+import { invalidateSpecialistDiscovery } from '../../utils/specialistDiscoveryRevision';
 
 jest.mock('@react-navigation/native', () => ({ useNavigation: jest.fn() }));
 
@@ -61,6 +62,19 @@ describe('discovery revalidation', () => {
     view.unmount();
     expect(visibilityListeners.size).toBe(0);
     expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes immediately after a profile invalidation without repeated reads', async () => {
+    const load = jest.fn(async () => undefined);
+    const view = renderHook(() => useDiscoveryRevalidation(load));
+    await act(async () => focus());
+    expect(load).not.toHaveBeenCalled();
+    invalidateSpecialistDiscovery();
+    await act(async () => focus());
+    expect(load).toHaveBeenCalledTimes(1);
+    await act(async () => focus());
+    expect(load).toHaveBeenCalledTimes(1);
+    view.unmount();
   });
 
   it('ignores hidden screens and hidden tabs, then refreshes the active screen', async () => {

@@ -1,4 +1,7 @@
-import React, { useMemo } from 'react';
+import {PracticeTags} from '../common/PracticeTags';
+import {useProfileOptions} from '../../hooks/useProfileOptions';
+import {optionLabel} from '../../utils/profileOptions';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -20,6 +23,17 @@ interface PublicSpecialistCardProps {
   directoryHorizontal?: boolean;
   style?: StyleProp<ViewStyle>;
   href?: string;
+}
+
+
+function DirectoryPractice({specialist}: {specialist: PublicSpecialistDirectoryCard}) {
+  const {options} = useProfileOptions();
+  return <View style={{gap: 7, marginTop: 12}}>
+    <PracticeTags compact maxItems={5} title="Especialidades" kind="specialties" values={[...specialist.specialties, ...(specialist.customSpecialties ?? [])]} />
+    <PracticeTags compact maxItems={3} title="Enfoques terapéuticos" kind="approaches" values={[...(specialist.therapeuticApproaches ?? []), ...(specialist.customTherapeuticApproaches ?? [])]} />
+    <PracticeTags compact maxItems={4} title="Idiomas" values={(specialist.languages ?? []).map(value => optionLabel(options?.languages ?? [], value))} />
+    {options?.religionEnabled && specialist.religionCode ? <PracticeTags compact title="Perspectiva" values={[specialist.religionCode === 'other' ? specialist.religionOtherText || 'Otra' : optionLabel(options.religions, specialist.religionCode)]} /> : null}
+  </View>;
 }
 
 const formatPrice = (price: number): string =>
@@ -49,17 +63,26 @@ export const PublicSpecialistCard: React.FC<PublicSpecialistCardProps> = ({
   href,
 }) => {
   const { theme } = useTheme();
+
   const colors = useMemo(() => getGradientColors(specialist.gradientId), [specialist.gradientId]);
   const isFeatured = variant === 'featured';
   const isDirectoryHorizontal = !isFeatured && directoryHorizontal;
+  const [portraitSize, setPortraitSize] = useState<{uri: string; ratio: number} | null>(null);
+  useEffect(() => {
+    const uri = specialist.avatar;
+    if (isFeatured || !uri) return;
+    let active = true;
+    Image.getSize(uri, (width, height) => {
+      if (active && width > 0 && height > 0) setPortraitSize({uri, ratio: width / height});
+    }, () => {
+      if (active) setPortraitSize(null);
+    });
+    return () => { active = false; };
+  }, [specialist.avatar, isFeatured]);
+  const portraitRatio = portraitSize?.uri === specialist.avatar ? portraitSize.ratio : 1;
+  const portraitWidth = Math.min(isDirectoryHorizontal ? 192 : 272, (isDirectoryHorizontal ? 232 : 152) * portraitRatio);
   const modality = getModalityLabel(specialist);
   const directoryDetails = 'specialties' in specialist ? specialist : null;
-  const treatmentAreas = (directoryDetails?.specialties.length
-    ? directoryDetails.specialties
-    : specialist.specialization.toLowerCase() === 'general'
-      ? []
-      : [specialist.specialization]
-  ).map(translateSpecialty);
   const hasVisibleReviews = specialist.rating !== null
     && specialist.reviewCount !== null
     && specialist.reviewCount > 0;
@@ -76,7 +99,7 @@ export const PublicSpecialistCard: React.FC<PublicSpecialistCardProps> = ({
     <Image
       source={{ uri: specialist.avatar }}
       style={styles.portrait}
-      resizeMode="cover"
+      resizeMode={isFeatured ? "cover" : "contain"}
       accessibilityLabel={`Retrato de ${specialist.name}`}
     />
   ) : (
@@ -108,6 +131,7 @@ export const PublicSpecialistCard: React.FC<PublicSpecialistCardProps> = ({
         style={[
           isFeatured ? styles.featuredMedia : styles.directoryMedia,
           isDirectoryHorizontal && styles.directoryMediaHorizontal,
+          !isFeatured && {width: portraitWidth, height: portraitWidth / portraitRatio, alignSelf: 'center'},
         ]}
       >
         {portrait}
@@ -198,18 +222,7 @@ export const PublicSpecialistCard: React.FC<PublicSpecialistCardProps> = ({
             </View>
           </View>
 
-          {treatmentAreas.length > 0 ? (
-            <View style={styles.directoryTreatments}>
-              <Text style={[styles.directoryTreatmentsLabel, { color: theme.textMuted, fontFamily: theme.fontSansMedium }]}>Áreas de acompañamiento</Text>
-              <View style={styles.directoryTreatmentChips}>
-                {treatmentAreas.map((area) => (
-                  <View key={area} style={[styles.directoryTreatmentChip, { backgroundColor: theme.primaryAlpha12, borderColor: theme.primaryAlpha20 }]}>
-                    <Text style={[styles.directoryTreatmentText, { color: theme.textPrimary, fontFamily: theme.fontSansMedium }]} numberOfLines={1}>{area}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          ) : null}
+          {directoryDetails ? <DirectoryPractice specialist={directoryDetails} /> : null}
 
           <View style={[styles.directoryMetaRow, { borderTopColor: theme.borderLight }]}>
             {!specialist.publicOptions?.length ? <View style={styles.directoryMetaItem}>
@@ -226,6 +239,10 @@ export const PublicSpecialistCard: React.FC<PublicSpecialistCardProps> = ({
               </View>;
             })}</View>}
             <Text style={[styles.directoryPrice, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>{new Set(specialist.publicOptions?.map(o => o.priceCents)).size > 1 ? 'Desde ' : ''}{specialist.pricePerSession === 0 ? 'Sin coste' : formatPrice(specialist.pricePerSession) + ' € / sesión'}</Text>
+            {!isDirectoryHorizontal ? <View style={[styles.directoryAction, {backgroundColor: theme.primaryAlpha12}]}>
+              <Text style={[styles.directoryActionText, {color: theme.primary, fontFamily: theme.fontSansSemiBold}]}>Ver perfil</Text>
+              <Ionicons name="arrow-forward" size={15} color={theme.primary} />
+            </View> : null}
           </View>
         </View>
       )}
@@ -307,11 +324,10 @@ const styles = StyleSheet.create({
     minHeight: 216,
   },
   directoryMedia: {
-    aspectRatio: 1,
+    height: 152, overflow: 'hidden', borderRadius: 12, margin: 14, marginBottom: 0,
   },
   directoryMediaHorizontal: {
-    width: 216,
-    flexShrink: 0,
+    width: 192, height: 232, alignSelf: 'center', margin: 14, marginRight: 0, flexShrink: 0,
   },
   directoryContent: {
     padding: 18,
@@ -438,8 +454,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 16,
-    marginTop: 16,
-    paddingTop: 16,
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
   },
   directoryOffers: { flexGrow: 1, flexShrink: 1, flexBasis: 240, minWidth: 0, gap: 8 },

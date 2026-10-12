@@ -120,6 +120,8 @@ describe('PublicSpecialistsScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // jest-expo's native image loader mock still uses the pre-0.86 callback API.
+    jest.spyOn(ReactNative.Image, 'getSize').mockImplementation((_uri, success) => { success?.(320, 240); });
     mockedUseTheme.mockReturnValue({
       theme: lightTheme,
       mode: 'light',
@@ -147,14 +149,14 @@ describe('PublicSpecialistsScreen', () => {
     render(<PublicSpecialistsScreen />);
 
     await waitFor(() => expect(screen.getByText('Dra. Elena Martín')).toBeTruthy());
-    expect(screen.getByLabelText('Retrato de Dra. Elena Martín').props.resizeMode).toBe('cover');
+    expect(screen.getByLabelText('Retrato de Dra. Elena Martín').props.resizeMode).toBe('contain');
     expect(screen.getByText('Col. Nº M-12345')).toBeTruthy();
     expect(screen.getByText('4.8 · 17 reseñas')).toBeTruthy();
     expect(screen.getByText('Ansiedad')).toBeTruthy();
-    expect(screen.getByText('Autoestima')).toBeTruthy();
-    expect(screen.getByText('Depresión')).toBeTruthy();
-    expect(screen.getByText('Trauma')).toBeTruthy();
-    expect(screen.getByText('Problemas de sueño')).toBeTruthy();
+    expect(screen.getByText('Autoestima y desarrollo personal')).toBeTruthy();
+    expect(screen.getByText('Depresión y estado de ánimo')).toBeTruthy();
+    expect(screen.getByText('Trauma y estrés postraumático')).toBeTruthy();
+    expect(screen.getByText('Trastornos del sueño')).toBeTruthy();
     expect(screen.queryByText('+1')).toBeNull();
     expect(screen.queryByText('1 perfil')).toBeNull();
     fireEvent.press(screen.getByText('Dra. Elena Martín'));
@@ -289,8 +291,8 @@ describe('PublicSpecialistsScreen', () => {
     await waitFor(() => expect(mockedDirectory).toHaveBeenCalledTimes(1));
 
     fireEvent.press(screen.getByText('Tema'));
-    fireEvent.press(screen.getByText('Ansiedad y estrés'));
-    fireEvent.press(screen.getByText('Depresión'));
+    fireEvent.press(screen.getByText('Ansiedad'));
+    fireEvent.press(screen.getByText('Depresión y estado de ánimo'));
     expect(mockedDirectory).toHaveBeenCalledTimes(1);
     fireEvent.press(screen.getByText('Aplicar'));
     await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(

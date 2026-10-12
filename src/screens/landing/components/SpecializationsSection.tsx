@@ -22,7 +22,7 @@ const SPECIALIZATIONS: ReadonlyArray<{
   { id: 'self-esteem', label: 'Autoestima', icon: 'heart-outline' },
   { id: 'grief', label: 'Duelo', icon: 'leaf-outline' },
   { id: 'sleep', label: 'Problemas de sueño', icon: 'moon-outline' },
-  { id: 'phobias', label: 'Fobias', icon: 'compass-outline' },
+  { id: 'ocd', label: 'TOC y pensamientos intrusivos', icon: 'compass-outline' },
 ];
 
 export const SpecializationsSection: React.FC<SpecializationsSectionProps> = ({

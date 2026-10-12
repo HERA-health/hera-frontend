@@ -1,4 +1,5 @@
 interface MatchingSelectionState {
+  customSpecialties?: readonly string[]; customTherapeuticApproaches?: readonly string[];
   specialties: readonly string[];
   therapeuticApproaches: readonly string[];
   languages: readonly string[];
@@ -11,13 +12,13 @@ const joinSpanishList = (items: string[]): string => {
 };
 
 export const getMatchingCompletionDescription = ({
-  specialties,
+  specialties, customSpecialties = [], customTherapeuticApproaches = [],
   therapeuticApproaches,
   languages,
 }: MatchingSelectionState): string => {
   const missingSelections = [
-    specialties.length === 0 ? 'una especialidad' : null,
-    therapeuticApproaches.length === 0 ? 'un enfoque terapéutico' : null,
+    specialties.length + customSpecialties.length === 0 ? 'una especialidad' : null,
+    therapeuticApproaches.length + customTherapeuticApproaches.length === 0 ? 'un enfoque terapéutico' : null,
     languages.length === 0 ? 'un idioma' : null,
   ].filter((value): value is string => value !== null);
 

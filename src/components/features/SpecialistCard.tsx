@@ -1,3 +1,4 @@
+import {SpecialistPracticeSummary} from '../common/SpecialistPracticeSummary';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Image,
@@ -13,7 +14,6 @@ import { AnimatedPressable } from '../common/AnimatedPressable';
 import { Specialist } from '../../constants/types';
 import { spacing } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
-import { getSpecialistDisplayTags } from '../../utils/specialistTagLabels';
 import { getProfessionalTypeLabel } from '../../constants/professionalTypes';
 
 interface SpecialistCardProps {
@@ -41,9 +41,6 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
       ? TABLET_CARD_HEIGHT
       : MOBILE_CARD_HEIGHT;
   const affinityPct = specialist.affinityPercentage ?? 0;
-  const displayTags = getSpecialistDisplayTags(specialist);
-  const visibleTags = displayTags.slice(0, 2);
-  const remainingTags = Math.max(displayTags.length - visibleTags.length, 0);
   const professionalTypeLabel = getProfessionalTypeLabel(
     specialist.professionalType,
     specialist.professionalTypeLabel,
@@ -64,7 +61,7 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
       hoverLift
       style={[
         dynamicStyles.card,
-        { height: cardHeight },
+        { minHeight: cardHeight },
         style,
       ]}
     >
@@ -183,47 +180,7 @@ export function SpecialistCard({ specialist, onPress, onToggleFavorite, style, p
         {specialist.description}
       </Text>
 
-      <View style={styles.tags}>
-        {visibleTags.map((tag, index) => (
-          <View
-            key={`${specialist.id}-${tag}-${index}`}
-            style={[
-              styles.tag,
-              {
-                backgroundColor: theme.primaryAlpha12,
-                borderColor: theme.primaryMuted,
-              },
-            ]}
-          >
-            <Text
-              style={[styles.tagText, { color: theme.primaryDark, fontFamily: theme.fontSansSemiBold }]}
-              numberOfLines={1}
-            >
-              {tag}
-            </Text>
-          </View>
-        ))}
-        {remainingTags > 0 ? (
-          <View
-            style={[
-              styles.tag,
-              styles.moreTag,
-              {
-                backgroundColor: isDark ? theme.bgElevated : theme.bgAlt,
-                borderColor: theme.borderLight,
-              },
-            ]}
-          >
-            <Text
-              style={[styles.tagText, { color: theme.textMuted, fontFamily: theme.fontSansSemiBold }]}
-              numberOfLines={1}
-            >
-              +{remainingTags}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
+      <SpecialistPracticeSummary specialist={specialist} />
       <View style={[styles.footer, { borderTopColor: theme.border }]}>
         <View style={styles.priceRow}>
           <Text style={[styles.price, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>

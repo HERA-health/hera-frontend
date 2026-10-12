@@ -1,3 +1,4 @@
+import {getSpecialistDiscoveryRevision} from '../utils/specialistDiscoveryRevision';
 import { useEffect, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -9,17 +10,20 @@ export function useDiscoveryRevalidation(reload: () => void | Promise<unknown>, 
   const navigation = useNavigation();
   const lastReload = useRef(Date.now());
   const inFlight = useRef(false);
+  const lastRevision = useRef(getSpecialistDiscoveryRevision());
   useEffect(() => {
     // Consumers load initially and when their query changes; those reads are already fresh.
     lastReload.current = Date.now();
+    lastRevision.current = getSpecialistDiscoveryRevision();
     const refresh = () => {
       const visible = Platform.OS === 'web'
         ? typeof document === 'undefined' || document.visibilityState !== 'hidden'
         : AppState.currentState === 'active';
       if (!navigation.isFocused() || !visible || inFlight.current
-        || Date.now() - lastReload.current < REVALIDATION_INTERVAL_MS) return;
+        || (lastRevision.current === getSpecialistDiscoveryRevision() && Date.now() - lastReload.current < REVALIDATION_INTERVAL_MS)) return;
       lastReload.current = Date.now();
       inFlight.current = true;
+      lastRevision.current = getSpecialistDiscoveryRevision();
       // Loaders own their user-facing error handling.
       void Promise.resolve().then(reload).finally(() => {
         lastReload.current = Date.now();

@@ -1,3 +1,4 @@
+import {PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS} from '../../../constants/professionalMatchingOptions';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { AboutSectionProps } from '../types';
@@ -5,16 +6,7 @@ import { spacing } from '../../../constants/colors';
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { Theme } from '../../../constants/theme';
 
-export const APPROACH_TRANSLATIONS: Record<string, string> = {
-  cbt: 'Cognitivo-Conductual (TCC)',
-  act: 'Aceptación y Compromiso (ACT)',
-  emdr: 'EMDR',
-  psychodynamic: 'Psicodinámico',
-  humanistic: 'Humanista',
-  systemic: 'Sistémico',
-  mindfulness: 'Mindfulness',
-  gestalt: 'Gestalt',
-};
+export const APPROACH_TRANSLATIONS: Record<string, string> = Object.fromEntries(PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS.flatMap(option => [option.value, ...option.aliases].map(value => [value.toLowerCase(), option.label])));
 
 export const AboutSection: React.FC<AboutSectionProps> = ({
   bio,

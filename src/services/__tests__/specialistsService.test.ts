@@ -398,3 +398,32 @@ describe('profile discovery filter transport', () => {
  test('preserves an English-only declaration instead of inventing Spanish', () => {
   expect(normalizeSpecialistLanguages(['english'])).toEqual(['english']);
 });
+
+describe('discovery invalidation races', () => {
+ beforeEach(() => {jest.clearAllMocks(); invalidateSpecialistsCache();});
+ it('does not resurrect a response that began before withdrawal', async () => {
+   let finish: (value: {data:{success:boolean;data:SpecialistData[]}}) => void = () => {throw new Error('Not started');};
+   mockedApi.get.mockReturnValueOnce(new Promise(resolve=>{finish=resolve;}));
+   const beforeWithdrawal=getAllSpecialists();
+   invalidateSpecialistsCache();
+   finish({data:{success:true,data:[]}});
+   await beforeWithdrawal;
+   mockedApi.get.mockResolvedValueOnce({data:{success:true,data:[]}});
+   await getAllSpecialists();
+   expect(mockedApi.get).toHaveBeenCalledTimes(2);
+ });
+ it('an old request does not remove the newer in-flight request', async () => {
+   let finishOld: (value: {data:{success:boolean;data:SpecialistData[]}}) => void = () => {throw new Error('Not started');};
+   let finishNew: typeof finishOld = () => {throw new Error('Not started');};
+   mockedApi.get.mockReturnValueOnce(new Promise(resolve=>{finishOld=resolve;}));
+   const old=getAllSpecialists();
+   invalidateSpecialistsCache();
+   mockedApi.get.mockReturnValueOnce(new Promise(resolve=>{finishNew=resolve;}));
+   const current=getAllSpecialists();
+   finishOld({data:{success:true,data:[]}}); await old;
+   const coalesced=getAllSpecialists();
+   expect(mockedApi.get).toHaveBeenCalledTimes(2);
+   finishNew({data:{success:true,data:[]}});
+   await Promise.all([current,coalesced]);
+ });
+});

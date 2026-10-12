@@ -1,3 +1,4 @@
+jest.mock('../../../../components/common/RowLimitedPracticeTags', () => ({RowLimitedPracticeTags: ({values, kind}: {values: string[]; kind: 'specialties' | 'approaches'}) => { const React = require('react'); const {PracticeTags} = require('../../../../components/common/PracticeTags'); return <PracticeTags values={values} kind={kind} />; }}));
 jest.mock('../../../../hooks/useProfileOptions', () => ({ useProfileOptions: () => ({ options: { languages: [{ value: 'arabic', label: 'Árabe', aliases: ['arabe'] }], religions: [], religionEnabled: false }, error: false, retry: jest.fn() }) }));
 import React from 'react';
 import { StyleSheet } from 'react-native';
@@ -113,13 +114,22 @@ describe('ProfileHeroEditorial', () => {
     ['Español', 'Inglés', 'Catalán', 'Francés', 'Alemán', 'Portugués'].forEach((language) => {
       expect(screen.getByText(language)).toBeTruthy();
     });
-    ['Ansiedad', 'Depresión', 'Trauma', 'Terapia de pareja', 'Duelo', 'Problemas de sueño'].forEach((area) => {
+    ['Ansiedad', 'Depresión y estado de ánimo', 'Trauma y estrés postraumático', 'Problemas de pareja y relaciones', 'Duelo y pérdidas', 'Trastornos del sueño'].forEach((area) => {
       expect(screen.getByText(area)).toBeTruthy();
     });
     expect(screen.queryByText(/\+\d+ áreas/)).toBeNull();
     fireEvent.press(screen.getByLabelText('Ver menos idiomas'));
     expect(screen.queryByText('Portugués')).toBeNull();
     expect(screen.getByText('Español')).toBeTruthy();
+  });
+
+  it('groups specialties and approaches once and preserves custom labels with commas', () => {
+    renderHero({therapeuticApproaches: ['cbt', 'Terapia propia, orientada a valores']});
+    expect(screen.getAllByText('Especialidades')).toHaveLength(1);
+    expect(screen.getAllByText('Ansiedad')).toHaveLength(1);
+    expect(screen.getByTestId('profile-facts-approaches')).toBeTruthy();
+    expect(screen.getByText('Terapia propia, orientada a valores')).toBeTruthy();
+    expect(screen.queryByText('Enfoque terapéutico')).toBeNull();
   });
 
   it('does not render a beliefs row without a published declaration', () => {

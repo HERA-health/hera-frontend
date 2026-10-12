@@ -8,7 +8,7 @@ export function useProfileOptions() {
   useEffect(() => {
     let active = true;
     setError(false);
-    getProfileOptions().then(value => { if (active) setOptions(value); }).catch(() => { if (active) setError(true); });
+    getProfileOptions().then(value => { if (active) setOptions(value); }).catch(() => { if (active) { setOptions(null); setError(true); } });
     return () => { active = false; };
   }, [attempt]);
   const retry = useCallback(() => setAttempt(value => value + 1), []);

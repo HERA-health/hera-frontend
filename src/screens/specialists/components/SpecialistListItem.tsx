@@ -1,3 +1,4 @@
+import {SpecialistPracticeSummary} from '../../../components/common/SpecialistPracticeSummary';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -8,7 +9,6 @@ import { Button } from '../../../components/common/Button';
 import { spacing } from '../../../constants/colors';
 import type { Theme } from '../../../constants/theme';
 import { getProfessionalTypeLabel } from '../../../constants/professionalTypes';
-import { getSpecialistDisplayTags } from '../../../utils/specialistTagLabels';
 
 interface SpecialistListItemProps {
   specialist: Specialist;
@@ -26,9 +26,6 @@ export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
 }) => {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
-  const allDisplayTags = getSpecialistDisplayTags(specialist);
-  const displayTags = allDisplayTags.slice(0, 2);
-  const remainingTags = Math.max(allDisplayTags.length - displayTags.length, 0);
   const professionalTypeLabel = getProfessionalTypeLabel(
     specialist.professionalType,
     specialist.professionalTypeLabel,
@@ -113,19 +110,7 @@ export const SpecialistListItem: React.FC<SpecialistListItemProps> = ({
             ) : null}
           </View>
 
-          <View style={styles.tagsRow}>
-            {displayTags.map((tag, index) => (
-              <View key={`${specialist.id}-${tag}-${index}`} style={styles.tag}>
-                <Text style={styles.tagText} numberOfLines={1}>{tag}</Text>
-              </View>
-            ))}
-            {remainingTags > 0 ? (
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>+{remainingTags}</Text>
-              </View>
-            ) : null}
-          </View>
-
+      <SpecialistPracticeSummary specialist={specialist} />
           <View style={styles.footerRow}>
             <View style={styles.modalityRow}>
               {specialist.offersOnline ? (

@@ -1,3 +1,4 @@
+import {getSpecialistDiscoveryRevision, invalidateSpecialistDiscovery} from '../utils/specialistDiscoveryRevision';
 import { api } from './api';
 import { isAxiosError } from 'axios';
 import { getErrorMessage } from '../constants/errors';
@@ -54,6 +55,7 @@ export interface SpecialistData {
   yearsInPractice?: number | null;
   languagesSpoken?: string[];
   religionCode?: string | null;
+  religionOtherText?: string | null;
   education?: Array<{ id: string; degree: string; institution: string; startYear: string; endYear: string }>;
   experience?: Array<{ id: string; position: string; organization: string; startYear: string; endYear?: string | null; current?: boolean }>;
   certificates?: Array<{
@@ -75,6 +77,7 @@ export interface SpecialistData {
 }
 
 export interface SpecialistFilters {
+  specialties?: string[]; approaches?: string[];
   language?: string;
   religion?: string;
   specialization?: string;
@@ -127,6 +130,7 @@ export interface PublicSpecialistProfileData {
   yearsInPractice?: number | null;
   languagesSpoken?: string[];
   religionCode?: string | null;
+  religionOtherText?: string | null;
   slotDuration?: number | null;
   nextAvailable?: string | null;
   reviews: NonNullable<SpecialistData['reviews']>;
@@ -160,6 +164,8 @@ export interface PublicSpecialistCard {
 }
 
 export interface PublicSpecialistDirectoryCard extends PublicSpecialistCard {
+  customSpecialties?: string[]; therapeuticApproaches?: string[]; customTherapeuticApproaches?: string[];
+  languages?: string[]; religionCode?: string | null; religionOtherText?: string | null;
   collegiateNumber: string | null;
   specialties: string[];
 }
@@ -301,6 +307,7 @@ const getPublicDirectoryCacheKey = (filters?: PublicSpecialistDirectoryFilters):
   `directory:${buildPublicDirectoryQueryParams(filters).toString()}`;
 
 export const invalidateSpecialistsCache = (): void => {
+  invalidateSpecialistDiscovery();
   matchedSpecialistsCache.clear();
   matchedSpecialistsRequests.clear();
   publicSpecialistsCache.clear();
@@ -378,6 +385,8 @@ const openPublicDocumentUrl = async (url: string): Promise<void> => {
  * Maps a raw API SpecialistData response to the Specialist profile shape
  * used by the UI components. Pure function - no side effects.
  */
+const profileStringArray = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+
 export function mapSpecialistToProfile(data: SpecialistData): Specialist;
 export function mapSpecialistToProfile(data: Omit<SpecialistData, 'userId'>): Specialist;
 export function mapSpecialistToProfile(data: Omit<SpecialistData, 'userId'>): Specialist {
@@ -394,7 +403,8 @@ export function mapSpecialistToProfile(data: Omit<SpecialistData, 'userId'>): Sp
     rating: data.rating,
     reviewCount: data.reviewCount,
     pricePerSession: data.pricePerSession,
-    specializations: (mp?.specialties as string[]) || [],
+    specializations: [...profileStringArray(mp?.specialties), ...profileStringArray(mp?.customSpecialties)],
+    therapeuticApproaches: [...profileStringArray(mp?.therapeuticApproach), ...profileStringArray(mp?.customTherapeuticApproaches)],
     experienceYears: (mp?.experienceYears as number) || 0,
     therapeuticApproach: Array.isArray(mp?.therapeuticApproach)
       ? (mp.therapeuticApproach as string[]).join(', ')
@@ -437,6 +447,7 @@ export function mapSpecialistToProfile(data: Omit<SpecialistData, 'userId'>): Sp
     yearsInPractice: data.yearsInPractice ?? null,
     languagesSpoken: data.languagesSpoken || [],
     religionCode: data.religionCode ?? null,
+    religionOtherText: data.religionOtherText ?? null,
     verificationStatus: data.verificationStatus || undefined,
     firstVisitFree: data.firstVisitFree || false,
     collegiateNumber: data.collegiateNumber || undefined,
@@ -476,6 +487,7 @@ export const openPublicCertificateDocument = async (
  * based on their questionnaire answers
  */
 export const getMatchedSpecialists = async (): Promise<MatchedSpecialistsResponse> => {
+  const revision = getSpecialistDiscoveryRevision();
   const cacheKey = getMatchedCacheKey();
   const cached = getFreshCache(matchedSpecialistsCache, cacheKey);
   if (cached) {
@@ -489,12 +501,13 @@ export const getMatchedSpecialists = async (): Promise<MatchedSpecialistsRespons
 
   const request = api
     .get<{ success: boolean; data: MatchedSpecialistsResponse }>('/specialists/matched/for-me')
-    .then((response) => setCache(matchedSpecialistsCache, cacheKey, response.data.data))
+    .then((response) => revision === getSpecialistDiscoveryRevision()
+      ? setCache(matchedSpecialistsCache, cacheKey, response.data.data) : response.data.data)
     .catch((error: unknown) => {
       throw new Error(getErrorMessage(error, 'Error al cargar especialistas recomendados'));
     })
     .finally(() => {
-      matchedSpecialistsRequests.delete(cacheKey);
+      if (matchedSpecialistsRequests.get(cacheKey) === request) matchedSpecialistsRequests.delete(cacheKey);
     });
 
   matchedSpecialistsRequests.set(cacheKey, request);
@@ -506,7 +519,8 @@ export const getMatchedSpecialists = async (): Promise<MatchedSpecialistsRespons
  * Supports optional filters including proximity-based filtering
  */
 export const getAllSpecialists = async (filters?: SpecialistFilters): Promise<SpecialistData[]> => {
-  if (filters?.religion) return (await api.post<{ success: boolean; data: SpecialistData[] }>('/specialists/search', filters)).data.data;
+  if (filters?.religion || filters?.specialties?.length || filters?.approaches?.length) return (await api.post<{ success: boolean; data: SpecialistData[] }>('/specialists/search', filters)).data.data;
+  const revision = getSpecialistDiscoveryRevision();
   const cacheKey = getPublicSpecialistsCacheKey(filters);
   const cached = getFreshCache(publicSpecialistsCache, cacheKey);
   if (cached) {
@@ -523,12 +537,13 @@ export const getAllSpecialists = async (filters?: SpecialistFilters): Promise<Sp
 
   const request = api
     .get<{ success: boolean; data: SpecialistData[] }>(url)
-    .then((response) => setCache(publicSpecialistsCache, cacheKey, response.data.data))
+    .then((response) => revision === getSpecialistDiscoveryRevision()
+      ? setCache(publicSpecialistsCache, cacheKey, response.data.data) : response.data.data)
     .catch((error: unknown) => {
       throw new Error(getErrorMessage(error, 'Error al cargar especialistas'));
     })
     .finally(() => {
-      publicSpecialistsRequests.delete(cacheKey);
+      if (publicSpecialistsRequests.get(cacheKey) === request) publicSpecialistsRequests.delete(cacheKey);
     });
 
   publicSpecialistsRequests.set(cacheKey, request);
@@ -553,7 +568,7 @@ export const getFeaturedSpecialists = async (): Promise<PublicSpecialistCard[]> 
       throw new Error(getErrorMessage(error, 'No se pudieron cargar los especialistas destacados'));
     })
     .finally(() => {
-      featuredSpecialistsRequests.delete(cacheKey);
+      if (featuredSpecialistsRequests.get(cacheKey) === request) featuredSpecialistsRequests.delete(cacheKey);
     });
 
   featuredSpecialistsRequests.set(cacheKey, request);
@@ -586,7 +601,7 @@ export const getPublicSpecialistDirectory = async (
       throw new Error(getErrorMessage(error, 'No se pudo cargar el directorio de especialistas'));
     })
     .finally(() => {
-      publicDirectoryRequests.delete(cacheKey);
+      if (publicDirectoryRequests.get(cacheKey) === request) publicDirectoryRequests.delete(cacheKey);
     });
 
   publicDirectoryRequests.set(cacheKey, request);

@@ -1,3 +1,4 @@
+import {RowLimitedPracticeTags} from '../../../components/common/RowLimitedPracticeTags';
 import { LanguageIcon } from '../../../components/common/LanguageIcon';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useProfileOptions } from '../../../hooks/useProfileOptions';
@@ -21,7 +22,7 @@ import {
   getProfileLanguageItems,
 } from '../profilePresentation';
 import type { ProfileHeroProps } from '../types';
-import { APPROACH_TRANSLATIONS } from './AboutSection';
+
 
 const IconAction: React.FC<{
   accessibilityLabel: string;
@@ -97,10 +98,7 @@ export const ProfileHeroEditorial: React.FC<ProfileHeroProps> = ({
         horizontal ? 750 : 675,
       )
     : null;
-  const approach = therapeuticApproach
-    ?.split(',')
-    .map((item) => APPROACH_TRANSLATIONS[item.trim().toLowerCase()] || item.trim())
-    .join(', ');
+  const approaches = specialist.therapeuticApproaches ?? therapeuticApproach?.split(',').map(value => value.trim()).filter(Boolean) ?? [];
   const showReadMore = (bio?.trim().length ?? 0) > 220;
   const years = specialist.yearsInPractice ?? specialist.experienceYears;
   const verified = specialist.verificationStatus === 'VERIFIED';
@@ -214,7 +212,7 @@ export const ProfileHeroEditorial: React.FC<ProfileHeroProps> = ({
             ) : null}
           </View>
 
-          {(bio || approach) ? (
+          {bio ? (
             <View style={styles.aboutBlock}>
               {bio ? (
                 <>
@@ -241,28 +239,26 @@ export const ProfileHeroEditorial: React.FC<ProfileHeroProps> = ({
                   ) : null}
                 </>
               ) : null}
-              {approach ? (
-                <View style={[styles.approach, !bio && styles.approachWithoutBio]}>
-                  <Text style={styles.approachLabel}>Enfoque terapéutico</Text>
-                  <Text style={styles.approachValue}>{approach}</Text>
-                </View>
-              ) : null}
+
             </View>
           ) : null}
         </View>
       </View>
 
       <View style={styles.factsStrip} onLayout={event => setFactsWidth(event.nativeEvent.layout.width)}>
+        <Text style={styles.practiceTitle}>Su práctica profesional</Text>
+        <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 24}}>
         {translatedSpecializations.length > 0 ? (
-          <View testID="profile-facts-specializations" style={styles.specializationsGroup}>
-            <Text style={styles.factLabel}>Áreas principales</Text>
-            <View style={styles.tags}>
-              {translatedSpecializations.map(tag => (
-                <View key={tag} style={styles.tag}><Text style={styles.tagText}>{tag}</Text></View>
-              ))}
-            </View>
+          <View testID="profile-facts-specializations" style={[styles.specializationsGroup, {flexBasis: factsWidth >= 760 ? 280 : '100%'}]}>
+            <Text style={styles.factLabel}>Especialidades</Text>
+            <RowLimitedPracticeTags title="Especialidades" kind="specialties" values={specialist.specializations} />
           </View>
         ) : null}
+        {approaches.length ? <View testID="profile-facts-approaches" style={[styles.specializationsGroup, {flexBasis: factsWidth >= 760 ? 280 : '100%'}]}>
+          <Text style={styles.factLabel}>Enfoques terapéuticos</Text>
+          <RowLimitedPracticeTags title="Enfoques terapéuticos" kind="approaches" values={approaches} />
+        </View> : null}
+        </View>
         <View style={styles.practicalDetails}>
           <View style={styles.practicalRow}>
             {languageItems.length > 0 ? (
@@ -307,8 +303,8 @@ export const ProfileHeroEditorial: React.FC<ProfileHeroProps> = ({
             ) : null}
           {profileOptions?.religionEnabled && specialist.religionCode ? (
             <View testID="profile-facts-religion" style={styles.factGroup}>
-              <Text style={styles.factLabel}>Religión o creencias</Text>
-              <Text style={styles.beliefsValue}>{optionLabel(profileOptions.religions, specialist.religionCode)}</Text>
+              <Text style={styles.factLabel}>Perspectiva espiritual o religiosa</Text>
+              <Text style={styles.beliefsValue}>{specialist.religionCode === 'other' ? specialist.religionOtherText || 'Otra' : optionLabel(profileOptions.religions, specialist.religionCode)}</Text>
             </View>
           ) : null}
           </View>
@@ -591,15 +587,15 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     padding: spacing.xl,
     gap: 24,
   },
+  practiceTitle: {
+    fontSize: 20, lineHeight: 26, fontFamily: theme.fontHeading, color: theme.textPrimary,
+  },
   specializationsGroup: {
-    minWidth: 0,
-    gap: 10,
-    backgroundColor: isDark ? theme.bgElevated : theme.primaryMuted,
-    padding: 18,
-    borderRadius: 14,
+    minWidth: 0, flexGrow: 1, gap: 8,
   },
   practicalDetails: {
     width: '100%',
+    borderTopWidth: 1, borderTopColor: theme.borderLight, paddingTop: 20,
   },
   practicalRow: {
     flexDirection: 'row',

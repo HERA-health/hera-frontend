@@ -1,3 +1,5 @@
+import {SearchableProfileSelect} from '../../components/common/SearchableProfileSelect';
+import {PROFESSIONAL_SPECIALTY_OPTIONS, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS} from '../../constants/professionalMatchingOptions';
 import { directoryIntent } from '../../services/heraCommissionService';
 import { ProfileDiscoveryFilters } from '../../components/common/ProfileDiscoveryFilters';
 import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
@@ -73,7 +75,10 @@ const PROFESSIONAL_TYPE_FILTER_GROUPS = [
   },
 ];
 
+const matchingStrings = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 const buildMatchingProfile = (matchingProfile?: Record<string, unknown>) => ({
+  customSpecialties: matchingStrings(matchingProfile?.customSpecialties),
+  customTherapeuticApproaches: matchingStrings(matchingProfile?.customTherapeuticApproaches),
   therapeuticApproach: Array.isArray(matchingProfile?.therapeuticApproach)
     ? (matchingProfile.therapeuticApproach as string[])
     : [],
@@ -110,6 +115,7 @@ const mapSpecialistDataToCard = (
   return {
     id: specialist.id,
     name,
+    religionCode: specialist.religionCode, religionOtherText: specialist.religionOtherText,
     avatar: specialistsService.resolveSpecialistAvatar(specialist) ?? undefined,
     initial: name.charAt(0).toUpperCase(),
     specialization: specialist.specialization,
@@ -160,6 +166,8 @@ const SpecialistsScreen: React.FC = () => {
   const discoveryRequest = useRef(0);
   const [language, setLanguage] = useState<string>();
   const [religion, setReligion] = useState<string>();
+  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [approaches, setApproaches] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('affinity');
   const [activeTab, setActiveTab] = useState<'specialists' | 'posts'>('specialists');
@@ -233,7 +241,7 @@ const SpecialistsScreen: React.FC = () => {
         // Best effort. The public list must still render.
       }
 
-      const filters: specialistsService.SpecialistFilters = { language, religion };
+      const filters: specialistsService.SpecialistFilters = { language, religion, specialties, approaches };
       if (selectedProfessionalTypes.length === 1) {
         filters.professionalType = selectedProfessionalTypes[0];
       }
@@ -284,7 +292,7 @@ const SpecialistsScreen: React.FC = () => {
     maxDistance,
     proximityEnabled,
     selectedProfessionalTypes,
-    language, religion,
+    language, religion, specialties, approaches,
     user?.type,
   ]);
 
@@ -431,9 +439,9 @@ const SpecialistsScreen: React.FC = () => {
     return combineSpecialistResults(
       allSpecialists,
       matchedSpecialists,
-      Boolean(language || religion || (proximityEnabled && clientLocation.hasLocation)),
+      Boolean(language || religion || specialties.length || approaches.length || (proximityEnabled && clientLocation.hasLocation)),
     );
-  }, [allSpecialists, clientLocation.hasLocation, matchedSpecialists, proximityEnabled, language, religion]);
+  }, [allSpecialists, clientLocation.hasLocation, matchedSpecialists, proximityEnabled, language, religion, specialties, approaches]);
 
   const filteredSpecialists = useMemo(() => {
     return combinedSpecialists
@@ -904,6 +912,10 @@ const SpecialistsScreen: React.FC = () => {
 
           </View>
 
+          <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 12}}>
+            <SearchableProfileSelect label="Especialidades" options={PROFESSIONAL_SPECIALTY_OPTIONS.map(option => ({...option, aliases: [...option.aliases]}))} values={specialties} onChange={values => {setSpecialties(values); setShowAllSpecialists(true);}} multiple max={22} emptyLabel="Todas las especialidades" />
+            <SearchableProfileSelect label="Enfoques terapéuticos" options={PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS.map(option => ({...option, aliases: [...option.aliases]}))} values={approaches} onChange={values => {setApproaches(values); setShowAllSpecialists(true);}} multiple max={12} emptyLabel="Todos los enfoques" />
+          </View>
           <ProfileDiscoveryFilters language={language} religion={religion} onChange={values => { setLanguage(values.language); setReligion(values.religion); setShowAllSpecialists(true); }} />
           <View style={styles.filtersRail}>
             <TopicFilterDropdown

@@ -101,7 +101,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
       if (refreshing && !unavailable) {
         setRefreshError(loadError instanceof Error ? loadError.message : 'No se pudo actualizar el perfil.');
         // Do not retain an optional sensitive declaration after a failed revalidation.
-        setSpecialist(current => current ? { ...current, religionCode: null } : null);
+        setSpecialist(current => current ? { ...current, religionCode: null, religionOtherText: null } : null);
       } else {
         loadedProfileRef.current = null;
         setSpecialist(null);

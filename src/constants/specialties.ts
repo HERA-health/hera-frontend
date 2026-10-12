@@ -1,17 +1,3 @@
-export const SPECIALTY_TRANSLATIONS: Readonly<Record<string, string>> = {
-  anxiety: 'Ansiedad',
-  depression: 'Depresión',
-  'self-esteem': 'Autoestima',
-  stress: 'Estrés laboral',
-  relationships: 'Relaciones',
-  sleep: 'Problemas de sueño',
-  phobias: 'Fobias',
-  trauma: 'Trauma',
-  couples: 'Terapia de pareja',
-  grief: 'Duelo',
-  addiction: 'Adicciones',
-  eating: 'Trastornos alimentarios',
-};
-
-export const translateSpecialty = (specialty: string): string =>
-  SPECIALTY_TRANSLATIONS[specialty.toLowerCase()] ?? specialty;
+import {matchingChoiceLabel, PROFESSIONAL_SPECIALTY_OPTIONS} from './professionalMatchingOptions';
+export const SPECIALTY_TRANSLATIONS: Readonly<Record<string, string>> = Object.fromEntries(PROFESSIONAL_SPECIALTY_OPTIONS.map(option => [option.value, option.label]));
+export const translateSpecialty = (value: string): string => matchingChoiceLabel(value, PROFESSIONAL_SPECIALTY_OPTIONS);

@@ -47,6 +47,8 @@ export interface Specialist {
   yearsInPractice?: number | null;
   languagesSpoken?: string[];
   religionCode?: string | null;
+  religionOtherText?: string | null;
+  therapeuticApproaches?: string[];
   verificationStatus?: string;
   firstVisitFree?: boolean;
 }

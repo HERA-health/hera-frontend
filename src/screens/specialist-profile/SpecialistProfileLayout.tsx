@@ -21,7 +21,7 @@ import { ExperienceSection } from './components/ExperienceSection';
 import { PhotoGallerySection } from './components/PhotoGallerySection';
 import { ProfileHeroEditorial } from './components/ProfileHeroEditorial';
 import { ReviewsSection } from './components/ReviewsSection';
-import { SpecializationsGrid } from './components/SpecializationsGrid';
+
 import { StickyBookingBarEditorial } from './components/StickyBookingBarEditorial';
 import { VideoSection } from './components/VideoSection';
 
@@ -196,14 +196,6 @@ export const SpecialistProfileLayout: React.FC<SpecialistProfileLayoutProps> = (
               </View>
             ) : null}
 
-            {specialist.specializations.length > 0 ? (
-              <View style={styles.section}>
-                <SpecializationsGrid
-                  specializations={specialist.specializations}
-                  specializationsDetail={specialist.specializationsDetail}
-                />
-              </View>
-            ) : null}
 
             {reviewsVisible ? (
               <View

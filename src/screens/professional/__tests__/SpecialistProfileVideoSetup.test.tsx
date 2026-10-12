@@ -21,7 +21,12 @@ jest.mock('../../../components/common/alert', () => ({ useAppAlert: () => ({}), 
 jest.mock('../../../hooks/useGeneralRateLimit', () => ({ useFocusedRateLimitRecovery: jest.fn() }));
 jest.mock('../../../components/onboarding/professionalTourContext', () => ({ useProfessionalTourAutoStart: jest.fn(), useProfessionalTourStepPreparation: jest.fn() }));
 jest.mock('../../../components/onboarding/TourTarget', () => ({ TourTarget: ({ children }: { children: React.ReactNode }) => children }));
-jest.mock('../../../components/professional/ProfessionalMatchingEditor', () => ({ ProfessionalMatchingEditor: () => null }));
+jest.mock('../../../components/professional/ProfessionalMatchingEditor', () => ({
+  ProfessionalMatchingEditor: ({perspective, onPerspectiveChange}: {perspective: import('../../../utils/perspective').PerspectiveDraft; onPerspectiveChange: (value: import('../../../utils/perspective').PerspectiveDraft) => void}) => {
+    const {Button} = require('react-native');
+    return <Button title="Retirar perspectiva de prueba" onPress={() => onPerspectiveChange({...perspective, religionCode: '', religionOtherText: '', publish: false, noticeVersion: null})} />;
+  },
+}));
 jest.mock('../../../components/professional/PublicProfileSlugEditor', () => ({ PublicProfileSlugEditor: () => null }));
 jest.mock('../../../components/professional/DirectoryVisibilityStatus', () => ({ DirectoryVisibilityStatus: () => null }));
 jest.mock('../../../components/professional/ClinicalPinManager', () => ({ ClinicalPinManager: () => null }));
@@ -35,7 +40,7 @@ jest.mock('../../../services/googleCalendarService', () => ({ getGoogleCalendarS
 
 const profile: professionalService.SpecialistProfileData = {
   id: 'specialist', fullName: 'Especialista de prueba', professionalTitle: 'Psicólogo', professionalType: 'PSYCHOLOGIST_HEALTH',
-  bio: 'Descripción profesional de prueba.', avatar: null, specialties: [], therapeuticApproaches: [], languages: ['spanish'], education: [], experience: [],
+  bio: 'Descripción profesional de prueba.', avatar: null, specialties: ['anxiety'], therapeuticApproaches: [], languages: ['spanish'], education: [], experience: [],
   identityVerified: false, insuranceUploaded: false, insuranceReviewStatus: 'NOT_UPLOADED', insuranceReviewedAt: null, insuranceRejectedReason: null,
   locationVisibleToPatients: false, certificates: [], priceStandard: 65, email: 'professional@example.invalid', emailVerified: true, phone: '',
   phoneVerified: false, twoFactorEnabled: false, profileVisible: true, showReviewCount: true, showLastOnline: false,
@@ -61,7 +66,7 @@ test('enabling online sessions persists the modality before opening the Google t
   render(<SpecialistProfileScreen />);
   fireEvent.press(await screen.findByText('Sesiones online'));
   fireEvent.press(await screen.findByText('Guardar y configurar Google Meet'));
-  expect(professionalService.updateComprehensiveProfile).toHaveBeenCalledWith({ offersOnline: true });
+  expect(professionalService.updateComprehensiveProfile).toHaveBeenCalledWith({ offersOnline: true, specialties: ['anxiety'], customSpecialties: [], therapeuticApproaches: [], customTherapeuticApproaches: [] });
   expect(screen.queryByText('Paso 1 de 2 · Conecta tu cuenta de Google')).toBeNull();
   await act(async () => { finishSave({ ...profile, offersOnline: true }); });
   await screen.findByText('Paso 1 de 2 · Conecta tu cuenta de Google');
@@ -114,4 +119,39 @@ test('existing account navigation still opens account settings', async () => {
   await screen.findByText('Información de cuenta');
   expect(screen.getByRole('tab', { name: 'Cuenta', selected: true })).toBeTruthy();
   expect(screen.queryByText('Calendario y videollamadas')).toBeNull();
+});
+
+test('withdrawing alone bypasses unrelated incomplete profile fields and saves once', async () => {
+  const incomplete = {...profile, specialties: [], professionalType: null, perspective: {religionCode: 'catholic', hasPublication: true, hasDeclaration: true}};
+  jest.mocked(professionalService.getComprehensiveProfile).mockResolvedValue(incomplete);
+  let finishSave: (value: professionalService.SpecialistProfileData) => void = () => {throw new Error('Not started');};
+  jest.mocked(professionalService.updateComprehensiveProfile).mockImplementation(() => new Promise(resolve => {finishSave = resolve;}));
+  render(<SpecialistProfileScreen />);
+  fireEvent.press(await screen.findByText('Retirar perspectiva de prueba'));
+  const saveButton = screen.getByText('Guardar');
+  fireEvent.press(saveButton);
+  fireEvent.press(saveButton);
+  expect(professionalService.updateComprehensiveProfile).toHaveBeenCalledTimes(1);
+  expect(professionalService.updateComprehensiveProfile).toHaveBeenCalledWith({perspectiveOperation: {action: 'delete'}});
+  await act(async () => {finishSave({...incomplete, perspective: {religionCode: null, hasPublication: false, hasDeclaration: false}});});
+});
+
+test('a rejected withdrawal keeps the draft available to retry', async () => {
+  jest.mocked(professionalService.getComprehensiveProfile).mockResolvedValue({...profile, perspective: {religionCode: 'catholic', hasPublication: true, hasDeclaration: true}});
+  jest.mocked(professionalService.updateComprehensiveProfile).mockRejectedValue(new Error('Error de prueba'));
+  render(<SpecialistProfileScreen />);
+  fireEvent.press(await screen.findByText('Retirar perspectiva de prueba'));
+  fireEvent.press(screen.getByText('Guardar'));
+  await waitFor(() => expect(showAppAlert).toHaveBeenCalledWith(expect.anything(), 'No se pudo guardar el perfil', 'Error de prueba'));
+  await act(async () => fireEvent.press(screen.getByText('Guardar')));
+  expect(professionalService.updateComprehensiveProfile).toHaveBeenCalledTimes(2);
+});
+
+test('a migrated profile can acknowledge its review without changing valid selections', async () => {
+  jest.mocked(professionalService.getComprehensiveProfile).mockResolvedValue({...profile, matchingNeedsReview: true});
+  jest.mocked(professionalService.updateComprehensiveProfile).mockResolvedValue({...profile, matchingNeedsReview: false});
+  render(<SpecialistProfileScreen />);
+  await screen.findByText('Retirar perspectiva de prueba');
+  await act(async () => fireEvent.press(screen.getByText('Guardar')));
+  await waitFor(() => expect(professionalService.updateComprehensiveProfile).toHaveBeenCalledTimes(1));
 });

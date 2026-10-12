@@ -1,3 +1,6 @@
+import { emptyPerspective, type PerspectiveDraft } from '../../utils/perspective';
+import type {PerspectiveOperation} from '../../services/profileDiscoveryService';
+import { customChoiceError, PROFESSIONAL_SPECIALTY_OPTIONS, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS } from '../../constants/professionalMatchingOptions';
 import { PrivacyPreferencesButton } from '../../components/common/PrivacyPreferences';
 import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
@@ -130,6 +133,10 @@ interface SpecialistProfileData {
   avatar: string | null;
 
   // Professional Details
+  customSpecialties: string[];
+  customTherapeuticApproaches: string[];
+  matchingNeedsReview: boolean;
+  perspective: PerspectiveDraft;
   specialties: string[];
   therapeuticApproaches: string[];
   languages: string[];
@@ -375,6 +382,14 @@ const mapServiceProfileToFormData = (profile: ServiceProfileData): SpecialistPro
   professionalType: profile.professionalType || null,
   bio: profile.bio || '',
   avatar: profile.avatar ?? null,
+  customSpecialties: profile.customSpecialties ?? [],
+  customTherapeuticApproaches: profile.customTherapeuticApproaches ?? [],
+  matchingNeedsReview: profile.matchingNeedsReview ?? false,
+  perspective: {
+    religionCode: profile.perspective?.religionCode ?? '', religionOtherText: profile.perspective?.religionOtherText ?? '',
+    publish: profile.perspective?.hasPublication ?? false, noticeVersion: null,
+    hasDeclaration: profile.perspective?.hasDeclaration ?? false, needsReconfirmation: profile.perspective?.needsReconfirmation ?? false,
+  },
   specialties: profile.specialties || [],
   therapeuticApproaches: profile.therapeuticApproaches || [],
   languages: profile.languages || ['spanish'],
@@ -631,6 +646,7 @@ export function SpecialistProfileScreen() {
     avatar: user?.avatar || null,
 
     // Professional Details
+    customSpecialties: [], customTherapeuticApproaches: [], matchingNeedsReview: false, perspective: emptyPerspective(),
     specialties: [],
     therapeuticApproaches: [],
     languages: ['spanish'],
@@ -822,7 +838,7 @@ export function SpecialistProfileScreen() {
 
   // Check for changes
   useEffect(() => {
-    const changed = JSON.stringify(profileData) !== JSON.stringify(originalData);
+    const changed = profileData.matchingNeedsReview || JSON.stringify(profileData) !== JSON.stringify(originalData);
     setHasChanges(changed);
   }, [profileData, originalData]);
 
@@ -948,7 +964,13 @@ export function SpecialistProfileScreen() {
     if (profileSaveRunning.current) return false;
     if (!hasChanges) return true;
 
-    if (profileData.offersInPerson && !profileData.insuranceUploaded) {
+    const perspectiveChanged = JSON.stringify(profileData.perspective) !== JSON.stringify(originalData.perspective);
+    const perspective = profileData.perspective;
+    const withdrawalOnly = perspectiveChanged && originalData.perspective.hasDeclaration && !perspective.publish
+      && Object.keys(profileData).every(key => key === 'perspective'
+        || JSON.stringify(profileData[key as keyof SpecialistProfileData]) === JSON.stringify(originalData[key as keyof SpecialistProfileData]));
+
+    if (!withdrawalOnly && profileData.offersInPerson && !profileData.insuranceUploaded) {
       showAppAlert(appAlert, 
         'Falta la póliza',
         'Para activar las sesiones presenciales necesitamos una póliza de responsabilidad civil subida y guardada en HERA.'
@@ -956,7 +978,7 @@ export function SpecialistProfileScreen() {
       return false;
     }
 
-    if (!profileData.professionalType) {
+    if (!withdrawalOnly && !profileData.professionalType) {
       showAppAlert(
         appAlert,
         'Falta el tipo profesional',
@@ -965,10 +987,21 @@ export function SpecialistProfileScreen() {
       return false;
     }
 
+    const specialtyCount = profileData.specialties.length + profileData.customSpecialties.length;
+    const choiceError = profileData.customSpecialties.map((value, i) => customChoiceError(value, profileData.customSpecialties.slice(0, i), PROFESSIONAL_SPECIALTY_OPTIONS)).find(Boolean)
+      || profileData.customTherapeuticApproaches.map((value, i) => customChoiceError(value, profileData.customTherapeuticApproaches.slice(0, i), PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS)).find(Boolean);
+    if (!withdrawalOnly && (specialtyCount < 1 || specialtyCount > 5 || choiceError || profileData.therapeuticApproaches.length + profileData.customTherapeuticApproaches.length > 30)) {
+      showAppAlert(appAlert, 'Revisa tu práctica', choiceError || 'Elige entre 1 y 5 especialidades y hasta 30 enfoques.');
+      return false;
+    }
+    if (perspectiveChanged && perspective.publish && (!perspective.religionCode || !perspective.noticeVersion || (perspective.religionCode === 'other' && !perspective.religionOtherText.trim()))) {
+      showAppAlert(appAlert, 'Revisa tu perspectiva', 'Selecciona una perspectiva y confirma su publicación.');
+      return false;
+    }
     profileSaveRunning.current = true;
     setIsSaving(true);
     try {
-      const updateData: Partial<ServiceProfileData> = {
+      const updateData: Partial<ServiceProfileData> & {perspectiveOperation?: PerspectiveOperation} = {
       };
       const hasFieldChanged = <K extends keyof SpecialistProfileData>(field: K) =>
         JSON.stringify(profileData[field]) !== JSON.stringify(originalData[field]);
@@ -988,7 +1021,17 @@ export function SpecialistProfileScreen() {
       assignIfChanged('professionalType', 'professionalType', profileData.professionalType);
       assignIfChanged('bio', 'bio', profileData.bio);
       assignIfChanged('avatar', 'avatar', profileData.avatar);
-      assignIfChanged('specialties', 'specialties', profileData.specialties);
+      // Send the complete choice groups so the server can validate the resulting selection.
+      if (!withdrawalOnly) {
+        updateData.specialties = profileData.specialties;
+        updateData.customSpecialties = profileData.customSpecialties;
+        updateData.therapeuticApproaches = profileData.therapeuticApproaches;
+        updateData.customTherapeuticApproaches = profileData.customTherapeuticApproaches;
+      }
+      if (perspectiveChanged) {
+        if (perspective.publish && perspective.noticeVersion) updateData.perspectiveOperation = {action: 'publish', religionCode: perspective.religionCode, religionOtherText: perspective.religionCode === 'other' ? perspective.religionOtherText.trim() : null, noticeVersion: perspective.noticeVersion};
+        else if (originalData.perspective.hasDeclaration) updateData.perspectiveOperation = {action: 'delete'};
+      }
       assignIfChanged('therapeuticApproaches', 'therapeuticApproaches', profileData.therapeuticApproaches);
       assignIfChanged('languages', 'languages', profileData.languages);
       assignIfChanged('education', 'education', profileData.education);
@@ -1027,7 +1070,7 @@ export function SpecialistProfileScreen() {
       if (notifySuccess) showAppAlert(appAlert, 'Cambios guardados', 'Tu perfil ha sido actualizado correctamente');
       return true;
     } catch (error: unknown) {
-      console.error('Error saving profile:', error);
+      // API errors can contain sensitive form data; show only the safe user-facing message.
       showAppAlert(
         appAlert,
         'No se pudo guardar el perfil',
@@ -1501,9 +1544,9 @@ export function SpecialistProfileScreen() {
     <TourTarget id="professional.profile.tabs" fill style={styles.fullWidthTourTarget}>
       <View style={[styles.tabsContainer, isDesktop && styles.tabsContainerDesktop]}>
         <View style={[styles.topBar, isDesktop ? styles.topBarDesktop : styles.topBarMobile]}>
-          <View style={styles.topBarContent}>
+          {!isMobile ? <View style={styles.topBarContent}>
             <Text style={styles.topBarTitle}>Editar perfil</Text>
-          </View>
+          </View> : null}
 
           <View style={styles.topBarActions}>
             <TourTarget id="professional.profile.preview" fill>
@@ -2423,6 +2466,17 @@ export function SpecialistProfileScreen() {
           getMatchingCompletionDescription(profileData),
         )}
         <ProfessionalMatchingEditor
+          name={profileData.fullName}
+          title={profileData.professionalTitle}
+          avatar={profileData.avatar}
+          customSpecialties={profileData.customSpecialties}
+          customApproaches={profileData.customTherapeuticApproaches}
+          onCustomSpecialtiesChange={values => updateField('customSpecialties', values)}
+          onCustomApproachesChange={values => updateField('customTherapeuticApproaches', values)}
+          matchingNeedsReview={profileData.matchingNeedsReview}
+          perspective={profileData.perspective}
+          onPerspectiveChange={value => updateField('perspective', value)}
+          busy={isSaving}
           specialties={profileData.specialties}
           approaches={profileData.therapeuticApproaches}
           languages={profileData.languages}
@@ -3418,7 +3472,8 @@ export function SpecialistProfileScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header, requirements and editable fields share one vertical scroll. */}
+      {/* Keep navigation and save available while the form scrolls. */}
+      {renderTabNavigation()}
       <ScrollView
         ref={formScrollRef}
         style={styles.formArea}
@@ -3429,7 +3484,6 @@ export function SpecialistProfileScreen() {
         }}
         scrollEventThrottle={16}
       >
-        {renderTabNavigation()}
         <View style={styles.formContent}>
           {activeTab === 'mi-espacio' && renderMiEspacioTab()}
           {activeTab === 'information' && renderInformationTab()}
@@ -3750,7 +3804,7 @@ function createStyles(
   },
   topBarMobile: {
     paddingHorizontal: spacing.md,
-    paddingLeft: layout.mobileShellLeftInset,
+    paddingLeft: spacing.md,
     flexWrap: 'wrap',
   },
   topBarContent: {

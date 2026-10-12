@@ -1,3 +1,4 @@
+jest.mock('../../../hooks/useProfileOptions', () => ({useProfileOptions: () => ({options: null})}));
 import React from 'react';
 import { Platform } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';

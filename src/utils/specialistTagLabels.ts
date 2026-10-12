@@ -1,16 +1,5 @@
+import {matchingChoiceLabel, PROFESSIONAL_SPECIALTY_OPTIONS, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS} from '../constants/professionalMatchingOptions';
 import { Specialist } from '../constants/types';
-
-const APPROACH_LABELS: Record<string, string> = {
-  cbt: 'Terapia cognitiva',
-  'cognitive-behavioral': 'Terapia cognitiva',
-  act: 'Aceptación y compromiso',
-  emdr: 'EMDR',
-  psychodynamic: 'Psicodinámica',
-  humanistic: 'Humanista',
-  systemic: 'Sistémica',
-  mindfulness: 'Mindfulness',
-  gestalt: 'Gestalt',
-};
 
 const TAG_LABELS: Record<string, string> = {
   ansiedad: 'Ansiedad',
@@ -66,7 +55,7 @@ export const prettifySpecialistTag = (value: string): string => {
   const normalized = normalizeTagKey(value);
 
   return (
-    TAG_LABELS[normalized] ??
+    (matchingChoiceLabel(value, PROFESSIONAL_SPECIALTY_OPTIONS) !== value ? matchingChoiceLabel(value, PROFESSIONAL_SPECIALTY_OPTIONS) : undefined) ?? TAG_LABELS[normalized] ??
     value
       .trim()
       .replace(/[_-]+/g, ' ')
@@ -79,15 +68,15 @@ export const getSpecialistDisplayTags = (specialist: Specialist): string[] => {
     .map((specialty) => prettifySpecialistTag(specialty))
     .filter(Boolean);
 
-  const therapyTags = (specialist.matchingProfile?.therapeuticApproach ?? [])
-    .map((approach) => APPROACH_LABELS[normalizeTagKey(approach)] ?? prettifySpecialistTag(approach))
+  const therapyTags = ([...(specialist.matchingProfile?.therapeuticApproach ?? []), ...(specialist.matchingProfile?.customTherapeuticApproaches ?? [])])
+    .map((approach) => matchingChoiceLabel(approach, PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS))
     .filter(Boolean);
 
   const fallbackTags = (specialist.tags ?? [])
     .map((tag) => prettifySpecialistTag(tag))
     .filter((tag) => !NON_DISPLAY_MATCH_LABELS.has(tag));
 
-  return Array.from(new Set([...specialtyTags, ...fallbackTags, ...therapyTags]));
+  return Array.from(new Set([...specialtyTags, ...(specialist.matchingProfile?.customSpecialties ?? []), ...fallbackTags, ...therapyTags]));
 };
 
 const GENERIC_SPECIALIZATIONS = new Set([

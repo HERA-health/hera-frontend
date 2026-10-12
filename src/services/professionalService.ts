@@ -1,3 +1,4 @@
+import type { ReligionPublication, PerspectiveOperation } from './profileDiscoveryService';
 import { invalidateSpecialistsCache } from './specialistsService';
 import { durableCommandKey } from './heraCommissionService';
 import { api } from './api';
@@ -629,6 +630,10 @@ export interface SpecialistProfileData {
   avatar: string | null;
 
   // Professional Details
+  customSpecialties?: string[];
+  customTherapeuticApproaches?: string[];
+  matchingNeedsReview?: boolean;
+  perspective?: ReligionPublication;
   specialties: string[];
   therapeuticApproaches: string[];
   languages: string[];
@@ -892,7 +897,7 @@ export const getProfessionalProfileUpdateErrorMessage = (error: unknown): string
  * Update comprehensive profile for the current professional
  */
 export const updateComprehensiveProfile = async (
-  data: Partial<SpecialistProfileData>
+  data: Partial<SpecialistProfileData> & {perspectiveOperation?: PerspectiveOperation}
 ): Promise<SpecialistProfileData> => {
   try {
     // Transform frontend data to API format
@@ -904,6 +909,9 @@ export const updateComprehensiveProfile = async (
     if (data.bio !== undefined) apiData.bio = data.bio;
     if (data.avatar !== undefined) apiData.avatar = data.avatar;
 
+    if (data.customSpecialties !== undefined) apiData.customSpecialties = data.customSpecialties;
+    if (data.customTherapeuticApproaches !== undefined) apiData.customTherapeuticApproaches = data.customTherapeuticApproaches;
+    if (data.perspectiveOperation !== undefined) apiData.perspective = data.perspectiveOperation;
     if (data.specialties !== undefined) apiData.specialties = data.specialties;
     if (data.therapeuticApproaches !== undefined) apiData.therapeuticApproaches = data.therapeuticApproaches;
     if (data.languages !== undefined) apiData.languages = data.languages;

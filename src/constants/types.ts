@@ -11,6 +11,7 @@ import type { LandingSectionAnchor } from './landingNavigation';
 import type { ProfessionalSpecialtyValue } from './professionalMatchingOptions';
 
 export interface Specialist {
+  religionCode?: string | null; religionOtherText?: string | null;
   id: string;
   name: string;
   avatar?: string;
@@ -37,6 +38,7 @@ export interface Specialist {
 
   // Matching attributes for questionnaire algorithm
   matchingProfile: {
+    customSpecialties?: string[]; customTherapeuticApproaches?: string[];
     therapeuticApproach: string[];
     specialties: string[];
     sessionStyle: string;
