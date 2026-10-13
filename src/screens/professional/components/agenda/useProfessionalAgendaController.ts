@@ -1,412 +1,165 @@
-import { useRateLimitRecovery } from '../../../../hooks/useGeneralRateLimit';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { z } from 'zod';
+import { useRateLimitRecovery } from '../../../../hooks/useGeneralRateLimit';
 import type { ProfessionalSession, SessionViewMode } from '../../../../constants/types';
 import { getErrorMessage } from '../../../../constants/errors';
 import * as professionalService from '../../../../services/professionalService';
-import {
-  type AgendaOriginFilter,
-  getAgendaCalendarRange,
-  getWeekDays,
-  isSameCalendarDay,
-  mapAgendaItem,
-  toCalendarDateKey,
-} from './professionalAgendaUtils';
+import { addCalendarDays, calendarDate, filterAgendaSessions, getAgendaCalendarRange, getMonthDays, getWeekDays, mapAgendaItem, toCalendarDateKey, type AgendaOriginFilter, type AgendaStatusFilter } from './professionalAgendaUtils';
+import { sessionIntersectsDay } from './agendaTimeline';
 
-export interface AgendaSummary {
-  today: number;
-  week: number;
-  pending: number;
-}
+interface CacheEntry { sessions: ProfessionalSession[]; loadedAt: number; }
+const EMPTY: ProfessionalSession[] = [];
+const preferenceSchema = z.object({
+  view: z.enum(['day', 'week', 'month', 'list']),
+  origin: z.enum(['ALL', 'DIRECTORY', 'OWN', 'REFERRAL', 'COLLABORATION', 'UNDETERMINED']),
+  status: z.enum(['ACTIVE', 'ALL', 'PENDING', 'CANCELLED']),
+}).strict();
+const storageKey = (id: string) => `hera:agenda:v2:${id}`;
 
-interface AgendaCacheEntry {
-  sessions: ProfessionalSession[];
-  summary: AgendaSummary;
-  nextCursor: string | null;
-  loadedAt: number;
-}
-
-interface LoadAgendaOptions {
-  append?: boolean;
-  force?: boolean;
-  invalidateCache?: boolean;
-}
-
-const AGENDA_CACHE_TTL_MS = 30_000;
-const AGENDA_CACHE_MAX_ENTRIES = 12;
-const EMPTY_SESSIONS: ProfessionalSession[] = [];
-const EMPTY_AGENDA_SUMMARY: AgendaSummary = {
-  today: 0,
-  week: 0,
-  pending: 0,
-};
-
-interface LoadingMoreRequest {
-  queryKey: string;
-  requestSeq: number;
-}
-
-interface LoadMoreErrorState {
-  queryKey: string;
-  message: string;
-}
-
-export interface ProfessionalAgendaController {
-  viewMode: SessionViewMode;
-  setViewMode: (viewMode: SessionViewMode) => void;
-  selectedDate: Date;
-  setSelectedDate: (date: Date) => void;
-  originFilter: AgendaOriginFilter;
-  setOriginFilter: (origin: AgendaOriginFilter) => void;
-  initialLoading: boolean;
-  refreshing: boolean;
-  hasLoadedOnce: boolean;
-  loadError: boolean;
-  loadErrorMessage: string;
-  sessions: ProfessionalSession[];
-  agendaSummary: AgendaSummary;
-  nextCursor: string | null;
-  loadingMore: boolean;
-  loadMoreError: boolean;
-  loadMoreErrorMessage: string;
-  currentTime: Date;
-  autoConfirmSessionRequests: boolean | null;
-  weekDays: Date[];
-  sessionsForDate: ProfessionalSession[];
-  sessionsForWeek: ProfessionalSession[];
-  sessionsByDate: Map<string, ProfessionalSession[]>;
-  nextUpcomingSession: ProfessionalSession | null;
-  refreshAgenda: () => Promise<void>;
-  refreshAfterMutation: () => Promise<void>;
-  loadMoreSessions: () => Promise<void>;
-  navigateDate: (direction: number) => void;
-  goToToday: () => void;
-  jumpToNextSession: () => void;
-}
-
-export function useProfessionalAgendaController(): ProfessionalAgendaController {
+export function useProfessionalAgendaController(userId: string | null, initialView: SessionViewMode = 'week') {
   const isFocused = useIsFocused();
-  const pendingMutationRefresh = useRef(false);
-  const inFlightQueries = useRef(new Map<string, number>());
-  const nextRequestSequence = useRef(0);
-  const mounted = useRef(true);
-  const [viewMode, setViewMode] = useState<SessionViewMode>('week');
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState(initialView);
+  const [selectedDate, setSelectedDate] = useState(() => calendarDate(toCalendarDateKey(new Date())));
   const [originFilter, setOriginFilter] = useState<AgendaOriginFilter>('ALL');
-  const [loadError, setLoadError] = useState(false);
-  const [loadErrorMessage, setLoadErrorMessage] = useState('');
-  const [loadingMoreRequest, setLoadingMoreRequest] = useState<LoadingMoreRequest | null>(null);
-  const [loadMoreErrorState, setLoadMoreErrorState] = useState<LoadMoreErrorState | null>(null);
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
-  const [, setCacheRevision] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<AgendaStatusFilter>('ACTIVE');
+  const [readyUser, setReadyUser] = useState<string | null>(null);
+  const [preferenceError, setPreferenceError] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [autoConfirmSessionRequests, setAutoConfirmSessionRequests] = useState<boolean | null>(null);
-  const sessionsLoadSeqRef = useRef(0);
-  const agendaCacheRef = useRef<Map<string, AgendaCacheEntry>>(new Map());
-  const loadAgendaRef = useRef<(options?: LoadAgendaOptions) => Promise<void>>(async () => undefined);
-  const hasFocusedOnceRef = useRef(false);
-
-  const agendaRange = useMemo(
-    () => getAgendaCalendarRange(viewMode, selectedDate),
-    [selectedDate, viewMode],
-  );
-  const agendaQuery = useMemo<professionalService.ProfessionalAgendaQuery>(() => {
-    const origin = originFilter === 'ALL' ? undefined : originFilter;
-    if (viewMode === 'list') return { view: 'list', origin, limit: 50 };
-    return {
-      view: 'calendar',
-      origin,
-      from: agendaRange?.from ?? '',
-      to: agendaRange?.to ?? '',
-    };
-  }, [agendaRange?.from, agendaRange?.to, originFilter, viewMode]);
-  const agendaQueryKey = JSON.stringify(agendaQuery);
-  const [pendingQueryKey, setPendingQueryKey] = useState<string | null>(agendaQueryKey);
-  const activeCacheEntry = agendaCacheRef.current.get(agendaQueryKey) ?? null;
-  const sessions = activeCacheEntry?.sessions ?? EMPTY_SESSIONS;
-  const agendaSummary = activeCacheEntry?.summary ?? EMPTY_AGENDA_SUMMARY;
-  const nextCursor = activeCacheEntry?.nextCursor ?? null;
-  const loadingMore = loadingMoreRequest?.queryKey === agendaQueryKey;
-  const activeLoadMoreError = loadMoreErrorState?.queryKey === agendaQueryKey
-    ? loadMoreErrorState
-    : null;
-  const loadMoreError = Boolean(activeLoadMoreError);
-  const loadMoreErrorMessage = activeLoadMoreError?.message ?? '';
-  const queryIsPending = pendingQueryKey === agendaQueryKey;
-  const initialLoading = !hasLoadedOnce && !loadError && (!activeCacheEntry || queryIsPending);
-  const refreshing = hasLoadedOnce && !loadError && (!activeCacheEntry || queryIsPending);
+  const [loadErrorMessage, setLoadErrorMessage] = useState('');
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [loadedUser, setLoadedUser] = useState<string | null>(null);
+  const [, refreshCache] = useState(0);
+  const cache = useRef(new Map<string, CacheEntry>());
+  const inFlight = useRef(new Map<string, Promise<void>>());
+  const generation = useRef(0);
+  const alive = useRef(true);
+  const dirtyPreferences = useRef(false);
+  const writeQueue = useRef(Promise.resolve());
+  const dayScrollPosition = useRef<number | null>(null);
+  const listScrollPosition = useRef<number | null>(null);
+  const monthScrollPosition = useRef<number | null>(null);
+  const weekScrollPosition = useRef<number | null>(null);
+  const [scrollRequest, setScrollRequest] = useState(0);
+  const [scrollTarget, setScrollTarget] = useState<Date | null>(null);
+  const range = useMemo(() => getAgendaCalendarRange(viewMode, selectedDate), [viewMode, selectedDate]);
+  const query = useMemo<professionalService.ProfessionalAgendaQuery>(() => ({ view: 'calendar', from: range.from, to: range.to }), [range.from, range.to]);
+  const key = JSON.stringify([userId, query, 'provenanceDetails=1']);
+  const activeKey = useRef(key); activeKey.current = key;
+  const activeUser = useRef(userId); activeUser.current = userId;
+  const entry = cache.current.get(key);
+  const rawSessions = entry?.sessions ?? EMPTY;
+  const sessions = useMemo(() => filterAgendaSessions(rawSessions, originFilter, statusFilter), [rawSessions, originFilter, statusFilter]);
+  const hasLoadedOnce = loadedUser === userId && Boolean(userId);
+  const isPending = pendingKey === key || (!entry && !loadErrorMessage);
 
   useEffect(() => {
+    let cancelled = false;
+    dirtyPreferences.current = false;
+    setReadyUser(null); setLoadedUser(null); setLoadErrorMessage(''); setPreferenceError('');
+    setViewMode(initialView); setOriginFilter('ALL'); setStatusFilter('ACTIVE');
+    setScrollTarget(null);
+    setSelectedDate(calendarDate(toCalendarDateKey(new Date())));
+    dayScrollPosition.current = null; weekScrollPosition.current = null; listScrollPosition.current = null; monthScrollPosition.current = null;
+    cache.current.clear(); inFlight.current.clear(); generation.current += 1;
+    if (!userId) return;
+    void AsyncStorage.getItem(storageKey(userId)).then((value) => {
+      if (cancelled || dirtyPreferences.current || !value) return;
+      let parsed: unknown;
+      try { parsed = JSON.parse(value); } catch { return; }
+      const saved = preferenceSchema.safeParse(parsed);
+      if (saved.success) { setViewMode(saved.data.view); setOriginFilter(saved.data.origin); setStatusFilter(saved.data.status); }
+    }).catch(() => { if (!cancelled) setPreferenceError('No se pudieron recuperar las preferencias de vista.'); })
+      .finally(() => { if (!cancelled) setReadyUser(userId); });
+    return () => { cancelled = true; };
+    // Use the entry viewport, not subsequent resizes, for the default view.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || readyUser !== userId || !dirtyPreferences.current) return;
+    const value = JSON.stringify({ view: viewMode, origin: originFilter, status: statusFilter });
+    writeQueue.current = writeQueue.current.then(() => AsyncStorage.setItem(storageKey(userId), value))
+      .then(() => { if (activeUser.current === userId) setPreferenceError(''); })
+      .catch(() => { if (activeUser.current === userId) setPreferenceError('La vista se ha aplicado, pero no se pudo recordar en este dispositivo.'); });
+  }, [userId, readyUser, viewMode, originFilter, statusFilter]);
+
+  const load = useCallback(async (force = false) => {
+    if (!userId || readyUser !== userId) return;
+    const existing = inFlight.current.get(key);
+    if (existing) { setPendingKey(key); return existing; }
+    const cached = cache.current.get(key);
+    if (!force && cached && Date.now() - cached.loadedAt < 30_000) { setLoadErrorMessage(''); setLoadedUser(userId); setPendingKey(null); return; }
+    const requestGeneration = generation.current;
+    setPendingKey(key); setLoadErrorMessage('');
+    const request = professionalService.getProfessionalAgenda(query).then((response) => {
+      if (!alive.current || requestGeneration !== generation.current) return;
+      cache.current.delete(key);
+      cache.current.set(key, { sessions: response.items.map(mapAgendaItem), loadedAt: Date.now() });
+      while (cache.current.size > 12) {
+        const oldest = cache.current.keys().next().value;
+        if (oldest) cache.current.delete(oldest);
+      }
+      if (activeKey.current === key) { setLoadedUser(userId); setLoadErrorMessage(''); refreshCache((revision) => revision + 1); }
+    }).catch((error: unknown) => {
+      if (alive.current && requestGeneration === generation.current && activeKey.current === key) setLoadErrorMessage(getErrorMessage(error, 'No se pudieron cargar las sesiones'));
+    }).finally(() => {
+      if (inFlight.current.get(key) === request) inFlight.current.delete(key);
+      if (alive.current && requestGeneration === generation.current && activeKey.current === key) setPendingKey(null);
+    });
+    inFlight.current.set(key, request);
+    return request;
+  }, [key, query, readyUser, userId]);
+  const loadRef = useRef(load); loadRef.current = load;
+  useEffect(() => { void load(); }, [load]);
+  const focusSeen = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (focusSeen.current) void loadRef.current(true);
+    focusSeen.current = true;
+  }, []));
+  useRateLimitRecovery(isFocused, () => { void loadRef.current(true); }, { reloadsOnFocus: true });
+  useEffect(() => {
+    alive.current = true;
     const interval = setInterval(() => setCurrentTime(new Date()), 60_000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const writeCacheEntry = useCallback((key: string, entry: AgendaCacheEntry) => {
-    const cache = agendaCacheRef.current;
-    cache.delete(key);
-    cache.set(key, entry);
-    while (cache.size > AGENDA_CACHE_MAX_ENTRIES) {
-      const oldestKey = cache.keys().next().value;
-      if (typeof oldestKey !== 'string') break;
-      cache.delete(oldestKey);
-    }
-    setCacheRevision((revision) => revision + 1);
-  }, []);
-
-  const clearAgendaCache = useCallback(() => {
-    agendaCacheRef.current.clear();
-    setLoadMoreErrorState(null);
-    setCacheRevision((revision) => revision + 1);
-  }, []);
-
-  const loadAgenda = useCallback(async (options: LoadAgendaOptions = {}) => {
-    const append = options.append === true;
-    const requestKey = `${agendaQueryKey}:${append ? 'append' : 'replace'}`;
-    const existingSequence = inFlightQueries.current.get(requestKey);
-    if (existingSequence !== undefined) {
-      if (options.invalidateCache) pendingMutationRefresh.current = true;
-      // Returning to this query makes its existing response relevant again.
-      sessionsLoadSeqRef.current = existingSequence;
-      if (!append) {
-        setPendingQueryKey(agendaQueryKey);
-        setLoadError(false);
-        setLoadErrorMessage('');
-      }
-      return;
-    }
-    if (options.invalidateCache) clearAgendaCache();
-
-    const cachedEntry = agendaCacheRef.current.get(agendaQueryKey) ?? null;
-    if (append && !cachedEntry?.nextCursor) return;
-
-    const requestSeq = ++nextRequestSequence.current;
-    sessionsLoadSeqRef.current = requestSeq;
-    if (
-      !append
-      && !options.force
-      && cachedEntry
-      && Date.now() - cachedEntry.loadedAt < AGENDA_CACHE_TTL_MS
-    ) {
-      agendaCacheRef.current.delete(agendaQueryKey);
-      agendaCacheRef.current.set(agendaQueryKey, cachedEntry);
-      setHasLoadedOnce(true);
-      setLoadError(false);
-      setLoadErrorMessage('');
-      setPendingQueryKey((currentKey) => currentKey === agendaQueryKey ? null : currentKey);
-      return;
-    }
-
-    inFlightQueries.current.set(requestKey, requestSeq);
-    try {
-      if (append) {
-        setLoadingMoreRequest({ queryKey: agendaQueryKey, requestSeq });
-        setLoadMoreErrorState((currentError) => (
-          currentError?.queryKey === agendaQueryKey ? null : currentError
-        ));
-      } else {
-        setPendingQueryKey(agendaQueryKey);
-        setLoadError(false);
-        setLoadErrorMessage('');
-        setLoadMoreErrorState((currentError) => (
-          currentError?.queryKey === agendaQueryKey ? null : currentError
-        ));
-      }
-
-      const response = await professionalService.getProfessionalAgenda(
-        append && agendaQuery.view === 'list'
-          ? { ...agendaQuery, cursor: cachedEntry?.nextCursor ?? undefined }
-          : agendaQuery,
-      );
-      const mappedSessions = response.items.map(mapAgendaItem);
-      if (sessionsLoadSeqRef.current !== requestSeq) return;
-
-      const nextSessions = append
-        ? Array.from(new Map(
-          [...(cachedEntry?.sessions ?? EMPTY_SESSIONS), ...mappedSessions]
-            .map((session) => [session.id, session]),
-        ).values())
-        : mappedSessions;
-      writeCacheEntry(agendaQueryKey, {
-        sessions: nextSessions,
-        summary: response.summary,
-        nextCursor: response.nextCursor,
-        loadedAt: Date.now(),
-      });
-      setHasLoadedOnce(true);
-      setLoadError(false);
-      setLoadErrorMessage('');
-      if (append) {
-        setLoadMoreErrorState((currentError) => (
-          currentError?.queryKey === agendaQueryKey ? null : currentError
-        ));
-      }
-    } catch (error) {
-      if (sessionsLoadSeqRef.current !== requestSeq) return;
-      const message = getErrorMessage(error, 'No se pudieron cargar las sesiones');
-      if (append) {
-        setLoadMoreErrorState({ queryKey: agendaQueryKey, message });
-      } else {
-        setLoadError(true);
-        setLoadErrorMessage(message);
-      }
-    } finally {
-      inFlightQueries.current.delete(requestKey);
-      if (mounted.current && pendingMutationRefresh.current && inFlightQueries.current.size === 0) {
-        pendingMutationRefresh.current = false;
-        void loadAgendaRef.current({ force: true, invalidateCache: true });
-      }
-      if (append) {
-        setLoadingMoreRequest((currentRequest) => (
-          currentRequest?.queryKey === agendaQueryKey
-          && currentRequest.requestSeq === requestSeq
-            ? null
-            : currentRequest
-        ));
-      }
-      if (sessionsLoadSeqRef.current === requestSeq) {
-        setPendingQueryKey((currentKey) => currentKey === agendaQueryKey ? null : currentKey);
-      }
-    }
-  }, [agendaQuery, agendaQueryKey, clearAgendaCache, writeCacheEntry]);
-
-  loadAgendaRef.current = loadAgenda;
-  useRateLimitRecovery(isFocused, () => {
-    void loadAgendaRef.current({ force: true });
-    void loadAgendaPreference();
-  }, { reloadsOnFocus: true });
-
-  const loadAgendaPreference = useCallback(async () => {
-    try {
-      const preferences = await professionalService.getAgendaPreferences();
-      setAutoConfirmSessionRequests(preferences?.autoConfirmSessionRequests ?? null);
-    } catch {
-      // A neutral chip is safer than blocking the calendar when preferences fail.
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      void loadAgendaPreference();
-    }, [loadAgendaPreference]),
-  );
-
-  useEffect(() => {
-    void loadAgenda();
-  }, [loadAgenda]);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!hasFocusedOnceRef.current) {
-        hasFocusedOnceRef.current = true;
-        return;
-      }
-      void loadAgendaRef.current({ force: true });
-    }, []),
-  );
-
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-      sessionsLoadSeqRef.current = ++nextRequestSequence.current;
-    };
+    return () => { alive.current = false; generation.current += 1; clearInterval(interval); };
   }, []);
 
   const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate]);
-  const sessionsForDate = useMemo(
-    () => sessions
-      .filter((session) => isSameCalendarDay(session.date, selectedDate))
-      .sort((left, right) => left.date.getTime() - right.date.getTime()),
-    [selectedDate, sessions],
-  );
-  const sessionsForWeek = useMemo(
-    () => sessions
-      .filter((session) => weekDays.some((day) => isSameCalendarDay(day, session.date)))
-      .sort((left, right) => left.date.getTime() - right.date.getTime()),
-    [sessions, weekDays],
-  );
-  const sessionsByDate = useMemo(() => {
-    const index = new Map<string, ProfessionalSession[]>();
-    sessions.forEach((session) => {
-      const key = toCalendarDateKey(session.date);
-      const current = index.get(key) ?? [];
-      current.push(session);
-      index.set(key, current);
-    });
-    index.forEach((items) => items.sort((left, right) => left.date.getTime() - right.date.getTime()));
-    return index;
-  }, [sessions]);
-  const nextUpcomingSession = useMemo(
-    () => [...sessions]
-      .filter((session) => session.status !== 'cancelled' && session.date.getTime() >= currentTime.getTime())
-      .sort((left, right) => left.date.getTime() - right.date.getTime())[0] ?? null,
-    [currentTime, sessions],
-  );
-
-  const refreshAgenda = useCallback(
-    () => loadAgenda({ force: true }),
-    [loadAgenda],
-  );
-  const refreshAfterMutation = useCallback(
-    () => loadAgenda({ force: true, invalidateCache: true }),
-    [loadAgenda],
-  );
-  const loadMoreSessions = useCallback(
-    () => loadAgenda({ append: true }),
-    [loadAgenda],
-  );
-
-  const navigateDate = useCallback((direction: number) => {
-    setSelectedDate((previous) => {
-      const next = new Date(previous);
-      if (viewMode === 'month') {
-        next.setMonth(next.getMonth() + direction, 1);
-      } else if (viewMode === 'week') {
-        next.setDate(next.getDate() + direction * 7);
-      } else {
-        next.setDate(next.getDate() + direction);
-      }
-      return next;
-    });
-  }, [viewMode]);
-
-  const goToToday = useCallback(() => setSelectedDate(new Date()), []);
-  const jumpToNextSession = useCallback(() => {
-    if (!nextUpcomingSession) return;
-    setSelectedDate(new Date(nextUpcomingSession.date));
-    setViewMode('day');
-  }, [nextUpcomingSession]);
+  const sessionsForDate = useMemo(() => sessions.filter((session) => sessionIntersectsDay(session, selectedDate)), [sessions, selectedDate]);
+  const sessionsForWeek = useMemo(() => sessions.filter((session) => weekDays.some((day) => sessionIntersectsDay(session, day))), [sessions, weekDays]);
+  const sessionsByDate = useMemo(() => new Map(getMonthDays(selectedDate).map((day) => [toCalendarDateKey(day), sessions.filter((session) => sessionIntersectsDay(session, day))])), [sessions, selectedDate]);
+  const nextUpcomingSession = useMemo(() => sessions.filter((session) => session.status !== 'cancelled' && session.date >= currentTime).sort((a, b) => a.date.getTime() - b.date.getTime())[0] ?? null, [sessions, currentTime]);
+  const changeView = useCallback((view: SessionViewMode) => { dirtyPreferences.current = true; setViewMode(view); }, []);
+  const changeOrigin = useCallback((origin: AgendaOriginFilter) => { dirtyPreferences.current = true; setOriginFilter(origin); }, []);
+  const changeStatus = useCallback((status: AgendaStatusFilter) => { dirtyPreferences.current = true; setStatusFilter(status); }, []);
+  const resetFilters = useCallback(() => { changeOrigin('ALL'); changeStatus('ACTIVE'); }, [changeOrigin, changeStatus]);
+  const navigateDate = useCallback((direction: number) => setSelectedDate((previous) => {
+    if (viewMode !== 'month') return addCalendarDays(previous, direction * (viewMode === 'day' ? 1 : 7));
+    const date = calendarDate(`${toCalendarDateKey(previous).slice(0, 7)}-01`);
+    date.setUTCMonth(date.getUTCMonth() + direction);
+    return date;
+  }), [viewMode]);
+  const goToToday = useCallback(() => {
+    setScrollTarget(null);
+    setSelectedDate(calendarDate(toCalendarDateKey(new Date())));
+    dayScrollPosition.current = null; weekScrollPosition.current = null; listScrollPosition.current = null; monthScrollPosition.current = null; setScrollRequest((value) => value + 1);
+  }, []);
+  const refreshAfterMutation = useCallback(async () => {
+    generation.current += 1; cache.current.clear(); inFlight.current.clear();
+    await loadRef.current(true);
+  }, []);
 
   return {
-    viewMode,
-    setViewMode,
-    selectedDate,
-    setSelectedDate,
-    originFilter,
-    setOriginFilter,
-    initialLoading,
-    refreshing,
-    hasLoadedOnce,
-    loadError,
-    loadErrorMessage,
-    sessions,
-    agendaSummary,
-    nextCursor,
-    loadingMore,
-    loadMoreError,
-    loadMoreErrorMessage,
-    currentTime,
-    autoConfirmSessionRequests,
-    weekDays,
-    sessionsForDate,
-    sessionsForWeek,
-    sessionsByDate,
-    nextUpcomingSession,
-    refreshAgenda,
-    refreshAfterMutation,
-    loadMoreSessions,
-    navigateDate,
-    goToToday,
-    jumpToNextSession,
+    viewMode, setViewMode: changeView, selectedDate, setSelectedDate,
+    originFilter, setOriginFilter: changeOrigin, statusFilter, setStatusFilter: changeStatus, resetFilters,
+    preferenceError, sessions, rawSessionCount: rawSessions.length,
+    initialLoading: Boolean(userId) && (!hasLoadedOnce && !loadErrorMessage && (readyUser !== userId || isPending)),
+    dataReady: Boolean(entry),
+    refreshing: hasLoadedOnce && isPending, hasLoadedOnce, loadError: Boolean(loadErrorMessage), loadErrorMessage,
+    currentTime, weekDays, sessionsForDate, sessionsForWeek, sessionsByDate, nextUpcomingSession,
+    dayScrollPosition, weekScrollPosition, listScrollPosition, monthScrollPosition, scrollRequest, scrollTarget,
+    refreshAgenda: () => load(true), refreshAfterMutation, navigateDate, goToToday,
+    jumpToNextSession: () => { if (nextUpcomingSession) { setScrollTarget(nextUpcomingSession.date); setSelectedDate(calendarDate(toCalendarDateKey(nextUpcomingSession.date))); dayScrollPosition.current = null; changeView('day'); setScrollRequest((value) => value + 1); } },
   };
 }

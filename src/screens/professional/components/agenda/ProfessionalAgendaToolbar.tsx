@@ -1,294 +1,93 @@
-import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable, SimpleDropdown } from '../../../../components/common';
+import type { AnimatedPressableHandle } from '../../../../components/common/AnimatedPressable';
 import { TourTarget } from '../../../../components/onboarding/TourTarget';
-import { borderRadius, spacing, typography } from '../../../../constants/colors';
-import type { Theme } from '../../../../constants/theme';
 import type { SessionViewMode } from '../../../../constants/types';
 import { useTheme } from '../../../../contexts/ThemeContext';
-import {
-  type AgendaOriginFilter,
-  capitalizeFirst,
-  isToday,
-  ORIGIN_FILTER_OPTIONS,
-  VIEW_OPTIONS,
-} from './professionalAgendaUtils';
+import { formatMadridInstant } from '../../../../utils/madridTime';
+import { type AgendaOriginFilter, type AgendaStatusFilter, ORIGIN_FILTER_OPTIONS, STATUS_FILTER_OPTIONS, VIEW_OPTIONS, capitalizeFirst } from './professionalAgendaUtils';
 
-interface ProfessionalAgendaToolbarProps {
+interface Props {
   viewMode: SessionViewMode;
   selectedDate: Date;
   weekDays: Date[];
   originFilter: AgendaOriginFilter;
-  compactOriginFilter: boolean;
+  statusFilter: AgendaStatusFilter;
   isMobile: boolean;
-  onChangeView: (viewMode: SessionViewMode) => void;
+  visibleCount: number;
+  pendingCount: number;
+  summaryAvailable: boolean;
+  nextSessionLabel?: string;
+  onJumpToNextSession?: () => void;
+  onChangeView: (view: SessionViewMode) => void;
   onChangeOrigin: (origin: AgendaOriginFilter) => void;
+  onChangeStatus: (status: AgendaStatusFilter) => void;
+  onResetFilters: () => void;
   onNavigateDate: (direction: number) => void;
   onGoToToday: () => void;
+  onPickDate: () => void;
+  onGoogleCalendar: () => void;
+  onSettings: (anchor: { x: number; y: number }) => void;
 }
-
-export function ProfessionalAgendaToolbar({
-  viewMode,
-  selectedDate,
-  weekDays,
-  originFilter,
-  compactOriginFilter,
-  isMobile,
-  onChangeView,
-  onChangeOrigin,
-  onNavigateDate,
-  onGoToToday,
-}: ProfessionalAgendaToolbarProps): React.ReactElement {
-  const { theme, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(theme, isDark, isMobile), [isDark, isMobile, theme]);
-  const dateTitle = useMemo(() => {
-    if (viewMode === 'month') {
-      return capitalizeFirst(selectedDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }));
-    }
-    if (viewMode === 'week') {
-      const start = weekDays[0];
-      const end = weekDays[6];
-      return `${start.getDate()} ${start.toLocaleDateString('es-ES', { month: 'short' })} – ${end.getDate()} ${end.toLocaleDateString('es-ES', { month: 'short' })}`;
-    }
-    return capitalizeFirst(selectedDate.toLocaleDateString('es-ES', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    }));
-  }, [selectedDate, viewMode, weekDays]);
-
-  return (
-    <View style={styles.container}>
-      <TourTarget id="professional.sessions.view-tabs" fill>
-        <View style={styles.viewTabs} accessibilityRole="tablist">
-          {VIEW_OPTIONS.map((option) => {
-            const selected = viewMode === option.value;
-            return (
-              <AnimatedPressable
-                key={option.value}
-                onPress={() => onChangeView(option.value)}
-                hoverLift={false}
-                pressScale={0.98}
-                style={selected ? [styles.viewTab, styles.viewTabActive] : styles.viewTab}
-                accessibilityRole="tab"
-                accessibilityState={{ selected }}
-              >
-                <Ionicons
-                  name={option.icon}
-                  size={17}
-                  color={selected ? theme.textOnPrimary : theme.textSecondary}
-                />
-                <Text style={selected ? [styles.viewTabText, styles.viewTabTextActive] : styles.viewTabText}>
-                  {option.label}
-                </Text>
-              </AnimatedPressable>
-            );
-          })}
+export function ProfessionalAgendaToolbar(props: Props) {
+  const { theme } = useTheme();
+  const settingsRef = useRef<AnimatedPressableHandle>(null);
+  const [toolbarWidth, setToolbarWidth] = useState(0);
+  const stacked = props.isMobile || (toolbarWidth > 0 && toolbarWidth < 860);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtered = props.originFilter !== 'ALL' || props.statusFilter !== 'ACTIVE';
+  const filterCount = Number(props.originFilter !== 'ALL') + Number(props.statusFilter !== 'ACTIVE');
+  const filterDescription = `${ORIGIN_FILTER_OPTIONS.find((option) => option.value === props.originFilter)?.label} · ${STATUS_FILTER_OPTIONS.find((option) => option.value === props.statusFilter)?.label}`;
+  const title = props.viewMode === 'month'
+    ? formatMadridInstant(props.selectedDate, { month: 'long', year: 'numeric' })
+    : props.viewMode === 'day' ? formatMadridInstant(props.selectedDate, { weekday: 'short', day: 'numeric', month: 'long' })
+      : `${formatMadridInstant(props.weekDays[0], { day: 'numeric', month: 'short' })} – ${formatMadridInstant(props.weekDays[6], { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const text = { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 14 };
+  const button = [styles.button, { backgroundColor: theme.bgCard, borderColor: theme.border }];
+  return <View style={{ backgroundColor: theme.bg, borderBottomWidth: 1, borderColor: theme.borderLight }}>
+    <View onLayout={(event) => setToolbarWidth(event.nativeEvent.layout.width)} style={styles.toolbar}>
+      <TourTarget id="professional.sessions.date-controls" style={stacked ? { width: '100%' } : styles.side}>
+        <View style={styles.row}>
+          <AnimatedPressable accessibilityLabel="Ir a hoy" onPress={props.onGoToToday} style={button} hoverLift={false}><Text style={text}>Hoy</Text></AnimatedPressable>
+          <AnimatedPressable accessibilityLabel="Periodo anterior" onPress={() => props.onNavigateDate(-1)} style={button} hoverLift={false}><Ionicons name="chevron-back" size={17} color={theme.textPrimary} /></AnimatedPressable>
+          <AnimatedPressable accessibilityLabel="Periodo siguiente" onPress={() => props.onNavigateDate(1)} style={button} hoverLift={false}><Ionicons name="chevron-forward" size={17} color={theme.textPrimary} /></AnimatedPressable>
+          <View style={{ flex: 1, minWidth: 0, flexDirection: props.isMobile ? 'column' : 'row', flexWrap: 'wrap', alignItems: props.isMobile ? 'flex-start' : 'center', columnGap: 14, rowGap: 2, paddingHorizontal: 8 }}>
+            <AnimatedPressable accessibilityLabel={`Elegir fecha, ${title}`} onPress={props.onPickDate} style={{ paddingVertical: props.isMobile ? 2 : 10 }} hoverLift={false}><Text style={text}>{capitalizeFirst(title)}</Text></AnimatedPressable>
+            <Text accessibilityLabel={props.summaryAvailable ? `${props.visibleCount} citas visibles en este periodo, ${props.pendingCount} por confirmar` : 'Actualizando agenda'} style={{ color: props.pendingCount > 0 ? theme.textPrimary : theme.textSecondary, fontFamily: theme.fontSans, fontSize: 12 }}>
+              {props.summaryAvailable ? `${props.visibleCount} ${props.visibleCount === 1 ? 'cita' : 'citas'}${props.pendingCount > 0 ? ` · ${props.pendingCount} por confirmar` : ''}` : 'Actualizando…'}
+            </Text>
+          </View>
         </View>
       </TourTarget>
-
-      {viewMode !== 'list' ? (
-        <TourTarget id="professional.sessions.date-controls" fill style={styles.dateTarget}>
-          <View style={styles.dateControls}>
-            <AnimatedPressable
-              onPress={() => onNavigateDate(-1)}
-              style={styles.dateNavButton}
-              hoverLift={false}
-              pressScale={0.98}
-              accessibilityLabel="Periodo anterior"
-            >
-              <Ionicons name="chevron-back" size={18} color={theme.textPrimary} />
-            </AnimatedPressable>
-            <Text style={styles.dateTitle} numberOfLines={1}>{dateTitle}</Text>
-            <AnimatedPressable
-              onPress={() => onNavigateDate(1)}
-              style={styles.dateNavButton}
-              hoverLift={false}
-              pressScale={0.98}
-              accessibilityLabel="Periodo siguiente"
-            >
-              <Ionicons name="chevron-forward" size={18} color={theme.textPrimary} />
-            </AnimatedPressable>
-            <AnimatedPressable
-              onPress={onGoToToday}
-              style={isToday(selectedDate) ? [styles.todayButton, styles.todayButtonActive] : styles.todayButton}
-              hoverLift={false}
-              pressScale={0.98}
-              accessibilityLabel="Ir a hoy"
-              accessibilityHint="Vuelve al periodo que contiene la fecha actual"
-            >
-              <Ionicons name="today-outline" size={15} color={theme.primary} />
-              <Text style={styles.todayText}>Hoy</Text>
-            </AnimatedPressable>
-          </View>
-        </TourTarget>
-      ) : null}
-
-      <View style={styles.originWrap}>
-        {compactOriginFilter ? (
-          <SimpleDropdown
-            options={ORIGIN_FILTER_OPTIONS}
-            value={originFilter}
-            onSelect={onChangeOrigin}
-            compact
-            optionsMinWidth={170}
-            optionsAlign="right"
-            selectionIndicator="radio"
-            highlightSelection={false}
-          />
-        ) : (
-          <View style={styles.originFilters} accessibilityRole="tablist">
-            {ORIGIN_FILTER_OPTIONS.map((option) => {
-              const selected = originFilter === option.value;
-              const color = option.value === 'CLINIC'
-                ? theme.primary
-                : option.value === 'PRIVATE'
-                  ? theme.secondaryDark
-                  : theme.textSecondary;
-              return (
-                <AnimatedPressable
-                  key={option.value}
-                  onPress={() => onChangeOrigin(option.value)}
-                  hoverLift={false}
-                  pressScale={0.98}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected }}
-                  accessibilityLabel={`Mostrar citas: ${option.label}`}
-                  style={[styles.originFilter, selected && { backgroundColor: `${color}12` }]}
-                >
-                  <View style={[styles.originDot, { backgroundColor: color }]} />
-                  <Text style={[styles.originText, selected && { color }]}>{option.label}</Text>
-                </AnimatedPressable>
-              );
-            })}
-          </View>
-        )}
+      <View style={{ alignItems: 'center', ...(stacked ? { width: '100%' as const } : { flexShrink: 0 }) }}>
+        <AnimatedPressable onPress={props.onGoogleCalendar} accessibilityLabel="Sincronizar con Google Calendar" accessibilityHint="Abre los ajustes de conexión y sincronización" style={button} hoverLift={false}>
+          <Image source={require('../../../../../assets/google-calendar.png')} style={{ width: 20, height: 20 }} accessibilityElementsHidden importantForAccessibility="no" />
+          <Text style={[text, { fontSize: 12 }]}>Sincronizar con Google Calendar</Text>
+        </AnimatedPressable>
+      </View>
+      <View style={[styles.row, stacked ? { width: '100%', justifyContent: 'center' } : [styles.side, { justifyContent: 'flex-end' }]]}>
+      {props.nextSessionLabel && props.summaryAvailable ? <AnimatedPressable onPress={props.onJumpToNextSession} hoverLift={false} style={{ minHeight: 38, minWidth: 32, alignItems: 'center', justifyContent: 'center' }} accessibilityLabel={`Ir a la próxima cita de este periodo, ${props.nextSessionLabel}`}>{toolbarWidth >= 1320 ? <Text style={{ color: theme.link, fontFamily: theme.fontSans, fontSize: 12 }}>Próxima · {props.nextSessionLabel}</Text> : <Ionicons name="arrow-forward-circle-outline" size={22} color={theme.link} />}</AnimatedPressable> : null}
+      <View style={styles.row}>
+        <TourTarget id="professional.sessions.view-tabs"><SimpleDropdown options={VIEW_OPTIONS} value={props.viewMode} onSelect={props.onChangeView} accessibilityLabel="Vista del calendario" presentation="portal" compact optionsMinWidth={192} maxHeight={240} keyboardNavigation /></TourTarget>
+        <AnimatedPressable accessibilityLabel="Filtros de agenda" accessibilityHint={filterDescription} accessibilityState={{ expanded: filtersOpen }} onPress={() => setFiltersOpen(!filtersOpen)} style={[button, filtered && { backgroundColor: theme.primaryMuted, borderColor: theme.borderStrong }]} hoverLift={false}><Ionicons name="options-outline" size={17} color={theme.textPrimary} /><Text style={text}>Filtros{filtered ? ` · ${filterCount}` : ''}</Text></AnimatedPressable>
+        <AnimatedPressable focusRef={settingsRef} accessibilityLabel="Ajustes de agenda" onPress={() => settingsRef.current?.measureInWindow((x, y, width, height) => props.onSettings({ x: x + width, y: y + height }))} style={button} hoverLift={false}><Text style={text}>Ajustes</Text><Ionicons name="chevron-down" size={14} color={theme.textPrimary} /></AnimatedPressable>
+      </View>
       </View>
     </View>
-  );
+    {filtersOpen ? <View style={[styles.filters, { borderColor: theme.borderLight }]}>
+      <View style={styles.filter}><Text style={[text, { fontSize: 12 }]}>Procedencia</Text><SimpleDropdown options={ORIGIN_FILTER_OPTIONS} value={props.originFilter} onSelect={props.onChangeOrigin} accessibilityLabel="Procedencia" presentation="portal" optionsMinWidth={240} selectionIndicator="radio" /></View>
+      <View style={styles.filter}><Text style={[text, { fontSize: 12 }]}>Estado</Text><SimpleDropdown options={STATUS_FILTER_OPTIONS} value={props.statusFilter} onSelect={props.onChangeStatus} accessibilityLabel="Estado" presentation="portal" optionsMinWidth={190} selectionIndicator="radio" /></View>
+      <AnimatedPressable onPress={props.onResetFilters} style={button} hoverLift={false}><Text style={text}>Restablecer</Text></AnimatedPressable>
+    </View> : null}
+  </View>;
 }
-
-function createStyles(theme: Theme, isDark: boolean, isMobile: boolean) {
-  return StyleSheet.create({
-    container: {
-      minHeight: isMobile ? undefined : 48,
-      paddingHorizontal: isMobile ? spacing.md : spacing.lg,
-      paddingVertical: 5,
-      backgroundColor: theme.bg,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.borderLight,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      flexWrap: isMobile ? 'wrap' : 'nowrap',
-      gap: spacing.sm,
-      zIndex: 20,
-    },
-    viewTabs: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 2,
-      padding: 2,
-      borderRadius: borderRadius.md,
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-    },
-    viewTab: {
-      minHeight: 34,
-      paddingHorizontal: isMobile ? spacing.sm : 10,
-      borderRadius: borderRadius.sm,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 5,
-    },
-    viewTabActive: {
-      backgroundColor: theme.primary,
-    },
-    viewTabText: {
-      color: theme.textSecondary,
-      fontFamily: theme.fontSansSemiBold,
-      fontSize: typography.fontSizes.sm,
-    },
-    viewTabTextActive: {
-      color: theme.textOnPrimary,
-    },
-    dateTarget: {
-      minWidth: 0,
-      flex: isMobile ? undefined : 1,
-      width: isMobile ? '100%' : undefined,
-      maxWidth: isMobile ? undefined : 470,
-    },
-    dateControls: {
-      minHeight: 36,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 4,
-    },
-    dateNavButton: {
-      width: 34,
-      height: 34,
-      borderRadius: borderRadius.sm,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: isDark ? theme.surfaceMuted : theme.bgMuted,
-    },
-    dateTitle: {
-      minWidth: 0,
-      flex: 1,
-      color: theme.textPrimary,
-      textAlign: 'center',
-      fontFamily: theme.fontSansBold,
-      fontSize: typography.fontSizes.md,
-    },
-    todayButton: {
-      minHeight: 36,
-      paddingHorizontal: spacing.md,
-      borderWidth: 1,
-      borderColor: theme.primary,
-      borderRadius: borderRadius.md,
-      backgroundColor: isDark ? theme.bgElevated : theme.bgCard,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 5,
-    },
-    todayButtonActive: {
-      backgroundColor: theme.primaryAlpha12,
-      borderColor: theme.borderStrong,
-    },
-    todayText: {
-      color: theme.primary,
-      fontFamily: theme.fontSansSemiBold,
-      fontSize: typography.fontSizes.xs,
-    },
-    originWrap: {
-      minWidth: 104,
-      zIndex: 30,
-    },
-    originFilters: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 2,
-    },
-    originFilter: {
-      minHeight: 34,
-      paddingHorizontal: spacing.sm,
-      borderRadius: borderRadius.sm,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 5,
-    },
-    originDot: {
-      width: 7,
-      height: 7,
-      borderRadius: 999,
-    },
-    originText: {
-      color: theme.textSecondary,
-      fontFamily: theme.fontSansSemiBold,
-      fontSize: typography.fontSizes.sm,
-    },
-  });
-}
+const styles = StyleSheet.create({
+  toolbar: { paddingHorizontal: 20, paddingVertical: 10, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
+  side: { flex: 1, flexBasis: 0, minWidth: 0 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  button: { minHeight: 38, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', padding: 16, gap: 12, borderTopWidth: 1 },
+  filter: { minWidth: 160, gap: 5, flex: 1 },
+});

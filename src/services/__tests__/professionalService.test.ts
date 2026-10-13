@@ -41,6 +41,7 @@ import {
   updateCertificateDocumentMetadata,
   updateComprehensiveProfile,
   updatePublicProfileSlug,
+  updateAgendaPreferences,
   uploadCertificateDocument,
 } from '../professionalService';
 import { clearRequestCache } from '../requestCache';
@@ -399,12 +400,14 @@ describe('professionalService.getAgendaPreferences', () => {
         success: true,
         data: {
           autoConfirmSessionRequests: false,
+      emailSessionRequestsEnabled: true, emailSessionCancellationsEnabled: true, emailSessionReminder24hEnabled: false,
         },
       },
     });
 
     await expect(getAgendaPreferences()).resolves.toEqual({
       autoConfirmSessionRequests: false,
+      emailSessionRequestsEnabled: true, emailSessionCancellationsEnabled: true, emailSessionReminder24hEnabled: false,
     });
     expect(mockedApi.get).toHaveBeenCalledWith('/specialists/me/agenda-preferences');
   });
@@ -548,9 +551,10 @@ describe('professionalService cached professional GETs', () => {
 describe('professionalService.getProfessionalAgenda', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('validates the minimal paginated Agenda response', async () => {
+  it.each([undefined, 'DIRECTORY', 'OWN', 'REFERRAL', 'COLLABORATION', 'UNDETERMINED'])('validates legacy and extended Agenda responses (%s)', async (provenance) => {
     const response = {
       items: [{
+        ...(provenance ? { provenance } : {}),
         id: 'session-1',
         client: { id: 'client-1', displayName: 'Ana Ruiz', avatar: null },
         startsAt: '2026-08-04T10:00:00.000Z',
@@ -580,7 +584,7 @@ describe('professionalService.getProfessionalAgenda', () => {
       limit: 50,
     })).resolves.toEqual(response);
     expect(mockedApi.get).toHaveBeenCalledWith('/sessions/professional/agenda', {
-      params: { view: 'list', origin: 'PRIVATE', limit: 50, serviceDetails: '1', meetingDetails: '1' },
+      params: { view: 'list', origin: 'PRIVATE', limit: 50, serviceDetails: '1', meetingDetails: '1', provenanceDetails: '1' },
     });
   });
 
@@ -820,5 +824,17 @@ describe('professionalService.getManagedSessionSlotOptions', () => {
         sessionId: 'session-1',
       },
     });
+  });
+});
+
+
+describe('agenda preference contract', () => {
+  it('sends only a partial patch and validates all confirmed preferences', async () => {
+    const confirmed = { autoConfirmSessionRequests: false, emailSessionRequestsEnabled: true, emailSessionCancellationsEnabled: false, emailSessionReminder24hEnabled: true };
+    mockedApi.patch.mockResolvedValueOnce({ data: { success: true, data: confirmed } });
+    await expect(updateAgendaPreferences({ autoConfirmSessionRequests: false })).resolves.toEqual(confirmed);
+    expect(mockedApi.patch).toHaveBeenLastCalledWith('/specialists/me/agenda-preferences', { autoConfirmSessionRequests: false });
+    mockedApi.patch.mockResolvedValueOnce({ data: { success: true, data: { autoConfirmSessionRequests: false } } });
+    await expect(updateAgendaPreferences({ autoConfirmSessionRequests: false })).rejects.toThrow();
   });
 });

@@ -19,6 +19,7 @@ export type ClinicalConsentMethod = 'DIGITAL_SIGNATURE' | 'SPECIALIST_ATTESTATIO
 export type QuestionnaireAvailability = 'NOT_STARTED' | 'AVAILABLE' | 'REQUIRES_REFRESH';
 export type SessionType = 'VIDEO_CALL' | 'PHONE_CALL' | 'IN_PERSON';
 export type ProfessionalSessionOrigin = 'PRIVATE' | 'CLINIC';
+export type AgendaProvenance = 'DIRECTORY' | 'OWN' | 'REFERRAL' | 'COLLABORATION' | 'UNDETERMINED';
 const BUFFER_CONFLICT_REQUIRES_OVERRIDE = 'BUFFER_CONFLICT_REQUIRES_OVERRIDE';
 
 export interface ManagedSessionBufferConflictError extends Error {
@@ -281,6 +282,7 @@ export interface GetProfessionalSessionsOptions {
 }
 
 const professionalAgendaItemSchema = z.object({
+  provenance: z.enum(['DIRECTORY', 'OWN', 'REFERRAL', 'COLLABORATION', 'UNDETERMINED']).optional(),
   paymentBooking: z.object({ id: z.string(), status: z.string(), totalCents: z.number().int(), paidAt: z.iso.datetime().nullable(), acceptanceDeadline: z.iso.datetime().nullable() }).nullable().optional(),
   id: z.string(),
   client: z.object({
@@ -379,7 +381,7 @@ export const getProfessionalAgenda = async (
   query: ProfessionalAgendaQuery,
 ): Promise<ProfessionalAgendaResponse> => {
   try {
-    const response = await api.get('/sessions/professional/agenda', { params: { ...query, serviceDetails: '1', meetingDetails: '1' } });
+    const response = await api.get('/sessions/professional/agenda', { params: { ...query, serviceDetails: '1', meetingDetails: '1', provenanceDetails: '1' } });
     return professionalAgendaResponseSchema.parse(response.data.data);
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
@@ -721,7 +723,31 @@ export interface SpecialistProfileData {
 
 export interface AgendaPreferences {
   autoConfirmSessionRequests: boolean;
+  emailSessionRequestsEnabled: boolean;
+  emailSessionCancellationsEnabled: boolean;
+  emailSessionReminder24hEnabled: boolean;
 }
+
+const agendaPreferencesSchema = z.object({
+  autoConfirmSessionRequests: z.boolean(),
+  emailSessionRequestsEnabled: z.boolean(),
+  emailSessionCancellationsEnabled: z.boolean(),
+  emailSessionReminder24hEnabled: z.boolean(),
+}).strict();
+
+function parseAgendaPreferences(input: unknown): AgendaPreferences {
+  const parsed = agendaPreferencesSchema.safeParse(input);
+  if (!parsed.success) throw new Error('No se pudo validar la configuración de agenda. Inténtalo de nuevo.');
+  return parsed.data;
+}
+
+export const updateAgendaPreferences = async (changes: Partial<AgendaPreferences>): Promise<AgendaPreferences> => {
+  const response = await api.patch('/specialists/me/agenda-preferences', changes);
+  const result = parseAgendaPreferences(response.data.data);
+  invalidateSpecialistsCache();
+  notifyProfessionalHomeChanged();
+  return result;
+};
 
 /**
  * Get comprehensive profile data for the current professional
@@ -874,7 +900,7 @@ export const getAgendaPreferences = async (): Promise<AgendaPreferences | null> 
   try {
     const response = await api.get('/specialists/me/agenda-preferences');
     if (response.data.success && response.data.data) {
-      return response.data.data;
+      return parseAgendaPreferences(response.data.data);
     }
     return null;
   } catch (error: unknown) {

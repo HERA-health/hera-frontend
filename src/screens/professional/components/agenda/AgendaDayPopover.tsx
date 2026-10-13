@@ -1,12 +1,13 @@
 import React, { useMemo } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { formatMadridInstant } from '../../../../utils/madridTime';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable } from '../../../../components/common';
 import { borderRadius, shadows, spacing, typography } from '../../../../constants/colors';
 import type { Theme } from '../../../../constants/theme';
 import type { ProfessionalSession } from '../../../../constants/types';
 import { useTheme } from '../../../../contexts/ThemeContext';
-import { capitalizeFirst, formatSessionTimeRange, getSessionTypeLabel } from './professionalAgendaUtils';
+import { capitalizeFirst, formatSessionTimeRange, getSessionTypeLabel, getProvenanceLabel, getProvenancePalette, getSessionDisplayStatus, getStatusLabel } from './professionalAgendaUtils';
 
 export interface AgendaPopoverAnchor {
   x: number;
@@ -62,7 +63,7 @@ export function AgendaDayPopover({
             <View style={styles.headingCopy}>
               <Text style={styles.eyebrow}>Citas del día</Text>
               <Text style={styles.title} numberOfLines={1}>
-                {capitalizeFirst(date.toLocaleDateString('es-ES', {
+                {capitalizeFirst(formatMadridInstant(date, {
                   weekday: 'long',
                   day: 'numeric',
                   month: 'long',
@@ -81,7 +82,7 @@ export function AgendaDayPopover({
           </View>
           <ScrollView style={styles.list} showsVerticalScrollIndicator>
             {orderedSessions.map((session) => {
-              const originColor = session.origin === 'CLINIC' ? theme.primary : theme.secondaryDark;
+              const originColor = getProvenancePalette(theme, session).border;
               return (
                 <AnimatedPressable
                   key={session.id}
@@ -97,7 +98,7 @@ export function AgendaDayPopover({
                   <Text style={styles.sessionTime}>{formatSessionTimeRange(session)}</Text>
                   <Text style={styles.sessionName} numberOfLines={1}>{session.clientName}</Text>
                   <Text style={styles.sessionMeta} numberOfLines={1}>
-                    {session.duration} min · {getSessionTypeLabel(session.type)} · {session.origin === 'CLINIC' ? 'Clínica' : 'Particular'}
+                    {getStatusLabel(getSessionDisplayStatus(session, new Date()))} · {getSessionTypeLabel(session.type)} · {getProvenanceLabel(session.provenance)}
                   </Text>
                 </AnimatedPressable>
               );

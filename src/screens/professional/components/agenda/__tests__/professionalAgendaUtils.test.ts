@@ -1,16 +1,11 @@
 import type { ProfessionalSession } from '../../../../../constants/types';
 import { darkTheme, lightTheme } from '../../../../../constants/theme';
 import {
-  CALENDAR_FIT_MIN_HEIGHT,
-  TIME_SLOTS,
   getAgendaCalendarRange,
-  getAgendaDayScrollOffset,
   getAgendaStatusPalette,
   getMonthLayoutMetrics,
   getMonthVisibleEventLimit,
   getSessionDisplayStatus,
-  getWeekLayoutMetrics,
-  getWeekSessionBlockMetrics,
 } from '../professionalAgendaUtils';
 
 const session = (overrides: Partial<ProfessionalSession> = {}): ProfessionalSession => ({
@@ -41,33 +36,28 @@ describe('professional agenda utilities', () => {
     });
   });
 
-  it('fits all week hours and six month rows at the fit threshold', () => {
-    const week = getWeekLayoutMetrics(CALENDAR_FIT_MIN_HEIGHT);
-    const month = getMonthLayoutMetrics(CALENDAR_FIT_MIN_HEIGHT);
+  it('fits six month rows when there is enough height', () => {
+    const month = getMonthLayoutMetrics(700);
 
-    expect(week.scrollEnabled).toBe(false);
-    expect(week.contentHeight).toBeCloseTo(CALENDAR_FIT_MIN_HEIGHT);
     expect(month.scrollEnabled).toBe(false);
-    expect(month.contentHeight).toBeCloseTo(CALENDAR_FIT_MIN_HEIGHT);
-    expect(TIME_SLOTS).toEqual(Array.from({ length: 17 }, (_, index) => index + 7));
+    expect(month.contentHeight).toBeCloseTo(700);
   });
 
   it('uses legible fixed fallback metrics below the fit threshold', () => {
-    expect(getWeekLayoutMetrics(420)).toMatchObject({ scrollEnabled: true, itemHeight: 48 });
-    expect(getMonthLayoutMetrics(420)).toMatchObject({ scrollEnabled: true, itemHeight: 80 });
+    expect(getMonthLayoutMetrics(420)).toMatchObject({ scrollEnabled: true, itemHeight: 104 });
   });
 
   it('reduces visible month events as cells become shorter', () => {
-    expect(getMonthVisibleEventLimit(116, false)).toBe(3);
-    expect(getMonthVisibleEventLimit(96, false)).toBe(2);
+    expect(getMonthVisibleEventLimit(220, false)).toBe(3);
+    expect(getMonthVisibleEventLimit(160, false)).toBe(2);
     expect(getMonthVisibleEventLimit(76, false)).toBe(1);
-    expect(getMonthVisibleEventLimit(116, true)).toBe(2);
+    expect(getMonthVisibleEventLimit(220, true)).toBe(2);
   });
 
   it('derives live display status without mutating the stored session status', () => {
     expect(getSessionDisplayStatus(session(), new Date(2026, 7, 6, 9, 0))).toBe('confirmed');
     expect(getSessionDisplayStatus(session(), new Date(2026, 7, 6, 10, 30))).toBe('in_progress');
-    expect(getSessionDisplayStatus(session(), new Date(2026, 7, 6, 11, 30))).toBe('completed');
+    expect(getSessionDisplayStatus(session(), new Date(2026, 7, 6, 11, 30))).toBe('ended');
   });
 
   it('uses complete semantic surfaces for calendar sessions in both themes', () => {
@@ -88,36 +78,8 @@ describe('professional agenda utilities', () => {
           theme,
           status as Parameters<typeof getAgendaStatusPalette>[1],
         )));
-      expect(new Set(serializedPalettes).size).toBe(5);
+      expect(new Set(serializedPalettes).size).toBe(4);
     }
   });
 
-  it('keeps late sessions inside the weekly grid and caps them at midnight', () => {
-    const itemHeight = 48;
-    const bodyHeight = itemHeight * TIME_SLOTS.length;
-    const lateBlock = getWeekSessionBlockMetrics(
-      new Date(2026, 7, 6, 23, 30),
-      90,
-      itemHeight,
-      bodyHeight,
-    );
-
-    expect(lateBlock).not.toBeNull();
-    expect((lateBlock?.top ?? 0) + (lateBlock?.height ?? 0)).toBeLessThanOrEqual(bodyHeight);
-    expect(getWeekSessionBlockMetrics(
-      new Date(2026, 7, 7, 0, 0),
-      60,
-      itemHeight,
-      bodyHeight,
-    )).toBeNull();
-  });
-
-  it('scrolls the day view through 23:00 and clamps later minutes to the final slot', () => {
-    const atTwentyTwo = getAgendaDayScrollOffset(new Date(2026, 7, 6, 22, 0));
-    const atTwentyThree = getAgendaDayScrollOffset(new Date(2026, 7, 6, 23, 0));
-    const afterTwentyThree = getAgendaDayScrollOffset(new Date(2026, 7, 6, 23, 45));
-
-    expect(atTwentyThree - atTwentyTwo).toBe(72);
-    expect(afterTwentyThree).toBe(atTwentyThree);
-  });
 });

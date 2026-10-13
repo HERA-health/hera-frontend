@@ -9,7 +9,7 @@ import {
   type SessionStatusTone,
   formatSessionTimeRange,
   getSessionTypeLabel,
-  getStatusLabel,
+  getStatusLabel, getProvenanceLabel, getProvenancePalette,
 } from './professionalAgendaUtils';
 
 interface ProfessionalAgendaSessionCardProps {
@@ -32,9 +32,10 @@ export function ProfessionalAgendaSessionCard({
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const isClinicSession = session.origin === 'CLINIC';
-  const originColor = isClinicSession ? theme.primary : theme.secondaryDark;
-  const originBackground = isClinicSession ? theme.primaryAlpha12 : theme.secondaryAlpha12;
-  const originLabel = isClinicSession ? 'Clínica' : 'Particular';
+  const provenance = getProvenancePalette(theme, session);
+  const originColor = provenance.border;
+  const originBackground = provenance.background;
+  const originLabel = getProvenanceLabel(session.provenance);
 
   return (
     <View>
@@ -112,13 +113,14 @@ function createStyles(theme: Theme) {
     },
     header: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: spacing.md,
       marginBottom: spacing.sm,
     },
     clientBlock: {
-      minWidth: 0,
+      minWidth: 180,
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',

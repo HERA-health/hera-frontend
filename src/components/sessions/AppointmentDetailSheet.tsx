@@ -40,6 +40,8 @@ interface AppointmentDetailSheetProps {
   onClose: () => void;
   onRetry?: () => void;
   onCancel?: () => void;
+  onConfirm?: () => void;
+  onReschedule?: () => void;
   onComplete?: () => void;
   onJoinVideo?: () => void;
   onOpenNotes?: () => void;
@@ -103,6 +105,8 @@ export function AppointmentDetailSheet({
   onClose,
   onRetry,
   onCancel,
+  onConfirm,
+  onReschedule,
   onComplete,
   onJoinVideo,
   onOpenNotes,
@@ -358,6 +362,9 @@ export function AppointmentDetailSheet({
                   </>
                 ) : (
                   <>
+                    {!isClinicManagedProfessionalSession && professionalSession?.status === 'PENDING' && professionalSession.actions?.canConfirm && onConfirm ? <Button variant="primary" size="small" onPress={onConfirm} disabled={processing}>Confirmar</Button> : null}
+                    {!isClinicManagedProfessionalSession && ['PENDING', 'CONFIRMED'].includes(professionalSession?.status ?? '') && professionalSession?.actions?.canCancel && onCancel ? <Button variant="outline" size="small" onPress={onCancel} disabled={processing}>{professionalSession.status === 'PENDING' ? 'Rechazar' : 'Cancelar cita'}</Button> : null}
+                    {!isClinicManagedProfessionalSession && professionalSession?.status === 'CONFIRMED' && professionalSession.actions?.canModifySchedule && onReschedule ? <Button variant="outline" size="small" onPress={onReschedule} disabled={processing}>Modificar horario</Button> : null}
                     {onOpenPatient ? (
                       <Button
                         variant="outline"

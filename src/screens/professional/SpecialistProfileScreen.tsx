@@ -182,10 +182,6 @@ interface SpecialistProfileData {
   profileVisible: boolean;
   showReviewCount: boolean;
   showLastOnline: boolean;
-  autoConfirmSessionRequests: boolean;
-  emailSessionRequestsEnabled: boolean;
-  emailSessionCancellationsEnabled: boolean;
-  emailSessionReminder24hEnabled: boolean;
 
   // Mi Espacio
   gradientId: string;
@@ -427,10 +423,6 @@ const mapServiceProfileToFormData = (profile: ServiceProfileData): SpecialistPro
   profileVisible: profile.profileVisible ?? true,
   showReviewCount: profile.showReviewCount ?? true,
   showLastOnline: profile.showLastOnline || false,
-  autoConfirmSessionRequests: profile.autoConfirmSessionRequests ?? true,
-  emailSessionRequestsEnabled: profile.emailSessionRequestsEnabled ?? true,
-  emailSessionCancellationsEnabled: profile.emailSessionCancellationsEnabled ?? true,
-  emailSessionReminder24hEnabled: profile.emailSessionReminder24hEnabled ?? false,
   gradientId: profile.gradientId ?? 'salvia-lavanda',
   photoGallery: profile.photoGallery ?? [],
   presentationVideoUrl: profile.presentationVideoUrl ?? '',
@@ -692,10 +684,6 @@ export function SpecialistProfileScreen() {
     profileVisible: true,
     showReviewCount: true,
     showLastOnline: false,
-    autoConfirmSessionRequests: true,
-    emailSessionRequestsEnabled: true,
-    emailSessionCancellationsEnabled: true,
-    emailSessionReminder24hEnabled: false,
 
     // Mi Espacio
     gradientId: 'salvia-lavanda',
@@ -904,6 +892,11 @@ export function SpecialistProfileScreen() {
   // Reload both profile data and verification status on every screen focus
   useFocusEffect(
     useCallback(() => {
+      if (route.params?.initialTab === 'agenda') {
+        navigation.setParams({ initialTab: undefined });
+        navigateProfessionalSection(navigation, 'ProfessionalSessions', { openAgendaSettings: true });
+        return;
+      }
       if (route.params?.initialTab) {
         setActiveTab(route.params.initialTab);
       }
@@ -1038,10 +1031,6 @@ export function SpecialistProfileScreen() {
       assignIfChanged('experience', 'experience', profileData.experience);
       assignIfChanged('phone', 'phone', profileData.phone);
       assignIfChanged('profileVisible', 'profileVisible', profileData.profileVisible);
-      assignIfChanged('autoConfirmSessionRequests', 'autoConfirmSessionRequests', profileData.autoConfirmSessionRequests);
-      assignIfChanged('emailSessionRequestsEnabled', 'emailSessionRequestsEnabled', profileData.emailSessionRequestsEnabled);
-      assignIfChanged('emailSessionCancellationsEnabled', 'emailSessionCancellationsEnabled', profileData.emailSessionCancellationsEnabled);
-      assignIfChanged('emailSessionReminder24hEnabled', 'emailSessionReminder24hEnabled', profileData.emailSessionReminder24hEnabled);
       assignIfChanged('gradientId', 'gradientId', profileData.gradientId);
       assignIfChanged('photoGallery', 'photoGallery', profileData.photoGallery);
       assignIfChanged('presentationVideoUrl', 'presentationVideoUrl', profileData.presentationVideoUrl);
@@ -1521,7 +1510,6 @@ export function SpecialistProfileScreen() {
       pendingCount: informationCompletionCount,
     },
     { id: 'mi-espacio', label: STRINGS.miEspacio.tabLabel, icon: 'sparkles-outline' },
-    { id: 'agenda', label: 'Agenda y reservas', icon: 'calendar-clear-outline' },
     {
       id: 'credentials',
       label: 'Credenciales',
@@ -1692,115 +1680,6 @@ export function SpecialistProfileScreen() {
   // ============================================================================
   // RENDER: FORM COMPONENTS
   // ============================================================================
-
-  const renderAgendaPreferenceRow = ({
-    icon,
-    iconColor,
-    title,
-    description,
-    value,
-    onValueChange,
-    statusText,
-    statusColor,
-  }: {
-    icon: IconName;
-    iconColor: string;
-    title: string;
-    description: string;
-    value: boolean;
-    onValueChange: (value: boolean) => void;
-    statusText?: string;
-    statusColor?: string;
-  }) => (
-    <View style={styles.agendaPreferenceRow}>
-      <View style={styles.agendaPreferenceInfo}>
-        <View style={styles.agendaPreferenceIcon}>
-          <Ionicons name={icon} size={18} color={iconColor} />
-        </View>
-        <View style={styles.agendaPreferenceCopy}>
-          <Text style={styles.agendaPreferenceTitle}>{title}</Text>
-          <Text style={styles.agendaPreferenceDescription}>{description}</Text>
-        </View>
-      </View>
-      <View style={styles.agendaPreferenceAction}>
-        {statusText ? (
-          <Text style={[styles.agendaPreferenceStatus, { color: statusColor ?? palette.textSecondary }]}>
-            {statusText}
-          </Text>
-        ) : null}
-        <Switch
-          value={value}
-          onValueChange={onValueChange}
-          trackColor={{ false: palette.border, true: palette.primaryMuted }}
-          thumbColor={value ? palette.primary : palette.cardBackground}
-          ios_backgroundColor={palette.border}
-        />
-      </View>
-    </View>
-  );
-
-  const renderAgendaReservationsTab = () => {
-    const autoConfirmEnabled = profileData.autoConfirmSessionRequests;
-    const confirmationStatusColor = autoConfirmEnabled ? palette.success : palette.warningAmber;
-
-    return (
-      <View style={styles.tabContent}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Agenda y reservas</Text>
-          <Text style={styles.agendaSectionDescription}>
-            Gestiona cómo se confirman tus reservas y qué avisos quieres recibir por email.
-          </Text>
-
-          <View style={styles.agendaSettingsCard}>
-            {renderAgendaPreferenceRow({
-              icon: 'calendar-clear-outline',
-              iconColor: palette.primary,
-              title: 'Confirmar reservas automáticamente',
-              description:
-                'Las reservas en horarios disponibles se confirman al momento. Si lo desactivas, podrás aprobarlas antes de confirmarlas.',
-              value: autoConfirmEnabled,
-              onValueChange: (value) => updateField('autoConfirmSessionRequests', value),
-              statusText: autoConfirmEnabled ? 'Confirmación automática' : 'Confirmación manual',
-              statusColor: confirmationStatusColor,
-            })}
-
-            <View style={styles.agendaPreferenceDivider} />
-
-            {renderAgendaPreferenceRow({
-              icon: 'mail-outline',
-              iconColor: palette.primary,
-              title: 'Aviso de nueva reserva',
-              description: 'Recibe un email cuando un paciente reserve o solicite una cita.',
-              value: profileData.emailSessionRequestsEnabled,
-              onValueChange: (value) => updateField('emailSessionRequestsEnabled', value),
-            })}
-
-            <View style={styles.agendaPreferenceDivider} />
-
-            {renderAgendaPreferenceRow({
-              icon: 'close-circle-outline',
-              iconColor: palette.warning,
-              title: 'Cancelación de cita',
-              description: 'Recibe un email si un paciente cancela una cita.',
-              value: profileData.emailSessionCancellationsEnabled,
-              onValueChange: (value) => updateField('emailSessionCancellationsEnabled', value),
-            })}
-
-            <View style={styles.agendaPreferenceDivider} />
-
-            {renderAgendaPreferenceRow({
-              icon: 'time-outline',
-              iconColor: palette.textSecondary,
-              title: 'Recordatorio 24h antes',
-              description: 'Recibe un email por cada cita confirmada 24 horas antes.',
-              value: profileData.emailSessionReminder24hEnabled,
-              onValueChange: (value) => updateField('emailSessionReminder24hEnabled', value),
-            })}
-          </View>
-        </View>
-      </View>
-    );
-  };
 
   const renderFormField = (
     label: string,
@@ -3487,7 +3366,6 @@ export function SpecialistProfileScreen() {
         <View style={styles.formContent}>
           {activeTab === 'mi-espacio' && renderMiEspacioTab()}
           {activeTab === 'information' && renderInformationTab()}
-          {activeTab === 'agenda' && renderAgendaReservationsTab()}
           {activeTab === 'credentials' && renderCredentialsTab()}
           {activeTab === 'pricing' && renderPricingTab()}
           {activeTab === 'privacy' && <>{renderPrivacyTab()}<PrivacyPreferencesButton /></>}
@@ -5186,81 +5064,7 @@ function createStyles(
     fontFamily: palette.fontSansSemiBold,
     color: palette.textOnCard,
   },
-  agendaSectionDescription: {
-    marginTop: -spacing.xs,
-    marginBottom: spacing.md,
-    fontSize: 14,
-    fontFamily: palette.fontSans,
-    lineHeight: 21,
-    color: palette.textSecondary,
-  },
-  agendaSettingsCard: {
-    width: '100%',
-    overflow: 'hidden',
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.cardBg,
-  },
-  agendaPreferenceRow: {
-    minHeight: 82,
-    flexDirection: isMobile ? 'column' : 'row',
-    alignItems: isMobile ? 'stretch' : 'center',
-    justifyContent: 'space-between',
-    gap: isMobile ? spacing.sm : spacing.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  agendaPreferenceInfo: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  agendaPreferenceIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.primaryAlpha12,
-  },
-  agendaPreferenceCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 3,
-  },
-  agendaPreferenceTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    fontFamily: palette.fontHeading,
-    color: palette.textPrimary,
-  },
-  agendaPreferenceDescription: {
-    fontSize: 12,
-    fontFamily: palette.fontSans,
-    lineHeight: 18,
-    color: palette.textSecondary,
-  },
-  agendaPreferenceAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: isMobile ? 'space-between' : 'flex-end',
-    gap: spacing.sm,
-    minWidth: isMobile ? undefined : 244,
-  },
-  agendaPreferenceStatus: {
-    flexShrink: 1,
-    fontSize: 12,
-    fontWeight: '700',
-    fontFamily: palette.fontSansSemiBold,
-  },
-  agendaPreferenceDivider: {
-    height: 1,
-    backgroundColor: palette.border,
-    marginLeft: isMobile ? spacing.lg : 76,
-  },
+
   privacySection: {
     marginBottom: spacing.md,
   },

@@ -1,3 +1,5 @@
+import { useAgendaScrollPosition } from './useAgendaScrollPosition';
+import type { AgendaScrollPosition } from './ProfessionalAgendaTimeGrid';
 import React, { useMemo, useState } from 'react';
 import {
   ScrollView,
@@ -7,6 +9,7 @@ import {
   type GestureResponderEvent,
   type LayoutChangeEvent,
 } from 'react-native';
+import { formatMadridInstant } from '../../../../utils/madridTime';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AnimatedPressable } from '../../../../components/common';
 import { borderRadius, spacing, typography } from '../../../../constants/colors';
@@ -16,9 +19,10 @@ import { useTheme } from '../../../../contexts/ThemeContext';
 import { AgendaDayPopover, type AgendaPopoverAnchor } from './AgendaDayPopover';
 import {
   capitalizeFirst,
-  formatTime,
-  getAgendaStatusPalette,
+  formatTime, formatSessionTimeRange,
+  getProvenancePalette, getProvenanceLabel, getMonthDays,
   getMonthLayoutMetrics,
+  MONTH_HEADER_HEIGHT,
   getMonthVisibleEventLimit,
   isSameCalendarDay,
   isToday,
@@ -28,6 +32,8 @@ import {
 } from './professionalAgendaUtils';
 
 interface ProfessionalAgendaMonthViewProps {
+  scrollPosition?: AgendaScrollPosition;
+  scrollRequest?: number;
   selectedDate: Date;
   sessionsForSelectedDate: ProfessionalSession[];
   sessionsByDate: Map<string, ProfessionalSession[]>;
@@ -47,6 +53,8 @@ interface PopoverState {
 
 export function ProfessionalAgendaMonthView({
   selectedDate,
+  scrollPosition,
+  scrollRequest,
   sessionsForSelectedDate,
   sessionsByDate,
   isMobile,
@@ -58,18 +66,12 @@ export function ProfessionalAgendaMonthView({
   onOpenSession,
 }: ProfessionalAgendaMonthViewProps): React.ReactElement {
   const { theme } = useTheme();
+  const scrollRef = useAgendaScrollPosition(scrollPosition, true, scrollRequest);
   const styles = useMemo(() => createStyles(theme, isMobile), [isMobile, theme]);
   const [availableHeight, setAvailableHeight] = useState(0);
   const [popover, setPopover] = useState<PopoverState | null>(null);
-  const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-  const gridStart = new Date(monthStart);
-  gridStart.setDate(monthStart.getDate() - ((monthStart.getDay() + 6) % 7));
-  const calendarDays = Array.from({ length: 42 }, (_, index) => {
-    const day = new Date(gridStart);
-    day.setDate(gridStart.getDate() + index);
-    return day;
-  });
-  const metrics = getMonthLayoutMetrics(availableHeight);
+  const calendarDays = getMonthDays(selectedDate);
+  const metrics = getMonthLayoutMetrics(availableHeight, calendarDays.length / 7);
   const rowHeight = isMobile ? 52 : metrics.itemHeight;
   const visibleLimit = isMobile ? 0 : getMonthVisibleEventLimit(rowHeight, isTablet);
 
@@ -88,6 +90,9 @@ export function ProfessionalAgendaMonthView({
   return (
     <View style={styles.viewport} onLayout={handleLayout}>
       <ScrollView
+        ref={scrollRef}
+        onScroll={(event) => { if (scrollPosition) scrollPosition.current = event.nativeEvent.contentOffset.y; }}
+        scrollEventThrottle={32}
         style={styles.scroll}
         contentContainerStyle={[
           styles.content,
@@ -107,7 +112,7 @@ export function ProfessionalAgendaMonthView({
           <View style={styles.grid}>
             {calendarDays.map((day) => {
               const daySessions = sessionsByDate.get(toCalendarDateKey(day)) ?? [];
-              const inCurrentMonth = day.getMonth() === selectedDate.getMonth();
+              const inCurrentMonth = toCalendarDateKey(day).slice(0, 7) === toCalendarDateKey(selectedDate).slice(0, 7);
               const selected = isSameCalendarDay(day, selectedDate);
               const today = isToday(day);
               const hiddenCount = Math.max(0, daySessions.length - visibleLimit);
@@ -125,7 +130,7 @@ export function ProfessionalAgendaMonthView({
                     <View style={styles.cellTop}>
                       <View style={[styles.dayNumber, today ? { backgroundColor: theme.actionPrimary } : null]}>
                         <Text style={[styles.dayText, { color: today ? theme.actionPrimaryText : selected ? theme.primary : theme.textSecondary }]}>
-                          {day.getDate()}
+                          {day.getUTCDate()}
                         </Text>
                       </View>
                       {daySessions.length ? <Text style={styles.mobileCount}>{daySessions.length}</Text> : null}
@@ -136,11 +141,11 @@ export function ProfessionalAgendaMonthView({
                       hoverLift={false}
                       pressScale={0.98}
                       style={styles.cellTop}
-                      accessibilityLabel={`Seleccionar ${day.toLocaleDateString('es-ES')}`}
+                      accessibilityLabel={`Seleccionar ${formatMadridInstant(day, { day: 'numeric', month: 'long' })}`}
                     >
                     <View style={[styles.dayNumber, today ? { backgroundColor: theme.actionPrimary } : null]}>
                       <Text style={[styles.dayText, { color: today ? theme.actionPrimaryText : selected ? theme.primary : theme.textSecondary }]}>
-                        {day.getDate()}
+                        {day.getUTCDate()}
                       </Text>
                     </View>
                     </AnimatedPressable>
@@ -149,9 +154,9 @@ export function ProfessionalAgendaMonthView({
                     <View style={styles.events}>
                       {daySessions.slice(0, visibleLimit).map((session) => {
                         const status = getStatus(session);
-                        const statusPalette = getAgendaStatusPalette(theme, status);
+                        const statusPalette = getProvenancePalette(theme, session);
                         const accent = getStatusColor(status);
-                        const originColor = session.origin === 'CLINIC' ? theme.primary : theme.secondaryDark;
+                        const originColor = statusPalette.border;
                         return (
                           <AnimatedPressable
                             key={session.id}
@@ -170,10 +175,11 @@ export function ProfessionalAgendaMonthView({
                                 borderLeftColor: originColor,
                               },
                             ]}
-                            accessibilityLabel={`${session.clientName}, ${formatTime(session.date)}, ${session.origin === 'CLINIC' ? 'Clínica' : 'Particular'}, ${getStatusLabel(status)}`}
+                            accessibilityLabel={`${session.clientName}, ${formatTime(session.date)}, ${getProvenanceLabel(session.provenance)}, ${getStatusLabel(status)}`}
                           >
-                            <Text style={[styles.eventTime, { color: accent }]}>{formatTime(session.date)}</Text>
-                            <Text style={styles.eventName} numberOfLines={1}>{session.clientName}</Text>
+                            <Text style={styles.eventName} numberOfLines={1}>{session.status === 'cancelled' ? 'Cancelada · ' : ''}{session.clientName}</Text>
+                            <Text style={[styles.eventTime, { color: theme.textSecondary }]} numberOfLines={1}>{formatSessionTimeRange(session)}</Text>
+                            <Text style={[styles.eventTime, { color: theme.textSecondary }]} numberOfLines={1}>{getProvenanceLabel(session.provenance)}</Text>
                           </AnimatedPressable>
                         );
                       })}
@@ -184,7 +190,7 @@ export function ProfessionalAgendaMonthView({
                           pressScale={0.97}
                           hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
                           style={styles.moreButton}
-                          accessibilityLabel={`Ver ${hiddenCount} citas más del ${day.toLocaleDateString('es-ES')}`}
+                          accessibilityLabel={`Ver ${hiddenCount} citas más del ${formatMadridInstant(day, { day: 'numeric', month: 'long' })}`}
                         >
                           <Text style={styles.moreText}>+{hiddenCount} más</Text>
                         </AnimatedPressable>
@@ -201,7 +207,7 @@ export function ProfessionalAgendaMonthView({
                   hoverLift={false}
                   pressScale={0.995}
                   style={cellStyle}
-                  accessibilityLabel={`${day.toLocaleDateString('es-ES')}, ${daySessions.length} citas`}
+                  accessibilityLabel={`${formatMadridInstant(day, { day: 'numeric', month: 'long' })}, ${daySessions.length} citas`}
                 >
                   {cellContent}
                 </AnimatedPressable>
@@ -218,7 +224,7 @@ export function ProfessionalAgendaMonthView({
           <View style={styles.selectedDay}>
             <View style={styles.selectedHeading}>
               <Text style={styles.selectedTitle}>
-                {capitalizeFirst(selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }))}
+                {capitalizeFirst(formatMadridInstant(selectedDate, { weekday: 'long', day: 'numeric', month: 'long' }))}
               </Text>
               <View style={styles.badge}><Text style={styles.badgeText}>{sessionsForSelectedDate.length}</Text></View>
             </View>
@@ -250,15 +256,15 @@ function createStyles(theme: Theme, isMobile: boolean) {
     viewport: { flex: 1, minHeight: 0 },
     scroll: { flex: 1 },
     content: {
-      paddingHorizontal: isMobile ? spacing.md : spacing.lg,
-      paddingTop: isMobile ? spacing.sm : 0,
+      paddingHorizontal: 0,
+      paddingTop: 0,
       paddingBottom: isMobile ? spacing.xxxl : 0,
       gap: spacing.md,
     },
     contentFitted: { flexGrow: 1 },
-    calendar: { overflow: 'hidden', borderWidth: 1, borderColor: theme.border, borderRadius: borderRadius.lg, backgroundColor: theme.bgCard },
-    weekHeader: { height: isMobile ? 34 : 38, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: theme.border, backgroundColor: theme.bgMuted },
-    weekLabel: { width: '14.285%', color: theme.textMuted, fontFamily: theme.fontSansSemiBold, fontSize: isMobile ? 10 : typography.fontSizes.xs, textAlign: 'center', textTransform: 'uppercase' },
+    calendar: { overflow: 'hidden', backgroundColor: theme.bgCard },
+    weekHeader: { height: MONTH_HEADER_HEIGHT, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: theme.borderLight, backgroundColor: theme.bgCard },
+    weekLabel: { width: '14.285%', color: theme.textSecondary, fontFamily: theme.fontSansBold, fontSize: 12, lineHeight: 16, letterSpacing: 0.6, textAlign: 'center', textTransform: 'uppercase' },
     grid: { flexDirection: 'row', flexWrap: 'wrap' },
     cell: { width: '14.285%', padding: isMobile ? 4 : 6, borderRightWidth: 1, borderRightColor: theme.borderLight, borderBottomWidth: 1, borderBottomColor: theme.borderLight },
     cellTop: { minHeight: isMobile ? 24 : 26, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -266,11 +272,11 @@ function createStyles(theme: Theme, isMobile: boolean) {
     dayText: { fontFamily: theme.fontSansSemiBold, fontSize: isMobile ? 11 : 12 },
     mobileCount: { paddingRight: 2, color: theme.primary, fontFamily: theme.fontSansBold, fontSize: 9 },
     events: { minHeight: 0, flex: 1, marginTop: 2, gap: 2 },
-    event: { minHeight: 20, paddingHorizontal: 4, borderWidth: 1, borderLeftWidth: 3, borderRadius: 5, flexDirection: 'row', alignItems: 'center', gap: 3 },
-    eventTime: { flexShrink: 0, fontFamily: theme.fontSansBold, fontSize: 8 },
-    eventName: { minWidth: 0, flex: 1, color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 9 },
+    event: { height: 48, paddingHorizontal: 5, paddingVertical: 3, borderLeftWidth: 3, borderRadius: 5, justifyContent: 'center' },
+    eventTime: { fontFamily: theme.fontSans, fontSize: 11, lineHeight: 13 },
+    eventName: { minWidth: 0, color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 12, lineHeight: 15 },
     moreButton: { minHeight: 16, paddingHorizontal: 4, justifyContent: 'center', alignSelf: 'flex-start', borderRadius: 4, backgroundColor: theme.primaryAlpha12 },
-    moreText: { color: theme.link, fontFamily: theme.fontSansSemiBold, fontSize: 9 },
+    moreText: { color: theme.link, fontFamily: theme.fontSansSemiBold, fontSize: 11 },
     selectedDay: { padding: spacing.md, borderWidth: 1, borderColor: theme.border, borderRadius: borderRadius.lg, backgroundColor: theme.bgCard },
     selectedHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
     selectedTitle: { minWidth: 0, flex: 1, color: theme.textPrimary, fontFamily: theme.fontSansBold, fontSize: typography.fontSizes.md, textTransform: 'capitalize' },

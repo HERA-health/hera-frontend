@@ -22,7 +22,7 @@ import {
 } from '../../constants/colors';
 import { Theme } from '../../constants/theme';
 import { AppNavigationProp, AppRouteProp, ProfessionalSession } from '../../constants/types';
-import { AnimatedPressable, Button, Card } from '../../components/common';
+import { AnimatedPressable, Button } from '../../components/common';
 import { TourTarget } from '../../components/onboarding/TourTarget';
 import {
   useProfessionalTourAutoStart,
@@ -35,7 +35,10 @@ import { getErrorMessage } from '../../constants/errors';
 import { trackProfessionalWorkspaceEvent } from '../../services/professionalWorkspaceAnalytics';
 import { billingService } from '../../services/billingService';
 import * as professionalService from '../../services/professionalService';
-import { ProfessionalAgendaHeader } from './components/agenda/ProfessionalAgendaHeader';
+import { ProfessionalAgendaSettings } from './components/agenda/ProfessionalAgendaSettings';
+import { ProfessionalAgendaDatePicker } from './components/agenda/ProfessionalAgendaDatePicker';
+import { useAuth } from '../../contexts/AuthContext';
+import { formatMadridInstant } from '../../utils/madridTime';
 import { ProfessionalAgendaToolbar } from './components/agenda/ProfessionalAgendaToolbar';
 import { ProfessionalAgendaSessionCard } from './components/agenda/ProfessionalAgendaSessionCard';
 import { ProfessionalAgendaDayView } from './components/agenda/ProfessionalAgendaDayView';
@@ -45,12 +48,8 @@ import { ProfessionalAgendaListView } from './components/agenda/ProfessionalAgen
 import { useProfessionalAgendaController } from './components/agenda/useProfessionalAgendaController';
 import {
   type SessionStatusTone,
-  capitalizeFirst,
-  getAgendaDayScrollOffset,
   getAgendaStatusPalette,
   getSessionDisplayStatus as resolveSessionDisplayStatus,
-  isSameCalendarDay,
-  isToday,
 } from './components/agenda/professionalAgendaUtils';
 import {
   getVideoCallButtonLabel,
@@ -166,12 +165,21 @@ export function ProfessionalSessionsScreen() {
   const { width } = useWindowDimensions();
   const { theme } = useTheme();
   const dayScrollRef = useRef<ScrollView | null>(null);
-  const isDesktop = width >= 1180;
   const isTablet = width >= 768 && width < 1180;
   const isMobile = width < 768;
   const styles = useMemo(() => createStyles(theme, isMobile), [theme, isMobile]);
 
-  const agenda = useProfessionalAgendaController();
+  const { user } = useAuth();
+  const agenda = useProfessionalAgendaController(user?.id ?? null, isMobile ? 'day' : 'week');
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const [settingsAnchor, setSettingsAnchor] = useState<{ x: number; y: number } | null>(null);
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
+  useEffect(() => {
+    if (route.params?.openAgendaSettings) {
+      setSettingsVisible(true);
+      navigation.setParams({ openAgendaSettings: undefined });
+    }
+  }, [navigation, route.params?.openAgendaSettings]);
   const {
     viewMode,
     setViewMode,
@@ -183,26 +191,21 @@ export function ProfessionalSessionsScreen() {
     loadError,
     loadErrorMessage,
     sessions,
-    agendaSummary,
-    nextCursor,
-    loadingMore,
-    loadMoreError,
-    loadMoreErrorMessage,
+    nextUpcomingSession,
+    jumpToNextSession,
     originFilter,
     setOriginFilter,
+    statusFilter, setStatusFilter, resetFilters, rawSessionCount, preferenceError,
+    dayScrollPosition, weekScrollPosition, listScrollPosition, monthScrollPosition, scrollRequest, scrollTarget, dataReady,
     currentTime,
-    autoConfirmSessionRequests,
     weekDays,
     sessionsForDate,
     sessionsForWeek,
     sessionsByDate,
-    nextUpcomingSession,
     refreshAgenda,
     refreshAfterMutation,
-    loadMoreSessions,
     navigateDate,
     goToToday,
-    jumpToNextSession,
   } = agenda;
   const agendaLoading = initialLoading || refreshing;
   const [processingSessionId, setProcessingSessionId] = useState<string | null>(null);
@@ -264,10 +267,12 @@ export function ProfessionalSessionsScreen() {
     setSchedulerVisible(true);
   }, [appAlert, loadSchedulableClients, schedulableClients]);
 
-  const openManagedSessionEditor = useCallback(async (session: ProfessionalSession) => {
+  const openManagedSessionEditor = useCallback(async (session: Pick<ProfessionalSession, 'id' | 'clientName' | 'clientAvatar'>) => {
+    if (processingSessionId) return false;
     setProcessingSessionId(session.id);
     try {
       const detail = await professionalService.getProfessionalSessionDetail(session.id);
+      if (detail.origin === 'CLINIC' || detail.clinicContext || !detail.actions?.canModifySchedule) throw new Error('Esta cita ya no permite modificar su horario.');
       const clientEmail = getFirstNonBlank(
         detail.client?.primaryEmail,
         detail.client?.user?.email,
@@ -275,6 +280,13 @@ export function ProfessionalSessionsScreen() {
       );
       setEditingSession({
         ...session,
+        clientId: detail.clientId,
+        clientInitial: session.clientName[0] ?? 'P',
+        date: new Date(detail.date),
+        duration: detail.duration,
+        status: detail.status === 'CONFIRMED' ? 'scheduled' : 'pending',
+        type: detail.type === 'IN_PERSON' ? 'in_person' : detail.type === 'PHONE_CALL' ? 'audio' : 'video',
+        paymentBooking: detail.paymentBooking,
         privateOptionId: detail.privateOptionId,
         packageUses: detail.packageUses,
         bookedPrivateServiceName: detail.bookedServiceName,
@@ -284,12 +296,14 @@ export function ProfessionalSessionsScreen() {
         clientAvatar: detail.client?.user?.avatar ?? session.clientAvatar,
       });
       setSchedulerVisible(true);
+      return true;
     } catch (error: unknown) {
       showAppAlert(appAlert, 'No se pudo abrir la cita', getErrorMessage(error, 'Inténtalo de nuevo.'));
+      return false;
     } finally {
       setProcessingSessionId(null);
     }
-  }, [appAlert]);
+  }, [appAlert, processingSessionId]);
 
   const closeManagedSessionScheduler = useCallback(() => {
     if (schedulerSaving) {
@@ -448,10 +462,6 @@ export function ProfessionalSessionsScreen() {
     void openSessionDetail(sessionId);
   }, [navigation, openSessionDetail, route.params?.focusSessionId]);
 
-  const handleConfigureAgenda = useCallback(() => {
-    navigateProfessionalSection(navigation, 'ProfessionalProfile', { initialTab: 'agenda' });
-  }, [navigation]);
-
   useProfessionalTourAutoStart(
     'professional_sessions_v1',
     !agendaLoading && !loadError && !schedulerVisible && !isAppAlertVisible,
@@ -507,25 +517,6 @@ export function ProfessionalSessionsScreen() {
     [theme],
   );
 
-  useEffect(() => {
-    if (viewMode !== 'day' || agendaLoading) {
-      return;
-    }
-
-    const targetDate = isToday(selectedDate)
-      ? currentTime
-      : sessionsForDate[0]?.date ?? selectedDate;
-
-    const timeout = setTimeout(() => {
-      dayScrollRef.current?.scrollTo({
-        y: getAgendaDayScrollOffset(targetDate),
-        animated: false,
-      });
-    }, 0);
-
-    return () => clearTimeout(timeout);
-  }, [agendaLoading, currentTime, isToday, selectedDate, sessionsForDate, viewMode]);
-
   const handleConfirmSession = useCallback(
     async (sessionId: string, clientName: string) => {
       if (processingSessionId) return;
@@ -533,6 +524,7 @@ export function ProfessionalSessionsScreen() {
         setProcessingSessionId(sessionId);
         await professionalService.updateSessionStatus(sessionId, 'CONFIRMED');
         showAppAlert(appAlert, 'Sesión confirmada', `Sesión con ${clientName} confirmada correctamente`);
+        if (selectedSessionId === sessionId) closeSessionDetail();
         await refreshAfterMutation();
       } catch {
         showAppAlert(appAlert, 'Error', 'No se pudo confirmar la sesión');
@@ -540,7 +532,7 @@ export function ProfessionalSessionsScreen() {
         setProcessingSessionId(null);
       }
     },
-    [processingSessionId, refreshAfterMutation],
+    [appAlert, processingSessionId, refreshAfterMutation, selectedSessionId, closeSessionDetail],
   );
 
   const handleRejectSession = useCallback(
@@ -558,6 +550,7 @@ export function ProfessionalSessionsScreen() {
             try {
               setProcessingSessionId(sessionId);
               if (cancellationPayment) await cancelPayment(cancellationPayment.id, false, cancellationPayment.cancellationRefundCents); else await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
+              if (selectedSessionId === sessionId) closeSessionDetail();
               await refreshAfterMutation();
             } catch {
               showAppAlert(appAlert, 'Error', 'No se pudo rechazar la sesión');
@@ -568,7 +561,7 @@ export function ProfessionalSessionsScreen() {
         },
       ]);
     },
-    [processingSessionId, refreshAfterMutation],
+    [appAlert, processingSessionId, refreshAfterMutation, selectedSessionId, closeSessionDetail],
   );
 
   const handleCancelSession = useCallback(
@@ -587,6 +580,7 @@ export function ProfessionalSessionsScreen() {
               setProcessingSessionId(sessionId);
               if (cancellationPayment) await cancelPayment(cancellationPayment.id, false, cancellationPayment.cancellationRefundCents); else await professionalService.updateSessionStatus(sessionId, 'CANCELLED');
               showAppAlert(appAlert, 'Cita cancelada', 'La cita se ha cancelado correctamente.');
+              if (selectedSessionId === sessionId) closeSessionDetail();
               await refreshAfterMutation();
             } catch {
               showAppAlert(appAlert, 'Error', 'No se pudo cancelar la cita');
@@ -597,7 +591,7 @@ export function ProfessionalSessionsScreen() {
         },
       ]);
     },
-    [appAlert, processingSessionId, refreshAfterMutation],
+    [appAlert, processingSessionId, refreshAfterMutation, selectedSessionId, closeSessionDetail],
   );
 
   const handleJoinSession = useCallback(async (sessionId: string) => {
@@ -801,89 +795,6 @@ export function ProfessionalSessionsScreen() {
     ],
   );
 
-  const renderMiniCalendar = () => {
-    const monthDate = selectedDate;
-    const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-    const lastDay = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
-    const startOffset = (firstDay.getDay() + 6) % 7;
-    const days: Array<Date | null> = [];
-
-    for (let i = 0; i < startOffset; i += 1) days.push(null);
-    for (let day = 1; day <= lastDay.getDate(); day += 1) {
-      days.push(new Date(monthDate.getFullYear(), monthDate.getMonth(), day));
-    }
-
-    return (
-      <Card variant="default" padding="medium" style={styles.sideCard}>
-        <Text style={styles.sideCardTitle}>
-          {capitalizeFirst(monthDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }))}
-        </Text>
-        <View style={styles.miniWeekdays}>
-          {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => (
-            <Text key={day} style={styles.miniWeekday}>{day}</Text>
-          ))}
-        </View>
-        <View style={styles.miniCalendarGrid}>
-          {days.map((day, index) => {
-            const selected = day ? isSameCalendarDay(day, selectedDate) : false;
-            const today = day ? isToday(day) : false;
-            return (
-              <AnimatedPressable
-                key={`${day?.toISOString() || 'empty'}-${index}`}
-                onPress={day ? () => setSelectedDate(day) : undefined}
-                hoverLift={false}
-                pressScale={0.98}
-                style={
-                  selected
-                    ? [styles.miniDay, styles.miniDaySelected]
-                    : today
-                    ? [styles.miniDay, styles.miniDayToday]
-                    : styles.miniDay
-                }
-              >
-                {day ? (
-                  <>
-                    <Text style={selected ? [styles.miniDayText, styles.miniDayTextSelected] : styles.miniDayText}>
-                      {day.getDate()}
-                    </Text>
-                  </>
-                ) : null}
-              </AnimatedPressable>
-            );
-          })}
-        </View>
-      </Card>
-    );
-  };
-
-  const renderLegend = () => (
-    <Card variant="default" padding="medium" style={styles.sideCard}>
-      <Text style={styles.sideCardTitle}>Estado</Text>
-      {[
-        ['Confirmada', getStatusColor('confirmed')],
-        ['Pendiente', getStatusColor('pending')],
-        ['En curso', getStatusColor('in_progress')],
-        ['Completada', getStatusColor('completed')],
-      ].map(([label, color]) => (
-        <View key={label} style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: color as string }]} />
-          <Text style={styles.legendText}>{label}</Text>
-        </View>
-      ))}
-      <View style={styles.legendDivider} />
-      <Text style={styles.sideCardTitle}>Origen</Text>
-      {[
-        ['Clínica', theme.primary],
-        ['Particular', theme.secondaryDark],
-      ].map(([label, color]) => (
-        <View key={label} style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: color as string }]} />
-          <Text style={styles.legendText}>{label}</Text>
-        </View>
-      ))}
-    </Card>
-  );
-
   const renderLoadErrorNotice = () => {
     if (!loadError || !hasLoadedOnce) {
       return null;
@@ -937,7 +848,11 @@ export function ProfessionalSessionsScreen() {
       selectedDate={selectedDate}
       currentTime={currentTime}
       sessions={sessionsForDate}
-      renderSessionCard={renderSessionCard}
+      scrollPosition={dayScrollPosition}
+      scrollRequest={scrollRequest}
+      scrollTarget={scrollTarget}
+      dataReady={dataReady}
+      onOpenSession={(id) => { void openSessionDetail(id); }}
     />
   );
 
@@ -946,8 +861,11 @@ export function ProfessionalSessionsScreen() {
       weekDays={weekDays}
       sessions={sessionsForWeek}
       gridEnabled={width >= 900}
-      getStatus={getSessionDisplayStatus}
-      getStatusColor={getStatusColor}
+      currentTime={currentTime}
+      scrollPosition={weekScrollPosition}
+      scrollRequest={scrollRequest}
+      scrollTarget={scrollTarget}
+      dataReady={dataReady}
       renderSessionCard={renderSessionCard}
       onOpenSession={(sessionId) => { void openSessionDetail(sessionId); }}
     />
@@ -955,18 +873,18 @@ export function ProfessionalSessionsScreen() {
 
   const renderListView = () => (
     <ProfessionalAgendaListView
+      scrollPosition={listScrollPosition}
+      scrollRequest={scrollRequest}
       sessions={sessions}
-      nextCursor={nextCursor}
-      loadingMore={loadingMore}
-      loadMoreError={loadMoreError}
-      loadMoreErrorMessage={loadMoreErrorMessage}
+      weekDays={weekDays}
       renderSessionCard={renderSessionCard}
-      onLoadMore={() => { void loadMoreSessions(); }}
     />
   );
 
   const renderMonthView = () => (
     <ProfessionalAgendaMonthView
+      scrollPosition={monthScrollPosition}
+      scrollRequest={scrollRequest}
       selectedDate={selectedDate}
       sessionsForSelectedDate={sessionsForDate}
       sessionsByDate={sessionsByDate}
@@ -992,23 +910,22 @@ export function ProfessionalSessionsScreen() {
   return (
     <>
     <View style={styles.container}>
-      <ProfessionalAgendaHeader
-        summary={agendaSummary}
-        summaryAvailable={!loadError && !initialLoading && !refreshing}
-        nextSession={nextUpcomingSession}
-        autoConfirmSessionRequests={autoConfirmSessionRequests}
-        loadingClients={loadingSchedulableClients}
-        isMobile={isMobile}
-        onConfigureAgenda={handleConfigureAgenda}
-        onJumpToNextSession={jumpToNextSession}
-        onOpenGoogleCalendar={() => navigateProfessionalSection(navigation, 'ProfessionalProfile', { initialTab: 'google' })}
-      />
       <ProfessionalAgendaToolbar
         viewMode={viewMode}
         selectedDate={selectedDate}
         weekDays={weekDays}
         originFilter={originFilter}
-        compactOriginFilter={width < 1420}
+        statusFilter={statusFilter}
+        visibleCount={sessions.length}
+        pendingCount={sessions.filter((session) => session.status === 'pending').length}
+        summaryAvailable={!agendaLoading && !loadError}
+        nextSessionLabel={nextUpcomingSession ? formatMadridInstant(nextUpcomingSession.date, { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : undefined}
+        onJumpToNextSession={jumpToNextSession}
+        onChangeStatus={setStatusFilter}
+        onResetFilters={resetFilters}
+        onPickDate={() => setDatePickerVisible(true)}
+        onGoogleCalendar={() => navigateProfessionalSection(navigation, 'ProfessionalProfile', { initialTab: 'google' })}
+        onSettings={(anchor) => { setSettingsAnchor(anchor); setSettingsVisible(true); }}
         isMobile={isMobile}
         onChangeView={(nextView) => {
           setViewMode(nextView);
@@ -1023,14 +940,13 @@ export function ProfessionalSessionsScreen() {
       />
 
       <View style={styles.body}>
-        {isDesktop && (viewMode === 'day' || viewMode === 'week') ? (
-          <View style={styles.sideRail}>
-            {renderMiniCalendar()}
-            {renderLegend()}
-          </View>
-        ) : null}
         <View style={styles.main}>
           {renderLoadErrorNotice()}
+          {preferenceError ? <Text accessibilityRole="alert" style={{ color: theme.warning, padding: 12 }}>{preferenceError}</Text> : null}
+          {!agendaLoading && !loadError && sessions.length === 0 ? <View style={{ paddingHorizontal: 20, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>{rawSessionCount ? 'No hay citas con estos filtros.' : 'No hay citas en este periodo.'}</Text>
+            {rawSessionCount ? <Button size="small" variant="outline" onPress={() => { setOriginFilter('ALL'); setStatusFilter('ALL'); }}>Ver todas las citas</Button> : null}
+          </View> : null}
           <View style={styles.sessionListTourContent}>
             <TourTarget
               id="professional.sessions.list"
@@ -1069,6 +985,10 @@ export function ProfessionalSessionsScreen() {
         </View>
       </View>
     </View>
+      <ProfessionalAgendaDatePicker visible={datePickerVisible} selectedDate={selectedDate} onSelect={setSelectedDate} onClose={() => setDatePickerVisible(false)} />
+      <ProfessionalAgendaSettings key={user?.id} visible={settingsVisible} anchor={settingsAnchor} onClose={() => setSettingsVisible(false)}
+        onGoogleCalendar={() => navigateProfessionalSection(navigation, 'ProfessionalProfile', { initialTab: 'google' })}
+        onAvailability={() => navigateProfessionalSection(navigation, 'ProfessionalAvailability')} />
       <AppointmentDetailSheet
         visible={Boolean(selectedSessionId)}
         mode="professional"
@@ -1078,6 +998,11 @@ export function ProfessionalSessionsScreen() {
         processing={processingSessionId === selectedSessionId}
         onClose={closeSessionDetail}
         onRetry={retrySessionDetail}
+        onConfirm={selectedSessionDetail ? () => void handleConfirmSession(selectedSessionDetail.id, selectedSessionDetail.client?.displayName ?? 'paciente') : undefined}
+        onCancel={selectedSessionDetail ? () => void (selectedSessionDetail.status === 'PENDING' ? handleRejectSession : handleCancelSession)(selectedSessionDetail.id, selectedSessionDetail.client?.displayName ?? 'paciente') : undefined}
+        onReschedule={selectedSessionDetail ? () => {
+          void openManagedSessionEditor({ id: selectedSessionDetail.id, clientName: selectedSessionDetail.client?.displayName ?? 'Paciente', clientAvatar: selectedSessionDetail.client?.user?.avatar ?? undefined }).then((opened) => { if (opened) closeSessionDetail(); });
+        } : undefined}
         onOpenPatient={selectedSessionDetail ? openSelectedSessionPatient : undefined}
         onProposeReferral={selectedSessionDetail && !selectedSessionDetail.clinicContext ? () => { const clientId = selectedSessionDetail.clientId; setSelectedSessionId(null); navigation.navigate('Referrals', { clientId }); } : undefined}
         onOpenNotes={selectedSessionDetail?.clinicalTarget ? openSelectedSessionNotes : undefined}
@@ -1131,82 +1056,6 @@ function createStyles(theme: Theme, isMobile: boolean) {
       flex: 1,
       minWidth: 0,
       minHeight: 0,
-    },
-    sideRail: {
-      width: 190,
-      padding: spacing.sm,
-      gap: spacing.sm,
-      borderRightWidth: 1,
-      borderRightColor: theme.borderLight,
-      backgroundColor: theme.bgAlt,
-    },
-    sideCard: {
-      borderRadius: borderRadius.lg,
-    },
-    sideCardTitle: {
-      marginBottom: spacing.sm,
-      color: theme.textPrimary,
-      fontFamily: theme.fontSansBold,
-      fontSize: typography.fontSizes.sm,
-    },
-    miniWeekdays: {
-      flexDirection: 'row',
-      marginBottom: spacing.xs,
-    },
-    miniWeekday: {
-      flex: 1,
-      color: theme.textMuted,
-      fontFamily: theme.fontSansSemiBold,
-      fontSize: 10,
-      textAlign: 'center',
-    },
-    miniCalendarGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-    },
-    miniDay: {
-      width: '14.28%',
-      aspectRatio: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: borderRadius.full,
-      marginVertical: 1,
-    },
-    miniDayToday: {
-      backgroundColor: theme.primaryAlpha12,
-    },
-    miniDaySelected: {
-      backgroundColor: theme.primary,
-    },
-    miniDayText: {
-      color: theme.textPrimary,
-      fontFamily: theme.fontSans,
-      fontSize: 11,
-    },
-    miniDayTextSelected: {
-      color: theme.textOnPrimary,
-      fontFamily: theme.fontSansBold,
-    },
-    legendItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      marginBottom: spacing.xs,
-    },
-    legendDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-    },
-    legendText: {
-      color: theme.textSecondary,
-      fontFamily: theme.fontSans,
-      fontSize: typography.fontSizes.xs,
-    },
-    legendDivider: {
-      height: 1,
-      marginVertical: spacing.xs,
-      backgroundColor: theme.border,
     },
     sessionListTourContent: {
       flex: 1,

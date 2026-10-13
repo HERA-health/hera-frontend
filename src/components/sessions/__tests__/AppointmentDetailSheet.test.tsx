@@ -116,6 +116,26 @@ describe('AppointmentDetailSheet service and tariff labels', () => {
     expect(onClose).toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith('ClientProfile', { clientId: 'client-1', initialTab: 'summary', focusBillingEditor: true });
   });
+
+  it('offers professional management actions according to server permissions and blocks them while processing', () => {
+    const onConfirm = jest.fn(), onCancel = jest.fn(), onReschedule = jest.fn();
+    const session = buildProfessionalSession({ status: 'PENDING', actions: { canConfirm: true, canCancel: true, canComplete: false, canModifySchedule: true, canJoinVideo: false, canOpenClinicalNotes: false } });
+    const props = { visible: true, embedded: true, mode: 'professional' as const, professionalSession: session, onClose: jest.fn(), onConfirm, onCancel, onReschedule };
+    const view = render(<AppointmentDetailSheet {...props} />);
+    fireEvent.press(view.getByText('Confirmar')); fireEvent.press(view.getByText('Rechazar'));
+    expect(onConfirm).toHaveBeenCalledTimes(1); expect(onCancel).toHaveBeenCalledTimes(1);
+    view.rerender(<AppointmentDetailSheet {...props} processing />);
+    fireEvent.press(view.getByText('Confirmar'));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    view.rerender(<AppointmentDetailSheet {...props} professionalSession={{ ...session, status: 'CONFIRMED' }} />);
+    fireEvent.press(view.getByText('Modificar horario'));
+    expect(onReschedule).toHaveBeenCalledTimes(1);
+    expect(view.queryByText('Confirmar')).toBeNull();
+    view.rerender(<AppointmentDetailSheet {...props} professionalSession={{ ...session, origin: 'CLINIC' }} />);
+    expect(view.queryByText('Confirmar')).toBeNull(); expect(view.queryByText('Rechazar')).toBeNull();
+    view.rerender(<AppointmentDetailSheet {...props} professionalSession={buildProfessionalSession()} />);
+    expect(view.queryByText('Cancelar cita')).toBeNull(); expect(view.queryByText('Modificar horario')).toBeNull();
+  });
 });
 jest.mock('../../../services/packageService', () => ({ downloadPackageInvoice: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('../../common/alert', () => ({ useAppAlert: () => jest.fn(), showAppAlert: jest.fn() }));

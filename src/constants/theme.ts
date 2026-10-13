@@ -41,6 +41,11 @@ export const lightTheme = {
   secondaryMuted: '#E9F0EC',
   secondaryAlpha12: 'rgba(151, 178, 166, 0.16)',
 
+  agendaProvenance: {
+    directory: { background: '#DDEFF5', border: '#006884', text: '#00546A' },
+    own: { background: '#E2EDDD', border: '#527647', text: '#38532F' },
+  },
+
   focus: '#006884',
   selection: '#006884',
   link: '#006884',
@@ -151,6 +156,11 @@ export const darkTheme: typeof lightTheme = {
   secondaryDark: '#8B9387',
   secondaryMuted: '#30352D',
   secondaryAlpha12: 'rgba(152, 161, 147, 0.10)',
+
+  agendaProvenance: {
+    directory: { background: '#193C48', border: '#65BDD4', text: '#C2E8F2' },
+    own: { background: '#303F2A', border: '#A2BD87', text: '#DFECCE' },
+  },
 
   focus: '#C8BCA6',
   selection: '#BDB199',

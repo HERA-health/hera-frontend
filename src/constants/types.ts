@@ -186,6 +186,7 @@ export type RootStackParamList = {
     focusId?: string;
   } | undefined;
   ProfessionalSessions: {
+    openAgendaSettings?: boolean;
     openCreateSession?: boolean;
     focusSessionId?: string;
   } | undefined;
@@ -349,6 +350,7 @@ export interface ProfessionalStats {
  * Session from professional's perspective
  */
 export interface ProfessionalSession {
+  provenance?: 'DIRECTORY' | 'OWN' | 'REFERRAL' | 'COLLABORATION' | 'UNDETERMINED';
   paymentBooking?: { id: string; status: string; totalCents: number; paidAt: string | null; acceptanceDeadline: string | null } | null;
   packageUses?: Array<{ patientPackageId: string; ordinal: number; status: string }>;
   privateOptionId?: string | null;

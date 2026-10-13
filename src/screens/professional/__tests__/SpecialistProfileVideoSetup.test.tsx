@@ -5,11 +5,12 @@ import * as professionalService from '../../../services/professionalService';
 import * as calendarService from '../../../services/googleCalendarService';
 import { showAppAlert } from '../../../components/common/alert';
 
-const mockNavigation = { navigate: jest.fn(), setParams: jest.fn() };
+const mockNavigation = { dispatch: jest.fn(), navigate: jest.fn(), setParams: jest.fn() };
 const mockRefreshCompletion = jest.fn(async () => undefined);
 const mockUpdateUser = jest.fn();
-let mockRouteParams: { initialTab?: 'google' | 'account' } | undefined;
+let mockRouteParams: { initialTab?: 'google' | 'account' | 'agenda' } | undefined;
 jest.mock('@react-navigation/native', () => ({
+  CommonActions: { navigate: (payload: unknown) => ({ type: 'NAVIGATE', payload }) },
   useNavigation: () => mockNavigation,
   useRoute: () => ({ params: mockRouteParams }),
   useFocusEffect: (callback: () => void) => require('react').useEffect(callback, [callback]),
@@ -154,4 +155,12 @@ test('a migrated profile can acknowledge its review without changing valid selec
   await screen.findByText('Retirar perspectiva de prueba');
   await act(async () => fireEvent.press(screen.getByText('Guardar')));
   await waitFor(() => expect(professionalService.updateComprehensiveProfile).toHaveBeenCalledTimes(1));
+});
+
+test('legacy agenda settings navigation redirects to Agenda and clears the old tab', async () => {
+  mockRouteParams = { initialTab: 'agenda' };
+  render(<SpecialistProfileScreen />);
+  await waitFor(() => expect(mockNavigation.dispatch).toHaveBeenCalledWith({ type: 'NAVIGATE', payload: { name: 'ProfessionalSessions', params: { openAgendaSettings: true }, pop: true } }));
+  expect(mockNavigation.setParams).toHaveBeenCalledWith({ initialTab: undefined });
+  expect(screen.queryByRole('tab', { name: 'Agenda y reservas' })).toBeNull();
 });
