@@ -20,7 +20,7 @@ jest.mock('@react-navigation/native', () => {
 jest.mock('../../../contexts/ThemeContext', () => ({
   useTheme: () => ({ theme: jest.requireActual('../../../constants/theme').lightTheme, isDark: false }),
 }));
-jest.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: { name: 'Profesional QA' } }) }));
+jest.mock('../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: { name: 'Profesional QA', email: 'qa@example.invalid' } }) }));
 jest.mock('../../../contexts/ProfileCompletionContext', () => ({ useProfileCompletion: () => ({ refresh: jest.fn() }) }));
 jest.mock('../../../components/common/alert', () => ({
   useAppAlert: () => ({}), useAppAlertState: () => ({ isVisible: false }), showAppAlert: jest.fn(),
@@ -95,9 +95,9 @@ it('keeps invoices visible but does not expose default settings while configurat
   jest.mocked(billingService.getConfig).mockReturnValueOnce(new Promise(resolve => { resolveConfig = resolve; }));
   const view = render(<BillingScreen />);
   await waitFor(() => expect(view.getByText(invoice.invoiceNumber)).toBeTruthy());
-  expect(view.queryByText('Crear y enviar automáticamente al paciente y a mí')).toBeNull();
+  expect(view.queryByText('Generar facturas automáticamente')).toBeNull();
   await act(async () => { resolveConfig?.(config); });
-  await waitFor(() => expect(view.getByText('Crear y enviar automáticamente al paciente y a mí')).toBeTruthy());
+  await waitFor(() => expect(view.getByText('Generar facturas automáticamente')).toBeTruthy());
 });
 
 it('shows a configuration failure and retries without hiding invoices or editing unknown settings', async () => {
@@ -105,9 +105,9 @@ it('shows a configuration failure and retries without hiding invoices or editing
   const view = render(<BillingScreen />);
   await waitFor(() => expect(view.getByText('No se pudo cargar la configuración de facturación')).toBeTruthy());
   expect(view.getByText(invoice.invoiceNumber)).toBeTruthy();
-  expect(view.queryByText('Crear y enviar automáticamente al paciente y a mí')).toBeNull();
+  expect(view.queryByText('Generar facturas automáticamente')).toBeNull();
   fireEvent.press(view.getByText('Reintentar configuración'));
-  await waitFor(() => expect(view.getByText('Crear y enviar automáticamente al paciente y a mí')).toBeTruthy());
+  await waitFor(() => expect(view.getByText('Generar facturas automáticamente')).toBeTruthy());
   expect(billingService.getConfig).toHaveBeenCalledTimes(2);
 });
 
@@ -126,10 +126,10 @@ it.each(['fiscalName', 'fiscalNif', 'fiscalAddress'] as const)('blocks activatio
   const config = await billingService.getConfig();
   jest.mocked(billingService.getConfig).mockResolvedValue({ ...config, autoGenerateInvoice: false, [field]: '   ' });
   const view = render(<BillingScreen />);
-  await waitFor(() => expect(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí')).toBeTruthy());
-  expect(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí')).toBeDisabled();
+  await waitFor(() => expect(view.getByLabelText('Generar facturas automáticamente')).toBeTruthy());
+  expect(view.getByLabelText('Generar facturas automáticamente')).toBeDisabled();
   expect(view.getByText(/Para utilizar la facturación automática, completa y guarda/)).toBeTruthy();
-  fireEvent(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí'), 'valueChange', true);
+  fireEvent(view.getByLabelText('Generar facturas automáticamente'), 'valueChange', true);
   expect(billingService.updateBillingConfig).not.toHaveBeenCalled();
 });
 
@@ -139,22 +139,22 @@ it('allows activation with saved fiscal data and keeps switches disabled until t
   let resolveSave: ((value: Awaited<ReturnType<typeof billingService.updateBillingConfig>>) => void) | undefined;
   jest.mocked(billingService.updateBillingConfig).mockReturnValueOnce(new Promise(resolve => { resolveSave = resolve; }));
   const view = render(<BillingScreen />);
-  await waitFor(() => expect(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí')).toBeTruthy());
-  expect(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí')).not.toBeDisabled();
-  fireEvent(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí'), 'valueChange', true);
-  await waitFor(() => expect(billingService.updateBillingConfig).toHaveBeenCalledWith({ autoGenerateInvoice: true, autoSendToClient: true }));
-  expect(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí')).toBeDisabled();
+  await waitFor(() => expect(view.getByLabelText('Generar facturas automáticamente')).toBeTruthy());
+  expect(view.getByLabelText('Generar facturas automáticamente')).not.toBeDisabled();
+  fireEvent(view.getByLabelText('Generar facturas automáticamente'), 'valueChange', true);
+  await waitFor(() => expect(billingService.updateBillingConfig).toHaveBeenCalledWith({ autoGenerateInvoice: true }));
+  expect(view.getByLabelText('Generar facturas automáticamente')).toBeDisabled();
   await act(async () => { resolveSave?.({ ...config, autoGenerateInvoice: true }); });
-  await waitFor(() => expect(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí')).not.toBeDisabled());
+  await waitFor(() => expect(view.getByLabelText('Generar facturas automáticamente')).not.toBeDisabled());
 });
 
 it('allows disabling legacy automatic generation even when fiscal data is missing', async () => {
   const config = await billingService.getConfig();
   jest.mocked(billingService.getConfig).mockResolvedValue({ ...config, fiscalNif: null, autoSendToClient: true });
   const view = render(<BillingScreen />);
-  await waitFor(() => expect(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí')).toBeTruthy());
-  expect(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí')).not.toBeDisabled();
-  fireEvent(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí'), 'valueChange', false);
+  await waitFor(() => expect(view.getByLabelText('Generar facturas automáticamente')).toBeTruthy());
+  expect(view.getByLabelText('Generar facturas automáticamente')).not.toBeDisabled();
+  fireEvent(view.getByLabelText('Generar facturas automáticamente'), 'valueChange', false);
   await waitFor(() => expect(billingService.updateBillingConfig).toHaveBeenCalledWith({ autoGenerateInvoice: false, autoSendToClient: false }));
 });
 
@@ -162,11 +162,11 @@ it('saving the fiscal form unlocks activation and does not overwrite automation 
   const config = await billingService.getConfig();
   jest.mocked(billingService.getConfig).mockResolvedValue({ ...config, fiscalNif: null, autoGenerateInvoice: false });
   const view = render(<BillingScreen />);
-  await waitFor(() => expect(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí')).toBeDisabled());
+  await waitFor(() => expect(view.getByLabelText('Generar facturas automáticamente')).toBeDisabled());
   fireEvent.press(view.getByLabelText('Editar datos fiscales'));
   fireEvent.changeText(view.getByLabelText('NIF'), '00000000T');
   fireEvent.press(view.getByLabelText('Guardar datos fiscales'));
-  await waitFor(() => expect(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí')).not.toBeDisabled());
+  await waitFor(() => expect(view.getByLabelText('Generar facturas automáticamente')).not.toBeDisabled());
   expect(billingService.updateBillingConfig).toHaveBeenCalledWith({ fiscalName: 'QA', fiscalNif: '00000000T',
     fiscalAddress: 'Dirección sintética', vatRate: 0, applyVat: false, bankIban: '', paymentConditions: '' });
 });
@@ -176,10 +176,10 @@ it('restores the disabled automation setting when the backend rejects activation
   jest.mocked(billingService.getConfig).mockResolvedValue({ ...config, autoGenerateInvoice: false });
   jest.mocked(billingService.updateBillingConfig).mockRejectedValueOnce(new Error('Completa los datos fiscales guardados'));
   const view = render(<BillingScreen />);
-  await waitFor(() => expect(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí')).toBeTruthy());
-  fireEvent(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí'), 'valueChange', true);
-  await waitFor(() => expect(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí').props.value).toBe(false));
-  expect(view.getByLabelText('Crear y enviar automáticamente al paciente y a mí')).not.toBeDisabled();
+  await waitFor(() => expect(view.getByLabelText('Generar facturas automáticamente')).toBeTruthy());
+  fireEvent(view.getByLabelText('Generar facturas automáticamente'), 'valueChange', true);
+  await waitFor(() => expect(view.getByLabelText('Generar facturas automáticamente').props.value).toBe(false));
+  expect(view.getByLabelText('Generar facturas automáticamente')).not.toBeDisabled();
   expect(billingService.updateBillingConfig).toHaveBeenCalledTimes(1);
 });
 
@@ -245,4 +245,18 @@ it('ignores an older failed request after a successful retry', async () => {
   expect(result.current.invoices).toEqual([invoice]);
   expect(result.current.invoiceListError).toBeNull();
   expect(result.current.invoicesLoading).toBe(false);
+});
+
+it('keeps generation, sending and email copy as independent choices', async () => {
+  const view = render(<BillingScreen />);
+  await waitFor(() => expect(view.getByLabelText('Generar facturas automáticamente')).toBeTruthy());
+  expect(view.getByLabelText('Generar facturas automáticamente').props.value).toBe(true);
+  expect(view.getByLabelText('Enviar al cliente automáticamente').props.value).toBe(false);
+  expect(view.getByLabelText('Copia de factura por email').props.value).toBe(false);
+  fireEvent(view.getByLabelText('Copia de factura por email'), 'valueChange', true);
+  await waitFor(() => expect(billingService.updateBillingConfig).toHaveBeenCalledWith({ sendInvoiceCopyTo: 'qa@example.invalid' }));
+  await waitFor(() => expect(view.getByLabelText('Copia de factura por email')).not.toBeDisabled());
+  expect(view.getByLabelText('Enviar al cliente automáticamente').props.value).toBe(false);
+  fireEvent(view.getByLabelText('Enviar al cliente automáticamente'), 'valueChange', true);
+  await waitFor(() => expect(billingService.updateBillingConfig).toHaveBeenCalledWith({ autoSendToClient: true }));
 });
