@@ -48,14 +48,15 @@ import {
 } from './managedClientFormDomain';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ProfessionalClients'>;
-type SourceFilter = professionalService.ClientSource | 'ALL';
+type SourceFilter = professionalService.ClientProvenanceFilter;
 type LifecycleFilter = professionalService.ClientLifecycleFilter;
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const FILTERS: Array<{ label: string; value: SourceFilter }> = [
   { label: 'Todos', value: 'ALL' },
-  { label: 'Autoregistrados', value: 'REGISTERED' },
-  { label: 'Añadidos por mí', value: 'MANAGED' },
+  { label: 'Directorio HERA', value: 'DIRECTORY' },
+  { label: 'Cartera propia', value: 'OWN' },
+  { label: 'Procedencia pendiente', value: 'UNDETERMINED' },
 ];
 
 const LIFECYCLE_FILTERS: Array<{ label: string; value: LifecycleFilter }> = [
@@ -228,7 +229,7 @@ export function ProfessionalClientsScreen() {
     try {
       setLoading(true);
       setError(null);
-      const data = await professionalService.getProfessionalClients(sourceFilter, lifecycleFilter);
+      const data = await professionalService.getProfessionalClients({ provenance: sourceFilter, lifecycle: lifecycleFilter });
       if (sequence !== clientsRequestSequence.current || clientsMutationPending.current) return;
       setClientsDataKey(key);
       setClients(data);

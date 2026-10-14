@@ -546,6 +546,17 @@ describe('professionalService cached professional GETs', () => {
       },
     });
   });
+
+  it('keeps acquisition filters separate in requests and cached results', async () => {
+    mockedApi.get.mockResolvedValue({ data: { success: true, data: [] } });
+    for (const provenance of ['DIRECTORY', 'OWN', 'UNDETERMINED'] as const) {
+      await getProfessionalClients({ provenance, lifecycle: 'ACTIVE' });
+      expect(mockedApi.get).toHaveBeenLastCalledWith('/clients', { params: { provenance, lifecycle: 'ACTIVE' } });
+    }
+    expect(mockedApi.get).toHaveBeenCalledTimes(3);
+    await getProfessionalClients({ provenance: 'DIRECTORY', lifecycle: 'ACTIVE' });
+    expect(mockedApi.get).toHaveBeenCalledTimes(3);
+  });
 });
 
 describe('professionalService.getProfessionalAgenda', () => {

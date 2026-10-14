@@ -13,6 +13,7 @@ import { notifyProfessionalHomeChanged } from './dashboardService';
 import { z } from 'zod';
 
 export type ClientSource = 'REGISTERED' | 'MANAGED';
+export type ClientProvenanceFilter = 'ALL' | 'DIRECTORY' | 'OWN' | 'UNDETERMINED';
 export type ClientLifecycleFilter = 'ACTIVE' | 'ARCHIVED' | 'ALL';
 export type ClinicalConsentStatus = 'PENDING' | 'GRANTED' | 'REVOKED';
 export type ClinicalConsentMethod = 'DIGITAL_SIGNATURE' | 'SPECIALIST_ATTESTATION' | 'EMAIL_LINK_OTP';
@@ -345,6 +346,7 @@ export type ProfessionalAgendaQuery =
 
 interface GetProfessionalClientsOptions {
   source?: ClientSource | 'ALL';
+  provenance?: ClientProvenanceFilter;
   lifecycle?: ClientLifecycleFilter;
 }
 
@@ -412,12 +414,13 @@ export const getProfessionalClients = async (
       ? { source: sourceOrOptions, lifecycle }
       : sourceOrOptions;
 
-  const cacheKey = `professional:clients:${options.source ?? 'DEFAULT'}:${options.lifecycle ?? 'DEFAULT'}`;
+  const cacheKey = `professional:clients:${options.source ?? 'DEFAULT'}:${options.lifecycle ?? 'DEFAULT'}:${options.provenance ?? 'ALL'}`;
 
   return cachedGet(cacheKey, async () => {
     const response = await api.get('/clients', {
       params: {
         ...(options.source ? { source: options.source } : {}),
+        ...(options.provenance ? { provenance: options.provenance } : {}),
         ...(options.lifecycle ? { lifecycle: options.lifecycle } : {}),
       },
     });

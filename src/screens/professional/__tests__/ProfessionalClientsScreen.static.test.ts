@@ -19,7 +19,7 @@ describe('ProfessionalClientsScreen private patient boundary', () => {
 
   it('keeps API access inside services and excludes clinic patient integrations', () => {
     expect(source).not.toMatch(/\bapi\.(get|post|patch|put|delete)\b/);
-    expect(source).toContain('professionalService.getProfessionalClients(sourceFilter, lifecycleFilter)');
+    expect(source).toContain('professionalService.getProfessionalClients({ provenance: sourceFilter, lifecycle: lifecycleFilter })');
     expect(source).not.toContain('listProfessionalClinicPatients');
     expect(source).not.toContain('ProfessionalClinicPatientDetail');
     expect(source).not.toContain('clinicPatientId');
@@ -46,14 +46,17 @@ describe('ProfessionalClientsScreen private patient boundary', () => {
   });
 
   it('keeps patient origin as a compact filter with clear labels', () => {
-    expect(source).toContain('professionalService.getProfessionalClients(sourceFilter, lifecycleFilter)');
+    expect(source).toContain('professionalService.getProfessionalClients({ provenance: sourceFilter, lifecycle: lifecycleFilter })');
     expect(source).toContain('placeholder="Origen"');
     expect(source).toContain('placeholder="Estado"');
     expect(source).toContain('<SimpleDropdown');
     expect(source).toContain('options={FILTERS}');
     expect(source).toContain('options={LIFECYCLE_FILTERS}');
-    expect(source).toContain('Autoregistrados');
-    expect(source).toContain('Añadidos por mí');
+    expect(source).toContain('Directorio HERA');
+    expect(source).toContain('Cartera propia');
+    expect(source).toContain('Procedencia pendiente');
+    expect(source).not.toContain('Autoregistrados');
+    expect(source).not.toContain('Añadidos por mí');
     expect(source).not.toContain('SegmentedFilterGroup');
     expect(source).not.toContain("'Gestionado'");
     expect(source).not.toContain("'Gestionados'");

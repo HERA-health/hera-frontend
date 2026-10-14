@@ -47,6 +47,25 @@ beforeEach(() => {
   jest.mocked(professionalService.createManagedClientSession).mockReset();
 });
 
+it('requests acquisition categories instead of account types when changing the origin filter', async () => {
+  const getClients = jest.mocked(professionalService.getProfessionalClients);
+  getClients.mockResolvedValue([]);
+  const view = render(<View><ProfessionalClientsScreen /></View>);
+  await waitFor(() => expect(getClients).toHaveBeenLastCalledWith({ provenance: 'ALL', lifecycle: 'ACTIVE' }));
+  fireEvent.press(view.getByText('Todos'));
+  expect(view.queryByText('Autoregistrados')).toBeNull();
+  expect(view.queryByText('Añadidos por mí')).toBeNull();
+  fireEvent.press(view.getByText('Directorio HERA'));
+  await waitFor(() => expect(getClients).toHaveBeenLastCalledWith({ provenance: 'DIRECTORY', lifecycle: 'ACTIVE' }));
+  fireEvent.press(view.getByText('Directorio HERA'));
+  fireEvent.press(view.getByText('Cartera propia'));
+  await waitFor(() => expect(getClients).toHaveBeenLastCalledWith({ provenance: 'OWN', lifecycle: 'ACTIVE' }));
+  fireEvent.press(view.getByText('Cartera propia'));
+  fireEvent.press(view.getByText('Procedencia pendiente'));
+  await waitFor(() => expect(getClients).toHaveBeenLastCalledWith({ provenance: 'UNDETERMINED', lifecycle: 'ACTIVE' }));
+  view.unmount();
+});
+
 it('shows a load failure, then a genuine empty result after a successful retry', async () => {
   const getClients = jest.mocked(professionalService.getProfessionalClients);
   getClients.mockRejectedValueOnce(new Error('Demasiadas solicitudes')).mockResolvedValueOnce([]);
