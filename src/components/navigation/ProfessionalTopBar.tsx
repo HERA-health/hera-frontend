@@ -321,7 +321,7 @@ export function ProfessionalTopBar({
                 <MenuRow icon="calendar-outline" title={`${homeData?.pendingRequests.total} solicitudes de cita`} subtitle="Revisar en Agenda" onPress={() => { trackAttentionAction('session_requests'); navigateSimple('ProfessionalSessions'); }} tone="warning" />
               ) : null}
               {(homeData?.draftInvoices ?? 0) > 0 ? (
-                <MenuRow icon="document-text-outline" title={`${homeData?.draftInvoices} facturas en borrador`} subtitle="Continuar en Facturación" onPress={() => { trackAttentionAction('draft_invoices'); navigateSimple('ProfessionalBilling'); }} />
+                <MenuRow icon="document-text-outline" title={`${homeData?.draftInvoices} facturas por revisar o enviar`} subtitle="Continuar en Facturación" onPress={() => { trackAttentionAction('draft_invoices'); navigateSimple('ProfessionalBilling'); }} />
               ) : null}
               {actionableProfileItems.length > 0 ? (
                 <MenuRow icon="shield-checkmark-outline" title={`${actionableProfileItems.length} pasos de activación`} subtitle="Completar perfil profesional" onPress={() => { trackAttentionAction('profile'); navigateSimple('ProfessionalProfile'); }} tone="warning" />

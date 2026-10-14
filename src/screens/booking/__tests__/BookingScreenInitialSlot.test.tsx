@@ -185,7 +185,7 @@ describe('BookingScreen initial slot preselection', () => {
       isAuthenticated: true,
       user: {
         id: 'client-user-1',
-        name: 'Paciente',
+        name: 'Paciente Prueba',
         email: 'paciente@example.com',
         type: 'client',
       },

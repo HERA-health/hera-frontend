@@ -318,7 +318,7 @@ export function ClientProfileScreen() {
     setBillingForm({
       firstName: client.firstName || '',
       lastName: client.lastName || '',
-      email: client.email || client.primaryEmail || '',
+      email: client.primaryEmail || client.email || '',
       phone: client.phone || client.primaryPhone || '',
       billingFullName: client.billingFullName || '',
       billingTaxId: client.billingTaxId || '',
@@ -521,28 +521,6 @@ export function ClientProfileScreen() {
         trimmedBilling.billingCity !== (client.billingCity || '') ||
         trimmedBilling.billingCountry !== (client.billingCountry || 'Spain');
 
-      const hasVisibleBillingInput = Boolean(
-        trimmedBilling.billingFullName ||
-          trimmedBilling.billingTaxId ||
-          trimmedBilling.billingAddress ||
-          trimmedBilling.billingPostalCode ||
-          trimmedBilling.billingCity
-      );
-
-      const hasCompleteBillingInput = Boolean(
-        trimmedBilling.billingFullName &&
-          trimmedBilling.billingTaxId &&
-          trimmedBilling.billingAddress &&
-          trimmedBilling.billingPostalCode &&
-          trimmedBilling.billingCity &&
-          trimmedBilling.billingCountry
-      );
-
-      if (billingFieldsChanged && hasVisibleBillingInput && !hasCompleteBillingInput) {
-        showAppAlert(appAlert, 'Error', 'Completa todos los datos fiscales para guardar la ficha de facturación.');
-        return;
-      }
-
       const billingPayload = {
         ...trimmedBilling,
       };
@@ -556,12 +534,13 @@ export function ClientProfileScreen() {
               phone: billingForm.phone.trim(),
               ...(billingFieldsChanged ? billingPayload : {}),
             })
-          : billingFieldsChanged
-            ? await professionalService.updateClientBilling(client.id, billingPayload)
+          : billingFieldsChanged || billingForm.firstName.trim() !== (client.firstName || '') || billingForm.lastName.trim() !== (client.lastName || '')
+            ? await professionalService.updateClientBilling(client.id, { ...billingPayload, firstName: billingForm.firstName.trim() || undefined, lastName: billingForm.lastName.trim() || undefined })
             : client;
 
       setClient(updatedClient);
       setBillingModalVisible(false);
+      if (route.params.returnAfterBillingSave) { navigation.goBack(); return; }
       showAppAlert(appAlert, 
         'Éxito',
         client.source === 'MANAGED'
@@ -573,7 +552,7 @@ export function ClientProfileScreen() {
     } finally {
       setSavingBilling(false);
     }
-  }, [appAlert, billingForm, client]);
+  }, [appAlert, billingForm, client, navigation, route.params.returnAfterBillingSave]);
 
   const canScheduleProfessionalSession = Boolean(
     client && !isClientArchived
@@ -748,7 +727,7 @@ export function ClientProfileScreen() {
       items: [
         {
           label: 'Estado fiscal',
-          value: hasCompleteBilling ? 'Datos fiscales completos' : 'Pendiente de completar',
+          value: client.billingReadiness?.missingFields.length ? `Falta: ${client.billingReadiness.missingFields.map(field => field.label).join(', ')}` : hasCompleteBilling ? 'Datos completos para factura completa' : 'Factura simplificada disponible. Datos fiscales adicionales solo para factura completa.',
           icon: hasCompleteBilling ? 'checkmark-circle-outline' : 'alert-circle-outline',
           tone: hasCompleteBilling ? 'success' : 'warning',
           wide: true,
@@ -762,6 +741,7 @@ export function ClientProfileScreen() {
       <Text style={[textStyles.section, { color: theme.textPrimary }, sectionTitleStyle]}>
         Información administrativa
       </Text>
+      {!!client.billingReadiness?.missingFields.length && <Button variant="outline" onPress={() => setBillingModalVisible(true)}>Completar datos</Button>}
 
       <View style={styles.adminSections}>
         {administrativeSections.map((section) => (
@@ -1215,12 +1195,13 @@ export function ClientProfileScreen() {
                 </AnimatedPressable>
               </View>
 
-              {client.source === 'MANAGED' ? (
+              {client.source === 'MANAGED' || client.billingReadiness?.missingFields.some(field => field.purpose === 'BOOKING') ? (
                 <View style={styles.modalGrid}>
                   <View style={styles.modalField}>
                     <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Nombre</Text>
                     <TextInput
                       value={billingForm.firstName}
+                      editable={client.source === 'MANAGED' || !client.firstName?.trim()}
                       onChangeText={(value) => updateBillingField('firstName', value)}
                       style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
                       placeholder="Nombre"
@@ -1231,6 +1212,7 @@ export function ClientProfileScreen() {
                     <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Apellidos</Text>
                     <TextInput
                       value={billingForm.lastName}
+                      editable={client.source === 'MANAGED' || !client.lastName?.trim()}
                       onChangeText={(value) => updateBillingField('lastName', value)}
                       style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
                       placeholder="Apellidos"
@@ -1241,6 +1223,7 @@ export function ClientProfileScreen() {
                     <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Email</Text>
                     <TextInput
                       value={billingForm.email}
+                      editable={client.source === 'MANAGED' && client.accountLinkStatus !== 'CONFIRMED'}
                       onChangeText={(value) => updateBillingField('email', value)}
                       style={[
                         styles.modalInput,
@@ -1260,6 +1243,7 @@ export function ClientProfileScreen() {
                     <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Teléfono</Text>
                     <TextInput
                       value={billingForm.phone}
+                      editable={client.source === 'MANAGED'}
                       onChangeText={(value) => updateBillingField('phone', value)}
                       style={[
                         styles.modalInput,

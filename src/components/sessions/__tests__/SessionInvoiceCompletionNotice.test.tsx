@@ -37,8 +37,8 @@ it('shows the missing fields, opens the patient editor and rechecks after correc
   const view = render(<SessionInvoiceCompletionNotice sessionId="session" onBlockedChange={blocked} />);
   await waitFor(() => expect(view.getByText(message)).toBeTruthy());
   expect(blocked).toHaveBeenLastCalledWith(true);
-  fireEvent.press(view.getByText('Completar datos fiscales del paciente'));
-  expect(mockNavigate).toHaveBeenCalledWith('ClientProfile', { clientId: 'patient', initialTab: 'summary', focusBillingEditor: true });
+  fireEvent.press(view.getByText('Completar datos'));
+  expect(mockNavigate).toHaveBeenCalledWith('ClientProfile', { clientId: 'patient', initialTab: 'summary', focusBillingEditor: true, returnAfterBillingSave: true });
   mockFocused = false; view.rerender(<SessionInvoiceCompletionNotice sessionId="session" onBlockedChange={blocked} />);
   mockFocused = true; view.rerender(<SessionInvoiceCompletionNotice sessionId="session" onBlockedChange={blocked} />);
   await waitFor(() => expect(blocked).toHaveBeenLastCalledWith(false));
@@ -65,4 +65,15 @@ it('ignores a previous session response after changing the selected session', as
   await act(async () => { resolveOld?.({ ...detail, invoiceCompletionIssue: 'Respuesta antigua' }); });
   expect(blocked).toHaveBeenLastCalledWith(false);
   expect(view.queryByText('Respuesta antigua')).toBeNull();
+});
+
+it('allows a valid simplified invoice without email and offers correction for delivery', async () => {
+  jest.mocked(getProfessionalSessionDetail).mockResolvedValue({ ...detail,
+    invoiceCompletionIssue: 'La factura se conservará. Completa el correo para entregarla.',
+    billingReadiness: { invoiceKind: 'SIMPLIFIED', canGenerate: true, canSend: false, canBook: false,
+      missingFields: [{ field: 'email', label: 'Correo electrónico', purpose: 'DELIVERY' }], correctionTarget: 'CLIENT_PROFILE' } });
+  const blocked = jest.fn();
+  const view = render(<SessionInvoiceCompletionNotice sessionId="session" onBlockedChange={blocked} />);
+  await waitFor(() => expect(blocked).toHaveBeenLastCalledWith(false));
+  expect(view.getByText('Completar datos')).toBeTruthy();
 });

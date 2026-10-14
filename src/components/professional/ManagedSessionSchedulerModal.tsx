@@ -1,4 +1,7 @@
 import { PackageAssignment } from '../packages/PackageAssignment';
+import { StackActions, useIsFocused, useNavigation } from '@react-navigation/native';
+import type { AppNavigationProp } from '../../constants/types';
+import { billingReadinessFromError, type BillingReadiness } from '../../services/billingReadiness';
 import type { PatientPackage } from '../../services/packageService';
 import { PackageCoverage, frozenPackageOptions } from '../packages/PackageCoverage';
 import { VideoSetupNotice } from './VideoSetupNotice';
@@ -150,6 +153,22 @@ export function ManagedSessionSchedulerModal({
   onClose,
   onSubmit,
 }: ManagedSessionSchedulerModalProps) {
+  const focused = useIsFocused();
+  const navigation = useNavigation<AppNavigationProp>();
+  const [billingIssue, setBillingIssue] = useState<BillingReadiness>();
+  const correctionRequested = useRef(false);
+  const resumeAfterQuote = useRef(false);
+  const submitAfterCorrection = useRef<() => Promise<void>>(async () => {});
+  useEffect(() => {
+    if (focused && correctionRequested.current) {
+      correctionRequested.current = false;
+      if (dateOnlyChange) void submitAfterCorrection.current();
+      else {
+        resumeAfterQuote.current = true;
+        setQuoteRetry(value => value + 1);
+      }
+    }
+  }, [focused]);
   const { theme } = useTheme();
   const { width, height } = useWindowDimensions();
   const [clientId, setClientId] = useState('');
@@ -239,6 +258,12 @@ export function ManagedSessionSchedulerModal({
       .catch(e => { if (current) setQuoteError(e instanceof Error ? e.message : 'No se pudo calcular el precio.'); });
     return () => { current = false; };
   }, [visible, clientId, selectedOption?.id, type, editingSessionId, dateOnlyChange, quoteRetry, patientPackageId]);
+  useEffect(() => {
+    if (quote && focused && resumeAfterQuote.current) {
+      resumeAfterQuote.current = false;
+      void submitAfterCorrection.current();
+    }
+  }, [quote]);
   useEffect(() => {
     if (!visible || !quote?.expiresAt) return;
     const timer = setTimeout(() => { setQuote(null); setQuoteRetry(v => v + 1); }, Math.max(0, Date.parse(quote.expiresAt) - Date.now()));
@@ -453,6 +478,11 @@ export function ManagedSessionSchedulerModal({
   };
 
   const handleSubmit = async () => {
+    if (quote?.billingReadiness && !quote.billingReadiness.canBook && !dateOnlyChange) {
+      setBillingIssue(quote.billingReadiness);
+      setErrors({ form: `Completa: ${quote.billingReadiness.missingFields.map(field => field.label).join(', ')}.` });
+      return;
+    }
     const validation = validateManagedSessionSchedulerInput({
       clientId,
       date: dateValue,
@@ -479,8 +509,10 @@ export function ManagedSessionSchedulerModal({
     setErrors({});
     try {
       await onSubmit(input);
+      setBillingIssue(undefined);
       setBufferConflict(null);
     } catch (error: unknown) {
+      setBillingIssue(billingReadinessFromError(error));
       if (isManagedSessionBufferConflictError(error)) {
         setBufferConflict({
           input,
@@ -522,9 +554,11 @@ export function ManagedSessionSchedulerModal({
     }
   };
 
+  submitAfterCorrection.current = handleSubmit;
+
   return (
     <Modal
-      visible={visible}
+      visible={visible && focused}
       animationType="fade"
       transparent
       onRequestClose={saving ? undefined : onClose}
@@ -866,6 +900,13 @@ export function ManagedSessionSchedulerModal({
                 {errors.form}
               </Text>
             )}
+            {billingIssue && <Button variant="outline" onPress={() => {
+              correctionRequested.current = true;
+              if (billingIssue.correctionTarget === 'BILLING_SETTINGS') navigation.navigate('ProfessionalBilling', { initialSection: 'fiscal' });
+              // A separate route also works when the scheduler belongs to this patient's profile.
+              // Going back after saving restores the mounted scheduler and its pending operation.
+              else navigation.dispatch(StackActions.push('ClientProfile', { clientId: billingIssue.clientId ?? clientId, initialTab: 'summary', focusBillingEditor: true, returnAfterBillingSave: true }));
+            }}>Completar datos</Button>}
           </ScrollView>
 
           <View style={[styles.footer, { borderTopColor: theme.border }]}>

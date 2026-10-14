@@ -131,6 +131,7 @@ export interface Session {
 }
 
 export interface ProfessionalSessionDetail extends Session {
+  billingReadiness?: BillingReadiness | null;
   invoiceCompletionIssue?: string | null;
   sessionPhone?: string | null;
   fiscalSnapshot?: { baseCents: number; taxCents: number; vatBasisPoints: number } | null;
@@ -152,6 +153,7 @@ export interface ProfessionalSessionDetail extends Session {
 }
 
 export interface Client {
+  billingReadiness?: BillingReadiness;
   heraOrigin?: { origin: string; status: string };
   accountLinkStatus?: string | null;
   id: string;
@@ -229,6 +231,8 @@ export interface UpdateManagedClientInput {
 }
 
 export interface UpdateClientBillingInput {
+  firstName?: string;
+  lastName?: string;
   billingFullName: string;
   billingTaxId: string;
   billingAddress: string;
@@ -503,7 +507,7 @@ export const createManagedClientSession = async (
       throw conflict;
     }
 
-    throw new Error(getErrorMessage(error, 'No se pudo crear la cita'));
+    throw Object.assign(new Error(getErrorMessage(error, 'No se pudo crear la cita')), { billingReadiness: billingReadinessFromError(error) });
   }
 };
 
@@ -527,7 +531,7 @@ export const updateManagedSessionSchedule = async (
       throw conflict;
     }
 
-    throw new Error(getErrorMessage(error, 'No se pudo modificar la cita'));
+    throw Object.assign(new Error(getErrorMessage(error, 'No se pudo modificar la cita')), { billingReadiness: billingReadinessFromError(error) });
   }
 };
 
@@ -552,6 +556,7 @@ export const updateClientBilling = async (
   try {
     const response = await api.patch(`/clients/${clientId}/billing`, data);
     clearRequestCache();
+    notifyProfessionalHomeChanged();
     return normalizeClient(response.data.data);
   } catch (error: unknown) {
     throw new Error(getErrorMessage(error, 'No se pudieron actualizar los datos fiscales del paciente'));
@@ -1294,3 +1299,4 @@ export const deleteCertificateDocument = async (certificateId: string): Promise<
     throw new Error(getErrorMessage(error, 'No se pudo eliminar el certificado.'));
   }
 };
+import { billingReadinessFromError, type BillingReadiness } from './billingReadiness';

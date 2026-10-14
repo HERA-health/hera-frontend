@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { CONTACT_METHOD_REQUIRED_MESSAGE } from '../../constants/errors';
 import type { UploadAsset } from '../../utils/multipartUpload';
 
 export type ConsentCaptureMode = 'UPLOAD_NOW' | 'UPLOAD_LATER';
@@ -30,14 +29,7 @@ const consentDocumentSchema = z.custom<UploadAsset | null>(
 export const managedClientSchema = z.object({
   firstName: z.string().trim().min(2, 'Introduce el nombre'),
   lastName: z.string().trim().min(2, 'Introduce los apellidos'),
-  email: z
-    .string()
-    .trim()
-    .optional()
-    .transform((value) => value || '')
-    .refine((value) => value.length === 0 || z.string().email().safeParse(value).success, {
-      message: 'Introduce un email válido',
-    }),
+  email: z.string().trim().email('Introduce un correo válido para enviar las facturas'),
   phone: z.string().trim().optional().transform((value) => value || ''),
   billingFullName: z.string().trim().optional().transform((value) => value || ''),
   billingTaxId: z.string().trim().optional().transform((value) => value || ''),
@@ -49,14 +41,6 @@ export const managedClientSchema = z.object({
   consentDocument: consentDocumentSchema,
   clinicalPin: z.string().trim().optional().transform((value) => value || ''),
 }).superRefine((value, context) => {
-  if (!value.email && !value.phone) {
-    context.addIssue({
-      code: 'custom',
-      path: ['email'],
-      message: CONTACT_METHOD_REQUIRED_MESSAGE,
-    });
-  }
-
   if (value.consentCaptureMode === 'UPLOAD_NOW' && !value.consentDocument) {
     context.addIssue({
       code: 'custom',

@@ -1,4 +1,6 @@
 import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
+import { useBillingRefresh } from '../../hooks/useBillingRefresh';
+import { subscribeProfessionalHomeChanges } from '../../services/dashboardService';
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
@@ -338,10 +340,12 @@ export function DashboardScreen() {
   }, []);
 
   useFocusedRateLimitRecovery(() => { void loadData(); });
+  useBillingRefresh(loadData, false);
 
   useFocusEffect(
     useCallback(() => {
       loadData();
+      return subscribeProfessionalHomeChanges(() => { void loadData(); });
     }, [loadData])
   );
 

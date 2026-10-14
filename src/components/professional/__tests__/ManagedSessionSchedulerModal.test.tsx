@@ -1,6 +1,11 @@
+let mockFocused = true;
+const mockNavigate = jest.fn();
+const mockDispatch = jest.fn();
+jest.mock('@react-navigation/native', () => ({ ...jest.requireActual('@react-navigation/native'), useIsFocused: () => mockFocused, useNavigation: () => ({ navigate: mockNavigate, dispatch: mockDispatch }) }));
 jest.mock('../VideoSetupNotice', () => ({ VideoSetupNotice: () => null }));
 import { loadPrivateCatalog, getManagedBookingQuote, type PrivateServiceOption } from '../../../services/privateCatalogService';
 import React from 'react';
+import { StackRouter } from '@react-navigation/routers';
 import { patientPackage } from '../../packages/testing/packageFixtures';
 import { loadPatientPackages } from '../../../services/packageService';
 const mockAssignedPackage = { ...patientPackage, snapshot: { ...patientPackage.snapshot, options: [{ ...patientPackage.snapshot.options[2], durationMinutes: 37 }] } };
@@ -195,6 +200,9 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
   });
 
   beforeEach(() => {
+    mockFocused = true;
+    mockNavigate.mockClear();
+    mockDispatch.mockClear();
     const futureNow = buildMadridDate('2099-01-02', '08:00');
     mockCalendarDate = getMadridDateKey(new Date(futureNow.getTime() + 3 * 24 * 60 * 60 * 1000));
 
@@ -211,6 +219,35 @@ describe('ManagedSessionSchedulerModal buffer override UX', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('keeps the appointment and resumes after correcting legacy billing details', async () => {
+    const issue = Object.assign(new Error('Completa el correo'), { billingReadiness: {
+      invoiceKind: 'SIMPLIFIED', canGenerate: true, canSend: false, canBook: false,
+      missingFields: [{ field: 'email', label: 'Correo', purpose: 'DELIVERY' }], correctionTarget: 'CLIENT_PROFILE', clientId: client.id,
+    } });
+    const onSubmit = jest.fn(async () => {}).mockRejectedValueOnce(issue);
+    const props = { visible: true, clients: [client], mode: 'edit' as const, editingSessionId: 'existing',
+      initialValues: { clientId: client.id, date: buildMadridDate('2099-01-05', '10:00').toISOString(), duration: 60, type: 'VIDEO_CALL' as const, optionId: 'VIDEO_CALL:60' },
+      onClose: jest.fn(), onSubmit };
+    const view = render(<ManagedSessionSchedulerModal {...props} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Guardar cambios' }).props.accessibilityState.disabled).toBe(false));
+    fireEvent.press(screen.getByText('Guardar cambios'));
+    await screen.findByText('Completar datos');
+    fireEvent.press(screen.getByText('Completar datos'));
+    expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'PUSH', payload: { name: 'ClientProfile', params: expect.objectContaining({ clientId: client.id, returnAfterBillingSave: true }) } }));
+    // Exercise the real router: navigate-to-self would keep focus and hide the editor.
+    const router = StackRouter({});
+    const options = { routeNames: ['ClientProfile'], routeParamList: { ClientProfile: { clientId: client.id } }, routeGetIdList: {} };
+    const original = router.getInitialState(options);
+    const correction = router.getStateForAction(original, mockDispatch.mock.calls[0][0], options)!;
+    expect(correction.index).toBe(1);
+    expect(correction.routes[1].key).not.toBe(original.routes[0].key);
+    expect(router.getStateForAction(router.getRehydratedState(correction, options), { type: 'POP', payload: { count: 1 } }, options)?.routes).toEqual(original.routes);
+    mockFocused = false; view.rerender(<ManagedSessionSchedulerModal {...props} />);
+    mockFocused = true; view.rerender(<ManagedSessionSchedulerModal {...props} />);
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+    expect(onSubmit.mock.calls[1]).toEqual(onSubmit.mock.calls[0]);
   });
 
   it('keeps patient options collapsed and overlays them only when requested', async () => {

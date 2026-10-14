@@ -263,7 +263,7 @@ export function AttentionPanel({
       ) : (
         <View style={styles.attentionGrid}>
           {data.pendingRequests.total ? <AttentionItem icon="calendar-outline" value={data.pendingRequests.total} title="Solicitudes de cita" action="Revisar" onPress={onAgenda} warning /> : null}
-          {data.draftInvoices ? <AttentionItem icon="document-text-outline" value={data.draftInvoices} title="Facturas en borrador" action="Continuar" onPress={onBilling} /> : null}
+          {data.draftInvoices ? <AttentionItem icon="document-text-outline" value={data.draftInvoices} title="Facturas por revisar o enviar" action="Revisar" onPress={onBilling} /> : null}
           {profileItems ? <AttentionItem icon="shield-checkmark-outline" value={profileItems} title="Pasos de activación" action="Completar" onPress={onProfile} warning /> : null}
           {unreadSupport ? <AttentionItem icon="chatbubble-ellipses-outline" value={unreadSupport} title="Respuestas de soporte" action="Ver" onPress={onSupport} /> : null}
         </View>

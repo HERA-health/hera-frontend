@@ -197,13 +197,6 @@ export const PROFESSIONAL_TOUR_DEFINITIONS: Record<
         placement: 'right',
       },
       {
-        id: 'tariffs',
-        targetId: 'professional.billing.tariffs',
-        title: 'Servicios y bonos',
-        body: 'Accede a Servicios y bonos para configurar el precio, la duración y la visibilidad de cada modalidad.',
-        placement: 'left',
-      },
-      {
         id: 'fiscal',
         targetId: 'professional.billing.fiscal',
         title: 'Datos fiscales',
@@ -214,7 +207,7 @@ export const PROFESSIONAL_TOUR_DEFINITIONS: Record<
         id: 'automation',
         targetId: 'professional.billing.automation',
         title: 'Automatizaciones',
-        body: 'Activa solo lo que quieras delegar: generar, enviar o copiar facturas automáticamente.',
+        body: 'Activa esta opción para crear la factura y enviarla automáticamente al paciente y al correo de tu cuenta al completar una sesión.',
         placement: 'left',
       },
     ],

@@ -68,6 +68,7 @@ interface ApiResponse<T> {
 }
 
 interface CreateSessionRequest {
+  patientIdentity?: { firstName: string; lastName: string };
   billing?: PackageBilling;
   paymentAcceptance?: PaymentAcceptance;
   patientPackageId?: string; optionId?: string; quoteReference?: string; commandKey?: string; sessionPhone?: string;
@@ -121,6 +122,8 @@ export interface PublicCreatedSession {
 }
 
 export interface BookingQuote {
+  patientIdentity?: { firstName: string; lastName: string };
+  billingReadiness?: import('./billingReadiness').BillingReadiness;
   billingDataComplete?: boolean;
   payment?: { mode: 'ONLINE' | 'EXTERNAL' | 'FREE' | 'PACKAGE'; available: boolean; termsVersion: string; fullInvoiceRequired: boolean };
   additionalChargeCents?: number;

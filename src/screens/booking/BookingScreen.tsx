@@ -333,7 +333,12 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   const [slotsError, setSlotsError] = useState<string | null>(null);
   const [paymentAcceptance, setPaymentAcceptance] = useState<PaymentAcceptance>();
   const [bookingQuote, setBookingQuote] = useState<BookingQuote | null>(null);
+  const [patientIdentity, setPatientIdentity] = useState(() => {
+    const parts = user?.name?.trim().split(/\s+/) ?? [];
+    return { firstName: parts[0] ?? '', lastName: parts.slice(1).join(' ') };
+  });
   const [sessionBilling, setSessionBilling] = useState({ ...emptyPackageBilling, billingCountry: '' });
+  useEffect(() => { if (bookingQuote?.patientIdentity) setPatientIdentity(bookingQuote.patientIdentity); }, [bookingQuote?.patientIdentity?.firstName, bookingQuote?.patientIdentity?.lastName]);
   const needsExternalBilling = Boolean(bookingQuote && !bookingQuote.billingDataComplete && !patientPackageId && bookingQuote.payment?.mode !== 'ONLINE'
     && (bookingQuote.totalCents ?? Math.round(bookingQuote.price * 100)) > 40000);
   const [quoteLoading, setQuoteLoading] = useState(false);
@@ -694,6 +699,9 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       showBookingMessage(appAlert, 'Información', 'No puedes reservar sesiones desde esta cuenta.');
       return;
     }
+    if ((isAuthenticatedClient || referralBooking) && (!patientIdentity.firstName.trim() || !patientIdentity.lastName.trim())) {
+      showBookingMessage(appAlert, 'Completa tus datos', 'Indica nombre y apellidos antes de reservar.'); return;
+    }
 
     if (!isBookingSessionTypeAvailable(sessionType, modalityFlags)) {
       showBookingMessage(appAlert, 'Error', 'Esta modalidad no está disponible para este especialista');
@@ -746,7 +754,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       const dateTime = madridDateTime.iso;
 
       if (referralBooking) {
-        const payload = { paymentAcceptance, ...(needsExternalBilling ? { billing: sessionBilling } : {}), date: dateTime, duration: slotDuration, type: sessionType, optionId: selectedOptionId, quoteReference: bookingQuote.quoteReference, sessionPhone };
+        const payload = { patientIdentity, paymentAcceptance, ...(needsExternalBilling ? { billing: sessionBilling } : {}), date: dateTime, duration: slotDuration, type: sessionType, optionId: selectedOptionId, quoteReference: bookingQuote.quoteReference, sessionPhone };
         const { commandKey } = await durableCommandKey('referral-booking', payload);
         const createdSession = await bookGuestReferral(referralBooking.id, referralBooking.access, { ...payload, commandKey });
         if (createdSession.kind === 'payment') {
@@ -805,6 +813,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       }
 
       const createdSession = await sessionsService.createSession({
+        patientIdentity,
         ...(needsExternalBilling ? { billing: sessionBilling } : {}),
         paymentAcceptance,
         specialistId,
@@ -868,7 +877,7 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
       setLoading(false);
     }
   }, [
-    selectedOptionId, patientPackageId, packageRevision, sessionPhone, identityVerified, paymentAcceptance, needsExternalBilling, sessionBilling,
+    selectedOptionId, patientPackageId, packageRevision, sessionPhone, identityVerified, paymentAcceptance, needsExternalBilling, sessionBilling, patientIdentity,
     selectedDate,
     selectedSlot,
     appAlert,
@@ -944,6 +953,12 @@ const BookingExperience: React.FC<BookingExperienceProps> = ({
   }, []);
 
   const renderPublicContactCard = () => {
+    if (isAuthenticatedClient || referralBooking) return <View style={styles.publicContactCard}>
+      <Text style={styles.publicContactTitle}>Datos del paciente</Text>
+      <TextInput accessibilityLabel="Nombre del paciente" placeholder="Nombre" value={patientIdentity.firstName} onChangeText={firstName => setPatientIdentity(current => ({ ...current, firstName }))} style={styles.publicContactInput} />
+      <TextInput accessibilityLabel="Apellidos del paciente" placeholder="Apellidos" value={patientIdentity.lastName} onChangeText={lastName => setPatientIdentity(current => ({ ...current, lastName }))} style={styles.publicContactInput} />
+      <Text style={styles.publicContactSubtitle}>Indica nombre y apellidos para preparar la factura. El envío utiliza tu correo verificado.</Text>
+    </View>;
     if (!isAnonymousBooking) {
       return null;
     }

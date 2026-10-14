@@ -214,6 +214,7 @@ export type RootStackParamList = {
     clinicalWorkspace?: 'general' | 'sessions';
     focusSessionId?: string;
     focusBillingEditor?: boolean;
+    returnAfterBillingSave?: boolean;
   };
   AdminPanel: {
     initialTab?: 'dashboard' | 'verifications' | 'management' | 'commissions' | 'help' | 'feedback';

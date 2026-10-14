@@ -11,7 +11,7 @@ export function SessionInvoiceCompletionNotice({ sessionId, onBlockedChange }: {
 }) {
   const { theme } = useTheme();
   const navigation = useNavigation<AppNavigationProp>();
-  const [notice, setNotice] = useState<{ message: string; clientId: string } | null>(null);
+  const [notice, setNotice] = useState<{ message: string; clientId: string; issuer: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -22,8 +22,8 @@ export function SessionInvoiceCompletionNotice({ sessionId, onBlockedChange }: {
     void getProfessionalSessionDetail(sessionId).then(detail => {
       if (!detail) throw new Error('No se pudo comprobar la facturación de la sesión.');
       if (!active) return;
-      setNotice(detail.invoiceCompletionIssue ? { message: detail.invoiceCompletionIssue, clientId: detail.clientId } : null);
-      onBlockedChange(Boolean(detail.invoiceCompletionIssue));
+      setNotice(detail.invoiceCompletionIssue ? { message: detail.invoiceCompletionIssue, clientId: detail.clientId, issuer: detail.billingReadiness?.correctionTarget === 'BILLING_SETTINGS' } : null);
+      onBlockedChange(detail.billingReadiness ? !detail.billingReadiness.canGenerate : Boolean(detail.invoiceCompletionIssue));
     }).catch(() => {
       if (active) setError('No se pudo comprobar si faltan datos fiscales. Reintenta antes de confirmar la asistencia.');
     }).finally(() => { if (active) setLoading(false); });
@@ -33,8 +33,8 @@ export function SessionInvoiceCompletionNotice({ sessionId, onBlockedChange }: {
   return <View style={{ gap: 10 }}>
     <Text style={{ color: theme.textSecondary }}>{loading ? 'Comprobando los datos para la factura…' : error || notice?.message}</Text>
     {error ? <Button variant="outline" onPress={() => setRetry(value => value + 1)}>Reintentar comprobación fiscal</Button> : null}
-    {notice ? <Button variant="outline" onPress={() => navigation.navigate('ClientProfile', {
-      clientId: notice.clientId, initialTab: 'summary', focusBillingEditor: true,
-    })}>Completar datos fiscales del paciente</Button> : null}
+    {notice ? <Button variant="outline" onPress={() => notice.issuer ? navigation.navigate('ProfessionalBilling', { initialSection: 'fiscal' }) : navigation.navigate('ClientProfile', {
+      clientId: notice.clientId, initialTab: 'summary', focusBillingEditor: true, returnAfterBillingSave: true,
+    })}>Completar datos</Button> : null}
   </View>;
 }

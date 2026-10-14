@@ -10,6 +10,8 @@ import { notifyProfessionalHomeChanged } from './dashboardService';
 // ============================================================================
 
 export interface BillingSummary {
+  activeDeliveryCount?: number;
+  unsentReviewCount?: number;
   grossThisMonth: number;
   grossThisYear: number;
   refundedThisMonth: number;
@@ -23,6 +25,7 @@ export interface BillingSummary {
 }
 
 export interface Invoice {
+  emailNotifications?: Array<{ recipientKind: 'PATIENT' | 'SPECIALIST'; status: 'PENDING' | 'FAILED' | 'SENT' | 'CANCELLED'; attemptCount: number; lastError: string | null }>;
   paymentBookingId?: string | null;
   patientPackageId?: string | null;
   id: string;
