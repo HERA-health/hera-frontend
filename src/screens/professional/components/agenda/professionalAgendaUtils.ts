@@ -63,8 +63,11 @@ export const STATUS_FILTER_OPTIONS: ReadonlyArray<{ value: AgendaStatusFilter; l
   { value: 'CANCELLED', label: 'Solo canceladas' },
 ];
 
-export function getProvenanceLabel(provenance: ProfessionalSession['provenance']): string {
-  return ORIGIN_FILTER_OPTIONS.find((option) => option.value === (provenance ?? 'UNDETERMINED'))?.label ?? 'Procedencia pendiente';
+export function getProvenanceLabel(provenance: ProfessionalSession['provenance'], contexts?: ProfessionalSession['relationshipContext']): string {
+  const primary = provenance === 'REFERRAL' || provenance === 'COLLABORATION' ? 'OWN' : provenance;
+  const label = ORIGIN_FILTER_OPTIONS.find((option) => option.value === (primary ?? 'UNDETERMINED'))?.label ?? 'Procedencia pendiente';
+  const additional = contexts ?? (provenance === 'REFERRAL' || provenance === 'COLLABORATION' ? [provenance] : []);
+  return [label, ...additional.map(value => value === 'REFERRAL' ? 'Derivación' : 'Colaboración')].join(' · ');
 }
 
 export function getProvenancePalette(theme: Theme, session: ProfessionalSession): AgendaStatusPalette {
@@ -77,7 +80,9 @@ export function getProvenancePalette(theme: Theme, session: ProfessionalSession)
 }
 
 export function filterAgendaSessions(sessions: ProfessionalSession[], origin: AgendaOriginFilter, status: AgendaStatusFilter): ProfessionalSession[] {
-  return sessions.filter((session) => (origin === 'ALL' || (session.provenance ?? 'UNDETERMINED') === origin)
+  return sessions.filter((session) => (origin === 'ALL' || (session.provenance ?? 'UNDETERMINED') === origin
+    || ((origin === 'REFERRAL' || origin === 'COLLABORATION') && session.relationshipContext?.includes(origin))
+    || (origin === 'OWN' && (session.provenance === 'REFERRAL' || session.provenance === 'COLLABORATION')))
     && (status === 'ALL' || (status === 'ACTIVE' && session.status !== 'cancelled')
       || (status === 'PENDING' && session.status === 'pending') || (status === 'CANCELLED' && session.status === 'cancelled')));
 }
@@ -194,6 +199,7 @@ export function mapAgendaItem(
     paymentBooking: session.paymentBooking,
     origin: session.origin,
     provenance: session.provenance ?? 'UNDETERMINED',
+    relationshipContext: session.relationshipContext,
     privateOptionId: session.privateOptionId,
     bookedPrivateServiceName: session.bookedPrivateServiceName,
     clinicContext: session.clinicContext,

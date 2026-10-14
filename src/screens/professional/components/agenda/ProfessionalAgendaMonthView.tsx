@@ -175,11 +175,11 @@ export function ProfessionalAgendaMonthView({
                                 borderLeftColor: originColor,
                               },
                             ]}
-                            accessibilityLabel={`${session.clientName}, ${formatTime(session.date)}, ${getProvenanceLabel(session.provenance)}, ${getStatusLabel(status)}`}
+                            accessibilityLabel={`${session.clientName}, ${formatTime(session.date)}, ${getProvenanceLabel(session.provenance, session.relationshipContext)}, ${getStatusLabel(status)}`}
                           >
                             <Text style={styles.eventName} numberOfLines={1}>{session.status === 'cancelled' ? 'Cancelada · ' : ''}{session.clientName}</Text>
                             <Text style={[styles.eventTime, { color: theme.textSecondary }]} numberOfLines={1}>{formatSessionTimeRange(session)}</Text>
-                            <Text style={[styles.eventTime, { color: theme.textSecondary }]} numberOfLines={1}>{getProvenanceLabel(session.provenance)}</Text>
+                            <Text style={[styles.eventTime, { color: theme.textSecondary }]} numberOfLines={1}>{getProvenanceLabel(session.provenance, session.relationshipContext)}</Text>
                           </AnimatedPressable>
                         );
                       })}

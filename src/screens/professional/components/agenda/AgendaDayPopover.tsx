@@ -98,7 +98,7 @@ export function AgendaDayPopover({
                   <Text style={styles.sessionTime}>{formatSessionTimeRange(session)}</Text>
                   <Text style={styles.sessionName} numberOfLines={1}>{session.clientName}</Text>
                   <Text style={styles.sessionMeta} numberOfLines={1}>
-                    {getStatusLabel(getSessionDisplayStatus(session, new Date()))} · {getSessionTypeLabel(session.type)} · {getProvenanceLabel(session.provenance)}
+                    {getStatusLabel(getSessionDisplayStatus(session, new Date()))} · {getSessionTypeLabel(session.type)} · {getProvenanceLabel(session.provenance, session.relationshipContext)}
                   </Text>
                 </AnimatedPressable>
               );

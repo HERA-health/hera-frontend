@@ -6,6 +6,7 @@ import { AppNavigationProp } from '../../constants/types';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getErrorMessage } from '../../constants/errors';
 import * as service from '../../services/heraCommissionService';
+import { patientOriginLabel } from '../../utils/patientProvenance';
 import { Card, Text, Button, WorkflowHint, money } from './CommissionElements';
 
 export function CommissionInfoLink({ compact = false }: { compact?: boolean }) {
@@ -26,8 +27,7 @@ export function PatientCommission({ clientId }: { clientId: string }) {
   return () => { generation.current++; };
  }, [clientId]));
  const directory = relation?.origin === 'HERA_DIRECTORY' && relation.status === 'CONFIRMED';
- const own = relation?.origin === 'SPECIALIST_OWN' || relation?.origin === 'SPECIALIST_INVITED';
- const status = relation === undefined ? 'Consultando…' : directory ? 'Paciente del Directorio' : relation?.status === 'PENDING' ? 'Procedencia en revisión' : own ? 'Paciente propio · Sin comisión HERA' : 'Sin comisión HERA confirmada';
+ const status = relation === undefined ? 'Consultando…' : `${patientOriginLabel(relation?.patientOrigin ?? relation?.origin)}${relation?.status === 'PENDING' ? ' · Comisión en revisión' : ''}`;
  const snapshot = relation?.sessions[0]; const count = snapshot?.position ?? relation?.initialCount;
  return <Card style={linkStyles.card}>
   <View style={linkStyles.header}>

@@ -351,6 +351,7 @@ export interface ProfessionalStats {
  */
 export interface ProfessionalSession {
   provenance?: 'DIRECTORY' | 'OWN' | 'REFERRAL' | 'COLLABORATION' | 'UNDETERMINED';
+  relationshipContext?: Array<'REFERRAL' | 'COLLABORATION'>;
   paymentBooking?: { id: string; status: string; totalCents: number; paidAt: string | null; acceptanceDeadline: string | null } | null;
   packageUses?: Array<{ patientPackageId: string; ordinal: number; status: string }>;
   privateOptionId?: string | null;

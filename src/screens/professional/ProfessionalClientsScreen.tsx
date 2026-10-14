@@ -1,3 +1,4 @@
+import { patientOriginLabel } from '../../utils/patientProvenance';
 import { CommissionInfoLink } from '../commissions/CommissionLinks';
 import { useGeneralRateLimit, useRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
 import { rateLimitMessage } from '../../services/generalRateLimit';
@@ -707,7 +708,7 @@ export function ProfessionalClientsScreen() {
 
           <View style={stylesForTheme.clientHeaderInfo}>
             <View style={stylesForTheme.badgeRow}>
-              {client.heraOrigin?.status === 'PENDING' || (client.heraOrigin?.origin === 'HERA_DIRECTORY' && client.heraOrigin.status === 'CONFIRMED') ? <Text style={[stylesForTheme.sourceBadgeText, { color: theme.textSecondary }]}>{client.heraOrigin.status === 'PENDING' ? 'Procedencia en revisión' : 'Directorio HERA'}</Text> : null}
+              <Text style={[stylesForTheme.sourceBadgeText, { color: theme.textSecondary }]}>{patientOriginLabel(client.heraOrigin?.origin)}</Text>
               {client.archivedAt ? (
                 <View
                   style={[

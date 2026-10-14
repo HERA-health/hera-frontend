@@ -1,3 +1,4 @@
+import { patientOriginLabel } from '../../utils/patientProvenance';
 import { commissionReason } from './commissionCopy';
 import React, { useState } from 'react';
 import { Text as NativeText, View } from 'react-native';
@@ -14,7 +15,7 @@ export function AdminCommissionSessionCard({ row, account, run, busy, refresh, o
  const { theme } = useTheme(); const [calculation, setCalculation] = useState(false);
  const free = row.bookedGrossCents === 0 || row.baseCents === 0;
  const attendance = row.session.status === 'CANCELLED' ? 'Cancelada' : row.session.attendanceOutcome === 'ATTENDED' ? 'Atendida' : row.session.attendanceOutcome === 'PATIENT_NO_SHOW' ? 'No asistió' : 'Asistencia pendiente';
- const origin = row.relation.status !== 'CONFIRMED' ? 'Procedencia pendiente' : row.relation.origin === 'HERA_DIRECTORY' ? 'Directorio HERA' : ['SPECIALIST_OWN', 'SPECIALIST_INVITED'].includes(row.relation.origin) ? 'Cartera propia' : row.relation.origin === 'PROFESSIONAL_REFERRAL' ? 'Derivación' : row.relation.origin === 'COLLABORATION' ? 'Colaboración' : 'Procedencia pendiente';
+ const origin = patientOriginLabel(row.relation.patientOrigin ?? row.relation.origin);
  return <Card style={{ gap: 14, padding: 18 }}>
   <View style={ledger.header}>
    <View style={ledger.identity}><LedgerTitle>{dateTime(row.session.date)}</LedgerTitle><WorkflowHint>{attendance} · {origin}</WorkflowHint></View>

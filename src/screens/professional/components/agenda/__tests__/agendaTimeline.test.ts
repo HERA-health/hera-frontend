@@ -68,4 +68,12 @@ describe('Madrid agenda timeline', () => {
     expect(getSessionDisplayStatus(items[0], new Date('2026-10-14T10:00Z'))).toBe('ended');
     expect(items[0].status).toBe('scheduled');
   });
+
+  it('keeps referral and collaboration filters additional to directory acquisition', () => {
+    const item = session('directory-referral', '2026-10-13T08:00Z', 60, { provenance: 'DIRECTORY', relationshipContext: ['REFERRAL', 'COLLABORATION'] });
+    expect(filterAgendaSessions([item], 'DIRECTORY', 'ALL')).toEqual([item]);
+    expect(filterAgendaSessions([item], 'REFERRAL', 'ALL')).toEqual([item]);
+    expect(filterAgendaSessions([item], 'COLLABORATION', 'ALL')).toEqual([item]);
+    expect(filterAgendaSessions([item], 'OWN', 'ALL')).toEqual([]);
+  });
 });

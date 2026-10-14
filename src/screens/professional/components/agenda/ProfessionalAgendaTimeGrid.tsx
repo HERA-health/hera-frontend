@@ -78,7 +78,7 @@ export function ProfessionalAgendaTimeGrid({ days, sessions, currentTime, scroll
               const { session } = block;
               const palette = getProvenancePalette(theme, session);
               const status = getStatusLabel(getSessionDisplayStatus(session, currentTime));
-              const description = `${session.clientName}, ${formatSessionTimeRange(session)}, ${getProvenanceLabel(session.provenance)}, ${status}${hours.length !== 24 ? `, ${block.offset}` : ''}`;
+              const description = `${session.clientName}, ${formatSessionTimeRange(session)}, ${getProvenanceLabel(session.provenance, session.relationshipContext)}, ${status}${hours.length !== 24 ? `, ${block.offset}` : ''}`;
               return <AnimatedPressable key={block.key} onPress={() => onOpenSession(session.id)} hoverLift={false} pressScale={0.99}
                 accessibilityRole="button" accessibilityLabel={description}
                 style={[styles.event, { top: block.top + 1, height: Math.max(12, block.height - 2), paddingVertical: block.height < 28 ? 0 : 3, left: `${block.lane / block.lanes * 100}%`, width: `${100 / block.lanes}%`, backgroundColor: theme.bgCard, borderLeftColor: palette.border }]}>
@@ -91,7 +91,7 @@ export function ProfessionalAgendaTimeGrid({ days, sessions, currentTime, scroll
                   {session.status === 'pending' ? <Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansBold, fontSize: 10, lineHeight: 13 }}>Pendiente</Text> : null}
                   <Text numberOfLines={1} style={{ flexShrink: 1, color: theme.textPrimary, fontFamily: theme.fontSans, fontSize: 12, lineHeight: 13 }}>{formatSessionTimeRange(session)}{hours.length === 25 ? ` · ${block.offset}` : ''}</Text>
                 </View> : null}
-                {block.height >= 48 ? <Text numberOfLines={1} style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 11, lineHeight: 12 }}>{getProvenanceLabel(session.provenance)}</Text> : null}
+                {block.height >= 48 ? <Text numberOfLines={1} style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 11, lineHeight: 12 }}>{getProvenanceLabel(session.provenance, session.relationshipContext)}</Text> : null}
                 {block.height >= 68 && session.status !== 'pending' ? <Text numberOfLines={1} style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 11 }}>{status}</Text> : null}
                 {block.height >= 86 ? <Text numberOfLines={1} style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 11 }}>{getSessionTypeLabel(session.type)}</Text> : null}
               </AnimatedPressable>;

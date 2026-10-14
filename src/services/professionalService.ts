@@ -283,6 +283,7 @@ export interface GetProfessionalSessionsOptions {
 
 const professionalAgendaItemSchema = z.object({
   provenance: z.enum(['DIRECTORY', 'OWN', 'REFERRAL', 'COLLABORATION', 'UNDETERMINED']).optional(),
+  relationshipContext: z.array(z.enum(['REFERRAL', 'COLLABORATION'])).optional(),
   paymentBooking: z.object({ id: z.string(), status: z.string(), totalCents: z.number().int(), paidAt: z.iso.datetime().nullable(), acceptanceDeadline: z.iso.datetime().nullable() }).nullable().optional(),
   id: z.string(),
   client: z.object({

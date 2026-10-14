@@ -35,7 +35,7 @@ export function ProfessionalAgendaSessionCard({
   const provenance = getProvenancePalette(theme, session);
   const originColor = provenance.border;
   const originBackground = provenance.background;
-  const originLabel = getProvenanceLabel(session.provenance);
+  const originLabel = getProvenanceLabel(session.provenance, session.relationshipContext);
 
   return (
     <View>

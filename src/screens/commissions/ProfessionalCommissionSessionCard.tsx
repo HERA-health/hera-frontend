@@ -1,3 +1,4 @@
+import { patientOriginLabel } from '../../utils/patientProvenance';
 import { commissionReason } from './commissionCopy';
 import React, { useState } from 'react';
 import { Text as NativeText, View } from 'react-native';
@@ -15,14 +16,14 @@ export function ProfessionalCommissionSessionCard({ row, busy, onActivity, onRev
  const free = row.bookedGrossCents === 0 || row.baseCents === 0;
  const attributionPending = row.exclusion === 'ATTRIBUTION_PENDING';
  const attendance = row.session.status === 'CANCELLED' ? 'Cancelada' : row.session.attendanceOutcome === 'ATTENDED' ? 'Atendida' : row.session.attendanceOutcome === 'PATIENT_NO_SHOW' ? 'No asistió' : 'Asistencia pendiente';
- const origin = row.relation.status !== 'CONFIRMED' ? 'Procedencia pendiente' : row.relation.origin === 'HERA_DIRECTORY' ? 'Directorio HERA' : ['SPECIALIST_OWN', 'SPECIALIST_INVITED'].includes(row.relation.origin) ? 'Cartera propia' : row.relation.origin === 'PROFESSIONAL_REFERRAL' ? 'Derivación' : row.relation.origin === 'COLLABORATION' ? 'Colaboración' : 'Procedencia pendiente';
+ const origin = patientOriginLabel(row.relation.patientOrigin ?? row.relation.origin);
  return <Card style={{ padding: 16, gap: 10 }}>
   <View style={ledger.header}>
    <View style={[ledger.identity, { flexBasis: 160 }]}><LedgerTitle>{row.session.patientName || 'Paciente sin nombre disponible'}</LedgerTitle><WorkflowHint>{dateTime(row.session.date)} · {attendance}</WorkflowHint></View>
    <View style={{ gap: 2 }}><NativeText accessibilityLabel={`Comisión generada: ${money(row.entitledCents)}`} style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold, fontSize: 22, lineHeight: 28 }}>{money(row.entitledCents)}</NativeText><WorkflowHint>{free ? 'Sesión gratuita: no cuenta para la escala de comisiones' : attributionPending ? 'Porcentaje pendiente de confirmar' : `${row.rateBps / 100}% de ${row.baseCents === null ? 'base por confirmar' : money(row.baseCents)}`}</WorkflowHint></View>
   </View>
   <SettlementBadge state={row.settlement?.state} settlement={row.settlement} />
-  {attributionPending ? <WorkflowHint>{row.relation.status !== 'CONFIRMED' || row.relation.origin === 'UNKNOWN' ? 'HERA debe confirmar cómo llegó este paciente a tu consulta.' : 'HERA debe confirmar las sesiones anteriores que cuentan para el porcentaje.'} Consulta el motivo y el historial en «Revisiones».</WorkflowHint> : row.exclusion ? <WorkflowHint>{exclusionLabels[row.exclusion] ?? 'El cálculo requiere revisión.'}</WorkflowHint> : null}
+  {attributionPending ? <WorkflowHint>{(row.relation.patientOrigin ?? row.relation.origin) === 'UNKNOWN' ? 'HERA debe confirmar cómo llegó este paciente a tu consulta.' : 'HERA debe confirmar las sesiones anteriores que cuentan para el porcentaje.'} Consulta el motivo y el historial en «Revisiones».</WorkflowHint> : row.exclusion ? <WorkflowHint>{exclusionLabels[row.exclusion] ?? 'El cálculo requiere revisión.'}</WorkflowHint> : null}
   <View style={[ledger.header, { justifyContent: 'flex-start' }]}>
    {attributionPending && onOpenReview ? <Button size="small" variant="outline" disabled={busy} onPress={onOpenReview}>Ver revisiones</Button> : null}
    {!children && onActivity ? <Button size="small" variant="outline" disabled={busy} onPress={onActivity}>{row.movements.length ? 'Actualizar sesión' : 'Registrar cobro o asistencia'}</Button> : null}

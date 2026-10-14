@@ -42,9 +42,16 @@ it('names the compact information button and opens the commission screen', () =>
 it('keeps commission details folded without manual invitation codes', async () => {
   jest.mocked(service.patient).mockResolvedValue({ id: 'relation', origin: 'SPECIALIST_OWN', status: 'CONFIRMED', initialCount: null, sessions: [] });
   const view = render(<PatientCommission clientId="patient-fixture" />);
-  await view.findByText('Paciente propio · Sin comisión HERA');
+  await view.findByText('Cartera propia');
   fireEvent.press(view.getByRole('button', { name: 'Ver opciones' }));
   expect(view.getByRole('button', { name: 'Cómo funcionan las comisiones' })).toBeTruthy();
   expect(view.queryByText(/Copiar invitación/)).toBeNull();
   expect(service.invitation).not.toHaveBeenCalled();
+});
+
+it('shows directory acquisition while a commission is pending or simulated differently', async () => {
+  jest.mocked(service.patient).mockResolvedValue({ id: 'relation', origin: 'UNKNOWN', patientOrigin: 'HERA_DIRECTORY', status: 'PENDING', initialCount: null, sessions: [] });
+  const view = render(<PatientCommission clientId="patient-fixture" />);
+  await view.findByText('Directorio HERA · Comisión en revisión');
+  expect(view.queryByText('Procedencia en revisión')).toBeNull();
 });

@@ -78,6 +78,15 @@ describe('pendingBookingIntentService', () => {
     expect(mockedAsyncStorage.removeItem).toHaveBeenCalledTimes(2);
   });
 
+  it('retains the server origin proof when resuming after login or signup', async () => {
+    await savePendingBookingIntent({ ...baseIntentInput, intentToken: 'server-directory-proof', optionId: 'option' });
+    mockedAsyncStorage.getItem.mockResolvedValue(mockedAsyncStorage.setItem.mock.calls[0][1]);
+    const intent = await consumePendingBookingIntent();
+    expect(intent && mapPendingIntentToBookingParams(intent)).toMatchObject({
+      specialistId: 'specialist-1', intentToken: 'server-directory-proof', optionId: 'option',
+    });
+  });
+
   it('consumes an intent once and supports explicit clearing', async () => {
     mockedAsyncStorage.getItem.mockResolvedValue(JSON.stringify({
       ...baseIntentInput,
