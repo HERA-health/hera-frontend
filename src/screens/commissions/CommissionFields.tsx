@@ -23,12 +23,13 @@ const months = Array.from({ length: 12 }, (_, index) => ({
 const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 // Keep date keys unchanged at the service boundary; the field only formats their presentation.
-export function CommissionDateField({ label, value, onChangeText, disabled = false, granularity = 'day' }: {
+export function CommissionDateField({ label, value, onChangeText, disabled = false, granularity = 'day', allowAllMonths = true }: {
   label: string;
   value: string;
   onChangeText: (value: string) => void;
   disabled?: boolean;
   granularity?: 'day' | 'month';
+  allowAllMonths?: boolean;
 }) {
   const { theme } = useTheme();
   const { width, height } = useWindowDimensions();
@@ -113,7 +114,7 @@ export function CommissionDateField({ label, value, onChangeText, disabled = fal
                   </AnimatedPressable>;
                 })}
               </View>
-              <AnimatedPressable accessibilityRole="button" onPress={() => select('')} hoverLift={false} style={styles.clear}><Text style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold }}>Todos los meses</Text></AnimatedPressable>
+              {allowAllMonths && <AnimatedPressable accessibilityRole="button" onPress={() => select('')} hoverLift={false} style={styles.clear}><Text style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold }}>Todos los meses</Text></AnimatedPressable>}
             </> : <SchedulerCalendar current={value || getMadridDateKey()} markedDates={value ? { [value]: { selected: true, selectedColor: theme.primary, selectedTextColor: theme.textOnPrimary } } : undefined} onSelectDate={select} />}
           </ScrollView>
         </View>

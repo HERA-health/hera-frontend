@@ -23,10 +23,10 @@ const detail: ProfessionalSessionDetail = { id: 'session', clientId: 'patient', 
   professional: { id: 'owner', displayName: 'Profesional', professionalTitle: null }, invoiceCompletionIssue: null };
 beforeEach(() => { mockFocused = true; mockNavigate.mockReset(); jest.mocked(getProfessionalSessionDetail).mockReset().mockResolvedValue(detail); });
 
-it('blocks attendance while checking and allows it when no fiscal data is missing', async () => {
+it('allows completion during invoice checks and after fiscal readiness', async () => {
   const blocked = jest.fn();
   render(<SessionInvoiceCompletionNotice sessionId="session" onBlockedChange={blocked} />);
-  expect(blocked).toHaveBeenCalledWith(true);
+  expect(blocked).toHaveBeenCalledWith(false);
   await waitFor(() => expect(blocked).toHaveBeenLastCalledWith(false));
 });
 
@@ -36,7 +36,7 @@ it('shows the missing fields, opens the patient editor and rechecks after correc
   jest.mocked(getProfessionalSessionDetail).mockResolvedValueOnce({ ...detail, invoiceCompletionIssue: message });
   const view = render(<SessionInvoiceCompletionNotice sessionId="session" onBlockedChange={blocked} />);
   await waitFor(() => expect(view.getByText(message)).toBeTruthy());
-  expect(blocked).toHaveBeenLastCalledWith(true);
+  expect(blocked).toHaveBeenLastCalledWith(false);
   fireEvent.press(view.getByText('Completar datos'));
   expect(mockNavigate).toHaveBeenCalledWith('ClientProfile', { clientId: 'patient', initialTab: 'summary', focusBillingEditor: true, returnAfterBillingSave: true });
   mockFocused = false; view.rerender(<SessionInvoiceCompletionNotice sessionId="session" onBlockedChange={blocked} />);
@@ -45,12 +45,12 @@ it('shows the missing fields, opens the patient editor and rechecks after correc
   expect(view.queryByText(message)).toBeNull();
 });
 
-it('keeps attendance blocked on a failed check and supports retry', async () => {
+it('allows completion on a failed fiscal check and supports retry', async () => {
   const blocked = jest.fn();
   jest.mocked(getProfessionalSessionDetail).mockRejectedValueOnce(new Error('Temporal'));
   const view = render(<SessionInvoiceCompletionNotice sessionId="session" onBlockedChange={blocked} />);
   await waitFor(() => expect(view.getByText('Reintentar comprobación fiscal')).toBeTruthy());
-  expect(blocked).toHaveBeenLastCalledWith(true);
+  expect(blocked).toHaveBeenLastCalledWith(false);
   fireEvent.press(view.getByText('Reintentar comprobación fiscal'));
   await waitFor(() => expect(blocked).toHaveBeenLastCalledWith(false));
 });

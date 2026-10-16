@@ -5,15 +5,18 @@ import * as service from '../../../services/heraCommissionService';
 
 jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn() }), useFocusEffect: effect => require('react').useEffect(effect, [effect]) }));
 jest.mock('../../../services/heraCommissionService', () => ({
- operators: jest.fn(), specialistAccounts: jest.fn(), configuration: jest.fn(), detail: jest.fn(), sessions: jest.fn(), balances: jest.fn(),
+ operators: jest.fn(), specialistAccounts: jest.fn(), configuration: jest.fn(), detail: jest.fn(), sessions: jest.fn(), balances: jest.fn(), month: jest.fn(), adminMonth: jest.fn(),
 }));
 jest.mock('../../../services/professionalService', () => ({ getProfessionalSessionDetail: jest.fn() }));
 const summary = { id: 'account', specialistName: 'Ana', specialistId: 'specialist', mode: 'LIVE', operatorKey: 'internal-key', pendingCents: 1400, receivedCents: 1000, undocumentedCents: 300, creditCents: 0, overdueCents: 0, accruedCents: 0, issueCount: 0 };
 const account = { summary, acceptances: [], specialistFiscal: {}, periods: [], documents: [], cash: [], issues: [], hasMore: false };
+const month={accountId:'account',month:'2026-09',revision:1,period:{id:'period',month:'2026-09',status:'OPEN',revision:1,baseCents:1400},originalCents:1400,cancellationCents:0,adjustmentCents:0,netCents:1400,payableCents:1400,appliedCents:0,pendingCents:1400,paymentState:'PENDING',creditCents:0,countedSessions:1,excludedSessions:0,unknownSessions:0,patientCount:1,tiers:[],issues:[],documents:[]};
 const nav = () => ({ canGoBack: jest.fn(() => false), goBack: jest.fn(), replace: jest.fn(), setParams: jest.fn() });
 beforeEach(() => {
  jest.clearAllMocks();
- service.operators.mockResolvedValue([]);
+ service.operators.mockResolvedValue([{operatorKey:'internal-key',operatorName:'HERA',mode:'LIVE'}]);
+ service.month.mockResolvedValue(month);
+ service.adminMonth.mockResolvedValue({items:[{specialistId:'specialist',specialistName:'Ana',contact:'synthetic@example.invalid',accountId:'account',accepted:true,summary:month}],hasMore:false,totals:{specialistCount:1,countedSessions:1,netCents:1400}});
  service.specialistAccounts.mockResolvedValue([summary]);
  service.configuration.mockResolvedValue({ mode: 'OFF', terms: null, accounts: [], scale: [], canAccept: false });
  service.detail.mockResolvedValue(account);
@@ -33,7 +36,7 @@ it.each([undefined, 'account'])('redirects old admin links into administration, 
 it('keeps personal commissions on professional endpoints and returns safely from a direct link', async () => {
  const navigation = nav();
  const view = render(<PersonalScreen navigation={navigation} params={{ accountId: 'account' }} />);
- await view.findByText('Sesiones y comisiones');
+ await view.findByText('Sesiones del mes');
  expect(service.detail).toHaveBeenCalledWith('account', false, 0);
  expect(view.queryByText('Gestión de comisiones')).toBeNull();
  expect(view.queryByText('Registrar pago recibido')).toBeNull();
@@ -51,13 +54,13 @@ it('opens the selected account in the admin workspace with admin actions, withou
  const view = render(<CommissionWorkspace admin specialistId="specialist" onOpen={onOpen} onBack={onBack} />);
  await view.findByText('Ana');
  expect(view.queryByText(/internal-key/)).toBeNull();
- expect(view.getByText('Pendiente de cubrir')).toBeTruthy();
- fireEvent.press(view.getByRole('button', { name: 'Gestionar comisiones de Ana' }));
+ expect(view.getByText(/Pendiente:/)).toBeTruthy();
+ fireEvent.press(view.getByRole('button', { name: 'Ver detalle' }));
  expect(onOpen).toHaveBeenCalledWith('account');
  view.rerender(<CommissionWorkspace admin specialistId="specialist" accountId="account" onOpen={onOpen} onBack={onBack} />);
- await view.findByText('Administración · Cuenta del especialista');
+ await view.findByText('Cuenta del especialista');
  expect(service.detail).toHaveBeenCalledWith('account', true, 0);
- fireEvent.press(view.getByText('Abonos a HERA'));
+ await view.findByText('Liquidación del mes');
  expect(view.getByText('Registrar pago recibido')).toBeTruthy();
  expect(view.queryByText('Aceptar condiciones')).toBeNull();
  fireEvent.press(view.getByRole('button', { name: 'Volver a especialistas' }));
@@ -68,7 +71,7 @@ it('removes stale balances after a failed refresh and recovers on retry', async 
  const props = { admin: true, specialistId: 'specialist', onOpen: jest.fn(), onBack: jest.fn() };
  const view = render(<CommissionWorkspace {...props} />);
  await view.findByText('Ana');
- service.specialistAccounts.mockRejectedValueOnce(new Error('Saldos no disponibles'));
+ service.adminMonth.mockRejectedValueOnce(new Error('Saldos no disponibles'));
  fireEvent.press(view.getByText('Actualizar saldos'));
  await view.findByText('Saldos no disponibles');
  expect(view.queryByText('Ana')).toBeNull();
@@ -76,12 +79,12 @@ it('removes stale balances after a failed refresh and recovers on retry', async 
  await view.findByText('Ana');
 });
 
-it('explains why LIVE has no accounts when no active agreement is configured', async () => {
- service.configuration.mockResolvedValue({ mode: 'LIVE', terms: null, accounts: [], scale: [], canAccept: false });
- service.specialistAccounts.mockResolvedValue([]);
- const view = render(<CommissionWorkspace admin specialistId="specialist" onOpen={jest.fn()} onBack={jest.fn()} />);
- await view.findByText('LIVE está seleccionado, pero no hay un acuerdo activo para aceptar.');
- expect(view.getByText('Todavía no hay cuentas de comisiones')).toBeTruthy();
+it('explains an empty operator configuration without suggesting a payment', async () => {
+ service.operators.mockResolvedValue([]);
+ const view = render(<CommissionWorkspace admin onOpen={jest.fn()} onBack={jest.fn()} />);
+ await view.findByText('No hay acuerdos de comisiones disponibles. Revisa la configuración antes de iniciar nuevas liquidaciones.');
+ expect(service.adminMonth).not.toHaveBeenCalled();
+ expect(view.queryByText('Registrar pago recibido')).toBeNull();
 });
 
 it.each([null, '2026-09-01T00:00:00Z'])('does not offer acceptance again for an accepted or terminated version: %s', async terminatedAt => {

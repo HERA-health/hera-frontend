@@ -7,7 +7,7 @@ import { buildMultipartFormData, type UploadAsset } from '../utils/multipartUplo
 export interface Page<T> { items: T[]; hasMore: boolean }
 export type Mode = 'LIVE' | 'SIMULATION';
 export type Origin = 'HERA_DIRECTORY' | 'SPECIALIST_OWN' | 'SPECIALIST_INVITED' | 'PROFESSIONAL_REFERRAL' | 'COLLABORATION' | 'UNKNOWN';
-export interface Terms { id: string; operatorKey: string; mode: Mode; contractText: string; fiscalTreatment: string; operatorName: string; operatorTaxId: string; operatorAddress: string; beneficiary: string; iban: string; paymentInstructions?: string | null; effectiveAt: string }
+export interface Terms { accrualPolicy?: "COLLECTION_V1" | "COMPLETION_V1"; id: string; operatorKey: string; mode: Mode; contractText: string; fiscalTreatment: string; operatorName: string; operatorTaxId: string; operatorAddress: string; beneficiary: string; iban: string; paymentInstructions?: string | null; effectiveAt: string }
 export interface Acceptance { id: string; termsId: string; acceptedAt: string; terminatedAt: string | null; terms: Terms }
 export interface Balance { payableCents?: number; appliedCents?: number; paymentPendingCents?: number; unbilledCents?: number; id: string; specialistId: string; specialistName: string; operatorKey: string; mode: Mode; revision: number; estimatedCents: number; accruedCents: number; undocumentedCents: number; documentedCents: number; pendingCents: number; overdueCents: number; receivedCents: number; creditCents: number; issueCount: number }
 export interface Configuration { mode: Mode | 'OFF'; scale: number[]; terms: Terms | null; canAccept: boolean; accounts: Array<{ id: string; mode: Mode; operatorKey: string; acceptances: Acceptance[] }> }
@@ -18,11 +18,14 @@ export interface DocumentBalance { fiscalDifferenceCents?: number; id: string; i
 export type AllocationTarget = { documentId: string; entryId?: never } | { entryId: string; documentId?: never };
 export interface PayableEntry { id: string; snapshotId: string; sessionDate: string; economicAt: string; baseCents: number; appliedCents: number; remainingCents: number; groupRemainingCents: number }
 export interface Cash { method?: 'BIZUM' | 'BANK_TRANSFER' | null; isVoided?: boolean; id: string; originalId: string | null; kind: 'RECEIPT' | 'REVERSAL' | 'REFUND'; amountCents: number; availableCents: number; occurredAt: string; recordedAt: string; reference: string; applications: Array<{ id: string; invoiceNumber?: string; sessionDate?: string; documentId: string | null; entryId?: string | null; amountCents: number; reversalOfId: string | null; reason: string }> }
-export interface Issue { id: string; relationId: string | null; snapshotId: string | null; reason: string; status: string; resolution: string | null; openedAutomatically?: boolean; context?: { origin: Origin; patientOrigin?: Origin; status: string; initialCount: number | null; history: { totalSessions: number; attendedPaidSessions: number; countedSessions: number } | null } | null }
+export interface Issue { kind?: string; decision?: MonthlyIssue["decision"]; createdAt?: string; resolvedAt?: string | null; id: string; relationId: string | null; snapshotId: string | null; reason: string; status: string; resolution: string | null; openedAutomatically?: boolean; context?: { origin: Origin; patientOrigin?: Origin; status: string; initialCount: number | null; history: { totalSessions: number; attendedPaidSessions: number; countedSessions: number } | null } | null }
 export interface AccountDetail { pagination?: { payments: boolean; documents: boolean; issues: boolean }; payableEntries?: PayableEntry[]; documentImportBlock?: string | null; summary: Balance; acceptances: Acceptance[]; specialistFiscal: { fiscalName: string | null; fiscalNif: string | null; fiscalAddress: string | null }; periods: Period[]; documents: DocumentBalance[]; cash: Cash[]; issues: Issue[]; hasMore: boolean }
-export interface Relation { id: string; origin: Origin; patientOrigin?: Origin; status: string; initialCount: number | null }
-export interface CommissionSession { settlement?: Settlement; id: string; sessionId: string; accountId: string; relationId: string; position: number | null; rateBps: number; bookedGrossCents: number; baseCents: number | null; serviceTaxCents: number | null; potentialCents: number | null; entitledCents: number; exclusion: string | null; revision: number; session: { date: string; clientId: string; patientName?: string | null; attendanceOutcome: string | null; status: string }; relation: Relation; movements: Array<{ id: string; kind: string; grossCents: number; baseCents: number; originalId: string | null; occurredAt: string; reference: string }>; revisions: Array<{ id: string; beforePosition: number | null; position: number | null; beforeBps: number; rateBps: number; deltaCents: number; reason: string }> }
+export interface Relation { patientReference?: string; id: string; origin: Origin; patientOrigin?: Origin; status: string; initialCount: number | null }
+export interface CommissionSession { accrualPolicy?: "COLLECTION_V1" | "COMPLETION_V1"; cancellationIssueId?: string | null; recognizedBaseCents?: number | null; settlement?: Settlement; id: string; sessionId: string; accountId: string; relationId: string; position: number | null; rateBps: number; bookedGrossCents: number; baseCents: number | null; serviceTaxCents: number | null; potentialCents: number | null; entitledCents: number; exclusion: string | null; revision: number; session: { date: string; clientId: string; patientName?: string | null; completionSource?: string | null; invoiceEmissionStatus?: string | null; invoiceEmissionError?: string | null; attendanceOutcome: string | null; status: string }; relation: Relation; movements: Array<{ id: string; kind: string; grossCents: number; baseCents: number; originalId: string | null; occurredAt: string; reference: string }>; revisions: Array<{ id: string; beforePosition: number | null; position: number | null; beforeBps: number; rateBps: number; deltaCents: number; reason: string }> }
 export type Action =
+ | { action: 'REQUEST_CANCELLATION'; snapshotId: string; reason: string }
+ | { action: 'DECIDE_CANCELLATION' | 'DECIDE_SESSION_CORRECTION'; issueId: string; decision: 'APPROVED' | 'REJECTED'; revision: number; snapshotRevision: number; reason: string }
+ | { action: 'RECEIVE_PERIOD'; periodId: string; method: 'BIZUM' | 'BANK_TRANSFER'; amountCents: number; occurredAt: string; reference: string; confirmed: true; allowUnapplied: boolean; revision: number }
  | { action: 'ACCEPT'; termsId: string; confirmed: true }
  | { action: 'TERMINATE'; termsId: string; cutOff: string; reason: string }
  | { action: 'ATTENDANCE'; snapshotId: string; outcome: 'ATTENDED' | 'PATIENT_NO_SHOW' | 'UNCONFIRMED'; reason: string }
@@ -94,10 +97,34 @@ export const recoverDocument = async (id: string, docId: string, file: UploadAss
 };
 
 export type SettlementState = 'PENDING_ACTIVITY' | 'NO_COMMISSION' | 'UNDOCUMENTED' | 'PENDING_PAYMENT' | 'PAID' | 'PARTIAL_DOCUMENT' | 'REVIEW_PENDING' | 'DOCUMENT_NOT_READY';
-export interface Settlement { attributedAppliedCents?: number; paymentState?: 'PENDING' | 'PARTIAL' | 'PAID'; documentState?: 'PENDING' | 'AVAILABLE'; unbilledAppliedCents?: number; unbilledPendingCents?: number; state: SettlementState; undocumentedCents: number; documentCount: number }
+export interface Settlement { attributedAppliedCents?: number; paymentState?: 'PENDING' | 'PARTIAL' | 'PAID' | 'NO_AMOUNT'; documentState?: 'PENDING' | 'AVAILABLE'; unbilledAppliedCents?: number; unbilledPendingCents?: number; state: SettlementState; undocumentedCents: number; documentCount: number }
 export interface SessionDocument extends DocumentBalance { sessionCount: number }
 export interface DocumentApplication { id: string; amountCents: number; reason: string; reversalOfId: string | null; createdAt: string; actorId: string; cash: { id: string; occurredAt: string; reference: string; actorId: string } }
 export interface AdminSpecialistSummary { mode: Mode | 'OFF'; accounts: Array<Balance & { operatorName: string; hasHistory: boolean }> }
 export const adminSpecialistSummary = async (id: string) => (await api.get<AdminSpecialistSummary>(`${root}/admin/specialists/${encodeURIComponent(id)}/summary`)).data;
 export const sessionDocuments = async (id: string, snapshotId: string, page = 0) => (await api.get<Page<SessionDocument>>(`${path(id, true)}/sessions/${encodeURIComponent(snapshotId)}/documents`, { params: { page } })).data;
 export const documentApplications = async (id: string, documentId: string, page = 0) => (await api.get<Page<DocumentApplication>>(`${path(id, true)}/documents/${encodeURIComponent(documentId)}/applications`, { params: { page } })).data;
+
+export interface MonthlyIssue { id: string; snapshotId: string | null; kind: string; status: string; decision: 'APPROVED' | 'REJECTED' | null; reason: string; resolution: string | null; createdAt: string; resolvedAt: string | null }
+export interface MonthSummary { pendingSessions?: number;
+ accountId: string; month: string; revision: number; period: Period | null;
+ originalCents: number; cancellationCents: number; adjustmentCents: number; netCents: number;
+ payableCents: number | null; appliedCents: number | null; pendingCents: number | null;
+ paymentState: 'REVIEW' | 'PARTIAL' | 'PENDING' | 'PAID' | 'NO_AMOUNT'; creditCents: number; creditScope: 'ACCOUNT';
+ countedSessions: number; excludedSessions: number; unknownSessions: number; patientCount: number;
+ tiers: Array<{rateBps: number; count: number}>; issues: MonthlyIssue[]; issuesHasMore: boolean; documents: DocumentBalance[];
+}
+export interface CorrectionFacts { attendance: "ATTENDED" | "NOT_ATTENDED" | null; baseCents: number | null; taxCents: number | null }
+export interface DecisionPreview { recognized?: CorrectionFacts; proposal?: CorrectionFacts | null;
+ creditReleasedCents: number; totalAdjustmentCents: number; adjustments: Array<{snapshotId:string;period:string;deltaCents:number}>;
+ issueId: string; kind: string; status: string; snapshotId: string; revision: number; snapshotRevision: number;
+ patientReference: string; sessionDate: string; position: number | null; baseCents: number | null; rateBps: number;
+ commissionCents: number; reason: string; periodEffect: string; rectificationRequired: boolean; message: string;
+}
+export interface AdminMonthRow { verificationStatus?: string; specialistId: string; specialistName: string; contact: string; accountId: string | null; accepted: boolean; summary: MonthSummary | null }
+export interface AdminMonthFilter { month: string; mode: Mode; operatorKey: string; page: number; search?: string; specialistId?: string; missingAcceptance?: boolean }
+export const month = async (id: string, admin: boolean, month: string) => (await api.get<MonthSummary>(`${path(id,admin)}/months/${month}`)).data;
+export const statement = async (id: string, admin: boolean, month: string) => (await api.get<ArrayBuffer>(`${path(id,admin)}/months/${month}/pdf`,{responseType:'arraybuffer'})).data;
+export const decisionPreview = async (id: string, issueId: string) => (await api.get<DecisionPreview>(`${path(id,true)}/issues/${encodeURIComponent(issueId)}/preview`)).data;
+export const adminMonth = async (params: AdminMonthFilter) => (await api.get<{items:AdminMonthRow[];hasMore:boolean;month:string;totals:{specialistCount:number;countedSessions:number;netCents:number}}>(`${root}/admin/months`,{params})).data;
+export const exportMonth = async (params: AdminMonthFilter) => (await api.get<ArrayBuffer>(`${root}/admin/months/export`,{params,responseType:'arraybuffer'})).data;

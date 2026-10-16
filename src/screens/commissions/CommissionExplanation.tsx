@@ -13,6 +13,7 @@ const tiers = [
 
 export function CommissionExplanation({ terms, simulation, initiallyOpen = false }: { terms?: Terms | null; simulation?: boolean; initiallyOpen?: boolean }) {
   const { theme } = useTheme();
+  const completed=terms?.accrualPolicy==='COMPLETION_V1';
   const [details, setDetails] = useState(false);
   const body = { color: theme.textPrimary, fontFamily: theme.fontSans, fontSize: 14, lineHeight: 21 };
   const label = { ...body, color: theme.textSecondary, fontFamily: theme.fontSansSemiBold, fontSize: 12, lineHeight: 18 };
@@ -31,7 +32,7 @@ export function CommissionExplanation({ terms, simulation, initiallyOpen = false
 
     {simulation ? <Text style={label}>SIMULACIÓN · Estos importes no generan deuda.</Text> : null}
 
-    <WorkflowHint>Ejemplo orientativo con una sesión de 80 € de base. No es tu tarifa ni un importe que tengas que pagar. Tu comisión se calcula con el precio y los cobros reales de cada sesión.</WorkflowHint>
+    <WorkflowHint>Ejemplo orientativo con una sesión de 80 € de base. No es tu tarifa ni un importe que tengas que pagar. {completed?'La comisión se calcula sobre la base completa de la sesión realizada, con independencia del cobro.':'Tu comisión se calcula con el precio y los cobros reales de cada sesión, según tu acuerdo anterior.'}</WorkflowHint>
     <View style={[styles.table, { borderColor: theme.border }]}>
       <View style={[styles.row, { backgroundColor: theme.bg }]}>
         <Text style={[label, styles.session]}>Sesión con el mismo paciente</Text>
@@ -48,8 +49,8 @@ export function CommissionExplanation({ terms, simulation, initiallyOpen = false
     <View style={[styles.rule, { backgroundColor: theme.bg }]}>
       <Ionicons name="checkmark-circle-outline" size={21} color={theme.textSecondary} />
       <View style={{ flex: 1, gap: 3 }}>
-        <Text style={{ ...body, fontFamily: theme.fontSansSemiBold }}>Sesión atendida + cobro registrado</Text>
-        <WorkflowHint>Si cobras la mitad, se genera la mitad de la comisión. El contador no se reinicia cada mes.</WorkflowHint>
+        <Text style={{ ...body, fontFamily: theme.fontSansSemiBold }}>{completed?'Sesión completada':'Sesión atendida + cobro registrado'}</Text>
+        <WorkflowHint>{completed?'La sesión completada genera su comisión sin confirmar asistencia otra vez. El contador no se reinicia cada mes.':'Si cobras la mitad, se genera la mitad de la comisión. El contador no se reinicia cada mes.'}</WorkflowHint>
       </View>
     </View>
 
@@ -59,8 +60,8 @@ export function CommissionExplanation({ terms, simulation, initiallyOpen = false
     <Button variant="outline" size="small" style={{ alignSelf: 'flex-start' }} accessibilityState={{ expanded: details }} icon={<Ionicons name={details ? 'chevron-up' : 'chevron-down'} size={15} color={theme.textSecondary} />} iconPosition="right" onPress={() => setDetails(v => !v)}>{details ? 'Ocultar detalles del cálculo' : 'Qué cuenta y qué queda fuera'}</Button>
     {details ? <View style={[styles.details, { borderTopColor: theme.border }]}>
       <WorkflowHint>• Cuentan las sesiones privadas de pago realmente atendidas. Las gratuitas, canceladas y ausencias no consumen un tramo.</WorkflowHint>
-      <WorkflowHint>• Una sesión atendida ocupa su posición aunque todavía no la hayas cobrado. La comisión se genera sobre lo que cobres y registres.</WorkflowHint>
-      <WorkflowHint>• Una devolución reduce la comisión sin reiniciar el contador. La escala es independiente para cada paciente y especialista.</WorkflowHint>
+      <WorkflowHint>• Una sesión atendida ocupa su posición aunque todavía no la hayas cobrado. {completed?'El cobro al paciente no modifica la comisión.':'La comisión se genera sobre lo que cobres y registres.'}</WorkflowHint>
+      <WorkflowHint>{completed?'• Puedes solicitar una anulación a HERA. Si se aprueba, la sesión conserva su posición.':'• Una devolución reduce la comisión sin reiniciar el contador.'} La escala es independiente para cada paciente y especialista.</WorkflowHint>
       {!terms ? <WorkflowHint>Antes de aceptar verás las condiciones y el tratamiento fiscal aplicables.</WorkflowHint> : null}
     </View> : null}
   </CommissionDisclosure>;

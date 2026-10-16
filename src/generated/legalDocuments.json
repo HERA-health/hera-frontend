@@ -1,7 +1,7 @@
 {
   "TERMS_OF_SERVICE": {
     "key": "TERMS_OF_SERVICE",
-    "version": "2026-10-09",
+    "version": "2026-10-15",
     "title": "Términos y condiciones de HERA",
     "slug": "terminos",
     "routePath": "/legal/terminos",
@@ -95,24 +95,26 @@
       {
         "title": "Directorio · 3. Escala y cálculo",
         "body": [
-          "Por cada paciente y especialista se aplica el 20 % en la primera sesión realmente atendida, el 10 % en la segunda y tercera y el 5 % desde la cuarta. El contador no vuelve a empezar cada mes ni al cambiar de versión del acuerdo.",
-          "La base es el importe del servicio después de descuentos y sin sus impuestos, en euros. Solo se computan servicios privados de precio positivo y efectivamente atendidos. Una reserva, cancelación, inasistencia o sesión gratuita no genera por sí misma una comisión exigible.",
-          "La comisión se devenga proporcionalmente al cobro del paciente registrado por el especialista. Por ejemplo: para una primera sesión con base de 80 euros íntegramente cobrada, la comisión base es 16 euros. El importe fiscal final de la factura HERA, cuando corresponda, se desglosa por separado.",
-          "El registro del cobro al paciente no acredita que HERA haya recibido su comisión. Las devoluciones y correcciones se registran como ajustes; se conserva la evidencia original. La devolución de una sesión realmente prestada no reinicia su posición."
+          "Por cada paciente y especialista se aplica el 20 % en la primera sesión computable, el 10 % en la segunda y tercera y el 5 % desde la cuarta. El contador no vuelve a empezar cada mes ni al cambiar de versión del acuerdo.",
+          "La base es el importe del servicio guardado en la reserva, después de descuentos y sin sus impuestos, en euros. En bonos se utiliza el reparto económico por uso. Solo se computan servicios privados de precio positivo y válidamente completados. Las sesiones gratuitas no generan comisión ni consumen tramo; las canceladas o con ausencia registrada antes de completar tampoco.",
+          "La finalización válida de la sesión, manual o automática, acredita su realización a efectos económicos y genera la comisión sobre la base completa, sin una confirmación adicional de asistencia. No depende de que el paciente haya pagado, del medio de pago, de Stripe ni de la emisión de su factura. Por ejemplo: para una primera sesión con base de 80 euros, la comisión base es 16 euros aunque todavía no se haya cobrado. Los impuestos y retenciones de la factura HERA, cuando corresponda, se desglosan por separado.",
+          "El cobro o la devolución al paciente no acredita que HERA haya recibido su comisión ni modifica por sí mismo la comisión de una sesión completada. Una reducción requiere la solicitud y decisión previstas en el apartado de revisión y correcciones. La devolución de una sesión realmente prestada no reinicia su posición."
         ]
       },
       {
         "title": "Directorio · 4. Inicio, aceptación y trazabilidad",
         "body": [
           "El especialista puede consultar el texto antes de aceptar. La aplicación registra la versión y la fecha de aceptación en su cuenta. Las nuevas comisiones solo se incorporan conforme a la vigencia, la aceptación y las reglas de procedencia; aceptar no convierte sesiones anteriores ni simulaciones en deuda real.",
-          "El historial de condiciones aceptadas se conserva en Comisiones HERA y en el archivo de términos generales. Una nueva versión general se presenta para su aceptación sin sustituir el texto de las anteriores. No se acepta en nombre del especialista por una acción administrativa."
+          "El historial de condiciones aceptadas se conserva en Comisiones HERA y en el archivo de términos generales. Una nueva versión general se presenta para su aceptación sin sustituir el texto de las anteriores. No se acepta en nombre del especialista por una acción administrativa.",
+          "Esta regla se aplica a las nuevas reservas realizadas después de la aceptación de esta versión y dentro de su vigencia. Las reservas existentes conservan la política económica registrada; no se recalculan por aceptar este texto ni por actualizar la aplicación. Los datos de procedencia o histórico sin acreditar siguen pendientes, sin inventar contadores ni deuda."
         ]
       },
       {
         "title": "Directorio · 5. Registro y liquidación",
         "body": [
-          "El especialista confirma o corrige la asistencia y registra los cobros externos, devoluciones y bases de servicio de las sesiones afectadas. Las notas deben limitarse a la información económica necesaria, sin contenido clínico.",
-          "Administración revisa y cierra los periodos mensuales conforme al calendario de Europe/Madrid. Cerrar una liquidación no emite una factura: HERA debe aportar el documento fiscal correspondiente, con emisor y destinatario identificados, número, fecha, conceptos, impuestos o retenciones aplicables, importe y vencimiento.",
+          "La finalización de la sesión registra su realización económica. El especialista puede comunicar errores operativos y registrar cobros y devoluciones por los canales disponibles; no debe confirmar de nuevo la asistencia para generar la comisión. Las notas deben limitarse a la información económica necesaria, sin contenido clínico.",
+          "El mes operativo corresponde a la fecha de la sesión en Europe/Madrid. El sistema prepara los meses terminados y administración revisa las excepciones y cierra el periodo; las solicitudes pendientes que afecten a su economía impiden cerrarlo. El cierre conserva su detalle y sus totales. Las correcciones posteriores se registran en un periodo abierto y quedan vinculadas al origen, sin reescribir el cierre.",
+          "El resumen de liquidación puede descargarse antes del cierre con la marca «Provisional». Ese resumen y el cierre no sustituyen ni emiten una factura fiscal: HERA debe aportar el documento fiscal correspondiente, con emisor y destinatario identificados, número, fecha, conceptos, impuestos o retenciones aplicables, importe y vencimiento.",
           "Las estimaciones y cantidades sin documentar no son instrucciones para pagar. El NIF y domicilio pendientes de HERA deben completarse antes de incorporar facturas. No se presupone que las comisiones estén exentas de impuestos ni que compartan el tratamiento fiscal de la prestación sanitaria. El tratamiento aplicable debe quedar informado en la versión correspondiente y en la documentación, sin cargos ocultos."
         ]
       },
@@ -129,7 +131,10 @@
       {
         "title": "Directorio · 7. Revisión y correcciones",
         "body": [
-          "El especialista puede solicitar revisión de la procedencia, asistencia, base o cálculo desde Comisiones HERA, aportando la explicación económica necesaria. Administración puede corregir o diferir partidas discutidas conforme al flujo disponible. No se borra evidencia ni se reescriben cierres para ocultar ajustes. Cuando cambie una obligación documentada, se aporta la corrección correspondiente antes de solicitar el importe corregido."
+          "El especialista puede solicitar la anulación completa de una comisión desde su detalle, con un motivo económico y sin información clínica. HERA revisa su efecto y registra la aprobación o el rechazo. Solo puede haber una solicitud pendiente por comisión; tras un rechazo puede presentarse otra. Esta versión no permite anulaciones parciales ni revertir una aprobación.",
+          "La aprobación reduce la obligación mediante ajustes y conserva la posición de la sesión realizada. Si se anula la comisión de la primera sesión, la siguiente sigue siendo la segunda y aplica el 10 %. Los cierres y los ingresos anteriores se conservan. Si ya había dinero aplicado, solo se libera la cobertura respaldada por un ingreso efectivamente recibido; no se crea un pago ni una devolución bancaria ficticia.",
+          "La corrección de una sesión que no se realizó es distinta de renunciar a su comisión. Los cambios posteriores de asistencia, estado o precio pueden corregir el dato operativo, pero mantienen la obligación reconocida mientras HERA revisa su reducción. La aprobación de una rectificación factual puede corregir el contador y las comisiones posteriores mediante ajustes.",
+          "Las revisiones de procedencia, base o cálculo conservan su evidencia. Cuando se reduce una obligación ya facturada, queda pendiente la rectificación documental correspondiente; la reducción económica no se duplica al incorporar ese documento. No se inventan impuestos ni importes fiscales y no se solicita un importe corregido sin la documentación correspondiente."
         ]
       },
       {
@@ -154,7 +159,7 @@
       {
         "title": "Reglas operativas de las comisiones",
         "body": [
-          "Comisiones HERA por pacientes del Directorio: primera sesión 20%; segunda y tercera 10%; cuarta y siguientes 5%. Por paciente y especialista, sin reinicio. Base del servicio después de descuentos y sin impuestos, en EUR. Solo sesiones privadas de precio positivo realmente atendidas. Devengo proporcional al cobro externo registrado, con redondeo acumulativo. Las devoluciones de una prestación real no reinician la escala. Los impuestos y retenciones de HERA se presentan por separado. Reservas anteriores a la aceptación excluidas. Las correcciones de asistencia, orden o procedencia generan ajustes sin reescribir cierres. Cierre mensual Europe/Madrid por administración; el especialista puede solicitar revisión y una partida discutida puede diferirse. Pagos por Bizum o transferencia realizados fuera de HERA y confirmados manualmente por administración. La terminación detiene nuevas obligaciones desde su fecha de corte y conserva el historial y el contador."
+          "Comisiones HERA por pacientes del Directorio: primera sesión computable 20%; segunda y tercera 10%; cuarta y siguientes 5%. Contador acumulado por paciente y especialista. La finalización válida manual o automática genera la comisión sobre la base reservada después de descuentos, sin impuestos del servicio, en EUR. El cobro, la devolución al paciente y la facturación son independientes. Las sesiones gratuitas, canceladas o con ausencia registrada antes de completar no generan deuda ni consumen tramo. La anulación completa requiere solicitud motivada y aprobación de HERA; conserva el contador de sesiones realizadas. Liquidación mensual Europe/Madrid, cierre por HERA y pagos externos recibidos y registrados; los ajustes preservan cierres e ingresos anteriores."
         ]
       },
       {
@@ -194,11 +199,11 @@
         ]
       }
     ],
-    "effectiveAt": "2026-10-09T00:00:00+02:00",
-    "changeSummary": "Google Meet como proveedor principal, preparación asíncrona y Daily como respaldo automático únicamente en emergencias definidas. Se conservan los enlaces publicados y las versiones anteriores; no se modifican las condiciones económicas.",
+    "effectiveAt": "2026-10-15T00:00:00+02:00",
+    "changeSummary": "Comisiones por sesión completada, independientes del cobro; solicitud de anulación y liquidación mensual. Se conservan los datos identificativos y fiscales pendientes, el pago manual por Bizum y las condiciones de terminación. Las reservas anteriores mantienen sus condiciones registradas.",
     "status": "PUBLISHED_WITH_PENDING_IDENTITY",
     "publicPath": "/legal/terminos",
-    "contentHash": "849e3fcadc3518893f7175422c521e716453f367ef6cb3c8d93a696cf0fa395e"
+    "contentHash": "1daeb1a709b50f405d25d0ea3d10739c027d2ebad25758e923174027c8bbe8d5"
   },
   "PRIVACY_POLICY": {
     "key": "PRIVACY_POLICY",
