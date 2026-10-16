@@ -19,10 +19,7 @@ export function HeraCommissionsScreen({ route, navigation }: NativeStackScreenPr
   if (legacyAdmin) navigation.replace('AdminPanel', { initialTab: 'commissions', commissionAccountId: route.params?.accountId, commissionSpecialistId: route.params?.specialistId });
  }, [legacyAdmin, navigation, route.params?.accountId, route.params?.specialistId]);
  if (legacyAdmin) return null;
- return <CommissionWorkspace accountId={route.params?.accountId} clientId={route.params?.clientId} onOpen={accountId => navigation.setParams({ accountId })} onBack={() => {
-  if (navigation.canGoBack()) navigation.goBack();
-  else navigation.replace('ProfessionalHome');
- }} />;
+ return <CommissionWorkspace accountId={route.params?.accountId} clientId={route.params?.clientId} onOpen={accountId => navigation.setParams({ accountId })} onBack={() => navigation.replace('ProfessionalHome')} />;
 }
 
 export function CommissionWorkspace({ admin = false, accountId, specialistId, clientId, onOpen, onBack }: {

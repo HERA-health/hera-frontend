@@ -33,8 +33,10 @@ it.each([undefined, 'account'])('redirects old admin links into administration, 
  expect(view.queryByText('Mis comisiones')).toBeNull();
 });
 
-it('keeps personal commissions on professional endpoints and returns safely from a direct link', async () => {
+it.each([false, true])('keeps personal commissions on professional endpoints and returns to professional home regardless of navigation history (canGoBack=%s)', async canGoBack => {
  const navigation = nav();
+ navigation.canGoBack.mockReturnValue(canGoBack);
+ navigation.getState = jest.fn(() => ({ index: 1, routes: [{ name: 'AdminPanel' }, { name: 'HeraCommissions' }] }));
  const view = render(<PersonalScreen navigation={navigation} params={{ accountId: 'account' }} />);
  await view.findByText('Sesiones del mes');
  expect(service.detail).toHaveBeenCalledWith('account', false, 0);
@@ -43,10 +45,12 @@ it('keeps personal commissions on professional endpoints and returns safely from
  fireEvent.press(view.getByRole('button', { name: 'Volver' }));
  expect(navigation.setParams).not.toHaveBeenCalled();
  expect(navigation.replace).toHaveBeenCalledWith('ProfessionalHome');
+ expect(navigation.goBack).not.toHaveBeenCalled();
  view.rerender(<PersonalScreen navigation={navigation} />);
  await act(async () => {});
  fireEvent.press(view.getByRole('button', { name: 'Volver' }));
  expect(navigation.replace).toHaveBeenCalledWith('ProfessionalHome');
+ expect(navigation.replace).not.toHaveBeenCalledWith('AdminPanel', expect.anything());
 });
 
 it('opens the selected account in the admin workspace with admin actions, without leaking technical keys', async () => {
@@ -54,8 +58,8 @@ it('opens the selected account in the admin workspace with admin actions, withou
  const view = render(<CommissionWorkspace admin specialistId="specialist" onOpen={onOpen} onBack={onBack} />);
  await view.findByText('Ana');
  expect(view.queryByText(/internal-key/)).toBeNull();
- expect(view.getByText(/Pendiente:/)).toBeTruthy();
- fireEvent.press(view.getByRole('button', { name: 'Ver detalle' }));
+ expect(view.getByText('Pendiente')).toBeTruthy();
+ fireEvent.press(view.getByRole('button', { name: 'Ver comisiones de Ana' }));
  expect(onOpen).toHaveBeenCalledWith('account');
  view.rerender(<CommissionWorkspace admin specialistId="specialist" accountId="account" onOpen={onOpen} onBack={onBack} />);
  await view.findByText('Cuenta del especialista');
