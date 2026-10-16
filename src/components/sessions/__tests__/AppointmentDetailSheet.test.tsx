@@ -112,9 +112,9 @@ describe('AppointmentDetailSheet service and tariff labels', () => {
     render(<AppointmentDetailSheet visible embedded mode="professional" onClose={onClose}
       professionalSession={buildProfessionalSession({ invoiceCompletionIssue: issue })} />);
     expect(screen.getByText(issue)).toBeTruthy();
-    fireEvent.press(screen.getByText('Completar datos fiscales del paciente'));
+    fireEvent.press(screen.getByText('Completar datos'));
     expect(onClose).toHaveBeenCalled();
-    expect(mockNavigate).toHaveBeenCalledWith('ClientProfile', { clientId: 'client-1', initialTab: 'summary', focusBillingEditor: true });
+    expect(mockNavigate).toHaveBeenCalledWith('ClientProfile', { clientId: 'client-1', initialTab: 'summary', focusBillingEditor: true, returnAfterBillingSave: true });
   });
 
   it('offers professional management actions according to server permissions and blocks them while processing', () => {

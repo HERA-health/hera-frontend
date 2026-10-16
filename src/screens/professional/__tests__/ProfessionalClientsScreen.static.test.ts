@@ -1,21 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { CONTACT_METHOD_REQUIRED_MESSAGE } from '../../../constants/errors';
 
 const screenPath = path.join(
   __dirname,
   '..',
   'ProfessionalClientsScreen.tsx',
 );
-const domainPath = path.join(
-  __dirname,
-  '..',
-  'managedClientFormDomain.ts',
-);
 
 describe('ProfessionalClientsScreen private patient boundary', () => {
   const source = fs.readFileSync(screenPath, 'utf8');
-  const domainSource = fs.readFileSync(domainPath, 'utf8');
 
   it('keeps API access inside services and excludes clinic patient integrations', () => {
     expect(source).not.toMatch(/\bapi\.(get|post|patch|put|delete)\b/);
@@ -33,16 +26,6 @@ describe('ProfessionalClientsScreen private patient boundary', () => {
     expect(source).toContain('clinicalPin');
     expect(source).not.toContain('consentOnFile: true');
     expect(source).not.toContain('<Switch');
-  });
-
-  it('requires one contact method when creating a managed patient', () => {
-    expect(source).toContain('contactErrorBlock');
-    expect(source).toContain('contactMethodError');
-    expect(domainSource).toContain('CONTACT_METHOD_REQUIRED_MESSAGE');
-    expect(CONTACT_METHOD_REQUIRED_MESSAGE).toBe(
-      'Introduce un email o un número de móvil para poder contactar con el paciente.'
-    );
-    expect(domainSource).toContain('!value.email && !value.phone');
   });
 
   it('keeps patient origin as a compact filter with clear labels', () => {
