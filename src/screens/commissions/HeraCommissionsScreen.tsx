@@ -1,8 +1,9 @@
+import { CommissionLoading } from './CommissionLoading';
 import { CommissionMonthWorkspace } from './CommissionMonthWorkspace';
 import { AdminCommissionMonth } from './AdminCommissionMonth';
 import { ProfessionalCommissionWorkspace } from './ProfessionalCommissionWorkspace';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../constants/types';
@@ -41,6 +42,6 @@ function AdminCommissionWorkspace({ accountId, specialistId, onOpen, onBack }: {
  useEffect(() => { setData(undefined); setPage(0); setError(''); scroll.current?.scrollTo({ y: 0, animated: false }); }, [accountId, admin]);
  const open = (id: string, month: string) => { setInitialMonth(month); setPage(0); onOpen(id); };
  return <ScrollView ref={scroll} style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={[workflow.page, { maxWidth: 1120, paddingBottom: 40 }]} keyboardShouldPersistTaps="handled"><WorkflowHeader title="Gestión de comisiones" subtitle="Seguimiento de las comisiones del Directorio y los abonos recibidos por HERA." action={<View style={styles.row}>{(accountId || specialistId) && <Button size="small" variant="ghost" onPress={onBack}>{accountId ? 'Volver a especialistas' : 'Ver todos los especialistas'}</Button>}<Button size="small" variant="outline" disabled={loading} onPress={() => { void load(); setRefresh(v => v + 1); }}>Actualizar saldos</Button></View>} />
- {error ? <Card><Text error>{error}</Text><Button variant="outline" disabled={loading} onPress={() => void load()}>Recargar datos</Button></Card> : null}{loading ? <ActivityIndicator accessibilityLabel="Cargando comisiones" /> : null}
+ {error ? <Card><Text error>{error}</Text><Button variant="outline" disabled={loading} onPress={() => void load()}>Recargar datos</Button></Card> : null}{loading && !data && accountId ? <CommissionLoading overview accessibilityLabel="Cargando comisiones" /> : null}
  {!accountId ? <AdminCommissionMonth specialistId={specialistId} onOpen={open} refresh={refresh} /> : data && data.summary.id === accountId ? <><WorkflowHeading title={data.summary.specialistName} subtitle={data.summary.mode === 'SIMULATION' ? 'Simulación sin deuda' : 'Cuenta del especialista'} /><CommissionMonthWorkspace key={accountId} data={data} initialMonth={initialMonth} admin refresh={refresh} onChanged={() => { void load(); setRefresh(v => v + 1); }} /></> : null}</ScrollView>;
 }

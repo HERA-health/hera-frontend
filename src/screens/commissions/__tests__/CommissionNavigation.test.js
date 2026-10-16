@@ -33,7 +33,7 @@ it.each([undefined, 'account'])('redirects old admin links into administration, 
  expect(view.queryByText('Mis comisiones')).toBeNull();
 });
 
-it.each([false, true])('keeps personal commissions on professional endpoints and returns to professional home regardless of navigation history (canGoBack=%s)', async canGoBack => {
+it.each([false, true])('keeps personal commissions on professional endpoints without a back action into administration (canGoBack=%s)', async canGoBack => {
  const navigation = nav();
  navigation.canGoBack.mockReturnValue(canGoBack);
  navigation.getState = jest.fn(() => ({ index: 1, routes: [{ name: 'AdminPanel' }, { name: 'HeraCommissions' }] }));
@@ -42,14 +42,14 @@ it.each([false, true])('keeps personal commissions on professional endpoints and
  expect(service.detail).toHaveBeenCalledWith('account', false, 0);
  expect(view.queryByText('Gestión de comisiones')).toBeNull();
  expect(view.queryByText('Registrar pago recibido')).toBeNull();
- fireEvent.press(view.getByRole('button', { name: 'Volver' }));
+ expect(view.queryByRole('button', { name: 'Volver' })).toBeNull();
  expect(navigation.setParams).not.toHaveBeenCalled();
- expect(navigation.replace).toHaveBeenCalledWith('ProfessionalHome');
+ expect(navigation.replace).not.toHaveBeenCalled();
  expect(navigation.goBack).not.toHaveBeenCalled();
  view.rerender(<PersonalScreen navigation={navigation} />);
  await act(async () => {});
- fireEvent.press(view.getByRole('button', { name: 'Volver' }));
- expect(navigation.replace).toHaveBeenCalledWith('ProfessionalHome');
+ expect(view.queryByRole('button', { name: 'Volver' })).toBeNull();
+ expect(navigation.replace).not.toHaveBeenCalled();
  expect(navigation.replace).not.toHaveBeenCalledWith('AdminPanel', expect.anything());
 });
 

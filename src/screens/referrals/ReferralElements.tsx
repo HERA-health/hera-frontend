@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TextInput, View, type TextInputProps, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, View, type TextInputProps, type StyleProp, type ViewStyle } from 'react-native';
 import { AnimatedPressable } from '../../components/common';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -8,9 +8,9 @@ import type { ReferralStatus } from '../../services/referralService';
 export const referralStatusLabels: Record<ReferralStatus, string> = { DRAFT: 'Borrador', PENDING_PATIENT: 'Pendiente de tu paciente', PENDING_RECIPIENT: 'Pendiente del receptor', ACCEPTED: 'Aceptada', REJECTED: 'Rechazada', CANCELLED: 'Cancelada', EXPIRED: 'Caducada' };
 export const money = (cents: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(cents / 100);
 export const dateTime = (value: string | null) => value ? new Date(value).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', dateStyle: 'medium', timeStyle: 'short' }) : '';
-export function ReferralField({ label, required, hint, ...props }: TextInputProps & { label: string; required?: boolean; hint?: string }) {
+export function ReferralField({ label, required, hint, error, inputRef, ...props }: TextInputProps & { label: string; required?: boolean; hint?: string; error?: string; inputRef?: React.Ref<TextInput> }) {
   const { theme } = useTheme();
-  return <View style={{ gap: 6 }}><Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 14 }}>{label}{required ? ' *' : ''}</Text><TextInput {...props} accessibilityLabel={label} placeholderTextColor={theme.textMuted} style={[styles.input, { color: theme.textPrimary, fontFamily: theme.fontSans, backgroundColor: theme.bgCard, borderColor: theme.border }, props.multiline && { minHeight: 96, textAlignVertical: 'top' }, props.style]} />{hint ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 12, lineHeight: 18 }}>{hint}</Text> : null}</View>;
+  return <View style={{ gap: 6 }}><Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 14 }}>{label}{required ? ' *' : ''}</Text><TextInput {...props} ref={inputRef} aria-invalid={!!error} accessibilityLabel={label} accessibilityHint={error || props.accessibilityHint} placeholderTextColor={theme.textMuted} style={[styles.input, { color: theme.textPrimary, fontFamily: theme.fontSans, backgroundColor: theme.bgCard, borderColor: theme.border }, props.multiline && { minHeight: 96, textAlignVertical: 'top' }, props.style, error ? { borderColor: theme.error, borderWidth: 2, ...(Platform.OS === 'web' ? { outlineColor: theme.error } : {}) } : null]} />{error ? <Text accessibilityRole="alert" style={{ color: theme.error, fontFamily: theme.fontSans, fontSize: 13, lineHeight: 19 }}>{error}</Text> : hint ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 12, lineHeight: 18 }}>{hint}</Text> : null}</View>;
 }
 export function ReferralText({ children, title = false, error = false }: { children: React.ReactNode; title?: boolean; error?: boolean }) {
   const { theme } = useTheme();

@@ -1,5 +1,6 @@
+import { CommissionLoading } from './CommissionLoading';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import * as service from '../../services/heraCommissionService';
 import { getErrorMessage } from '../../constants/errors';
 import { openPrivateDocument } from '../../utils/openPrivateDocument';
@@ -24,7 +25,7 @@ function Applications({ accountId, documentId, refresh }: { accountId: string; d
  const load = useCallback((page: number) => service.documentApplications(accountId, documentId, page), [accountId, documentId]);
  const state = useLedgerPage(load, refresh);
  return <View style={{ gap: 10 }}>
-  {state.error ? <><Text error>{state.error}</Text><Button style={{ maxWidth: '100%' }} variant="ghost" onPress={state.retry}>Reintentar abonos</Button></> : !state.data ? <ActivityIndicator accessibilityLabel="Cargando abonos aplicados" /> : <>
+  {state.error ? <><Text error>{state.error}</Text><Button style={{ maxWidth: '100%' }} variant="ghost" onPress={state.retry}>Reintentar abonos</Button></> : !state.data ? <CommissionLoading accessibilityLabel="Cargando abonos aplicados" /> : <>
    {!state.data.items.length ? <WorkflowHint>No hay abonos aplicados a este documento.</WorkflowHint> : state.data.items.map(a => <View key={a.id} style={{ gap: 4 }}>
     <Text>{a.amountCents < 0 ? 'Reversión de aplicación' : 'Aplicación al documento'} · {money(a.amountCents)}</Text>
     <WorkflowHint>Abono: {dateTime(a.cash.occurredAt)} · {a.cash.reference}</WorkflowHint>
@@ -40,7 +41,7 @@ function SessionDocuments({ row, account, run, busy, refresh }: { row: service.C
  const load = useCallback((page: number) => service.sessionDocuments(row.accountId, row.id, page), [row.accountId, row.id]);
  const state = useLedgerPage(load, refresh); const [receipt, setReceipt] = useState<string>(); const [applications, setApplications] = useState<string>();
  return <View style={{ gap: 16 }}>
-  {state.error ? <><Text error>{state.error}</Text><Button style={{ maxWidth: '100%' }} variant="ghost" onPress={state.retry}>Reintentar documentos</Button></> : !state.data ? <ActivityIndicator accessibilityLabel="Cargando documentos de la sesión" /> : <>
+  {state.error ? <><Text error>{state.error}</Text><Button style={{ maxWidth: '100%' }} variant="ghost" onPress={state.retry}>Reintentar documentos</Button></> : !state.data ? <CommissionLoading accessibilityLabel="Cargando documentos de la sesión" /> : <>
    {!state.data.items.length ? <WorkflowHint>No hay facturas vinculadas. Puedes registrar y aplicar el pago a las comisiones generadas desde «Abonos a HERA», aunque el mes siga abierto.</WorkflowHint> : null}
    {state.data.items.map(d => <View key={d.id} style={{ gap: 14, padding: 14, borderWidth: 1, borderColor: theme.border, borderRadius: 14 }}>
     <LedgerTitle>Documento {d.invoiceNumber}</LedgerTitle>

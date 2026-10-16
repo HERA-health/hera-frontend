@@ -25,19 +25,19 @@ it('shows confirmed payments once, with applications available in the detail', (
 });
 it('preserves payment instructions and distinguishes base, received credit and estimates', () => {
  const view = render(<CommissionPaymentInstructions data={{ ...data, summary: { ...data.summary, creditCents: 1000 } }} />);
- expect(view.getByText('IBAN: ES00 CUENTA DE PRUEBA')).toBeTruthy();
- expect(view.getByText(/no lo repitas solo porque siga apareciendo pendiente/)).toBeTruthy();
- expect(view.getByText(/no es un total fiscal definitivo/)).toBeTruthy();
- expect(view.getByText(/Tienes saldo a tu favor pendiente de aplicar/)).toBeTruthy();
+ expect(view.getByText('ES00 CUENTA DE PRUEBA')).toBeTruthy();
+ expect(view.getByText(/no repitas el envío/)).toBeTruthy();
+ expect(view.getByText(/confirma con HERA cuánto pagar/)).toBeTruthy();
+ expect(view.getByText(/Pide a HERA que lo aplique/)).toBeTruthy();
 });
 it('does not ask for real transfers in simulation', () => {
  const view = render(<CommissionPaymentInstructions data={{ ...data, summary: { ...data.summary, mode: 'SIMULATION' } }} />);
- expect(view.getByText(/No hagas transferencias reales/)).toBeTruthy();
- expect(view.queryByText('IBAN: ES00 CUENTA DE PRUEBA')).toBeNull();
+ expect(view.getByText(/No envíes dinero real/)).toBeTruthy();
+ expect(view.queryByText('ES00 CUENTA DE PRUEBA')).toBeNull();
 });
 it('shows missing destination and voided receipt without pretending it is a refund', () => {
  const view = render(<><CommissionPaymentInstructions data={{ ...data, acceptances: [] }} /><CommissionPayments data={{ ...data, cash: [{ ...data.cash[0], isVoided: true }] }} /></>);
- expect(view.getByText(/Los datos para realizar el abono están pendientes/)).toBeTruthy();
+ expect(view.getByText(/Contacta con HERA para obtener/)).toBeTruthy();
  expect(view.getByText('Registro de recepción anulado')).toBeTruthy();
  fireEvent.press(view.getByRole('button', { name: 'Aplicaciones y detalle del pago' }));
  expect(view.getByText(/no acredita una devolución bancaria/)).toBeTruthy();
@@ -45,6 +45,8 @@ it('shows missing destination and voided receipt without pretending it is a refu
 it('keeps the complete published Bizum instructions', () => {
  const paymentInstructions = 'Pago por Bizum. HERA y el especialista acordarán directamente el destinatario.';
  const view = render(<CommissionPaymentInstructions data={{ ...data, acceptances: [{ ...data.acceptances[0], terms: { ...terms, beneficiary: '', iban: '', paymentInstructions } }] }} />);
+ expect(view.queryByText(paymentInstructions)).toBeNull();
+ fireEvent.press(view.getByLabelText('Datos e instrucciones de HERA'));
  expect(view.getByText(paymentInstructions)).toBeTruthy();
  expect(view.queryByText(/IBAN:/)).toBeNull();
 });

@@ -1,8 +1,9 @@
+import { CommissionLoading } from './CommissionLoading';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ProfessionalCommissionSessionCard } from './ProfessionalCommissionSessionCard';
 import { AdminCommissionSessionCard } from './AdminCommissionSessionCard';
 import { useFocusEffect } from '@react-navigation/native';
-import { ActivityIndicator, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 import { CommissionSelect } from './CommissionFields';
 import { ReferralPagination } from '../referrals/ReferralControls';
 import * as service from '../../services/heraCommissionService';
@@ -19,6 +20,14 @@ export function CommissionSessionActivityForm({ row, run, admin, onDone, busy, i
  const [serviceBase, setServiceBase] = useState(row.baseCents === null ? '' : String(row.baseCents / 100)); const [tax, setTax] = useState(row.serviceTaxCents === null ? '' : String(row.serviceTaxCents / 100));
  const [reference, setReference] = useState(''); const [date, setDate] = useState(getMadridDateKey()); const [original, setOriginal] = useState(''); const [outcome, setOutcome] = useState<'ATTENDED' | 'PATIENT_NO_SHOW' | 'UNCONFIRMED'>('ATTENDED');
  const [time, setTime] = useState(() => formatMadridInstant(new Date(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }));
+ type FieldKey = 'serviceBase' | 'tax' | 'gross' | 'time' | 'original' | 'reference';
+ const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
+ const [submitError, setSubmitError] = useState('');
+ const inputs = useRef<Partial<Record<FieldKey, TextInput | null>>>({});
+ const fieldProps = (key: FieldKey, change: (value: string) => void) => ({
+  inputRef: (node: TextInput | null) => { inputs.current[key] = node; }, error: errors[key],
+  onChangeText: (value: string) => { change(value); setErrors(current => ({ ...current, [key]: undefined })); setSubmitError(''); },
+ });
  const movementTime = () => {
   const instant = parseMadridDateTime(date, time);
   if (!instant) throw new Error('Introduce una fecha y una hora válidas (HH:mm, horario de Madrid).');
@@ -26,6 +35,25 @@ export function CommissionSessionActivityForm({ row, run, admin, onDone, busy, i
  };
  const save = async () => {
   if (action === 'ATTENDANCE' && outcome === 'ATTENDED' && needsInvoiceCheck && invoiceBlocked) return;
+  const next: Partial<Record<FieldKey, string>> = {};
+  const checkAmount = (key: FieldKey, value: string, positive = false) => {
+   if (!value.trim()) { next[key] = 'Introduce un importe.'; return; }
+   try { const amount = cents(value); if (amount < 0 || (positive && amount === 0)) next[key] = positive ? 'El importe debe ser mayor que 0.' : 'El importe no puede ser negativo.'; }
+   catch { next[key] = 'Usa un importe válido con hasta dos decimales.'; }
+  };
+  if (action === 'COLLECT' || action === 'CORRECT_BASE') { checkAmount('serviceBase', serviceBase); checkAmount('tax', tax); }
+  if (action === 'COLLECT' || action === 'REFUND') {
+   checkAmount('gross', gross, true);
+   if (action === 'REFUND' && !original) next.original = 'Selecciona el cobro que vas a devolver.';
+   const instant = parseMadridDateTime(date, time);
+   if (!instant) next.time = 'Revisa la fecha y la hora (HH:mm).';
+   else if (new Date(instant.iso) > new Date()) next.time = 'La fecha y la hora no pueden ser futuras.';
+  }
+  if (reference.trim().length < 3) next.reference = action === 'COLLECT' || action === 'REFUND' ? 'Añade una referencia de al menos 3 caracteres.' : 'Explica brevemente el motivo (al menos 3 caracteres).';
+  else if (reference.trim().length > 2000) next.reference = 'Resume el texto en un máximo de 2000 caracteres.';
+  setErrors(next); setSubmitError('');
+  const first = (Object.keys(next) as FieldKey[])[0];
+  if (first) { inputs.current[first === 'original' ? 'gross' : first]?.focus(); return; }
   if (await run(async () => {
    let input: service.Action;
    if (action === 'ATTENDANCE') input = { action, snapshotId: row.id, outcome, reason: reference };
@@ -33,16 +61,16 @@ export function CommissionSessionActivityForm({ row, run, admin, onDone, busy, i
    else if (action === 'REFUND') input = { action, snapshotId: row.id, originalId: original, grossCents: cents(gross), reference, occurredAt: movementTime() };
    else if (action === 'CORRECT_BASE') input = { action, snapshotId: row.id, baseCents: cents(serviceBase), taxCents: cents(tax), reason: reference };
    else input = { action: 'COLLECT', snapshotId: row.id, grossCents: cents(gross), serviceBaseCents: cents(serviceBase), serviceTaxCents: cents(tax), reference, occurredAt: movementTime() };
-   await service.decide(row.accountId, false, input);
+   try { await service.decide(row.accountId, false, input); } catch (error) { setSubmitError(getErrorMessage(error, 'No se ha podido guardar. Inténtalo de nuevo.')); throw error; }
   })) onDone();
  };
- return <Card><Text title>{action === 'REVIEW' ? 'Solicitar revisión' : 'Actualizar sesión'}</Text><CommissionSelect accessibilityLabel="Tipo de actividad" options={admin ? [] : [{ value: 'COLLECT', label: 'Registrar cobro del paciente' }, { value: 'ATTENDANCE', label: 'Confirmar o corregir asistencia' }, { value: 'REFUND', label: 'Registrar devolución al paciente' }, { value: 'CORRECT_BASE', label: 'Corregir base e impuestos' }, { value: 'REVIEW', label: 'Solicitar revisión' }]} value={action} onSelect={setAction} />
+ return <Card><Text title>{action === 'REVIEW' ? 'Solicitar revisión' : 'Actualizar sesión'}</Text><CommissionSelect accessibilityLabel="Tipo de actividad" options={admin ? [] : [{ value: 'COLLECT', label: 'Registrar cobro del paciente' }, { value: 'ATTENDANCE', label: 'Confirmar o corregir asistencia' }, { value: 'REFUND', label: 'Registrar devolución al paciente' }, { value: 'CORRECT_BASE', label: 'Corregir base e impuestos' }, { value: 'REVIEW', label: 'Solicitar revisión' }]} value={action} onSelect={value => { setAction(value); setErrors({}); setSubmitError(''); }} />
  {action === 'ATTENDANCE' && outcome === 'ATTENDED' && needsInvoiceCheck ? <SessionInvoiceCompletionNotice sessionId={row.sessionId} onBlockedChange={setInvoiceBlocked} /> : null}
  {action === 'ATTENDANCE' ? <CommissionSelect accessibilityLabel="Asistencia" options={[{ value: 'ATTENDED', label: 'Atendida' }, { value: 'PATIENT_NO_SHOW', label: 'El paciente no asistió' }, { value: 'UNCONFIRMED', label: 'Anular confirmación incorrecta' }]} value={outcome} onSelect={v => { if (v === 'ATTENDED' || v === 'PATIENT_NO_SHOW' || v === 'UNCONFIRMED') setOutcome(v); }} /> : null}
- {action === 'COLLECT' || action === 'CORRECT_BASE' ? <><Field label="Precio sin impuestos, después de descuentos (€)" value={serviceBase} onChangeText={setServiceBase} keyboardType="decimal-pad" /><Field label="Impuestos del servicio (€)" value={tax} onChangeText={setTax} keyboardType="decimal-pad" /></> : null}
- {action === 'COLLECT' || action === 'REFUND' ? <><Field label={action === 'COLLECT' ? 'Importe recibido del paciente (€)' : 'Importe devuelto (€)'} value={gross} onChangeText={setGross} keyboardType="decimal-pad" />{action === 'COLLECT' ? <WorkflowHint>{row.accrualPolicy === 'COMPLETION_V1' ? 'El cobro del paciente no cambia la comisión de esta sesión completada. Para anularla, solicita la aprobación de HERA desde el detalle.' : row.accrualPolicy === 'COLLECTION_V1' ? 'Esta sesión conserva su acuerdo anterior: la comisión es proporcional al cobro registrado.' : 'Consulta el acuerdo aplicable a esta sesión para conocer cómo se calcula su comisión.'}</WorkflowHint> : <CommissionSelect accessibilityLabel="Cobro original" options={row.movements.filter(m => m.kind === 'COLLECTION').map(m => ({ value: m.id, label: `${dateTime(m.occurredAt)} · ${money(m.grossCents)}` }))} value={original} onSelect={setOriginal} />}<WorkflowDate label="Fecha del movimiento" value={date} onChangeText={setDate} /><Field label="Hora del movimiento (Madrid, HH:mm)" value={time} onChangeText={setTime} placeholder="14:30" /></> : null}
- <Field label={action === 'COLLECT' || action === 'REFUND' ? 'Referencia del pago o de la devolución' : 'Explicación (sin información clínica)'} value={reference} onChangeText={setReference} multiline />
- <WorkflowHint>{action === 'REVIEW' ? 'Explica qué necesitas revisar. Podrás consultar la respuesta de HERA en el detalle de esta comisión.' : 'Esta actividad corresponde al paciente. Los ingresos que recibe HERA se consultan en la liquidación del mes.'}</WorkflowHint><View style={styles.row}><Button disabled={busy || (action === 'ATTENDANCE' && outcome === 'ATTENDED' && needsInvoiceCheck && invoiceBlocked)} onPress={() => void save()}>{action === 'REVIEW' ? 'Enviar solicitud de revisión' : 'Guardar actividad'}</Button><Button variant={admin ? "ghost" : "outline"} disabled={busy} onPress={onDone}>Cerrar</Button></View></Card>;
+ {action === 'COLLECT' || action === 'CORRECT_BASE' ? <><Field label="Precio sin impuestos, después de descuentos (€)" value={serviceBase} {...fieldProps('serviceBase', setServiceBase)} keyboardType="decimal-pad" /><Field label="Impuestos del servicio (€)" value={tax} {...fieldProps('tax', setTax)} keyboardType="decimal-pad" /></> : null}
+ {action === 'COLLECT' || action === 'REFUND' ? <><Field label={action === 'COLLECT' ? 'Importe recibido del paciente (€)' : 'Importe devuelto (€)'} value={gross} {...fieldProps('gross', setGross)} keyboardType="decimal-pad" />{action === 'COLLECT' ? <WorkflowHint>{row.accrualPolicy === 'COMPLETION_V1' ? 'El cobro del paciente no cambia la comisión de esta sesión completada. Para anularla, solicita la aprobación de HERA desde el detalle.' : row.accrualPolicy === 'COLLECTION_V1' ? 'Esta sesión conserva su acuerdo anterior: la comisión es proporcional al cobro registrado.' : 'Consulta el acuerdo aplicable a esta sesión para conocer cómo se calcula su comisión.'}</WorkflowHint> : <CommissionSelect accessibilityLabel="Cobro original" options={row.movements.filter(m => m.kind === 'COLLECTION').map(m => ({ value: m.id, label: `${dateTime(m.occurredAt)} · ${money(m.grossCents)}` }))} value={original} onSelect={value => { setOriginal(value); setErrors(current => ({ ...current, original: undefined })); }} />}{errors.original ? <Text error>{errors.original}</Text> : null}<WorkflowDate label="Fecha del movimiento" value={date} onChangeText={setDate} /><Field label="Hora del movimiento (Madrid, HH:mm)" value={time} {...fieldProps('time', setTime)} placeholder="14:30" /></> : null}
+ <Field label={action === 'COLLECT' || action === 'REFUND' ? 'Referencia del pago o de la devolución' : 'Explicación (sin información clínica)'} required value={reference} {...fieldProps('reference', setReference)} multiline />
+ {action === 'REVIEW' ? <WorkflowHint>HERA revisará tu solicitud.</WorkflowHint> : null}{submitError ? <Text error>{submitError}</Text> : null}<View style={styles.row}><Button disabled={busy || (action === 'ATTENDANCE' && outcome === 'ATTENDED' && needsInvoiceCheck && invoiceBlocked)} onPress={() => void save()}>{action === 'REVIEW' ? 'Enviar solicitud de revisión' : 'Guardar actividad'}</Button><Button variant={admin ? "ghost" : "outline"} disabled={busy} onPress={onDone}>Cerrar</Button></View></Card>;
 }
 export function CommissionSessions({ accountId, admin, clientId, run, busy, refresh, account, onPeriods, onDraftChange, onOpenReview }: { onOpenReview?: () => void; onDraftChange?: (open: boolean) => void; account?: service.AccountDetail; onPeriods?: () => void; accountId: string; admin: boolean; clientId?: string; run: Run; busy: boolean; refresh: number }) {
  const [filtersOpen, setFiltersOpen] = useState(false);
@@ -68,6 +96,6 @@ export function CommissionSessions({ accountId, admin, clientId, run, busy, refr
  {filterCount ? <View style={styles.row}>{patientId ? <WorkflowHint>Filtrado por el paciente del enlace</WorkflowHint> : null}<Button variant={admin ? "ghost" : "outline"} size="small" onPress={() => { setMonth(''); setPatientId(''); setState('ALL'); setReview(false); setPage(0); }}>Limpiar filtros</Button></View> : null}
  </>}
  </View>
- {loading ? <ActivityIndicator accessibilityLabel="Cargando sesiones" /> : null}{error ? <><Text error>{error}</Text><Button onPress={() => void load()}>Reintentar desglose</Button></> : null}
+ {loading ? <CommissionLoading accessibilityLabel="Cargando sesiones" /> : null}{error ? <><Text error>{error}</Text><Button onPress={() => void load()}>Reintentar desglose</Button></> : null}
  {data?.items.map(row => admin && account && onPeriods ? <AdminCommissionSessionCard key={row.id} row={row} account={account} run={run} busy={busy} refresh={refresh} onPeriods={onPeriods} /> : <ProfessionalCommissionSessionCard key={row.id} row={row} busy={busy || !!selected} onOpenReview={onOpenReview} onActivity={admin ? undefined : () => setSelected({ id: row.id, action: 'COLLECT' })} onReview={admin ? undefined : () => setSelected({ id: row.id, action: 'REVIEW' })}>{!admin && selected?.id === row.id ? <CommissionSessionActivityForm key={selected.action} initialAction={selected.action} row={row} run={run} admin={admin} busy={busy} onDone={() => setSelected(undefined)} /> : null}</ProfessionalCommissionSessionCard>)} {data && !data.items.length && !loading && !error ? <WorkflowEmpty icon="calendar-outline" title={filterCount ? "No hay sesiones con estos filtros" : "Todavía no hay sesiones registradas"} description={filterCount ? "Prueba a cambiar o limpiar los filtros para consultar otras sesiones." : "Aquí aparecerán las sesiones y comisiones de tus pacientes del Directorio HERA."} /> : null}<ReferralPagination page={page} hasMore={data?.hasMore ?? false} loading={loading || busy || !!selected} onChange={setPage} /></>;
 }

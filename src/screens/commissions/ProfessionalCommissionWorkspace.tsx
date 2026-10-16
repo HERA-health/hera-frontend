@@ -1,8 +1,10 @@
+import { CommissionLoading } from './CommissionLoading';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { CommissionMonthWorkspace } from './CommissionMonthWorkspace';
 import { useNavigation } from '@react-navigation/native';
 import type { AppNavigationProp } from '../../constants/types';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { FocusedActionSheet } from '../../components/finance/FocusedActionSheet';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -101,6 +103,7 @@ export function ProfessionalCommissionWorkspace({ accountId: requestedAccount, c
  const acceptance = config?.accounts.flatMap(account => account.acceptances).find(item => item.termsId === config.terms?.id);
  const pendingAcceptance = !!config?.terms && !acceptance && config.canAccept;
  const wide = width >= 920;
+ const toolbarActions = <>{current ? <Button size="small" variant="ghost" icon={<Ionicons name="information-circle-outline" size={17} color={theme.textPrimary}/>} onPress={() => setPanel('information')}>Información</Button> : null}<Button size="small" variant="ghost" icon={<Ionicons name="refresh-outline" size={17} color={theme.textPrimary}/>} disabled={busy || loading} onPress={() => setRefresh(value => value + 1)}>Actualizar</Button></>;
  const panelTitles: Record<Panel, string> = { information: 'Información de comisiones', balance: 'Detalle del saldo', calculation: 'Cómo se calculan las comisiones', terms: 'Condiciones y aceptación', instructions: 'Instrucciones de pago' };
  const conditions = <>
   <Button variant="outline" onPress={() => navigation.navigate('LegalDocument', { documentKey: 'TERMS_OF_SERVICE' })}>Consultar términos generales</Button>
@@ -115,16 +118,16 @@ export function ProfessionalCommissionWorkspace({ accountId: requestedAccount, c
   {current?.acceptances.length ? <><LedgerTitle>Historial de aceptación</LedgerTitle>{current.acceptances.map(item => <AcceptedAgreement key={item.id} acceptance={item} accountId={current.summary.id} run={mutate} busy={busy} />)}</> : null}
  </>;
  return <ScrollView ref={scroll} style={{ flex: 1, backgroundColor: theme.bg }} onLayout={event => setWidth(event.nativeEvent.layout.width)} contentContainerStyle={{ width: '100%', maxWidth: 1360, alignSelf: 'center', padding: width && width < 600 ? 16 : 28, paddingBottom: 48, gap: 20 }} keyboardShouldPersistTaps="handled">
-  <WorkflowHeader title="Comisiones HERA" subtitle="Solo comisiones por pacientes del Directorio HERA" action={<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}><Button size="small" variant="outline" disabled={busy} onPress={onBack}>Volver</Button>{current ? <Button size="small" variant="outline" onPress={() => setPanel('information')}>Información</Button> : null}<Button size="small" variant="outline" disabled={busy || loading} onPress={() => setRefresh(value => value + 1)}>Actualizar</Button></View>} />
+  {!current ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{toolbarActions}</View> : null}
   {configError ? <Card><Text error>{configError}</Text><Button variant="outline" onPress={() => setRefresh(value => value + 1)}>Reintentar cuentas y condiciones</Button></Card> : null}
   {config && (config.accounts.length > 1 || (requestedAccount && !config.accounts.some(account => account.id === requestedAccount))) ? <View style={{ maxWidth: 460, gap: 6 }}>
    {busy ? <WorkflowHint>Guarda o cierra la actividad antes de cambiar de cuenta.</WorkflowHint> : <CommissionSelect accessibilityLabel="Cuenta de comisiones" value={accountId ?? null} placeholder="Selecciona una cuenta" onSelect={open} options={config.accounts.map((account, index) => ({ value: account.id, label: `${account.acceptances[0]?.terms.operatorName ?? `Titular ${index + 1}`} · ${account.mode === 'LIVE' ? 'Real' : 'Simulación'}${account.acceptances.some(item => item.termsId === config.terms?.id) ? ' · Actual' : ''}` }))} />}
   </View> : null}
   {error && !panel ? <Card><Text error>{error}</Text><Button variant="outline" disabled={busy} onPress={() => void load()}>Reintentar cuenta</Button></Card> : null}
-  {loading || (!config && !configError && !accountId) ? <ActivityIndicator accessibilityLabel="Cargando comisiones" /> : null}
+  {!current && (loading || (!config && !configError && !accountId)) ? <CommissionLoading overview accessibilityLabel="Cargando comisiones" /> : null}
   {config?.mode === 'OFF' ? <WorkflowNotice>Las nuevas comisiones están desactivadas. Tu historial sigue disponible.</WorkflowNotice> : null}
   {current?.summary.mode === 'SIMULATION' ? <WorkflowNotice>Simulación · Importes de prueba sin deuda. No hagas pagos reales por esta cuenta.</WorkflowNotice> : null}
-  {current ? <CommissionMonthWorkspace key={accountId} data={current} admin={false} refresh={refresh} onChanged={() => setRefresh(v => v + 1)} clientId={clientId} /> : !accountId && config ? config.accounts.length ? <WorkflowEmpty icon="wallet-outline" title="Elige la cuenta que quieres consultar" description="Cada titular y cada simulación tienen su propio saldo e historial." /> : <View style={{ flexDirection: wide ? 'row' : 'column', alignItems: 'flex-start', gap: 24 }}><View style={{ flex: wide ? 1 : undefined, width: wide ? undefined : '100%', gap: 16 }}><WorkflowEmpty icon="receipt-outline" title={pendingAcceptance ? 'Activa tus comisiones del Directorio' : 'Todavía no tienes comisiones registradas'} description={pendingAcceptance ? 'Conoce el cálculo y revisa el acuerdo antes de aceptarlo. Tus pacientes propios quedan fuera.' : config.mode === 'OFF' ? 'Podrás consultar las condiciones cuando estén habilitadas.' : 'Las condiciones todavía no están habilitadas para tu perfil.'} /><CommissionExplanation terms={config.terms} simulation={config.mode === 'SIMULATION'} initiallyOpen /></View><Card style={{ flex: wide ? 1 : undefined, width: wide ? undefined : '100%', minWidth: 0 }}>{conditions}</Card></View> : null}
+  {current ? <CommissionMonthWorkspace key={accountId} data={current} toolbarActions={toolbarActions} admin={false} refresh={refresh} onChanged={() => setRefresh(v => v + 1)} clientId={clientId} /> : !accountId && config ? config.accounts.length ? <WorkflowEmpty icon="wallet-outline" title="Elige la cuenta que quieres consultar" description="Cada titular y cada simulación tienen su propio saldo e historial." /> : <View style={{ flexDirection: wide ? 'row' : 'column', alignItems: 'flex-start', gap: 24 }}><View style={{ flex: wide ? 1 : undefined, width: wide ? undefined : '100%', gap: 16 }}><WorkflowEmpty icon="receipt-outline" title={pendingAcceptance ? 'Activa tus comisiones del Directorio' : 'Todavía no tienes comisiones registradas'} description={pendingAcceptance ? 'Conoce el cálculo y revisa el acuerdo antes de aceptarlo. Tus pacientes propios quedan fuera.' : config.mode === 'OFF' ? 'Podrás consultar las condiciones cuando estén habilitadas.' : 'Las condiciones todavía no están habilitadas para tu perfil.'} /><CommissionExplanation terms={config.terms} simulation={config.mode === 'SIMULATION'} initiallyOpen /></View><Card style={{ flex: wide ? 1 : undefined, width: wide ? undefined : '100%', minWidth: 0 }}>{conditions}</Card></View> : null}
   <FocusedActionSheet visible={!!panel} title={panel ? panelTitles[panel] : ''} onClose={() => { if (!busy) setPanel(undefined); }}>
    {error ? <Text error>{error}</Text> : null}
    {panel === 'information' ? <>

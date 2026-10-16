@@ -2,7 +2,7 @@ import React from 'react';
 import { getMadridDateKey } from '../../../utils/madridTime';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { AdminCommissionSummary } from '../CommissionLinks';
-import { CommissionSessions } from '../CommissionSessions';
+import { CommissionSessions, CommissionSessionActivityForm } from '../CommissionSessions';
 import * as service from '../../../services/heraCommissionService';
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }), useFocusEffect: (effect: () => void) => require('react').useEffect(effect, [effect]) }));
@@ -12,6 +12,38 @@ const summary: service.Balance = { id: 'account', specialistId: 'specialist', sp
 const account: service.AccountDetail = { summary, acceptances: [], specialistFiscal: { fiscalName: null, fiscalNif: null, fiscalAddress: null }, periods: [], documents: [], cash: [], issues: [], hasMore: false };
 const row: service.CommissionSession = { id: 'snapshot', sessionId: 'session', accountId: 'account', relationId: 'relation', position: 1, rateBps: 2000, bookedGrossCents: 8000, baseCents: 8000, serviceTaxCents: 0, potentialCents: 1600, entitledCents: 1600, exclusion: null, revision: 1, session: { date: '2026-09-01T12:00:00Z', clientId: 'patient-reference', patientName: 'Ana de prueba', attendanceOutcome: 'ATTENDED', status: 'COMPLETED' }, relation: { id: 'relation', origin: 'HERA_DIRECTORY', status: 'CONFIRMED', initialCount: 0 }, movements: [], revisions: [], settlement: { state: 'PARTIAL_DOCUMENT', undocumentedCents: 0, documentCount: 1 } };
 beforeEach(() => jest.clearAllMocks());
+it('marks the missing attendance explanation inline and submits only after correction', async () => {
+ const run = jest.fn(async (operation: () => Promise<unknown>) => { await operation(); return true; });
+ const done = jest.fn();
+ const view = render(<CommissionSessionActivityForm row={row} admin={false} busy={false} run={run} onDone={done} initialAction="ATTENDANCE"/>);
+ fireEvent.press(view.getByText('Guardar actividad'));
+ expect(view.getByText('Explica brevemente el motivo (al menos 3 caracteres).')).toBeTruthy();
+ expect(view.getByLabelText('Explicación (sin información clínica)').props['aria-invalid']).toBe(true);
+ expect(run).not.toHaveBeenCalled();
+ fireEvent.changeText(view.getByLabelText('Explicación (sin información clínica)'), 'Asistencia confirmada');
+ expect(view.queryByText('Explica brevemente el motivo (al menos 3 caracteres).')).toBeNull();
+ await act(async () => { fireEvent.press(view.getByText('Guardar actividad')); });
+ expect(service.decide).toHaveBeenCalledWith('account', false, { action: 'ATTENDANCE', snapshotId: 'snapshot', outcome: 'ATTENDED', reason: 'Asistencia confirmada' });
+ expect(done).toHaveBeenCalled();
+});
+it('identifies all missing amounts without sending the form', () => {
+ const run = jest.fn();
+ const view = render(<CommissionSessionActivityForm row={{...row, baseCents: null, serviceTaxCents: null}} admin={false} busy={false} run={run} onDone={jest.fn()}/>);
+ fireEvent.press(view.getByText('Guardar actividad'));
+ expect(view.getAllByText('Introduce un importe.')).toHaveLength(3);
+ expect(run).not.toHaveBeenCalled();
+});
+it('keeps entered values and shows a failed save beside the form action', async () => {
+ jest.mocked(service.decide).mockRejectedValueOnce(new Error('No se ha podido guardar.'));
+ const run = async (operation: () => Promise<unknown>) => { try { await operation(); return true; } catch { return false; } };
+ const done = jest.fn();
+ const view = render(<CommissionSessionActivityForm row={row} admin={false} busy={false} run={run} onDone={done} initialAction="ATTENDANCE"/>);
+ fireEvent.changeText(view.getByLabelText('Explicación (sin información clínica)'), 'Asistencia confirmada');
+ await act(async () => { fireEvent.press(view.getByText('Guardar actividad')); });
+ expect(view.getByText('No se ha podido guardar.')).toBeTruthy();
+ expect(view.getByDisplayValue('Asistencia confirmada')).toBeTruthy();
+ expect(done).not.toHaveBeenCalled();
+});
 
 it.each([false, true])('free sessions explicitly stay outside the commission scale (admin=%s)', async admin => {
  jest.mocked(service.sessions).mockResolvedValue({ items: [{ ...row, bookedGrossCents: 0, baseCents: null, position: null, entitledCents: 0, potentialCents: null, exclusion: 'FREE_SESSION', settlement: { state: 'NO_COMMISSION', undocumentedCents: 0, documentCount: 0 } }], hasMore: false });

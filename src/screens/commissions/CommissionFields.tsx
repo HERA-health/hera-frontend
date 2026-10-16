@@ -23,13 +23,14 @@ const months = Array.from({ length: 12 }, (_, index) => ({
 const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 // Keep date keys unchanged at the service boundary; the field only formats their presentation.
-export function CommissionDateField({ label, value, onChangeText, disabled = false, granularity = 'day', allowAllMonths = true }: {
+export function CommissionDateField({ label, value, onChangeText, disabled = false, granularity = 'day', allowAllMonths = true, hideLabel = false }: {
   label: string;
   value: string;
   onChangeText: (value: string) => void;
   disabled?: boolean;
   granularity?: 'day' | 'month';
   allowAllMonths?: boolean;
+  hideLabel?: boolean;
 }) {
   const { theme } = useTheme();
   const { width, height } = useWindowDimensions();
@@ -74,11 +75,11 @@ export function CommissionDateField({ label, value, onChangeText, disabled = fal
     : monthly ? 'Todos los meses' : 'Seleccionar fecha';
 
   return <View style={styles.field}>
-    <Text style={[styles.label, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>{label}</Text>
+    {!hideLabel && <Text style={[styles.label, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>{label}</Text>}
     <AnimatedPressable focusRef={trigger} accessibilityRole="button" accessibilityLabel={label}
       accessibilityHint={dateLabel} accessibilityState={{ expanded: open, disabled }} disabled={disabled}
       hoverLift={false} pressScale={0.98} onPress={() => { setYear(Number((value || getMadridDateKey()).slice(0, 4))); setOpen(true); }}
-      style={[styles.trigger, monthly && { minHeight: 48 }, { borderColor: open ? theme.primary : theme.border, backgroundColor: open ? theme.primaryAlpha12 : theme.bgMuted, opacity: disabled ? 0.5 : 1 }]}>
+      style={[styles.trigger, monthly && { minHeight: 48 }, { borderColor: open ? theme.primary : theme.border, backgroundColor: open ? theme.primaryAlpha12 : theme.bgMuted, opacity: disabled ? 0.5 : 1 }, hideLabel && !open ? { backgroundColor: theme.bgCard, borderColor: 'transparent', borderRadius: 12 } : null]}>
       <View style={styles.copy}>
         <Text style={{ color: theme.textPrimary, fontFamily: monthly ? theme.fontSans : theme.fontSansSemiBold, fontSize: 14 }}>{dateLabel}</Text>
         {!monthly && value ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 12, marginTop: 2 }}>{value}</Text> : null}

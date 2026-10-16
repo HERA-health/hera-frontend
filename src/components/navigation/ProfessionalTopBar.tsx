@@ -33,6 +33,7 @@ const ROUTE_TITLES: Record<string, { title: string; eyebrow?: string }> = {
   ProfessionalClinicWorkspace: { title: 'Mi clínica' },
   ProfessionalPayments: { title: 'Cobros' },
   ProfessionalBilling: { title: 'Facturación' },
+  HeraCommissions: { title: 'Comisiones HERA' },
   ProfessionalTariffs: { title: 'Servicios y bonos' },
   CreateInvoice: { title: 'Nueva factura', eyebrow: 'Facturación' },
   ProfessionalDashboard: { title: 'Estadísticas' },

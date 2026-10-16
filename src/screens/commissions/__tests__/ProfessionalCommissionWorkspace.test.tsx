@@ -17,6 +17,32 @@ const detail: service.AccountDetail = { summary: { id: 'account', specialistId: 
 const row: service.CommissionSession = { id: 'snapshot', sessionId: 'session', accountId: 'account', relationId: 'relation', position: 1, rateBps: 2000, bookedGrossCents: 8000, baseCents: 8000, serviceTaxCents: 0, potentialCents: 1600, entitledCents: 1600, exclusion: null, revision: 1, session: { date: '2026-09-01T12:00:00Z', clientId: 'patient', patientName: 'Paciente de prueba', attendanceOutcome: 'ATTENDED', status: 'COMPLETED' }, relation: { id: 'relation', origin: 'HERA_DIRECTORY', status: 'CONFIRMED', initialCount: 0 }, movements: [], revisions: [], settlement: { state: 'PAID', paymentState: 'PAID', documentState: 'PENDING', undocumentedCents: 1600, documentCount: 0 } };
 const monthSummary: service.MonthSummary = {accountId:'account',month:'2026-09',revision:1,period:{id:'period',month:'2026-09',status:'OPEN',revision:1,closedAt:null,baseCents:1600},originalCents:1600,cancellationCents:0,adjustmentCents:0,netCents:1600,payableCents:1600,appliedCents:1500,pendingCents:100,paymentState:'PARTIAL',creditCents:0,creditScope:'ACCOUNT',countedSessions:1,excludedSessions:0,unknownSessions:0,patientCount:1,tiers:[{rateBps:2000,count:1}],issues:[],issuesHasMore:false,documents:[]};
 const props = () => ({ onOpen: jest.fn(), onBack: jest.fn() });
+it('separates invoices, payments and read-only history in the administrator account', async () => {
+ const period: service.Period = { id: 'august', month: '2026-08', revision: 1, status: 'CLOSED', closedAt: '2026-09-01', baseCents: 1600 };
+ jest.mocked(service.period).mockResolvedValue({ period, items: [], hasMore: false });
+ const view = render(<CommissionMonthWorkspace data={{ ...detail, periods: [period] }} admin refresh={0} onChanged={jest.fn()} initialMonth="2026-09"/>);
+ await view.findByText('Paciente · relation');
+ fireEvent.press(view.getByRole('button', { name: 'Facturas' }));
+ expect(view.getByText('Facturas y rectificaciones de toda la cuenta.')).toBeTruthy();
+ expect(view.queryByText('Gestionar saldo a favor')).toBeNull();
+ fireEvent.press(view.getByRole('button', { name: 'Cerrar formulario' }));
+ fireEvent.press(view.getByRole('button', { name: 'Pagos y saldo a favor' }));
+ expect(view.getByText('Registrar ingreso')).toBeTruthy();
+ expect(view.getByText('Gestionar saldo a favor')).toBeTruthy();
+ expect(view.queryByLabelText('Importe de crédito (€)')).toBeNull();
+ expect(view.queryByText('Añadir factura o ajuste')).toBeNull();
+ fireEvent.press(view.getByRole('button', { name: 'Cerrar formulario' }));
+ fireEvent.press(view.getByRole('button', { name: 'Histórico' }));
+ expect(view.getByText('Meses y revisiones de esta cuenta.')).toBeTruthy();
+ expect(view.queryByText('Registrar ingreso')).toBeNull();
+ expect(view.queryByLabelText('Motivo de la corrección')).toBeNull();
+ fireEvent.press(view.getByLabelText('Desglose de agosto de 2026'));
+ await view.findByText('Este periodo no tiene líneas en esta página.');
+ expect(service.period).toHaveBeenCalledWith('account', true, 'august', 0);
+ await act(async () => { fireEvent.press(view.getByRole('button', { name: 'Ver mes' })); });
+ expect(service.month).toHaveBeenLastCalledWith('account', true, '2026-08');
+ expect(view.queryByText('Historial de la cuenta')).toBeNull();
+});
 beforeEach(() => {
  mockFocused = true;
  jest.resetAllMocks();
@@ -200,4 +226,32 @@ it('opens activity for the selected session directly and explains its original a
  act(()=>selector!.props.onSelect('COLLECT'));
  expect(view.getByText(/El cobro del paciente no cambia la comisión/)).toBeTruthy();
  expect(view.queryByText(/se genera la parte proporcional/)).toBeNull();
+});
+
+it('explains who resolves an attribution review without presenting it as an attendance correction', async () => {
+ jest.mocked(service.sessions).mockResolvedValue({items:[{...row,potentialCents:null,entitledCents:0,position:null,exclusion:'ATTRIBUTION_PENDING'}],hasMore:false});
+ const view=render(<ProfessionalCommissionWorkspace {...props()}/>);
+ await view.findByText('Paciente de prueba');
+ fireEvent.press(view.getByText('Ver detalle'));
+ expect(view.getByText('HERA debe comprobar las sesiones anteriores de este paciente para confirmar el porcentaje.')).toBeTruthy();
+ expect(view.getByText('La revisión la resuelve el equipo de HERA. Corregir la asistencia o registrar un cobro no la cierra.')).toBeTruthy();
+ expect(view.getByText('Importe pendiente de calcular')).toBeTruthy();
+ expect(view.queryByText('Cómo se calcula')).toBeNull();
+ expect(view.queryByText('Solicitar anulación')).toBeNull();
+});
+
+it('shows one loading structure while refreshing the account and month together', async () => {
+ const view = render(<ProfessionalCommissionWorkspace {...props()}/>);
+ await view.findByText('Paciente de prueba');
+ let finishDetail!: (value: service.AccountDetail) => void;
+ let finishMonth!: (value: service.MonthSummary) => void;
+ jest.mocked(service.detail).mockImplementationOnce(() => new Promise(resolve => { finishDetail = resolve; }));
+ jest.mocked(service.month).mockImplementationOnce(() => new Promise(resolve => { finishMonth = resolve; }));
+ fireEvent.press(view.getByText('Actualizar'));
+ await view.findByLabelText('Cargando mes de comisiones');
+ expect(view.getAllByRole('progressbar')).toHaveLength(1);
+ expect(view.queryByText('Paciente de prueba')).toBeNull();
+ await act(async () => { finishDetail(detail); finishMonth(monthSummary); });
+ await view.findByText('Paciente de prueba');
+ expect(view.queryByRole('progressbar')).toBeNull();
 });

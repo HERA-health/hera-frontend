@@ -3,12 +3,28 @@ import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { ReceiptForm, DocumentForm, CommissionPeriods, CashOperations, CommissionIssues } from '../CommissionOperations';
 import { CommissionSelect } from '../CommissionFields';
+import { CommissionCashCorrection } from '../CommissionCashCorrection';
 import * as DocumentPicker from 'expo-document-picker';
 import * as service from '../../../services/heraCommissionService';
 import type { Run } from '../CommissionElements';
 jest.mock('../../../services/heraCommissionService', () => ({ decide: jest.fn(), upload: jest.fn(), period: jest.fn() }));
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
 beforeEach(() => jest.clearAllMocks());
+it('opens a contextual correction and preserves its reason after a failed request', async () => {
+ const decide = jest.mocked(service.decide).mockReset().mockRejectedValueOnce(new Error('Offline')).mockResolvedValue({ id: 'saved' });
+ const run: Run = async operation => { try { await operation(); return true; } catch { return false; } };
+ const view = render(<CommissionCashCorrection accountId="account" applicationId="application" busy={false} run={run}/>);
+ expect(view.queryByLabelText('Motivo de la corrección')).toBeNull();
+ fireEvent.press(view.getByText('Corregir asignación'));
+ expect(view.getByText('Confirmar corrección')).toBeDisabled();
+ fireEvent.changeText(view.getByLabelText('Motivo de la corrección'), 'Asignación equivocada');
+ await act(async () => { fireEvent.press(view.getByRole('button', { name: 'Confirmar corrección' })); });
+ await waitFor(() => expect(decide).toHaveBeenCalledTimes(1));
+ expect(view.getByDisplayValue('Asignación equivocada')).toBeTruthy();
+ await act(async () => { fireEvent.press(view.getByRole('button', { name: 'Confirmar corrección' })); });
+ await waitFor(() => expect(view.queryByLabelText('Motivo de la corrección')).toBeNull());
+ expect(decide).toHaveBeenLastCalledWith('account', true, { action: 'REVERSE_APPLICATION', applicationId: 'application', reason: 'Asignación equivocada' });
+});
 const data: service.AccountDetail = {
  summary: { id: 'account', specialistId: 'specialist', specialistName: 'Profesional sintético', operatorKey: 'fixture', mode: 'LIVE', revision: 4, estimatedCents: 0, accruedCents: 0, undocumentedCents: 0, documentedCents: 3600, pendingCents: 3600, overdueCents: 0, receivedCents: 0, creditCents: 0, issueCount: 0 },
  acceptances: [], specialistFiscal: { fiscalName: null, fiscalNif: null, fiscalAddress: null }, periods: [], cash: [], issues: [], hasMore: false,
@@ -22,6 +38,19 @@ it('requires a resolved origin and does not ask for a directory counter for own 
  fireEvent.changeText(view.getByLabelText('Evidencia y motivo de resolución o diferimiento'), 'Cartera propia documentada');
  fireEvent.press(view.getByRole('button', { name: 'Resolver con esta evidencia' }));
  await waitFor(() => expect(service.decide).toHaveBeenCalledWith('account', true, expect.objectContaining({ action: 'RESOLVE', origin: 'SPECIALIST_OWN', initialCount: 0 })));
+});
+it('shows a missing directory count beside its input and accepts an explicit verified zero', async () => {
+ const run: Run = async operation => { await operation(); return true; };
+ const view = render(<CommissionIssues data={{...data, issues:[{id:'issue',relationId:'relation',snapshotId:null,status:'OPEN',reason:'Origen pendiente',resolution:null}]}} admin busy={false} run={run} showAdvanced={false}/>);
+ act(() => view.UNSAFE_getByType(CommissionSelect).props.onSelect('HERA_DIRECTORY'));
+ fireEvent.press(view.getByText('Resolver con esta evidencia'));
+ expect(service.decide).not.toHaveBeenCalled();
+ expect(view.getByText('Indica cuántas sesiones anteriores has comprobado. Escribe 0 si no hubo ninguna.')).toBeTruthy();
+ expect(view.getByLabelText('Sesiones previas acreditadas (sin cobros ficticios)').props['aria-invalid']).toBe(true);
+ fireEvent.changeText(view.getByLabelText('Sesiones previas acreditadas (sin cobros ficticios)'), '0');
+ fireEvent.changeText(view.getByLabelText('Evidencia y motivo de resolución o diferimiento'), 'Sin sesiones anteriores, comprobado');
+ await act(async () => { fireEvent.press(view.getByText('Resolver con esta evidencia')); });
+ expect(service.decide).toHaveBeenCalledWith('account',true,expect.objectContaining({action:'RESOLVE',initialCount:0,origin:'HERA_DIRECTORY'}));
 });
 it('requires manual confirmation, submits a partial receipt and preserves the form on failure', async () => {
  const decide = jest.mocked(service.decide); decide.mockRejectedValueOnce(new Error('conflict')).mockResolvedValue({ id: 'receipt' });
@@ -86,6 +115,7 @@ it('preserves a failed refund and clears amount and confirmation after success',
  jest.mocked(service.decide).mockRejectedValueOnce(new Error('Offline')).mockResolvedValue({ id: 'refund' });
  const run: Run = async operation => { try { await operation(); return true; } catch { return false; } };
  const view = render(<CashOperations data={{ ...data, summary: { ...data.summary, creditCents: 4000 } }} run={run} busy={false} />);
+ fireEvent.press(view.getByText('Gestionar saldo a favor'));
  act(() => view.UNSAFE_getAllByType(SimpleDropdown)[0].props.onSelect('RETURN_CREDIT'));
  fireEvent.changeText(view.getByLabelText('Importe de crédito (€)'), '10');
  fireEvent.changeText(view.getByLabelText('Referencia de la devolución externa'), 'Bizum devuelto y comprobado');

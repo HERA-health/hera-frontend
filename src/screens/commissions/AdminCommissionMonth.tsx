@@ -1,5 +1,6 @@
+import { CommissionLoading } from './CommissionLoading';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { getErrorMessage } from '../../constants/errors';
 import { openPrivateDocument } from '../../utils/openPrivateDocument';
 import * as service from '../../services/heraCommissionService';
@@ -33,7 +34,7 @@ export function AdminCommissionMonth({specialistId,onOpen,refresh}:{specialistId
   {mode==='SIMULATION'?<WorkflowHint>Simulación sin deuda. Las operaciones de esta cuenta no representan pagos reales.</WorkflowHint>:null}
   <View style={{flexDirection:'row',flexWrap:'wrap',gap:14,alignItems:'flex-end'}}><View style={{flex:1,minWidth:220}}><Field label="Buscar profesional" value={search} onChangeText={v=>{setSearch(v);setPage(0);}}/></View><Check checked={missing} onChange={v=>{setMissing(v);setPage(0);}} label="Solo con condiciones pendientes"/></View>
   {missing ? <WorkflowHint>Muestra profesionales sin aceptación activa de las condiciones económicas actuales. No indica si tienen pagos pendientes.</WorkflowHint> : null}
-  {error?<Text error>{error}</Text>:null}{loading?<ActivityIndicator accessibilityLabel="Cargando resumen mensual"/>:!error?<>
+  {error?<Text error>{error}</Text>:null}{loading?<CommissionLoading overview accessibilityLabel="Cargando resumen mensual"/>:!error?<>
    {result?<CommissionMetrics items={[
     {label:'Comisiones del mes',value:money(result.totals.netCents),emphasis:true},
     {label:'Sesiones computables',value:String(result.totals.countedSessions)},

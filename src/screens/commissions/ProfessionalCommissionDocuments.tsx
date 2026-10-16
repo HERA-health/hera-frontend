@@ -1,5 +1,6 @@
+import { CommissionLoading } from './CommissionLoading';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import * as service from '../../services/heraCommissionService';
 import { openPrivateDocument } from '../../utils/openPrivateDocument';
 import { Button, Card, CommissionDisclosure, Text, WorkflowHint, dateTime, money, type Run } from './CommissionElements';
@@ -8,19 +9,19 @@ import { commissionMonth, commissionReason } from './commissionCopy';
 import { WorkflowEmpty } from '../referrals/WorkflowUI';
 import { ReferralPagination } from '../referrals/ReferralControls';
 
-function PeriodLines({ accountId, period }: { accountId: string; period: service.Period }) {
+export function PeriodLines({ accountId, period, admin = false }: { accountId: string; period: service.Period; admin?: boolean }) {
  const [page, setPage] = useState(0);
  const [retry, setRetry] = useState(0);
  const [data, setData] = useState<service.Page<service.Entry>>();
  const [error, setError] = useState(false);
  useEffect(() => {
   let active = true; setData(undefined); setError(false);
-  void service.period(accountId, false, period.id, page).then(value => { if (active) setData(value); }).catch(() => { if (active) setError(true); });
+  void service.period(accountId, admin, period.id, page).then(value => { if (active) setData(value); }).catch(() => { if (active) setError(true); });
   return () => { active = false; };
- }, [accountId, period.id, period.revision, page, retry]);
+ }, [accountId, period.id, period.revision, page, retry, admin]);
  return <>
   <WorkflowHint>{period.status === 'CLOSED' ? 'Periodo cerrado' : period.status === 'PREPARED' ? 'Periodo preparado' : 'Periodo abierto'} · Base de comisión: {money(period.baseCents)}</WorkflowHint>
-  {error ? <><Text error>No se pudieron cargar las líneas.</Text><Button variant="outline" onPress={() => setRetry(value => value + 1)}>Reintentar líneas</Button></> : !data ? <ActivityIndicator accessibilityLabel="Cargando líneas" /> : data.items.length ? data.items.map(entry => <View key={entry.id} style={{ gap: 4 }}><Text>{money(entry.baseCents)} · {commissionReason(entry.reason)}</Text><WorkflowHint>{entry.snapshot.sessionDate ? `Sesión del ${dateTime(entry.snapshot.sessionDate)}` : 'Sesión vinculada'} · {entry.snapshot.position === null ? 'Orden pendiente' : `${entry.snapshot.position}.ª sesión`} · {entry.snapshot.rateBps === null ? 'Cálculo histórico no disponible' : `${entry.snapshot.rateBps / 100}%`} · {entry.documentLine ? 'Documentada' : 'Sin documentar'}</WorkflowHint><WorkflowHint>Fecha económica: {dateTime(entry.economicAt)} · Registro: {dateTime(entry.recognizedAt)}</WorkflowHint></View>) : <WorkflowHint>Este periodo no tiene líneas en esta página.</WorkflowHint>}
+  {error ? <><Text error>No se pudieron cargar las líneas.</Text><Button variant="outline" onPress={() => setRetry(value => value + 1)}>Reintentar líneas</Button></> : !data ? <CommissionLoading accessibilityLabel="Cargando líneas" /> : data.items.length ? data.items.map(entry => <View key={entry.id} style={{ gap: 4 }}><Text>{money(entry.baseCents)} · {commissionReason(entry.reason)}</Text><WorkflowHint>{entry.snapshot.sessionDate ? `Sesión del ${dateTime(entry.snapshot.sessionDate)}` : 'Sesión vinculada'} · {entry.snapshot.position === null ? 'Orden pendiente' : `${entry.snapshot.position}.ª sesión`} · {entry.snapshot.rateBps === null ? 'Cálculo histórico no disponible' : `${entry.snapshot.rateBps / 100}%`} · {entry.documentLine ? 'Documentada' : 'Sin documentar'}</WorkflowHint><WorkflowHint>Fecha económica: {dateTime(entry.economicAt)} · Registro: {dateTime(entry.recognizedAt)}</WorkflowHint></View>) : <WorkflowHint>Este periodo no tiene líneas en esta página.</WorkflowHint>}
   <ReferralPagination page={page} hasMore={data?.hasMore ?? false} loading={!data && !error} onChange={setPage} />
  </>;
 }
@@ -50,13 +51,13 @@ function DocumentRow({ document, accountId, busy, run }: { document: service.Doc
  </Card>;
 }
 
-export function ProfessionalCommissionDocuments({ data, busy, run }: { data: service.AccountDetail; busy: boolean; run: Run }) {
+export function ProfessionalCommissionDocuments({ data, busy, run, documentsOnly = false }: { documentsOnly?: boolean; data: service.AccountDetail; busy: boolean; run: Run }) {
  return <>
   <LedgerTitle>Facturas de HERA</LedgerTitle>
   {data.documents.length ? data.documents.map(document => <DocumentRow key={document.id} document={document} accountId={data.summary.id} busy={busy} run={run} />) : <WorkflowEmpty icon="document-text-outline" title="Sin facturas en esta página" description="Las facturas de tus comisiones aparecerán aquí cuando HERA las incorpore." />}
-  <CommissionDisclosure title="Periodos y líneas de comisión" icon="calendar-outline">
+  {!documentsOnly && <CommissionDisclosure title="Periodos y líneas de comisión" icon="calendar-outline">
    <WorkflowHint>Periodos mensuales con horario de Madrid. Al cerrar un mes se conserva su desglose; las correcciones posteriores aparecen en un mes abierto.</WorkflowHint>
    {data.periods.length ? data.periods.map(period => <CommissionDisclosure key={period.id} title={commissionMonth(period.month)}><PeriodLines accountId={data.summary.id} period={period} /></CommissionDisclosure>) : <WorkflowHint>No hay periodos en esta página.</WorkflowHint>}
-  </CommissionDisclosure>
+  </CommissionDisclosure>}
  </>;
 }
