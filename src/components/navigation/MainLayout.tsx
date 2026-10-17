@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigationState } from '@react-navigation/native';
-import { layout, shadows, spacing } from '../../constants/colors';
+import { shadows, spacing } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AmbientBackground } from '../common/AmbientBackground';
@@ -41,8 +41,8 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
   const isProfessional = user?.type === 'professional';
   const isLargeScreen = isLargeScreenForRole(windowWidth, isProfessional);
   const mobileSidebarWidth = Math.min(
-    SIDEBAR_THEME.width,
-    Math.max(layout.mobileDrawerMinWidth, windowWidth - spacing.xl),
+    320,
+    windowWidth - spacing.xl,
   );
   const sidebarTheme = getSidebarTheme(theme);
 
@@ -226,6 +226,7 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
               <SafeAreaView style={styles.content} edges={['top', 'bottom']}>
                 <CustomDrawerContent
                   currentRoute={currentRoute}
+                  isMobile
                   showProfessionalSearch={isProfessional}
                   isUserSectionScrollable
                   isCollapsed={false}

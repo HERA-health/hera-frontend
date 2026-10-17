@@ -37,7 +37,7 @@ describe('professional workspace shell hardening', () => {
 
   it('shows Mi clínica from the active care relationship without rollout or review states', () => {
     expect(drawer).toContain("professionalClinicWorkspace?.hasActiveCareLink === true");
-    expect(drawer).toContain("professionalClinicWorkspace?.status === 'error'");
+    expect(drawer).not.toContain("professionalClinicWorkspace?.status === 'error'");
     expect(drawer).not.toContain('hasProfessionalClinicAccess={Boolean(professionalClinicWorkspace?.contexts.length)}');
     expect(clinicWorkspace).not.toContain('pendiente de activación');
     expect(clinicWorkspace).not.toContain('Nombre revisado por HERA');

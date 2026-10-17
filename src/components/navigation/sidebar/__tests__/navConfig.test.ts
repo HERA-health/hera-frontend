@@ -1,6 +1,23 @@
 import { getNavigationSections } from '../navConfig';
 
 describe('professional navigation sections', () => {
+  it.each(['CLIENT', 'PROFESSIONAL', 'CLINIC'] as const)('only shows platform administration to an admin (%s)', (role) => {
+    expect(getNavigationSections(role).some((section) => section.id === 'admin')).toBe(false);
+    expect(getNavigationSections(role, false, true, true).some((section) => section.id === 'admin')).toBe(false);
+    expect(getNavigationSections(role, true).some((section) => section.id === 'admin')).toBe(true);
+  });
+
+  it('groups daily work, finances and the professional network without duplicate destinations', () => {
+    const sections = getNavigationSections('PROFESSIONAL');
+    expect(sections.find((section) => section.id === 'main-nav')?.items.map((item) => item.id))
+      .toEqual(['home', 'clients', 'sessions', 'availability']);
+    expect(sections.find((section) => section.id === 'management')?.items.map((item) => item.id))
+      .toEqual(expect.arrayContaining(['tariffs', 'billing', 'dashboard', 'hera-commissions']));
+    expect(sections.find((section) => section.id === 'professional-network')?.items.map((item) => item.id))
+      .toEqual(['referrals', 'collaborations']);
+    const routes = sections.flatMap((section) => section.items.map((item) => item.route));
+    expect(new Set(routes).size).toBe(routes.length);
+  });
   it('hides Mi clínica when the professional has no active care relationship', () => {
     const sections = getNavigationSections('PROFESSIONAL', false, false, false);
     expect(sections.some((section) => section.id === 'professional-clinic-workspace')).toBe(false);

@@ -105,6 +105,22 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         tourTargetId: 'professional.nav.sessions',
       },
       {
+        id: 'availability',
+        label: 'Disponibilidad',
+        icon: 'time-outline',
+        iconActive: 'time',
+        route: 'ProfessionalAvailability',
+        roles: ['PROFESSIONAL'],
+        tourTargetId: 'professional.nav.availability',
+      },
+    ],
+  },
+  {
+    id: 'management',
+    label: 'Gestión',
+    roles: ['PROFESSIONAL'],
+    items: [
+      {
         id: 'tariffs', label: 'Servicios y bonos', icon: 'pricetags-outline', iconActive: 'pricetags', route: 'ProfessionalTariffs', roles: ['PROFESSIONAL'],
       },
       ...((SESSION_PAYMENTS_VISIBLE ? [{
@@ -129,14 +145,15 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         tourTargetId: 'professional.nav.dashboard',
       },
       {
-        id: 'availability',
-        label: 'Disponibilidad',
-        icon: 'time-outline',
-        iconActive: 'time',
-        route: 'ProfessionalAvailability',
-        roles: ['PROFESSIONAL'],
-        tourTargetId: 'professional.nav.availability',
+        id: 'hera-commissions', label: 'Comisiones HERA', icon: 'document-text-outline', iconActive: 'document-text', route: 'HeraCommissions', roles: ['PROFESSIONAL'],
       },
+    ],
+  },
+  {
+    id: 'professional-profile',
+    label: 'Perfil',
+    roles: ['PROFESSIONAL'],
+    items: [
       {
         id: 'profile',
         label: 'Editar perfil',
@@ -173,9 +190,6 @@ export const PROFESSIONAL_SECTIONS: NavigationSection[] = [
         iconActive: 'help-circle',
         route: 'ProfessionalHelp',
         roles: ['PROFESSIONAL'],
-      },
-      {
-        id: 'hera-commissions', label: 'Comisiones HERA', icon: 'document-text-outline', iconActive: 'document-text', route: 'HeraCommissions', roles: ['PROFESSIONAL'],
       },
     ],
   },
@@ -257,7 +271,7 @@ export const CLINIC_SECTIONS: NavigationSection[] = [
 
 export const PROFESSIONAL_CLINIC_SECTION: NavigationSection = {
   id: 'professional-clinic-admin',
-  label: 'Clínica',
+  label: 'Gestión de clínica',
   roles: ['PROFESSIONAL'],
   items: [
     {
@@ -383,7 +397,7 @@ export function getNavigationSections(
     : role === 'CLINIC'
       ? CLINIC_SECTIONS
       : CLIENT_SECTIONS;
-  return isAdmin ? [...sections, ADMIN_SECTION] : sections;
+  return isAdmin === true ? [...sections, ADMIN_SECTION] : sections;
 }
 
 export const SIDEBAR_THEME: SidebarTheme = {

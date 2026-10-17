@@ -7,11 +7,12 @@ interface NavigationControlProps {
   onPress: () => void;
   accessibilityLabel: string;
   expanded?: boolean;
+  highlightExpanded?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
 /** Quiet toolbar controls, with explicit pointer, keyboard and touch feedback. */
-export function NavigationControl({ children, onPress, accessibilityLabel, expanded, style }: NavigationControlProps) {
+export function NavigationControl({ children, onPress, accessibilityLabel, expanded, highlightExpanded = true, style }: NavigationControlProps) {
   const { theme } = useTheme();
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -31,7 +32,7 @@ export function NavigationControl({ children, onPress, accessibilityLabel, expan
         styles.control,
         style,
         {
-          backgroundColor: pressed || hovered || expanded ? theme.navigationActive : 'transparent',
+          backgroundColor: pressed || hovered || (expanded && highlightExpanded) ? theme.navigationActive : 'transparent',
           borderColor: focused ? theme.focus : 'transparent',
         },
       ]}

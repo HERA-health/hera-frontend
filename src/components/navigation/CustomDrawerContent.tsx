@@ -30,6 +30,7 @@ import { useOptionalProfessionalWorkspace } from '../../contexts/ProfessionalWor
 import { useOptionalProfessionalClinicWorkspace } from '../../contexts/ProfessionalClinicWorkspaceContext';
 
 interface CustomDrawerContentProps {
+  isMobile?: boolean;
   currentRoute?: string;
   isUserSectionScrollable?: boolean;
   isCollapsed?: boolean;
@@ -49,6 +50,7 @@ interface CustomDrawerContentProps {
  */
 export function CustomDrawerContent({
   currentRoute = 'Home',
+  isMobile = false,
   isUserSectionScrollable = false,
   isCollapsed = false,
   onNavigateComplete,
@@ -91,8 +93,7 @@ export function CustomDrawerContent({
   );
   const hasProfessionalClinicAccess = userRole === 'PROFESSIONAL' && Boolean(
     professionalClinicWorkspace?.hasActiveCareLink === true
-    || professionalClinicWorkspace?.contexts.length
-    || professionalClinicWorkspace?.status === 'error',
+    || professionalClinicWorkspace?.contexts.length,
   );
   const notices = useMemo(
     () => {
@@ -156,6 +157,7 @@ export function CustomDrawerContent({
         scrollHeader={showProfessionalSearch && !isCollapsed ? (
           <ProfessionalQuickSearch drawer onNavigate={onNavigateComplete} />
         ) : null}
+        isMobile={isMobile}
         userRole={userRole}
         currentRoute={currentRoute}
         onNavigate={handleNavigate}

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Rect, Path } from 'react-native-svg';
 import { RootStackParamList } from '../../../constants/types';
@@ -10,9 +10,12 @@ import { getNavigationSections, getSidebarTheme } from './navConfig';
 import { containerStyles, logoStyles, sectionStyles } from './styles';
 import { UserSection } from './UserSection';
 import { NavigationSection, SidebarProps } from './types';
+import { Ionicons } from '@expo/vector-icons';
+import { useOptionalProfessionalTour } from '../../onboarding/professionalTourContext';
 
 export function Sidebar({
   locked = false,
+  isMobile = false,
   scrollHeader,
   userRole,
   currentRoute,
@@ -74,7 +77,7 @@ export function Sidebar({
         { backgroundColor: sidebarTheme.background.primary },
       ]}
       accessible
-      accessibilityLabel="Main navigation"
+      accessibilityLabel="Navegación principal"
     >
       <View
         style={[
@@ -124,10 +127,10 @@ export function Sidebar({
           {!isCollapsed && onToggleCollapse && (
             <NavigationControl
               onPress={onToggleCollapse}
-              style={styles.collapseButtonExpanded}
-              accessibilityLabel="Colapsar menú"
+              style={[styles.collapseButtonExpanded, isMobile ? styles.mobileCloseButton : null]}
+              accessibilityLabel={isMobile ? 'Cerrar menú' : 'Colapsar menú'}
             >
-              <SidebarToggleIcon color={sidebarTheme.text.secondary} />
+              {isMobile ? <Ionicons name="close" size={22} color={sidebarTheme.text.secondary} /> : <SidebarToggleIcon color={sidebarTheme.text.secondary} />}
             </NavigationControl>
           )}
         </View>
@@ -139,7 +142,7 @@ export function Sidebar({
         contentContainerStyle={isCollapsed
           ? [containerStyles.scrollContent, containerStyles.scrollContentCollapsed]
           : containerStyles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={isMobile}
         keyboardShouldPersistTaps="handled"
       >
         {scrollHeader}
@@ -149,6 +152,7 @@ export function Sidebar({
             section={locked ? { ...section, items: section.items.map(item => ({ ...item, disabled: true })) } : section}
             currentRoute={currentRoute}
             onNavigate={onNavigate}
+            isMobile={isMobile}
             showDivider={sectionIndex > 0}
             isCollapsed={isCollapsed}
             notices={notices}
@@ -169,6 +173,7 @@ export function Sidebar({
 }
 
 interface NavigationSectionComponentProps {
+  isMobile?: boolean;
   section: NavigationSection;
   currentRoute: string;
   onNavigate: (route: keyof RootStackParamList) => void;
@@ -178,8 +183,9 @@ interface NavigationSectionComponentProps {
   onNoticeNavigate?: SidebarProps['onNoticeNavigate'];
 }
 
-function NavigationSectionComponent({
+export function NavigationSectionComponent({
   section,
+  isMobile = false,
   currentRoute,
   onNavigate,
   showDivider,
@@ -189,10 +195,25 @@ function NavigationSectionComponent({
 }: NavigationSectionComponentProps): React.ReactElement {
   const { theme } = useTheme();
   const sidebarTheme = getSidebarTheme(theme);
+  const tour = useOptionalProfessionalTour();
+  const activeItem = section.items.find((item) => item.route === currentRoute);
+  const [expanded, setExpanded] = useState(
+    Boolean(activeItem) || ['main-nav', 'management', 'professional-profile', 'clinic-main'].includes(section.id),
+  );
+  const isExpanded = expanded || tour?.isRunning === true;
+  const sectionNotices = section.items.flatMap((item) => notices[item.id] ? [notices[item.id]] : []);
+  const noticeCount = sectionNotices.reduce((total, notice) => total + (notice.count ?? 1), 0);
+  const noticeColor = sectionNotices.some((notice) => notice.tone === 'critical')
+    ? theme.error
+    : sectionNotices.some((notice) => notice.tone === 'warning') ? theme.warning : theme.selection;
+
+  useEffect(() => {
+    if (activeItem) setExpanded(true);
+  }, [activeItem?.id, currentRoute]);
 
   return (
     <View style={[sectionStyles.container, isCollapsed ? sectionStyles.containerCollapsed : null]}>
-      {showDivider && (
+      {showDivider && isCollapsed && (
         <View
           style={[
             sectionStyles.divider,
@@ -202,7 +223,13 @@ function NavigationSectionComponent({
       )}
 
       {!isCollapsed && section.label && (
-        <View style={sectionStyles.headerRow}>
+        <NavigationControl
+          accessibilityLabel={section.label}
+          expanded={isExpanded}
+          highlightExpanded={false}
+          onPress={() => setExpanded((value) => !value)}
+          style={[sectionStyles.headerRow, isMobile ? sectionStyles.headerRowMobile : null]}
+        >
           <Text
             style={[
               sectionStyles.header,
@@ -211,10 +238,22 @@ function NavigationSectionComponent({
           >
             {section.label}
           </Text>
-        </View>
+          <View style={styles.sectionIndicators}>
+            {!isExpanded && activeItem && <View style={[styles.activeSectionDot, { backgroundColor: theme.selection }]} />}
+            {!isExpanded && noticeCount > 0 && (
+              <Text accessibilityLabel={noticeCount === 1 ? '1 aviso pendiente' : `${noticeCount} avisos pendientes`} style={{ color: noticeColor, fontFamily: theme.fontSansSemiBold, fontSize: 11 }}>
+                {noticeCount > 9 ? '9+' : noticeCount}
+              </Text>
+            )}
+            <View style={[styles.disclosureIcon, { backgroundColor: sidebarTheme.background.hover }]}>
+              <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={sidebarTheme.text.secondary} />
+            </View>
+          </View>
+        </NavigationControl>
       )}
 
-      {section.items.map((item) => (
+      {(isCollapsed || isExpanded) && <View style={!isCollapsed ? [sectionStyles.items, { borderLeftColor: sidebarTheme.border }] : undefined}>
+        {section.items.map((item) => (
         <NavItem
           key={item.id}
           item={item}
@@ -224,7 +263,8 @@ function NavigationSectionComponent({
           notice={notices[item.id]}
           onNoticePress={onNoticeNavigate}
         />
-      ))}
+        ))}
+      </View>}
     </View>
   );
 }
@@ -239,6 +279,10 @@ function SidebarToggleIcon({ color }: { color: string }) {
 }
 
 const styles = StyleSheet.create({
+  mobileCloseButton: { width: 48, height: 48 },
+  sectionIndicators: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  disclosureIcon: { width: 22, height: 22, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
+  activeSectionDot: { width: 6, height: 6, borderRadius: 3 },
   headerBlockCollapsed: {
     width: '100%',
     height: 76,

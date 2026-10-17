@@ -64,35 +64,47 @@ export const logoStyles = StyleSheet.create({
 
 export const sectionStyles = StyleSheet.create({
   container: {
-    marginTop: 14,
+    marginTop: 2,
   },
   containerCollapsed: {
     alignItems: 'center',
     width: '100%',
   },
   headerRow: {
+    width: '100%',
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 8,
-    marginBottom: 6,
+    marginBottom: 0,
+  },
+  headerRowMobile: {
+    height: 48,
+    minHeight: 48,
   },
   header: {
-    fontSize: 11,
-    lineHeight: 14,
+    flexShrink: 1,
+    fontSize: 12,
+    lineHeight: 16,
     letterSpacing: 0,
-    textTransform: 'uppercase',
+  },
+  items: {
+    marginLeft: 8,
+    paddingLeft: 5,
+    borderLeftWidth: 1,
+    marginBottom: 4,
   },
   divider: {
     height: 1,
     marginHorizontal: 8,
-    marginBottom: 10,
+    marginBottom: 4,
   },
 });
 
 export const navItemStyles = StyleSheet.create({
   container: {
-    marginBottom: 4,
+    marginBottom: 0,
     width: '100%',
   },
   containerCollapsed: {
@@ -109,8 +121,8 @@ export const navItemStyles = StyleSheet.create({
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     position: 'relative',
     borderWidth: 1,
     borderRadius: 12,
@@ -132,12 +144,12 @@ export const navItemStyles = StyleSheet.create({
     borderRadius: 8,
   },
   iconShell: {
-    width: 30,
-    height: 30,
+    width: 26,
+    height: 26,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 7,
   },
   iconShellCollapsed: {
     marginRight: 0,
@@ -150,8 +162,8 @@ export const navItemStyles = StyleSheet.create({
     minWidth: 0,
   },
   label: {
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 17,
   },
   noticeLabel: {
     fontSize: 10,
