@@ -3,7 +3,7 @@ import { AppState, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 /** Refresh on app focus; poll only while the focused screen has outstanding work. */
-export function useBillingRefresh(refresh: () => Promise<unknown>, hasDeliveries: boolean) {
+export function useBillingRefresh(refresh: () => Promise<unknown>, hasDeliveries: boolean, intervalMs = 10_000) {
   const callback = useRef(refresh);
   callback.current = refresh;
   useFocusEffect(useCallback(() => {
@@ -21,7 +21,7 @@ export function useBillingRefresh(refresh: () => Promise<unknown>, hasDeliveries
     const onFocus = () => { void run(); };
     if (Platform.OS === 'web' && typeof document !== 'undefined') document.addEventListener('visibilitychange', onFocus);
     if (Platform.OS === 'web' && typeof window !== 'undefined') window.addEventListener('focus', onFocus);
-    const timer = hasDeliveries ? setInterval(() => { void run(); }, 10_000) : undefined;
+    const timer = hasDeliveries ? setInterval(() => { void run(); }, intervalMs) : undefined;
     return () => {
       active = false;
       if (timer) clearInterval(timer);
@@ -29,5 +29,5 @@ export function useBillingRefresh(refresh: () => Promise<unknown>, hasDeliveries
       if (Platform.OS === 'web' && typeof document !== 'undefined') document.removeEventListener('visibilitychange', onFocus);
       if (Platform.OS === 'web' && typeof window !== 'undefined') window.removeEventListener('focus', onFocus);
     };
-  }, [hasDeliveries]));
+  }, [hasDeliveries, intervalMs]));
 }

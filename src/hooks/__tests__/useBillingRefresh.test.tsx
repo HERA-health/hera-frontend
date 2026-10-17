@@ -53,3 +53,16 @@ it('never overlaps refreshes and refreshes when the app returns to foreground', 
   view.unmount();
   expect(remove).toHaveBeenCalled();
 });
+
+it('supports a slower billing cadence and does not poll in the background', async () => {
+  const refresh = jest.fn(async () => undefined);
+  const view = renderHook(() => useBillingRefresh(refresh, true, 30_000));
+  await act(async () => { jest.advanceTimersByTime(20_000); });
+  expect(refresh).not.toHaveBeenCalled();
+  await act(async () => { jest.advanceTimersByTime(10_000); });
+  expect(refresh).toHaveBeenCalledTimes(1);
+  Object.defineProperty(AppState, 'currentState', { value: 'background', configurable: true });
+  await act(async () => { jest.advanceTimersByTime(60_000); });
+  expect(refresh).toHaveBeenCalledTimes(1);
+  view.unmount();
+});

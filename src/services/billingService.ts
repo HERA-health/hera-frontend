@@ -10,6 +10,12 @@ import { notifyProfessionalHomeChanged } from './dashboardService';
 // ============================================================================
 
 export interface BillingSummary {
+  period: { year: number; month: number };
+  collectedPreviousMonth: number;
+  invoicedThisMonth: number;
+  invoicedPreviousMonth: number;
+  pendingCollectionAmount: number;
+  pendingCollectionCount: number;
   activeDeliveryCount?: number;
   unsentReviewCount?: number;
   grossThisMonth: number;
@@ -98,6 +104,7 @@ export interface AttachableInvoiceSummary {
 export type InvoiceStatus = 'DRAFT' | 'SENT' | 'PAID' | 'CANCELLED';
 
 export interface InvoiceFilters {
+  collectionStatus?: 'pending';
   status?: InvoiceStatus;
   invoiceKind?: InvoiceKind;
   month?: number;
@@ -159,6 +166,10 @@ export interface BillingConfig {
   paymentConditions?: string;
   fiscalName?: string;
   fiscalAddress?: string;
+  fiscalStreetAddress?: string;
+  fiscalPostalCode?: string;
+  fiscalCity?: string;
+  fiscalCountry?: string;
   fiscalNif?: string;
   autoGenerateInvoice?: boolean;
   autoSendToClient?: boolean;
@@ -205,6 +216,10 @@ export interface SpecialistBillingData {
   paymentConditions: string | null;
   fiscalName: string | null;
   fiscalAddress: string | null;
+  fiscalStreetAddress?: string | null;
+  fiscalPostalCode?: string | null;
+  fiscalCity?: string | null;
+  fiscalCountry?: string | null;
   fiscalNif: string | null;
   autoGenerateInvoice: boolean;
   autoSendToClient: boolean;
@@ -236,6 +251,10 @@ export interface FullBillingConfig {
   paymentConditions: string | null;
   fiscalName: string | null;
   fiscalAddress: string | null;
+  fiscalStreetAddress?: string | null;
+  fiscalPostalCode?: string | null;
+  fiscalCity?: string | null;
+  fiscalCountry?: string | null;
   fiscalNif: string | null;
   autoGenerateInvoice: boolean;
   autoSendToClient: boolean;
@@ -264,6 +283,7 @@ export const billingService = {
   async getInvoices(filters?: InvoiceFilters): Promise<PaginatedInvoices> {
     try {
       const params = new URLSearchParams();
+      if (filters?.collectionStatus) params.append('collectionStatus', filters.collectionStatus);
       if (filters?.status) params.append('status', filters.status);
       if (filters?.invoiceKind) params.append('invoiceKind', filters.invoiceKind);
       if (filters?.month) params.append('month', String(filters.month));

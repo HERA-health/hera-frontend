@@ -69,7 +69,10 @@ beforeEach(() => {
   jest.mocked(billingService.updateBillingConfig).mockReset().mockImplementation(async config => ({
     ...await billingService.getConfig(), ...config,
   }));
-  jest.mocked(billingService.getSummary).mockReset().mockResolvedValue({ grossThisMonth: 0, grossThisYear: 0,
+  jest.mocked(billingService.getSummary).mockReset().mockResolvedValue({
+    period: { year: 2026, month: 10 }, collectedPreviousMonth: 100, invoicedThisMonth: 230,
+    invoicedPreviousMonth: 200, pendingCollectionAmount: 60, pendingCollectionCount: 2,
+    grossThisMonth: 0, grossThisYear: 0,
     refundedThisMonth: 0, refundedThisYear: 0, refundsAwaitingBankDate: 0, totalThisMonth: 0, totalThisYear: 0,
     invoiceCountThisMonth: 0, paidInvoiceCountThisMonth: 0, pendingCount: 1 });
 });
@@ -81,6 +84,78 @@ it('renders the saved invoice even when the summary fails', async () => {
   expect(view.getByText('Resumen de facturación no disponible.')).toBeTruthy();
   expect(view.queryByText('Aún no has emitido ninguna factura')).toBeNull();
   expect(billingService.getInvoices).toHaveBeenCalledTimes(1);
+});
+
+it('shows four monetary metrics and comparisons without substituting delivery counts or net collections', async () => {
+  const summary = await billingService.getSummary();
+  jest.mocked(billingService.getSummary).mockResolvedValue({ ...summary, grossThisMonth: 170,
+    totalThisMonth: 150, refundsAwaitingBankDate: 1, pendingCount: 99 });
+  const view = render(<BillingScreen />);
+  await waitFor(() => expect(view.getByText('Cobrado este mes')).toBeTruthy());
+  for (const text of ['€170,00','€60,00','€230,00','2','↗ +70%','↗ +15%']) expect(view.getByText(text)).toBeTruthy();
+  expect(view.queryByText('€150,00')).toBeNull();
+  expect(view.queryByText('99')).toBeNull();
+  expect(view.queryByText('Pendientes de envío')).toBeNull();
+});
+
+it('pending shortcut clears search and pagination and requests the collection filter', async () => {
+  const view = render(<BillingScreen />);
+  await waitFor(() => expect(view.getByText('Cobrado este mes')).toBeTruthy());
+  fireEvent.changeText(view.getByLabelText('Buscar paciente'), 'Ana');
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 350)); });
+  await waitFor(() => expect(billingService.getInvoices).toHaveBeenLastCalledWith({page:1,limit:10,clientName:'Ana'}));
+  fireEvent.press(view.getByLabelText('Ver pendiente de cobro'));
+  await waitFor(() => expect(billingService.getInvoices).toHaveBeenLastCalledWith({page:1,limit:10,collectionStatus:'pending'}));
+  expect(view.getByLabelText('Buscar paciente').props.value).toBe('');
+});
+
+it('pending hook resets to requested page without passing the delivery status', async () => {
+  const { result } = renderHook(useBillingInvoiceList);
+  await act(async () => { await result.current.loadInvoices(3, 'all', ''); });
+  await act(async () => { await result.current.loadInvoices(1, 'pending', ''); });
+  expect(billingService.getInvoices).toHaveBeenLastCalledWith({page:1,limit:10,collectionStatus:'pending'});
+});
+
+it('refreshes existing rows silently and preserves them if the background request fails', async () => {
+  const { result } = renderHook(useBillingInvoiceList);
+  await act(async () => { await result.current.loadInvoices(1, 'all', ''); });
+  let reject: ((reason: Error) => void) | undefined;
+  jest.mocked(billingService.getInvoices).mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
+  let refresh: Promise<void> | undefined;
+  await act(async () => { refresh = result.current.loadInvoices(1, 'all', '', true); });
+  expect(result.current.invoicesLoading).toBe(false);
+  expect(result.current.invoices).toEqual([invoice]);
+  await act(async () => { reject?.(new Error('Sin conexión')); await refresh; });
+  expect(result.current.invoices).toEqual([invoice]);
+  expect(result.current.invoiceListError).toBeNull();
+  expect(result.current.invoiceRefreshError).toBe('Sin conexión');
+  await act(async () => { await result.current.loadInvoices(1, 'all', '', true); });
+  expect(result.current.invoiceRefreshError).toBeNull();
+});
+
+it('does not poll before the first load or compete with a filter change', async () => {
+  const { result } = renderHook(useBillingInvoiceList);
+  await act(async () => { await result.current.loadInvoices(1, 'all', '', true); });
+  expect(billingService.getInvoices).not.toHaveBeenCalled();
+  await act(async () => { await result.current.loadInvoices(1, 'all', ''); });
+  let resolve: ((value: PaginatedInvoices) => void) | undefined;
+  jest.mocked(billingService.getInvoices).mockReturnValueOnce(new Promise(done => { resolve = done; }));
+  let filtered: Promise<void> | undefined;
+  await act(async () => { filtered = result.current.loadInvoices(1, 'pending', ''); });
+  await act(async () => { await result.current.loadInvoices(1, 'all', '', true); });
+  expect(billingService.getInvoices).toHaveBeenCalledTimes(2);
+  await act(async () => { resolve?.(page([])); await filtered; });
+  expect(result.current.invoices).toEqual([]);
+});
+
+it('keeps delivery failure separate from the collection badge', async () => {
+  jest.mocked(billingService.getInvoices).mockResolvedValue(page([{ ...invoice,
+    emailNotifications: [{ recipientKind: 'PATIENT', status: 'FAILED', attemptCount: 1, lastError: 'DELIVERY_FAILED' }],
+  }]));
+  const view = render(<BillingScreen />);
+  await waitFor(() => expect(view.getByText('Entrega pendiente. Revisa o reintenta el envío.')).toBeTruthy());
+  expect(view.getByText('Pendiente')).toBeTruthy();
+  expect(view.getByText('Reintentar entrega')).toBeTruthy();
 });
 
 it('does not wait for a slow summary to display invoices', async () => {
@@ -168,7 +243,29 @@ it('saving the fiscal form unlocks activation and does not overwrite automation 
   fireEvent.press(view.getByLabelText('Guardar datos fiscales'));
   await waitFor(() => expect(view.getByLabelText('Generar facturas automáticamente')).not.toBeDisabled());
   expect(billingService.updateBillingConfig).toHaveBeenCalledWith({ fiscalName: 'QA', fiscalNif: '00000000T',
-    fiscalAddress: 'Dirección sintética', vatRate: 0, applyVat: false, bankIban: '', paymentConditions: '' });
+    vatRate: 0, applyVat: false, bankIban: '', paymentConditions: '' });
+});
+
+it('keeps legacy addresses as a reference and saves structured fields without a competing full address', async () => {
+  const view = render(<BillingScreen />);
+  await waitFor(() => expect(view.getByLabelText('Editar datos fiscales')).toBeTruthy());
+  fireEvent.press(view.getByLabelText('Editar datos fiscales'));
+  expect(view.getByText('Dirección guardada')).toBeTruthy();
+  expect(view.getByText('Dirección sintética')).toBeTruthy();
+  for (const label of ['Calle y número', 'Código postal', 'Ciudad', 'País']) expect(view.getByLabelText(label).props.value).toBe('');
+  fireEvent.changeText(view.getByLabelText('Calle y número'), 'C/ Ejemplo 12');
+  fireEvent.changeText(view.getByLabelText('Código postal'), '08008');
+  fireEvent.changeText(view.getByLabelText('Ciudad'), 'Barcelona');
+  fireEvent.changeText(view.getByLabelText('País'), 'España');
+  fireEvent.press(view.getByLabelText('Guardar datos fiscales'));
+  await waitFor(() => expect(view.getByText('08008 Barcelona')).toBeTruthy());
+  const payload = jest.mocked(billingService.updateBillingConfig).mock.calls.at(-1)?.[0];
+  expect(payload).toEqual(expect.objectContaining({ fiscalStreetAddress: 'C/ Ejemplo 12', fiscalPostalCode: '08008', fiscalCity: 'Barcelona', fiscalCountry: 'España' }));
+  expect(payload).not.toHaveProperty('fiscalAddress');
+  fireEvent.press(view.getByLabelText('Editar datos fiscales'));
+  expect(view.queryByText('Dirección guardada')).toBeNull();
+  expect(view.getByLabelText('Código postal').props.value).toBe('08008');
+  expect(view.getByLabelText('País').props.value).toBe('España');
 });
 
 it('restores the disabled automation setting when the backend rejects activation', async () => {
@@ -211,7 +308,7 @@ it('reloads all invoices on reentry after selecting an empty status filter', asy
   getInvoices.mockResolvedValueOnce(page()).mockResolvedValueOnce(page([])).mockResolvedValue(page());
   const view = render(<BillingScreen />);
   await waitFor(() => expect(view.getByText(invoice.invoiceNumber)).toBeTruthy());
-  fireEvent.press(view.getByText('Enviadas'));
+  fireEvent.press(view.getByText('Pendientes'));
   await waitFor(() => expect(view.getByText('No hay facturas que coincidan con estos filtros')).toBeTruthy());
   mockIsFocused = false;
   view.rerender(<BillingScreen />);
@@ -251,12 +348,12 @@ it('keeps generation, sending and email copy as independent choices', async () =
   const view = render(<BillingScreen />);
   await waitFor(() => expect(view.getByLabelText('Generar facturas automáticamente')).toBeTruthy());
   expect(view.getByLabelText('Generar facturas automáticamente').props.value).toBe(true);
-  expect(view.getByLabelText('Enviar al cliente automáticamente').props.value).toBe(false);
+  expect(view.getByLabelText('Enviar al paciente automáticamente').props.value).toBe(false);
   expect(view.getByLabelText('Copia de factura por email').props.value).toBe(false);
   fireEvent(view.getByLabelText('Copia de factura por email'), 'valueChange', true);
   await waitFor(() => expect(billingService.updateBillingConfig).toHaveBeenCalledWith({ sendInvoiceCopyTo: 'qa@example.invalid' }));
   await waitFor(() => expect(view.getByLabelText('Copia de factura por email')).not.toBeDisabled());
-  expect(view.getByLabelText('Enviar al cliente automáticamente').props.value).toBe(false);
-  fireEvent(view.getByLabelText('Enviar al cliente automáticamente'), 'valueChange', true);
+  expect(view.getByLabelText('Enviar al paciente automáticamente').props.value).toBe(false);
+  fireEvent(view.getByLabelText('Enviar al paciente automáticamente'), 'valueChange', true);
   await waitFor(() => expect(billingService.updateBillingConfig).toHaveBeenCalledWith({ autoSendToClient: true }));
 });
