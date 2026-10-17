@@ -924,6 +924,7 @@ export function ProfessionalSessionsScreen() {
         onChangeStatus={setStatusFilter}
         onResetFilters={resetFilters}
         onPickDate={() => setDatePickerVisible(true)}
+        googleCalendarStatus={agenda.googleCalendarStatus}
         onGoogleCalendar={() => navigateProfessionalSection(navigation, 'ProfessionalProfile', { initialTab: 'google' })}
         onSettings={(anchor) => { setSettingsAnchor(anchor); setSettingsVisible(true); }}
         isMobile={isMobile}

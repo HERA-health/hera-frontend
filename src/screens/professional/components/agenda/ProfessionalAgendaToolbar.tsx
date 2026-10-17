@@ -6,6 +6,7 @@ import type { AnimatedPressableHandle } from '../../../../components/common/Anim
 import { TourTarget } from '../../../../components/onboarding/TourTarget';
 import type { SessionViewMode } from '../../../../constants/types';
 import { useTheme } from '../../../../contexts/ThemeContext';
+import type { GoogleCalendarStatus } from '../../../../services/googleCalendarService';
 import { formatMadridInstant } from '../../../../utils/madridTime';
 import { type AgendaOriginFilter, type AgendaStatusFilter, ORIGIN_FILTER_OPTIONS, STATUS_FILTER_OPTIONS, VIEW_OPTIONS, capitalizeFirst } from './professionalAgendaUtils';
 
@@ -28,6 +29,7 @@ interface Props {
   onNavigateDate: (direction: number) => void;
   onGoToToday: () => void;
   onPickDate: () => void;
+  googleCalendarStatus?: GoogleCalendarStatus | null;
   onGoogleCalendar: () => void;
   onSettings: (anchor: { x: number; y: number }) => void;
 }
@@ -46,6 +48,16 @@ export function ProfessionalAgendaToolbar(props: Props) {
       : `${formatMadridInstant(props.weekDays[0], { day: 'numeric', month: 'short' })} – ${formatMadridInstant(props.weekDays[6], { day: 'numeric', month: 'short', year: 'numeric' })}`;
   const text = { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 14 };
   const button = [styles.button, { backgroundColor: theme.bgCard, borderColor: theme.border }];
+  const calendarStatus = props.googleCalendarStatus;
+  const calendarNeedsAttention = calendarStatus?.status === 'REAUTH_REQUIRED'
+    || Boolean(calendarStatus?.privacyUpdateRequired)
+    || calendarStatus?.errorCode === 'CALENDAR_CREDENTIAL_STORAGE_ERROR';
+  const calendarConnected = calendarStatus?.enabled && calendarStatus.status === 'CONNECTED' && !calendarNeedsAttention;
+  const calendarLabel = calendarConnected ? 'Google Calendar · Sincronizado'
+    : calendarNeedsAttention ? 'Revisar Google Calendar'
+    : calendarStatus?.status === 'DISCONNECTING' ? 'Google Calendar · Desconectando…'
+    : calendarStatus?.enabled && calendarStatus.status === 'DISCONNECTED' ? 'Sincronizar con Google Calendar'
+    : 'Google Calendar';
   return <View style={{ backgroundColor: theme.bg, borderBottomWidth: 1, borderColor: theme.borderLight }}>
     <View onLayout={(event) => setToolbarWidth(event.nativeEvent.layout.width)} style={styles.toolbar}>
       <TourTarget id="professional.sessions.date-controls" style={stacked ? { width: '100%' } : styles.side}>
@@ -62,9 +74,10 @@ export function ProfessionalAgendaToolbar(props: Props) {
         </View>
       </TourTarget>
       <View style={{ alignItems: 'center', ...(stacked ? { width: '100%' as const } : { flexShrink: 0 }) }}>
-        <AnimatedPressable onPress={props.onGoogleCalendar} accessibilityLabel="Sincronizar con Google Calendar" accessibilityHint="Abre los ajustes de conexión y sincronización" style={button} hoverLift={false}>
+        <AnimatedPressable onPress={props.onGoogleCalendar} accessibilityLabel={calendarLabel} accessibilityHint="Abre los ajustes de conexión y sincronización" style={[button, calendarConnected && { backgroundColor: theme.successBg }]} hoverLift={false}>
           <Image source={require('../../../../../assets/google-calendar.png')} style={{ width: 20, height: 20 }} accessibilityElementsHidden importantForAccessibility="no" />
-          <Text style={[text, { fontSize: 12 }]}>Sincronizar con Google Calendar</Text>
+          <Text accessibilityLiveRegion="polite" style={[text, { fontSize: 12 }, calendarConnected && { color: theme.success }]}>{calendarLabel}</Text>
+          {calendarConnected ? <Ionicons name="checkmark-circle" size={17} color={theme.success} accessible={false} /> : null}
         </AnimatedPressable>
       </View>
       <View style={[styles.row, stacked ? { width: '100%', justifyContent: 'center' } : [styles.side, { justifyContent: 'flex-end' }]]}>

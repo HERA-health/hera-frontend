@@ -1,14 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { useIsFocused } from '@react-navigation/native';
 import * as professionalService from '../../../../../services/professionalService';
+import { getGoogleCalendarStatus, type GoogleCalendarStatus } from '../../../../../services/googleCalendarService';
 import { useProfessionalAgendaController } from '../useProfessionalAgendaController';
 
 jest.mock('@react-navigation/native', () => {
   const ReactModule = jest.requireActual<typeof React>('react');
+  const useIsFocusedMock = jest.fn(() => true);
   return {
-    useIsFocused: () => true,
-    useFocusEffect: (effect: () => void | (() => void)) => ReactModule.useEffect(effect, [effect]),
+    useIsFocused: useIsFocusedMock,
+    useFocusEffect: (effect: () => void | (() => void)) => {
+      const focused = useIsFocusedMock();
+      ReactModule.useEffect(() => focused ? effect() : undefined, [effect, focused]);
+    },
   };
 });
 
@@ -16,6 +22,12 @@ jest.mock('../../../../../services/professionalService', () => ({
   getAgendaPreferences: jest.fn(),
   getProfessionalAgenda: jest.fn(),
 }));
+jest.mock('../../../../../services/googleCalendarService', () => ({ getGoogleCalendarStatus: jest.fn() }));
+
+const connectedCalendar: GoogleCalendarStatus = {
+  enabled: true, status: 'CONNECTED', email: null, pending: 0, failed: 0,
+  lastSyncedAt: null, errorCode: null, reconciling: false,
+};
 
 const getProfessionalAgendaMock = professionalService.getProfessionalAgenda as jest.MockedFunction<
   typeof professionalService.getProfessionalAgenda
@@ -79,6 +91,8 @@ describe('useProfessionalAgendaController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(useIsFocused).mockReturnValue(true);
+    jest.mocked(getGoogleCalendarStatus).mockResolvedValue(connectedCalendar);
     now = new Date('2026-08-06T08:00:00.000Z').getTime();
     jest.spyOn(Date, 'now').mockImplementation(() => now);
     jest.mocked(AsyncStorage.getItem).mockResolvedValue(null);
@@ -87,6 +101,49 @@ describe('useProfessionalAgendaController', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('refreshes the calendar connection after returning from its settings', async () => {
+    getProfessionalAgendaMock.mockResolvedValue(createAgendaResponse('session'));
+    jest.mocked(getGoogleCalendarStatus)
+      .mockResolvedValueOnce({ ...connectedCalendar, status: 'DISCONNECTED' })
+      .mockResolvedValueOnce(connectedCalendar);
+    const { result, rerender, unmount } = renderHook(() => useProfessionalAgendaController('user-1'));
+    await waitFor(() => expect(result.current.googleCalendarStatus?.status).toBe('DISCONNECTED'));
+
+    jest.mocked(useIsFocused).mockReturnValue(false);
+    rerender({});
+    jest.mocked(useIsFocused).mockReturnValue(true);
+    rerender({});
+
+    await waitFor(() => expect(result.current.googleCalendarStatus?.status).toBe('CONNECTED'));
+    expect(getGoogleCalendarStatus).toHaveBeenCalledTimes(2);
+    unmount();
+  });
+
+  it('leaves the calendar state unknown when its status cannot be loaded', async () => {
+    getProfessionalAgendaMock.mockResolvedValue(createAgendaResponse('session'));
+    jest.mocked(getGoogleCalendarStatus).mockRejectedValueOnce(new Error('Sin conexión'));
+    const { result, unmount } = renderHook(() => useProfessionalAgendaController('user-1'));
+
+    await waitFor(() => expect(result.current.hasLoadedOnce).toBe(true));
+    expect(result.current.googleCalendarStatus).toBeNull();
+    expect(result.current.loadError).toBe(false);
+    unmount();
+  });
+
+  it('ignores an earlier account calendar response', async () => {
+    getProfessionalAgendaMock.mockResolvedValue(createAgendaResponse('session'));
+    const earlier = createDeferred<GoogleCalendarStatus>();
+    jest.mocked(getGoogleCalendarStatus).mockReturnValueOnce(earlier.promise)
+      .mockResolvedValueOnce({ ...connectedCalendar, status: 'DISCONNECTED' });
+    const { result, rerender, unmount } = renderHook(({ id }: { id: string }) => useProfessionalAgendaController(id), { initialProps: { id: 'user-1' } });
+    await waitFor(() => expect(getGoogleCalendarStatus).toHaveBeenCalledTimes(1));
+    rerender({ id: 'user-2' });
+    await waitFor(() => expect(result.current.googleCalendarStatus?.status).toBe('DISCONNECTED'));
+    await act(async () => earlier.resolve(connectedCalendar));
+    expect(result.current.googleCalendarStatus?.status).toBe('DISCONNECTED');
+    unmount();
   });
 
   it.each([true, false])('reuses a pending date after navigating away and back (first resolves first: %s)', async (firstResolvesFirst) => {

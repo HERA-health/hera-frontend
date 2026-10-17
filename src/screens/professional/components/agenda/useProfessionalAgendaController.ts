@@ -6,6 +6,7 @@ import { useRateLimitRecovery } from '../../../../hooks/useGeneralRateLimit';
 import type { ProfessionalSession, SessionViewMode } from '../../../../constants/types';
 import { getErrorMessage } from '../../../../constants/errors';
 import * as professionalService from '../../../../services/professionalService';
+import { getGoogleCalendarStatus, type GoogleCalendarStatus } from '../../../../services/googleCalendarService';
 import { addCalendarDays, calendarDate, filterAgendaSessions, getAgendaCalendarRange, getMonthDays, getWeekDays, mapAgendaItem, toCalendarDateKey, type AgendaOriginFilter, type AgendaStatusFilter } from './professionalAgendaUtils';
 import { sessionIntersectsDay } from './agendaTimeline';
 
@@ -26,6 +27,7 @@ export function useProfessionalAgendaController(userId: string | null, initialVi
   const [statusFilter, setStatusFilter] = useState<AgendaStatusFilter>('ACTIVE');
   const [readyUser, setReadyUser] = useState<string | null>(null);
   const [preferenceError, setPreferenceError] = useState('');
+  const [googleCalendarStatus, setGoogleCalendarStatus] = useState<GoogleCalendarStatus | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loadErrorMessage, setLoadErrorMessage] = useState('');
   const [pendingKey, setPendingKey] = useState<string | null>(null);
@@ -118,6 +120,18 @@ export function useProfessionalAgendaController(userId: string | null, initialVi
     if (focusSeen.current) void loadRef.current(true);
     focusSeen.current = true;
   }, []));
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setGoogleCalendarStatus(null);
+    if (userId) {
+      void getGoogleCalendarStatus().then((status) => {
+        if (active) setGoogleCalendarStatus(status);
+      }).catch(() => {
+        if (active) setGoogleCalendarStatus(null);
+      });
+    }
+    return () => { active = false; };
+  }, [userId]));
   useRateLimitRecovery(isFocused, () => { void loadRef.current(true); }, { reloadsOnFocus: true });
   useEffect(() => {
     alive.current = true;
@@ -153,7 +167,7 @@ export function useProfessionalAgendaController(userId: string | null, initialVi
   return {
     viewMode, setViewMode: changeView, selectedDate, setSelectedDate,
     originFilter, setOriginFilter: changeOrigin, statusFilter, setStatusFilter: changeStatus, resetFilters,
-    preferenceError, sessions, rawSessionCount: rawSessions.length,
+    preferenceError, googleCalendarStatus, sessions, rawSessionCount: rawSessions.length,
     initialLoading: Boolean(userId) && (!hasLoadedOnce && !loadErrorMessage && (readyUser !== userId || isPending)),
     dataReady: Boolean(entry),
     refreshing: hasLoadedOnce && isPending, hasLoadedOnce, loadError: Boolean(loadErrorMessage), loadErrorMessage,
