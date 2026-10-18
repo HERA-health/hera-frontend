@@ -49,7 +49,7 @@ jest.mock('../../../services/billingService', () => ({
 
 const invoice: Invoice = {
   id: 'invoice-qa', specialistId: 'specialist-qa', clientId: 'client-qa', sessionId: 'session-qa',
-  invoiceNumber: 'FS-2026-001', invoiceKind: 'SIMPLIFIED', subtotal: 70, vatRate: 0, vatAmount: 0,
+  invoiceNumber: 'FS-2026-040', invoiceKind: 'SIMPLIFIED', subtotal: 70, vatRate: 0, vatAmount: 0,
   total: 70, ivaIncluded: true, baseImponible: 70, concept: 'Sesión sintética', sessionDate: '2026-10-01T10:00:00Z',
   durationMinutes: 60, status: 'DRAFT', sentAt: null, paidAt: null, internalNotes: null,
   createdAt: '2026-10-01T11:00:00Z', updatedAt: '2026-10-01T11:00:00Z',
@@ -382,4 +382,52 @@ it('preserves legacy payment text when saving unrelated fiscal fields', async ()
   expect(view.getByText('Transferencia a 30 días')).toBeTruthy();
   fireEvent.press(view.getByLabelText('Guardar datos fiscales'));
   await waitFor(() => expect(billingService.updateBillingConfig).toHaveBeenCalledWith(expect.objectContaining({ paymentConditions: 'Transferencia a 30 días', bankIban: 'LEGACY-IBAN', paymentInstructions: '' })));
+});
+
+
+it('explains numbering and previews both series while editing without saving automatically', async () => {
+  const year = new Date().getFullYear();
+  const view = render(<BillingScreen />);
+  await waitFor(() => expect(view.getByLabelText('Editar numeración')).toBeTruthy());
+  expect(view.queryByText('Cómo leer una factura · ejemplo')).toBeNull();
+  expect(view.queryByLabelText('Prefijo de factura simplificada')).toBeNull();
+  expect(view.getByLabelText(`Siguiente factura simplificada: FS-${year}-001`)).toBeTruthy();
+  fireEvent.press(view.getByLabelText('Editar numeración'));
+  fireEvent.changeText(view.getByLabelText('Prefijo de factura simplificada'), 'era');
+  fireEvent.changeText(view.getByLabelText('Siguiente número de factura simplificada'), '9');
+  expect(view.getByLabelText(`Vista previa simplificada: ERA-${year}-009`)).toBeTruthy();
+  expect(view.getByLabelText(`Vista previa completa: F-${year}-001`)).toBeTruthy();
+  expect(billingService.updateBillingConfig).not.toHaveBeenCalled();
+  fireEvent.press(view.getByLabelText('Cancelar edición de numeración'));
+  expect(view.getByLabelText(`Siguiente factura simplificada: FS-${year}-001`)).toBeTruthy();
+  expect(view.queryByText('Cómo leer una factura · ejemplo')).toBeNull();
+});
+
+it('saves numbering through the existing contract and rejects duplicate series', async () => {
+  const view = render(<BillingScreen />);
+  await waitFor(() => expect(view.getByLabelText('Editar numeración')).toBeTruthy());
+  fireEvent.press(view.getByLabelText('Editar numeración'));
+  fireEvent.changeText(view.getByLabelText('Prefijo de factura simplificada'), 'F');
+  expect(view.getByLabelText('Guardar numeración')).toBeDisabled();
+  fireEvent.changeText(view.getByLabelText('Prefijo de factura simplificada'), 'ERA');
+  fireEvent.changeText(view.getByLabelText('Siguiente número de factura simplificada'), '296');
+  expect(view.getByLabelText('Guardar numeración')).not.toBeDisabled();
+  await act(async () => { fireEvent.press(view.getByLabelText('Guardar numeración')); });
+  expect(billingService.updateBillingConfig).toHaveBeenCalled();
+  await waitFor(() => expect(view.queryByLabelText('Guardar numeración')).toBeNull());
+  expect(billingService.updateBillingConfig).toHaveBeenCalledWith({ simplifiedInvoicePrefix: 'ERA', simplifiedInvoiceNextNumber: 296, fullInvoicePrefix: 'F', fullInvoiceNextNumber: 1 });
+});
+
+
+it('keeps the numbering modal open on save failure and allows dismissal without changing the summary', async () => {
+  jest.mocked(billingService.updateBillingConfig).mockRejectedValueOnce(new Error('No se pudo guardar'));
+  const view = render(<BillingScreen />);
+  await waitFor(() => expect(view.getByLabelText('Editar numeración')).toBeTruthy());
+  fireEvent.press(view.getByLabelText('Editar numeración'));
+  fireEvent.changeText(view.getByLabelText('Prefijo de factura simplificada'), 'NEW');
+  fireEvent.press(view.getByLabelText('Guardar numeración'));
+  await waitFor(() => expect(view.getByText('No se pudo guardar')).toBeTruthy());
+  fireEvent.press(view.getByLabelText('Cerrar formulario'));
+  expect(view.queryByLabelText('Guardar numeración')).toBeNull();
+  expect(view.getByLabelText(`Siguiente factura simplificada: FS-${new Date().getFullYear()}-001`)).toBeTruthy();
 });

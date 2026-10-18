@@ -1,3 +1,4 @@
+import { FocusedActionSheet } from '../../components/finance/FocusedActionSheet';
 import { useBillingRefresh } from '../../hooks/useBillingRefresh';
 import { SESSION_PAYMENTS_VISIBLE } from '../../config/sessionPayments';
 import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
@@ -58,7 +59,7 @@ const STRINGS = {
   invoiceHistory: 'Historial de facturas',
   tariffs: 'Tarifas',
   fiscalData: 'Datos fiscales',
-  numbering: 'Numeración',
+  numbering: 'Numeración de facturas',
   automation: 'Automatización',
   edit: 'Editar',
   save: 'Guardar',
@@ -1304,108 +1305,109 @@ export function BillingScreen() {
     </TourTarget>
   );
 
-  const renderNumberingCard = () => {
-    const simplifiedPrefix = billingConfig.simplifiedInvoicePrefix || 'FS';
-    const simplifiedNext = billingConfig.simplifiedInvoiceNextNumber || 1;
-    const fullPrefix = billingConfig.fullInvoicePrefix || billingConfig.invoicePrefix || 'F';
-    const fullNext = billingConfig.fullInvoiceNextNumber || billingConfig.invoiceNextNumber || 1;
+  const renderNumberingCard = (modal = false) => {
+    const saved = {
+      simplifiedInvoicePrefix: billingConfig.simplifiedInvoicePrefix || 'FS',
+      simplifiedInvoiceNextNumber: billingConfig.simplifiedInvoiceNextNumber || 1,
+      fullInvoicePrefix: billingConfig.fullInvoicePrefix || billingConfig.invoicePrefix || 'F',
+      fullInvoiceNextNumber: billingConfig.fullInvoiceNextNumber || billingConfig.invoiceNextNumber || 1,
+    };
+    const values = editingNumbering ? tempNumbering : saved;
     const year = new Date().getFullYear();
-    const simplifiedPreview = `${simplifiedPrefix}-${year}-${String(simplifiedNext).padStart(3, '0')}`;
-    const fullPreview = `${fullPrefix}-${year}-${String(fullNext).padStart(3, '0')}`;
-    const editingSimplifiedPrefix = normalizeInvoicePrefixInput(tempNumbering.simplifiedInvoicePrefix || 'FS');
-    const editingFullPrefix = normalizeInvoicePrefixInput(tempNumbering.fullInvoicePrefix || 'F');
-    const hasDuplicatedSeries = editingNumbering && editingSimplifiedPrefix === editingFullPrefix;
+    const hasDuplicatedSeries = editingNumbering
+      && normalizeInvoicePrefixInput(values.simplifiedInvoicePrefix || 'FS') === normalizeInvoicePrefixInput(values.fullInvoicePrefix || 'F');
     const visibleNumberingError = hasDuplicatedSeries
-      ? 'Las facturas completas y simplificadas deben usar prefijos distintos.'
-      : numberingError;
-    const isNumberingSaveDisabled = savingConfig || hasDuplicatedSeries;
+      ? 'Las facturas completas y simplificadas deben usar prefijos distintos.' : numberingError;
+    const series = [
+      { label: 'Simplificada', prefixKey: 'simplifiedInvoicePrefix', numberKey: 'simplifiedInvoiceNextNumber', fallback: 'FS' },
+      { label: 'Completa', prefixKey: 'fullInvoicePrefix', numberKey: 'fullInvoiceNextNumber', fallback: 'F' },
+    ] as const;
 
-    return (
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>{STRINGS.numbering}</Text>
-          <TouchableOpacity
-            onPress={() => {
-              setTempNumbering({
-                simplifiedInvoicePrefix: simplifiedPrefix,
-                simplifiedInvoiceNextNumber: simplifiedNext,
-                fullInvoicePrefix: fullPrefix,
-                fullInvoiceNextNumber: fullNext,
-              });
-              setNumberingError(null);
-              setEditingNumbering(!editingNumbering);
-            }}
-          >
-            <Text style={styles.editBtn}>{editingNumbering ? STRINGS.cancel : STRINGS.edit}</Text>
+    const closeNumbering = () => {
+      if (savingConfig) return;
+      setEditingNumbering(false);
+      setNumberingError(null);
+    };
+    if (!modal) return (
+      <View style={[styles.card, styles.numberingCompactCard]}>
+        <View style={styles.numberingCompactHeader}>
+          <Text style={styles.numberingCompactTitle}>Numeración</Text>
+          <TouchableOpacity accessibilityLabel="Editar numeración" onPress={() => {
+            setTempNumbering(saved);
+            setNumberingError(null);
+            setEditingNumbering(true);
+          }} style={styles.numberingEditButton}>
+            <Text style={styles.editBtn}>Editar</Text>
           </TouchableOpacity>
         </View>
-        {editingNumbering ? (
-          <View style={styles.editForm}>
-            <Text style={styles.fieldLabel}>Serie simplificada · prefijo</Text>
-            <TextInput
-              style={[styles.input, hasDuplicatedSeries && styles.inputError, { maxWidth: 100 }]}
-              value={tempNumbering.simplifiedInvoicePrefix}
-              onChangeText={(v) =>
-                setTempNumbering((n) => ({
-                  ...n,
-                  simplifiedInvoicePrefix: normalizeInvoicePrefixInput(v),
-                }))
-              }
-              maxLength={10}
-              autoCapitalize="characters"
-            />
-            <Text style={styles.fieldLabel}>Serie simplificada · siguiente número</Text>
-            <TextInput
-              style={[styles.input, { maxWidth: 120 }]}
-              value={String(tempNumbering.simplifiedInvoiceNextNumber)}
-              onChangeText={(v) =>
-                setTempNumbering((n) => ({ ...n, simplifiedInvoiceNextNumber: parseInt(v, 10) || 1 }))
-              }
-              keyboardType="numeric"
-            />
-            <Text style={styles.fieldLabel}>Serie completa · prefijo</Text>
-            <TextInput
-              style={[styles.input, hasDuplicatedSeries && styles.inputError, { maxWidth: 100 }]}
-              value={tempNumbering.fullInvoicePrefix}
-              onChangeText={(v) =>
-                setTempNumbering((n) => ({
-                  ...n,
-                  fullInvoicePrefix: normalizeInvoicePrefixInput(v),
-                }))
-              }
-              maxLength={10}
-              autoCapitalize="characters"
-            />
-            <Text style={styles.fieldLabel}>Serie completa · siguiente número</Text>
-            <TextInput
-              style={[styles.input, { maxWidth: 120 }]}
-              value={String(tempNumbering.fullInvoiceNextNumber)}
-              onChangeText={(v) =>
-                setTempNumbering((n) => ({ ...n, fullInvoiceNextNumber: parseInt(v, 10) || 1 }))
-              }
-              keyboardType="numeric"
-            />
-            <Text style={styles.configHint}>{STRINGS.adjustNote}</Text>
-            {visibleNumberingError ? (
-              <Text style={styles.inlineError}>{visibleNumberingError}</Text>
-            ) : null}
-            <TouchableOpacity
-              style={[styles.saveBtn, isNumberingSaveDisabled && styles.saveBtnDisabled]}
-              onPress={handleSaveNumbering}
-              disabled={isNumberingSaveDisabled}
-            >
-              {savingConfig ? <ActivityIndicator size="small" color={colors.neutral.white} /> : (
-                <Text style={styles.saveBtnText}>{STRINGS.save}</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View>
-            <Text style={styles.configValue}>Simplificada: {simplifiedPreview}</Text>
-            <Text style={styles.configDetail}>Completa: {fullPreview}</Text>
-          </View>
-        )}
+        <View style={styles.numberingCompactCodes}>
+          {series.map(({ label, prefixKey, numberKey }) => <View key={prefixKey} style={styles.numberingCompactSeries}>
+            <Text style={styles.numberingPartLabel}>{label}</Text>
+            <Text style={styles.numberingCompactCode} accessibilityLabel={`Siguiente factura ${label.toLowerCase()}: ${saved[prefixKey]}-${year}-${String(saved[numberKey]).padStart(3, '0')}`}>
+              {saved[prefixKey]}-{year}-{String(saved[numberKey]).padStart(3, '0')}
+            </Text>
+          </View>)}
+        </View>
       </View>
+    );
+    return (
+      <FocusedActionSheet visible title="Numeración de facturas" description="Personaliza el prefijo y el siguiente número de cada serie." onClose={closeNumbering}>
+        <View style={styles.numberingExample}>
+          <Text style={styles.numberingEyebrow}>Cómo leer una factura · ejemplo</Text>
+          <Text style={styles.numberingCode}>F-{year}-296</Text>
+          <View style={styles.numberingParts}>
+            {[
+              { value: 'F', label: 'Prefijo' },
+              { value: String(year), label: 'Año automático' },
+              { value: '296', label: 'Número de factura' },
+            ].map(part => <View key={part.label} style={styles.numberingPart}>
+              <Text style={styles.numberingPartValue}>{part.value}</Text>
+              <Text style={styles.numberingPartLabel}>{part.label}</Text>
+            </View>)}
+          </View>
+
+        </View>
+        <Text style={styles.numberingSectionTitle}>Tus próximas facturas</Text>
+        <View style={styles.numberingSeriesList}>
+          {series.map(({ label, prefixKey, numberKey, fallback }) => {
+            const prefix = normalizeInvoicePrefixInput(values[prefixKey] || fallback);
+            const next = values[numberKey];
+            const preview = `${prefix}-${year}-${String(next).padStart(3, '0')}`;
+            return <View key={prefixKey} style={styles.numberingSeries}>
+              <Text style={styles.numberingSeriesTitle}>{label}</Text>
+              <Text style={styles.numberingPreview} accessibilityLabel={`Vista previa ${label.toLowerCase()}: ${preview}`}>{preview}</Text>
+              {editingNumbering && <View style={styles.numberingFields}>
+                <View style={styles.numberingField}>
+                  <Text style={styles.fieldLabel}>Prefijo</Text>
+                  <TextInput accessibilityLabel={`Prefijo de factura ${label.toLowerCase()}`}
+                    style={[styles.input, styles.numberingInput, hasDuplicatedSeries && styles.inputError]}
+                    value={values[prefixKey]} editable={!savingConfig}
+                    onChangeText={value => setTempNumbering(previous => ({ ...previous, [prefixKey]: normalizeInvoicePrefixInput(value) }))}
+                    maxLength={10} autoCapitalize="characters" />
+                </View>
+                <View style={styles.numberingField}>
+                  <Text style={styles.fieldLabel}>Siguiente número</Text>
+                  <TextInput accessibilityLabel={`Siguiente número de factura ${label.toLowerCase()}`}
+                    style={[styles.input, styles.numberingInput]} value={String(next)} editable={!savingConfig}
+                    onChangeText={value => setTempNumbering(previous => ({ ...previous, [numberKey]: parseInt(value, 10) || 1 }))}
+                    keyboardType="numeric" />
+                </View>
+              </View>}
+            </View>;
+          })}
+        </View>
+        <Text style={styles.numberingHelp}>El año es automático. Cada serie avanza por separado y omite los números ya utilizados.</Text>
+        {editingNumbering && <>
+          <Text style={styles.numberingHelp}>Si vienes de otro sistema, continúa desde tu siguiente número. Las facturas ya creadas no cambian.</Text>
+          {visibleNumberingError && <Text accessibilityRole="alert" style={styles.inlineError}>{visibleNumberingError}</Text>}
+          <View style={styles.numberingActions}>
+            <Button variant="outline" accessibilityLabel="Cancelar edición de numeración" onPress={closeNumbering} disabled={savingConfig}>Cancelar</Button>
+            <Button accessibilityLabel="Guardar numeración" onPress={handleSaveNumbering} disabled={savingConfig || hasDuplicatedSeries}>
+              {savingConfig ? 'Guardando…' : 'Guardar cambios'}
+            </Button>
+          </View>
+        </>}
+      </FocusedActionSheet>
     );
   };
 
@@ -1485,7 +1487,7 @@ export function BillingScreen() {
         )}
       </View>
     );
-    return <>{renderAutomationCard()}{renderFiscalCard()}{renderInvoiceDesignCard()}{renderNumberingCard()}</>;
+    return <>{isDesktop && renderNumberingCard()}{renderAutomationCard()}{renderFiscalCard()}{renderInvoiceDesignCard()}</>;
   };
 
   // ── Portal menu ─────────────────────────────────────────────
@@ -1522,11 +1524,14 @@ export function BillingScreen() {
           </View>
         ) : (
           <View onLayout={event => { invoiceSectionOffset.current = event.nativeEvent.layout.y; }}>
+            {isConfigLoaded && renderNumberingCard()}
             {renderInvoiceList()}
             {renderBillingConfiguration()}
           </View>
         )}
       </VisibleScrollView>
+
+      {editingNumbering && renderNumberingCard(true)}
 
       {/* Portal: three-dot menu rendered at root level */}
       {openMenuId && portalMenuOptions.length > 0 && (
@@ -1931,6 +1936,31 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean, isMobil
     textAlign: 'center',
     maxWidth: 300,
   },
+
+  numberingCompactCard: { paddingVertical: spacing.sm },
+  numberingCompactHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  numberingCompactTitle: { fontFamily: theme.fontSansSemiBold, fontSize: typography.fontSizes.md, color: theme.textPrimary },
+  numberingEditButton: { minHeight: touchTarget.minHeight, minWidth: touchTarget.minWidth, alignItems: 'flex-end', justifyContent: 'center' },
+  numberingCompactCodes: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingBottom: spacing.sm },
+  numberingCompactSeries: { flex: 1, minWidth: 110, gap: spacing.xs },
+  numberingCompactCode: { fontFamily: theme.fontSansSemiBold, fontSize: typography.fontSizes.sm, color: theme.textPrimary, flexShrink: 1 },
+  numberingActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: spacing.sm },
+  numberingExample: { backgroundColor: theme.surfaceMuted, borderRadius: borderRadius.md, padding: spacing.md, gap: spacing.sm },
+  numberingEyebrow: { fontFamily: theme.fontSansSemiBold, fontSize: typography.fontSizes.xs, color: theme.textSecondary },
+  numberingCode: { fontFamily: theme.fontSansBold, fontSize: typography.fontSizes.xxl, color: theme.textPrimary },
+  numberingParts: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, paddingVertical: spacing.xs },
+  numberingPart: { flexGrow: 1, flexBasis: 70, gap: spacing.xs },
+  numberingPartValue: { fontFamily: theme.fontSansSemiBold, fontSize: typography.fontSizes.md, color: theme.textPrimary },
+  numberingPartLabel: { fontFamily: theme.fontSans, fontSize: typography.fontSizes.xs, color: theme.textSecondary },
+  numberingSectionTitle: { fontFamily: theme.fontSansSemiBold, fontSize: typography.fontSizes.md, color: theme.textPrimary, marginTop: spacing.xs },
+  numberingSeriesList: { gap: spacing.lg, marginBottom: spacing.md },
+  numberingSeries: { gap: spacing.xs, paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: theme.border },
+  numberingSeriesTitle: { fontFamily: theme.fontSansSemiBold, fontSize: typography.fontSizes.sm, color: theme.textPrimary },
+  numberingPreview: { fontFamily: theme.fontSansBold, fontSize: typography.fontSizes.lg, color: theme.primary, flexShrink: 1 },
+  numberingHelp: { fontFamily: theme.fontSans, fontSize: typography.fontSizes.xs, lineHeight: 18, color: theme.textSecondary, marginTop: spacing.xs },
+  numberingFields: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.sm },
+  numberingInput: { minHeight: touchTarget.minHeight },
+  numberingField: { flexGrow: 1, flexBasis: 120 },
 
   // Edit form
   editForm: {
