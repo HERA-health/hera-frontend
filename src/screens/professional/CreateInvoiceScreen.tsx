@@ -1,3 +1,4 @@
+import { paymentMethodOptions, readInvoicePayment, legacyPaymentLabel } from '../../utils/invoicePayment';
 import { getProfessionalSessionDetail } from '../../services/professionalService';
 import { navigateProfessionalSection } from '../../navigation/professionalNavigation';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -98,7 +99,7 @@ const STRINGS = {
   additionalSection: 'Información adicional',
   internalNotes: 'Notas internas',
   internalNotesHint: 'Solo visible para ti',
-  paymentConditions: 'Condiciones de pago',
+  paymentConditions: 'Métodos de pago',
   summaryTitle: 'Resumen',
   invoiceNumber: 'N.º de factura',
   issueDate: 'Fecha de emisión',
@@ -235,6 +236,7 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
   const [lineItems, setLineItems] = useState<LineItem[]>([createDefaultLineItem()]);
   const [internalNotes, setInternalNotes] = useState('');
   const [paymentConditions, setPaymentConditions] = useState('');
+  const [paymentInstructions, setPaymentInstructions] = useState('');
   const [issueDate, setIssueDate] = useState(formatDateForDisplay(new Date()));
   const [ivaIncluded, setIvaIncluded] = useState(true);
   const [invoiceNumberPreview, setInvoiceNumberPreview] = useState('');
@@ -375,15 +377,19 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
       }
 
       // Pre-fill from config
-      if (config.paymentConditions) {
-        setPaymentConditions(config.paymentConditions);
-      }
+      const defaultPayment = readInvoicePayment(config.paymentConditions, config.paymentInstructions);
+      setPaymentConditions(defaultPayment.method);
+      setPaymentInstructions(defaultPayment.instructions);
 
       // If editing, load existing invoice data
       if (invoiceId) {
         try {
           const existing = await billingService.getInvoice(invoiceId);
           setSelectedClientId(existing.clientId);
+          const savedPayment = readInvoicePayment(existing.issuerPaymentConditions ?? config.paymentConditions,
+            existing.issuerPaymentInstructions ?? config.paymentInstructions);
+          setPaymentConditions(savedPayment.method);
+          setPaymentInstructions(savedPayment.instructions);
           setIvaIncluded(existing.ivaIncluded);
           setInvoiceKind(existing.invoiceKind);
           setInvoiceNumberPreview(existing.invoiceNumber);
@@ -610,6 +616,8 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
             ivaIncluded,
             baseImponible: ivaCalculation.baseImponible,
             internalNotes: internalNotes || undefined,
+            paymentConditions,
+            paymentInstructions,
           };
           invoice = await billingService.updateInvoice(invoiceId, updateData);
         } else {
@@ -627,6 +635,8 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
             ivaIncluded,
             baseImponible: ivaCalculation.baseImponible,
             internalNotes: internalNotes || undefined,
+            paymentConditions,
+            paymentInstructions,
           };
           invoice = await billingService.createInvoice(createData);
         }
@@ -662,6 +672,8 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
       navigateAfterSave,
       sessionContext,
       internalNotes,
+      paymentConditions,
+      paymentInstructions,
       invoiceKind,
       specialistBillingReady,
       clientBillingReady,
@@ -1026,14 +1038,14 @@ export const CreateInvoiceScreen: React.FC<CreateInvoiceScreenProps> = ({
       />
 
       <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>{STRINGS.paymentConditions}</Text>
-      <TextInput
-        style={[styles.textArea, styles.textAreaSmall]}
-        value={paymentConditions}
-        onChangeText={setPaymentConditions}
-        multiline
-        textAlignVertical="top"
-        placeholderTextColor={theme.textMuted}
-      />
+      <SimpleDropdown triggerLabel={legacyPaymentLabel(paymentConditions)} options={paymentMethodOptions} value={paymentConditions || null}
+        onSelect={setPaymentConditions} accessibilityLabel={STRINGS.paymentConditions} presentation="portal" keyboardNavigation />
+      <Text style={styles.fieldHint}>El método y las instrucciones aparecerán en la factura que recibe el paciente.</Text>
+      <Text style={styles.fieldLabel}>Instrucciones de pago (opcional)</Text>
+      <TextInput accessibilityLabel="Instrucciones de pago" style={[styles.textArea, styles.textAreaSmall]}
+        value={paymentInstructions} onChangeText={setPaymentInstructions} maxLength={500}
+        multiline textAlignVertical="top" placeholder="Teléfono de Bizum, correo de PayPal u otras indicaciones para pagar"
+        placeholderTextColor={theme.textMuted} />
     </View>
   );
 

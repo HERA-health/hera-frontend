@@ -30,6 +30,7 @@ import {
   useProfessionalTourStepPreparation,
 } from '../../components/onboarding/professionalTourContext';
 import { useProfessionalTourScrollPreparation } from '../../components/onboarding/useProfessionalTourScrollPreparation';
+import { paymentMethodOptions, readInvoicePayment, legacyPaymentLabel } from '../../utils/invoicePayment';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -77,7 +78,7 @@ const STRINGS = {
   logo: 'Logo factura',
   addLogo: '+ Logo',
   bankAccount: 'IBAN',
-  paymentConditions: 'Condiciones de pago',
+  paymentConditions: 'Métodos de pago',
   invoicePrefix: 'Prefijo',
   nextNumber: 'Siguiente número',
   previewFormat: 'Formato: ',
@@ -457,7 +458,8 @@ export function BillingScreen() {
         invoiceLogoUrl: s.invoiceLogoUrl || null,
         invoiceAccentColor: s.invoiceAccentColor || DEFAULT_INVOICE_ACCENT_COLOR,
         bankIban: s.bankIban || '',
-        paymentConditions: s.paymentConditions || '',
+        paymentConditions: readInvoicePayment(s.paymentConditions, s.paymentInstructions).method,
+        paymentInstructions: readInvoicePayment(s.paymentConditions, s.paymentInstructions).instructions,
         fiscalName: s.fiscalName || '',
         fiscalAddress: s.fiscalAddress || '',
         fiscalStreetAddress: s.fiscalStreetAddress ?? '',
@@ -674,14 +676,14 @@ export function BillingScreen() {
         fiscalName: tempFiscal.fiscalName, fiscalNif: tempFiscal.fiscalNif,
         ...createFiscalAddressUpdate(tempFiscal, billingConfig),
         vatRate: tempFiscal.vatRate, applyVat: tempFiscal.applyVat,
-        bankIban: tempFiscal.bankIban, paymentConditions: tempFiscal.paymentConditions,
+        bankIban: tempFiscal.bankIban, paymentConditions: tempFiscal.paymentConditions, paymentInstructions: tempFiscal.paymentInstructions,
       });
       setBillingConfig(prev => ({ ...prev, fiscalName: updated.fiscalName ?? '', fiscalNif: updated.fiscalNif ?? '',
         fiscalAddress: updated.fiscalAddress ?? '',
         fiscalStreetAddress: updated.fiscalStreetAddress ?? '', fiscalPostalCode: updated.fiscalPostalCode ?? '',
         fiscalCity: updated.fiscalCity ?? '', fiscalCountry: updated.fiscalCountry ?? '',
         vatRate: updated.vatRate ?? undefined, applyVat: updated.applyVat,
-        bankIban: updated.bankIban ?? '', paymentConditions: updated.paymentConditions ?? '' }));
+        bankIban: updated.bankIban ?? '', paymentConditions: updated.paymentConditions ?? '', paymentInstructions: updated.paymentInstructions ?? '' }));
       setEditingFiscal(false);
       await refreshCompletion();
       showAppAlert(appAlert, 'Éxito', 'Datos fiscales actualizados');
@@ -1230,11 +1232,15 @@ export function BillingScreen() {
         </TouchableOpacity>
       </View>
       {editingFiscal ? (
-        <View style={styles.editForm}>
-          <Text style={styles.fieldLabel}>{STRINGS.fiscalName}</Text>
-          <TextInput accessibilityLabel={STRINGS.fiscalName} style={styles.input} value={tempFiscal.fiscalName || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, fiscalName: v }))} />
-          <Text style={styles.fieldLabel}>{STRINGS.nif}</Text>
-          <TextInput accessibilityLabel={STRINGS.nif} style={styles.input} value={tempFiscal.fiscalNif || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, fiscalNif: v }))} />
+        <View style={[styles.editForm, styles.fiscalForm]}>
+          <View>
+            <Text style={styles.fieldLabel}>{STRINGS.fiscalName}</Text>
+            <TextInput accessibilityLabel={STRINGS.fiscalName} style={styles.input} value={tempFiscal.fiscalName || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, fiscalName: v }))} />
+          </View>
+          <View>
+            <Text style={styles.fieldLabel}>{STRINGS.nif}</Text>
+            <TextInput accessibilityLabel={STRINGS.nif} style={styles.input} value={tempFiscal.fiscalNif || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, fiscalNif: v }))} />
+          </View>
           {!billingConfig.fiscalStreetAddress && billingConfig.fiscalAddress && <View style={styles.legacyFiscalAddress}>
             <Text style={styles.fieldLabel}>Dirección guardada</Text>
             <Text style={styles.configDetail}>{billingConfig.fiscalAddress}</Text>
@@ -1246,17 +1252,28 @@ export function BillingScreen() {
             <TextInput accessibilityLabel={label} style={styles.input} value={tempFiscal[key] ?? ''}
               maxLength={maxLength} onChangeText={value => setTempFiscal(previous => ({ ...previous, [key]: value }))} />
           </View>)}
-          <Text style={styles.fieldLabel}>{STRINGS.vat}</Text>
-          <SimpleDropdown
-            options={VAT_OPTIONS.map((opt) => ({ label: opt.label, value: opt.value }))}
-            value={tempFiscal.vatRate ?? 0}
-            onSelect={(v) => setTempFiscal((f) => ({ ...f, vatRate: v, applyVat: v > 0 }))}
-            placeholder="Seleccionar IVA..."
-          />
-          <Text style={styles.fieldLabel}>{STRINGS.bankAccount}</Text>
-          <TextInput style={styles.input} value={tempFiscal.bankIban || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, bankIban: v }))} />
-          <Text style={styles.fieldLabel}>{STRINGS.paymentConditions}</Text>
-          <TextInput style={styles.input} value={tempFiscal.paymentConditions || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, paymentConditions: v }))} placeholder="Transferencia bancaria" placeholderTextColor={theme.textMuted} />
+          <View>
+            <Text style={styles.fieldLabel}>{STRINGS.vat}</Text>
+            <SimpleDropdown
+              options={VAT_OPTIONS.map((opt) => ({ label: opt.label, value: opt.value }))}
+              value={tempFiscal.vatRate ?? 0}
+              onSelect={(v) => setTempFiscal((f) => ({ ...f, vatRate: v, applyVat: v > 0 }))}
+              placeholder="Seleccionar IVA..."
+            />
+          </View>
+          <View>
+            <Text style={styles.fieldLabel}>{STRINGS.bankAccount}</Text>
+            <TextInput style={styles.input} value={tempFiscal.bankIban || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, bankIban: v }))} />
+          </View>
+          <View>
+            <Text style={styles.fieldLabel}>{STRINGS.paymentConditions}</Text>
+            <SimpleDropdown triggerLabel={legacyPaymentLabel(tempFiscal.paymentConditions)} options={paymentMethodOptions} value={tempFiscal.paymentConditions || null} onSelect={(v) => setTempFiscal((f) => ({ ...f, paymentConditions: v }))} accessibilityLabel={STRINGS.paymentConditions} presentation="portal" keyboardNavigation />
+          </View>
+          <View>
+            <Text style={styles.fieldLabel}>Instrucciones de pago (opcional)</Text>
+            <TextInput accessibilityLabel="Instrucciones de pago" style={[styles.input, styles.paymentInstructionsInput]} textAlignVertical="top" value={tempFiscal.paymentInstructions || ''} onChangeText={(v) => setTempFiscal((f) => ({ ...f, paymentInstructions: v }))} maxLength={500} multiline placeholder="Teléfono de Bizum, correo de PayPal u otras indicaciones para pagar" placeholderTextColor={theme.textMuted} />
+            <Text style={styles.paymentHelp}>Estos datos serán visibles en las nuevas facturas. Puedes cambiarlos al crear cada factura.</Text>
+          </View>
           <TouchableOpacity accessibilityLabel="Guardar datos fiscales" style={styles.saveBtn} onPress={handleSaveFiscal} disabled={savingConfig}>
             {savingConfig ? <ActivityIndicator size="small" color={colors.neutral.white} /> : (
               <Text style={styles.saveBtnText}>{STRINGS.save}</Text>
@@ -1920,6 +1937,9 @@ function createStyles(theme: Theme, isDark: boolean, isDesktop: boolean, isMobil
     gap: spacing.sm,
     overflow: 'visible' as const,
   },
+  fiscalForm: { gap: spacing.md },
+  paymentInstructionsInput: { minHeight: 88, lineHeight: 20, fontFamily: theme.fontSans },
+  paymentHelp: { marginTop: spacing.sm, fontSize: typography.fontSizes.xs, lineHeight: 18, color: theme.textSecondary, fontFamily: theme.fontSans },
   formGroup: {
     marginBottom: spacing.sm,
     zIndex: 100,

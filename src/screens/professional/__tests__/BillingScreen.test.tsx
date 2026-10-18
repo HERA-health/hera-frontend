@@ -1,3 +1,4 @@
+import { SimpleDropdown } from '../../../components/common/SimpleDropdown';
 import React from 'react';
 import { act, fireEvent, render, renderHook, waitFor } from '@testing-library/react-native';
 import { BillingScreen } from '../BillingScreen';
@@ -243,7 +244,7 @@ it('saving the fiscal form unlocks activation and does not overwrite automation 
   fireEvent.press(view.getByLabelText('Guardar datos fiscales'));
   await waitFor(() => expect(view.getByLabelText('Generar facturas automáticamente')).not.toBeDisabled());
   expect(billingService.updateBillingConfig).toHaveBeenCalledWith({ fiscalName: 'QA', fiscalNif: '00000000T',
-    vatRate: 0, applyVat: false, bankIban: '', paymentConditions: '' });
+    vatRate: 0, applyVat: false, bankIban: '', paymentConditions: '', paymentInstructions: '' });
 });
 
 it('keeps legacy addresses as a reference and saves structured fields without a competing full address', async () => {
@@ -356,4 +357,29 @@ it('keeps generation, sending and email copy as independent choices', async () =
   expect(view.getByLabelText('Enviar al paciente automáticamente').props.value).toBe(false);
   fireEvent(view.getByLabelText('Enviar al paciente automáticamente'), 'valueChange', true);
   await waitFor(() => expect(billingService.updateBillingConfig).toHaveBeenCalledWith({ autoSendToClient: true }));
+});
+
+
+it('saves the selected payment method and patient-facing instructions', async () => {
+  const view = render(<BillingScreen />);
+  await waitFor(() => expect(view.getByLabelText('Editar datos fiscales')).toBeTruthy());
+  fireEvent.press(view.getByLabelText('Editar datos fiscales'));
+  const paymentDropdown = view.UNSAFE_getAllByType(SimpleDropdown).find(node => node.props.accessibilityLabel === 'Métodos de pago');
+  if (!paymentDropdown) throw new Error('Payment dropdown missing');
+  fireEvent(paymentDropdown, 'select', 'Bizum');
+  fireEvent.changeText(view.getByLabelText('Instrucciones de pago'), '600000000');
+  fireEvent.press(view.getByLabelText('Guardar datos fiscales'));
+  await waitFor(() => expect(billingService.updateBillingConfig).toHaveBeenCalledWith(expect.objectContaining({ paymentConditions: 'Bizum', paymentInstructions: '600000000' })));
+});
+
+
+it('preserves legacy payment text when saving unrelated fiscal fields', async () => {
+  const config = await billingService.getConfig();
+  jest.mocked(billingService.getConfig).mockResolvedValue({ ...config, paymentConditions: 'Transferencia a 30 días', bankIban: 'LEGACY-IBAN' });
+  const view = render(<BillingScreen />);
+  await waitFor(() => expect(view.getByLabelText('Editar datos fiscales')).toBeTruthy());
+  fireEvent.press(view.getByLabelText('Editar datos fiscales'));
+  expect(view.getByText('Transferencia a 30 días')).toBeTruthy();
+  fireEvent.press(view.getByLabelText('Guardar datos fiscales'));
+  await waitFor(() => expect(billingService.updateBillingConfig).toHaveBeenCalledWith(expect.objectContaining({ paymentConditions: 'Transferencia a 30 días', bankIban: 'LEGACY-IBAN', paymentInstructions: '' })));
 });

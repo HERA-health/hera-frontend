@@ -53,6 +53,8 @@ export interface Invoice {
   sentAt: string | null;
   paidAt: string | null;
   internalNotes: string | null;
+  issuerPaymentConditions?: string | null;
+  issuerPaymentInstructions?: string | null;
   createdAt: string;
   updatedAt: string;
   client: {
@@ -135,6 +137,8 @@ export interface CreateInvoiceData {
   ivaIncluded?: boolean;
   baseImponible?: number;
   internalNotes?: string;
+  paymentConditions?: string;
+  paymentInstructions?: string;
 }
 
 export interface UpdateInvoiceData {
@@ -149,6 +153,8 @@ export interface UpdateInvoiceData {
   ivaIncluded?: boolean;
   baseImponible?: number;
   internalNotes?: string;
+  paymentConditions?: string;
+  paymentInstructions?: string;
 }
 
 export interface BillingConfig {
@@ -164,6 +170,7 @@ export interface BillingConfig {
   invoiceAccentColor?: string | null;
   bankIban?: string;
   paymentConditions?: string;
+  paymentInstructions?: string;
   fiscalName?: string;
   fiscalAddress?: string;
   fiscalStreetAddress?: string;
@@ -214,6 +221,7 @@ export interface SpecialistBillingData {
   invoiceAccentColor: string | null;
   bankIban: string | null;
   paymentConditions: string | null;
+  paymentInstructions?: string | null;
   fiscalName: string | null;
   fiscalAddress: string | null;
   fiscalStreetAddress?: string | null;
@@ -249,6 +257,7 @@ export interface FullBillingConfig {
   invoiceAccentColor: string | null;
   bankIban: string | null;
   paymentConditions: string | null;
+  paymentInstructions?: string | null;
   fiscalName: string | null;
   fiscalAddress: string | null;
   fiscalStreetAddress?: string | null;
