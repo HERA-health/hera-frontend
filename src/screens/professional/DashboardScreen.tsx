@@ -1,1075 +1,209 @@
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '../../contexts/ThemeContext';
+import type { Theme } from '../../constants/theme';
+import { SimpleDropdown } from '../../components/common/SimpleDropdown';
+import { useAppAlertState } from '../../components/common/alert';
+import { TourTarget } from '../../components/onboarding/TourTarget';
+import { useProfessionalTourAutoStart, useProfessionalTourStepPreparation } from '../../components/onboarding/professionalTourContext';
+import { useProfessionalTourScrollPreparation } from '../../components/onboarding/useProfessionalTourScrollPreparation';
 import { useFocusedRateLimitRecovery } from '../../hooks/useGeneralRateLimit';
 import { useBillingRefresh } from '../../hooks/useBillingRefresh';
 import { subscribeProfessionalHomeChanges } from '../../services/dashboardService';
-import React, { useState, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  useWindowDimensions,
-} from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { BarChart, PieChart } from 'react-native-gifted-charts';
-import type { barDataItem } from 'react-native-gifted-charts';
-import { colors, spacing, borderRadius, typography, shadows } from '../../constants/colors';
-import { Theme } from '../../constants/theme';
-import { AnimatedPressable } from '../../components/common';
-import { useAppAlertState } from '../../components/common/alert';
-import { LoadingState } from '../../components/common/LoadingState';
-import { EmptyState } from '../../components/common/EmptyState';
-import { TourTarget } from '../../components/onboarding/TourTarget';
-import {
-  useProfessionalTourAutoStart,
-  useProfessionalTourStepPreparation,
-} from '../../components/onboarding/professionalTourContext';
-import { useProfessionalTourScrollPreparation } from '../../components/onboarding/useProfessionalTourScrollPreparation';
-import { useTheme } from '../../contexts/ThemeContext';
-import { dashboardService, DashboardData, ReviewsMetrics } from '../../services/dashboardService';
-import type { ProfessionalTourTargetId } from '../../components/onboarding/professionalTourTypes';
+import { getStatistics, StatisticsData, StatisticsPeriod } from '../../services/statisticsService';
+import { billingMetricComparison } from './utils/billingMetricComparison';
+import { Meter, MONTHS, money, OriginChart, StatisticsTimeChart } from '../../components/professional/statistics/StatisticsCharts';
 
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const STRINGS = {
-  incomeLabel: 'Cobrado este mes',
-  sessionsLabel: 'Sesiones este mes',
-  patientsLabel: 'Pacientes activos',
-  patientsSubLabel: 'Últimos 90 días',
-  upcomingLabel: 'Próximas sesiones',
-  upcomingSubLabel: 'Esta semana',
-  incomeChartTitle: 'Ingresos mensuales',
-  incomeChartSubtitle: 'Últimos 12 meses',
-  incomeEmpty: 'Sin datos aún',
-  donutTitle: 'Sesiones este mes',
-  donutSubtitle: 'Por estado',
-  donutEmpty: 'Sin sesiones este mes',
-  dayChartTitle: 'Sesiones por día',
-  dayChartSubtitle: 'Últimos 90 días · completadas',
-  dayChartEmpty: 'Sin sesiones registradas',
-  legendCompleted: 'Completadas',
-  legendCancelled: 'Canceladas',
-  legendPending: 'Pendientes',
-  donutCenterLabel: 'Total',
-  placeholderSoon: 'Próximamente',
-  placeholderDesc: 'Reseñas de pacientes',
-  errorDefault: 'No se pudieron cargar los datos',
-  errorLoading: 'Error al cargar el dashboard',
-  retry: 'Reintentar',
-};
-
-const MONTH_NAMES_ES = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-];
-
-const MONTH_LABELS = ['Ene','Feb','Mar','Abr','May','Jun',
-                      'Jul','Ago','Sep','Oct','Nov','Dic'];
-
-// Layout constants
-const KPI_COLUMN_WIDTH = 280;
-const KPI_GAP = 10;
-const CARD_GAP = 12;
-const CARD_BORDER_WIDTH = 0.5;
-const BOTTOM_CARD_MIN_HEIGHT = 220;
-
-// KPI accent line
-const KPI_ACCENT_RADIUS = 2;
-const KPI_ACCENT_MB = 8;
-
-// Legend dot
-const LEGEND_DOT_SIZE = 7;
-
-// Horizontal bar dimensions
-const HBAR_LABEL_WIDTH = 28;
-const HBAR_COUNT_WIDTH = 18;
-const HBAR_HEIGHT = 9;
-const HBAR_RADIUS = 5;
-
-// Font sizes not in the typography scale
-const FONT_CARD_TITLE = 13;
-const FONT_CARD_SUB = 11;
-const FONT_AXIS = 8;
-const FONT_DONUT_CENTER_LABEL = 8;
-const FONT_PLACEHOLDER_TITLE = 11;
-const FONT_PLACEHOLDER_DESC = 10;
-const FONT_HBAR_LABEL = 11;
-const FONT_HBAR_COUNT = 10;
-
-// Spacing values not in the spacing scale
-const CARD_HEADER_MB = 14;
-const LEGEND_PV = 6;
-const PLACEHOLDER_GAP = 6;
-const EMPTY_PV = 32;
-const PLACEHOLDER_ICON_SIZE = 20;
-const DONUT_CENTER_VALUE_SIZE = 16;
-
-// ============================================================================
-// HELPERS
-// ============================================================================
-
-const formatCurrency = (amount: number): string => {
-  return `€${amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-};
-
-const getCurrentMonthLabel = (): string => {
-  const now = new Date();
-  return `${MONTH_NAMES_ES[now.getMonth()]} ${now.getFullYear()}`;
-};
-
-// ============================================================================
-// CHART COLORS
-// ============================================================================
-
-const getChartColors = (theme: Theme) => ({
-  completed: theme.primary,
-  cancelled: theme.primaryLight,
-  pending: theme.secondary,
-  mutedBar: theme.primaryMuted,
-  dayBars: theme.secondaryLight,
-});
-
-const getKpiAccents = (theme: Theme) => ({
-  income: theme.primary,
-  sessions: theme.secondary,
-  patients: theme.primaryLight,
-  upcoming: theme.secondaryLight,
-});
-
-// ============================================================================
-// SUB-COMPONENTS
-// ============================================================================
-
-interface KpiCardProps {
-  value: string;
-  label: string;
-  sublabel: string;
-  accentColor: string;
-  valueColor?: string;
-  styles: ReturnType<typeof createStyles>;
+export function currentStatisticsMonth(): { year: number; month: number } {
+  const parts = new Intl.DateTimeFormat('en', { timeZone: 'Europe/Madrid', year: 'numeric', month: 'numeric' }).formatToParts(new Date());
+  return { year: Number(parts.find(p => p.type === 'year')?.value), month: Number(parts.find(p => p.type === 'month')?.value) };
 }
 
-const KpiCard: React.FC<KpiCardProps> = ({ value, label, sublabel, accentColor, valueColor, styles }) => (
-  <>
-    <View style={[styles.kpiAccent, { backgroundColor: accentColor }]} />
-    <Text style={[styles.kpiValue, valueColor ? { color: valueColor } : undefined]} numberOfLines={1}>
-      {value}
-    </Text>
-    <Text style={styles.kpiLabel} numberOfLines={1}>{label}</Text>
-    <Text style={styles.kpiSub} numberOfLines={1}>{sublabel}</Text>
-  </>
-);
-
-interface LegendRowProps {
-  color: string;
-  label: string;
-  count: number;
-  isLast: boolean;
-  styles: ReturnType<typeof createStyles>;
+function Control({ label, children, onPress, disabled = false, selected = false }: {
+  label: string; children: React.ReactNode; onPress: () => void; disabled?: boolean; selected?: boolean;
+}) {
+  const { theme } = useTheme();
+  const [focused, setFocused] = useState(false);
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled, selected }} disabled={disabled}
+    onPress={onPress} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+    style={{ minWidth: 40, minHeight: 40, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center', borderRadius: 7,
+      backgroundColor: selected ? theme.actionPrimary : 'transparent', borderWidth: 2, borderColor: focused ? theme.focus : 'transparent', opacity: disabled ? .35 : 1 }}>
+    {typeof children === 'string' ? <Text style={{ fontSize: 13, color: selected ? theme.actionPrimaryText : theme.textPrimary, fontFamily: theme.fontSansMedium }}>{children}</Text> : children}
+  </Pressable>;
 }
 
-const LegendRow: React.FC<LegendRowProps> = ({ color, label, count, isLast, styles }) => (
-  <>
-    <View style={styles.legendRow}>
-      <View style={[styles.legendDot, { backgroundColor: color }]} />
-      <Text style={styles.legendLabel}>{label}</Text>
-      <Text style={styles.legendCount}>{count}</Text>
-    </View>
-    {!isLast && <View style={styles.legendDivider} />}
-  </>
-);
-
-interface HBarRowProps {
-  label: string;
-  count: number;
-  maxValue: number;
-  styles: ReturnType<typeof createStyles>;
-  fillColor: string;
+function Panel({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+  const { theme } = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  return <View style={styles.panel}>
+    <View style={styles.panelHeader}><Text accessibilityRole="header" style={styles.panelTitle}>{title}</Text>{subtitle && <Text style={styles.caption}>{subtitle}</Text>}</View>
+    {children}
+  </View>;
 }
-
-const HBarRow: React.FC<HBarRowProps> = ({ label, count, maxValue, styles, fillColor }) => {
-  const fillPercent = maxValue > 0 ? (count / maxValue) * 100 : 0;
-  return (
-    <View style={styles.legendRow}>
-      <Text style={styles.hbarLabel}>{label}</Text>
-      <View style={styles.hbarTrack}>
-        <View style={[styles.hbarFill, { width: `${fillPercent}%` as unknown as number, backgroundColor: fillColor }]} />
-      </View>
-      <Text style={styles.hbarCount}>{count}</Text>
-    </View>
-  );
-};
-
-// Star colors — derived from design token colors, one per star tier
-const getStarBarColors = (theme: Theme) => [
-  '',
-  theme.warning,
-  theme.secondaryDark,
-  theme.secondary,
-  theme.primaryLight,
-  theme.primary,
-];
-
-interface ReviewsCardProps {
-  metrics: ReviewsMetrics;
-  styles: ReturnType<typeof createStyles>;
-  theme: Theme;
-  tourTargetId?: ProfessionalTourTargetId;
-}
-
-const ReviewsCard: React.FC<ReviewsCardProps> = ({ metrics, styles, theme, tourTargetId }) => {
-  const { averageRating, totalReviews, ratingBreakdown } = metrics;
-  const maxCount = Math.max(...ratingBreakdown.map((r) => r.count), 1);
-  const starBarColors = getStarBarColors(theme);
-  const header = (
-    <View style={styles.cardHeader}>
-      <Text style={styles.cardTitle}>Valoraciones</Text>
-      <Text style={styles.cardSub}>Reseñas de pacientes</Text>
-    </View>
-  );
-  const cardContent = (
-    <>
-      {header}
-
-      {totalReviews === 0 ? (
-        <View style={styles.reviewsEmptyContainer}>
-          <Text style={styles.reviewsEmptyIcon}>★</Text>
-          <Text style={styles.reviewsEmptyTitle}>Sin reseñas aún</Text>
-          <Text style={styles.reviewsEmptyDesc}>
-            Las reseñas de tus pacientes aparecerán aquí
-          </Text>
-        </View>
-      ) : (
-        <View style={styles.reviewsContent}>
-          {/* Big rating number */}
-          <View style={styles.reviewsLeft}>
-            <Text style={styles.reviewsBigRating}>{averageRating.toFixed(1)}</Text>
-            <View style={styles.reviewsStarsRow}>
-              {[1, 2, 3, 4, 5].map((s) => (
-                <Text
-                  key={s}
-                  style={[
-                    styles.reviewsStar,
-                    { color: s <= Math.round(averageRating) ? theme.starRating : theme.border },
-                  ]}
-                >
-                  ★
-                </Text>
-              ))}
-            </View>
-            <Text style={styles.reviewsTotal}>{totalReviews} {totalReviews === 1 ? 'reseña' : 'reseñas'}</Text>
-          </View>
-
-          {/* Breakdown bars */}
-          <View style={styles.reviewsRight}>
-            {ratingBreakdown.map(({ stars, count }) => {
-              const fillPct = (count / maxCount) * 100;
-              const barColor = starBarColors[stars];
-              return (
-                <View key={stars} style={styles.reviewsBarRow}>
-                  <Text style={styles.reviewsBarLabel}>{stars}★</Text>
-                  <View style={styles.reviewsBarTrack}>
-                    <View
-                      style={[
-                        styles.reviewsBarFill,
-                        {
-                          width: `${fillPct}%` as unknown as number,
-                          backgroundColor: barColor,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.reviewsBarCount}>{count}</Text>
-                </View>
-              );
-            })}
-          </View>
-        </View>
-      )}
-    </>
-  );
-
-  return (
-    <View style={[styles.card, styles.flex1, styles.bottomCardHeight]}>
-      {tourTargetId ? (
-        <TourTarget id={tourTargetId} fill style={styles.fullWidthTourTarget}>
-          <View style={styles.fullWidthTourTarget}>{cardContent}</View>
-        </TourTarget>
-      ) : cardContent}
-    </View>
-  );
-};
-
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
 
 export function DashboardScreen() {
-  const { width } = useWindowDimensions();
-  const { theme, isDark } = useTheme();
-  const { isVisible: isAppAlertVisible } = useAppAlertState();
-  const dashboardTourScroll = useProfessionalTourScrollPreparation();
-  const isCompactMobile = width < 430;
-  const isMobileShell = width < 768;
-  const styles = useMemo(
-    () => createStyles(theme, isDark, isCompactMobile, isMobileShell),
-    [theme, isDark, isCompactMobile, isMobileShell],
-  );
-  const chartColors = useMemo(() => getChartColors(theme), [theme]);
-  const kpiAccents = useMemo(() => getKpiAccents(theme), [theme]);
-  const isDesktop = width >= 768;
-
+  const { theme } = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const [availableWidth, setAvailableWidth] = useState(0);
+  const today = currentStatisticsMonth();
+  const [period, setPeriod] = useState<StatisticsPeriod>({ period: 'month', ...today });
+  const [selectedMonth, setSelectedMonth] = useState(today.month);
+  const [data, setData] = useState<StatisticsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [chartYear, setChartYear] = useState<number>(new Date().getFullYear());
-  const [chartWidth, setChartWidth] = useState<number>(0);
-
-  const loadData = useCallback(async () => {
+  const request = useRef(0);
+  const scroll = useProfessionalTourScrollPreparation();
+  const { isVisible: isAlertVisible } = useAppAlertState();
+  const wide = availableWidth >= 1080;
+  const medium = availableWidth >= 680;
+  const load = useCallback(async () => {
+    const id = ++request.current;
+    setLoading(true); setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      const result = await dashboardService.getDashboardData();
-      setData(result);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : STRINGS.errorLoading);
+      const result = await getStatistics(period);
+      if (id === request.current) setData(result);
+    } catch (failure: unknown) {
+      if (id === request.current) setError(failure instanceof Error ? failure.message : 'No se pudieron cargar las estadísticas');
     } finally {
-      setLoading(false);
+      if (id === request.current) setLoading(false);
     }
-  }, []);
+  }, [period]);
+  useFocusEffect(useCallback(() => {
+    void load();
+    const unsubscribe = subscribeProfessionalHomeChanges(() => { void load(); });
+    return () => { request.current++; unsubscribe(); };
+  }, [load]));
+  useBillingRefresh(load, false);
+  useFocusedRateLimitRecovery(() => { void load(); });
+  useProfessionalTourAutoStart('professional_dashboard_v1', !loading && !error && data !== null && !isAlertVisible);
+  const prepareIncome = useCallback(() => scroll.prepareTarget('professional.dashboard.income-chart'), [scroll]);
+  const prepareKpis = useCallback(() => scroll.prepareTarget('professional.dashboard.kpis'), [scroll]);
+  const prepareDetails = useCallback(() => scroll.prepareTarget('professional.dashboard.detail-charts'), [scroll]);
+  useProfessionalTourStepPreparation('professional.dashboard.income-chart', prepareIncome);
+  useProfessionalTourStepPreparation('professional.dashboard.kpis', prepareKpis);
+  useProfessionalTourStepPreparation('professional.dashboard.detail-charts', prepareDetails);
 
-  useFocusedRateLimitRecovery(() => { void loadData(); });
-  useBillingRefresh(loadData, false);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-      return subscribeProfessionalHomeChanges(() => { void loadData(); });
-    }, [loadData])
-  );
-
-  useProfessionalTourAutoStart(
-    'professional_dashboard_v1',
-    !loading && !error && data !== null && !isAppAlertVisible,
-  );
-
-  const prepareDashboardIncomeStep = useCallback(
-    () => dashboardTourScroll.prepareTarget('professional.dashboard.income-chart'),
-    [dashboardTourScroll],
-  );
-  const prepareDashboardKpisStep = useCallback(
-    () => dashboardTourScroll.prepareTarget('professional.dashboard.kpis'),
-    [dashboardTourScroll],
-  );
-  const prepareDashboardDetailStep = useCallback(
-    () => dashboardTourScroll.prepareTarget('professional.dashboard.detail-charts'),
-    [dashboardTourScroll],
-  );
-
-  useProfessionalTourStepPreparation(
-    'professional.dashboard.income-chart',
-    prepareDashboardIncomeStep,
-  );
-  useProfessionalTourStepPreparation(
-    'professional.dashboard.kpis',
-    prepareDashboardKpisStep,
-  );
-  useProfessionalTourStepPreparation(
-    'professional.dashboard.detail-charts',
-    prepareDashboardDetailStep,
-  );
-
-  // Earliest year with data — used to clamp backward navigation
-  const earliestAvailableYear = useMemo(() => {
-    if (!data?.charts.monthlyIncome.length) return new Date().getFullYear();
-    return parseInt(data.charts.monthlyIncome[0].month.slice(0, 4), 10);
-  }, [data]);
-
-  // ── Loading state ──────────────────────────────────────────────
-  if (loading) {
-    return <LoadingState fullScreen />;
-  }
-
-  // ── Error state ────────────────────────────────────────────────
-  if (error || !data) {
-    return (
-      <EmptyState
-        fullScreen
-        icon="alert-circle-outline"
-        message={error || STRINGS.errorDefault}
-        actionLabel={STRINGS.retry}
-        onAction={loadData}
-      />
-    );
-  }
-
-  // ── Data ───────────────────────────────────────────────────────
-  const { kpis, charts } = data;
-
-  // Monthly income bar chart data — year-based with pagination
-  const nowDate = new Date();
-  const currentMonthStr = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}`;
-
-  const yearData = MONTH_LABELS.map((label, index) => {
-    const monthStr = `${chartYear}-${String(index + 1).padStart(2, '0')}`;
-    const found = charts.monthlyIncome.find((m) => m.month === monthStr);
-    return {
-      value: found ? found.total : 0,
-      label,
-      monthStr,
-    };
-  });
-
-  const monthlyIncomeBarData: barDataItem[] = yearData.map((item) => {
-    const isCurrent = item.monthStr === currentMonthStr;
-    return {
-      value: item.value,
-      label: item.label,
-      frontColor: isCurrent ? theme.primaryDark : chartColors.mutedBar,
-      topLabelComponent: item.value > 0
-        ? () => (
-            <Text style={styles.barTopLabel}>
-              {`€${Math.round(item.value)}`}
-            </Text>
-          )
-        : undefined,
-    };
-  });
-
-  const allIncomeZero = yearData.every((item) => item.value === 0);
-
-  // Session status donut data
-  const { completed, cancelled, pending } = charts.sessionStatusBreakdown;
-  const totalSessions = completed + cancelled + pending;
-  const allSessionsZero = totalSessions === 0;
-
-  const donutData = [
-    { value: completed || 0.001, color: chartColors.completed, text: String(completed) },
-    { value: cancelled || 0.001, color: chartColors.cancelled, text: String(cancelled) },
-    { value: pending || 0.001, color: chartColors.pending, text: String(pending) },
+  const changePeriod = (next: StatisticsPeriod) => {
+    request.current++;
+    setData(null); setLoading(true); setError(null); setPeriod(next);
+    if (next.period === 'month') setSelectedMonth(next.month);
+  };
+  const changeYear = (year: number) => changePeriod(period.period === 'month'
+    ? { period: 'month', year, month: Math.min(period.month, year === today.year ? today.month : 12) } : { period: 'year', year });
+  const periodLabel = period.period === 'month' ? `${MONTHS[period.month - 1]} ${period.year}` : String(period.year);
+  const kpiItems: Array<{ key: keyof StatisticsData['current']; label: string; helper: string; icon: React.ComponentProps<typeof Ionicons>['name'] }> = [
+    { key: 'income', label: 'Ingresos cobrados', helper: 'Cobros menos devoluciones', icon: 'wallet-outline' },
+    { key: 'completed', label: 'Sesiones completadas', helper: 'Sesiones atendidas', icon: 'calendar-outline' },
+    { key: 'newPatients', label: 'Pacientes nuevos', helper: 'Primera sesión completada', icon: 'person-add-outline' },
+    { key: 'activePatients', label: 'Pacientes activos', helper: 'Atendidos en el periodo', icon: 'people-outline' },
   ];
-
-  // Sessions by day — horizontal bar chart (custom), ensure Saturday is included
-  const sessionsByDayWithSat = charts.sessionsByDayOfWeek.find((item) => item.day === 5)
-    ? charts.sessionsByDayOfWeek
-    : [...charts.sessionsByDayOfWeek, { day: 5, label: 'Sáb', count: 0 }];
-  const maxDayCount = Math.max(...sessionsByDayWithSat.map((item) => item.count), 1);
-
-  const renderBottomCharts = (reviewsTourTargetId?: ProfessionalTourTargetId) => (
-    <>
-      <ReviewsCard
-        metrics={charts.reviewsMetrics}
-        styles={styles}
-        theme={theme}
-        tourTargetId={reviewsTourTargetId}
-      />
-
-      <View style={[styles.card, styles.flex1, styles.bottomCardHeight]}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>{STRINGS.donutTitle}</Text>
-          <Text style={styles.cardSub}>{STRINGS.donutSubtitle}</Text>
-        </View>
-        {allSessionsZero ? (
-          <Text style={styles.emptyText}>{STRINGS.donutEmpty}</Text>
-        ) : (
-          <View style={styles.donutContainer}>
-            <PieChart
-              data={donutData}
-              donut
-              radius={54}
-              innerRadius={38}
-              innerCircleColor={theme.bgCard}
-              innerCircleBorderWidth={6}
-              innerCircleBorderColor={theme.bgCard}
-              strokeColor={theme.bgCard}
-              strokeWidth={2}
-              centerLabelComponent={() => (
-                <View style={styles.donutCenter}>
-                  <Text style={styles.donutCenterValue}>{totalSessions}</Text>
-                  <Text style={styles.donutCenterLabel}>{STRINGS.donutCenterLabel}</Text>
-                </View>
-              )}
-              isAnimated
-            />
-            <View style={styles.legendContainer}>
-              <LegendRow color={chartColors.completed} label={STRINGS.legendCompleted} count={completed} isLast={false} styles={styles} />
-              <LegendRow color={chartColors.cancelled} label={STRINGS.legendCancelled} count={cancelled} isLast={false} styles={styles} />
-              <LegendRow color={chartColors.pending} label={STRINGS.legendPending} count={pending} isLast styles={styles} />
-            </View>
+  const visible = !loading && !error ? data : null;
+  return <View style={styles.screen} onLayout={event => setAvailableWidth(event.nativeEvent.layout.width)}>
+    <ScrollView ref={scroll.scrollRef} {...scroll.scrollProps} contentContainerStyle={[styles.content, !medium && { padding: 16 }]}>
+      <View style={styles.header}>
+        <View style={{ gap: 4 }}><Text accessibilityRole="header" style={styles.title}>Estadísticas</Text><Text style={styles.subtitle}>Resumen de tu actividad profesional</Text></View>
+        <View style={[styles.filters, !medium && { width: '100%', justifyContent: 'space-between' }]}>
+          <View style={styles.controlGroup}>
+            <Control label="Año anterior" disabled={period.year <= 1900} onPress={() => changeYear(period.year - 1)}><Ionicons name="chevron-back" size={16} color={theme.textPrimary} /></Control>
+            <Text style={styles.year}>{period.year}</Text>
+            <Control label="Año siguiente" disabled={period.year >= today.year} onPress={() => changeYear(period.year + 1)}><Ionicons name="chevron-forward" size={16} color={theme.textPrimary} /></Control>
           </View>
-        )}
-      </View>
-
-      <View style={[styles.card, styles.flex1, styles.bottomCardHeight]}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>{STRINGS.dayChartTitle}</Text>
-          <Text style={styles.cardSub}>{STRINGS.dayChartSubtitle}</Text>
-        </View>
-        <View style={styles.hbarContainer}>
-          {sessionsByDayWithSat.map((item) => (
-            <HBarRow key={item.day} label={item.label} count={item.count} maxValue={maxDayCount} styles={styles} fillColor={chartColors.dayBars} />
-          ))}
+          <View style={[styles.controlGroup, styles.segment]}>
+            <Control label="Vista mensual" selected={period.period === 'month'} onPress={() => changePeriod({ period: 'month', year: period.year, month: Math.min(selectedMonth, period.year === today.year ? today.month : 12) })}>Mes</Control>
+            <Control label="Vista anual" selected={period.period === 'year'} onPress={() => changePeriod({ period: 'year', year: period.year })}>Año</Control>
+          </View>
+          {period.period === 'month' && <View style={{ minWidth: 134, ...(!medium && { width: '100%' as const }) }}><SimpleDropdown key={availableWidth} compact presentation="portal" keyboardNavigation accessibilityLabel="Mes de las estadísticas"
+            optionsMinWidth={220} optionsAlign="right" maxHeight={300}
+            options={MONTHS.map((label, i) => ({ label, value: i + 1 })).filter(option => period.year < today.year || option.value <= today.month)}
+            value={period.month} onSelect={month => changePeriod({ period: 'month', year: period.year, month })} /></View>}
         </View>
       </View>
-    </>
-  );
-
-
-  // ── Render ─────────────────────────────────────────────────────
-  return (
-    <View style={styles.container}>
-      <ScrollView
-        ref={dashboardTourScroll.scrollRef}
-        style={styles.screen}
-        contentContainerStyle={styles.scrollContent}
-        onContentSizeChange={dashboardTourScroll.scrollProps.onContentSizeChange}
-        onLayout={dashboardTourScroll.scrollProps.onLayout}
-        onScroll={dashboardTourScroll.scrollProps.onScroll}
-        scrollEventThrottle={dashboardTourScroll.scrollProps.scrollEventThrottle}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.content}>
-
-        {/* ── MOBILE: KPI cards above chart ─────────────────────── */}
-        {!isDesktop && (
-          <TourTarget id="professional.dashboard.kpis" fill style={styles.fullWidthTourTarget}>
-            <View style={styles.mobileKpiGrid}>
-              <View style={[styles.kpiCard, styles.mobileKpiCard]}>
-                <KpiCard value={formatCurrency(kpis.incomeThisMonth)} label={STRINGS.incomeLabel} sublabel={getCurrentMonthLabel()} accentColor={kpiAccents.income} valueColor={theme.primary} styles={styles} />
-              </View>
-              <View style={[styles.kpiCard, styles.mobileKpiCard]}>
-                <KpiCard value={String(kpis.sessionsThisMonth.total)} label={STRINGS.sessionsLabel} sublabel={`${kpis.sessionsThisMonth.completed} comp. · ${kpis.sessionsThisMonth.cancelled} canc.`} accentColor={kpiAccents.sessions} styles={styles} />
-              </View>
-              <View style={[styles.kpiCard, styles.mobileKpiCard]}>
-                <KpiCard value={String(kpis.activePatients)} label={STRINGS.patientsLabel} sublabel={STRINGS.patientsSubLabel} accentColor={kpiAccents.patients} styles={styles} />
-              </View>
-              <View style={[styles.kpiCard, styles.mobileKpiCard]}>
-                <KpiCard value={String(kpis.upcomingThisWeek)} label={STRINGS.upcomingLabel} sublabel={STRINGS.upcomingSubLabel} accentColor={kpiAccents.upcoming} styles={styles} />
-              </View>
-            </View>
-          </TourTarget>
-        )}
-
-        {/* ── TOP ROW ──────────────────────────────────────────── */}
-        <View style={isDesktop ? styles.topRow : undefined}>
-          {/* LEFT: Bar chart card */}
-          <View style={[styles.card, isDesktop && styles.flex1]}>
-            <TourTarget id="professional.dashboard.income-chart" fill style={styles.fullWidthTourTarget}>
-              <View style={styles.fullWidthTourTarget}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>{STRINGS.incomeChartTitle}</Text>
-                </View>
-                {/* Year pagination */}
-                <View style={styles.yearNavRow}>
-                  <AnimatedPressable
-                    onPress={() => setChartYear((y) => y - 1)}
-                    disabled={chartYear <= earliestAvailableYear}
-                    style={chartYear <= earliestAvailableYear ? [styles.yearNavButton, styles.yearNavDisabled] : styles.yearNavButton}
-                    hoverLift={false}
-                    pressScale={0.98}
-                  >
-                    <Text style={styles.yearNavArrow}>{'‹'}</Text>
-                  </AnimatedPressable>
-                  <Text style={styles.yearNavLabel}>
-                    {chartYear}
-                  </Text>
-                  <AnimatedPressable
-                    onPress={() => setChartYear((y) => y + 1)}
-                    disabled={chartYear >= new Date().getFullYear()}
-                    style={chartYear >= new Date().getFullYear() ? [styles.yearNavButton, styles.yearNavDisabled] : styles.yearNavButton}
-                    hoverLift={false}
-                    pressScale={0.98}
-                  >
-                    <Text style={styles.yearNavArrow}>{'›'}</Text>
-                  </AnimatedPressable>
-                </View>
-                {allIncomeZero ? (
-                  <Text style={styles.emptyText}>{STRINGS.incomeEmpty}</Text>
-                ) : (
-                  <View
-                    style={styles.chartWrapper}
-                    onLayout={(e) => setChartWidth(e.nativeEvent.layout.width)}
-                  >
-                    {chartWidth > 0 && (
-                      <BarChart
-                        data={monthlyIncomeBarData}
-                        width={chartWidth}
-                        barWidth={Math.max(8, Math.floor((chartWidth - 40) / 12) - 6)}
-                        spacing={isCompactMobile ? 4 : 6}
-                        height={160}
-                        barBorderTopLeftRadius={borderRadius.sm}
-                        barBorderTopRightRadius={borderRadius.sm}
-                        xAxisLabelTextStyle={{ fontSize: 9, color: theme.textMuted }}
-                        hideYAxisText
-                        hideRules={false}
-                        rulesColor={theme.borderLight}
-                        xAxisColor={theme.border}
-                        yAxisColor={'transparent'}
-                        noOfSections={4}
-                        isAnimated
-                        animationDuration={600}
-                      />
-                    )}
-                  </View>
-                )}
-              </View>
-            </TourTarget>
-          </View>
-
-          {/* RIGHT: 2x2 KPI grid (desktop only) */}
-          {isDesktop && (
-            <View style={styles.desktopKpiColumn}>
-              <TourTarget
-                id="professional.dashboard.kpis"
-                fill
-                spotlightStyle={styles.fillSpotlightTarget}
-                style={styles.kpiGroupTourTarget}
-              >
-                <View style={styles.desktopKpiTourAnchor}>
-                  <View style={styles.desktopKpiRow}>
-                    <View style={[styles.kpiCard, styles.flex1]}>
-                      <KpiCard value={formatCurrency(kpis.incomeThisMonth)} label={STRINGS.incomeLabel} sublabel={getCurrentMonthLabel()} accentColor={kpiAccents.income} valueColor={theme.primary} styles={styles} />
-                    </View>
-                    <View style={[styles.kpiCard, styles.flex1]}>
-                      <KpiCard value={String(kpis.sessionsThisMonth.total)} label={STRINGS.sessionsLabel} sublabel={`${kpis.sessionsThisMonth.completed} comp. · ${kpis.sessionsThisMonth.cancelled} canc.`} accentColor={kpiAccents.sessions} styles={styles} />
-                    </View>
-                  </View>
-                  <View style={styles.desktopKpiRow}>
-                    <View style={[styles.kpiCard, styles.flex1]}>
-                      <KpiCard value={String(kpis.activePatients)} label={STRINGS.patientsLabel} sublabel={STRINGS.patientsSubLabel} accentColor={kpiAccents.patients} styles={styles} />
-                    </View>
-                    <View style={[styles.kpiCard, styles.flex1]}>
-                      <KpiCard value={String(kpis.upcomingThisWeek)} label={STRINGS.upcomingLabel} sublabel={STRINGS.upcomingSubLabel} accentColor={kpiAccents.upcoming} styles={styles} />
-                    </View>
-                  </View>
-                </View>
-              </TourTarget>
-            </View>
-          )}
-        </View>
-
-        {/* ── BOTTOM ROW ───────────────────────────────────────── */}
-        {isDesktop ? (
-          <TourTarget id="professional.dashboard.detail-charts" fill style={styles.fullWidthTourTarget}>
-            <View style={[styles.bottomRow, styles.bottomRowDesktop]}>
-              {renderBottomCharts()}
-            </View>
-          </TourTarget>
-        ) : (
-          <View style={[styles.bottomRow, styles.bottomRowMobile]}>
-            {renderBottomCharts('professional.dashboard.detail-charts')}
-          </View>
-        )}
-
+      <View style={styles.periodLine}>
+        <Text style={styles.periodLabel}>{periodLabel}{visible?.period.inProgress ? ' · En curso' : ''}</Text>
+        <Text style={styles.caption}>Comparación con el {period.period === 'month' ? 'mes' : 'año'} anterior completo</Text>
       </View>
+      {loading && <View accessibilityRole="progressbar" accessibilityLabel="Cargando estadísticas" style={styles.message}><ActivityIndicator color={theme.primary} /><Text style={styles.subtitle}>Preparando tu resumen…</Text></View>}
+      {error && <View style={styles.message}><Ionicons name="alert-circle-outline" size={28} color={theme.error} /><Text accessibilityRole="alert" style={styles.subtitle}>{error}</Text><Control label="Reintentar estadísticas" selected onPress={() => { void load(); }}>Reintentar</Control></View>}
+      {visible && <>
+        <TourTarget id="professional.dashboard.kpis" fill style={{ width: '100%' }}>
+          <View style={styles.kpis}>{kpiItems.map(item => {
+            const comparison = billingMetricComparison(visible.current[item.key], visible.previous[item.key]);
+            const up = comparison.startsWith('+'), down = comparison.startsWith('−');
+            return <View key={item.key} style={[styles.kpi, { width: medium ? '23%' : '47%' }]}>
+              <View style={styles.kpiHeading}><View style={styles.iconBox}><Ionicons name={item.icon} size={18} color={theme.secondaryDark} /></View><Text style={styles.kpiLabel}>{item.label}</Text></View>
+              <View style={styles.kpiNumbers}>
+              <Text style={styles.kpiValue} adjustsFontSizeToFit numberOfLines={1}>{item.key === 'income' ? money(visible.current.income) : visible.current[item.key].toLocaleString('es-ES')}</Text>
+              <View style={[styles.comparison, { backgroundColor: up ? theme.successBg : down ? theme.errorBg : theme.surfaceMuted }]}>
+                <Text style={{ fontFamily: theme.fontSansMedium, fontSize: 11, color: up ? theme.success : down ? theme.error : theme.textSecondary }}>{up ? '↗ ' : down ? '↘ ' : ''}{comparison}</Text>
+              </View>
+              </View>
+              <Text style={styles.caption}>{item.helper}</Text>
+            </View>;
+          })}</View>
+        </TourTarget>
+        <View style={styles.mainRow}>
+          <View style={{ width: wide ? '45%' : '100%', flexGrow: 1 }}>
+            <TourTarget id="professional.dashboard.income-chart" fill style={{ width: '100%', flex: 1 }}><View style={{ flex: 1 }}><Panel title="Ingresos y sesiones" subtitle={period.period === 'month' ? 'Evolución diaria' : 'Evolución mensual'}><StatisticsTimeChart key={`${periodLabel}-income`} data={visible} kind="income" /></Panel></View></TourTarget>
+          </View>
+          <View style={{ width: wide ? '25%' : medium ? '47%' : '100%', flexGrow: 1 }}><Panel title="Origen de tus pacientes" subtitle="Nuevos en el periodo"><OriginChart data={visible} /></Panel></View>
+          <View style={{ width: wide ? '25%' : medium ? '47%' : '100%', flexGrow: 1 }}><Panel title="Actividad de sesiones" subtitle={periodLabel}>
+            <View style={{ gap: 20, marginTop: 8 }}>
+              <Meter label="Completadas" count={visible.activity.completed} max={Math.max(...Object.values(visible.activity), 1)} color={theme.primary} />
+              <Meter label="Pendientes" count={visible.activity.pending} max={Math.max(...Object.values(visible.activity), 1)} color={theme.secondary} />
+              <Meter label="Canceladas" count={visible.activity.cancelled} max={Math.max(...Object.values(visible.activity), 1)} color={theme.warning} />
+              <Meter label="No asistidas" count={visible.activity.noShow} max={Math.max(...Object.values(visible.activity), 1)} color={theme.error} />
+            </View>
+            <Text style={[styles.caption, { marginTop: 16 }]}>Las ausencias solo incluyen las registradas expresamente.</Text>
+          </Panel></View>
+        </View>
+        <TourTarget id="professional.dashboard.detail-charts" fill style={{ width: '100%' }}><View><Panel title="Evolución de pacientes" subtitle="Pacientes únicos en cada intervalo"><StatisticsTimeChart key={`${periodLabel}-patients`} data={visible} kind="patients" /></Panel></View></TourTarget>
+        <View style={styles.secondaryHeader}><Text accessibilityRole="header" style={styles.panelTitle}>Más sobre tu consulta</Text><Text style={styles.caption}>Valoraciones y ritmo de actividad · {periodLabel}</Text></View>
+        <View style={styles.mainRow}>
+          <View style={{ width: medium ? '47%' : '100%', flexGrow: 1 }}><Panel title="Valoraciones" subtitle="Reseñas recibidas en el periodo">
+            {visible.reviews.total === 0 ? <Text style={[styles.subtitle, { paddingVertical: 28 }]}>Sin reseñas en este periodo.</Text> : <View style={styles.reviewContent}>
+              <View style={{ gap: 8, alignItems: 'center' }}><Text style={styles.rating}>{visible.reviews.average.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</Text><Text accessibilityLabel="Sobre cinco estrellas" style={{ color: theme.warningAmber }}>★★★★★</Text><Text style={styles.caption}>{visible.reviews.total} {visible.reviews.total === 1 ? 'reseña' : 'reseñas'}</Text></View>
+              <View style={{ flex: 1, gap: 10 }}>{visible.reviews.breakdown.map(row => <Meter key={row.stars} label={`${row.stars} estrellas`} count={row.count} max={Math.max(...visible.reviews.breakdown.map(r => r.count), 1)} color={theme.secondary} />)}</View>
+            </View>}
+          </Panel></View>
+          <View style={{ width: medium ? '47%' : '100%', flexGrow: 1 }}><Panel title="Sesiones por día" subtitle="Completadas · lunes a domingo">
+            <View style={{ gap: 10 }}>{visible.weekdays.map(row => <Meter key={row.day} label={['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'][row.day - 1]} count={row.count} max={Math.max(...visible.weekdays.map(d => d.count), 1)} color={theme.secondary} />)}</View>
+          </Panel></View>
+        </View>
+      </>}
     </ScrollView>
-    </View>
-  );
+  </View>;
 }
 
-// ============================================================================
-// STYLES
-// ============================================================================
-
-const CONTENT_PH = 24;
-const CONTENT_PV = 20;
-const CONTENT_GAP = 14;
-
-function createStyles(theme: Theme, isDark: boolean, isCompactMobile: boolean, isMobileShell: boolean) {
+function createStyles(theme: Theme) {
   return StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.bg,
-  },
-  screen: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  content: {
-    paddingHorizontal: isMobileShell ? spacing.md : CONTENT_PH,
-    paddingVertical: isMobileShell ? spacing.md : CONTENT_PV,
-    gap: isMobileShell ? spacing.md : CONTENT_GAP,
-  },
-  flex1: {
-    flex: 1,
-  },
-  fullWidthTourTarget: {
-    width: '100%',
-  },
-  fillSpotlightTarget: {
-    flex: 1,
-    width: '100%',
-  },
-
-  // ── TOP ROW ──────────────────────────────────────────────────
-  topRow: {
-    flexDirection: 'row',
-    gap: CARD_GAP,
-    alignItems: 'stretch',
-  },
-
-  // ── Desktop KPI column ───────────────────────────────────────
-  desktopKpiColumn: {
-    flex: 1,
-    alignSelf: 'stretch',
-    flexDirection: 'column',
-    gap: KPI_GAP,
-  },
-  desktopKpiRow: {
-    flexDirection: 'row',
-    gap: KPI_GAP,
-    flex: 1,
-  },
-  kpiGroupTourTarget: {
-    flex: 1,
-    width: '100%',
-  },
-  desktopKpiTourAnchor: {
-    flex: 1,
-    gap: KPI_GAP,
-    width: '100%',
-  },
-
-  // ── Mobile KPI grid ──────────────────────────────────────────
-  mobileKpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: isMobileShell ? spacing.sm : KPI_GAP,
-  },
-  mobileKpiCard: {
-    width: '48.5%' as unknown as number,
-    flexGrow: 0,
-    flexShrink: 0,
-  },
-
-  // ── BOTTOM ROW ───────────────────────────────────────────────
-  bottomRow: {
-    gap: CARD_GAP,
-  },
-  bottomRowDesktop: {
-    flexDirection: 'row',
-  },
-  bottomRowMobile: {
-    flexDirection: 'column',
-  },
-  bottomCardHeight: {
-    minHeight: BOTTOM_CARD_MIN_HEIGHT,
-  },
-
-  // ── Card ─────────────────────────────────────────────────────
-  card: {
-    backgroundColor: theme.bgCard,
-    borderRadius: borderRadius.lg,
-    borderWidth: CARD_BORDER_WIDTH,
-    borderColor: theme.border,
-    padding: spacing.md,
-    ...shadows.sm,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: isMobileShell ? 'flex-start' : 'center',
-    marginBottom: CARD_HEADER_MB,
-    gap: spacing.sm,
-  },
-  cardTitle: {
-    fontSize: FONT_CARD_TITLE,
-    color: theme.textPrimary,
-    fontFamily: theme.fontSansMedium,
-  },
-  cardSub: {
-    fontSize: FONT_CARD_SUB,
-    color: theme.textMuted,
-    fontFamily: theme.fontSans,
-  },
-
-  // ── KPI card ─────────────────────────────────────────────────
-  kpiCard: {
-    backgroundColor: isDark ? theme.surfaceMuted : theme.bgCard,
-    borderRadius: borderRadius.lg,
-    borderWidth: CARD_BORDER_WIDTH,
-    borderColor: theme.border,
-    padding: isMobileShell ? spacing.md : 16,
-    ...shadows.sm,
-  },
-  kpiAccent: {
-    height: 3,
-    borderRadius: KPI_ACCENT_RADIUS,
-    width: '100%',
-    marginBottom: KPI_ACCENT_MB,
-  },
-  kpiValue: {
-    fontSize: isCompactMobile ? 25 : 26,
-    color: theme.textPrimary,
-    fontFamily: theme.fontSansBold,
-  },
-  kpiLabel: {
-    fontSize: 13,
-    color: theme.textSecondary,
-    fontFamily: theme.fontSans,
-    marginTop: 8,
-  },
-  kpiSub: {
-    fontSize: 11,
-    color: theme.textMuted,
-    fontFamily: theme.fontSans,
-    marginTop: 4,
-  },
-
-  // ── Year navigation ─────────────────────────────────────────
-  yearNavRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
-    gap: spacing.md,
-  },
-  yearNavButton: {
-    padding: spacing.xs,
-  },
-  yearNavDisabled: {
-    opacity: 0.3,
-  },
-  yearNavArrow: {
-    fontSize: 16,
-    color: theme.primary,
-  },
-  yearNavLabel: {
-    fontSize: FONT_CARD_TITLE,
-    color: theme.textPrimary,
-    fontFamily: theme.fontSansMedium,
-  },
-
-  // ── Bar chart ────────────────────────────────────────────────
-  chartWrapper: {
-    width: '100%' as unknown as number,
-    overflow: 'hidden',
-    minHeight: 178,
-  },
-  axisText: {
-    fontSize: FONT_AXIS,
-    color: theme.textMuted,
-    fontFamily: theme.fontSans,
-  },
-  barTopLabel: {
-    fontSize: 9,
-    color: theme.textPrimary,
-    fontFamily: theme.fontSansMedium,
-    marginBottom: spacing.xs,
-  },
-
-  // ── Donut ────────────────────────────────────────────────────
-  donutContainer: {
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  donutCenter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 66,
-    height: 66,
-    borderRadius: 33,
-    backgroundColor: theme.bgCard,
-  },
-  donutCenterValue: {
-    fontSize: DONUT_CENTER_VALUE_SIZE,
-    color: theme.textPrimary,
-    fontFamily: theme.fontSansMedium,
-  },
-  donutCenterLabel: {
-    fontSize: FONT_DONUT_CENTER_LABEL,
-    color: theme.textSecondary,
-    fontFamily: theme.fontSans,
-  },
-
-  // ── Legend ───────────────────────────────────────────────────
-  legendContainer: {
-    width: '100%',
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: LEGEND_PV,
-  },
-  legendDot: {
-    width: LEGEND_DOT_SIZE,
-    height: LEGEND_DOT_SIZE,
-    borderRadius: LEGEND_DOT_SIZE / 2,
-  },
-  legendLabel: {
-    fontSize: typography.fontSizes.xs,
-    color: theme.textSecondary,
-    fontFamily: theme.fontSans,
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
-  legendCount: {
-    fontSize: typography.fontSizes.xs,
-    color: theme.textPrimary,
-    fontFamily: theme.fontSansSemiBold,
-  },
-  legendDivider: {
-    height: CARD_BORDER_WIDTH,
-    backgroundColor: theme.borderLight,
-  },
-
-  // ── Horizontal bar chart ─────────────────────────────────────
-  hbarContainer: {
-    gap: spacing.sm,
-  },
-  hbarLabel: {
-    width: HBAR_LABEL_WIDTH,
-    fontSize: FONT_HBAR_LABEL,
-    color: theme.textSecondary,
-    fontFamily: theme.fontSans,
-  },
-  hbarTrack: {
-    flex: 1,
-    height: HBAR_HEIGHT,
-    backgroundColor: theme.borderLight,
-    borderRadius: HBAR_RADIUS,
-    overflow: 'hidden',
-  },
-  hbarFill: {
-    height: '100%' as unknown as number,
-    borderRadius: HBAR_RADIUS,
-  },
-  hbarCount: {
-    width: HBAR_COUNT_WIDTH,
-    fontSize: FONT_HBAR_COUNT,
-    color: theme.textPrimary,
-    fontFamily: theme.fontSansSemiBold,
-    textAlign: 'right',
-  },
-
-  // ── Placeholder ──────────────────────────────────────────────
-  placeholder: {
-    borderStyle: 'dashed' as const,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: PLACEHOLDER_GAP,
-  },
-  placeholderIcon: {
-    fontSize: PLACEHOLDER_ICON_SIZE,
-    color: theme.textMuted,
-  },
-  placeholderText: {
-    fontSize: FONT_PLACEHOLDER_TITLE,
-    color: theme.textMuted,
-    fontFamily: theme.fontSans,
-  },
-  placeholderSubText: {
-    fontSize: FONT_PLACEHOLDER_DESC,
-    color: theme.textMuted,
-    fontFamily: theme.fontSans,
-  },
-
-  // ── Reviews card ─────────────────────────────────────────────
-  reviewsContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  reviewsLeft: {
-    alignItems: 'center',
-    minWidth: 72,
-  },
-  reviewsBigRating: {
-    fontSize: 36,
-    fontWeight: '800' as const,
-    color: theme.textPrimary,
-    fontFamily: theme.fontHeading,
-    letterSpacing: 0,
-    lineHeight: 40,
-  },
-  reviewsStarsRow: {
-    flexDirection: 'row',
-    gap: 1,
-    marginTop: 4,
-    marginBottom: 6,
-  },
-  reviewsStar: {
-    fontSize: 14,
-  },
-  reviewsTotal: {
-    fontSize: 11,
-    color: theme.textMuted,
-    fontFamily: theme.fontSans,
-    textAlign: 'center',
-  },
-  reviewsRight: {
-    flex: 1,
-    gap: 7,
-  },
-  reviewsBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  reviewsBarLabel: {
-    fontSize: 11,
-    color: theme.textSecondary,
-    fontFamily: theme.fontSans,
-    width: 22,
-    textAlign: 'right',
-  },
-  reviewsBarTrack: {
-    flex: 1,
-    height: 8,
-    backgroundColor: theme.borderLight,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  reviewsBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  reviewsBarCount: {
-    fontSize: 11,
-    color: theme.textMuted,
-    fontFamily: theme.fontSans,
-    width: 18,
-    textAlign: 'right',
-  },
-  reviewsEmptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  reviewsEmptyIcon: {
-    fontSize: 24,
-    color: theme.textMuted,
-  },
-  reviewsEmptyTitle: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: theme.textMuted,
-    fontFamily: theme.fontSansSemiBold,
-  },
-  reviewsEmptyDesc: {
-    fontSize: 11,
-    color: theme.textMuted,
-    fontFamily: theme.fontSans,
-    textAlign: 'center',
-    maxWidth: 160,
-    lineHeight: 16,
-  },
-
-  // ── Empty state ──────────────────────────────────────────────
-  emptyText: {
-    textAlign: 'center',
-    color: theme.textSecondary,
-    fontSize: typography.fontSizes.xs,
-    fontFamily: theme.fontSans,
-    paddingVertical: EMPTY_PV,
-  },
+    screen: { flex: 1, backgroundColor: theme.bg }, content: { padding: 24, gap: 16, paddingBottom: 32 },
+    header: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16 },
+    title: { fontFamily: theme.fontSansBold, fontSize: 27, letterSpacing: -.6, color: theme.textPrimary },
+    subtitle: { fontFamily: theme.fontSans, fontSize: 13, color: theme.textSecondary, lineHeight: 20 },
+    filters: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10, maxWidth: '100%' }, controlGroup: { flexDirection: 'row', alignItems: 'center' },
+    segment: { backgroundColor: theme.bgCard, borderWidth: 1, borderColor: theme.borderLight, borderRadius: 9, padding: 2 },
+    year: { fontSize: 13, fontFamily: theme.fontSansMedium, color: theme.textPrimary, minWidth: 42, textAlign: 'center' },
+    periodLine: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', alignItems: 'center' },
+    periodLabel: { fontFamily: theme.fontSansMedium, fontSize: 12, color: theme.textSecondary },
+    caption: { fontFamily: theme.fontSans, fontSize: 11, color: theme.textSecondary, lineHeight: 16 },
+    kpis: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    kpi: { flexGrow: 1, backgroundColor: theme.bgCard, borderRadius: 12, borderWidth: 1, borderColor: theme.borderLight, paddingHorizontal: 16, paddingVertical: 12, gap: 6 },
+    kpiNumbers: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 8, rowGap: 4 },
+    kpiHeading: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+    iconBox: { width: 28, height: 28, borderRadius: 7, backgroundColor: theme.secondaryMuted, alignItems: 'center', justifyContent: 'center' },
+    kpiLabel: { flex: 1, fontFamily: theme.fontSansMedium, color: theme.textPrimary, fontSize: 12 },
+    kpiValue: { fontFamily: theme.fontSansBold, color: theme.textPrimary, fontSize: 27, letterSpacing: -.6 },
+    comparison: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 4, flexShrink: 1 },
+    mainRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'stretch', gap: 14 },
+    panel: { flex: 1, backgroundColor: theme.bgCard, borderRadius: 12, borderWidth: 1, borderColor: theme.borderLight, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14,
+      shadowColor: theme.shadowCard, shadowOpacity: .3, shadowRadius: 5, shadowOffset: { width: 0, height: 2 } },
+    panelHeader: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: 6, marginBottom: 16 },
+    panelTitle: { color: theme.textPrimary, fontFamily: theme.fontSansBold, fontSize: 14 }, secondaryHeader: { gap: 4, marginTop: 8 },
+    reviewContent: { flexDirection: 'row', alignItems: 'center', gap: 28, paddingVertical: 10 },
+    rating: { fontSize: 40, fontFamily: theme.fontSansBold, color: theme.textPrimary },
+    message: { minHeight: 240, alignItems: 'center', justifyContent: 'center', gap: 14 },
   });
 }
-
 export default DashboardScreen;
