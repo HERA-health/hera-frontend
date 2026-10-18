@@ -123,7 +123,7 @@ export type RootStackParamList = {
   ProfessionalShowcase: undefined;
   Welcome: undefined;
   Login: { userType: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC'; specialization?: string };
-  Register: { userType: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC' };
+  Register: { userType?: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC' } | undefined;
   EmailSentVerification: { email: string; userType: 'CLIENT' | 'PROFESSIONAL' };
   EmailVerification: { token: string };
   ClinicalConsent: { requestId: string; token: string };

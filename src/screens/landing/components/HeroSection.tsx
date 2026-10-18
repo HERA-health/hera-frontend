@@ -1,433 +1,237 @@
-import React from 'react';
-import {
-  Image,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import React, { useId, useRef } from 'react';
+import { Platform, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { AmbientBackground } from '../../../components/common/AmbientBackground';
-import { AnimatedPressable } from '../../../components/common/AnimatedPressable';
-import { MotionView } from '../../../components/common/MotionView';
+import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
+import { AnimatedPressable, type AnimatedPressableHandle } from '../../../components/common/AnimatedPressable';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { HeroArtwork } from './HeroArtwork';
+import { LANDING_SCROLL_CONTENT_TOP_PADDING } from '../types';
 
 interface HeroSectionProps {
   onFindSpecialist: () => void;
   onExploreProfessionals: () => void;
+  onProfessionalAction: () => void;
+  professionalActionLabel: string;
   showScrollIndicator?: boolean;
   onScrollIndicatorPress?: () => void;
 }
 
-const HERO_PROOFS = [
-  { icon: 'shield-checkmark-outline' as const, label: 'Perfiles verificados' },
-  { icon: 'videocam-outline' as const, label: 'Online y presencial' },
-  { icon: 'pricetag-outline' as const, label: 'Precios visibles' },
-];
+const PROOFS = [
+  { icon: 'shield-checkmark-outline', label: 'Perfiles verificados' },
+  { icon: 'videocam-outline', label: 'Online y presencial' },
+  { icon: 'pricetag-outline', label: 'Precios visibles' },
+] as const;
 
-const HERO_IMAGE = require('../../../../assets/psicologo_stock_fondo_optimized.jpg');
-
-export const HeroSection: React.FC<HeroSectionProps> = ({
-  onFindSpecialist,
-  onExploreProfessionals,
-  showScrollIndicator = true,
-  onScrollIndicatorPress,
-}) => {
-  const { width } = useWindowDimensions();
-  const { theme, isDark } = useTheme();
+export function HeroSection({
+  onFindSpecialist, onExploreProfessionals, onProfessionalAction,
+  professionalActionLabel, showScrollIndicator = true, onScrollIndicatorPress,
+}: HeroSectionProps) {
+  const { width, height } = useWindowDimensions();
+  const { theme } = useTheme();
+  const discoveryRef = useRef<AnimatedPressableHandle>(null);
+  const waveGradientId = `hero-wave-${useId().replace(/:/g, '')}`;
   const isDesktop = width >= 1100;
   const isMobile = width < 768;
-  const isCompactMobile = width < 410;
-  return (
-    <View
-      style={[
-        styles.container,
-        isDesktop && styles.containerDesktop,
-        isMobile && styles.containerMobile,
-      ]}
-    >
-      <AmbientBackground variant="landing" />
+  const compactDesktop = isDesktop && width < 1400;
+  const shortDesktop = isDesktop && height < 900;
+  const doors = [
+    {
+      title: 'Soy paciente', icon: 'person-outline' as const,
+      description: 'Encuentra un profesional para ti y elige cómo empezar.',
+      benefits: ['Perfiles verificados', 'Sesiones online y presenciales', 'Modalidades y tarifas visibles'],
+      compactBenefits: 'Perfiles verificados · Online y presencial',
+      label: 'Explorar profesionales', onPress: onFindSpecialist,
+      background: theme.secondaryMuted, accent: theme.actionPrimary,
+    },
+    {
+      title: 'Soy profesional', icon: 'briefcase-outline' as const,
+      description: 'Organiza tu consulta y presenta tu trabajo en HERA.',
+      benefits: ['Agenda y sesiones', 'Gestión de pacientes', 'Facturación'],
+      compactBenefits: 'Agenda · Pacientes · Facturación',
+      label: professionalActionLabel, onPress: onProfessionalAction,
+      background: theme.primaryMuted, accent: theme.primary,
+    },
+  ];
 
-      <View style={[styles.content, isDesktop && styles.contentDesktop]}>
-        <View style={[styles.copyColumn, isDesktop && styles.copyColumnDesktop]}>
-          <MotionView entering="fadeIn" delay={0}>
-            <View
-              style={[
-                styles.eyebrowPill,
-                {
-                  backgroundColor: theme.landingCanvas,
-                  borderColor: theme.border,
-                },
-              ]}
-            >
-              <View style={[styles.eyebrowMark, { backgroundColor: theme.primary }]} />
-              <Text
-                style={[
-                  styles.eyebrow,
-                  { color: theme.primary, fontFamily: theme.fontSansSemiBold },
-                ]}
-              >
-                PERSONAS, PROFESIONALES Y CLÍNICAS
-              </Text>
-            </View>
-          </MotionView>
-
-          <MotionView entering="fadeIn" delay={90}>
-            <View
-              accessible
-              accessibilityRole="header"
-              accessibilityLabel="Encuentra apoyo para cuidar tu salud mental. Gestiona tu consulta con sencillez."
-              style={[styles.titleGroup, isMobile && styles.titleGroupMobile]}
-            >
-              <Text
-                style={[
-                  styles.title,
-                  isDesktop && styles.titleDesktop,
-                  isMobile && styles.titleMobile,
-                  isCompactMobile && styles.titleCompactMobile,
-                  { color: theme.textPrimary, fontFamily: theme.fontDisplay },
-                ]}
-              >
-                Encuentra apoyo para cuidar tu salud mental.
-              </Text>
-              <View
-                testID="hero-journey-divider"
-                style={[
-                  styles.titleDivider,
-                  { backgroundColor: theme.borderStrong },
-                ]}
-              />
-              <Text
-                style={[
-                  styles.title,
-                  isDesktop && styles.titleDesktop,
-                  isMobile && styles.titleMobile,
-                  isCompactMobile && styles.titleCompactMobile,
-                  {
-                    color: isDark ? theme.link : theme.primary,
-                    fontFamily: theme.fontDisplay,
-                  },
-                ]}
-              >
-                Gestiona tu consulta con sencillez.
-              </Text>
-            </View>
-          </MotionView>
-
-          <MotionView entering="fadeIn" delay={170}>
-            <Text
-              style={[
-                styles.subtitle,
-                isDesktop && styles.subtitleDesktop,
-                { color: theme.textSecondary, fontFamily: theme.fontSans },
-              ]}
-            >
-              HERA conecta a quienes quieren cuidar su salud mental con profesionales
-              verificados y reúne perfil público, agenda, pacientes, sesiones y
-              facturación en una experiencia clara y privada.
-            </Text>
-          </MotionView>
-
-          <MotionView
-            entering="fadeIn"
-            delay={250}
-            style={[styles.actions, ...(isMobile ? [styles.actionsMobile] : [])]}
-          >
-            <AnimatedPressable
-              onPress={onFindSpecialist}
-              pressScale={0.97}
-              hoverLift={false}
-              accessibilityRole="link"
-              accessibilityLabel="Explorar profesionales"
-              style={[
-                styles.primaryAction,
-                isMobile && styles.actionMobile,
-                {
-                  backgroundColor: theme.actionPrimary,
-                },
-              ]}
-            >
-              <Ionicons name="search-outline" size={19} color={theme.actionPrimaryText} />
-              <Text
-                style={[
-                  styles.primaryActionText,
-                  { color: theme.actionPrimaryText, fontFamily: theme.fontSansBold },
-                ]}
-              >
-                Explorar profesionales
-              </Text>
-              <Ionicons name="arrow-forward" size={18} color={theme.actionPrimaryText} />
-            </AnimatedPressable>
-
-            <AnimatedPressable
-              onPress={onExploreProfessionals}
-              pressScale={0.97}
-              hoverLift={false}
-              accessibilityRole="link"
-              accessibilityLabel="Descubrir HERA para profesionales"
-              style={[
-                styles.secondaryAction,
-                isMobile && styles.actionMobile,
-                { backgroundColor: theme.bgElevated, borderColor: theme.borderStrong },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.secondaryActionText,
-                  { color: theme.primary, fontFamily: theme.fontSansSemiBold },
-                ]}
-              >
-                HERA para profesionales
-              </Text>
-              <Ionicons name="arrow-down" size={18} color={theme.primary} />
-            </AnimatedPressable>
-          </MotionView>
-
-          <MotionView entering="fadeIn" delay={330}>
-            <View style={styles.proofs}>
-              {HERO_PROOFS.map((proof) => (
-                <View key={proof.label} style={styles.proofItem}>
-                  <Ionicons name={proof.icon} size={16} color={theme.primary} />
-                  <Text
-                    style={[
-                      styles.proofText,
-                      { color: theme.textPrimary, fontFamily: theme.fontSansMedium },
-                    ]}
-                  >
-                    {proof.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </MotionView>
+  const proofs = (
+    <View style={[styles.proofs, shortDesktop && styles.proofsShort, isMobile && styles.proofsMobile]}>
+      {PROOFS.map(({ icon, label }) => (
+        <View key={label} style={styles.proof}>
+          <Ionicons name={icon} size={19} color={theme.textPrimary} />
+          <Text style={[styles.proofText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{label}</Text>
         </View>
-
-        <MotionView
-          entering="fadeIn"
-          delay={130}
-          duration={650}
-          style={[
-            styles.visualColumn,
-            ...(isDesktop ? [styles.visualColumnDesktop] : []),
-          ]}
-        >
-          <View style={styles.imageLayout}>
-            <Image
-              source={HERO_IMAGE}
-              resizeMode="cover"
-              style={styles.image}
-              accessible
-              accessibilityRole="image"
-              accessibilityLabel="Profesional de salud mental tomando notas durante una sesión"
-            />
-          </View>
-        </MotionView>
-      </View>
-
-      {showScrollIndicator && !isMobile ? (
-        <AnimatedPressable
-          onPress={onScrollIndicatorPress}
-          hoverLift={false}
-          pressScale={0.92}
-          accessibilityRole="button"
-          accessibilityLabel="Descubrir especialistas"
-          style={styles.scrollIndicatorContainer}
-        >
-          <View style={styles.scrollIndicator}>
-            <Text
-              style={[
-                styles.scrollIndicatorText,
-                { color: theme.textSecondary, fontFamily: theme.fontSans },
-              ]}
-            >
-              Descubre HERA
-            </Text>
-            <Ionicons name="chevron-down" size={20} color={theme.primary} />
-          </View>
-        </AnimatedPressable>
-      ) : null}
+      ))}
     </View>
   );
-};
+
+  return (
+    <View testID="landing-hero" style={[styles.container, { backgroundColor: theme.landingCanvas }, isDesktop && { minHeight: Math.max(0, height - LANDING_SCROLL_CONTENT_TOP_PADDING), justifyContent: 'space-between' }, shortDesktop && styles.containerShort, isMobile && styles.containerMobile]}>
+      <View testID="hero-bottom-wave" pointerEvents="none" aria-hidden importantForAccessibility="no-hide-descendants" style={styles.wave}>
+        <Svg width="100%" height="100%" viewBox="0 0 1440 110" preserveAspectRatio="none">
+          <Defs>
+            {/* Both waves fade into the shared section canvas, so their closing
+                edges never form a horizontal seam when the hero scrolls away. */}
+            <LinearGradient id={waveGradientId} x1={0} y1={0} x2={0} y2={110} gradientUnits="userSpaceOnUse">
+              <Stop offset="0%" stopColor={theme.secondary} stopOpacity={1} />
+              <Stop offset="35%" stopColor={theme.secondary} stopOpacity={0.9} />
+              <Stop offset="70%" stopColor={theme.secondary} stopOpacity={0.35} />
+              <Stop offset="100%" stopColor={theme.secondary} stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          <Path d="M0 20 C125 122 235 55 382 85 C485 108 535 114 610 110 L0 110 Z" fill={`url(#${waveGradientId})`} opacity={0.18} />
+          <Path d="M1170 110 C1265 60 1360 42 1440 50 L1440 110 Z" fill={`url(#${waveGradientId})`} opacity={0.25} />
+        </Svg>
+      </View>
+      <View style={[styles.content, isDesktop && styles.contentDesktop, shortDesktop && styles.contentShort]}>
+        <View style={[styles.copy, isDesktop && styles.copyDesktop]}>
+          <View style={[styles.eyebrowRow, shortDesktop && styles.eyebrowRowShort]}>
+            <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansBold }]}>PERSONAS, PROFESIONALES Y CLÍNICAS</Text>
+            {!isMobile && <View style={[styles.eyebrowRule, { backgroundColor: theme.secondary }]} />}
+          </View>
+          <Text accessibilityRole="header" aria-level={1} style={[
+            styles.title, compactDesktop && styles.titleCompactDesktop, shortDesktop && styles.titleShort,
+            isMobile && styles.titleMobile, width < 380 && styles.titleSmall,
+            { color: theme.textPrimary, fontFamily: theme.fontDisplay },
+          ]}>
+            Terapia con profesionales de confianza,{' '}
+            <Text style={{ color: theme.primary }}>a tu alcance.</Text>
+          </Text>
+          <Text style={[styles.subtitle, shortDesktop && styles.subtitleShort, isMobile && styles.subtitleMobile, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
+            Encuentra profesionales verificados para cuidar tu salud mental o gestiona tu consulta con las herramientas de HERA.
+          </Text>
+          <View style={[styles.doors, isMobile && styles.doorsMobile]}>
+            {doors.map((door, index) => (
+              <View key={door.title} style={[styles.door, !isMobile && styles.doorColumn, shortDesktop && styles.doorShort, isMobile && styles.doorMobile, { backgroundColor: door.background }]}>
+                <View style={[styles.doorHeading, shortDesktop && styles.doorHeadingShort]}>
+                  <View style={[styles.doorIcon, shortDesktop && styles.doorIconShort, { backgroundColor: index === 0 ? theme.secondaryAlpha12 : theme.primaryAlpha12 }]}>
+                    <Ionicons name={door.icon} size={23} color={theme.textPrimary} />
+                  </View>
+                  <Text accessibilityRole="header" aria-level={2} style={[styles.doorTitle, shortDesktop && styles.doorTitleShort, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>{door.title}</Text>
+                </View>
+                <Text style={[styles.doorDescription, shortDesktop && styles.doorDescriptionShort, { color: theme.textPrimary, fontFamily: theme.fontSans }]}>{door.description}</Text>
+                <AnimatedPressable onPress={door.onPress} href={Platform.OS === 'web' && index === 0 ? '/especialistas' : undefined} accessibilityRole={index === 0 ? 'link' : 'button'} accessibilityLabel={door.label} hoverLift={false} pressScale={1} style={[styles.action, compactDesktop && styles.actionCompactDesktop, shortDesktop && styles.actionShort, { backgroundColor: door.accent }]}>
+                  <Text style={[styles.actionText, shortDesktop && styles.actionTextShort, { color: theme.actionPrimaryText, fontFamily: theme.fontSansBold }]}>{door.label}</Text>
+                  <Ionicons name="arrow-forward" size={18} color={theme.actionPrimaryText} />
+                </AnimatedPressable>
+                {isMobile ? (
+                  <Text style={[styles.compactBenefits, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{door.compactBenefits}</Text>
+                ) : (
+                  <View style={[styles.benefits, shortDesktop && styles.benefitsShort]}>
+                    {door.benefits.map(benefit => (
+                      <View key={benefit} style={styles.benefit}>
+                        <Ionicons name="checkmark-circle-outline" size={16} color={theme.primary} />
+                        <Text style={[styles.benefitText, { color: theme.textPrimary, fontFamily: theme.fontSans }]}>{benefit}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {index === 1 && (
+                  <AnimatedPressable onPress={onExploreProfessionals} accessibilityRole="button" accessibilityLabel="Conocer las herramientas" hoverLift={false} pressScale={1} style={[styles.learnMore, shortDesktop && styles.learnMoreShort]}>
+                    <Text style={[styles.learnMoreText, { color: theme.link, fontFamily: theme.fontSansBold }]}>Conocer las herramientas</Text>
+                    <Ionicons name="arrow-down" size={14} color={theme.link} />
+                  </AnimatedPressable>
+                )}
+              </View>
+            ))}
+          </View>
+          {!isMobile && proofs}
+        </View>
+        <View style={[styles.visual, isDesktop && styles.visualDesktop]}>
+          <HeroArtwork desktop={isDesktop} mobile={isMobile} compact={shortDesktop} onExploreDirectory={onFindSpecialist} />
+        </View>
+        {isMobile && proofs}
+      </View>
+      {!isMobile && (
+        // Keep its space when hidden: unmounting it changes the hero height and
+        // makes browser scroll anchoring jump around the visibility threshold.
+        <View
+          testID="hero-discovery-indicator"
+          pointerEvents={showScrollIndicator ? 'auto' : 'none'}
+          aria-hidden={!showScrollIndicator}
+          importantForAccessibility={showScrollIndicator ? 'auto' : 'no-hide-descendants'}
+          style={!showScrollIndicator && styles.indicatorHidden}
+        >
+          <AnimatedPressable
+            focusRef={discoveryRef}
+            onPress={() => {
+              // Hiding a focused web button during smooth scrolling can cancel
+              // the browser's animation. Release focus before starting it.
+              if (Platform.OS === 'web') discoveryRef.current?.blur();
+              onScrollIndicatorPress?.();
+            }}
+            disabled={!showScrollIndicator}
+            tabIndex={showScrollIndicator ? 0 : -1}
+            hoverLift={false} pressScale={1} accessibilityRole="button"
+            accessibilityLabel="Descubrir especialistas"
+            style={[styles.scrollIndicator, shortDesktop && styles.scrollIndicatorShort]}
+          >
+            <Text style={[styles.scrollText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Descubre HERA</Text>
+            <Ionicons name="chevron-down" size={18} color={theme.textPrimary} />
+          </AnimatedPressable>
+        </View>
+      )}
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
-  container: {
-    paddingTop: 42,
-    paddingBottom: 44,
-    paddingHorizontal: 24,
-    overflow: 'hidden',
-  },
-  containerDesktop: {
-    paddingTop: 16,
-    paddingBottom: 40,
-    paddingHorizontal: 60,
-  },
-  containerMobile: {
-    paddingTop: 34,
-    paddingBottom: 30,
-    paddingHorizontal: 18,
-  },
-  content: {
-    width: '100%',
-    maxWidth: 1420,
-    alignSelf: 'center',
-    gap: 38,
-  },
-  contentDesktop: {
-    minHeight: 620,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 60,
-  },
-  copyColumn: {
-    width: '100%',
-    maxWidth: 820,
-  },
-  copyColumnDesktop: {
-    flex: 0.52,
-  },
-  eyebrowPill: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    gap: 8,
-    marginBottom: 24,
-  },
-  eyebrowMark: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  eyebrow: {
-    fontSize: 11,
-    lineHeight: 15,
-    letterSpacing: 1.1,
-  },
-  title: {
-    fontSize: 50,
-    lineHeight: 59,
-    letterSpacing: -0.4,
-    maxWidth: 800,
-  },
-  titleGroup: {
-    marginBottom: 22,
-    maxWidth: 800,
-  },
-  titleGroupMobile: {
-    width: '100%',
-  },
-  titleDivider: {
-    width: 96,
-    height: 1,
-    marginVertical: 16,
-    opacity: 0.72,
-  },
-  titleDesktop: {
-    fontSize: 54,
-    lineHeight: 62,
-  },
-  titleMobile: {
-    fontSize: 41,
-    lineHeight: 48,
-  },
-  titleCompactMobile: {
-    fontSize: 37,
-    lineHeight: 44,
-  },
-  subtitle: {
-    maxWidth: 720,
-    fontSize: 17,
-    lineHeight: 27,
-    marginBottom: 32,
-  },
-  subtitleDesktop: {
-    fontSize: 18,
-    lineHeight: 29,
-    maxWidth: 660,
-  },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 26,
-  },
-  actionsMobile: {
-    flexDirection: 'column',
-  },
-  primaryAction: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    gap: 9,
-  },
-  secondaryAction: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 22,
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 9,
-  },
-  actionMobile: {
-    width: '100%',
-  },
-  primaryActionText: {
-    fontSize: 16,
-  },
-  secondaryActionText: {
-    fontSize: 15,
-  },
-  proofs: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 18,
-  },
-  proofItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  proofText: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  visualColumn: {
-    width: '100%',
-    alignSelf: 'center',
-  },
-  visualColumnDesktop: {
-    flex: 0.48,
-  },
-
-  imageLayout: {
-    width: '100%',
-    aspectRatio: 16 / 9,
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 12,
-  },
-
-  scrollIndicatorContainer: {
-    alignItems: 'center',
-    paddingTop: 26,
-    paddingBottom: 6,
-  },
-  scrollIndicator: {
-    alignItems: 'center',
-    gap: 3,
-  },
-  scrollIndicatorText: {
-    fontSize: 13,
-  },
+  container: { paddingTop: 36, paddingBottom: 44, paddingHorizontal: 40, overflow: 'hidden' },
+  containerMobile: { paddingTop: 24, paddingHorizontal: 20, paddingBottom: 38 },
+  containerShort: { paddingTop: 12, paddingBottom: 6 },
+  content: { width: '100%', maxWidth: 1420, alignSelf: 'center', gap: 28 },
+  contentDesktop: { flexDirection: 'row', alignItems: 'center', gap: 34, minHeight: 660 },
+  contentShort: { minHeight: 0 },
+  copy: { width: '100%' },
+  copyDesktop: { flex: 1.15, minWidth: 0 },
+  eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 22 },
+  eyebrow: { fontSize: 11, lineHeight: 17, letterSpacing: 1.15, flexShrink: 1 },
+  eyebrowRule: { width: 50, height: 1, opacity: 0.7 },
+  eyebrowRowShort: { marginBottom: 12 },
+  title: { fontSize: 51, lineHeight: 63, letterSpacing: -1.3, marginBottom: 20 },
+  titleCompactDesktop: { fontSize: 43, lineHeight: 54, letterSpacing: -1 },
+  titleShort: { fontSize: 42, lineHeight: 51, marginBottom: 12 },
+  titleMobile: { fontSize: 36, lineHeight: 46, letterSpacing: -0.7, marginBottom: 16 },
+  titleSmall: { fontSize: 31, lineHeight: 40 },
+  subtitle: { fontSize: 19, lineHeight: 29, maxWidth: 660, marginBottom: 28 },
+  subtitleMobile: { fontSize: 17, lineHeight: 26, marginBottom: 24 },
+  subtitleShort: { fontSize: 17, lineHeight: 25, marginBottom: 18 },
+  doors: { flexDirection: 'row', gap: 14, alignItems: 'stretch' },
+  doorsMobile: { flexDirection: 'column', gap: 12 },
+  door: { minWidth: 0, padding: 21, borderRadius: 20 },
+  doorColumn: { flex: 1 },
+  doorMobile: { padding: 18, borderRadius: 16 },
+  doorShort: { padding: 16 },
+  doorHeading: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 11 },
+  doorHeadingShort: { marginBottom: 8 },
+  doorIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  doorIconShort: { width: 36, height: 36 },
+  doorTitle: { fontSize: 22, lineHeight: 29, flexShrink: 1, letterSpacing: -0.5 },
+  doorTitleShort: { fontSize: 20, lineHeight: 26 },
+  doorDescription: { fontSize: 16, lineHeight: 23, marginBottom: 18, minHeight: 46 },
+  doorDescriptionShort: { fontSize: 15, lineHeight: 21, minHeight: 42, marginBottom: 12 },
+  action: { minHeight: 48, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  actionCompactDesktop: { minHeight: 66 },
+  actionShort: { minHeight: 44, paddingVertical: 10 },
+  actionText: { fontSize: 15, lineHeight: 21, flexShrink: 1, textAlign: 'center' },
+  actionTextShort: { fontSize: 14 },
+  benefits: { gap: 8, marginTop: 18 },
+  benefitsShort: { gap: 5, marginTop: 12 },
+  benefit: { flexDirection: 'row', alignItems: 'flex-start', gap: 7 },
+  benefitText: { fontSize: 14, lineHeight: 19, flexShrink: 1 },
+  compactBenefits: { fontSize: 13, lineHeight: 19, marginTop: 12 },
+  learnMore: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: -10, marginTop: 4 },
+  learnMoreShort: { marginTop: 2, marginBottom: -6 },
+  learnMoreText: { fontSize: 13, lineHeight: 18, flexShrink: 1, textAlign: 'center' },
+  proofs: { flexDirection: 'row', flexWrap: 'wrap', gap: 20, marginTop: 25 },
+  proofsShort: { marginTop: 16 },
+  proofsMobile: { marginTop: 0, gap: 14, justifyContent: 'center' },
+  proof: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  proofText: { fontSize: 13, lineHeight: 19 },
+  visual: { width: '100%', maxWidth: 780, alignSelf: 'center' },
+  visualDesktop: { flex: 1, minWidth: 0 },
+  wave: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 96 },
+  scrollIndicator: { alignSelf: 'center', alignItems: 'center', gap: 4, paddingHorizontal: 18, paddingVertical: 12, marginTop: 15 },
+  scrollIndicatorShort: { paddingVertical: 6, marginTop: 4 },
+  indicatorHidden: { opacity: 0 },
+  scrollText: { fontSize: 12, lineHeight: 18 },
 });

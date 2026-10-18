@@ -49,6 +49,7 @@ const WEB_SCROLLBAR_GUTTER = 16;
 const MOBILE_BREAKPOINT = 768;
 const WIDE_HEADER_BREAKPOINT = 1200;
 const BRAND_DESCRIPTOR_BREAKPOINT = 1400;
+const COMPACT_PROFESSIONAL_LINK_BREAKPOINT = 1024;
 
 export const LandingHeader: React.FC<LandingHeaderProps> = ({
   context,
@@ -64,7 +65,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const isMobile = width < MOBILE_BREAKPOINT;
-  const isWide = width >= WIDE_HEADER_BREAKPOINT;
+  const isWide = width >= (context === 'landing' ? BRAND_DESCRIPTOR_BREAKPOINT : WIDE_HEADER_BREAKPOINT);
   const showBrandDescriptor = width >= BRAND_DESCRIPTOR_BREAKPOINT;
   const isDirectory = context === 'directory';
   const isAccess = context === 'access';
@@ -99,7 +100,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         } as unknown as ViewStyle)
       : undefined;
 
-  const logo = <StyledLogo size={isScrolled ? 42 : 46} />;
+  const logo = <StyledLogo size={context === 'landing' && !isMobile ? 52 : isScrolled ? 42 : 46} />;
 
   return (
     <Animated.View
@@ -118,7 +119,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         />
       ) : null}
 
-      <View style={[styles.content, isWide && styles.contentWide, isMobile && styles.contentMobile]}>
+      <View style={[styles.content, isWide && styles.contentWide, context === 'landing' && !isMobile && styles.landingContent, isMobile && styles.contentMobile]}>
         <View style={styles.brandCluster}>
           {onLogoPress ? (
             <AnimatedPressable
@@ -218,7 +219,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             </AnimatedPressable>
           ) : null}
 
-          {!isMobile && !isWide && !isAccess ? (
+          {!isMobile && !isWide && !isAccess && (context !== 'landing' || width >= COMPACT_PROFESSIONAL_LINK_BREAKPOINT) ? (
             <AnimatedPressable
               onPress={onExploreProfessionals}
               hoverLift={false}
@@ -242,7 +243,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             </AnimatedPressable>
           ) : null}
 
-          {isWide || isMobile || isDirectory || isAccess ? (
+          {context === 'landing' || isWide || isMobile || isDirectory || isAccess ? (
             <AnimatedPressable
               onPress={onAccess}
               pressScale={0.96}
@@ -271,6 +272,11 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
 };
 
 const styles = StyleSheet.create({
+  landingContent: {
+    maxWidth: 1500,
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+  },
   landingAction: {
     borderRadius: 8,
     minHeight: 44,

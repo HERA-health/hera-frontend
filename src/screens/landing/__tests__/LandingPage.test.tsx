@@ -6,6 +6,7 @@ let mockWindowDimensions = {
 };
 const mockUseWindowDimensions = jest.fn(() => mockWindowDimensions);
 const mockScrollTo = jest.fn();
+const mockDiscoveryBlur = jest.fn();
 let mockAuthState = {
   isAuthenticated: false,
   user: null as { type: 'client' | 'professional' | 'clinic' } | null,
@@ -40,13 +41,16 @@ jest.mock('react-native', () => {
 });
 
 import React from 'react';
+import { Platform } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { darkTheme, lightTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { LandingPage } from '../LandingPage';
 import { LandingHeader } from '../components/LandingHeader';
+import { HeroSection } from '../components/HeroSection';
 import { PROFESSIONAL_PREVIEW_IMAGES } from '../professionalPreviewAssets';
+import * as analyticsService from '../../../services/analyticsService';
 
 jest.mock('../../../contexts/ThemeContext', () => ({
   useTheme: jest.fn(),
@@ -110,13 +114,17 @@ jest.mock('../../../components/common/AnimatedPressable', () => ({
     onPress,
     accessibilityLabel,
     accessibilityRole,
+    focusRef,
   }: {
     children?: React.ReactNode;
     onPress?: () => void;
     accessibilityLabel?: string;
     accessibilityRole?: string;
+    focusRef?: React.Ref<{ blur: () => void }>;
   }) => {
     const { Pressable: MockPressable } = require('react-native');
+    const ReactModule = require('react');
+    ReactModule.useImperativeHandle(focusRef, () => ({ blur: mockDiscoveryBlur }));
     return (
       <MockPressable
         onPress={onPress}
@@ -146,7 +154,6 @@ jest.mock('../../../components/common/StyledLogo', () => ({
 const mockedUseTheme = jest.mocked(useTheme);
 const mockedUseNavigation = jest.mocked(useNavigation);
 const mockedUseRoute = jest.mocked(useRoute);
-
 describe('LandingPage', () => {
   const navigate = jest.fn();
   const setParams = jest.fn();
@@ -196,14 +203,17 @@ describe('LandingPage', () => {
     render(<LandingPage />);
 
     expect(screen.getByText('PERSONAS, PROFESIONALES Y CLÍNICAS')).toBeTruthy();
-    expect(screen.getByText(/Encuentra apoyo para cuidar tu salud mental/)).toBeTruthy();
-    expect(screen.getByText(/Gestiona tu consulta con sencillez/)).toBeTruthy();
-    expect(screen.getByTestId('hero-journey-divider')).toBeTruthy();
+    expect(screen.getByText(/Terapia con profesionales de confianza/)).toBeTruthy();
+    expect(screen.getByText('a tu alcance.')).toBeTruthy();
+    expect(screen.getByText('Soy paciente')).toBeTruthy();
+    expect(screen.getByText('Soy profesional')).toBeTruthy();
     expect(screen.getByText('Salud mental')).toBeTruthy();
     expect(screen.getAllByText('Explorar profesionales').length).toBeGreaterThan(0);
-    expect(screen.getByText('HERA para profesionales')).toBeTruthy();
+    expect(screen.getByText('Conocer las herramientas')).toBeTruthy();
+    expect(screen.queryByText('Encuentra tu profesional')).toBeNull();
+    expect(screen.queryByText('Tu consulta, organizada')).toBeNull();
     expect(
-      screen.getByLabelText('Profesional de salud mental tomando notas durante una sesión')
+      screen.getByLabelText('Psicóloga de HERA trabajando con su portátil en un espacio luminoso con plantas')
     ).toBeTruthy();
     expect(screen.getByText('Explora perfiles verificados')).toBeTruthy();
     expect(screen.getByText('Conoce cómo trabaja cada profesional')).toBeTruthy();
@@ -229,6 +239,19 @@ describe('LandingPage', () => {
     expect(
       screen.getByText(/Desde su espacio profesional puede organizar disponibilidad/)
     ).toBeTruthy();
+  });
+
+  it('invites visitors to the full directory without promoting an individual profile', () => {
+    render(<LandingPage />);
+    expect(screen.getByText('DIRECTORIO HERA')).toBeTruthy();
+    expect(screen.getByLabelText('Explorar el directorio')).toBeTruthy();
+    expect(screen.queryByTestId('hero-specialist-preview')).toBeNull();
+    expect(screen.queryByText(/Lansac/)).toBeNull();
+    expect(screen.queryByLabelText(/^Ver perfil de /)).toBeNull();
+    fireEvent.press(screen.getByLabelText('Explorar el directorio'));
+    expect(navigate).toHaveBeenCalledWith('PublicSpecialists');
+    expect(navigate).not.toHaveBeenCalledWith('PublicSpecialistProfile', expect.anything());
+    expect(analyticsService.track).toHaveBeenCalledWith('landing_patient_cta_clicked', { placement: 'hero', audience: 'patient' });
   });
 
   it('maps every wide header label to its stable anchor', () => {
@@ -278,19 +301,24 @@ describe('LandingPage', () => {
     expect(screen.queryByText('Cómo funciona')).toBeNull();
     expect(screen.getByText('Explorar profesionales')).toBeTruthy();
     expect(screen.getByText('Para profesionales')).toBeTruthy();
+    expect(screen.getByText('Acceder')).toBeTruthy();
     expect(screen.queryByText('Salud mental')).toBeNull();
     expect(screen.queryByText('Clínicas')).toBeNull();
   });
 
   it('uses the minimal mobile header while preserving both hero doors', () => {
     mockWindowDimensions = { fontScale: 1, height: 844, scale: 1, width: 390 };
-
     render(<LandingPage />);
 
     expect(screen.getByText('Acceder')).toBeTruthy();
     expect(screen.getByText('toggle-theme')).toBeTruthy();
     expect(screen.getAllByText('Explorar profesionales').length).toBeGreaterThan(0);
-    expect(screen.getByText('HERA para profesionales')).toBeTruthy();
+    expect(screen.getByText('Conocer las herramientas')).toBeTruthy();
+    expect(screen.getByText('Soy paciente')).toBeTruthy();
+    expect(screen.getByText('Soy profesional')).toBeTruthy();
+    expect(screen.queryByText('Encuentra tu profesional')).toBeNull();
+    expect(screen.queryByText('Tu consulta, organizada')).toBeNull();
+    expect(screen.queryByTestId('hero-directory-preview')).toBeNull();
   });
 
   it('opens the public directory for an unauthenticated patient without login', () => {
@@ -302,7 +330,7 @@ describe('LandingPage', () => {
     expect(navigate).not.toHaveBeenCalledWith('Login', expect.anything());
   });
 
-  it('scrolls the professional hero door to the professional anchor', () => {
+  it('scrolls the secondary professional hero link to the professional anchor', () => {
     render(<LandingPage />);
     fireEvent(
       screen.UNSAFE_getByProps({ nativeID: 'landing-section-for-specialists' }),
@@ -310,9 +338,75 @@ describe('LandingPage', () => {
       { nativeEvent: { layout: { x: 0, y: 1700, width: 1000, height: 500 } } }
     );
 
-    fireEvent.press(screen.getByText('HERA para profesionales'));
+    fireEvent.press(screen.getByText('Conocer las herramientas'));
 
     expect(mockScrollTo).toHaveBeenCalledWith({ y: 1690, animated: true });
+  });
+
+  it('opens professional registration directly from the hero and tracks its placement', () => {
+    render(<LandingPage />);
+    fireEvent.press(screen.getAllByLabelText('Crear cuenta profesional')[0]);
+    expect(navigate).toHaveBeenCalledWith('Register', { userType: 'PROFESSIONAL' });
+    expect(analyticsService.track).toHaveBeenCalledWith('landing_professional_register_clicked', {
+      placement: 'hero', audience: 'professional',
+    });
+    expect(mockScrollTo).not.toHaveBeenCalled();
+  });
+
+  it('scrolls the discovery indicator to the measured section after layout', () => {
+    render(<LandingPage />);
+    fireEvent.press(screen.getByLabelText('Descubrir especialistas'));
+    expect(mockScrollTo).not.toHaveBeenCalled();
+    // A click before the deferred section is measured must not disable or hide
+    // discovery: only a real scroll event should change its visibility.
+    expect(screen.getByLabelText('Descubrir especialistas')).toBeTruthy();
+    fireEvent(
+      screen.UNSAFE_getByProps({ nativeID: 'landing-section-featured-specialists' }),
+      'layout',
+      { nativeEvent: { layout: { x: 0, y: 940, width: 1440, height: 500 } } }
+    );
+    expect(mockScrollTo).toHaveBeenCalledWith({ y: 930, animated: true });
+  });
+
+  it('keeps the discovery content mounted without exposing it while scrolling', () => {
+    const props = {
+      onFindSpecialist: jest.fn(),
+      onExploreProfessionals: jest.fn(),
+      onProfessionalAction: jest.fn(),
+      professionalActionLabel: 'Crear cuenta profesional',
+    };
+    const { rerender } = render(<HeroSection {...props} showScrollIndicator />);
+    expect(screen.getByLabelText('Descubrir especialistas')).toBeTruthy();
+
+    rerender(<HeroSection {...props} showScrollIndicator={false} />);
+    // Unmounting this content used to shorten the hero by 81 px on web,
+    // shifting every following section around the scroll threshold.
+    expect(screen.getByText('Descubre HERA', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByLabelText('Descubrir especialistas')).toBeNull();
+    const indicator = screen.getByTestId('hero-discovery-indicator', { includeHiddenElements: true });
+    expect(indicator.props.pointerEvents).toBe('none');
+    expect(indicator.props.style).toEqual({ opacity: 0 });
+
+    rerender(<HeroSection {...props} showScrollIndicator />);
+    expect(screen.getByLabelText('Descubrir especialistas')).toBeTruthy();
+  });
+
+  it('releases web discovery focus before starting the scroll so hiding it cannot cancel the animation', () => {
+    const platform = jest.replaceProperty(Platform, 'OS', 'web');
+    const onScrollIndicatorPress = jest.fn(() => {
+      expect(mockDiscoveryBlur).toHaveBeenCalledTimes(1);
+    });
+    try {
+      render(<HeroSection
+        onFindSpecialist={jest.fn()} onExploreProfessionals={jest.fn()}
+        onProfessionalAction={jest.fn()} professionalActionLabel="Crear cuenta profesional"
+        onScrollIndicatorPress={onScrollIndicatorPress}
+      />);
+      fireEvent.press(screen.getByLabelText('Descubrir especialistas'));
+      expect(onScrollIndicatorPress).toHaveBeenCalledTimes(1);
+    } finally {
+      platform.restore();
+    }
   });
 
   it('routes professional registration, login and clinic access explicitly', () => {

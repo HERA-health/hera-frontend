@@ -21,7 +21,7 @@ import { getPasswordError, validatePassword } from '../../utils/validation';
 type RegisterRouteParams = AppRouteProp<'Register'>;
 
 const mapRouteUserType = (
-  userType: RegisterRouteParams['params']['userType']
+  userType: NonNullable<RegisterRouteParams['params']>['userType']
 ): PublicUserType => {
   if (userType === 'PROFESSIONAL') {
     return 'professional';
@@ -53,7 +53,7 @@ export function RegisterScreen() {
   const route = useRoute<RegisterRouteParams>();
   const { theme } = useTheme();
   const { register, authenticateWithGoogle, loading: authLoading, clearError } = useAuth();
-  const initialUserType: PublicUserType = mapRouteUserType(route.params.userType);
+  const initialUserType: PublicUserType = mapRouteUserType(route.params?.userType);
 
   const [userType, setUserType] = useState<PublicUserType>(initialUserType);
   const [clinicCommercialName, setClinicCommercialName] = useState('');

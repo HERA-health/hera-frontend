@@ -66,7 +66,7 @@ describe('professionalTourDefinitions', () => {
     expect(allCopy).toContain('facturación');
     expect(allCopy).toContain('automáticamente');
     expect(allCopy).toContain('Evolución mensual');
-    expect(allCopy).toContain('año');
+    expect(allCopy).toContain('El filtro superior cambia el periodo de toda la pantalla.');
     expect(allCopy).toContain('área clínica');
     expect(allCopy).toContain('Sesiones organiza cada cita');
     expect(allCopy).toContain('enviar la autorización por email');

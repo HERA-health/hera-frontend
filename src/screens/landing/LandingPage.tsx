@@ -33,6 +33,7 @@ import { trackProfessionalShowcaseEvent } from '../../services/professionalShowc
 import type { ProfessionalSpecialtyValue } from '../../constants/professionalMatchingOptions';
 import {
   LANDING_SECTION_NATIVE_IDS,
+  LANDING_SCROLL_CONTENT_TOP_PADDING,
   isLandingSectionAnchor,
   type LandingSectionAnchor,
 } from './types';
@@ -77,7 +78,6 @@ type FooterSectionProps = {
 const HEADER_SCROLL_THRESHOLD = 50;
 const SCROLL_INDICATOR_THRESHOLD = 80;
 const HEADER_HEIGHT = 80;
-const SCROLL_CONTENT_TOP_PADDING = 70;
 const DEFERRED_SECTIONS_DELAY_MS = 180;
 
 const getRequestedLandingSection = (
@@ -197,14 +197,27 @@ export const LandingPage: React.FC = () => {
   }, [revealDeferredSections, showDeferredSections]);
 
   const scrollToSection = useCallback((section: LandingSectionAnchor): boolean => {
-    const measuredLayout = sectionLayouts.current[section];
+    let measuredLayout = sectionLayouts.current[section];
 
-    if (!measuredLayout || measuredLayout.height <= 0) {
+    // Web onLayout observes size, not position. Earlier sections can move an
+    // anchor after fonts load or the viewport changes without remeasuring it.
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const target = document.getElementById(LANDING_SECTION_NATIVE_IDS[section]);
+      const scroller = document.getElementById('landing-scroll-view');
+      if (!target || !scroller) return false;
+      const targetRect = target.getBoundingClientRect();
+      measuredLayout = {
+        y: targetRect.top - scroller.getBoundingClientRect().top + scroller.scrollTop,
+        height: targetRect.height,
+      };
+    }
+
+    if (!measuredLayout || measuredLayout.height <= 0 || !scrollViewRef.current) {
       return false;
     }
 
-    const adjustedPosition = Math.max(0, measuredLayout.y - HEADER_HEIGHT + 70);
-    scrollViewRef.current?.scrollTo({ y: adjustedPosition, animated: true });
+    const adjustedPosition = Math.max(0, measuredLayout.y - HEADER_HEIGHT + LANDING_SCROLL_CONTENT_TOP_PADDING);
+    scrollViewRef.current.scrollTo({ y: adjustedPosition, animated: true });
     return true;
   }, []);
 
@@ -231,11 +244,6 @@ export const LandingPage: React.FC = () => {
     [revealDeferredSections, showDeferredSections]
   );
 
-  const handleScrollToContent = useCallback(() => {
-    revealDeferredSections();
-    scrollViewRef.current?.scrollTo({ y: 600, animated: true });
-  }, [revealDeferredSections]);
-
   const handleSectionLayout = useCallback(
     (section: LandingSectionAnchor) => (event: LayoutChangeEvent) => {
       const { y, height } = event.nativeEvent.layout;
@@ -260,8 +268,7 @@ export const LandingPage: React.FC = () => {
   const handleScrollToSection = useCallback(
     (section: LandingSectionAnchor) => {
       revealDeferredSections();
-      scrollIndicatorVisibleRef.current = false;
-      setShowScrollIndicator(false);
+      // Hide discovery only after actual scrolling, never merely on a click.
       pendingSectionScroll.current = section;
 
       if (scrollToSection(section)) {
@@ -270,6 +277,10 @@ export const LandingPage: React.FC = () => {
     },
     [revealDeferredSections, scrollToSection]
   );
+
+  const handleScrollToContent = useCallback(() => {
+    handleScrollToSection('featuredSpecialists');
+  }, [handleScrollToSection]);
 
   useEffect(() => {
     const requestedSection = requestedLandingSection;
@@ -423,6 +434,7 @@ export const LandingPage: React.FC = () => {
       />
 
       <ScrollView
+        nativeID="landing-scroll-view"
         ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -433,6 +445,8 @@ export const LandingPage: React.FC = () => {
         <HeroSection
           onFindSpecialist={() => handlePatientCTA('hero')}
           onExploreProfessionals={() => handleExploreProfessionals('hero')}
+          onProfessionalAction={() => handleProfessionalRegister('hero')}
+          professionalActionLabel={professionalActionLabel}
           showScrollIndicator={showScrollIndicator}
           onScrollIndicatorPress={handleScrollToContent}
         />
@@ -531,7 +545,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingTop: SCROLL_CONTENT_TOP_PADDING,
+    paddingTop: LANDING_SCROLL_CONTENT_TOP_PADDING,
   },
   sectionAnchor: {
     alignSelf: 'stretch',

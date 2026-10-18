@@ -4,3 +4,5 @@ export {
   isLandingSectionAnchor,
 } from '../../constants/landingNavigation';
 export type { LandingSectionAnchor } from '../../constants/landingNavigation';
+
+export const LANDING_SCROLL_CONTENT_TOP_PADDING = 70;

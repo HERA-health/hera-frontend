@@ -21,9 +21,9 @@ import { getErrorCode, getErrorMessage } from '../constants/errors';
 import { Button } from '../components/common/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import {
-  createDeferredComponent,
-  type DeferredComponentModule,
-} from '../utils/createDeferredComponent';
+  createDeferredRouteComponent,
+  type RouteModule,
+} from '../utils/createDeferredRouteComponent';
 import {
   clearPendingBookingIntent,
   consumePendingBookingIntent,
@@ -37,25 +37,28 @@ type StackRouteProps<T extends keyof RootStackParamList> = NativeStackScreenProp
   T
 >;
 
-const renderWithMainLayout = (content: React.ReactElement) => {
-  const { MainLayout } = require('../components/navigation/MainLayout') as {
-    MainLayout: React.ComponentType<{ children: React.ReactNode }>;
-  };
+const DeferredMainLayout = createDeferredRouteComponent<{ children: React.ReactNode }>(
+  () => Platform.OS === 'web'
+    ? import('../components/navigation/MainLayout')
+    : require('../components/navigation/MainLayout'),
+  { displayName: 'DeferredMainLayout', exportName: 'MainLayout' },
+);
 
-  return <MainLayout>{content}</MainLayout>;
-};
+const renderWithMainLayout = (content: React.ReactElement) => (
+  <DeferredMainLayout>{content}</DeferredMainLayout>
+);
 
 const createDeferredRoute = <T extends keyof RootStackParamList>(
-  loadModule: () => DeferredComponentModule<StackRouteProps<T>>,
+  loadModule: () => RouteModule<StackRouteProps<T>>,
   options: {
     displayName: string;
     exportName?: string;
   }
 ): React.FC<StackRouteProps<T>> =>
-  createDeferredComponent<StackRouteProps<T>>(loadModule, options);
+  createDeferredRouteComponent<StackRouteProps<T>>(loadModule, options);
 
 const createDeferredLayoutRoute = <T extends keyof RootStackParamList>(
-  loadModule: () => DeferredComponentModule<StackRouteProps<T>>,
+  loadModule: () => RouteModule<StackRouteProps<T>>,
   options: {
     displayName: string;
     exportName?: string;
@@ -72,55 +75,55 @@ const createDeferredLayoutRoute = <T extends keyof RootStackParamList>(
 };
 
 const GoogleCalendarIntegrationRoute = createDeferredLayoutRoute<'GoogleCalendarIntegration'>(
-  () => require('../screens/professional/GoogleCalendarScreen'),
+  () => Platform.OS === 'web' ? import('../screens/professional/GoogleCalendarScreen') : require('../screens/professional/GoogleCalendarScreen'),
   { displayName: 'GoogleCalendarIntegrationRoute', exportName: 'GoogleCalendarScreen' },
 );
 const GoogleCalendarSessionRoute = createDeferredLayoutRoute<'GoogleCalendarSession'>(
-  () => require('../screens/professional/GoogleCalendarScreen'),
+  () => Platform.OS === 'web' ? import('../screens/professional/GoogleCalendarScreen') : require('../screens/professional/GoogleCalendarScreen'),
   { displayName: 'GoogleCalendarSessionRoute', exportName: 'GoogleCalendarSessionScreen' },
 );
 const ProfessionalLegalDocumentRoute = createDeferredLayoutRoute<'LegalDocument'>(
-  () => require('../screens/legal/LegalDocumentScreen'),
+  () => Platform.OS === 'web' ? import('../screens/legal/LegalDocumentScreen') : require('../screens/legal/LegalDocumentScreen'),
   { displayName: 'ProfessionalLegalDocumentRoute', exportName: 'LegalDocumentScreen' },
 );
 
 const ProfessionalShowcaseRoute = createDeferredRoute<'ProfessionalShowcase'>(
-  () => require('../screens/landing/ProfessionalShowcaseScreen'),
+  () => Platform.OS === 'web' ? import('../screens/landing/ProfessionalShowcaseScreen') : require('../screens/landing/ProfessionalShowcaseScreen'),
   {
     displayName: 'ProfessionalShowcaseRoute',
     exportName: 'ProfessionalShowcaseScreen',
   }
 );
 const WelcomeRoute = createDeferredRoute<'Welcome'>(
-  () => require('../screens/auth/WelcomeScreen'),
+  () => Platform.OS === 'web' ? import('../screens/auth/WelcomeScreen') : require('../screens/auth/WelcomeScreen'),
   { displayName: 'WelcomeRoute', exportName: 'WelcomeScreen' }
 );
 const LoginRoute = createDeferredRoute<'Login'>(
-  () => require('../screens/auth/LoginScreen'),
+  () => Platform.OS === 'web' ? import('../screens/auth/LoginScreen') : require('../screens/auth/LoginScreen'),
   { displayName: 'LoginRoute', exportName: 'LoginScreen' }
 );
 const RegisterRoute = createDeferredRoute<'Register'>(
-  () => require('../screens/auth/RegisterScreen'),
+  () => Platform.OS === 'web' ? import('../screens/auth/RegisterScreen') : require('../screens/auth/RegisterScreen'),
   { displayName: 'RegisterRoute', exportName: 'RegisterScreen' }
 );
 const EmailSentVerificationRoute = createDeferredRoute<'EmailSentVerification'>(
-  () => require('../screens/auth/EmailSentVerificationScreen'),
+  () => Platform.OS === 'web' ? import('../screens/auth/EmailSentVerificationScreen') : require('../screens/auth/EmailSentVerificationScreen'),
   {
     displayName: 'EmailSentVerificationRoute',
     exportName: 'EmailSentVerificationScreen',
   }
 );
 const EmailVerificationRoute = createDeferredRoute<'EmailVerification'>(
-  () => require('../screens/auth/EmailVerificationScreen'),
+  () => Platform.OS === 'web' ? import('../screens/auth/EmailVerificationScreen') : require('../screens/auth/EmailVerificationScreen'),
   { displayName: 'EmailVerificationRoute', exportName: 'EmailVerificationScreen' }
 );
 const ClinicalConsentRoute = createDeferredRoute<'ClinicalConsent'>(
-  () => require('../screens/clinical/ClinicalConsentScreen'),
+  () => Platform.OS === 'web' ? import('../screens/clinical/ClinicalConsentScreen') : require('../screens/clinical/ClinicalConsentScreen'),
   { displayName: 'ClinicalConsentRoute', exportName: 'ClinicalConsentScreen' }
 );
-const DeferredReferralsRoute = createDeferredRoute<'Referrals'>(() => require('../screens/referrals/ReferralsScreen'), { displayName: 'ReferralsRoute', exportName: 'ReferralsScreen' });
-const HeraCommissionsRoute = createDeferredLayoutRoute<'HeraCommissions'>(() => require('../screens/commissions/HeraCommissionsScreen'), { displayName: 'HeraCommissionsRoute', exportName: 'HeraCommissionsScreen' });
-const DeferredCollaborationsRoute = createDeferredRoute<'Collaborations'>(() => require('../screens/collaborations/CollaborationsScreen'), { displayName: 'CollaborationsRoute', exportName: 'CollaborationsScreen' });
+const DeferredReferralsRoute = createDeferredRoute<'Referrals'>(() => Platform.OS === 'web' ? import('../screens/referrals/ReferralsScreen') : require('../screens/referrals/ReferralsScreen'), { displayName: 'ReferralsRoute', exportName: 'ReferralsScreen' });
+const HeraCommissionsRoute = createDeferredLayoutRoute<'HeraCommissions'>(() => Platform.OS === 'web' ? import('../screens/commissions/HeraCommissionsScreen') : require('../screens/commissions/HeraCommissionsScreen'), { displayName: 'HeraCommissionsRoute', exportName: 'HeraCommissionsScreen' });
+const DeferredCollaborationsRoute = createDeferredRoute<'Collaborations'>(() => Platform.OS === 'web' ? import('../screens/collaborations/CollaborationsScreen') : require('../screens/collaborations/CollaborationsScreen'), { displayName: 'CollaborationsRoute', exportName: 'CollaborationsScreen' });
 const CollaborationsRoute: React.FC<StackRouteProps<'Collaborations'>> = (props) => {
   const { isAuthenticated } = useAuth();
   const content = <DeferredCollaborationsRoute {...props} />;
@@ -132,157 +135,157 @@ const ReferralsRoute: React.FC<StackRouteProps<'Referrals'>> = (props) => {
   return isAuthenticated ? renderWithMainLayout(content) : content;
 };
 const ClinicConsentRoute = createDeferredRoute<'ClinicConsent'>(
-  () => require('../screens/clinic/ClinicConsentScreen'),
+  () => Platform.OS === 'web' ? import('../screens/clinic/ClinicConsentScreen') : require('../screens/clinic/ClinicConsentScreen'),
   { displayName: 'ClinicConsentRoute', exportName: 'ClinicConsentScreen' }
 );
 const ForgotPasswordRoute = createDeferredRoute<'ForgotPassword'>(
-  () => require('../screens/auth/ForgotPasswordScreen'),
+  () => Platform.OS === 'web' ? import('../screens/auth/ForgotPasswordScreen') : require('../screens/auth/ForgotPasswordScreen'),
   { displayName: 'ForgotPasswordRoute', exportName: 'ForgotPasswordScreen' }
 );
 const EmailSentPasswordResetRoute = createDeferredRoute<'EmailSentPasswordReset'>(
-  () => require('../screens/auth/EmailSentPasswordResetScreen'),
+  () => Platform.OS === 'web' ? import('../screens/auth/EmailSentPasswordResetScreen') : require('../screens/auth/EmailSentPasswordResetScreen'),
   {
     displayName: 'EmailSentPasswordResetRoute',
     exportName: 'EmailSentPasswordResetScreen',
   }
 );
 const ClinicalPinResetRoute = createDeferredRoute<'ClinicalPinReset'>(
-  () => require('../screens/clinical/ClinicalPinResetScreen'),
+  () => Platform.OS === 'web' ? import('../screens/clinical/ClinicalPinResetScreen') : require('../screens/clinical/ClinicalPinResetScreen'),
   { displayName: 'ClinicalPinResetRoute', exportName: 'ClinicalPinResetScreen' }
 );
 const ResetPasswordRoute = createDeferredRoute<'ResetPassword'>(
-  () => require('../screens/auth/ResetPasswordScreen'),
+  () => Platform.OS === 'web' ? import('../screens/auth/ResetPasswordScreen') : require('../screens/auth/ResetPasswordScreen'),
   { displayName: 'ResetPasswordRoute', exportName: 'ResetPasswordScreen' }
 );
 const ProfessionalVerificationRoute = createDeferredRoute<'ProfessionalVerification'>(
-  () => require('../screens/auth/ProfessionalVerificationScreen'),
+  () => Platform.OS === 'web' ? import('../screens/auth/ProfessionalVerificationScreen') : require('../screens/auth/ProfessionalVerificationScreen'),
   {
     displayName: 'ProfessionalVerificationRoute',
     exportName: 'ProfessionalVerificationScreen',
   }
 );
 const ClinicPendingRoute = createDeferredRoute<'ClinicPending'>(
-  () => require('../screens/clinic/ClinicPendingScreen'),
+  () => Platform.OS === 'web' ? import('../screens/clinic/ClinicPendingScreen') : require('../screens/clinic/ClinicPendingScreen'),
   {
     displayName: 'ClinicPendingRoute',
     exportName: 'ClinicPendingScreen',
   }
 );
 const ClinicDashboardRoute = createDeferredLayoutRoute<'ClinicDashboard'>(
-  () => require('../screens/clinic/ClinicDashboardScreen'),
+  () => Platform.OS === 'web' ? import('../screens/clinic/ClinicDashboardScreen') : require('../screens/clinic/ClinicDashboardScreen'),
   {
     displayName: 'ClinicDashboardRoute',
     exportName: 'ClinicDashboardScreen',
   }
 );
 const ClinicSettingsRoute = createDeferredLayoutRoute<'ClinicSettings'>(
-  () => require('../screens/clinic/ClinicSettingsScreen'),
+  () => Platform.OS === 'web' ? import('../screens/clinic/ClinicSettingsScreen') : require('../screens/clinic/ClinicSettingsScreen'),
   {
     displayName: 'ClinicSettingsRoute',
     exportName: 'ClinicSettingsScreen',
   }
 );
 const ClinicAdministratorsRoute = createDeferredLayoutRoute<'ClinicAdministrators'>(
-  () => require('../screens/clinic/ClinicAdministratorsScreen'),
+  () => Platform.OS === 'web' ? import('../screens/clinic/ClinicAdministratorsScreen') : require('../screens/clinic/ClinicAdministratorsScreen'),
   {
     displayName: 'ClinicAdministratorsRoute',
     exportName: 'ClinicAdministratorsScreen',
   }
 );
 const ClinicTeamRoute = createDeferredLayoutRoute<'ClinicTeam'>(
-  () => require('../screens/clinic/ClinicTeamScreen'),
+  () => Platform.OS === 'web' ? import('../screens/clinic/ClinicTeamScreen') : require('../screens/clinic/ClinicTeamScreen'),
   {
     displayName: 'ClinicTeamRoute',
     exportName: 'ClinicTeamScreen',
   }
 );
 const ClinicServicesRoute = createDeferredLayoutRoute<'ClinicServices'>(
-  () => require('../screens/clinic/ClinicServicesScreen'),
+  () => Platform.OS === 'web' ? import('../screens/clinic/ClinicServicesScreen') : require('../screens/clinic/ClinicServicesScreen'),
   {
     displayName: 'ClinicServicesRoute',
     exportName: 'ClinicServicesScreen',
   }
 );
 const ClinicPatientsRoute = createDeferredLayoutRoute<'ClinicPatients'>(
-  () => require('../screens/clinic/ClinicPatientsScreen'),
+  () => Platform.OS === 'web' ? import('../screens/clinic/ClinicPatientsScreen') : require('../screens/clinic/ClinicPatientsScreen'),
   {
     displayName: 'ClinicPatientsRoute',
     exportName: 'ClinicPatientsScreen',
   }
 );
 const ClinicAgendaRoute = createDeferredLayoutRoute<'ClinicAgenda'>(
-  () => require('../screens/clinic/ClinicAgendaScreen'),
+  () => Platform.OS === 'web' ? import('../screens/clinic/ClinicAgendaScreen') : require('../screens/clinic/ClinicAgendaScreen'),
   {
     displayName: 'ClinicAgendaRoute',
     exportName: 'ClinicAgendaScreen',
   }
 );
 const ClinicBillingRoute = createDeferredLayoutRoute<'ClinicBilling'>(
-  () => require('../screens/clinic/ClinicBillingScreen'),
+  () => Platform.OS === 'web' ? import('../screens/clinic/ClinicBillingScreen') : require('../screens/clinic/ClinicBillingScreen'),
   {
     displayName: 'ClinicBillingRoute',
     exportName: 'ClinicBillingScreen',
   }
 );
 const ClinicInvoiceCreateRoute = createDeferredLayoutRoute<'ClinicInvoiceCreate'>(
-  () => require('../screens/clinic/ClinicInvoiceCreateScreen'),
+  () => Platform.OS === 'web' ? import('../screens/clinic/ClinicInvoiceCreateScreen') : require('../screens/clinic/ClinicInvoiceCreateScreen'),
   {
     displayName: 'ClinicInvoiceCreateRoute',
     exportName: 'ClinicInvoiceCreateScreen',
   }
 );
 const HomeRoute = createDeferredLayoutRoute<'Home'>(
-  () => require('../screens/home/HomeScreen'),
+  () => Platform.OS === 'web' ? import('../screens/home/HomeScreen') : require('../screens/home/HomeScreen'),
   { displayName: 'HomeRoute' }
 );
 const SpecialistsRoute = createDeferredLayoutRoute<'Specialists'>(
-  () => require('../screens/specialists/SpecialistsScreen'),
+  () => Platform.OS === 'web' ? import('../screens/specialists/SpecialistsScreen') : require('../screens/specialists/SpecialistsScreen'),
   { displayName: 'SpecialistsRoute' }
 );
 const SpecialistDetailRoute = createDeferredLayoutRoute<'SpecialistDetail'>(
-  () => require('../screens/specialists/SpecialistDetailScreen'),
+  () => Platform.OS === 'web' ? import('../screens/specialists/SpecialistDetailScreen') : require('../screens/specialists/SpecialistDetailScreen'),
   { displayName: 'SpecialistDetailRoute', exportName: 'SpecialistDetailScreen' }
 );
 const SessionsRoute = createDeferredLayoutRoute<'Sessions'>(
-  () => require('../screens/sessions/SessionsScreen'),
+  () => Platform.OS === 'web' ? import('../screens/sessions/SessionsScreen') : require('../screens/sessions/SessionsScreen'),
   { displayName: 'SessionsRoute' }
 );
 const ProfileRoute = createDeferredLayoutRoute<'Profile'>(
-  () => require('../screens/profile/ProfileScreen'),
+  () => Platform.OS === 'web' ? import('../screens/profile/ProfileScreen') : require('../screens/profile/ProfileScreen'),
   { displayName: 'ProfileRoute' }
 );
 const ProfileCompletionRoute = createDeferredRoute<'ProfileCompletion'>(
-  () => require('../screens/profile/ProfileCompletionScreen'),
+  () => Platform.OS === 'web' ? import('../screens/profile/ProfileCompletionScreen') : require('../screens/profile/ProfileCompletionScreen'),
   { displayName: 'ProfileCompletionRoute' }
 );
 const BookingRoute = createDeferredLayoutRoute<'Booking'>(
-  () => require('../screens/booking/BookingScreen'),
+  () => Platform.OS === 'web' ? import('../screens/booking/BookingScreen') : require('../screens/booking/BookingScreen'),
   { displayName: 'BookingRoute', exportName: 'BookingScreen' }
 );
 const PublicBookingRoute = createDeferredRoute<'Booking'>(
-  () => require('../screens/booking/BookingScreen'),
+  () => Platform.OS === 'web' ? import('../screens/booking/BookingScreen') : require('../screens/booking/BookingScreen'),
   { displayName: 'PublicBookingRoute', exportName: 'BookingScreen' }
 );
 const QuestionnaireRoute = createDeferredLayoutRoute<'Questionnaire'>(
-  () => require('../screens/questionnaire/QuestionnaireScreen'),
+  () => Platform.OS === 'web' ? import('../screens/questionnaire/QuestionnaireScreen') : require('../screens/questionnaire/QuestionnaireScreen'),
   { displayName: 'QuestionnaireRoute', exportName: 'QuestionnaireScreen' }
 );
 const QuestionnaireResultsRoute = createDeferredLayoutRoute<'QuestionnaireResults'>(
-  () => require('../screens/questionnaire/QuestionnaireResultsScreen'),
+  () => Platform.OS === 'web' ? import('../screens/questionnaire/QuestionnaireResultsScreen') : require('../screens/questionnaire/QuestionnaireResultsScreen'),
   {
     displayName: 'QuestionnaireResultsRoute',
     exportName: 'QuestionnaireResultsScreen',
   }
 );
 const OnDutyPsychologistRoute = createDeferredLayoutRoute<'OnDutyPsychologist'>(
-  () => require('../screens/onduty/OnDutyPsychologistScreen'),
+  () => Platform.OS === 'web' ? import('../screens/onduty/OnDutyPsychologistScreen') : require('../screens/onduty/OnDutyPsychologistScreen'),
   {
     displayName: 'OnDutyPsychologistRoute',
     exportName: 'OnDutyPsychologistScreen',
   }
 );
 const DeferredProfessionalHomeRoute = createDeferredLayoutRoute<'ProfessionalHome'>(
-  () => require('../screens/professional/ProfessionalHomeScreen'),
+  () => Platform.OS === 'web' ? import('../screens/professional/ProfessionalHomeScreen') : require('../screens/professional/ProfessionalHomeScreen'),
   { displayName: 'ProfessionalHomeRoute', exportName: 'ProfessionalHomeScreen' }
 );
 const ProfessionalHomeRoute: React.FC<StackRouteProps<'ProfessionalHome'>> = (props) => {
@@ -296,104 +299,104 @@ const ProfessionalHomeRoute: React.FC<StackRouteProps<'ProfessionalHome'>> = (pr
   return <DeferredProfessionalHomeRoute {...props} />;
 };
 const ProfessionalHelpRoute = createDeferredLayoutRoute<'ProfessionalHelp'>(
-  () => require('../screens/professional/ProfessionalHelpScreen'),
+  () => Platform.OS === 'web' ? import('../screens/professional/ProfessionalHelpScreen') : require('../screens/professional/ProfessionalHelpScreen'),
   { displayName: 'ProfessionalHelpRoute', exportName: 'ProfessionalHelpScreen' }
 );
 const ProfessionalDashboardRoute = createDeferredLayoutRoute<'ProfessionalDashboard'>(
-  () => require('../screens/professional/DashboardScreen'),
+  () => Platform.OS === 'web' ? import('../screens/professional/DashboardScreen') : require('../screens/professional/DashboardScreen'),
   { displayName: 'ProfessionalDashboardRoute', exportName: 'DashboardScreen' }
 );
 const ProfessionalClientsRoute = createDeferredLayoutRoute<'ProfessionalClients'>(
-  () => require('../screens/professional/ProfessionalClientsScreen'),
+  () => Platform.OS === 'web' ? import('../screens/professional/ProfessionalClientsScreen') : require('../screens/professional/ProfessionalClientsScreen'),
   { displayName: 'ProfessionalClientsRoute', exportName: 'ProfessionalClientsScreen' }
 );
 const ProfessionalClinicPatientDetailRoute = createDeferredLayoutRoute<'ProfessionalClinicPatientDetail'>(
-  () => require('../screens/professional/ProfessionalClinicPatientDetailScreen'),
+  () => Platform.OS === 'web' ? import('../screens/professional/ProfessionalClinicPatientDetailScreen') : require('../screens/professional/ProfessionalClinicPatientDetailScreen'),
   {
     displayName: 'ProfessionalClinicPatientDetailRoute',
     exportName: 'ProfessionalClinicPatientDetailScreen',
   }
 );
 const ProfessionalClinicWorkspaceRoute = createDeferredLayoutRoute<'ProfessionalClinicWorkspace'>(
-  () => require('../screens/professional/ProfessionalClinicWorkspaceScreen'),
+  () => Platform.OS === 'web' ? import('../screens/professional/ProfessionalClinicWorkspaceScreen') : require('../screens/professional/ProfessionalClinicWorkspaceScreen'),
   {
     displayName: 'ProfessionalClinicWorkspaceRoute',
     exportName: 'ProfessionalClinicWorkspaceScreen',
   },
 );
 const ProfessionalSessionsRoute = createDeferredLayoutRoute<'ProfessionalSessions'>(
-  () => require('../screens/professional/ProfessionalSessionsScreen'),
+  () => Platform.OS === 'web' ? import('../screens/professional/ProfessionalSessionsScreen') : require('../screens/professional/ProfessionalSessionsScreen'),
   {
     displayName: 'ProfessionalSessionsRoute',
     exportName: 'ProfessionalSessionsScreen',
   }
 );
 const ProfessionalTariffsRoute = createDeferredLayoutRoute<'ProfessionalTariffs'>(
-  () => require('../screens/professional/ProfessionalTariffsScreen'),
+  () => Platform.OS === 'web' ? import('../screens/professional/ProfessionalTariffsScreen') : require('../screens/professional/ProfessionalTariffsScreen'),
   { displayName: 'ProfessionalTariffsRoute', exportName: 'ProfessionalTariffsScreen' }
 );
 
-const PackagePaymentRoute = createDeferredRoute<'PackagePayment'>(() => require('../screens/payments/PackagePaymentScreen'), { displayName: 'PackagePaymentRoute', exportName: 'PackagePaymentScreen' });
-const SessionPaymentRoute = createDeferredRoute<'SessionPayment'>(() => require('../screens/payments/SessionPaymentScreen'), { displayName: 'SessionPaymentRoute', exportName: 'SessionPaymentScreen' });
-const ProfessionalPaymentsRoute = createDeferredLayoutRoute<'ProfessionalPayments'>(() => require('../screens/payments/ProfessionalPaymentsScreen'), { displayName: 'ProfessionalPaymentsRoute', exportName: 'ProfessionalPaymentsScreen' });
+const PackagePaymentRoute = createDeferredRoute<'PackagePayment'>(() => Platform.OS === 'web' ? import('../screens/payments/PackagePaymentScreen') : require('../screens/payments/PackagePaymentScreen'), { displayName: 'PackagePaymentRoute', exportName: 'PackagePaymentScreen' });
+const SessionPaymentRoute = createDeferredRoute<'SessionPayment'>(() => Platform.OS === 'web' ? import('../screens/payments/SessionPaymentScreen') : require('../screens/payments/SessionPaymentScreen'), { displayName: 'SessionPaymentRoute', exportName: 'SessionPaymentScreen' });
+const ProfessionalPaymentsRoute = createDeferredLayoutRoute<'ProfessionalPayments'>(() => Platform.OS === 'web' ? import('../screens/payments/ProfessionalPaymentsScreen') : require('../screens/payments/ProfessionalPaymentsScreen'), { displayName: 'ProfessionalPaymentsRoute', exportName: 'ProfessionalPaymentsScreen' });
 
 const ProfessionalBillingRoute = createDeferredLayoutRoute<'ProfessionalBilling'>(
-  () => require('../screens/professional/BillingScreen'),
+  () => Platform.OS === 'web' ? import('../screens/professional/BillingScreen') : require('../screens/professional/BillingScreen'),
   { displayName: 'ProfessionalBillingRoute', exportName: 'BillingScreen' }
 );
 const CreateInvoiceRoute = createDeferredLayoutRoute<'CreateInvoice'>(
-  () => require('../screens/professional/CreateInvoiceScreen'),
+  () => Platform.OS === 'web' ? import('../screens/professional/CreateInvoiceScreen') : require('../screens/professional/CreateInvoiceScreen'),
   { displayName: 'CreateInvoiceRoute', exportName: 'CreateInvoiceScreen' }
 );
 const ProfessionalProfileRoute = createDeferredLayoutRoute<'ProfessionalProfile'>(
-  () => require('../screens/professional/SpecialistProfileScreen'),
+  () => Platform.OS === 'web' ? import('../screens/professional/SpecialistProfileScreen') : require('../screens/professional/SpecialistProfileScreen'),
   { displayName: 'ProfessionalProfileRoute', exportName: 'SpecialistProfileScreen' }
 );
 const ProfessionalAvailabilityRoute = createDeferredLayoutRoute<'ProfessionalAvailability'>(
-  () => require('../screens/professional/ProfessionalAvailabilityScreen'),
+  () => Platform.OS === 'web' ? import('../screens/professional/ProfessionalAvailabilityScreen') : require('../screens/professional/ProfessionalAvailabilityScreen'),
   {
     displayName: 'ProfessionalAvailabilityRoute',
     exportName: 'ProfessionalAvailabilityScreen',
   }
 );
 const ClientProfileRoute = createDeferredLayoutRoute<'ClientProfile'>(
-  () => require('../screens/professional/ClientProfileScreen'),
+  () => Platform.OS === 'web' ? import('../screens/professional/ClientProfileScreen') : require('../screens/professional/ClientProfileScreen'),
   { displayName: 'ClientProfileRoute', exportName: 'ClientProfileScreen' }
 );
 const AdminPanelRoute = createDeferredLayoutRoute<'AdminPanel'>(
-  () => require('../screens/admin/AdminPanelTabbedScreen'),
+  () => Platform.OS === 'web' ? import('../screens/admin/AdminPanelTabbedScreen') : require('../screens/admin/AdminPanelTabbedScreen'),
   { displayName: 'AdminPanelRoute', exportName: 'AdminPanelTabbedScreen' }
 );
 const AdminSpecialistDetailRoute = createDeferredLayoutRoute<'AdminSpecialistDetail'>(
-  () => require('../screens/admin/AdminSpecialistDetailScreen'),
+  () => Platform.OS === 'web' ? import('../screens/admin/AdminSpecialistDetailScreen') : require('../screens/admin/AdminSpecialistDetailScreen'),
   {
     displayName: 'AdminSpecialistDetailRoute',
     exportName: 'AdminSpecialistDetailScreen',
   }
 );
 const SpecialistDetailAdminRoute = createDeferredLayoutRoute<'SpecialistDetailAdmin'>(
-  () => require('../screens/admin/SpecialistDetailAdminScreen'),
+  () => Platform.OS === 'web' ? import('../screens/admin/SpecialistDetailAdminScreen') : require('../screens/admin/SpecialistDetailAdminScreen'),
   {
     displayName: 'SpecialistDetailAdminRoute',
     exportName: 'SpecialistDetailAdminScreen',
   }
 );
 const PublicSpecialistProfileRoute = createDeferredRoute<'PublicSpecialistProfile'>(
-  () => require('../screens/specialists/PublicSpecialistProfileScreen'),
+  () => Platform.OS === 'web' ? import('../screens/specialists/PublicSpecialistProfileScreen') : require('../screens/specialists/PublicSpecialistProfileScreen'),
   {
     displayName: 'PublicSpecialistProfileRoute',
     exportName: 'PublicSpecialistProfileScreen',
   }
 );
 const PublicSpecialistsRoute = createDeferredRoute<'PublicSpecialists'>(
-  () => require('../screens/specialists/PublicSpecialistsScreen'),
+  () => Platform.OS === 'web' ? import('../screens/specialists/PublicSpecialistsScreen') : require('../screens/specialists/PublicSpecialistsScreen'),
   {
     displayName: 'PublicSpecialistsRoute',
     exportName: 'PublicSpecialistsScreen',
   }
 );
 const PublicReviewRoute = createDeferredRoute<'PublicReview'>(
-  () => require('../screens/reviews/PublicReviewScreen'),
+  () => Platform.OS === 'web' ? import('../screens/reviews/PublicReviewScreen') : require('../screens/reviews/PublicReviewScreen'),
   {
     displayName: 'PublicReviewRoute',
     exportName: 'PublicReviewScreen',

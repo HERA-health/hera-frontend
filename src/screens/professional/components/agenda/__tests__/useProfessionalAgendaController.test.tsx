@@ -355,11 +355,13 @@ describe('useProfessionalAgendaController', () => {
     getProfessionalAgendaMock.mockResolvedValue(response);
     const { result, unmount } = renderHook(() => useProfessionalAgendaController('user-1'));
     await waitFor(() => expect(result.current.hasLoadedOnce).toBe(true));
-    act(() => result.current.setSelectedDate(new Date('2026-08-06T12:00:00Z')));
-    await waitFor(() => expect(result.current.refreshing).toBe(false));
+    // Flush the resolved request and React updates together, instead of racing
+    // waitFor's wall-clock timeout against calendar rendering on a busy runner.
+    await act(async () => result.current.setSelectedDate(new Date('2026-08-06T12:00:00Z')));
+    expect(result.current.refreshing).toBe(false);
     for (const view of ['day', 'week', 'month', 'list'] as const) {
-      act(() => result.current.setViewMode(view));
-      await waitFor(() => expect(result.current.refreshing).toBe(false));
+      await act(async () => result.current.setViewMode(view));
+      expect(result.current.refreshing).toBe(false);
       expect(result.current.sessions.map((item) => item.id)).toEqual(['active']);
       act(() => { result.current.setStatusFilter('CANCELLED'); result.current.setOriginFilter('DIRECTORY'); });
       expect(result.current.sessions.map((item) => item.id)).toEqual(['cancelled']);
