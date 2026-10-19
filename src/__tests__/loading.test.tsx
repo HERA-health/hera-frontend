@@ -1,8 +1,8 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
-
+import { act, cleanup, render, screen } from '@testing-library/react-native';
 import LoadingScreen from '../screens/LoadingScreen';
 import LoadingState from '../components/common/LoadingState';
+import SessionsLoadingState from '../screens/sessions/components/LoadingState';
 import { darkTheme, lightTheme } from '../constants/theme';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -11,35 +11,54 @@ jest.mock('../contexts/ThemeContext', () => ({
 }));
 
 const mockedUseTheme = jest.mocked(useTheme);
-
-const buildThemeContext = (isDark: boolean) =>
-  ({
-    theme: isDark ? darkTheme : lightTheme,
-    mode: isDark ? 'dark' : 'light',
-    isDark,
-    setMode: jest.fn(),
-  }) as unknown as ReturnType<typeof useTheme>;
+const buildThemeContext = (isDark: boolean): ReturnType<typeof useTheme> => ({
+  theme: isDark ? darkTheme : lightTheme,
+  mode: isDark ? 'dark' : 'light',
+  isDark,
+  setMode: jest.fn(),
+});
 
 describe('loading surfaces', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockedUseTheme.mockReturnValue(buildThemeContext(false));
+  });
+
   afterEach(() => {
+    cleanup();
+    jest.useRealTimers();
     jest.clearAllMocks();
   });
 
-  it('renders the main loading screen in light mode', () => {
-    mockedUseTheme.mockReturnValue(buildThemeContext(false));
-
+  it.each([false, true])('renders a single branded global loading state (dark: %s)', async isDark => {
+    mockedUseTheme.mockReturnValue(buildThemeContext(isDark));
     render(<LoadingScreen />);
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    await act(async () => {});
+    act(() => jest.advanceTimersByTime(200));
 
-    expect(screen.getByText('Preparando tu espacio')).toBeTruthy();
-    expect(screen.getByText(/Estamos cargando tu experiencia/i)).toBeTruthy();
-    expect(screen.getByText(/Cargando tu espacio seguro/i)).toBeTruthy();
+    expect(screen.getByRole('progressbar', { name: 'Preparando tu espacio…' })).toBeTruthy();
+    expect(screen.getByText('StyledLogo-48', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByText(/configuración más reciente/i)).toBeNull();
+    expect(screen.queryByText(/Cargando tu espacio seguro/i)).toBeNull();
   });
 
-  it('renders the shared loading state in dark mode', () => {
+  it('keeps the shared dark loading state unbranded by default', async () => {
     mockedUseTheme.mockReturnValue(buildThemeContext(true));
-
     render(<LoadingState message="Cargando sesiones" fullScreen />);
+    await act(async () => {});
+    act(() => jest.advanceTimersByTime(200));
 
-    expect(screen.getByText('Cargando sesiones')).toBeTruthy();
+    expect(screen.getByRole('progressbar', { name: 'Cargando sesiones' })).toBeTruthy();
+    expect(screen.queryByText(/StyledLogo/, { includeHiddenElements: true })).toBeNull();
+  });
+
+  it('preserves the patient session message without a second loading message', async () => {
+    render(<SessionsLoadingState message="Cargando tus sesiones..." />);
+    await act(async () => {});
+    act(() => jest.advanceTimersByTime(200));
+
+    expect(screen.getByRole('progressbar', { name: 'Cargando tus sesiones...' })).toBeTruthy();
+    expect(screen.queryByText('Preparando tu agenda con calma…')).toBeNull();
   });
 });

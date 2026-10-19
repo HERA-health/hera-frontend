@@ -6,7 +6,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Animated,
   ScrollView,
   Text,
@@ -15,6 +14,7 @@ import {
 } from 'react-native';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 import { AnimatedPressable, Button } from '../../components/common';
+import LoadingState from '../../components/common/LoadingState';
 import { TourTarget } from '../../components/onboarding/TourTarget';
 import { GoogleMeetInvitation } from '../../components/professional/GoogleMeetInvitation';
 import { useProfessionalTourAutoStart } from '../../components/onboarding/professionalTourContext';
@@ -120,10 +120,7 @@ export function ProfessionalHomeScreen(): React.ReactElement {
   if (homeStatus === 'loading' && !data) {
     return (
       <View style={[styles.loadingScreen, { backgroundColor: theme.bg }]}>
-        <View style={[styles.loadingMark, { backgroundColor: theme.primaryAlpha12 }]}>
-          <ActivityIndicator color={theme.primary} />
-        </View>
-        <Text style={[styles.loadingText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Preparando tu día…</Text>
+        <LoadingState size="small" message="Preparando tu día…" />
       </View>
     );
   }

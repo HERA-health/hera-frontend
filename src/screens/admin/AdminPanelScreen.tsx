@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-  ActivityIndicator,
   Image,
   useWindowDimensions,
 } from 'react-native';
@@ -14,6 +13,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { sortPendingSpecialists, type SubmissionOrder } from './pendingSpecialistOrder';
 import { AnimatedPressable, Button } from '../../components/common';
+import LoadingState from '../../components/common/LoadingState';
 import { spacing, borderRadius, typography, shadows } from '../../constants/colors';
 import type { Theme } from '../../constants/theme';
 import { AppNavigationProp } from '../../constants/types';
@@ -108,8 +108,7 @@ export function AdminPanelScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={styles.loadingText}>Cargando verificaciones...</Text>
+        <LoadingState size="small" message="Cargando verificaciones..." />
       </View>
     );
   }
@@ -326,11 +325,6 @@ const createStyles = (theme: Theme, isDark: boolean, isDesktop: boolean) => Styl
     alignItems: 'center',
     backgroundColor: theme.bg,
     padding: spacing.xl,
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: typography.fontSizes.md,
-    color: theme.textSecondary,
   },
   summaryCard: {
     flexDirection: isDesktop ? 'row' : 'column',

@@ -25,8 +25,6 @@ export const createProfessionalHomeStyles = (theme: Theme, mobile: boolean) => S
   screen: { flex: 1 },
   scrollContent: { width: '100%', maxWidth: 1360, alignSelf: 'center', padding: mobile ? spacing.md : spacing.xl, paddingBottom: 48 },
   loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingMark: { width: 48, height: 48, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { fontSize: 13 },
   errorTitle: { fontSize: 22 },
   pageHeader: { flexDirection: mobile ? 'column' : 'row', alignItems: mobile ? 'flex-start' : 'flex-end', justifyContent: 'space-between', gap: 12, marginBottom: 22 },
   headerCopy: { flex: 1 },

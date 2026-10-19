@@ -4,7 +4,6 @@ import { ProfileDiscoveryFilters } from '../../components/common/ProfileDiscover
 import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   NativeScrollEvent,
   NativeSyntheticEvent,
   ScrollView,
@@ -21,6 +20,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/common/Button';
+import LoadingState from '../../components/common/LoadingState';
 import { Input } from '../../components/common/Input';
 import { SimpleDropdown } from '../../components/common/SimpleDropdown';
 import { MultiSelectDropdown } from '../../components/common/MultiSelectDropdown';
@@ -506,8 +506,7 @@ export const PublicSpecialistsScreen: React.FC = () => {
         ) : null}
         {loading ? (
           <View style={styles.loadingState}>
-            <ActivityIndicator size="large" color={theme.primary} />
-            <Text style={[styles.loadingText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Cargando perfiles verificados…</Text>
+            <LoadingState size="small" message="Cargando perfiles verificados…" />
           </View>
         ) : error && items.length === 0 ? (
           <View style={[styles.notice, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>
@@ -689,9 +688,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     minHeight: 300,
-  },
-  loadingText: {
-    fontSize: 15,
   },
   resultsList: {
     width: '100%',
