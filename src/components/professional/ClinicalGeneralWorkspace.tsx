@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
+import { pickClinicalFiles } from '../../services/clinicalFilePicker';
+import { releaseClinicalAssets } from '../../services/clinicalFileCache';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button, Card } from '../common';
 import { TourTarget } from '../onboarding/TourTarget';
@@ -14,6 +15,7 @@ import type { Client } from '../../services/professionalService';
 import type { ClinicalDocument, ClinicalRecord } from '../../services/clinicalService';
 
 interface ClinicalGeneralWorkspaceProps {
+  consentOnly?: boolean;
   client: Client;
   record: ClinicalRecord;
   isTablet: boolean;
@@ -56,27 +58,8 @@ const formatDate = (value?: string | Date | null) =>
       })
     : 'Sin fecha';
 
-const pickClinicalAsset = async (): Promise<UploadAsset | null> => {
-  const result = await DocumentPicker.getDocumentAsync({
-    type: ['application/pdf', 'image/*'],
-    copyToCacheDirectory: true,
-    multiple: false,
-  });
-
-  if (result.canceled || !result.assets?.length) {
-    return null;
-  }
-
-  const asset = result.assets[0] as DocumentPicker.DocumentPickerAsset & UploadAsset;
-
-  return {
-    ...asset,
-    fileName: asset.fileName || asset.name || null,
-    name: asset.name || asset.fileName || null,
-  };
-};
-
 export function ClinicalGeneralWorkspace({
+  consentOnly = false,
   client,
   record,
   isTablet,
@@ -109,6 +92,13 @@ export function ClinicalGeneralWorkspace({
   const emphasisStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const [noteDraft, setNoteDraft] = useState('');
+  const [consentUploadError, setConsentUploadError] = useState<string | null>(null);
+  const [choosingFile, setChoosingFile] = useState(false);
+  const uploadBusy = useRef(false);
+  const pendingEvidence = useRef<string | null>(null);
+  const pendingUpload = useRef<{ asset: UploadAsset; category: string } | null>(null);
+  const active = useRef(true);
+  useEffect(() => { active.current = true; return () => { active.current = false; if (pendingUpload.current) releaseClinicalAssets([pendingUpload.current.asset]); }; }, []);
   const clinicalContentGranted = record.consentStatus === 'GRANTED';
 
   const consentEvidenceDocuments = useMemo(
@@ -125,12 +115,37 @@ export function ClinicalGeneralWorkspace({
   );
 
   const handleUpload = async (category: 'GENERAL' | 'CONSENT_EVIDENCE' | 'MEDICAL_REPORT') => {
-    const asset = await pickClinicalAsset();
-    if (!asset) {
-      return;
+    if (uploadBusy.current) return;
+    uploadBusy.current = true;
+    setChoosingFile(true);
+    setConsentUploadError(null);
+    try {
+      if (category === 'CONSENT_EVIDENCE' && pendingEvidence.current) {
+        await onAttestClinicalConsent(pendingEvidence.current);
+        pendingEvidence.current = null;
+        return;
+      }
+      if (pendingUpload.current && pendingUpload.current.category !== category) { releaseClinicalAssets([pendingUpload.current.asset]); pendingUpload.current = null; }
+      const asset = pendingUpload.current?.asset ?? (await pickClinicalFiles(false))[0];
+      if (!asset) return;
+      if (!active.current) { releaseClinicalAssets([asset]); return; }
+      pendingUpload.current = { asset, category };
+      const uploaded = await onUploadDocument(asset, category);
+      releaseClinicalAssets([asset]);
+      pendingUpload.current = null;
+      if (!active.current) return;
+      if (category === 'CONSENT_EVIDENCE' && record.consentStatus !== 'GRANTED') {
+        if (!uploaded || typeof uploaded !== 'object' || !('id' in uploaded) || typeof uploaded.id !== 'string') throw new Error('No se pudo guardar la evidencia.');
+        pendingEvidence.current = uploaded.id;
+        await onAttestClinicalConsent(uploaded.id);
+        pendingEvidence.current = null;
+      }
+    } catch (error) {
+      if (active.current) setConsentUploadError(error instanceof Error ? error.message : 'No se pudo guardar el consentimiento.');
+    } finally {
+      uploadBusy.current = false;
+      if (active.current) setChoosingFile(false);
     }
-
-    await onUploadDocument(asset, category);
   };
 
   const handleSaveNote = async () => {
@@ -285,7 +300,7 @@ export function ClinicalGeneralWorkspace({
       record={record}
       consentEvidenceDocuments={consentEvidenceDocuments}
       openingDocumentId={openingDocumentId}
-      documentUploading={documentUploading}
+      documentUploading={documentUploading || choosingFile}
       consentSubmitting={consentSubmitting}
       closingProcess={closingProcess}
       loadingMoreConsentEvents={loadingMoreConsentEvents}
@@ -386,6 +401,12 @@ export function ClinicalGeneralWorkspace({
       {generalDocumentsPanel}
     </View>
   );
+
+  if (consentOnly) return <View style={styles.workspaceStack}>
+    {consentUploadError ? <Text accessibilityRole="alert" style={{ color: theme.error, fontFamily: theme.fontSans }}>{consentUploadError}</Text> : null}
+    {consentPanel}
+    {documentsPagination}
+  </View>;
 
   return (
     <View style={styles.workspaceStack}>

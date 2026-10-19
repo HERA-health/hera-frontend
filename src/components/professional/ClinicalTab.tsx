@@ -1,3 +1,6 @@
+import { useClinicalAuthorizationWatch } from '../../hooks/useClinicalAuthorizationWatch';
+import { ClinicalPatientWorkspace, type ClinicalPatientSection, type ClinicalPatientAction } from './ClinicalPatientWorkspace';
+import type { ClinicalTimelinePage } from '../../services/clinicalService';
 import { ClinicalPinManager } from './ClinicalPinManager';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -23,7 +26,7 @@ import { ClinicalSessionsWorkspace } from './ClinicalSessionsWorkspace';
 import { borderRadius, spacing, typography } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import type { Client } from '../../services/professionalService';
-import { getErrorMessage } from '../../constants/errors';
+import { getErrorCode, getErrorMessage } from '../../constants/errors';
 import { useClinicalAccessController } from '../../hooks/useClinicalAccessController';
 import { useClinicalWorkspaceData } from '../../hooks/useClinicalWorkspaceData';
 import {
@@ -35,7 +38,19 @@ import { acceptLegalDocuments, getLegalStatus } from '../../services/legalServic
 import type { AppNavigationProp } from '../../constants/types';
 import type { ProfessionalTourTargetId } from '../onboarding/professionalTourTypes';
 
+export interface ClinicalPatientAccessState {
+  unlocked: boolean;
+  granted: boolean;
+  closed: boolean;
+  consentStatus: 'PENDING' | 'GRANTED' | 'REVOKED' | null;
+}
+
 interface ClinicalTabProps {
+  section?: ClinicalPatientSection;
+  action?: ClinicalPatientAction;
+  onSection?: (section: ClinicalPatientSection) => void;
+  onAccessState?: (state: ClinicalPatientAccessState) => void;
+  onCounters?: (counters: ClinicalTimelinePage['counters']) => void;
   clientId: string;
   client: Client;
   initialWorkspace?: ClinicalWorkspaceKey;
@@ -155,6 +170,7 @@ const getBannerStyles = (
 };
 
 export function ClinicalTab({
+  section = 'summary', action, onSection, onAccessState, onCounters,
   clientId,
   client,
   initialWorkspace,
@@ -173,6 +189,7 @@ export function ClinicalTab({
     () => focusSessionId ? 'sessions' : initialWorkspace ?? 'general'
   );
   const [banner, setBanner] = useState<BannerState | null>(null);
+  const [tourAction, setTourAction] = useState<ClinicalPatientAction>();
   const [pin, setPin] = useState('');
   const [setupPin, setSetupPin] = useState('');
   const [setupPinConfirm, setSetupPinConfirm] = useState('');
@@ -234,6 +251,9 @@ export function ClinicalTab({
   });
   const clinicalRecord = workspaceData.record;
   const ensureSessionFolderLoaded = workspaceData.ensureSessionFolderLoaded;
+  const focusRefreshRef = useRef(workspaceData.loadRecord);
+  focusRefreshRef.current = workspaceData.loadRecord;
+  const hasFocusedRef = useRef(false);
 
   useEffect(() => {
     if (!banner) {
@@ -279,7 +299,7 @@ export function ClinicalTab({
       return;
     }
 
-    if (!access.token || !clinicalRecord) {
+    if (!access.token || !clinicalRecord || clinicalRecord.consentStatus !== 'GRANTED') {
       return;
     }
 
@@ -329,11 +349,20 @@ export function ClinicalTab({
     useCallback(() => {
       void access.loadStatus();
 
-      if (access.token) {
-        void workspaceData.loadRecord();
-      }
-    }, [access.loadStatus, access.token, workspaceData.loadRecord])
+      if (hasFocusedRef.current) void focusRefreshRef.current();
+      hasFocusedRef.current = true;
+    }, [access.loadStatus])
   );
+
+  useClinicalAuthorizationWatch({
+    clientId, token: access.token, status: clinicalRecord?.consentStatus, closedAt: clinicalRecord?.closedAt,
+    requestPending: clinicalRecord?.activeConsentRequest?.status === 'PENDING',
+    onRefresh: async () => {
+      const next = await workspaceData.loadRecord();
+      if (next) void onRequestRefreshClient?.().catch(error => showBanner('error', getErrorMessage(error, 'No se pudo actualizar la ficha.')));
+    },
+    onAccessLost: access.clearAccessState,
+  });
 
   const handleAcceptDpa = async () => {
     try {
@@ -463,6 +492,7 @@ export function ClinicalTab({
         showBanner('success', 'Autorización registrada correctamente en el expediente.');
       } catch (error) {
         showBanner('error', getErrorMessage(error, 'No se pudo registrar la autorización.'));
+        throw error;
       }
     },
     [showBanner, workspaceData]
@@ -483,6 +513,7 @@ export function ClinicalTab({
         await workspaceData.saveClinicalNote(content, sessionId);
       } catch (error) {
         showBanner('error', getErrorMessage(error, 'No se pudo guardar la nota clínica.'));
+        throw error;
       }
     },
     [showBanner, workspaceData]
@@ -498,7 +529,7 @@ export function ClinicalTab({
         return await workspaceData.uploadClinicalDocument(file, category, sessionId);
       } catch (error) {
         showBanner('error', getErrorMessage(error, 'No se pudo subir el documento clínico.'));
-        return null;
+        throw error;
       }
     },
     [showBanner, workspaceData]
@@ -522,6 +553,16 @@ export function ClinicalTab({
   const hasActiveSession = Boolean(access.token && access.accessStatus?.session.active);
   const record = workspaceData.record;
   const recordLoading = workspaceData.recordLoading;
+  useEffect(() => {
+    onAccessState?.({ unlocked: hasActiveSession, granted: hasActiveSession && record?.consentStatus === 'GRANTED', closed: Boolean(record?.closedAt), consentStatus: hasActiveSession ? record?.consentStatus ?? null : null });
+  }, [hasActiveSession, record?.consentStatus, record?.closedAt, onAccessState]);
+  const handlePatientError = useCallback((error: unknown) => {
+    const message = getErrorMessage(error, 'No se pudo completar la acción clínica.');
+    const code = getErrorCode(error);
+    if (['CLINICAL_UNLOCK_REQUIRED', 'CLINICAL_CONSENT_REQUIRED', 'CLINICAL_RECORD_NOT_FOUND', 'CLINICAL_DPA_REQUIRED'].includes(code ?? '') || /desbloquear|sesión clínica.*(caducada|válida)|expediente.*no.*disponible/i.test(message)) void access.clearAccessState(message);
+    else if (code === 'CLINICAL_PROCESS_CLOSED') void workspaceData.loadRecord();
+  }, [access.clearAccessState, workspaceData.loadRecord]);
+
   const hasBlockingBanner = banner?.tone === 'warning' || banner?.tone === 'error';
   const shouldAutoStartClinicalTour =
     tourTargetsActive
@@ -530,6 +571,7 @@ export function ClinicalTab({
     && !recordLoading
     && !access.accessSubmitting
     && !isAppAlertVisible
+    && section === 'summary'
     && workspace === 'general'
     && !hasBlockingBanner;
   const canPreferClinicalTour =
@@ -537,6 +579,7 @@ export function ClinicalTab({
     && hasActiveSession
     && record !== null
     && !recordLoading
+    && section === 'summary'
     && workspace === 'general'
     && !hasBlockingBanner;
 
@@ -549,9 +592,12 @@ export function ClinicalTab({
         setWorkspace('general');
       }
 
+      onSection?.('summary');
+      if (targetId === 'professional.clinical.consent' || targetId === 'professional.clinical.consent-documents') setTourAction({ id: Date.now(), kind: 'CONSENT' });
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       await onPrepareClinicalTourStep?.(targetId);
     },
-    [onPrepareClinicalTourStep, workspace],
+    [onPrepareClinicalTourStep, onSection, workspace],
   );
 
   useProfessionalTourStepPreparation(
@@ -879,7 +925,9 @@ export function ClinicalTab({
             {renderSidebar(sidebarRows)}
           </View>
         </Card>
-      ) : recordLoading || !record ? (
+      ) : workspaceData.recordError && !record ? (
+        <Card padding="large"><Text accessibilityRole="alert" style={{ color: theme.error, fontFamily: theme.fontSans }}>{workspaceData.recordError}</Text><Button variant="outline" onPress={() => void workspaceData.loadRecord()}>Reintentar</Button></Card>
+      ) : !record ? (
         <Card variant="default" padding="large">
           <View style={styles.centeredState}>
             <ActivityIndicator size="small" color={theme.primary} />
@@ -890,85 +938,15 @@ export function ClinicalTab({
         </Card>
       ) : (
         <View style={styles.workspaceStack}>
-          <TourTarget
-            id="professional.clinical.hero"
-            active={tourTargetsActive}
-            fill
-            style={styles.fullWidthTourTarget}
-          >
-          <Card variant="default" padding="large">
-            <View style={[styles.heroPanel, !isTablet && styles.heroPanelStack]}>
-              <View style={styles.heroMain}>
-                <View style={[styles.eyebrowPill, { backgroundColor: theme.primaryAlpha12 }]}>
-                  <Ionicons name="shield-checkmark-outline" size={14} color={theme.primary} />
-                  <Text style={[styles.eyebrowPillText, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
-                    Área clínica disponible
-                  </Text>
-                </View>
-                <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>
-                  Expediente abierto
-                </Text>
-                <Text style={[styles.stateDescription, { color: theme.textSecondary }]}>
-                  Todo el contenido clínico del paciente está listo para trabajar desde aquí.
-                </Text>
-              </View>
-
-              {renderSidebar(sidebarRows, true)}
-            </View>
-          </Card>
-          </TourTarget>
-
-          <TourTarget
-            id="professional.clinical.workspace-tabs"
-            active={tourTargetsActive}
-            fill
-            style={styles.fullWidthTourTarget}
-          >
-          <View style={styles.segmentedWrap}>
-            {[
-              { key: 'general' as const, label: 'General', icon: 'folder-open-outline' as const },
-              { key: 'sessions' as const, label: 'Sesiones', icon: 'calendar-outline' as const },
-            ].map((item) => {
-              const active = workspace === item.key;
-
-              return (
-                <AnimatedPressable
-                  key={item.key}
-                  hoverLift={false}
-                  pressScale={0.99}
-                  onPress={() => setWorkspace(item.key)}
-                  style={[
-                    styles.segmentedItem,
-                    {
-                      backgroundColor: active ? theme.primary : theme.bgCard,
-                      borderColor: active ? theme.primary : theme.border,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={item.icon}
-                    size={16}
-                    color={active ? theme.textOnPrimary : theme.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.segmentedText,
-                      {
-                        color: active ? theme.textOnPrimary : theme.textSecondary,
-                        fontFamily: theme.fontSansSemiBold,
-                      },
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
-                </AnimatedPressable>
-              );
-            })}
-          </View>
-          </TourTarget>
-
-          {workspace === 'general' ? (
-            <ClinicalGeneralWorkspace
+          {workspaceData.recordError ? <Card padding="medium"><Text accessibilityRole="alert" style={{ color: theme.error, fontFamily: theme.fontSans }}>{workspaceData.recordError}</Text><Button variant="ghost" onPress={() => void workspaceData.loadRecord()}>Actualizar expediente</Button></Card> : null}
+          <ClinicalPatientWorkspace key={`${clientId}:${access.token}:${record.consentStatus}:${record.closedAt ?? ''}`}
+            client={client} record={record} token={access.token!} section={section} action={tourAction && tourAction.id > (action?.id ?? 0) ? tourAction : action}
+            onLock={() => void handleLock()}
+            onError={handlePatientError} onRefresh={workspaceData.loadRecord}
+            onSection={onSection ?? (() => setWorkspace('sessions'))} onCounters={onCounters}
+            onRequestRefreshClient={onRequestRefreshClient} focusSessionId={focusSessionId}
+            tourTargetsActive={tourTargetsActive}
+            consentPanel={<ClinicalGeneralWorkspace consentOnly
               client={client}
               record={record}
               isTablet={isTablet}
@@ -995,16 +973,18 @@ export function ClinicalTab({
               onLoadMoreConsentEvents={workspaceData.loadMoreConsentEvents}
               onRetryGuestConsentSync={workspaceData.retryGuestConsentSync}
               tourTargetsActive={tourTargetsActive}
-            />
-          ) : (
-            <ClinicalSessionsWorkspace
+            />}
+            sessionPanel={(compose) => <ClinicalSessionsWorkspace
+              onComposeNote={(sessionId) => compose({ kind: 'NOTE', sessionId })}
+              onEditNote={record.closedAt ? undefined : (note) => compose({ kind: 'NOTE', note })}
+              onCreateExercise={(sessionId) => compose({ kind: 'EXERCISE', sessionId })}
               clientId={clientId}
               client={client}
               isTablet={isTablet}
               sessionFolders={record.sessionFolders}
               hasMore={record.pagination.sessionFolders.hasMore}
               loadingMore={workspaceData.loadingMoreSessions}
-              consentGranted={record.consentStatus === 'GRANTED'}
+              consentGranted={record.consentStatus === 'GRANTED' && !record.closedAt}
               noteSaving={workspaceData.noteSaving}
               documentUploading={workspaceData.documentUploading}
               openingDocumentId={workspaceData.openingDocumentId}
@@ -1015,8 +995,8 @@ export function ClinicalTab({
               onLoadMore={workspaceData.loadMoreSessionFolders}
               onReloadWorkspace={workspaceData.loadRecord}
               onRequestRefreshClient={onRequestRefreshClient}
-            />
-          )}
+            />}
+          />
         </View>
       )}
     </View>
@@ -1026,9 +1006,6 @@ export function ClinicalTab({
 const styles = StyleSheet.create({
   screen: {
     gap: spacing.lg,
-  },
-  fullWidthTourTarget: {
-    width: '100%',
   },
   banner: {
     borderWidth: 1,
@@ -1136,23 +1113,5 @@ const styles = StyleSheet.create({
   },
   workspaceStack: {
     gap: spacing.lg,
-  },
-  segmentedWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  segmentedItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 9,
-  },
-  segmentedText: {
-    fontSize: typography.fontSizes.sm,
-    lineHeight: 20,
   },
 });

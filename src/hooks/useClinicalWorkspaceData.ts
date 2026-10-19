@@ -3,6 +3,8 @@ import type { UploadAsset } from '../utils/multipartUpload';
 import * as clinicalService from '../services/clinicalService';
 import { resolveClinicalGuestConsentEligibility } from '../services/clinicalGuestConsentEligibility';
 import { createSecureRandomUuid } from '../utils/secureRandom';
+import { cancelClinicalDownloads } from '../services/clinicalDownloads';
+import { getErrorCode, getErrorMessage } from '../constants/errors';
 
 interface UseClinicalWorkspaceDataOptions {
   clientId: string;
@@ -92,6 +94,7 @@ export function useClinicalWorkspaceData({
 }: UseClinicalWorkspaceDataOptions) {
   const [record, setRecord] = useState<clinicalService.ClinicalRecord | null>(null);
   const [recordLoading, setRecordLoading] = useState(false);
+  const [recordError, setRecordError] = useState<string | null>(null);
   const [noteSaving, setNoteSaving] = useState(false);
   const [documentUploading, setDocumentUploading] = useState(false);
   const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
@@ -103,21 +106,24 @@ export function useClinicalWorkspaceData({
   const [loadingMoreConsentEvents, setLoadingMoreConsentEvents] = useState(false);
   const [guestConsentSyncPending, setGuestConsentSyncPending] = useState(false);
   const activeContextRef = useRef<ClinicalWorkspaceContext>({ clientId, generation: 0 });
+  const contextTokenRef = useRef(token);
+  const mountedRef = useRef(true);
+  const recordRequestRef = useRef(0);
   const guestMutationRef = useRef<{ clientId: string; action: string; key: string } | null>(null);
-  if (activeContextRef.current.clientId !== clientId) {
+  if (activeContextRef.current.clientId !== clientId || contextTokenRef.current !== token) {
+    contextTokenRef.current = token;
     activeContextRef.current = {
       clientId,
       generation: activeContextRef.current.generation + 1,
     };
   }
 
-  const captureContext = useCallback((): ClinicalWorkspaceContext => ({
-    clientId,
-    generation: activeContextRef.current.generation,
-  }), [clientId]);
+  const renderContext = activeContextRef.current;
+  const captureContext = useCallback((): ClinicalWorkspaceContext => ({ ...renderContext }), [renderContext]);
 
   const isCurrentContext = useCallback((context: ClinicalWorkspaceContext): boolean => (
-    activeContextRef.current.clientId === context.clientId
+    mountedRef.current
+    && activeContextRef.current.clientId === context.clientId
     && activeContextRef.current.generation === context.generation
   ), []);
 
@@ -125,7 +131,20 @@ export function useClinicalWorkspaceData({
     setConsentSubmitting(false);
     setGuestConsentSyncPending(false);
     guestMutationRef.current = null;
-  }, [clientId]);
+    setNoteSaving(false);
+    setDocumentUploading(false);
+    setOpeningDocumentId(null);
+    setClosingProcess(false);
+    setLoadingMoreNotes(false);
+    setLoadingMoreDocuments(false);
+    setLoadingMoreSessions(false);
+    setLoadingMoreConsentEvents(false);
+  }, [clientId, token]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const guestIdempotencyKey = useCallback((action: string): string => {
     const current = guestMutationRef.current;
@@ -146,7 +165,7 @@ export function useClinicalWorkspaceData({
 
   const handleAccessError = useCallback(
     (error: unknown) => {
-      if (!isClinicalAccessLossError(error)) {
+      if (!isClinicalAccessLossError(error) && !['CLINICAL_UNLOCK_REQUIRED', 'CLINICAL_CONSENT_REQUIRED', 'CLINICAL_RECORD_NOT_FOUND', 'CLINICAL_DPA_REQUIRED'].includes(getErrorCode(error) ?? '')) {
         return;
       }
 
@@ -159,6 +178,8 @@ export function useClinicalWorkspaceData({
 
   const loadRecord = useCallback(async () => {
     const context = captureContext();
+    if (!isCurrentContext(context)) return null;
+    const request = ++recordRequestRef.current;
     if (!token) {
       if (isCurrentContext(context)) setRecord(null);
       return null;
@@ -166,20 +187,30 @@ export function useClinicalWorkspaceData({
 
     try {
       setRecordLoading(true);
+      setRecordError(null);
       const nextRecord = await clinicalService.getClinicalRecord(clientId, token);
-      if (isCurrentContext(context)) setRecord(nextRecord);
+      if (!isCurrentContext(context) || request !== recordRequestRef.current) return null;
+      if (nextRecord.consentStatus !== 'GRANTED') cancelClinicalDownloads(token);
+      setRecord(nextRecord);
       return nextRecord;
     } catch (error) {
-      handleAccessError(error);
+      if (isCurrentContext(context) && request === recordRequestRef.current) {
+        cancelClinicalDownloads(token);
+        setRecord(current => current?.consentStatus === 'GRANTED' ? null : current);
+        handleAccessError(error);
+        setRecordError(getErrorMessage(error, 'No se pudo cargar el expediente.'));
+      }
       return null;
     } finally {
-      if (isCurrentContext(context)) setRecordLoading(false);
+      if (isCurrentContext(context) && request === recordRequestRef.current) setRecordLoading(false);
     }
   }, [captureContext, clientId, handleAccessError, isCurrentContext, token]);
 
   useEffect(() => {
     if (!token) {
       setRecord(null);
+      setRecordLoading(false);
+      setRecordError(null);
       return;
     }
 
@@ -191,12 +222,14 @@ export function useClinicalWorkspaceData({
       return;
     }
 
+    const context = captureContext();
     try {
       setLoadingMoreNotes(true);
       const nextPage = await clinicalService.listClinicalNotes(clientId, token, {
         cursor: record.pagination.notes.nextCursor,
       });
 
+      if (!isCurrentContext(context)) return;
       setRecord((current) =>
         current
           ? {
@@ -210,17 +243,18 @@ export function useClinicalWorkspaceData({
           : current
       );
     } catch (error) {
-      handleAccessError(error);
+      if (isCurrentContext(context)) handleAccessError(error);
     } finally {
-      setLoadingMoreNotes(false);
+      if (isCurrentContext(context)) setLoadingMoreNotes(false);
     }
-  }, [clientId, handleAccessError, record, token]);
+  }, [captureContext, clientId, handleAccessError, isCurrentContext, record, token]);
 
   const loadMoreDocuments = useCallback(async () => {
     if (!token || !record?.pagination.documents.hasMore || !record.pagination.documents.nextCursor) {
       return;
     }
 
+    const context = captureContext();
     try {
       setLoadingMoreDocuments(true);
       const nextPage = await clinicalService.listClinicalDocuments(clientId, token, {
@@ -228,6 +262,7 @@ export function useClinicalWorkspaceData({
         scope: 'general',
       });
 
+      if (!isCurrentContext(context)) return;
       setRecord((current) =>
         current
           ? {
@@ -241,23 +276,25 @@ export function useClinicalWorkspaceData({
           : current
       );
     } catch (error) {
-      handleAccessError(error);
+      if (isCurrentContext(context)) handleAccessError(error);
     } finally {
-      setLoadingMoreDocuments(false);
+      if (isCurrentContext(context)) setLoadingMoreDocuments(false);
     }
-  }, [clientId, handleAccessError, record, token]);
+  }, [captureContext, clientId, handleAccessError, isCurrentContext, record, token]);
 
   const loadMoreConsentEvents = useCallback(async () => {
     if (!token || !record?.pagination.consentEvents.hasMore || !record.pagination.consentEvents.nextCursor) {
       return;
     }
 
+    const context = captureContext();
     try {
       setLoadingMoreConsentEvents(true);
       const nextPage = await clinicalService.listClinicalConsentEvents(clientId, token, {
         cursor: record.pagination.consentEvents.nextCursor,
       });
 
+      if (!isCurrentContext(context)) return;
       setRecord((current) =>
         current
           ? {
@@ -271,23 +308,25 @@ export function useClinicalWorkspaceData({
           : current
       );
     } catch (error) {
-      handleAccessError(error);
+      if (isCurrentContext(context)) handleAccessError(error);
     } finally {
-      setLoadingMoreConsentEvents(false);
+      if (isCurrentContext(context)) setLoadingMoreConsentEvents(false);
     }
-  }, [clientId, handleAccessError, record, token]);
+  }, [captureContext, clientId, handleAccessError, isCurrentContext, record, token]);
 
   const loadMoreSessionFolders = useCallback(async () => {
     if (!token || !record?.pagination.sessionFolders.hasMore || !record.pagination.sessionFolders.nextCursor) {
       return;
     }
 
+    const context = captureContext();
     try {
       setLoadingMoreSessions(true);
       const nextPage = await clinicalService.listClinicalSessionFolders(clientId, token, {
         cursor: record.pagination.sessionFolders.nextCursor,
       });
 
+      if (!isCurrentContext(context)) return;
       setRecord((current) =>
         current
           ? {
@@ -301,11 +340,11 @@ export function useClinicalWorkspaceData({
           : current
       );
     } catch (error) {
-      handleAccessError(error);
+      if (isCurrentContext(context)) handleAccessError(error);
     } finally {
-      setLoadingMoreSessions(false);
+      if (isCurrentContext(context)) setLoadingMoreSessions(false);
     }
-  }, [clientId, handleAccessError, record, token]);
+  }, [captureContext, clientId, handleAccessError, isCurrentContext, record, token]);
 
   const ensureSessionFolderLoaded = useCallback(async (sessionId: string): Promise<boolean> => {
     if (!token || !record) {
@@ -316,9 +355,11 @@ export function useClinicalWorkspaceData({
       return true;
     }
 
+    const context = captureContext();
     try {
       setLoadingMoreSessions(true);
       const folder = await clinicalService.getClinicalSessionFolder(clientId, sessionId, token);
+      if (!isCurrentContext(context)) return false;
       setRecord((current) =>
         current
           ? {
@@ -329,12 +370,12 @@ export function useClinicalWorkspaceData({
       );
       return true;
     } catch (error) {
-      handleAccessError(error);
+      if (isCurrentContext(context)) handleAccessError(error);
       throw error;
     } finally {
-      setLoadingMoreSessions(false);
+      if (isCurrentContext(context)) setLoadingMoreSessions(false);
     }
-  }, [clientId, handleAccessError, record, token]);
+  }, [captureContext, clientId, handleAccessError, isCurrentContext, record, token]);
 
   const saveClinicalNote = useCallback(
     async (content: string, sessionId?: string) => {
@@ -342,18 +383,21 @@ export function useClinicalWorkspaceData({
         throw new Error('El área clínica está bloqueada.');
       }
 
+      const context = captureContext();
+      if (!isCurrentContext(context)) throw new Error('El área clínica está bloqueada.');
       try {
         setNoteSaving(true);
         await clinicalService.createClinicalNote(clientId, content, token, sessionId);
-        await Promise.all([loadRecord(), onRequestRefreshClient?.()]);
+        if (!isCurrentContext(context)) return;
+        await Promise.allSettled([loadRecord(), onRequestRefreshClient?.()]);
       } catch (error) {
-        handleAccessError(error);
+        if (isCurrentContext(context)) handleAccessError(error);
         throw error;
       } finally {
-        setNoteSaving(false);
+        if (isCurrentContext(context)) setNoteSaving(false);
       }
     },
-    [clientId, handleAccessError, loadRecord, onRequestRefreshClient, token]
+    [captureContext, clientId, handleAccessError, isCurrentContext, loadRecord, onRequestRefreshClient, token]
   );
 
   const uploadClinicalDocument = useCallback(
@@ -366,6 +410,8 @@ export function useClinicalWorkspaceData({
         throw new Error('El área clínica está bloqueada.');
       }
 
+      const context = captureContext();
+      if (!isCurrentContext(context)) throw new Error('El área clínica está bloqueada.');
       try {
         setDocumentUploading(true);
         const uploaded = await clinicalService.uploadClinicalDocument(
@@ -375,16 +421,17 @@ export function useClinicalWorkspaceData({
           category,
           sessionId
         );
-        await Promise.all([loadRecord(), onRequestRefreshClient?.()]);
+        if (!isCurrentContext(context)) return;
+        await Promise.allSettled([loadRecord(), onRequestRefreshClient?.()]);
         return uploaded;
       } catch (error) {
-        handleAccessError(error);
+        if (isCurrentContext(context)) handleAccessError(error);
         throw error;
       } finally {
-        setDocumentUploading(false);
+        if (isCurrentContext(context)) setDocumentUploading(false);
       }
     },
-    [clientId, handleAccessError, loadRecord, onRequestRefreshClient, token]
+    [captureContext, clientId, handleAccessError, isCurrentContext, loadRecord, onRequestRefreshClient, token]
   );
 
   const openClinicalDocument = useCallback(
@@ -393,17 +440,19 @@ export function useClinicalWorkspaceData({
         throw new Error('El área clínica está bloqueada.');
       }
 
+      const context = captureContext();
+      if (!isCurrentContext(context)) throw new Error('El área clínica está bloqueada.');
       try {
         setOpeningDocumentId(document.id);
         await clinicalService.openClinicalDocument(document.id, document.fileName, document.mimeType, token);
       } catch (error) {
-        handleAccessError(error);
+        if (isCurrentContext(context)) handleAccessError(error);
         throw error;
       } finally {
-        setOpeningDocumentId(null);
+        if (isCurrentContext(context)) setOpeningDocumentId(null);
       }
     },
-    [handleAccessError, token]
+    [captureContext, handleAccessError, isCurrentContext, token]
   );
 
   const applyGuestAdminResult = useCallback((
@@ -438,9 +487,9 @@ export function useClinicalWorkspaceData({
                 )
               : (() => { throw new Error('El área clínica está bloqueada.'); })()
             : await clinicalService.requestDigitalConsent(clientId, version);
-          if (isGuest) finishGuestMutationAttempt(guestAction);
+          if (isGuest && isCurrentContext(context)) finishGuestMutationAttempt(guestAction);
         } catch (error: unknown) {
-          if (isGuest) finishGuestMutationAttempt(guestAction, error);
+          if (isGuest && isCurrentContext(context)) finishGuestMutationAttempt(guestAction, error);
           throw error;
         }
         if (!isCurrentContext(context)) return null;
@@ -496,10 +545,10 @@ export function useClinicalWorkspaceData({
           token,
           guestIdempotencyKey(action)
         );
-        finishGuestMutationAttempt(action);
+        if (isCurrentContext(context)) finishGuestMutationAttempt(action);
         return await refreshAfterGuestMutation(result, context);
       } catch (error: unknown) {
-        finishGuestMutationAttempt(action, error);
+        if (isCurrentContext(context)) finishGuestMutationAttempt(action, error);
         throw error;
       }
     } finally {
@@ -536,10 +585,10 @@ export function useClinicalWorkspaceData({
           token,
           guestIdempotencyKey(action)
         );
-        finishGuestMutationAttempt(action);
+        if (isCurrentContext(context)) finishGuestMutationAttempt(action);
         return await refreshAfterGuestMutation(result, context);
       } catch (error: unknown) {
-        finishGuestMutationAttempt(action, error);
+        if (isCurrentContext(context)) finishGuestMutationAttempt(action, error);
         throw error;
       }
     } finally {
@@ -565,18 +614,21 @@ export function useClinicalWorkspaceData({
         throw new Error('El área clínica está bloqueada.');
       }
 
+      const context = captureContext();
+      if (!isCurrentContext(context)) throw new Error('El área clínica está bloqueada.');
       try {
         setConsentSubmitting(true);
         await clinicalService.attestClinicalConsent(clientId, token, version, evidenceDocumentId);
-        await Promise.all([loadRecord(), onRequestRefreshClient?.()]);
+        if (!isCurrentContext(context)) return;
+        await Promise.allSettled([loadRecord(), onRequestRefreshClient?.()]);
       } catch (error) {
-        handleAccessError(error);
+        if (isCurrentContext(context)) handleAccessError(error);
         throw error;
       } finally {
-        setConsentSubmitting(false);
+        if (isCurrentContext(context)) setConsentSubmitting(false);
       }
     },
-    [clientId, handleAccessError, loadRecord, onRequestRefreshClient, token]
+    [captureContext, clientId, handleAccessError, isCurrentContext, loadRecord, onRequestRefreshClient, token]
   );
 
   const closeClinicalProcess = useCallback(async () => {
@@ -584,21 +636,25 @@ export function useClinicalWorkspaceData({
       throw new Error('El área clínica está bloqueada.');
     }
 
+    const context = captureContext();
+    if (!isCurrentContext(context)) throw new Error('El área clínica está bloqueada.');
     try {
       setClosingProcess(true);
       await clinicalService.closeClinicalProcess(clientId, token);
-      await Promise.all([loadRecord(), onRequestRefreshClient?.()]);
+      if (!isCurrentContext(context)) return;
+      await Promise.allSettled([loadRecord(), onRequestRefreshClient?.()]);
     } catch (error) {
-      handleAccessError(error);
+      if (isCurrentContext(context)) handleAccessError(error);
       throw error;
     } finally {
-      setClosingProcess(false);
+      if (isCurrentContext(context)) setClosingProcess(false);
     }
-  }, [clientId, handleAccessError, loadRecord, onRequestRefreshClient, token]);
+  }, [captureContext, clientId, handleAccessError, isCurrentContext, loadRecord, onRequestRefreshClient, token]);
 
   return {
-    record,
+    record: token && record?.client.id === clientId ? record : null,
     recordLoading,
+    recordError,
     noteSaving,
     documentUploading,
     openingDocumentId,

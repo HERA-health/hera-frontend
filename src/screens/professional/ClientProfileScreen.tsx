@@ -1,3 +1,5 @@
+import type { ClinicalPatientAction, ClinicalPatientSection } from '../../components/professional/ClinicalPatientWorkspace';
+import type { ClinicalTimelinePage } from '../../services/clinicalService';
 import { PatientPackages } from '../../components/packages/PatientPackages';
 import type { PatientPackage } from '../../services/packageService';
 import { PatientCommission } from '../commissions/CommissionLinks';
@@ -23,7 +25,7 @@ import { AnimatedPressable, Button, Card } from '../../components/common';
 import { TourTarget } from '../../components/onboarding/TourTarget';
 import { useOptionalProfessionalTour } from '../../components/onboarding/professionalTourContext';
 import type { ProfessionalTourTargetId } from '../../components/onboarding/professionalTourTypes';
-import { ClinicalTab } from '../../components/professional/ClinicalTab';
+import { ClinicalTab, type ClinicalPatientAccessState } from '../../components/professional/ClinicalTab';
 import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
 import { borderRadius, layout, spacing, typography } from '../../constants/colors';
 import {
@@ -36,19 +38,20 @@ import { useTheme } from '../../contexts/ThemeContext';
 import * as professionalService from '../../services/professionalService';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
 
-type TabKey = 'summary' | 'history' | 'clinical' | 'packages';
+type TabKey = ClinicalPatientSection | 'clinical';
 
 const TABS: Array<{ key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
-  { key: 'summary', label: 'Resumen', icon: 'person-outline' },
-  { key: 'packages', label: 'Bonos', icon: 'albums-outline' },
-  { key: 'history', label: 'Historial', icon: 'time-outline' },
-  { key: 'clinical', label: 'Área clínica', icon: 'shield-checkmark-outline' },
+  { key: 'summary', label: 'Resumen', icon: 'grid-outline' },
+  { key: 'history', label: 'Sesiones', icon: 'calendar-outline' },
+  { key: 'notes', label: 'Notas', icon: 'document-text-outline' },
+  { key: 'exercises', label: 'Ejercicios', icon: 'fitness-outline' },
+  { key: 'documents', label: 'Documentación', icon: 'folder-open-outline' },
+  { key: 'packages', label: 'Datos y bonos', icon: 'person-outline' },
 ];
 
-const resolveInitialTab = (tab?: AppRouteProp<'ClientProfile'>['params']['initialTab']): TabKey => {
-  if (tab === 'history' || tab === 'clinical') {
-    return tab;
-  }
+const resolveInitialTab = (tab?: AppRouteProp<'ClientProfile'>['params']['initialTab'], workspace?: 'general' | 'sessions', sessionId?: string): TabKey => {
+  if (tab === 'history' || workspace === 'sessions' || sessionId) return 'history';
+  if (tab === 'notes' || tab === 'exercises' || tab === 'documents' || tab === 'packages') return tab;
 
   return 'summary';
 };
@@ -102,23 +105,6 @@ const formatDate = (value?: string | Date | null, withTime = false) =>
       })
     : 'Sin fecha';
 
-const formatShortDate = (value?: string | Date | null) =>
-  value
-    ? new Date(value).toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'short',
-      })
-    : 'Sin cita';
-
-const formatNumericDate = (value?: string | Date | null) =>
-  value
-    ? new Date(value).toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      })
-    : 'Sin fecha';
-
 const getClientAge = (birthDate?: string | null) => {
   if (!birthDate) {
     return null;
@@ -134,32 +120,6 @@ const getClientAge = (birthDate?: string | null) => {
   }
 
   return age;
-};
-
-const getGenderLabel = (gender?: string | null) => {
-  if (!gender) {
-    return null;
-  }
-
-  const normalized = gender.toUpperCase();
-
-  if (normalized === 'MALE' || normalized === 'HOMBRE') {
-    return 'Hombre';
-  }
-
-  if (normalized === 'FEMALE' || normalized === 'MUJER') {
-    return 'Mujer';
-  }
-
-  if (normalized === 'NON_BINARY' || normalized === 'NON-BINARY' || normalized === 'NO_BINARIO') {
-    return 'No binario';
-  }
-
-  if (normalized === 'OTHER' || normalized === 'OTRO') {
-    return 'Otro';
-  }
-
-  return gender;
 };
 
 const getSessionTypeLabel = (type: string) => SESSION_TYPE_LABELS[type.toUpperCase()] || type;
@@ -206,7 +166,17 @@ export function ClientProfileScreen() {
   const { theme } = useTheme();
   const tour = useOptionalProfessionalTour();
 
-  const [activeTab, setActiveTab] = useState<TabKey>(resolveInitialTab(initialTab));
+  const [activeTab, setActiveTab] = useState<TabKey>(resolveInitialTab(initialTab, clinicalWorkspace, focusSessionId));
+  const [actionsVisible, setActionsVisible] = useState(false);
+  const [clinicalAction, setClinicalAction] = useState<ClinicalPatientAction>();
+  const [clinicalState, setClinicalState] = useState<ClinicalPatientAccessState & { clientId: string }>({ clientId: '', unlocked: false, granted: false, closed: false, consentStatus: null });
+  const [clinicalCounters, setClinicalCounters] = useState<{ clientId: string; value: ClinicalTimelinePage['counters'] } | null>(null);
+  const updateClinicalState = useCallback((state: ClinicalPatientAccessState) => setClinicalState({ clientId, ...state }), [clientId]);
+  const updateClinicalCounters = useCallback((value: ClinicalTimelinePage['counters']) => setClinicalCounters({ clientId, value }), [clientId]);
+  const requestClinicalAction = (kind: ClinicalPatientAction['kind']) => {
+    if (activeTab === 'packages') setActiveTab('summary');
+    setClinicalAction({ id: Date.now(), kind });
+  };
   const [client, setClient] = useState<professionalService.Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshingClient, setRefreshingClient] = useState(false);
@@ -222,7 +192,6 @@ export function ClientProfileScreen() {
   const [viewportHeight, setViewportHeight] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
-  const [keepClinicalMounted, setKeepClinicalMounted] = useState(false);
   const [billingForm, setBillingForm] = useState({
     firstName: '',
     lastName: '',
@@ -237,13 +206,17 @@ export function ClientProfileScreen() {
   });
   const hasLoadedClientRef = useRef(false);
   const loadClientPromiseRef = useRef<Promise<void> | null>(null);
+  const activeClientIdRef = useRef(clientId);
+  if (activeClientIdRef.current !== clientId) {
+    activeClientIdRef.current = clientId;
+    hasLoadedClientRef.current = false;
+    loadClientPromiseRef.current = null;
+  }
   const autoOpenedBillingRef = useRef(false);
   const tourScrollRef = useRef<ScrollView>(null);
 
   const isDesktop = width >= 1180;
-  const isTablet = width >= 860;
   const isMobile = width < 720;
-  const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontHeading }), [theme]);
   const sectionTitleStyle = useMemo(() => ({ fontFamily: theme.fontHeading }), [theme]);
   const emphasisStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
@@ -265,6 +238,7 @@ export function ClientProfileScreen() {
         }
 
         const result = await professionalService.getProfessionalClientDetail(clientId);
+        if (activeClientIdRef.current !== clientId) return;
 
         if (!result) {
           setError('Paciente no encontrado');
@@ -275,8 +249,10 @@ export function ClientProfileScreen() {
         setError(null);
         hasLoadedClientRef.current = true;
       } catch (loadError: unknown) {
+        if (activeClientIdRef.current !== clientId) return;
         setError(getErrorMessage(loadError, 'No se pudo cargar la ficha del paciente'));
       } finally {
+        if (activeClientIdRef.current !== clientId) return;
         if (isInitialLoad) {
           setLoading(false);
         } else {
@@ -299,14 +275,14 @@ export function ClientProfileScreen() {
 
   useEffect(() => {
     setVisibleHistoryItems(5);
-    setActiveTab(resolveInitialTab(initialTab));
-  }, [clientId, initialTab]);
+    setActiveTab(resolveInitialTab(initialTab, clinicalWorkspace, focusSessionId));
+  }, [clientId, initialTab, clinicalWorkspace, focusSessionId]);
 
   useEffect(() => {
-    hasLoadedClientRef.current = false;
-    loadClientPromiseRef.current = null;
     setRefreshingClient(false);
-    setKeepClinicalMounted(false);
+    setClinicalCounters(null);
+    setClinicalAction(undefined);
+    setActionsVisible(false);
     autoOpenedBillingRef.current = false;
   }, [clientId]);
 
@@ -337,12 +313,6 @@ export function ClientProfileScreen() {
     }
   }, [client, focusBillingEditor]);
 
-  useEffect(() => {
-    if (activeTab === 'clinical') {
-      setKeepClinicalMounted(true);
-    }
-  }, [activeTab]);
-
   const sessions = useMemo(
     () =>
       [...(client?.sessions || [])].sort(
@@ -359,7 +329,7 @@ export function ClientProfileScreen() {
   const nextSession = useMemo(
     () =>
       sessions
-        .filter((session) => new Date(session.date).getTime() > Date.now())
+        .filter((session) => new Date(session.date).getTime() > Date.now() && ['PENDING', 'CONFIRMED'].includes(session.status.toUpperCase()))
         .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())[0] || null,
     [sessions]
   );
@@ -371,7 +341,6 @@ export function ClientProfileScreen() {
 
   const initials = client?.initials || (client?.displayName || client?.user.name || 'P').slice(0, 2).toUpperCase();
   const age = getClientAge(client?.user.birthDate);
-  const genderLabel = getGenderLabel(client?.user.gender);
   const isManagedClient = client?.source === 'MANAGED';
   const isClientArchived = Boolean(client?.archivedAt);
   const locationSummary = [client?.homeCity, client?.homeCountry].filter(Boolean).join(', ');
@@ -383,19 +352,6 @@ export function ClientProfileScreen() {
       client?.billingCity &&
       client?.billingCountry
   );
-  const heroSummaryItems: Array<{ icon: keyof typeof Ionicons.glyphMap; label: string }> = [
-    ...(age !== null ? [{ icon: 'calendar-number-outline' as const, label: `${age} años` }] : []),
-    ...(genderLabel ? [{ icon: 'person-outline' as const, label: genderLabel }] : []),
-    { icon: 'time-outline', label: `Desde ${formatNumericDate(client?.createdAt)}` },
-    {
-      icon: 'chatbubbles-outline',
-      label: `${sessions.length} ${sessions.length === 1 ? 'sesión' : 'sesiones'}`,
-    },
-    {
-      icon: 'checkmark-circle-outline',
-      label: `${completedSessions} completadas`,
-    },
-  ];
   const showScrollCue = isMobile && contentHeight > viewportHeight + 48 && scrollOffset < 20;
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -657,7 +613,7 @@ export function ClientProfileScreen() {
     [appAlert, client, loadClient],
   );
 
-  if (loading && !client) {
+  if ((loading && !client) || (!error && client?.id !== clientId)) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.bg }]}>
         <ActivityIndicator size="large" color={theme.primary} />
@@ -677,7 +633,6 @@ export function ClientProfileScreen() {
     );
   }
 
-  const heroSurface: [string, string] = [theme.primaryAlpha12, theme.bgCard];
   const mobileSurfaceCard = isMobile
     ? [styles.mobileSurfaceCard, { borderColor: theme.border }]
     : [];
@@ -801,75 +756,6 @@ export function ClientProfileScreen() {
     </Card>
   );
 
-  const followUpCard = (
-    <Card variant="default" padding="large" style={mobileSurfaceCard}>
-      <Text style={[textStyles.section, { color: theme.textPrimary }, sectionTitleStyle]}>Seguimiento</Text>
-      <View style={styles.sideStack}>
-        <View style={styles.sideRow}>
-          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Paciente desde</Text>
-          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
-            {formatNumericDate(client.createdAt)}
-          </Text>
-        </View>
-        <View style={styles.sideRow}>
-          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>
-            Última actualización
-          </Text>
-          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
-            {formatDate(client.updatedAt, false)}
-          </Text>
-        </View>
-        <View style={styles.sideRow}>
-          <Text style={[textStyles.caption, { color: theme.textMuted }, labelStyle]}>Autorización clínica</Text>
-          <Text
-            style={[
-              textStyles.strong,
-              { color: client.consentOnFile ? theme.status.confirmed.text : theme.status.pending.text },
-              emphasisStyle,
-            ]}
-          >
-            {client.consentOnFile ? 'Vigente' : 'Pendiente'}
-          </Text>
-        </View>
-      </View>
-    </Card>
-  );
-
-  const nextSessionCard = (
-    <Card variant="default" padding="large" style={mobileSurfaceCard}>
-      <Text style={[textStyles.section, { color: theme.textPrimary }, sectionTitleStyle]}>
-        Próxima sesión
-      </Text>
-      {nextSession ? (
-        <View style={styles.sideStack}>
-          <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
-            {formatDate(nextSession.date, true)}
-          </Text>
-          <Text style={[textStyles.body, { color: theme.textSecondary }]}>
-            {nextSession.duration} min · {getSessionTypeLabel(nextSession.type)} ·{' '}
-            {getSessionStatusLabel(nextSession.status)}
-          </Text>
-        </View>
-      ) : (
-        <View style={styles.sideStack}>
-          <Text style={[textStyles.body, { color: theme.textSecondary }]}>
-            No hay ninguna sesión futura programada.
-          </Text>
-          {canScheduleProfessionalSession ? (
-            <Button
-              variant="secondary"
-              size="small"
-              onPress={openSessionScheduler}
-              icon={<Ionicons name="calendar-outline" size={16} color={theme.textPrimary} />}
-              fullWidth
-            >
-              Crear cita
-            </Button>
-          ) : null}
-        </View>
-      )}
-    </Card>
-  );
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -892,219 +778,66 @@ export function ClientProfileScreen() {
           setContentHeight(height);
         }}
       >
-       <TourTarget id="professional.client-profile.hero" fill style={styles.fullWidthTourTarget}>
-        <Card variant="default" padding="none" style={styles.heroCard}>
-         <View style={[styles.heroSurface, isMobile && styles.heroSurfaceMobile, { backgroundColor: heroSurface[0] }]}>
-          <View style={[styles.heroContent, !isTablet && styles.heroContentStack]}>
-            <View
-              style={[
-                styles.heroIdentity,
-                !isTablet && styles.heroIdentityStack,
-                isMobile && styles.heroIdentityMobile,
-              ]}
-            >
-              <AnimatedPressable
-                onPress={() => navigation.goBack()}
-                accessibilityLabel="Volver"
-                hoverLift={false}
-                pressScale={0.97}
-                style={[styles.backButton, { backgroundColor: theme.bgCard, borderColor: theme.border }]}
-              >
-                <Ionicons name="arrow-back" size={18} color={theme.textSecondary} />
-              </AnimatedPressable>
-              <View
-                style={[
-                  styles.avatarShell,
-                  isMobile && styles.avatarShellMobile,
-                  { backgroundColor: theme.bgCard, borderColor: theme.border },
-                ]}
-              >
-                {client.user.avatar ? (
-                  <Image source={{ uri: client.user.avatar }} style={styles.avatarImage} />
-                ) : (
-                  <Text style={[styles.avatarText, { color: theme.primary, fontFamily: theme.fontHeading }]}>{initials}</Text>
-                )}
+      <TourTarget id="professional.client-profile.hero" fill>
+        <Card padding="medium" style={styles.patientHero}>
+          <View style={[styles.patientHeader, !isDesktop && { flexDirection: 'column', alignItems: 'stretch' }]}>
+            <View style={styles.patientIdentity}>
+              <AnimatedPressable accessibilityLabel="Volver" hoverLift={false} onPress={() => navigation.goBack()} style={styles.patientBack}><Ionicons name="arrow-back" size={20} color={theme.textSecondary} /></AnimatedPressable>
+              <View style={[styles.patientAvatar, { backgroundColor: theme.bgMuted }]}>
+                {client.user?.avatar ? <Image source={{ uri: client.user.avatar }} style={{ width: '100%', height: '100%' }} /> : <Text style={{ color: theme.textPrimary, fontFamily: theme.fontHeading, fontSize: 21 }}>{initials}</Text>}
               </View>
-
-                <View style={[styles.heroCopy, isMobile && styles.heroCopyMobile]}>
-                  <View style={styles.heroLabelRow}>
-                    <Text style={[textStyles.eyebrow, labelStyle, { color: theme.textMuted }]}>Ficha del paciente</Text>
-                    {isClientArchived ? (
-                      <View style={[styles.topBadge, { backgroundColor: theme.warningBg }]}>
-                        <Text style={[textStyles.caption, styles.topBadgeText, labelStyle, { color: theme.warning }]}>
-                          Archivado
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <Text style={[textStyles.title, { color: theme.textPrimary }, displayTitleStyle]}>
-                    {client.displayName || client.user.name}
-                  </Text>
-                  <View style={styles.heroFactsRow}>
-                    {heroSummaryItems.map((item) => (
-                      <View
-                        key={item.label}
-                        style={[
-                          styles.heroFactPill,
-                          { backgroundColor: theme.bgCard, borderColor: theme.borderLight },
-                        ]}
-                      >
-                        <Ionicons name={item.icon} size={14} color={theme.textMuted} />
-                        <Text
-                          numberOfLines={1}
-                          style={[styles.heroFactText, labelStyle, { color: theme.textSecondary }]}
-                        >
-                          {item.label}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
+              <View style={styles.patientName}>
+                <View style={styles.patientNameRow}><Text style={[styles.patientTitle, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>{client.displayName || client.user?.name}</Text>
+                  <Text style={[styles.patientStatus, { color: isClientArchived ? theme.warning : theme.success, backgroundColor: isClientArchived ? theme.warningBg : theme.successBg, fontFamily: theme.fontSansSemiBold }]}>{isClientArchived ? 'ARCHIVADO' : clinicalState.clientId === client.id && clinicalState.closed ? 'PROCESO CERRADO' : 'EN SEGUIMIENTO'}</Text></View>
+                <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 12, lineHeight: 20 }}>{age !== null ? `${age} años · ` : ''}Paciente desde {formatDate(client.createdAt)}</Text>
+                <AnimatedPressable hoverLift={false} accessibilityLabel="Gestionar consentimiento y acceso clínico" onPress={() => requestClinicalAction('CONSENT')}>
+                  <Text style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold, fontSize: 11, lineHeight: 20 }}>{clinicalState.clientId === client.id && clinicalState.unlocked ? `Área clínica desbloqueada · Consentimiento ${clinicalState.consentStatus === 'GRANTED' ? 'vigente' : clinicalState.consentStatus === 'REVOKED' ? 'retirado' : 'pendiente'}` : 'Área clínica protegida · Gestionar consentimiento'}</Text>
+                </AnimatedPressable>
               </View>
-
-            <TourTarget id="professional.client-profile.actions" fill>
-              <View
-                style={[
-                  styles.heroActions,
-                  !isTablet && styles.heroActionsStack,
-                  isMobile && styles.heroActionsMobile,
-                ]}
-              >
-              <Button
-                variant="outline"
-                size="small"
-                onPress={() => setBillingModalVisible(true)}
-                disabled={isClientArchived}
-                icon={<Ionicons name="create-outline" size={16} color={theme.primary} />}
-                style={styles.heroActionButton}
-              >
-                Editar
-              </Button>
-
-              {canScheduleProfessionalSession ? (
-                <Button
-                  variant="primary"
-                  size="small"
-                  onPress={openSessionScheduler}
-                  icon={<Ionicons name="calendar-outline" size={16} color={theme.textOnPrimary} />}
-                  style={styles.heroActionButton}
-                >
-                  Crear cita
-                </Button>
-              ) : null}
-
-              <Button variant="outline" size="small" disabled={isClientArchived} onPress={() => navigation.navigate('Referrals', { clientId: client.id })}>Proponer derivación</Button>
-
-              <Button
-                variant="secondary"
-                size="small"
-                onPress={() =>
-                  client.primaryEmail ? void Linking.openURL(`mailto:${client.primaryEmail}`) : undefined
-                }
-                disabled={!client.primaryEmail}
-                icon={<Ionicons name="mail-outline" size={16} color={theme.secondaryDark} />}
-                style={styles.heroActionButton}
-              >
-                Email
-              </Button>
-
-              {isManagedClient ? (
-                <Button
-                  variant={isClientArchived ? 'outline' : 'ghost'}
-                  size="small"
-                  onPress={handleToggleArchive}
-                  loading={archiveSubmitting}
-                  icon={
-                    <Ionicons
-                      name={isClientArchived ? 'refresh-outline' : 'archive-outline'}
-                      size={16}
-                      color={isClientArchived ? theme.primary : theme.warning}
-                    />
-                  }
-                  style={styles.heroActionButton}
-                  textStyle={isClientArchived ? undefined : { color: theme.warning }}
-                >
-                  {isClientArchived ? 'Desarchivar' : 'Archivar'}
-                </Button>
-              ) : null}
+            </View>
+            <TourTarget id="professional.client-profile.actions" fill style={{ minWidth: 0, maxWidth: '100%', ...(!isDesktop ? { width: '100%' } : {}) }}>
+              <View style={styles.patientActions}>
+                {canScheduleProfessionalSession ? <Button variant="outline" size="small" onPress={openSessionScheduler}>Programar sesión</Button> : null}
+                {clinicalState.clientId === client.id && clinicalState.granted && !clinicalState.closed ? <><Button variant="outline" size="small" onPress={() => requestClinicalAction('UPLOAD')}>Subir archivo</Button><Button size="small" onPress={() => requestClinicalAction('NOTE')}>+ Nueva nota</Button></> : null}
+                <Button variant="ghost" size="small" accessibilityLabel="Más acciones del paciente" onPress={() => setActionsVisible(value => !value)}>Más ···</Button>
               </View>
             </TourTarget>
           </View>
-
-          {refreshingClient ? (
-            <View style={styles.heroRefreshRow}>
-              <ActivityIndicator size="small" color={theme.primary} />
-              <Text style={[styles.heroRefreshText, { color: theme.textSecondary }, labelStyle]}>
-                Actualizando ficha...
-              </Text>
-            </View>
-          ) : null}
-        </View>
+          {actionsVisible ? <View style={[styles.patientMenu, { borderTopColor: theme.borderLight }]}>
+            <Button variant="ghost" size="small" disabled={isClientArchived} onPress={() => { setActionsVisible(false); setBillingModalVisible(true); }}>Editar datos</Button>
+            <Button variant="ghost" size="small" disabled={!client.primaryEmail} onPress={() => { if (client.primaryEmail) void Linking.openURL(`mailto:${client.primaryEmail}`); }}>Email</Button>
+            <Button variant="ghost" size="small" disabled={isClientArchived} onPress={() => navigation.navigate('Referrals', { clientId: client.id })}>Proponer derivación</Button>
+            {isManagedClient ? <Button variant="ghost" size="small" loading={archiveSubmitting} onPress={handleToggleArchive}>{isClientArchived ? 'Desarchivar paciente' : 'Archivar paciente'}</Button> : null}
+          </View> : null}
+          <View style={styles.patientMetrics}>
+            {[{ label: 'PRÓXIMA SESIÓN', value: nextSession ? `${new Date(nextSession.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })} · ${new Date(nextSession.date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}` : 'Sin cita programada', hint: nextSession ? `${getSessionTypeLabel(nextSession.type)} · ${nextSession.duration} min` : 'Programa una sesión cuando la necesites' },
+              { label: 'SESIONES REALIZADAS', value: String(completedSessions), hint: `${sessions.length} sesiones registradas` },
+              ...(clinicalState.clientId === client.id && clinicalState.granted && clinicalCounters?.clientId === client.id ? [
+                { label: 'SESIONES SIN NOTAS', value: String(clinicalCounters.value.withoutNotes), hint: 'Completadas por documentar' },
+                { label: 'ARCHIVOS DEL EXPEDIENTE', value: String(clinicalCounters.value.activeFiles), hint: 'Archivos activos del proceso' },
+              ] : [])].map(metric => <View key={metric.label} style={[styles.patientMetric, { backgroundColor: theme.bgMuted }]}>
+                <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSansSemiBold, fontSize: 10, lineHeight: 17, letterSpacing: 0.5 }}>{metric.label}</Text>
+                <Text style={{ color: theme.textPrimary, fontFamily: theme.fontHeading, fontSize: metric.label === 'PRÓXIMA SESIÓN' ? 14 : 22, lineHeight: 27 }}>{metric.value}</Text>
+                {!isMobile || metric.label === 'PRÓXIMA SESIÓN' ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 11, lineHeight: 17 }}>{metric.hint}</Text> : null}
+              </View>)}
+          </View>
+          {refreshingClient ? <ActivityIndicator size="small" color={theme.primary} /> : null}
         </Card>
       </TourTarget>
+      <TourTarget id="professional.client-profile.tabs" fill><TourTarget id="professional.clinical.workspace-tabs" fill>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.patientTabs, { borderBottomColor: theme.borderLight }]}>
+          {TABS.map(tab => { const selected = activeTab === tab.key || (activeTab === 'clinical' && tab.key === 'summary'); return <AnimatedPressable key={tab.key} hoverLift={false} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => setActiveTab(tab.key)} style={[styles.patientTab, { borderBottomColor: selected ? theme.actionPrimary : 'transparent' }]}>
+            <Text style={{ color: selected ? theme.textPrimary : theme.textSecondary, fontFamily: selected ? theme.fontSansSemiBold : theme.fontSans, fontSize: 13, lineHeight: 20 }}>{tab.label}</Text>
+          </AnimatedPressable>; })}
+        </ScrollView>
+      </TourTarget></TourTarget>
 
-      <TourTarget id="professional.client-profile.tabs" fill style={styles.fullWidthTourTarget}>
-        <View style={[styles.tabs, isMobile && styles.tabsMobile]}>
-          {TABS.map((tab) => (
-            <AnimatedPressable
-              key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
-              hoverLift={false}
-              pressScale={0.98}
-              style={[
-                styles.tab,
-                isMobile && styles.tabMobile,
-                {
-                  backgroundColor: activeTab === tab.key ? theme.primary : theme.bgCard,
-                  borderColor: activeTab === tab.key ? theme.primary : theme.border,
-                },
-              ]}
-            >
-              <Ionicons
-                name={tab.icon}
-                size={16}
-                color={activeTab === tab.key ? theme.textOnPrimary : theme.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.tabText,
-                  labelStyle,
-                  { color: activeTab === tab.key ? theme.textOnPrimary : theme.textSecondary },
-                ]}
-              >
-                {tab.label}
-              </Text>
-            </AnimatedPressable>
-          ))}
-        </View>
-      </TourTarget>
-
-      {activeTab === 'summary' ? (
-        isMobile ? (
-          <View style={styles.mobileSummaryStack}>
-            {administrativeCard}
-            {followUpCard}
-            {nextSessionCard}
-          </View>
-        ) : (
-        <View style={[styles.summaryLayout, !isDesktop && styles.summaryLayoutStack]}>
-          <View style={[styles.summaryMain, !isDesktop && styles.summaryMainStack]}>
-            {administrativeCard}
-          </View>
-
-          <View style={[styles.summarySide, !isDesktop && styles.summarySideStack]}>
-            {followUpCard}
-            {nextSessionCard}
-          </View>
-        </View>
-        )
-      ) : null}
-
-      {activeTab === 'summary' ? <><PatientCommission clientId={clientId} /></> : null}
-
-      {activeTab === 'packages' && <PatientPackages clientId={clientId} onReserve={row => { setScheduledPackage(row); setSessionModalVisible(true); }} />}
-      {activeTab === 'summary' && <PatientPackages compact clientId={clientId} onReserve={row => { setScheduledPackage(row); setSessionModalVisible(true); }} />}
-      {activeTab === 'history' ? (
+      {activeTab === 'packages' ? <View style={styles.patientAdmin}>
+        {administrativeCard}
+        <PatientCommission clientId={clientId} />
+        <PatientPackages clientId={clientId} onReserve={row => { setScheduledPackage(row); setSessionModalVisible(true); }} />
+      </View> : null}
+      {activeTab === 'history' && !(clinicalState.clientId === client.id && clinicalState.granted) ? (
         <Card variant="default" padding="large">
           <View style={styles.historyHeader}>
             <Text style={[textStyles.section, { color: theme.textPrimary }, sectionTitleStyle]}>Historial de sesiones</Text>
@@ -1146,19 +879,19 @@ export function ClientProfileScreen() {
         </Card>
       ) : null}
 
-      {keepClinicalMounted ? (
-        <View style={activeTab === 'clinical' ? undefined : styles.hiddenTabContent}>
-          <ClinicalTab
+        <View style={activeTab === 'packages' ? styles.hiddenTabContent : undefined}>
+          <ClinicalTab key={client.id}
+            section={activeTab === 'clinical' ? 'summary' : activeTab}
+            action={clinicalAction} onSection={setActiveTab} onAccessState={updateClinicalState} onCounters={updateClinicalCounters}
             clientId={client.id}
             client={client}
             initialWorkspace={clinicalWorkspace}
             focusSessionId={focusSessionId}
             onPrepareClinicalTourStep={prepareClinicalTourStep}
             onRequestRefreshClient={loadClient}
-            tourTargetsActive={activeTab === 'clinical'}
+            tourTargetsActive={activeTab !== 'packages'}
           />
         </View>
-      ) : null}
       </ScrollView>
 
       <Modal
@@ -1385,6 +1118,13 @@ export function ClientProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  patientHero: { gap: 10 }, patientHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 18 },
+  patientIdentity: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 240 }, patientBack: { width: 28, height: 42, alignItems: 'center', justifyContent: 'center' },
+  patientAvatar: { width: 54, height: 54, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }, patientName: { flex: 1, minWidth: 0, gap: 2 },
+  patientNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 }, patientTitle: { fontSize: 24, lineHeight: 31 }, patientStatus: { fontSize: 9, letterSpacing: 0.5, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6 },
+  patientActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, maxWidth: '100%', flexShrink: 1 }, patientMenu: { flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, paddingTop: 10, gap: 4 },
+  patientMetrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }, patientMetric: { flex: 1, minWidth: 135, borderRadius: 10, padding: 11, gap: 2 },
+  patientTabs: { flexDirection: 'row', gap: 26, borderBottomWidth: 1, minWidth: '100%' }, patientTab: { paddingVertical: 13, borderBottomWidth: 2 }, patientAdmin: { gap: 18 },
   centered: {
     flex: 1,
     alignItems: 'center',
@@ -1401,291 +1141,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingBottom: spacing.xxl,
     gap: spacing.lg,
-  },
-  fullWidthTourTarget: {
-    width: '100%',
-  },
-  backButton: {
-    flexShrink: 0,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  topBadge: {
-    borderRadius: 999,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 8,
-  },
-  topBadgeText: {
-    fontWeight: '700',
-    fontFamily: lightTheme.fontSansBold,
-  },
-  heroCard: {
-    overflow: 'hidden',
-  },
-  heroSurface: {
-    padding: spacing.md,
-  },
-  heroSurfaceMobile: {
-    padding: spacing.md,
-  },
-  heroContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    alignItems: 'flex-start',
-  },
-  heroContentStack: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
-  },
-  heroIdentity: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    alignItems: 'center',
-    flex: 1,
-    minWidth: 280,
-  },
-  heroIdentityStack: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  heroIdentityMobile: {
-    minWidth: 0,
-    width: '100%',
-    gap: spacing.sm,
-  },
-  avatarShell: {
-    width: 78,
-    height: 78,
-    borderRadius: 24,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  avatarShellMobile: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarText: {
-    fontSize: typography.fontSizes.xxl,
-    lineHeight: 30,
-    fontWeight: '700',
-    fontFamily: lightTheme.fontHeading,
-  },
-  heroLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  heroCopy: {
-    flex: 1,
-    gap: spacing.xs,
-    minWidth: 0,
-  },
-  heroCopyMobile: {
-    width: '100%',
-  },
-  heroFactsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginTop: 2,
-  },
-  heroFactPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    maxWidth: 220,
-  },
-  heroFactText: {
-    fontSize: typography.fontSizes.xs,
-    lineHeight: 16,
-    fontFamily: lightTheme.fontSans,
-    flexShrink: 1,
-  },
-  heroMetaGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  heroMetaGridStack: {
-    flexDirection: 'column',
-  },
-  heroMetaCard: {
-    minWidth: 168,
-    maxWidth: 260,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    gap: 4,
-    flexGrow: 1,
-  },
-  heroMetaCardFull: {
-    width: '100%',
-    maxWidth: '100%',
-    minWidth: 0,
-  },
-  concernRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  concernChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-  },
-  heroActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    maxWidth: 520,
-    flexShrink: 0,
-  },
-  heroActionsStack: {
-    width: '100%',
-    justifyContent: 'flex-start',
-  },
-  heroActionsMobile: {
-    width: '100%',
-    marginTop: spacing.xs,
-  },
-  heroActionButton: {
-    minWidth: 108,
-  },
-  heroRefreshRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.sm,
-  },
-  heroRefreshText: {
-    fontSize: typography.fontSizes.xs,
-    lineHeight: 18,
-    fontFamily: lightTheme.fontSans,
-  },
-  summaryStatsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  summaryStatsRowMobile: {
-    gap: spacing.sm,
-  },
-  summaryStatItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-  },
-  summaryStatLabel: {
-    fontSize: typography.fontSizes.xs,
-    lineHeight: 16,
-    fontFamily: lightTheme.fontSans,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  summaryStatValue: {
-    fontSize: typography.fontSizes.md,
-    lineHeight: 22,
-    fontFamily: lightTheme.fontSansBold,
-  },
-  tabs: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  tabsMobile: {
-    gap: spacing.xs,
-  },
-  tab: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  tabMobile: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 10,
-    justifyContent: 'center',
-  },
-  tabText: {
-    ...textStyles.body,
-    fontWeight: '700',
-  },
-  summaryLayout: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-    alignItems: 'flex-start',
-  },
-  mobileSummaryStack: {
-    gap: spacing.md,
-  },
-  summaryLayoutStack: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
-  },
-  summaryMain: {
-    flex: 1.3,
-    gap: spacing.lg,
-  },
-  summaryMainStack: {
-    width: '100%',
-    flex: 0,
-  },
-  summarySide: {
-    flex: 0.9,
-    gap: spacing.lg,
-  },
-  summarySideStack: {
-    width: '100%',
-    flex: 0,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    flexWrap: 'wrap',
-  },
-  cardHeaderStack: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
-    gap: spacing.sm,
-  },
-  sectionCopy: {
-    flex: 1,
-    minWidth: 240,
-    gap: 6,
-  },
-  sectionCopyMobile: {
-    minWidth: 0,
-    width: '100%',
   },
   adminSections: {
     gap: spacing.md,
@@ -1733,35 +1188,6 @@ const styles = StyleSheet.create({
   adminCellValue: {
     ...textStyles.strong,
     minWidth: 0,
-  },
-  questionnairePanel: {
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  questionnairePreview: {
-    marginTop: spacing.md,
-    borderWidth: 1,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  questionnaireEmpty: {
-    marginTop: spacing.md,
-    borderWidth: 1,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    gap: spacing.sm,
-    alignItems: 'center',
-  },
-  preferencePanel: {
-    gap: spacing.sm,
-  },
-  sideStack: {
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  sideRow: {
-    gap: 4,
   },
   historyHeader: {
     flexDirection: 'row',

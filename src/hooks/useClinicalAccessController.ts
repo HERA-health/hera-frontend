@@ -1,4 +1,5 @@
 import { subscribeToClinicalPinChange } from '../services/clinicalPinService';
+import { cancelClinicalDownloads } from '../services/clinicalDownloads';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 import * as clinicalService from '../services/clinicalService';
@@ -25,9 +26,12 @@ export function useClinicalAccessController({
   const hiddenAtRef = useRef<number | null>(null);
 
   const syncToken = useCallback((nextToken: string | null) => {
+    if (tokenRef.current !== nextToken) cancelClinicalDownloads(tokenRef.current);
     tokenRef.current = nextToken;
     setToken(nextToken);
   }, []);
+
+  useEffect(() => () => cancelClinicalDownloads(tokenRef.current), []);
 
   const updateSessionView = useCallback(
     (
@@ -94,6 +98,7 @@ export function useClinicalAccessController({
   const refreshStatus = useCallback(
     async (sessionToken?: string | null) => {
       const status = await clinicalService.getClinicalAccessStatus(sessionToken || undefined);
+      if (tokenRef.current !== (sessionToken ?? null)) return status;
       setAccessStatus(status);
 
       if (!status.session.active && sessionToken) {
@@ -125,9 +130,11 @@ export function useClinicalAccessController({
 
       try {
         const session = await clinicalService.heartbeatClinicalArea(activeToken, mode);
+        if (tokenRef.current !== activeToken) return null;
         updateSessionView(session);
         return session;
       } catch {
+        if (tokenRef.current !== activeToken) return null;
         // Ignore transient failures while the browser/app is temporarily backgrounded
         // (file pickers, native dialogs, tab switches). We only clear access on explicit
         // foreground failures or when the server later reports the session is inactive.
@@ -207,6 +214,7 @@ export function useClinicalAccessController({
   const lockClinicalArea = useCallback(async () => {
     setAccessSubmitting(true);
     const activeToken = tokenRef.current;
+    await clearAccessState();
 
     try {
       if (activeToken) {
@@ -217,7 +225,6 @@ export function useClinicalAccessController({
         }
       }
 
-      await clearAccessState();
       await loadStatus();
     } finally {
       setAccessSubmitting(false);
@@ -227,6 +234,20 @@ export function useClinicalAccessController({
   useEffect(() => {
     void loadStatus();
   }, [loadStatus]);
+
+  useEffect(() => {
+    if (!token || !accessStatus?.session.active) return;
+    const deadline = Math.min(
+      Date.parse(accessStatus.session.absoluteExpiresAt ?? ''),
+      Date.parse(accessStatus.session.idleExpiresAt ?? '')
+    );
+    const expire = () => {
+      if (tokenRef.current === token) void clearAccessState('La sesión clínica ha caducado. Vuelve a desbloquear el expediente.');
+    };
+    if (!Number.isFinite(deadline)) { expire(); return; }
+    const timer = setTimeout(expire, Math.max(0, deadline - Date.now()));
+    return () => clearTimeout(timer);
+  }, [token, accessStatus?.session.active, accessStatus?.session.absoluteExpiresAt, accessStatus?.session.idleExpiresAt, clearAccessState]);
 
   useEffect(() => {
     if (!token) {

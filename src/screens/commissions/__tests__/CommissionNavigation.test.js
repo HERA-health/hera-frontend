@@ -5,6 +5,7 @@ import * as service from '../../../services/heraCommissionService';
 
 jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn() }), useFocusEffect: effect => require('react').useEffect(effect, [effect]) }));
 jest.mock('../../../services/heraCommissionService', () => ({
+ cachedOperators: jest.fn(() => []),
  operators: jest.fn(), specialistAccounts: jest.fn(), configuration: jest.fn(), detail: jest.fn(), sessions: jest.fn(), balances: jest.fn(), month: jest.fn(), adminMonth: jest.fn(),
 }));
 jest.mock('../../../services/professionalService', () => ({ getProfessionalSessionDetail: jest.fn() }));

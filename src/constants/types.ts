@@ -210,7 +210,7 @@ export type RootStackParamList = {
   ProfessionalTariffs: { openCreateService?: boolean } | undefined;
   ClientProfile: {
     clientId: string;
-    initialTab?: 'summary' | 'history' | 'clinical';
+    initialTab?: 'summary' | 'history' | 'clinical' | 'notes' | 'exercises' | 'documents' | 'packages';
     clinicalWorkspace?: 'general' | 'sessions';
     focusSessionId?: string;
     focusBillingEditor?: boolean;

@@ -1,3 +1,4 @@
+jest.mock('../../../services/clinicalFileCache', () => ({ ownClinicalAsset: (asset: unknown) => asset, releaseClinicalAssets: jest.fn(), discardClinicalPickerCopies: jest.fn() }));
 import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { lightTheme } from '../../../constants/theme';
@@ -289,12 +290,12 @@ describe('ClinicalGeneralWorkspace', () => {
 
     expect(screen.getByText('Documento firmado')).toBeTruthy();
     expect(screen.getByText('consentimiento-firmado.pdf')).toBeTruthy();
-    expect(screen.getByText('Adjuntar documento')).toBeTruthy();
-    expect(screen.getByText('Registrar autorización firmada')).toBeTruthy();
+    expect(screen.getByText('Guardar consentimiento firmado')).toBeTruthy();
+    expect(screen.getByText('Registrar documento adjunto')).toBeTruthy();
   });
 
   it('keeps signed consent evidence usable while clinical content actions wait for consent', () => {
-    const onAttestClinicalConsent = jest.fn();
+    const onAttestClinicalConsent = jest.fn().mockResolvedValue(undefined);
     const onUploadDocument = jest.fn();
     const onSaveNote = jest.fn();
 
@@ -323,10 +324,11 @@ describe('ClinicalGeneralWorkspace', () => {
       />,
     );
 
-    fireEvent.press(screen.getByText('Registrar autorización firmada'));
+    fireEvent.press(screen.getByRole('checkbox'));
+    fireEvent.press(screen.getByText('Registrar documento adjunto'));
 
     expect(onAttestClinicalConsent).toHaveBeenCalledWith('consent-document-1');
-    expect(screen.getByText('Adjuntar documento')).toBeTruthy();
+    expect(screen.getByText('Guardar consentimiento firmado')).toBeTruthy();
     expect(screen.queryByText('Añadir informe')).toBeNull();
     expect(screen.queryByText('Añadir documento')).toBeNull();
     expect(screen.getByPlaceholderText('Escribe aquí una nota general del expediente...').props.editable).toBe(false);
