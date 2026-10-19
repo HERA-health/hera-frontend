@@ -3,7 +3,7 @@ import React from 'react';
 import { Text } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as picker from 'expo-document-picker';
-import { ClinicalPatientWorkspace } from '../ClinicalPatientWorkspace';
+import { ClinicalPatientWorkspace, type ClinicalPatientAction } from '../ClinicalPatientWorkspace';
 import * as clinical from '../../../services/clinicalService';
 import { lightTheme } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -44,6 +44,26 @@ test('switching tabs preserves the quick note draft', async () => {
   view.rerender(<ClinicalPatientWorkspace {...props} section="notes" />);
   view.rerender(<ClinicalPatientWorkspace {...props} section="summary" />);
   expect(screen.getByDisplayValue('Borrador entre pestañas')).toBeTruthy();
+  await waitFor(() => expect(clinical.getClinicalTimeline).toHaveBeenCalledTimes(1));
+});
+
+test.each<[ClinicalPatientAction['kind'], string]>([
+  ['NOTE', 'Nota del expediente'], ['UPLOAD', 'Subir archivos'], ['CONSENT', 'Consentimiento informado'],
+])('%s acknowledges each header action once, even if the action object or callback changes', async (kind, title) => {
+  const consumed = jest.fn();
+  const props = { client, record, token: 'unlocked', consentPanel: null, ...callbacks() };
+  const view = render(<ClinicalPatientWorkspace {...props} section="notes" action={{ id: 1, kind }} onActionConsumed={consumed} />);
+  expect(screen.getByText(title)).toBeTruthy();
+  expect(consumed).toHaveBeenCalledTimes(1);
+  expect(consumed).toHaveBeenCalledWith(1);
+  fireEvent.press(screen.getAllByRole('button', { name: 'Cerrar' })[0]);
+  const changedCallback = jest.fn();
+  view.rerender(<ClinicalPatientWorkspace {...props} section="notes" action={{ id: 1, kind }} onActionConsumed={changedCallback} />);
+  expect(screen.queryByText(title)).toBeNull();
+  expect(changedCallback).not.toHaveBeenCalled();
+  view.rerender(<ClinicalPatientWorkspace {...props} section="notes" action={{ id: 2, kind }} onActionConsumed={changedCallback} />);
+  expect(screen.getByText(title)).toBeTruthy();
+  expect(changedCallback).toHaveBeenCalledWith(2);
   await waitFor(() => expect(clinical.getClinicalTimeline).toHaveBeenCalledTimes(1));
 });
 

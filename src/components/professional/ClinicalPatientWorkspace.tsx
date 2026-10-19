@@ -19,6 +19,7 @@ export type ClinicalPatientAction = { id: number; kind: 'NOTE' | 'UPLOAD' | 'CON
 interface Props {
   client: Client; record: clinical.ClinicalRecord; token: string; section: ClinicalPatientSection;
   action?: ClinicalPatientAction; focusSessionId?: string;
+  onActionConsumed?: (id: number) => void;
   consentPanel: React.ReactNode; onError: (error: unknown) => void;
   onRefresh: () => Promise<unknown>; onRequestRefreshClient?: () => Promise<void>;
   onLock: () => void;
@@ -36,7 +37,7 @@ const sessionType = (type: string) => ({ VIDEO_CALL: 'Videollamada', IN_PERSON: 
 const mergeItems = <T extends { id: string }>(current: T[], incoming: T[]): T[] =>
   Array.from(new Map([...current, ...incoming].map(item => [item.id, item])).values());
 
-export function ClinicalPatientWorkspace({ client, record, token, section, action, focusSessionId, consentPanel, onError, onRefresh, onRequestRefreshClient, onCounters, onLock, onSection, tourTargetsActive = true, sessionPanel }: Props) {
+export function ClinicalPatientWorkspace({ client, record, token, section, action, onActionConsumed, focusSessionId, consentPanel, onError, onRefresh, onRequestRefreshClient, onCounters, onLock, onSection, tourTargetsActive = true, sessionPanel }: Props) {
   const { theme } = useTheme();
   const { width } = useWindowDimensions();
   const [availableWidth, setAvailableWidth] = useState(0);
@@ -72,6 +73,7 @@ export function ClinicalPatientWorkspace({ client, record, token, section, actio
   const granted = record.consentStatus === 'GRANTED';
   const writable = granted && !record.closedAt;
   const uploadBusyRef = useRef(false);
+  const consumedActionRef = useRef<number | null>(null);
   const errorRef = useRef(onError); errorRef.current = onError;
   const countersRef = useRef(onCounters); countersRef.current = onCounters;
   const requestScope = JSON.stringify([client.id, token, section, filter, category, archived, search, revision]);
@@ -89,11 +91,13 @@ export function ClinicalPatientWorkspace({ client, record, token, section, actio
     void onRefresh().catch(report);
   }, [onRefresh, report]);
   useEffect(() => {
-    if (!action) return;
+    if (!action || consumedActionRef.current === action.id) return;
+    consumedActionRef.current = action.id;
     if (action.kind === 'CONSENT') setConsentVisible(true);
     else if (writable && action.kind === 'NOTE') { setDraft({ kind: 'NOTE' }); setComposerVersion(v => v + 1); }
     else if (writable) setUploadVisible(true);
-  }, [action, writable]);
+    onActionConsumed?.(action.id);
+  }, [action, writable, onActionConsumed]);
   useEffect(() => { setNotes(record.notes); setNotePage(record.pagination.notes); }, [record.notes, record.pagination.notes]);
   useEffect(() => {
     if (!granted) { setTimeline(null); return; }
@@ -250,16 +254,16 @@ export function ClinicalPatientWorkspace({ client, record, token, section, actio
             <Button variant="ghost" size="small" onPress={() => onSection('notes')}>Ver todas las notas</Button>
           </Card>
           <ClinicalQuestionnairePanel isTablet={false} completedQuestionnaire={record.client.completedQuestionnaire} questionnaireAvailability={record.client.questionnaireAvailability} summary={record.client.questionnaireSummary} answers={record.client.questionnaireAnswers} tourTargetId="professional.clinical.questionnaire" tourTargetsActive={tourTargetsActive} />
+          {(['MEDICAL_REPORT', 'GENERAL'] as const).map(kind => <Card key={kind} padding="large">
+            <TourTarget id={kind === 'MEDICAL_REPORT' ? 'professional.clinical.reports' : 'professional.clinical.documents'} fill active={tourTargetsActive}>
+              {heading(kind === 'MEDICAL_REPORT' ? 'Informes médicos' : 'Documentación general', kind === 'MEDICAL_REPORT' ? 'Informes de derivación, pruebas y documentación clínica de apoyo.' : 'Documentos del paciente que no dependen de una sesión.')}
+            </TourTarget>
+            {writable ? <Button variant="outline" size="small" onPress={() => { if (!uploadFiles.length && !uploadBusyRef.current) setUploadCategory(kind); setUploadVisible(true); }}>{kind === 'MEDICAL_REPORT' ? 'Subir informe' : 'Subir documento'}</Button> : null}
+            {docs(record.documents.filter(doc => doc.category === kind && !doc.archivedAt).slice(0, 3))}
+            <Button variant="ghost" size="small" onPress={() => { setCategory(kind); onSection('documents'); }}>Ver todos</Button>
+          </Card>)}
         </View>
       </View>
-      <View style={[styles.documentsBand, !wide && styles.column]}>{(['MEDICAL_REPORT', 'GENERAL'] as const).map(kind => <Card key={kind} padding="large" style={styles.flex}>
-        <TourTarget id={kind === 'MEDICAL_REPORT' ? 'professional.clinical.reports' : 'professional.clinical.documents'} fill active={tourTargetsActive}>
-          {heading(kind === 'MEDICAL_REPORT' ? 'Informes médicos' : 'Documentación general', kind === 'MEDICAL_REPORT' ? 'Informes de derivación, pruebas y documentación clínica de apoyo.' : 'Documentos del paciente que no dependen de una sesión.')}
-        </TourTarget>
-        {writable ? <Button variant="outline" size="small" onPress={() => { if (!uploadFiles.length && !uploadBusyRef.current) setUploadCategory(kind); setUploadVisible(true); }}>{kind === 'MEDICAL_REPORT' ? 'Subir informe' : 'Subir documento'}</Button> : null}
-        {docs(record.documents.filter(doc => doc.category === kind && !doc.archivedAt).slice(0, 3))}
-        <Button variant="ghost" size="small" onPress={() => { setCategory(kind); onSection('documents'); }}>Ver todos</Button>
-      </Card>)}</View>
     </View> : null}
     {granted && section === 'history' ? sessionPanel?.(compose) : null}
     {granted && section === 'notes' ? <Card padding="large">{heading('Notas del expediente', `${notePage.total} notas registradas`, writable ? <Button size="small" onPress={() => compose({ kind: 'NOTE' })}>Nueva nota</Button> : undefined)}
@@ -317,7 +321,7 @@ const styles = StyleSheet.create({
   session: { borderWidth: 1, borderRadius: 14, padding: 16, gap: 8 }, sessionTitle: { fontSize: 14, lineHeight: 21 }, generalEntry: { paddingLeft: 24 }, note: { borderRadius: 12, padding: 16, gap: 8, marginBottom: 10 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 3 }, preview: { marginTop: 18, gap: 8 }, previewRow: { borderTopWidth: 1, paddingVertical: 10, flexDirection: 'row', gap: 10, alignItems: 'center' },
   consentStatus: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 200 },
-  documentsBand: { flexDirection: 'row', alignItems: 'stretch', gap: 22 }, consentBar: { borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
+  consentBar: { borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
   empty: { fontSize: 14, lineHeight: 23, paddingVertical: 24 }, error: { padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12 },
   documentFilters: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 15 }, search: { flex: 1, minWidth: 180, borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 14 },
   backdrop: { flex: 1 }, modalScroll: { flexGrow: 1, justifyContent: 'center', padding: 20 }, dialog: { maxWidth: 960, width: '100%', alignSelf: 'center', padding: 24, borderRadius: 20, gap: 14 },

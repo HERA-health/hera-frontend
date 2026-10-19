@@ -160,7 +160,7 @@ export function ClinicalWorkspaceComposer({ readOnly = false, client, token, dra
       value={content} onChangeText={setContent} editable={!readOnly && !saving && !uncertain}
       placeholder={exercise ? 'Describe el ejercicio o añade sus instrucciones…' : 'Escribe una nota sobre el proceso…'} placeholderTextColor={theme.textMuted}
       style={[...inputStyle, styles.textarea]} />
-    <SimpleDropdown value={sessionId} onSelect={setSessionId} disabled={readOnly || saving || uncertain || Boolean(savedId)} accessibilityLabel="Vincular a una sesión"
+    <SimpleDropdown value={sessionId} onSelect={setSessionId} disabled={readOnly || saving || uncertain || Boolean(savedId)} accessibilityLabel="Vincular a una sesión" presentation="portal" keyboardNavigation
       options={[{ label: 'Sin vincular a una sesión', value: '' }, ...(client.sessions || []).map(session => ({ value: session.id, label: new Date(session.date).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }))]} />
     {files.map((file, index) => <View key={`${file.uri}-${index}`} style={[styles.file, { backgroundColor: theme.bgMuted }]}>
       <Text numberOfLines={1} style={[styles.filename, { color: theme.textPrimary, fontFamily: theme.fontSans }]}>{file.fileName || file.name}</Text>

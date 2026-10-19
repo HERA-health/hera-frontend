@@ -48,6 +48,7 @@ export interface ClinicalPatientAccessState {
 interface ClinicalTabProps {
   section?: ClinicalPatientSection;
   action?: ClinicalPatientAction;
+  onActionConsumed?: (id: number) => void;
   onSection?: (section: ClinicalPatientSection) => void;
   onAccessState?: (state: ClinicalPatientAccessState) => void;
   onCounters?: (counters: ClinicalTimelinePage['counters']) => void;
@@ -170,7 +171,7 @@ const getBannerStyles = (
 };
 
 export function ClinicalTab({
-  section = 'summary', action, onSection, onAccessState, onCounters,
+  section = 'summary', action, onActionConsumed, onSection, onAccessState, onCounters,
   clientId,
   client,
   initialWorkspace,
@@ -190,6 +191,10 @@ export function ClinicalTab({
   );
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [tourAction, setTourAction] = useState<ClinicalPatientAction>();
+  const consumeAction = useCallback((id: number) => {
+    setTourAction(current => current && current.id <= id ? undefined : current);
+    onActionConsumed?.(id);
+  }, [onActionConsumed]);
   const [pin, setPin] = useState('');
   const [setupPin, setSetupPin] = useState('');
   const [setupPinConfirm, setSetupPinConfirm] = useState('');
@@ -753,7 +758,7 @@ export function ClinicalTab({
         </View>
       ) : null}
 
-      {access.statusLoading || clinicalTermsLoading || clinicalTermsAccepted === null ? (
+      {(access.statusLoading && !hasActiveSession) || clinicalTermsLoading || clinicalTermsAccepted === null ? (
         <Card variant="default" padding="large">
           <View style={styles.centeredState}>
             <ActivityIndicator size="small" color={theme.primary} />
@@ -941,6 +946,7 @@ export function ClinicalTab({
           {workspaceData.recordError ? <Card padding="medium"><Text accessibilityRole="alert" style={{ color: theme.error, fontFamily: theme.fontSans }}>{workspaceData.recordError}</Text><Button variant="ghost" onPress={() => void workspaceData.loadRecord()}>Actualizar expediente</Button></Card> : null}
           <ClinicalPatientWorkspace key={`${clientId}:${access.token}:${record.consentStatus}:${record.closedAt ?? ''}`}
             client={client} record={record} token={access.token!} section={section} action={tourAction && tourAction.id > (action?.id ?? 0) ? tourAction : action}
+            onActionConsumed={consumeAction}
             onLock={() => void handleLock()}
             onError={handlePatientError} onRefresh={workspaceData.loadRecord}
             onSection={onSection ?? (() => setWorkspace('sessions'))} onCounters={onCounters}

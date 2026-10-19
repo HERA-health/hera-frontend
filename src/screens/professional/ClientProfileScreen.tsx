@@ -173,6 +173,9 @@ export function ClientProfileScreen() {
   const [clinicalCounters, setClinicalCounters] = useState<{ clientId: string; value: ClinicalTimelinePage['counters'] } | null>(null);
   const updateClinicalState = useCallback((state: ClinicalPatientAccessState) => setClinicalState({ clientId, ...state }), [clientId]);
   const updateClinicalCounters = useCallback((value: ClinicalTimelinePage['counters']) => setClinicalCounters({ clientId, value }), [clientId]);
+  const consumeClinicalAction = useCallback((id: number) => {
+    setClinicalAction(current => current && current.id <= id ? undefined : current);
+  }, []);
   const requestClinicalAction = (kind: ClinicalPatientAction['kind']) => {
     if (activeTab === 'packages') setActiveTab('summary');
     setClinicalAction({ id: Date.now(), kind });
@@ -882,7 +885,7 @@ export function ClientProfileScreen() {
         <View style={activeTab === 'packages' ? styles.hiddenTabContent : undefined}>
           <ClinicalTab key={client.id}
             section={activeTab === 'clinical' ? 'summary' : activeTab}
-            action={clinicalAction} onSection={setActiveTab} onAccessState={updateClinicalState} onCounters={updateClinicalCounters}
+            action={clinicalAction} onActionConsumed={consumeClinicalAction} onSection={setActiveTab} onAccessState={updateClinicalState} onCounters={updateClinicalCounters}
             clientId={client.id}
             client={client}
             initialWorkspace={clinicalWorkspace}
