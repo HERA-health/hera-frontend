@@ -1,6 +1,7 @@
 import api from '../api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { accept, decide, detail, sessions, period, fiscal, download, durableCommandKey, type Action } from '../heraCommissionService';
+import { accept, decide, detail, sessions, period, fiscal, download, durableCommandKey, configuration, cachedConfiguration, operators, cachedOperators, month, type Configuration, type Action } from '../heraCommissionService';
+import { clearRequestCache, rotateRequestCacheScope } from '../requestCache';
 import { subscribeCommissionAcceptance } from '../commissionAcceptanceEvents';
 jest.mock('../api', () => ({ __esModule: true, default: { post: jest.fn(), get: jest.fn() } }));
 jest.mock('@react-native-async-storage/async-storage', () => {
@@ -9,7 +10,7 @@ jest.mock('@react-native-async-storage/async-storage', () => {
 });
 jest.mock('expo-crypto', () => ({ CryptoDigestAlgorithm: { SHA256: 'sha256' }, digestStringAsync: async (_: string, text: string) => require('crypto').createHash('sha256').update(text).digest('hex'), randomUUID: () => require('crypto').randomUUID() }));
 const post = jest.mocked(api.post);
-beforeEach(async () => { post.mockReset(); jest.mocked(api.get).mockReset(); await AsyncStorage.clear(); });
+beforeEach(async () => { clearRequestCache(); post.mockReset(); jest.mocked(api.get).mockReset(); await AsyncStorage.clear(); });
 const input: Action = { action: 'ATTENDANCE', snapshotId: 'snapshot', outcome: 'ATTENDED', reason: 'Asistencia verificada' };
 it('notifies open views only after acceptance succeeds and reuses the retry key', async () => {
  const listener = jest.fn(); const unsubscribe = subscribeCommissionAcceptance(listener);
@@ -55,4 +56,43 @@ it('uses the protected professional read routes, preserving filters and binary P
   [root + '/documents/document%2Fid'],
   [root + '/documents/document%2Fid/pdf', { responseType: 'arraybuffer' }],
  ]);
+});
+
+it('reuses only bootstrap metadata, clears it at account boundaries and always reads financial amounts afresh',async()=>{
+ const config:Configuration={mode:'OFF',terms:null,canAccept:false,accounts:[],scale:[]};
+ const get=jest.mocked(api.get).mockResolvedValue({data:config});
+ await Promise.all([configuration(),configuration()]);
+ await configuration();
+ expect(get).toHaveBeenCalledTimes(1);
+ expect(cachedConfiguration()).toEqual(config);
+ await configuration(true);
+ expect(get).toHaveBeenCalledTimes(2);
+ get.mockResolvedValue({data:[]});
+ await operators();await operators();
+ expect(get).toHaveBeenCalledTimes(3);
+ expect(cachedOperators()).toEqual([]);
+ get.mockResolvedValue({data:{accountId:'account'}});
+ await month('account',false,'2026-10');await month('account',false,'2026-10');
+ await detail('account',false);await detail('account',false);
+ expect(get).toHaveBeenCalledTimes(7);
+ rotateRequestCacheScope();
+ expect(cachedConfiguration()).toBeUndefined();
+ get.mockResolvedValue({data:config});await configuration();
+ expect(get).toHaveBeenCalledTimes(8);
+});
+
+it('invalidates cached conditions only after a successful command or acceptance',async()=>{
+ const get=jest.mocked(api.get).mockResolvedValue({data:{mode:'OFF',terms:null,accounts:[]}});
+ await configuration();
+ post.mockRejectedValueOnce(new Error('Rejected'));
+ await expect(decide('account',false,input)).rejects.toThrow('Rejected');
+ expect(cachedConfiguration()).toBeDefined();
+ post.mockResolvedValue({data:{id:'saved'}});
+ await decide('account',false,input);
+ expect(cachedConfiguration()).toBeUndefined();
+ await configuration();
+ post.mockResolvedValue({data:{accountId:'account'}});
+ await accept('terms');
+ expect(cachedConfiguration()).toBeUndefined();
+ expect(get).toHaveBeenCalledTimes(2);
 });

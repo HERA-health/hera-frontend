@@ -1,6 +1,7 @@
 import { CommissionLoading } from './CommissionLoading';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { FocusedActionSheet } from '../../components/finance/FocusedActionSheet';
@@ -23,11 +24,10 @@ const amount = (value: number | null) => value === null ? 'Por calcular' : money
 const paymentLabels: Record<service.MonthSummary['paymentState'], string> = { REVIEW:'Pendiente de revisión', PARTIAL:'Pago parcial', PENDING:'Pago pendiente', PAID:'Pagado', NO_AMOUNT:'Sin importe a pagar' };
 const issueLabel = (issue: service.MonthlyIssue|service.Issue) => issue.decision === 'APPROVED' ? 'Aprobada' : issue.decision === 'REJECTED' ? 'Rechazada' : issue.status === 'RESOLVED' ? 'Resuelta' : issue.status === 'DEFERRED' ? 'Aplazada' : 'Pendiente';
 
-export function CommissionMonthWorkspace({ data, admin, refresh, onChanged, clientId, initialMonth, toolbarActions }: {
- data: service.AccountDetail; admin: boolean; refresh: number; onChanged: () => void; clientId?: string; initialMonth?: string; toolbarActions?: React.ReactNode;
+export function CommissionMonthWorkspace({ accountId, data, accountLoading = false, admin, refresh, onChanged, clientId, initialMonth, toolbarActions }: {
+ accountId: string; data?: service.AccountDetail; accountLoading?: boolean; admin: boolean; refresh: number; onChanged: () => void; clientId?: string; initialMonth?: string; toolbarActions?: React.ReactNode;
 }) {
  const { theme } = useTheme();
- const accountId=data.summary.id;
  const [month,setMonth]=useState(()=>initialMonth ?? getMadridDateKey().slice(0,7));
  const [width,setWidth]=useState(0);
  const [page,setPage]=useState(0);
@@ -35,7 +35,8 @@ export function CommissionMonthWorkspace({ data, admin, refresh, onChanged, clie
  const [rows,setRows]=useState<service.Page<service.CommissionSession>>();
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState('');
- const [busy,setBusy]=useState(false);
+ const [submittingOperation,setBusy]=useState(false);
+ const busy = submittingOperation || accountLoading || !data || loading;
  const submitting=useRef(false);
  const [retry,setRetry]=useState(0);
  const [selected,setSelected]=useState<service.CommissionSession>();
@@ -47,15 +48,15 @@ export function CommissionMonthWorkspace({ data, admin, refresh, onChanged, clie
  const [advancedPage,setAdvancedPage]=useState(0);
  const [advancedData,setAdvancedData]=useState(data);
  const [receipt,setReceipt]=useState<{documentId?: string}>();
- useEffect(()=>{let active=true;setLoading(true);setError('');setSummary(undefined);setRows(undefined);
+ useFocusEffect(useCallback(()=>{let active=true;setLoading(true);setError('');setSummary(undefined);setRows(undefined);setSelected(undefined);setPreview(undefined);setPanel(undefined);setReceipt(undefined);
   void Promise.all([service.month(accountId,admin,month),service.sessions(accountId,admin,{month,page,clientId})]).then(([s,r])=>{if(active){setSummary(s);setRows(r);}}).catch(e=>{if(active)setError(getErrorMessage(e,'No se pudo cargar el mes.'));}).finally(()=>{if(active)setLoading(false);});
   return ()=>{active=false;};
- },[accountId,admin,month,page,clientId,refresh,retry]);
+ },[accountId,admin,month,page,clientId,refresh,retry]));
  useEffect(()=>{setAdvancedData(data);},[data]);
  useEffect(()=>{if(!advancedPage){setAdvancedData(data);setAdvancedLoading(false);return;}let active=true;setAdvancedLoading(true);void service.detail(accountId,admin,advancedPage).then(d=>{if(active)setAdvancedData(d);}).catch(e=>{if(active)setError(getErrorMessage(e,'No se pudo cargar el histórico.'));}).finally(()=>{if(active)setAdvancedLoading(false);});return()=>{active=false;};},[advancedPage,accountId,admin,refresh]);
- const run:Run=async operation=>{if(submitting.current)return false;submitting.current=true;setBusy(true);setError('');try{await operation();return true;}catch(e){setError(getErrorMessage(e,'No se pudo guardar. Recarga los datos y revisa el resultado antes de reintentar.'));return false;}finally{submitting.current=false;setBusy(false);}};
+ const run:Run=async operation=>{if(submitting.current||busy)return false;submitting.current=true;setBusy(true);setError('');try{await operation();return true;}catch(e){setError(getErrorMessage(e,'No se pudo guardar. Recarga los datos y revisa el resultado antes de reintentar.'));return false;}finally{submitting.current=false;setBusy(false);}};
  const mutate:Run=async operation=>{const ok=await run(operation);if(ok){setSelected(undefined);setActivityRow(undefined);setPreview(undefined);setPanel(undefined);setReceipt(undefined);setRetry(v=>v+1);onChanged();}return ok;};
- const closePanel=()=>{if(!busy){setError('');setSelected(undefined);setActivityRow(undefined);setPreview(undefined);setPanel(undefined);setReason('');setReceipt(undefined);}};
+ const closePanel=()=>{if(!submitting.current){setError('');setSelected(undefined);setActivityRow(undefined);setPreview(undefined);setPanel(undefined);setReason('');setReceipt(undefined);}};
  const inspectIssue=(issue:service.MonthlyIssue|service.Issue)=>void run(async()=>{setPreview(await service.decisionPreview(accountId,issue.id));setReason('');});
  const wide=width>=920;
  const currentIssues=selected ? summary?.issues.filter(i=>i.snapshotId===selected.id) ?? [] : [];
@@ -69,7 +70,7 @@ export function CommissionMonthWorkspace({ data, admin, refresh, onChanged, clie
  return <View onLayout={e=>setWidth(e.nativeEvent.layout.width)} style={{gap:22}}>
   <View style={{flexDirection:'row',flexWrap:'wrap',alignItems:'flex-end',justifyContent:'space-between',gap:12,padding:10,borderRadius:18,backgroundColor:theme.bgMuted}}>
    <View style={{minWidth:220,flexGrow:1,maxWidth:260}}><WorkflowDate hideLabel={!!toolbarActions} allowAllMonths={false} granularity="month" label="Mes de las sesiones" value={month} disabled={busy} onChangeText={value=>{setMonth(value||getMadridDateKey().slice(0,7));setPage(0);}} /></View>
-   <View style={{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:8,maxWidth:'100%',flexShrink:1}}>{toolbarActions}<Button size="small" variant="outline" style={{backgroundColor:theme.bgCard,borderWidth:0,borderRadius:12}} icon={<Ionicons name="download-outline" size={17} color={theme.textPrimary}/>} disabled={busy||loading} onPress={()=>void run(async()=>openPrivateDocument(await service.statement(accountId,admin,month),`${accountId}-${month}`,`HERA-${month}.pdf`,'application/pdf'))}>Descargar liquidación</Button><Button size="small" variant="ghost" icon={<Ionicons name="time-outline" size={17} color={theme.textPrimary}/>} onPress={()=>{setAdvancedPage(0);setAdvancedData(data);setPanel('history');}}>Histórico</Button></View>
+   <View style={{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:8,maxWidth:'100%',flexShrink:1}}>{toolbarActions}<Button size="small" variant="outline" style={{backgroundColor:theme.bgCard,borderWidth:0,borderRadius:12}} icon={<Ionicons name="download-outline" size={17} color={theme.textPrimary}/>} disabled={busy||loading} onPress={()=>void run(async()=>openPrivateDocument(await service.statement(accountId,admin,month),`${accountId}-${month}`,`HERA-${month}.pdf`,'application/pdf'))}>Descargar liquidación</Button><Button size="small" variant="ghost" icon={<Ionicons name="time-outline" size={17} color={theme.textPrimary}/>} disabled={busy} onPress={()=>{setAdvancedPage(0);setAdvancedData(data);setPanel('history');}}>Histórico</Button></View>
   </View>
   {error && !selected && !panel && !preview?<Card><Text error>{error}</Text><Button variant="outline" onPress={()=>setRetry(v=>v+1)}>Recargar mes</Button></Card>:null}
   {loading?<CommissionLoading overview accessibilityLabel="Cargando mes de comisiones"/>:summary?<>
@@ -105,8 +106,8 @@ export function CommissionMonthWorkspace({ data, admin, refresh, onChanged, clie
       <WorkflowHint>Consulta el total final en la factura.</WorkflowHint>
       {summary.paymentState==='REVIEW'?<Text>{summary.unknownSessions?'Falta confirmar la base o la procedencia de alguna sesión. HERA debe revisar su cálculo.':'Hay documentación pendiente de rectificar o un documento compartido. HERA debe revisar su aplicación.'}</Text>:null}
       {summary.creditCents>0?<Text>Saldo a favor: {money(summary.creditCents)}. Pide a HERA que lo aplique.</Text>:null}
-      {admin?<><Button disabled={busy||!summary.period||summary.pendingCents===null} onPress={()=>{setPanel('payment');}}>Registrar pago recibido</Button>{summary.period?.status!=='CLOSED'&&summary.period?<Button variant="outline" disabled={busy||month>=getMadridDateKey().slice(0,7)} onPress={()=>setPanel('close')}>{summary.period.status==='PREPARED'?'Cerrar periodo':'Preparar periodo'}</Button>:null}</>:<CommissionDisclosure title="Instrucciones de pago"><CommissionPaymentInstructions data={data}/></CommissionDisclosure>}
-      <Button variant="outline" onPress={()=>{setAdvancedPage(0);setAdvancedData(data);setPanel('documents');}}>Facturas</Button>
+      {admin?<><Button disabled={busy||!summary.period||summary.pendingCents===null} onPress={()=>{setPanel('payment');}}>Registrar pago recibido</Button>{summary.period?.status!=='CLOSED'&&summary.period?<Button variant="outline" disabled={busy||month>=getMadridDateKey().slice(0,7)} onPress={()=>setPanel('close')}>{summary.period.status==='PREPARED'?'Cerrar periodo':'Preparar periodo'}</Button>:null}</>:data?<CommissionDisclosure title="Instrucciones de pago"><CommissionPaymentInstructions data={data}/></CommissionDisclosure>:<WorkflowHint>{accountLoading?'Cargando información de la cuenta…':'Recarga la cuenta para consultar las instrucciones de pago.'}</WorkflowHint>}
+      <Button variant="outline" disabled={busy} onPress={()=>{setAdvancedPage(0);setAdvancedData(data);setPanel('documents');}}>Facturas</Button>
       <Button variant="outline" disabled={busy} onPress={()=>{setAdvancedPage(0);setAdvancedData(data);setReceipt(undefined);setPanel('payments');}}>Pagos y saldo a favor</Button>
      </Card>
      <WorkflowHint>{summary.period?.status==='CLOSED'?'El cierre conserva el desglose original. Las correcciones posteriores se registran en un mes abierto.':'La descarga es provisional hasta que HERA cierre el periodo.'}</WorkflowHint>
@@ -127,7 +128,7 @@ export function CommissionMonthWorkspace({ data, admin, refresh, onChanged, clie
     {issueRows(summary?.issues??[])}
     <Button variant="outline" disabled={busy} onPress={()=>{setAdvancedPage(0);setAdvancedData(data);setPanel('accountReviews');}}>Ver solicitudes de toda la cuenta</Button>
    </>:['documents','history','payments','accountReviews','advanced'].includes(panel??'')?<>
-    {advancedLoading?<CommissionLoading accessibilityLabel="Cargando histórico"/>:<>
+    {advancedLoading||!advancedData?<CommissionLoading accessibilityLabel="Cargando histórico"/>:<>
      {panel==='documents' ? admin ? <CommissionPeriods data={advancedData} admin documentsOnly run={mutate} busy={busy} onReceipt={id=>{setReceipt({documentId:id});setPanel('payments');}}/> : <ProfessionalCommissionDocuments data={advancedData} documentsOnly run={run} busy={busy}/> : null}
      {panel==='payments' ? <>
       {admin ? <WorkflowHint>Pagos recibidos de todos los meses.</WorkflowHint> : null}

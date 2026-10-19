@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { notifyCommissionAcceptance } from './commissionAcceptanceEvents';
 import { buildMultipartFormData, type UploadAsset } from '../utils/multipartUpload';
+import { cachedGet, getCachedValue, invalidateRequestCache } from './requestCache';
 
 export interface Page<T> { items: T[]; hasMore: boolean }
 export type Mode = 'LIVE' | 'SIMULATION';
@@ -60,13 +61,19 @@ export async function durableCommandKey(scope: string, input: unknown) {
  }
  try { return { commandKey: await pending, storageKey }; } finally { pendingKeys.delete(storageKey); }
 }
-export const configuration = async () => (await api.get<Configuration>(`${root}/configuration`)).data;
+const configurationKey = `${root}/configuration`;
+const operatorsKey = `${root}/admin/operators`;
+// Only bootstrap metadata is reused, in the existing authentication-scoped memory cache.
+// Financial reads always go to the server.
+export const cachedConfiguration = () => getCachedValue<Configuration>(configurationKey) ?? undefined;
+export const configuration = (force = false) => cachedGet(configurationKey, async () => (await api.get<Configuration>(configurationKey)).data, { ttlMs: 30_000, force });
 export const detail = async (id: string, admin: boolean, page = 0) => (await api.get<AccountDetail>(path(id, admin), { params: { page } })).data;
 export const sessions = async (id: string, admin: boolean, filters: { page: number; month?: string; clientId?: string; state?: string; review?: boolean }) => (await api.get<Page<CommissionSession>>(`${path(id, admin)}/sessions`, { params: filters })).data;
 export const period = async (id: string, admin: boolean, periodId: string, page = 0) => (await api.get<Page<Entry> & { period: Period }>(`${path(id, admin)}/periods/${encodeURIComponent(periodId)}`, { params: { page } })).data;
 export const decide = async (id: string, admin: boolean, input: Action) => {
  const { commandKey, storageKey } = await durableCommandKey(path(id, admin), input);
  const result = (await api.post<{ id: string }>(path(id, admin) + '/commands', { ...input, commandKey })).data;
+ invalidateRequestCache(configurationKey);
  await AsyncStorage.removeItem(storageKey);
  return result;
 };
@@ -74,6 +81,7 @@ export const accept = async (termsId: string) => {
  const input = { action: 'ACCEPT', termsId, confirmed: true };
  const { commandKey } = await durableCommandKey('accept', input);
  const result = (await api.post<{ accountId: string }>(`${root}/accept`, { ...input, commandKey })).data;
+ invalidateRequestCache(configurationKey);
  notifyCommissionAcceptance(termsId);
  return result;
 };
@@ -84,7 +92,9 @@ export const upload = async (id: string, input: DocumentInput, file: UploadAsset
 };
 export const download = async (id: string, admin: boolean, docId: string) => (await api.get<ArrayBuffer>(`${path(id, admin)}/documents/${encodeURIComponent(docId)}/pdf`, { responseType: 'arraybuffer' })).data;
 export const fiscal = async (id: string, admin: boolean, docId: string) => (await api.get<Fiscal>(`${path(id, admin)}/documents/${encodeURIComponent(docId)}`)).data;
-export const operators = async () => (await api.get<Array<{ operatorKey: string; mode: Mode; operatorName: string }>>(`${root}/admin/operators`)).data;
+type CommissionOperator = { operatorKey: string; mode: Mode; operatorName: string };
+export const cachedOperators = () => getCachedValue<CommissionOperator[]>(operatorsKey) ?? [];
+export const operators = (force = false) => cachedGet(operatorsKey, async () => (await api.get<CommissionOperator[]>(operatorsKey)).data, { ttlMs: 30_000, force });
 export const balances = async (filters: { operatorKey: string; mode: Mode; page: number; search?: string; status?: string }) => (await api.get<Page<Balance> & { totals: Pick<Balance, 'pendingCents' | 'accruedCents' | 'undocumentedCents' | 'overdueCents' | 'receivedCents' | 'creditCents'> & { count: number; paymentPendingCents?: number } }>(`${root}/admin/balances`, { params: filters })).data;
 export const specialistAccounts = async (specialistId: string) => (await api.get<Balance[]>(`${root}/admin/specialists/${encodeURIComponent(specialistId)}`)).data;
 export const patient = async (clientId: string) => (await api.get<(Relation & { sessions: Array<{ accountId: string; position: number | null; exclusion: string | null }> }) | null>(`${root}/patients/${encodeURIComponent(clientId)}`)).data;
