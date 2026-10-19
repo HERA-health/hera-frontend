@@ -121,7 +121,7 @@ const getMethodLabel = (method: ClinicalRecord['consentMethod']) => {
     return 'Confirmada por email y código';
   }
 
-  return 'Pendiente';
+  return 'Todavía no registrada';
 };
 
 const getEventCopy = (event: ClinicalConsentEvent) => {
@@ -177,9 +177,16 @@ export function ClinicalConsentPanel({
   const displayTitleStyle = useMemo(() => ({ fontFamily: theme.fontHeading }), [theme]);
   const emphasisStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
   const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
-  const latestConsentEvidenceDocumentId = consentEvidenceDocuments[0]?.id;
+  const renewalAfter = record.consentRenewalRequiredAfter;
+  const latestConsentEvidenceDocumentId = consentEvidenceDocuments.find(document =>
+    !document.archivedAt && (renewalAfter
+      ? new Date(document.uploadedAt).getTime() > new Date(renewalAfter).getTime()
+      : record.consentStatus !== 'REVOKED')
+  )?.id;
   const [confirmingGuestEligibility, setConfirmingGuestEligibility] = useState(false);
   const [confirmingWithdrawal, setConfirmingWithdrawal] = useState(false);
+  const [manualError, setManualError] = useState<string | null>(null);
+  const [signedConfirmed, setSignedConfirmed] = useState(false);
   const [displayClock, setDisplayClock] = useState(() => Date.now());
   const isRegisteredClient = client.source === 'REGISTERED' || client.accountLinkStatus === 'CONFIRMED';
   const isManagedClient = client.source === 'MANAGED';
@@ -228,7 +235,6 @@ export function ClinicalConsentPanel({
     !record.closedAt;
 
   const canAttestConsent =
-    isManagedClient &&
     !guestRelationshipUnavailable &&
     record.consentStatus !== 'GRANTED' &&
     !record.closedAt;
@@ -265,6 +271,8 @@ export function ClinicalConsentPanel({
       : 'Añade un email de contacto válido para enviar la autorización o utiliza un documento firmado.';
   const documentMethodDescription = guestRelationshipUnavailable
     ? 'La relación no está activa y no admite nuevas evidencias de autorización.'
+    : record.consentStatus === 'REVOKED'
+      ? 'La autorización anterior fue retirada. Sube una nueva autorización firmada después de la retirada, o solicita una nueva confirmación por email.'
     : isTablet
       ? 'Alternativa para registrar una autorización que el paciente ya ha firmado fuera de HERA.'
       : 'Sube el documento firmado para registrar la autorización.';
@@ -553,29 +561,36 @@ export function ClinicalConsentPanel({
         </View>
       )}
 
+      {canAttestConsent ? <AnimatedPressable hoverLift={false} accessibilityRole="checkbox" accessibilityState={{ checked: signedConfirmed }} onPress={() => setSignedConfirmed(value => !value)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 }}>
+        <Ionicons name={signedConfirmed ? 'checkbox' : 'square-outline'} size={22} color={theme.primary} />
+        <Text style={{ flex: 1, color: theme.textPrimary, fontFamily: theme.fontSans, fontSize: 13 }}>Confirmo que el documento está firmado por el paciente.</Text>
+      </AnimatedPressable> : null}
       <View style={[styles.methodActions, !isTablet && styles.methodActionsMobile]}>
         <Button
           variant="outline"
           size="small"
           onPress={onUploadConsentDocument}
-          loading={documentUploading}
+          loading={documentUploading || consentSubmitting}
+          disabled={Boolean(record.closedAt) || guestRelationshipUnavailable || (canAttestConsent && !signedConfirmed)}
         >
-          Adjuntar documento
+          {canAttestConsent ? 'Guardar consentimiento firmado' : 'Adjuntar evidencia'}
         </Button>
 
         {canAttestConsent ? (
           <Button
             variant="secondary"
             size="small"
-            onPress={() => onAttestClinicalConsent(latestConsentEvidenceDocumentId)}
+            onPress={() => { setManualError(null); void onAttestClinicalConsent(latestConsentEvidenceDocumentId).catch(error => setManualError(error instanceof Error ? error.message : 'No se pudo registrar el consentimiento.')); }}
             loading={consentSubmitting}
-            disabled={!latestConsentEvidenceDocumentId}
+            disabled={!latestConsentEvidenceDocumentId || !signedConfirmed}
           >
-            Registrar autorización firmada
+            Registrar documento adjunto
           </Button>
         ) : null}
       </View>
 
+      {manualError ? <Text accessibilityRole="alert" style={{ color: theme.error, fontFamily: theme.fontSans }}>{manualError}</Text> : null}
+      {canAttestConsent && latestConsentEvidenceDocumentId ? <Text style={{ color: theme.warning, fontFamily: theme.fontSans, fontSize: 13 }}>Documento adjunto; registro pendiente. Confirma que está firmado para registrar el archivo existente.</Text> : null}
       {canAttestConsent && !latestConsentEvidenceDocumentId ? (
         <Text style={[styles.helperText, { color: theme.textMuted }]}>
           Primero adjunta la autorización firmada.
@@ -615,10 +630,10 @@ export function ClinicalConsentPanel({
       <View style={[styles.detailGrid, !isTablet && styles.detailGridMobile]}>
         <View style={[styles.detailItem, !isTablet && styles.detailItemMobile]}>
           <Text style={[styles.detailLabel, !isTablet && styles.detailLabelMobile, { color: theme.textMuted }, labelStyle]}>
-            Tipo
+            Método de autorización
           </Text>
           <Text style={[styles.detailValue, !isTablet && styles.detailValueMobile, { color: theme.textPrimary }, emphasisStyle]}>
-            {getMethodLabel(record.consentMethod)}
+            {record.consentMethod ? getMethodLabel(record.consentMethod) : record.consentStatus === 'GRANTED' ? 'Método no disponible' : 'Todavía no registrada'}
           </Text>
         </View>
         <View style={[styles.detailItem, !isTablet && styles.detailItemMobile]}>
@@ -626,7 +641,7 @@ export function ClinicalConsentPanel({
             Concedida
           </Text>
           <Text style={[styles.detailValue, !isTablet && styles.detailValueMobile, { color: theme.textPrimary }, emphasisStyle]}>
-            {formatDate(record.consentGivenAt)}
+            {record.consentGivenAt ? formatDate(record.consentGivenAt) : record.consentStatus === 'GRANTED' ? 'Fecha no disponible' : 'Todavía no concedida'}
           </Text>
         </View>
         <View style={[styles.detailItem, !isTablet && styles.detailItemMobile]}>
@@ -634,7 +649,7 @@ export function ClinicalConsentPanel({
             Retención mínima
           </Text>
           <Text style={[styles.detailValue, !isTablet && styles.detailValueMobile, { color: theme.textPrimary }, emphasisStyle]}>
-            {record.retentionUntil ? formatDate(record.retentionUntil) : 'Sin fecha de cierre'}
+            {record.retentionUntil ? formatDate(record.retentionUntil) : record.closedAt ? 'Fecha no disponible' : 'Se calculará al cerrar el proceso'}
           </Text>
         </View>
         <View style={[styles.detailItem, !isTablet && styles.detailItemMobile]}>

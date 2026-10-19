@@ -12,6 +12,7 @@ jest.mock('../../services/clinicalService', () => ({
   resendClinicalGuestConsent: jest.fn(),
   cancelClinicalGuestConsent: jest.fn(),
   requestClinicalGuestWithdrawal: jest.fn(),
+  listClinicalNotes: jest.fn(),
 }));
 
 const recordFor = (clientId: string): clinicalService.ClinicalRecord => ({
@@ -23,12 +24,15 @@ const recordFor = (clientId: string): clinicalService.ClinicalRecord => ({
   consentRequestedAt: null,
   closedAt: null,
   retentionUntil: null,
+  eligibleForManualReview: false,
   guestConsentActionsEnabled: true,
   guestConsentEligibility: 'ELIGIBLE',
   activeConsentRequest: null,
   client: {
     id: clientId,
     source: 'MANAGED',
+    userId: null,
+    user: { id: null, userType: 'CLIENT', name: 'Paciente de prueba', email: 'patient@example.com' },
     primaryEmail: 'patient@example.com',
   },
   notes: [],
@@ -41,7 +45,7 @@ const recordFor = (clientId: string): clinicalService.ClinicalRecord => ({
     sessionFolders: { limit: 20, total: 0, nextCursor: null, hasMore: false },
     consentEvents: { limit: 20, total: 0, nextCursor: null, hasMore: false },
   },
-} as unknown as clinicalService.ClinicalRecord);
+});
 
 const pendingResult: clinicalService.ClinicalGuestConsentAdminResult = {
   requestId: 'request-a',
@@ -120,4 +124,48 @@ describe('useClinicalWorkspaceData guest consent context', () => {
     expect(result.current.record?.activeConsentRequest).toBeNull();
     expect(result.current.guestConsentSyncPending).toBe(true);
   });
+});
+
+test('the most recent record refresh wins even when an older response arrives last', async () => {
+  let resolveOlder: ((record: clinicalService.ClinicalRecord) => void) | undefined;
+  jest.mocked(clinicalService.getClinicalRecord).mockImplementationOnce(() => new Promise(resolve => { resolveOlder = resolve; }))
+    .mockResolvedValueOnce({ ...recordFor('patient'), consentStatus: 'GRANTED' });
+  const { result } = renderHook(() => useClinicalWorkspaceData({ clientId: 'patient', token: 'unlocked' }));
+  await act(async () => { await result.current.loadRecord(); });
+  expect(result.current.record?.consentStatus).toBe('GRANTED');
+  await act(async () => { resolveOlder?.(recordFor('patient')); });
+  expect(result.current.record?.consentStatus).toBe('GRANTED');
+});
+
+test('a late notes page cannot repopulate a record after locking and unlocking', async () => {
+  const initial = recordFor('patient');
+  initial.pagination.notes = { ...initial.pagination.notes, hasMore: true, nextCursor: 'previous-note' };
+  jest.mocked(clinicalService.getClinicalRecord).mockResolvedValue(initial);
+  let resolvePage: ((page: { items: clinicalService.ClinicalNote[]; pageInfo: clinicalService.ClinicalPageInfo }) => void) | undefined;
+  jest.mocked(clinicalService.listClinicalNotes).mockImplementation(() => new Promise(resolve => { resolvePage = resolve; }));
+  const { result, rerender } = renderHook(({ token }: { token: string | null }) => useClinicalWorkspaceData({ clientId: 'patient', token }), { initialProps: { token: 'first' } });
+  await waitFor(() => expect(result.current.record).not.toBeNull());
+  let loading: Promise<unknown> | undefined;
+  act(() => { loading = result.current.loadMoreNotes(); });
+  rerender({ token: null });
+  rerender({ token: 'second' });
+  await waitFor(() => expect(result.current.record).not.toBeNull());
+  await act(async () => {
+    resolvePage?.({ items: [{ id: 'late-sensitive-note', content: 'Old content', createdAt: '2026-01-01T12:00:00Z', updatedAt: '2026-01-01T12:00:00Z' }], pageInfo: { limit: 10, total: 1, hasMore: false, nextCursor: null } });
+    await loading;
+  });
+  expect(result.current.record?.notes).toEqual([]);
+  expect(result.current.loadingMoreNotes).toBe(false);
+});
+
+
+it('does not restore a late clinical record after the unlock token is cleared', async () => {
+  let finish: ((record: clinicalService.ClinicalRecord) => void) | undefined;
+  jest.mocked(clinicalService.getClinicalRecord).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const { result, rerender } = renderHook(({ token }: { token: string | null }) => useClinicalWorkspaceData({ clientId: 'client-a', token }), { initialProps: { token: 'unlocked' as string | null } });
+  await waitFor(() => expect(result.current.recordLoading).toBe(true));
+  rerender({ token: null });
+  await act(async () => { finish?.(recordFor('client-a')); });
+  expect(result.current.record).toBeNull();
+  expect(result.current.recordLoading).toBe(false);
 });

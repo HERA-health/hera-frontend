@@ -34,6 +34,7 @@ interface ClinicalSessionFolderCardProps {
   documentUploading: boolean;
   invoiceLoading: boolean;
   onAddNote: () => void;
+  onEditNote?: (note: ClinicalNote) => void;
   onUploadAttachment: () => void;
   onUploadExercise: () => void;
   onOpenDocument: (document: ClinicalDocument) => void;
@@ -110,7 +111,7 @@ export function ClinicalSessionFolderCard({
   openingDocumentId,
   documentUploading,
   invoiceLoading,
-  onAddNote,
+  onAddNote, onEditNote,
   onUploadAttachment,
   onUploadExercise,
   onOpenDocument,
@@ -272,6 +273,8 @@ export function ClinicalSessionFolderCard({
                   <Text style={[styles.listRowBody, { color: theme.textSecondary }]}>
                     {note.content}
                   </Text>
+                  {note.documents?.filter(document => !document.archivedAt).map(document => <Button key={document.id} variant="ghost" size="small" onPress={() => onOpenDocument(document)}>{document.fileName}</Button>)}
+                  {onEditNote ? <Button variant="ghost" size="small" onPress={() => onEditNote(note)}>Editar nota o añadir archivos</Button> : null}
                 </View>
               ))}
 

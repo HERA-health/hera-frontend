@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
+import { pickClinicalFiles } from '../../services/clinicalFilePicker';
+import { releaseClinicalAssets } from '../../services/clinicalFileCache';
 import { useNavigation } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button, Card } from '../common';
@@ -17,6 +18,9 @@ import type { ClinicalDocument, ClinicalSessionFolder } from '../../services/cli
 import { getErrorMessage } from '../../constants/errors';
 
 interface ClinicalSessionsWorkspaceProps {
+  onComposeNote?: (sessionId: string) => void;
+  onEditNote?: (note: import('../../services/clinicalService').ClinicalNote) => void;
+  onCreateExercise?: (sessionId: string) => void;
   clientId: string;
   client: Client;
   isTablet: boolean;
@@ -50,27 +54,8 @@ const formatDate = (value?: string | Date | null, withTime = false) =>
       })
     : 'Sin fecha';
 
-const pickClinicalAsset = async (): Promise<UploadAsset | null> => {
-  const result = await DocumentPicker.getDocumentAsync({
-    type: ['application/pdf', 'image/*'],
-    copyToCacheDirectory: true,
-    multiple: false,
-  });
-
-  if (result.canceled || !result.assets?.length) {
-    return null;
-  }
-
-  const asset = result.assets[0] as DocumentPicker.DocumentPickerAsset & UploadAsset;
-
-  return {
-    ...asset,
-    fileName: asset.fileName || asset.name || null,
-    name: asset.name || asset.fileName || null,
-  };
-};
-
 export function ClinicalSessionsWorkspace({
+  onComposeNote, onEditNote, onCreateExercise,
   clientId,
   client,
   isTablet,
@@ -101,6 +86,10 @@ export function ClinicalSessionsWorkspace({
   const [attachableInvoices, setAttachableInvoices] = useState<AttachableInvoiceSummary[]>([]);
   const [invoiceSheetLoading, setInvoiceSheetLoading] = useState(false);
   const [invoiceAttaching, setInvoiceAttaching] = useState(false);
+  const uploadPending = useRef(new Map<string, UploadAsset>());
+  const uploading = useRef(false);
+  const active = useRef(true);
+  useEffect(() => { active.current = true; return () => { active.current = false; releaseClinicalAssets([...uploadPending.current.values()]); }; }, []);
   const handledFocusSessionIdRef = useRef<string | null>(null);
 
   const activeDraftSession = useMemo(
@@ -123,10 +112,15 @@ export function ClinicalSessionsWorkspace({
       return;
     }
 
+    if (onComposeNote) {
+      onComposeNote(focusSessionId);
+      handledFocusSessionIdRef.current = focusSessionId;
+      return;
+    }
     setDraftSessionId(focusSessionId);
     setNoteDraft('');
     handledFocusSessionIdRef.current = focusSessionId;
-  }, [focusSessionId, sessionFolders]);
+  }, [focusSessionId, sessionFolders, onComposeNote]);
 
   const handleSaveDraft = async () => {
     const trimmedDraft = noteDraft.trim();
@@ -143,12 +137,20 @@ export function ClinicalSessionsWorkspace({
     sessionId: string,
     category: 'SESSION_ATTACHMENT' | 'SESSION_EXERCISE'
   ) => {
-    const asset = await pickClinicalAsset();
-    if (!asset) {
-      return;
-    }
-
-    await onUploadDocument(asset, category, sessionId);
+    if (uploading.current) return;
+    uploading.current = true;
+    const key = `${sessionId}:${category}`;
+    try {
+      const asset = uploadPending.current.get(key) ?? (await pickClinicalFiles(false))[0];
+      if (!asset) return;
+      if (!active.current) { releaseClinicalAssets([asset]); return; }
+      uploadPending.current.set(key, asset);
+      await onUploadDocument(asset, category, sessionId);
+      releaseClinicalAssets([asset]);
+      uploadPending.current.delete(key);
+    } catch (error) {
+      if (active.current) Alert.alert('Archivo pendiente', `${getErrorMessage(error, 'No se pudo confirmar el guardado.')} Vuelve a pulsar la misma acción para reintentarlo sin duplicarlo.`);
+    } finally { uploading.current = false; }
   };
 
   const handleManageInvoice = async (session: ClinicalSessionFolder['session']) => {
@@ -293,30 +295,40 @@ export function ClinicalSessionsWorkspace({
         </Card>
       ) : (
         sessionFolders.map((folder) => (
+          <View key={folder.session.id} style={{ gap: 10 }}>
           <ClinicalSessionFolderCard
             key={folder.session.id}
             session={folder.session}
             notes={folder.notes}
-            documents={folder.documents}
+            documents={folder.documents.filter(document => !document.archivedAt && !document.noteId && !document.exerciseId)}
             consentGranted={consentGranted}
             isTablet={isTablet}
             openingDocumentId={openingDocumentId}
             documentUploading={documentUploading}
             invoiceLoading={invoiceAttaching && invoiceSheetSession?.id === folder.session.id}
+            onEditNote={onEditNote}
             onAddNote={() => {
+              if (onComposeNote) { onComposeNote(folder.session.id); return; }
               setDraftSessionId(folder.session.id);
               setNoteDraft('');
             }}
             onUploadAttachment={() =>
               void handleUploadForSession(folder.session.id, 'SESSION_ATTACHMENT')
             }
-            onUploadExercise={() =>
-              void handleUploadForSession(folder.session.id, 'SESSION_EXERCISE')
-            }
+            onUploadExercise={() => {
+              if (onCreateExercise) onCreateExercise(folder.session.id);
+              else void handleUploadForSession(folder.session.id, 'SESSION_EXERCISE');
+            }}
             onOpenDocument={(document) => void onOpenDocument(document)}
             onOpenInvoice={() => void handleOpenInvoice(folder.session)}
             onManageInvoice={() => void handleManageInvoice(folder.session)}
           />
+          {folder.exercises?.map(exercise => <Card key={exercise.id} padding="medium">
+            <Text style={{ color: theme.textPrimary, fontFamily: theme.fontHeading }}>{exercise.title}</Text>
+            <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>{exercise.instructions}</Text>
+            {exercise.documents.filter(doc => !doc.archivedAt).map(doc => <Button key={doc.id} variant="ghost" size="small" onPress={() => void onOpenDocument(doc)}>{doc.fileName}</Button>)}
+          </Card>)}
+          </View>
         ))
       )}
 
