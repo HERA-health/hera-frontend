@@ -203,8 +203,7 @@ describe('LandingPage', () => {
     render(<LandingPage />);
 
     expect(screen.getByText('PERSONAS, PROFESIONALES Y CLÍNICAS')).toBeTruthy();
-    expect(screen.getByText(/Terapia con profesionales de confianza/)).toBeTruthy();
-    expect(screen.getByText('a tu alcance.')).toBeTruthy();
+    expect(screen.getByText('Tu espacio de confianza para cuidar la salud mental.')).toBeTruthy();
     expect(screen.getByText('Soy paciente')).toBeTruthy();
     expect(screen.getByText('Soy profesional')).toBeTruthy();
     expect(screen.getByText('Salud mental')).toBeTruthy();
@@ -213,7 +212,7 @@ describe('LandingPage', () => {
     expect(screen.queryByText('Encuentra tu profesional')).toBeNull();
     expect(screen.queryByText('Tu consulta, organizada')).toBeNull();
     expect(
-      screen.getByLabelText('Psicóloga de HERA trabajando con su portátil en un espacio luminoso con plantas')
+      screen.getByLabelText('Una mujer trabajando con su portátil en un espacio luminoso con plantas')
     ).toBeTruthy();
     expect(screen.getByText('Explora perfiles verificados')).toBeTruthy();
     expect(screen.getByText('Conoce cómo trabaja cada profesional')).toBeTruthy();
@@ -241,14 +240,15 @@ describe('LandingPage', () => {
     ).toBeTruthy();
   });
 
-  it('invites visitors to the full directory without promoting an individual profile', () => {
+  it('labels the illustrative profile and sends booking discovery to the full directory', () => {
     render(<LandingPage />);
-    expect(screen.getByText('DIRECTORIO HERA')).toBeTruthy();
-    expect(screen.getByLabelText('Explorar el directorio')).toBeTruthy();
-    expect(screen.queryByTestId('hero-specialist-preview')).toBeNull();
+    expect(screen.getByText('Perfil de ejemplo')).toBeTruthy();
+    expect(screen.getByText('Perfil ficticio, sin relación con la persona de la foto.')).toBeTruthy();
+    expect(screen.getByText('Laura M.')).toBeTruthy();
+    expect(screen.getByTestId('hero-specialist-preview')).toBeTruthy();
     expect(screen.queryByText(/Lansac/)).toBeNull();
     expect(screen.queryByLabelText(/^Ver perfil de /)).toBeNull();
-    fireEvent.press(screen.getByLabelText('Explorar el directorio'));
+    fireEvent.press(screen.getByLabelText('Encuentra tu sesión en el directorio'));
     expect(navigate).toHaveBeenCalledWith('PublicSpecialists');
     expect(navigate).not.toHaveBeenCalledWith('PublicSpecialistProfile', expect.anything());
     expect(analyticsService.track).toHaveBeenCalledWith('landing_patient_cta_clicked', { placement: 'hero', audience: 'patient' });
@@ -318,7 +318,9 @@ describe('LandingPage', () => {
     expect(screen.getByText('Soy profesional')).toBeTruthy();
     expect(screen.queryByText('Encuentra tu profesional')).toBeNull();
     expect(screen.queryByText('Tu consulta, organizada')).toBeNull();
-    expect(screen.queryByTestId('hero-directory-preview')).toBeNull();
+    expect(screen.queryByTestId('hero-specialist-preview')).toBeNull();
+    expect(screen.queryByLabelText('Encuentra tu sesión en el directorio')).toBeNull();
+    expect(screen.queryByText('Herramientas para profesionales')).toBeNull();
   });
 
   it('opens the public directory for an unauthenticated patient without login', () => {
@@ -330,7 +332,8 @@ describe('LandingPage', () => {
     expect(navigate).not.toHaveBeenCalledWith('Login', expect.anything());
   });
 
-  it('scrolls the secondary professional hero link to the professional anchor', () => {
+  it.each([1440, 820, 390])('keeps one tools action linked to the professional anchor at width %i', (width) => {
+    mockWindowDimensions = { ...mockWindowDimensions, width };
     render(<LandingPage />);
     fireEvent(
       screen.UNSAFE_getByProps({ nativeID: 'landing-section-for-specialists' }),

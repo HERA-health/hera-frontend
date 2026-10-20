@@ -417,10 +417,10 @@ export const LandingPage: React.FC = () => {
     : 'Crear cuenta profesional';
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+    <View style={[styles.container, { backgroundColor: theme.surfaceWarm }]}>
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={theme.bg}
+        backgroundColor={theme.surfaceWarm}
       />
 
       <LandingHeader

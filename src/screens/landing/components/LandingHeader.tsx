@@ -83,7 +83,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
     const borderOpacity = interpolate(scrollProgress.value, [0, 1], [0, 1]);
 
     return {
-      backgroundColor: context === 'landing' ? theme.landingCanvas : isDark
+      backgroundColor: context === 'landing' ? theme.surfaceWarm : isDark
         ? `rgba(36, 37, 31, ${bgOpacity})`
         : `rgba(250, 248, 243, ${bgOpacity})`,
       borderBottomColor: isDark
