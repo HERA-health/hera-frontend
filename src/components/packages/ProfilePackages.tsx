@@ -6,11 +6,12 @@ import { useAuth } from '../../contexts/AuthContext';
 import { showAppAlert, useAppAlert } from '../common/alert';
 import { PublicPackageOffers } from './PublicPackageOffers';
 
-export function ProfilePackages({ specialistId, intentToken }: { specialistId: string; intentToken?: string }) {
+export function ProfilePackages({ specialistId, intentToken, editorial = false, presentation, onModalVisibilityChange }: { specialistId: string; intentToken?: string; editorial?: boolean; presentation?: 'inline' | 'dialog'; onModalVisibilityChange?: (visible: boolean) => void }) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { isAuthenticated, user, legalStatusSnapshot } = useAuth();
   const alert = useAppAlert();
-  return <PublicPackageOffers key={specialistId} specialistId={specialistId} anonymous={!isAuthenticated} intentToken={intentToken}
+  return <PublicPackageOffers key={specialistId} specialistId={specialistId} anonymous={!isAuthenticated} intentToken={intentToken} editorial={editorial}
+    presentation={presentation} onModalVisibilityChange={onModalVisibilityChange}
     onBeforeAcquire={() => {
       if (isAuthenticated && user?.type !== 'client') {
         showAppAlert(alert, 'Cuenta de paciente', 'Accede con una cuenta de paciente para adquirir un bono.'); return false;

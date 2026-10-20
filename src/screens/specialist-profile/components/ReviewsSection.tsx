@@ -41,6 +41,7 @@ const getDirectReviewBlockedMessage = (
 };
 
 export const ReviewsSection: React.FC<ReviewsSectionProps> = ({
+  editorial = false,
   specialistId,
   specialistName = 'tu especialista',
   specialistAvatar,
@@ -149,10 +150,11 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = ({
   return (
     <View style={styles.container}>
       <ProfileDisclosureSection
-        title={STRINGS.title}
+        editorial={editorial}
+        title={editorial ? 'Opiniones' : STRINGS.title}
         iconName="star-outline"
         summary={disclosureSummary}
-        defaultExpanded
+        defaultExpanded={!editorial || hasReviews}
         testID="reviews-disclosure"
         variant="surface"
       >

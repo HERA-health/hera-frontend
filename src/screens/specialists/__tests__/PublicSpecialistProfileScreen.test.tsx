@@ -10,6 +10,8 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { useWebPageMetadata } from '../../../hooks/useWebPageMetadata';
 import * as specialistsService from '../../../services/specialistsService';
 import type { Specialist } from '../../specialist-profile/types';
+import type { SelectedProfileSlot } from '../../specialist-profile/types';
+import { showAppAlert } from '../../../components/common/alert';
 import { PublicSpecialistProfileScreen } from '../PublicSpecialistProfileScreen';
 
 jest.mock('../../../hooks/useDiscoveryRevalidation', () => ({ useDiscoveryRevalidation: jest.fn() }));
@@ -76,14 +78,27 @@ jest.mock('../../../components/common', () => {
   };
 });
 
-jest.mock('../../specialist-profile/SpecialistProfileLayout', () => {
+jest.mock('../../landing/components/LandingHeader', () => {
+  const { Pressable, Text } = require('react-native');
+  return { LandingHeader: ({ onLogoPress, onAccess, accessLabel }: { onLogoPress: () => void; onAccess: () => void; accessLabel: string }) => <>
+    <Pressable testID="public-specialist-profile-home" onPress={onLogoPress}><Text>HERA</Text></Pressable>
+    <Pressable onPress={onAccess}><Text>{accessLabel}</Text></Pressable>
+  </> };
+});
+
+jest.mock('../../specialist-profile/public/PublicSpecialistProfileLayout', () => {
   const ReactModule = require('react');
   const { Pressable, Text } = require('react-native');
   return {
-    SpecialistProfileLayout: ({ onBookSession, onBrowseSpecialists, specialist: profile }: { onBookSession: () => void; onBrowseSpecialists: () => void; specialist: Specialist }) => {
+    PublicSpecialistProfileLayout: ({ onBookSession, onBrowseSpecialists, specialist: profile, notice }: {
+      onBookSession: (slot?: SelectedProfileSlot, optionId?: string) => void;
+      onBrowseSpecialists: () => void; specialist: Specialist; notice?: React.ReactNode;
+    }) => {
       const [selected, setSelected] = ReactModule.useState(false);
       return <>
+        {notice}
         <Pressable onPress={onBookSession}><Text>Reservar en prueba</Text></Pressable>
+        <Pressable onPress={() => onBookSession({ date: '2026-11-02', slot: { startTime: '10:00', endTime: '10:50', available: true } }, 'video-50')}><Text>Continuar con horario</Text></Pressable>
         <Pressable onPress={onBrowseSpecialists}><Text>Todos los especialistas</Text></Pressable>
         <Pressable onPress={() => setSelected(true)}><Text>{selected ? 'Horario elegido' : 'Seleccionar horario'}</Text></Pressable>
         <Text>Creencia: {profile.religionCode ?? 'oculta'}</Text>
@@ -172,7 +187,7 @@ describe('PublicSpecialistProfileScreen booking navigation', () => {
   const popTo = jest.fn();
 
   beforeEach(() => {
-    getState.mockReturnValue({ routeNames: ['Booking', 'RequiredLegalAcceptance'] });
+    getState.mockReturnValue({ routeNames: ['Booking', 'RequiredLegalAcceptance', 'Home', 'ProfessionalHome', 'ProfessionalVerification', 'ClinicDashboard'] });
     mockedUseNavigation.mockReturnValue({ navigate, reset, getState, popTo } as ReturnType<typeof useNavigation>);
     mockedUseRoute.mockReturnValue({
       params: { profileRef: specialist.id },
@@ -261,7 +276,7 @@ describe('PublicSpecialistProfileScreen booking navigation', () => {
 
       render(<PublicSpecialistProfileScreen />);
       await screen.findAllByText('Reservar en prueba');
-      fireEvent.press(screen.getByTestId('public-specialist-profile-home'));
+      fireEvent.press(screen.getByText('Mi espacio'));
 
       expect(reset).toHaveBeenCalledWith({ index: 0, routes: [{ name: expectedRoute }] });
     }
@@ -280,6 +295,25 @@ describe('PublicSpecialistProfileScreen booking navigation', () => {
     fireEvent.press(screen.getByTestId('public-specialist-profile-home'));
 
     expect(reset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'Landing' }] });
+  });
+
+  it('passes the chosen option, intent and Madrid slot to the existing booking flow', async () => {
+    mockedUseAuth.mockReturnValue({ isAuthenticated: false } as ReturnType<typeof useAuth>);
+    mockedUseRoute.mockReturnValue({ params: { profileRef: specialist.id, intentToken: 'directory-intent' } } as ReturnType<typeof useRoute>);
+    render(<PublicSpecialistProfileScreen />);
+    fireEvent.press(await screen.findByText('Continuar con horario'));
+    expect(navigate).toHaveBeenCalledWith('Booking', {
+      specialistId: specialist.id, optionId: 'video-50', intentToken: 'directory-intent',
+      initialDate: '2026-11-02', initialSlotStartTime: '10:00', initialSlotEndTime: '10:50',
+    });
+  });
+
+  it('keeps professional accounts out of the booking flow', async () => {
+    mockedUseAuth.mockReturnValue({ isAuthenticated: true, user: { type: 'professional' } } as ReturnType<typeof useAuth>);
+    render(<PublicSpecialistProfileScreen />);
+    fireEvent.press(await screen.findByText('Continuar con horario'));
+    expect(navigate).not.toHaveBeenCalledWith('Booking', expect.anything());
+    expect(showAppAlert).toHaveBeenCalledWith(expect.anything(), 'Información', 'No puedes reservar sesiones desde esta cuenta.');
   });
 
   it('keeps the public profile indexable while its data is loading', () => {
@@ -385,5 +419,13 @@ describe('PublicSpecialistProfileScreen booking navigation', () => {
     await act(async () => { await jest.mocked(useDiscoveryRevalidation).mock.calls.at(-1)![0](); });
     expect(screen.queryByText('Reservar en prueba')).toBeNull();
     expect(screen.getByText('Perfil no disponible')).toBeTruthy();
+  });
+
+  it('offers a retry after an initial network failure without treating it as an unpublished profile', async () => {
+    mockedGetPublicSpecialistDetails.mockRejectedValueOnce(new Error('Network'));
+    render(<PublicSpecialistProfileScreen />);
+    expect(await screen.findByText('No hemos podido cargar el perfil')).toBeTruthy();
+    fireEvent.press(screen.getByText('Reintentar'));
+    expect(await screen.findByText('Reservar en prueba')).toBeTruthy();
   });
 });

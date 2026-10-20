@@ -3,10 +3,9 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useRef, useState } from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { AnimatedPressable, Button } from '../../components/common';
+import { StyleSheet, Text, View } from 'react-native';
+import { Button } from '../../components/common';
 import { showAppAlert, useAppAlert } from '../../components/common/alert';
-import { StyledLogo } from '../../components/common/StyledLogo';
 import { spacing } from '../../constants/colors';
 import type { AppRouteProp, RootStackParamList } from '../../constants/types';
 import type { Theme } from '../../constants/theme';
@@ -14,9 +13,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWebPageMetadata } from '../../hooks/useWebPageMetadata';
 import * as specialistsService from '../../services/specialistsService';
-import { SpecialistProfileLayout } from '../specialist-profile/SpecialistProfileLayout';
+import { PublicSpecialistProfileLayout } from '../specialist-profile/public/PublicSpecialistProfileLayout';
+import { LandingHeader } from '../landing/components/LandingHeader';
+import type { LandingSectionAnchor } from '../landing/types';
 import { ProfilePackages } from '../../components/packages/ProfilePackages';
-import { ProfileSkeleton } from '../specialist-profile/components';
+import { PublicProfileSkeleton } from '../specialist-profile/public/PublicProfileSkeleton';
 import type {
   CertificateItem,
   Review,
@@ -35,11 +36,9 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     verificationSubmitted,
   } = useAuth();
   const { theme, isDark } = useTheme();
-  const { width } = useWindowDimensions();
   const { profileRef } = route.params ?? {};
-  const isWide = width >= 768;
-  const isMobile = width < 768;
-  const styles = createStyles(theme, isDark, isWide, isMobile);
+  const styles = createStyles(theme, isDark);
+  const [headerScrolled, setHeaderScrolled] = useState(false);
   const profileRequestRef = useRef(0);
   const loadedProfileRef = useRef<string | null>(null);
   const [specialist, setSpecialist] = useState<Specialist | null>(null);
@@ -47,6 +46,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   const [reviewsVisible, setReviewsVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const canBook = specialist
     ? specialist.offersOnline !== false || specialist.offersInPerson === true || specialist.offersPhone === true
@@ -85,6 +85,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         setReviewsVisible(false);
       }
       setError(false);
+      setUnavailable(false);
       setRefreshError(null);
       if (!profileRef) throw new Error('No specialist profile reference provided');
 
@@ -107,6 +108,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         setSpecialist(null);
         setReviews([]);
         setError(true);
+        setUnavailable(unavailable || !profileRef);
       }
     } finally {
       if (profileRequestRef.current === requestId) setLoading(false);
@@ -197,7 +199,9 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         : user?.type === 'clinic'
           ? 'ClinicDashboard'
           : 'Home';
-    navigation.reset({ index: 0, routes: [{ name: workspaceRoute }] });
+    const availableRoute = navigation.getState().routeNames.includes(workspaceRoute)
+      ? workspaceRoute : 'RequiredLegalAcceptance';
+    navigation.reset({ index: 0, routes: [{ name: availableRoute }] });
   }, [
     isAuthenticated,
     legalStatusSnapshot?.requiresAcceptance,
@@ -206,40 +210,15 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     verificationSubmitted,
   ]);
 
+  const navigateToSection = (section: LandingSectionAnchor) => navigation.navigate('Landing', { section });
   const renderHeader = () => (
-    <View style={[styles.header, isWide && styles.headerWide]}>
-      <AnimatedPressable
-        style={styles.logo}
-        onPress={handleGoToLanding}
-        hoverLift={false}
-        pressScale={0.985}
-        accessibilityRole="link"
-        accessibilityLabel="Ir al inicio"
-        testID="public-specialist-profile-home"
-      >
-        <StyledLogo size={36} />
-      </AnimatedPressable>
-      {!isAuthenticated ? (
-        <View style={styles.headerActions}>
-          <Button
-            variant="ghost"
-            size="medium"
-            style={styles.loginButton}
-            onPress={() => navigation.navigate('Login', { userType: 'CLIENT' })}
-          >
-            Iniciar sesión
-          </Button>
-          <Button
-            variant="primary"
-            size="medium"
-            style={styles.registerButton}
-            onPress={() => navigation.navigate('Register', { userType: 'CLIENT' })}
-          >
-            Crear cuenta
-          </Button>
-        </View>
-      ) : null}
-    </View>
+    <LandingHeader context="directory" isScrolled={headerScrolled}
+      accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
+      onLogoPress={() => navigation.reset({ index: 0, routes: [{ name: 'Landing' }] })}
+      onFindSpecialist={handleBrowseSpecialists}
+      onExploreProfessionals={() => navigateToSection('forSpecialists')}
+      onScrollToSection={navigateToSection}
+      onAccess={() => isAuthenticated ? handleGoToLanding() : navigation.navigate('Login', { userType: 'CLIENT' })} />
   );
 
   const professionalBanner = isAuthenticated && user?.type === 'professional' ? (
@@ -255,7 +234,7 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     return (
       <View style={styles.screen}>
         {renderHeader()}
-        <ProfileSkeleton isDesktop={isWide} />
+        <PublicProfileSkeleton />
       </View>
     );
   }
@@ -266,13 +245,12 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
         {renderHeader()}
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={64} color={theme.warning} />
-          <Text style={styles.errorTitle}>Perfil no disponible</Text>
+          <Text style={styles.errorTitle}>{unavailable ? 'Perfil no disponible' : 'No hemos podido cargar el perfil'}</Text>
           <Text style={styles.errorText}>
-            Este perfil no existe o no está disponible en este momento.
+            {unavailable ? 'Este perfil no existe o no está disponible en este momento.' : 'Comprueba tu conexión e inténtalo de nuevo.'}
           </Text>
-          <Button variant="primary" size="large" style={styles.errorButton} onPress={handleGoToLanding}>
-            Volver a HERA
-          </Button>
+          {!unavailable ? <Button fullWidth={false} style={styles.errorButton} onPress={() => void loadSpecialistDetails()}>Reintentar</Button> : null}
+          <Button variant="outline" style={styles.errorButton} onPress={handleBrowseSpecialists}>Todos los especialistas</Button>
         </View>
       </View>
     );
@@ -281,17 +259,17 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   return (
     <View style={styles.screen}>
       {renderHeader()}
-      {professionalBanner}
-      {refreshError ? (
+      <PublicSpecialistProfileLayout
+        notice={<>{professionalBanner}{refreshError ? (
         <View style={{ padding: spacing.md, backgroundColor: theme.bgCard }} accessibilityRole="alert">
           <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>
-            No hemos podido actualizar el perfil. Mostramos la última información disponible. {refreshError}
+            No hemos podido actualizar el perfil. Mostramos la última información disponible.
           </Text>
           <Button variant="outline" size="small" onPress={() => void loadSpecialistDetails()}>Reintentar</Button>
         </View>
-      ) : null}
-      <SpecialistProfileLayout
-        packageSection={<ProfilePackages specialistId={specialist.id} intentToken={route.params?.intentToken} />}
+      ) : null}</>}
+        onScrollChange={setHeaderScrolled}
+        renderPackageAction={onModalVisibilityChange => <ProfilePackages presentation="dialog" specialistId={specialist.id} intentToken={route.params?.intentToken} onModalVisibilityChange={onModalVisibilityChange} />}
         initialOptionId={route.params?.optionId}
         specialist={specialist}
         reviews={reviews}
@@ -311,26 +289,8 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
 const createStyles = (
   theme: Theme,
   isDark: boolean,
-  isWide: boolean,
-  isMobile: boolean,
 ) => StyleSheet.create({
-  screen: { flex: 1, backgroundColor: theme.bg },
-  header: {
-    minHeight: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.borderLight,
-    backgroundColor: theme.bgCard,
-  },
-  headerWide: { paddingHorizontal: spacing.xxl },
-  logo: { minHeight: 44, flexDirection: 'row', alignItems: 'center' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  loginButton: { minWidth: isMobile ? 0 : 132 },
-  registerButton: { minWidth: isMobile ? 0 : 148 },
+  screen: { flex: 1, backgroundColor: theme.bgMuted },
   professionalBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',

@@ -18,6 +18,9 @@ interface SelectableAvailabilityPreviewProps {
   canBook?: boolean;
   selectedSlot?: SelectedProfileSlot | null;
   onSlotChange: (selection: SelectedProfileSlot | null) => void;
+  timeZoneLabel?: string;
+  onSelectionInvalidated?: () => void;
+  onValidationChange?: (validated: boolean) => void;
 }
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -60,6 +63,9 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
   canBook = true,
   selectedSlot,
   onSlotChange,
+  timeZoneLabel = 'Horarios en Europe/Madrid',
+  onSelectionInvalidated,
+  onValidationChange,
 }) => {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
@@ -114,6 +120,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
       activeSlotRequest.current = request;
       setLoadingDate(selectedDate);
       setErrorDate(null);
+      onValidationChange?.(false);
       try {
         const slots = await sessionsService.getAvailableSlots(specialistId, selectedDate, optionId);
         if (!active) return;
@@ -124,7 +131,11 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
         }));
         if (selectedSlot?.date === selectedDate && !availableSlots.some(slot =>
           slot.startTime === selectedSlot.slot.startTime && slot.endTime === selectedSlot.slot.endTime
-        )) onSlotChange(null);
+        )) {
+          onSlotChange(null);
+          onSelectionInvalidated?.();
+        }
+        onValidationChange?.(true);
       } catch {
         if (active) {
           setSlotCache((current) => ({ ...current, [cacheKey]: [] }));
@@ -138,7 +149,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
     };
     void loadSlots();
     return () => { active = false; };
-  }, [canBook, cacheKey, selectedDate, slotCache, specialistId, optionId, selectedSlot, onSlotChange]);
+  }, [canBook, cacheKey, selectedDate, slotCache, specialistId, optionId, selectedSlot, onSlotChange, onSelectionInvalidated, onValidationChange]);
 
   if (!canBook) return null;
 
@@ -164,6 +175,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
   const handleDateSelect = (date: string) => {
     if (date === selectedDate) return;
     setSelectedDate(date);
+    onValidationChange?.(Boolean(slotCache[`${specialistId}:${optionId ?? 'default'}:${date}`]));
     if (selectedSlot && selectedSlot.date !== date) onSlotChange(null);
   };
 
@@ -172,7 +184,7 @@ export const SelectableAvailabilityPreview: React.FC<SelectableAvailabilityPrevi
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.title}>Elige tu horario</Text>
-          <Text style={styles.subtitle}>Horarios en Europe/Madrid</Text>
+          <Text style={styles.subtitle}>{timeZoneLabel}</Text>
         </View>
         <View style={styles.liveBadge}>
           <Ionicons name="flash-outline" size={13} color={theme.secondaryDark} />

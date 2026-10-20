@@ -165,6 +165,7 @@ const CertificateListRow: React.FC<{
 };
 
 export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
+  editorial = false,
   education,
   experience,
   certifications,
@@ -173,7 +174,7 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
   onOpenCertificate,
 }) => {
   const { theme, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const styles = useMemo(() => createStyles(theme, isDark, editorial), [theme, isDark, editorial]);
   const educationItems = useMemo(() => education ?? [], [education]);
   const experienceItems = useMemo(() => experience ?? [], [experience]);
 
@@ -226,8 +227,8 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
   if (!hasContent) return null;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{STRINGS.title}</Text>
+    <View style={[styles.container, editorial && { backgroundColor: 'transparent', borderWidth: 0, borderRadius: 0, padding: 0, shadowOpacity: 0, elevation: 0 }]}>
+      <Text style={[styles.title, editorial && { fontFamily: theme.fontDisplay, fontWeight: '400', fontSize: 26, lineHeight: 34 }]}>{editorial ? 'Formación y trayectoria' : STRINGS.title}</Text>
 
       {!hasDisclosures && credentialItems.length ? (
         <View style={styles.credentialsOnlyRow}>
@@ -252,11 +253,13 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
         <View style={styles.disclosureList}>
           {hasEducation ? (
             <ProfileDisclosureSection
+              editorial={editorial}
               title={STRINGS.education}
               iconName="school-outline"
-              defaultExpanded={firstDisclosureKey === 'education'}
+              defaultExpanded={editorial || firstDisclosureKey === 'education'}
               testID="experience-education-disclosure"
               variant="row"
+              showDivider={!editorial || hasExperience || hasCertificates}
             >
               <View style={styles.blockList}>
                 {educationItems.map((item) => {
@@ -287,11 +290,13 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
 
           {hasExperience ? (
             <ProfileDisclosureSection
+              editorial={editorial}
               title={STRINGS.experience}
               iconName="briefcase-outline"
-              defaultExpanded={firstDisclosureKey === 'experience'}
+              defaultExpanded={editorial || firstDisclosureKey === 'experience'}
               testID="experience-work-disclosure"
               variant="row"
+              showDivider={!editorial || hasCertificates}
             >
               <View style={styles.blockList}>
                 {experienceItems.map((item) => {
@@ -313,11 +318,13 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
 
           {unlinkedCertificates.length ? (
             <ProfileDisclosureSection
+              editorial={editorial}
               title={STRINGS.certificates}
               iconName="ribbon-outline"
               defaultExpanded={firstDisclosureKey === 'certificates'}
               testID="experience-certificates-disclosure"
               variant="row"
+              showDivider={!editorial}
             >
               <View style={styles.certificateList}>
                 {unlinkedCertificates.map((certificate) => (
@@ -338,7 +345,7 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
   );
 };
 
-const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const createStyles = (theme: Theme, isDark: boolean, editorial = false) => StyleSheet.create({
   container: {
     backgroundColor: theme.bgCard,
     borderRadius: borderRadius.lg,
@@ -368,12 +375,14 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     minWidth: 0,
   },
   credentialsOnlyTitle: {
+    ...(editorial ? { fontFamily: theme.fontSansSemiBold } : {}),
     fontSize: 16,
     lineHeight: 21,
-    fontWeight: '700',
+    fontWeight: editorial ? '400' : '700',
     color: theme.textPrimary,
   },
   credentialsOnlyText: {
+    ...(editorial ? { fontFamily: theme.fontSans } : {}),
     marginTop: 2,
     fontSize: 13,
     lineHeight: 18,
@@ -397,9 +406,10 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     paddingVertical: 7,
   },
   summaryPillText: {
+    ...(editorial ? { fontFamily: theme.fontSansSemiBold } : {}),
     fontSize: 13,
     color: theme.textSecondary,
-    fontWeight: '600',
+    fontWeight: editorial ? '400' : '600',
   },
   disclosureList: {
     gap: 0,
@@ -424,6 +434,7 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     minWidth: 0,
   },
   timelineText: {
+    ...(editorial ? { fontFamily: theme.fontSans } : {}),
     fontSize: 16,
     lineHeight: 25,
     color: theme.textPrimary,
@@ -490,15 +501,18 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     minWidth: 0,
   },
   certificateName: {
+    ...(editorial ? { fontFamily: theme.fontSansSemiBold } : {}),
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: editorial ? '400' : '700',
     color: theme.textPrimary,
   },
   certificateIssuer: {
+    ...(editorial ? { fontFamily: theme.fontSans } : {}),
     fontSize: 13,
     color: theme.textSecondary,
   },
   certificateMeta: {
+    ...(editorial ? { fontFamily: theme.fontSans } : {}),
     fontSize: 12,
     color: theme.textMuted,
     marginTop: 2,
@@ -511,8 +525,9 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     marginTop: 4,
   },
   documentBadgeSubtleText: {
+    ...(editorial ? { fontFamily: theme.fontSansSemiBold } : {}),
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: editorial ? '400' : '600',
     color: theme.success,
   },
   certificateOpenAction: {
@@ -522,8 +537,9 @@ const createStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     marginLeft: spacing.sm,
   },
   certificateOpenText: {
+    ...(editorial ? { fontFamily: theme.fontSansSemiBold } : {}),
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: editorial ? '400' : '700',
     color: theme.primary,
   },
 });

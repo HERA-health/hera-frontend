@@ -33,7 +33,12 @@ export const loadPackageCatalog = async () => (await api.get<{ data: PackageOffe
 export const savePackageCatalog = async (id: string | undefined, input: PackageCatalogInput) =>
   (await (id ? api.put<{ data: PackageOffer[] }>(`/billing/package-catalog/${encodeURIComponent(id)}`, input) : api.post<{ data: PackageOffer[] }>('/billing/package-catalog', input))).data.data;
 export const archivePackageCatalog = async (offer: PackageOffer) => (await api.post<{ data: PackageOffer[] }>(`/billing/package-catalog/${encodeURIComponent(offer.id)}/archive`, { version: offer.version })).data.data;
-export const loadPublicPackages = async (specialistId: string) => (await api.get<{ data: PackageOffer[] }>(`/specialists/${encodeURIComponent(specialistId)}/packages`)).data.data;
+export interface PublicPackageCatalog { offers: PackageOffer[]; acquisitionsEnabled: boolean }
+export const loadPublicPackageCatalog = async (specialistId: string): Promise<PublicPackageCatalog> => {
+  const { data } = await api.get<{ data: PackageOffer[]; acquisitionsEnabled?: boolean }>(`/specialists/${encodeURIComponent(specialistId)}/packages`);
+  // Older servers return offers only while acquisitions are enabled.
+  return { offers: data.data, acquisitionsEnabled: data.acquisitionsEnabled ?? true };
+};
 export const loadPatientPackages = async (clientId?: string) => (await api.get<{ data: PatientPackage[] }>(clientId ? `/professional/clients/${encodeURIComponent(clientId)}/packages` : '/patient-packages/mine')).data.data;
 export const loadPatientPackage = async (id: string) => (await api.get<{ data: PatientPackage }>(`/patient-packages/${encodeURIComponent(id)}`)).data.data;
 const acquisitionPath = (clientId?: string) => clientId ? `/professional/clients/${encodeURIComponent(clientId)}/packages` : '/patient-packages';

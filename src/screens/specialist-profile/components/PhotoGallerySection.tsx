@@ -38,6 +38,7 @@ const FADE_DURATION = 150;
 export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
   photoGallery,
   specialistName,
+  editorial = false,
 }) => {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
@@ -104,6 +105,7 @@ export const PhotoGallerySection: React.FC<PhotoGallerySectionProps> = ({
   return (
     <View style={styles.container}>
       <ProfileDisclosureSection
+        editorial={editorial}
         title={STRINGS.title}
         iconName="images-outline"
         summary={`${count} ${count === 1 ? 'foto' : 'fotos'}`}

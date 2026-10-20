@@ -153,6 +153,7 @@ export interface SpecializationsGridProps {
 }
 
 export interface ExperienceSectionProps {
+  editorial?: boolean;
   education?: EducationItem[];
   experience?: ExperienceItem[];
   certifications?: CertificateItem[];
@@ -162,6 +163,7 @@ export interface ExperienceSectionProps {
 }
 
 export interface ReviewsSectionProps {
+  editorial?: boolean;
   specialistId?: string;
   specialistName?: string;
   specialistAvatar?: string;
@@ -210,6 +212,7 @@ export interface CompactHeroProps {
 }
 
 export interface PhotoGallerySectionProps {
+  editorial?: boolean;
   photoGallery: string[];
   specialistName?: string;
 }

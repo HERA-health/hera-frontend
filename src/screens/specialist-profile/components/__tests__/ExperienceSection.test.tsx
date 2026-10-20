@@ -189,3 +189,16 @@ describe('ExperienceSection', () => {
     expect(screen.queryByTestId('experience-education-disclosure')).toBeNull();
   });
 });
+
+it('opens both education and work history in the public presentation and still allows collapsing them', () => {
+  mockedUseTheme.mockReturnValue({ theme: lightTheme, mode: 'light', isDark: false, setMode: jest.fn() } as ReturnType<typeof useTheme>);
+  render(<ExperienceSection editorial
+    education={[{ id: 'edu', degree: 'Psicología', institution: 'Universidad', startYear: '2016', endYear: '2020' }]}
+    experience={[{ id: 'work', position: 'Psicóloga clínica', organization: 'Consulta', startYear: '2020', current: true }]}
+  />);
+  expect(screen.getByText(/Psicología - Universidad/)).toBeTruthy();
+  expect(screen.getByText(/Psicóloga clínica - Consulta/)).toBeTruthy();
+  fireEvent.press(screen.getByTestId('experience-work-disclosure-header'));
+  expect(screen.queryByText(/Psicóloga clínica - Consulta/)).toBeNull();
+  expect(screen.getByText(/Psicología - Universidad/)).toBeTruthy();
+});

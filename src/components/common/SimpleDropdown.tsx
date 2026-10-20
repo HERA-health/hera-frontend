@@ -42,6 +42,8 @@ export interface SimpleDropdownProps<T> {
   presentation?: 'inline' | 'portal';
   triggerLabel?: string;
   keyboardNavigation?: boolean;
+  /** Nested dialogs can activate their focus/escape handling without waiting for a fade. */
+  portalAnimation?: 'none' | 'fade';
 }
 
 interface DropdownAnchor {
@@ -68,6 +70,7 @@ export function SimpleDropdown<T extends string | number>({
   presentation = 'inline',
   triggerLabel,
   keyboardNavigation = false,
+  portalAnimation = 'fade',
 }: SimpleDropdownProps<T>) {
   const { theme } = useTheme();
   const { height: viewportHeight, width: viewportWidth } = useWindowDimensions();
@@ -309,7 +312,7 @@ export function SimpleDropdown<T extends string | number>({
 
       {open && presentation === 'portal' && portalLayout ? (
         <Modal
-          animationType="fade"
+          animationType={portalAnimation}
           transparent
           visible
           statusBarTranslucent

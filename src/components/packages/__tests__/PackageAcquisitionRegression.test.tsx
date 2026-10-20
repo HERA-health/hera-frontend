@@ -3,12 +3,12 @@ jest.mock('../../../services/packagePaymentService', () => ({ storePackagePaymen
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { PackageAcquisition } from '../PackageAcquisition';
 import { PublicPackageOffers } from '../PublicPackageOffers';
-import { acquirePackage, quotePackage, loadPublicPackages, requestPublicPackage, quotePublicPackage, acquirePublicPackage } from '../../../services/packageService';
+import { acquirePackage, quotePackage, loadPublicPackageCatalog, requestPublicPackage, quotePublicPackage, acquirePublicPackage } from '../../../services/packageService';
 
 
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'review-command' }));
 jest.mock('../../../services/professionalService', () => ({ getProfessionalClients: jest.fn().mockResolvedValue([]) }));
-jest.mock('../../../services/packageService', () => ({ acquirePackage: jest.fn(), quotePackage: jest.fn(), loadPublicPackages: jest.fn(), requestPublicPackage: jest.fn(), quotePublicPackage: jest.fn(), acquirePublicPackage: jest.fn(), packagePrice: (n: number) => `${n / 100} EUR`, packageModality: () => 'Vídeo' }));
+jest.mock('../../../services/packageService', () => ({ acquirePackage: jest.fn(), quotePackage: jest.fn(), loadPublicPackageCatalog: jest.fn(), requestPublicPackage: jest.fn(), quotePublicPackage: jest.fn(), acquirePublicPackage: jest.fn(), packagePrice: (n: number) => `${n / 100} EUR`, packageModality: () => 'Vídeo' }));
 
 const offer = { id: 'offer', name: 'Bono', serviceId: 's', serviceName: 'Terapia', sessions: 5, totalCents: 25000, currency: 'EUR', version: 1, isPublic: true, archivedAt: null, options: [{ id: 'o', modality: 'VIDEO_CALL' as const, durationMinutes: 60 }] };
 const quote = { snapshot: { ...offer, sessions: 3, totalCents: 35000, paymentConditions: null }, quoteReference: 'signed-350', expiresAt: '2030-01-01', fiscal: { invoiceKind: 'SIMPLIFIED', recipientEmail: 'review@example.invalid', recipient: { fiscalName: 'Paciente', fiscalTaxId: null, fiscalAddress: null } } };
@@ -25,7 +25,7 @@ test('confirmation displays the current signed price and session count', async (
   await waitFor(() => expect(acquirePackage).toHaveBeenCalledWith(expect.objectContaining({quoteReference:'signed-350'}), 'client'));
 });
 test.each(['PACKAGE_QUOTE_CHANGED', 'PACKAGE_QUOTE_INVALID', 'PACKAGE_PROOF_EXPIRED', 'PACKAGE_PROOF_INVALID'])('guest can recover from %s without resubmitting the expired quote', async errorCode => {
-  jest.mocked(loadPublicPackages).mockResolvedValue([offer]);
+  jest.mocked(loadPublicPackageCatalog).mockResolvedValue({ offers: [offer], acquisitionsEnabled: true });
   jest.mocked(requestPublicPackage).mockResolvedValue({requestId:'request',expiresAt:'2030-01-01'});
   jest.mocked(quotePublicPackage).mockResolvedValue(quote);
   jest.mocked(acquirePublicPackage).mockRejectedValue({response:{status:409,data:{code:errorCode,message:'Verificación caducada'}}});

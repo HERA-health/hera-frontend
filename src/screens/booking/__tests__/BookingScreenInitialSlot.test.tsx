@@ -16,7 +16,7 @@ import { patientPackage } from '../../../components/packages/testing/packageFixt
 import { BookingScreen } from '../BookingScreen';
 
 jest.mock('../../../services/packageService', () => ({
-  loadPatientPackages: jest.fn(), loadPublicPackages: jest.fn(), quotePackage: jest.fn(), acquirePackage: jest.fn(),
+  loadPatientPackages: jest.fn(), loadPublicPackageCatalog: jest.fn(), quotePackage: jest.fn(), acquirePackage: jest.fn(),
   requestPublicPackage: jest.fn(), quotePublicPackage: jest.fn(), acquirePublicPackage: jest.fn(),
   packagePrice: (cents: number) => `${cents / 100} EUR`, packageModality: () => 'Vídeo',
 }));
@@ -156,7 +156,7 @@ const routeWithoutInitialSlot = {
 describe('BookingScreen initial slot preselection', () => {
   beforeEach(() => {
     jest.mocked(packageService.loadPatientPackages).mockResolvedValue([]);
-    jest.mocked(packageService.loadPublicPackages).mockResolvedValue([]);
+    jest.mocked(packageService.loadPublicPackageCatalog).mockResolvedValue({ offers: [], acquisitionsEnabled: true });
     mockedSpecialistsService.getPublicSpecialistDetails.mockResolvedValue({
       id: 'specialist-1',
     } as never);
@@ -224,7 +224,7 @@ describe('BookingScreen initial slot preselection', () => {
     const offer: packageService.PackageOffer = { id:'offer', name:'Bono nuevo', serviceId:'base', serviceName:'General', sessions:5, totalCents:25000, currency:'EUR', version:1, isPublic:true, archivedAt:null, options:[{id:'VIDEO_CALL',modality:'VIDEO_CALL',durationMinutes:90}] };
     const snapshot = {...offer,paymentConditions:null};
     const acquired: packageService.PatientPackage = {id:'acquired',specialistId:'specialist-1',clientId:'client',createdAt:'2026-09-25',snapshot,balance:{total:5,available:5,reserved:0,consumed:0},invoice:null,uses:[],notifications:[]};
-    jest.mocked(packageService.loadPublicPackages).mockResolvedValue([offer]);
+    jest.mocked(packageService.loadPublicPackageCatalog).mockResolvedValue({ offers: [offer], acquisitionsEnabled: true });
     jest.mocked(packageService.quotePackage).mockResolvedValue({snapshot,quoteReference:'package-quote',expiresAt:'2030-01-01',fiscal:{invoiceKind:'SIMPLIFIED',recipientEmail:'patient@example.invalid',recipient:{fiscalName:'Paciente',fiscalTaxId:null,fiscalAddress:null}}});
     jest.mocked(packageService.acquirePackage).mockImplementation(async () => {
       jest.mocked(packageService.loadPatientPackages).mockResolvedValue([acquired]);
@@ -255,7 +255,7 @@ describe('BookingScreen initial slot preselection', () => {
     mockedUseAuth.mockReturnValue({ ...mockedUseAuth(), isAuthenticated:false, user:null });
     const offer: packageService.PackageOffer = {id:'offer',name:'Bono invitado',serviceId:'base',serviceName:'General',sessions:5,totalCents:25000,currency:'EUR',version:1,isPublic:true,archivedAt:null,options:[{id:'VIDEO_CALL',modality:'VIDEO_CALL',durationMinutes:60}]};
     const snapshot = {...offer,paymentConditions:null};
-    jest.mocked(packageService.loadPublicPackages).mockResolvedValue([offer]);
+    jest.mocked(packageService.loadPublicPackageCatalog).mockResolvedValue({ offers: [offer], acquisitionsEnabled: true });
     jest.mocked(packageService.requestPublicPackage).mockResolvedValue({requestId:'package-request',expiresAt:'2030-01-01'});
     jest.mocked(packageService.quotePublicPackage).mockResolvedValue({snapshot,quoteReference:'package-quote',expiresAt:'2030-01-01',fiscal:{invoiceKind:'SIMPLIFIED',recipientEmail:'guest@example.invalid',recipient:{fiscalName:'Invitado',fiscalTaxId:null,fiscalAddress:null}}});
     jest.mocked(packageService.acquirePublicPackage).mockResolvedValue({id:'acquired',specialistId:'specialist-1',clientId:'guest',createdAt:'2026-09-25',snapshot,balance:{total:5,available:5,reserved:0,consumed:0},invoice:null,uses:[],notifications:[]});

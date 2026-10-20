@@ -1,18 +1,34 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Modal, Platform, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Button } from '../common/Button';
 import { PackageAcquisition } from './PackageAcquisition';
-import { loadPublicPackages, packagePrice, packageModality, requestPublicPackage, quotePublicPackage, acquirePublicPackage, type PackageOffer, type PackageQuote, type PatientPackage, type PublicPackageRequest } from '../../services/packageService';
+import { PackageCatalogDialog } from './PackageCatalogDialog';
+import type { AnimatedPressableHandle } from '../common/AnimatedPressable';
+import { loadPublicPackageCatalog, packagePrice, packageModality, requestPublicPackage, quotePublicPackage, acquirePublicPackage, type PackageOffer, type PackageQuote, type PatientPackage, type PublicPackageRequest } from '../../services/packageService';
 import { getErrorMessage, getErrorCode } from '../../constants/errors';
 import { LEGAL_DOCUMENT_VERSION } from '../../constants/legal';
 import { PackageBillingFields, emptyPackageBilling } from './PackageBillingFields';
 import { PackagePaymentConditions } from './PackagePaymentConditions';
 import { storePackagePaymentAccess, type PackagePaymentAcceptance } from '../../services/packagePaymentService';
 
-export function PublicPackageOffers({ specialistId, anonymous, intentToken, onPrivacy, onAcquired, onBeforeAcquire }: { specialistId: string; anonymous: boolean; intentToken?: string; onPrivacy: () => void; onAcquired?: (row: PatientPackage) => void; onBeforeAcquire?: () => boolean }) {
+export function PublicPackageOffers({ specialistId, anonymous, intentToken, onPrivacy, onAcquired, onBeforeAcquire, editorial = false, presentation = 'inline', onModalVisibilityChange }: { specialistId: string; anonymous: boolean; intentToken?: string; onPrivacy: () => void; onAcquired?: (row: PatientPackage) => void; onBeforeAcquire?: () => boolean; editorial?: boolean; presentation?: 'inline' | 'dialog'; onModalVisibilityChange?: (visible: boolean) => void }) {
   const { theme } = useTheme(); const [offers, setOffers] = useState<PackageOffer[]>([]); const [selected, setSelected] = useState<PackageOffer>();
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const triggerRef = useRef<AnimatedPressableHandle>(null);
+  const dialog = presentation === 'dialog';
+  const rich = editorial || dialog;
+  useEffect(() => {
+    onModalVisibilityChange?.(catalogOpen || !!selected);
+    return () => onModalVisibilityChange?.(false);
+  }, [catalogOpen, selected, onModalVisibilityChange]);
+  const closeCatalog = () => {
+    setCatalogOpen(false);
+    if (Platform.OS === 'web') setTimeout(() => triggerRef.current?.focus(), 100);
+  };
+  const [loading, setLoading] = useState(true);
+  const [acquisitionsEnabled, setAcquisitionsEnabled] = useState(false);
   const [error, setError] = useState(''); const [message, setMessage] = useState('');
   const [consumedIntent, setConsumedIntent] = useState<string>();
   const effectiveIntent = consumedIntent === intentToken ? undefined : intentToken;
@@ -27,25 +43,50 @@ export function PublicPackageOffers({ specialistId, anonymous, intentToken, onPr
     onAcquired?.(row);
   };
   const [retry, setRetry] = useState(0);
-  useEffect(() => { let current = true; setOffers([]); setSelected(undefined); setError(''); setMessage(''); loadPublicPackages(specialistId).then(rows => { if (current) setOffers(rows); }).catch(e => { if (current) setError(getErrorMessage(e, 'No se pudieron cargar los bonos disponibles.')); }); return () => { current = false; }; }, [specialistId, retry]);
-  if (!offers.length && !error) return null;
-  return <View style={{ gap: 12, paddingVertical: 16 }}>
-    <Text accessibilityRole="header" style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 18 }}>¿Quieres un nuevo bono?</Text>
-    <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, lineHeight: 22 }}>Solicita un bono y elige después el horario de cada sesión.</Text>
-    {offers.map(offer => <View key={offer.id} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, paddingVertical: 16, borderBottomWidth: 1, borderColor: theme.border }}>
-      <View style={{ flexGrow: 1, flexShrink: 1, flexBasis: 220, gap: 6 }}>
+  useEffect(() => {
+    let current = true;
+    setLoading(true); setOffers([]); setAcquisitionsEnabled(false); setSelected(undefined); setError(''); setMessage('');
+    loadPublicPackageCatalog(specialistId)
+      .then(catalog => { if (current) { setOffers(catalog.offers); setAcquisitionsEnabled(catalog.acquisitionsEnabled); } })
+      .catch(e => { if (current) setError(getErrorMessage(e, 'No se pudieron cargar los bonos disponibles.')); })
+      .finally(() => { if (current) setLoading(false); });
+    return () => { current = false; };
+  }, [specialistId, retry]);
+  if (!rich && (!offers.length || !acquisitionsEnabled) && !error) return null;
+  if (dialog && !loading && !offers.length && !error && !catalogOpen) return null;
+  const content = <View style={[{ gap: 12, paddingVertical: dialog ? 0 : 16 }, editorial && !dialog && { borderTopWidth: 1, borderTopColor: theme.borderLight, marginTop: 32, paddingTop: 28, paddingBottom: 0 }]}>
+    {!dialog ? <Text accessibilityRole="header" aria-level={2} style={{ color: theme.textPrimary, fontFamily: editorial ? theme.fontDisplay : theme.fontSansSemiBold, fontSize: editorial ? 26 : 18, lineHeight: editorial ? 34 : undefined }}>{editorial ? 'Bonos de sesiones' : '¿Quieres un nuevo bono?'}</Text> : null}
+    {offers.length && (!dialog || !acquisitionsEnabled) ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, lineHeight: 22 }}>
+      {acquisitionsEnabled ? 'Solicita un bono y elige después el horario de cada sesión.' : 'La adquisición de bonos no está disponible en este momento.'}
+    </Text> : null}
+    {rich && loading ? <Text accessibilityLiveRegion="polite" style={{ color: theme.textSecondary, fontFamily: theme.fontSans, lineHeight: 22 }}>Consultando bonos disponibles…</Text> : null}
+    {rich && !loading && !offers.length && !error ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, lineHeight: 22 }}>No hay bonos disponibles en este perfil. Puedes consultar las opciones de sesión individual.</Text> : null}
+    {offers.length ? <View style={[{ gap: 12 }, editorial && !dialog && { flexDirection: 'row', flexWrap: 'wrap' }]}>
+    {offers.map(offer => <View key={offer.id} style={[{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16, paddingVertical: 16, borderBottomWidth: 1, borderColor: theme.border },
+      rich && { flexDirection: 'column', alignItems: 'stretch', flexGrow: 1, flexShrink: 1, flexBasis: dialog ? undefined : 280, minWidth: 0, padding: 20, borderWidth: 1, borderColor: theme.borderLight, borderRadius: 16, backgroundColor: theme.bgCard }]}>
+      <View style={{ flexGrow: 1, flexShrink: 1, flexBasis: rich ? undefined : 220, gap: 6 }}>
         <Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 15 }}>{offer.name}</Text>
         {!!offer.description && <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>{offer.description}</Text>}
         <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>{offer.serviceName} · {offer.options.map(option => `${packageModality(option.modality)} · ${option.durationMinutes} min`).join(' / ')}</Text>
         <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans }}>{offer.sessions} sesiones · {packagePrice(Math.round(offer.totalCents / offer.sessions))} / sesión</Text>
-        <Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }}>{packagePrice(offer.totalCents)} en total</Text>
+        <Text style={{ color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: rich ? 20 : undefined, marginTop: rich ? 6 : 0 }}>{packagePrice(offer.totalCents)} en total</Text>
       </View>
-      <Button variant="secondary" style={{ alignSelf: 'center', minHeight: 44, paddingVertical: 8, shadowOpacity: 0, elevation: 0 }} onPress={() => { if (onBeforeAcquire && !onBeforeAcquire()) return; setSelected(offer); setMessage(''); }}>Solicitar bono</Button>
+      {acquisitionsEnabled ? <Button variant="secondary" style={{ alignSelf: rich ? 'flex-start' : 'center', minHeight: 44, paddingVertical: 8, shadowOpacity: 0, elevation: 0 }} onPress={() => {
+        if (onBeforeAcquire && !onBeforeAcquire()) { setCatalogOpen(false); return; }
+        setSelected(offer); setMessage('');
+      }}>Solicitar bono</Button> : null}
     </View>)}
+    </View> : null}
     {!!error && <><Text accessibilityRole="alert" style={{ color: theme.error }}>{error}</Text><Button variant="ghost" onPress={() => setRetry(n => n + 1)}>Reintentar bonos disponibles</Button></>}
     {!!message && <Text accessibilityLiveRegion="polite" style={{ color: theme.success }}>{message}</Text>}
-    {selected && (anonymous ? <GuestPackageAcquisition offer={selected} specialistId={specialistId} intentToken={effectiveIntent} onPrivacy={onPrivacy} onClose={() => setSelected(undefined)} onDone={acquired} /> : <PackageAcquisition professional={false} offer={selected} specialistId={specialistId} bookingIntentToken={effectiveIntent} onClose={() => setSelected(undefined)} onAcquired={acquired} />)}
   </View>;
+  return <>
+    {dialog ? <View style={{ borderTopWidth: 1, borderColor: theme.borderLight, paddingTop: 12 }}>
+      <Button variant="secondary" fullWidth focusRef={triggerRef} onPress={() => setCatalogOpen(true)}>Comprar bono de sesiones</Button>
+      {catalogOpen && !selected ? <PackageCatalogDialog onClose={closeCatalog}>{content}</PackageCatalogDialog> : null}
+    </View> : content}
+    {selected && (anonymous ? <GuestPackageAcquisition offer={selected} specialistId={specialistId} intentToken={effectiveIntent} onPrivacy={onPrivacy} onClose={() => setSelected(undefined)} onDone={acquired} /> : <PackageAcquisition professional={false} offer={selected} specialistId={specialistId} bookingIntentToken={effectiveIntent} onClose={() => setSelected(undefined)} onAcquired={acquired} />)}
+  </>;
 }
 
 function GuestPackageAcquisition({ offer, specialistId, intentToken, onPrivacy, onClose, onDone }: { offer: PackageOffer; specialistId: string; intentToken?: string; onPrivacy: () => void; onClose: () => void; onDone: (row: PatientPackage) => void }) {

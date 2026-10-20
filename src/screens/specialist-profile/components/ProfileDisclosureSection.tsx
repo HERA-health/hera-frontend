@@ -15,6 +15,8 @@ interface ProfileDisclosureSectionProps {
   summary?: string;
   testID?: string;
   variant?: 'card' | 'row' | 'surface';
+  showDivider?: boolean;
+  editorial?: boolean;
 }
 
 export const ProfileDisclosureSection: React.FC<ProfileDisclosureSectionProps> = ({
@@ -25,6 +27,8 @@ export const ProfileDisclosureSection: React.FC<ProfileDisclosureSectionProps> =
   summary,
   testID,
   variant = 'card',
+  showDivider = true,
+  editorial = false,
 }) => {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
@@ -47,6 +51,7 @@ export const ProfileDisclosureSection: React.FC<ProfileDisclosureSectionProps> =
       style={[
         styles.container,
         rowVariant && styles.containerRow,
+        rowVariant && !showDivider && { borderBottomWidth: 0 },
         surfaceVariant && styles.containerSurface,
       ]}
       testID={testID}
@@ -74,8 +79,8 @@ export const ProfileDisclosureSection: React.FC<ProfileDisclosureSectionProps> =
           ) : null}
 
           <View style={styles.copy}>
-            <Text style={styles.title}>{title}</Text>
-            {summary ? <Text style={styles.summary}>{summary}</Text> : null}
+            <Text style={[styles.title, editorial && { fontFamily: theme.fontSansSemiBold, fontWeight: '400' }]}>{title}</Text>
+            {summary ? <Text style={[styles.summary, editorial && { fontFamily: theme.fontSans }]}>{summary}</Text> : null}
           </View>
         </View>
 
