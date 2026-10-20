@@ -1,7 +1,12 @@
 import { directoryEntryHref } from '../../services/directoryBookingService';
 import { directoryIntent } from '../../services/heraCommissionService';
-import { ProfileDiscoveryFilters } from '../../components/common/ProfileDiscoveryFilters';
-import { useDiscoveryRevalidation } from '../../hooks/useDiscoveryRevalidation';
+import { SearchableProfileSelect } from '../../components/common/SearchableProfileSelect';
+import { renderLanguageIcon } from '../../components/common/LanguageIcon';
+import { usePublicDirectory } from './usePublicDirectory';
+import { DirectoryPagination } from './components/DirectoryPagination';
+import { DirectoryFiltersSheet } from './components/DirectoryFiltersSheet';
+import { useProfileOptions } from '../../hooks/useProfileOptions';
+import { optionLabel } from '../../utils/profileOptions';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   NativeScrollEvent,
@@ -118,121 +123,45 @@ export const PublicSpecialistsScreen: React.FC = () => {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1180;
   const isMobile = width < 720;
-  const useHorizontalCards = width >= 820;
+  const { options: profileOptions, error: optionsError, retry: retryOptions } = useProfileOptions();
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const resultsTop = useRef(0);
+  const previousPage = useRef(1);
+  const [gridWidth, setGridWidth] = useState(0);
+  const gridColumns = gridWidth >= 740 ? 2 : 1;
+  const compactCards = (gridWidth - (gridColumns - 1) * 20) / gridColumns >= 460;
   const [queryInput, setQueryInput] = useState('');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<DirectoryFilters>(() =>
     createInitialFilters(route.params?.specialty)
   );
-  const [items, setItems] = useState<specialistsService.PublicSpecialistDirectoryCard[]>([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [headerScrolled, setHeaderScrolled] = useState(false);
   const headerScrolledRef = useRef(false);
-  const mountedRef = useRef(true);
-  const requestSequenceRef = useRef(0);
-  const activeLoadMoreRequestRef = useRef<number | null>(null);
-  const activeRefreshRequestRef = useRef<number | null>(null);
-  const loadedFiltersRef = useRef<DirectoryFilters | null>(null);
-  const pageRef = useRef(1);
-  const [refreshing, setRefreshing] = useState(false);
-
+  const requestFilters = useMemo<specialistsService.PublicSpecialistDirectoryFilters>(() => ({
+    q: filters.q || undefined, language: filters.language, religion: filters.religion,
+    professionalType: filters.professionalType ?? undefined, modality: filters.modality ?? undefined,
+    specialties: filters.specialties.length ? filters.specialties : undefined,
+    approaches: filters.approaches.length ? filters.approaches : undefined,
+    minRating: filters.minRating ?? undefined, maxPrice: filters.maxPrice ?? undefined, sort: filters.sort,
+  }), [filters]);
+  const { data, loading, error, loadPage, retry } = usePublicDirectory(requestFilters);
+  const items = data?.items ?? [];
+  const rows = Array.from({ length: Math.ceil(items.length / gridColumns) }, (_, index) =>
+    items.slice(index * gridColumns, (index + 1) * gridColumns)
+  );
+  const page = data?.page ?? 1;
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  useEffect(() => {
+    if (data && previousPage.current !== data.page) scrollRef.current?.scrollTo({ y: Math.max(0, resultsTop.current - 88), animated: false });
+    if (data) previousPage.current = data.page;
+  }, [data]);
   useWebPageMetadata({
     title: 'Hera | Especialistas',
     description: 'Explora especialistas de salud mental verificados, compara sus modalidades y consulta sus perfiles públicos antes de reservar.',
     canonicalPath: '/especialistas',
   });
-
-  const loadDirectory = useCallback(async (nextPage: number, append: boolean, refresh = false) => {
-    if ((append || refresh) && (activeLoadMoreRequestRef.current !== null || activeRefreshRequestRef.current !== null)) {
-      return;
-    }
-    const preserveResults = refresh && loadedFiltersRef.current === filters;
-    const pagesToLoad = preserveResults ? pageRef.current : 1;
-
-    const requestId = requestSequenceRef.current + 1;
-    requestSequenceRef.current = requestId;
-
-    if (preserveResults) {
-      activeRefreshRequestRef.current = requestId;
-      setRefreshing(true);
-    } else if (append) {
-      activeLoadMoreRequestRef.current = requestId;
-      setLoadingMore(true);
-    } else {
-      activeLoadMoreRequestRef.current = null;
-      activeRefreshRequestRef.current = null;
-      loadedFiltersRef.current = null;
-      setLoading(true);
-      setItems([]);
-      setLoadingMore(false);
-      setRefreshing(false);
-    }
-    setError(null);
-
-    try {
-      const responses = await Promise.all(Array.from({ length: pagesToLoad }, (_, index) => specialistsService.getPublicSpecialistDirectory({
-        q: filters.q || undefined,
-        language: filters.language,
-        religion: filters.religion,
-        professionalType: filters.professionalType ?? undefined,
-        modality: filters.modality ?? undefined,
-        specialties: filters.specialties.length > 0 ? filters.specialties : undefined,
-        approaches: filters.approaches.length > 0 ? filters.approaches : undefined,
-        minRating: filters.minRating ?? undefined,
-        maxPrice: filters.maxPrice ?? undefined,
-        sort: filters.sort,
-        page: preserveResults ? index + 1 : nextPage,
-      })));
-      const response = [...responses].reverse().find(result => result.items.length > 0) ?? responses[0];
-
-      if (!mountedRef.current || requestSequenceRef.current !== requestId) {
-        return;
-      }
-
-      setItems((currentItems) => append ? [...currentItems, ...response.items] : responses.flatMap(result => result.items));
-      loadedFiltersRef.current = filters;
-      pageRef.current = response.page;
-      setPage(response.page);
-      setHasMore(response.hasMore);
-    } catch (loadError: unknown) {
-      if (!mountedRef.current || requestSequenceRef.current !== requestId) {
-        return;
-      }
-      setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el directorio');
-    } finally {
-      if (activeLoadMoreRequestRef.current === requestId) {
-        activeLoadMoreRequestRef.current = null;
-      }
-      if (activeRefreshRequestRef.current === requestId) activeRefreshRequestRef.current = null;
-
-      if (mountedRef.current && requestSequenceRef.current === requestId) {
-        setLoading(false);
-        setLoadingMore(false);
-        setRefreshing(false);
-      }
-    }
-  }, [filters]);
-  const refreshDirectory = useCallback(() => loadDirectory(1, false, true), [loadDirectory]);
-  useDiscoveryRevalidation(refreshDirectory);
-
-  useEffect(() => {
-    mountedRef.current = true;
-
-    return () => {
-      mountedRef.current = false;
-      requestSequenceRef.current += 1;
-      activeLoadMoreRequestRef.current = null;
-      activeRefreshRequestRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    void loadDirectory(1, false);
-  }, [loadDirectory]);
 
   useEffect(() => {
     analyticsService.trackScreen('public_specialists_directory');
@@ -317,412 +246,292 @@ export const PublicSpecialistsScreen: React.FC = () => {
   }, []);
 
   const selectedProfessionalType = useMemo(
-    () => PROFESSIONAL_TYPE_OPTIONS.map((option) => ({ label: option.label, value: option.id })),
-    []
+    () => PROFESSIONAL_TYPE_OPTIONS.map(option => ({ label: option.label, value: option.id })), []
   );
+  const activeFilters: Array<{ key: string; label: string; remove: () => void }> = [];
+  if (filters.q) activeFilters.push({ key: 'q', label: `«${filters.q}»`, remove: () => { setQueryInput(''); setFilters(current => ({ ...current, q: '' })); } });
+  if (filters.language) activeFilters.push({ key: 'language', label: optionLabel(profileOptions?.languages ?? [], filters.language), remove: () => setFilters(current => ({ ...current, language: undefined })) });
+  if (filters.religion) activeFilters.push({ key: 'religion', label: optionLabel(profileOptions?.religions ?? [], filters.religion), remove: () => setFilters(current => ({ ...current, religion: undefined })) });
+  if (filters.professionalType) activeFilters.push({ key: 'type', label: selectedProfessionalType.find(option => option.value === filters.professionalType)?.label ?? filters.professionalType, remove: () => setFilters(current => ({ ...current, professionalType: null })) });
+  if (filters.modality) activeFilters.push({ key: 'modality', label: MODALITY_OPTIONS.find(option => option.value === filters.modality)?.label ?? filters.modality, remove: () => setFilters(current => ({ ...current, modality: null })) });
+  if (filters.minRating) activeFilters.push({ key: 'rating', label: `${filters.minRating} estrellas o más`, remove: () => setFilters(current => ({ ...current, minRating: null })) });
+  if (filters.maxPrice) activeFilters.push({ key: 'price', label: `Hasta ${filters.maxPrice} €`, remove: () => setFilters(current => ({ ...current, maxPrice: null })) });
+  filters.specialties.forEach(value => activeFilters.push({ key: `specialty-${value}`, label: PROFESSIONAL_SPECIALTY_OPTIONS.find(option => option.value === value)?.label ?? value, remove: () => setFilters(current => ({ ...current, specialties: current.specialties.filter(item => item !== value) })) }));
+  filters.approaches.forEach(value => activeFilters.push({ key: `approach-${value}`, label: PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS.find(option => option.value === value)?.label ?? value, remove: () => setFilters(current => ({ ...current, approaches: current.approaches.filter(item => item !== value) })) }));
+  const activeFilterCount = activeFilters.length;
+  const hasActiveFilters = activeFilterCount > 0 || Boolean(queryInput);
+  const textStyle = { color: theme.textSecondary, fontFamily: theme.fontSans };
+  const fieldLabel = { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold, fontSize: 13, lineHeight: 19 };
+  const filterMenuWidth = Math.min(520, width - 80);
 
-  const activeFilterCount = [filters.language, filters.religion, filters.professionalType,
-    filters.modality, filters.minRating, filters.maxPrice, filters.sort !== 'RECENT',
-  ].filter(Boolean).length + filters.specialties.length + filters.approaches.length;
+  const sortControl = (
+    <View style={[styles.sort, isMobile && styles.sortMobile]}>
+      <SimpleDropdown options={SORT_OPTIONS} value={filters.sort} onSelect={sort => setFilters(current => ({ ...current, sort }))}
+        placeholder="Ordenar" accessibilityLabel="Ordenar especialistas" compact presentation="portal" keyboardNavigation
+        selectionIndicator="radio" highlightSelection={false} optionsMinWidth={230} optionsAlign="right" />
+    </View>
+  );
+  const activeFilterSummary = activeFilterCount > 0 ? (
+    <View style={[styles.activeFilters, isDesktop && styles.sidebarActiveFilters]}>
+      {activeFilters.map(filter => <Pressable key={filter.key} accessibilityRole="button" accessibilityLabel={`Quitar filtro: ${filter.label}`}
+        onPress={filter.remove} style={[styles.activeChip, { backgroundColor: theme.secondaryMuted }]}>
+        <Text numberOfLines={1} style={[styles.activeChipText, { color: theme.textPrimary, fontFamily: theme.fontSans }]}>{filter.label}</Text>
+        <Ionicons name="close" size={14} color={theme.textPrimary} />
+      </Pressable>)}
+      {!isDesktop ? <Pressable accessibilityRole="button" onPress={clearFilters} style={styles.clearButton}>
+        <Text style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold, fontSize: 12 }}>Limpiar filtros</Text>
+      </Pressable> : null}
+    </View>
+  ) : null;
 
-  const hasActiveFilters = Boolean(filters.language || filters.religion ||
-    filters.q
-    || filters.professionalType
-    || filters.modality
-    || filters.specialties.length > 0
-    || filters.approaches.length > 0
-    || filters.minRating
-    || filters.maxPrice
-    || filters.sort !== 'RECENT'
-    || queryInput
+  const filterPanel = (
+    <View style={[styles.filtersPanel, !isDesktop && styles.sheetFields, { backgroundColor: theme.bgCard, borderColor: theme.borderLight }]}>
+      {isDesktop ? <View style={[styles.filtersHeading, { borderBottomColor: theme.borderLight }]}>
+        <Text accessibilityRole="header" style={[styles.filtersTitle, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Filtros</Text>
+        {hasActiveFilters ? <Pressable accessibilityRole="button" accessibilityLabel="Limpiar filtros" onPress={clearFilters} style={styles.clearButton}>
+          <Text style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold, fontSize: 12 }}>Limpiar</Text>
+        </Pressable> : null}
+      </View> : null}
+      {isDesktop ? activeFilterSummary : null}
+      <View style={[styles.filterField, { zIndex: 9 }]}>
+        <Text style={fieldLabel}>¿En qué necesitas apoyo?</Text>
+        <MultiSelectDropdown options={PROFESSIONAL_SPECIALTY_OPTIONS} values={filters.specialties}
+          onApply={specialties => setFilters(current => ({ ...current, specialties }))} placeholder="Tema" presentation="modal" menuWidth={filterMenuWidth} maxOptionsHeight={230} />
+      </View>
+      <View style={[styles.filterField, { zIndex: 8 }]}>
+        <Text style={fieldLabel}>Modalidad de consulta</Text>
+        <SimpleDropdown options={MODALITY_OPTIONS} value={filters.modality} onSelect={modality => setFilters(current => ({ ...current, modality }))}
+          placeholder="Modalidad" accessibilityLabel="Modalidad" compact presentation="portal" keyboardNavigation selectionIndicator="checkbox"
+          onClear={() => setFilters(current => ({ ...current, modality: null }))} />
+      </View>
+      <SearchableProfileSelect label="Idioma de las sesiones" options={profileOptions?.languages ?? []}
+        values={filters.language ? [filters.language] : []} disabled={!profileOptions} renderIcon={renderLanguageIcon}
+        onChange={values => setFilters(current => ({ ...current, language: values[0] }))} emptyLabel="Cualquiera" />
+      <View style={[styles.filterField, { zIndex: 6 }]}>
+        <Text style={fieldLabel}>Precio por sesión</Text>
+        <SimpleDropdown options={PRICE_OPTIONS} value={filters.maxPrice} onSelect={maxPrice => setFilters(current => ({ ...current, maxPrice }))}
+          placeholder="Precio" accessibilityLabel="Precio" compact presentation="portal" keyboardNavigation selectionIndicator="checkbox"
+          onClear={() => setFilters(current => ({ ...current, maxPrice: null }))} />
+      </View>
+      <View style={[styles.filterField, { zIndex: 5 }]}>
+        <Text style={fieldLabel}>Enfoque terapéutico</Text>
+        <MultiSelectDropdown options={PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS} values={filters.approaches}
+          onApply={approaches => setFilters(current => ({ ...current, approaches }))} placeholder="Enfoque" presentation="modal" menuWidth={filterMenuWidth} maxOptionsHeight={230} />
+      </View>
+      <View style={[styles.filterField, { zIndex: 4 }]}>
+        <Text style={fieldLabel}>Tipo de profesional</Text>
+        <SimpleDropdown options={selectedProfessionalType} value={filters.professionalType} onSelect={professionalType => setFilters(current => ({ ...current, professionalType }))}
+          placeholder="Perfil" accessibilityLabel="Perfil" compact presentation="portal" keyboardNavigation selectionIndicator="checkbox" optionsMinWidth={260}
+          onClear={() => setFilters(current => ({ ...current, professionalType: null }))} />
+      </View>
+      <View style={[styles.filterField, { zIndex: 3 }]}>
+        <Text style={fieldLabel}>Valoraciones</Text>
+        <SimpleDropdown options={RATING_OPTIONS} value={filters.minRating} onSelect={minRating => setFilters(current => ({ ...current, minRating }))}
+          placeholder="Valoración" accessibilityLabel="Valoración" compact presentation="portal" keyboardNavigation selectionIndicator="checkbox"
+          onClear={() => setFilters(current => ({ ...current, minRating: null }))} />
+      </View>
+      {profileOptions?.religionEnabled ? <>
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: moreFiltersOpen }}
+          onPress={() => setMoreFiltersOpen(open => !open)} style={styles.additionalFilters}>
+          <Text style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold, fontSize: 13 }}>Más filtros{filters.religion ? ' · 1' : ''}</Text>
+          <Ionicons name={moreFiltersOpen ? 'chevron-up' : 'chevron-down'} size={15} color={theme.primary} />
+        </Pressable>
+        {moreFiltersOpen ? <SearchableProfileSelect label="Perspectiva espiritual o religiosa"
+          options={profileOptions.religions.map(option => ({ ...option, label: option.value === 'christian' ? 'Cristiana, incluidas católica y evangélica' : option.label }))}
+          values={filters.religion ? [filters.religion] : []} onChange={values => setFilters(current => ({ ...current, religion: values[0] }))} emptyLabel="Cualquiera" /> : null}
+      </> : null}
+      {optionsError ? <Pressable accessibilityRole="button" onPress={retryOptions} style={styles.clearButton}>
+        <Text style={[styles.hint, textStyle]}>No se pudieron cargar las opciones. Reintentar</Text>
+      </Pressable> : null}
+    </View>
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bg} />
-      <LandingHeader
-        context="directory"
-        isScrolled={headerScrolled}
-        accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
-        onLogoPress={navigateToLandingHome}
-        onExploreProfessionals={() => navigateToLandingSection('forSpecialists')}
-        onAccess={handleAccess}
-        onScrollToSection={navigateToLandingSection}
-      />
-
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, isDesktop && styles.scrollContentDesktop]}
-        showsVerticalScrollIndicator
-        onScroll={handleScroll}
-        scrollEventThrottle={24}
-      >
-        <View style={[styles.hero, isDesktop && styles.heroDesktop]}>
-          <View style={[styles.heroEyebrow, { backgroundColor: theme.primaryAlpha12, borderColor: theme.primaryAlpha20 }]}>
-            <Ionicons name="compass-outline" size={14} color={theme.primary} />
-            <Text style={[styles.heroEyebrowText, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>DIRECTORIO PÚBLICO</Text>
-          </View>
-          <Text style={[styles.title, isDesktop && styles.titleDesktop, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Encuentra un especialista a tu ritmo</Text>
-          <Text style={[styles.subtitle, isDesktop && styles.subtitleDesktop, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Explora perfiles verificados, compara modalidades y conoce cómo trabaja cada profesional antes de reservar.</Text>
-        </View>
-
-        <View style={[styles.filtersPanel, { backgroundColor: theme.bgCard, borderColor: theme.border, shadowColor: theme.shadowCard }]}>
-          <View style={[styles.searchRow, isMobile && styles.searchRowMobile]}>
-            <View style={[styles.searchField, isMobile && styles.searchFieldMobile]}>
-              <Input
-                value={queryInput}
-                onChangeText={setQueryInput}
-                onSubmitEditing={submitSearch}
-                placeholder="Nombre, profesión o especialidad"
-                returnKeyType="search"
-                leftIcon={<Ionicons name="search-outline" size={19} color={theme.textMuted} />}
-                containerStyle={styles.inputContainer}
-              />
-            </View>
-            <Button variant="primary" size="medium" onPress={submitSearch} icon={<Ionicons name="search" size={16} color={theme.actionPrimaryText} />}>
-              Buscar
-            </Button>
-          </View>
-
-          {isMobile ? <View style={styles.mobileFiltersToolbar}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ expanded: mobileFiltersOpen }}
-              accessibilityLabel={`Filtros${activeFilterCount ? `, ${activeFilterCount} activos` : ''}`}
-              onPress={() => setMobileFiltersOpen(open => !open)}
-              style={styles.mobileFiltersToggle}
-            >
-              <Ionicons name="options-outline" size={18} color={theme.primary} />
-              <Text style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold }}>Filtros{activeFilterCount ? ` · ${activeFilterCount}` : ''}</Text>
-              <Ionicons name={mobileFiltersOpen ? 'chevron-up' : 'chevron-down'} size={16} color={theme.primary} />
-            </Pressable>
-            {hasActiveFilters ? <Button variant="ghost" size="small" onPress={clearFilters}>Limpiar</Button> : null}
-          </View> : null}
-
-          {!isMobile || mobileFiltersOpen ? <>
-          <ProfileDiscoveryFilters language={filters.language} religion={filters.religion} onChange={values => setFilters(current => ({ ...current, language: values.language, religion: values.religion }))} />
-          <View style={styles.filtersRow}>
-            <View style={styles.secondaryFilter}>
-              <MultiSelectDropdown
-                options={PROFESSIONAL_SPECIALTY_OPTIONS}
-                values={filters.specialties}
-                onApply={(specialties) => setFilters((currentFilters) => ({ ...currentFilters, specialties }))}
-                placeholder="Tema"
-                maxOptionsHeight={280}
-                menuWidth={520}
-              />
-            </View>
-            <View style={styles.secondaryFilter}>
-              <MultiSelectDropdown
-                options={PROFESSIONAL_THERAPEUTIC_APPROACH_OPTIONS}
-                values={filters.approaches}
-                onApply={(approaches) => setFilters((currentFilters) => ({ ...currentFilters, approaches }))}
-                placeholder="Enfoque"
-                maxOptionsHeight={260}
-                menuWidth={580}
-                optionsAlign={isMobile ? 'right' : 'left'}
-              />
-            </View>
-            <View style={styles.secondaryFilter}>
-              <SimpleDropdown
-                options={selectedProfessionalType}
-                value={filters.professionalType}
-                onSelect={(professionalType) => setFilters((currentFilters) => ({ ...currentFilters, professionalType }))}
-                placeholder="Perfil"
-                optionsMinWidth={260}
-                compact
-                selectionIndicator="checkbox"
-                onClear={() => setFilters((currentFilters) => ({ ...currentFilters, professionalType: null }))}
-              />
-            </View>
-            <View style={styles.secondaryFilter}>
-              <SimpleDropdown
-                options={MODALITY_OPTIONS}
-                value={filters.modality}
-                onSelect={(modality) => setFilters((currentFilters) => ({ ...currentFilters, modality }))}
-                placeholder="Modalidad"
-                optionsMinWidth={210}
-                compact
-                selectionIndicator="checkbox"
-                onClear={() => setFilters((currentFilters) => ({ ...currentFilters, modality: null }))}
-              />
-            </View>
-            <View style={styles.secondaryFilter}>
-              <SimpleDropdown
-                options={RATING_OPTIONS}
-                value={filters.minRating}
-                onSelect={(minRating) => setFilters((currentFilters) => ({ ...currentFilters, minRating }))}
-                placeholder="Valoración"
-                optionsMinWidth={180}
-                compact
-                selectionIndicator="checkbox"
-                onClear={() => setFilters((currentFilters) => ({ ...currentFilters, minRating: null }))}
-              />
-            </View>
-            <View style={styles.secondaryFilter}>
-              <SimpleDropdown
-                options={PRICE_OPTIONS}
-                value={filters.maxPrice}
-                onSelect={(maxPrice) => setFilters((currentFilters) => ({ ...currentFilters, maxPrice }))}
-                placeholder="Precio"
-                optionsMinWidth={170}
-                compact
-                selectionIndicator="checkbox"
-                onClear={() => setFilters((currentFilters) => ({ ...currentFilters, maxPrice: null }))}
-              />
-            </View>
-            <View style={[styles.secondaryFilter, styles.sortFilter]}>
-              <SimpleDropdown
-                options={SORT_OPTIONS}
-                value={filters.sort}
-                onSelect={(sort) => setFilters((currentFilters) => ({ ...currentFilters, sort }))}
-                placeholder="Ordenar"
-                maxHeight={260}
-                optionsMinWidth={240}
-                optionsAlign="right"
-                compact
-                selectionIndicator="radio"
-                highlightSelection={filters.sort !== 'RECENT'}
-              />
-            </View>
-            {hasActiveFilters && !isMobile ? (
-              <Button variant="ghost" size="small" onPress={clearFilters}>Limpiar</Button>
-            ) : null}
-          </View>
-          {isMobile ? <Button variant="outline" size="small" onPress={() => setMobileFiltersOpen(false)}>Ver especialistas</Button> : null}
-          </> : null}
-        </View>
-
-        <View style={styles.resultsHeader}>
-          <Text style={[styles.resultsTitle, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>Especialistas disponibles</Text>
-        </View>
-
-        {error && items.length > 0 ? (
-          <View style={[styles.notice, { backgroundColor: theme.bgCard, borderColor: theme.border }]} accessibilityRole="alert">
-            <Text style={[styles.noticeText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>
-              {error} Puedes seguir consultando los últimos resultados disponibles.
-            </Text>
-            <Button variant="outline" size="small" onPress={() => void refreshDirectory()}>Reintentar</Button>
-          </View>
-        ) : null}
-        {loading ? (
-          <View style={styles.loadingState}>
-            <LoadingState size="small" message="Cargando perfiles verificados…" />
-          </View>
-        ) : error && items.length === 0 ? (
-          <View style={[styles.notice, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>
-            <Ionicons name="cloud-offline-outline" size={28} color={theme.textMuted} />
-            <Text style={[styles.noticeTitle, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>No hemos podido cargar el directorio</Text>
-            <Text style={[styles.noticeText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>{error}</Text>
-            <Button variant="outline" size="small" onPress={() => void loadDirectory(1, false)}>Reintentar</Button>
-          </View>
-        ) : items.length === 0 ? (
-          <View style={[styles.notice, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>
-            <Ionicons name="people-outline" size={28} color={theme.textMuted} />
-            <Text style={[styles.noticeTitle, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>No hemos encontrado perfiles con estos criterios</Text>
-            <Text style={[styles.noticeText, { color: theme.textSecondary, fontFamily: theme.fontSans }]}>Prueba a modificar la búsqueda o a eliminar alguno de los filtros.</Text>
-            <Button variant="outline" size="small" onPress={clearFilters}>Limpiar filtros</Button>
-          </View>
-        ) : (
-          <>
-            <View style={styles.resultsList}>
-              {items.map((specialist) => (
-                <PublicSpecialistCard
-                  key={specialist.id}
-                  specialist={specialist}
-                  variant="directory"
-                  directoryHorizontal={useHorizontalCards}
-                  style={styles.resultCard}
-                  href={directoryEntryHref(specialist.publicSlug ?? specialist.id, specialist.matchedOptionId ?? undefined)}
-                  onPress={async () => { try { const intent = await directoryIntent(specialist.id); navigation.navigate('PublicSpecialistProfile', { profileRef: specialist.publicSlug ?? specialist.id, intentToken: intent.token, optionId: specialist.matchedOptionId ?? undefined }); } catch { setError('No se pudo abrir el perfil desde el Directorio. Inténtalo de nuevo.'); } }}
-                />
-              ))}
-            </View>
-            {hasMore ? (
-              <View style={styles.loadMoreWrap}>
-                <Button variant="outline" size="medium" loading={loadingMore || refreshing} onPress={() => void loadDirectory(page + 1, true)}>
-                  Cargar más especialistas
-                </Button>
+    <View style={[styles.container, { backgroundColor: theme.bgMuted }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bgMuted} />
+      <LandingHeader context="directory" isScrolled={headerScrolled} accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
+        onLogoPress={navigateToLandingHome} onExploreProfessionals={() => navigateToLandingSection('forSpecialists')}
+        onAccess={handleAccess} onScrollToSection={navigateToLandingSection} />
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator onScroll={handleScroll} scrollEventThrottle={24} keyboardShouldPersistTaps="handled">
+        <View style={[styles.heroBand, isMobile && styles.heroBandMobile, isDesktop && styles.desktopPadding, isDesktop && styles.heroBandDesktop]}>
+          <View style={[styles.hero, isMobile && styles.heroMobile, isDesktop && styles.heroDesktop]}>
+            <View style={styles.heroCopy}>
+              <View style={styles.eyebrowRow}>
+                <Text style={[styles.eyebrow, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>DIRECTORIO DE ESPECIALISTAS</Text>
+                <View style={[styles.eyebrowRule, { backgroundColor: theme.secondary }]} />
               </View>
-            ) : null}
-          </>
-        )}
+              <Text accessibilityRole="header" aria-level={1} style={[styles.title, isMobile && styles.titleMobile, isDesktop && styles.titleDesktop, { color: theme.textPrimary, fontFamily: theme.fontDisplay }]}>Encuentra un especialista a tu ritmo</Text>
+              <Text style={[styles.subtitle, isMobile && styles.subtitleMobile, textStyle]}>Compara perfiles verificados y encuentra el apoyo que necesitas.</Text>
+            </View>
+            <View style={[styles.searchArea, isDesktop && styles.searchAreaDesktop]}>
+              <View style={styles.searchRow}>
+                <Input value={queryInput} onChangeText={setQueryInput} onSubmitEditing={submitSearch}
+                  placeholder={isMobile ? 'Nombre o especialidad' : 'Nombre, profesión o especialidad'} accessibilityLabel="Nombre, profesión o especialidad" returnKeyType="search"
+                  style={isMobile ? styles.mobileSearchInput : undefined}
+                  leftIcon={!isMobile ? <Ionicons name="search-outline" size={19} color={theme.primary} /> : undefined}
+                  rightIcon={isMobile ? <Pressable accessibilityRole="button" accessibilityLabel="Buscar" onPress={submitSearch}
+                    style={[styles.mobileSearchButton, { backgroundColor: theme.actionPrimary }]}>
+                    <Ionicons name="search-outline" size={20} color={theme.actionPrimaryText} />
+                  </Pressable> : undefined}
+                  containerStyle={styles.searchField} />
+                {!isMobile ? <Button variant="primary" size="medium" onPress={submitSearch}>Buscar</Button> : null}
+              </View>
+              {isDesktop ? <View style={styles.searchTools}>
+                <View style={styles.searchHint}>
+                  <Ionicons name="shield-checkmark-outline" size={16} color={theme.primary} />
+                  <Text accessibilityLiveRegion="polite" style={[styles.hint, styles.hintText, textStyle]}>
+                    {loading && data ? 'Actualizando…' : 'Profesionales verificados'}
+                  </Text>
+                </View>
+                <View style={styles.desktopSort}>
+                  <Text style={[styles.hint, textStyle]}>Ordenar por</Text>
+                  {sortControl}
+                </View>
+              </View> : null}
+            </View>
+          </View>
+        </View>
+
+        <View onLayout={event => { resultsTop.current = event.nativeEvent.layout.y; }} style={[styles.bodyWrap, isMobile && styles.bodyWrapMobile, isDesktop && styles.desktopPadding]}>
+          <View style={[styles.body, isDesktop && styles.bodyDesktop]}>
+            {isDesktop ? <View style={styles.sidebar}>{filterPanel}</View> : null}
+            <View style={styles.results}>
+              {!isDesktop ? <View style={[styles.resultsHeader, isMobile && styles.resultsHeaderMobile]}>
+                {loading && data ? <Text accessibilityLiveRegion="polite" style={[styles.updateStatus, styles.hint, textStyle]}>Actualizando…</Text> : null}
+                <View style={styles.toolbarActions}>
+                  <Pressable accessibilityRole="button" accessibilityState={{ expanded: mobileFiltersOpen }}
+                    accessibilityLabel={`Filtros${activeFilterCount ? `, ${activeFilterCount} activos` : ''}`} onPress={() => setMobileFiltersOpen(open => !open)}
+                    style={[styles.filtersToggle, { borderColor: activeFilterCount ? theme.primary : theme.border, backgroundColor: activeFilterCount ? theme.secondaryMuted : theme.bgCard }]}>
+                    <Ionicons name="options-outline" size={17} color={theme.primary} />
+                    <Text style={[styles.hint, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>Filtros{activeFilterCount ? ` · ${activeFilterCount}` : ''}</Text>
+                  </Pressable>
+                  {sortControl}
+                </View>
+              </View> : null}
+              {!isDesktop ? activeFilterSummary : null}
+              {profileError ? <Text accessibilityRole="alert" style={[styles.inlineError, { color: theme.textPrimary, fontFamily: theme.fontSans }]}>{profileError}</Text> : null}
+              {error && data ? <View accessibilityRole="alert" style={[styles.errorBanner, { backgroundColor: theme.bgCard, borderColor: theme.border }]}>
+                <Text style={[styles.errorText, textStyle]}>{error} Puedes seguir consultando los últimos resultados disponibles.</Text>
+                <Button variant="outline" size="small" onPress={() => void retry()}>Reintentar</Button>
+              </View> : null}
+              <View onLayout={event => setGridWidth(event.nativeEvent.layout.width)} style={styles.gridContainer}>
+                {loading && !data ? (
+                  <View style={styles.loadingState}><LoadingState size="small" message="Cargando perfiles verificados…" /></View>
+                ) : error && !data ? (
+                  <View style={styles.notice}>
+                    <Ionicons name="cloud-offline-outline" size={30} color={theme.primary} />
+                    <Text style={[styles.noticeTitle, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>No hemos podido cargar el directorio</Text>
+                    <Text style={[styles.noticeText, textStyle]}>{error}</Text>
+                    <Button variant="outline" size="small" onPress={() => void retry()}>Reintentar</Button>
+                  </View>
+                ) : items.length === 0 ? (
+                  <View style={styles.notice}>
+                    <Ionicons name="people-outline" size={30} color={theme.primary} />
+                    <Text style={[styles.noticeTitle, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>No hemos encontrado perfiles con estos criterios</Text>
+                    <Text style={[styles.noticeText, textStyle]}>Prueba a modificar la búsqueda o a eliminar alguno de los filtros.</Text>
+                    <Button variant="outline" size="small" onPress={clearFilters}>Limpiar filtros</Button>
+                  </View>
+                ) : (
+                  <View style={styles.grid} testID="directory-grid">
+                    {rows.map(row => <View key={row[0].id} style={styles.gridRow} testID="directory-row">
+                      {row.map(specialist => <View key={specialist.id} style={styles.gridCell}>
+                        <PublicSpecialistCard specialist={specialist} variant="directory"
+                          compactDirectory={compactCards}
+                          mobileDirectory={isMobile}
+                          style={styles.gridCell}
+                          href={directoryEntryHref(specialist.publicSlug ?? specialist.id, specialist.matchedOptionId ?? undefined)}
+                          onPress={async () => {
+                            setProfileError(null);
+                            try {
+                              const intent = await directoryIntent(specialist.id);
+                              navigation.navigate('PublicSpecialistProfile', { profileRef: specialist.publicSlug ?? specialist.id, intentToken: intent.token, optionId: specialist.matchedOptionId ?? undefined });
+                            } catch { setProfileError('No se pudo abrir el perfil desde el Directorio. Inténtalo de nuevo.'); }
+                          }} />
+                      </View>)}
+                      {row.length < gridColumns ? <View style={styles.gridCell} testID="directory-empty-cell" /> : null}
+                    </View>)}
+                  </View>
+                )}
+              </View>
+              {data ? <DirectoryPagination page={page} totalPages={totalPages} compact={isMobile} busy={loading} onChange={next => void loadPage(next)} /> : null}
+            </View>
+          </View>
+        </View>
       </ScrollView>
+      {!isDesktop ? <DirectoryFiltersSheet visible={mobileFiltersOpen} onClose={() => setMobileFiltersOpen(false)}
+        onClear={clearFilters} hasFilters={hasActiveFilters}>
+        {filterPanel}
+      </DirectoryFiltersSheet> : null}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 96,
-    paddingBottom: 72,
-  },
-  scrollContentDesktop: {
-    paddingHorizontal: 32,
-    paddingTop: 94,
-  },
-  hero: {
-    alignItems: 'center',
-    alignSelf: 'center',
-    width: '100%',
-    maxWidth: 760,
-    marginBottom: 18,
-  },
-  heroDesktop: {
-    alignItems: 'flex-start',
-    maxWidth: 1020,
-  },
-  heroEyebrow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    marginBottom: 8,
-  },
-  heroEyebrowText: {
-    fontSize: 11,
-    letterSpacing: 0.2,
-  },
-  title: {
-    fontSize: 32,
-    lineHeight: 38,
-    textAlign: 'center',
-  },
-  titleDesktop: {
-    fontSize: 36,
-    lineHeight: 42,
-    textAlign: 'left',
-  },
-  subtitle: {
-    fontSize: 14,
-    lineHeight: 21,
-    textAlign: 'center',
-    marginTop: 5,
-  },
-  subtitleDesktop: {
-    maxWidth: 860,
-    textAlign: 'left',
-  },
-  filtersPanel: {
-    width: '100%',
-    maxWidth: 1020,
-    alignSelf: 'center',
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 10,
-    gap: 8,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    elevation: 2,
-    position: 'relative',
-    zIndex: 100,
-    overflow: 'visible',
-  },
-  searchField: {
-    flex: 1,
-    minWidth: 240,
-  },
-  searchFieldMobile: {
-    minWidth: 0,
-  },
-  searchRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  searchRowMobile: {
-    alignItems: 'center',
-  },
-  mobileFiltersToolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  mobileFiltersToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    minHeight: 44,
-    paddingHorizontal: 4,
-  },
-  inputContainer: {
-    marginBottom: 0,
-  },
-  filtersRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  secondaryFilter: {
-    flexGrow: 1,
-    flexBasis: 126,
-    minWidth: 118,
-  },
-  sortFilter: {
-    flexBasis: 158,
-  },
-  resultsHeader: {
-    width: '100%',
-    maxWidth: 1020,
-    alignSelf: 'center',
-    marginTop: 22,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  resultsTitle: {
-    fontSize: 20,
-  },
-  loadingState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    minHeight: 300,
-  },
-  resultsList: {
-    width: '100%',
-    maxWidth: 1020,
-    alignSelf: 'center',
-    gap: 14,
-  },
-  resultCard: {
-    width: '100%',
-  },
-  notice: {
-    width: '100%',
-    maxWidth: 680,
-    minHeight: 240,
-    alignSelf: 'center',
-    borderWidth: 1,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    padding: 28,
-  },
-  noticeTitle: {
-    fontSize: 18,
-    textAlign: 'center',
-  },
-  noticeText: {
-    fontSize: 14,
-    lineHeight: 21,
-    textAlign: 'center',
-  },
-  loadMoreWrap: {
-    alignSelf: 'center',
-    marginTop: 32,
-  },
+  container: { flex: 1 },
+  scrollContent: { paddingTop: 78, paddingBottom: 56 },
+  desktopPadding: { paddingHorizontal: 32 },
+  heroBand: { paddingHorizontal: 20, paddingVertical: 20 },
+  heroBandMobile: { paddingVertical: 16 },
+  heroBandDesktop: { paddingVertical: 14 },
+  hero: { width: '100%', maxWidth: 1680, alignSelf: 'center', gap: 20 },
+  heroMobile: { gap: 16 },
+  heroDesktop: { flexDirection: 'row', alignItems: 'center', gap: 48 },
+  heroCopy: { flex: 1, minWidth: 0 },
+  eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 8 },
+  eyebrow: { fontSize: 10, lineHeight: 16, letterSpacing: 1.3 },
+  eyebrowRule: { width: 56, height: 1, flexShrink: 1 },
+  title: { fontSize: 30, lineHeight: 36, maxWidth: 660, letterSpacing: -0.6 },
+  titleMobile: { fontSize: 26, lineHeight: 32 },
+  titleDesktop: { fontSize: 38, lineHeight: 43 },
+  subtitle: { fontSize: 14, lineHeight: 21, marginTop: 8, maxWidth: 580 },
+  subtitleMobile: { fontSize: 13, lineHeight: 19 },
+  searchArea: { minWidth: 0, gap: 12 },
+  searchAreaDesktop: { flex: 0.85 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  searchField: { flex: 1, minWidth: 0, marginBottom: 0 },
+  mobileSearchInput: { minWidth: 0, fontSize: 16 },
+  mobileSearchButton: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  searchTools: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  searchHint: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  hintText: { flexShrink: 1 },
+  desktopSort: { width: 280, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  hint: { fontSize: 12, lineHeight: 18 },
+  bodyWrap: { paddingHorizontal: 20, paddingTop: 20 },
+  bodyWrapMobile: { paddingTop: 8 },
+  body: { width: '100%', maxWidth: 1680, alignSelf: 'center', gap: 24 },
+  bodyDesktop: { flexDirection: 'row', alignItems: 'flex-start' },
+  sidebar: { width: 260, flexShrink: 0, zIndex: 20 },
+  filtersPanel: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 17 },
+  sheetFields: { borderWidth: 0, borderRadius: 0, padding: 20, gap: 20 },
+  filtersHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, paddingBottom: 10 },
+  filtersTitle: { fontSize: 24, lineHeight: 30 },
+  filterField: { gap: 7 },
+  additionalFilters: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  results: { flex: 1, minWidth: 0, width: '100%', zIndex: 1 },
+  resultsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 12, marginBottom: 14, zIndex: 30 },
+  resultsHeaderMobile: { flexDirection: 'column', alignItems: 'stretch', gap: 10 },
+  updateStatus: { flex: 1, minWidth: 0 },
+  toolbarActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  sort: { flex: 1, minWidth: 170, maxWidth: 220 },
+  sortMobile: { minWidth: 0, maxWidth: '100%' },
+  filtersToggle: { flexDirection: 'row', gap: 7, alignItems: 'center', minHeight: 44, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12 },
+  activeFilters: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 16 },
+  sidebarActiveFilters: { marginBottom: 0 },
+  activeChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, minHeight: 44, borderRadius: 8, maxWidth: '100%' },
+  activeChipText: { fontSize: 12, flexShrink: 1 },
+  clearButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
+  gridContainer: { width: '100%' },
+  grid: { gap: 20 },
+  // Let flex distribute the real width; onLayout can round fractional web widths up.
+  gridRow: { flexDirection: 'row', gap: 20, alignItems: 'stretch' },
+  gridCell: { flex: 1, minWidth: 0 },
+  loadingState: { minHeight: 320, alignItems: 'center', justifyContent: 'center' },
+  notice: { minHeight: 320, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
+  noticeTitle: { fontSize: 20, lineHeight: 27, textAlign: 'center' },
+  noticeText: { fontSize: 14, lineHeight: 22, textAlign: 'center', maxWidth: 460 },
+  errorBanner: { borderWidth: 1, borderRadius: 12, padding: 16, gap: 12, marginBottom: 16 },
+  errorText: { fontSize: 14, lineHeight: 21 },
+  inlineError: { fontSize: 14, marginBottom: 16 },
 });
 
 export default PublicSpecialistsScreen;

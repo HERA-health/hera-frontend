@@ -164,6 +164,8 @@ export interface PublicSpecialistCard {
 }
 
 export interface PublicSpecialistDirectoryCard extends PublicSpecialistCard {
+  officeCity: string | null;
+  descriptionExcerpt: string | null;
   customSpecialties?: string[]; therapeuticApproaches?: string[]; customTherapeuticApproaches?: string[];
   languages?: string[]; religionCode?: string | null; religionOtherText?: string | null;
   collegiateNumber: string | null;

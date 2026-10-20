@@ -1,6 +1,6 @@
 import {choiceKeyboardProps} from '../../utils/choiceKeyboard';
-import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ProfileOption, optionLabel, optionSearchKey } from '../../utils/profileOptions';
 
@@ -9,6 +9,11 @@ export function SearchableProfileSelect({ label, options, values, onChange, mult
   const { theme } = useTheme();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const triggerRef = useRef<React.ElementRef<typeof Pressable>>(null);
+  const close = useCallback(() => {
+    setOpen(false);
+    if (Platform.OS === 'web') setTimeout(() => triggerRef.current?.focus(), 0);
+  }, []);
   const matches = useMemo(() => options.filter(option => optionSearchKey([option.label, option.value, ...option.aliases].join(' ')).includes(optionSearchKey(query))), [options, query]);
   const text = { color: theme.textPrimary, fontFamily: theme.fontSans, fontSize: 15 };
   const row = { padding: 12, minHeight: 44, borderWidth: 1, borderColor: theme.border, borderRadius: 10 };
@@ -19,30 +24,30 @@ export function SearchableProfileSelect({ label, options, values, onChange, mult
         {renderIcon?.(value)}
         <Text style={[text, {flexShrink: 1}]}>{optionLabel(options, value)}{options.length > 0 && !options.some(option => option.value === value) ? ' (heredado)' : ''} ×</Text>
       </Pressable>)}</View> : null}
-    <Pressable disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled, expanded: open }} onPress={() => { setQuery(''); setOpen(true); }} style={[row, { alignSelf: compact ? 'flex-start' : 'stretch', opacity: disabled ? 0.5 : 1, flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+    <Pressable ref={triggerRef} disabled={disabled} accessibilityRole="button" accessibilityLabel={`${label}: ${values[0] ? optionLabel(options, values[0]) : emptyLabel}`} accessibilityState={{ disabled, expanded: open }} onPress={() => { setQuery(''); setOpen(true); }} style={[row, { alignSelf: compact ? 'flex-start' : 'stretch', opacity: disabled ? 0.5 : 1, flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
       {!multiple && values[0] ? renderIcon?.(values[0]) : null}
       <Text style={text}>{!multiple && values[0] ? optionLabel(options, values[0]) : emptyLabel} ▾</Text>
     </Pressable>
-    <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+    <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
         <View accessibilityViewIsModal style={{ width: '100%', maxWidth: 520, maxHeight: '85%', backgroundColor: theme.bgCard, borderRadius: 16, padding: 20, gap: 12 }}>
           <Text style={[text, { fontSize: 20, fontWeight: '600' }]}>{label}</Text>
           <TextInput autoFocus accessibilityLabel={`Buscar ${label.toLowerCase()}`} placeholder="Buscar…" placeholderTextColor={theme.textMuted} value={query} onChangeText={setQuery} style={[row, text]} />
-          {!multiple ? <Pressable accessibilityRole="button" style={row} onPress={() => { onChange([]); setOpen(false); }}><Text style={text}>{emptyLabel}</Text></Pressable> : null}
+          {!multiple ? <Pressable accessibilityRole="button" style={row} onPress={() => { onChange([]); close(); }}><Text style={text}>{emptyLabel}</Text></Pressable> : null}
           <ScrollView keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }}>
             {matches.map(option => {
               const selected = values.includes(option.value);
               const blocked = multiple && !selected && values.length >= max;
               const toggle = () => {
                 onChange(multiple ? selected ? values.filter(value => value !== option.value) : [...values, option.value] : [option.value]);
-                if (!multiple) setOpen(false);
+                if (!multiple) close();
               };
               return <Pressable {...choiceKeyboardProps(toggle, blocked)} key={option.value} accessibilityRole={multiple ? 'checkbox' : 'radio'} aria-checked={selected} aria-disabled={blocked} accessibilityState={{ checked: selected, disabled: blocked }} disabled={blocked} style={[row, { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6, borderColor: selected ? theme.primary : theme.border, opacity: blocked ? 0.5 : 1 }]} onPress={toggle}>{renderIcon?.(option.value)}<Text style={[text, { flex: 1 }]}>{option.label}</Text>{selected ? <Text style={[text, { color: theme.primary }]}>✓</Text> : null}</Pressable>;
             })}
             {!matches.length ? <Text style={text}>No hay opciones para esta búsqueda.</Text> : null}
           </ScrollView>
           {multiple ? <Text style={text}>{values.length} de {max} seleccionados</Text> : null}
-          <Pressable accessibilityRole="button" style={row} onPress={() => setOpen(false)}><Text style={text}>Listo</Text></Pressable>
+          <Pressable accessibilityRole="button" style={row} onPress={close}><Text style={text}>Listo</Text></Pressable>
         </View>
       </View>
     </Modal>

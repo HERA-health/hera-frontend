@@ -1,254 +1,70 @@
-import {PracticeTags} from '../common/PracticeTags';
-import {useProfileOptions} from '../../hooks/useProfileOptions';
-import {optionLabel} from '../../utils/profileOptions';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Image, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getGradientColors } from '../../constants/gradients';
 import { AnimatedPressable } from '../common/AnimatedPressable';
-import { translateSpecialty } from '../../constants/specialties';
-import type {
-  PublicSpecialistCard as PublicSpecialistCardData,
-  PublicSpecialistDirectoryCard,
-} from '../../services/specialistsService';
-
-type PublicSpecialistCardVariant = 'featured' | 'directory';
+import { DirectorySpecialistCard } from './DirectorySpecialistCard';
+import type { PublicSpecialistCard as PublicSpecialistCardData, PublicSpecialistDirectoryCard } from '../../services/specialistsService';
 
 interface PublicSpecialistCardProps {
   specialist: PublicSpecialistCardData | PublicSpecialistDirectoryCard;
   onPress: () => void;
-  variant: PublicSpecialistCardVariant;
-  directoryHorizontal?: boolean;
+  variant: 'featured' | 'directory';
   style?: StyleProp<ViewStyle>;
   href?: string;
+  compactDirectory?: boolean;
+  mobileDirectory?: boolean;
 }
 
-
-function DirectoryPractice({specialist}: {specialist: PublicSpecialistDirectoryCard}) {
-  const {options} = useProfileOptions();
-  return <View style={{gap: 7, marginTop: 12}}>
-    <PracticeTags compact maxItems={5} title="Especialidades" kind="specialties" values={[...specialist.specialties, ...(specialist.customSpecialties ?? [])]} />
-    <PracticeTags compact maxItems={3} title="Enfoques terapéuticos" kind="approaches" values={[...(specialist.therapeuticApproaches ?? []), ...(specialist.customTherapeuticApproaches ?? [])]} />
-    <PracticeTags compact maxItems={4} title="Idiomas" values={(specialist.languages ?? []).map(value => optionLabel(options?.languages ?? [], value))} />
-    {options?.religionEnabled && specialist.religionCode ? <PracticeTags compact title="Perspectiva" values={[specialist.religionCode === 'other' ? specialist.religionOtherText || 'Otra' : optionLabel(options.religions, specialist.religionCode)]} /> : null}
-  </View>;
+export function PublicSpecialistCard(props: PublicSpecialistCardProps) {
+  return props.variant === 'directory' ? <DirectorySpecialistCard {...props} /> : <FeaturedSpecialistCard {...props} />;
 }
 
-const formatPrice = (price: number): string =>
-  new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 }).format(price);
+const formatPrice = (price: number): string => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 }).format(price);
+const getInitials = (name: string): string => name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join('');
 
-const getInitials = (name: string): string =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('');
-
-const getModalityLabel = (specialist: PublicSpecialistCardData): string => {
-  if (specialist.offersPhone && !specialist.offersOnline && !specialist.offersInPerson) return 'Llamada';
-  if (specialist.offersOnline && specialist.offersInPerson) return 'Online y presencial';
-  if (specialist.offersInPerson) return 'Presencial';
-  return 'Online';
-};
-
-export const PublicSpecialistCard: React.FC<PublicSpecialistCardProps> = ({
-  specialist,
-  onPress,
-  variant,
-  directoryHorizontal = false,
-  style,
-  href,
-}) => {
+function FeaturedSpecialistCard({ specialist, onPress, href, style }: PublicSpecialistCardProps) {
   const { theme } = useTheme();
-
   const colors = useMemo(() => getGradientColors(specialist.gradientId), [specialist.gradientId]);
-  const isFeatured = variant === 'featured';
-  const isDirectoryHorizontal = !isFeatured && directoryHorizontal;
-  const [portraitSize, setPortraitSize] = useState<{uri: string; ratio: number} | null>(null);
-  useEffect(() => {
-    const uri = specialist.avatar;
-    if (isFeatured || !uri) return;
-    let active = true;
-    Image.getSize(uri, (width, height) => {
-      if (active && width > 0 && height > 0) setPortraitSize({uri, ratio: width / height});
-    }, () => {
-      if (active) setPortraitSize(null);
-    });
-    return () => { active = false; };
-  }, [specialist.avatar, isFeatured]);
-  const portraitRatio = portraitSize?.uri === specialist.avatar ? portraitSize.ratio : 1;
-  const portraitWidth = Math.min(isDirectoryHorizontal ? 192 : 272, (isDirectoryHorizontal ? 232 : 152) * portraitRatio);
-  const modality = getModalityLabel(specialist);
-  const directoryDetails = 'specialties' in specialist ? specialist : null;
-  const hasVisibleReviews = specialist.rating !== null
-    && specialist.reviewCount !== null
-    && specialist.reviewCount > 0;
-  const reviewSummary = specialist.reviewCount === null
-    ? 'Valoraciones no públicas'
-    : hasVisibleReviews
-      ? `${specialist.rating?.toFixed(1)} · ${specialist.reviewCount} ${specialist.reviewCount === 1 ? 'reseña' : 'reseñas'}`
-      : 'Aún sin reseñas';
-  const experience = specialist.yearsInPractice && specialist.yearsInPractice > 0
-    ? `${specialist.yearsInPractice} ${specialist.yearsInPractice === 1 ? 'año' : 'años'} de experiencia`
-    : null;
-
-  const portrait = specialist.avatar ? (
-    <Image
-      source={{ uri: specialist.avatar }}
-      style={styles.portrait}
-      resizeMode={isFeatured ? "cover" : "contain"}
-      accessibilityLabel={`Retrato de ${specialist.name}`}
-    />
-  ) : (
-    <LinearGradient colors={colors} style={[styles.portrait, styles.portraitFallback]}>
-      <Text style={[styles.initials, { fontFamily: theme.fontDisplay }]}>{getInitials(specialist.name)}</Text>
-    </LinearGradient>
-  );
-
+  const hasVisibleReviews = specialist.rating !== null && specialist.reviewCount !== null && specialist.reviewCount > 0;
+  const reviewSummary = specialist.reviewCount === null ? 'Valoraciones no públicas' : hasVisibleReviews
+    ? specialist.rating?.toFixed(1) + ' · ' + specialist.reviewCount + (specialist.reviewCount === 1 ? ' reseña' : ' reseñas') : 'Aún sin reseñas';
   return (
-    <AnimatedPressable
-      onPress={onPress}
-      href={href}
-      accessibilityRole={href ? 'link' : 'button'}
-      accessibilityLabel={`Abrir el perfil de ${specialist.name}`}
-      hoverLift
-      pressScale={0.98}
-      style={[
-        isFeatured ? styles.featuredCard : styles.directoryCard,
-        isDirectoryHorizontal && styles.directoryCardHorizontal,
-        !isFeatured && {
-          backgroundColor: theme.bgCard,
-          borderColor: theme.border,
-          shadowColor: theme.shadowCard,
-        },
-        style,
-      ]}
-    >
-      <View
-        style={[
-          isFeatured ? styles.featuredMedia : styles.directoryMedia,
-          isDirectoryHorizontal && styles.directoryMediaHorizontal,
-          !isFeatured && {width: portraitWidth, height: portraitWidth / portraitRatio, alignSelf: 'center'},
-        ]}
-      >
-        {portrait}
-        {isFeatured ? (
-          <LinearGradient
-            colors={['transparent', 'rgba(16, 27, 23, 0.78)']}
-            locations={[0.6, 1]}
-            style={StyleSheet.absoluteFill}
+    <AnimatedPressable onPress={onPress} href={href} accessibilityRole={href ? 'link' : 'button'}
+      accessibilityLabel={'Abrir el perfil de ' + specialist.name} hoverLift pressScale={0.98} style={[styles.featuredCard, style]}>
+      <View style={styles.featuredMedia}>
+        {specialist.avatar ? <Image source={{ uri: specialist.avatar }} style={styles.portrait} resizeMode="cover" accessibilityLabel={'Retrato de ' + specialist.name} /> : (
+          <LinearGradient colors={colors} style={[styles.portrait, styles.portraitFallback]}>
+            <Text style={[styles.initials, { fontFamily: theme.fontDisplay }]}>{getInitials(specialist.name)}</Text>
+          </LinearGradient>
+        )}
+        <LinearGradient colors={['transparent', 'rgba(16, 27, 23, 0.78)']} locations={[0.6, 1]} style={StyleSheet.absoluteFill} />
+      </View>
+      <View style={styles.featuredArrow}>
+        <Ionicons name="arrow-forward" size={15} color={theme.primaryDark} />
+      </View>
+      <View style={styles.featuredContent}>
+        <Text style={[styles.featuredName, { color: '#FFFFFF', fontFamily: theme.fontSansBold }]} numberOfLines={1}>
+          {specialist.name}
+        </Text>
+        <View style={styles.featuredReviewRow}>
+          <Ionicons
+            name={hasVisibleReviews ? 'star' : 'star-outline'}
+            size={12}
+            color={hasVisibleReviews ? theme.starRating : 'rgba(255, 255, 255, 0.82)'}
           />
-        ) : null}
+          <Text style={[styles.featuredReviewText, { color: 'rgba(255, 255, 255, 0.9)', fontFamily: theme.fontSansMedium }]} numberOfLines={1}>
+            {reviewSummary}
+          </Text>
+        </View>
+        <Text style={[styles.featuredPrice, { color: '#FFFFFF', fontFamily: theme.fontSansBold }]}>{formatPrice(specialist.pricePerSession)} €</Text>
       </View>
 
-      {isFeatured ? (
-        <>
-          <View style={styles.featuredArrow}>
-            <Ionicons name="arrow-forward" size={15} color={theme.primaryDark} />
-          </View>
-          <View style={styles.featuredContent}>
-            <Text style={[styles.featuredName, { color: '#FFFFFF', fontFamily: theme.fontSansBold }]} numberOfLines={1}>
-              {specialist.name}
-            </Text>
-            <View style={styles.featuredReviewRow}>
-              <Ionicons
-                name={hasVisibleReviews ? 'star' : 'star-outline'}
-                size={12}
-                color={hasVisibleReviews ? theme.starRating : 'rgba(255, 255, 255, 0.82)'}
-              />
-              <Text style={[styles.featuredReviewText, { color: 'rgba(255, 255, 255, 0.9)', fontFamily: theme.fontSansMedium }]} numberOfLines={1}>
-                {reviewSummary}
-              </Text>
-            </View>
-            <Text style={[styles.featuredPrice, { color: '#FFFFFF', fontFamily: theme.fontSansBold }]}>{formatPrice(specialist.pricePerSession)} €</Text>
-          </View>
-        </>
-      ) : (
-        <View style={[styles.directoryContent, isDirectoryHorizontal && styles.directoryContentHorizontal]}>
-          <View style={styles.directoryIdentityRow}>
-            <View style={styles.directoryIdentity}>
-              <View style={styles.directoryNameRow}>
-                <Text style={[styles.directoryName, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]} numberOfLines={1}>
-                  {specialist.name}
-                </Text>
-                <View style={[styles.directoryVerification, { backgroundColor: theme.successBg }]}>
-                  <Ionicons name="shield-checkmark" size={12} color={theme.success} />
-                  <Text style={[styles.directoryVerificationText, { color: theme.success, fontFamily: theme.fontSansSemiBold }]}>Verificado</Text>
-                </View>
-              </View>
-              <View style={styles.directoryCredentialRow}>
-                <Text style={[styles.directoryType, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]} numberOfLines={1}>
-                  {specialist.professionalTypeLabel}
-                </Text>
-                {directoryDetails?.collegiateNumber ? (
-                  <Text style={[styles.directoryCollegiate, { color: theme.textMuted, fontFamily: theme.fontSans }]} numberOfLines={1}>
-                    Col. Nº {directoryDetails.collegiateNumber}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-            {isDirectoryHorizontal ? (
-              <View style={[styles.directoryAction, { backgroundColor: theme.primaryAlpha12 }]}>
-                <Text style={[styles.directoryActionText, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>Ver perfil</Text>
-                <Ionicons name="arrow-forward" size={15} color={theme.primary} />
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.directoryFactsRow}>
-            {experience ? (
-              <View style={styles.directoryFact}>
-                <Ionicons name="briefcase-outline" size={14} color={theme.primary} />
-                <Text style={[styles.directoryFactText, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]}>{experience}</Text>
-              </View>
-            ) : null}
-            <View style={styles.directoryRatingGroup}>
-              <View style={styles.directoryStars}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Ionicons
-                    key={star}
-                    name={hasVisibleReviews && (directoryDetails?.rating ?? 0) >= star - 0.25 ? 'star' : 'star-outline'}
-                    size={13}
-                    color={hasVisibleReviews ? theme.starRating : theme.border}
-                  />
-                ))}
-              </View>
-              <Text style={[styles.directoryRatingText, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]}>
-                {reviewSummary}
-              </Text>
-            </View>
-          </View>
-
-          {directoryDetails ? <DirectoryPractice specialist={directoryDetails} /> : null}
-
-          <View style={[styles.directoryMetaRow, { borderTopColor: theme.borderLight }]}>
-            {!specialist.publicOptions?.length ? <View style={styles.directoryMetaItem}>
-              <Ionicons name="videocam-outline" size={14} color={theme.primary} />
-              <Text style={[styles.directoryMetaText, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]} numberOfLines={1}>{modality}</Text>
-            </View> : null}
-            {!!specialist.publicOptions?.length && <View style={styles.directoryOffers}>{(['VIDEO_CALL','IN_PERSON','PHONE_CALL'] as const).map(type => {
-              const options = specialist.publicOptions?.filter(o => o.modality === type) ?? [];
-              if (!options.length) return null;
-              const option = options.find(o => o.optionId === specialist.matchedOptionId) ?? options[0];
-              return <View key={type} style={styles.directoryOfferRow}>
-                <Ionicons name={type === 'VIDEO_CALL' ? 'videocam-outline' : type === 'IN_PERSON' ? 'location-outline' : 'call-outline'} size={16} color={theme.primary} />
-                <Text style={[styles.directoryOfferText, { color: theme.textSecondary, fontFamily: theme.fontSansMedium }]}>{option.serviceName ?? 'General'} · {type === 'VIDEO_CALL' ? 'Videollamada' : type === 'IN_PERSON' ? 'Presencial' : 'Llamada'} · {formatPrice(option.priceCents / 100)} € / {option.durationMinutes} min{options.length > 1 ? ' · más opciones' : ''}</Text>
-              </View>;
-            })}</View>}
-            <Text style={[styles.directoryPrice, { color: theme.textPrimary, fontFamily: theme.fontSansBold }]}>{new Set(specialist.publicOptions?.map(o => o.priceCents)).size > 1 ? 'Desde ' : ''}{specialist.pricePerSession === 0 ? 'Sin coste' : formatPrice(specialist.pricePerSession) + ' € / sesión'}</Text>
-            {!isDirectoryHorizontal ? <View style={[styles.directoryAction, {backgroundColor: theme.primaryAlpha12}]}>
-              <Text style={[styles.directoryActionText, {color: theme.primary, fontFamily: theme.fontSansSemiBold}]}>Ver perfil</Text>
-              <Ionicons name="arrow-forward" size={15} color={theme.primary} />
-            </View> : null}
-          </View>
-        </View>
-      )}
     </AnimatedPressable>
   );
-};
+}
 
 const styles = StyleSheet.create({
   featuredCard: {
@@ -307,174 +123,5 @@ const styles = StyleSheet.create({
   featuredPrice: {
     fontSize: 11,
     marginTop: 5,
-  },
-  directoryCard: {
-    width: '100%',
-    minWidth: 0,
-    borderWidth: 1,
-    borderRadius: 18,
-    overflow: 'hidden',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 18,
-    elevation: 3,
-  },
-  directoryCardHorizontal: {
-    flexDirection: 'row',
-    minHeight: 216,
-  },
-  directoryMedia: {
-    height: 152, overflow: 'hidden', borderRadius: 12, margin: 14, marginBottom: 0,
-  },
-  directoryMediaHorizontal: {
-    width: 192, height: 232, alignSelf: 'center', margin: 14, marginRight: 0, flexShrink: 0,
-  },
-  directoryContent: {
-    padding: 18,
-  },
-  directoryContentHorizontal: {
-    flex: 1,
-    minWidth: 0,
-    paddingHorizontal: 22,
-    paddingVertical: 17,
-  },
-  directoryIdentityRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  directoryIdentity: {
-    flex: 1,
-    minWidth: 0,
-  },
-  directoryNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  directoryCredentialRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginTop: 3,
-  },
-  directoryVerification: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  directoryVerificationText: {
-    fontSize: 10,
-  },
-  directoryAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  directoryActionText: {
-    fontSize: 11,
-  },
-  directoryName: {
-    maxWidth: '100%',
-    flexShrink: 1,
-    fontSize: 19,
-    lineHeight: 24,
-  },
-  directoryType: {
-    fontSize: 13,
-  },
-  directoryCollegiate: {
-    fontSize: 12,
-  },
-  directoryFactsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 16,
-    marginTop: 13,
-  },
-  directoryFact: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  directoryFactText: {
-    fontSize: 12,
-  },
-  directoryRatingGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  directoryStars: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 1,
-  },
-  directoryRatingText: {
-    fontSize: 12,
-  },
-  directoryTreatments: {
-    marginTop: 13,
-  },
-  directoryTreatmentsLabel: {
-    fontSize: 10,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-    marginBottom: 7,
-  },
-  directoryTreatmentChips: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  directoryTreatmentChip: {
-    maxWidth: 170,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  directoryTreatmentText: {
-    fontSize: 11,
-  },
-  directoryMetaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-  },
-  directoryOffers: { flexGrow: 1, flexShrink: 1, flexBasis: 240, minWidth: 0, gap: 8 },
-  directoryOfferRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  directoryOfferText: { flex: 1, minWidth: 0, fontSize: 13, lineHeight: 20 },
-  directoryMetaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 5,
-  },
-  directoryMetaText: {
-    flex: 1,
-    fontSize: 11,
-  },
-  directoryPrice: {
-    fontSize: 17,
-    lineHeight: 24,
-    flexShrink: 0,
-    maxWidth: '100%',
   },
 });

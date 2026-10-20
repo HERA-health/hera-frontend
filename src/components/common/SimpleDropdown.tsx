@@ -108,16 +108,17 @@ export function SimpleDropdown<T extends string | number>({
   }, [measureTrigger, open, presentation, viewportHeight, viewportWidth]);
 
   React.useEffect(() => {
-    if (Platform.OS !== 'web' || !open || typeof document === 'undefined') return undefined;
-    const handleKeyDown = (event: KeyboardEvent): void => {
+    if (Platform.OS !== 'web' || !open || presentation === 'portal' || typeof document === 'undefined') return undefined;
+    const handleKeyUp = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
         event.preventDefault();
+        event.stopPropagation();
         closeDropdown();
       }
     };
-    document.addEventListener('keydown', handleKeyDown, true);
-    return () => document.removeEventListener('keydown', handleKeyDown, true);
-  }, [closeDropdown, open]);
+    document.addEventListener('keyup', handleKeyUp, true);
+    return () => document.removeEventListener('keyup', handleKeyUp, true);
+  }, [closeDropdown, open, presentation]);
 
   const portalLayout = React.useMemo(() => {
     if (presentation !== 'portal' || !anchor) return null;

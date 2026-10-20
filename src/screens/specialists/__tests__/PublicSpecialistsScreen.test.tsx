@@ -4,7 +4,7 @@ import React from 'react';
 import { useDiscoveryRevalidation } from '../../../hooks/useDiscoveryRevalidation';
 import * as ReactNative from 'react-native';
 jest.mock('../../../config/api', () => ({ __esModule: true, default: () => ({ apiUrl: 'https://fixture.invalid/api' }) }));
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { lightTheme } from '../../../constants/theme';
@@ -12,6 +12,22 @@ import { PublicSpecialistsScreen } from '../PublicSpecialistsScreen';
 import * as specialistsService from '../../../services/specialistsService';
 
 jest.mock('../../../services/heraCommissionService', () => ({ directoryIntent: jest.fn().mockResolvedValue({ token: 'verified-directory-intent' }) }));
+
+// Reanimated's native Jest host does not measure. Keep the real press/link behavior.
+jest.mock('../../../components/common/AnimatedPressable', () => {
+  const ReactModule = jest.requireActual<typeof React>('react');
+  const actual = jest.requireActual<typeof import('../../../components/common/AnimatedPressable')>('../../../components/common/AnimatedPressable');
+  return {
+    ...actual,
+    AnimatedPressable: ({ focusRef, ...props }: Omit<React.ComponentProps<typeof actual.AnimatedPressable>, 'focusRef'> & { focusRef?: React.Ref<unknown> }) => {
+      ReactModule.useImperativeHandle(focusRef, () => ({
+        measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => callback(32, 220, 224, 44),
+        focus: jest.fn(),
+      }));
+      return <actual.AnimatedPressable {...props} />;
+    },
+  };
+});
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: jest.fn(),
@@ -96,6 +112,8 @@ const specialist = {
   rating: 4.8,
   reviewCount: 17,
   specialties: ['anxiety', 'self-esteem', 'depression', 'trauma', 'sleep'],
+  officeCity: null,
+  descriptionExcerpt: 'Te acompaño a comprender lo que sientes.',
 };
 
 const createDeferred = <T,>() => {
@@ -120,8 +138,7 @@ describe('PublicSpecialistsScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // jest-expo's native image loader mock still uses the pre-0.86 callback API.
-    jest.spyOn(ReactNative.Image, 'getSize').mockImplementation((_uri, success) => { success?.(320, 240); });
+    act(() => ReactNative.Dimensions.set({ window: { width: 1536, height: 864, scale: 1, fontScale: 1 } }));
     mockedUseTheme.mockReturnValue({
       theme: lightTheme,
       mode: 'light',
@@ -149,16 +166,15 @@ describe('PublicSpecialistsScreen', () => {
     render(<PublicSpecialistsScreen />);
 
     await waitFor(() => expect(screen.getByText('Dra. Elena Martín')).toBeTruthy());
-    expect(screen.getByLabelText('Retrato de Dra. Elena Martín').props.resizeMode).toBe('contain');
-    expect(screen.getByText('Col. Nº M-12345')).toBeTruthy();
-    expect(screen.getByText('4.8 · 17 reseñas')).toBeTruthy();
+    expect(screen.getByLabelText('Retrato de Dra. Elena Martín').props.resizeMode).toBe('cover');
+    expect(screen.getByText('Col. M-12345')).toBeTruthy();
+    expect(screen.getByText('4,8 · 17 reseñas')).toBeTruthy();
     expect(screen.getByText('Ansiedad')).toBeTruthy();
     expect(screen.getByText('Autoestima y desarrollo personal')).toBeTruthy();
     expect(screen.getByText('Depresión y estado de ánimo')).toBeTruthy();
-    expect(screen.getByText('Trauma y estrés postraumático')).toBeTruthy();
-    expect(screen.getByText('Trastornos del sueño')).toBeTruthy();
-    expect(screen.queryByText('+1')).toBeNull();
-    expect(screen.queryByText('1 perfil')).toBeNull();
+    expect(screen.getByText('+2')).toBeTruthy();
+    expect(screen.queryByText('1–1 de 1 especialista')).toBeNull();
+    expect(screen.getByText(specialist.descriptionExcerpt)).toBeTruthy();
     fireEvent.press(screen.getByText('Dra. Elena Martín'));
 
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('PublicSpecialistProfile', { profileRef: 'elena-martin', intentToken: 'verified-directory-intent' }));
@@ -332,7 +348,7 @@ describe('PublicSpecialistsScreen', () => {
       expect.objectContaining({ professionalType })
     ));
 
-    fireEvent.press(screen.getByText(label));
+    fireEvent.press(screen.getByRole('button', { name: 'Perfil' }));
     fireEvent.press(screen.getByRole('checkbox', { name: label }));
     await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(
       expect.objectContaining({ professionalType: undefined })
@@ -384,7 +400,7 @@ describe('PublicSpecialistsScreen', () => {
     expect(screen.getByText('Dra. Lucía Nueva')).toBeTruthy();
     expect(screen.queryByText('Dra. Elena Martín')).toBeNull();
   });
-  it('starts mobile filters collapsed and preserves applied criteria when folded', async () => {
+  it('opens mobile filters in a sheet and preserves criteria after viewing results or closing it', async () => {
     const previousWindow = ReactNative.Dimensions.get('window');
     act(() => ReactNative.Dimensions.set({ window: { width: 390, height: 844, scale: 1, fontScale: 1 } }));
     mockedDirectory.mockResolvedValue({ items: [specialist], page: 1, pageSize: 12, total: 1, hasMore: false });
@@ -402,14 +418,14 @@ describe('PublicSpecialistsScreen', () => {
       expect(screen.getByRole('button', { name: 'Filtros, 1 activos' }).props.accessibilityState.expanded).toBe(false);
       fireEvent.press(screen.getByRole('button', { name: 'Filtros, 1 activos' }));
       expect(screen.getByText('Árabe ▾')).toBeTruthy();
-      fireEvent.press(screen.getByText('Ver especialistas'));
-      fireEvent.press(screen.getByText('Limpiar'));
+      fireEvent.press(screen.getByRole('button', { name: 'Cerrar filtros' }));
+      fireEvent.press(screen.getByText('Limpiar filtros'));
       await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ language: undefined })));
       expect(screen.getByRole('button', { name: 'Filtros' })).toBeTruthy();
     } finally { act(() => ReactNative.Dimensions.set({ window: previousWindow })); }
   });
 
-  it('keeps loaded pages visible while refreshing and after a recoverable failure', async () => {
+  it('replaces pages and revalidates only the visible page, preserving it after a recoverable failure', async () => {
     const second = { ...specialist, id: 'specialist-2', name: 'Dra. Segunda' };
     mockedDirectory.mockImplementation(async filters => ({
       items: filters?.page === 2 ? [second] : [specialist],
@@ -417,14 +433,14 @@ describe('PublicSpecialistsScreen', () => {
     }));
     render(<PublicSpecialistsScreen />);
     await screen.findByText('Dra. Elena Martín');
-    fireEvent.press(screen.getByText('Cargar más especialistas'));
+    fireEvent.press(screen.getByText('Siguiente'));
     await screen.findByText('Dra. Segunda');
     const request = createDeferred<specialistsService.PublicSpecialistDirectoryPage>();
     mockedDirectory.mockReturnValueOnce(request.promise);
     const reload = jest.mocked(useDiscoveryRevalidation).mock.calls.at(-1)![0];
     let pending: void | Promise<unknown>;
     act(() => { pending = reload(); });
-    expect(screen.getByText('Dra. Elena Martín')).toBeTruthy();
+    expect(screen.queryByText('Dra. Elena Martín')).toBeNull();
     expect(screen.getByText('Dra. Segunda')).toBeTruthy();
     await act(async () => { request.reject(new Error('Error de conexión')); await pending; });
     expect(screen.getByText('Dra. Segunda')).toBeTruthy();
@@ -433,6 +449,91 @@ describe('PublicSpecialistsScreen', () => {
     await waitFor(() => expect(screen.queryByText(/Puedes seguir consultando los últimos resultados/)).toBeNull());
     expect(screen.getByText('Dra. Segunda')).toBeTruthy();
     expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
+  });
+
+  it('keeps the committed page after a failed page change, and retries the requested page', async () => {
+    const second = { ...specialist, id: 'second', name: 'Segunda profesional' };
+    mockedDirectory.mockResolvedValueOnce({ items: [specialist], page: 1, pageSize: 12, total: 13, hasMore: true })
+      .mockRejectedValueOnce(new Error('Sin conexión'))
+      .mockResolvedValueOnce({ items: [second], page: 2, pageSize: 12, total: 13, hasMore: false });
+    render(<PublicSpecialistsScreen />);
+    await screen.findByText(specialist.name);
+    fireEvent.press(screen.getByText('Siguiente'));
+    await screen.findByText(/Sin conexión/);
+    expect(screen.getByText(specialist.name)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Página 1' }).props.accessibilityState.selected).toBe(true);
+    fireEvent.press(screen.getByText('Reintentar'));
+    await screen.findByText(second.name);
+    expect(screen.queryByText(specialist.name)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Página 2' }).props.accessibilityState.selected).toBe(true);
+    expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
+    expect(screen.getByRole('button', { name: 'Siguiente' }).props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('resets pagination on search, individual filter removal and sorting', async () => {
+    mockedDirectory.mockImplementation(async filters => ({
+      items: [specialist], page: filters?.page ?? 1, pageSize: 12, total: 25, hasMore: true,
+    }));
+    render(<PublicSpecialistsScreen />);
+    await screen.findByText(specialist.name);
+    fireEvent.press(screen.getByText('Siguiente'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Página 2' }).props.accessibilityState.selected).toBe(true));
+    fireEvent.changeText(screen.getByPlaceholderText('Nombre, profesión o especialidad'), 'Elena');
+    fireEvent(screen.getByPlaceholderText('Nombre, profesión o especialidad'), 'submitEditing');
+    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'Elena', page: 1 })));
+    fireEvent.press(screen.getByRole('button', { name: 'Quitar filtro: «Elena»' }));
+    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ q: undefined, page: 1 })));
+    fireEvent.press(screen.getByText('Siguiente'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Página 2' }).props.accessibilityState.selected).toBe(true));
+    fireEvent.press(screen.getByRole('button', { name: 'Ordenar especialistas' }));
+    fireEvent.press(screen.getByText('Precio: menor primero'));
+    await waitFor(() => expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ sort: 'PRICE_ASC', page: 1 })));
+  });
+
+  it('returns to the last valid page when publication changes remove the current page', async () => {
+    mockedDirectory.mockResolvedValueOnce({ items: [specialist], page: 1, pageSize: 12, total: 25, hasMore: true })
+      .mockResolvedValueOnce({ items: [], page: 3, pageSize: 12, total: 13, hasMore: false })
+      .mockResolvedValueOnce({ items: [specialist], page: 2, pageSize: 12, total: 13, hasMore: false });
+    render(<PublicSpecialistsScreen />);
+    await screen.findByText(specialist.name);
+    fireEvent.press(screen.getByRole('button', { name: 'Página 3' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Página 2' }).props.accessibilityState.selected).toBe(true));
+    expect(mockedDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
+  });
+
+  it('adapts columns without reloading or changing the current page', async () => {
+    mockedDirectory.mockImplementation(async filters => ({
+      items: [specialist], page: filters?.page ?? 1, pageSize: 12, total: 13, hasMore: filters?.page !== 2,
+    }));
+    render(<PublicSpecialistsScreen />);
+    await screen.findByText(specialist.name);
+    fireEvent.press(screen.getByText('Siguiente'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Página 2' }).props.accessibilityState.selected).toBe(true));
+    act(() => ReactNative.Dimensions.set({ window: { width: 820, height: 900, scale: 1, fontScale: 1 } }));
+    expect(mockedDirectory).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('button', { name: 'Página 2' }).props.accessibilityState.selected).toBe(true);
+    expect(screen.getByRole('button', { name: 'Filtros' })).toBeTruthy();
+  });
+
+  it('keeps specialists in order across explicit rows and preserves the empty final column', async () => {
+    const items = [specialist, { ...specialist, id: 'second', name: 'Segunda profesional' }, { ...specialist, id: 'third', name: 'Tercera profesional' }];
+    mockedDirectory.mockResolvedValue({ items, page: 1, pageSize: 12, total: 3, hasMore: false });
+    render(<PublicSpecialistsScreen />);
+    await screen.findByText(specialist.name);
+    const resizeGrid = (width: number) => fireEvent(screen.getByTestId('directory-grid'), 'layout', {
+      nativeEvent: { layout: { width, height: 800, x: 0, y: 0 } },
+    });
+    resizeGrid(1188);
+    const rows = screen.getAllByTestId('directory-row');
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]).getByText(specialist.name)).toBeTruthy();
+    expect(within(rows[0]).getByText('Segunda profesional')).toBeTruthy();
+    expect(within(rows[1]).getByText('Tercera profesional')).toBeTruthy();
+    expect(within(rows[1]).getByTestId('directory-empty-cell')).toBeTruthy();
+    resizeGrid(350);
+    expect(screen.getAllByTestId('directory-row')).toHaveLength(3);
+    expect(screen.queryByTestId('directory-empty-cell')).toBeNull();
+    expect(mockedDirectory).toHaveBeenCalledTimes(1);
   });
 
 });

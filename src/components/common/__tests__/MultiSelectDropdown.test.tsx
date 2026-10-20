@@ -76,4 +76,17 @@ describe('MultiSelectDropdown', () => {
 
     expect(onApply).toHaveBeenCalledWith([]);
   });
+
+  it('discards uncommitted modal selections when closed and restores the applied selection on reopening', () => {
+    const onApply = jest.fn();
+    render(<MultiSelectDropdown options={options} values={['anxiety']} onApply={onApply} placeholder="Tema" presentation="modal" />);
+    fireEvent.press(screen.getByLabelText('Tema: Ansiedad'));
+    fireEvent.press(screen.getByRole('checkbox', { name: 'Depresión' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Cerrar tema' }));
+    expect(onApply).not.toHaveBeenCalled();
+    expect(screen.queryByRole('checkbox', { name: 'Depresión' })).toBeNull();
+    fireEvent.press(screen.getByLabelText('Tema: Ansiedad'));
+    expect(screen.getByRole('checkbox', { name: 'Ansiedad' }).props.accessibilityState.checked).toBe(true);
+    expect(screen.getByRole('checkbox', { name: 'Depresión' }).props.accessibilityState.checked).toBe(false);
+  });
 });
