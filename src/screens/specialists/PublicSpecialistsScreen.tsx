@@ -116,7 +116,6 @@ export const PublicSpecialistsScreen: React.FC = () => {
   const {
     isAuthenticated,
     user,
-    legalStatusSnapshot,
     verificationSubmitted,
   } = useAuth();
   const { theme, isDark } = useTheme();
@@ -210,17 +209,15 @@ export const PublicSpecialistsScreen: React.FC = () => {
     const workspaceRoute = user.type === 'professional'
       ? (verificationSubmitted === false ? 'ProfessionalVerification' : 'ProfessionalHome')
       : (user.type === 'clinic' ? 'ClinicDashboard' : 'Home');
-    const workspaceIsAvailable = navigation.getState().routeNames.includes(workspaceRoute);
-
+    // RootNavigator owns the current legal gate; the login snapshot can be stale.
     navigation.navigate(
-      legalStatusSnapshot?.requiresAcceptance || !workspaceIsAvailable
+      navigation.getState().routeNames.includes('RequiredLegalAcceptance')
         ? 'RequiredLegalAcceptance'
         : workspaceRoute
     );
     return true;
   }, [
     isAuthenticated,
-    legalStatusSnapshot?.requiresAcceptance,
     navigation,
     user,
     verificationSubmitted,
@@ -231,6 +228,8 @@ export const PublicSpecialistsScreen: React.FC = () => {
       navigation.navigate('Welcome');
     }
   }, [navigateToAuthenticatedWorkspace, navigation]);
+
+  const canVisitLanding = navigation.getState().routeNames.includes('Landing');
 
   const submitSearch = useCallback(() => {
     const nextQuery = queryInput.trim();
@@ -349,9 +348,16 @@ export const PublicSpecialistsScreen: React.FC = () => {
   return (
     <View style={[styles.container, { backgroundColor: theme.bgMuted }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bgMuted} />
-      <LandingHeader context="directory" isScrolled={headerScrolled} accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
-        onLogoPress={navigateToLandingHome} onExploreProfessionals={() => navigateToLandingSection('forSpecialists')}
-        onAccess={handleAccess} onScrollToSection={navigateToLandingSection} />
+      <LandingHeader
+        onViewPlans={() => navigation.navigate('Pricing')}
+        context="directory"
+        isScrolled={headerScrolled}
+        accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
+        onLogoPress={canVisitLanding ? navigateToLandingHome : handleAccess}
+        onExploreProfessionals={canVisitLanding ? () => navigateToLandingSection('forSpecialists') : undefined}
+        onAccess={handleAccess}
+        onScrollToSection={canVisitLanding ? navigateToLandingSection : undefined}
+      />
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator onScroll={handleScroll} scrollEventThrottle={24} keyboardShouldPersistTaps="handled">
         <View style={[styles.heroBand, isMobile && styles.heroBandMobile, isDesktop && styles.desktopPadding, isDesktop && styles.heroBandDesktop]}>
           <View style={[styles.hero, isMobile && styles.heroMobile, isDesktop && styles.heroDesktop]}>

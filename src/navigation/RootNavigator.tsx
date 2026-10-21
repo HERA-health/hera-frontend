@@ -87,6 +87,11 @@ const ProfessionalLegalDocumentRoute = createDeferredLayoutRoute<'LegalDocument'
   { displayName: 'ProfessionalLegalDocumentRoute', exportName: 'LegalDocumentScreen' },
 );
 
+const PricingRoute = createDeferredRoute<'Pricing'>(
+  () => Platform.OS === 'web' ? import('../screens/landing/PricingScreen') : require('../screens/landing/PricingScreen'),
+  { displayName: 'PricingRoute', exportName: 'PricingScreen' },
+);
+
 const ProfessionalShowcaseRoute = createDeferredRoute<'ProfessionalShowcase'>(
   () => Platform.OS === 'web' ? import('../screens/landing/ProfessionalShowcaseScreen') : require('../screens/landing/ProfessionalShowcaseScreen'),
   {
@@ -654,6 +659,7 @@ export function RootNavigator() {
             name="ProfessionalShowcase"
             component={ProfessionalShowcaseRoute}
           />
+          <Stack.Screen name="Pricing" component={PricingRoute} />
           <Stack.Screen
             name="PublicSpecialists"
             component={PublicSpecialistsRoute}
@@ -746,6 +752,7 @@ export function RootNavigator() {
               onAccepted={handleLegalAccepted}
             />}
           </Stack.Screen>
+          <Stack.Screen name="Pricing" component={PricingRoute} />
           <Stack.Screen
             name="PublicSpecialists"
             component={PublicSpecialistsRoute}
@@ -783,6 +790,7 @@ export function RootNavigator() {
             component={ClinicDashboardRoute}
             options={{ headerTitle: 'Panel de clínica' }}
           />
+          <Stack.Screen name="Pricing" component={PricingRoute} />
           <Stack.Screen
             name="PublicSpecialists"
             component={PublicSpecialistsRoute}
@@ -898,6 +906,7 @@ export function RootNavigator() {
             component={PublicSpecialistProfileRoute}
             options={{ headerShown: false }}
           />
+          <Stack.Screen name="Pricing" component={PricingRoute} />
           <Stack.Screen
             name="PublicSpecialists"
             component={PublicSpecialistsRoute}
@@ -961,6 +970,7 @@ export function RootNavigator() {
           />
           {calendarIntent?.kind !== 'connect' ? <Stack.Screen name="GoogleCalendarIntegration" component={GoogleCalendarIntegrationRoute} /> : null}
           {calendarIntent?.kind !== 'session' ? <Stack.Screen name="GoogleCalendarSession" component={GoogleCalendarSessionRoute} /> : null}
+          <Stack.Screen name="Pricing" component={PricingRoute} />
           <Stack.Screen
             name="PublicSpecialists"
             component={PublicSpecialistsRoute}
@@ -1252,6 +1262,7 @@ export function RootNavigator() {
           component={PublicSpecialistProfileRoute}
           options={{ headerShown: false }}
         />
+        <Stack.Screen name="Pricing" component={PricingRoute} />
         <Stack.Screen
           name="PublicSpecialists"
           component={PublicSpecialistsRoute}

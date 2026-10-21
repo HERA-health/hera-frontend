@@ -121,6 +121,7 @@ export type RootStackParamList = {
   GoogleCalendarSession: { sessionId: string };
   Landing: { section?: LandingSectionAnchor } | undefined;
   ProfessionalShowcase: undefined;
+  Pricing: undefined;
   Welcome: undefined;
   Login: { userType: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC'; specialization?: string };
   Register: { userType?: 'CLIENT' | 'PROFESSIONAL' | 'CLINIC' } | undefined;

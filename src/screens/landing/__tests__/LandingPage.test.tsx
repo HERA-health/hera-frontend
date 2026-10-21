@@ -1,3 +1,13 @@
+/** @jest-environment jsdom */
+
+// Native hosts and Expo's URL implementation still need Node APIs in jsdom.
+Object.assign(globalThis, {
+  setImmediate: require('node:timers').setImmediate,
+  clearImmediate: require('node:timers').clearImmediate,
+  TextEncoder: require('node:util').TextEncoder,
+  TextDecoder: require('node:util').TextDecoder,
+});
+
 let mockWindowDimensions = {
   fontScale: 1,
   height: 900,
@@ -6,6 +16,7 @@ let mockWindowDimensions = {
 };
 const mockUseWindowDimensions = jest.fn(() => mockWindowDimensions);
 const mockScrollTo = jest.fn();
+let mockScrollableNode: HTMLElement | null = null;
 const mockDiscoveryBlur = jest.fn();
 let mockAuthState = {
   isAuthenticated: false,
@@ -27,7 +38,7 @@ jest.mock('react-native', () => {
         const ReactModule = require('react');
         const MockScrollView = ReactModule.forwardRef(
           ({ children, ...props }: { children?: React.ReactNode }, ref: React.Ref<unknown>) => {
-            ReactModule.useImperativeHandle(ref, () => ({ scrollTo: mockScrollTo }));
+            ReactModule.useImperativeHandle(ref, () => ({ scrollTo: mockScrollTo, getScrollableNode: () => mockScrollableNode }));
             return ReactModule.createElement(actual.View, props, children);
           }
         );
@@ -160,6 +171,7 @@ describe('LandingPage', () => {
   const getState = jest.fn();
 
   beforeEach(() => {
+    mockScrollableNode = null;
     mockAuthState = {
       isAuthenticated: false,
       user: null,
@@ -197,6 +209,7 @@ describe('LandingPage', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    document.body.replaceChildren();
   });
 
   it('presents the two journeys and only concrete trust claims', () => {
@@ -206,7 +219,7 @@ describe('LandingPage', () => {
     expect(screen.getByText('Tu espacio de confianza para cuidar la salud mental.')).toBeTruthy();
     expect(screen.getByText('Soy paciente')).toBeTruthy();
     expect(screen.getByText('Soy profesional')).toBeTruthy();
-    expect(screen.getByText('Salud mental')).toBeTruthy();
+    expect(screen.queryByText('Salud mental')).toBeNull();
     expect(screen.getAllByText('Explorar profesionales').length).toBeGreaterThan(0);
     expect(screen.getByText('Conocer las herramientas')).toBeTruthy();
     expect(screen.queryByText('Encuentra tu profesional')).toBeNull();
@@ -284,6 +297,30 @@ describe('LandingPage', () => {
     });
   });
 
+  it('places pricing immediately after the professional link on desktop', () => {
+    const onViewPlans = jest.fn();
+    render(<LandingHeader context="landing" isScrolled={false} onAccess={jest.fn()}
+      onScrollToSection={jest.fn()} onViewPlans={onViewPlans} />);
+    const labels = screen.getAllByRole('link').map(link => link.props.accessibilityLabel);
+    expect(labels[labels.indexOf('Ir a Para profesionales') + 1]).toBe('Ver planes para especialistas');
+    fireEvent.press(screen.getByText('Planes y precios'));
+    expect(onViewPlans).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens pricing from the professional landing section without starting registration', () => {
+    render(<LandingPage />);
+    fireEvent.press(screen.getByRole('link', { name: 'Ver planes y precios' }));
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith('Pricing');
+  });
+
+  it('keeps the catalogue available without links to unavailable landing sections', () => {
+    mockWindowDimensions = { ...mockWindowDimensions, width: 1024 };
+    render(<LandingHeader context="directory" isScrolled={false} onAccess={jest.fn()} onViewPlans={jest.fn()} />);
+    expect(screen.getByText('Planes y precios')).toBeTruthy();
+    expect(screen.queryByText('Para profesionales')).toBeNull();
+  });
+
   it('uses the compact header without saturating it with anchors or clinics', () => {
     mockWindowDimensions = { fontScale: 1, height: 768, scale: 1, width: 1024 };
 
@@ -310,6 +347,7 @@ describe('LandingPage', () => {
     mockWindowDimensions = { fontScale: 1, height: 844, scale: 1, width: 390 };
     render(<LandingPage />);
 
+    expect(screen.getByText('Planes')).toBeTruthy();
     expect(screen.getByText('Acceder')).toBeTruthy();
     expect(screen.getByText('toggle-theme')).toBeTruthy();
     expect(screen.getAllByText('Explorar profesionales').length).toBeGreaterThan(0);
@@ -518,6 +556,46 @@ describe('LandingPage', () => {
     ].forEach((nativeID) => {
       expect(screen.UNSAFE_getByProps({ nativeID })).toBeTruthy();
     });
+  });
+
+  it('scrolls the current landing when a previous landing is retained in browser history', () => {
+    const platform = jest.replaceProperty(Platform, 'OS', 'web');
+    const hiddenLanding = document.createElement('div');
+    hiddenLanding.innerHTML = '<div id="landing-scroll-view"><div id="landing-section-for-specialists"></div><div id="landing-section-faq"></div></div>';
+    hiddenLanding.style.display = 'none';
+    document.body.appendChild(hiddenLanding);
+    const activeScroller = document.createElement('div');
+    activeScroller.id = 'landing-scroll-view';
+    activeScroller.innerHTML = '<div id="landing-section-for-specialists"></div><div id="landing-section-faq"></div>';
+    document.body.appendChild(activeScroller);
+    mockScrollableNode = activeScroller;
+    activeScroller.scrollTop = 300;
+    const rect = (top: number, height: number): DOMRect => ({
+      x: 0, y: top, top, left: 0, right: 1440, bottom: top + height, width: 1440, height,
+      toJSON: () => ({}),
+    });
+    jest.spyOn(activeScroller, 'getBoundingClientRect').mockReturnValue(rect(0, 900));
+    const professionalSection = activeScroller.children[0];
+    const faqSection = activeScroller.children[1];
+    const professionalRect = jest.spyOn(professionalSection, 'getBoundingClientRect')
+      .mockReturnValue(rect(1700, 600));
+    jest.spyOn(faqSection, 'getBoundingClientRect').mockReturnValue(rect(4200, 600));
+    mockedUseRoute.mockReturnValue({ params: { section: 'forSpecialists' } } as ReturnType<typeof useRoute>);
+
+    try {
+      render(<LandingPage />);
+      expect(mockScrollTo).toHaveBeenLastCalledWith({ y: 1990, animated: true });
+      expect(setParams).toHaveBeenCalledWith({ section: undefined });
+      fireEvent.press(screen.getByLabelText('Ir a FAQ'));
+      expect(mockScrollTo).toHaveBeenLastCalledWith({ y: 4490, animated: true });
+      // A later layout shift must be measured from the live section too.
+      professionalRect.mockReturnValue(rect(1850, 600));
+      fireEvent.press(screen.getByLabelText('Ir a Para profesionales'));
+      expect(mockScrollTo).toHaveBeenLastCalledWith({ y: 2140, animated: true });
+      expect(mockScrollTo).toHaveBeenCalledTimes(3);
+    } finally {
+      platform.restore();
+    }
   });
 
   it('consumes one pending routed scroll after deferred layout', () => {

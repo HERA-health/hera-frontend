@@ -10,6 +10,7 @@ const ROUTE_TITLES: Record<keyof RootStackParamList, string> = {
   Landing: 'Inicio',
   ClinicalPinReset: 'Restablecer PIN clínico',
   ProfessionalShowcase: 'Software para psicólogos y especialistas',
+  Pricing: 'Planes para especialistas',
   Welcome: 'Bienvenida',
   Login: 'Iniciar sesión',
   Register: 'Crear cuenta',

@@ -14,23 +14,25 @@ describe('AnimatedPressable web keyboard props', () => {
     const onKeyDown = jest.fn();
     Object.defineProperty(Platform, 'OS', { configurable: true, value: 'web' });
     const view = render(
-      <AnimatedPressable testID="keyboard-pressable" onKeyDown={onKeyDown} tabIndex={-1}>
+      <AnimatedPressable testID="keyboard-pressable" onKeyDown={onKeyDown} tabIndex={-1} ariaCurrent="page">
         <Text>Opción</Text>
       </AnimatedPressable>,
     );
 
     expect(screen.getByTestId('keyboard-pressable').props.onKeyDown).toBe(onKeyDown);
     expect(screen.getByTestId('keyboard-pressable').props.tabIndex).toBe(-1);
+    expect(screen.getByTestId('keyboard-pressable').props['aria-current']).toBe('page');
 
     view.unmount();
     Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
     render(
-      <AnimatedPressable testID="native-pressable" onKeyDown={onKeyDown} tabIndex={0}>
+      <AnimatedPressable testID="native-pressable" onKeyDown={onKeyDown} tabIndex={0} ariaCurrent="page">
         <Text>Opción</Text>
       </AnimatedPressable>,
     );
 
     expect(screen.getByTestId('native-pressable').props.onKeyDown).toBeUndefined();
     expect(screen.getByTestId('native-pressable').props.tabIndex).toBeUndefined();
+    expect(screen.getByTestId('native-pressable').props['aria-current']).toBeUndefined();
   });
 });

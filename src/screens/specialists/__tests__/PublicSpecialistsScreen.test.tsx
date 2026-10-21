@@ -7,6 +7,7 @@ jest.mock('../../../config/api', () => ({ __esModule: true, default: () => ({ ap
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import { lightTheme } from '../../../constants/theme';
 import { PublicSpecialistsScreen } from '../PublicSpecialistsScreen';
 import * as specialistsService from '../../../services/specialistsService';
@@ -43,12 +44,7 @@ jest.mock('../../../contexts/ThemeContext', () => ({
 }));
 
 jest.mock('../../../contexts/AuthContext', () => ({
-  useAuth: () => ({
-    isAuthenticated: false,
-    user: null,
-    legalStatusSnapshot: null,
-    verificationSubmitted: null,
-  }),
+  useAuth: jest.fn(),
 }));
 
 jest.mock('../../../services/specialistsService', () => ({
@@ -63,9 +59,9 @@ jest.mock('../../landing/components/LandingHeader', () => ({
     onScrollToSection,
   }: {
     onLogoPress: () => void;
-    onExploreProfessionals: () => void;
+    onExploreProfessionals?: () => void;
     onAccess: () => void;
-    onScrollToSection: (section: 'featuredSpecialists' | 'about') => void;
+    onScrollToSection?: (section: 'featuredSpecialists' | 'about') => void;
   }) => {
     const { Pressable, Text, View } = require('react-native');
     return (
@@ -73,15 +69,15 @@ jest.mock('../../landing/components/LandingHeader', () => ({
         <Pressable onPress={onLogoPress} accessibilityRole="link" accessibilityLabel="Ir al inicio">
           <Text>Hera</Text>
         </Pressable>
-        <Pressable onPress={() => onScrollToSection('featuredSpecialists')}>
+        {onScrollToSection ? <><Pressable onPress={() => onScrollToSection('featuredSpecialists')}>
           <Text>Especialistas</Text>
         </Pressable>
         <Pressable onPress={() => onScrollToSection('about')}>
           <Text>Quiénes somos</Text>
-        </Pressable>
-        <Pressable onPress={onExploreProfessionals}>
+        </Pressable></> : null}
+        {onExploreProfessionals ? <Pressable onPress={onExploreProfessionals}>
           <Text>Para profesionales</Text>
-        </Pressable>
+        </Pressable> : null}
         <Pressable onPress={onAccess}>
           <Text>Acceder</Text>
         </Pressable>
@@ -145,13 +141,39 @@ describe('PublicSpecialistsScreen', () => {
       isDark: false,
       setMode: jest.fn(),
     } as unknown as ReturnType<typeof useTheme>);
-    getState.mockReturnValue({ routeNames: ['Home', 'RequiredLegalAcceptance'] });
+    jest.mocked(useAuth).mockReturnValue({ isAuthenticated: false, user: null } as ReturnType<typeof useAuth>);
+    getState.mockReturnValue({ routeNames: ['Landing', 'Welcome', 'PublicSpecialists', 'Pricing'] });
     mockedUseNavigation.mockReturnValue({
       navigate,
       reset,
       getState,
     } as ReturnType<typeof useNavigation>);
     mockedUseRoute.mockReturnValue({ params: undefined } as ReturnType<typeof useRoute>);
+  });
+
+  it.each([
+    ['client', 'Home', true, true],
+    ['professional', 'ProfessionalHome', true, true],
+    ['professional', 'ProfessionalVerification', true, false],
+    ['clinic', 'ClinicDashboard', true, true],
+    ['client', 'RequiredLegalAcceptance', false, true],
+  ] as const)('uses the mounted %s route %s for access and the logo', async (type, target, staleAcceptance, verificationSubmitted) => {
+    jest.mocked(useAuth).mockReturnValue({
+      isAuthenticated: true, user: { type }, verificationSubmitted,
+      legalStatusSnapshot: { requiresAcceptance: staleAcceptance },
+    } as ReturnType<typeof useAuth>);
+    getState.mockReturnValue({ routeNames: [target, 'PublicSpecialists', 'Pricing'] });
+    mockedDirectory.mockResolvedValue({ items: [], page: 1, pageSize: 12, total: 0, hasMore: false });
+    render(<PublicSpecialistsScreen />);
+    await waitFor(() => expect(mockedDirectory).toHaveBeenCalled());
+    fireEvent.press(screen.getByLabelText('Ir al inicio'));
+    fireEvent.press(screen.getByText('Acceder'));
+    expect(navigate).toHaveBeenCalledTimes(2);
+    expect(navigate).toHaveBeenNthCalledWith(1, target);
+    expect(navigate).toHaveBeenNthCalledWith(2, target);
+    expect(reset).not.toHaveBeenCalled();
+    expect(screen.queryByText('Para profesionales')).toBeNull();
+    expect(screen.queryByText('Quiénes somos')).toBeNull();
   });
 
   it('loads a public page and opens the public profile without authentication', async () => {

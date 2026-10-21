@@ -82,6 +82,12 @@ jest.mock('../../screens/specialists/PublicSpecialistsScreen', () => {
   return { PublicSpecialistsScreen: () => ReactModule.createElement(Text, null, 'Directorio público') };
 });
 
+jest.mock('../../screens/landing/PricingScreen', () => {
+  const ReactModule = require('react');
+  const { Text } = require('react-native');
+  return { PricingScreen: () => ReactModule.createElement(Text, null, 'Catálogo público de planes') };
+});
+
 jest.mock('../../screens/auth/WelcomeScreen', () => {
   const ReactModule = require('react');
   const { Text } = require('react-native');
@@ -98,6 +104,12 @@ jest.mock('../../screens/professional/ProfessionalHomeScreen', () => {
   const ReactModule = require('react');
   const { Text } = require('react-native');
   return { ProfessionalHomeScreen: () => ReactModule.createElement(Text, null, 'Inicio profesional') };
+});
+
+jest.mock('../../screens/auth/ProfessionalVerificationScreen', () => {
+  const ReactModule = require('react');
+  const { Text } = require('react-native');
+  return { ProfessionalVerificationScreen: () => ReactModule.createElement(Text, null, 'Verificación profesional obligatoria') };
 });
 
 jest.mock('../../screens/home/HomeScreen', () => {
@@ -130,6 +142,25 @@ describe('post-login routing', () => {
       user: null,
       verificationSubmitted: null,
     };
+  });
+
+  it.each([
+    ['client', true, true, 'Condiciones actualizadas'],
+    ['professional', false, false, 'Verificación profesional obligatoria'],
+  ] as const)('allows the pricing catalogue while preserving the %s required gate', async (type, verificationSubmitted, requiresAcceptance, gateTitle) => {
+    const navigationRef = createNavigationContainerRef<RootStackParamList>();
+    mockAuthState = {
+      isAuthenticated: true, isInitialized: true, verificationSubmitted,
+      user: { id: 'pricing-gated-user', email: 'pricing@hera.test', emailVerified: true, type },
+      legalStatusSnapshot: { documents: [], requiredDocumentKeys: [], missingDocumentKeys: [], acceptedDocuments: [], requiresAcceptance },
+    };
+    render(<NavigationContainer ref={navigationRef}><RootNavigator /></NavigationContainer>);
+    await screen.findByText(gateTitle);
+    act(() => navigationRef.navigate('Pricing'));
+    await screen.findByText('Catálogo público de planes');
+    expect(navigationRef.getRootState().routeNames).not.toContain(type === 'professional' ? 'ProfessionalHome' : 'Home');
+    act(() => navigationRef.goBack());
+    await screen.findByText(gateTitle);
   });
 
   it('persists acceptance across refresh and remount, ignores stale reads, and prompts for a new version', async () => {
@@ -217,6 +248,10 @@ describe('post-login routing', () => {
     expect(navigationRef.canGoBack()).toBe(false);
 
     // The public directory remains available when intentionally opened while signed in.
+    act(() => navigationRef.navigate('Pricing'));
+    await waitFor(() => expect(screen.getByText('Catálogo público de planes')).toBeTruthy());
+    act(() => navigationRef.goBack());
+    await waitFor(() => expect(screen.getByText(expectedScreen)).toBeTruthy());
     act(() => navigationRef.navigate('PublicSpecialists'));
     await waitFor(() => expect(screen.getByText('Directorio público')).toBeTruthy());
     act(() => navigationRef.goBack());

@@ -22,7 +22,7 @@ import { ThemeToggleButton } from '../../../components/common/ThemeToggleButton'
 import { useTheme } from '../../../contexts/ThemeContext';
 import type { LandingSectionAnchor } from '../types';
 
-export type LandingHeaderContext = 'landing' | 'directory' | 'access';
+export type LandingHeaderContext = 'landing' | 'directory' | 'access' | 'pricing';
 
 interface LandingHeaderProps {
   context: LandingHeaderContext;
@@ -31,8 +31,9 @@ interface LandingHeaderProps {
   accessIconName?: React.ComponentProps<typeof Ionicons>['name'];
   onLogoPress?: () => void;
   onFindSpecialist?: () => void;
-  onExploreProfessionals: () => void;
+  onExploreProfessionals?: () => void;
   onAccess: () => void;
+  onViewPlans?: () => void;
   onScrollToSection?: (section: LandingSectionAnchor) => void;
 }
 
@@ -50,6 +51,7 @@ const MOBILE_BREAKPOINT = 768;
 const WIDE_HEADER_BREAKPOINT = 1200;
 const BRAND_DESCRIPTOR_BREAKPOINT = 1400;
 const COMPACT_PROFESSIONAL_LINK_BREAKPOINT = 1024;
+const WORDMARK_BREAKPOINT = 360;
 
 export const LandingHeader: React.FC<LandingHeaderProps> = ({
   context,
@@ -60,15 +62,17 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   onFindSpecialist,
   onExploreProfessionals,
   onAccess,
+  onViewPlans,
   onScrollToSection,
 }) => {
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const isMobile = width < MOBILE_BREAKPOINT;
-  const isWide = width >= (context === 'landing' ? BRAND_DESCRIPTOR_BREAKPOINT : WIDE_HEADER_BREAKPOINT);
-  const showBrandDescriptor = width >= BRAND_DESCRIPTOR_BREAKPOINT;
+  // The extra catalogue link needs the same room as the landing's full navigation.
+  const isWide = width >= (context === 'landing' || onViewPlans ? BRAND_DESCRIPTOR_BREAKPOINT : WIDE_HEADER_BREAKPOINT);
+  const showBrandDescriptor = width >= BRAND_DESCRIPTOR_BREAKPOINT && (!onViewPlans || width >= 1600);
   const isDirectory = context === 'directory';
-  const isAccess = context === 'access';
+  const isAccess = context === 'access' || context === 'pricing';
   const scrollProgress = useSharedValue(0);
 
   useEffect(() => {
@@ -79,6 +83,13 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
   }, [isScrolled, scrollProgress]);
 
   const containerAnimStyle = useAnimatedStyle(() => {
+    if (context === 'pricing') {
+      return {
+        backgroundColor: theme.landingCanvas,
+        borderBottomWidth: 0,
+        borderBottomColor: 'transparent',
+      };
+    }
     const bgOpacity = interpolate(scrollProgress.value, [0, 1], [0, isDark ? 0.9 : 0.94]);
     const borderOpacity = interpolate(scrollProgress.value, [0, 1], [0, 1]);
 
@@ -100,7 +111,22 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         } as unknown as ViewStyle)
       : undefined;
 
-  const logo = <StyledLogo size={context === 'landing' && !isMobile ? 52 : isScrolled ? 42 : 46} />;
+  const logo = <StyledLogo variant={onViewPlans && width < WORDMARK_BREAKPOINT ? 'mark' : 'wordmark'} size={context === 'landing' && !isMobile ? 52 : isScrolled ? 42 : 46} />;
+  const plansLink = onViewPlans ? (
+    <AnimatedPressable
+      onPress={onViewPlans}
+      href="/planes"
+      hoverLift={false}
+      pressScale={1}
+      accessibilityRole="link"
+      accessibilityLabel="Ver planes para especialistas"
+      accessibilityState={Platform.OS === 'web' ? undefined : { selected: context === 'pricing' }}
+      ariaCurrent={context === 'pricing' ? 'page' : undefined}
+      style={[styles.navLink, { minHeight: 44, justifyContent: 'center', borderBottomWidth: context === 'pricing' ? 2 : 0, borderBottomColor: theme.primary }]}
+    >
+      <Text style={[styles.navLinkText, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>{isMobile ? 'Planes' : 'Planes y precios'}</Text>
+    </AnimatedPressable>
+  ) : null;
 
   return (
     <Animated.View
@@ -108,10 +134,10 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         styles.container,
         Platform.OS === 'web' && !isMobile && styles.containerWeb,
         containerAnimStyle,
-        context !== 'landing' && webGlassStyle,
+        context !== 'landing' && context !== 'pricing' && webGlassStyle,
       ]}
     >
-      {context !== 'landing' && Platform.OS !== 'web' && isScrolled ? (
+      {context !== 'landing' && context !== 'pricing' && Platform.OS !== 'web' && isScrolled ? (
         <BlurView
           intensity={55}
           tint={isDark ? 'dark' : 'light'}
@@ -161,30 +187,35 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
 
         {isWide ? (
           <View style={styles.navLinks}>
-            {NAV_ITEMS.map((item) => (
-              <AnimatedPressable
-                key={item.id}
-                onPress={() => onScrollToSection?.(item.id)}
-                hoverLift={false}
-                pressScale={0.96}
-                accessibilityRole="link"
-                accessibilityLabel={`Ir a ${item.label}`}
-                style={styles.navLink}
-              >
-                <Text
-                  style={[
-                    styles.navLinkText,
-                    { color: theme.textSecondary, fontFamily: theme.fontSansMedium },
-                  ]}
+            {(onScrollToSection ? NAV_ITEMS : []).map((item) => (
+              <React.Fragment key={item.id}>
+                <AnimatedPressable
+                  onPress={() => onScrollToSection?.(item.id)}
+                  href={`/?section=${item.id}`}
+                  hoverLift={false}
+                  pressScale={0.96}
+                  accessibilityRole="link"
+                  accessibilityLabel={`Ir a ${item.label}`}
+                  style={styles.navLink}
                 >
-                  {item.label}
-                </Text>
-              </AnimatedPressable>
+                  <Text
+                    style={[
+                      styles.navLinkText,
+                      { color: theme.textSecondary, fontFamily: theme.fontSansMedium },
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </AnimatedPressable>
+                {item.id === 'forSpecialists' ? plansLink : null}
+              </React.Fragment>
             ))}
+            {!onScrollToSection ? plansLink : null}
           </View>
         ) : null}
 
         <View style={styles.actions}>
+          {!isWide ? plansLink : null}
           <ThemeToggleButton size="sm" />
 
           {!isMobile && !isDirectory && onFindSpecialist ? (
@@ -219,9 +250,10 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
             </AnimatedPressable>
           ) : null}
 
-          {!isMobile && !isWide && !isAccess && (context !== 'landing' || width >= COMPACT_PROFESSIONAL_LINK_BREAKPOINT) ? (
+          {!isMobile && !isWide && !isAccess && onExploreProfessionals && (context !== 'landing' || width >= COMPACT_PROFESSIONAL_LINK_BREAKPOINT) ? (
             <AnimatedPressable
               onPress={onExploreProfessionals}
+              href="/?section=forSpecialists"
               hoverLift={false}
               pressScale={0.96}
               accessibilityRole="link"

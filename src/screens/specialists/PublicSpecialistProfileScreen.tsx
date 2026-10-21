@@ -32,7 +32,6 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
   const {
     isAuthenticated,
     user,
-    legalStatusSnapshot,
     verificationSubmitted,
   } = useAuth();
   const { theme, isDark } = useTheme();
@@ -142,9 +141,13 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
       showAppAlert(appAlert, 'Información', 'No puedes reservar sesiones desde esta cuenta.');
       return;
     }
-    const bookingRouteIsAvailable = navigation.getState().routeNames.includes('Booking');
-    if (isAuthenticated && (legalStatusSnapshot?.requiresAcceptance || !bookingRouteIsAvailable)) {
+    const availableRoutes = navigation.getState().routeNames;
+    if (isAuthenticated && availableRoutes.includes('RequiredLegalAcceptance')) {
       navigation.navigate('RequiredLegalAcceptance');
+      return;
+    }
+    if (!availableRoutes.includes('Booking')) {
+      showAppAlert(appAlert, 'Reserva no disponible', 'No se puede abrir la reserva en este momento. Vuelve a intentarlo desde tu espacio.');
       return;
     }
 
@@ -163,7 +166,6 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     appAlert,
     canBook,
     isAuthenticated,
-    legalStatusSnapshot?.requiresAcceptance,
     navigation,
     specialist,
     user?.type,
@@ -187,38 +189,40 @@ export const PublicSpecialistProfileScreen: React.FC = () => {
     }
   }, [appAlert, specialist]);
 
-  const handleGoToLanding = useCallback(() => {
+  const handleGoHome = useCallback(() => {
     if (!isAuthenticated) {
       navigation.reset({ index: 0, routes: [{ name: 'Landing' }] });
       return;
     }
-    const workspaceRoute = legalStatusSnapshot?.requiresAcceptance
+    const workspaceRoute = navigation.getState().routeNames.includes('RequiredLegalAcceptance')
       ? 'RequiredLegalAcceptance'
       : user?.type === 'professional'
         ? (verificationSubmitted === false ? 'ProfessionalVerification' : 'ProfessionalHome')
         : user?.type === 'clinic'
           ? 'ClinicDashboard'
           : 'Home';
-    const availableRoute = navigation.getState().routeNames.includes(workspaceRoute)
-      ? workspaceRoute : 'RequiredLegalAcceptance';
-    navigation.reset({ index: 0, routes: [{ name: availableRoute }] });
+    navigation.reset({ index: 0, routes: [{ name: workspaceRoute }] });
   }, [
     isAuthenticated,
-    legalStatusSnapshot?.requiresAcceptance,
     navigation,
     user?.type,
     verificationSubmitted,
   ]);
 
   const navigateToSection = (section: LandingSectionAnchor) => navigation.navigate('Landing', { section });
+  const canVisitLanding = navigation.getState().routeNames.includes('Landing');
   const renderHeader = () => (
-    <LandingHeader context="directory" isScrolled={headerScrolled}
+    <LandingHeader
+      onViewPlans={() => navigation.navigate('Pricing')}
+      context="directory"
+      isScrolled={headerScrolled}
       accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
-      onLogoPress={() => navigation.reset({ index: 0, routes: [{ name: 'Landing' }] })}
+      onLogoPress={handleGoHome}
       onFindSpecialist={handleBrowseSpecialists}
-      onExploreProfessionals={() => navigateToSection('forSpecialists')}
-      onScrollToSection={navigateToSection}
-      onAccess={() => isAuthenticated ? handleGoToLanding() : navigation.navigate('Login', { userType: 'CLIENT' })} />
+      onExploreProfessionals={canVisitLanding ? () => navigateToSection('forSpecialists') : undefined}
+      onScrollToSection={canVisitLanding ? navigateToSection : undefined}
+      onAccess={() => isAuthenticated ? handleGoHome() : navigation.navigate('Login', { userType: 'CLIENT' })}
+    />
   );
 
   const professionalBanner = isAuthenticated && user?.type === 'professional' ? (

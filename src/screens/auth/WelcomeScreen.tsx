@@ -78,6 +78,7 @@ export function WelcomeScreen() {
       <AmbientBackground variant="auth" />
 
       <LandingHeader
+        onViewPlans={() => navigation.navigate('Pricing')}
         context="access"
         isScrolled
         accessLabel="Volver"

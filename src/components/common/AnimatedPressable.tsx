@@ -34,6 +34,7 @@ interface AnimatedPressableProps {
   accessibilityHint?: string;
   accessibilityRole?: AccessibilityRole;
   accessibilityState?: AccessibilityState;
+  ariaCurrent?: 'page';
   testID?: string;
   href?: string;
   focusRef?: React.Ref<AnimatedPressableHandle>;
@@ -49,6 +50,7 @@ type WebLinkProps = {
   'aria-disabled'?: boolean;
   'aria-expanded'?: boolean;
   'aria-selected'?: boolean;
+  'aria-current'?: 'page';
   onKeyDown?: (event: React.KeyboardEvent) => void;
   tabIndex?: 0 | -1;
 };
@@ -78,6 +80,7 @@ export function AnimatedPressable({
   accessibilityHint,
   accessibilityRole = 'button',
   accessibilityState,
+  ariaCurrent,
   testID,
   href,
   focusRef,
@@ -158,6 +161,7 @@ export function AnimatedPressable({
             'aria-disabled': accessibilityState?.disabled,
             'aria-expanded': accessibilityState?.expanded,
             'aria-selected': accessibilityState?.selected,
+            'aria-current': ariaCurrent,
             onKeyDown,
             tabIndex,
           }

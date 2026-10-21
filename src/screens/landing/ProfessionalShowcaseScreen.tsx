@@ -104,6 +104,7 @@ export function ProfessionalShowcaseScreen(): React.ReactElement {
       />
 
       <LandingHeader
+        onViewPlans={() => navigation.navigate('Pricing')}
         context="access"
         isScrolled
         accessLabel="Crear cuenta"
@@ -715,6 +716,15 @@ export function ProfessionalShowcaseScreen(): React.ReactElement {
                 </Text>
               </View>
               <View style={[styles.finalCtaActions, isDesktop && styles.finalCtaActionsDesktop]}>
+                <AnimatedPressable
+                  onPress={() => navigation.navigate('Pricing')}
+                  href="/planes"
+                  accessibilityRole="link"
+                  hoverLift={false}
+                  style={[styles.finalSecondaryAction, { borderColor: theme.landingCtaMutedText }]}
+                >
+                  <Text style={[styles.finalSecondaryText, { color: theme.landingCtaText, fontFamily: theme.fontSansSemiBold }]}>Ver planes</Text>
+                </AnimatedPressable>
                 <AnimatedPressable
                   onPress={() => handleRegister('final')}
                   accessibilityLabel="Empezar como profesional"

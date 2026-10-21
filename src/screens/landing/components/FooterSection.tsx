@@ -43,8 +43,9 @@ interface FooterSectionProps {
   professionalActionLabel: string;
   onProfessionalAction: () => void;
   onProfessionalLogin: () => void;
-  onClinicAccess: () => void;
-  onScrollToSection: (section: LandingSectionAnchor) => void;
+  onClinicAccess?: () => void;
+  onScrollToSection?: (section: LandingSectionAnchor) => void;
+  onViewPlans?: () => void;
 }
 
 const socialLinks: SocialLink[] = [
@@ -72,6 +73,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
   onProfessionalLogin,
   onClinicAccess,
   onScrollToSection,
+  onViewPlans,
 }) => {
   const openPrivacy = React.useContext(PrivacyControlsContext);
   const { width } = useWindowDimensions();
@@ -94,16 +96,17 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
       links: [
         { label: professionalActionLabel, onPress: onProfessionalAction },
         { label: 'Iniciar sesión', onPress: onProfessionalLogin },
+        ...(onViewPlans ? [{ label: 'Planes para especialistas', onPress: onViewPlans, href: '/planes' }] : []),
         { label: 'Visibilidad y gestión', section: 'forSpecialists' },
         { label: 'Especialistas destacados', section: 'featuredSpecialists' },
       ],
     },
-    {
+    ...(onClinicAccess ? [{
       title: 'Clínicas',
       links: [
         { label: 'Acceso para clínicas', onPress: onClinicAccess },
       ],
-    },
+    }] : []),
     {
       title: 'HERA',
       links: [
@@ -120,7 +123,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
     if (link.onPress) {
       link.onPress();
     } else if (link.section) {
-      onScrollToSection(link.section);
+      onScrollToSection?.(link.section);
     } else if (link.href) {
       void Linking.openURL(link.href).catch(() => undefined);
     }
@@ -150,6 +153,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
       <AnimatedPressable
         key={link.label}
         onPress={() => handleLinkPress(link)}
+        href={link.href}
         hoverLift={false}
         pressScale={0.98}
         accessibilityRole="link"
@@ -225,7 +229,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({
                 >
                   {column.title}
                 </Text>
-                {column.links.map(renderLink)}
+                {column.links.filter(link => !link.section || onScrollToSection).map(renderLink)}
               </View>
             ))}
           </View>

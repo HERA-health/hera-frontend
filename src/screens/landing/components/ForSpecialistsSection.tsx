@@ -10,6 +10,7 @@ interface ForSpecialistsSectionProps {
   primaryActionLabel: string;
   showLoginAction: boolean;
   onProductTour: () => void;
+  onViewPlans: () => void;
   onPrimaryAction: () => void;
   onLogin: () => void;
   onClinicAccess: () => void;
@@ -44,6 +45,7 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
   primaryActionLabel,
   showLoginAction,
   onProductTour,
+  onViewPlans,
   onPrimaryAction,
   onLogin,
   onClinicAccess,
@@ -355,6 +357,20 @@ export const ForSpecialistsSection: React.FC<ForSpecialistsSectionProps> = ({
               {primaryActionLabel}
             </Text>
             <Ionicons name="arrow-forward" size={19} color={theme.primary} />
+          </AnimatedPressable>
+
+          <AnimatedPressable
+            onPress={onViewPlans}
+            href="/planes"
+            pressScale={0.97}
+            hoverLift={false}
+            accessibilityRole="link"
+            accessibilityLabel="Ver planes y precios"
+            style={styles.secondaryAction}
+          >
+            <Text style={[styles.secondaryActionText, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
+              Ver planes y precios
+            </Text>
           </AnimatedPressable>
 
           {showLoginAction ? (

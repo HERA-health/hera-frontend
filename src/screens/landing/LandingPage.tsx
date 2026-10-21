@@ -50,6 +50,7 @@ type ProfessionalCTASectionProps = {
   primaryActionLabel: string;
   showLoginAction: boolean;
   onProductTour: () => void;
+  onViewPlans: () => void;
   onPrimaryAction: () => void;
   onLogin: () => void;
   onClinicAccess: () => void;
@@ -67,6 +68,7 @@ type FinalCTASectionProps = {
   onProfessionalAction: () => void;
 };
 type FooterSectionProps = {
+  onViewPlans?: () => void;
   onFindSpecialist: () => void;
   professionalActionLabel: string;
   onProfessionalAction: () => void;
@@ -202,9 +204,12 @@ export const LandingPage: React.FC = () => {
     // Web onLayout observes size, not position. Earlier sections can move an
     // anchor after fonts load or the viewport changes without remeasuring it.
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const target = document.getElementById(LANDING_SECTION_NATIVE_IDS[section]);
-      const scroller = document.getElementById('landing-scroll-view');
-      if (!target || !scroller) return false;
+      // Navigation can retain another Landing behind this screen. Resolve both
+      // the scroller and its anchors within this instance, never the hidden one.
+      const scroller: unknown = scrollViewRef.current?.getScrollableNode();
+      if (!(scroller instanceof HTMLElement)) return false;
+      const target = scroller.querySelector(`#${LANDING_SECTION_NATIVE_IDS[section]}`);
+      if (!target) return false;
       const targetRect = target.getBoundingClientRect();
       measuredLayout = {
         y: targetRect.top - scroller.getBoundingClientRect().top + scroller.scrollTop,
@@ -424,6 +429,7 @@ export const LandingPage: React.FC = () => {
       />
 
       <LandingHeader
+        onViewPlans={() => navigation.navigate('Pricing')}
         context="landing"
         isScrolled={headerScrolled}
         accessLabel={isAuthenticated ? 'Mi espacio' : 'Acceder'}
@@ -481,6 +487,7 @@ export const LandingPage: React.FC = () => {
                 primaryActionLabel={professionalActionLabel}
                 showLoginAction={!isAuthenticated}
                 onProductTour={handleProfessionalShowcase}
+                onViewPlans={() => navigation.navigate('Pricing')}
                 onPrimaryAction={() => handleProfessionalRegister('professional_section')}
                 onLogin={handleProfessionalLogin}
                 onClinicAccess={() => handleClinicAccess('professional_section')}
@@ -522,6 +529,7 @@ export const LandingPage: React.FC = () => {
             />
 
             <FooterSection
+              onViewPlans={() => navigation.navigate('Pricing')}
               onFindSpecialist={() => handlePatientCTA('footer')}
               professionalActionLabel={professionalActionLabel}
               onProfessionalAction={() => handleProfessionalRegister('footer')}
