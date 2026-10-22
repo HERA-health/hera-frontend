@@ -33,13 +33,13 @@ export const DIRECTORY_OFFER = {
 export const PRICING_PLANS: readonly PricingPlan[] = [
   {
     id: 'calma', name: 'Calma', description: 'Organiza tu consulta con apoyo para empezar.',
-    monthlyPrice: '29,99', ownPatients: 'Hasta 20', storageLabel: '20 GB', statistics: 'Básicas',
+    monthlyPrice: '29,99', ownPatients: 'Hasta 15', storageLabel: '20 GB', statistics: 'Básicas',
     documents: 'Básicos', supervision: '1 al mes', templates: 'Básicas; avanzadas aparte',
     directoryProfile: 'Incluido', publications: '3 estándar', support: 'Estándar',
   },
   {
     id: 'crecimiento', name: 'Crecimiento', description: 'Más supervisión y publicaciones personalizadas.',
-    monthlyPrice: '49,99', ownPatients: 'Hasta 60', storageLabel: '50 GB', statistics: 'Completas',
+    monthlyPrice: '49,99', ownPatients: 'Hasta 30', storageLabel: '50 GB', statistics: 'Completas',
     documents: 'Incluidos', supervision: '3 al mes', templates: 'Ampliadas',
     directoryProfile: 'Incluido', publications: '5 personalizadas', support: 'Priorizado',
   },

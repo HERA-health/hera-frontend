@@ -223,11 +223,12 @@ export function PricingScreen(): React.ReactElement {
                 </View>
                 <View style={[styles.cardFeatures, desktop && styles.flex]}>
                   {[
+                    SUBSCRIPTION_ESSENTIALS[4],
+                    SUBSCRIPTION_ESSENTIALS[3],
                     `Supervisión de casos: ${plan.supervision.toLowerCase()}`,
                     `Publicaciones en redes de HERA: ${plan.publications.toLowerCase()}`,
                     `Perfil en el directorio ${plan.directoryProfile.toLowerCase()}`,
-                    `Plantillas terapéuticas: ${plan.templates.toLowerCase()}`,
-                    `Estadísticas ${plan.statistics.toLowerCase()}`,
+                    `Plantillas clínicas: ${plan.templates.toLowerCase()}`,
                   ].map(text => <View style={styles.checkRow} key={text}><Ionicons name="checkmark" size={17} color={theme.primary} accessible={false} /><Text style={[styles.small, body, styles.flex]}>{text}</Text></View>)}
                 </View>
                 <PricingAction label={`Ver detalles de ${plan.name}`} expanded={selectedId === plan.id} onPress={() => openDetails(plan.id)} filled={featured} icon="arrow-forward"
@@ -288,7 +289,7 @@ export function PricingScreen(): React.ReactElement {
                   <View style={styles.groupTitle}><Ionicons name="book-outline" size={22} color={theme.primary} accessible={false} /><Text accessibilityRole="header" aria-level={4} style={[styles.groupName, strong]}>Recursos y acompañamiento</Text></View>
                   {[
                     ['Supervisión de casos', selectedPlan.supervision],
-                    ['Plantillas terapéuticas', selectedPlan.templates],
+                    ['Plantillas clínicas', selectedPlan.templates],
                     ['Consentimientos y documentos', selectedPlan.documents],
                     ['Soporte', selectedPlan.support],
                   ].map(([label, value]) => <View key={label} style={[styles.detailValue, { borderColor: theme.borderLight }]}><Text style={[styles.caption, body]}>{label}</Text><Text style={[styles.body, strong]}>{value}</Text></View>)}
