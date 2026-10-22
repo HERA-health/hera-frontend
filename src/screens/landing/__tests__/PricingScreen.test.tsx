@@ -39,8 +39,8 @@ describe('public pricing catalogue', () => {
   it('shows availability and essential conditions before any detail is opened', () => {
     render(<PricingScreen />);
     expect(screen.getByText(PRICING_AVAILABILITY)).toBeTruthy();
-    expect(screen.getByText('2 GB de almacenamiento total')).toBeTruthy();
-    for (const size of [5, 15, 30]) expect(screen.getByLabelText(`${size} GB de almacenamiento`)).toBeTruthy();
+    expect(screen.getByText('5 GB de almacenamiento total')).toBeTruthy();
+    for (const size of ['20 GB', '50 GB', '2 TB']) expect(screen.getByLabelText(`${size} de almacenamiento`)).toBeTruthy();
     expect(screen.getByText(/Las comisiones se aplican a los pacientes captados por HERA/)).toBeTruthy();
     expect(screen.getByText(/No se suma entre modalidades ni se renueva cada mes/)).toBeTruthy();
     expect(screen.queryByTestId('pricing-plan-details')).toBeNull();
@@ -52,17 +52,18 @@ describe('public pricing catalogue', () => {
     fireEvent.press(screen.getByLabelText('Ver detalles de Calma'));
     let details = within(screen.getByTestId('pricing-plan-details'));
     expect(details.getByLabelText('Calma · 29,99 €/mes + IVA')).toBeTruthy();
+    expect(details.getByText('20 GB por especialista')).toBeTruthy();
     expect(details.getByText('1 al mes')).toBeTruthy();
     expect(details.getByText('3 estándar')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Consultar Crecimiento'));
     details = within(screen.getByTestId('pricing-plan-details'));
-    expect(details.getByText('15 GB por especialista')).toBeTruthy();
+    expect(details.getByText('50 GB por especialista')).toBeTruthy();
     expect(details.getByText('3 al mes')).toBeTruthy();
     expect(details.getByText('5 personalizadas')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Consultar Horizonte'));
     details = within(screen.getByTestId('pricing-plan-details'));
     expect(details.getByLabelText('Horizonte · 89,99 €/mes + IVA')).toBeTruthy();
-    expect(details.getByText('30 GB por especialista')).toBeTruthy();
+    expect(details.getByText('2 TB por especialista')).toBeTruthy();
     expect(details.getByText('Destacado')).toBeTruthy();
     expect(screen.getByLabelText('Ver detalles de Horizonte').props.accessibilityState.expanded).toBe(true);
     fireEvent.press(screen.getByLabelText('Cerrar detalles del plan'));
@@ -78,6 +79,8 @@ describe('public pricing catalogue', () => {
     expect(screen.getByLabelText(question).props.accessibilityState.expanded).toBe(true);
     fireEvent.press(screen.getByLabelText(question));
     expect(screen.queryByText(/Ver los detalles no activa un plan ni cambia las condiciones/)).toBeNull();
+    fireEvent.press(screen.getByLabelText('¿Qué significa el almacenamiento de cada modalidad?'));
+    expect(screen.getByText(/Directorio incluye 5 GB; Calma, 20 GB; Crecimiento, 50 GB; Horizonte, 2 TB/)).toBeTruthy();
   });
 
   it('keeps guest access separate from the catalogue actions', () => {

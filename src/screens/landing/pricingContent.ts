@@ -7,7 +7,7 @@ export interface PricingPlan {
   description: string;
   monthlyPrice: string;
   ownPatients: string;
-  storageGB: number;
+  storageLabel: string;
   statistics: string;
   documents: string;
   supervision: string;
@@ -22,7 +22,7 @@ export const PRICING_STORAGE_NOTE = 'El almacenamiento es el espacio total para 
 export const PRICING_COMMISSION_NOTE = 'Las comisiones se aplican a los pacientes captados por HERA, también si tienes una suscripción. Tus pacientes propios no generan comisión de captación de HERA.';
 
 export const DIRECTORY_OFFER = {
-  storageGB: 2,
+  storageLabel: '5 GB',
   commissions: [
     { session: 'Primera sesión', rate: '20 %' },
     { session: 'Segunda y tercera sesión', rate: '10 %' },
@@ -33,19 +33,19 @@ export const DIRECTORY_OFFER = {
 export const PRICING_PLANS: readonly PricingPlan[] = [
   {
     id: 'calma', name: 'Calma', description: 'Organiza tu consulta con apoyo para empezar.',
-    monthlyPrice: '29,99', ownPatients: 'Hasta 20', storageGB: 5, statistics: 'Básicas',
+    monthlyPrice: '29,99', ownPatients: 'Hasta 20', storageLabel: '20 GB', statistics: 'Básicas',
     documents: 'Básicos', supervision: '1 al mes', templates: 'Básicas; avanzadas aparte',
     directoryProfile: 'Incluido', publications: '3 estándar', support: 'Estándar',
   },
   {
     id: 'crecimiento', name: 'Crecimiento', description: 'Más supervisión y publicaciones personalizadas.',
-    monthlyPrice: '49,99', ownPatients: 'Hasta 60', storageGB: 15, statistics: 'Completas',
+    monthlyPrice: '49,99', ownPatients: 'Hasta 60', storageLabel: '50 GB', statistics: 'Completas',
     documents: 'Incluidos', supervision: '3 al mes', templates: 'Ampliadas',
     directoryProfile: 'Incluido', publications: '5 personalizadas', support: 'Priorizado',
   },
   {
     id: 'horizonte', name: 'Horizonte', description: 'Pacientes propios sin límite y un perfil destacado.',
-    monthlyPrice: '89,99', ownPatients: 'Ilimitados', storageGB: 30, statistics: 'Completas',
+    monthlyPrice: '89,99', ownPatients: 'Ilimitados', storageLabel: '2 TB', statistics: 'Completas',
     documents: 'Incluidos', supervision: 'Incluida', templates: 'Todas',
     directoryProfile: 'Destacado', publications: 'Incluidas', support: 'Priorizado',
   },
@@ -85,7 +85,7 @@ export const PRICING_FAQS = [
   },
   {
     question: '¿Qué significa el almacenamiento de cada modalidad?',
-    answer: `${PRICING_STORAGE_NOTE} Directorio incluye ${DIRECTORY_OFFER.storageGB} GB; ${PRICING_PLANS.map(plan => `${plan.name}, ${plan.storageGB} GB`).join('; ')}. En las suscripciones, tus pacientes propios y los procedentes de HERA comparten esa capacidad.`,
+    answer: `${PRICING_STORAGE_NOTE} Directorio incluye ${DIRECTORY_OFFER.storageLabel}; ${PRICING_PLANS.map(plan => `${plan.name}, ${plan.storageLabel}`).join('; ')}. En las suscripciones, tus pacientes propios y los procedentes de HERA comparten esa capacidad.`,
   },
   {
     question: '¿Puedo contratar un plan desde esta página?',

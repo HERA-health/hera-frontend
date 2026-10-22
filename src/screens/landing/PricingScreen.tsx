@@ -177,10 +177,10 @@ export function PricingScreen(): React.ReactElement {
                 <Text style={[styles.caption, body]}>La escala se cuenta para cada relación entre paciente y especialista.</Text>
               </View>
             </View>
-            <View style={[styles.directoryIncludes, tablet && styles.horizontal, { backgroundColor: theme.landingProfessional }]}>
-              <View style={styles.checkRow}>
-                <Text style={styles.metricEmoji} accessible={false} aria-hidden>📁</Text>
-                <Text style={[styles.small, strong]}>{DIRECTORY_OFFER.storageGB} GB de almacenamiento total</Text>
+            <View style={[styles.directoryIncludes, tablet && styles.directoryIncludesRow, { backgroundColor: theme.landingProfessional }]}>
+              <View style={styles.directoryStorage}>
+                <Text style={styles.directoryStorageIcon} accessible={false} aria-hidden>📁</Text>
+                <Text style={[styles.small, strong, styles.directoryStorageLabel]}>{DIRECTORY_OFFER.storageLabel} de almacenamiento total</Text>
               </View>
               <Text style={[styles.caption, body, tablet && styles.flex]}>Agenda, historial, documentos, consentimientos, facturación, recordatorios, Google Meet y resumen de actividad.</Text>
             </View>
@@ -214,8 +214,8 @@ export function PricingScreen(): React.ReactElement {
                       <View style={styles.metricHeading}><Text style={styles.metricEmoji} accessible={false} aria-hidden>👥</Text><Text style={[styles.metricValue, strong]}>{plan.ownPatients}</Text></View>
                       <Text style={[styles.caption, body]}>pacientes propios activos</Text>
                     </View>
-                    <View style={[styles.flex, styles.storageMetric, { borderColor: theme.borderStrong }]} accessible accessibilityLabel={`${plan.storageGB} GB de almacenamiento`}>
-                      <View style={styles.metricHeading}><Text style={styles.metricEmoji} accessible={false} aria-hidden>📁</Text><Text style={[styles.metricValue, strong]}>{plan.storageGB} GB</Text></View>
+                    <View style={[styles.flex, styles.storageMetric, { borderColor: theme.borderStrong }]} accessible accessibilityLabel={`${plan.storageLabel} de almacenamiento`}>
+                      <View style={styles.metricHeading}><Text style={styles.metricEmoji} accessible={false} aria-hidden>📁</Text><Text style={[styles.metricValue, strong]}>{plan.storageLabel}</Text></View>
                       <Text style={[styles.caption, body]}>de almacenamiento</Text>
                     </View>
                   </View>
@@ -267,7 +267,7 @@ export function PricingScreen(): React.ReactElement {
               <View style={[styles.detailMetrics, tablet && styles.horizontal, { borderColor: theme.borderLight }]}>
                 {([
                   { value: selectedPlan.ownPatients, label: 'Pacientes propios activos', emoji: '👥', icon: 'people-outline' },
-                  { value: `${selectedPlan.storageGB} GB por especialista`, label: 'Espacio total para tus archivos', emoji: '📁', icon: 'cloud-outline' },
+                  { value: `${selectedPlan.storageLabel} por especialista`, label: 'Espacio total para tus archivos', emoji: '📁', icon: 'cloud-outline' },
                   { value: 'Pacientes de HERA incluidos', label: 'No consumen el cupo de propios', emoji: null, icon: 'person-add-outline' },
                 ] as const).map(metric => <View key={metric.label} style={[styles.detailMetric, tablet && styles.flex]}>
                   {metric.emoji ? <Text style={styles.metricEmoji} accessible={false} aria-hidden>{metric.emoji}</Text> : <Ionicons name={metric.icon} size={20} color={theme.primary} accessible={false} />}
@@ -385,6 +385,10 @@ const styles = StyleSheet.create({
   commissionDivider: { borderLeftWidth: 1 },
   rate: { fontSize: 25, lineHeight: 32 },
   directoryIncludes: { gap: 14, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 8, marginTop: 12, alignItems: 'flex-start' },
+  directoryIncludesRow: { flexDirection: 'row', alignItems: 'center' },
+  directoryStorage: { flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%' },
+  directoryStorageIcon: { fontSize: 16, lineHeight: 21, flexShrink: 0 },
+  directoryStorageLabel: { flexShrink: 1 },
   directoryScope: { marginTop: 6 },
   checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   subscriptionHeading: { paddingTop: 26, paddingBottom: 16, gap: 5 },
