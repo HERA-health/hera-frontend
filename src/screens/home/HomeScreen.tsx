@@ -731,7 +731,6 @@ export default function HomeScreen() {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          isMobile && styles.scrollContentMobile,
           isDesktop && styles.scrollContentDesktop,
         ]}
         showsVerticalScrollIndicator={false}
@@ -789,9 +788,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.lg,
     gap: 20,
-  },
-  scrollContentMobile: {
-    paddingTop: 56,
   },
   scrollContentDesktop: {
     maxWidth: 1280,

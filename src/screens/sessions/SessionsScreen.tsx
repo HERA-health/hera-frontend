@@ -16,7 +16,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { borderRadius, layout, shadows, spacing } from '../../constants/colors';
+import { borderRadius, shadows, spacing } from '../../constants/colors';
 import { MainTabParamList } from '../../constants/types';
 import type { Theme } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -352,7 +352,6 @@ const createStyles = (theme: Theme, isDark: boolean, width: number) => {
     },
     header: {
       paddingHorizontal: desktop ? spacing.xxxl : spacing.xl,
-      paddingLeft: desktop ? spacing.xxxl : layout.mobileShellLeftInset,
       paddingTop: desktop ? spacing.xl : spacing.lg,
       paddingBottom: spacing.lg,
       backgroundColor: theme.bg,

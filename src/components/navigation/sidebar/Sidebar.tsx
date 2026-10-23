@@ -68,7 +68,7 @@ export function Sidebar({
       isCollapsed={isCollapsed}
     />
   );
-  const shouldShowUserSection = !locked && userRole !== 'PROFESSIONAL';
+  const shouldShowUserSection = !locked && userRole === 'CLINIC';
 
   return (
     <View

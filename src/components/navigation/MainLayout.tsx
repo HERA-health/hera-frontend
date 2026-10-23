@@ -21,6 +21,7 @@ import { ProfessionalTourProvider } from '../onboarding/ProfessionalTourProvider
 import { TourTarget } from '../onboarding/TourTarget';
 import { CustomDrawerContent } from './CustomDrawerContent';
 import { ProfessionalTopBar } from './ProfessionalTopBar';
+import { PatientTopBar } from './PatientTopBar';
 import { isLargeScreenForRole } from './mainLayoutBreakpoints';
 import {
   SIDEBAR_ANIMATIONS,
@@ -39,6 +40,8 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
   const { theme } = useTheme();
   const { user } = useAuth();
   const isProfessional = user?.type === 'professional';
+  const isPatient = user?.type === 'client';
+  const hasWorkspaceShell = isProfessional || isPatient;
   const isLargeScreen = isLargeScreenForRole(windowWidth, isProfessional);
   const mobileSidebarWidth = Math.min(
     320,
@@ -145,7 +148,7 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
 
   const layoutContent = !isLargeScreen ? (
       <View style={[styles.mobileContainer, { backgroundColor: theme.bg }]}>
-        {!isProfessional ? <AnimatedPressable
+        {!hasWorkspaceShell ? <AnimatedPressable
           style={[
             styles.mobileMenuButton,
             {
@@ -184,10 +187,14 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
           </TourTarget>
         </AnimatedPressable> : null}
 
-        {isProfessional ? (
+        {hasWorkspaceShell ? (
           <View key="workspace" style={styles.content}>
           <View style={styles.professionalContent}>
-            <ProfessionalTopBar currentRoute={currentRoute} onOpenMobileSidebar={openMobileSidebar} />
+            {isProfessional ? (
+              <ProfessionalTopBar currentRoute={currentRoute} onOpenMobileSidebar={openMobileSidebar} />
+            ) : (
+              <PatientTopBar currentRoute={currentRoute} onOpenMobileSidebar={openMobileSidebar} />
+            )}
             <View style={styles.professionalBody}>{children}</View>
           </View>
           </View>
@@ -249,7 +256,7 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
           {
             width: sidebarWidth,
             borderRightColor: theme.navigationBorder,
-            borderRightWidth: isProfessional ? 0 : 1,
+            borderRightWidth: hasWorkspaceShell ? 0 : 1,
             backgroundColor: sidebarTheme.background.primary,
           },
         ]}
@@ -260,10 +267,14 @@ export function MainLayout({ children }: MainLayoutProps): React.ReactElement {
           onToggleCollapse={handleToggleCollapse}
         />
       </Animated.View>
-      <View key="workspace" style={[styles.content, { backgroundColor: isProfessional ? theme.navigationBg : theme.bg }]}>
-        {isProfessional ? (
+      <View key="workspace" style={[styles.content, { backgroundColor: hasWorkspaceShell ? theme.navigationBg : theme.bg }]}>
+        {hasWorkspaceShell ? (
           <View style={styles.professionalContent}>
-            <ProfessionalTopBar currentRoute={currentRoute} onOpenMobileSidebar={openMobileSidebar} />
+            {isProfessional ? (
+              <ProfessionalTopBar currentRoute={currentRoute} onOpenMobileSidebar={openMobileSidebar} />
+            ) : (
+              <PatientTopBar currentRoute={currentRoute} onOpenMobileSidebar={openMobileSidebar} />
+            )}
             <View style={[styles.professionalBody, styles.professionalBodyInset, { borderColor: theme.navigationBorder }]}>{children}</View>
           </View>
         ) : children}

@@ -12,6 +12,16 @@ const section = PROFESSIONAL_SECTIONS.find((entry) => entry.id === 'management')
 const props = { section, currentRoute: 'ProfessionalHome', onNavigate: jest.fn(), showDivider: true, isCollapsed: false, notices: {} };
 
 describe('sidebar section disclosure', () => {
+  it.each([
+    ['CLIENT', false],
+    ['PROFESSIONAL', false],
+    ['CLINIC', true],
+  ] as const)('keeps the sidebar account controls only when needed for %s', (role, visible) => {
+    const view = render(<Sidebar userRole={role} currentRoute=""
+      onNavigate={jest.fn()} user={{ name: 'Usuario', role }} onLogout={jest.fn()} />);
+    expect(Boolean(view.queryByLabelText('Abrir perfil de Usuario'))).toBe(visible);
+  });
+
   it('uses a 48px mobile disclosure target and toggles without navigating', () => {
     const onNavigate = jest.fn();
     const view = render(<NavigationSectionComponent {...props} isMobile onNavigate={onNavigate} />);
