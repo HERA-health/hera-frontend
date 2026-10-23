@@ -57,6 +57,23 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
     return styles.mobileCard;
   }, [isDesktop, isTablet]);
 
+  const specialistCards = specialists.map((specialist, index) => (
+    <MotionView
+      key={specialist.id}
+      entering="fadeIn"
+      delay={90 + index * 70}
+      style={cardStyle}
+    >
+      <PublicSpecialistCard
+        specialist={specialist}
+        variant="featured"
+        style={styles.profileCard}
+        href={directoryEntryHref(specialist.publicSlug ?? specialist.id)}
+        onPress={() => onOpenSpecialist(specialist.publicSlug ?? specialist.id)}
+      />
+    </MotionView>
+  ));
+
   return (
     <View style={[styles.container, { backgroundColor: theme.landingCanvas }]}>
       <View style={styles.content}>
@@ -89,29 +106,18 @@ export const FeaturedSpecialistsSection: React.FC<FeaturedSpecialistsSectionProp
             <Ionicons name="people-outline" size={24} color={theme.textMuted} />
             <Text style={[styles.statusTitle, { color: theme.textPrimary, fontFamily: theme.fontSansSemiBold }]}>Estamos incorporando nuevos perfiles públicos</Text>
           </View>
+        ) : isDesktop ? (
+          // Desktop cards fit in one row; a vertical ScrollView can oscillate
+          // between showing a scrollbar and resizing these square cards.
+          <View style={[styles.cards, styles.cardsDesktop]}>{specialistCards}</View>
         ) : (
           <ScrollView
-            horizontal={!isDesktop}
+            horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={[styles.cards, isDesktop && styles.cardsDesktop]}
-            style={styles.cardsScroller}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[styles.cards, styles.cardsMobile]}
           >
-            {specialists.map((specialist, index) => (
-              <MotionView
-                key={specialist.id}
-                entering="fadeIn"
-                delay={90 + index * 70}
-                style={cardStyle}
-              >
-                <PublicSpecialistCard
-                  specialist={specialist}
-                  variant="featured"
-                  style={styles.profileCard}
-                  href={directoryEntryHref(specialist.publicSlug ?? specialist.id)}
-                  onPress={() => onOpenSpecialist(specialist.publicSlug ?? specialist.id)}
-                />
-              </MotionView>
-            ))}
+            {specialistCards}
           </ScrollView>
         )}
 
@@ -187,12 +193,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 14,
   },
-  cardsScroller: {
-    overflow: 'visible',
-  },
   cards: {
     gap: 14,
     paddingHorizontal: 2,
+  },
+  cardsMobile: {
+    // Leave room for the hover/press spring without clipping the card edges.
+    paddingVertical: 4,
   },
   cardsDesktop: {
     flexDirection: 'row',
