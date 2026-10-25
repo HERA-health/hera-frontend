@@ -111,6 +111,7 @@ export interface Session {
     id: string;
     invoiceNumber: string;
     status: string;
+    total?: number;
   } | null;
   origin?: ProfessionalSessionOrigin;
   clinicContext?: {
@@ -432,8 +433,8 @@ export const getProfessionalClients = async (
   });
 };
 
-export const getProfessionalClientDetail = async (clientId: string): Promise<Client | null> => {
-  const response = await api.get(`/clients/${clientId}`);
+export const getProfessionalClientDetail = async (clientId: string, sessionLimit?: number): Promise<Client | null> => {
+  const response = await api.get(`/clients/${clientId}`, sessionLimit ? { params: { sessionLimit } } : undefined);
   return response.data.success ? normalizeClient(response.data.data) : null;
 };
 

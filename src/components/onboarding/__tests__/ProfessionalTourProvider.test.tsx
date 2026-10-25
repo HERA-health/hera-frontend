@@ -875,7 +875,7 @@ describe('ProfessionalTourProvider', () => {
       expect(getSpotlightTourTestState().controls.start).toHaveBeenCalledTimes(1);
     });
 
-    expect(getSpotlightTourTestState().props?.steps).toHaveLength(9);
+    expect(getSpotlightTourTestState().props?.steps).toHaveLength(6);
   });
 
   it('persists skipped and completed stops as seen', async () => {

@@ -29,6 +29,7 @@ export interface SimpleDropdownProps<T> {
   options: readonly DropdownOption<T>[];
   value: T | null;
   onSelect: (value: T) => void;
+  onOpen?: () => void;
   accessibilityLabel?: string;
   disabled?: boolean;
   placeholder?: string;
@@ -57,6 +58,7 @@ export function SimpleDropdown<T extends string | number>({
   options,
   value,
   onSelect,
+  onOpen,
   accessibilityLabel,
   disabled = false,
   placeholder = 'Seleccionar...',
@@ -76,6 +78,11 @@ export function SimpleDropdown<T extends string | number>({
   const { height: viewportHeight, width: viewportWidth } = useWindowDimensions();
   const dropdownStyles = React.useMemo(() => createStyles(theme), [theme]);
   const [open, setOpen] = useState(false);
+  const wasOpen = React.useRef(false);
+  React.useEffect(() => {
+    if (open && !wasOpen.current) onOpen?.();
+    wasOpen.current = open;
+  }, [open, onOpen]);
   const [anchor, setAnchor] = useState<DropdownAnchor | null>(null);
   const triggerRef = React.useRef<AnimatedPressableHandle>(null);
   const optionRefs = React.useRef<Array<AnimatedPressableHandle | null>>([]);

@@ -22,6 +22,8 @@ jest.mock('../../../services/clinicalService', () => ({
   getClinicalRecord: jest.fn(), getClinicalTimeline: jest.fn(),
   hasAcceptedCurrentDataProcessingAgreement: (status: clinical.ClinicalAccessStatus) => Boolean(status.acceptedDataProcessingAgreementAt && !status.requiresDataProcessingAgreementAcceptance),
 }));
+jest.mock('../../../services/clinicalEntriesService',()=>({searchNotes:jest.fn(async()=>({items:[],pageInfo:{limit:10,total:0,hasMore:false,nextCursor:null},filters:{authors:[],tags:[]}})),searchHistory:jest.fn()}));
+jest.mock('../../../services/api',()=>({api:{}}));
 jest.mock('../../../services/clinicalFileCache', () => ({ releaseClinicalAssets: jest.fn() }));
 jest.mock('../../common/alert', () => ({ useAppAlertState: () => ({ isVisible: false }) }));
 jest.mock('../../onboarding/TourTarget', () => ({ TourTarget: ({ children }: { children: React.ReactNode }) => children }));
@@ -75,7 +77,7 @@ beforeEach(() => {
 
 test('a closed header action is consumed and never reopens after access checks or a remount', async () => {
   const view = render(<PatientView />);
-  await screen.findByText('Notas del expediente');
+  await screen.findAllByText('Notas clínicas');
   fireEvent.press(screen.getByText('Nueva nota desde cabecera'));
   expect(screen.getByLabelText('Contenido de la nota')).toBeTruthy();
   fireEvent.press(screen.getAllByRole('button', { name: 'Cerrar' })[0]);
@@ -86,7 +88,7 @@ test('a closed header action is consumed and never reopens after access checks o
   expect(screen.queryByLabelText('Contenido de la nota')).toBeNull();
   access = { ...access, statusLoading: false };
   view.rerender(<PatientView workspaceKey="remounted" />);
-  await screen.findByText('Notas del expediente');
+  await screen.findAllByText('Notas clínicas');
   expect(screen.queryByLabelText('Contenido de la nota')).toBeNull();
 
   fireEvent.press(screen.getByText('Nueva nota desde cabecera'));
@@ -95,7 +97,7 @@ test('a closed header action is consumed and never reopens after access checks o
 
 test('rechecking a valid session preserves an open note and its unsaved draft', async () => {
   const view = render(<PatientView />);
-  await screen.findByText('Notas del expediente');
+  await screen.findAllByText('Notas clínicas');
   fireEvent.press(screen.getByText('Nueva nota desde cabecera'));
   fireEvent.changeText(screen.getByLabelText('Contenido de la nota'), 'Borrador sin guardar');
   access = { ...access, statusLoading: true };
@@ -109,7 +111,7 @@ test('rechecking a valid session preserves an open note and its unsaved draft', 
 
 test('losing access while rechecking removes the draft immediately and never restores it on unlock', async () => {
   const view = render(<PatientView />);
-  await screen.findByText('Notas del expediente');
+  await screen.findAllByText('Notas clínicas');
   fireEvent.press(screen.getByText('Nueva nota desde cabecera'));
   fireEvent.changeText(screen.getByLabelText('Contenido de la nota'), 'Contenido privado');
   access = { ...access, statusLoading: true };
@@ -121,6 +123,17 @@ test('losing access while rechecking removes the draft immediately and never res
   expect(screen.queryByLabelText('Contenido de la nota')).toBeNull();
   access = { ...unlocked, statusLoading: false };
   view.rerender(<PatientView />);
-  await screen.findByText('Notas del expediente');
+  await screen.findAllByText('Notas clínicas');
+  expect(screen.queryByLabelText('Contenido de la nota')).toBeNull();
+});
+
+test('administrative tabs render no clinical workspace even while the access session remains valid',async()=>{
+  const view=render(<ClinicalTab clientId={client.id} client={client} section="notes" visible={false}/>);
+  expect(screen.queryAllByText('Notas clínicas')).toHaveLength(0);
+  expect(screen.queryByLabelText('Contenido de la nota')).toBeNull();
+  view.rerender(<ClinicalTab clientId={client.id} client={client} section="notes" visible/>);
+  await screen.findAllByText('Notas clínicas');
+  view.rerender(<ClinicalTab clientId={client.id} client={client} section="notes" visible={false}/>);
+  expect(screen.queryAllByText('Notas clínicas')).toHaveLength(0);
   expect(screen.queryByLabelText('Contenido de la nota')).toBeNull();
 });

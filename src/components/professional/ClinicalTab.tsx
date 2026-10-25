@@ -1,5 +1,6 @@
+import { ClinicalRecordWorkspace } from './patient-detail/ClinicalRecordWorkspace';
 import { useClinicalAuthorizationWatch } from '../../hooks/useClinicalAuthorizationWatch';
-import { ClinicalPatientWorkspace, type ClinicalPatientSection, type ClinicalPatientAction } from './ClinicalPatientWorkspace';
+import type { ClinicalPatientSection, ClinicalPatientAction } from './ClinicalPatientWorkspace';
 import type { ClinicalTimelinePage } from '../../services/clinicalService';
 import { ClinicalPinManager } from './ClinicalPinManager';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -22,7 +23,6 @@ import {
 } from '../onboarding/professionalTourContext';
 import { PinCodeInput } from './PinCodeInput';
 import { ClinicalGeneralWorkspace } from './ClinicalGeneralWorkspace';
-import { ClinicalSessionsWorkspace } from './ClinicalSessionsWorkspace';
 import { borderRadius, spacing, typography } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import type { Client } from '../../services/professionalService';
@@ -46,6 +46,8 @@ export interface ClinicalPatientAccessState {
 }
 
 interface ClinicalTabProps {
+  visible?: boolean;
+  focusDocumentId?: string;
   section?: ClinicalPatientSection;
   action?: ClinicalPatientAction;
   onActionConsumed?: (id: number) => void;
@@ -171,6 +173,7 @@ const getBannerStyles = (
 };
 
 export function ClinicalTab({
+  visible = true, focusDocumentId,
   section = 'summary', action, onActionConsumed, onSection, onAccessState, onCounters,
   clientId,
   client,
@@ -202,8 +205,6 @@ export function ClinicalTab({
   const [showSetupPin, setShowSetupPin] = useState(false);
   const [clinicalTermsAccepted, setClinicalTermsAccepted] = useState<boolean | null>(null);
   const [clinicalTermsLoading, setClinicalTermsLoading] = useState(true);
-  const handledFocusSessionLoadRef = useRef<string | null>(null);
-  const loadingFocusSessionRef = useRef<string | null>(null);
 
   const showBanner = useCallback((tone: BannerTone, message: string) => {
     setBanner({ tone, message });
@@ -255,7 +256,6 @@ export function ClinicalTab({
     onAccessLost: handleWorkspaceAccessLost,
   });
   const clinicalRecord = workspaceData.record;
-  const ensureSessionFolderLoaded = workspaceData.ensureSessionFolderLoaded;
   const focusRefreshRef = useRef(workspaceData.loadRecord);
   focusRefreshRef.current = workspaceData.loadRecord;
   const hasFocusedRef = useRef(false);
@@ -282,8 +282,6 @@ export function ClinicalTab({
     setSetupPin('');
     setSetupPinConfirm('');
     setBanner(null);
-    handledFocusSessionLoadRef.current = null;
-    loadingFocusSessionRef.current = null;
   }, [clientId, focusSessionId, initialWorkspace]);
 
   useEffect(() => {
@@ -296,59 +294,6 @@ export function ClinicalTab({
       setWorkspace(initialWorkspace);
     }
   }, [focusSessionId, initialWorkspace]);
-
-  useEffect(() => {
-    if (!focusSessionId) {
-      handledFocusSessionLoadRef.current = null;
-      loadingFocusSessionRef.current = null;
-      return;
-    }
-
-    if (!access.token || !clinicalRecord || clinicalRecord.consentStatus !== 'GRANTED') {
-      return;
-    }
-
-    const alreadyLoaded = clinicalRecord.sessionFolders.some(
-      (folder) => folder.session.id === focusSessionId
-    );
-    if (alreadyLoaded) {
-      handledFocusSessionLoadRef.current = focusSessionId;
-      loadingFocusSessionRef.current = null;
-      return;
-    }
-
-    if (
-      handledFocusSessionLoadRef.current === focusSessionId
-      || loadingFocusSessionRef.current === focusSessionId
-    ) {
-      return;
-    }
-
-    loadingFocusSessionRef.current = focusSessionId;
-    void ensureSessionFolderLoaded(focusSessionId)
-      .then((loaded) => {
-        if (loaded) {
-          handledFocusSessionLoadRef.current = focusSessionId;
-        }
-      })
-      .catch((error: unknown) => {
-        showBanner(
-          'warning',
-          getErrorMessage(error, 'No se pudo abrir la carpeta clinica de esta cita.')
-        );
-      })
-      .finally(() => {
-        if (loadingFocusSessionRef.current === focusSessionId) {
-          loadingFocusSessionRef.current = null;
-        }
-      });
-  }, [
-    access.token,
-    clinicalRecord,
-    ensureSessionFolderLoaded,
-    focusSessionId,
-    showBanner,
-  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -568,6 +513,7 @@ export function ClinicalTab({
     else if (code === 'CLINICAL_PROCESS_CLOSED') void workspaceData.loadRecord();
   }, [access.clearAccessState, workspaceData.loadRecord]);
 
+  const [clinicalTourTarget,setClinicalTourTarget] = useState<ProfessionalTourTargetId>();
   const hasBlockingBanner = banner?.tone === 'warning' || banner?.tone === 'error';
   const shouldAutoStartClinicalTour =
     tourTargetsActive
@@ -576,7 +522,7 @@ export function ClinicalTab({
     && !recordLoading
     && !access.accessSubmitting
     && !isAppAlertVisible
-    && section === 'summary'
+    && visible && section === 'notes' && record?.consentStatus === 'GRANTED'
     && workspace === 'general'
     && !hasBlockingBanner;
   const canPreferClinicalTour =
@@ -584,7 +530,7 @@ export function ClinicalTab({
     && hasActiveSession
     && record !== null
     && !recordLoading
-    && section === 'summary'
+    && visible && section === 'notes' && record?.consentStatus === 'GRANTED'
     && workspace === 'general'
     && !hasBlockingBanner;
 
@@ -597,7 +543,8 @@ export function ClinicalTab({
         setWorkspace('general');
       }
 
-      onSection?.('summary');
+      onSection?.('notes');
+      setClinicalTourTarget(targetId);
       if (targetId === 'professional.clinical.consent' || targetId === 'professional.clinical.consent-documents') setTourAction({ id: Date.now(), kind: 'CONSENT' });
       await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
       await onPrepareClinicalTourStep?.(targetId);
@@ -741,6 +688,7 @@ export function ClinicalTab({
     [access.accessSubmitting, handleLock, theme]
   );
 
+  if (!visible) return null;
   return (
     <View style={styles.screen}>
       {banner && bannerColors ? (
@@ -888,46 +836,14 @@ export function ClinicalTab({
         </Card>
       ) : !hasActiveSession ? (
         <Card variant="default" padding="large">
-          <View style={[styles.heroPanel, !isTablet && styles.heroPanelStack]}>
-            <View style={styles.heroMain}>
-              <View style={[styles.eyebrowPill, { backgroundColor: theme.primaryAlpha12 }]}>
-                <Ionicons name="shield-checkmark-outline" size={14} color={theme.primary} />
-                <Text style={[styles.eyebrowPillText, { color: theme.primary, fontFamily: theme.fontSansSemiBold }]}>
-                  Área clínica protegida
-                </Text>
-              </View>
-              <Text style={[styles.stateTitle, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>
-                Desbloquear expediente
-              </Text>
-              <Text style={[styles.stateDescription, { color: theme.textSecondary }]}>
-                Introduce tu PIN para entrar en la parte privada del expediente y continuar tu trabajo.
-              </Text>
-
-              <PinCodeInput
-                value={pin}
-                onChange={setPin}
-                masked={!showPin}
-                label="PIN clínico"
-                hint="Introduce tu PIN clínico de 6 dígitos para abrir el expediente."
-              />
-
-              <View style={styles.stateActions}>
-                <Button variant="ghost" size="small" onPress={() => setShowPin((current) => !current)}>
-                  {showPin ? 'Ocultar PIN' : 'Mostrar PIN'}
-                </Button>
-                <ClinicalPinManager compact clientId={clientId} />
-                <Button
-                  variant="primary"
-                  size="small"
-                  onPress={handleUnlock}
-                  loading={access.accessSubmitting}
-                >
-                  Abrir expediente
-                </Button>
-              </View>
+          <View style={{alignItems:'center',gap:18,paddingVertical:isTablet?32:18}}>
+            <View style={{width:62,height:62,borderRadius:31,backgroundColor:theme.primaryAlpha12,alignItems:'center',justifyContent:'center'}}><Ionicons name="lock-closed-outline" size={30} color={theme.primary}/></View>
+            <Text accessibilityRole="header" style={{fontFamily:theme.fontSansBold,color:theme.textPrimary,fontSize:24}}>Área clínica protegida</Text>
+            <Text style={{fontFamily:theme.fontSans,color:theme.textSecondary,fontSize:14,lineHeight:22,textAlign:'center'}}>Para acceder a la información clínica del paciente, introduce tu PIN clínico.</Text>
+            <View style={{width:'100%',flexDirection:isTablet?'row':'column',gap:12,maxWidth:950}}>
+              {([{title:'Notas clínicas',description:'Registro de evolución y seguimiento del proceso terapéutico.',icon:'document-text-outline'},{title:'Historia clínica',description:'Evaluaciones, antecedentes, objetivos, tratamiento y ejercicios.',icon:'clipboard-outline'},{title:'Documentación clínica',description:'Informes, consentimientos y documentación del expediente.',icon:'folder-open-outline'}] as const).map(item=><View key={item.title} style={{flex:isTablet?1:undefined,flexDirection:'row',gap:12,alignItems:'center',padding:16,borderWidth:1,borderColor:theme.borderLight,borderRadius:10}}><Ionicons name={item.icon} size={24} color={theme.primary}/><View style={{flex:1,gap:4}}><Text style={{fontFamily:theme.fontSansSemiBold,color:theme.textPrimary,fontSize:14}}>{item.title}</Text><Text style={{fontFamily:theme.fontSans,color:theme.textSecondary,fontSize:12,lineHeight:18}}>{item.description}</Text></View></View>)}
             </View>
-
-            {renderSidebar(sidebarRows)}
+            <View style={{maxWidth:380,width:'100%',gap:10}}><PinCodeInput value={pin} onChange={setPin} masked={!showPin} label="PIN clínico" hint="Introduce tu PIN clínico de 6 dígitos para continuar."/><Button onPress={handleUnlock} loading={access.accessSubmitting}>Acceder al área clínica</Button><View style={{flexDirection:'row',gap:8,justifyContent:'center',flexWrap:'wrap'}}><Button variant="ghost" size="small" onPress={()=>setShowPin(current=>!current)}>{showPin?'Ocultar PIN':'Mostrar PIN'}</Button><ClinicalPinManager compact clientId={clientId}/></View></View>
           </View>
         </Card>
       ) : workspaceData.recordError && !record ? (
@@ -944,7 +860,7 @@ export function ClinicalTab({
       ) : (
         <View style={styles.workspaceStack}>
           {workspaceData.recordError ? <Card padding="medium"><Text accessibilityRole="alert" style={{ color: theme.error, fontFamily: theme.fontSans }}>{workspaceData.recordError}</Text><Button variant="ghost" onPress={() => void workspaceData.loadRecord()}>Actualizar expediente</Button></Card> : null}
-          <ClinicalPatientWorkspace key={`${clientId}:${access.token}:${record.consentStatus}:${record.closedAt ?? ''}`}
+          <ClinicalRecordWorkspace tourTarget={clinicalTourTarget} focusDocumentId={focusDocumentId} key={`${clientId}:${access.token}:${record.consentStatus}:${record.closedAt ?? ''}`}
             client={client} record={record} token={access.token!} section={section} action={tourAction && tourAction.id > (action?.id ?? 0) ? tourAction : action}
             onActionConsumed={consumeAction}
             onLock={() => void handleLock()}
@@ -980,28 +896,7 @@ export function ClinicalTab({
               onRetryGuestConsentSync={workspaceData.retryGuestConsentSync}
               tourTargetsActive={tourTargetsActive}
             />}
-            sessionPanel={(compose) => <ClinicalSessionsWorkspace
-              onComposeNote={(sessionId) => compose({ kind: 'NOTE', sessionId })}
-              onEditNote={record.closedAt ? undefined : (note) => compose({ kind: 'NOTE', note })}
-              onCreateExercise={(sessionId) => compose({ kind: 'EXERCISE', sessionId })}
-              clientId={clientId}
-              client={client}
-              isTablet={isTablet}
-              sessionFolders={record.sessionFolders}
-              hasMore={record.pagination.sessionFolders.hasMore}
-              loadingMore={workspaceData.loadingMoreSessions}
-              consentGranted={record.consentStatus === 'GRANTED' && !record.closedAt}
-              noteSaving={workspaceData.noteSaving}
-              documentUploading={workspaceData.documentUploading}
-              openingDocumentId={workspaceData.openingDocumentId}
-              focusSessionId={focusSessionId}
-              onOpenDocument={handleOpenClinicalDocument}
-              onSaveNote={handleSaveClinicalNote}
-              onUploadDocument={handleUploadClinicalDocument}
-              onLoadMore={workspaceData.loadMoreSessionFolders}
-              onReloadWorkspace={workspaceData.loadRecord}
-              onRequestRefreshClient={onRequestRefreshClient}
-            />}
+
           />
         </View>
       )}

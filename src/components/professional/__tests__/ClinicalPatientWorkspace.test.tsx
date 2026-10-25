@@ -10,6 +10,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import type { Client } from '../../../services/professionalService';
 
 jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: jest.fn() }));
+jest.mock('../../../services/patientDetailService', () => ({ getPatientSessions: jest.fn(async () => ({ items: [], total: 0, page: 1, totalPages: 0 })) }));
 jest.mock('../../../services/clinicalService', () => ({ getClinicalTimeline: jest.fn(), getClinicalExercises: jest.fn(), searchClinicalDocuments: jest.fn(), uploadClinicalDocument: jest.fn(), isClinicalSaveUncertain: jest.fn() }));
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
 jest.mock('../../onboarding/TourTarget', () => ({ TourTarget: ({ children }: { children: React.ReactNode }) => children }));

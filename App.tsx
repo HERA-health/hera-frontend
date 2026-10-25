@@ -9,7 +9,8 @@ import { captureReferralUrl } from './src/services/pendingReferralIntent';
  */
 
 import React, { useEffect } from 'react';
-import { Platform, View } from 'react-native';
+import { AppState, Platform, View } from 'react-native';
+import { cleanupClinicalPreviews } from './src/services/clinicalPreviewCache';
 import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { captureCalendarUrl } from './src/services/googleCalendarIntent';
@@ -269,6 +270,15 @@ const injectWebStyles = (isDark: boolean) => {
 /** Inner app that has access to ThemeContext */
 function ThemedApp() {
   const { isDark } = useTheme();
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    cleanupClinicalPreviews();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') cleanupClinicalPreviews();
+    });
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     injectWebStyles(isDark);

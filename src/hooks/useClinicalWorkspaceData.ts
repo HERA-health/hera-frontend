@@ -188,7 +188,7 @@ export function useClinicalWorkspaceData({
     try {
       setRecordLoading(true);
       setRecordError(null);
-      const nextRecord = await clinicalService.getClinicalRecord(clientId, token);
+      const nextRecord = await clinicalService.getClinicalRecord(clientId, token, { view: 'summary' });
       if (!isCurrentContext(context) || request !== recordRequestRef.current) return null;
       if (nextRecord.consentStatus !== 'GRANTED') cancelClinicalDownloads(token);
       setRecord(nextRecord);
@@ -258,6 +258,7 @@ export function useClinicalWorkspaceData({
     try {
       setLoadingMoreDocuments(true);
       const nextPage = await clinicalService.listClinicalDocuments(clientId, token, {
+        category: 'CONSENT_EVIDENCE',
         cursor: record.pagination.documents.nextCursor,
         scope: 'general',
       });

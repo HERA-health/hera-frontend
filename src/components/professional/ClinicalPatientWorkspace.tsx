@@ -15,7 +15,7 @@ import { releaseClinicalAssets } from '../../services/clinicalFileCache';
 import { cancelClinicalDownloads } from '../../services/clinicalDownloads';
 
 export type ClinicalPatientSection = 'summary' | 'history' | 'notes' | 'exercises' | 'documents' | 'packages';
-export type ClinicalPatientAction = { id: number; kind: 'NOTE' | 'UPLOAD' | 'CONSENT' };
+export type ClinicalPatientAction = { id: number; kind: 'NOTE' | 'UPLOAD' | 'CONSENT'; classification?: clinical.DocumentMetadata['classification'] };
 interface Props {
   client: Client; record: clinical.ClinicalRecord; token: string; section: ClinicalPatientSection;
   action?: ClinicalPatientAction; focusSessionId?: string;

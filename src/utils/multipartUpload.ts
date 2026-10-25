@@ -13,6 +13,7 @@ const MIME_TYPE_EXTENSIONS: Record<string, string> = {
   'image/webp': 'webp',
   'image/gif': 'gif',
   'application/pdf': 'pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'docx',
 };
 
 const getFileExtension = (mimeType: string): string =>

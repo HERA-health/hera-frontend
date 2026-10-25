@@ -1,90 +1,143 @@
-import type { ClinicalPatientAction, ClinicalPatientSection } from '../../components/professional/ClinicalPatientWorkspace';
-import type { ClinicalTimelinePage } from '../../services/clinicalService';
-import { PatientPackages } from '../../components/packages/PatientPackages';
-import type { PatientPackage } from '../../services/packageService';
-import { PatientCommission } from '../commissions/CommissionLinks';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRef } from 'react';
+import { PatientActionsMenu } from "../../components/professional/patient-detail/PatientActionsMenu";
+import {
+  DetailDialog,
+  Input,
+  Copy,
+} from "../../components/professional/patient-detail/PatientDetailPrimitives";
+import { patientCountry } from "../../components/professional/patient-detail/patientPresentation";
+import { PatientMetrics } from "../../components/professional/patient-detail/PatientMetrics";
+import { PatientGeneralPanel } from "../../components/professional/patient-detail/PatientGeneralPanel";
+import { PatientSessionsPanel } from "../../components/professional/patient-detail/PatientSessionsPanel";
+import { PatientFinancialPanel } from "../../components/professional/patient-detail/PatientFinancialPanel";
+import {
+  getPatientSummary,
+  type PatientSummary,
+} from "../../services/patientDetailService";
+import type {
+  ClinicalPatientAction,
+  ClinicalPatientSection,
+} from "../../components/professional/ClinicalPatientWorkspace";
+import type { PatientPackage } from "../../services/packageService";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useRef } from "react";
 import {
   ActivityIndicator,
   Image,
   Linking,
-  Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
   useWindowDimensions,
-} from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
-import { AnimatedPressable, Button, Card } from '../../components/common';
-import { TourTarget } from '../../components/onboarding/TourTarget';
-import { useOptionalProfessionalTour } from '../../components/onboarding/professionalTourContext';
-import type { ProfessionalTourTargetId } from '../../components/onboarding/professionalTourTypes';
-import { ClinicalTab, type ClinicalPatientAccessState } from '../../components/professional/ClinicalTab';
-import { ManagedSessionSchedulerModal } from '../../components/professional/ManagedSessionSchedulerModal';
-import { borderRadius, layout, spacing, typography } from '../../constants/colors';
+} from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import {
-  CONTACT_METHOD_REQUIRED_MESSAGE,
-  getErrorMessage,
-} from '../../constants/errors';
-import { lightTheme } from '../../constants/theme';
-import type { AppNavigationProp, AppRouteProp } from '../../constants/types';
-import { useTheme } from '../../contexts/ThemeContext';
-import * as professionalService from '../../services/professionalService';
-import { showAppAlert, useAppAlert } from '../../components/common/alert';
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from "@react-navigation/native";
+import { AnimatedPressable, Button, Card } from "../../components/common";
+import { TourTarget } from "../../components/onboarding/TourTarget";
+import { useOptionalProfessionalTour } from "../../components/onboarding/professionalTourContext";
+import type { ProfessionalTourTargetId } from "../../components/onboarding/professionalTourTypes";
+import {
+  ClinicalTab,
+  type ClinicalPatientAccessState,
+} from "../../components/professional/ClinicalTab";
+import { ManagedSessionSchedulerModal } from "../../components/professional/ManagedSessionSchedulerModal";
+import {
+  borderRadius,
+  layout,
+  spacing,
+  typography,
+} from "../../constants/colors";
+import { getErrorMessage } from "../../constants/errors";
+import { lightTheme } from "../../constants/theme";
+import type { AppNavigationProp, AppRouteProp } from "../../constants/types";
+import { useTheme } from "../../contexts/ThemeContext";
+import * as professionalService from "../../services/professionalService";
+import { showAppAlert, useAppAlert } from "../../components/common/alert";
 
-type TabKey = ClinicalPatientSection | 'clinical';
+type TabKey = ClinicalPatientSection | "clinical";
 
-const TABS: Array<{ key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
-  { key: 'summary', label: 'Resumen', icon: 'grid-outline' },
-  { key: 'history', label: 'Sesiones', icon: 'calendar-outline' },
-  { key: 'notes', label: 'Notas', icon: 'document-text-outline' },
-  { key: 'exercises', label: 'Ejercicios', icon: 'fitness-outline' },
-  { key: 'documents', label: 'Documentación', icon: 'folder-open-outline' },
-  { key: 'packages', label: 'Datos y bonos', icon: 'person-outline' },
+const TABS: Array<{
+  key: TabKey;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}> = [
+  { key: "summary", label: "Información general", icon: "grid-outline" },
+  { key: "history", label: "Sesiones", icon: "calendar-outline" },
+  {
+    key: "clinical",
+    label: "Área clínica protegida",
+    icon: "lock-closed-outline",
+  },
+  { key: "packages", label: "Datos y bonos", icon: "person-outline" },
 ];
-
-const resolveInitialTab = (tab?: AppRouteProp<'ClientProfile'>['params']['initialTab'], workspace?: 'general' | 'sessions', sessionId?: string): TabKey => {
-  if (tab === 'history' || workspace === 'sessions' || sessionId) return 'history';
-  if (tab === 'notes' || tab === 'exercises' || tab === 'documents' || tab === 'packages') return tab;
-
-  return 'summary';
+const resolveInitialTab = (
+  tab?: AppRouteProp<"ClientProfile">["params"]["initialTab"],
+  workspace?: "general" | "sessions",
+  sessionId?: string,
+): TabKey => {
+  if (
+    tab === "notes" ||
+    tab === "exercises" ||
+    tab === "documents" ||
+    tab === "packages" ||
+    tab === "clinical"
+  )
+    return tab;
+  if (workspace === "sessions" && sessionId) return "notes";
+  if (tab === "history" || sessionId) return "history";
+  return "summary";
 };
 
 const textStyles = {
   eyebrow: {
     fontSize: typography.fontSizes.xs,
     lineHeight: 18,
-    fontWeight: '700' as const,
+    fontWeight: "700" as const,
     fontFamily: lightTheme.fontSansBold,
     letterSpacing: 1.1,
-    textTransform: 'uppercase' as const,
+    textTransform: "uppercase" as const,
   },
-  title: { fontSize: typography.fontSizes.xxxl, lineHeight: 36, fontWeight: '700' as const, fontFamily: lightTheme.fontHeading },
-  section: { fontSize: typography.fontSizes.xxl, lineHeight: 30, fontWeight: '700' as const, fontFamily: lightTheme.fontHeading },
-  body: { fontSize: typography.fontSizes.sm, lineHeight: 22, fontFamily: lightTheme.fontSans },
-  strong: { fontSize: typography.fontSizes.sm, lineHeight: 22, fontWeight: '700' as const, fontFamily: lightTheme.fontSansBold },
-  metric: { fontSize: typography.fontSizes.xxl, lineHeight: 30, fontWeight: '700' as const, fontFamily: lightTheme.fontHeading },
-  caption: { fontSize: typography.fontSizes.xs, lineHeight: 18, fontWeight: '700' as const, fontFamily: lightTheme.fontSansBold },
-};
-
-const SESSION_TYPE_LABELS: Record<string, string> = {
-  VIDEO_CALL: 'Videollamada',
-  IN_PERSON: 'Presencial',
-  CHAT: 'Chat',
-  PHONE_CALL: 'Llamada',
-};
-
-const SESSION_STATUS_LABELS: Record<string, string> = {
-  CONFIRMED: 'Confirmada',
-  COMPLETED: 'Completada',
-  PENDING: 'Pendiente',
-  CANCELLED: 'Cancelada',
+  title: {
+    fontSize: typography.fontSizes.xxxl,
+    lineHeight: 36,
+    fontWeight: "700" as const,
+    fontFamily: lightTheme.fontHeading,
+  },
+  section: {
+    fontSize: typography.fontSizes.xxl,
+    lineHeight: 30,
+    fontWeight: "700" as const,
+    fontFamily: lightTheme.fontHeading,
+  },
+  body: {
+    fontSize: typography.fontSizes.sm,
+    lineHeight: 22,
+    fontFamily: lightTheme.fontSans,
+  },
+  strong: {
+    fontSize: typography.fontSizes.sm,
+    lineHeight: 22,
+    fontWeight: "700" as const,
+    fontFamily: lightTheme.fontSansBold,
+  },
+  metric: {
+    fontSize: typography.fontSizes.xxl,
+    lineHeight: 30,
+    fontWeight: "700" as const,
+    fontFamily: lightTheme.fontHeading,
+  },
+  caption: {
+    fontSize: typography.fontSizes.xs,
+    lineHeight: 18,
+    fontWeight: "700" as const,
+    fontFamily: lightTheme.fontSansBold,
+  },
 };
 
 type MeasurableNativeRef = {
@@ -97,13 +150,13 @@ const MEASURE_SCROLL_VIEWPORT_TIMEOUT_MS = 80;
 
 const formatDate = (value?: string | Date | null, withTime = false) =>
   value
-    ? new Date(value).toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        ...(withTime ? { hour: '2-digit', minute: '2-digit' } : {}),
+    ? new Date(value).toLocaleDateString("es-ES", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
       })
-    : 'Sin fecha';
+    : "Sin fecha";
 
 const getClientAge = (birthDate?: string | null) => {
   if (!birthDate) {
@@ -122,38 +175,9 @@ const getClientAge = (birthDate?: string | null) => {
   return age;
 };
 
-const getSessionTypeLabel = (type: string) => SESSION_TYPE_LABELS[type.toUpperCase()] || type;
-const getSessionStatusLabel = (status: string) =>
-  SESSION_STATUS_LABELS[status.toUpperCase()] || status;
-
-const getTimelineStatusColor = (
-  status: string,
-  theme: ReturnType<typeof useTheme>['theme']
-) => {
-  const normalized = status.toUpperCase();
-
-  if (normalized === 'COMPLETED') {
-    return theme.success;
-  }
-
-  if (normalized === 'CONFIRMED') {
-    return theme.primary;
-  }
-
-  if (normalized === 'PENDING') {
-    return theme.warning;
-  }
-
-  if (normalized === 'CANCELLED') {
-    return theme.error;
-  }
-
-  return theme.textMuted;
-};
-
 export function ClientProfileScreen() {
   const navigation = useNavigation<AppNavigationProp>();
-  const route = useRoute<AppRouteProp<'ClientProfile'>>();
+  const route = useRoute<AppRouteProp<"ClientProfile">>();
   const appAlert = useAppAlert();
   const {
     clientId,
@@ -166,69 +190,107 @@ export function ClientProfileScreen() {
   const { theme } = useTheme();
   const tour = useOptionalProfessionalTour();
 
-  const [activeTab, setActiveTab] = useState<TabKey>(resolveInitialTab(initialTab, clinicalWorkspace, focusSessionId));
-  const [actionsVisible, setActionsVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabKey>(
+    resolveInitialTab(initialTab, clinicalWorkspace, focusSessionId),
+  );
+  const [personalEditRequest, setPersonalEditRequest] = useState(0);
   const [clinicalAction, setClinicalAction] = useState<ClinicalPatientAction>();
-  const [clinicalState, setClinicalState] = useState<ClinicalPatientAccessState & { clientId: string }>({ clientId: '', unlocked: false, granted: false, closed: false, consentStatus: null });
-  const [clinicalCounters, setClinicalCounters] = useState<{ clientId: string; value: ClinicalTimelinePage['counters'] } | null>(null);
-  const updateClinicalState = useCallback((state: ClinicalPatientAccessState) => setClinicalState({ clientId, ...state }), [clientId]);
-  const updateClinicalCounters = useCallback((value: ClinicalTimelinePage['counters']) => setClinicalCounters({ clientId, value }), [clientId]);
+  const [clinicalState, setClinicalState] = useState<
+    ClinicalPatientAccessState & { clientId: string }
+  >({
+    clientId: "",
+    unlocked: false,
+    granted: false,
+    closed: false,
+    consentStatus: null,
+  });
+  const updateClinicalState = useCallback(
+    (state: ClinicalPatientAccessState) =>
+      setClinicalState({ clientId, ...state }),
+    [clientId],
+  );
   const consumeClinicalAction = useCallback((id: number) => {
-    setClinicalAction(current => current && current.id <= id ? undefined : current);
+    setClinicalAction((current) =>
+      current && current.id <= id ? undefined : current,
+    );
   }, []);
-  const requestClinicalAction = (kind: ClinicalPatientAction['kind']) => {
-    if (activeTab === 'packages') setActiveTab('summary');
+  const requestClinicalAction = (kind: ClinicalPatientAction["kind"]) => {
+    setActiveTab("clinical");
     setClinicalAction({ id: Date.now(), kind });
   };
+  const [summaryState, setSummaryState] = useState<{
+    clientId: string;
+    data: PatientSummary;
+  } | null>(null);
+  const summary =
+    summaryState?.clientId === clientId ? summaryState.data : null;
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState("");
+  const [clinicalSessionTarget, setClinicalSessionTarget] = useState(
+    route.params.clinicalSessionId ||
+      (clinicalWorkspace === "sessions" ? focusSessionId : undefined),
+  );
+  const [clinicalDocumentTarget, setClinicalDocumentTarget] = useState(
+    route.params.clinicalDocumentId,
+  );
+  const [operationalSessionTarget, setOperationalSessionTarget] =
+    useState(focusSessionId);
   const [client, setClient] = useState<professionalService.Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshingClient, setRefreshingClient] = useState(false);
   const [billingModalVisible, setBillingModalVisible] = useState(false);
   const [savingBilling, setSavingBilling] = useState(false);
-  const [billingContactError, setBillingContactError] = useState('');
+  const [billingContactError, setBillingContactError] = useState("");
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
   const [scheduledPackage, setScheduledPackage] = useState<PatientPackage>();
   const [sessionSaving, setSessionSaving] = useState(false);
+  const [sessionsRefreshVersion, setSessionsRefreshVersion] = useState(0);
   const [archiveSubmitting, setArchiveSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [visibleHistoryItems, setVisibleHistoryItems] = useState(5);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [billingForm, setBillingForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    billingFullName: '',
-    billingTaxId: '',
-    billingAddress: '',
-    billingPostalCode: '',
-    billingCity: '',
-    billingCountry: 'Spain',
+    billingFullName: "",
+    billingTaxId: "",
+    billingAddress: "",
+    billingPostalCode: "",
+    billingCity: "",
+    billingCountry: "Spain",
   });
   const hasLoadedClientRef = useRef(false);
   const loadClientPromiseRef = useRef<Promise<void> | null>(null);
+  const summaryRequestRef = useRef(0);
   const activeClientIdRef = useRef(clientId);
   if (activeClientIdRef.current !== clientId) {
     activeClientIdRef.current = clientId;
     hasLoadedClientRef.current = false;
     loadClientPromiseRef.current = null;
+    summaryRequestRef.current += 1;
   }
   const autoOpenedBillingRef = useRef(false);
+  useEffect(() => {
+    autoOpenedBillingRef.current = false;
+  }, [clientId]);
   const tourScrollRef = useRef<ScrollView>(null);
 
   const isDesktop = width >= 1180;
   const isMobile = width < 720;
-  const sectionTitleStyle = useMemo(() => ({ fontFamily: theme.fontHeading }), [theme]);
-  const emphasisStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
-  const labelStyle = useMemo(() => ({ fontFamily: theme.fontSansSemiBold }), [theme]);
-  const inputTextStyle = useMemo(() => ({ fontFamily: theme.fontSans }), [theme]);
+  const labelStyle = useMemo(
+    () => ({ fontFamily: theme.fontSansSemiBold }),
+    [theme],
+  );
 
   const loadClient = useCallback(async () => {
     if (loadClientPromiseRef.current) {
       await loadClientPromiseRef.current;
-      return;
+      if (activeClientIdRef.current !== clientId) return;
+      // A mutation may have completed while that read was in flight. Fetch a
+      // fresh value, or join another refresh already queued behind the old read.
+      if (loadClientPromiseRef.current) {
+        await loadClientPromiseRef.current;
+        return;
+      }
     }
 
     const isInitialLoad = !hasLoadedClientRef.current;
@@ -240,11 +302,14 @@ export function ClientProfileScreen() {
           setRefreshingClient(true);
         }
 
-        const result = await professionalService.getProfessionalClientDetail(clientId);
+        const result = await professionalService.getProfessionalClientDetail(
+          clientId,
+          6,
+        );
         if (activeClientIdRef.current !== clientId) return;
 
         if (!result) {
-          setError('Paciente no encontrado');
+          setError("Paciente no encontrado");
           return;
         }
 
@@ -253,7 +318,9 @@ export function ClientProfileScreen() {
         hasLoadedClientRef.current = true;
       } catch (loadError: unknown) {
         if (activeClientIdRef.current !== clientId) return;
-        setError(getErrorMessage(loadError, 'No se pudo cargar la ficha del paciente'));
+        setError(
+          getErrorMessage(loadError, "No se pudo cargar la ficha del paciente"),
+        );
       } finally {
         if (activeClientIdRef.current !== clientId) return;
         if (isInitialLoad) {
@@ -270,24 +337,64 @@ export function ClientProfileScreen() {
     await request;
   }, [clientId]);
 
+  const loadSummary = useCallback(async () => {
+    const request = ++summaryRequestRef.current;
+    setSummaryLoading(true);
+    setSummaryError("");
+    try {
+      const data = await getPatientSummary(clientId);
+      if (activeClientIdRef.current === clientId && summaryRequestRef.current === request)
+        setSummaryState({ clientId, data });
+    } catch (cause) {
+      if (activeClientIdRef.current === clientId && summaryRequestRef.current === request) {
+        setSummaryState(null);
+        setSummaryError(
+          getErrorMessage(cause, "No se pudo cargar el resumen del paciente."),
+        );
+      }
+    } finally {
+      if (activeClientIdRef.current === clientId && summaryRequestRef.current === request) setSummaryLoading(false);
+    }
+  }, [clientId]);
+  const refreshAll = useCallback(async () => {
+    setSessionsRefreshVersion((value) => value + 1);
+    await Promise.all([loadClient(), loadSummary()]);
+  }, [loadClient, loadSummary]);
   useFocusEffect(
     useCallback(() => {
-      void loadClient();
-    }, [loadClient])
+      void refreshAll();
+    }, [refreshAll]),
   );
 
   useEffect(() => {
-    setVisibleHistoryItems(5);
-    setActiveTab(resolveInitialTab(initialTab, clinicalWorkspace, focusSessionId));
+    setActiveTab(
+      resolveInitialTab(initialTab, clinicalWorkspace, focusSessionId),
+    );
   }, [clientId, initialTab, clinicalWorkspace, focusSessionId]);
 
   useEffect(() => {
     setRefreshingClient(false);
-    setClinicalCounters(null);
     setClinicalAction(undefined);
-    setActionsVisible(false);
+    setPersonalEditRequest(0);
     autoOpenedBillingRef.current = false;
   }, [clientId]);
+
+  useEffect(() => {
+    setClinicalSessionTarget(
+      route.params.clinicalSessionId ||
+        (clinicalWorkspace === "sessions" ? focusSessionId : undefined),
+    );
+    setClinicalDocumentTarget(route.params.clinicalDocumentId);
+    setOperationalSessionTarget(focusSessionId);
+    if (route.params.clinicalDocumentId) setActiveTab("documents");
+    else if (route.params.clinicalSessionId) setActiveTab("notes");
+  }, [
+    clientId,
+    clinicalWorkspace,
+    focusSessionId,
+    route.params.clinicalSessionId,
+    route.params.clinicalDocumentId,
+  ]);
 
   useEffect(() => {
     if (!client) {
@@ -295,76 +402,57 @@ export function ClientProfileScreen() {
     }
 
     setBillingForm({
-      firstName: client.firstName || '',
-      lastName: client.lastName || '',
-      email: client.primaryEmail || client.email || '',
-      phone: client.phone || client.primaryPhone || '',
-      billingFullName: client.billingFullName || '',
-      billingTaxId: client.billingTaxId || '',
-      billingAddress: client.billingAddress || '',
-      billingPostalCode: client.billingPostalCode || '',
-      billingCity: client.billingCity || '',
-      billingCountry: client.billingCountry || 'Spain',
+      billingFullName: client.billingFullName || "",
+      billingTaxId: client.billingTaxId || "",
+      billingAddress: client.billingAddress || "",
+      billingPostalCode: client.billingPostalCode || "",
+      billingCity: client.billingCity || "",
+      billingCountry: client.billingCountry || "Spain",
     });
-    setBillingContactError('');
+    setBillingContactError("");
   }, [client]);
 
   useEffect(() => {
-    if (focusBillingEditor && client && !autoOpenedBillingRef.current) {
+    if (
+      (focusBillingEditor || route.params.focusPersonalEditor) &&
+      client &&
+      !autoOpenedBillingRef.current
+    ) {
       autoOpenedBillingRef.current = true;
-      setBillingModalVisible(true);
+      const personal =
+        route.params.focusPersonalEditor ||
+        !client.primaryEmail ||
+        client.billingReadiness?.missingFields.some(
+          (field) => field.purpose === "BOOKING",
+        );
+      if (personal) {
+        setActiveTab("summary");
+        setPersonalEditRequest((value) => value + 1);
+      } else setBillingModalVisible(true);
     }
-  }, [client, focusBillingEditor]);
+  }, [client, focusBillingEditor, route.params.focusPersonalEditor]);
 
-  const sessions = useMemo(
-    () =>
-      [...(client?.sessions || [])].sort(
-        (left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()
-      ),
-    [client?.sessions]
-  );
-
-  const completedSessions = useMemo(
-    () => sessions.filter((session) => session.status.toUpperCase() === 'COMPLETED').length,
-    [sessions]
-  );
-
-  const nextSession = useMemo(
-    () =>
-      sessions
-        .filter((session) => new Date(session.date).getTime() > Date.now() && ['PENDING', 'CONFIRMED'].includes(session.status.toUpperCase()))
-        .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())[0] || null,
-    [sessions]
-  );
-
-  const visibleSessions = useMemo(
-    () => sessions.slice(0, visibleHistoryItems),
-    [sessions, visibleHistoryItems]
-  );
-
-  const initials = client?.initials || (client?.displayName || client?.user.name || 'P').slice(0, 2).toUpperCase();
-  const age = getClientAge(client?.user.birthDate);
-  const isManagedClient = client?.source === 'MANAGED';
+  const initials =
+    client?.initials ||
+    (client?.displayName || client?.user.name || "P").slice(0, 2).toUpperCase();
+  const age = getClientAge(summary?.profile.birthDate);
+  const isManagedClient = client?.source === "MANAGED";
   const isClientArchived = Boolean(client?.archivedAt);
-  const locationSummary = [client?.homeCity, client?.homeCountry].filter(Boolean).join(', ');
-  const hasCompleteBilling = Boolean(
-    client?.billingFullName &&
-      client?.billingTaxId &&
-      client?.billingAddress &&
-      client?.billingPostalCode &&
-      client?.billingCity &&
-      client?.billingCountry
-  );
-  const showScrollCue = isMobile && contentHeight > viewportHeight + 48 && scrollOffset < 20;
+  const showScrollCue =
+    isMobile && contentHeight > viewportHeight + 48 && scrollOffset < 20;
 
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setScrollOffset(event.nativeEvent.contentOffset.y);
-  }, []);
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      setScrollOffset(event.nativeEvent.contentOffset.y);
+    },
+    [],
+  );
 
   const measureScrollViewport = useCallback(async () => {
-    const scrollRef = tourScrollRef.current as unknown as MeasurableNativeRef | null;
+    const scrollRef =
+      tourScrollRef.current as unknown as MeasurableNativeRef | null;
 
-    if (!scrollRef || typeof scrollRef.measureInWindow !== 'function') {
+    if (!scrollRef || typeof scrollRef.measureInWindow !== "function") {
       return null;
     }
 
@@ -438,9 +526,7 @@ export function ClientProfileScreen() {
   const updateBillingField = useCallback(
     (field: keyof typeof billingForm, value: string) => {
       setBillingForm((current) => ({ ...current, [field]: value }));
-      if (field === 'email' || field === 'phone') {
-        setBillingContactError('');
-      }
+      setBillingContactError("");
     },
     [],
   );
@@ -450,18 +536,9 @@ export function ClientProfileScreen() {
       return;
     }
 
-    if (
-      client.source === 'MANAGED'
-      && !billingForm.email.trim()
-      && !billingForm.phone.trim()
-    ) {
-      setBillingContactError(CONTACT_METHOD_REQUIRED_MESSAGE);
-      return;
-    }
-
     try {
       setSavingBilling(true);
-      setBillingContactError('');
+      setBillingContactError("");
 
       const trimmedBilling = {
         billingFullName: billingForm.billingFullName.trim(),
@@ -473,49 +550,53 @@ export function ClientProfileScreen() {
       };
 
       const billingFieldsChanged =
-        trimmedBilling.billingFullName !== (client.billingFullName || '') ||
-        trimmedBilling.billingTaxId !== (client.billingTaxId || '') ||
-        trimmedBilling.billingAddress !== (client.billingAddress || '') ||
-        trimmedBilling.billingPostalCode !== (client.billingPostalCode || '') ||
-        trimmedBilling.billingCity !== (client.billingCity || '') ||
-        trimmedBilling.billingCountry !== (client.billingCountry || 'Spain');
+        trimmedBilling.billingFullName !== (client.billingFullName || "") ||
+        trimmedBilling.billingTaxId !== (client.billingTaxId || "") ||
+        trimmedBilling.billingAddress !== (client.billingAddress || "") ||
+        trimmedBilling.billingPostalCode !== (client.billingPostalCode || "") ||
+        trimmedBilling.billingCity !== (client.billingCity || "") ||
+        trimmedBilling.billingCountry !== (client.billingCountry || "Spain");
 
       const billingPayload = {
         ...trimmedBilling,
       };
 
-      const updatedClient =
-        client.source === 'MANAGED'
-          ? await professionalService.updateManagedClient(client.id, {
-              firstName: billingForm.firstName.trim() || undefined,
-              lastName: billingForm.lastName.trim() || undefined,
-              email: billingForm.email.trim(),
-              phone: billingForm.phone.trim(),
-              ...(billingFieldsChanged ? billingPayload : {}),
-            })
-          : billingFieldsChanged || billingForm.firstName.trim() !== (client.firstName || '') || billingForm.lastName.trim() !== (client.lastName || '')
-            ? await professionalService.updateClientBilling(client.id, { ...billingPayload, firstName: billingForm.firstName.trim() || undefined, lastName: billingForm.lastName.trim() || undefined })
-            : client;
-
+      const updatedClient = billingFieldsChanged
+        ? await professionalService.updateClientBilling(
+            client.id,
+            billingPayload,
+          )
+        : client;
       setClient(updatedClient);
       setBillingModalVisible(false);
-      if (route.params.returnAfterBillingSave) { navigation.goBack(); return; }
-      showAppAlert(appAlert, 
-        'Éxito',
-        client.source === 'MANAGED'
-          ? 'La ficha del paciente se ha actualizado.'
-          : 'Los datos fiscales del paciente se han actualizado.'
+      if (route.params.returnAfterBillingSave) {
+        navigation.goBack();
+        return;
+      }
+      showAppAlert(
+        appAlert,
+        "Éxito",
+        "Los datos fiscales del paciente se han actualizado.",
       );
     } catch (saveError: unknown) {
-      showAppAlert(appAlert, 'Error', getErrorMessage(saveError, 'No se pudieron guardar los datos del paciente.'));
+      setBillingContactError(
+        getErrorMessage(
+          saveError,
+          "No se pudieron guardar los datos fiscales.",
+        ),
+      );
     } finally {
       setSavingBilling(false);
     }
-  }, [appAlert, billingForm, client, navigation, route.params.returnAfterBillingSave]);
+  }, [
+    appAlert,
+    billingForm,
+    client,
+    navigation,
+    route.params.returnAfterBillingSave,
+  ]);
 
-  const canScheduleProfessionalSession = Boolean(
-    client && !isClientArchived
-  );
+  const canScheduleProfessionalSession = Boolean(client && !isClientArchived);
 
   const openSessionScheduler = useCallback(() => {
     if (!canScheduleProfessionalSession) return;
@@ -529,7 +610,7 @@ export function ClientProfileScreen() {
   }, [sessionSaving]);
 
   const handleToggleArchive = useCallback(() => {
-    if (!client || client.source !== 'MANAGED' || archiveSubmitting) {
+    if (!client || client.source !== "MANAGED" || archiveSubmitting) {
       return;
     }
 
@@ -538,28 +619,31 @@ export function ClientProfileScreen() {
     const applyArchiveChange = async () => {
       try {
         setArchiveSubmitting(true);
-        const updatedClient = await professionalService.updateManagedClient(client.id, {
-          archived: shouldArchive,
-        });
+        const updatedClient = await professionalService.updateManagedClient(
+          client.id,
+          {
+            archived: shouldArchive,
+          },
+        );
         setClient(updatedClient);
 
         showAppAlert(
           appAlert,
-          'Éxito',
+          "Éxito",
           shouldArchive
-            ? 'Tu relación asistencial está archivada. Conservas tu historia; la atención con otros profesionales y las citas existentes continúan.'
-            : 'Tu relación vuelve a estar activa. Si el expediente estaba cerrado, solicita de nuevo el consentimiento asistencial antes de incorporar información clínica.'
+            ? "Tu relación asistencial está archivada. Conservas tu historia; la atención con otros profesionales y las citas existentes continúan."
+            : "Tu relación vuelve a estar activa. Si el expediente estaba cerrado, solicita de nuevo el consentimiento asistencial antes de incorporar información clínica.",
         );
       } catch (archiveError: unknown) {
         showAppAlert(
           appAlert,
-          shouldArchive ? 'No se pudo archivar' : 'No se pudo desarchivar',
+          shouldArchive ? "No se pudo archivar" : "No se pudo desarchivar",
           getErrorMessage(
             archiveError,
             shouldArchive
-              ? 'No se pudo archivar el paciente.'
-              : 'No se pudo desarchivar el paciente.'
-          )
+              ? "No se pudo archivar el paciente."
+              : "No se pudo desarchivar el paciente.",
+          ),
         );
       } finally {
         setArchiveSubmitting(false);
@@ -569,19 +653,19 @@ export function ClientProfileScreen() {
     if (shouldArchive) {
       showAppAlert(
         appAlert,
-        'Archivar paciente',
-        'El paciente pasará a archivados y no se podrán crear nuevas citas mientras esté archivado. Podrás desarchivarlo desde esta misma ficha.',
+        "Archivar paciente",
+        "El paciente pasará a archivados y no se podrán crear nuevas citas mientras esté archivado. Podrás desarchivarlo desde esta misma ficha.",
         [
-          { text: 'Cancelar', style: 'cancel' },
+          { text: "Cancelar", style: "cancel" },
           {
-            text: 'Archivar',
-            style: 'destructive',
+            text: "Archivar",
+            style: "destructive",
             onPress: () => {
               void applyArchiveChange();
             },
           },
         ],
-        { cancelable: true }
+        { cancelable: true },
       );
       return;
     }
@@ -597,23 +681,29 @@ export function ClientProfileScreen() {
         setSessionSaving(true);
         await professionalService.createManagedClientSession(input);
         setSessionModalVisible(false);
-        showAppAlert(appAlert, 'Cita creada', 'La cita se ha programado correctamente.');
-        await loadClient();
+        showAppAlert(
+          appAlert,
+          "Cita creada",
+          "La cita se ha programado correctamente.",
+        );
+        await refreshAll();
       } catch (createError: unknown) {
-        if (professionalService.isManagedSessionBufferConflictError(createError)) {
+        if (
+          professionalService.isManagedSessionBufferConflictError(createError)
+        ) {
           throw createError;
         }
 
         showAppAlert(
           appAlert,
-          'No se pudo crear la cita',
-          getErrorMessage(createError, 'No se pudo crear la cita')
+          "No se pudo crear la cita",
+          getErrorMessage(createError, "No se pudo crear la cita"),
         );
       } finally {
         setSessionSaving(false);
       }
     },
-    [appAlert, client, loadClient],
+    [appAlert, client, refreshAll],
   );
 
   if ((loading && !client) || (!error && client?.id !== clientId)) {
@@ -626,139 +716,28 @@ export function ClientProfileScreen() {
 
   if (!client || error) {
     return (
-      <View style={[styles.centered, styles.errorWrap, { backgroundColor: theme.bg }]}>
+      <View
+        style={[
+          styles.centered,
+          styles.errorWrap,
+          { backgroundColor: theme.bg },
+        ]}
+      >
         <Ionicons name="alert-circle-outline" size={42} color={theme.warning} />
-        <Text style={[textStyles.section, { color: theme.textPrimary }]}>No se pudo abrir la ficha</Text>
-        <Text style={[textStyles.body, { color: theme.textSecondary, textAlign: 'center' }]}>
-          {error || 'Paciente no encontrado'}
+        <Text style={[textStyles.section, { color: theme.textPrimary }]}>
+          No se pudo abrir la ficha
+        </Text>
+        <Text
+          style={[
+            textStyles.body,
+            { color: theme.textSecondary, textAlign: "center" },
+          ]}
+        >
+          {error || "Paciente no encontrado"}
         </Text>
       </View>
     );
   }
-
-  const mobileSurfaceCard = isMobile
-    ? [styles.mobileSurfaceCard, { borderColor: theme.border }]
-    : [];
-  const administrativeSections: Array<{
-    title: string;
-    items: Array<{
-      label: string;
-      value: string;
-      icon: keyof typeof Ionicons.glyphMap;
-      tone?: 'success' | 'warning';
-      wide?: boolean;
-    }>;
-  }> = [
-    {
-      title: 'Contacto',
-      items: [
-        {
-          label: 'Email',
-          value: client.primaryEmail || 'No registrado',
-          icon: 'mail-outline',
-          wide: true,
-        },
-        {
-          label: 'Teléfono',
-          value: client.primaryPhone || 'No registrado',
-          icon: 'call-outline',
-        },
-      ],
-    },
-    {
-      title: 'Datos personales',
-      items: [
-        {
-          label: 'Ocupación',
-          value: client.user.occupation || 'Sin información',
-          icon: 'briefcase-outline',
-        },
-        {
-          label: 'Ubicación',
-          value: locationSummary || 'Sin información',
-          icon: 'location-outline',
-        },
-      ],
-    },
-    {
-      title: 'Facturación',
-      items: [
-        {
-          label: 'Estado fiscal',
-          value: client.billingReadiness?.missingFields.length ? `Falta: ${client.billingReadiness.missingFields.map(field => field.label).join(', ')}` : hasCompleteBilling ? 'Datos completos para factura completa' : 'Factura simplificada disponible. Datos fiscales adicionales solo para factura completa.',
-          icon: hasCompleteBilling ? 'checkmark-circle-outline' : 'alert-circle-outline',
-          tone: hasCompleteBilling ? 'success' : 'warning',
-          wide: true,
-        },
-      ],
-    },
-  ];
-
-  const administrativeCard = (
-    <Card variant="default" padding="large" style={mobileSurfaceCard}>
-      <Text style={[textStyles.section, { color: theme.textPrimary }, sectionTitleStyle]}>
-        Información administrativa
-      </Text>
-      {!!client.billingReadiness?.missingFields.length && <Button variant="outline" onPress={() => setBillingModalVisible(true)}>Completar datos</Button>}
-
-      <View style={styles.adminSections}>
-        {administrativeSections.map((section) => (
-          <View key={section.title} style={styles.adminSection}>
-            <Text style={[styles.adminSectionTitle, labelStyle, { color: theme.textSecondary }]}>
-              {section.title}
-            </Text>
-            <View style={[styles.adminGrid, isMobile && styles.adminGridStack]}>
-              {section.items.map((item) => (
-                <View
-                  key={`${section.title}-${item.label}`}
-                  style={[
-                    styles.adminCell,
-                    item.wide && !isMobile ? styles.adminCellWide : null,
-                    { backgroundColor: theme.bgMuted, borderColor: theme.borderLight },
-                  ]}
-                >
-                  <View style={styles.adminCellHeader}>
-                    <Ionicons
-                      name={item.icon}
-                      size={14}
-                      color={
-                        item.tone === 'success'
-                          ? theme.success
-                          : item.tone === 'warning'
-                            ? theme.warning
-                            : theme.textMuted
-                      }
-                    />
-                    <Text style={[styles.adminCellLabel, labelStyle, { color: theme.textMuted }]}>
-                      {item.label}
-                    </Text>
-                  </View>
-                  <Text
-                    numberOfLines={item.wide ? 2 : 1}
-                    style={[
-                      styles.adminCellValue,
-                      emphasisStyle,
-                      {
-                        color:
-                          item.tone === 'success'
-                            ? theme.success
-                            : item.tone === 'warning'
-                              ? theme.warning
-                              : theme.textPrimary,
-                      },
-                    ]}
-                  >
-                    {item.value}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ))}
-      </View>
-    </Card>
-  );
-
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -781,316 +760,462 @@ export function ClientProfileScreen() {
           setContentHeight(height);
         }}
       >
-      <TourTarget id="professional.client-profile.hero" fill>
-        <Card padding="medium" style={styles.patientHero}>
-          <View style={[styles.patientHeader, !isDesktop && { flexDirection: 'column', alignItems: 'stretch' }]}>
-            <View style={styles.patientIdentity}>
-              <AnimatedPressable accessibilityLabel="Volver" hoverLift={false} onPress={() => navigation.goBack()} style={styles.patientBack}><Ionicons name="arrow-back" size={20} color={theme.textSecondary} /></AnimatedPressable>
-              <View style={[styles.patientAvatar, { backgroundColor: theme.bgMuted }]}>
-                {client.user?.avatar ? <Image source={{ uri: client.user.avatar }} style={{ width: '100%', height: '100%' }} /> : <Text style={{ color: theme.textPrimary, fontFamily: theme.fontHeading, fontSize: 21 }}>{initials}</Text>}
-              </View>
-              <View style={styles.patientName}>
-                <View style={styles.patientNameRow}><Text style={[styles.patientTitle, { color: theme.textPrimary, fontFamily: theme.fontHeading }]}>{client.displayName || client.user?.name}</Text>
-                  <Text style={[styles.patientStatus, { color: isClientArchived ? theme.warning : theme.success, backgroundColor: isClientArchived ? theme.warningBg : theme.successBg, fontFamily: theme.fontSansSemiBold }]}>{isClientArchived ? 'ARCHIVADO' : clinicalState.clientId === client.id && clinicalState.closed ? 'PROCESO CERRADO' : 'EN SEGUIMIENTO'}</Text></View>
-                <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 12, lineHeight: 20 }}>{age !== null ? `${age} años · ` : ''}Paciente desde {formatDate(client.createdAt)}</Text>
-                <AnimatedPressable hoverLift={false} accessibilityLabel="Gestionar consentimiento y acceso clínico" onPress={() => requestClinicalAction('CONSENT')}>
-                  <Text style={{ color: theme.primary, fontFamily: theme.fontSansSemiBold, fontSize: 11, lineHeight: 20 }}>{clinicalState.clientId === client.id && clinicalState.unlocked ? `Área clínica desbloqueada · Consentimiento ${clinicalState.consentStatus === 'GRANTED' ? 'vigente' : clinicalState.consentStatus === 'REVOKED' ? 'retirado' : 'pendiente'}` : 'Área clínica protegida · Gestionar consentimiento'}</Text>
+        <TourTarget id="professional.client-profile.hero" fill>
+          <Card padding="small" style={styles.patientHero}>
+            <View
+              style={[
+                styles.patientHeader,
+                isMobile && {
+                  flexDirection: "column",
+                  alignItems: "stretch",
+                },
+              ]}
+            >
+              <View style={styles.patientIdentity}>
+                <AnimatedPressable
+                  accessibilityLabel="Volver"
+                  hoverLift={false}
+                  onPress={() => navigation.goBack()}
+                  style={styles.patientBack}
+                >
+                  <Ionicons
+                    name="arrow-back"
+                    size={20}
+                    color={theme.textSecondary}
+                  />
                 </AnimatedPressable>
-              </View>
-            </View>
-            <TourTarget id="professional.client-profile.actions" fill style={{ minWidth: 0, maxWidth: '100%', ...(!isDesktop ? { width: '100%' } : {}) }}>
-              <View style={styles.patientActions}>
-                {canScheduleProfessionalSession ? <Button variant="outline" size="small" onPress={openSessionScheduler}>Programar sesión</Button> : null}
-                {clinicalState.clientId === client.id && clinicalState.granted && !clinicalState.closed ? <><Button variant="outline" size="small" onPress={() => requestClinicalAction('UPLOAD')}>Subir archivo</Button><Button size="small" onPress={() => requestClinicalAction('NOTE')}>+ Nueva nota</Button></> : null}
-                <Button variant="ghost" size="small" accessibilityLabel="Más acciones del paciente" onPress={() => setActionsVisible(value => !value)}>Más ···</Button>
-              </View>
-            </TourTarget>
-          </View>
-          {actionsVisible ? <View style={[styles.patientMenu, { borderTopColor: theme.borderLight }]}>
-            <Button variant="ghost" size="small" disabled={isClientArchived} onPress={() => { setActionsVisible(false); setBillingModalVisible(true); }}>Editar datos</Button>
-            <Button variant="ghost" size="small" disabled={!client.primaryEmail} onPress={() => { if (client.primaryEmail) void Linking.openURL(`mailto:${client.primaryEmail}`); }}>Email</Button>
-            <Button variant="ghost" size="small" disabled={isClientArchived} onPress={() => navigation.navigate('Referrals', { clientId: client.id })}>Proponer derivación</Button>
-            {isManagedClient ? <Button variant="ghost" size="small" loading={archiveSubmitting} onPress={handleToggleArchive}>{isClientArchived ? 'Desarchivar paciente' : 'Archivar paciente'}</Button> : null}
-          </View> : null}
-          <View style={styles.patientMetrics}>
-            {[{ label: 'PRÓXIMA SESIÓN', value: nextSession ? `${new Date(nextSession.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })} · ${new Date(nextSession.date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}` : 'Sin cita programada', hint: nextSession ? `${getSessionTypeLabel(nextSession.type)} · ${nextSession.duration} min` : 'Programa una sesión cuando la necesites' },
-              { label: 'SESIONES REALIZADAS', value: String(completedSessions), hint: `${sessions.length} sesiones registradas` },
-              ...(clinicalState.clientId === client.id && clinicalState.granted && clinicalCounters?.clientId === client.id ? [
-                { label: 'SESIONES SIN NOTAS', value: String(clinicalCounters.value.withoutNotes), hint: 'Completadas por documentar' },
-                { label: 'ARCHIVOS DEL EXPEDIENTE', value: String(clinicalCounters.value.activeFiles), hint: 'Archivos activos del proceso' },
-              ] : [])].map(metric => <View key={metric.label} style={[styles.patientMetric, { backgroundColor: theme.bgMuted }]}>
-                <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSansSemiBold, fontSize: 10, lineHeight: 17, letterSpacing: 0.5 }}>{metric.label}</Text>
-                <Text style={{ color: theme.textPrimary, fontFamily: theme.fontHeading, fontSize: metric.label === 'PRÓXIMA SESIÓN' ? 14 : 22, lineHeight: 27 }}>{metric.value}</Text>
-                {!isMobile || metric.label === 'PRÓXIMA SESIÓN' ? <Text style={{ color: theme.textSecondary, fontFamily: theme.fontSans, fontSize: 11, lineHeight: 17 }}>{metric.hint}</Text> : null}
-              </View>)}
-          </View>
-          {refreshingClient ? <ActivityIndicator size="small" color={theme.primary} /> : null}
-        </Card>
-      </TourTarget>
-      <TourTarget id="professional.client-profile.tabs" fill><TourTarget id="professional.clinical.workspace-tabs" fill>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.patientTabs, { borderBottomColor: theme.borderLight }]}>
-          {TABS.map(tab => { const selected = activeTab === tab.key || (activeTab === 'clinical' && tab.key === 'summary'); return <AnimatedPressable key={tab.key} hoverLift={false} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => setActiveTab(tab.key)} style={[styles.patientTab, { borderBottomColor: selected ? theme.actionPrimary : 'transparent' }]}>
-            <Text style={{ color: selected ? theme.textPrimary : theme.textSecondary, fontFamily: selected ? theme.fontSansSemiBold : theme.fontSans, fontSize: 13, lineHeight: 20 }}>{tab.label}</Text>
-          </AnimatedPressable>; })}
-        </ScrollView>
-      </TourTarget></TourTarget>
-
-      {activeTab === 'packages' ? <View style={styles.patientAdmin}>
-        {administrativeCard}
-        <PatientCommission clientId={clientId} />
-        <PatientPackages clientId={clientId} onReserve={row => { setScheduledPackage(row); setSessionModalVisible(true); }} />
-      </View> : null}
-      {activeTab === 'history' && !(clinicalState.clientId === client.id && clinicalState.granted) ? (
-        <Card variant="default" padding="large">
-          <View style={styles.historyHeader}>
-            <Text style={[textStyles.section, { color: theme.textPrimary }, sectionTitleStyle]}>Historial de sesiones</Text>
-            <Text style={[textStyles.body, { color: theme.textSecondary }]}>{sessions.length} sesiones registradas</Text>
-          </View>
-
-          <View style={styles.timeline}>
-            {sessions.length === 0 ? (
-              <Text style={[textStyles.body, { color: theme.textSecondary }]}>Todavía no hay sesiones asociadas a este paciente.</Text>
-            ) : (
-              visibleSessions.map((session) => (
-                <View key={session.id} style={[styles.timelineItem, { borderColor: theme.border, backgroundColor: theme.bgMuted }]}>
-                  <View style={styles.timelineMarkerColumn}>
-                    <View style={[styles.timelineDot, { backgroundColor: getTimelineStatusColor(session.status, theme) }]} />
-                    <View style={[styles.timelineLine, { backgroundColor: theme.border }]} />
-                  </View>
-
-                  <View style={styles.timelineContent}>
-                    <View style={styles.timelineTopRow}>
-                      <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>{formatDate(session.date, true)}</Text>
-                      <Text style={[textStyles.caption, { color: theme.textMuted }]}>{getSessionStatusLabel(session.status)}</Text>
-                    </View>
-                    <Text style={[textStyles.body, { color: theme.textSecondary }]}>
-                      {session.duration} min · {getSessionTypeLabel(session.type)}
+                <View
+                  style={[
+                    styles.patientAvatar,
+                    { backgroundColor: theme.bgMuted },
+                  ]}
+                >
+                  {client.user?.avatar ? (
+                    <Image
+                      source={{ uri: client.user.avatar }}
+                      style={{ width: "100%", height: "100%" }}
+                    />
+                  ) : (
+                    <Text
+                      style={{
+                        color: theme.textPrimary,
+                        fontFamily: theme.fontHeading,
+                        fontSize: 21,
+                      }}
+                    >
+                      {initials}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.patientName}>
+                  <View style={styles.patientNameRow}>
+                    <Text
+                      style={[
+                        styles.patientTitle,
+                        {
+                          color: theme.textPrimary,
+                          fontFamily: theme.fontSansBold,
+                        },
+                      ]}
+                    >
+                      {client.displayName || client.user?.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.patientStatus,
+                        {
+                          color: isClientArchived
+                            ? theme.warning
+                            : theme.success,
+                          backgroundColor: isClientArchived
+                            ? theme.warningBg
+                            : theme.successBg,
+                          fontFamily: theme.fontSansSemiBold,
+                        },
+                      ]}
+                    >
+                      {isClientArchived
+                        ? "ARCHIVADO"
+                        : summary?.closedAt ||
+                            (clinicalState.clientId === client.id &&
+                              clinicalState.closed)
+                          ? "PROCESO CERRADO"
+                          : "EN SEGUIMIENTO"}
                     </Text>
                   </View>
+                  <Text
+                    style={{
+                      color: theme.textSecondary,
+                      fontFamily: theme.fontSans,
+                      fontSize: 12,
+                      lineHeight: 20,
+                    }}
+                  >
+                    {age !== null ? `${age} años · ` : ""}
+                    {summary?.relationshipSince
+                      ? `Paciente desde ${formatDate(summary.relationshipSince)}`
+                      : "Fecha de incorporación no registrada"}
+                  </Text>
+                  <AnimatedPressable
+                    hoverLift={false}
+                    accessibilityLabel="Gestionar consentimiento y acceso clínico"
+                    onPress={() => requestClinicalAction("CONSENT")}
+                  >
+                    <Text
+                      style={{
+                        color: theme.primary,
+                        fontFamily: theme.fontSansSemiBold,
+                        fontSize: 11,
+                        lineHeight: 20,
+                      }}
+                    >
+                      {clinicalState.clientId === client.id &&
+                      clinicalState.unlocked
+                        ? `Área clínica desbloqueada · Consentimiento ${clinicalState.consentStatus === "GRANTED" ? "vigente" : clinicalState.consentStatus === "REVOKED" ? "retirado" : "pendiente"}`
+                        : "Área clínica protegida · Gestionar consentimiento"}
+                    </Text>
+                  </AnimatedPressable>
                 </View>
-              ))
-            )}
-
-            {visibleHistoryItems < sessions.length ? (
-              <View style={styles.historyLoadMore}>
-                <Button variant="secondary" size="medium" onPress={() => setVisibleHistoryItems((current) => current + 5)}>
-                  Cargar más sesiones
-                </Button>
               </View>
-            ) : null}
-          </View>
-        </Card>
-      ) : null}
+              <TourTarget
+                id="professional.client-profile.actions"
+                fill
+                style={{
+                  minWidth: 0,
+                  maxWidth: "100%",
+                  ...(isMobile ? { width: "100%" } : {}),
+                }}
+              >
+                <View style={styles.patientActions}>
+                  {canScheduleProfessionalSession ? (
+                    <Button
+                      variant="outline"
+                      size="small"
+                      onPress={openSessionScheduler}
+                    >
+                      Programar sesión
+                    </Button>
+                  ) : null}
 
-        <View style={activeTab === 'packages' ? styles.hiddenTabContent : undefined}>
-          <ClinicalTab key={client.id}
-            section={activeTab === 'clinical' ? 'summary' : activeTab}
-            action={clinicalAction} onActionConsumed={consumeClinicalAction} onSection={setActiveTab} onAccessState={updateClinicalState} onCounters={updateClinicalCounters}
-            clientId={client.id}
+                  <PatientActionsMenu
+                    items={[
+                      {
+                        label: "Editar datos personales",
+                        icon: "create-outline",
+                        disabled: isClientArchived,
+                        hint: "Paciente archivado",
+                        onPress: () => {
+                          setActiveTab("summary");
+                          setPersonalEditRequest((value) => value + 1);
+                        },
+                      },
+                      {
+                        label: "Email",
+                        icon: "mail-outline",
+                        disabled: !client.primaryEmail,
+                        hint: "Sin email de contacto",
+                        onPress: () => {
+                          if (client.primaryEmail)
+                            void Linking.openURL(
+                              `mailto:${client.primaryEmail}`,
+                            );
+                        },
+                      },
+                      {
+                        label: "Proponer derivación",
+                        icon: "people-outline",
+                        disabled: isClientArchived,
+                        hint: "Paciente archivado",
+                        onPress: () =>
+                          navigation.navigate("Referrals", {
+                            clientId: client.id,
+                          }),
+                      },
+                      ...(isManagedClient
+                        ? [
+                            {
+                              label: isClientArchived
+                                ? "Desarchivar paciente"
+                                : "Archivar paciente",
+                              icon: "archive-outline" as const,
+                              disabled: archiveSubmitting,
+                              destructive: !isClientArchived,
+                              onPress: handleToggleArchive,
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
+                </View>
+              </TourTarget>
+            </View>
+            <PatientMetrics
+              summary={summary}
+              loading={summaryLoading}
+              error={summaryError}
+              onRetry={() => void loadSummary()}
+            />
+            {refreshingClient ? (
+              <ActivityIndicator size="small" color={theme.primary} />
+            ) : null}
+          </Card>
+        </TourTarget>
+        <TourTarget id="professional.client-profile.tabs" fill>
+          <TourTarget id="professional.clinical.workspace-tabs" fill>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[
+                styles.patientTabs,
+                { borderBottomColor: theme.borderLight },
+              ]}
+            >
+              {TABS.map((tab) => {
+                const selected =
+                  tab.key === "clinical"
+                    ? ["clinical", "notes", "exercises", "documents"].includes(
+                        activeTab,
+                      )
+                    : activeTab === tab.key;
+                return (
+                  <AnimatedPressable
+                    key={tab.key}
+                    hoverLift={false}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected }}
+                    onPress={() => setActiveTab(tab.key)}
+                    style={[
+                      styles.patientTab,
+                      {
+                        borderBottomColor: selected
+                          ? theme.actionPrimary
+                          : "transparent",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: selected
+                          ? theme.textPrimary
+                          : theme.textSecondary,
+                        fontFamily: selected
+                          ? theme.fontSansSemiBold
+                          : theme.fontSans,
+                        fontSize: 13,
+                        lineHeight: 20,
+                      }}
+                    >
+                      {tab.label}
+                    </Text>
+                  </AnimatedPressable>
+                );
+              })}
+            </ScrollView>
+          </TourTarget>
+        </TourTarget>
+
+        {activeTab === "summary" ? (
+          <PatientGeneralPanel
+            editRequest={personalEditRequest}
+            onEditRequestConsumed={(id) =>
+              setPersonalEditRequest((current) =>
+                current === id ? 0 : current,
+              )
+            }
+            onPersonalSaved={async () => {
+              await refreshAll();
+              if (route.params.returnAfterBillingSave) navigation.goBack();
+            }}
+            onActivity={(item) => {
+              if (item.target === "INVOICE" && item.targetId)
+                navigation.navigate("CreateInvoice", {
+                  invoiceId: item.targetId,
+                  returnToClientId: client.id,
+                });
+              else if (item.target === "SESSION" && item.targetId) {
+                setOperationalSessionTarget(item.targetId);
+                setActiveTab("history");
+              } else setActiveTab("packages");
+            }}
+            onPayments={() => setActiveTab("packages")}
+            key={`general:${client.id}`}
             client={client}
-            initialWorkspace={clinicalWorkspace}
-            focusSessionId={focusSessionId}
-            onPrepareClinicalTourStep={prepareClinicalTourStep}
-            onRequestRefreshClient={loadClient}
-            tourTargetsActive={activeTab !== 'packages'}
+            summary={summary}
+            loading={summaryLoading}
+            error={summaryError}
+            onRetry={() => void loadSummary()}
+            onRefresh={refreshAll}
+            onEditBilling={() => setBillingModalVisible(true)}
+            onConsent={() => requestClinicalAction("CONSENT")}
+            onOpenDocument={(id) => {
+              setClinicalDocumentTarget(id || undefined);
+              setActiveTab("documents");
+              if (!id)
+                setClinicalAction({
+                  id: Date.now(),
+                  kind: "UPLOAD",
+                  classification: "TREATMENT_CONSENT",
+                });
+            }}
+            onSession={(id) => {
+              setOperationalSessionTarget(id);
+              setActiveTab("history");
+            }}
           />
-        </View>
+        ) : null}
+        {activeTab === "history" ? (
+          <PatientSessionsPanel
+            refreshVersion={sessionsRefreshVersion}
+            key={`sessions:${client.id}`}
+            client={client}
+            focusSessionId={operationalSessionTarget}
+            onClinical={(id) => {
+              setClinicalSessionTarget(id);
+              setActiveTab("notes");
+            }}
+            onSchedule={openSessionScheduler}
+            onRefresh={refreshAll}
+          />
+        ) : null}
+        {activeTab === "packages" ? (
+          <PatientFinancialPanel
+            key={`financial:${client.id}`}
+            client={client}
+            summary={summary}
+            onEditBilling={() => setBillingModalVisible(true)}
+            onReserve={(row) => {
+              setScheduledPackage(row);
+              setSessionModalVisible(true);
+            }}
+            onRefresh={refreshAll}
+          />
+        ) : null}
+        <ClinicalTab
+          key={`clinical:${client.id}`}
+          visible={["clinical", "notes", "exercises", "documents"].includes(
+            activeTab,
+          )}
+          section={activeTab === "clinical" ? "notes" : activeTab}
+          action={clinicalAction}
+          onActionConsumed={consumeClinicalAction}
+          onSection={setActiveTab}
+          onAccessState={updateClinicalState}
+          clientId={client.id}
+          client={client}
+          initialWorkspace={clinicalWorkspace}
+          focusSessionId={clinicalSessionTarget}
+          focusDocumentId={clinicalDocumentTarget}
+          onPrepareClinicalTourStep={prepareClinicalTourStep}
+          onRequestRefreshClient={refreshAll}
+          tourTargetsActive={[
+            "clinical",
+            "notes",
+            "exercises",
+            "documents",
+          ].includes(activeTab)}
+        />
       </ScrollView>
 
-      <Modal
+      <DetailDialog
+        title="Editar facturación"
         visible={billingModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setBillingModalVisible(false)}
+        busy={savingBilling}
+        onClose={() => setBillingModalVisible(false)}
+        footer={
+          <>
+            <Button
+              variant="outline"
+              disabled={savingBilling}
+              onPress={() => setBillingModalVisible(false)}
+            >
+              Cancelar
+            </Button>
+            <Button onPress={handleSaveBilling} loading={savingBilling}>
+              Guardar cambios
+            </Button>
+          </>
+        }
       >
-        <View style={[styles.modalBackdrop, { backgroundColor: theme.overlay }]}>
-          <Card
-            variant="default"
-            padding="large"
-            style={[styles.modalCard, { backgroundColor: theme.bgCard, borderColor: theme.border }]}
-          >
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.modalHeader}>
-                <View style={styles.modalHeaderCopy}>
-                  <Text style={[textStyles.section, { color: theme.textPrimary }, sectionTitleStyle]}>
-                    Editar paciente
-                  </Text>
-                  <Text style={[textStyles.body, { color: theme.textSecondary }]}>
-                    {client.source === 'MANAGED'
-                      ? 'Puedes actualizar datos de contacto y datos fiscales para la factura completa.'
-                      : 'Completa los datos fiscales necesarios para emitir facturas completas a este paciente.'}
-                  </Text>
-                </View>
-                <AnimatedPressable
-                  onPress={() => setBillingModalVisible(false)}
-                  hoverLift={false}
-                  pressScale={0.96}
-                  style={[styles.closeButton, { backgroundColor: theme.bgMuted }]}
-                >
-                  <Ionicons name="close" size={18} color={theme.textSecondary} />
-                </AnimatedPressable>
-              </View>
-
-              {client.source === 'MANAGED' || client.billingReadiness?.missingFields.some(field => field.purpose === 'BOOKING') ? (
-                <View style={styles.modalGrid}>
-                  <View style={styles.modalField}>
-                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Nombre</Text>
-                    <TextInput
-                      value={billingForm.firstName}
-                      editable={client.source === 'MANAGED' || !client.firstName?.trim()}
-                      onChangeText={(value) => updateBillingField('firstName', value)}
-                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
-                      placeholder="Nombre"
-                      placeholderTextColor={theme.textMuted}
-                    />
-                  </View>
-                  <View style={styles.modalField}>
-                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Apellidos</Text>
-                    <TextInput
-                      value={billingForm.lastName}
-                      editable={client.source === 'MANAGED' || !client.lastName?.trim()}
-                      onChangeText={(value) => updateBillingField('lastName', value)}
-                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
-                      placeholder="Apellidos"
-                      placeholderTextColor={theme.textMuted}
-                    />
-                  </View>
-                  <View style={styles.modalField}>
-                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Email</Text>
-                    <TextInput
-                      value={billingForm.email}
-                      editable={client.source === 'MANAGED' && client.accountLinkStatus !== 'CONFIRMED'}
-                      onChangeText={(value) => updateBillingField('email', value)}
-                      style={[
-                        styles.modalInput,
-                        inputTextStyle,
-                        {
-                          color: theme.textPrimary,
-                          borderColor: billingContactError ? theme.error : theme.border,
-                        },
-                      ]}
-                      placeholder="email@paciente.com"
-                      placeholderTextColor={theme.textMuted}
-                      autoCapitalize="none"
-                      keyboardType="email-address"
-                    />
-                  </View>
-                  <View style={styles.modalField}>
-                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Teléfono</Text>
-                    <TextInput
-                      value={billingForm.phone}
-                      editable={client.source === 'MANAGED'}
-                      onChangeText={(value) => updateBillingField('phone', value)}
-                      style={[
-                        styles.modalInput,
-                        inputTextStyle,
-                        {
-                          color: theme.textPrimary,
-                          borderColor: billingContactError ? theme.error : theme.border,
-                        },
-                      ]}
-                      placeholder="600 000 000"
-                      placeholderTextColor={theme.textMuted}
-                      keyboardType="phone-pad"
-                    />
-                  </View>
-                  {billingContactError ? (
-                    <View style={styles.modalFieldFull}>
-                      <Text style={[styles.modalError, { color: theme.error }]}>
-                        {billingContactError}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
-
-              <View style={styles.modalSection}>
-                <Text style={[textStyles.strong, { color: theme.textPrimary }, emphasisStyle]}>
-                  Datos fiscales para factura completa
-                </Text>
-                <View style={styles.modalGrid}>
-                  <View style={styles.modalField}>
-                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Nombre fiscal</Text>
-                    <TextInput
-                      value={billingForm.billingFullName}
-                      onChangeText={(value) => updateBillingField('billingFullName', value)}
-                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
-                      placeholder="Nombre y apellidos"
-                      placeholderTextColor={theme.textMuted}
-                    />
-                  </View>
-                  <View style={styles.modalField}>
-                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>NIF/NIE</Text>
-                    <TextInput
-                      value={billingForm.billingTaxId}
-                      onChangeText={(value) => updateBillingField('billingTaxId', value)}
-                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
-                      placeholder="12345678A"
-                      placeholderTextColor={theme.textMuted}
-                      autoCapitalize="characters"
-                    />
-                  </View>
-                  <View style={[styles.modalField, styles.modalFieldFull]}>
-                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Dirección fiscal</Text>
-                    <TextInput
-                      value={billingForm.billingAddress}
-                      onChangeText={(value) => updateBillingField('billingAddress', value)}
-                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
-                      placeholder="Calle, número, piso..."
-                      placeholderTextColor={theme.textMuted}
-                    />
-                  </View>
-                  <View style={styles.modalField}>
-                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Código postal</Text>
-                    <TextInput
-                      value={billingForm.billingPostalCode}
-                      onChangeText={(value) => updateBillingField('billingPostalCode', value)}
-                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
-                      placeholder="28001"
-                      placeholderTextColor={theme.textMuted}
-                    />
-                  </View>
-                  <View style={styles.modalField}>
-                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>Ciudad</Text>
-                    <TextInput
-                      value={billingForm.billingCity}
-                      onChangeText={(value) => updateBillingField('billingCity', value)}
-                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
-                      placeholder="Madrid"
-                      placeholderTextColor={theme.textMuted}
-                    />
-                  </View>
-                  <View style={styles.modalField}>
-                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>País</Text>
-                    <TextInput
-                      value={billingForm.billingCountry}
-                      onChangeText={(value) => updateBillingField('billingCountry', value)}
-                      style={[styles.modalInput, inputTextStyle, { color: theme.textPrimary, borderColor: theme.border }]}
-                      placeholder="Spain"
-                      placeholderTextColor={theme.textMuted}
-                    />
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.modalActions}>
-                <Button variant="ghost" size="medium" onPress={() => setBillingModalVisible(false)}>
-                  Cancelar
-                </Button>
-                <Button variant="primary" size="medium" onPress={handleSaveBilling} loading={savingBilling}>
-                  Guardar cambios
-                </Button>
-              </View>
-            </ScrollView>
-          </Card>
+        <Copy muted>
+          Datos del pagador para emitir facturas. Se guardan separados de los
+          datos personales del paciente.
+        </Copy>
+        <View style={styles.modalGrid}>
+          {(
+            [
+              ["billingFullName", "Nombre / Razón social"],
+              ["billingTaxId", "NIF / NIE"],
+              ["billingAddress", "Dirección fiscal"],
+              ["billingPostalCode", "Código postal"],
+              ["billingCity", "Ciudad"],
+              ["billingCountry", "País"],
+            ] as const
+          ).map(([field, label]) => (
+            <View
+              key={field}
+              style={[
+                styles.modalField,
+                { minWidth: width < 720 ? "100%" : "45%" },
+              ]}
+            >
+              <Copy>{label}</Copy>
+              <Input
+                accessibilityLabel={label}
+                value={
+                  field === "billingCountry"
+                    ? patientCountry(billingForm[field])
+                    : billingForm[field]
+                }
+                editable={!savingBilling}
+                onChangeText={(value) => updateBillingField(field, value)}
+              />
+            </View>
+          ))}
         </View>
-      </Modal>
+        {billingContactError ? (
+          <Text
+            accessibilityRole="alert"
+            style={{ color: theme.error, fontFamily: theme.fontSans }}
+          >
+            {billingContactError}
+          </Text>
+        ) : null}
+        <Button
+          variant="outline"
+          size="small"
+          disabled={!summary || savingBilling}
+          onPress={() => {
+            if (summary)
+              setBillingForm((current) => ({
+                ...current,
+                billingFullName: client.displayName || client.user.name,
+                billingAddress: summary.profile.address || "",
+                billingPostalCode: summary.profile.postalCode || "",
+                billingCity: summary.profile.city || "",
+                billingCountry: summary.profile.country || "Spain",
+              }));
+          }}
+        >
+          Usar nombre y domicilio del paciente
+        </Button>
+      </DetailDialog>
 
       <ManagedSessionSchedulerModal
         visible={sessionModalVisible}
         clients={client ? [client] : []}
         initialClientId={client?.id}
-        initialValues={scheduledPackage && scheduledPackage.snapshot.options[0] ? { clientId, patientPackageId: scheduledPackage.id, optionId: scheduledPackage.snapshot.options[0].id, type: scheduledPackage.snapshot.options[0].modality, duration: scheduledPackage.snapshot.options[0].durationMinutes, date: new Date(Date.now() + 86400000).toISOString() } : undefined}
+        initialValues={
+          scheduledPackage && scheduledPackage.snapshot.options[0]
+            ? {
+                clientId,
+                patientPackageId: scheduledPackage.id,
+                optionId: scheduledPackage.snapshot.options[0].id,
+                type: scheduledPackage.snapshot.options[0].modality,
+                duration: scheduledPackage.snapshot.options[0].durationMinutes,
+                date: new Date(Date.now() + 86400000).toISOString(),
+              }
+            : undefined
+        }
         saving={sessionSaving}
         onClose={closeSessionScheduler}
         onSubmit={handleCreateManagedSession}
@@ -1098,7 +1223,9 @@ export function ClientProfileScreen() {
 
       {showScrollCue ? (
         <View pointerEvents="none" style={styles.scrollCueWrap}>
-          <View style={[styles.scrollCueSurface, { backgroundColor: theme.bg }]}>
+          <View
+            style={[styles.scrollCueSurface, { backgroundColor: theme.bg }]}
+          >
             <View
               style={[
                 styles.scrollCuePill,
@@ -1108,10 +1235,20 @@ export function ClientProfileScreen() {
                 },
               ]}
             >
-              <Text style={[styles.scrollCueText, { color: theme.textSecondary }, labelStyle]}>
+              <Text
+                style={[
+                  styles.scrollCueText,
+                  { color: theme.textSecondary },
+                  labelStyle,
+                ]}
+              >
                 Desliza para ver más
               </Text>
-              <Ionicons name="chevron-down" size={16} color={theme.textSecondary} />
+              <Ionicons
+                name="chevron-down"
+                size={16}
+                color={theme.textSecondary}
+              />
             </View>
           </View>
         </View>
@@ -1121,29 +1258,102 @@ export function ClientProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  patientHero: { gap: 10 }, patientHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 18 },
-  patientIdentity: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 240 }, patientBack: { width: 28, height: 42, alignItems: 'center', justifyContent: 'center' },
-  patientAvatar: { width: 54, height: 54, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }, patientName: { flex: 1, minWidth: 0, gap: 2 },
-  patientNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 }, patientTitle: { fontSize: 24, lineHeight: 31 }, patientStatus: { fontSize: 9, letterSpacing: 0.5, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6 },
-  patientActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, maxWidth: '100%', flexShrink: 1 }, patientMenu: { flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, paddingTop: 10, gap: 4 },
-  patientMetrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }, patientMetric: { flex: 1, minWidth: 135, borderRadius: 10, padding: 11, gap: 2 },
-  patientTabs: { flexDirection: 'row', gap: 26, borderBottomWidth: 1, minWidth: '100%' }, patientTab: { paddingVertical: 13, borderBottomWidth: 2 }, patientAdmin: { gap: 18 },
+  patientHero: { gap: 8 },
+  patientHeader: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  patientIdentity: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+    minWidth: 240,
+  },
+  patientBack: {
+    width: 28,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  patientAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  patientName: { flex: 1, minWidth: 0, gap: 2 },
+  patientNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  patientTitle: { fontSize: 22, lineHeight: 28 },
+  patientStatus: {
+    fontSize: 9,
+    letterSpacing: 0.5,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  patientActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 6,
+    maxWidth: "100%",
+    flexShrink: 1,
+  },
+  patientMenu: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    borderTopWidth: 1,
+    paddingTop: 10,
+    gap: 4,
+  },
+  patientMetrics: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 10,
+  },
+  patientMetric: {
+    flex: 1,
+    minWidth: 135,
+    borderRadius: 10,
+    padding: 11,
+    gap: 2,
+  },
+  patientTabs: {
+    flexDirection: "row",
+    gap: 26,
+    borderBottomWidth: 1,
+    minWidth: "100%",
+  },
+  patientTab: { paddingVertical: 13, borderBottomWidth: 2 },
+  patientAdmin: { gap: 18 },
   centered: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   errorWrap: {
     gap: spacing.md,
     padding: spacing.xl,
   },
   container: {
-    width: '100%',
+    width: "100%",
     maxWidth: 1360,
-    alignSelf: 'center',
+    alignSelf: "center",
     paddingVertical: spacing.lg,
     paddingBottom: spacing.xxl,
-    gap: spacing.lg,
+    gap: 14,
   },
   adminSections: {
     gap: spacing.md,
@@ -1153,17 +1363,17 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   adminSectionTitle: {
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.8,
   },
   adminGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
   },
   adminGridStack: {
-    flexDirection: 'column',
-    flexWrap: 'nowrap',
+    flexDirection: "column",
+    flexWrap: "nowrap",
   },
   adminCell: {
     minWidth: 190,
@@ -1180,12 +1390,12 @@ const styles = StyleSheet.create({
     flexBasis: 300,
   },
   adminCellHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
   },
   adminCellLabel: {
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.7,
   },
   adminCellValue: {
@@ -1193,10 +1403,10 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   historyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: spacing.md,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
     marginBottom: spacing.md,
   },
   timeline: {
@@ -1204,17 +1414,17 @@ const styles = StyleSheet.create({
   },
   historyLoadMore: {
     marginTop: spacing.sm,
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   timelineItem: {
     borderRadius: borderRadius.xl,
     borderWidth: 1,
     padding: spacing.md,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.md,
   },
   timelineMarkerColumn: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   timelineDot: {
     width: 12,
@@ -1232,13 +1442,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   timelineTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: spacing.md,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
   },
   scrollCueWrap: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
@@ -1247,11 +1457,11 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
     paddingHorizontal: spacing.md,
-    alignItems: 'center',
+    alignItems: "center",
   },
   scrollCuePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
     borderWidth: 1,
     borderRadius: 999,
@@ -1263,21 +1473,21 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: spacing.lg,
   },
   modalCard: {
-    width: '100%',
+    width: "100%",
     maxWidth: 780,
-    maxHeight: '88%',
+    maxHeight: "88%",
     borderWidth: 1,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: spacing.md,
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
     marginBottom: spacing.lg,
   },
   modalHeaderCopy: {
@@ -1288,12 +1498,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.md,
   },
   modalField: {
@@ -1302,7 +1512,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   modalFieldFull: {
-    flexBasis: '100%',
+    flexBasis: "100%",
   },
   modalLabel: {
     ...textStyles.caption,
@@ -1314,7 +1524,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     fontSize: typography.fontSizes.sm,
     fontFamily: lightTheme.fontSans,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   modalError: {
     ...textStyles.caption,
@@ -1325,10 +1535,10 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     marginTop: spacing.xl,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "flex-end",
     gap: spacing.sm,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
   },
   mobileSurfaceCard: {
     shadowOpacity: 0,
@@ -1338,6 +1548,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   hiddenTabContent: {
-    display: 'none',
+    display: "none",
   },
 });

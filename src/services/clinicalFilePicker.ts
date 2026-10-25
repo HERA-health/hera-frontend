@@ -2,9 +2,9 @@ import * as DocumentPicker from 'expo-document-picker';
 import type { UploadAsset } from '../utils/multipartUpload';
 import { ownClinicalAsset, releaseClinicalAssets, discardClinicalPickerCopies } from './clinicalFileCache';
 
-export async function pickClinicalFiles(multiple = true): Promise<UploadAsset[]> {
+export async function pickClinicalFiles(multiple = true, types?: string[]): Promise<UploadAsset[]> {
   const result = await DocumentPicker.getDocumentAsync({
-    type: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+    type: types ?? ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'],
     multiple, copyToCacheDirectory: true,
   });
   if (result.canceled) return [];

@@ -211,10 +211,13 @@ export type RootStackParamList = {
   ProfessionalTariffs: { openCreateService?: boolean } | undefined;
   ClientProfile: {
     clientId: string;
+    clinicalSessionId?: string;
+    clinicalDocumentId?: string;
     initialTab?: 'summary' | 'history' | 'clinical' | 'notes' | 'exercises' | 'documents' | 'packages';
     clinicalWorkspace?: 'general' | 'sessions';
     focusSessionId?: string;
     focusBillingEditor?: boolean;
+    focusPersonalEditor?: boolean;
     returnAfterBillingSave?: boolean;
   };
   AdminPanel: {

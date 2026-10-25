@@ -47,11 +47,8 @@ describe('professionalTourDefinitions', () => {
       'professional.clinical.hero',
       'professional.clinical.workspace-tabs',
       'professional.clinical.consent',
-      'professional.clinical.consent-documents',
-      'professional.clinical.questionnaire',
       'professional.clinical.notes',
       'professional.clinical.timeline',
-      'professional.clinical.reports',
       'professional.clinical.documents',
     ]);
   });
@@ -68,14 +65,14 @@ describe('professionalTourDefinitions', () => {
     expect(allCopy).toContain('Evolución mensual');
     expect(allCopy).toContain('El filtro superior cambia el periodo de toda la pantalla.');
     expect(allCopy).toContain('área clínica');
-    expect(allCopy).toContain('Sesiones organiza cada cita');
-    expect(allCopy).toContain('enviar la autorización por email');
-    expect(allCopy).toContain('Documento de autorización firmado');
+    expect(allCopy).toContain('Información general, Sesiones, Área clínica protegida y Datos y bonos');
+    expect(allCopy).toContain('autorización por email o documento firmado');
+    expect(allCopy).toContain('El consentimiento informado del tratamiento se registra aparte');
     expect(allCopy).toContain('Añade pacientes desde tu panel');
     expect(allCopy).toContain('Autoregistrados');
     expect(allCopy).toContain('Añadidos por mí');
-    expect(allCopy).toContain('paciente ya haya firmado el documento fuera de HERA');
-    expect(allCopy).toContain('evidencia de su autorización');
+    expect(allCopy).toContain('El selector Ejercicios conserva tus ejercicios y archivos anteriores');
+    expect(allCopy).toContain('Los documentos firmados del tratamiento no sustituyen la autorización HERA');
     expect(allCopy).not.toContain('pacientes gestionados sin cuenta');
     expect(allCopy).not.toContain('paciente gestionado');
     expect(allCopy).not.toMatch(/\b(facturacion|movil|automaticamente|Evolucion|ano)\b/);

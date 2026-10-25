@@ -7,8 +7,9 @@ import { Button } from '../common/Button';
 import { commandSessionMeeting, getProfessionalMeetingStatus, type ProfessionalMeetingStatus } from '../../services/googleCalendarService';
 
 /** Mounted only in an authorized professional session detail, never coordination. */
-export function SessionMeetingControls({ sessionId }: { sessionId: string }) {
+export function SessionMeetingControls({ sessionId, compact = false }: { sessionId: string; compact?: boolean }) {
   const { theme } = useTheme();
+  const body = compact ? { fontFamily: theme.fontSans, fontSize: 13, lineHeight: 20 } : undefined;
   const navigation = useNavigation<AppNavigationProp>();
   const [status, setStatus] = useState<ProfessionalMeetingStatus | null>(null);
   const [error, setError] = useState('');
@@ -47,12 +48,12 @@ export function SessionMeetingControls({ sessionId }: { sessionId: string }) {
     finally { running.current = false; if (mounted.current) setBusy(false); }
   };
   return <View style={{ gap: 10 }}>
-    <Text accessibilityLiveRegion="polite" style={{ color: theme.textSecondary }}>{!status ? error ? 'Estado de videollamada no disponible.' : 'Consultando videollamada…'
+    <Text accessibilityLiveRegion="polite" style={[body, { color: theme.textSecondary }]}>{!status ? error ? 'Estado de videollamada no disponible.' : 'Consultando videollamada…'
       : status.preparationStatus === 'READY' ? status.provider === 'GOOGLE_MEET' ? 'Google Meet preparado. Usa el botón habitual para entrar.' : 'Videollamada preparada. Usa el botón habitual para entrar.'
       : status.preparationStatus === 'PENDING' ? status.provider === 'GOOGLE_MEET' ? 'Estamos preparando Google Meet. Puede tardar unos minutos.' : 'Estamos preparando la videollamada.'
       : status.preparationStatus === 'REQUIRES_GOOGLE' ? 'Google Meet necesita revisión de su conexión o configuración. Revisa la integración para continuar.'
       : status.preparationStatus === 'ERROR' ? 'No se pudo preparar la videollamada. Reintenta la preparación. Si el problema persiste, contacta con soporte.' : 'Videollamada inactiva.'}</Text>
-    {status?.provider === 'DAILY' && status.fallbackReasonCode && <Text accessibilityLiveRegion="polite" style={{ color: theme.warning }}>
+    {status?.provider === 'DAILY' && status.fallbackReasonCode && <Text accessibilityLiveRegion="polite" style={[body, { color: theme.warning }]}>
       {status.fallbackReasonCode === 'REAUTH_REQUIRED' ? 'Se ha utilizado Daily de emergencia porque Google necesita una nueva autorización.'
         : status.fallbackReasonCode === 'PERMISSION_DENIED' ? 'Se ha utilizado Daily de emergencia porque Google ha rechazado los permisos necesarios.'
         : status.fallbackReasonCode === 'MEET_CREATION_FAILED' ? 'Se ha utilizado Daily de emergencia después de que Google no pudiera crear la reunión en dos intentos.'
@@ -60,11 +61,11 @@ export function SessionMeetingControls({ sessionId }: { sessionId: string }) {
         : status.fallbackReasonCode === 'MEET_TEMPORARY_ERROR' ? 'Se ha utilizado Daily de emergencia porque Google seguía sin responder correctamente tras varios intentos y la cita había empezado.'
         : 'Se ha utilizado Daily de emergencia. Contacta con soporte para revisar el motivo.'}
     </Text>}
-    {status?.organizerEmail && <Text selectable style={{ color: theme.textSecondary }}>Cuenta organizadora: {status.organizerEmail}{!status.organizerConnected ? '. Necesita reconexión; el acceso preparado se conserva, pero ya no se sincroniza.' : ''}</Text>}
-    {status?.deliveryErrorCode && <Text style={{ color: theme.warning }}>{status.deliveryErrorCode === 'MEETING_RECIPIENT_MISSING' ? 'Falta un correo válido del paciente para entregar el acceso.' : 'No se ha podido entregar el acceso por correo. HERA reintentará según su política de entrega; si persiste, contacta con soporte.'}</Text>}
-    {!!error && <Text accessibilityRole="alert" style={{ color: theme.error }}>{error}</Text>}
+    {status?.organizerEmail && <Text selectable style={[body, { color: theme.textSecondary }]}>Cuenta organizadora: {status.organizerEmail}{!status.organizerConnected ? '. Necesita reconexión; el acceso preparado se conserva, pero ya no se sincroniza.' : ''}</Text>}
+    {status?.deliveryErrorCode && <Text style={[body, { color: theme.warning }]}>{status.deliveryErrorCode === 'MEETING_RECIPIENT_MISSING' ? 'Falta un correo válido del paciente para entregar el acceso.' : 'No se ha podido entregar el acceso por correo. HERA reintentará según su política de entrega; si persiste, contacta con soporte.'}</Text>}
+    {!!error && <Text accessibilityRole="alert" style={[body, { color: theme.error }]}>{error}</Text>}
     {status?.provider === 'GOOGLE_MEET' && (status.preparationStatus === 'REQUIRES_GOOGLE' || status.preparationStatus === 'ERROR') && <Button variant="outline" onPress={() => navigation.navigate('ProfessionalProfile', { initialTab: 'google' })}>Revisar conexión de Google</Button>}
-    {status?.canRetryPreparation && <Button variant="ghost" loading={busy} onPress={() => { void command(); }}>Reintentar preparación</Button>}
-    <Button variant="ghost" disabled={busy} onPress={() => setRefresh(value => value + 1)}>Actualizar estado</Button>
+    {status?.canRetryPreparation && <Button variant={compact ? 'outline' : 'ghost'} size={compact ? 'small' : 'medium'} loading={busy} onPress={() => { void command(); }}>Reintentar preparación</Button>}
+    <Button variant={compact ? 'outline' : 'ghost'} size={compact ? 'small' : 'medium'} style={compact ? { alignSelf: 'flex-start' } : undefined} disabled={busy} onPress={() => setRefresh(value => value + 1)}>Actualizar estado</Button>
   </View>;
 }

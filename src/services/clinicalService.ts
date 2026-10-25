@@ -60,7 +60,7 @@ export class ClinicalRequestError extends Error {
         if (parsed.success) source = { response: { data: parsed.data } };
       } catch { /* A binary error body must never be shown as document contents. */ }
     }
-    super(getErrorMessage(source, fallback));
+    super(source instanceof z.ZodError ? fallback : getErrorMessage(source, fallback));
     this.name = 'ClinicalRequestError';
     this.status = axios.isAxiosError(error) ? error.response?.status : undefined;
     this.code = getErrorCode(source) ?? (axios.isAxiosError(error) && error.response?.status === 423 ? 'CLINICAL_UNLOCK_REQUIRED' : undefined);
@@ -73,16 +73,22 @@ export const isClinicalSaveUncertain = (error: unknown): boolean => {
   return !(error instanceof ClinicalRequestError) || error.status === undefined || error.status >= 500 || error.status === 408;
 };
 
+export interface NoteMetadata { title: string; type: 'EVOLUTION' | 'FOLLOW_UP' | 'INCIDENT' | 'ASSESSMENT' | 'EXERCISE_REVIEW'; tags: string[] }
+export interface DocumentMetadata { classification: 'OTHER' | 'REPORT' | 'ASSESSMENT' | 'TREATMENT' | 'THERAPEUTIC_MATERIAL' | 'TREATMENT_CONSENT'; description: string }
 export interface ClinicalNote {
+  title?: string; type?: NoteMetadata['type']; tags?: string[]; authorId?: string | null; authorName?: string | null;
   documents?: ClinicalDocument[];
   id: string;
   sessionId?: string | null;
+  sessionDate?: string | null;
   createdAt: string;
   updatedAt: string;
   content: string;
 }
 
 export interface ClinicalDocument {
+  updatedAt?: string;
+  historyEntryId?: string | null; classification?: DocumentMetadata['classification']; description?: string; authorId?: string | null; authorName?: string | null;
   noteId?: string | null;
   exerciseId?: string | null;
   archivedAt?: string | null;
@@ -416,11 +422,13 @@ export const heartbeatClinicalArea = async (
 
 export const getClinicalRecord = async (
   clientId: string,
-  clinicalAccessToken: string
+  clinicalAccessToken: string,
+  options: { view?: 'summary' } = {}
 ): Promise<ClinicalRecord> => {
   try {
     const response = await api.get(`/clinical/records/${clientId}`, {
       headers: buildClinicalHeaders(clinicalAccessToken),
+      params: options,
     });
     return response.data.data;
   } catch (error: unknown) {
@@ -454,6 +462,7 @@ export const listClinicalDocuments = async (
     cursor?: string | null;
     limit?: number;
     scope?: 'general' | 'all';
+    category?: 'CONSENT_EVIDENCE';
   } = {}
 ) => {
   try {
@@ -526,11 +535,12 @@ export const createClinicalNote = async (
   clinicalAccessToken: string,
   sessionId?: string,
   operationKey = createSecureRandomUuid(),
+  metadata?: NoteMetadata,
 ): Promise<ClinicalNote> => {
   try {
     const response = await api.post(
       `/clinical/records/${clientId}/notes`,
-      { content, sessionId },
+      { content, sessionId, metadata },
       { headers: { ...buildClinicalHeaders(clinicalAccessToken), 'Idempotency-Key': operationKey } }
     );
     return response.data.data;
@@ -545,11 +555,12 @@ export const updateClinicalNote = async (
   clinicalAccessToken: string,
   expectedUpdatedAt: string,
   operationKey = createSecureRandomUuid(),
+  metadata?: NoteMetadata,
 ): Promise<ClinicalNote> => {
   try {
     const response = await api.put(
       `/clinical/notes/${noteId}`,
-      { content, expectedUpdatedAt },
+      { content, expectedUpdatedAt, metadata },
       { headers: { ...buildClinicalHeaders(clinicalAccessToken), 'Idempotency-Key': operationKey } }
     );
     return response.data.data;
@@ -584,7 +595,7 @@ export const uploadClinicalDocument = async (
   clinicalAccessToken: string,
   category: ClinicalDocumentCategory = 'GENERAL',
   sessionId?: string,
-  parent?: { noteId?: string; exerciseId?: string },
+  parent?: { noteId?: string; exerciseId?: string; historyEntryId?: string; classification?: DocumentMetadata['classification']; description?: string },
   operationKey = clinicalUploadOperationKey(file),
 ): Promise<ClinicalDocument> => {
   try {
@@ -615,7 +626,8 @@ export const openClinicalDocument = async (
   documentId: string,
   fileName: string,
   mimeType: string,
-  clinicalAccessToken: string
+  clinicalAccessToken: string,
+  mode: 'open' | 'download' = 'open'
 ): Promise<void> => {
   const operation = beginClinicalDownload(clinicalAccessToken);
   try {
@@ -637,7 +649,8 @@ export const openClinicalDocument = async (
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.target = '_blank';
+      if (mode === 'download' || contentType.includes('wordprocessingml')) anchor.download = fileName;
+      else anchor.target = '_blank';
       anchor.rel = 'noopener noreferrer';
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -816,14 +829,18 @@ export interface ClinicalTimelinePage {
   counters: { completed: number; withoutNotes: number; activeFiles: number; withNotes: number; withFiles: number; generalNotes: number };
   nextSession: ClinicalSessionFolder | null;
 }
-const clinicalDocumentSchema: z.ZodType<ClinicalDocument> = z.object({
+export const clinicalDocumentSchema: z.ZodType<ClinicalDocument> = z.object({
+  updatedAt: z.string().datetime().optional(), historyEntryId: z.string().nullable().optional(), classification: z.enum(['OTHER','REPORT','ASSESSMENT','TREATMENT','THERAPEUTIC_MATERIAL','TREATMENT_CONSENT']).optional(),
+  description: z.string().optional(), authorId: z.string().nullable().optional(), authorName: z.string().nullable().optional(),
   id: z.string().min(1), sessionId: z.string().nullable().optional(),
   noteId: z.string().nullable().optional(), exerciseId: z.string().nullable().optional(), archivedAt: z.string().datetime().nullable().optional(),
   category: z.enum(['GENERAL', 'CONSENT_EVIDENCE', 'MEDICAL_REPORT', 'SESSION_ATTACHMENT', 'SESSION_EXERCISE', 'NOTE_ATTACHMENT', 'EXERCISE_ATTACHMENT']),
   fileName: z.string(), mimeType: z.string(), uploadedAt: z.string().datetime(), sizeBytes: z.number().int().nonnegative().nullable(),
 });
-const clinicalNoteSchema: z.ZodType<ClinicalNote> = z.object({
+export const clinicalNoteSchema: z.ZodType<ClinicalNote> = z.object({
+  title: z.string().optional(), type: z.enum(['EVOLUTION','FOLLOW_UP','INCIDENT','ASSESSMENT','EXERCISE_REVIEW']).optional(), tags: z.array(z.string()).optional(), authorId: z.string().nullable().optional(), authorName: z.string().nullable().optional(),
   id: z.string().min(1), sessionId: z.string().nullable().optional(), content: z.string(),
+  sessionDate: z.string().datetime().nullable().optional(),
   createdAt: z.string().datetime(), updatedAt: z.string().datetime(), documents: z.array(clinicalDocumentSchema).optional(),
 });
 const clinicalExerciseSchema: z.ZodType<ClinicalExercise> = z.object({
@@ -876,9 +893,9 @@ export const saveClinicalExercise = async (clientId: string, token: string, inpu
     return parseClinicalResponse(clinicalExerciseSchema, response.data.data);
   } catch (error) { throw new ClinicalRequestError(error, 'No se pudo guardar el ejercicio.'); }
 };
-export const updateClinicalDocument = async (documentId: string, token: string, input: { fileName?: string; archived?: boolean }): Promise<ClinicalDocument> => {
+export const updateClinicalDocument = async (documentId: string, token: string, input: { fileName?: string; archived?: boolean; metadata?: DocumentMetadata; expectedUpdatedAt?: string }, operationKey = createSecureRandomUuid()): Promise<ClinicalDocument> => {
   try {
-    const response = await api.patch<{ data: unknown }>(`/clinical/documents/${documentId}`, input, { headers: buildClinicalHeaders(token) });
+    const response = await api.patch<{ data: unknown }>(`/clinical/documents/${documentId}`, input, { headers: { ...buildClinicalHeaders(token), 'Idempotency-Key': operationKey } });
     return parseClinicalResponse(clinicalDocumentSchema, response.data.data);
   } catch (error) { throw new ClinicalRequestError(error, 'No se pudo actualizar el archivo.'); }
 };
@@ -889,17 +906,18 @@ export const searchClinicalDocuments = async (clientId: string, token: string, o
   } catch (error) { throw new ClinicalRequestError(error, 'No se pudieron cargar los archivos.'); }
 };
 
+const revisionNoteMetadataSchema=z.object({title:z.string(),type:z.string(),tags:z.array(z.string())});
 export interface ClinicalContentHistory {
-  current: { updatedAt: string; title: string | null; content: string };
-  items: Array<{ id: string; versionAt: string; replacedAt: string; title: string | null; content: string }>;
+  current: { updatedAt: string; title: string | null; content: string; metadata?:z.infer<typeof revisionNoteMetadataSchema>; revisedByName?:string|null };
+  items: Array<{ id: string; versionAt: string; replacedAt: string; title: string | null; content: string; metadata?:z.infer<typeof revisionNoteMetadataSchema>; revisedByName?:string|null }>;
   nextCursor: string | null;
 }
 export const getClinicalContentHistory = async (clientId: string, token: string, kind: 'NOTE' | 'EXERCISE', resourceId: string, cursor?: string): Promise<ClinicalContentHistory> => {
   try {
     const response = await api.get<{ data: unknown }>(`/clinical/records/${clientId}/history/${kind}/${resourceId}`, { headers: buildClinicalHeaders(token), params: { cursor } });
     return parseClinicalResponse(z.object({
-      current: z.object({ updatedAt: z.string().datetime(), title: z.string().nullable(), content: z.string() }),
-      items: z.array(z.object({ id: z.string(), versionAt: z.string().datetime(), replacedAt: z.string().datetime(), title: z.string().nullable(), content: z.string() })),
+      current: z.object({ updatedAt: z.string().datetime(), title: z.string().nullable(), content: z.string(), metadata:revisionNoteMetadataSchema.optional(),revisedByName:z.string().nullable().optional() }),
+      items: z.array(z.object({ id: z.string(), versionAt: z.string().datetime(), replacedAt: z.string().datetime(), title: z.string().nullable(), content: z.string(), metadata:revisionNoteMetadataSchema.optional(),revisedByName:z.string().nullable().optional() })),
       nextCursor: z.string().nullable(),
     }), response.data.data);
   } catch (error) { throw new ClinicalRequestError(error, 'No se pudo cargar el historial de cambios.'); }

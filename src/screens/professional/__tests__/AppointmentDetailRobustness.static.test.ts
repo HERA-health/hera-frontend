@@ -55,7 +55,6 @@ describe('appointment detail robustness contracts', () => {
   );
   const appointmentDetailSheetSource = readSource('components', 'sessions', 'AppointmentDetailSheet.tsx');
   const clinicalTabSource = readSource('components', 'professional', 'ClinicalTab.tsx');
-  const clinicalWorkspaceDataSource = readSource('hooks', 'useClinicalWorkspaceData.ts');
 
   it('keeps clinic patient appointment ranges within the backend 180-day window', () => {
     expect(clinicPatientDomainSource).toContain('export const PATIENT_SESSION_RANGE_PAST_DAYS = 30');
@@ -102,16 +101,10 @@ describe('appointment detail robustness contracts', () => {
     expect(professionalClinicPatientSource).not.toContain('openSessionDetail');
   });
 
-  it('loads a focused clinical session folder directly before opening notes', () => {
-    expect(clinicalWorkspaceDataSource).toContain('ensureSessionFolderLoaded');
-    expect(clinicalWorkspaceDataSource).toContain('clinicalService.getClinicalSessionFolder');
-    expect(clinicalTabSource).toContain('const ensureSessionFolderLoaded = workspaceData.ensureSessionFolderLoaded');
-    expect(clinicalTabSource).toContain('const loadingFocusSessionRef = useRef<string | null>(null)');
-    expect(clinicalTabSource).toContain('ensureSessionFolderLoaded(focusSessionId)');
-    expect(clinicalTabSource).toContain('if (loaded) {');
-    expect(clinicalTabSource).toContain('handledFocusSessionLoadRef.current = focusSessionId');
-    expect(clinicalTabSource).toContain('loadingFocusSessionRef.current = null');
-    expect(clinicalTabSource).toContain('No se pudo abrir la carpeta clinica de esta cita.');
+  it('forwards the appointment target to the paginated clinical workspace', () => {
+    // Scoped loading and late responses are exercised in ClinicalRecordWorkspace.test.tsx.
+    expect(clinicalTabSource).toContain('<ClinicalRecordWorkspace');
+    expect(clinicalTabSource).toContain('focusSessionId={focusSessionId}');
   });
 
   it('closes the appointment detail sheet before navigating to patient files or notes', () => {

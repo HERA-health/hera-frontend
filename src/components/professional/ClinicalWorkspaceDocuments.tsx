@@ -24,7 +24,7 @@ export function ClinicalWorkspaceDocuments({ documents, token, onChanged, onErro
     try {
       if (action === 'OPEN') await clinical.openClinicalDocument(document.id, document.fileName, document.mimeType, token);
       else {
-        await clinical.updateClinicalDocument(document.id, token, action === 'RENAME' ? { fileName: name.trim() } : { archived: !document.archivedAt });
+        await clinical.updateClinicalDocument(document.id, token, action === 'RENAME' ? { fileName: name.trim(),expectedUpdatedAt:document.updatedAt } : { archived: !document.archivedAt,expectedUpdatedAt:document.updatedAt });
         if (!active.current) return;
         setEditing(null); onChanged();
       }

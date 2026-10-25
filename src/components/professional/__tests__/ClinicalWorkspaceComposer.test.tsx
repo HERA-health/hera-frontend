@@ -9,6 +9,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import type { Client } from '../../../services/professionalService';
 
 jest.mock('../../../contexts/ThemeContext', () => ({ useTheme: jest.fn() }));
+jest.mock('../../../services/patientDetailService', () => ({ getPatientSessions: jest.fn() }));
 jest.mock('../../../services/clinicalService', () => ({ createClinicalNote: jest.fn(), updateClinicalNote: jest.fn(), uploadClinicalDocument: jest.fn(), saveClinicalExercise: jest.fn(), isClinicalSaveUncertain: jest.fn(() => false), getClinicalContentHistory: jest.fn() }));
 jest.mock('../../../services/clinicalFileCache', () => ({ ownClinicalAsset: (asset: unknown) => asset, releaseClinicalAssets: jest.fn(), discardClinicalPickerCopies: jest.fn() }));
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
