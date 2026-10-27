@@ -23,6 +23,7 @@ const resolutionSchema = z.discriminatedUnion('stage', [
     maskedEmail: z.string().min(5).max(254),
     otpDeliveryStatus: z.enum(['SENT', 'PROCESSING', 'FAILED', 'UNKNOWN', 'NOT_SENT']),
     otpExpiresAt: dateTime.nullable(),
+    otpReference: z.string().regex(/^[A-F0-9]{4}-[A-F0-9]{4}$/).nullable().optional(),
     canResendAt: dateTime,
   }).strict(),
   z.object({
@@ -61,7 +62,7 @@ const base = (requestId: string): string =>
   `${getEnvVars().apiUrl}/clinical-consent/guest-requests/${encodeURIComponent(requestId)}`;
 const requestJson = async (url: string, init: RequestInit = {}): Promise<ClinicalGuestConsentResolution> => {
   const envelope = await requestGuestConsentJson({
-    url,
+    url: `${url}?otpReference=1`,
     init,
     schema: z.object({ success: z.literal(true), data: resolutionSchema }).strict(),
     otpInvalidCode: 'CLINICAL_GUEST_CONSENT_OTP_INVALID',
